@@ -34,6 +34,9 @@
   /* Typography */
   --aspire-serif: 'Playfair Display', Georgia, 'Times New Roman', serif;
   --aspire-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  /* The mono face (REVIEW-RELEASE-2): labels, stamps, hours and tape lines on the
+     Review & Release clipboard. Declared once here; the clipboard reads it. */
+  --aspire-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
   /* Shape and focus.
      UI-CONSISTENCY-1 (2026-09-03): the staff app now reads this file too. Until then
@@ -202,5 +205,9 @@
      surface that uses it lights them from one side, which is what turns a pattern into a
      relief. */
   --aspire-noise-hide: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='h'><feTurbulence type='fractalNoise' baseFrequency='.22' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .5 0'/></filter><rect width='100%' height='100%' filter='url(%23h)'/></svg>");
+  /* Pressboard (REVIEW-RELEASE-2): a finer, denser grain than the felt's, for the
+     clipboard's dark board. Values from the Owner's mockup: baseFrequency .85, 3 octaves,
+     alpha .55, blended soft-light over the board gradient. */
+  --aspire-noise-pressboard: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='p'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .55 0'/></filter><rect width='100%' height='100%' filter='url(%23p)'/></svg>");
   --aspire-noise-grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='.045' numOctaves='4' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .35 0'/></filter><rect width='100%' height='100%' filter='url(%23g)'/></svg>");
 }

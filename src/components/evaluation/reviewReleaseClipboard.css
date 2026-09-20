@@ -1,0 +1,330 @@
+/* REVIEW-RELEASE-2 (Owner, 2026-09-19): Evaluation > Review & Release is a clipboard.
+ *
+ * Part 1 made it one queue; this sheet makes it look like the thing it is. The workspace
+ * is a dark pressboard with a steel clip on its top edge. Each person is a paper slip
+ * with a coloured band down its left, one carbon copy under it, a stamp in the corner,
+ * a chain strip across the middle and its one action at the bottom. Slips that can be
+ * acted on sit on white; slips that are waiting on something sit one step back on the
+ * second paper. Everything sent from this board is on a perforated tape at the bottom.
+ * The rail beside it stays a surface card, matched to the board's height and top edge.
+ *
+ * WHAT THIS SHEET OWNS AND WHAT IT READS. It owns presentation only: the queue's markup
+ * gained class hooks and lost its inline styles, and nothing about detection, release,
+ * reminders, permissions or logging lives here. It reads the app's tokens: corners come
+ * from the canon (card, control, pill), paper from the shared `--aspire-paper*` pair the
+ * planner also reads, status inks from `--aspire-ok/warn/bad`, the board and the tape
+ * from `--aspire-pressboard-*` and `--aspire-tape-*`, all theme-aware in theme.css. The
+ * three radii the brief needs that are not a card, a control or a pill are decorative
+ * chips on a card; they are named once at the top and read by var(), never restated.
+ *
+ * INK ON THE BOARD. The mockup set its muted board text at 45 to 62 percent of the ink.
+ * Measured against the board's mid tone that is 3.3:1 to 3.7:1, which fails AA for the
+ * small sizes it is set in. Every translucent ink here is at or above 78 percent, where
+ * it measures 5:1 or better against the board's lightest tone; the harness re-measures
+ * it in both themes.
+ *
+ * THE SHEET UNDER A SLIP is `material-pagestack-single` from pageStack.css on the slip's
+ * WRAPPER, with the slip itself at `z-index: 1`: a pseudo-element paints after its
+ * host's children, so a sheet drawn by the slip's own ::after would land on top of the
+ * text. Same trap the chart and the rubric already document.
+ *
+ * MOTION. A released slip slides right and fades (220ms) before the refetch removes it,
+ * and a jump target pulses an amber ring once. Under prefers-reduced-motion the slip
+ * simply disappears and the target wears a static ring while it is highlighted.
+ */
+
+@import '../../styles/pageStack.css';
+
+/* ── Root ─────────────────────────────────────────────────────────────────── */
+.rr-clipboard {
+  /* Decorative chip radii, named once (the canon: no literal radii in rules). */
+  --rr-radius-stamp: 3px;
+  --rr-radius-badge: 4px;
+  --rr-radius-clip: 8px 8px 13px 13px;
+  --rr-mono: var(--aspire-mono);
+  --rr-sans: var(--aspire-sans);
+  /* Navy that stays readable in dark: the accent token flips to a light blue there. */
+  --rr-navy: var(--color-accent-primary, var(--aspire-navy));
+  /* Translucent inks on the pressboard, all measured at or above 4.7:1. */
+  --rr-board-ink-soft: rgba(241, 235, 222, 0.86);
+  --rr-board-ink-muted: rgba(241, 235, 222, 0.78);
+  padding: 4px 20px 28px;
+  font-family: var(--rr-sans);
+  color: var(--text-heading);
+}
+.rr-title { font-size: 18px; font-weight: 700; color: var(--rr-navy); margin: 0 0 2px; }
+.rr-summary { font-size: 12.5px; color: var(--color-text-secondary); margin: 0; line-height: 1.5; }
+.rr-summary b { font-size: 13.5px; color: var(--text-heading); }
+.rr-summary b.g { color: var(--aspire-ok); }
+.rr-summary b.a { color: var(--aspire-warn); }
+
+/* ── Two columns: rail and board, same top edge, same height ───────────────── */
+.rr-layout { display: grid; grid-template-columns: 270px minmax(0, 1fr); gap: 20px; align-items: stretch; }
+.rr-nav {
+  min-width: 0; margin-top: 14px; display: flex; flex-direction: column; gap: 2px; align-content: start;
+  background: var(--color-bg-surface); border: 0; border-radius: var(--aspire-radius-card);
+  padding: 10px; box-shadow: var(--aspire-shadow-card);
+}
+.rr-nav-group {
+  font-family: var(--rr-mono); font-size: 10px; letter-spacing: 0.13em; text-transform: uppercase;
+  color: var(--text-muted); padding: 8px 10px 4px; margin: 0;
+}
+.rr-nav .rr-nav-group:not(:first-child) { margin-top: 6px; border-top: 1px solid var(--aspire-rule); padding-top: 12px; }
+.rr-row-select {
+  width: 100%; display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; text-align: left;
+  padding: 9px 10px; margin: 0; cursor: pointer; background: transparent; border: 0;
+  border-radius: var(--aspire-radius-control); font-family: var(--rr-sans); color: var(--text-heading);
+}
+.rr-row-select:hover { background: var(--color-bg-hover); }
+.rr-row-select.sel, .rr-row-select.sel:hover { background: var(--aspire-navy); color: #fff; }
+.rr-row-label { min-width: 0; font-size: 13.5px; font-weight: 600; line-height: 1.3; }
+.rr-row-label small { display: block; font-family: var(--rr-mono); font-size: 11.5px; font-weight: 400; color: var(--text-muted); }
+.rr-row-select.sel .rr-row-label small { color: rgba(255, 255, 255, 0.72); }
+.rr-cnt { display: inline-flex; gap: 4px; }
+.rr-cnt i {
+  font-style: normal; font-family: var(--rr-mono); font-size: 10.5px; font-weight: 700; min-width: 20px; height: 20px;
+  border-radius: var(--aspire-radius-pill); display: grid; place-items: center; padding-inline: 5px; color: #fff;
+}
+.rr-cnt .r { background: var(--aspire-ok); }
+.rr-cnt .b { background: var(--aspire-warn); }
+[data-theme="dark"] .rr-cnt i { color: #0E111C; }
+.rr-row-select:focus-visible { outline: 3px solid var(--rr-navy); outline-offset: 2px; }
+
+/* ── The board ────────────────────────────────────────────────────────────── */
+.rq-board {
+  position: relative; margin-top: 14px; min-width: 0;
+  border-radius: var(--aspire-radius-card); padding: 44px 18px 18px; /* 44 leaves room under the clip */
+  background-color: var(--aspire-pressboard-b);
+  background-image:
+    var(--aspire-noise-pressboard),
+    linear-gradient(180deg, var(--aspire-pressboard-a), var(--aspire-pressboard-b) 58%, var(--aspire-pressboard-c));
+  background-blend-mode: soft-light, normal;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 2px 4px rgba(16, 20, 35, 0.3), 0 22px 48px rgba(16, 20, 35, 0.3);
+  color: var(--aspire-pressboard-ink);
+}
+
+/* The clip: decorative, aria-hidden, no pointer events. */
+.rq-clip {
+  position: absolute; top: -13px; left: 50%; translate: -50% 0; width: 190px; height: 38px; z-index: 2;
+  border-radius: var(--rr-radius-clip); pointer-events: none;
+  background: linear-gradient(180deg, #F4F6F9 0%, #CDD3DC 16%, #A2AAB6 48%, #E2E7ED 72%, #878E97 100%);
+  box-shadow: 0 4px 7px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.95), inset 0 -2px 3px rgba(0, 0, 0, 0.28);
+}
+.rq-clip::before {
+  content: ""; position: absolute; left: 14px; right: 14px; top: 23px; height: 2px;
+  border-radius: var(--aspire-radius-pill);
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.22), rgba(255, 255, 255, 0.5));
+}
+.rq-clip i {
+  position: absolute; top: 9px; width: 7px; height: 7px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff, #9198A2 60%, #5F656D);
+  box-shadow: inset 0 -1px 1px rgba(0, 0, 0, 0.3);
+}
+.rq-clip i:first-child { left: 22px; }
+.rq-clip i:last-child { right: 22px; }
+
+/* Board head: name, old name, chips, tools, policy. All ink on the board. */
+.rq { font-family: var(--rr-sans); color: var(--aspire-pressboard-ink); min-width: 0; }
+.rq-head { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; margin-bottom: 6px; }
+.rq-head h2 { font-size: 19px; font-weight: 700; margin: 0; color: inherit; text-shadow: 0 1px 0 rgba(0, 0, 0, 0.4); }
+.rq-was { font-family: var(--rr-mono); font-size: 10.5px; letter-spacing: 0.02em; color: var(--rr-board-ink-muted); }
+.rq-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.rq-chip {
+  display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; padding: 2px 9px;
+  border-radius: var(--aspire-radius-pill); background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2);
+  color: var(--aspire-pressboard-ink);
+}
+.rq-chip.gate { background: rgba(230, 165, 68, 0.16); border-color: rgba(230, 165, 68, 0.4); color: #F4D9A6; }
+.rq-tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
+.rq-board .rr-tool-primary, .rq-board .rr-tool-secondary, .rq-board .rr-tool-test {
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 11px; cursor: pointer;
+  font-family: var(--rr-sans); font-size: 12.5px; font-weight: 600; border-radius: var(--aspire-radius-control);
+  background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.22); color: var(--aspire-pressboard-ink);
+}
+.rq-board .rr-tool-secondary:hover, .rq-board .rr-tool-test:hover { background: rgba(255, 255, 255, 0.16); }
+.rq-board .rr-tool-primary { background: var(--aspire-pressboard-ink); color: #2C271F; border-color: transparent; font-weight: 700; }
+.rq-board .rr-tool-primary:hover { filter: brightness(1.04); }
+.rq-board .rr-tool-test { border-style: dashed; }
+.rq-board .rr-tool-secondary:disabled, .rq-board .rr-tool-test:disabled { opacity: 0.6; cursor: default; }
+.rq-board .rr-tool-primary:focus-visible, .rq-board .rr-tool-secondary:focus-visible, .rq-board .rr-tool-test:focus-visible,
+.rq-board .rq-policy button:focus-visible, .rq-tape-head button:focus-visible, .rq-eligible summary:focus-visible {
+  outline: 3px solid #F4D9A6; outline-offset: 2px;
+}
+.rq-meta { margin-left: auto; font-family: var(--rr-mono); font-size: 11px; color: var(--rr-board-ink-muted); }
+.rq-testnote {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; padding: 9px 12px;
+  font-size: 12.5px; border-radius: var(--aspire-radius-control);
+  background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.22); color: var(--aspire-pressboard-ink);
+}
+.rq-policy { font-size: 12px; color: var(--rr-board-ink-muted); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+.rq-policy button {
+  background: none; border: 0; padding: 0; cursor: pointer; font-family: var(--rr-sans); font-size: 12px;
+  color: var(--aspire-pressboard-ink); text-decoration: underline; text-underline-offset: 3px;
+}
+.rq-policy-more { flex-basis: 100%; color: var(--rr-board-ink-soft); padding: 6px 10px; border-left: 2px solid rgba(255, 255, 255, 0.3); }
+
+/* Notices sit on the board in the status pair (ink and soft tint travel together). */
+.rq-notice { font-size: 13px; line-height: 1.5; padding: 10px 14px; margin-bottom: 14px; border-radius: var(--aspire-radius-control); }
+.rq-notice.ok { background: var(--aspire-ok-soft); color: var(--aspire-ok); }
+.rq-notice.err { background: var(--aspire-bad-soft); color: var(--aspire-bad); }
+
+/* ── Sections ─────────────────────────────────────────────────────────────── */
+.rq-section { margin-bottom: 16px; }
+.rq-sect-head {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 10px;
+  font-family: var(--rr-mono); font-size: 10px; letter-spacing: 0.13em; text-transform: uppercase; color: var(--rr-board-ink-soft);
+}
+.rq-sect-head em { font-style: normal; font-family: var(--rr-sans); font-size: 11.5px; letter-spacing: 0; text-transform: none; color: var(--rr-board-ink-muted); }
+.rq-stack { display: grid; gap: 10px; }
+.rq-empty { font-size: 13px; color: var(--rr-board-ink-muted); padding: 10px 0; text-align: center; }
+
+/* ── Slips ────────────────────────────────────────────────────────────────── */
+.rq-slip { --stack-paper: var(--aspire-paper-2); min-width: 0; }
+.rq-card {
+  position: relative; z-index: 1; min-width: 0; display: grid; gap: 8px;
+  background: var(--aspire-paper); color: var(--aspire-paper-ink); padding: 11px 14px 11px 18px;
+  border: 0; border-radius: 0; /* paper is the one square surface */
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.26), 0 7px 15px rgba(0, 0, 0, 0.24);
+  transition: transform 0.22s, opacity 0.22s;
+}
+/* The band: what state the slip is in, as a shape, never as the ink. */
+.rq-card::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; background: var(--rq-band, var(--aspire-ok)); }
+.rq-band-ok { --rq-band: var(--aspire-ok); }
+.rq-band-soon { --rq-band: var(--aspire-warn); }
+.rq-band-late { --rq-band: var(--aspire-bad); }
+/* Blocked reads one step back from Ready. */
+.rq-card-blocked { background: var(--aspire-paper-2); }
+/* Leaving (released): slides right and fades before the refetch removes it. */
+.rq-card-gone { transform: translateX(30px) rotate(1.2deg); opacity: 0; }
+/* A jump target: one amber pulse. */
+.rq-card-flash { animation: rq-flash 1.2s ease-out; }
+@keyframes rq-flash {
+  0% { box-shadow: 0 0 0 4px var(--aspire-warn), 0 7px 15px rgba(0, 0, 0, 0.24); }
+  100% { box-shadow: 0 1px 1px rgba(0, 0, 0, 0.26), 0 7px 15px rgba(0, 0, 0, 0.24); }
+}
+
+.rq-top { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: start; }
+.rq-who { font-size: 15px; font-weight: 700; min-width: 0; }
+.rq-who small { display: block; font-size: 12px; font-weight: 400; color: var(--aspire-paper-muted); }
+.rq-right { display: grid; gap: 4px; justify-items: end; }
+.rq-hours { font-family: var(--rr-mono); font-size: 11.5px; color: var(--aspire-paper-muted); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.rq-hours b { color: var(--aspire-paper-ink); font-weight: 600; }
+.rq-thr { display: block; font-size: 10px; }
+.rq-hours-none { font-family: var(--rr-mono); font-size: 10px; color: var(--aspire-paper-muted); }
+/* The stamp: mono, rotated, in the status ink. Full ink rather than the mockup's 80
+   percent, because at 9px the faded version measured under 4.5:1 on the paper. */
+.rq-stamp {
+  font-family: var(--rr-mono); font-size: 9px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase;
+  border: 1.5px solid currentColor; border-radius: var(--rr-radius-stamp); padding: 1px 5px;
+  rotate: -4deg; white-space: nowrap; justify-self: end;
+}
+.rq-stamp-ok { color: var(--aspire-ok); }
+.rq-stamp-soon { color: var(--aspire-warn); }
+.rq-stamp-late { color: var(--aspire-bad); }
+
+/* ── Chain strip ──────────────────────────────────────────────────────────── */
+.rq-chain {
+  display: flex; align-items: stretch; flex-wrap: wrap; row-gap: 6px; margin: 0; padding: 7px 0;
+  border-top: 1px solid var(--aspire-rule); border-bottom: 1px solid var(--aspire-rule);
+}
+.rq-node { display: grid; gap: 1px; padding: 0 10px 0 0; min-width: 0; flex: 1 1 150px; position: relative; }
+.rq-node + .rq-node { padding-left: 14px; }
+.rq-node + .rq-node::before { content: "\203A"; position: absolute; left: 1px; top: 2px; color: var(--aspire-paper-muted); font-size: 15px; line-height: 1; }
+.rq-node-k { font-family: var(--rr-mono); font-size: 9.5px; letter-spacing: 0.11em; text-transform: uppercase; color: var(--aspire-paper-muted); }
+.rq-node-v { font-size: 12.5px; color: var(--aspire-paper-ink); display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
+.rq-node-v i { font-style: normal; font-family: var(--rr-mono); font-size: 10px; padding: 0 5px; border-radius: var(--rr-radius-badge); }
+.rq-node-done .rq-node-v i { background: var(--aspire-ok-soft); color: var(--aspire-ok); }
+.rq-node-this .rq-node-v { font-weight: 700; }
+.rq-node-this .rq-node-v i { background: var(--rr-navy); color: #fff; }
+[data-theme="dark"] .rq-node-this .rq-node-v i { color: #0E111C; }
+.rq-node-next .rq-node-v { color: var(--aspire-paper-muted); }
+.rq-node-waiting .rq-node-v { color: var(--aspire-warn); font-weight: 700; }
+.rq-node-waiting .rq-node-v i { background: var(--aspire-warn-soft); color: var(--aspire-warn); }
+.rq-node-fix .rq-node-v { color: var(--aspire-bad); font-weight: 700; }
+.rq-node-fix .rq-node-v i { background: var(--aspire-bad-soft); color: var(--aspire-bad); }
+
+/* ── Actions row ──────────────────────────────────────────────────────────── */
+.rq-actions { display: flex; gap: 7px; align-items: center; flex-wrap: wrap; }
+.rq-why { font-size: 12.5px; color: var(--aspire-paper-muted); margin-right: auto; }
+.rq-pbtn {
+  background: rgba(30, 42, 110, 0.05); border: 1px solid var(--aspire-rule); border-radius: var(--aspire-radius-control);
+  padding: 4px 11px; font-size: 12px; font-family: var(--rr-sans); color: var(--aspire-paper-ink); cursor: pointer; white-space: nowrap;
+}
+.rq-pbtn:hover { border-color: var(--rr-navy); background: rgba(30, 42, 110, 0.09); }
+[data-theme="dark"] .rq-pbtn { background: rgba(159, 176, 245, 0.08); }
+[data-theme="dark"] .rq-pbtn:hover { background: rgba(159, 176, 245, 0.14); }
+.rq-pbtn:disabled { opacity: 0.6; cursor: default; }
+.rq-pbtn.go { margin-left: auto; background: var(--aspire-ok); border-color: var(--aspire-ok); color: #fff; font-weight: 700; padding-inline: 14px; }
+.rq-pbtn.go:hover { filter: brightness(1.08); }
+[data-theme="dark"] .rq-pbtn.go { color: #0E111C; }
+.rq-pbtn.link { background: none; border: 0; padding-inline: 2px; white-space: normal; text-align: left; color: var(--rr-navy); text-decoration: underline; text-underline-offset: 3px; }
+.rq-pbtn.link:hover { background: none; }
+.rq-pbtn:focus-visible { outline: 3px solid var(--rr-navy); outline-offset: 2px; }
+
+/* ── Not yet eligible ─────────────────────────────────────────────────────── */
+.rq-eligible {
+  background: rgba(255, 255, 255, 0.05); border: 1px dashed rgba(255, 255, 255, 0.22); border-radius: var(--aspire-radius-control);
+  color: var(--rr-board-ink-soft); font-size: 12.5px; margin-bottom: 16px;
+}
+.rq-eligible summary { padding: 8px 12px; cursor: pointer; list-style: none; display: flex; gap: 8px; align-items: center; }
+.rq-eligible summary::-webkit-details-marker { display: none; }
+.rq-eligible summary::before { content: "\203A"; display: inline-block; font-size: 15px; color: var(--rr-board-ink-muted); transition: rotate 0.15s; }
+.rq-eligible[open] summary::before { rotate: 90deg; }
+.rq-eligible ul { margin: 0; padding: 0 12px 10px 30px; columns: 2; column-gap: 20px; font-family: var(--rr-mono); font-size: 11px; color: var(--rr-board-ink-soft); }
+.rq-eligible li { padding: 2px 0; break-inside: avoid; }
+
+/* ── Sent tape ────────────────────────────────────────────────────────────── */
+.rq-tape {
+  position: relative; margin: 16px -18px -18px; padding: 10px 18px 12px;
+  background: var(--aspire-tape); color: var(--aspire-tape-ink);
+  border-radius: 0 0 var(--aspire-radius-card) var(--aspire-radius-card);
+  border-top: 2px dashed rgba(0, 0, 0, 0.18); /* the perforated tear line */
+}
+.rq-tape-head {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 4px;
+  font-family: var(--rr-mono); font-size: 10px; letter-spacing: 0.13em; text-transform: uppercase; color: var(--aspire-tape-muted);
+}
+.rq-tape-head button {
+  background: none; border: 0; padding: 0; cursor: pointer; font-family: var(--rr-sans); font-size: 12px;
+  text-transform: none; letter-spacing: 0; color: var(--aspire-tape-ink); text-decoration: underline; text-underline-offset: 3px;
+}
+.rq-tape-line {
+  display: grid; grid-template-columns: auto 1fr auto; gap: 12px; font-size: 12.5px; padding: 4px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08); font-variant-numeric: tabular-nums;
+}
+.rq-tape-line:last-child { border-bottom: 0; }
+.rq-tape-line .t, .rq-tape-line .r { font-family: var(--rr-mono); font-size: 11px; color: var(--aspire-tape-muted); white-space: nowrap; }
+.rq-tape-empty { font-size: 12.5px; color: var(--aspire-tape-muted); }
+[data-theme="dark"] .rq-tape { border-top-color: rgba(255, 255, 255, 0.14); }
+[data-theme="dark"] .rq-tape-line { border-bottom-color: rgba(255, 255, 255, 0.07); }
+
+/* ── Responsive ───────────────────────────────────────────────────────────── */
+/* Below 900px the rail stacks above the board and loses its top margin. The board never
+   scrolls sideways: its children shrink (min-width: 0) and its long lines wrap. */
+@media (max-width: 900px) {
+  .rr-layout { grid-template-columns: 1fr; }
+  .rr-nav { margin-top: 0; }
+}
+@media (max-width: 700px) {
+  .rq-eligible ul { columns: 1; }
+}
+@media (max-width: 640px) {
+  .rq-board .rr-tool-primary, .rq-board .rr-tool-secondary, .rq-board .rr-tool-test { flex: 1 1 auto; justify-content: center; }
+  .rq-meta { margin-left: 0; flex-basis: 100%; }
+}
+@media (max-width: 520px) {
+  .rq-tape-line { grid-template-columns: auto 1fr; }
+  .rq-tape-line .r { grid-column: 1 / -1; white-space: normal; }
+  .rq-top { grid-template-columns: 1fr; }
+  .rq-right { justify-items: start; }
+  .rq-stamp { justify-self: start; }
+  .rq-hours { text-align: left; }
+}
+
+/* ── Reduced motion ───────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .rq-card { transition: none; }
+  .rq-card-gone { transform: none; }
+  .rq-card-flash { animation: none; box-shadow: 0 0 0 4px var(--aspire-warn), 0 7px 15px rgba(0, 0, 0, 0.24); }
+  .rq-eligible summary::before { transition: none; }
+}

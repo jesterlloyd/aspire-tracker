@@ -38,6 +38,7 @@ const testApi  = read('api/evaluation-send-survey-test.js')
 const stripJs = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
 const dashCode     = stripJs(dash)
 const queueCode    = stripJs(queue)
+const clipCss = read('src/components/evaluation/reviewReleaseClipboard.css')
 const uiCode       = dashCode + '\n' + queueCode
 const panelCode    = stripJs(panel)
 const endpointCode = stripJs(endpoint)
@@ -280,15 +281,16 @@ test('Preview Survey has the strongest visual priority', () => {
 test('Send test to me is styled distinctly from a production release', () => {
   assert.match(queueCode, /className="rr-tool-test"/)
   // A dashed amber control, deliberately not the solid green Release treatment.
-  assert.match(dash, /\.rr-tool-test \{[^}]*border:1px dashed/)
+  // REVIEW-RELEASE-2: the dashed control now lives in the clipboard stylesheet.
+  assert.match(clipCss, /\.rq-board \.rr-tool-test \{ border-style: dashed; \}/)
   const tools = queueCode.slice(queueCode.indexOf('aria-label="Survey tools"'), queueCode.indexOf('</div>', queueCode.indexOf('Send test to me')))
   assert.ok(!/Release/.test(tools), 'the toolbar must contain no release control')
 })
 
 test('the toolbar stays usable on a phone', () => {
-  assert.match(dash, /@media \(max-width: 640px\)/)
-  assert.match(dash, /\.rr-tool-primary, \.rr-tool-secondary, \.rr-tool-test \{ flex:1 1 auto/)
-  assert.match(queueCode, /flexWrap: 'wrap'/)
+  assert.match(clipCss, /@media \(max-width: 640px\)/)
+  assert.match(clipCss, /\.rq-board \.rr-tool-primary, \.rq-board \.rr-tool-secondary, \.rq-board \.rr-tool-test \{ flex: 1 1 auto/)
+  assert.match(clipCss, /\.rq-tools \{[^}]*flex-wrap: wrap/)
 })
 
 // ── House style ────────────────────────────────────────────────────────────

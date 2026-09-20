@@ -469,6 +469,41 @@ plannerCalendar.css`, which the component imports so it reaches BOTH bundles (ne
    `.pl-planner` (a descendant definition always wins for its subtree), and the rules
    that hardcode a colour are repointed by name.
 
+## Review & Release is one queue on a clipboard (REVIEW-RELEASE-1 and 2, 2026-09-19)
+
+Evaluation > Review & Release is six workflows in one rail (five surveys and the Unit
+Leader release), one detection model, one queue. Adapters in
+`src/lib/evaluation/reviewQueueAdapters.js` turn each classifier's rows into the shape in
+`reviewQueueShape.js` (ready / blocked / not yet, a three-node chain, one blocker with one
+action); the four classifiers are untouched and the release endpoints keep every guard.
+`ReviewReleaseQueue.jsx` renders the shape and knows nothing about detection;
+`SurveyAutomationDashboard.jsx` owns the loads, the actions and the board.
+
+- **No manual Remind, no Undo** (Owner, 2026-09-19). A waiting slip quotes the ledger's
+  next reminder date; sends are synchronous. Do not add either back with the visuals.
+- **One Not-yet row per student per workflow.** The preceptor classifier emits a row per
+  period; the adapter keeps the earlier period and names the next gate.
+- **The board is a pressboard clipboard** (`src/components/evaluation/reviewReleaseClipboard.css`),
+  presentation only. Corners come from the canon tokens; the three chip radii the mockup
+  needs are named once at the top of the sheet and read by var(). Paper is square. The
+  carbon copy under a slip is `material-pagestack-single` from `pageStack.css`, on the
+  WRAPPER, with the slip at `z-index: 1`.
+- **Paper is one definition.** `--aspire-paper*` and `--aspire-rule` live in `theme.css`,
+  light and dark; the planner's slate paper and the clipboard both read them. Status
+  inks are `--aspire-ok/warn/bad` with `-soft` tints; the board and the tape are
+  `--aspire-pressboard-*` and `--aspire-tape-*`, all theme-aware, all in `theme.css`.
+- **JetBrains Mono is the third self-hosted family** (`--aspire-mono`, SIL OFL, subset
+  like the other two, NOT preloaded: only this screen sets it, and a face declaration is
+  lazy). `test/typographyFonts.test.mjs` pins all three.
+- **Measure ink on the board against its lightest tone.** The mockup's 45 to 62 percent
+  inks read 3.3:1 to 3.7:1; every translucent ink on the board is at or above 78 percent
+  and the tape's muted ink is `#675E44`, not the mockup's `#7A7052` (4.06:1). The harness
+  sweep is 58 classes in both themes; a new one belongs on that list.
+- **Motion defers.** A released slip slides off before the refetch, a jump target pulses
+  once; under `prefers-reduced-motion` the CSS and the refetch hold both stand down.
+- An identity-echo mismatch after a send sets `identityHold`, which disables every
+  Release on the board until Re-run detection.
+
 ## Student Portal on phones (STUDENT-PHONE-1)
 
 Students open the portal on their phones first. Below 760px the Rotation Activity calendar is

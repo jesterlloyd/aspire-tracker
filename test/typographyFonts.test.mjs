@@ -25,10 +25,14 @@ const FACES = [
   ['plus-jakarta-sans', 'PlusJakartaSans-Italic-Variable.woff2', 'Plus Jakarta Sans', '200 800', 'italic'],
   ['playfair-display', 'PlayfairDisplay-Variable.woff2', 'Playfair Display', '400 900', 'normal'],
   ['playfair-display', 'PlayfairDisplay-Italic-Variable.woff2', 'Playfair Display', '400 900', 'italic'],
+  // REVIEW-RELEASE-2: the mono face. Declared, shipped with its OFL, and NOT preloaded
+  // (only the Review & Release clipboard sets it; @font-face fetches lazily).
+  ['jetbrains-mono', 'JetBrainsMono-Variable.woff2', 'JetBrains Mono', '100 800', 'normal'],
+  ['jetbrains-mono', 'JetBrainsMono-Italic-Variable.woff2', 'JetBrains Mono', '100 800', 'italic'],
 ]
 const RETIRED = ['DM Sans', 'Pangram Sans', 'Fraunces']
 
-test('the four variable faces exist, carry their OFL notice, and are declared with the documented ranges', () => {
+test('the six variable faces exist, carry their OFL notice, and are declared with the documented ranges', () => {
   for (const [dir, file, family, weight, style] of FACES) {
     const p = join(root, 'public/fonts', dir, file)
     assert.ok(existsSync(p), `${file} missing from public/fonts/${dir}`)
@@ -52,11 +56,13 @@ test('index.html preloads the two upright variable files and never reaches Googl
   assert.match(html, /<link rel="preload" href="\/fonts\/plus-jakarta-sans\/PlusJakartaSans-Variable\.woff2" as="font" type="font\/woff2" crossorigin>/)
   assert.match(html, /<link rel="preload" href="\/fonts\/playfair-display\/PlayfairDisplay-Variable\.woff2" as="font" type="font\/woff2" crossorigin>/)
   assert.doesNotMatch(html, /fonts\.googleapis\.com|fonts\.gstatic\.com/)
+  assert.doesNotMatch(html, /jetbrains-mono/, 'the mono face is not preloaded: only one screen uses it')
 })
 
 test('the core brand tokens name the sans and the serif once, and the functional layers resolve through them', () => {
   assert.match(brand, /--aspire-sans: 'Plus Jakarta Sans', -apple-system/)
   assert.match(brand, /--aspire-serif: 'Playfair Display', Georgia/)
+  assert.match(brand, /--aspire-mono: 'JetBrains Mono', ui-monospace/)
   assert.match(read('src/styles/chartTokens.css'), /--chart-sans: var\(--aspire-sans/)
   assert.match(read('src/styles/chartTokens.css'), /--chart-serif: var\(--aspire-serif/)
   assert.match(read('src/public-site/publicSite.css'), /--ps-sans: var\(--aspire-sans/)

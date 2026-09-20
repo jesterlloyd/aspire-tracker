@@ -159,3 +159,18 @@
   top: calc(var(--stack-inset-t) + 6px);
   bottom: calc(var(--stack-inset-b) - 3px);
 }
+
+/* ── One carbon copy ──────────────────────────────────────────────────────── */
+/* A slip on the Review & Release clipboard (REVIEW-RELEASE-2) has ONE sheet under it,
+   the copy kept on the board, not a pile: four pixels down and to the right, a shade
+   off. Same host contract as above: the class goes on the wrapper, the sheet inside
+   carries `z-index: 1`. */
+.material-pagestack-single::before { display: none; }
+.material-pagestack-single::after {
+  left: calc(var(--stack-inset-l) + 4px);
+  right: calc(var(--stack-inset-r) - 4px);
+  top: calc(var(--stack-inset-t) + 4px);
+  bottom: calc(var(--stack-inset-b) - 4px);
+  filter: brightness(0.97);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.26);
+}

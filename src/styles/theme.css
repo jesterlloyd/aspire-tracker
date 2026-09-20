@@ -72,6 +72,30 @@
 
   /* Focus */
   --color-focus-ring: #4F6DA8;
+  /* ── Paper, status, pressboard, tape (REVIEW-RELEASE-2) ────────────────
+     Theme-aware pairs: an ink and the surface it sits on change together.
+     Paper is the planner's slate paper, lifted here so the calendars and the
+     Review & Release clipboard read ONE definition. */
+  --aspire-paper:        #FDFCFA;
+  --aspire-paper-2:      #F6F5F2;
+  --aspire-paper-ink:    #1B2140;
+  --aspire-paper-muted:  #61667E;
+  --aspire-rule:         rgba(30, 42, 110, 0.12);
+  /* Status inks and their soft tints (the KPI card family, named once). */
+  --aspire-ok:           #0F7A4D;
+  --aspire-ok-soft:      #E1F3EA;
+  --aspire-warn:         #8F5A0A;
+  --aspire-warn-soft:    #FBEFD9;
+  --aspire-bad:          #A32A32;
+  --aspire-bad-soft:     #FBEAEC;
+  /* The clipboard's pressboard and its sent tape. */
+  --aspire-pressboard-a:   #554E43;
+  --aspire-pressboard-b:   #403A31;
+  --aspire-pressboard-c:   #332E27;
+  --aspire-pressboard-ink: #F1EBDE;
+  --aspire-tape:           #EFE9DA;
+  --aspire-tape-ink:       #3A3323;
+  --aspire-tape-muted:     #675E44; /* the mockup's #7A7052 measured 4.06:1 on the tape */
 }
 
 /* ── Dark mode ─────────────────────────────────────────────────── */
@@ -138,6 +162,25 @@
 
   /* Focus */
   --color-focus-ring: #8FA9FF;
+  /* ── Paper, status, pressboard, tape (REVIEW-RELEASE-2), dark ──────────── */
+  --aspire-paper:        #1C1F2C;
+  --aspire-paper-2:      #191C28;
+  --aspire-paper-ink:    #E9EAF2;
+  --aspire-paper-muted:  #A0A4BC;
+  --aspire-rule:         rgba(159, 176, 245, 0.14);
+  --aspire-ok:           #3CCB8A;
+  --aspire-ok-soft:      #15372A;
+  --aspire-warn:         #E6A544;
+  --aspire-warn-soft:    #3A2C14;
+  --aspire-bad:          #F08A92;
+  --aspire-bad-soft:     #3A1B1F;
+  --aspire-pressboard-a:   #2E2A25;
+  --aspire-pressboard-b:   #24211C;
+  --aspire-pressboard-c:   #1B1815;
+  --aspire-pressboard-ink: #F1EBDE;
+  --aspire-tape:           #26231B;
+  --aspire-tape-ink:       #EDE4CF;
+  --aspire-tape-muted:     #A89C7E;
 }
 
 /* ── Semantic aliases (never rename; only values change per theme) */

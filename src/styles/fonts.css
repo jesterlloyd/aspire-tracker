@@ -44,3 +44,22 @@
   font-style: italic;
   font-display: swap;
 }
+
+/* JetBrains Mono (SIL OFL 1.1): the mono face, added for the Review & Release clipboard
+   (REVIEW-RELEASE-2, Owner decision 2026-09-19). Same google/fonts source and the same
+   subset as the two families above. NOT preloaded: a face declaration is lazy, so the
+   file is fetched only by a screen that sets the face, and no other page pays for it. */
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('/fonts/jetbrains-mono/JetBrainsMono-Variable.woff2') format('woff2');
+  font-weight: 100 800;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('/fonts/jetbrains-mono/JetBrainsMono-Italic-Variable.woff2') format('woff2');
+  font-weight: 100 800;
+  font-style: italic;
+  font-display: swap;
+}

@@ -26,6 +26,7 @@ const read = (p) => readFileSync(join(here, '..', p), 'utf8')
 
 const dash    = read('src/components/evaluation/SurveyAutomationDashboard.jsx')
 const queue   = read('src/components/evaluation/ReviewReleaseQueue.jsx')
+const css     = read('src/components/evaluation/reviewReleaseClipboard.css') // REVIEW-RELEASE-2
 const consoleSrc = read('src/components/evaluation/UnitEvaluationReleaseConsole.jsx')
 const tab     = read('src/components/EvaluationTab.jsx')
 
@@ -76,9 +77,10 @@ test('the left rail has both sections, grouped as the brief names them', () => {
   assert.match(dash, /className=\{`rr-row-select\$\{selected \? ' sel' : ''\}`\}/)
   assert.match(dash, /aria-current=\{selected \? 'true' : undefined\}/)
   assert.match(dash, /aria-pressed=\{selected\}/)
-  // The mobile selector mirrors both sections.
-  assert.match(dash, /<optgroup label="Survey workflows">/)
-  assert.match(dash, /<optgroup label="Unit leader release">/)
+  // REVIEW-RELEASE-2 (brief, section 10): below 900px the rail itself stacks above the
+  // board and loses its top margin. The narrow-screen <select> it replaced is gone.
+  assert.match(css, /@media \(max-width: 900px\) \{\s*\.rr-layout \{ grid-template-columns: 1fr; \}\s*\.rr-nav \{ margin-top: 0; \}/)
+  assert.doesNotMatch(dash, /rr-nav-mobile|<optgroup/)
 })
 
 test('one deep-link mechanism: the same ?workflow param, replace semantics preserved', () => {
@@ -107,7 +109,9 @@ test('every workflow, the Unit Leader release included, renders through the one 
   // The UL release still acts through the same RPC action path as the console did.
   assert.match(dash, /postReleaseAction\(\{ action: meta\.action, responseId: item\.responseId, decision: meta\.decision \}\)/)
   // The one shared workspace shell (no card-inside-card duplication).
-  assert.match(dash, /<section id=\{WORKSPACE_ID\} className="rr-workspace">/)
+  // REVIEW-RELEASE-2: the workspace IS the board, and the clip is decorative.
+  assert.match(dash, /<section id=\{WORKSPACE_ID\} className="rr-workspace rq-board">/)
+  assert.match(dash, /<span className="rq-clip" aria-hidden="true"><i \/><i \/><\/span>/)
 })
 
 test('EvaluationTab renders the dashboard behind the same gate, and wires Track responses', () => {
@@ -152,18 +156,22 @@ test('the rail is one Settings-style card, the same height as the board, not sti
   // REVIEW-RELEASE-1 (section 5): the rail is the same height as the main panel and
   // starts at the same top edge, and it is NOT sticky. 270px because the six names are
   // the Owner's full names.
-  assert.match(dash, /grid-template-columns:270px minmax\(0, 1fr\); gap:20px; align-items:stretch;/)
-  assert.match(dash, /\.rr-nav \{[\s\S]*?background:#fff; border:1px solid #e8e4dc; border-radius:14px; padding:10px;/)
-  assert.match(dash, /\.rr-row-select \{[\s\S]*?background:transparent; border:none; border-radius:9px;/)
-  assert.ok(!/\.rr-nav \{[\s\S]*?position:sticky/.test(dash), 'the rail is not sticky any more')
+  // REVIEW-RELEASE-2: the rules moved to the clipboard stylesheet and read the canon
+  // tokens (card corner, shadow-as-edge, control corner); the rail and the board share
+  // the same 14px top margin so their top edges meet.
+  assert.match(css, /\.rr-layout \{ display: grid; grid-template-columns: 270px minmax\(0, 1fr\); gap: 20px; align-items: stretch; \}/)
+  assert.match(css, /\.rr-nav \{[^}]*margin-top: 14px;[^}]*border: 0; border-radius: var\(--aspire-radius-card\);[^}]*box-shadow: var\(--aspire-shadow-card\);/)
+  assert.match(css, /\.rq-board \{[^}]*margin-top: 14px;/)
+  assert.match(css, /\.rr-row-select \{[^}]*border: 0;\s*border-radius: var\(--aspire-radius-control\);/)
+  assert.ok(!/\.rr-nav \{[^}]*position: ?sticky/.test(css), 'the rail is not sticky any more')
   // Sections separated by a hairline, Settings-style.
-  assert.match(dash, /\.rr-nav \.rr-nav-group:not\(:first-child\) \{ margin-top:8px; border-top:1px solid #f0ede6;/)
+  assert.match(css, /\.rr-nav \.rr-nav-group:not\(:first-child\) \{ margin-top: 6px; border-top: 1px solid var\(--aspire-rule\);/)
 })
 
 test('selected state is the filled navy row with white text', () => {
-  assert.match(dash, /\.rr-row-select\.sel \{ background:\$\{NAVY\}; \}/)
-  assert.match(dash, /\.rr-row-select\.sel \.rr-row-label \{ color:#fff; \}/)
+  assert.match(css, /\.rr-row-select\.sel, \.rr-row-select\.sel:hover \{ background: var\(--aspire-navy\); color: #fff; \}/)
   // The old card-selected treatment (tint + inset accent bar) is gone.
+  assert.doesNotMatch(css, /inset 3px 0 0 0/)
   assert.doesNotMatch(dash, /inset 3px 0 0 0/)
 })
 
@@ -192,7 +200,7 @@ test('keyboard and active-state semantics: native buttons, aria-pressed, visible
   // Section 7: the rail is a group of buttons with aria-pressed; switching announces the
   // workflow name (the queue's heading changes and the summary line is a live region).
   assert.match(dash, /<nav className="rr-nav" aria-label="Survey workflows">/)
-  assert.match(dash, /\.rr-row-select:focus-visible \{[\s\S]*?outline:3px solid #93c5fd; outline-offset:2px;/)
+  assert.match(css, /\.rr-row-select:focus-visible \{ outline: 3px solid var\(--rr-navy\); outline-offset: 2px; \}/)
   const navRegion = dash.slice(dash.indexOf('aria-label="Survey workflows">'), dash.indexOf('</nav>'))
   assert.doesNotMatch(navRegion, /<div[^>]*onClick/)
   assert.match(queue, /<details className="rq-eligible"/)

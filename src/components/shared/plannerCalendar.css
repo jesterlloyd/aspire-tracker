@@ -44,13 +44,15 @@
 
 /* ── Paper themes ──────────────────────────────────────────────────────────── */
 /* Slate is the default and needs no attribute. The tokens are scoped to the planner
-   rather than :root, so a calendar cannot repaint the page around it. */
+   rather than :root, so a calendar cannot repaint the page around it. The slate values
+   are the app's shared paper (`--aspire-paper*` in theme.css, REVIEW-RELEASE-2), which
+   the Review & Release clipboard reads too: one definition, two surfaces. */
 .pl-planner {
-  --paper: #FDFCFA;
-  --paper-2: #F6F5F2;
-  --paper-ink: #1B2140;
-  --paper-muted: #61667E;
-  --rule: rgba(30, 42, 110, 0.12);
+  --paper: var(--aspire-paper);
+  --paper-2: var(--aspire-paper-2);
+  --paper-ink: var(--aspire-paper-ink);
+  --paper-muted: var(--aspire-paper-muted);
+  --rule: var(--aspire-rule);
   --pad-a: #5A6280;
   --pad-b: #434A60;
   --pad-c: #373D51;
@@ -125,11 +127,11 @@
 [data-theme="dark"] .pl-planner,
 [data-theme="dark"] .pl-planner[data-paper="tan"],
 [data-theme="dark"] .pl-planner[data-paper="forest"] {
-  --paper: #1C1F2C;
-  --paper-2: #191C28;
-  --paper-ink: #E9EAF2;
-  --paper-muted: #A0A4BC;
-  --rule: rgba(159, 176, 245, 0.14);
+  --paper: var(--aspire-paper);
+  --paper-2: var(--aspire-paper-2);
+  --paper-ink: var(--aspire-paper-ink);
+  --paper-muted: var(--aspire-paper-muted);
+  --rule: var(--aspire-rule);
 }
 
 /* ── The spread ────────────────────────────────────────────────────────────── */

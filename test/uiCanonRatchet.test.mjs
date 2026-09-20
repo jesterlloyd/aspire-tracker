@@ -24,7 +24,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 // tokens. Never raise them: that is the whole point.
 const BASELINE = {
   cssRadiusLiterals: 409,   // border-radius: <n>px in any src/**/*.css
-  jsxRadiusLiterals: 1230,  // borderRadius: <n> in any src/**/*.jsx
+  jsxRadiusLiterals: 1221,  // borderRadius: <n> in any src/**/*.jsx (REVIEW-RELEASE-2 moved nine into tokens)
 }
 
 function walk(dir, out = []) {
