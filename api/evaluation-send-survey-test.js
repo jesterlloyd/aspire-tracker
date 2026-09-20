@@ -37,10 +37,11 @@ const REPLY_TO = 'aspire@cshs.org'
 // Mirrors src/lib/evaluation/surveyCatalog.js. Kept as a small server-side allowlist so a
 // caller cannot name an arbitrary key, and so the email can label the workflow.
 const WORKFLOWS = {
-  preceptor: 'Preceptor Student Readiness Assessment',
-  student: 'Student Feedback: Preceptor and Unit',
+  caseyFinkPreRotation: 'Casey-Fink Readiness for Practice, Pre-Rotation',
+  preceptor: "Preceptor's Assessment of Student Readiness",
+  student: "Student's Feedback on Unit and Preceptor",
   caseyFinkPostRotation: 'Casey-Fink Readiness for Practice, Post-Rotation',
-  postRotation: 'ASPIRE Post-Rotation Evaluation',
+  postRotation: "Student's Feedback on ASPIRE",
 }
 
 function getServiceDb() {

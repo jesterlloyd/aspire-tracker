@@ -151,11 +151,15 @@ test('explicit rejection revokes safely while an uncertain outcome blocks blind 
   assert.match(source, /idempotencyKey: `casey-fink-release\/\$\{assignmentId\}:\$\{nowIso\}`/)
 })
 
-test('the panel exposes reissue and keeps the result beside the affected row', () => {
-  const panel = read('src/components/evaluation/CaseyFinkPostRotationAutomationPanel.jsx')
-  assert.match(panel, /Reissue Survey/)
-  assert.match(panel, /Confirm & Reissue/)
-  assert.match(panel, /data-testid="cf-row-release-result"/)
-  assert.match(panel, /releaseMsg\?\.studentId === r\.studentId/)
-  assert.match(panel, /expired or revoked link/)
+test('the queue exposes reissue and confirms it in the same words', () => {
+  // REVIEW-RELEASE-1: the Casey-Fink panel became a workflow on the shared queue. A
+  // reissuable row is a Ready card whose button says Reissue; the confirmation says what
+  // a reissue does; the adapter carries the flag from the classifier's own status.
+  const queue = read('src/components/evaluation/ReviewReleaseQueue.jsx')
+  const adapters = read('src/lib/evaluation/reviewQueueAdapters.js')
+  assert.match(queue, /item\.release\?\.reissue \? 'Reissue'/)
+  assert.match(queue, /Confirm & Reissue/)
+  assert.match(queue, /expired or revoked link/)
+  assert.match(adapters, /const reissue = r\.status === 'readiness_reissue'/)
+  assert.match(adapters, /release: \{ reissue, warnings: r\.warnings \}/)
 })

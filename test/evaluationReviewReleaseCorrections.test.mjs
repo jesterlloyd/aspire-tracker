@@ -26,24 +26,30 @@ const here = dirname(fileURLToPath(import.meta.url))
 const read = (p) => readFileSync(join(here, '..', p), 'utf8')
 
 const dash     = read('src/components/evaluation/SurveyAutomationDashboard.jsx')
-const panel    = read('src/components/evaluation/PostRotationAutomationPanel.jsx')
+// REVIEW-RELEASE-1: the four panels became one queue component. The dashboard keeps the
+// behaviour (selection, same-origin test path, release calls); the queue renders the
+// controls. Where a pin below reads "panel", it now reads the queue.
+const queue    = read('src/components/evaluation/ReviewReleaseQueue.jsx')
+const panel    = queue
 const endpoint = read('api/evaluation-release-post-rotation-survey.js')
 const content  = read('lib/server/evaluation/postRotationEvalContent.js')
 const testApi  = read('api/evaluation-send-survey-test.js')
 
 const stripJs = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
 const dashCode     = stripJs(dash)
+const queueCode    = stripJs(queue)
+const uiCode       = dashCode + '\n' + queueCode
 const panelCode    = stripJs(panel)
 const endpointCode = stripJs(endpoint)
 
 // ── 1. Test mode opens in-app, same origin ─────────────────────────────────
 test('Open test now navigates inside the SPA, not to an external tab', () => {
-  assert.match(dashCode, /onClick=\{\(\) => navigate\(testState\.url\)\}/,
+  assert.match(dashCode, /onOpenTest: \(\) => navigate\(testState\.url\)/,
     'the primary path must be same-origin SPA navigation')
   // The old anchor opened a new tab against an absolute URL, which is what the
   // organization's URL isolation intercepted.
-  assert.ok(!/target="_blank"[^>]*Open test now/s.test(dash))
-  assert.ok(!dashCode.includes('rel="noopener noreferrer"'),
+  assert.ok(!/target="_blank"[^>]*Open test now/s.test(dash + queue))
+  assert.ok(!uiCode.includes('rel="noopener noreferrer"'),
     'no external anchor should remain for the test path')
 })
 
@@ -69,11 +75,13 @@ test('the emailed link remains a secondary convenience and says so', () => {
 })
 
 // ── 2. Deterministic default selection ─────────────────────────────────────
-test('the first visit opens Preceptor Readiness, the first workflow in order', () => {
-  assert.equal(resolveInitialWorkflow({}), 'preceptor')
+test('the first visit opens the first workflow in order, which is now the Pre-Rotation Casey-Fink', () => {
+  // REVIEW-RELEASE-1 reordered the rail; the property (first in display order, never a
+  // favourite, never a count) is what this test protects.
+  assert.equal(resolveInitialWorkflow({}), DEFAULT_WORKFLOW_KEY)
   assert.equal(DEFAULT_WORKFLOW_KEY, WORKFLOW_KEYS[0])
-  assert.equal(DEFAULT_WORKFLOW_KEY, 'preceptor')
-  assert.equal(SURVEY_CATALOG[0].key, 'preceptor', 'display order must agree with the default')
+  assert.equal(DEFAULT_WORKFLOW_KEY, 'caseyFinkPreRotation')
+  assert.equal(SURVEY_CATALOG[0].key, DEFAULT_WORKFLOW_KEY, 'display order must agree with the default')
 })
 
 test('a subsequent visit restores the last valid selection', () => {
@@ -88,9 +96,9 @@ test('a URL workflow key outranks the stored selection', () => {
 })
 
 test('an invalid stored or URL key falls through to the first workflow', () => {
-  assert.equal(resolveInitialWorkflow({ storedKey: 'nope' }), 'preceptor')
-  assert.equal(resolveInitialWorkflow({ urlKey: '', storedKey: null }), 'preceptor')
-  assert.equal(resolveInitialWorkflow({ urlKey: 'not_a_workflow' }), 'preceptor')
+  assert.equal(resolveInitialWorkflow({ storedKey: 'nope' }), DEFAULT_WORKFLOW_KEY)
+  assert.equal(resolveInitialWorkflow({ urlKey: '', storedKey: null }), DEFAULT_WORKFLOW_KEY)
+  assert.equal(resolveInitialWorkflow({ urlKey: 'not_a_workflow' }), DEFAULT_WORKFLOW_KEY)
 })
 
 test('selection still ignores detection counts', () => {
@@ -98,7 +106,7 @@ test('selection still ignores detection counts', () => {
   // workflow's counts arrived first. Counts are not a parameter of either resolver.
   // Passing count-shaped data must change nothing: neither resolver reads counts.
   const counts = { preceptor: { due_sendable: 0 }, student: { due_sendable: 99 } }
-  assert.equal(resolveInitialWorkflow({ counts }), 'preceptor', 'a hot count must not select a workflow')
+  assert.equal(resolveInitialWorkflow({ counts }), DEFAULT_WORKFLOW_KEY, 'a hot count must not select a workflow')
   assert.equal(resolveInitialWorkflow({ storedKey: 'postRotation', counts }), 'postRotation')
   assert.equal(resolveEffectiveWorkflow('preceptor', counts), 'preceptor')
   const src = read('src/lib/evaluation/workflowSelection.js')
@@ -147,18 +155,19 @@ test('detection reports releasable counts instead of hard zeroes', () => {
   assert.equal(summary.eligible_for_review, 2)
 })
 
-test('the panel offers a human-approved release with a confirmation step', () => {
-  assert.match(panelCode, /Release Survey/)
-  assert.match(panelCode, /setConfirm\(r\)/, 'release must go through a confirmation, never one click')
-  assert.match(panelCode, /Confirm & Send/)
-  assert.match(panelCode, /doRelease\(confirm\)/)
+test('the queue offers a human-approved release with a confirmation step', () => {
+  // The Release button on a card opens the confirmation; only the confirmation sends.
+  assert.match(queueCode, /onClick=\{\(\) => onRelease\(item\)\}/)
+  assert.match(dashCode, /onRelease=\{\(item\) => \{ setNotice\(null\); setConfirmItem\(item\) \}\}/,
+    'release must go through a confirmation, never one click')
+  assert.match(queueCode, /Confirm & Send/)
+  assert.match(dashCode, /onConfirm=\{\(opts\) => doRelease\(confirmItem, opts\)\}/)
   // The paused UI is gone.
-  assert.ok(!panelCode.includes('Release paused'))
-  assert.ok(!/disabled\s*\n\s*title="Casey-Fink post-rotation is now/.test(panel))
+  assert.ok(!uiCode.includes('Release paused'))
 })
 
 test('release sends the pre-send workflow guard the server now requires', () => {
-  assert.match(panelCode, /expected_instrument_slug: ROUTE\.instrumentSlug/)
+  assert.match(dashCode, /expected_instrument_slug: route\.instrumentSlug/)
   // This endpoint was the only one of the four without the guard, which did not matter
   // while it was paused and mattered immediately once it was not.
   // Assert the CONDITION, not just the error message. An earlier version of this test
@@ -223,17 +232,21 @@ test('it remains a separate survey from Student Feedback', () => {
   assert.notEqual(RELEASE_ROUTES.postRotation.instrumentSlug, RELEASE_ROUTES.student.instrumentSlug)
 })
 
-test('every workflow now has a release route', () => {
-  for (const s of SURVEY_CATALOG) {
+test('every SURVEY workflow now has a release route', () => {
+  // The Unit Leader release is not a survey: it has no instrument and releases through
+  // the review-queue RPCs, so it has no email endpoint to route to.
+  for (const s of SURVEY_CATALOG.filter(w => w.group === 'survey')) {
     assert.ok(RELEASE_ROUTES[s.key], `${s.key} must have a release route`)
     assert.equal(RELEASE_ROUTES[s.key].instrumentSlug, s.slug,
       `${s.key} route and catalog slug must agree`)
+    assert.equal(RELEASE_ROUTES[s.key].timepoint || null, s.timepoint === 'midpoint or post_rotation' ? null : s.timepoint,
+      `${s.key} route and catalog timepoint must agree`)
   }
 })
 
 // ── 4. One Survey tools toolbar, no per-row eye icons ──────────────────────
 test('the per-row eye icon is gone', () => {
-  assert.ok(!dashCode.includes('rr-row-eye'))
+  assert.ok(!uiCode.includes('rr-row-eye'))
   // Match the PROP, not the bare word: "onPreview" is a substring of
   // getEvaluationPreviewFixture, which is a legitimate and unrelated import.
   assert.ok(!/onPreview=/.test(dashCode), 'the row must no longer take a preview handler')
@@ -247,16 +260,16 @@ test('the nav row is a single button again', () => {
 })
 
 test('the three actions live in one labelled Survey tools group', () => {
-  assert.match(dashCode, /role="group" aria-label="Survey tools"/)
-  assert.match(dashCode, /className="rr-tools-label">Survey tools/)
+  // REVIEW-RELEASE-1: the group is rendered by the queue (section 6.3, one tool row).
+  assert.match(queueCode, /role="group" aria-label="Survey tools"/)
   for (const action of ['Preview Survey', 'Preview Email', 'Send test to me']) {
-    assert.equal((dashCode.match(new RegExp(action, 'g')) || []).length, 1,
+    assert.equal((queueCode.match(new RegExp(action, 'g')) || []).length, 1,
       `${action} must appear exactly once, not be duplicated elsewhere`)
   }
 })
 
 test('Preview Survey has the strongest visual priority', () => {
-  const tools = dashCode.slice(dashCode.indexOf('aria-label="Survey tools"'), dashCode.indexOf('Send test to me') + 60)
+  const tools = queueCode.slice(queueCode.indexOf('aria-label="Survey tools"'), queueCode.indexOf('Send test to me') + 60)
   const survey = tools.indexOf('Preview Survey')
   const email = tools.indexOf('Preview Email')
   assert.ok(survey > -1 && email > survey, 'Preview Survey must come first')
@@ -265,23 +278,23 @@ test('Preview Survey has the strongest visual priority', () => {
 })
 
 test('Send test to me is styled distinctly from a production release', () => {
-  assert.match(dashCode, /className="rr-tool-test"/)
+  assert.match(queueCode, /className="rr-tool-test"/)
   // A dashed amber control, deliberately not the solid green Release treatment.
   assert.match(dash, /\.rr-tool-test \{[^}]*border:1px dashed/)
-  const tools = dashCode.slice(dashCode.indexOf('aria-label="Survey tools"'), dashCode.indexOf('</div>', dashCode.indexOf('Send test to me')))
+  const tools = queueCode.slice(queueCode.indexOf('aria-label="Survey tools"'), queueCode.indexOf('</div>', queueCode.indexOf('Send test to me')))
   assert.ok(!/Release/.test(tools), 'the toolbar must contain no release control')
 })
 
 test('the toolbar stays usable on a phone', () => {
   assert.match(dash, /@media \(max-width: 640px\)/)
   assert.match(dash, /\.rr-tool-primary, \.rr-tool-secondary, \.rr-tool-test \{ flex:1 1 auto/)
-  assert.match(dash, /flex-wrap:wrap/)
+  assert.match(queueCode, /flexWrap: 'wrap'/)
 })
 
 // ── House style ────────────────────────────────────────────────────────────
 test('no em dash in the changed evaluation sources', () => {
   const EM_DASH = String.fromCharCode(0x2014)
-  for (const [name, src] of [['dashboard', dash], ['panel', panel], ['endpoint', endpoint],
+  for (const [name, src] of [['dashboard', dash], ['queue', queue], ['endpoint', endpoint],
     ['content', content], ['routing', read('src/lib/evaluation/releaseRouting.js')]]) {
     assert.ok(!src.includes(EM_DASH), `${name} must not contain an em dash`)
   }

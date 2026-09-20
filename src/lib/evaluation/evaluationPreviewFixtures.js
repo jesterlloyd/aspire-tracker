@@ -17,6 +17,7 @@ import { buildPreceptorInvitationEmail, formatExpiresAt } from '../../../lib/ser
 import { buildStudentEvalInvitationEmail } from '../../../lib/server/evaluation/studentEvalEmailTemplates.js';
 import { buildPostRotationInvitationEmail } from '../../../lib/server/evaluation/postRotationEmailTemplates.js';
 import { buildCaseyFinkPostRotationInvitationEmail } from '../../../lib/server/evaluation/caseyFinkPostRotationEmailTemplates.js';
+import { buildCaseyFinkPreRotationInvitationEmail } from '../../../lib/server/evaluation/caseyFinkPreRotationEmailTemplates.js';
 import { appUrl } from '../appUrl.js';
 
 // Obvious, non-live preview URLs. `#t=preview-token` makes clear this is not a real tokenized link.
@@ -80,6 +81,19 @@ export function getEvaluationPreviewFixture(workflowKey) {
         studentFirstName: MOCK.studentFirstName,
         expiresAtHuman: previewExpiresAtHuman(),
         surveyUrl: POST_ROTATION_PREVIEW_URL,
+      }),
+    };
+  }
+
+  if (workflowKey === 'caseyFinkPreRotation') {
+    // REVIEW-RELEASE-1: the baseline half of the Casey-Fink pair. Same survey URL family,
+    // its own copy, and no certificate sentence anywhere in it.
+    return {
+      recipientType: 'Student',
+      render: () => buildCaseyFinkPreRotationInvitationEmail({
+        studentFirstName: MOCK.studentFirstName,
+        expiresAtHuman: previewExpiresAtHuman(),
+        surveyUrl: CASEY_FINK_PREVIEW_URL,
       }),
     };
   }

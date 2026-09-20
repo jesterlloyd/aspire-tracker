@@ -1,0 +1,451 @@
+<title>Review and Release Board</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Instrument+Sans:wght@500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+:root{
+  --ground:#F3F2EE; --surface:#FFFFFF; --ink:#18203F; --muted:#5E6480; --line:#E3E4EC;
+  --navy:#1E2A6E; --navy-bar:#1E2A6E;
+  --kpi-blue:#EFF3FB; --kpi-sand:#FBF4E6; --kpi-mint:#EFF6F1;
+  --green:#0F7A4D; --green-soft:#E1F3EA; --amber:#8F5A0A; --amber-soft:#FBEFD9; --red:#A32A32; --red-soft:#FBEAEC;
+  --paper:#FDFCFA; --paper-2:#F4F2ED; --paper-ink:#1B2140; --paper-muted:#61667E; --rule:rgba(30,42,110,.13);
+  --board-a:#554E43; --board-b:#403A31; --board-c:#332E27; --board-ink:#F1EBDE;
+  --tape:#EFE9DA; --tape-ink:#3A3323; --tape-muted:#7A7052;
+  --display:"Instrument Sans",system-ui,sans-serif; --body:"Atkinson Hyperlegible",system-ui,sans-serif; --mono:"JetBrains Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --ground:#0E111C; --surface:#181C2B; --ink:#E9EAF2; --muted:#9CA1BA; --line:#2B3046; --navy:#9FB0F5; --navy-bar:#151C45;
+  --kpi-blue:#1E2540; --kpi-sand:#2A2517; --kpi-mint:#16291F;
+  --green:#3CCB8A; --green-soft:#15372A; --amber:#E6A544; --amber-soft:#3A2C14; --red:#F08A92; --red-soft:#3A1B1F;
+  --paper:#1C1F2C; --paper-2:#171A25; --paper-ink:#E9EAF2; --paper-muted:#A0A4BC; --rule:rgba(159,176,245,.15);
+  --board-a:#2E2A25; --board-b:#24211C; --board-c:#1B1815; --board-ink:#F1EBDE;
+  --tape:#26231B; --tape-ink:#EDE4CF; --tape-muted:#A89C7E;
+}}
+:root[data-theme="dark"]{
+  --ground:#0E111C; --surface:#181C2B; --ink:#E9EAF2; --muted:#9CA1BA; --line:#2B3046; --navy:#9FB0F5; --navy-bar:#151C45;
+  --kpi-blue:#1E2540; --kpi-sand:#2A2517; --kpi-mint:#16291F;
+  --green:#3CCB8A; --green-soft:#15372A; --amber:#E6A544; --amber-soft:#3A2C14; --red:#F08A92; --red-soft:#3A1B1F;
+  --paper:#1C1F2C; --paper-2:#171A25; --paper-ink:#E9EAF2; --paper-muted:#A0A4BC; --rule:rgba(159,176,245,.15);
+  --board-a:#2E2A25; --board-b:#24211C; --board-c:#1B1815; --board-ink:#F1EBDE;
+  --tape:#26231B; --tape-ink:#EDE4CF; --tape-muted:#A89C7E;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--ground);color:var(--ink);font-family:var(--body);font-size:14px;line-height:1.5;margin:0}
+button{font:inherit;cursor:pointer;color:inherit}
+:focus-visible{outline:3px solid var(--navy);outline-offset:2px}
+
+/* App chrome */
+.topbar{background:var(--navy-bar);color:#fff;padding-inline:20px;padding-block:13px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.topbar b{font-family:var(--display);font-size:19px}
+.chrome{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.scope{font-family:var(--mono);font-size:11px;border:1px solid rgba(255,255,255,.25);border-radius:8px;padding:5px 10px;white-space:nowrap}
+.theme-toggle{display:inline-flex;border:1px solid rgba(255,255,255,.35);border-radius:8px;overflow:hidden}
+.theme-toggle button{background:transparent;color:#fff;border:none;padding:5px 10px;font-size:12px}
+.theme-toggle button[aria-pressed="true"]{background:#fff;color:#1E2A6E}
+.tabs{background:var(--surface);border-bottom:1px solid var(--line);padding-inline:20px;display:flex;gap:22px;overflow-x:auto}
+.tabs span{padding:12px 0;color:var(--muted);font-family:var(--display);font-size:16px;white-space:nowrap}
+.tabs .on{color:var(--navy);border-bottom:2px solid var(--navy)}
+main{max-width:1380px;margin:0 auto;padding-inline:20px;padding-block:14px 80px;display:grid;gap:12px}
+.demo{font-family:var(--mono);font-size:11px;color:var(--amber);background:var(--amber-soft);padding:3px 8px;border-radius:4px;justify-self:start}
+.subtabs{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:var(--surface);justify-self:start}
+.subtabs span{padding:7px 14px;font-size:13px;color:var(--muted)}
+.subtabs .on{background:var(--navy);color:#fff;font-weight:700}
+h1{font-family:var(--display);font-size:22px;margin:4px 0 0;color:var(--navy)}
+.lede{color:var(--muted);margin:0;font-size:13.5px}
+.summary{display:flex;gap:18px;flex-wrap:wrap;align-items:center;font-size:13px;color:var(--muted);padding:8px 0 2px}
+.summary b{font-family:var(--display);font-size:15px;color:var(--ink)}
+.summary .g b{color:var(--green)}.summary .a b{color:var(--amber)}
+
+/* Two-column */
+.wrap{display:grid;grid-template-columns:270px 1fr;gap:20px;align-items:stretch}
+@media (max-width:900px){.wrap{grid-template-columns:1fr}}
+.rail{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 10px;display:grid;gap:4px;align-content:start;margin-top:14px}
+@media (max-width:900px){.rail{margin-top:0}}
+.rail .grp{font-family:var(--mono);font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);padding:8px 10px 4px}
+.rail hr{border:none;border-top:1px solid var(--line);margin:6px 0}
+.wf{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;text-align:left;background:none;border:none;border-radius:8px;padding:9px 10px;font-size:13.5px}
+.wf:hover{background:var(--kpi-blue)}
+.wf[aria-pressed="true"]{background:var(--navy);color:#fff}
+.wf small{display:block;font-size:11.5px;color:var(--muted);font-family:var(--mono)}
+.wf[aria-pressed="true"] small{color:rgba(255,255,255,.7)}
+.wf .cnt{display:inline-flex;gap:4px}
+.wf .cnt i{font-style:normal;font-family:var(--mono);font-size:10.5px;font-weight:600;min-width:20px;height:20px;border-radius:99px;display:grid;place-items:center;padding-inline:5px}
+.wf .cnt .r{background:var(--green);color:#fff}
+.wf .cnt .b{background:var(--amber);color:#fff}
+:root[data-theme="dark"] .wf .cnt i{color:#0E111C}
+
+/* ---------- The clipboard ---------- */
+.board{position:relative;border-radius:9px;padding:44px 18px 18px;min-width:0;
+  background-color:#443E35;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .55 0'/></filter><rect width='100%' height='100%' filter='url(%23g)'/></svg>"),linear-gradient(180deg,var(--board-a),var(--board-b) 58%,var(--board-c));
+  background-blend-mode:soft-light,normal;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.12),0 2px 4px rgba(16,20,35,.3),0 22px 48px rgba(16,20,35,.3);margin-top:14px}
+.clip{position:absolute;top:-13px;left:50%;translate:-50% 0;width:190px;height:38px;border-radius:8px 8px 13px 13px;
+  background:linear-gradient(180deg,#F4F6F9 0%,#CDD3DC 16%,#A2AAB6 48%,#E2E7ED 72%,#878E97 100%);
+  box-shadow:0 4px 7px rgba(0,0,0,.42),inset 0 1px 0 rgba(255,255,255,.95),inset 0 -2px 3px rgba(0,0,0,.28)}
+.clip::before{content:"";position:absolute;left:14px;right:14px;top:23px;height:2px;border-radius:2px;background:linear-gradient(180deg,rgba(0,0,0,.22),rgba(255,255,255,.5))}
+.clip i{position:absolute;top:9px;width:7px;height:7px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff,#9198A2 60%,#5F656D);box-shadow:inset 0 -1px 1px rgba(0,0,0,.3)}
+.clip i:first-child{left:22px}.clip i:last-child{right:22px}
+
+.bhead{color:var(--board-ink);display:grid;gap:6px;margin-bottom:12px}
+.bhead .titlerow{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.bhead h2{font-family:var(--display);font-size:19px;margin:0;text-shadow:0 1px 0 rgba(0,0,0,.4)}
+.bhead .was{font-family:var(--mono);font-size:10.5px;color:rgba(241,235,222,.5);letter-spacing:.02em}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;border-radius:99px;padding:2px 9px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:var(--board-ink)}
+.chip.gate{background:rgba(230,165,68,.16);border-color:rgba(230,165,68,.4);color:#F4D9A6}
+.bhead .chips{display:flex;gap:6px;flex-wrap:wrap}
+.tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:4px}
+.bbtn{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.22);color:var(--board-ink);border-radius:7px;padding:5px 11px;font-size:12.5px}
+.bbtn:hover{background:rgba(255,255,255,.16)}
+.bbtn.primary{background:var(--board-ink);color:#2C271F;border-color:transparent;font-weight:700}
+.tools .meta{font-family:var(--mono);font-size:11px;color:rgba(241,235,222,.55);margin-left:auto}
+.policy{font-size:12px;color:rgba(241,235,222,.62);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.policy button{background:none;border:none;color:var(--board-ink);text-decoration:underline;text-underline-offset:3px;padding:0;font-size:12px}
+.policy .more{flex-basis:100%;color:rgba(241,235,222,.72);padding:6px 10px;border-left:2px solid rgba(255,255,255,.3)}
+
+.stack{display:grid;gap:10px;margin-bottom:16px}
+.stack:last-child{margin-bottom:0}
+.sect-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;font-family:var(--mono);font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:rgba(241,235,222,.78)}
+.sect-head em{font-style:normal;font-family:var(--body);font-size:11.5px;letter-spacing:0;text-transform:none;color:rgba(241,235,222,.45)}
+
+.slip{position:relative;background:var(--paper);padding:11px 14px 11px 18px;color:var(--paper-ink);
+  box-shadow:0 1px 1px rgba(0,0,0,.26),0 7px 15px rgba(0,0,0,.24);transition:transform .22s,opacity .22s;display:grid;gap:8px}
+.slip::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--band)}
+.slip::after{content:"";position:absolute;left:4px;right:-4px;top:4px;bottom:-4px;background:var(--paper-2);z-index:-1;box-shadow:0 2px 5px rgba(0,0,0,.26);filter:brightness(.97)}
+.slip.gone{transform:translateX(30px) rotate(1.2deg);opacity:0}
+.slip.flash{animation:flash 1.2s ease-out}
+@keyframes flash{0%{box-shadow:0 0 0 4px var(--amber),0 7px 15px rgba(0,0,0,.24)}100%{box-shadow:0 1px 1px rgba(0,0,0,.26),0 7px 15px rgba(0,0,0,.24)}}
+.slip.blocked{background:var(--paper-2)}
+.slip .top{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:start}
+.slip .who{font-family:var(--display);font-size:15px}
+.slip .who small{display:block;font-family:var(--body);font-size:12px;color:var(--paper-muted);font-weight:400}
+.slip .hours{font-family:var(--mono);font-size:11.5px;color:var(--paper-muted);text-align:right;white-space:nowrap}
+.slip .hours b{color:var(--paper-ink);font-weight:600}
+.slip .hours .thr{display:block;font-size:10px}
+.stamp{font-family:var(--mono);font-size:9px;letter-spacing:.1em;border:1.5px solid currentColor;border-radius:3px;padding:1px 5px;rotate:-4deg;opacity:.8;white-space:nowrap;justify-self:end}
+.stamp.late{color:var(--red)}.stamp.soon{color:var(--amber)}.stamp.ok{color:var(--green)}
+
+/* Chain strip */
+.chain{display:flex;align-items:stretch;gap:0;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);padding:7px 0;flex-wrap:wrap;row-gap:6px}
+.node{display:grid;gap:1px;padding:0 10px 0 0;min-width:0;flex:1 1 150px;position:relative}
+.node+.node{padding-left:14px}
+.node+.node::before{content:"›";position:absolute;left:1px;top:2px;color:var(--paper-muted);font-size:15px;line-height:1}
+.node .k{font-family:var(--mono);font-size:9.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--paper-muted)}
+.node .v{font-size:12.5px;color:var(--paper-ink);display:flex;gap:5px;align-items:center;flex-wrap:wrap}
+.node .v i{font-style:normal;font-family:var(--mono);font-size:10px;padding:0 5px;border-radius:4px}
+.node.done .v i{background:var(--green-soft);color:var(--green)}
+.node.this .v{font-weight:700}
+.node.this .v i{background:var(--navy);color:#fff}
+:root[data-theme="dark"] .node.this .v i{color:#0E111C}
+.node.next .v{color:var(--paper-muted)}
+.node.miss .v{color:var(--amber);font-weight:700}
+.node.miss .v i{background:var(--amber-soft);color:var(--amber)}
+.node.bad .v{color:var(--red);font-weight:700}
+.node.bad .v i{background:var(--red-soft);color:var(--red)}
+
+.acts{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.acts .why{font-size:12.5px;color:var(--paper-muted);margin-right:auto}
+.pbtn{background:rgba(30,42,110,.05);border:1px solid var(--rule);border-radius:6px;padding:4px 11px;font-size:12px;color:var(--paper-ink)}
+.pbtn:hover{border-color:var(--navy);background:rgba(30,42,110,.09)}
+.pbtn.go{margin-left:auto;background:var(--green);border-color:var(--green);color:#fff;font-weight:700;padding-inline:14px}
+.pbtn.go:hover{filter:brightness(1.08)}
+:root[data-theme="dark"] .pbtn.go{color:#0E111C}
+.pbtn.link{background:none;border:none;text-decoration:underline;text-underline-offset:3px;color:var(--navy);padding-inline:2px}
+
+.eligible{background:rgba(255,255,255,.05);border:1px dashed rgba(255,255,255,.22);border-radius:7px;color:rgba(241,235,222,.7);font-size:12.5px}
+.eligible summary{padding:8px 12px;cursor:pointer;list-style:none;display:flex;gap:8px;align-items:center}
+.eligible summary::-webkit-details-marker{display:none}
+.eligible summary::before{content:"›";font-size:15px;color:rgba(241,235,222,.5);transition:rotate .15s;display:inline-block}
+.eligible[open] summary::before{rotate:90deg}
+.eligible ul{margin:0;padding:0 12px 10px 30px;columns:2;column-gap:20px;font-family:var(--mono);font-size:11px;color:rgba(241,235,222,.6)}
+@media (max-width:700px){.eligible ul{columns:1}}
+.eligible li{padding:2px 0;break-inside:avoid}
+
+/* Sent tape */
+.tape{margin:16px -18px -18px;padding:10px 18px 12px;background:var(--tape);color:var(--tape-ink);border-radius:0 0 9px 9px;
+  border-top:2px dashed rgba(0,0,0,.18);position:relative}
+.tape .th{display:flex;justify-content:space-between;align-items:baseline;gap:10px;font-family:var(--mono);font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--tape-muted);margin-bottom:4px}
+.tape .th button{background:none;border:none;color:var(--tape-ink);text-decoration:underline;text-underline-offset:3px;font-family:var(--body);font-size:12px;text-transform:none;letter-spacing:0;padding:0}
+.tape .line{display:grid;grid-template-columns:auto 1fr auto;gap:12px;font-size:12.5px;padding:4px 0;border-bottom:1px solid rgba(0,0,0,.08);font-variant-numeric:tabular-nums}
+.tape .line:last-child{border-bottom:none}
+.tape .line .t{font-family:var(--mono);font-size:11px;color:var(--tape-muted);white-space:nowrap}
+.tape .line .r{font-family:var(--mono);font-size:11px;color:var(--tape-muted);white-space:nowrap}
+.tape .line .r button{background:none;border:none;color:var(--tape-ink);text-decoration:underline;text-underline-offset:3px;padding:0;font-size:11px}
+.tape .empty{font-size:12.5px;color:var(--tape-muted)}
+
+#toast{position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom,0px));translate:-50% 0;background:#18203F;color:#fff;
+  padding:10px 12px 10px 16px;border-radius:9px;font-size:13px;display:flex;gap:12px;align-items:center;max-width:min(560px,calc(100vw - 32px));
+  opacity:0;pointer-events:none;transition:opacity .2s;box-shadow:0 10px 26px rgba(0,0,0,.3);z-index:60}
+#toast.show{opacity:1;pointer-events:auto}
+#toast button{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.3);border-radius:7px;padding:4px 10px;font-size:12px;color:#fff}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="topbar"><b>ASPIRE Intelligence</b>
+  <span class="chrome">
+    <span class="scope">SCOPE · Internship · Fall 2026</span>
+    <span class="theme-toggle" role="group" aria-label="Theme"><button type="button" data-t="light">☀ Light</button><button type="button" data-t="dark">☾ Dark</button></span>
+  </span>
+</div>
+<nav class="tabs" aria-label="Sections"><span>At a Glance</span><span>Student Profiles</span><span>Interviews</span><span>Rotation</span><span class="on">Evaluation</span></nav>
+
+<main>
+  <span class="demo">Mockup · synthetic demo data · survey names are proposals</span>
+  <span class="subtabs"><span>Responses</span><span class="on">Review &amp; Release</span></span>
+  <h1>Review &amp; Release</h1>
+  <p class="lede">Every survey is a clipboard. Slips you can act on sit on top. Everything else is out of the way but still on the board.</p>
+  <div class="summary" id="summary"></div>
+
+  <div class="wrap">
+    <nav class="rail" id="rail" aria-label="Survey workflows"></nav>
+    <section class="board" id="board" aria-live="polite"></section>
+  </div>
+</main>
+
+<div id="toast" role="status"><span id="toastMsg"></span><button type="button" id="undo">Undo</button></div>
+<p class="sr" id="live" aria-live="polite"></p>
+
+<script>
+const $=s=>document.querySelector(s);
+const esc=t=>String(t??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const reduce=window.matchMedia('(prefers-reduced-motion:reduce)').matches;
+
+/* Workflows. name = proposed label, was = current label in the app. */
+const WF=[
+ {id:'cfpre',name:'Casey-Fink Readiness for Practice (Pre-Rotation)',was:'new workflow',to:'Student',gate:'Baseline for the Post-Rotation comparison',
+  trigger:'ASPIRE status is Interviewed, Placed, or Active Rotation',
+  policy:'Releasing emails the student the pre-rotation Readiness for Practice survey. Any student who has been interviewed is a candidate, whether or not they are placed yet. Nothing downstream is blocked by it.',
+  eligible:0,notEligibleLabel:'Not yet interviewed (7) · applied or offered, nothing to do yet',notEligibleNames:['Ava Thompson · Applied','Noah Williams · Applied','Mia Castillo · Offered','Lucas Brown · Applied','Isla Ferreira · Offered','Owen Davis · Applied','Zoe Martin · Applied'],
+  items:[
+   {id:'q1',kind:'ready',who:'Ace Capati',sub:'Accelerated BSN · Active Rotation, 3 South Short Stay',hrs:'48 / 108',thr:'hours not required',stamp:['ok','Active rotation'],
+    chain:[['done','ASPIRE status','Active Rotation','interviewed'],['this','Pre-rotation Casey-Fink','Release now',''],['next','Pairs with','Post-Rotation Casey-Fink at 100% hours','']],
+    sendTo:'A. Capati',label:'Pre-rotation Casey-Fink'},
+   {id:'q2',kind:'ready',who:'Alex Grigorian',sub:'BSN Semester · Active Rotation, 8 South',hrs:'40 / 135',thr:'hours not required',stamp:['ok','Active rotation'],
+    chain:[['done','ASPIRE status','Active Rotation','interviewed'],['this','Pre-rotation Casey-Fink','Release now',''],['next','Pairs with','Post-Rotation Casey-Fink at 100% hours','']],
+    sendTo:'A. Grigorian',label:'Pre-rotation Casey-Fink'},
+   {id:'q3',kind:'ready',who:'Alex Lim',sub:'ABSN · Placed, unit pending',hrs:'0 / 90',thr:'hours not required',stamp:['ok','Placed'],
+    chain:[['done','ASPIRE status','Placed','interviewed'],['this','Pre-rotation Casey-Fink','Release now',''],['next','Pairs with','Post-Rotation Casey-Fink at 100% hours','']],
+    sendTo:'A. Lim',label:'Pre-rotation Casey-Fink'},
+   {id:'q4',kind:'ready',who:'Chidinma Okafor',sub:'BSN Semester · Interviewed Sep 11',hrs:'0 / 135',thr:'hours not required',stamp:['ok','Interviewed'],
+    chain:[['done','ASPIRE status','Interviewed','interviewed'],['this','Pre-rotation Casey-Fink','Release now',''],['next','Pairs with','Post-Rotation Casey-Fink at 100% hours','']],
+    sendTo:'C. Okafor',label:'Pre-rotation Casey-Fink'},
+   {id:'q5',kind:'blocked',who:'Ben Ortega',sub:'ABSN · Placed, 4 NW',hrs:'0 / 90',thr:'hours not required',stamp:['late','No student email'],
+    chain:[['done','ASPIRE status','Placed','interviewed'],['bad','Student email','None on file','fix'],['next','Pre-rotation Casey-Fink','Waiting on email','']],
+    why:'The student record has no email address.',fix:'Open student'}
+  ],
+  sent:[['Sep 12','Allison Rabanales','to A. Rabanales · submitted Sep 13'],['Sep 12','Annalise Chung','to A. Chung · submitted Sep 12'],['Sep 8','Sofia Alvarez','to S. Alvarez · submitted Sep 9'],['Sep 8','Victoria Marquez','to V. Marquez · not yet submitted']]},
+ {id:'pre',name:"Preceptor's Assessment of Student Readiness",was:'Preceptor Readiness',to:'Preceptor',gate:'End of Rotation unlocks Certificate of Appreciation',
+  trigger:'Midpoint at 50% of required hours · End of Rotation at 100%',
+  policy:'Releasing re-checks eligibility on the server and sends through the same path as a manual send. The recipient is resolved from the student, there is no recipient field.',
+  eligible:14,
+  items:[
+   {id:'p1',kind:'ready',who:'Victoria Marquez',sub:'Midpoint · preceptor Romelyn Martha Sanchez',hrs:'96 / 180',thr:'threshold 90',stamp:['ok','Threshold met'],
+    chain:[['done','Hours','96 of 180','50% reached'],['this','Midpoint readiness','Release now',''],['next','Unlocks','End of Rotation at 180 h','']],
+    sendTo:'R. M. Sanchez',label:'Midpoint'},
+   {id:'p2',kind:'ready',who:'Daniel Park',sub:'End of Rotation · preceptor Maria Ortiz',hrs:'140 / 135',thr:'threshold 135',stamp:['ok','Threshold met'],
+    chain:[['done','Midpoint','Submitted Sep 4',''],['this','End of Rotation readiness','Release now',''],['next','Unlocks','Certificate of Appreciation','']],
+    sendTo:'M. Ortiz',label:'End of Rotation'},
+   {id:'p3',kind:'blocked',who:'Alex Lim',sub:'Midpoint · ABSN, Cal State Northridge',hrs:'0 / 90',thr:'threshold 45',stamp:['late','No unit on file'],
+    chain:[['bad','Unit','Not assigned','fix'],['next','Midpoint readiness','Cannot resolve preceptor',''],['next','Unlocks','End of Rotation','']],
+    why:'No unit means no preceptor to send to.',fix:'Assign unit'},
+   {id:'p4',kind:'blocked',who:'Tomas Rivera',sub:'Midpoint · preceptor Karen Ho',hrs:'72 / 135',thr:'threshold 68',stamp:['soon','Email missing'],
+    chain:[['done','Hours','72 of 135','50% reached'],['bad','Preceptor email','None on file','fix'],['next','Midpoint readiness','Waiting on email','']],
+    why:'Preceptor record has no email address.',fix:'Open preceptor'}
+  ],
+  sent:[['9:41 AM','Joseph Hernandez · Midpoint','to A. Lopez-Silva'],['9:40 AM','Nicole Khoshkhou · Midpoint','to A. Lopez-Silva']]},
+
+ {id:'sf',name:"Student's Feedback on Unit and Preceptor",was:'Student Feedback',to:'Student',gate:'Prerequisite for Casey-Fink and for the Unit Leader forward',
+  trigger:'100% of required hours',
+  policy:'Releasing emails the student a link to the feedback survey. It re-checks hours on the server first.',
+  eligible:19,
+  items:[
+   {id:'s1',kind:'ready',who:'Priya Raman',sub:'BSN Semester · 6 South',hrs:'135 / 135',thr:'threshold 135',stamp:['ok','Hours complete'],
+    chain:[['done','Hours','135 of 135','100%'],['this','Student feedback','Release now',''],['next','Unlocks','Casey-Fink · Unit leader forward','']],
+    sendTo:'P. Raman',label:'Student feedback'},
+   {id:'s2',kind:'ready',who:'Marcus Bell',sub:'Accelerated BSN · 3 South Short Stay',hrs:'110 / 108',thr:'threshold 108',stamp:['ok','Hours complete'],
+    chain:[['done','Hours','110 of 108','100%'],['this','Student feedback','Release now',''],['next','Unlocks','Casey-Fink · Unit leader forward','']],
+    sendTo:'M. Bell',label:'Student feedback'},
+   {id:'s3',kind:'ready',who:'Hannah Kim',sub:'ABSN · 8 South',hrs:'92 / 90',thr:'threshold 90',stamp:['ok','Hours complete'],
+    chain:[['done','Hours','92 of 90','100%'],['this','Student feedback','Release now',''],['next','Unlocks','Casey-Fink · Unit leader forward','']],
+    sendTo:'H. Kim',label:'Student feedback'}
+  ],
+  sent:[['Sep 15','Jordan Reyes','to J. Reyes · submitted Sep 15'],['Sep 13','Ethan Cole','to E. Cole · not yet submitted'],['Sep 12','Sofia Alvarez','to S. Alvarez · submitted Sep 12']]},
+
+ {id:'cf',name:'Casey-Fink Readiness for Practice (Post-Rotation)',was:'Casey-Fink Post-Rotation',to:'Student',gate:'Unlocks Certificate of Completion',
+  trigger:'Student feedback submitted',
+  policy:'Releasing emails the student the post-rotation Readiness for Practice survey. The Certificate of Completion unlocks only after the student submits it. There is no bulk release.',
+  eligible:16,
+  items:[
+   {id:'c1',kind:'ready',who:'Sofia Alvarez',sub:'BSN Semester · 6 NW',hrs:'108 / 108',thr:'threshold 108',stamp:['ok','Prerequisite done'],
+    chain:[['done','Student feedback','Submitted Sep 12',''],['this','Casey-Fink','Release now',''],['next','Unlocks','Certificate of Completion','']],
+    sendTo:'S. Alvarez',label:'Casey-Fink'},
+   {id:'c2',kind:'blocked',who:'Ethan Cole',sub:'Accelerated BSN · 5 NW',hrs:'112 / 108',thr:'threshold 108',stamp:['soon','Waiting 6d'],
+    chain:[['miss','Student feedback','Sent Sep 13 · not submitted',''],['next','Casey-Fink','Waits on feedback',''],['next','Unlocks','Certificate of Completion','']],
+    why:'Student has had the feedback survey for 6 days.',remind:'Remind Ethan'},
+   {id:'c3',kind:'blocked',who:'Hannah Kim',sub:'ABSN · 8 South',hrs:'92 / 90',thr:'threshold 90',stamp:['soon','Step behind'],
+    chain:[['miss','Student feedback','Not released yet',''],['next','Casey-Fink','Waits on feedback',''],['next','Unlocks','Certificate of Completion','']],
+    why:'The prerequisite is sitting in the Student Feedback stack.',jump:['sf','s3','Release her Student Feedback first']}
+  ],
+  sent:[['Sep 16','Liam Nguyen','to L. Nguyen · submitted Sep 16']]},
+
+ {id:'ar',name:"Student's Feedback on ASPIRE",was:'ASPIRE Rotation Feedback',to:'Student',gate:'No certificate gate',
+  trigger:'Casey-Fink submitted',
+  policy:'Releasing emails the student the program feedback survey. Nothing downstream depends on it.',
+  eligible:18,
+  items:[
+   {id:'a1',kind:'ready',who:'Liam Nguyen',sub:'BSN Semester · 7 South',hrs:'135 / 135',thr:'threshold 135',stamp:['ok','Prerequisite done'],
+    chain:[['done','Casey-Fink','Submitted Sep 16',''],['this','ASPIRE feedback','Release now',''],['next','Then','Chain complete','']],
+    sendTo:'L. Nguyen',label:'ASPIRE feedback'},
+   {id:'a2',kind:'blocked',who:'Sofia Alvarez',sub:'BSN Semester · 6 NW',hrs:'108 / 108',thr:'threshold 108',stamp:['soon','Step behind'],
+    chain:[['done','Student feedback','Submitted Sep 12',''],['miss','Casey-Fink','Not released yet',''],['next','ASPIRE feedback','Waits on Casey-Fink','']],
+    why:'Casey-Fink is ready to release on its own clipboard.',jump:['cf','c1','Release her Casey-Fink first']}
+  ],
+  sent:[]},
+
+ {id:'ul',name:"Release Student's Feedback on Unit and Preceptor to Unit Leaders",was:'Release to Unit Leaders',to:'Unit leader',gate:'No certificate gate',
+  trigger:'Student feedback submitted',
+  policy:'Forwards the student’s submitted feedback about the unit and preceptor to that unit’s leader. Review the response before you forward it.',
+  eligible:0,
+  items:[
+   {id:'u1',kind:'ready',who:'Jordan Reyes',sub:'Feedback on 6 NW · preceptor Dana Whitfield',hrs:'108 / 108',thr:'threshold 108',stamp:['ok','Submitted Sep 15'],
+    chain:[['done','Student feedback','Submitted Sep 15',''],['this','Forward to Karen Mills','Unit leader, 6 NW',''],['next','Then','Chain complete','']],
+    sendTo:'K. Mills',label:'Forward feedback',preview:true},
+   {id:'u2',kind:'blocked',who:'Ethan Cole',sub:'Feedback on 5 NW · preceptor Ray Osei',hrs:'112 / 108',thr:'threshold 108',stamp:['soon','Waiting 6d'],
+    chain:[['miss','Student feedback','Sent Sep 13 · not submitted',''],['next','Forward to unit leader','Waits on feedback',''],['next','Then','Chain complete','']],
+    why:'Nothing to forward until the student submits.',remind:'Remind Ethan'},
+   {id:'u3',kind:'blocked',who:'Sofia Alvarez',sub:'Feedback on 6 NW · preceptor Dana Whitfield',hrs:'108 / 108',thr:'threshold 108',stamp:['late','No unit leader'],
+    chain:[['done','Student feedback','Submitted Sep 12',''],['bad','Unit leader','6 NW has none assigned','fix'],['next','Then','Chain complete','']],
+    why:'6 NW has no unit leader on file.',fix:'Assign unit leader'}
+  ],
+  sent:[['Sep 16','Liam Nguyen · 7 South','to P. Grant']]}
+];
+
+const state={wf:'cfpre',detected:'Sep 19, 1:02 PM',last:null,policyOpen:false};
+const cur=()=>WF.find(w=>w.id===state.wf);
+
+function say(m){$('#live').textContent=m}
+function toast(msg,undoable){
+  $('#toastMsg').textContent=msg;$('#undo').hidden=!undoable;
+  const t=$('#toast');t.classList.add('show');clearTimeout(toast.t);
+  toast.t=setTimeout(()=>{t.classList.remove('show');state.last=null},6000);
+}
+const now=()=>new Date().toLocaleTimeString([], {hour:'numeric',minute:'2-digit'});
+
+function renderRail(){
+  const wfs=WF.map(w=>{
+    const r=w.items.filter(i=>i.kind==='ready').length,b=w.items.filter(i=>i.kind==='blocked').length;
+    return '<button class="wf" type="button" data-wf="'+w.id+'" aria-pressed="'+(w.id===state.wf)+'"><span>'+esc(w.name)+'<small>to '+esc(w.to.toLowerCase())+'</small></span>'+
+      '<span class="cnt">'+(r?'<i class="r" title="Ready">'+r+'</i>':'')+(b?'<i class="b" title="Needs a fix">'+b+'</i>':'')+'</span></button>';
+  });
+  $('#rail').innerHTML='<div class="grp">Survey workflows</div>'+wfs.slice(0,5).join('')+'<hr><div class="grp">Unit leader release</div>'+wfs[5];
+  const R=WF.reduce((n,w)=>n+w.items.filter(i=>i.kind==='ready').length,0);
+  const B=WF.reduce((n,w)=>n+w.items.filter(i=>i.kind==='blocked').length,0);
+  const S=WF.reduce((n,w)=>n+w.sent.filter(s=>/AM|PM/.test(s[0])).length,0);
+  $('#summary').innerHTML='<span class="g"><b>'+R+'</b> ready to release</span><span class="a"><b>'+B+'</b> need a fix or a reminder</span><span><b>'+S+'</b> sent today</span><span>across 6 workflows</span>';
+}
+
+function chainHTML(c){
+  return '<div class="chain">'+c.map(n=>{
+    const [st,k,v,tag]=n;
+    const mark=st==='done'?'<i>✓</i>':st==='this'?'<i>Now</i>':st==='miss'?'<i>Waiting</i>':st==='bad'?'<i>Fix</i>':'';
+    return '<div class="node '+st+'"><span class="k">'+esc(k)+'</span><span class="v">'+mark+esc(v)+'</span></div>';
+  }).join('')+'</div>';
+}
+
+function slipHTML(it){
+  const band=it.kind==='ready'?'var(--green)':(it.stamp[0]==='late'?'var(--red)':'var(--amber)');
+  let acts='';
+  if(it.kind==='ready'){
+    acts='<div class="acts">'+(it.preview?'<button class="pbtn" type="button" data-act="previewresp">Read her feedback</button>':'<button class="pbtn" type="button" data-act="previewmail">Preview email</button>')+
+      '<button class="pbtn go" type="button" data-act="release">Release</button></div>';
+  }else{
+    acts='<div class="acts"><span class="why">'+esc(it.why)+'</span>'+
+      (it.remind?'<button class="pbtn" type="button" data-act="remind">'+esc(it.remind)+'</button>':'')+
+      (it.fix?'<button class="pbtn" type="button" data-act="fix">'+esc(it.fix)+'</button>':'')+
+      (it.jump?'<button class="pbtn link" type="button" data-act="jump" data-wf="'+it.jump[0]+'" data-target="'+it.jump[1]+'">'+esc(it.jump[2])+' →</button>':'')+'</div>';
+  }
+  return '<article class="slip'+(it.kind==='blocked'?' blocked':'')+'" data-id="'+it.id+'" style="--band:'+band+'">'+
+    '<div class="top"><div class="who">'+esc(it.who)+'<small>'+esc(it.sub)+'</small></div>'+
+    '<div style="display:grid;gap:4px;justify-items:end"><span class="stamp '+it.stamp[0]+'">'+esc(it.stamp[1])+'</span><span class="hours"><b>'+esc(it.hrs)+'</b> h<span class="thr">'+esc(it.thr)+'</span></span></div></div>'+
+    chainHTML(it.chain)+acts+'</article>';
+}
+
+function renderBoard(){
+  const w=cur();
+  const ready=w.items.filter(i=>i.kind==='ready'),blocked=w.items.filter(i=>i.kind==='blocked');
+  let h='<span class="clip" aria-hidden="true"><i></i><i></i></span>';
+  h+='<div class="bhead"><div class="titlerow"><h2>'+esc(w.name)+'</h2><span class="was">'+(w.was==='new workflow'?'new':'currently "'+esc(w.was)+'"')+'</span></div>'+
+     '<div class="chips"><span class="chip">To: '+esc(w.to)+'</span><span class="chip">Trigger: '+esc(w.trigger)+'</span><span class="chip gate">'+esc(w.gate)+'</span></div>'+
+     '<div class="tools"><button class="bbtn" type="button" data-tool="survey">Preview survey</button><button class="bbtn" type="button" data-tool="email">Preview email</button><button class="bbtn" type="button" data-tool="test">Send test to me</button>'+
+     '<button class="bbtn" type="button" data-tool="rerun">Re-run detection</button><span class="meta">Detected '+esc(state.detected)+'</span></div>'+
+     '<div class="policy"><span>Human-approved sends only.</span><button type="button" data-tool="policy">'+(state.policyOpen?'Hide':'How release works')+'</button>'+(state.policyOpen?'<span class="more">'+esc(w.policy)+'</span>':'')+'</div></div>';
+
+  h+='<section class="stack"><div class="sect-head"><span>Ready to release ('+ready.length+')</span><em>Every prerequisite is done</em></div>'+
+     (ready.length?ready.map(slipHTML).join(''):'<div class="slip" style="--band:var(--rule);text-align:center;color:var(--paper-muted)">Nothing waiting on you here.</div>')+'</section>';
+  if(blocked.length){
+    h+='<section class="stack"><div class="sect-head"><span>Needs a fix or a reminder ('+blocked.length+')</span><em>Something a person can do today</em></div>'+blocked.map(slipHTML).join('')+'</section>';
+  }
+  if(w.eligible||w.notEligibleNames){
+    const names=w.notEligibleNames||['Ace Capati 48/108','Alex Grigorian 40/135','Allison Rabanales 60/108','Annalise Chung 48/135','Ben Ortega 30/90','Chloe Park 72/135','Dev Patel 54/108','Emma Sato 66/135'].slice(0,Math.min(8,w.eligible));
+    const label=w.notEligibleLabel||('Not yet eligible ('+w.eligible+') · below the hours threshold, nothing to do yet');
+    h+='<details class="eligible"><summary>'+esc(label)+'</summary><ul>'+names.map(n=>'<li>'+esc(n)+'</li>').join('')+(w.eligible>8?'<li>and '+(w.eligible-8)+' more</li>':'')+'</ul></details>';
+  }
+  h+='<div class="tape"><div class="th"><span>Sent from this clipboard</span><button type="button" data-tool="responses">Track responses →</button></div>'+
+     (w.sent.length?w.sent.map((s,i)=>'<div class="line"><span class="t">'+esc(s[0])+'</span><span>'+esc(s[1])+'</span><span class="r">'+esc(s[2])+(i===0&&state.last&&state.last.wf===w.id?' · <button type="button" data-tool="undo">Undo</button>':'')+'</span></div>').join(''):'<div class="empty">Nothing sent from here yet.</div>')+'</div>';
+  $('#board').innerHTML=h;
+}
+function render(){renderRail();renderBoard()}
+
+function release(id){
+  const w=cur();const idx=w.items.findIndex(i=>i.id===id);if(idx<0)return;
+  const it=w.items[idx];
+  const finish=()=>{
+    w.items.splice(idx,1);
+    w.sent.unshift([now(),it.who+' · '+it.label,'to '+it.sendTo]);
+    state.last={wf:w.id,item:it,idx};
+    render();toast(it.label+' sent to '+it.sendTo+' for '+it.who,true);say('Released');
+  };
+  const n=document.querySelector('[data-id="'+id+'"]');
+  if(reduce||!n){finish();return}
+  n.classList.add('gone');setTimeout(finish,230);
+}
+function undo(){
+  if(!state.last)return;
+  const w=WF.find(x=>x.id===state.last.wf);
+  w.items.splice(state.last.idx,0,state.last.item);w.sent.shift();
+  state.last=null;$('#toast').classList.remove('show');render();toast('Put back on the board',false);
+}
+
+$('#board').addEventListener('click',e=>{
+  const tool=e.target.closest('[data-tool]');
+  if(tool){
+    const t=tool.dataset.tool,w=cur();
+    if(t==='policy'){state.policyOpen=!state.policyOpen;renderBoard();return}
+    if(t==='rerun'){state.detected='Sep 19, '+now();renderBoard();toast('Detection re-run. Nothing changed.',false);return}
+    if(t==='undo'){undo();return}
+    if(t==='responses'){toast('Opens the Responses tab filtered to '+w.name,false);return}
+    toast({survey:'Opens the survey preview',email:'Opens the email preview',test:'Test copy sent to you'}[t],false);return;
+  }
+  const act=e.target.closest('[data-act]');if(!act)return;
+  const card=e.target.closest('[data-id]'),id=card.dataset.id,w=cur(),it=w.items.find(i=>i.id===id);
+  const a=act.dataset.act;
+  if(a==='release'){release(id);return}
+  if(a==='remind'){it.stamp=['soon','Reminded today'];it.remind=null;renderBoard();toast('Reminder sent to '+it.who,false);return}
+  if(a==='fix'){toast('Opens '+it.who+' in Student Profiles',false);return}
+  if(a==='previewmail'){toast('Email preview for '+it.who,false);return}
+  if(a==='previewresp'){toast('Opens '+it.who+'’s submitted feedback',false);return}
+  if(a==='jump'){
+    state.wf=act.dataset.wf;render();
+    const n=document.querySelector('[data-id="'+act.dataset.target+'"]');
+    if(n){n.classList.add('flash');n.scrollIntoView({block:'center',behavior:reduce?'auto':'smooth'})}
+    say('Switched to '+cur().name);return;
+  }
+});
+$('#rail').addEventListener('click',e=>{const b=e.target.closest('[data-wf]');if(!b)return;state.wf=b.dataset.wf;state.policyOpen=false;render();window.scrollTo({top:0,behavior:reduce?'auto':'smooth'})});
+$('#undo').onclick=undo;
+document.querySelectorAll('.theme-toggle button').forEach(b=>b.onclick=()=>{
+  document.documentElement.setAttribute('data-theme',b.dataset.t);
+  document.querySelectorAll('.theme-toggle button').forEach(x=>x.setAttribute('aria-pressed',x.dataset.t===b.dataset.t));
+});
+render();
+</script>

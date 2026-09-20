@@ -71,9 +71,12 @@ ok('Server pre-send guard is mandatory: missing or mismatched instrument refuses
 // order, so Review & Release always opened on the third workflow. The default is now the FIRST
 // workflow in displayed order. The property this scenario actually protects is unchanged:
 // nothing here depends on counts.
-assert.equal(resolveEffectiveWorkflow(null), 'preceptor');
-assert.equal(resolveEffectiveWorkflow(undefined), 'preceptor');
-assert.equal(DEFAULT_WORKFLOW_KEY, 'preceptor');
+// REVIEW-RELEASE-1 put the Pre-Rotation Casey-Fink first in the rail, so the first in
+// display order is now that workflow. The PROPERTY is unchanged: the default is whatever
+// is first, never a favourite and never a count.
+assert.equal(resolveEffectiveWorkflow(null), WORKFLOW_KEYS[0]);
+assert.equal(resolveEffectiveWorkflow(undefined), WORKFLOW_KEYS[0]);
+assert.equal(DEFAULT_WORKFLOW_KEY, 'caseyFinkPreRotation');
 assert.equal(DEFAULT_WORKFLOW_KEY, WORKFLOW_KEYS[0], 'the default must track display order, not a favourite');
 ok('Scenario 1 - before counts resolve, the operational workflow is the first in display order');
 
@@ -82,7 +85,7 @@ const bothReady = { student: { due_sendable: 1 }, caseyFinkPostRotation: { due_s
 //   Old behavior (removed): auto-followed the first ready workflow -> Student (earlier in order).
 assert.equal(legacyResolve(null, bothReady), 'student');
 //   New behavior (production): counts are ignored; the operational workflow stays the default.
-assert.equal(resolveEffectiveWorkflow(null), 'preceptor');
+assert.equal(resolveEffectiveWorkflow(null), DEFAULT_WORKFLOW_KEY);
 //   And the post-release auto-follow that produced the misleading Casey-Fink screenshot: once a
 //   Student release drops student.due_sendable to 0, the OLD resolver flipped to Casey-Fink. The new
 //   resolver never depended on counts, so no such flip exists.
@@ -91,12 +94,12 @@ ok('Scenario 2 - old resolver auto-followed Student then flipped to Casey-Fink; 
 
 // Scenario 2b: initial selection precedence is URL, then last-opened, then first in order, and
 // STILL never counts. This is the fix for "Review & Release always opens Casey-Fink".
-assert.equal(resolveInitialWorkflow({}), 'preceptor');
+assert.equal(resolveInitialWorkflow({}), DEFAULT_WORKFLOW_KEY);
 assert.equal(resolveInitialWorkflow({ urlKey: 'student' }), 'student');
 assert.equal(resolveInitialWorkflow({ storedKey: 'postRotation' }), 'postRotation');
 assert.equal(resolveInitialWorkflow({ urlKey: 'caseyFinkPostRotation', storedKey: 'student' }), 'caseyFinkPostRotation',
   'a deep link must outrank the stored selection');
-assert.equal(resolveInitialWorkflow({ urlKey: 'nope', storedKey: 'alsoNope' }), 'preceptor',
+assert.equal(resolveInitialWorkflow({ urlKey: 'nope', storedKey: 'alsoNope' }), DEFAULT_WORKFLOW_KEY,
   'invalid keys fall through to the first workflow');
 // Counts are not a parameter at all, so they cannot influence the initial view.
 assert.equal(resolveInitialWorkflow({ storedKey: 'student' }), 'student');
@@ -161,14 +164,14 @@ ok('Scenario 2b - initial selection is URL, then last-opened, then first in orde
 // Scenario 8: inactive panels cannot cross-wire. There is exactly one operational key at a time, and
 // the routes are frozen, so an inactive panel cannot expose a control that submits another endpoint.
 {
-  const keys = [null, 'preceptor', 'student', 'caseyFinkPostRotation', 'postRotation'];
+  const keys = [null, 'caseyFinkPreRotation', 'preceptor', 'student', 'caseyFinkPostRotation', 'postRotation'];
   for (const sel of keys) {
     const effective = resolveEffectiveWorkflow(sel);
     assert.ok(WORKFLOW_KEYS.includes(effective));   // always exactly one valid operational key
   }
   // Unknown/garbage selection falls back to the safe default rather than an arbitrary workflow.
   assert.equal(resolveEffectiveWorkflow('not_a_workflow'), DEFAULT_WORKFLOW_KEY);
-  assert.equal(resolveEffectiveWorkflow('not_a_workflow'), 'preceptor');
+  assert.equal(resolveEffectiveWorkflow('not_a_workflow'), WORKFLOW_KEYS[0]);
   ok('Scenario 8 - exactly one operational workflow; unknown selection falls back to the default');
 }
 

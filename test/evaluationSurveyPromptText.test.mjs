@@ -29,7 +29,9 @@ const preceptorContent = json('lib/server/evaluation/content/preceptor_progress.
 const model = buildPreviewModel('student_preceptor_eval', studentContent)
 const renderer = read('src/pages/StudentEvaluationPage.jsx')
 const normalizer = read('src/lib/evaluation/surveyPreviewModel.js')
-const panel = read('src/components/evaluation/PostRotationAutomationPanel.jsx')
+// REVIEW-RELEASE-1: the Rotation Feedback panel became a workflow on the shared queue.
+const panel = read('src/components/evaluation/ReviewReleaseQueue.jsx')
+const dash = read('src/components/evaluation/SurveyAutomationDashboard.jsx')
 const rotationSurveyPage = read('src/pages/PostRotationEvaluationPage.jsx')
 
 const stripJs = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
@@ -219,9 +221,9 @@ test('but the workflow is still active, releasable, and not gated', () => {
   const s = surveyByKey('postRotation')
   assert.equal(s.status, 'active')
   assert.equal(s.certificateGate, false)
-  assert.match(stripJs(panel), /Release Survey/)
-  assert.match(stripJs(panel), /setConfirm\(r\)/, 'release still requires human confirmation')
-  assert.match(stripJs(panel), /expected_instrument_slug: ROUTE\.instrumentSlug/)
+  assert.match(stripJs(panel), /onClick=\{\(\) => onRelease\(item\)\}/)
+  assert.match(stripJs(dash), /setConfirmItem\(item\)/, 'release still requires human confirmation')
+  assert.match(stripJs(dash), /expected_instrument_slug: route\.instrumentSlug/)
 })
 
 test('Casey-Fink remains the only certificate-gated workflow', () => {

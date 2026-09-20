@@ -25,12 +25,13 @@ const here = dirname(fileURLToPath(import.meta.url))
 const read = (p) => readFileSync(join(here, '..', p), 'utf8')
 
 const dash    = read('src/components/evaluation/SurveyAutomationDashboard.jsx')
+const queue   = read('src/components/evaluation/ReviewReleaseQueue.jsx')
 const consoleSrc = read('src/components/evaluation/UnitEvaluationReleaseConsole.jsx')
 const tab     = read('src/components/EvaluationTab.jsx')
 
 // ── Nav-key routing (functional) ─────────────────────────────────────────────────────
 
-test('the navigator key space is the four survey workflows plus Release to Unit Leaders', () => {
+test('the navigator key space is the five survey workflows plus Release to Unit Leaders', () => {
   for (const k of WORKFLOW_KEYS) assert.equal(isReviewReleaseNavKey(k), true, k)
   assert.equal(isReviewReleaseNavKey(UNIT_LEADER_RELEASE_KEY), true)
   assert.equal(UNIT_LEADER_RELEASE_KEY, 'unitLeaderRelease')
@@ -64,17 +65,20 @@ test('the survey-only resolvers are byte-preserved (release routing cannot regre
 
 // ── The two-section navigator ────────────────────────────────────────────────────────
 
-test('the left rail has both sections with the Settings-style group labels', () => {
-  assert.match(dash, /<p className="rr-nav-group">Survey Workflows<\/p>/)
-  assert.match(dash, /<p className="rr-nav-group">Unit Leader Release<\/p>/)
+test('the left rail has both sections, grouped as the brief names them', () => {
+  // REVIEW-RELEASE-1 (section 5): Survey workflows (1 to 5) and Unit leader release (6),
+  // every row the same navigator row, driven by the catalog's `group`.
+  assert.match(dash, /<p className="rr-nav-group">Survey workflows<\/p>/)
+  assert.match(dash, /<p className="rr-nav-group">Unit leader release<\/p>/)
+  assert.match(dash, /WORKFLOWS\.filter\(w => w\.group === 'survey'\)\.map\(w => \(/)
+  assert.match(dash, /WORKFLOWS\.filter\(w => w\.group === 'unitLeader'\)\.map\(w => \(/)
   // The UL row is a real navigator row with the same selected treatment and semantics.
-  assert.match(dash, /className=\{`rr-row-select\$\{unitReleaseSelected \? ' sel' : ''\}`\}/)
-  assert.match(dash, /aria-current=\{unitReleaseSelected \? 'true' : undefined\}/)
-  assert.match(dash, /Release to Unit Leaders/)
+  assert.match(dash, /className=\{`rr-row-select\$\{selected \? ' sel' : ''\}`\}/)
+  assert.match(dash, /aria-current=\{selected \? 'true' : undefined\}/)
+  assert.match(dash, /aria-pressed=\{selected\}/)
   // The mobile selector mirrors both sections.
-  assert.match(dash, /<optgroup label="Survey Workflows">/)
-  assert.match(dash, /<optgroup label="Unit Leader Release">/)
-  assert.match(dash, /<option value=\{UNIT_LEADER_RELEASE_KEY\}>Release to Unit Leaders<\/option>/)
+  assert.match(dash, /<optgroup label="Survey workflows">/)
+  assert.match(dash, /<optgroup label="Unit leader release">/)
 })
 
 test('one deep-link mechanism: the same ?workflow param, replace semantics preserved', () => {
@@ -89,31 +93,39 @@ test('one deep-link mechanism: the same ?workflow param, replace semantics prese
 
 // ── The workspace switch ─────────────────────────────────────────────────────────────
 
-test('selecting Unit Leader Release swaps the workspace; survey panels stay mounted', () => {
-  assert.match(dash, /\{unitReleaseSelected && <UnitEvaluationReleaseConsole embedded \/>\}/)
-  // The survey surface is display-toggled, never unmounted, so detection keeps
-  // reporting counts to the nav rows and banner while the console is open.
-  assert.match(dash, /<div style=\{\{ display: unitReleaseSelected \? 'none' : 'block' \}\}>/)
-  for (const panel of ['PreceptorAutomationPanel', 'StudentEvalAutomationPanel',
-    'CaseyFinkPostRotationAutomationPanel', 'PostRotationAutomationPanel']) {
-    assert.match(dash, new RegExp(`<${panel}[^>]*onCounts=`), `${panel} keeps its onCounts wiring`)
+test('every workflow, the Unit Leader release included, renders through the one queue', () => {
+  // REVIEW-RELEASE-1: one queue component. Detection for every workflow runs whether or
+  // not it is selected (two queries, one for the surveys and one for the UL release), so
+  // the rail badges and the summary line always add up all six.
+  assert.match(dash, /<ReviewReleaseQueue/)
+  assert.match(dash, /queryKey: \['review_release_evidence', cohortId\]/)
+  assert.match(dash, /queryKey: \['review_release_unit_leader'\]/)
+  assert.match(dash, /out\.unitLeaderRelease = adaptUnitLeaderRelease\(/)
+  for (const adapter of ['adaptCaseyFinkPreRotation', 'adaptPreceptor', 'adaptStudentFeedback', 'adaptCaseyFinkPostRotation', 'adaptAspireFeedback']) {
+    assert.match(dash, new RegExp(`out\\.\\w+ = ${adapter}\\(`), `${adapter} feeds the queues`)
   }
+  // The UL release still acts through the same RPC action path as the console did.
+  assert.match(dash, /postReleaseAction\(\{ action: meta\.action, responseId: item\.responseId, decision: meta\.decision \}\)/)
   // The one shared workspace shell (no card-inside-card duplication).
   assert.match(dash, /<section id=\{WORKSPACE_ID\} className="rr-workspace">/)
 })
 
-test('EvaluationTab no longer stacks the console above the dashboard', () => {
+test('EvaluationTab renders the dashboard behind the same gate, and wires Track responses', () => {
   assert.doesNotMatch(tab, /<UnitEvaluationReleaseConsole/)
   assert.doesNotMatch(tab, /import UnitEvaluationReleaseConsole/)
   // Top-level Evaluation tabs unchanged: Responses + Review & Release, same gate.
   assert.match(tab, /Responses<\/button>/)
   assert.match(tab, /Review &amp; Release<\/button>/)
-  assert.match(tab, /activeSubTab === 'automation' && \(isOwner \|\| isAdmin\) && \(\s*\n\s*<SurveyAutomationDashboard cohortId=\{cohortId\} \/>/)
+  assert.match(tab, /activeSubTab === 'automation' && \(isOwner \|\| isAdmin\) && \(\s*\n\s*<SurveyAutomationDashboard/)
+  // Section 4: the Sent log links to the Responses tab filtered to that workflow.
+  assert.match(tab, /onTrackResponses=\{\(survey\) => \{/)
+  assert.match(tab, /setFilterInstrument\(name\)/)
+  assert.match(tab, /setActiveSubTab\('cohort'\)/)
 })
 
 // ── The console is unchanged except its container ────────────────────────────────────
 
-test('embedded only removes the page-level padding; every release behavior survives', () => {
+test('the console file is unchanged and keeps every release behavior (no longer mounted by the dashboard)', () => {
   assert.match(consoleSrc, /UnitEvaluationReleaseConsole\(\{ embedded = false \}\)/)
   assert.match(consoleSrc, /padding: embedded \? 0 : '0 20px 24px'/)
   // Counts for all five release states.
@@ -136,13 +148,14 @@ test('embedded only removes the page-level padding; every release behavior survi
 
 // ── EVAL-RR-RAIL-C-1: the Owner-approved Settings-style compact rail ─────────────────
 
-test('the rail is one 232px Settings-style card of compact single-line rows', () => {
-  assert.match(dash, /grid-template-columns:232px minmax\(0, 1fr\)/)
-  // One quiet card: the rail itself carries the card chrome; rows carry none.
+test('the rail is one Settings-style card, the same height as the board, not sticky', () => {
+  // REVIEW-RELEASE-1 (section 5): the rail is the same height as the main panel and
+  // starts at the same top edge, and it is NOT sticky. 270px because the six names are
+  // the Owner's full names.
+  assert.match(dash, /grid-template-columns:270px minmax\(0, 1fr\); gap:20px; align-items:stretch;/)
   assert.match(dash, /\.rr-nav \{[\s\S]*?background:#fff; border:1px solid #e8e4dc; border-radius:14px; padding:10px;/)
   assert.match(dash, /\.rr-row-select \{[\s\S]*?background:transparent; border:none; border-radius:9px;/)
-  // Sticky behavior preserved on the card.
-  assert.match(dash, /\.rr-nav \{[\s\S]*?position:sticky; top:var\(--app-chrome-height\);/)
+  assert.ok(!/\.rr-nav \{[\s\S]*?position:sticky/.test(dash), 'the rail is not sticky any more')
   // Sections separated by a hairline, Settings-style.
   assert.match(dash, /\.rr-nav \.rr-nav-group:not\(:first-child\) \{ margin-top:8px; border-top:1px solid #f0ede6;/)
 })
@@ -154,34 +167,37 @@ test('selected state is the filled navy row with white text', () => {
   assert.doesNotMatch(dash, /inset 3px 0 0 0/)
 })
 
-test('status compresses to chips and the gate dot; recipient subtitles are gone from the rail', () => {
-  // Chips derive from the SAME panel-reported counts as before.
-  assert.match(dash, /const ready = counts\?\.due_sendable \|\| 0/)
-  assert.match(dash, /const needs = counts\?\.due_unsendable \|\| 0/)
-  assert.match(dash, /\{ready > 0 && <span className="rr-chip" title=\{`\$\{ready\} ready to release`\}/)
-  assert.match(dash, /\{needs > 0 && <span className="rr-chip rr-chip-attn" title=\{`\$\{needs\} needs attention`\}/)
-  assert.match(dash, /\{w\.badge && <span className="rr-gate-dot" title=\{w\.badge\}/)
-  assert.match(dash, /\{w\.paused && <span className="rr-chip rr-chip-paused"/)
-  // Chips invert on the navy selected row.
-  assert.match(dash, /\.rr-row-select\.sel \.rr-chip \{ background:rgba\(255,255,255,0\.22\); color:#fff;/)
-  // No recipient subtitle or status prose inside desktop rows (w.recipient only feeds
-  // the email preview title metadata; statusLine survives ONLY in the mobile select).
-  assert.doesNotMatch(dash, /\{w\.recipient\}/)
-  const desktopRow = dash.slice(dash.indexOf('function WorkflowNavRow'), dash.indexOf('export default function'))
-  assert.doesNotMatch(desktopRow, /statusLine\(/)
-  assert.match(dash, /- \{statusLine\(w, counts\[w\.key\]\)\}/, 'mobile select keeps the spelled-out status')
+test('a rail row is the name, "to <recipient>", and two count badges hidden at zero', () => {
+  // REVIEW-RELEASE-1 (section 5): green badge = ready, amber badge = blocked, each hidden
+  // when its count is 0. Counts come from the shared three-state shape, not from the old
+  // panel summaries.
+  assert.match(dash, /const ready = counts\?\.ready \|\| 0/)
+  assert.match(dash, /const blocked = counts\?\.blocked \|\| 0/)
+  assert.match(dash, /\{ready > 0 && <i className="r" title="Ready">\{ready\}<\/i>\}/)
+  assert.match(dash, /\{blocked > 0 && <i className="b" title="Needs a fix">\{blocked\}<\/i>\}/)
+  assert.match(dash, /<span className="rr-row-label">\{w\.label\}<small>to \{w\.to\}<\/small><\/span>/)
   // The full sentence survives for screen readers on the row itself.
   assert.match(dash, /aria-label=\{srBits\.join\(', '\)\}/)
+  // The summary line adds up every workflow (section 5).
+  assert.match(dash, /\{totals\.ready\}<\/b> ready to release/)
+  assert.match(dash, /\{totals\.blocked\}<\/b> need a fix or a reminder/)
+  assert.match(dash, /\{sentToday\}<\/b> sent today/)
+  assert.match(dash, /sent today/)
+  assert.match(dash, /across \{WORKFLOWS\.length\} workflows/)
 })
 
 // ── Accessibility ────────────────────────────────────────────────────────────────────
 
-test('keyboard and active-state semantics: native buttons, aria-current, visible focus', () => {
-  assert.match(dash, /aria-label="Review and Release tools"/)
-  assert.match(dash, /\.rr-row-select:focus-visible \{ outline:3px solid #93c5fd; outline-offset:2px; \}/)
-  // Rows are native <button type="button"> (Enter/Space work without extra handlers).
-  const navRegion = dash.slice(dash.indexOf('aria-label="Review and Release tools"'), dash.indexOf('</nav>'))
+test('keyboard and active-state semantics: native buttons, aria-pressed, visible focus', () => {
+  // Section 7: the rail is a group of buttons with aria-pressed; switching announces the
+  // workflow name (the queue's heading changes and the summary line is a live region).
+  assert.match(dash, /<nav className="rr-nav" aria-label="Survey workflows">/)
+  assert.match(dash, /\.rr-row-select:focus-visible \{[\s\S]*?outline:3px solid #93c5fd; outline-offset:2px;/)
+  const navRegion = dash.slice(dash.indexOf('aria-label="Survey workflows">'), dash.indexOf('</nav>'))
   assert.doesNotMatch(navRegion, /<div[^>]*onClick/)
+  assert.match(queue, /<details className="rq-eligible"/)
+  assert.match(queue, /aria-expanded=\{policyOpen\}/)
+  assert.match(queue, /role="status"/)
 })
 
 test('no em dash in the code this pass wrote', () => {

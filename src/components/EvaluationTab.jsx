@@ -625,7 +625,20 @@ export default function EvaluationTab({ cohortId }) {
              surface - it is a section INSIDE the dashboard's navigator (Survey Workflows /
              Unit Leader Release), selected like any workflow. ── */}
       {activeSubTab === 'automation' && (isOwner || isAdmin) && (
-        <SurveyAutomationDashboard cohortId={cohortId} />
+        <SurveyAutomationDashboard
+          cohortId={cohortId}
+          // REVIEW-RELEASE-1: "Track responses" on a workflow's Sent log opens the Responses
+          // tab filtered to that workflow's instrument, by display name, which is what the
+          // Responses filter is keyed on.
+          onTrackResponses={(survey) => {
+            const name = survey?.slug
+              ? (assignments.find(a => a.evaluation_instruments?.slug === survey.slug)?.evaluation_instruments?.display_name || 'All')
+              : 'All'
+            setFilterInstrument(name)
+            setFilterTimepoint('All')
+            setActiveSubTab('cohort')
+          }}
+        />
       )}
 
       {/* ── Cohort View ─────────────────────────────────────────────────── */}

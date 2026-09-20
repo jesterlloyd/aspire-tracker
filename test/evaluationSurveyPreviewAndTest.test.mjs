@@ -22,6 +22,7 @@ import {
 } from '../src/lib/evaluation/surveyCatalog.js'
 import { buildPreviewModel, countQuestions } from '../src/lib/evaluation/surveyPreviewModel.js'
 import { WORKFLOW_KEYS } from '../src/lib/evaluation/workflowSelection.js'
+import { sharesInstrumentWith } from '../src/lib/evaluation/surveyCatalog.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const read = (p) => readFileSync(join(here, '..', p), 'utf8')
@@ -30,6 +31,7 @@ const drawer   = read('src/components/evaluation/SurveyPreviewDrawer.jsx')
 const testPage = read('src/pages/SurveyTestModePage.jsx')
 const endpoint = read('api/evaluation-send-survey-test.js')
 const dash     = read('src/components/evaluation/SurveyAutomationDashboard.jsx')
+const queue    = read('src/components/evaluation/ReviewReleaseQueue.jsx')
 const app      = read('src/App.jsx')
 const model    = read('src/lib/evaluation/surveyPreviewModel.js')
 
@@ -38,15 +40,19 @@ const drawerCode   = stripJs(drawer)
 const testPageCode = stripJs(testPage)
 const endpointCode = stripJs(endpoint)
 const dashCode     = stripJs(dash)
+const queueCode    = stripJs(queue)
 
 // ── The catalog covers every registered workflow ────────────────────────────
 test('the catalog registers exactly the known workflow keys', () => {
-  assert.deepEqual(SURVEY_CATALOG.map(s => s.key), [...WORKFLOW_KEYS],
+  // REVIEW-RELEASE-1: the catalog also carries the Unit Leader release (group
+  // 'unitLeader'), which is a navigator item but not a survey workflow.
+  assert.deepEqual(SURVEY_CATALOG.filter(s => s.group === 'survey').map(s => s.key), [...WORKFLOW_KEYS],
     'the catalog and the selection resolver must not drift apart')
+  assert.deepEqual(SURVEY_CATALOG.filter(s => s.group !== 'survey').map(s => s.key), ['unitLeaderRelease'])
 })
 
 test('every workflow can render a preview or an explicit unsupported state', () => {
-  for (const s of SURVEY_CATALOG) {
+  for (const s of SURVEY_CATALOG.filter(w => w.slug)) {
     assert.ok(s.slug, `${s.key} must declare a slug`)
     assert.ok(['storage', 'inline'].includes(s.contentSource), `${s.key} must declare a content source`)
     // Inline content must resolve with no request at all.
@@ -94,9 +100,16 @@ test('a genuinely shared survey would be reported as shared, not merely as simil
   assert.match(relationshipFor('student').note, /different survey/i)
 })
 
-test('every workflow has a distinct slug today', () => {
-  const slugs = SURVEY_CATALOG.map(s => s.slug)
-  assert.equal(new Set(slugs).size, slugs.length)
+test('every survey workflow has a distinct (slug, timepoint) identity', () => {
+  // REVIEW-RELEASE-1: the pre- and post-rotation Casey-Fink deliberately SHARE an
+  // instrument at two timepoints, which is the whole point of a baseline. Identity is
+  // therefore the pair, and the catalog reports the pair as a shared instrument, not as
+  // a duplicate survey.
+  const ids = SURVEY_CATALOG.filter(s => s.slug).map(s => `${s.slug}@${s.timepoint}`)
+  assert.equal(new Set(ids).size, ids.length)
+  assert.deepEqual(sharesInstrumentWith('caseyFinkPreRotation').map(s => s.key), ['caseyFinkPostRotation'])
+  assert.equal(relationshipFor('caseyFinkPreRotation').kind, 'shared_instrument')
+  assert.equal(sameSurveyAs('caseyFinkPreRotation').length, 0)
 })
 
 // ── Preview uses the live source of truth, never a copy ─────────────────────
@@ -183,9 +196,11 @@ test('the test email is labelled TEST in both subject and body', () => {
 })
 
 test('the test action is never labelled Release', () => {
-  const toolbar = dashCode.slice(dashCode.indexOf('Send test to me') - 600, dashCode.indexOf('Send test to me') + 200)
+  // REVIEW-RELEASE-1: the toolbar is rendered by the queue.
+  const at = queueCode.indexOf('Send test to me')
+  assert.ok(at > -1, 'the test control exists on the toolbar')
+  const toolbar = queueCode.slice(queueCode.indexOf('aria-label="Survey tools"'), at + 200)
   assert.ok(!/Release/.test(toolbar), 'the test control must not read as a release action')
-  assert.match(dashCode, /Send test to me/)
 })
 
 // ── Test mode writes nothing at all ─────────────────────────────────────────
@@ -250,15 +265,15 @@ test('the test link carries no token and is useless without a session', () => {
 })
 
 // ── Paused workflows: previewable and testable, never releasable ────────────
-test('every workflow can be previewed and tested regardless of release status', () => {
+test('every survey workflow can be previewed and tested regardless of release status', () => {
   // CHANGED BY PRODUCT DECISION: ASPIRE Rotation Feedback is no longer paused, so there is
   // no paused workflow to special-case. The property that matters is unchanged and now
   // applies to all four: preview and test never depend on releasability.
   assert.equal(SURVEY_CATALOG.filter(s => s.status === 'paused').length, 0,
     'no workflow is paused today')
-  for (const s of SURVEY_CATALOG) {
+  for (const s of SURVEY_CATALOG.filter(w => w.slug)) {
     assert.ok(['active', 'paused'].includes(s.status), `${s.key} must declare a status`)
-    assert.match(endpointCode, new RegExp(`${s.key}: '`), `${s.key} must be testable`)
+    assert.match(endpointCode, new RegExp(`${s.key}: ['"]`), `${s.key} must be testable`)
   }
   assert.ok(buildPreviewModel('post_rotation_evaluation', null))
 })
@@ -276,8 +291,10 @@ test('the survey preview is reachable from the Survey tools toolbar', () => {
   // is now the single entry point. Coverage of the toolbar itself lives in
   // test/evaluationReviewReleaseCorrections.test.mjs.
   assert.ok(!dashCode.includes('rr-row-eye'), 'the per-row eye icon is gone')
-  assert.match(dashCode, /aria-label="Survey tools"/)
-  assert.match(dashCode, /setSurveyPreviewKey\(effective\)/)
+  // REVIEW-RELEASE-1: the toolbar is rendered by the queue; the dashboard hands it the
+  // preview opener for the selected workflow.
+  assert.match(queueCode, /aria-label="Survey tools"/)
+  assert.match(dashCode, /onPreviewSurvey: \(\) => setSurveyPreviewKey\(effective\)/)
 })
 
 test('the nav row contains exactly one control, so no button is nested in a button', () => {
@@ -286,8 +303,8 @@ test('the nav row contains exactly one control, so no button is nested in a butt
 })
 
 test('the survey preview is distinct from the pre-existing email preview', () => {
-  assert.match(dashCode, /Preview Survey/)
-  assert.match(dashCode, /Preview Email/)
+  assert.match(queueCode, /Preview Survey/)
+  assert.match(queueCode, /Preview Email/)
   assert.match(dashCode, /<SurveyPreviewDrawer/)
   assert.match(dashCode, /<AutomationEmailPreviewDrawer/)
 })
@@ -298,12 +315,13 @@ test('production release controls are unchanged', () => {
   // survey-only resolver keeps its exact semantics inside resolveEffectiveNavKey
   // (releaseRouting.test.mjs still pins resolveEffectiveWorkflow functionally).
   assert.match(dashCode, /resolveEffectiveNavKey/)
-  for (const panel of ['PreceptorAutomationPanel', 'StudentEvalAutomationPanel',
-    'CaseyFinkPostRotationAutomationPanel', 'PostRotationAutomationPanel']) {
-    assert.match(dashCode, new RegExp(`<${panel}`), `${panel} must still mount`)
-  }
-  assert.ok(!dashCode.includes('evaluation-release'),
-    'the dashboard shell still performs no release itself')
+  // REVIEW-RELEASE-1: the four panels became one queue. Every release still goes to the
+  // workflow's OWN route with the pre-send guard, from the dashboard, never from the queue.
+  assert.match(dashCode, /<ReviewReleaseQueue/)
+  assert.match(dashCode, /const route = RELEASE_ROUTES\[item\.workflowId\]/)
+  assert.match(dashCode, /fetch\(route\.endpoint, \{ method: 'POST'/)
+  assert.ok(!queueCode.includes('evaluation-release'),
+    'the queue performs no release itself')
 })
 
 test('the test route is registered above the wildcard', () => {
@@ -320,7 +338,7 @@ test('the test route is registered above the wildcard', () => {
 test('no em dash in the new evaluation sources', () => {
   const EM_DASH = String.fromCharCode(0x2014)
   for (const [name, src] of [
-    ['drawer', drawer], ['test page', testPage], ['endpoint', endpoint],
+    ['drawer', drawer], ['test page', testPage], ['endpoint', endpoint], ['queue', queue],
     ['catalog', read('src/lib/evaluation/surveyCatalog.js')], ['model', model],
   ]) {
     assert.ok(!src.includes(EM_DASH), `${name} must not contain an em dash`)

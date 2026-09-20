@@ -11,18 +11,21 @@
 // first. The dashboard derives the navigator highlight, the active panel, and the email preview from
 // this one value, so the visible workflow and the releasing workflow can never diverge.
 
-// Ordered to match SurveyAutomationDashboard WORKFLOWS keys.
+// Ordered to match the rail (surveyCatalog.js SURVEY_WORKFLOWS). REVIEW-RELEASE-1 added
+// the Pre-Rotation Casey-Fink and put it FIRST, which is the Owner's order: the
+// pre-rotation survey is the first thing a student receives.
 export const WORKFLOW_KEYS = Object.freeze([
+  'caseyFinkPreRotation',
   'preceptor',
   'student',
   'caseyFinkPostRotation',
   'postRotation',
 ])
 
-// The fallback when there is no URL key and no stored selection. This is now the FIRST
+// The fallback when there is no URL key and no stored selection. This is the FIRST
 // workflow in displayed order, not a hardcoded favourite: opening Review and Release used
-// to land on Casey-Fink even though Preceptor Readiness is listed first, which reads as a
-// bug every time. Kept as a derived constant so it cannot drift from the display order.
+// to land on the third workflow while the rail listed another first, which reads as a bug
+// every time. Kept as a derived constant so it cannot drift from the display order.
 export const DEFAULT_WORKFLOW_KEY = WORKFLOW_KEYS[0]
 
 export function isWorkflowKey(key) {
@@ -61,12 +64,13 @@ export const LAST_WORKFLOW_STORAGE_KEY = 'aspire.evaluation.lastWorkflow'
 
 // ── EVAL-RR-UNIFIED-NAV-1: the Review & Release navigator's key space ────────────────
 //
-// The navigator now carries TWO sections: the four survey workflows above, and the
-// Unit Leader Release console. The console is NOT a survey workflow - it has no
-// detection counts, no panels, and must never participate in resolveEffectiveWorkflow
-// (which the release routing regression harness pins to survey keys only). These
-// nav-key helpers are therefore a SUPERSET layered on top; the survey-only functions
-// above are untouched and keep their exact semantics.
+// The navigator carries TWO sections: the five survey workflows above, and the Unit
+// Leader release. REVIEW-RELEASE-1 renders the Unit Leader release through the same
+// queue component as the surveys, but it is still NOT a survey workflow: it has no
+// instrument, no email, and no release endpoint of its own, and it must never
+// participate in resolveEffectiveWorkflow (which the release routing regression harness
+// pins to survey keys only). These nav-key helpers are therefore a SUPERSET layered on
+// top; the survey-only functions above are untouched and keep their exact semantics.
 export const UNIT_LEADER_RELEASE_KEY = 'unitLeaderRelease'
 
 export function isReviewReleaseNavKey(key) {

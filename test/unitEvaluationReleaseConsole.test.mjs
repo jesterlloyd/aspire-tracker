@@ -97,9 +97,13 @@ test('the Review & Release tab renders the console, gated Owner/Admin, without d
   // tab - it is a navigator section INSIDE SurveyAutomationDashboard, still behind the
   // same Owner/Admin subtab gate.
   const dash = read('src/components/evaluation/SurveyAutomationDashboard.jsx')
-  assert.match(tab, /activeSubTab === 'automation' && \(isOwner \|\| isAdmin\) && \(\s*\n\s*<SurveyAutomationDashboard cohortId=\{cohortId\} \/>/)
-  assert.match(dash, /import UnitEvaluationReleaseConsole from '\.\/UnitEvaluationReleaseConsole'/)
-  assert.match(dash, /\{unitReleaseSelected && <UnitEvaluationReleaseConsole embedded \/>\}/)
+  assert.match(tab, /activeSubTab === 'automation' && \(isOwner \|\| isAdmin\) && \(\s*\n\s*<SurveyAutomationDashboard/)
+  // REVIEW-RELEASE-1: the Unit Leader release renders through the shared queue, but it
+  // still reads the same review-queue endpoint and acts through the same RPC actions
+  // the console did; the gates stay in the database.
+  assert.match(dash, /loadUnitLeaderQueue/)
+  assert.match(dash, /postReleaseAction\(\{ action: meta\.action, responseId: item\.responseId, decision: meta\.decision \}\)/)
+  assert.match(dash, /ACTION_STATUS_MESSAGE\[status\]/)
   // The Responses tab and its viewer dispatch are unchanged (still present).
   assert.match(tab, /activeSubTab === 'cohort'/)
   assert.match(tab, /EvaluationResponseDetail|PreceptorResponseDetail|StudentEvalResponseDetail/)
