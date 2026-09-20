@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useLastSynced } from '../hooks/useLastSynced'
 import { useAuth } from '../contexts/AuthContext'
@@ -18,7 +19,7 @@ import { SURVEY_WORKFLOWS } from '../lib/evaluation/surveyCatalog'
 import {
   PACKET_SLUGS, DEFAULT_PACKET_SLUG, STATUS_GROUPS,
   buildPacket, buildInstrumentTabs, buildRosterRows, buildBubbleSheet,
-  rosterSortValue, effectiveStatus, responseOf, timepointLabel,
+  rosterSortValue, effectiveStatus, responseOf, timepointLabel, reissueTarget,
 } from '../lib/evaluation/responsesPacketModel'
 
 // RESPONSES-PACKET-1 (2026-09-19): Evaluation > Responses is a printed results packet.
@@ -132,6 +133,11 @@ export default function EvaluationTab({ cohortId, cohortLabel = '' }) {
   const [live,             setLive]             = useState('')
   // Until the reader picks a tab, the packet opens on the first instrument that has rows.
   const [userPickedInstrument, setUserPickedInstrument] = useState(false)
+  // SURVEY-REISSUE-2: "Send again" on an expired or revoked row hands the reader to that
+  // student's slip on Review & Release, which flashes it on arrival. Cleared when the reader
+  // opens Review & Release by its own button, so a stale arrival never flashes twice.
+  const [rrArrival, setRrArrival] = useState(null)
+  const [, setSearchParams] = useSearchParams()
   const rosterRef = useRef(null)
 
   // Response detail modal state
@@ -288,6 +294,15 @@ export default function EvaluationTab({ cohortId, cohortLabel = '' }) {
     scrollToRoster()
   }
 
+  // Send an expired or revoked survey again: through the same ?workflow deep link the rail
+  // uses, onto that student's slip. The reissue itself is confirmed and sent on the
+  // clipboard, under the endpoint's guards, and lands on its Sent log; nothing is sent here.
+  function sendAgain(target) {
+    setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('workflow', target.workflowId); return n }, { replace: true })
+    setRrArrival({ itemId: target.itemId })
+    setActiveSubTab('automation')
+  }
+
   function toggleRow(id) {
     setExpandedIds(prev => {
       const next = new Set(prev)
@@ -354,6 +369,7 @@ export default function EvaluationTab({ cohortId, cohortLabel = '' }) {
     const sheet = buildBubbleSheet(packet.instrument, row, packet.byStudent, content)
     const a = row.assignment
     const canView = row.status === 'completed' && !!responseOf(a)?.responses
+    const resend = reissueTarget(a)
     return (
       <>
         {row.status !== 'completed' && (
@@ -368,6 +384,7 @@ export default function EvaluationTab({ cohortId, cohortLabel = '' }) {
           sheet={sheet}
           name={row.name}
           onViewResponse={canView ? () => handleViewResponse(a) : null}
+          onSendAgain={resend ? () => sendAgain(resend) : null}
         />
       </>
     )
@@ -435,7 +452,7 @@ export default function EvaluationTab({ cohortId, cohortLabel = '' }) {
               'preceptor' tabs are hidden (components retained, see blocks below). */}
           <button onClick={() => setActiveSubTab('cohort')}  style={btnStyle('cohort')}>Responses</button>
           {(isOwner || isAdmin) && (
-            <button onClick={() => setActiveSubTab('automation')} style={btnStyle('automation')}>Review &amp; Release</button>
+            <button onClick={() => { setRrArrival(null); setActiveSubTab('automation') }} style={btnStyle('automation')}>Review &amp; Release</button>
           )}
         </div>
       </div>
@@ -474,6 +491,7 @@ export default function EvaluationTab({ cohortId, cohortLabel = '' }) {
       {activeSubTab === 'automation' && (isOwner || isAdmin) && (
         <SurveyAutomationDashboard
           cohortId={cohortId}
+          arriveAt={rrArrival}
           // REVIEW-RELEASE-1: "Track responses" on a workflow's Sent log opens the Responses
           // tab on that workflow's instrument tab. RESPONSES-PACKET-1: the tab is keyed by
           // slug now, and a workflow with one timepoint also sets the roster's timepoint.

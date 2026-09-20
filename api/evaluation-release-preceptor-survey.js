@@ -10,6 +10,12 @@
 // release. The durable record of a release is the evaluation_assignment + notification_log
 // (which then makes PS-3a classify the item as suppressed_existing on refresh).
 //
+// SURVEY-REISSUE-2 (Owner, 2026-09-20): a due item whose prior request EXPIRED or was REVOKED
+// is released again by reusing that row (the database keeps one row per student, cohort and
+// period): the shared core rotates its token and re-activates it. The detector names the row
+// (`reissue`), this endpoint verifies it is the student's current cohort's and still
+// reissuable now, and a completed or live request is never touched.
+//
 // SECURITY INVARIANTS:
 //   - Owner/Admin only (server-verified).
 //   - Body accepts ONLY { student_id, period }. Any recipient/email field is rejected.
@@ -27,6 +33,7 @@ import { processPreceptorSend } from '../lib/server/evaluation/preceptorSend.js'
 import { emailBaseUrl } from '../lib/server/appUrl.js';
 import { PERIOD_TO_TIMEPOINT, PERIOD_LABELS } from '../lib/server/evaluation/preceptor_progress_validation.js';
 import { classifyCohort, AUTO_PERIODS } from '../src/lib/evaluation/preceptorDueDetection.js';
+import { isReissuableAssignment } from '../src/lib/evaluation/assignmentReissue.js';
 import { INACTIVE_MESSAGE } from './lib/activeAccount.js';
 
 const INSTRUMENT_SLUG = 'preceptor_progress';
@@ -178,7 +185,7 @@ async function _handler(req, res) {
   const { data: rawAssignments, error: asgErr } = await supabaseAdmin
     .from('evaluation_assignments')
     .select(`
-      id, student_id, timepoint, status, revoked_at, completed_at, expires_at,
+      id, student_id, cohort_id, timepoint, status, revoked_at, completed_at, expires_at,
       notes, sent_at, created_at,
       evaluation_instruments!inner ( slug )
     `)
@@ -237,6 +244,22 @@ async function _handler(req, res) {
     }
   }
 
+  // ── 5c. SURVEY-REISSUE-2: reuse the expired or revoked row the detector named. ─────
+  //       It must belong to the student's CURRENT cohort and still be reissuable at release
+  //       time; otherwise refuse with nothing written and nothing sent.
+  let reissueRow = null;
+  if (row.reissue) {
+    reissueRow = assignments.find(a =>
+      a.id === row.reissue.assignmentId && a.cohort_id === student.cohort_id && isReissuableAssignment(a, Date.now())) || null;
+    if (!reissueRow) {
+      return res.status(200).json({
+        success: true, released: false,
+        classification: 'reissue_unavailable',
+        reason: 'The expired request could not be found for reissue. Re-run detection and try again.',
+      });
+    }
+  }
+
   // ── 6. Release via the shared send core (queue-release source/notes markers). ────
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + WINDOW_DAYS);
@@ -256,6 +279,7 @@ async function _handler(req, res) {
     source:     'preceptor_feedback_queue_release',
     notesValue: `preceptor_progress:${period}:queue_release`,
     redirectPreceptorId,
+    reissueRow,
     logPrefix:  '[preceptor-release]',
   });
 
@@ -269,6 +293,7 @@ async function _handler(req, res) {
       preceptor_email: result.preceptor_email,
       period, period_label: periodLabel,
       sent_at: result.sent_at,
+      reissued: !!reissueRow,
     });
   }
 

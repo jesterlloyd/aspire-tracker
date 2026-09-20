@@ -74,7 +74,7 @@ function WorkflowNavRow({ w, counts, selected, onSelect }) {
   )
 }
 
-export default function SurveyAutomationDashboard({ cohortId, onTrackResponses }) {
+export default function SurveyAutomationDashboard({ cohortId, onTrackResponses, arriveAt }) {
   const { isOwner, isAdmin } = useAuth()
   const canView = isOwner || isAdmin
 
@@ -360,6 +360,20 @@ export default function SurveyAutomationDashboard({ cohortId, onTrackResponses }
   }, [selectWorkflow])
   useEffect(() => () => clearTimeout(flashTimer.current), [])
 
+  // SURVEY-REISSUE-2: arriving from the Responses roster ("Send again") lands on the workflow
+  // the URL names and flashes that student's slip the way a jump does, once the board has its
+  // evidence and the slip is on it. The arrival is read once, at mount; the flash ends itself.
+  const [arrivalId, setArrivalId] = useState(() => arriveAt?.itemId || null)
+  const arrived = !!evidence.data && !!arrivalId
+  useEffect(() => {
+    if (!arrived) return undefined
+    const el = document.querySelector(`[data-item-id="${arrivalId}"]`)
+    const reduced = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches
+    el?.scrollIntoView({ block: 'center', behavior: reduced ? 'auto' : 'smooth' })
+    const t = setTimeout(() => setArrivalId(null), 1400)
+    return () => clearTimeout(t)
+  }, [arrived, arrivalId])
+
   const previewWorkflow = WORKFLOWS.find(w => w.key === previewKey)
   const q = queues[effective] || { items: [], sent: [] }
   const loading = effective === UNIT_LEADER_RELEASE_KEY ? ulQueue.isFetching : evidence.isFetching
@@ -410,7 +424,7 @@ export default function SurveyAutomationDashboard({ cohortId, onTrackResponses }
             error={error}
             busyItemId={busyItemId}
             notice={noticeFor}
-            highlightItemId={highlightItemId}
+            highlightItemId={highlightItemId || (arrived ? arrivalId : null)}
             releaseLocked={identityHold}
             leavingItemId={leavingId}
             onReadFeedback={() => onTrackResponses?.(workflow)}

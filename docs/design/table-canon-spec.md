@@ -30,6 +30,8 @@ Current assignments:
 
 Release, Snooze, Dismiss, Assign, Match: these are decisions, so those rows are slips on a pressboard, per the Review & Release spec. Sorted, exported, read, expanded: those are printout rows. Do not convert a clipboard queue into a table, and do not put a decision button in a table row. An action in a table row may only open something elsewhere.
 
+   Implementation note (2026-09-20): Evaluation > Responses' **Send again** on an expired or revoked row is exactly that. It lives in the row's expanded detail, opens Review & Release on that student's slip (the same `?workflow` deep link the rail uses), and the reissue is confirmed and sent there. The roster never calls a release endpoint.
+
 ## 3. The invariants
 
 These hold at all three levels. They matter more than the holes.

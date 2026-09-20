@@ -101,6 +101,15 @@ function firstNameOnly(name = '') {
   return parts[0] || name
 }
 
+/**
+ * The stamp on a ready card that replaces an expired or revoked link (SURVEY-REISSUE-2).
+ * The button says Reissue; the stamp says why, so the reader never mistakes it for a first
+ * send. Every detector names its reissue row the same way: { assignmentId, state }.
+ */
+function reissueStamp(reissue) {
+  return reissue?.state === 'revoked' ? 'Link revoked' : 'Link expired'
+}
+
 // ── 1. Casey-Fink Readiness for Practice (Pre-Rotation) ─────────────────────────
 
 export function adaptCaseyFinkPreRotation({ students, assignments, displayName, nowMs }) {
@@ -142,7 +151,7 @@ export function adaptCaseyFinkPreRotation({ students, assignments, displayName, 
       }
       items.push({
         ...base, state: 'ready',
-        stamp: stamp('ok', r.aspireStatus),
+        stamp: stamp('ok', reissue ? reissueStamp(r.reissue) : r.aspireStatus),
         chain: [before, thisNode, after],
         sendTo: r.studentEmail,
         release: { reissue, warnings: r.warnings },
@@ -242,13 +251,14 @@ export function adaptPreceptor({ students, preceptors, assignments, displayName,
       })
       continue
     }
-    // due_sendable
+    // due_sendable: a first release, or a reissue of an expired or revoked request
+    const reissue = !!r.reissue
     items.push({
       ...base, state: 'ready',
-      stamp: stamp('ok', 'Threshold met'),
-      chain: [before, node('this', 'this', thisLabel, 'Release now'), after],
+      stamp: stamp('ok', reissue ? reissueStamp(r.reissue) : 'Threshold met'),
+      chain: [before, node('this', 'this', thisLabel, reissue ? 'Reissue now' : 'Release now'), after],
       sendTo: r.preceptorName || r.preceptorEmail,
-      release: { period: r.period, preceptorEmail: r.preceptorEmail, preceptorName: r.preceptorName },
+      release: { period: r.period, preceptorEmail: r.preceptorEmail, preceptorName: r.preceptorName, reissue },
     })
   }
   return { items, sent }
@@ -302,12 +312,13 @@ export function adaptStudentFeedback({ students, preceptors, assignments, displa
       })
       continue
     }
+    const reissue = !!r.reissue
     items.push({
       ...base, state: 'ready',
-      stamp: stamp('ok', 'Hours complete'),
-      chain: [before, node('this', 'this', 'Student feedback', 'Release now'), after],
+      stamp: stamp('ok', reissue ? reissueStamp(r.reissue) : 'Hours complete'),
+      chain: [before, node('this', 'this', 'Student feedback', reissue ? 'Reissue now' : 'Release now'), after],
       sendTo: r.studentEmail,
-      release: {},
+      release: { reissue },
     })
   }
   return { items, sent }
@@ -383,7 +394,7 @@ export function adaptCaseyFinkPostRotation({
     }
     items.push({
       ...base, state: 'ready',
-      stamp: stamp('ok', 'Prerequisite done'),
+      stamp: stamp('ok', reissue ? reissueStamp(r.reissue) : 'Prerequisite done'),
       chain: [before, node('this', 'this', 'Casey-Fink', reissue ? 'Reissue now' : 'Release now'), after],
       sendTo: r.studentEmail,
       release: { reissue, warnings: r.warnings },
@@ -423,7 +434,8 @@ export function adaptAspireFeedback({
       if (a) sent.push(sentLine({ assignment: a, name: r.studentName, recipient: `to ${r.studentEmail || 'the student'}`, nowMs, workflowId }))
       continue
     }
-    // eligible_for_review (the classifier lists only eligible + in-flow rows)
+    // eligible_for_review | evaluation_reissue (the classifier lists only eligible + in-flow rows)
+    const reissue = !!r.reissue
     if (!prereq.ok) {
       const unmet = prereq.unmet || []
       const first = unmet[0]
@@ -498,10 +510,10 @@ export function adaptAspireFeedback({
     }
     items.push({
       ...base, state: 'ready',
-      stamp: stamp('ok', 'Prerequisite done'),
-      chain: [before, node('this', 'this', 'ASPIRE feedback', 'Release now'), after],
+      stamp: stamp('ok', reissue ? reissueStamp(r.reissue) : 'Prerequisite done'),
+      chain: [before, node('this', 'this', 'ASPIRE feedback', reissue ? 'Reissue now' : 'Release now'), after],
       sendTo: r.studentEmail,
-      release: { warnings: r.warnings },
+      release: { reissue, warnings: r.warnings },
     })
   }
   // The classifier lists only eligible and in-flow students. The Not-yet rows are built

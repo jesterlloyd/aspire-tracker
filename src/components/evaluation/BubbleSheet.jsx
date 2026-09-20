@@ -7,6 +7,10 @@
 // read as one mark. A single-timepoint instrument has only an answer, drawn filled.
 //
 // The data comes from buildBubbleSheet in responsesPacketModel.js; this file only draws.
+//
+// SURVEY-REISSUE-2: an expired or revoked row carries a Send again button here, in the
+// expanded detail where the table canon puts anything a status needs a sentence for. It
+// opens that student's slip on Review & Release; the reissue is confirmed and sent there.
 
 const bubbleClass = (v, pre, post) => {
   if (pre === v && post === v) return 'rp-bub rp-bub-both'
@@ -55,7 +59,7 @@ function ItemRow({ item, scaleMax, paired }) {
   )
 }
 
-export default function BubbleSheet({ sheet, name, onViewResponse }) {
+export default function BubbleSheet({ sheet, name, onViewResponse, onSendAgain }) {
   return (
     <div className="rp-bs">
       <div className="rp-bs-head">
@@ -73,9 +77,15 @@ export default function BubbleSheet({ sheet, name, onViewResponse }) {
           ))}
         </div>
       ))}
-      {onViewResponse && (
+      {(onViewResponse || onSendAgain) && (
         <div className="rp-bs-acts">
-          <button type="button" className="ds-btn" onClick={onViewResponse}>View response</button>
+          {onViewResponse && <button type="button" className="ds-btn" onClick={onViewResponse}>View response</button>}
+          {onSendAgain && (
+            <button type="button" className="ds-btn" onClick={onSendAgain}
+              title="Opens this student on Review & Release, where the new link is confirmed and sent">
+              Send again
+            </button>
+          )}
         </div>
       )}
     </div>

@@ -526,6 +526,21 @@ action); the four classifiers are untouched and the release endpoints keep every
   sweep is 58 classes in both themes; a new one belongs on that list.
 - **Motion defers.** A released slip slides off before the refetch, a jump target pulses
   once; under `prefers-reduced-motion` the CSS and the refetch hold both stand down.
+- **Every workflow can send an expired or revoked survey again (SURVEY-REISSUE-2, Owner,
+  2026-09-20).** One rule, `isReissuableAssignment` in `src/lib/evaluation/assignmentReissue.js`
+  (expired, lapsed past `expires_at`, revoked or non-responder, never completed or live), read
+  by all five detectors and all five release endpoints; the Casey-Fink name is an alias of it.
+  The three detectors that used to classify an expired row as "Owner resend decision required"
+  now offer it for reissue while the trigger still holds (an expired midpoint is still
+  superseded once the end threshold is reached; below the hours gate the row is blocked). The
+  card is Ready with a **Reissue** button and a "Link expired" / "Link revoked" stamp. The
+  endpoints reuse the row through `lib/server/evaluation/assignmentReissue.js` (claim by
+  compare-and-set, retire every historical token but one and rotate the survivor, activate
+  under the claim, restore on any failure), require the row to be the student's current
+  cohort's and still reissuable at release time, skip the historical notification_log dedup
+  only for a reissue, and echo `reissued`. The preceptor core excludes the reissue row from
+  its own idempotency check. The two Casey-Fink endpoints keep their pinned inline copy of
+  the same steps. Nothing about a completed response is ever touched.
 - An identity-echo mismatch after a send sets `identityHold`, which disables every
   Release on the board until Re-run detection.
 
@@ -643,6 +658,14 @@ ResponsesPacket.jsx`, `BubbleSheet.jsx`, `responsesPacket.css`, and the tab.
   and post rows already sit together; the button only hid the unmatched and its way back was
   invisible. The Matched pairs figure stays in the basis line.
 
+- **An expired row's "Send again" opens Review & Release; it never sends** (SURVEY-REISSUE-2,
+  Owner, 2026-09-20). The button sits in the row's expanded detail, where a status that
+  needs a sentence goes ("This link expired before an answer was submitted."), and only when
+  `reissueTarget` in the packet model names a workflow and slip for that instrument and
+  timepoint (a preceptor Other / Interim period has none: that is a manual send). It sets the
+  same `?workflow` deep link the rail uses and hands the dashboard an `arriveAt`, which
+  flashes and scrolls to that student's slip once the evidence is in. The reissue itself is
+  confirmed on the clipboard, under the endpoint's guards, and lands on its Sent log.
 - **The Responses tab names instruments; Review & Release names workflows.** Two lists, on
   purpose. Casey-Fink is ONE instrument at two timepoints here (its tab says "Pre-Rotation and
   Post-Rotation") and two workflows there. `src/lib/evaluationLabels.js` holds the four names.

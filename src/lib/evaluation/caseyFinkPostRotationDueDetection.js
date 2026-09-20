@@ -15,6 +15,8 @@
 //   eligible_for_review   - no assignment exists and approved_hours >= hours_required (> 0)
 //   not_eligible          - below the hours threshold, or hours_required is 0 or less
 
+import { isReissuableAssignment, reissueReason } from './assignmentReissue.js'
+
 function num(v) {
   const n = Number(v)
   return Number.isFinite(n) ? n : 0
@@ -43,13 +45,9 @@ const STATE_PRECEDENCE = {
 // The database intentionally keeps one assignment row for a student/instrument/cohort/timepoint.
 // A deliberate reissue therefore reuses an expired or revoked, non-completed row. A live or
 // completed row is never reissuable. This helper is shared by the queue and the release endpoint so
-// the button cannot disagree with the server again.
-export function isCaseyFinkReissuableAssignment(a, nowMs) {
-  if (!a || a.completed_at || a.status === 'completed') return false
-  if (a.revoked_at || ['revoked', 'expired', 'non_responder'].includes(a.status)) return true
-  const wasLive = ['sent', 'opened', 'reminder_due'].includes(a.status)
-  return !!(wasLive && a.expires_at && new Date(a.expires_at).getTime() <= nowMs)
-}
+// the button cannot disagree with the server again. SURVEY-REISSUE-2: the rule itself lives in
+// assignmentReissue.js, where every workflow reads it; this name is kept for its callers.
+export const isCaseyFinkReissuableAssignment = isReissuableAssignment
 
 function resolveStudentEmail(student) {
   const personal = (student?.personal_email || '').trim()
@@ -188,6 +186,7 @@ export function classifyCaseyFinkPostRotationCohort({
       hoursRequired: required,
       lastShiftDate: meta?.lastShiftDate || null,
       status,
+      reissue: status === 'readiness_reissue' ? { assignmentId: asg.id, state: reissueReason(asg) } : null,
       certificateNumber: cert?.certificate_number || null,
       studentEmail: recipient.email,
       sendable: recipient.sendable,

@@ -12,6 +12,13 @@
 //
 // This module performs NO I/O and NEVER sends, mints tokens, creates assignments, or writes.
 // Classifications: not_due | due_sendable | due_unsendable | ineligible_hours | suppressed_existing
+//
+// SURVEY-REISSUE-2 (Owner, 2026-09-20): an existing request that EXPIRED or was REVOKED no
+// longer blocks. When the threshold is still met it classifies as due_sendable (or
+// due_unsendable) with `reissue` naming the row to reuse; the release endpoint rotates that
+// row's token rather than inserting a second one. Completed and live requests still suppress.
+
+import { isReissuableAssignment, reissueReason } from './assignmentReissue.js';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 function isSafeEmail(v) {
@@ -101,7 +108,7 @@ export function classifyStudentEvalCohort({ students = [], preceptors = [], assi
   }
 
   const rows = [];
-  const summary = { due_sendable: 0, due_unsendable: 0, suppressed_existing: 0, ineligible_hours: 0, not_due: 0 };
+  const summary = { due_sendable: 0, due_unsendable: 0, suppressed_existing: 0, ineligible_hours: 0, not_due: 0, reissue_required: 0 };
 
   for (const s of students) {
     const approved = num(s.approved_hours);
@@ -110,15 +117,17 @@ export function classifyStudentEvalCohort({ students = [], preceptors = [], assi
     const recipient = resolveStudentEmail(s);
     const evaluatedTarget = resolveEvaluatedTarget(s, preceptorsById);
     const existing = bySTudent.get(s.id) || null;
+    const reissuable = !!existing && isReissuableAssignment(existing, nowMs);
 
-    let classification, reason, suppressing = null;
+    let classification, reason, suppressing = null, reissue = null;
 
     if (required <= 0) {
       classification = 'ineligible_hours';
       reason = 'hours_required is 0 or less, cannot evaluate the post-rotation threshold';
-    } else if (existing) {
-      // Any existing student_preceptor_eval assignment (revoked/expired/active/completed)
-      // suppresses re-proposal (instrument-scoped - no collision with preceptor/Casey).
+    } else if (existing && !reissuable) {
+      // A completed or live student_preceptor_eval assignment suppresses re-proposal
+      // (instrument-scoped - no collision with preceptor/Casey). An expired or revoked one
+      // falls through and, when the threshold is still met, is offered for reissue.
       const state = assignmentState(existing, nowMs);
       classification = 'suppressed_existing';
       reason = STATE_REASON[state] || STATE_REASON.unknown;
@@ -128,10 +137,16 @@ export function classifyStudentEvalCohort({ students = [], preceptors = [], assi
       reason = `approved_hours ${approved} < required ${required} (post-rotation threshold not reached)`;
     } else if (recipient.sendable) {
       classification = 'due_sendable';
-      reason = 'Post-rotation threshold reached; student email resolved';
+      reason = reissuable
+        ? `Post-rotation threshold reached; the prior request ${reissueReason(existing) === 'revoked' ? 'was revoked' : 'expired'} and may be reissued`
+        : 'Post-rotation threshold reached; student email resolved';
     } else {
       classification = 'due_unsendable';
       reason = recipient.reason; // missing STUDENT email (never about the preceptor)
+    }
+    if (reissuable && (classification === 'due_sendable' || classification === 'due_unsendable')) {
+      reissue = { assignmentId: existing.id, status: existing.status, state: reissueReason(existing) };
+      summary.reissue_required += 1;
     }
 
     rows.push({
@@ -146,6 +161,7 @@ export function classifyStudentEvalCohort({ students = [], preceptors = [], assi
       studentEmail: recipient.email,
       evaluatedTarget,           // { preceptor_name, preceptor_id, unit, available }
       suppressing,
+      reissue,
     });
     summary[classification] += 1;
   }

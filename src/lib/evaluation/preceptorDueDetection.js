@@ -14,6 +14,14 @@
 //   hours_required <= 0  → ineligible_hours (never proposed)
 //
 // Classifications: not_due | due_sendable | due_unsendable | ineligible_hours | suppressed_existing
+//
+// SURVEY-REISSUE-2 (Owner, 2026-09-20): an existing request that EXPIRED or was REVOKED no
+// longer blocks. When the period is still due it classifies as due_sendable (or
+// due_unsendable) with `reissue` naming the row to reuse, and the release endpoint rotates
+// that row's token rather than inserting a second one. Completed and live requests still
+// suppress, and the end-of-rotation rules still supersede a midpoint.
+
+import { isReissuableAssignment, reissueReason } from './assignmentReissue.js';
 
 // The two auto-detected periods. Other / interim remains manual-only (PS-2b).
 export const AUTO_PERIODS = Object.freeze(['midpoint', 'end_of_rotation']);
@@ -138,7 +146,7 @@ export function classifyCohort({ students = [], preceptors = [], assignments = [
   }
 
   const rows = [];
-  const summary = { due_sendable: 0, due_unsendable: 0, suppressed_existing: 0, ineligible_hours: 0, not_due: 0 };
+  const summary = { due_sendable: 0, due_unsendable: 0, suppressed_existing: 0, ineligible_hours: 0, not_due: 0, reissue_required: 0 };
 
   for (const s of students) {
     const approved = num(s.approved_hours);
@@ -153,7 +161,7 @@ export function classifyCohort({ students = [], preceptors = [], assignments = [
         midpointThreshold: null, endThreshold: null,
         period: null, classification: 'ineligible_hours',
         reason: 'hours_required is 0 or less, cannot evaluate thresholds',
-        preceptorName: '', preceptorEmail: '', suppressing: null,
+        preceptorName: '', preceptorEmail: '', suppressing: null, reissue: null,
       });
       summary.ineligible_hours += 1;
       continue;
@@ -168,10 +176,13 @@ export function classifyCohort({ students = [], preceptors = [], assignments = [
       const existing = periodMap.get(period) || null;
       const due = period === 'midpoint' ? approved >= midpointThreshold : approved >= endThreshold;
 
-      let classification, reason, suppressing = null;
+      const reissuable = !!existing && isReissuableAssignment(existing, nowMs);
+      let classification, reason, suppressing = null, reissue = null;
 
-      if (existing) {
-        // Any existing assignment for this period blocks auto-proposal (rules 1–7).
+      if (existing && !reissuable) {
+        // A completed, live or unknown-state assignment for this period blocks auto-proposal
+        // (rules 1–7). An expired or revoked one falls through: the period is re-evaluated
+        // and, when still due, the row is offered for reissue.
         const state = assignmentState(existing, nowMs);
         classification = 'suppressed_existing';
         reason = STATE_REASON[state] || STATE_REASON.unknown;
@@ -200,17 +211,23 @@ export function classifyCohort({ students = [], preceptors = [], assignments = [
         reason = `approved_hours ${approved} < ${period === 'midpoint' ? '50%' : '100%'} threshold ${thr}`;
       } else if (recipient.sendable) {
         classification = 'due_sendable';
-        reason = 'Threshold met; preceptor resolved with a valid email';
+        reason = reissuable
+          ? `Threshold met; the prior request ${reissueReason(existing) === 'revoked' ? 'was revoked' : 'expired'} and may be reissued`
+          : 'Threshold met; preceptor resolved with a valid email';
       } else {
         classification = 'due_unsendable';
         reason = recipient.reason;
+      }
+      if (reissuable && (classification === 'due_sendable' || classification === 'due_unsendable')) {
+        reissue = { assignmentId: existing.id, status: existing.status, state: reissueReason(existing), timepoint: existing.timepoint };
+        summary.reissue_required += 1;
       }
 
       rows.push({
         studentId: s.id, studentName, approvedHours: approved, hoursRequired: required,
         midpointThreshold, endThreshold, period, classification, reason,
         preceptorName: recipient.name, preceptorEmail: recipient.email,
-        suppressing,
+        suppressing, reissue,
       });
       summary[classification] += 1;
     }

@@ -48,6 +48,7 @@ import { INSTRUMENT_COMPACT_LABELS, statusSortIndex, timepointSortIndex } from '
 import { POST_ROTATION_CONTENT } from '../../../lib/server/evaluation/postRotationEvalContent.js'
 import { getStudentPreferredFullName } from '../studentNameFormatters.js'
 import { shortenProgram } from '../displayFormatters.js'
+import { isReissuableAssignment } from './assignmentReissue.js'
 
 export { CASEY_FINK_SLUG }
 
@@ -581,6 +582,38 @@ export function rosterSortValue(row, column) {
   }
 }
 
+// ── Sending an expired survey again ───────────────────────────────────────────
+//
+// SURVEY-REISSUE-2 (Owner, 2026-09-20): a row whose link expired or was revoked can be sent
+// again, but not from here. The table canon says a row action may only open something
+// elsewhere, and a release is a decision that belongs on the Review & Release clipboard,
+// under its guards and on its Sent log. So the roster hands the reader to that student's
+// slip on the workflow that administers this instrument at this timepoint, where the
+// Reissue button is. The workflow keys and item ids are the queue's own (surveyCatalog.js,
+// reviewQueueAdapters.js); the rule for "may be sent again" is the shared one every
+// detector and endpoint reads (assignmentReissue.js). Returns null when there is nothing
+// to send again: a completed, live or draft row, or a preceptor period the queue does not
+// release (Other / Interim is a manual send).
+export function reissueTarget(assignment, now = Date.now()) {
+  if (!isReissuableAssignment(assignment, now)) return null
+  const studentId = assignment?.students?.id || assignment?.student_id
+  if (!studentId) return null
+  const slug = assignment?.evaluation_instruments?.slug
+  const tp = assignment?.timepoint
+  if (slug === CASEY_FINK_SLUG) {
+    if (isCaseyFinkPreTimepoint(tp)) return { workflowId: 'caseyFinkPreRotation', itemId: `q:${studentId}` }
+    if (tp === 'post_rotation') return { workflowId: 'caseyFinkPostRotation', itemId: `q:${studentId}` }
+    return null
+  }
+  if (slug === 'preceptor_progress') {
+    const period = tp === 'midpoint' ? 'midpoint' : tp === 'post_rotation' ? 'end_of_rotation' : null
+    return period ? { workflowId: 'preceptor', itemId: `q:${studentId}:${period}` } : null
+  }
+  if (slug === 'student_preceptor_eval') return { workflowId: 'student', itemId: `q:${studentId}` }
+  if (slug === 'post_rotation_evaluation') return { workflowId: 'postRotation', itemId: `q:${studentId}` }
+  return null
+}
+
 // ── The bubble sheet: one person's answers, item by item ─────────────────────
 
 export function itemNumber(instrument, code) {
@@ -622,8 +655,13 @@ export function buildBubbleSheet(instrument, row, byStudent, content = null) {
     : `${instrument.name} · ${timepointLabel(row.timepoint)}${row.respondent ? ` · completed by ${row.respondent}` : ''}`
 
   if (!hasPre && !hasPost) {
+    // An unanswered row says why, in the status's own words (SURVEY-REISSUE-2).
+    const why = row.status === 'expired' ? 'This link expired before an answer was submitted.'
+      : row.status === 'revoked' ? 'This link was revoked before an answer was submitted.'
+      : row.status === 'non_responder' ? 'The response window closed without an answer.'
+      : null
     return { empty: true, paired: false, hasPre, hasPost, scaleMax: instrument.scaleMax, subtitle, groups: [], note: null,
-      message: 'No submitted answers to show for this row.' }
+      message: why ? `No submitted answers to show for this row. ${why}` : 'No submitted answers to show for this row.' }
   }
 
   const groups = instrument.subscales.map(s => ({

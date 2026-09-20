@@ -8,11 +8,15 @@
 // Per-student display status (highest state wins):
 //   evaluation_completed - a post_rotation_evaluation assignment has completed_at
 //   evaluation_released  - a post_rotation_evaluation assignment is live (sent/opened/reminder_due)
+//   evaluation_reissue   - the prior assignment expired or was revoked and may be reused
+//                          (SURVEY-REISSUE-2), while the student still meets the hours gate
 //   eligible_for_review  - no in-flow record and approved_hours >= hours_required (> 0)
 //   not_eligible         - below the hours threshold, or hours_required is 0 or less
 //
 // The queue shows eligible + in-flow students only (not the whole cohort). Warnings are
 // non-blocking display text.
+
+import { isReissuableAssignment, reissueReason } from './assignmentReissue.js'
 
 function num(v) {
   const n = Number(v)
@@ -93,6 +97,7 @@ export function classifyPostRotationCohort({
     not_due: 0,             // below the required-hours threshold
     // Panel-only extras (ignored by the shared card):
     eligible_for_review: 0,
+    reissue_required: 0,
     in_flow: 0,
   }
 
@@ -102,10 +107,16 @@ export function classifyPostRotationCohort({
     const pending = num(s.pending_hours)
     const asg = asgByStudent.get(s.id) || null
     const state = asg ? assignmentState(asg, nowMs) : null
+    const reissuable = !!asg && isReissuableAssignment(asg, nowMs)
 
     let status
     if (asg && state === 'completed') status = 'evaluation_completed'
     else if (asg && state === 'active') status = 'evaluation_released'
+    // SURVEY-REISSUE-2: an expired or revoked assignment is reused, never duplicated, and only
+    // offered while the student still meets the hours gate.
+    else if (reissuable && required > 0 && approved >= required) status = 'evaluation_reissue'
+    else if (reissuable && required <= 0) status = 'not_eligible_hours'
+    else if (reissuable) status = 'not_eligible'
     else if (required > 0 && approved >= required) status = 'eligible_for_review'
     else if (required <= 0) status = 'not_eligible_hours' // required invalid
     else status = 'not_eligible' // below threshold
@@ -117,11 +128,12 @@ export function classifyPostRotationCohort({
     if (status === 'evaluation_completed' || status === 'evaluation_released') {
       summary.suppressed_existing += 1
       summary.in_flow += 1
-    } else if (status === 'eligible_for_review') {
+    } else if (status === 'eligible_for_review' || status === 'evaluation_reissue') {
       // Mirrors caseyFinkPostRotationDueDetection exactly: eligible with a resolvable email is
       // ready to release, eligible without one is blocked on the address. Both post-rotation
       // detectors now report the same way, so the shared band cannot disagree with the panel.
       summary.eligible_for_review += 1
+      if (status === 'evaluation_reissue') summary.reissue_required += 1
       if (recipient.sendable) summary.due_sendable += 1
       else summary.due_unsendable += 1
     } else if (status === 'not_eligible_hours') {
@@ -131,8 +143,8 @@ export function classifyPostRotationCohort({
     }
 
     // The queue lists only eligible + in-flow students (not the whole cohort).
-    const inQueue = status === 'eligible_for_review' || status === 'evaluation_released' ||
-      status === 'evaluation_completed'
+    const inQueue = status === 'eligible_for_review' || status === 'evaluation_reissue' ||
+      status === 'evaluation_released' || status === 'evaluation_completed'
     if (!inQueue) continue
 
     const unit = (s.matched_unit_name || '').trim()
@@ -140,6 +152,7 @@ export function classifyPostRotationCohort({
 
     // Non-blocking warnings.
     const warnings = []
+    if (status === 'evaluation_reissue') warnings.push(`Prior survey ${reissueReason(asg) === 'revoked' ? 'was revoked' : 'expired'}`)
     if (approved < required && required > 0) warnings.push('Below required hours')
     if (pending > 0) warnings.push(`Pending hours: ${Number.isInteger(pending) ? pending : pending.toFixed(2)}`)
     if (meta?.supportNeeded) warnings.push('Support requested in shift logs')
@@ -157,6 +170,7 @@ export function classifyPostRotationCohort({
       hoursRequired: required,
       lastShiftDate: meta?.lastShiftDate || null,
       status,
+      reissue: status === 'evaluation_reissue' ? { assignmentId: asg.id, state: reissueReason(asg) } : null,
       studentEmail: recipient.email,
       warnings,
     })

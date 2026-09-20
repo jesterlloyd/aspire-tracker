@@ -29,6 +29,7 @@
 //   out_of_scope          - Completed, Declined, Not Proceeding, or an unknown status
 
 import { caseyFinkAssignmentState, isCaseyFinkReissuableAssignment } from './caseyFinkPostRotationDueDetection.js'
+import { reissueReason } from './assignmentReissue.js'
 
 export const PRE_ROTATION_TIMEPOINT = 'baseline'
 
@@ -152,6 +153,7 @@ export function classifyCaseyFinkPreRotationCohort({
       unit: (s.matched_unit_name || '').trim(),
       aspireStatus,
       status,
+      reissue: status === 'readiness_reissue' ? { assignmentId: asg.id, state: reissueReason(asg) } : null,
       studentEmail: recipient.email,
       sendable: recipient.sendable,
       warnings,

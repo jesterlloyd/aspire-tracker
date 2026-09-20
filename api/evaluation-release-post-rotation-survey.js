@@ -16,6 +16,8 @@
 //   - Recipient resolved server-side from the student. No override.
 //   - Refusal (not eligible / already released) sends nothing and writes nothing.
 //   - Raw token + survey URL are never persisted.
+//   - SURVEY-REISSUE-2 (Owner, 2026-09-20): an expired or revoked request is REUSED (its token
+//     rotated, the row re-activated), never duplicated; a completed response is never touched.
 //
 // POST /api/evaluation-release-post-rotation-survey   Body: { student_id }
 
@@ -28,6 +30,8 @@ import { generateToken } from '../lib/server/evaluation/tokens.js';
 import { buildPostRotationInvitationEmail, formatExpiresAt } from '../lib/server/evaluation/postRotationEmailTemplates.js';
 import { emailBaseUrl } from '../lib/server/appUrl.js';
 import { classifyPostRotationCohort } from '../src/lib/evaluation/postRotationCertDueDetection.js';
+import { isReissuableAssignment } from '../src/lib/evaluation/assignmentReissue.js';
+import { reissueAssignment } from '../lib/server/evaluation/assignmentReissue.js';
 import { aspirePrerequisites, REQUIRED_ACTIVITY_KEYS } from '../src/lib/evaluation/postRotationSequence.js';
 import { getStudentPreferredFirstName } from '../src/lib/studentNameFormatters.js';
 import { INACTIVE_MESSAGE } from './lib/activeAccount.js';
@@ -172,7 +176,7 @@ async function _handler(req, res) {
   const { data: rawAssignments, error: asgErr } = await supabaseAdmin
     .from('evaluation_assignments')
     .select(`
-      id, student_id, status, revoked_at, completed_at, expires_at, sent_at, created_at,
+      id, student_id, cohort_id, status, revoked_at, completed_at, expires_at, sent_at, created_at, notes,
       evaluation_instruments!inner ( slug )
     `)
     .eq('student_id', studentId);
@@ -261,10 +265,24 @@ async function _handler(req, res) {
   });
   const row = rows[0];
 
-  // ── 5. Proceed ONLY if still eligible_for_review. Otherwise refuse (no write/send). ─────
+  // ── 5. Proceed only for a new release or a deliberate expired/revoked reissue. ──────────
   // The queue only offers the button on eligible rows; these refusals are a race-condition guard
-  // that never creates a duplicate assignment, token, certificate, or email.
-  if (!row || row.status !== 'eligible_for_review') {
+  // that never creates a duplicate assignment, token, certificate, or email. SURVEY-REISSUE-2:
+  // an evaluation_reissue row reuses its expired or revoked assignment, which must be the
+  // student's CURRENT cohort's and still reissuable now, rather than inserting a second one.
+  const releaseMode = row?.status === 'eligible_for_review' ? 'new' : row?.status === 'evaluation_reissue' ? 'reissue' : null;
+  const reissueRow = releaseMode === 'reissue'
+    ? assignments.find(a =>
+        a.id === row.reissue?.assignmentId && a.cohort_id === cohortId && isReissuableAssignment(a, Date.now())) || null
+    : null;
+  if (releaseMode === 'reissue' && !reissueRow) {
+    return res.status(200).json({
+      success: true, released: false,
+      classification: 'reissue_unavailable',
+      reason: 'The expired evaluation request could not be found for reissue. Re-run detection and try again.',
+    });
+  }
+  if (!releaseMode) {
     const REFUSAL_REASON = {
       evaluation_released:  'A post-rotation evaluation has already been released to this student',
       evaluation_completed: 'This student has already completed the post-rotation evaluation',
@@ -281,22 +299,27 @@ async function _handler(req, res) {
   }
 
   // ── 6. Broadened-status notification_log dedup. ──────────────────────────────────
-  const { data: priorLog, error: logErr } = await supabaseAdmin
-    .from('notification_log')
-    .select('id')
-    .eq('notification_type', NOTIF_TYPE)
-    .eq('student_id', studentId)
-    .in('status', ALREADY_SENT_STATUSES)
-    .limit(1);
-  if (logErr) {
-    return res.status(500).json({ success: false, error: 'Failed to check send history' });
-  }
-  if (priorLog && priorLog.length > 0) {
-    return res.status(200).json({
-      success: true, released: false,
-      classification: 'suppressed_existing',
-      reason: 'A post-rotation evaluation has already been sent to this student',
-    });
+  // A historical send is authoritative for a NEW assignment, but it must not suppress a
+  // deliberate reissue of the same expired or revoked row. Once reissued, the live row blocks
+  // every repeat request at step 5.
+  if (!reissueRow) {
+    const { data: priorLog, error: logErr } = await supabaseAdmin
+      .from('notification_log')
+      .select('id')
+      .eq('notification_type', NOTIF_TYPE)
+      .eq('student_id', studentId)
+      .in('status', ALREADY_SENT_STATUSES)
+      .limit(1);
+    if (logErr) {
+      return res.status(500).json({ success: false, error: 'Failed to check send history' });
+    }
+    if (priorLog && priorLog.length > 0) {
+      return res.status(200).json({
+        success: true, released: false,
+        classification: 'suppressed_existing',
+        reason: 'A post-rotation evaluation has already been sent to this student',
+      });
+    }
   }
 
   // ── 7. Resolve recipient server-side (personal first, school fallback). ──────────
@@ -306,57 +329,88 @@ async function _handler(req, res) {
     return res.status(200).json({ success: true, released: false, classification: 'no_email', reason: 'No student email on file' });
   }
 
-  // ── 8. Create the assignment (student is subject AND respondent; timepoint post_rotation). ────
+  // ── 8. Create the assignment (student is subject AND respondent; timepoint post_rotation),
+  //       or reissue the row. The token is minted first either way; the raw token lives only in
+  //       this function scope. ────────────────────────────────────────────────────────────
   const nowIso = new Date().toISOString();
   const expiresAt = new Date(); expiresAt.setDate(expiresAt.getDate() + WINDOW_DAYS);
   const tokenExpiresAt = new Date(expiresAt.getTime() + TOKEN_GRACE_DAYS * 24 * 60 * 60 * 1000);
   const approvedHoursSnapshot = parseFloat(student.approved_hours || 0) || 0;
-
-  const { data: assignment, error: assignErr } = await supabaseAdmin
-    .from('evaluation_assignments')
-    .insert({
-      instrument_id:                instrument.id,
-      student_id:                   studentId,
-      cohort_id:                    cohortId,
-      timepoint:                    TIMEPOINT,
-      assigned_by:                  senderUserId,
-      status:                       'sent',
-      invited_at:                   nowIso,
-      sent_at:                      nowIso,
-      expires_at:                   expiresAt.toISOString(),
-      approved_hours_at_invitation: approvedHoursSnapshot,
-      respondent_type:              'student',
-      respondent_preceptor_id:      null,
-      respondent_email:             studentEmail,
-      respondent_name:              studentName,
-      notes:                        'post_rotation_evaluation:queue_release',
-    })
-    .select('id')
-    .single();
-
-  if (assignErr || !assignment) {
-    const msg = (assignErr?.message || '').toLowerCase();
-    if (msg.includes('uq_assignment') || msg.includes('duplicate') || assignErr?.code === '23505') {
-      return res.status(200).json({ success: true, released: false, classification: 'suppressed_existing', reason: 'A post-rotation evaluation already exists for this student' });
-    }
-    return res.status(500).json({ success: false, error: 'Failed to create evaluation request' });
-  }
-
-  // ── 9. Mint token. Raw token lives only in this function scope. ──────────────────
   const { raw: rawToken, hash: tokenHash, hashPrefix: tokenHashPrefix } = generateToken();
-  const { error: tokenErr } = await supabaseAdmin
-    .from('evaluation_assignment_tokens')
-    .insert({
-      assignment_id:     assignment.id,
-      token_hash:        tokenHash,
-      token_hash_prefix: tokenHashPrefix,
-      expires_at:        tokenExpiresAt.toISOString(),
+  let assignmentId;
+
+  if (reissueRow) {
+    // ── 9a. SURVEY-REISSUE-2: claim the terminal row, rotate its token, re-activate it. ──
+    const reissued = await reissueAssignment({
+      db: supabaseAdmin, row: reissueRow, claimNote: 'post_rotation_evaluation:reissue_claim',
+      tokenHash, tokenHashPrefix, tokenExpiresAt, nowIso, logPrefix: '[post-rotation-release]',
+      activation: {
+        assigned_by:                  senderUserId,
+        invited_at:                   nowIso,
+        sent_at:                      nowIso,
+        expires_at:                   expiresAt.toISOString(),
+        approved_hours_at_invitation: approvedHoursSnapshot,
+        respondent_type:              'student',
+        respondent_preceptor_id:      null,
+        respondent_email:             studentEmail,
+        respondent_name:              studentName,
+        notes:                        'post_rotation_evaluation:queue_reissue',
+      },
     });
-  if (tokenErr) {
-    const { error: rbErr } = await supabaseAdmin
-      .from('evaluation_assignments').delete().eq('id', assignment.id);
-    if (rbErr) console.error('[post-rotation-release] ROLLBACK FAILED, orphaned assignment:', assignment.id, rbErr.message);
-    return res.status(500).json({ success: false, error: 'Failed to issue evaluation token' });
+    if (!reissued.ok) {
+      return res.status(reissued.http).json({
+        success: false, released: false, classification: reissued.classification,
+        ...(reissued.error ? { error: reissued.error } : {}), ...(reissued.reason ? { reason: reissued.reason } : {}),
+      });
+    }
+    assignmentId = reissued.assignmentId;
+  } else {
+    const { data: assignment, error: assignErr } = await supabaseAdmin
+      .from('evaluation_assignments')
+      .insert({
+        instrument_id:                instrument.id,
+        student_id:                   studentId,
+        cohort_id:                    cohortId,
+        timepoint:                    TIMEPOINT,
+        assigned_by:                  senderUserId,
+        status:                       'sent',
+        invited_at:                   nowIso,
+        sent_at:                      nowIso,
+        expires_at:                   expiresAt.toISOString(),
+        approved_hours_at_invitation: approvedHoursSnapshot,
+        respondent_type:              'student',
+        respondent_preceptor_id:      null,
+        respondent_email:             studentEmail,
+        respondent_name:              studentName,
+        notes:                        'post_rotation_evaluation:queue_release',
+      })
+      .select('id')
+      .single();
+
+    if (assignErr || !assignment) {
+      const msg = (assignErr?.message || '').toLowerCase();
+      if (msg.includes('uq_assignment') || msg.includes('duplicate') || assignErr?.code === '23505') {
+        return res.status(200).json({ success: true, released: false, classification: 'suppressed_existing', reason: 'A post-rotation evaluation already exists for this student' });
+      }
+      return res.status(500).json({ success: false, error: 'Failed to create evaluation request' });
+    }
+    assignmentId = assignment.id;
+
+    // ── 9. Store the token hash against the new assignment. ───────────────────────────
+    const { error: tokenErr } = await supabaseAdmin
+      .from('evaluation_assignment_tokens')
+      .insert({
+        assignment_id:     assignmentId,
+        token_hash:        tokenHash,
+        token_hash_prefix: tokenHashPrefix,
+        expires_at:        tokenExpiresAt.toISOString(),
+      });
+    if (tokenErr) {
+      const { error: rbErr } = await supabaseAdmin
+        .from('evaluation_assignments').delete().eq('id', assignmentId);
+      if (rbErr) console.error('[post-rotation-release] ROLLBACK FAILED, orphaned assignment:', assignmentId, rbErr.message);
+      return res.status(500).json({ success: false, error: 'Failed to issue evaluation token' });
+    }
   }
 
   // ── 10. Build survey URL - raw token only in the email, never stored/logged. ─────
@@ -380,7 +434,7 @@ async function _handler(req, res) {
       html,
       tags: [
         { name: 'type',          value: NOTIF_TYPE },
-        { name: 'assignment_id', value: assignment.id },
+        { name: 'assignment_id', value: assignmentId },
       ],
     });
     if (emailErr) sendError = emailErr.message || JSON.stringify(emailErr);
@@ -393,11 +447,11 @@ async function _handler(req, res) {
     // Email failed: revoke the assignment + token so nothing lingers as a live invite.
     await supabaseAdmin.from('evaluation_assignments')
       .update({ status: 'revoked', revoked_at: new Date().toISOString(), updated_at: new Date().toISOString() })
-      .eq('id', assignment.id);
+      .eq('id', assignmentId);
     await supabaseAdmin.from('evaluation_assignment_tokens')
       .update({ revoked_at: new Date().toISOString() })
-      .eq('assignment_id', assignment.id);
-    console.error('[post-rotation-release] send_failed (assignment revoked):', { assignment_id: assignment.id, error: sendError });
+      .eq('assignment_id', assignmentId);
+    console.error('[post-rotation-release] send_failed (assignment revoked):', { assignment_id: assignmentId, error: sendError });
     return res.status(200).json({ success: true, released: false, classification: 'send_failed', reason: 'Email failed to send' });
   }
 
@@ -418,7 +472,7 @@ async function _handler(req, res) {
       student_id:        studentId,
       recipient_type:    'student',
       metadata: {
-        assignment_id:   assignment.id,
+        assignment_id:   assignmentId,
         student_id:      studentId,
         instrument_id:   instrument.id,
         timepoint:       TIMEPOINT,
@@ -430,7 +484,7 @@ async function _handler(req, res) {
     }).select('id').single();
     notificationLogId = logRow?.id || null;
   } catch (logWriteErr) {
-    console.error('[post-rotation-release] log_write_failed:', { assignment_id: assignment.id, error: logWriteErr.message });
+    console.error('[post-rotation-release] log_write_failed:', { assignment_id: assignmentId, error: logWriteErr.message });
   }
 
   if (notificationLogId) {
@@ -447,14 +501,15 @@ async function _handler(req, res) {
   }
 
   console.log('[post-rotation-release] sent:', {
-    assignment_id: assignment.id, student_id: studentId, source: SOURCE,
+    assignment_id: assignmentId, student_id: studentId, source: SOURCE,
   });
   return res.status(200).json({
     success: true, released: true,
-    assignment_id: assignment.id,
+    assignment_id: assignmentId,
     student_id: studentId,
     student_name: studentName,
     student_email: studentEmail,
     sent_at: sentAtIso,
+    reissued: !!reissueRow,
   });
 }
