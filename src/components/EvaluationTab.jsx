@@ -77,7 +77,7 @@ function renderCell(col, row) {
   switch (col.kind) {
     case 'name':   return <NameCell row={row} />
     case 'school': return row.school ? <span className="ds-txt ds-dim" title={row.school}>{row.school}</span> : <Missing />
-    case 'date':   return row.submittedAt ? <span className="ds-date">{fmtDate(row.submittedAt)}</span> : <Missing />
+    case 'date':   return row.date ? <span className="ds-date" title={`${row.dateKind} ${fmtDate(row.date)}`}>{fmtDate(row.date)}</span> : <Missing />
     case 'pill':   return <Pill tone={row.pill.tone}>{row.pill.label}</Pill>
     case 'num': {
       const v = row.scores[col.scoreKey]
@@ -277,17 +277,6 @@ export default function EvaluationTab({ cohortId, cohortLabel = '' }) {
     scrollToRoster()
   }
 
-  // "Paired scores": the roster holds only matched students, so each pre row sits beside its post.
-  function handlePairedScores() {
-    const ids = [...(packet.byStudent || new Map()).entries()].filter(([, e]) => e.pre && e.post).map(([id]) => id)
-    setRosterFocus({ chip: 'Matched pairs', studentIds: new Set(ids) })
-    setFilterTimepoint('All')
-    setActiveKpiFilter(null)
-    setSort({ key: 'student', dir: 'asc' })
-    setLive('Roster filtered to matched pairs')
-    scrollToRoster()
-  }
-
   function toggleRow(id) {
     setExpandedIds(prev => {
       const next = new Set(prev)
@@ -397,7 +386,7 @@ export default function EvaluationTab({ cohortId, cohortLabel = '' }) {
       {rosterFocus && (
         <span className="ds-chip">
           {rosterFocus.chip} · {rosterFocus.studentIds.size} {rosterFocus.studentIds.size === 1 ? 'student' : 'students'}
-          <button type="button" aria-label="Clear the student filter" onClick={() => setRosterFocus(null)}>×</button>
+          <button type="button" onClick={() => { setRosterFocus(null); setLive('Showing all students') }}>Show all</button>
         </span>
       )}
       <button type="button" className="ds-btn" onClick={exportResponsesCSV} disabled={sorted.length === 0}>
@@ -530,16 +519,18 @@ export default function EvaluationTab({ cohortId, cohortLabel = '' }) {
 
           {!loading && !error && (
             <div className="rp-packet">
-              <InstrumentTabs tabs={instrumentTabs} selected={activeInstrumentFilter} onSelect={selectInstrument} />
-
-              <AnalysisSheet
-                packet={packet}
-                cohortLabel={cohortLabel}
-                tableView={tableView}
-                onToggleTableView={setTableView}
-                onFollowUp={handleFollowUp}
-                onPairedScores={handlePairedScores}
-              />
+              {/* The folder: a manila frame around the sheet whose top edge carries the four
+                  instrument tabs. The selected tab joins the frame; nothing overlaps the page. */}
+              <div className="rp-folder">
+                <InstrumentTabs tabs={instrumentTabs} selected={activeInstrumentFilter} onSelect={selectInstrument} />
+                <AnalysisSheet
+                  packet={packet}
+                  cohortLabel={cohortLabel}
+                  tableView={tableView}
+                  onToggleTableView={setTableView}
+                  onFollowUp={handleFollowUp}
+                />
+              </div>
 
               <div ref={rosterRef} className="rp-roster">
                 <DataSheet

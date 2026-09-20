@@ -493,10 +493,29 @@ export function buildFollowUp(instrument, rows, comparison, byStudent, now = Dat
 
 // ── The roster ────────────────────────────────────────────────────────────────
 
+// The date a row shows is the timestamp of its status (Owner, 2026-09-20): a Completed row
+// shows when it was submitted, Sent when it was sent, Opened when it was opened, Expired
+// when the window closed, Revoked when it was recalled. Status sits before Date in the
+// roster so the pair reads as one fact.
+export function statusDate(assignment, status, response) {
+  switch (status) {
+    case 'completed': return { kind: 'Submitted', date: response?.submitted_at || assignment?.completed_at || null }
+    case 'opened':    return { kind: 'Opened',    date: assignment?.opened_at || assignment?.sent_at || null }
+    case 'expired':   return { kind: 'Expired',   date: assignment?.expires_at || null }
+    case 'revoked':   return { kind: 'Revoked',   date: assignment?.revoked_at || null }
+    case 'sent':
+    case 'reminder_due':
+    case 'non_responder':
+      return { kind: 'Sent', date: assignment?.sent_at || assignment?.invited_at || null }
+    default:          return { kind: 'Invited',   date: assignment?.invited_at || assignment?.sent_at || null }
+  }
+}
+
 export function rosterRow(instrument, assignment, now = Date.now()) {
   const student = assignment?.students || {}
   const response = responseOf(assignment)
   const status = effectiveStatus(assignment, now)
+  const { kind: dateKind, date } = statusDate(assignment, status, response)
   const scores = {}
   for (const s of instrument.subscales) {
     scores[s.key] = status === 'completed' ? subscaleMean(instrument, s, response) : null
@@ -510,6 +529,8 @@ export function rosterRow(instrument, assignment, now = Date.now()) {
     program: shortenProgram(student.program_type) || '',
     school: student.school || '',
     submittedAt: response?.submitted_at || null,
+    date,
+    dateKind,
     status,
     pill: statusPill(status),
     timepoint: assignment.timepoint,
@@ -532,10 +553,10 @@ export function buildRosterRows(instrument, rows, { timepoint = 'All', status = 
 // column grows most, the school next, the date and status less, and the figures least.
 export function rosterColumns(instrument) {
   return [
-    { key: 'student',   label: 'Student',   kind: 'name',   min: 150, grow: 2.2, priority: 1 },
-    { key: 'school',    label: 'School',    kind: 'school', min: 118, grow: 1.4, priority: 4 },
-    { key: 'submitted', label: 'Submitted', kind: 'date',   min: 104, grow: 1,   priority: 2 },
-    { key: 'status',    label: 'Status',    kind: 'pill',   min: 92,  grow: 1,   priority: 2 },
+    { key: 'student', label: 'Student', kind: 'name',   min: 150, grow: 2.2, priority: 1 },
+    { key: 'school',  label: 'School',  kind: 'school', min: 118, grow: 1.4, priority: 4 },
+    { key: 'status',  label: 'Status',  kind: 'pill',   min: 92,  grow: 1,   priority: 2 },
+    { key: 'date',    label: 'Date',    kind: 'date',   min: 104, grow: 1,   priority: 2 },
     ...instrument.subscales.map(s => ({
       key: `score:${s.key}`, label: s.short, title: s.label, kind: 'num', align: 'right',
       min: 58, grow: 0.7, priority: 3, scoreKey: s.key,
@@ -548,7 +569,7 @@ export function rosterSortValue(row, column) {
   switch (column.kind) {
     case 'name':   return row.sortName
     case 'school': return (row.school || '').toLowerCase() || null
-    case 'date':   return row.submittedAt || null
+    case 'date':   return row.date || null
     case 'pill':   return statusSortIndex(row.status)
     case 'num':    return row.scores[column.scoreKey] ?? null
     default:       return row[column.key] ?? null

@@ -13,7 +13,7 @@ import {
   PACKET_INSTRUMENTS, PACKET_SLUGS, TIMEPOINT_LABELS,
   effectiveStatus, statusGroup, statusPill,
   buildInstrumentTabs, buildBasis, buildDistribution, buildFollowUp,
-  buildRosterRows, rosterColumns, rosterSortValue, buildBubbleSheet, buildPacket,
+  buildRosterRows, rosterColumns, rosterSortValue, buildBubbleSheet, buildPacket, statusDate,
   subscaleMean, bandOf, segmentText, LICENSED_NOTE, ITEM_NOT_OUTCOME_NOTE, LIKERT_BANDS, LIKERT_NOTE,
 } from '../src/lib/evaluation/responsesPacketModel.js'
 import { buildCaseyFinkComparison, caseyFinkResponsesByStudent } from '../src/lib/evaluation/caseyFinkComparison.js'
@@ -298,12 +298,18 @@ test('roster rows: name · program, school, submitted, status pill, one number p
   assert.equal(a.submittedAt, '2026-09-01T12:00:00Z')
   assert.deepEqual(a.pill, { tone: 'ok', label: 'Completed' })
   assert.deepEqual(a.scores, { clinical_problem_solving: 3.5, learning_activities: 3.4, practice_readiness: 3.75 })
+  assert.deepEqual([a.dateKind, a.date], ['Submitted', '2026-09-01T12:00:00Z'], 'a Completed row dates its submission')
   const awaiting = rows.find(r => r.studentId === 'd' && r.timepoint === 'post_rotation')
   assert.equal(awaiting.submittedAt, null)
   assert.deepEqual(awaiting.pill, { tone: 'info', label: 'Sent' })
+  assert.deepEqual([awaiting.dateKind, awaiting.date], ['Sent', '2026-08-20T12:00:00Z'], 'a Sent row dates its sending')
   assert.deepEqual(Object.values(awaiting.scores), [null, null, null])
   const expired = rows.find(r => r.studentId === 'f')
   assert.deepEqual(expired.pill, { tone: 'off', label: 'Expired' })
+  assert.deepEqual([expired.dateKind, expired.date], ['Expired', '2026-09-01T00:00:00Z'], 'an Expired row dates the window closing')
+  assert.deepEqual(statusDate({ opened_at: '2026-08-21T00:00:00Z' }, 'opened', null), { kind: 'Opened', date: '2026-08-21T00:00:00Z' })
+  assert.deepEqual(statusDate({ revoked_at: '2026-08-22T00:00:00Z' }, 'revoked', null), { kind: 'Revoked', date: '2026-08-22T00:00:00Z' })
+  assert.deepEqual(statusDate({ sent_at: '2026-08-20T00:00:00Z' }, 'reminder_due', null), { kind: 'Sent', date: '2026-08-20T00:00:00Z' })
 })
 
 test('the roster filters by timepoint and by status group, and the filters compose', () => {
@@ -318,9 +324,9 @@ test('the roster filters by timepoint and by status group, and the filters compo
   assert.equal(TIMEPOINT_LABELS.baseline, 'Pre-Rotation')
 })
 
-test('columns follow the canon: Student first, then School, Submitted, Status, then one right-aligned column per figure, all sortable', () => {
+test('columns follow the canon: Student first, then School, Status, Date, then one right-aligned column per figure, all sortable', () => {
   const cols = rosterColumns(CF)
-  assert.deepEqual(cols.map(c => c.label), ['Student', 'School', 'Submitted', 'Status', 'CPS', 'LA', 'PR'])
+  assert.deepEqual(cols.map(c => c.label), ['Student', 'School', 'Status', 'Date', 'CPS', 'LA', 'PR'])
   assert.equal(cols[0].priority, 1, 'the name column is never dropped')
   for (const c of cols.slice(4)) { assert.equal(c.align, 'right'); assert.equal(c.kind, 'num') }
   // The weighted spread: min + grow, no literal widths; name widest, figures least.
@@ -333,6 +339,8 @@ test('columns follow the canon: Student first, then School, Submitted, Status, t
   assert.equal(rosterSortValue(row, cols[0]), 'lasta firsta')
   assert.equal(rosterSortValue(row, cols[4]), 3.5)
   assert.equal(rosterSortValue(rows.find(r => r.studentId === 'd' && r.timepoint === 'post_rotation'), cols[4]), null)
+  const dated = rows.find(r => r.studentId === 'f')
+  assert.equal(rosterSortValue(dated, cols[3]), '2026-09-01T00:00:00Z', 'Date sorts on the status timestamp')
 })
 
 // ── B6: the bubble sheet ──────────────────────────────────────────────────────
@@ -428,11 +436,11 @@ test('B1: the tokens are in the theme file, light then dark, the paper is the sl
     }
   }
   assert.match(light, /--aspire-paper:\s*#FDFCFA;/); assert.match(dark, /--aspire-paper:\s*#1C1F2C;/)
-  for (const [k, v] of [['--grid', 'rgba(15, 122, 77, 0.085)'], ['--grid-5', 'rgba(15, 122, 77, 0.15)'],
+  for (const [k, v] of [['--folder', '#EAE1CA'], ['--folder-deep', '#DDD2B5'], ['--folder-ink', '#3A2E14'], ['--grid', 'rgba(15, 122, 77, 0.05)'], ['--grid-5', 'rgba(15, 122, 77, 0.09)'],
     ['--band', 'rgba(15, 122, 77, 0.045)'], ['--hole', '#EDEAE2'], ['--hole-in', '#DAD5C8'], ['--up', '#0F7A4D'], ['--same', '#767D97'], ['--down', '#8F5A0A']]) {
     assert.match(light, new RegExp(`${k.replace(/-/g, '\\-')}:\\s*${v.replace(/[().]/g, '\\$&')};`), `light ${k}`)
   }
-  for (const [k, v] of [['--grid', 'rgba(60, 203, 138, 0.06)'], ['--grid-5', 'rgba(60, 203, 138, 0.11)'],
+  for (const [k, v] of [['--folder', '#2B2619'], ['--folder-deep', '#211D13'], ['--folder-ink', '#EFE6CF'], ['--grid', 'rgba(60, 203, 138, 0.035)'], ['--grid-5', 'rgba(60, 203, 138, 0.065)'],
     ['--band', 'rgba(60, 203, 138, 0.055)'], ['--hole', '#12151F'], ['--hole-in', '#0C0E16'], ['--up', '#3CCB8A'], ['--same', '#9198B4'], ['--down', '#E6A544']]) {
     assert.match(dark, new RegExp(`${k.replace(/-/g, '\\-')}:\\s*${v.replace(/[().]/g, '\\$&')};`), `dark ${k}`)
   }
@@ -445,16 +453,19 @@ test('B2 to B5: the sheet, the tabs, the roster chrome and the mandatory seconda
   assert.match(css, /background-size: 132px 132px, 132px 132px, 22px 22px, 22px 22px;/)
   assert.match(css, /linear-gradient\(var\(--grid-5\) 1px, transparent 1px\)/)
   assert.match(css, /padding: 20px 24px 16px;/)
-  assert.match(css, /box-shadow: 0 1px 1px rgba\(24, 32, 63, 0\.10\), 0 10px 26px rgba\(24, 32, 63, 0\.13\);/)
-  // One sheet behind it, offset 5px.
-  assert.match(css, /\.rp-sheetwrap::before \{[^}]*left: 5px;[^}]*right: -5px;[^}]*top: 5px;[^}]*bottom: -5px;/s)
+  // The sheet sits inside a manila frame; there is no stack of paper behind it.
+  assert.doesNotMatch(css, /rp-sheetwrap/)
+  assert.match(css, /\.rp-folder \{[^}]*background: var\(--folder\);[^}]*border: 1px solid var\(--folder-edge\);[^}]*padding: 0 14px 14px;/s)
+  assert.match(css, /\.rp-sheet \{[^}]*margin-top: 8px;/s)
   // Text halo on every text block.
   assert.match(css, /\.rp-spec, \.rp-stamp, \.rp-basis, \.rp-findtitle, \.rp-findsub, \.rp-name, \.rp-counts, \.rp-means,\n\.rp-caveat[^{]*\{\n\s*text-shadow: 0 0 3px var\(--paper\), 0 0 7px var\(--paper\);/)
   // Header closed by a 2px ink rule.
   assert.match(css, /\.rp-sheethead \{[^}]*border-bottom: 2px solid var\(--paper-ink\);/s)
-  // File tabs: 9px top corners via token, no bottom border, -11px, above the sheet; the meter is a block.
-  assert.match(css, /\.rp-tab \{[^}]*border-bottom: none;[^}]*border-radius: var\(--aspire-radius-filetab\) var\(--aspire-radius-filetab\) 0 0;/s)
-  assert.match(css, /\.rp-tabs \{[^}]*margin-bottom: -11px;[^}]*z-index: 3;/s)
+  // File tabs on the frame's band: 9px top corners via token, no bottom border, no overlap
+  // with the page; the selected one rises to the band and joins it; the meter is a block.
+  assert.match(css, /\.rp-tab \{[^}]*top: 3px;[^}]*background: var\(--folder-deep\);[^}]*border-bottom: none;[^}]*border-radius: var\(--aspire-radius-filetab\) var\(--aspire-radius-filetab\) 0 0;/s)
+  assert.doesNotMatch(css, /margin-bottom: -11px/)
+  assert.match(css, /\.rp-tab\[aria-pressed="true"\] \{[^}]*top: 0;[^}]*background: var\(--folder\);[^}]*margin-bottom: -1px;[^}]*box-shadow:/s)
   assert.match(css, /\.rp-meter \{\n\s*display: block;/)
   assert.match(read('src/styles/aspireBrand.css'), /--aspire-radius-filetab: 9px;/)
   // The down segment is textured, segments are gapped 2px, narrow ones hide their number.
@@ -505,6 +516,10 @@ test('the markup carries the accessibility contract', () => {
   assert.match(ds, /aria-live="polite"/)
   assert.match(ds, /\{on \? \(dir === 'asc' \? ' ↑' : ' ↓'\) : ''\}/, 'the arrow appears only on the active column')
   const tab = read('src/components/EvaluationTab.jsx')
+  assert.match(tab, /<div className="rp-folder">\s*<InstrumentTabs/, 'the tabs and the sheet share one frame')
+  assert.doesNotMatch(tab, /Paired scores|handlePairedScores|onPairedScores/)
+  assert.doesNotMatch(rp, /Paired scores/)
+  assert.match(tab, /<button type="button" onClick=\{\(\) => \{ setRosterFocus\(null\); setLive\('Showing all students'\) \}\}>Show all<\/button>/, 'the way back is a word')
   assert.match(tab, /setLive\(`\$\{tab\?\.name \|\| 'Instrument'\} selected`\)/, 'instrument changes are announced')
   assert.match(tab, /<p className="sr-only" aria-live="polite">\{live\}<\/p>/)
   const bs = read('src/components/evaluation/BubbleSheet.jsx')

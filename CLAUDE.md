@@ -594,6 +594,11 @@ session, in the spec's order. Evaluation > Responses is the first build.
   (name 2.2, school 1.4, date and status 1, each figure 0.7) and nothing bunches at one
   edge. Content is inset `--ds-inset` (20px on a full sheet) inside the hole strips; the
   crease is full-bleed and comes every ten rows so the "continued" lines count by tens.
+- **Status before Date, and Date is the status's own timestamp** (Owner, 2026-09-20).
+  `statusDate` in the packet model decides: Completed shows submitted, Sent shows sent,
+  Opened shows opened, Expired shows when the window closed, Revoked when it was recalled.
+  A filter set from elsewhere (a "See who") is a chip in the head with a "Show all" word,
+  never a bare ×: a way back that is not seen is not a way back.
 - **Sort lives in `dataSheetSort.js`.** `sortRows` is what the sheet uses and what an export
   that mirrors the view must call; nulls sort last in both directions; the arrow renders only
   on the active column.
@@ -614,6 +619,18 @@ Four instrument file tabs on a gridded analysis sheet, a continuous-feed roster 
 DataSheet, full level), and a bubble sheet behind every row. The reference is
 `docs/mockups/responses-packet-mockup.html`; the parts are `src/components/evaluation/
 ResponsesPacket.jsx`, `BubbleSheet.jsx`, `responsesPacket.css`, and the tab.
+
+- **The sheet sits in a manila folder, not on a stack** (Owner, 2026-09-20). `.rp-folder` is
+  a plain frame (`--folder*` tokens, both themes) whose top band carries the four tabs as
+  file-folder tabs. The selected tab is the folder's own surface: it rises to the band, loses
+  its seam and casts a shadow on the tabs behind it; the others sit 3px lower in
+  `--folder-deep`. The sheet lies inside the frame, so a tab never overlaps the page. The
+  mockup's offset sheet behind the paper and its -11px tab overlap are gone.
+- **The grid is subtle**: `--grid` and `--grid-5` are about 40% lighter than the mockup so
+  the squares never compete with a bar or a label. Present, never loud.
+- **No Paired scores button.** Every assignment is a roster row, so a matched student's pre
+  and post rows already sit together; the button only hid the unmatched and its way back was
+  invisible. The Matched pairs figure stays in the basis line.
 
 - **The Responses tab names instruments; Review & Release names workflows.** Two lists, on
   purpose. Casey-Fink is ONE instrument at two timepoints here (its tab says "Pre-Rotation and

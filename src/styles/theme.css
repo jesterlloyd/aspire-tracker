@@ -85,8 +85,16 @@
   --paper-ink:    var(--aspire-paper-ink);
   --paper-muted:  var(--aspire-paper-muted);
   --rule:         var(--aspire-rule);
-  --grid:         rgba(15, 122, 77, 0.085);
-  --grid-5:       rgba(15, 122, 77, 0.15);
+  /* The grid is present but never competes with the ink: about 40% lighter than the
+     mockup (Owner, 2026-09-20). */
+  --grid:         rgba(15, 122, 77, 0.05);
+  --grid-5:       rgba(15, 122, 77, 0.09);
+  /* The manila folder that frames a results sheet, and its ink. */
+  --folder:           #EAE1CA;
+  --folder-deep:      #DDD2B5;
+  --folder-edge:      rgba(90, 74, 34, 0.24);
+  --folder-ink:       #3A2E14;
+  --folder-ink-muted: #5E5030; /* 5.1:1 on --folder-deep; #6E5F3A measured 4.15 */
   --band:         rgba(15, 122, 77, 0.045);
   --hole:         #EDEAE2;
   --hole-in:      #DAD5C8;
@@ -200,8 +208,13 @@
   --paper-ink:    var(--aspire-paper-ink);
   --paper-muted:  var(--aspire-paper-muted);
   --rule:         var(--aspire-rule);
-  --grid:         rgba(60, 203, 138, 0.06);
-  --grid-5:       rgba(60, 203, 138, 0.11);
+  --grid:         rgba(60, 203, 138, 0.035);
+  --grid-5:       rgba(60, 203, 138, 0.065);
+  --folder:           #2B2619;
+  --folder-deep:      #211D13;
+  --folder-edge:      rgba(201, 178, 122, 0.24);
+  --folder-ink:       #EFE6CF;
+  --folder-ink-muted: #C4B68F;
   --band:         rgba(60, 203, 138, 0.055);
   --hole:         #12151F;
   --hole-in:      #0C0E16;

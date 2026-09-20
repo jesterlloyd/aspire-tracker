@@ -163,7 +163,6 @@ export function AnalysisSheet({
   tableView = false,
   onToggleTableView,
   onFollowUp,
-  onPairedScores,
 }) {
   const { instrument, rows, basis, distribution, followUp } = packet
   const hasRows = rows.length > 0
@@ -173,7 +172,6 @@ export function AnalysisSheet({
   const showRows = hasRows && distribution.total > 0
 
   return (
-    <div className="rp-sheetwrap">
       <section className="rp-sheet" aria-label={`${instrument.name} analysis sheet`}>
         <div className="rp-sheethead">
           <div className="rp-specimen">
@@ -225,14 +223,8 @@ export function AnalysisSheet({
             >
               Table view
             </button>
-            {distribution.paired && (
-              <button type="button" className="ds-btn" disabled={distribution.total === 0} onClick={() => onPairedScores?.()}>
-                Paired scores
-              </button>
-            )}
           </div>
         </div>
       </section>
-    </div>
   )
 }

@@ -104,13 +104,18 @@
   background: var(--pill-warn-bg);
   color: var(--pill-warn-fg);
 }
+/* The way back from a filter is a word, not a glyph: "Show all". */
 .ds-chip button {
   font: inherit;
+  font-family: var(--aspire-sans);
+  font-size: 11.5px;
   background: none;
   border: 0;
   color: inherit;
   cursor: pointer;
-  padding: 0 5px;
+  padding: 0 6px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
   line-height: 1;
 }
 
