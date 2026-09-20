@@ -19,9 +19,12 @@ const catalog = read('src/components/catalog/CatalogPage.jsx')
 const knowledge = read('src/components/settings/KnowledgeCenterPanel.jsx')
 
 test('Evaluation ignores instrument and timepoint selections absent from the current cohort', () => {
-  assert.match(evaluation, /const activeInstrumentFilter = instruments\.includes\(filterInstrument\) \? filterInstrument : 'All'/)
+  // RESPONSES-PACKET-1: the instrument is a file tab keyed by slug. A slug this build does
+  // not know falls back to the first tab, never to nothing.
+  assert.match(evaluation, /const chosenInstrument = PACKET_SLUGS\.includes\(filterInstrument\) \? filterInstrument : DEFAULT_PACKET_SLUG/)
+  assert.match(evaluation, /const activeInstrumentFilter = userPickedInstrument \? chosenInstrument : \(firstWithRows \|\| chosenInstrument\)/)
   assert.match(evaluation, /const activeTimepointFilter = timepoints\.includes\(filterTimepoint\) \? filterTimepoint : 'All'/)
-  assert.match(evaluation, /value=\{activeInstrumentFilter\}/)
+  assert.match(evaluation, /selected=\{activeInstrumentFilter\}/)
   assert.match(evaluation, /value=\{activeTimepointFilter\}/)
 })
 

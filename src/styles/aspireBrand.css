@@ -50,6 +50,13 @@
   --aspire-radius-control: 10px;
   /* A pill (chips, count badges). Fully round at any height. */
   --aspire-radius-pill: 999px;
+  /* The sheet family (table canon, RESPONSES-PACKET-1): a printed sheet's corner, the
+     plain sheet that sits inside a card, and a FILE tab's top corners (the packet's
+     instrument tabs). --aspire-radius-tab, below, is the student chart's die-cut index
+     tab and is a different shape. Read these; never restate the numbers. */
+  --aspire-radius-sheet: 3px;
+  --aspire-radius-sheet-plain: 8px;
+  --aspire-radius-filetab: 9px;
   --aspire-focus-ring: 2px solid var(--aspire-navy);
 
   /* Rhythm. One gap between sibling cards, one offset from a section nav to the first

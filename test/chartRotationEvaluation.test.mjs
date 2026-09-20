@@ -142,24 +142,30 @@ test('evaluation: blockers visible, verbs unified, export, reflow', async (t) =>
     assert.match(evalTab, /aspire_evaluations_\$\{dateSlug\}\.csv/)
   })
 
-  await t.test('the KPI band and table finally reflow', () => {
-    assert.match(evalTab, /className="eval-kpis"/)
-    assert.match(css, /\.eval-kpis \{ grid-template-columns: repeat\(6, 1fr\); \}/)
-    assert.match(evalTab, /overflowX: 'auto' \}\}>\s*\n\s*<table style=\{\{ width: '100%', minWidth: 720/)
+  // RESPONSES-PACKET-1 (2026-09-19): the six KPI tiles and the old table are gone. The
+  // Responses tab is a results packet: file tabs, an analysis sheet, then the shared
+  // DataSheet. test/responsesPacket.test.mjs holds the packet's own assertions.
+  await t.test('the KPI band is gone and the roster is the shared DataSheet', () => {
+    assert.doesNotMatch(evalTab, /className="eval-kpis"/)
+    assert.doesNotMatch(css, /\.eval-kpis/)
+    assert.doesNotMatch(evalTab, /<table style=\{\{ width: '100%', minWidth: 720/)
+    assert.match(evalTab, /<DataSheet\s*\n\s*level="full"/)
   })
 
-  await t.test('Casey-Fink uses matched pre/post comparison outside the status KPI band', () => {
-    assert.match(evalTab, /buildCaseyFinkComparison\(assignments\)/)
-    assert.match(evalTab, /<CaseyFinkComparisonPanel comparison=\{caseyFinkComparison\}/)
+  await t.test('Casey-Fink pairs are built once, in the model, and the sheet reads them', () => {
+    assert.match(evalTab, /buildPacket\(assignments, activeInstrumentFilter/)
+    assert.match(read('src/lib/evaluation/responsesPacketModel.js'), /buildCaseyFinkComparison\(assignments\)/)
     assert.doesNotMatch(evalTab, /SECTION I AVERAGES/)
+    assert.doesNotMatch(evalTab, /CaseyFinkComparisonPanel/)
   })
 
-  await t.test('the status KPI filters stay below the comparison and next to the response table', () => {
-    const comparisonIndex = evalTab.indexOf('<CaseyFinkComparisonPanel comparison={caseyFinkComparison}')
-    const kpiIndex = evalTab.indexOf('className="eval-kpis"')
-    const filterIndex = evalTab.indexOf('value={activeInstrumentFilter}')
-    const tableIndex = evalTab.indexOf("<table style={{ width: '100%', minWidth: 720")
-    assert.ok(comparisonIndex >= 0 && comparisonIndex < kpiIndex)
-    assert.ok(kpiIndex < filterIndex && filterIndex < tableIndex)
+  await t.test('the sheet comes before the roster, and the roster filters live in its head', () => {
+    const tabsIndex = evalTab.indexOf('<InstrumentTabs')
+    const sheetIndex = evalTab.indexOf('<AnalysisSheet')
+    const rosterIndex = evalTab.indexOf('<DataSheet')
+    assert.ok(tabsIndex >= 0 && tabsIndex < sheetIndex && sheetIndex < rosterIndex, 'tabs, then sheet, then roster')
+    assert.match(evalTab, /toolbar=\{rosterToolbar\}/)
+    assert.match(evalTab, /aria-label="Timepoint filter"/)
+    assert.match(evalTab, /aria-label="Status filter"/)
   })
 })

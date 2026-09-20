@@ -556,3 +556,68 @@ both.
   verification queries go in `db/audit/`, numbered, one section at a time.
 - Do not push without explicit approval.
 - Leave the untracked `" 2."` / `" 3."` duplicate files alone.
+
+## Every table is one component (TABLE-CANON-1, 2026-09-19)
+
+`docs/design/table-canon-spec.md` is the standard and `docs/mockups/table-canon.html` renders
+it. The component is `src/components/shared/DataSheet.jsx` with `dataSheet.css`, at one of
+three levels the spec's three questions decide: **full** (stands alone, holds a record you
+read or export: tractor holes, a crease every eight rows, paired bands), **plain** (inside a
+card or panel: bands and rules, no holes), **inline** (five rows or fewer: bands only). The
+eight invariants hold at every level; convert other screens by swapping markup, one screen per
+session, in the spec's order. Evaluation > Responses is the first build.
+
+- **Banding is `data-band`, not `:nth-child`.** An expanded detail panel is a sibling row and
+  shifts every `:nth-child` band below it; the component writes rows 1 and 2 of every four from
+  the row's index within its page, so the rhythm holds whatever is open.
+- **The wrapper around a sheet is a block, never a grid.** A grid column sizes to its items'
+  min-content, so the roster's minimum width stretched the packet past a 375px viewport and
+  nothing ever shrank. A block lets the sheet measure itself and drop columns by `priority`
+  (1 is never dropped; the highest number goes first). Nothing shrinks, nothing scrolls sideways.
+- **Sort lives in `dataSheetSort.js`.** `sortRows` is what the sheet uses and what an export
+  that mirrors the view must call; nulls sort last in both directions; the arrow renders only
+  on the active column.
+- **The sheet family reads `theme.css`**: `--paper`, `--paper-2`, `--paper-ink`, `--paper-muted`,
+  `--rule`, `--band`, `--hole`, `--hole-in`, `--grid`, `--grid-5`, `--up`, `--same`, `--down`,
+  `--on-seg`, `--pill-*`, light then dark. Radii: `--aspire-radius-sheet` (3px),
+  `--aspire-radius-sheet-plain` (8px), `--aspire-radius-filetab` (9px). `--aspire-radius-tab`
+  is the student chart's die-cut index tab and a different shape. Chart-mark radii (a bar
+  segment's ends, a delta chip) are component properties on `.rp-packet`, not brand tokens.
+- Two paper families exist as of 2026-09-19: `--paper` (the sheet family, faintly green under
+  the grid) and `--aspire-paper` (the planner's slate, lifted for the Review & Release
+  clipboard). The Owner has not said whether the clipboard should go green; do not merge them
+  without that decision.
+
+## Evaluation > Responses is a printed packet (RESPONSES-PACKET-1, 2026-09-19)
+
+Four instrument file tabs on a gridded analysis sheet, a continuous-feed roster (the
+DataSheet, full level), and a bubble sheet behind every row. The reference is
+`docs/mockups/responses-packet-mockup.html`; the parts are `src/components/evaluation/
+ResponsesPacket.jsx`, `BubbleSheet.jsx`, `responsesPacket.css`, and the tab.
+
+- **The Responses tab names instruments; Review & Release names workflows.** Two lists, on
+  purpose. Casey-Fink is ONE instrument at two timepoints here (its tab says "Pre-Rotation and
+  Post-Rotation") and two workflows there. `src/lib/evaluationLabels.js` holds the four names.
+- **Every number comes from `src/lib/evaluation/responsesPacketModel.js`**, which is pure and
+  tested without a browser. Nothing is computed in JSX. It reads the stored Casey-Fink Section I
+  means and computes the other instruments' subscale means from item answers at read time; it
+  never writes a score.
+- **A pair is decided once**, in `caseyFinkResponsesByStudent`: a completed pre-rotation and a
+  completed post-rotation response with all three scores in range. The comparison, the
+  "baseline only" follow-up and the bubble sheet read the same map, so the students the sheet
+  counts are the students the roster can open.
+- **The basis line comes before the finding.** Assigned and the pairing count are navy; nonzero
+  unfinished work (Awaiting, Baseline only, Expired) is amber; every zero is muted. A paired
+  instrument appends Expired and Revoked only when nonzero: a denominator that hides them
+  misleads.
+- **Distribution first, means second.** The stacked bar is the primary mark; the delta is an
+  outline chip, never a filled pill. **The down segment is amber, textured, gapped and
+  labelled, and the Table view toggle exists because the neutral segment sits below 3:1.**
+  Never make it red: green against red measures dE 4.2 under deuteranopia.
+- **Casey-Fink item text is licensed.** The bubble sheet shows item numbers only for it
+  (`itemText: 'licensed'`); the other three resolve stems from the stored definition or the
+  instrument module, and no stem is copied into the repo. The Owner/Admin response viewer is
+  still the place to read a Casey-Fink item in full.
+- The CSV export keeps its columns, its filename and its old timepoint words; only its rows
+  changed to mirror the roster. The roster's timepoint filter offers one option per label
+  (`timepointMatches`), so "Pre-Rotation" is never listed twice.

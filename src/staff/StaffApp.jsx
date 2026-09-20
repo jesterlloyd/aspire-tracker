@@ -1551,7 +1551,7 @@ function MainApp({ onLogout }) {
             {visitedTabs.has('evaluation') && (
               <div style={{ display: activeTab === 'evaluation' ? 'block' : 'none' }}>
                 <Suspense fallback={<ChunkLoading label="Loading Evaluation" />}>
-                  <EvaluationTab cohortId={activeCohortId} />
+                  <EvaluationTab cohortId={activeCohortId} cohortLabel={activeCohort?.name || ''} />
                 </Suspense>
               </div>
             )}

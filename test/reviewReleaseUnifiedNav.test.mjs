@@ -123,7 +123,8 @@ test('EvaluationTab renders the dashboard behind the same gate, and wires Track 
   assert.match(tab, /activeSubTab === 'automation' && \(isOwner \|\| isAdmin\) && \(\s*\n\s*<SurveyAutomationDashboard/)
   // Section 4: the Sent log links to the Responses tab filtered to that workflow.
   assert.match(tab, /onTrackResponses=\{\(survey\) => \{/)
-  assert.match(tab, /setFilterInstrument\(name\)/)
+  // RESPONSES-PACKET-1: the Responses tab is keyed by instrument slug, not display name.
+  assert.match(tab, /setFilterInstrument\(slug\)/)
   assert.match(tab, /setActiveSubTab\('cohort'\)/)
 })
 

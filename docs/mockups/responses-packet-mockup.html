@@ -1,0 +1,482 @@
+<title>Evaluation Results Packet</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Instrument+Sans:wght@500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+:root{
+  --ground:#F3F2EE; --surface:#FFFFFF; --ink:#18203F; --muted:#5E6480; --line:#E3E4EC;
+  --navy:#1E2A6E; --navy-bar:#1E2A6E;
+  --kpi-blue:#EFF3FB; --kpi-sand:#FBF4E6; --kpi-mint:#EFF6F1;
+  --green:#0F7A4D; --green-soft:#E1F3EA; --amber:#8F5A0A; --amber-soft:#FBEFD9; --red:#A32A32; --red-soft:#FBEAEC;
+  --paper:#FCFDFA; --paper-2:#F1F4EE; --paper-ink:#1B2140; --paper-muted:#61667E; --rule:rgba(30,42,110,.13);
+  --grid:rgba(15,122,77,.085); --grid-5:rgba(15,122,77,.15);
+  --band:rgba(15,122,77,.045); --hole:#EDEAE2; --hole-in:#DAD5C8;
+  --up:#0F7A4D; --same:#767D97; --down:#8F5A0A;
+  --display:"Instrument Sans",system-ui,sans-serif; --body:"Atkinson Hyperlegible",system-ui,sans-serif; --mono:"JetBrains Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --ground:#0E111C; --surface:#181C2B; --ink:#E9EAF2; --muted:#9CA1BA; --line:#2B3046; --navy:#9FB0F5; --navy-bar:#151C45;
+  --kpi-blue:#1E2540; --kpi-sand:#2A2517; --kpi-mint:#16291F;
+  --green:#3CCB8A; --green-soft:#15372A; --amber:#E6A544; --amber-soft:#3A2C14; --red:#F08A92; --red-soft:#3A1B1F;
+  --paper:#1C1F2C; --paper-2:#171A25; --paper-ink:#E9EAF2; --paper-muted:#A0A4BC; --rule:rgba(159,176,245,.16);
+  --grid:rgba(60,203,138,.06); --grid-5:rgba(60,203,138,.11);
+  --band:rgba(60,203,138,.055); --hole:#12151F; --hole-in:#0C0E16;
+  --up:#3CCB8A; --same:#9198B4; --down:#E6A544;
+}}
+:root[data-theme="dark"]{
+  --ground:#0E111C; --surface:#181C2B; --ink:#E9EAF2; --muted:#9CA1BA; --line:#2B3046; --navy:#9FB0F5; --navy-bar:#151C45;
+  --kpi-blue:#1E2540; --kpi-sand:#2A2517; --kpi-mint:#16291F;
+  --green:#3CCB8A; --green-soft:#15372A; --amber:#E6A544; --amber-soft:#3A2C14; --red:#F08A92; --red-soft:#3A1B1F;
+  --paper:#1C1F2C; --paper-2:#171A25; --paper-ink:#E9EAF2; --paper-muted:#A0A4BC; --rule:rgba(159,176,245,.16);
+  --grid:rgba(60,203,138,.06); --grid-5:rgba(60,203,138,.11);
+  --band:rgba(60,203,138,.055); --hole:#12151F; --hole-in:#0C0E16;
+  --up:#3CCB8A; --same:#9198B4; --down:#E6A544;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--ground);color:var(--ink);font-family:var(--body);font-size:14px;line-height:1.5;margin:0}
+button{font:inherit;cursor:pointer;color:inherit}
+:focus-visible{outline:3px solid var(--navy);outline-offset:2px}
+
+.topbar{background:var(--navy-bar);color:#fff;padding-inline:20px;padding-block:13px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.topbar b{font-family:var(--display);font-size:19px}
+.chrome{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.scope{font-family:var(--mono);font-size:11px;border:1px solid rgba(255,255,255,.25);border-radius:8px;padding:5px 10px;white-space:nowrap}
+.theme-toggle{display:inline-flex;border:1px solid rgba(255,255,255,.35);border-radius:8px;overflow:hidden}
+.theme-toggle button{background:transparent;color:#fff;border:none;padding:5px 10px;font-size:12px}
+.theme-toggle button[aria-pressed="true"]{background:#fff;color:#1E2A6E}
+.tabs{background:var(--surface);border-bottom:1px solid var(--line);padding-inline:20px;display:flex;gap:22px;overflow-x:auto}
+.tabs span{padding:12px 0;color:var(--muted);font-family:var(--display);font-size:16px;white-space:nowrap}
+.tabs .on{color:var(--navy);border-bottom:2px solid var(--navy)}
+main{max-width:1340px;margin:0 auto;padding-inline:20px;padding-block:14px 80px;display:grid;gap:14px}
+.demo{font-family:var(--mono);font-size:11px;color:var(--amber);background:var(--amber-soft);padding:3px 8px;border-radius:4px;justify-self:start}
+.subtabs{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:var(--surface);justify-self:start}
+.subtabs span{padding:7px 14px;font-size:13px;color:var(--muted)}
+.subtabs .on{background:var(--navy);color:#fff;font-weight:700}
+h1{font-family:var(--display);font-size:22px;margin:4px 0 0;color:var(--navy)}
+.lede{color:var(--muted);margin:0;font-size:13.5px}
+
+/* Instrument selector as file tabs on the packet */
+.insts{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:-11px;padding-left:12px;position:relative;z-index:3}
+.inst{background:var(--paper-2);border:1px solid var(--rule);border-bottom:none;border-radius:9px 9px 0 0;padding:9px 15px 14px;text-align:left;min-width:190px;
+  box-shadow:0 -2px 6px rgba(24,32,63,.07);color:var(--paper-muted)}
+.inst b{display:block;font-family:var(--display);font-size:13.5px;color:var(--paper-ink);font-weight:600}
+.inst .n{display:block;font-family:var(--mono);font-size:10.5px;letter-spacing:.03em}
+.inst .meter{display:block;height:4px;border-radius:99px;background:var(--rule);margin-top:6px;overflow:hidden}
+.inst .meter i{display:block;height:100%;border-radius:99px;background:var(--same)}
+.inst[aria-pressed="true"]{background:var(--paper);color:var(--paper-ink);padding-bottom:16px;box-shadow:0 -3px 10px rgba(24,32,63,.1)}
+.inst[aria-pressed="true"] .meter i{background:var(--green)}
+
+/* ---- Sheet 1: gridded analysis sheet ---- */
+.sheet{position:relative;background-color:var(--paper);
+  background-image:linear-gradient(var(--grid-5) 1px,transparent 1px),linear-gradient(90deg,var(--grid-5) 1px,transparent 1px),
+                   linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:132px 132px,132px 132px,22px 22px,22px 22px;
+  border:1px solid var(--rule);border-radius:3px;padding:20px 24px 16px;
+  box-shadow:0 1px 1px rgba(24,32,63,.1),0 10px 26px rgba(24,32,63,.13)}
+.sheet::after{content:"";position:absolute;left:5px;right:-5px;top:5px;bottom:-5px;background:var(--paper-2);z-index:-1;
+  border:1px solid var(--rule);box-shadow:0 3px 8px rgba(24,32,63,.12)}
+.sheethead{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;
+  border-bottom:2px solid var(--paper-ink);padding-bottom:10px}
+.specimen{display:flex;gap:26px;flex-wrap:wrap}
+.spec{display:grid;gap:1px}
+.spec .k{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--paper-muted)}
+.spec .v{font-family:var(--display);font-size:14px;color:var(--paper-ink)}
+.sheethead .stampbox{font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--paper-muted);text-align:right;line-height:1.7}
+
+/* the denominator line, above the finding */
+.basis{display:flex;gap:0;flex-wrap:wrap;margin:10px 0 4px;font-size:13px;align-items:stretch}
+.basis .b{padding:5px 14px 5px 0;margin-right:14px;border-right:1px solid var(--rule);display:grid;gap:0}
+.basis .b:last-child{border-right:none;margin-right:0}
+.basis .b b{font-family:var(--display);font-size:17px;color:var(--paper-ink);font-variant-numeric:tabular-nums;line-height:1.2}
+.basis .b span{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--paper-muted)}
+.basis .b.key b{color:var(--navy)}
+.basis .b.warn b{color:var(--amber)}
+.basis .b.zero b{color:var(--paper-muted);font-weight:400}
+
+.findtitle{font-family:var(--display);font-size:19px;color:var(--paper-ink);margin:16px 0 2px}
+.sub .name,.means,.counts,.caveat,.findsub,.basis,.spec{text-shadow:0 0 3px var(--paper),0 0 7px var(--paper)}
+.findsub{font-size:12.5px;color:var(--paper-muted);margin-bottom:14px}
+
+/* subscale rows */
+.sub{display:grid;grid-template-columns:200px 1fr 160px;gap:18px;align-items:center;padding:13px 0;border-top:1px solid var(--rule)}
+.sub:last-of-type{border-bottom:1px solid var(--rule)}
+@media (max-width:880px){.sub{grid-template-columns:1fr;gap:9px}}
+.sub .name{font-family:var(--display);font-size:14.5px;color:var(--paper-ink)}
+.sub .name small{display:block;font-family:var(--mono);font-size:10px;color:var(--paper-muted);font-weight:400;letter-spacing:.04em}
+.barwrap{display:grid;gap:6px}
+.bar{display:flex;height:21px;width:100%}
+.bar .seg{position:relative;height:100%;display:grid;place-items:center;border-radius:2px;margin-right:2px;min-width:3px}
+.bar .seg:last-child{margin-right:0}
+.bar .seg:first-child{border-radius:4px 2px 2px 4px}
+.bar .seg:last-child{border-radius:2px 4px 4px 2px}
+.bar .seg.up{background:var(--up)}
+.bar .seg.same{background:var(--same)}
+.bar .seg.down{background:var(--down);background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.28) 0 2px,transparent 2px 5px)}
+.bar .seg b{font-family:var(--mono);font-size:10.5px;color:#fff;font-weight:600}
+:root[data-theme="dark"] .bar .seg b{color:#0E111C}
+.bar .seg[data-narrow="1"] b{display:none}
+.counts{display:flex;gap:12px;flex-wrap:wrap;font-size:11.5px;color:var(--paper-muted);align-items:center}
+.counts i{width:9px;height:9px;border-radius:2px;display:inline-block;margin-right:5px;vertical-align:-1px}
+.counts .net{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--paper-ink)}
+.means{text-align:right;font-family:var(--mono);font-size:12.5px;color:var(--paper-muted);white-space:nowrap}
+.means b{color:var(--paper-ink);font-weight:600}
+.means .d{display:inline-block;margin-left:8px;border:1px solid var(--rule);border-radius:5px;padding:1px 7px;font-size:11.5px;color:var(--paper-ink)}
+@media (max-width:880px){.means{text-align:left}}
+
+.sheetfoot{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:flex-end;margin-top:14px}
+.caveat{font-size:11.5px;color:var(--paper-muted);max-width:60ch;margin:0}
+.followup{display:inline-flex;gap:9px;align-items:center;background:var(--amber-soft);border-left:3px solid var(--amber);padding:7px 12px;font-size:12.5px;color:var(--paper-ink);border-radius:0 5px 5px 0}
+.followup button{background:none;border:none;color:var(--navy);text-decoration:underline;text-underline-offset:3px;padding:0;font-size:12.5px}
+.sheetacts{display:flex;gap:8px;flex-wrap:wrap}
+.pbtn{background:rgba(30,42,110,.05);border:1px solid var(--rule);border-radius:6px;padding:5px 12px;font-size:12.5px;color:var(--paper-ink)}
+.pbtn:hover{border-color:var(--navy);background:rgba(30,42,110,.09)}
+.pbtn[aria-pressed="true"]{background:var(--navy);border-color:var(--navy);color:#fff}
+:root[data-theme="dark"] .pbtn[aria-pressed="true"]{color:#0E111C}
+
+/* table view (a11y relief) */
+.tv{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:12px}
+.tv th,.tv td{border:1px solid var(--rule);padding:5px 9px;text-align:right;font-variant-numeric:tabular-nums}
+.tv th:first-child,.tv td:first-child{text-align:left}
+.tv th{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--paper-muted);font-weight:400;background:rgba(30,42,110,.04)}
+
+/* ---- Sheet 2: continuous-feed roster ---- */
+.feed{position:relative;background:var(--paper);border:1px solid var(--rule);border-radius:3px;margin-top:26px;
+  padding:0 38px;box-shadow:0 1px 1px rgba(24,32,63,.1),0 10px 26px rgba(24,32,63,.13);overflow:hidden}
+.holes{position:absolute;top:0;bottom:0;width:38px;background:var(--hole);
+  background-image:radial-gradient(circle at 19px 13px,var(--hole-in) 0 5.5px,transparent 6px);
+  background-size:38px 26px;pointer-events:none}
+.holes.l{left:0;border-right:1px dashed var(--rule)}
+.holes.r{right:0;border-left:1px dashed var(--rule)}
+.feedhead{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:center;padding:14px 0 10px}
+.feedhead h3{font-family:var(--display);font-size:16px;margin:0;color:var(--paper-ink)}
+.feedhead .filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-left:auto}
+select{font:inherit;font-size:12.5px;padding:5px 9px;border-radius:6px;border:1px solid var(--rule);background:var(--paper);color:var(--paper-ink)}
+.frow{display:grid;grid-template-columns:minmax(150px,1fr) minmax(118px,148px) 104px 92px 58px 58px 58px 28px;gap:10px;align-items:center;
+  padding:7px 8px;font-size:13px;color:var(--paper-ink);border-bottom:1px solid var(--rule)}
+.fhead{border-bottom:1.5px solid var(--paper-ink);padding-block:6px}
+.fhead button{background:none;border:none;padding:0;font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--paper-muted);text-align:inherit;width:100%}
+.fhead button:hover{color:var(--paper-ink)}
+.fhead .ar{opacity:0;font-size:9px}
+.fhead button[data-on="1"]{color:var(--paper-ink)}
+.fhead button[data-on="1"] .ar{opacity:1}
+.fbody .frow:nth-child(4n+1),.fbody .frow:nth-child(4n+2){background:var(--band)}
+.frow>.num{text-align:right;font-family:var(--mono);font-size:12px;font-variant-numeric:tabular-nums}
+.frow .nm{display:flex;gap:8px;align-items:center;min-width:0}
+.frow .nm span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.frow .nm small{font-family:var(--mono);font-size:10.5px;color:var(--paper-muted);white-space:nowrap}
+.frow .nm .dot{color:var(--paper-muted);opacity:.65}
+.frow .sch{font-size:12px;color:var(--paper-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pill{font-family:var(--mono);font-size:10px;letter-spacing:.05em;border-radius:99px;padding:2px 9px;white-space:nowrap;justify-self:start}
+.pill.done{background:var(--green-soft);color:var(--green)}
+.pill.sent{background:var(--kpi-blue);color:var(--navy)}
+.pill.none{background:var(--paper-2);color:var(--paper-muted)}
+.exp{background:none;border:none;color:var(--paper-muted);padding:2px 6px;border-radius:5px;font-size:12px}
+.exp:hover{background:rgba(30,42,110,.07);color:var(--paper-ink)}
+.crease{position:relative;margin:0 -38px;border-top:1px dashed var(--rule);
+  background:linear-gradient(180deg,rgba(24,32,63,.055),transparent 55%);height:26px;display:grid;place-items:center}
+.crease span{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--paper-muted);background:var(--paper);padding:0 10px}
+
+/* bubble sheet */
+.bubblesheet{background:var(--paper-2);border-left:3px solid var(--navy);padding:14px 16px;margin-bottom:8px;display:grid;gap:12px}
+.bs-head{display:flex;gap:14px;flex-wrap:wrap;align-items:baseline;font-size:12.5px;color:var(--paper-muted)}
+.bs-head b{font-family:var(--display);font-size:14px;color:var(--paper-ink)}
+.bs-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--paper-muted);align-items:center;margin-left:auto}
+.bs-grp{display:grid;gap:5px}
+.bs-grp .t{font-family:var(--mono);font-size:9.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--paper-muted)}
+.item{display:grid;grid-template-columns:1fr 156px 54px;gap:12px;align-items:center;font-size:12.5px;padding:3px 0}
+@media (max-width:760px){.item{grid-template-columns:1fr 156px}.item .shift{display:none}}
+.item .q{color:var(--paper-ink)}
+.bubs{display:flex;gap:9px;align-items:center}
+.bub{width:17px;height:17px;border-radius:50%;border:1.5px solid var(--rule);display:grid;place-items:center;position:relative}
+.bub span{font-family:var(--mono);font-size:8.5px;color:var(--paper-muted)}
+.bub.pre{border:2px solid var(--navy)}
+.bub.post{background:var(--navy);border-color:var(--navy)}
+.bub.post span{color:var(--paper)}
+.bub.both{background:var(--navy);border-color:var(--navy);box-shadow:0 0 0 2px var(--paper),0 0 0 4px var(--navy)}
+.bub.both span{color:var(--paper)}
+.shift{font-family:var(--mono);font-size:11px;text-align:right;font-variant-numeric:tabular-nums}
+.shift.up{color:var(--up)}.shift.down{color:var(--down)}.shift.same{color:var(--paper-muted)}
+
+#tip{position:fixed;background:#18203F;color:#fff;padding:7px 10px;border-radius:7px;font-size:12px;pointer-events:none;
+  opacity:0;transition:opacity .12s;z-index:80;box-shadow:0 8px 20px rgba(0,0,0,.3);max-width:240px}
+#tip.on{opacity:1}
+#tip b{font-family:var(--display)}
+#toast{position:fixed;left:50%;bottom:22px;translate:-50% 0;background:#18203F;color:#fff;padding:10px 16px;border-radius:9px;font-size:13px;
+  opacity:0;pointer-events:none;transition:opacity .2s;box-shadow:0 10px 26px rgba(0,0,0,.3);z-index:70;max-width:min(560px,calc(100vw - 32px))}
+#toast.show{opacity:1}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="topbar"><b>ASPIRE Intelligence</b>
+  <span class="chrome">
+    <span class="scope">SCOPE · Internship · Summer 2026</span>
+    <span class="theme-toggle" role="group" aria-label="Theme"><button type="button" data-t="light">☀ Light</button><button type="button" data-t="dark">☾ Dark</button></span>
+  </span>
+</div>
+<nav class="tabs" aria-label="Sections"><span>At a Glance</span><span>Student Profiles</span><span>Interviews</span><span>Rotation</span><span class="on">Evaluation</span></nav>
+
+<main>
+  <span class="demo">Mockup · synthetic demo data · item text is placeholder, not the Casey-Fink instrument</span>
+  <span class="subtabs"><span class="on">Responses</span><span>Review &amp; Release</span></span>
+  <h1>Evaluation Results</h1>
+  <p class="lede">One packet per instrument. The analysis sheet states what the numbers rest on before it states the finding.</p>
+
+  <div class="insts" id="insts" role="group" aria-label="Instrument"></div>
+  <section class="sheet" id="sheet" aria-live="polite"></section>
+
+  <section class="feed" id="feed">
+    <span class="holes l" aria-hidden="true"></span><span class="holes r" aria-hidden="true"></span>
+    <div id="feedinner"></div>
+  </section>
+</main>
+
+<div id="tip" role="presentation"></div>
+<div id="toast" role="status"></div>
+<p class="sr" id="live" aria-live="polite"></p>
+
+<script>
+const $=s=>document.querySelector(s);
+const esc=t=>String(t??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+const INST=[
+ {id:'cf',name:'Casey-Fink Readiness for Practice',done:49,total:51,paired:true,
+  basis:[['51','Assigned','key'],['49','Completed',''],['2','Awaiting',''],['21','Matched pairs','key'],['7','Baseline only','warn'],['0','Post only','zero']],
+  title:'Readiness: Pre-to-Post Change',sub:'Matched student responses · 21 paired students · Section I mean, scale 1 to 4',
+  scale:'Section I mean score (1 to 4)',
+  subs:[
+   {n:'Clinical Problem-Solving',items:6,pre:3.26,post:3.59,up:12,same:6,down:3,key:'CPS'},
+   {n:'Learning Activities',items:5,pre:3.50,post:3.62,up:10,same:6,down:5,key:'LA'},
+   {n:'Practice Readiness',items:4,pre:3.20,post:3.71,up:15,same:3,down:3,key:'PR'}
+  ],
+  caveat:'Observed change in student-reported readiness. This does not independently measure retention, objective competence, or financial savings.',
+  followup:'7 students submitted a baseline and no post-rotation response.'},
+ {id:'pr',name:"Preceptor's Assessment of Student Readiness",done:29,total:56,paired:false,
+  basis:[['56','Assigned','key'],['29','Completed',''],['22','Awaiting','warn'],['5','Expired','warn'],['29','Scored','key'],['0','Revoked','zero']],
+  title:'Preceptor Ratings of Student Readiness',sub:'Single timepoint · 29 preceptor responses · no baseline to compare against',
+  scale:'Domain mean score (1 to 4)',
+  subs:[
+   {n:'Clinical Judgment',items:5,pre:null,post:3.41,up:18,same:7,down:4,key:'CJ'},
+   {n:'Professional Presence',items:4,pre:null,post:3.55,up:21,same:5,down:3,key:'PP'},
+   {n:'Independence',items:4,pre:null,post:3.08,up:13,same:9,down:7,key:'IN'}
+  ],
+  caveat:'Preceptor ratings of student readiness at end of rotation. Distribution shows students rated at or above 3.0 on each domain.',
+  followup:'22 preceptor assessments have been released and not returned.'},
+ {id:'uf',name:"Student's Feedback on Unit and Preceptor",done:23,total:28,paired:false,
+  basis:[['28','Assigned','key'],['23','Completed',''],['5','Awaiting','warn'],['23','Forwarded','key'],['0','Expired','zero'],['0','Revoked','zero']],
+  title:'Experience of Unit and Preceptor',sub:'Single timepoint · 23 student responses across 14 units',
+  scale:'Item mean score (1 to 4)',
+  subs:[
+   {n:'Preceptor Support',items:6,pre:null,post:3.74,up:19,same:3,down:1,key:'PS'},
+   {n:'Unit Welcome',items:4,pre:null,post:3.52,up:16,same:5,down:2,key:'UW'},
+   {n:'Learning Opportunity',items:5,pre:null,post:3.61,up:17,same:4,down:2,key:'LO'}
+  ],
+  caveat:'Student-reported experience. Responses are forwarded to unit leaders only after the student submits.',
+  followup:'5 students have not returned their unit feedback.'},
+ {id:'ap',name:"Student's Feedback on ASPIRE",done:18,total:28,paired:false,
+  basis:[['28','Assigned','key'],['18','Completed',''],['10','Awaiting','warn'],['18','Scored','key'],['0','Expired','zero'],['0','Revoked','zero']],
+  title:'Experience of the ASPIRE Program',sub:'Single timepoint · 18 student responses · released after Casey-Fink is submitted',
+  scale:'Item mean score (1 to 4)',
+  subs:[
+   {n:'Placement Process',items:5,pre:null,post:3.44,up:12,same:4,down:2,key:'PP'},
+   {n:'Program Communication',items:4,pre:null,post:3.28,up:10,same:5,down:3,key:'PC'},
+   {n:'Would Recommend ASPIRE',items:3,pre:null,post:3.83,up:16,same:2,down:0,key:'WR'}
+  ],
+  caveat:'Program-level feedback. Nothing downstream depends on this survey, so a low response rate does not block certificates.',
+  followup:'10 students have not returned their ASPIRE feedback.'}
+];
+
+/* Placeholder item stems. Not the Casey-Fink instrument. */
+const ITEMS={
+ CPS:['Recognizing a change in a patient condition','Prioritizing a full patient assignment','Deciding when to escalate to the provider','Interpreting lab and vital sign trends','Managing two competing urgent tasks','Anticipating what a patient will need next'],
+ LA:['Asking the preceptor for help when unsure','Seeking out a new procedure to observe','Using downtime to review a chart','Debriefing after a difficult shift','Setting a goal for the next shift'],
+ PR:['Comfort taking a full assignment','Confidence in a first shift alone','Readiness to precept a newer student','Comfort speaking up in rounds']
+};
+
+const ROSTER=[
+ {n:'Ivan Cruz',sch:'ABSN',st:'done',d:'Sep 10, 2026',s:[4.00,4.00,4.00],pre:[3.33,3.60,3.25],school:'West Coast University North Hollywood'},
+ {n:'Melissa Paloma Rodriguez',sch:'BSN Sem',st:'sent',d:null,s:[null,null,null],pre:[3.17,3.40,3.00],school:'Cal State Long Beach'},
+ {n:'Saruulsanaa Bayaraa',sch:'Accel BSN',st:'done',d:'Sep 7, 2026',s:[4.00,4.00,4.00],pre:[3.83,4.00,3.75],school:'Cal State Northridge'},
+ {n:'Vanessa Mored',sch:'ABSN',st:'sent',d:null,s:[null,null,null],pre:[2.83,3.20,2.75],school:'Azusa Pacific University'},
+ {n:'Megan Laird',sch:'BSN Sem',st:'done',d:'Aug 27, 2026',s:[4.00,3.80,4.00],pre:[3.50,3.80,3.25],school:'Cal State Long Beach'},
+ {n:'Jungmin Shin',sch:'Accel BSN',st:'done',d:'Sep 11, 2026',s:[3.67,3.20,3.75],pre:[3.00,3.40,2.75],school:'West Coast University North Hollywood'},
+ {n:'Michael Angelo Gonzales',sch:'ABSN',st:'done',d:'Sep 6, 2026',s:[4.00,4.00,4.00],pre:[3.67,3.80,3.50],school:'Cal State Northridge'},
+ {n:'Eileen Fuerte',sch:'BSN Sem',st:'done',d:'Aug 25, 2026',s:[3.67,3.80,3.75],pre:[3.50,3.60,3.00],school:'Azusa Pacific University'},
+ {n:'Daria Klenert',sch:'Accel BSN',st:'done',d:'Sep 9, 2026',s:[4.00,4.00,4.00],pre:[3.17,3.20,3.25],school:'Cal State Long Beach'},
+ {n:'Eliana York',sch:'ABSN',st:'done',d:'Sep 8, 2026',s:[3.17,2.80,4.00],pre:[3.33,3.00,3.25],school:'West Coast University North Hollywood'},
+ {n:'Jonathan Tcheumani',sch:'BSN Sem',st:'done',d:'Aug 20, 2026',s:[3.50,4.00,4.00],pre:[2.83,3.60,3.00],school:'Cal State Northridge'},
+ {n:'Adam Friedenthal',sch:'Accel BSN',st:'done',d:'Aug 20, 2026',s:[4.00,4.00,4.00],pre:[3.50,3.80,3.75],school:'Cal State Long Beach'},
+ {n:'Vivian Huang',sch:'ABSN',st:'done',d:'Sep 7, 2026',s:[3.33,3.00,3.75],pre:[3.00,3.20,3.00],school:'Azusa Pacific University'},
+ {n:'Jorge Velasco',sch:'BSN Sem',st:'done',d:'Aug 17, 2026',s:[4.00,3.80,3.50],pre:[3.17,3.40,3.25],school:'West Coast University North Hollywood'}
+];
+
+const state={inst:'cf',sort:{k:'n',dir:1},open:null,table:false};
+const cur=()=>INST.find(i=>i.id===state.inst);
+const say=m=>{$('#live').textContent=m};
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove('show'),3200)}
+
+function renderInsts(){
+  $('#insts').innerHTML=INST.map(i=>{
+    const pct=Math.round(i.done/i.total*100);
+    return '<button class="inst" type="button" data-i="'+i.id+'" aria-pressed="'+(i.id===state.inst)+'">'+
+      '<b>'+i.name+'</b><span class="n">'+i.done+' of '+i.total+' · '+pct+'%</span>'+
+      '<span class="meter"><i style="width:'+pct+'%"></i></span></button>';
+  }).join('');
+}
+
+function subRow(s,paired){
+  const tot=s.up+s.same+s.down;
+  const seg=(cls,v,lbl)=>{
+    const w=v/tot*100;
+    return '<span class="seg '+cls+'" style="width:'+w+'%" data-narrow="'+(w<9?1:0)+'" data-tip="'+v+' of '+tot+' '+lbl+'" tabindex="0" role="img" aria-label="'+v+' of '+tot+' '+lbl+'"><b>'+v+'</b></span>';
+  };
+  const net=s.up-s.down;
+  const means=paired
+    ? '<b>'+s.pre.toFixed(2)+'</b> → <b>'+s.post.toFixed(2)+'</b><span class="d">'+(s.post-s.pre>=0?'+':'')+(s.post-s.pre).toFixed(2)+'</span>'
+    : 'mean <b>'+s.post.toFixed(2)+'</b>';
+  const lblUp=paired?'higher post score':'rated 3.5 or above',lblSame=paired?'no change':'rated 3.0 to 3.4',lblDown=paired?'lower post score':'rated below 3.0';
+  return '<div class="sub"><div class="name">'+esc(s.n)+'<small>'+s.items+'-item subscale</small></div>'+
+    '<div class="barwrap"><div class="bar" role="group" aria-label="'+esc(s.n)+' distribution">'+
+      seg('up',s.up,lblUp)+seg('same',s.same,lblSame)+seg('down',s.down,lblDown)+'</div>'+
+      '<div class="counts"><span><i style="background:var(--up)"></i>'+s.up+' '+lblUp+'</span>'+
+      '<span><i style="background:var(--same)"></i>'+s.same+' '+lblSame+'</span>'+
+      '<span><i style="background:var(--down)"></i>'+s.down+' '+lblDown+'</span>'+
+      '<span class="net">net '+(net>=0?'+':'')+net+' of '+tot+'</span></div></div>'+
+    '<div class="means">'+means+'</div></div>';
+}
+
+function tableView(w){
+  const paired=w.paired;
+  return '<table class="tv"><caption class="sr">'+esc(w.title)+' as a table</caption><thead><tr><th>Subscale</th><th>Items</th>'+
+    (paired?'<th>Pre</th><th>Post</th><th>Change</th>':'<th>Mean</th>')+
+    '<th>Higher</th><th>Same</th><th>Lower</th><th>Net</th></tr></thead><tbody>'+
+    w.subs.map(s=>'<tr><td>'+esc(s.n)+'</td><td>'+s.items+'</td>'+
+      (paired?'<td>'+s.pre.toFixed(2)+'</td><td>'+s.post.toFixed(2)+'</td><td>'+(s.post-s.pre>=0?'+':'')+(s.post-s.pre).toFixed(2)+'</td>':'<td>'+s.post.toFixed(2)+'</td>')+
+      '<td>'+s.up+'</td><td>'+s.same+'</td><td>'+s.down+'</td><td>'+(s.up-s.down>=0?'+':'')+(s.up-s.down)+'</td></tr>').join('')+'</tbody></table>';
+}
+
+function renderSheet(){
+  const w=cur();
+  let h='<div class="sheethead"><div class="specimen">'+
+    '<div class="spec"><span class="k">Instrument</span><span class="v">'+w.name+'</span></div>'+
+    '<div class="spec"><span class="k">Timepoints</span><span class="v">'+(w.paired?'Pre-Rotation and Post-Rotation':'Single, post-rotation')+'</span></div>'+
+    '<div class="spec"><span class="k">Cohort</span><span class="v">Internship, Summer 2026</span></div></div>'+
+    '<div class="stampbox">RUN '+new Date().toLocaleDateString([], {month:'short',day:'numeric',year:'numeric'})+'<br>ASPIRE INTELLIGENCE</div></div>';
+
+  h+='<div class="basis">'+w.basis.map(b=>'<div class="b '+b[2]+'"><b>'+b[0]+'</b><span>'+b[1]+'</span></div>').join('')+'</div>';
+  h+='<h2 class="findtitle">'+esc(w.title)+'</h2><p class="findsub">'+esc(w.sub)+'</p>';
+  h+=w.subs.map(s=>subRow(s,w.paired)).join('');
+  h+='<p style="text-align:center;font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--paper-muted);margin:10px 0 0">'+esc(w.scale)+'</p>';
+  if(state.table) h+=tableView(w);
+  h+='<div class="sheetfoot"><div style="display:grid;gap:9px">'+
+     '<span class="followup">'+esc(w.followup)+'<button type="button" data-a="follow">See who</button></span>'+
+     '<p class="caveat">'+esc(w.caveat)+'</p></div>'+
+     '<div class="sheetacts">'+
+     '<button class="pbtn" type="button" data-a="table" aria-pressed="'+state.table+'">Table view</button>'+
+     '<button class="pbtn" type="button" data-a="items">Question-level changes</button>'+
+     '<button class="pbtn" type="button" data-a="paired">Paired scores</button></div></div>';
+  $('#sheet').innerHTML=h;
+}
+
+function bubbleRow(q,pre,post){
+  const b=[];
+  for(let v=1;v<=4;v++){
+    let cls='bub';
+    if(pre===v&&post===v)cls+=' both'; else if(pre===v)cls+=' pre'; else if(post===v)cls+=' post';
+    b.push('<span class="'+cls+'"><span>'+v+'</span></span>');
+  }
+  const d=post-pre,cls=d>0?'up':d<0?'down':'same';
+  return '<div class="item"><span class="q">'+esc(q)+'</span><span class="bubs" role="img" aria-label="before '+pre+', after '+post+'">'+b.join('')+'</span>'+
+    '<span class="shift '+cls+'">'+(d>0?'+':'')+d+'</span></div>';
+}
+
+function bubbleSheet(r){
+  const seed=r.n.length;
+  let h='<div class="bubblesheet"><div class="bs-head"><b>'+esc(r.n)+'</b><span>Casey-Fink · pre and post rotation</span>'+
+    '<span class="bs-legend"><span><span class="bub pre" style="display:inline-grid;vertical-align:-4px"></span> before</span>'+
+    '<span><span class="bub post" style="display:inline-grid;vertical-align:-4px"></span> after</span>'+
+    '<span><span class="bub both" style="display:inline-grid;vertical-align:-4px;margin-left:3px"></span> unchanged</span></span></div>';
+  ['CPS','LA','PR'].forEach((k,gi)=>{
+    const rows=ITEMS[k].map((q,i)=>{
+      const pre=Math.max(1,Math.min(4,Math.round(r.pre[gi]+((seed+i*7)%3-1)*0.5)));
+      const post=Math.max(1,Math.min(4,Math.round((r.s[gi]??r.pre[gi])+((seed+i*5)%3-1)*0.4)));
+      return bubbleRow(q,pre,post);
+    }).join('');
+    h+='<div class="bs-grp"><span class="t">'+({CPS:'Clinical Problem-Solving',LA:'Learning Activities',PR:'Practice Readiness'})[k]+'</span>'+rows+'</div>';
+  });
+  return h+'</div>';
+}
+
+function renderFeed(){
+  const k=state.sort.k,dir=state.sort.dir;
+  const rows=ROSTER.slice().sort((a,b)=>{
+    let x,y;
+    if(k==='n'){x=a.n;y=b.n}
+    else if(k==='d'){x=a.d||'';y=b.d||''}
+    else if(k==='school'){x=a.school;y=b.school}
+    else if(k==='st'){x=a.st;y=b.st}
+    else {const i={cps:0,la:1,pr:2}[k];x=a.s[i]??-1;y=b.s[i]??-1}
+    return (x>y?1:x<y?-1:0)*dir;
+  });
+  const th=(key,lbl,cls)=>'<button type="button" data-s="'+key+'" data-on="'+(k===key?1:0)+'">'+lbl+' <span class="ar">'+(dir>0?'▲':'▼')+'</span></button>';
+  let h='<div class="feedhead"><h3>Individual responses</h3>'+
+    '<span class="filters"><select id="fTime"><option>All timepoints</option><option>Pre-rotation</option><option>Post-rotation</option></select>'+
+    '<select id="fStat"><option>All statuses</option><option>Completed</option><option>Sent</option></select>'+
+    '<button class="pbtn" type="button" data-a="csv">Export CSV ('+ROSTER.length+')</button></span></div>';
+  h+='<div class="frow fhead">'+th('n','Student')+th('school','School')+th('d','Submitted')+th('st','Status')+
+     '<span style="text-align:right">'+th('cps','CPS')+'</span><span style="text-align:right">'+th('la','LA')+'</span><span style="text-align:right">'+th('pr','PR')+'</span><span></span></div>';
+  h+='<div class="fbody">';
+  rows.forEach((r,i)=>{
+    if(i===8) h+='</div><div class="crease" aria-hidden="true"><span>continued</span></div><div class="fbody">';
+    const num=v=>v==null?'<span class="num" style="color:var(--paper-muted)">–</span>':'<span class="num">'+v.toFixed(2)+'</span>';
+    h+='<div class="frow"><span class="nm"><span>'+esc(r.n)+'</span><span class="dot">·</span><small>'+esc(r.sch)+'</small></span>'+
+      '<span class="sch" title="'+esc(r.school)+'">'+esc(r.school)+'</span>'+
+      '<span class="num" style="text-align:left;color:'+(r.d?'var(--paper-ink)':'var(--paper-muted)')+'">'+(r.d||'–')+'</span>'+
+      '<span class="pill '+(r.st==='done'?'done':'sent')+'">'+(r.st==='done'?'Completed':'Sent')+'</span>'+
+      num(r.s[0])+num(r.s[1])+num(r.s[2])+
+      '<button class="exp" type="button" data-r="'+esc(r.n)+'" aria-expanded="'+(state.open===r.n)+'" aria-label="Show answers for '+esc(r.n)+'">'+(state.open===r.n?'▾':'›')+'</button></div>';
+    if(state.open===r.n) h+=bubbleSheet(r);
+  });
+  h+='</div>';
+  $('#feedinner').innerHTML=h;
+}
+
+function render(){renderInsts();renderSheet();renderFeed()}
+
+/* tooltips on bar segments */
+const tip=$('#tip');
+document.addEventListener('mouseover',e=>{
+  const s=e.target.closest('[data-tip]');if(!s)return;
+  tip.innerHTML=esc(s.dataset.tip);tip.classList.add('on');
+  const r=s.getBoundingClientRect();
+  tip.style.left=Math.min(window.innerWidth-250,Math.max(8,r.left+r.width/2-60))+'px';
+  tip.style.top=(r.top-40)+'px';
+});
+document.addEventListener('mouseout',e=>{if(e.target.closest('[data-tip]'))tip.classList.remove('on')});
+document.addEventListener('focusin',e=>{const s=e.target.closest('[data-tip]');if(s){const r=s.getBoundingClientRect();tip.innerHTML=esc(s.dataset.tip);tip.classList.add('on');tip.style.left=Math.max(8,r.left)+'px';tip.style.top=(r.top-40)+'px'}});
+document.addEventListener('focusout',()=>tip.classList.remove('on'));
+
+$('#insts').addEventListener('click',e=>{
+  const b=e.target.closest('[data-i]');if(!b)return;
+  state.inst=b.dataset.i;state.table=false;render();say(cur().name+' selected');
+});
+$('#sheet').addEventListener('click',e=>{
+  const b=e.target.closest('[data-a]');if(!b)return;
+  const a=b.dataset.a;
+  if(a==='table'){state.table=!state.table;renderSheet();return}
+  if(a==='follow'){toast('Opens the roster filtered to students with a baseline and no post response');return}
+  if(a==='items'){toast('Expand any student below to read their answer pattern item by item');return}
+  if(a==='paired'){toast('Opens the paired score table for all 21 matched students');return}
+});
+$('#feedinner').addEventListener('click',e=>{
+  const s=e.target.closest('[data-s]');
+  if(s){const k=s.dataset.s;state.sort=(state.sort.k===k)?{k,dir:-state.sort.dir}:{k,dir:1};renderFeed();return}
+  const r=e.target.closest('[data-r]');
+  if(r){state.open=state.open===r.dataset.r?null:r.dataset.r;renderFeed();say(state.open?'Answers shown':'Answers hidden');return}
+  if(e.target.closest('[data-a="csv"]')){toast('Exports the 14 visible rows with all item-level scores');return}
+});
+document.querySelectorAll('.theme-toggle button').forEach(b=>b.onclick=()=>{
+  document.documentElement.setAttribute('data-theme',b.dataset.t);
+  document.querySelectorAll('.theme-toggle button').forEach(x=>x.setAttribute('aria-pressed',x.dataset.t===b.dataset.t));
+});
+render();
+</script>

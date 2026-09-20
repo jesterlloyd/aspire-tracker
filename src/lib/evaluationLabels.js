@@ -1,14 +1,20 @@
 // src/lib/evaluationLabels.js
 //
-// EVALUATION-DASHBOARD-INTELLIGENCE-POLISH: DISPLAY-ONLY compact labels + canonical sort orders for
+// EVALUATION-DASHBOARD-INTELLIGENCE-POLISH: DISPLAY-ONLY labels + canonical sort orders for
 // the Evaluation dashboard. The instrument SLUGS are functional keys (survey-naming canon) - never
 // rename them, and never change the DB display_name here. These maps are purely for presentation.
+//
+// RESPONSES-PACKET-1 (2026-09-19): the Responses tab names INSTRUMENTS; Review & Release names
+// release WORKFLOWS (src/lib/evaluation/surveyCatalog.js). They are not the same list, and that
+// is deliberate: Casey-Fink is one instrument given at two timepoints, so it is one entry here
+// and two workflows there. Splitting it here would break the pre-to-post comparison.
 
-// Slug → compact label shown in the table, filter, and instrument cards.
+// Slug → instrument name shown on the packet tabs and in the roster.
 export const INSTRUMENT_COMPACT_LABELS = {
-  casey_fink_readiness_2024: 'Casey-Fink',
-  preceptor_progress:        'Preceptor Readiness Assessment',
-  student_preceptor_eval:    'Preceptor & Unit Feedback',
+  casey_fink_readiness_2024: 'Casey-Fink Readiness for Practice',
+  preceptor_progress:        "Preceptor's Assessment of Student Readiness",
+  student_preceptor_eval:    "Student's Feedback on Unit and Preceptor",
+  post_rotation_evaluation:  "Student's Feedback on ASPIRE",
 }
 
 // Compact label for a slug, falling back to the provided display_name, then '-'.
@@ -16,9 +22,9 @@ export function instrumentCompactLabel(slug, fallbackDisplayName) {
   return INSTRUMENT_COMPACT_LABELS[slug] || fallbackDisplayName || '-'
 }
 
-// Canonical instrument order (for sorting + the instrument-card row). Program Experience is NOT
-// included - that instrument does not exist yet.
-export const INSTRUMENT_ORDER = ['casey_fink_readiness_2024', 'preceptor_progress', 'student_preceptor_eval']
+// Canonical instrument order (for sorting + the packet's file tabs). Student's Feedback on
+// ASPIRE (post_rotation_evaluation) has a single timepoint and gates nothing; it is fourth.
+export const INSTRUMENT_ORDER = ['casey_fink_readiness_2024', 'preceptor_progress', 'student_preceptor_eval', 'post_rotation_evaluation']
 export function instrumentSortIndex(slug) {
   const i = INSTRUMENT_ORDER.indexOf(slug)
   return i === -1 ? 99 : i

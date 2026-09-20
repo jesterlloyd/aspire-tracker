@@ -72,6 +72,34 @@
 
   /* Focus */
   --color-focus-ring: #4F6DA8;
+
+  /* ── Sheet family: printed-paper surfaces (RESPONSES-PACKET-1, table canon) ──
+     One paper for every DataSheet and results packet. The planner's calendars
+     redefine --paper on .pl-planner[data-paper] and keep their own colours; a
+     descendant definition always wins for its subtree. */
+  --paper:        #FCFDFA;
+  --paper-2:      #F1F4EE;
+  --paper-ink:    #1B2140;
+  --paper-muted:  #61667E;
+  --rule:         rgba(30, 42, 110, 0.13);
+  --grid:         rgba(15, 122, 77, 0.085);
+  --grid-5:       rgba(15, 122, 77, 0.15);
+  --band:         rgba(15, 122, 77, 0.045);
+  --hole:         #EDEAE2;
+  --hole-in:      #DAD5C8;
+  /* Distribution segments. down is AMBER, never red: green #0F7A4D against red
+     #A32A32 measures dE 4.2 under deuteranopia, so a red-green reader cannot
+     separate the two ends of the bar. Against amber it measures 7.0, which is
+     legal only with the secondary encoding the packet carries (texture, gaps,
+     direct count labels, a Table view). */
+  --up:           #0F7A4D;
+  --same:         #767D97;
+  --down:         #8F5A0A;
+  --on-seg:       #FFFFFF;
+  /* Status pills on paper: four tones, one word each. */
+  --pill-ok-bg:   #E1F3EA;  --pill-ok-fg:   #0F7A4D;
+  --pill-warn-bg: #FBEFD9;  --pill-warn-fg: #8F5A0A;
+  --pill-info-bg: #EFF3FB;  --pill-info-fg: #1E2A6E;
   /* ── Paper, status, pressboard, tape (REVIEW-RELEASE-2) ────────────────
      Theme-aware pairs: an ink and the surface it sits on change together.
      Paper is the planner's slate paper, lifted here so the calendars and the
@@ -162,6 +190,25 @@
 
   /* Focus */
   --color-focus-ring: #8FA9FF;
+
+  /* Sheet family, dark. */
+  --paper:        #1C1F2C;
+  --paper-2:      #171A25;
+  --paper-ink:    #E9EAF2;
+  --paper-muted:  #A0A4BC;
+  --rule:         rgba(159, 176, 245, 0.16);
+  --grid:         rgba(60, 203, 138, 0.06);
+  --grid-5:       rgba(60, 203, 138, 0.11);
+  --band:         rgba(60, 203, 138, 0.055);
+  --hole:         #12151F;
+  --hole-in:      #0C0E16;
+  --up:           #3CCB8A;
+  --same:         #9198B4;
+  --down:         #E6A544;
+  --on-seg:       #0E111C;
+  --pill-ok-bg:   #15372A;  --pill-ok-fg:   #3CCB8A;
+  --pill-warn-bg: #3A2C14;  --pill-warn-fg: #E6A544;
+  --pill-info-bg: #1E2540;  --pill-info-fg: #9FB0F5;
   /* ── Paper, status, pressboard, tape (REVIEW-RELEASE-2), dark ──────────── */
   --aspire-paper:        #1C1F2C;
   --aspire-paper-2:      #191C28;

@@ -1,0 +1,264 @@
+/* ============================================================================
+   DataSheet: the one table component (TABLE-CANON-1, 2026-09-19)
+   docs/design/table-canon-spec.md is the standard. Three levels, one set of
+   rows. Every value here reads the sheet-family tokens in theme.css (--paper,
+   --paper-2, --paper-ink, --paper-muted, --rule, --band, --hole, --hole-in)
+   and the brand radii in aspireBrand.css; no colour and no radius is restated.
+   The component imports this file, so it reaches every bundle that renders it.
+   ============================================================================ */
+
+.ds {
+  position: relative;
+  background: var(--paper);
+  color: var(--paper-ink);
+  font-family: var(--aspire-sans);
+  font-size: 13px;
+  min-width: 0;
+}
+
+/* ── Levels ─────────────────────────────────────────────────────────────── */
+.ds[data-level="full"] {
+  border: 1px solid var(--rule);
+  border-radius: var(--aspire-radius-sheet);
+  padding: 0 38px;
+  overflow: hidden;
+  box-shadow: 0 1px 1px rgba(24, 32, 63, 0.10), 0 10px 26px rgba(24, 32, 63, 0.13);
+}
+.ds[data-level="plain"] {
+  border: 1px solid var(--rule);
+  border-radius: var(--aspire-radius-sheet-plain);
+  padding: 0 14px;
+  overflow: hidden;
+}
+.ds[data-level="inline"] {
+  background: none;
+  padding: 0;
+}
+[data-theme="dark"] .ds[data-level="full"] {
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.35), 0 10px 26px rgba(0, 0, 0, 0.45);
+}
+
+/* Tractor holes: a 38px strip down each margin, dashed rule facing the body. */
+.ds-holes {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 38px;
+  background-color: var(--hole);
+  background-image: radial-gradient(circle at 19px 13px, var(--hole-in) 0 5.5px, transparent 6px);
+  background-size: 38px 26px;
+  pointer-events: none;
+}
+.ds-holes-l { left: 0; border-right: 1px dashed var(--rule); }
+.ds-holes-r { right: 0; border-left: 1px dashed var(--rule); }
+
+/* ── Head ───────────────────────────────────────────────────────────────── */
+.ds-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+  padding: 13px 0 9px;
+}
+.ds-title { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; min-width: 0; }
+.ds-head h3 { font-size: 15.5px; font-weight: 600; margin: 0; color: var(--paper-ink); }
+.ds-cap {
+  font-family: var(--aspire-mono);
+  font-size: 10.5px;
+  color: var(--paper-muted);
+  letter-spacing: 0.04em;
+}
+.ds-toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-left: auto; }
+.ds[data-level="inline"] .ds-head { padding-top: 0; }
+
+/* Paper controls: a select and a button that sit on the sheet. */
+.ds-select,
+.ds-btn {
+  font: inherit;
+  font-size: 12.5px;
+  padding: 5px 10px;
+  border-radius: var(--aspire-radius-control);
+  border: 1px solid var(--rule);
+  background: var(--paper);
+  color: var(--paper-ink);
+  cursor: pointer;
+}
+.ds-btn:hover { border-color: var(--color-accent-primary); background: var(--band); }
+.ds-btn:disabled { color: var(--paper-muted); cursor: default; background: var(--paper); border-color: var(--rule); }
+.ds-btn[aria-pressed="true"] { background: var(--color-accent-primary); border-color: var(--color-accent-primary); color: var(--on-seg); }
+.ds-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--aspire-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  padding: 3px 4px 3px 9px;
+  border-radius: var(--aspire-radius-pill);
+  background: var(--pill-warn-bg);
+  color: var(--pill-warn-fg);
+}
+.ds-chip button {
+  font: inherit;
+  background: none;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  padding: 0 5px;
+  line-height: 1;
+}
+
+/* ── Rows ───────────────────────────────────────────────────────────────── */
+.ds-row {
+  display: grid;
+  gap: 10px;
+  align-items: center;
+  padding: 7px 8px;
+  border-bottom: 1px solid var(--rule);
+  min-width: 0;
+}
+.ds-row > * { min-width: 0; }
+.ds[data-level="inline"] .ds-row { padding-inline: 0; }
+.ds-hrow { border-bottom: 1.5px solid var(--paper-ink); padding-block: 6px; }
+.ds[data-level="inline"] .ds-hrow { border-bottom: 1px solid var(--rule); }
+
+/* Every header sorts. The arrow renders only on the active column (§3.4). */
+.ds-sort {
+  background: none;
+  border: 0;
+  padding: 0;
+  width: 100%;
+  font-family: var(--aspire-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--paper-muted);
+  text-align: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ds-sort:hover,
+.ds-sort[data-on="1"] { color: var(--paper-ink); }
+
+/* Paired banding: rows 1 and 2 of every four (§3.1). data-band is computed per page
+   by the component, so an open detail panel cannot shift the rhythm. */
+.ds-row[data-band="1"] { background: var(--band); }
+
+.ds-empty { padding: 22px 8px; color: var(--paper-muted); font-size: 13px; }
+
+/* ── Cells ──────────────────────────────────────────────────────────────── */
+.ds-nm { display: flex; gap: 7px; align-items: baseline; min-width: 0; }
+.ds-nm > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ds-dot { color: var(--paper-muted); opacity: 0.65; }
+.ds-nm small {
+  font-family: var(--aspire-mono);
+  font-size: 10.5px;
+  color: var(--paper-muted);
+  white-space: nowrap;
+}
+.ds-txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+.ds-dim { color: var(--paper-muted); }
+.ds-right { text-align: right; }
+.ds-num {
+  text-align: right;
+  font-family: var(--aspire-mono);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  display: block;
+}
+.ds-date { font-family: var(--aspire-mono); font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* Status is one word in a pill, four tones (§3.5). */
+.ds-pill {
+  display: inline-block;
+  font-family: var(--aspire-mono);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  border-radius: var(--aspire-radius-pill);
+  padding: 2px 9px;
+  white-space: nowrap;
+  justify-self: start;
+}
+.ds-pill-ok   { background: var(--pill-ok-bg);   color: var(--pill-ok-fg); }
+.ds-pill-warn { background: var(--pill-warn-bg); color: var(--pill-warn-fg); }
+.ds-pill-info { background: var(--pill-info-bg); color: var(--pill-info-fg); }
+.ds-pill-off  { background: var(--paper-2);      color: var(--paper-muted); }
+
+/* Expand chevron. */
+.ds-exp {
+  background: none;
+  border: 0;
+  color: var(--paper-muted);
+  padding: 2px 6px;
+  border-radius: var(--aspire-radius-control);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+}
+.ds-exp:hover { background: var(--rule); color: var(--paper-ink); }
+
+/* ── Crease: pagination on the full sheet (§3.8) ────────────────────────── */
+.ds-crease {
+  position: relative;
+  margin: 0 -38px;
+  border-top: 1px dashed var(--rule);
+  background: linear-gradient(180deg, rgba(24, 32, 63, 0.055), transparent 55%);
+  height: 26px;
+  display: grid;
+  place-items: center;
+}
+[data-theme="dark"] .ds-crease {
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.30), transparent 55%);
+}
+.ds-crease span {
+  font-family: var(--aspire-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--paper-muted);
+  background: var(--paper);
+  padding: 0 10px;
+}
+
+/* ── Expansion: a bordered panel (§3.7) ─────────────────────────────────── */
+.ds-detail-row { display: block; }
+.ds-detail {
+  background: var(--paper-2);
+  border-left: 3px solid var(--color-accent-primary);
+  padding: 12px 15px;
+  margin-bottom: 8px;
+  display: grid;
+  gap: 7px;
+  font-size: 12.5px;
+}
+.ds-dt { display: grid; grid-template-columns: 130px 1fr; gap: 10px; }
+.ds-k {
+  font-family: var(--aspire-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--paper-muted);
+  padding-top: 2px;
+}
+
+/* ── Foot ───────────────────────────────────────────────────────────────── */
+.ds-foot {
+  padding: 9px 0 12px;
+  font-size: 12px;
+  color: var(--paper-muted);
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* ── Focus and motion ───────────────────────────────────────────────────── */
+/* The ring reads the theme-aware accent: the brand navy is invisible on dark paper. */
+.ds :focus-visible { outline: 2px solid var(--color-accent-primary); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  .ds, .ds *, .ds *::before, .ds *::after { transition: none !important; animation: none !important; }
+}

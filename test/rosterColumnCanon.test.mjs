@@ -140,8 +140,9 @@ test('even rows carry the Evaluation > Responses banding in every roster family,
   assert.match(portalCss, /\.ptl-na-table tbody tr:nth-child\(even\) > td \{ background: var\(--aspire-row-band, #fafafa\); \}/)
   assert.match(portalCss, /\.ptl-stu-table tbody tr:nth-child\(even\):not\(:hover\) \{ background: var\(--aspire-row-band, #fafafa\); \}/)
   assert.match(sheet, /\.am-table tbody tr:nth-child\(even\):not\(:hover\) \{ background: var\(--aspire-row-band, #fafafa\); \}/)
-  // Evaluation > Responses, the source of the value, now reads the token it defined.
-  assert.match(read('src/components/EvaluationTab.jsx'), /idx % 2 === 0 \? '#ffffff' : 'var\(--aspire-row-band, #fafafa\)'/)
+  // Evaluation > Responses, where the value came from, is the DataSheet now (table canon,
+  // RESPONSES-PACKET-1): rows 1 and 2 of every four take --band, written as data-band.
+  assert.match(read('src/components/shared/dataSheet.css'), /\.ds-row\[data-band="1"\] \{ background: var\(--band\); \}/)
   // Stacked phone rows are cards of their own.
   assert.match(portalCss, /\.ptl-table tbody tr:nth-child\(even\) > td \{ background: transparent; \}/)
   // Every banded portal table actually has a <tbody> for the selector to find.

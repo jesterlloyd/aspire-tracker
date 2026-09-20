@@ -1,6 +1,10 @@
-const CASEY_FINK_SLUG = 'casey_fink_readiness_2024'
+export const CASEY_FINK_SLUG = 'casey_fink_readiness_2024'
 const PRE_TIMEPOINTS = new Set(['baseline', 'early_rotation_baseline'])
 const POST_TIMEPOINT = 'post_rotation'
+
+export function isCaseyFinkPreTimepoint(timepoint) {
+  return PRE_TIMEPOINTS.has(timepoint)
+}
 
 export const CASEY_FINK_SECTION_GROUPS = [
   {
@@ -82,7 +86,12 @@ function itemDistribution(pairs, itemCode, side) {
   }
 }
 
-export function buildCaseyFinkComparison(assignments = []) {
+// The one place a student's usable pre and post Casey-Fink responses are chosen. The
+// comparison builds its pairs from this map, and the Responses packet reads the SAME map
+// for its bubble sheets and its "baseline only" follow-up, so the students the sheet
+// counts are the students the roster can open. Only completed responses with all three
+// Section I scores in range qualify, exactly as before.
+export function caseyFinkResponsesByStudent(assignments = []) {
   const byStudent = new Map()
 
   for (const assignment of assignments) {
@@ -100,6 +109,12 @@ export function buildCaseyFinkComparison(assignments = []) {
     }
     byStudent.set(studentId, entry)
   }
+
+  return byStudent
+}
+
+export function buildCaseyFinkComparison(assignments = []) {
+  const byStudent = caseyFinkResponsesByStudent(assignments)
 
   const pairs = []
   let baselineOnlyCount = 0

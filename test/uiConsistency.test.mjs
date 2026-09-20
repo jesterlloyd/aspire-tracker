@@ -190,7 +190,7 @@ test('every table header reads the canon: weight, colour, band, tracking, hairli
   const TH = [
     ['index.css', index, '.iv-th'], ['index.css', index, '.ir-wl-th'], ['index.css', index, '.table-header'],
     ['aspireTable.css', read('src/styles/aspireTable.css'), '.am-th'], ['index.css', index, '.preview-table th'], ['index.css', index, '.rub-legend-table th'],
-    ['index.css', index, '.casey-paired-table th'], ['ngrp.css', ngrp, '.ngrp-table thead th'],
+    ['ngrp.css', ngrp, '.ngrp-table thead th'],
     ['portal.css', portal, '.ptl-stu-table thead th'], ['portal.css', portal, '.ptl-na-table th'],
   ]
   for (const [f, css, sel] of TH) {
@@ -199,10 +199,12 @@ test('every table header reads the canon: weight, colour, band, tracking, hairli
     assert.match(body, /color:\s*var\(--aspire-th-color/, `${f} ${sel} colour`)
     assert.doesNotMatch(body, /font-weight:\s*\d|letter-spacing:\s*0\.\d+em|\bcolor:\s*#|background:\s*(?:#|var\(--sand\))/, `${f} ${sel} still hard-codes a header value`)
   }
-  // Canon 1 wears the class its values became; only the active-sort colour is inline.
+  // Canon 1's table is the DataSheet now (RESPONSES-PACKET-1). Its Table view still wears
+  // the shared header class, and the tab no longer writes a header of its own.
   const ev = read('src/components/EvaluationTab.jsx')
-  assert.match(ev, /<th\s+onClick=\{sortable \? onClick : undefined\}[\s\S]*?className="aspire-th"/)
+  assert.doesNotMatch(ev, /<th\b/)
   assert.doesNotMatch(ev, /fontWeight: 'var\(--aspire-th-weight/)
+  assert.match(read('src/components/evaluation/ResponsesPacket.jsx'), /<th className="aspire-th" scope="col">Subscale<\/th>/)
   // The bad table no longer bolds the sorted header heavier than its neighbours.
   assert.doesNotMatch(read('src/components/InterviewRubricTab.jsx'), /fontWeight: sortBy === key \? 800 : 700/)
 })
