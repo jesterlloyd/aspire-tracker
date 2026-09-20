@@ -24,7 +24,8 @@ const read = (p) => readFileSync(join(here, '..', p), 'utf8')
 const core    = read('lib/server/evaluation/preceptorSend.js')
 const release = read('api/evaluation-release-preceptor-survey.js')
 const manual  = read('api/evaluation-send-preceptor-invitations.js')
-const autoUi  = read('src/components/evaluation/PreceptorAutomationPanel.jsx')
+const autoUi  = read('src/components/evaluation/ReviewReleaseQueue.jsx') // REVIEW-RELEASE-2: the confirmation lives in the queue
+const rrDash  = read('src/components/evaluation/SurveyAutomationDashboard.jsx')
 const sendUi  = read('src/components/evaluation/PreceptorFeedbackPanel.jsx')
 
 test('redirects are validated against ACTIVE canonical assignments only', () => {
@@ -88,11 +89,12 @@ test('one engine, both timepoints: both endpoints delegate to the shared core', 
 
 test('release modal: Primary default, role-labelled canonical alternates, reset on open', () => {
   assert.match(autoUi, /\.eq\('status', 'active'\)\s*\n\s*\.in\('role', \['secondary', 'coverage'\]\)/)
-  assert.match(autoUi, /— Primary/)
-  assert.match(autoUi, /'Coverage' : 'Secondary'/)
+  assert.match(autoUi, /Primary preceptor \(as shown above\)/)
+  assert.match(autoUi, /\{a\.name\} \(\{a\.role\}\) · \{a\.email\}/)
   // Selection travels only when set, and resets when a new confirmation opens.
-  assert.match(autoUi, /\.\.\.\(redirectId \? \{ redirect_preceptor_id: redirectId \} : \{\}\)/)
-  assert.match(autoUi, /setReleaseMsg\(null\); setRedirectId\(''\); setAlternates\(\[\]\); setConfirm\(r\)/)
+  assert.match(rrDash, /\.\.\.\(redirectId \? \{ redirect_preceptor_id: redirectId \} : \{\}\)/)
+  // A fresh confirmation starts with no redirect and no alternates (state is per mount).
+  assert.match(autoUi, /const \[alternates, setAlternates\] = useState\(\[\]\)\s*\n\s*const \[redirectId, setRedirectId\] = useState\(''\)/)
   // Alternates must be live records with an email - never a dead-end selection.
   assert.match(autoUi, /is_active !== false && \(r\.prec\.email \|\| ''\)\.trim\(\)/)
 })

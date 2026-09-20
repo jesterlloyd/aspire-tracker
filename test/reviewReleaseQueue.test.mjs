@@ -299,7 +299,7 @@ test('adapters: ASPIRE feedback is blocked on activities with a record action, n
   assert.equal(blocked.state, 'blocked')
   assert.equal(blocked.blocker.action, 'activity')
   assert.equal(blocked.stamp.text, '2 activities to record')
-  assert.match(blocked.blocker.text, /Interview Bootcamp, Resume Review not recorded/)
+  assert.match(blocked.blocker.text, /Résumé Review, Interview Bootcamp not recorded/)
   assert.equal(blocked.chain[1].detail, '1 of 3 recorded')
   assert.equal(blocked.activities.length, 3)
   // The ledger being down can never read as "activities complete".
@@ -483,4 +483,18 @@ test('every students column the loader and the endpoint select is one production
   const loader = read('src/lib/evaluation/reviewQueueLoaders.js').match(/const STUDENT_COLUMNS = \[([\s\S]*?)\]\.join/)[1].match(/'([a-z_]+)'/g).map(x => x.slice(1, -1))
   const endpoint = read('api/evaluation-release-casey-fink-pre-rotation-survey.js').match(/const STUDENT_COLUMNS = '([^']+)'/)[1].split(',').map(x => x.trim())
   for (const c of [...loader, ...endpoint]) assert.ok(known.has(c), `students.${c} is selected nowhere else in production code`)
+})
+
+test('adapters: a Support entry completes an activity on the slip, and the source travels with it', () => {
+  const feedbackDone = asg({ student_id: 's1', ...inst('student_preceptor_eval'), timepoint: 'post_rotation', status: 'completed', completed_at: daysAgo(8), sent_at: daysAgo(10) })
+  const caseyDone = asg({ student_id: 's1', ...inst('casey_fink_readiness_2024'), timepoint: 'post_rotation', status: 'completed', completed_at: daysAgo(3), sent_at: daysAgo(6) })
+  const ledger = [{ id: 'x1', student_id: 's1', activity_key: 'town_hall', action: 'complete', completed_at: daysAgo(20), created_at: daysAgo(20), recorded_by_name: 'JB' }]
+  const support = [{ student_id: 's1', activity: 'resume_review', occurred_on: '2026-09-03' }]
+  const [it] = adaptAspireFeedback({
+    students: STUDENTS.filter(s => s.id === 's1'), assignments: [], allAssignmentsByStudent: new Map([['s1', [feedbackDone, caseyDone]]]),
+    activityByStudent: new Map([['s1', ledger]]), ledgerDown: false, supportByStudent: new Map([['s1', support]]), shiftMeta: new Map(), displayName, nowMs: NOW,
+  }).items
+  assert.equal(it.state, 'blocked'); assert.equal(it.stamp.text, '1 activity to record')
+  assert.deepEqual(it.activities.map(a => [a.label, a.completed, a.source]), [['Résumé Review', true, 'support'], ['Town Hall', true, 'ledger'], ['Interview Bootcamp', false, null]])
+  assert.equal(it.chain[1].detail, '2 of 3 recorded')
 })

@@ -143,7 +143,7 @@ test('every missing prerequisite produces its own specific reason', () => {
   }
   assert.ok(none.unmet.some(u => u.reason.includes('Town Hall')))
   assert.ok(none.unmet.some(u => u.reason.includes('Interview Bootcamp')))
-  assert.ok(none.unmet.some(u => u.reason.includes('Resume Review')))
+  assert.ok(none.unmet.some(u => u.reason.includes('Résumé Review')))
   // The reasons are distinguishable, not one repeated string.
   assert.equal(new Set(none.unmet.map(u => u.reason)).size, none.unmet.length)
 })
@@ -156,7 +156,7 @@ test('a partially complete checklist still blocks, and says which one', () => {
   )
   assert.equal(partial.ok, false)
   assert.equal(partial.unmet.length, 1)
-  assert.match(partial.unmet[0].reason, /Resume Review/)
+  assert.match(partial.unmet[0].reason, /Résumé Review/)
   assert.equal(partial.activities.find(a => a.key === 'resume_review').completed, false)
   assert.equal(partial.activities.find(a => a.key === 'town_hall').completed, true)
 })
@@ -288,7 +288,8 @@ test('the sequence module is pure: no I/O, no sending, no writes', () => {
 })
 
 test('the required checklist is exactly the three confirmed activities', () => {
-  assert.deepEqual([...REQUIRED_ACTIVITY_KEYS], ['town_hall', 'interview_bootcamp', 'resume_review'])
+  // Residency > Support's order (Owner, 2026-09-20): Résumé Review, Town Hall, Interview Bootcamp.
+  assert.deepEqual([...REQUIRED_ACTIVITY_KEYS], ['resume_review', 'town_hall', 'interview_bootcamp'])
   // The migration's CHECK must allow exactly these and no more.
   const mig = read('supabase/migrations/20260822000000_student_activity_completions.sql')
   for (const k of REQUIRED_ACTIVITY_KEYS) assert.match(mig, new RegExp(`'${k}'`))
@@ -311,49 +312,42 @@ test('the activity ledger is not a parallel evaluation status system', () => {
 
 // ── Panel wiring ────────────────────────────────────────────────────────────
 
-test('the Casey-Fink panel shows Student Feedback state and gates the button', () => {
-  const src = read('src/components/evaluation/CaseyFinkPostRotationAutomationPanel.jsx')
-  assert.match(src, /Student Feedback/, 'a Student Feedback column exists')
-  assert.match(src, /data-testid="cf-feedback-cell"/)
-  assert.match(src, /prereq: caseyFinkPrerequisite\(/, 'each row carries the verdict')
-  // The release control is replaced by an exact reason when blocked.
-  assert.match(src, /r\.prereq && !r\.prereq\.ok \? \([\s\S]{0,400}data-testid="cf-blocked-reason"/)
-  assert.match(src, /Blocked: \{r\.prereq\.reason\}/)
-  // NEGATIVE CONTROL: the button must not be reachable while blocked.
-  const actionCell = src.slice(src.indexOf("data-testid=\"cf-blocked-reason\""), src.indexOf("data-testid=\"cf-blocked-reason\"") + 1200)
-  assert.match(actionCell, /\) : \([\s\S]{0,200}<button/, 'the button is the ELSE branch of the block check')
+test('the Casey-Fink slip carries the Student Feedback verdict and never offers Release while blocked', () => {
+  // REVIEW-RELEASE-2: the panels are retired; the adapter carries the verdict and the
+  // queue renders a blocked slip with one action (a jump or a wait), never a Release.
+  const src = read('src/lib/evaluation/reviewQueueAdapters.js')
+  assert.match(src, /caseyFinkPrerequisite\(/, 'each row carries the verdict')
+  assert.match(src, /node\('before', 'waiting', 'Student feedback', 'Not released yet'\)/)
+  const queue = read('src/components/evaluation/ReviewReleaseQueue.jsx')
+  const blocked = queue.slice(queue.indexOf("{b?.action === 'jump'"), queue.indexOf('no manual Remind yet'))
+  assert.doesNotMatch(blocked, /onRelease\(/, 'a blocked slip has no Release control')
 })
 
-test('the ASPIRE panel shows all three prerequisites separately', () => {
-  const src = read('src/components/evaluation/PostRotationAutomationPanel.jsx')
-  assert.match(src, /'Prerequisites'/, 'a Prerequisites column exists')
-  assert.match(src, /data-testid="pr-prereq-cell"/)
-  assert.match(src, /Student Feedback/)
-  assert.match(src, /Casey-Fink/)
-  assert.match(src, /P\.activities \|\| \[\]\)\.map/, 'each required activity renders on its own line')
-  assert.match(src, /prereq: aspirePrerequisites|aspirePrerequisites\(/, 'rows carry the verdict')
-  assert.match(src, /data-testid="pr-blocked-reason"/)
+test('the ASPIRE feedback slip shows all three prerequisites separately, and records the activities on the slip', () => {
+  const src = read('src/lib/evaluation/reviewQueueAdapters.js')
+  assert.match(src, /aspirePrerequisites\(all, activityByStudent\.get\(r\.studentId\) \|\| \[\], undefined, supportByStudent\.get\(r\.studentId\) \|\| \[\]\)/, 'rows carry the verdict, from the ledger AND Support')
+  assert.match(src, /'Student feedback'/)
+  assert.match(src, /'Casey-Fink'/)
+  assert.match(src, /activities: prereq\.activities \|\| \[\],/, 'each required activity travels with the item')
+  const queue = read('src/components/evaluation/ReviewReleaseQueue.jsx')
+  assert.match(queue, /data-testid="pr-activity-area"/)
+  assert.match(queue, /\(item\.activities \|\| \[\]\)\.map\(a => \{/, 'each required activity renders on its own line')
 })
 
-test('an unavailable activity ledger can never read as complete in the panel', () => {
-  const src = read('src/components/evaluation/PostRotationAutomationPanel.jsx')
+test('an unavailable activity ledger can never read as complete on the slip', () => {
+  const src = read('src/lib/evaluation/reviewQueueAdapters.js')
   // The display fallback forces ok:false rather than an empty (satisfied) list.
-  assert.match(src, /ledgerDown \? \{ \.\.\.pre, ok: false, ledgerUnavailable: true \}/)
-  assert.match(src, /Activities not verifiable yet/)
-  // NEGATIVE CONTROL: an empty activity map must not be treated as "all done".
-  assert.doesNotMatch(src, /activityByStudent = new Map\(\)\s*\n\s*\}\s*\n\s*return \{ students/,
-    'a failed ledger read must set the note, not silently yield an empty satisfied checklist')
+  assert.match(src, /ledgerDown \? \{ \.\.\.pre, ok: false, ledgerUnavailable: true \} : pre/)
+  assert.match(src, /Activities unverifiable/)
+  // NEGATIVE CONTROL: the loader marks the ledger down, never an empty satisfied map.
+  const loader = read('src/lib/evaluation/reviewQueueLoaders.js')
+  assert.match(loader, /activityByStudent = new Map\(\)\s*\n\s*ledgerDown = true/)
 })
 
-test('the panels never send: they only call the release endpoints', () => {
-  for (const f of [
-    'src/components/evaluation/CaseyFinkPostRotationAutomationPanel.jsx',
-    'src/components/evaluation/PostRotationAutomationPanel.jsx',
-  ]) {
-    const src = read(f)
-    assert.doesNotMatch(src, /resend|emails\.send/i, `${f} must not send`)
-    assert.match(src, /expected_instrument_slug/, `${f} still declares its workflow`)
-  }
+test('the dashboard never sends: it only calls the release endpoints with their workflow declared', () => {
+  const src = read('src/components/evaluation/SurveyAutomationDashboard.jsx')
+  assert.doesNotMatch(src, /resend|emails\.send/i, 'the dashboard must not send')
+  assert.match(src, /expected_instrument_slug: route\.instrumentSlug/, 'every release declares its workflow')
 })
 
 test('release stays manual and per student: no automatic sending was introduced', () => {
@@ -407,12 +401,13 @@ test('two concurrent identical completions converge on one effective state', () 
 })
 
 test('every reader selects what the reducer needs to be correct', () => {
-  // NEGATIVE CONTROL for a real defect found in QC: the panel originally selected
-  // no `action` column, so a REVERSED activity still reduced to completed=true.
-  const panel = read('src/components/evaluation/PostRotationAutomationPanel.jsx')
-  const sel = panel.slice(panel.indexOf("from('student_activity_completions')"), panel.indexOf("from('student_activity_completions')") + 260)
+  // NEGATIVE CONTROL for a real defect found in QC: the old panel originally selected
+  // no `action` column, so a REVERSED activity still reduced to completed=true. The
+  // loader that replaced it must select the same.
+  const loader = read('src/lib/evaluation/reviewQueueLoaders.js')
+  const sel = loader.slice(loader.indexOf("from('student_activity_completions')"), loader.indexOf("from('student_activity_completions')") + 260)
   for (const col of ['id', 'action', 'completed_at', 'created_at']) {
-    assert.match(sel, new RegExp(`\\b${col}\\b`), `the panel must select ${col} or its reducer is wrong`)
+    assert.match(sel, new RegExp(`\\b${col}\\b`), `the loader must select ${col} or its reducer is wrong`)
   }
   const ep = read('api/student-activity-completion.js')
   const esel = ep.slice(ep.indexOf("from('student_activity_completions')"), ep.indexOf("from('student_activity_completions')") + 520)
@@ -430,4 +425,42 @@ test('a reversed activity reduces to NOT complete', () => {
   const pre = aspirePrerequisites([done(STEP_SLUGS.feedback), done(STEP_SLUGS.caseyFink)], rows)
   assert.equal(pre.ok, false)
   assert.equal(pre.activities.find(a => a.key === 'town_hall').completed, false)
+})
+
+// ── REVIEW-RELEASE-2 (Owner, 2026-09-20): Support's entries count too ────────────
+function fullAssignments() { return [done(STEP_SLUGS.feedback), done(STEP_SLUGS.caseyFink)] }
+test('an activity recorded under Residency > Support counts, a voided one does not, and the source is named', () => {
+  const ledger = [{ activity_key: 'town_hall', action: 'complete', completed_at: '2026-09-01T18:00:00Z', created_at: '2026-09-01T18:00:00Z' }]
+  const support = [
+    { activity: 'resume_review', occurred_on: '2026-09-03' },
+    { activity: 'resume_review', occurred_on: '2026-09-10' },
+    { activity: 'interview_bootcamp', occurred_on: '2026-09-05', voided_at: '2026-09-06T00:00:00Z' },
+  ]
+  const r = aspirePrerequisites(fullAssignments(), ledger, undefined, support)
+  const by = Object.fromEntries(r.activities.map(a => [a.key, a]))
+  assert.equal(by.resume_review.completed, true); assert.equal(by.resume_review.source, 'support')
+  assert.equal(by.resume_review.completedAt, '2026-09-10', 'the most recent Support date'); assert.equal(by.resume_review.supportCount, 2)
+  assert.equal(by.town_hall.completed, true); assert.equal(by.town_hall.source, 'ledger')
+  assert.equal(by.interview_bootcamp.completed, false, 'a voided entry never counts'); assert.equal(by.interview_bootcamp.source, null)
+  assert.equal(r.ok, false); assert.deepEqual(r.unmet.map(u => u.label), ['Interview Bootcamp'])
+  // Display order is Support's.
+  assert.deepEqual(r.activities.map(a => a.label), ['Résumé Review', 'Town Hall', 'Interview Bootcamp'])
+  // Both records agree: source says so.
+  const both = aspirePrerequisites(fullAssignments(), ledger, undefined, [{ activity: 'town_hall', occurred_on: '2026-09-02' }])
+  assert.equal(both.activities.find(a => a.key === 'town_hall').source, 'both')
+})
+
+test('the release endpoint reads Support before the gate, as the secondary source, and the support API serves it to the team only', () => {
+  const src = read('api/evaluation-release-post-rotation-survey.js')
+  const sup = src.indexOf(".from('ngrp_support_entries')"), gate = src.indexOf('aspirePrerequisites(rawAssignments')
+  assert.ok(sup > -1 && sup < gate, 'Support is read before the gate runs')
+  assert.match(src, /\.in\('activity', REQUIRED_ACTIVITY_KEYS\)\s*\.is\('voided_at', null\)/)
+  assert.match(src, /if \(!supErr\) supportRows = sup \|\| \[\];/, 'a failed Support read leaves the ledger alone to decide')
+  assert.match(src, /aspirePrerequisites\(rawAssignments \|\| \[\], activityRows, REQUIRED_ACTIVITY_KEYS, supportRows\)/)
+  const api = read('api/ngrp-support.js')
+  assert.match(api, /const TEAM_ONLY = new Set\(\[\.\.\.WRITES, 'reflection_view', 'entries_for_students'\]\)/)
+  assert.match(api, /\.in\('activity', \['resume_review', 'town_hall', 'interview_bootcamp'\]\)\s*\.is\('voided_at', null\)/)
+  const loader = read('src/lib/evaluation/reviewQueueLoaders.js')
+  assert.match(loader, /postNgrpSupport\('entries_for_students', \{ student_ids: studentIds \}\)/)
+  assert.match(loader, /supportDown = true/)
 })

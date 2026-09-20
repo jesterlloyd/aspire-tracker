@@ -27,7 +27,6 @@ const read = (p) => readFileSync(join(here, '..', p), 'utf8')
 const dash    = read('src/components/evaluation/SurveyAutomationDashboard.jsx')
 const queue   = read('src/components/evaluation/ReviewReleaseQueue.jsx')
 const css     = read('src/components/evaluation/reviewReleaseClipboard.css') // REVIEW-RELEASE-2
-const consoleSrc = read('src/components/evaluation/UnitEvaluationReleaseConsole.jsx')
 const tab     = read('src/components/EvaluationTab.jsx')
 
 // ── Nav-key routing (functional) ─────────────────────────────────────────────────────
@@ -128,28 +127,6 @@ test('EvaluationTab renders the dashboard behind the same gate, and wires Track 
   assert.match(tab, /setActiveSubTab\('cohort'\)/)
 })
 
-// ── The console is unchanged except its container ────────────────────────────────────
-
-test('the console file is unchanged and keeps every release behavior (no longer mounted by the dashboard)', () => {
-  assert.match(consoleSrc, /UnitEvaluationReleaseConsole\(\{ embedded = false \}\)/)
-  assert.match(consoleSrc, /padding: embedded \? 0 : '0 20px 24px'/)
-  // Counts for all five release states.
-  assert.match(consoleSrc, /const RELEASE_STATES = \['pending', 'moderated', 'released', 'revoked', 'ineligible'\]/)
-  // All five filters.
-  for (const f of ['Instrument filter', 'Unit filter', 'Timepoint filter', 'Release state filter', 'Moderation state filter']) {
-    assert.match(consoleSrc, new RegExp(`aria-label="${f}"`), f)
-  }
-  // Moderation/release/revoke actions and their confirm path.
-  assert.match(consoleSrc, /availableActions, rowIsReadOnly, ACTION_API, ACTION_STATUS_MESSAGE/)
-  assert.match(consoleSrc, /postReleaseAction\(\{ action: meta\.action, responseId: row\.response_id, decision: meta\.decision \}\)/)
-  // Legacy read-only rows.
-  assert.match(consoleSrc, /Read-only\{r\.snapshot_source && r\.snapshot_source !== 'submission_trigger' \? ' \(legacy\)' : ''\}/)
-  // Eligibility/timing copy (7-day rule) still stated; single-response non-anonymity kept.
-  assert.match(consoleSrc, /rotation ends plus 7 days/)
-  assert.match(consoleSrc, /not anonymous/i)
-  // The queue read is untouched.
-  assert.match(consoleSrc, /getReviewQueue\(\{/)
-})
 
 // ── EVAL-RR-RAIL-C-1: the Owner-approved Settings-style compact rail ─────────────────
 
@@ -207,10 +184,6 @@ test('keyboard and active-state semantics: native buttons, aria-pressed, visible
 })
 
 test('no em dash in the code this pass wrote', () => {
-  // The console keeps its pre-existing em dashes (empty-cell glyphs and one prose dash
-  // that predate this pass); only the lines this pass ADDED are swept.
   assert.doesNotMatch(dash, /—/)
   assert.doesNotMatch(read('src/lib/evaluation/workflowSelection.js'), /—/)
-  const embeddedBlock = consoleSrc.slice(consoleSrc.indexOf('EVAL-RR-UNIFIED-NAV-1'), consoleSrc.indexOf('const [filters'))
-  assert.doesNotMatch(embeddedBlock, /—/)
 })

@@ -24,9 +24,10 @@ const coverage = read('src/components/StudentCoverage.jsx')
 const activity = read('src/components/RotationActivity.jsx')
 const rotationTable = read('src/components/rotation/RotationStudentTable.jsx')
 const evalTab = read('src/components/EvaluationTab.jsx')
-const cfPanel = read('src/components/evaluation/CaseyFinkPostRotationAutomationPanel.jsx')
+const rrAdapters = read('src/lib/evaluation/reviewQueueAdapters.js') // REVIEW-RELEASE-2: the panels are retired
 const cfDetect = read('src/lib/evaluation/caseyFinkPostRotationDueDetection.js')
-const sePanel = read('src/components/evaluation/StudentEvalAutomationPanel.jsx')
+const rrDash = read('src/components/evaluation/SurveyAutomationDashboard.jsx')
+const rrQueue = read('src/components/evaluation/ReviewReleaseQueue.jsx')
 const css = read('src/index.css')
 
 test('capacity: one calculation source (functional)', () => {
@@ -118,22 +119,22 @@ test('evaluation: blockers visible, verbs unified, export, reflow', async (t) =>
     assert.match(cfDetect, /const blocked = status === 'not_eligible' \|\| status === 'not_eligible_hours'/)
     assert.match(cfDetect, /Required hours not met/)
     assert.match(cfDetect, /blocked,\n\s*\}\)/)
-    assert.match(cfPanel, /not_eligible_hours:\s*\{ label: 'Blocked · hours not set'/)
+    assert.match(rrAdapters, /r\.status === 'not_eligible_hours' \? 'Hours not set' : 'Below threshold'/)
     // Blockers are amber states, never red; actions exist only for a new release or
     // an explicitly safe expired/revoked reissue.
-    assert.match(cfPanel, /r\.status === 'eligible_for_review' \|\| r\.status === 'readiness_reissue' \? \(/)
+    assert.match(rrAdapters, /const reissue = r\.status === 'readiness_reissue'/)
   })
 
   await t.test('summary counts and release safety are untouched', () => {
     assert.match(cfDetect, /summary\.ineligible_hours \+= 1/)
-    assert.match(cfPanel, /expected_instrument_slug: ROUTE\.instrumentSlug/)
-    assert.match(cfPanel, /setIdentityHold\(true\)/)
+    assert.match(rrDash, /expected_instrument_slug: route\.instrumentSlug/)
+    assert.match(rrDash, /setIdentityHold\(true\)/)
   })
 
   await t.test('one release verb across panels', () => {
-    assert.match(sePanel, /Release student survey\?/)
-    assert.match(sePanel, /\{releasing \? 'Releasing…' : 'Confirm & Release'\}/)
-    assert.doesNotMatch(sePanel, /Confirm & Send/)
+    // REVIEW-RELEASE-1: one confirmation for every survey workflow, one verb.
+    assert.match(rrQueue, /reissue \? `Reissue \$\{workflow\.label\}\?` : `Release \$\{workflow\.label\}\?`/)
+    assert.match(rrQueue, /\{releasing \? 'Sending…' : reissue \? 'Confirm & Reissue' : 'Confirm & Send'\}/)
   })
 
   await t.test('CSV export mirrors the current filtered view', () => {

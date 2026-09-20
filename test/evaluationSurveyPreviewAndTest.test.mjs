@@ -196,11 +196,11 @@ test('the test email is labelled TEST in both subject and body', () => {
 })
 
 test('the test action is never labelled Release', () => {
-  // REVIEW-RELEASE-1: the toolbar is rendered by the queue.
-  const at = queueCode.indexOf('Send test to me')
-  assert.ok(at > -1, 'the test control exists on the toolbar')
-  const toolbar = queueCode.slice(queueCode.indexOf('aria-label="Survey tools"'), at + 200)
-  assert.ok(!/Release/.test(toolbar), 'the test control must not read as a release action')
+  // REVIEW-RELEASE-2: the test send is an icon button on the board's head.
+  const at = queueCode.indexOf('aria-label="Send a test to my email"')
+  assert.ok(at > -1, 'the test control exists on the head')
+  const head = queueCode.slice(queueCode.indexOf('aria-label="Survey tools"'), queueCode.indexOf('rq-meta-row'))
+  assert.ok(!/Release/.test(head), 'the test control must not read as a release action')
 })
 
 // ── Test mode writes nothing at all ─────────────────────────────────────────

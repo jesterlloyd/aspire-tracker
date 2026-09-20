@@ -396,6 +396,7 @@ export function adaptCaseyFinkPostRotation({
 
 export function adaptAspireFeedback({
   students, assignments, allAssignmentsByStudent, activityByStudent, ledgerDown, shiftMeta, displayName, nowMs,
+  supportByStudent = new Map(), supportDown = false,
 }) {
   const workflowId = 'postRotation'
   const { rows } = classifyPostRotationCohort({ students, assignments, shiftMeta, displayName, nowMs })
@@ -404,7 +405,7 @@ export function adaptAspireFeedback({
 
   for (const r of rows) {
     const all = allAssignmentsByStudent.get(r.studentId) || []
-    const pre = aspirePrerequisites(all, activityByStudent.get(r.studentId) || [])
+    const pre = aspirePrerequisites(all, activityByStudent.get(r.studentId) || [], undefined, supportByStudent.get(r.studentId) || [])
     const prereq = ledgerDown ? { ...pre, ok: false, ledgerUnavailable: true } : pre
     const caseyAsg = all.find(a => slugOf(a) === STEP_SLUGS.caseyFink && a.timepoint === 'post_rotation') || null
     const base = {
@@ -413,6 +414,7 @@ export function adaptAspireFeedback({
       hours: { approved: r.approvedHours, required: r.hoursRequired, threshold: r.hoursRequired },
       studentId: r.studentId,
       activities: prereq.activities || [],
+      supportDown,
     }
     const after = node('after', 'next', 'Then', 'Chain complete')
 

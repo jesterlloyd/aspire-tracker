@@ -260,36 +260,38 @@ test('the nav row is a single button again', () => {
   assert.equal((row.match(/<button/g) || []).length, 1, 'exactly one control per row')
 })
 
-test('the two previews are icon buttons in one labelled Survey tools group; the test send sits in the tool row', () => {
-  // REVIEW-RELEASE-2 (Owner, 2026-09-19): the canon from Residency > Support. Each appears once.
+test('the four tools are icon buttons in one labelled Survey tools group, each once, each on the shared Tooltip', () => {
+  // REVIEW-RELEASE-2 (Owner, 2026-09-20): the canon from Residency > Support.
   assert.match(queueCode, /role="group" aria-label="Survey tools"/)
-  for (const action of ['aria-label="Preview the invitation email"', 'aria-label="Open a sample of the survey"', 'Send test to me']) {
-    assert.equal((queueCode.match(new RegExp(action.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length, 1,
-      `${action} must appear exactly once, not be duplicated elsewhere`)
+  for (const label of ['Preview the invitation email', 'Open a sample of the survey', 'Send a test to my email', 'Re-run detection']) {
+    assert.equal((queueCode.match(new RegExp(`aria-label="${label}"`, 'g')) || []).length, 1, `${label} must appear exactly once`)
   }
+  const group = queueCode.slice(queueCode.indexOf('aria-label="Survey tools"'), queueCode.indexOf('rq-meta-row'))
+  assert.equal((group.match(/<Tooltip label=/g) || []).length, 4)
 })
 
-test('the eye precedes the square-arrow, as in Residency > Support, and neither is a text button', () => {
-  const group = queueCode.slice(queueCode.indexOf('aria-label="Survey tools"'), queueCode.indexOf('rq-meta-line'))
-  const email = group.indexOf('Preview the invitation email'), survey = group.indexOf('Open a sample of the survey')
-  assert.ok(email > -1 && survey > email, 'eye (email) first, square-arrow (survey) second')
-  assert.equal((group.match(/className="rq-iconbtn"/g) || []).length, 2)
-  assert.doesNotMatch(group, /rr-tool-primary|rr-tool-secondary/)
+test('eye, square-arrow, paper plane, arrows: in that order, none a text button', () => {
+  const group = queueCode.slice(queueCode.indexOf('aria-label="Survey tools"'), queueCode.indexOf('rq-meta-row'))
+  const at = ['Preview the invitation email', 'Open a sample of the survey', 'Send a test to my email', 'Re-run detection'].map(l => group.indexOf(l))
+  assert.ok(at.every((v, i) => v > -1 && (i === 0 || v > at[i - 1])), 'the canon order')
+  assert.equal((group.match(/className="rq-iconbtn"/g) || []).length, 4)
+  assert.doesNotMatch(group, /rr-tool-primary|rr-tool-secondary|rr-tool-test/)
 })
 
-test('Send test to me is styled distinctly from a production release', () => {
-  assert.match(queueCode, /className="rr-tool-test"/)
-  // A dashed amber control, deliberately not the solid green Release treatment.
-  // REVIEW-RELEASE-2: the dashed control now lives in the clipboard stylesheet.
-  assert.match(clipCss, /\.rq-board \.rr-tool-test \{ border-style: dashed; \}/)
-  const tools = queueCode.slice(queueCode.indexOf('aria-label="Survey tools"'), queueCode.indexOf('Re-run detection'))
-  assert.ok(!/Release/.test(tools), 'the head and the tool row must contain no release control')
+test('the test send is an icon on the head, never the solid green Release control', () => {
+  // A paper plane in the tools group, on the same quiet icon button as the previews;
+  // Release is the only solid green control and it lives on a slip.
+  const group = queueCode.slice(queueCode.indexOf('aria-label="Survey tools"'), queueCode.indexOf('rq-meta-row'))
+  assert.match(group, /aria-label="Send a test to my email"><Send size=\{15\}/)
+  assert.doesNotMatch(group, /rq-pbtn go|Release/)
+  assert.match(clipCss, /\.rq-pbtn\.go \{[^}]*background: var\(--aspire-ok\)/)
 })
 
-test('the toolbar stays usable on a phone', () => {
+test('the head stays usable on a phone', () => {
+  // The icons keep their 28px targets; the meta line wraps; the stamp drops to its own line.
   assert.match(clipCss, /@media \(max-width: 640px\)/)
-  assert.match(clipCss, /\.rq-board \.rr-tool-primary, \.rq-board \.rr-tool-secondary, \.rq-board \.rr-tool-test \{ flex: 1 1 auto/)
-  assert.match(clipCss, /\.rq-tools \{[^}]*flex-wrap: wrap/)
+  assert.match(clipCss, /\.rq-meta \{ margin-left: 0; flex-basis: 100%; white-space: normal; \}/)
+  assert.match(clipCss, /\.rq-head \{[^}]*flex-wrap: wrap/)
 })
 
 // ── House style ────────────────────────────────────────────────────────────

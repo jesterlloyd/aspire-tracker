@@ -276,21 +276,14 @@ test('the issued date sits on the artwork baseline as one footer unit', () => {
 })
 
 test('the certificate gate is advertised and explicitly scoped to End of Rotation', () => {
-  const panel = read('src/components/evaluation/PreceptorAutomationPanel.jsx')
-  // Same amber treatment as the Casey-Fink gate...
-  const casey = read('src/components/evaluation/CaseyFinkPostRotationAutomationPanel.jsx')
-  assert.match(casey, /Certificate gate/)
-  assert.match(panel, /color: '#b45309', background: '#FBF5E8'/)
-  // ...but scoped, because this workflow carries two timepoints.
-  assert.match(panel, /Certificate gate · End of Rotation/)
-  // Supporting copy names what unlocks it, and says Midpoint does not.
-  assert.match(panel, /unlocks that preceptor&rsquo;s Certificate of Appreciation/)
-  assert.match(panel, /the Midpoint\s*\n?\s*assessment does not/)
+  // REVIEW-RELEASE-2: the panels are retired; the catalog names the gate and the slip's
+  // chain says what each period unlocks (End of Rotation: the certificate; Midpoint: the
+  // End of Rotation assessment, not the certificate).
+  const catalog = read('src/lib/evaluation/surveyCatalog.js')
+  const preceptor = catalog.slice(catalog.indexOf("key: 'preceptor'"), catalog.indexOf("key: 'student'"))
+  assert.match(preceptor, /gate: 'End of Rotation unlocks the Certificate of Appreciation'/)
+  const adapters = read('src/lib/evaluation/reviewQueueAdapters.js')
+  assert.match(adapters, /node\('after', 'next', 'Unlocks', 'Certificate of Appreciation'\)/)
+  assert.match(adapters, /node\('after', 'next', 'Unlocks', `End of Rotation at \$\{r\.hoursRequired\} h`\)/)
 })
 
-test('the gate copy keeps its space after the bolded timepoint', () => {
-  // JSX strips a newline adjacent to a closing tag, which rendered
-  // "End of Rotationassessment" in the first pass. The explicit {' '} holds it.
-  const panel = read('src/components/evaluation/PreceptorAutomationPanel.jsx')
-  assert.match(panel, /<strong>End of Rotation<\/strong>\{' '\}/)
-})

@@ -144,7 +144,8 @@ test('the endpoint: Talent Acquisition reads the narrowed roster and never write
   assert.match(api, /verifyNgrpCaller\(req, \{ manage: WRITES\.has\(action\) \}\)/)
   // RESIDENCY-REFLECTION-1 widened the team-only set to include reading a
   // resident's reflection; every write is still in it.
-  assert.match(api, /const TEAM_ONLY = new Set\(\[\.\.\.WRITES, 'reflection_view'\]\)/)
+  // REVIEW-RELEASE-2: Review & Release's read of the three activities is the team's too.
+  assert.match(api, /const TEAM_ONLY = new Set\(\[\.\.\.WRITES, 'reflection_view', 'entries_for_students'\]\)/)
   assert.match(api, /if \(TEAM_ONLY\.has\(action\) && isTA\) return res\.status\(403\)\.json\(\{ error: 'aspire_team_only' \}\)/)
   assert.match(api, /const view = isTA \? narrowPayloadForTalentAcquisition\(payload\) : payload/)
   assert.match(api, /\.is\('voided_at', null\)/)

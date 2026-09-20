@@ -54,16 +54,18 @@ export const STEP_LABELS = Object.freeze({
 // So none of them can be derived from existing data, and this list is a PROPOSAL,
 // not a discovered fact. Editing this array is how the Owner confirms the final
 // checklist; the gate reads it and nothing else infers requirements.
+// In the order Residency > Support records them (Owner, 2026-09-20): Résumé Review
+// first, then Town Hall, then Interview Bootcamp. Display order only; the gate is a set.
 export const REQUIRED_ACTIVITY_KEYS = Object.freeze([
+  'resume_review',
   'town_hall',
   'interview_bootcamp',
-  'resume_review',
 ])
 
 export const ACTIVITY_LABELS = Object.freeze({
   town_hall: 'Town Hall',
   interview_bootcamp: 'Interview Bootcamp',
-  resume_review: 'Resume Review',
+  resume_review: 'Résumé Review',
 })
 
 /**
@@ -183,21 +185,40 @@ export function currentActivityState(events) {
  * @param activityCompletions  [{ activity_key, completed_at }] for this student
  * @param requiredKeys  defaults to REQUIRED_ACTIVITY_KEYS
  */
-export function aspirePrerequisites(assignments, activityCompletions = [], requiredKeys = REQUIRED_ACTIVITY_KEYS) {
+export function aspirePrerequisites(assignments, activityCompletions = [], requiredKeys = REQUIRED_ACTIVITY_KEYS, supportEntries = []) {
   const feedback = stepCompletion(assignments, STEP_SLUGS.feedback)
   const caseyFink = stepCompletion(assignments, STEP_SLUGS.caseyFink)
 
   // The ledger is append-only, so the current state is the reduction of its
   // events - never the mere existence of a row.
   const state = currentActivityState(activityCompletions)
+  // REVIEW-RELEASE-2 (Owner, 2026-09-20): an entry recorded under Residency > Support
+  // (ngrp_support_entries, the same three keys, with the date it happened) counts as
+  // well. Voided entries never count. Support is the richer record where it exists, and
+  // it exists only for residency candidates, so the ledger stays the record for everyone.
+  const support = new Map()
+  for (const e of (supportEntries || [])) {
+    if (!e || e.voided_at || !e.activity || !e.occurred_on) continue
+    const cur = support.get(e.activity) || { count: 0, last: null }
+    cur.count += 1
+    if (!cur.last || e.occurred_on > cur.last) cur.last = e.occurred_on
+    support.set(e.activity, cur)
+  }
   const activities = (requiredKeys || []).map(key => {
     const cur = state.get(key) || null
+    const sup = support.get(key) || null
+    const ledgerDone = !!(cur && cur.completed && cur.completedAt)
+    const supportDone = !!(sup && sup.count > 0)
     return {
       key,
       label: ACTIVITY_LABELS[key] || key,
-      completed: !!(cur && cur.completed && cur.completedAt),
-      completedAt: cur && cur.completed ? cur.completedAt : null,
-      recordedByName: cur && cur.completed ? cur.recordedByName : null,
+      completed: ledgerDone || supportDone,
+      completedAt: ledgerDone ? cur.completedAt : supportDone ? sup.last : null,
+      recordedByName: ledgerDone ? cur.recordedByName : null,
+      // Where the completion is recorded: the ledger, Support, both, or nowhere.
+      source: ledgerDone && supportDone ? 'both' : ledgerDone ? 'ledger' : supportDone ? 'support' : null,
+      supportCount: sup ? sup.count : 0,
+      supportLast: sup ? sup.last : null,
     }
   })
 

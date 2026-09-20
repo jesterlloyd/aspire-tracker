@@ -15,6 +15,7 @@ import { supabase } from '../supabase'
 import { getStudentPreferredFullName } from '../studentNameFormatters'
 import { shiftDrivesState } from '../shiftLifecycle'
 import { getReviewQueue } from '../evaluationReviewApi'
+import { postNgrpSupport } from '../ngrp/useNgrpData'
 
 const STUDENT_COLUMNS = [
   'id', 'first_name', 'last_name', 'preferred_first_name', 'school', 'program_type',
@@ -132,6 +133,23 @@ export async function loadCohortEvidence(cohortId) {
     }
   }
 
+  // REVIEW-RELEASE-2 (Owner, 2026-09-20): what Residency > Support recorded for these
+  // students counts toward the ASPIRE feedback release as well. Secondary source: if the
+  // read fails the ledger alone decides, and the card says the Support side is unknown.
+  let supportByStudent = new Map()
+  let supportDown = false
+  if (studentIds.length) {
+    const res = await postNgrpSupport('entries_for_students', { student_ids: studentIds })
+    if (res.ok) {
+      for (const e of (res.entries || [])) {
+        if (!supportByStudent.has(e.student_id)) supportByStudent.set(e.student_id, [])
+        supportByStudent.get(e.student_id).push(e)
+      }
+    } else {
+      supportDown = true
+    }
+  }
+
   const bySlugAndTimepoint = (slug, timepoint) =>
     assignments.filter(a => slugFor(a) === slug && (timepoint == null || a.timepoint === timepoint))
 
@@ -145,6 +163,8 @@ export async function loadCohortEvidence(cohortId) {
     shiftNote,
     activityByStudent,
     ledgerDown,
+    supportByStudent,
+    supportDown,
     displayName: getStudentPreferredFullName,
     detectedAtMs: Date.now(),
     // Pre-filtered per workflow, so each adapter sees only its own rows, as the panels did.

@@ -6,7 +6,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import AutomationEmailPreviewDrawer from '../connect/AutomationEmailPreviewDrawer'
 import { getEvaluationPreviewFixture } from '../../lib/evaluation/evaluationPreviewFixtures'
 import SurveyPreviewDrawer from './SurveyPreviewDrawer'
-import ReviewReleaseQueue, { ReleaseConfirm, ActivityDialog, ModerateConfirm } from './ReviewReleaseQueue'
+import ReviewReleaseQueue, { ReleaseConfirm, ModerateConfirm } from './ReviewReleaseQueue'
 import { SURVEY_CATALOG, SURVEY_WORKFLOWS, surveyByKey } from '../../lib/evaluation/surveyCatalog'
 import { RELEASE_ROUTES } from '../../lib/evaluation/releaseRouting'
 import { postReleaseAction } from '../../lib/evaluationReviewApi'
@@ -16,7 +16,7 @@ import {
   adaptCaseyFinkPreRotation, adaptPreceptor, adaptStudentFeedback,
   adaptCaseyFinkPostRotation, adaptAspireFeedback, adaptUnitLeaderRelease,
 } from '../../lib/evaluation/reviewQueueAdapters'
-import { countsOf, sumCounts, isToday } from '../../lib/evaluation/reviewQueueShape'
+import { countsOf, sumCounts, isToday, localToday } from '../../lib/evaluation/reviewQueueShape'
 import './reviewReleaseClipboard.css'
 import {
   LAST_WORKFLOW_STORAGE_KEY,
@@ -129,6 +129,7 @@ export default function SurveyAutomationDashboard({ cohortId, onTrackResponses }
       out.postRotation = adaptAspireFeedback({
         ...shared, assignments: ev.forWorkflow.postRotation, allAssignmentsByStudent: ev.allAssignmentsByStudent,
         activityByStudent: ev.activityByStudent, ledgerDown: ev.ledgerDown, shiftMeta: ev.shiftMeta,
+        supportByStudent: ev.supportByStudent, supportDown: ev.supportDown,
       })
     }
     if (ulQueue.data) {
@@ -225,15 +226,10 @@ export default function SurveyAutomationDashboard({ cohortId, onTrackResponses }
   // an open dialog belongs to the workflow it was opened on.
   const [confirmRaw, setConfirmRaw] = useState(null)
   const [moderateRaw, setModerateRaw] = useState(null)
-  const [activityRaw, setActivityRaw] = useState(null)
   const confirmItem = confirmRaw && confirmRaw.workflowId === effective ? confirmRaw : null
   const moderateItem = moderateRaw && moderateRaw.workflowId === effective ? moderateRaw : null
-  const activityItem = activityRaw && activityRaw.workflowId === effective ? activityRaw : null
   const setConfirmItem = setConfirmRaw
   const setModerateItem = setModerateRaw
-  const setActivityItem = setActivityRaw
-  const [activitySaving, setActivitySaving] = useState(false)
-  const [activityMsg, setActivityMsg] = useState(null)
   const [busyItemId, setBusyItemId] = useState(null)
   // REVIEW-RELEASE-2: a released slip slides off the board before the refetch removes it.
   // The release itself never waits on this; only the refetch does, and not under
@@ -315,39 +311,32 @@ export default function SurveyAutomationDashboard({ cohortId, onTrackResponses }
   }
 
   // Records or corrects ONE activity for ONE student. Never releases or sends anything.
-  const submitActivity = useCallback(async ({ activity, reason }) => {
-    const item = activityItem
-    if (!item || !activity) return
-    setActivitySaving(true); setActivityMsg(null)
+  // REVIEW-RELEASE-2 (Owner, 2026-09-20): activities are recorded on the slip itself,
+  // with the date they happened. The ledger endpoint refuses a future date, so today's
+  // record carries the current time and an earlier day carries noon UTC, which is that
+  // calendar day in Pacific time and never the day before it.
+  const recordActivity = useCallback(async (item, { activity, action, completedAt, reason }) => {
+    if (!item || !activity) return { ok: false, text: 'Nothing to record.' }
     try {
       const headers = await authHeaders()
-      if (!headers) throw new Error('Session expired, refresh and try again.')
-      const correcting = activity.completed
+      if (!headers) return { ok: false, text: 'Session expired, refresh and try again.' }
+      const stamp = completedAt ? (completedAt === localToday() ? new Date().toISOString() : `${completedAt}T12:00:00.000Z`) : undefined
       const res = await fetch('/api/student-activity-completion', {
         method: 'POST', headers,
-        body: JSON.stringify({ student_id: item.studentId, activity_key: activity.key, action: correcting ? 'reverse' : 'complete', ...(correcting ? { reason } : {}) }),
+        body: JSON.stringify({ student_id: item.studentId, activity_key: activity.key, action, ...(stamp ? { completed_at: stamp } : {}), ...(reason ? { reason } : {}) }),
       })
       const payload = await res.json().catch(() => null)
-      if (!res.ok || !payload?.success) throw new Error(payload?.error || 'Could not record the activity.')
-      setActivityMsg({ tone: 'ok', text: payload.recorded ? `${activity.label} ${correcting ? 'correction recorded' : 'marked complete'} for ${item.person.name}.` : (payload.message || 'No change was needed.') })
+      if (!res.ok || !payload?.success) return { ok: false, text: payload?.error || 'Could not record the activity.' }
       await evidence.refetch()
+      return { ok: true, text: payload.recorded ? `${activity.label} ${action === 'reverse' ? 'correction recorded' : 'marked complete'} for ${item.person.name}.` : (payload.message || 'No change was needed.') }
     } catch (err) {
-      setActivityMsg({ tone: 'err', text: err.message || 'Could not record the activity.' })
-    } finally {
-      setActivitySaving(false)
+      return { ok: false, text: err.message || 'Could not record the activity.' }
     }
-  }, [activityItem, authHeaders, evidence])
-
-  // Keep the open activity dialog on the freshest version of its item after a refetch.
-  const activityItemLive = useMemo(() => {
-    if (!activityItem) return null
-    return (queues.postRotation?.items || []).find(i => i.id === activityItem.id) || activityItem
-  }, [activityItem, queues])
+  }, [authHeaders, evidence])
 
   const onAction = useCallback((item) => {
     const b = item.blocker
     if (!b) return
-    if (b.action === 'activity') { setActivityMsg(null); setActivityItem(item); return }
     if (b.action === 'moderate') { setModerateItem(item); return }
     if (b.action === 'fix') {
       // Opens the record that needs fixing. Student Profiles takes the student; the
@@ -356,7 +345,7 @@ export default function SurveyAutomationDashboard({ cohortId, onTrackResponses }
       else if (b.target?.kind === 'response') onTrackResponses?.(workflow)
       else if (item.studentId) navigate(`/students?student=${encodeURIComponent(item.studentId)}`)
     }
-  }, [navigate, onTrackResponses, workflow, setActivityItem, setModerateItem])
+  }, [navigate, onTrackResponses, workflow, setModerateItem])
 
   // A jump switches the rail to the workflow that holds the prerequisite and flashes it.
   const [highlightItemId, setHighlightItemId] = useState(null)
@@ -425,6 +414,7 @@ export default function SurveyAutomationDashboard({ cohortId, onTrackResponses }
             releaseLocked={identityHold}
             leavingItemId={leavingId}
             onReadFeedback={() => onTrackResponses?.(workflow)}
+            onRecordActivity={recordActivity}
             onRerun={rerun}
             onRelease={(item) => { setNotice(null); setConfirmItem(item) }}
             onAction={onAction}
@@ -441,10 +431,6 @@ export default function SurveyAutomationDashboard({ cohortId, onTrackResponses }
       )}
       {moderateItem && (
         <ModerateConfirm item={moderateItem} busy={busyItemId === moderateItem.id} onCancel={() => setModerateItem(null)} onDecide={decideModeration} />
-      )}
-      {activityItemLive && (
-        <ActivityDialog item={activityItemLive} saving={activitySaving} message={activityMsg}
-          onCancel={() => { setActivityItem(null); setActivityMsg(null) }} onSubmit={submitActivity} />
       )}
 
       {surveyPreviewKey && SURVEY_KEYS.includes(surveyPreviewKey) && (

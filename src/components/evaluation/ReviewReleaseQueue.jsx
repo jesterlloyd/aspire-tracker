@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Eye, Send, RefreshCw, ExternalLink } from 'lucide-react'
+import { Eye, Send, RefreshCw, ExternalLink, ChevronRight } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { surveyByKey } from '../../lib/evaluation/surveyCatalog'
 import { PERIOD_LABELS } from '../../lib/evaluation/preceptorDueDetection'
 import { RELEASE_ROUTES } from '../../lib/evaluation/releaseRouting'
 import { ACTION_API } from '../../lib/unitEvaluationReleaseActions'
-import { fmtHours, recentSent, whenLabel } from '../../lib/evaluation/reviewQueueShape'
+import { fmtHours, recentSent, whenLabel, localToday, fmtDay } from '../../lib/evaluation/reviewQueueShape'
+import Tooltip from '../ui/Tooltip'
 
 // REVIEW-RELEASE-1: the one queue component. Six workflows, three states, one shape.
 //
@@ -40,19 +41,97 @@ const POLICY = {
 
 const NODE_MARK = { done: '✓', this: 'Now', waiting: 'Waiting', fix: 'Fix' }
 
-function ChainStrip({ chain }) {
+// "Casey-Fink Readiness for Practice (Pre-Rotation)" reads as the name with the timepoint
+// as a smaller qualifier (Owner, 2026-09-20); the rail keeps the full name.
+function splitTitle(label = '') {
+  const m = /^(.*\S)\s+\(([^()]+)\)$/.exec(label)
+  return m ? [m[1], m[2]] : [label, null]
+}
+
+// `expandable` names ONE node whose label is a toggle (the Required activities node on
+// the ASPIRE feedback slip): its chevron points right, and down when the recording area
+// below the chain is open (Owner, 2026-09-20).
+function ChainStrip({ chain, expandable = null }) {
   if (!chain?.length) return null
   return (
     <div className="rq-chain">
-      {chain.map((n, i) => (
-        <div key={`${n.role}-${i}`} className={`rq-node rq-node-${n.status}`}>
-          <div className="rq-node-k">{n.label}</div>
-          <div className="rq-node-v">
-            {NODE_MARK[n.status] && <i>{NODE_MARK[n.status]}</i>}
-            {n.detail}
+      {chain.map((n, i) => {
+        const toggle = expandable && n.label === expandable.label
+        return (
+          <div key={`${n.role}-${i}`} className={`rq-node rq-node-${n.status}`}>
+            {toggle ? (
+              <button type="button" className="rq-node-k rq-node-toggle" aria-expanded={expandable.open} onClick={expandable.onToggle}>
+                <ChevronRight size={12} aria-hidden="true" className="rq-chev" /> {n.label}
+              </button>
+            ) : <div className="rq-node-k">{n.label}</div>}
+            <div className="rq-node-v">
+              {NODE_MARK[n.status] && <i>{NODE_MARK[n.status]}</i>}
+              {n.detail}
+            </div>
           </div>
-        </div>
-      ))}
+        )
+      })}
+    </div>
+  )
+}
+
+// The recording area (Owner, 2026-09-20): the three activities in Residency > Support's
+// order, each with its most recent date, recorded HERE with the date it happened. A
+// completion that exists only in Support is shown as Support's and is corrected there.
+// Nothing here sends or releases; a correction keeps the original ledger entry.
+function ActivitiesArea({ item, onRecord }) {
+  const today = localToday()
+  const [drafts, setDrafts] = useState({})
+  const [busyKey, setBusyKey] = useState(null)
+  const [msg, setMsg] = useState(null)
+  const draft = (k) => drafts[k] || { date: today, reason: '', correcting: false }
+  const setDraft = (k, patch) => setDrafts(d => ({ ...d, [k]: { ...draft(k), ...patch } }))
+  const record = async (a, action) => {
+    const d = draft(a.key)
+    setBusyKey(a.key); setMsg(null)
+    const res = await onRecord?.(item, { activity: a, action, completedAt: action === 'complete' ? d.date : undefined, reason: action === 'reverse' ? d.reason.trim() : undefined })
+    setBusyKey(null)
+    setMsg(res ? { tone: res.ok ? 'ok' : 'err', text: res.text } : null)
+    if (res?.ok) setDraft(a.key, { correcting: false, reason: '' })
+  }
+  return (
+    <div className="rq-acts" data-testid="pr-activity-area">
+      {(item.activities || []).map(a => {
+        const d = draft(a.key)
+        const supportOnly = a.completed && a.source === 'support'
+        const when = a.completed
+          ? `${fmtDay(a.completedAt)}${a.source === 'support' || a.source === 'both' ? ' · Support' : ''}${a.supportCount > 1 ? ` ×${a.supportCount}` : ''}`
+          : 'Not yet'
+        return (
+          <div key={a.key} className={`rq-act${a.completed ? ' done' : ''}`} data-testid="pr-activity-row">
+            <span className="rq-act-mark" aria-hidden="true">{a.completed ? '✓' : '○'}</span>
+            <span className="rq-act-label">{a.label}</span>
+            <span className="rq-act-when">{when}</span>
+            <span className="rq-act-ctl">
+              {!a.completed && (
+                <>
+                  <input type="date" className="rq-act-date" max={today} value={d.date} aria-label={`Date ${a.label} happened`} onChange={e => setDraft(a.key, { date: e.target.value })} />
+                  <button type="button" className="rq-pbtn" disabled={busyKey === a.key || !d.date} onClick={() => record(a, 'complete')}>{busyKey === a.key ? 'Saving…' : 'Mark complete'}</button>
+                </>
+              )}
+              {a.completed && !supportOnly && !d.correcting && (
+                <button type="button" className="rq-pbtn link" onClick={() => setDraft(a.key, { correcting: true })}>Correct</button>
+              )}
+              {supportOnly && <span className="rq-act-note">recorded in Support</span>}
+            </span>
+            {a.completed && !supportOnly && d.correcting && (
+              <div className="rq-act-correct">
+                <input type="text" className="rq-act-reason" value={d.reason} placeholder="Why is this being corrected?" aria-label={`Reason for correcting ${a.label}`} onChange={e => setDraft(a.key, { reason: e.target.value })} />
+                <button type="button" className="rq-pbtn" disabled={busyKey === a.key || !d.reason.trim()} onClick={() => record(a, 'reverse')}>{busyKey === a.key ? 'Saving…' : 'Record correction'}</button>
+                <button type="button" className="rq-pbtn link" onClick={() => setDraft(a.key, { correcting: false, reason: '' })}>Cancel</button>
+              </div>
+            )}
+          </div>
+        )
+      })}
+      {item.supportDown && <p className="rq-act-foot">Residency &gt; Support could not be read just now; only the ledger is shown.</p>}
+      {msg && <div role="status" className={`rq-act-msg ${msg.tone}`} data-testid="pr-activity-msg">{msg.text}</div>}
+      <p className="rq-act-foot">Recording writes to the ledger under your name and the date you enter. It sends nothing and releases nothing; a correction keeps the original entry.</p>
     </div>
   )
 }
@@ -66,10 +145,13 @@ function Stamp({ stamp }) {
 // is amber, a data fix or a wait older than seven days is red (the adapters decide the
 // tone; the slip only wears it). One student, one sheet: no stack under it (Owner,
 // 2026-09-19, "it's single student and it's in a clipboard already").
-function Card({ item, workflow, busy, locked, leaving, highlighted, onRelease, onAction, onJump, onReadFeedback }) {
+function Card({ item, workflow, busy, locked, leaving, highlighted, onRelease, onAction, onJump, onReadFeedback, onRecordActivity }) {
   const ready = item.state === 'ready'
   const b = item.blocker
   const tone = item.stamp?.tone === 'ok' ? 'ok' : item.stamp?.tone === 'late' ? 'late' : 'soon'
+  // The Required activities node opens the recording area (Owner, 2026-09-20).
+  const recordable = b?.action === 'activity' && (item.activities || []).length > 0
+  const [actsOpen, setActsOpen] = useState(false)
   return (
       <article
         className={`rq-card rq-card-${item.state} rq-band-${tone}${highlighted ? ' rq-card-flash' : ''}${leaving ? ' rq-card-gone' : ''}`}
@@ -93,7 +175,8 @@ function Card({ item, workflow, busy, locked, leaving, highlighted, onRelease, o
           </div>
         </div>
 
-        <ChainStrip chain={item.chain} />
+        <ChainStrip chain={item.chain} expandable={recordable ? { label: 'Required activities', open: actsOpen, onToggle: () => setActsOpen(o => !o) } : null} />
+        {recordable && actsOpen && <ActivitiesArea item={item} onRecord={onRecordActivity} />}
 
         <div className="rq-actions">
           {ready ? (
@@ -120,7 +203,7 @@ function Card({ item, workflow, busy, locked, leaving, highlighted, onRelease, o
                 </button>
               )}
               {b?.action === 'activity' && (
-                <button type="button" className="rq-pbtn" onClick={() => onAction(item)}>Record activities</button>
+                <button type="button" className="rq-pbtn" aria-expanded={actsOpen} onClick={() => setActsOpen(o => !o)}>{actsOpen ? 'Hide activities' : 'Record activities'}</button>
               )}
               {b?.action === 'moderate' && (
                 <button type="button" className="rq-pbtn" disabled={busy} onClick={() => onAction(item)}>Clear moderation</button>
@@ -148,7 +231,7 @@ function Section({ title, caption, count, children }) {
 export default function ReviewReleaseQueue({
   workflow, items = [], sent = [], detectedAtMs = 0, loading = false, error = null,
   busyItemId = null, releaseLocked = false, leavingItemId = null, notice = null, highlightItemId = null,
-  onRerun, onRelease, onAction, onJump, onTrackResponses, onReadFeedback,
+  onRerun, onRelease, onAction, onJump, onTrackResponses, onReadFeedback, onRecordActivity,
   tools, // { onPreviewSurvey, onPreviewEmail, onSendTest, testState, onOpenTest, onCopyTest }
 }) {
   // The policy paragraph is collapsed by default and collapses again on every workflow
@@ -175,6 +258,7 @@ export default function ReviewReleaseQueue({
 
   if (!workflow) return null
   const survey = surveyByKey(workflow.key) || workflow
+  const [mainTitle, qualifier] = splitTitle(survey.label)
   const notEligibleLabel = survey.key === 'caseyFinkPreRotation'
     ? `Not yet interviewed (${notEligible.length}) · nothing to do yet`
     : survey.key === 'unitLeaderRelease'
@@ -183,34 +267,39 @@ export default function ReviewReleaseQueue({
 
   const cardProps = (it) => ({
     item: it, workflow: survey, busy: busyItemId === it.id, locked: releaseLocked, leaving: leavingItemId === it.id,
-    highlighted: highlightItemId === it.id, onRelease, onAction, onJump, onReadFeedback,
+    highlighted: highlightItemId === it.id, onRelease, onAction, onJump, onReadFeedback, onRecordActivity,
   })
 
   return (
     <div className="rq">
-      {/* 1. Name, with the old name beside it for one release cycle, and the two previews as
-          icon buttons at the top right: the canon from Residency > Support (Owner,
-          2026-09-19), the eye for the email and the square-arrow for the form. */}
+      {/* 1. The name, with the timepoint as a smaller qualifier, and the four tools as icon
+          buttons at the top right on the shared Tooltip (Owner, 2026-09-20): the eye
+          previews the email, the square-arrow opens a sample of the survey, the paper
+          plane sends a test to me, the arrows re-run detection. */}
       <div className="rq-head">
-        <div className="rq-head-main">
-          <h2>{survey.label}</h2>
-          <span className="rq-was">{survey.was ? `currently “${survey.was}”` : 'new'}</span>
+        <h2>{mainTitle}{qualifier && <span className="rq-title-q">{qualifier}</span>}</h2>
+        <div className="rq-head-icons" role="group" aria-label="Survey tools">
+          {survey.slug && (
+            <>
+              <Tooltip label="Preview the invitation email" placement="bottom" tone="contrast">
+                <button type="button" className="rq-iconbtn" onClick={tools?.onPreviewEmail} aria-label="Preview the invitation email"><Eye size={15} aria-hidden="true" /></button>
+              </Tooltip>
+              <Tooltip label="Open a sample of the survey" placement="bottom" tone="contrast">
+                <button type="button" className="rq-iconbtn" onClick={tools?.onPreviewSurvey} aria-label="Open a sample of the survey"><ExternalLink size={15} aria-hidden="true" /></button>
+              </Tooltip>
+              <Tooltip label={tools?.testState?.busy ? 'Preparing the test…' : 'Send a test to my email'} placement="bottom" tone="contrast">
+                <button type="button" className="rq-iconbtn" disabled={tools?.testState?.busy} onClick={tools?.onSendTest} aria-label="Send a test to my email"><Send size={15} aria-hidden="true" /></button>
+              </Tooltip>
+            </>
+          )}
+          <Tooltip label={loading ? 'Detecting…' : 'Re-run detection'} placement="bottom" tone="contrast">
+            <button type="button" className="rq-iconbtn" disabled={loading} onClick={onRerun} aria-label="Re-run detection"><RefreshCw size={15} aria-hidden="true" className={loading ? 'rq-spin' : undefined} /></button>
+          </Tooltip>
         </div>
-        {survey.slug && (
-          <div className="rq-head-icons" role="group" aria-label="Survey tools">
-            <button type="button" className="rq-iconbtn" onClick={tools?.onPreviewEmail} title="Preview the invitation email" aria-label="Preview the invitation email"><Eye size={15} aria-hidden="true" /></button>
-            <button type="button" className="rq-iconbtn" onClick={tools?.onPreviewSurvey} title="Open a sample of the survey" aria-label="Open a sample of the survey"><ExternalLink size={15} aria-hidden="true" /></button>
-          </div>
-        )}
       </div>
-      {/* 2. One quiet line: who it goes to, what triggers it, what it gates. */}
-      <p className="rq-meta-line">To {survey.to} {'·'} {survey.trigger} {'·'} {survey.gate}</p>
-      {/* 3. The tool row: a test send and detection, with the stamp at the right. */}
-      <div className="rq-tools">
-        {survey.slug && (
-          <button type="button" className="rr-tool-test" disabled={tools?.testState?.busy} onClick={tools?.onSendTest} aria-label="Send a test of the selected survey to my own email"><Send size={14} aria-hidden="true" /> {tools?.testState?.busy ? 'Preparing…' : 'Send test to me'}</button>
-        )}
-        <button type="button" className="rr-tool-secondary" onClick={onRerun} disabled={loading}><RefreshCw size={14} aria-hidden="true" /> {loading ? 'Detecting…' : 'Re-run detection'}</button>
+      {/* 2. One quiet line: who it goes to, what triggers it, what it gates; the detection stamp at the right. */}
+      <div className="rq-meta-row">
+        <p className="rq-meta-line">To {survey.to} {'·'} {survey.trigger} {'·'} {survey.gate}</p>
         <span className="rq-meta">{detectedAtMs ? `Detected ${new Date(detectedAtMs).toLocaleString('en-US')}` : ''}</span>
       </div>
       {tools?.testState?.note && (
@@ -371,61 +460,6 @@ export function ReleaseConfirm({ item, workflow, releasing, onCancel, onConfirm 
           <button onClick={() => onConfirm({ redirectId })} disabled={releasing}
             style={{ padding: '8px 18px', background: '#166534', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, fontFamily: F, cursor: releasing ? 'default' : 'pointer', opacity: releasing ? 0.6 : 1 }}>
             {releasing ? 'Sending…' : reissue ? 'Confirm & Reissue' : 'Confirm & Send'}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// Record or correct ONE activity for ONE student (POST-ROTATION-SEQUENCED-RELEASE-1).
-// Ported from the ASPIRE feedback panel: confirmation required, a correction needs a
-// reason, nothing here sends or releases.
-export function ActivityDialog({ item, saving, message, onCancel, onSubmit }) {
-  // Selection and reason belong to ONE item; a different item starts clean. Keyed
-  // derived state, not an effect (see the policy toggle above for why).
-  const [draft, setDraft] = useState({ id: item?.id, chosen: null, reason: '' })
-  const live = draft.id === item?.id ? draft : { id: item?.id, chosen: null, reason: '' }
-  const chosen = live.chosen
-  const reason = live.reason
-  const setChosen = (c) => setDraft({ ...live, chosen: c })
-  const setReason = (r) => setDraft({ ...live, reason: r })
-  if (!item) return null
-  const activities = item.activities || []
-  return (
-    <div onClick={() => { if (!saving) onCancel() }}
-      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
-      <div onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" data-testid="pr-activity-dialog"
-        style={{ background: '#fff', borderRadius: 12, width: '100%', maxWidth: 520, padding: 22, fontFamily: F, boxShadow: '0 8px 40px rgba(0,0,0,0.18)' }}>
-        <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: NAVY }}>Required activities for {item.person.name}</h2>
-        <p style={{ fontSize: 12.5, color: '#6b7280', margin: '6px 0 12px' }}>Recording completion writes to the ledger under your name and today&rsquo;s date. It does not send any email and does not release an evaluation. A correction keeps the original entry in the history.</p>
-        <div style={{ display: 'grid', gap: 6 }}>
-          {activities.map(a => (
-            <label key={a.key} data-testid="pr-activity-row" style={{ display: 'flex', gap: 8, alignItems: 'baseline', fontSize: 13, cursor: 'pointer' }}>
-              <input type="radio" name="activity" checked={chosen?.key === a.key} onChange={() => setChosen(a)} />
-              <span style={{ color: a.completed ? '#166534' : '#92400e' }}>{a.completed ? '✓' : '○'} {a.label}
-                {a.completed && a.completedAt ? <span style={{ color: '#6b7280' }}>{` ${new Date(a.completedAt).toLocaleDateString('en-US')}`}</span> : null}
-                {a.completed && a.recordedByName ? <span style={{ color: '#9ca3af' }}>{` · ${a.recordedByName}`}</span> : null}
-              </span>
-              <span style={{ marginLeft: 'auto', fontSize: 11, color: NAVY, fontWeight: 600 }}>{a.completed ? 'Correct' : 'Mark complete'}</span>
-            </label>
-          ))}
-        </div>
-        {chosen?.completed && (
-          <textarea data-testid="pr-activity-reason" value={reason} onChange={e => setReason(e.target.value)} placeholder="Why is this being corrected?" rows={3}
-            style={{ width: '100%', boxSizing: 'border-box', marginTop: 12, padding: '8px 10px', fontFamily: F, fontSize: 12.5, borderRadius: 8, border: '1px solid #d1d5db' }} />
-        )}
-        {message && (
-          <div data-testid="pr-activity-msg" style={{ margin: '10px 0 0', padding: '8px 12px', borderRadius: 8, fontSize: 12.5,
-            background: message.tone === 'ok' ? '#ecfdf5' : '#fef2f2', color: message.tone === 'ok' ? '#065f46' : '#991b1b',
-            border: `1px solid ${message.tone === 'ok' ? '#a7f3d0' : '#fecaca'}` }}>{message.text}</div>
-        )}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
-          <button type="button" className="btn-outline-modal" disabled={saving} onClick={onCancel}>Close</button>
-          <button type="button" data-testid="pr-activity-submit" disabled={saving || !chosen || (chosen.completed && !reason.trim())}
-            onClick={() => onSubmit({ activity: chosen, reason: reason.trim() })}
-            style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: '#166534', color: '#fff', fontSize: 12.5, fontWeight: 600, fontFamily: F, cursor: saving ? 'default' : 'pointer', opacity: (saving || !chosen) ? 0.6 : 1 }}>
-            {saving ? 'Saving…' : chosen?.completed ? 'Record correction' : 'Mark complete'}
           </button>
         </div>
       </div>

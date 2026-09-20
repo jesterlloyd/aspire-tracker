@@ -10,9 +10,15 @@
  * (Owner, 2026-09-19, reversing the brief's "same height, not sticky").
  *
  * WHAT IS NOT HERE, BY DECISION. No stack under a slip: one student is one sheet, and it
- * is already on a clipboard. No preview on a slip: the two previews are icon buttons on
- * the board's head, the canon from Residency > Support (eye for the email, square-arrow
- * for the form), so the head carries a title, one quiet line and a thin tool row.
+ * is already on a clipboard. No preview on a slip, and no tool row: the four tools are
+ * icon buttons on the board's head with the shared Tooltip (eye, square-arrow, paper
+ * plane, arrows), the canon from Residency > Support, so the head is a title with its
+ * timepoint as a smaller qualifier and one quiet line. No "new" and no old name.
+ *
+ * THE REQUIRED ACTIVITIES are recorded on the slip (Owner, 2026-09-20): the node in the
+ * chain is a chevron toggle, and the area it opens lists Résumé Review, Town Hall and
+ * Interview Bootcamp the way Residency > Support arranges them, with the date each
+ * happened, drawn from the ledger AND from Support's own entries.
  *
  * WHAT THIS SHEET OWNS AND WHAT IT READS. It owns presentation only: the queue's markup
  * gained class hooks and lost its inline styles, and nothing about detection, release,
@@ -130,9 +136,9 @@
    a thin tool row, the policy. All ink on the board. */
 .rq { font-family: var(--rr-sans); color: var(--aspire-pressboard-ink); min-width: 0; }
 .rq-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
-.rq-head-main { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; min-width: 0; }
-.rq-head h2 { font-size: 19px; font-weight: 700; margin: 0; color: inherit; text-shadow: 0 1px 0 rgba(0, 0, 0, 0.4); }
-.rq-was { font-family: var(--rr-mono); font-size: 10.5px; letter-spacing: 0.02em; color: var(--rr-board-ink-muted); }
+.rq-head h2 { font-size: 19px; font-weight: 700; margin: 0; color: inherit; text-shadow: 0 1px 0 rgba(0, 0, 0, 0.4); min-width: 0; }
+/* The timepoint as a smaller qualifier beside the name (Owner, 2026-09-20). */
+.rq-title-q { display: inline-block; margin-left: 8px; vertical-align: 2px; font-family: var(--rr-mono); font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--rr-board-ink-muted); text-shadow: none; }
 .rq-head-icons { display: flex; gap: 4px; margin-left: auto; }
 /* The canon icon button (Residency > Support): 28px square, no chrome until hovered. */
 .rq-iconbtn {
@@ -141,23 +147,25 @@
   color: var(--rr-board-ink-muted);
 }
 .rq-iconbtn:hover { background: rgba(255, 255, 255, 0.12); color: var(--aspire-pressboard-ink); }
-.rq-meta-line { font-family: var(--rr-mono); font-size: 11px; line-height: 1.5; margin: 0 0 10px; color: var(--rr-board-ink-muted); }
-.rq-tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
-.rq-board .rr-tool-primary, .rq-board .rr-tool-secondary, .rq-board .rr-tool-test {
+.rq-iconbtn:disabled { opacity: 0.5; cursor: default; }
+.rq-spin { animation: rq-spin 1s linear infinite; }
+@keyframes rq-spin { to { transform: rotate(360deg); } }
+.rq-meta-row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+.rq-meta-line { font-family: var(--rr-mono); font-size: 11px; line-height: 1.5; margin: 0; color: var(--rr-board-ink-muted); min-width: 0; }
+.rq-board .rr-tool-primary, .rq-board .rr-tool-secondary {
   display: inline-flex; align-items: center; gap: 6px; padding: 6px 11px; cursor: pointer;
   font-family: var(--rr-sans); font-size: 12.5px; font-weight: 600; border-radius: var(--aspire-radius-control);
   background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.22); color: var(--aspire-pressboard-ink);
 }
-.rq-board .rr-tool-secondary:hover, .rq-board .rr-tool-test:hover { background: rgba(255, 255, 255, 0.16); }
+.rq-board .rr-tool-secondary:hover { background: rgba(255, 255, 255, 0.16); }
 .rq-board .rr-tool-primary { background: var(--aspire-pressboard-ink); color: #2C271F; border-color: transparent; font-weight: 700; }
 .rq-board .rr-tool-primary:hover { filter: brightness(1.04); }
-.rq-board .rr-tool-test { border-style: dashed; }
-.rq-board .rr-tool-secondary:disabled, .rq-board .rr-tool-test:disabled { opacity: 0.6; cursor: default; }
-.rq-board .rr-tool-primary:focus-visible, .rq-board .rr-tool-secondary:focus-visible, .rq-board .rr-tool-test:focus-visible,
+.rq-board .rr-tool-secondary:disabled { opacity: 0.6; cursor: default; }
+.rq-board .rr-tool-primary:focus-visible, .rq-board .rr-tool-secondary:focus-visible,
 .rq-board .rq-policy button:focus-visible, .rq-tape-head button:focus-visible, .rq-eligible summary:focus-visible, .rq-iconbtn:focus-visible {
   outline: 3px solid #F4D9A6; outline-offset: 2px;
 }
-.rq-meta { margin-left: auto; font-family: var(--rr-mono); font-size: 11px; color: var(--rr-board-ink-muted); }
+.rq-meta { margin-left: auto; font-family: var(--rr-mono); font-size: 11px; color: var(--rr-board-ink-muted); white-space: nowrap; }
 .rq-testnote {
   display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; padding: 9px 12px;
   font-size: 12.5px; border-radius: var(--aspire-radius-control);
@@ -249,6 +257,36 @@
 .rq-node-fix .rq-node-v { color: var(--aspire-bad); font-weight: 700; }
 .rq-node-fix .rq-node-v i { background: var(--aspire-bad-soft); color: var(--aspire-bad); }
 
+/* ── Required activities: the node is the expander, the area below records ─── */
+.rq-node-toggle {
+  display: inline-flex; align-items: center; gap: 3px; background: none; border: 0; padding: 0; cursor: pointer;
+  font-family: var(--rr-mono); font-size: 9.5px; letter-spacing: 0.11em; text-transform: uppercase; color: var(--aspire-paper-muted);
+}
+.rq-node-toggle .rq-chev { transition: rotate 0.15s; }
+.rq-node-toggle[aria-expanded="true"] .rq-chev { rotate: 90deg; }
+.rq-node-toggle:hover { color: var(--aspire-paper-ink); }
+.rq-node-toggle:focus-visible { outline: 3px solid var(--rr-navy); outline-offset: 2px; }
+/* Support's arrangement: mark, label, most recent date, the control. */
+.rq-acts { display: grid; gap: 6px; padding: 8px 0 4px; border-bottom: 1px solid var(--aspire-rule); }
+.rq-act { display: grid; grid-template-columns: 16px minmax(120px, 1fr) auto auto; gap: 8px; align-items: center; font-size: 12.5px; }
+.rq-act-mark { font-family: var(--rr-mono); color: var(--aspire-warn); }
+.rq-act.done .rq-act-mark { color: var(--aspire-ok); }
+.rq-act-label { font-weight: 600; }
+.rq-act-when { font-family: var(--rr-mono); font-size: 11px; color: var(--aspire-paper-muted); white-space: nowrap; }
+.rq-act.done .rq-act-when { color: var(--aspire-ok); }
+.rq-act-ctl { display: flex; gap: 6px; align-items: center; justify-content: flex-end; flex-wrap: wrap; }
+.rq-act-date, .rq-act-reason {
+  font-family: var(--rr-sans); font-size: 12px; padding: 3px 6px; border: 1px solid var(--aspire-rule);
+  border-radius: var(--aspire-radius-control); background: var(--aspire-paper); color: var(--aspire-paper-ink);
+}
+.rq-act-correct { grid-column: 2 / -1; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.rq-act-reason { flex: 1 1 200px; min-width: 0; }
+.rq-act-note { font-family: var(--rr-mono); font-size: 10.5px; color: var(--aspire-paper-muted); }
+.rq-act-msg { font-size: 12px; padding: 6px 10px; border-radius: var(--aspire-radius-control); }
+.rq-act-msg.ok { background: var(--aspire-ok-soft); color: var(--aspire-ok); }
+.rq-act-msg.err { background: var(--aspire-bad-soft); color: var(--aspire-bad); }
+.rq-act-foot { margin: 0; font-size: 11px; color: var(--aspire-paper-muted); }
+
 /* ── Actions row ──────────────────────────────────────────────────────────── */
 .rq-actions { display: flex; gap: 7px; align-items: center; flex-wrap: wrap; }
 .rq-why { font-size: 12.5px; color: var(--aspire-paper-muted); margin-right: auto; }
@@ -315,8 +353,8 @@
   .rq-eligible ul { columns: 1; }
 }
 @media (max-width: 640px) {
-  .rq-board .rr-tool-primary, .rq-board .rr-tool-secondary, .rq-board .rr-tool-test { flex: 1 1 auto; justify-content: center; }
-  .rq-meta { margin-left: 0; flex-basis: 100%; }
+  .rq-board .rr-tool-primary, .rq-board .rr-tool-secondary { flex: 1 1 auto; justify-content: center; }
+  .rq-meta { margin-left: 0; flex-basis: 100%; white-space: normal; }
 }
 @media (max-width: 520px) {
   .rq-tape-line { grid-template-columns: auto 1fr; }
@@ -325,6 +363,8 @@
   .rq-right { justify-items: start; }
   .rq-stamp { justify-self: start; }
   .rq-hours { text-align: left; }
+  .rq-act { grid-template-columns: 16px 1fr; }
+  .rq-act-when, .rq-act-ctl { grid-column: 2; justify-content: flex-start; }
 }
 
 /* ── Reduced motion ───────────────────────────────────────────────────────── */
@@ -333,4 +373,6 @@
   .rq-card-gone { transform: none; }
   .rq-card-flash { animation: none; box-shadow: 0 0 0 4px var(--aspire-warn), 0 7px 15px rgba(0, 0, 0, 0.24); }
   .rq-eligible summary::before { transition: none; }
+  .rq-node-toggle .rq-chev { transition: none; }
+  .rq-spin { animation: none; }
 }

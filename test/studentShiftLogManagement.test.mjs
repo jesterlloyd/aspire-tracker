@@ -556,12 +556,13 @@ test('F6: a withdrawn entry drives nothing, on every consumer that reads shift r
   // Support alerts + "last log" (staff Rotation board):
   const rot = read('src/components/RotationActivity.jsx')
   assert.match(rot, /if \(!shiftDrivesState\(l\)\) continue/)
-  // Evaluation last-shift / support metadata (both automation panels):
-  for (const f of ['src/components/evaluation/PostRotationAutomationPanel.jsx',
-                   'src/components/evaluation/CaseyFinkPostRotationAutomationPanel.jsx']) {
-    const panel = read(f)
-    assert.match(panel, /if \(!shiftDrivesState\(log\)\) continue/, f)
-    assert.match(panel, /support_needed, lifecycle_state/, `${f} selects the lifecycle it filters on`)
+  // Evaluation last-shift / support metadata (the Review & Release loader, which replaced
+  // the two automation panels in REVIEW-RELEASE-1):
+  {
+    const f = 'src/lib/evaluation/reviewQueueLoaders.js'
+    const loader = read(f)
+    assert.match(loader, /if \(!shiftDrivesState\(log\)\) continue/, f)
+    assert.match(loader, /support_needed, lifecycle_state/, `${f} selects the lifecycle it filters on`)
   }
   // On-campus fallback (a withdrawn row keeps its Auto-Accepted status):
   const campus = read('src/lib/onCampusNow.js')

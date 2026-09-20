@@ -136,3 +136,16 @@ export function fmtHours(n) {
   const v = Number(n)
   return Number.isInteger(v) ? String(v) : v.toFixed(2)
 }
+
+/** Today as YYYY-MM-DD in the browser's own calendar, never the UTC day. */
+export function localToday(d = new Date()) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+/** A calendar day ("2026-09-12", or any ISO stamp) as "Sep 12", read as a local day. */
+export function fmtDay(v) {
+  if (!v) return ''
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(v))
+  const d = m ? new Date(+m[1], +m[2] - 1, +m[3]) : new Date(v)
+  return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}

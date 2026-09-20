@@ -215,8 +215,21 @@ async function _handler(req, res) {
     }
     activityRows = acts || [];
   }
+  // REVIEW-RELEASE-2 (Owner, 2026-09-20): an activity recorded under Residency > Support
+  // counts too. That table holds entries only for residency candidates and is read as
+  // the secondary source: if the read fails, the ledger alone decides, which fails closed.
+  let supportRows = [];
+  {
+    const { data: sup, error: supErr } = await supabaseAdmin
+      .from('ngrp_support_entries')
+      .select('activity, occurred_on')
+      .eq('student_id', studentId)
+      .in('activity', REQUIRED_ACTIVITY_KEYS)
+      .is('voided_at', null);
+    if (!supErr) supportRows = sup || [];
+  }
 
-  const prereq = aspirePrerequisites(rawAssignments || [], activityRows);
+  const prereq = aspirePrerequisites(rawAssignments || [], activityRows, REQUIRED_ACTIVITY_KEYS, supportRows);
   if (!prereq.ok) {
     return res.status(200).json({
       success: true, released: false,

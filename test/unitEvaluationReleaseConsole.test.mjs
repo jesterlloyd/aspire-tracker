@@ -78,18 +78,14 @@ test('every server refusal status has a message', () => {
 })
 
 // ── source guards ──────────────────────────────────────────────────────────────
-test('the console calls the review API, refreshes after actions, and shows exact status', () => {
-  const c = read('src/components/evaluation/UnitEvaluationReleaseConsole.jsx')
-  assert.match(c, /getReviewQueue/)
-  assert.match(c, /postReleaseAction/)
-  assert.match(c, /ACTION_STATUS_MESSAGE\[status\]/)      // exact server refusal surfaced
-  assert.match(c, /if \(res\.ok\) reload\(\)/)             // refresh only the queue after an action
-  assert.match(c, /reqId/)                                 // stale-response protection
-  // Duplicate submission prevention.
-  assert.match(c, /if \(busy\) return/)
-  // Must NOT claim anonymity.
-  assert.ok(!/fully anonymous|guaranteed anonymous|unidentifiable/i.test(c))
-  assert.match(c, /not anonymous/i)
+test('the dashboard calls the review API, refreshes after actions, and shows the exact status (the console is retired)', () => {
+  const d = read('src/components/evaluation/SurveyAutomationDashboard.jsx')
+  const l = read('src/lib/evaluation/reviewQueueLoaders.js')
+  assert.match(l, /getReviewQueue\(\{\}, signal\)/)
+  assert.match(d, /postReleaseAction\(\{ action: meta\.action, responseId: item\.responseId, decision: meta\.decision \}\)/)
+  assert.match(d, /ACTION_STATUS_MESSAGE\[status\]/)      // exact server refusal surfaced
+  assert.match(d, /ulQueue\.refetch\(\)/)                 // refresh only the queue after an action
+  assert.match(d, /if \(!item \|\| identityHold\) return/) // no double action while held
 })
 test('the Review & Release tab renders the console, gated Owner/Admin, without dropping automation', () => {
   const tab = read('src/components/EvaluationTab.jsx')

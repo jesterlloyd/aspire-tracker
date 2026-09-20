@@ -303,7 +303,7 @@ test('Support > At the Start of Residency: Start sends period 1 after a confirm;
   assert.match(tab, /<th className="aspire-th">Reflections<\/th>/)
   assert.doesNotMatch(tab, /Send Check-in|RESIDENT_CHECKIN|WEEKLY_CHECKIN|Last Check-in|writeLaunchContext/)
   const api = read('api/ngrp-support.js')
-  assert.match(api, /const TEAM_ONLY = new Set\(\[\.\.\.WRITES, 'reflection_view'\]\)/)
+  assert.match(api, /const TEAM_ONLY = new Set\(\[\.\.\.WRITES, 'reflection_view', 'entries_for_students'\]\)/)
   assert.match(api, /if \(TEAM_ONLY\.has\(action\) && isTA\) return res\.status\(403\)/)
   assert.match(api, /if \(!isHired\(outcome\.data\)\) return res\.status\(422\)\.json\(\{ error: 'not_a_resident' \}\)/)
   assert.match(api, /if \(periods\[0\]\?\.sent_at\) return res\.status\(409\)\.json\(\{ error: 'already_started' \}\)/, 'a failed first send is retried, a sent one is not duplicated')
@@ -580,7 +580,7 @@ test('the schedule endpoint: token-gated, rate-limited, not closed by the period
 
 test('Residency > Activity shows the marks: a read action for both audiences, first-name chips in the shift colour', () => {
   const api = read('api/ngrp-support.js')
-  assert.match(api, /'reflection_view', 'schedule'\]\)/, 'schedule is an action')
+  assert.match(api, /'reflection_view', 'schedule', 'entries_for_students'\]\)/, 'schedule is an action')
   assert.doesNotMatch(api, /TEAM_ONLY = new Set\(\[[^\]]*'schedule'/, 'a schedule names no answer: both audiences read it')
   assert.match(api, /if \(action === 'schedule'\) \{/)
   assert.match(api, /\.gte\('on_date', from\)\.lte\('on_date', to\)/)

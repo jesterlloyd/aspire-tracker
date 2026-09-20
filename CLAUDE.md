@@ -491,9 +491,24 @@ action); the four classifiers are untouched and the release endpoints keep every
 - **The rail is pinned, at its own height.** `position: sticky; top: var(--app-chrome-height)`,
   `align-items: start`; it does not stretch to the board (Owner, 2026-09-19, reversing the
   brief). Below 900px it is static and stacks above the board.
-- **Previews are icon buttons on the board's head**, the canon from Residency > Support:
-  the eye previews the email, the square-arrow opens a sample of the survey. A slip
-  carries no preview. The head is a title, one mono meta line, and a thin tool row.
+- **The four tools are icon buttons on the board's head**, the canon from Residency >
+  Support, each on the shared `Tooltip` (`tone="contrast"`, the black semi-transparent
+  bubble the pull pin uses): the eye previews the email, the square-arrow opens a sample
+  of the survey, the paper plane sends a test to me, the arrows re-run detection. A slip
+  carries no preview. The head is the name with its timepoint as a smaller qualifier
+  (no "new", no old name), one mono meta line, and the detection stamp.
+- **The required activities are recorded on the slip** (Owner, 2026-09-20). The
+  Required activities node in the chain is a chevron toggle; the area it opens lists
+  Résumé Review, Town Hall, Interview Bootcamp in Residency > Support's order, each with
+  the date it happened. An activity counts as done if the ledger
+  (`student_activity_completions`) OR a live `ngrp_support_entries` row for that student
+  says so, on the card (`aspirePrerequisites(..., supportEntries)`) and in the release
+  endpoint's gate. Support is the secondary source: a failed read leaves the ledger alone
+  to decide. The slip records into the ledger with the date; a completion that exists
+  only in Support is corrected in Support. There is no activity dialog any more.
+- **The retired panels are gone.** The four `*AutomationPanel.jsx` files and
+  `UnitEvaluationReleaseConsole.jsx` were deleted on 2026-09-20; their tests now pin the
+  adapters, the queue and the dashboard.
 - **`students.status` is the ASPIRE status.** There is no `students.aspire_status`; that
   name belongs to `unit_preceptor_responses`, and selecting it took every detection down
   on 2026-09-19. `test/reviewReleaseQueue.test.mjs` now refuses any students column that

@@ -132,12 +132,27 @@ test('the clipboard markup carries no inline presentation, and nothing from Part
   assert.match(clipboardPart, /Read the feedback/)
   // The previews are icon buttons on the head, eye then square-arrow (Residency > Support);
   // no slip carries a preview, and the head is one quiet line rather than three chips.
-  const head = clipboardPart.slice(clipboardPart.indexOf('aria-label="Survey tools"'), clipboardPart.indexOf('rq-meta-line'))
-  assert.ok(head.indexOf('aria-label="Preview the invitation email"') < head.indexOf('aria-label="Open a sample of the survey"'))
-  assert.match(head, /<Eye size=\{15\}[^]*<ExternalLink size=\{15\}/)
-  assert.doesNotMatch(clipboardPart, /Preview email|Preview Survey|Preview Email|rq-chip|Human-approved/)
+  const head = clipboardPart.slice(clipboardPart.indexOf('aria-label="Survey tools"'), clipboardPart.indexOf('rq-meta-row'))
+  const order = ['Preview the invitation email', 'Open a sample of the survey', 'Send a test to my email', 'Re-run detection'].map(l => head.indexOf(`aria-label="${l}"`))
+  assert.ok(order.every((v, i) => v > -1 && (i === 0 || v > order[i - 1])), 'eye, square-arrow, paper plane, arrows, in that order')
+  assert.equal((head.match(/<Tooltip label=/g) || []).length, 4, 'every icon on the shared Tooltip')
+  assert.equal((head.match(/tone="contrast"/g) || []).length, 4, 'the black semi-transparent bubble, on the dark board')
+  assert.match(head, /<Eye size=\{15\}[^]*<ExternalLink size=\{15\}[^]*<Send size=\{15\}[^]*<RefreshCw size=\{15\}/)
+  assert.doesNotMatch(clipboardPart, /Preview email|Preview Survey|Preview Email|rq-chip|Human-approved|rq-was|currently|'new'|rq-tools|rr-tool-test/)
   assert.match(clipboardPart, /<p className="rq-meta-line">To \{survey\.to\}/)
   assert.match(cssCode, /\.rq-iconbtn \{[^}]*width: 28px; height: 28px;/)
+  // The timepoint is a smaller qualifier beside the name (Owner, 2026-09-20).
+  assert.match(clipboardPart, /const \[mainTitle, qualifier\] = splitTitle\(survey\.label\)/)
+  assert.match(clipboardPart, /<h2>\{mainTitle\}\{qualifier && <span className="rq-title-q">\{qualifier\}<\/span>\}<\/h2>/)
+  // The Required activities node opens the recording area on the slip; the dialog is gone.
+  assert.match(clipboardPart, /className="rq-node-k rq-node-toggle" aria-expanded=\{expandable\.open\}/)
+  assert.match(clipboardPart, /<ActivitiesArea item=\{item\} onRecord=\{onRecordActivity\} \/>/)
+  assert.match(clipboardPart, /<input type="date" className="rq-act-date" max=\{today\}/)
+  assert.match(clipboardPart, /recorded in Support/)
+  assert.doesNotMatch(queue, /ActivityDialog|pr-activity-dialog/)
+  assert.doesNotMatch(dash, /ActivityDialog/)
+  assert.match(dash, /onRecordActivity=\{recordActivity\}/)
+  assert.match(cssCode, /\.rq-node-toggle\[aria-expanded="true"\] \.rq-chev \{ rotate: 90deg; \}/)
   assert.doesNotMatch(dash, /<style>\{CSS\}<\/style>|const CSS = `/)
   // The hold alert lives on the board now, in the status pair.
   assert.match(clipboardPart, /releaseLocked && \(\s*<p role="alert" className="rq-notice err">/)

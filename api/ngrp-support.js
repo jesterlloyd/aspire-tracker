@@ -51,11 +51,11 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 //   residents         { cycle_id } | { scope: 'aggregate' } -> RESIDENTS-1: the
 //                        hired residents and their affiliation, for Residency >
 //                        Residents. Both audiences; Talent Acquisition narrowed.
-const ACTIONS = new Set(['summary', 'residents', 'record', 'record_attendance', 'void', 'set_mentor', 'reflection_start', 'reflection_stop', 'reflection_view', 'schedule'])
+const ACTIONS = new Set(['summary', 'residents', 'record', 'record_attendance', 'void', 'set_mentor', 'reflection_start', 'reflection_stop', 'reflection_view', 'schedule', 'entries_for_students'])
 const WRITES = new Set(['record', 'record_attendance', 'void', 'set_mentor', 'reflection_start', 'reflection_stop'])
 // Reading a resident's answers is the ASPIRE team's until the Owner decides
 // how sharing works; it is a read, so it needs no manage capability.
-const TEAM_ONLY = new Set([...WRITES, 'reflection_view'])
+const TEAM_ONLY = new Set([...WRITES, 'reflection_view', 'entries_for_students'])
 const ENTRIES = 'ngrp_support_entries'
 const MENTORS = 'ngrp_resident_mentors'
 const FROM = 'ASPIRE at Cedars-Sinai <noreply@aspire-program.com>'
@@ -97,6 +97,27 @@ export default async function handler(req, res) {
   const today = pacificToday()
 
   try {
+    // ── entries_for_students ───────────────────────────────────────────────
+    // REVIEW-RELEASE-2 (Owner, 2026-09-20): Evaluation > Review & Release reads the
+    // three pre-residency activities from here as well as from its own ledger, so a
+    // Résumé Review, Town Hall or Interview Bootcamp recorded under Support counts
+    // toward the ASPIRE feedback release. Live entries only, by student, ASPIRE team only.
+    if (action === 'entries_for_students') {
+      const ids = Array.isArray(body.student_ids) ? body.student_ids.filter(id => typeof id === 'string' && UUID.test(id)).slice(0, 500) : []
+      if (!ids.length) return res.status(200).json({ provisioned: true, entries: [] })
+      const { data, error } = await db.from(ENTRIES)
+        .select('student_id, activity, occurred_on, recorded_at')
+        .in('student_id', ids)
+        .in('activity', ['resume_review', 'town_hall', 'interview_bootcamp'])
+        .is('voided_at', null)
+        .order('occurred_on', { ascending: false })
+      if (error) {
+        if (error.code === '42P01') return unprovisioned(res)
+        return internal(res)
+      }
+      return res.status(200).json({ provisioned: true, entries: data || [] })
+    }
+
     // ── summary ─────────────────────────────────────────────────────────────
     if (action === 'summary') {
       const cycleId = typeof body.cycle_id === 'string' && UUID.test(body.cycle_id) ? body.cycle_id : null
