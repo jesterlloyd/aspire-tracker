@@ -1,15 +1,12 @@
 import React, { useEffect, useRef } from 'react'
+import { surveyName, TIMEPOINT_QUALIFIERS } from '../lib/evaluation/surveyNames.js'
 
 const F = 'Plus Jakarta Sans, sans-serif'
 
 // ── Display constants ─────────────────────────────────────────────────────────
 
-const TIMEPOINT_LABELS = {
-  baseline:                'Baseline',
-  early_rotation_baseline: 'Baseline',
-  mid_rotation:            'Mid-Rotation Check-In',
-  post_rotation:           'Post-Rotation',
-}
+// One timepoint vocabulary with the rest of the app (SURVEY-NAMES-1).
+const TIMEPOINT_LABELS = TIMEPOINT_QUALIFIERS
 
 // Mirror of STATUS_CONFIG in EvaluationTab.jsx - inline so this component
 // has no cross-file dependency on EvaluationTab internals.
@@ -260,7 +257,7 @@ export default function EvaluationResponseDetail({ assignment, instrumentContent
               display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center',
             }}>
               <span style={{ fontWeight: 500, color: '#374151' }}>
-                {assignment.evaluation_instruments?.display_name || '-'}
+                {surveyName(assignment.evaluation_instruments?.slug, assignment.evaluation_instruments?.display_name) || '-'}
               </span>
               <span>·</span>
               <span>{TIMEPOINT_LABELS[assignment.timepoint] || assignment.timepoint}</span>

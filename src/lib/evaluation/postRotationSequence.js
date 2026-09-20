@@ -3,9 +3,9 @@
 // POST-ROTATION-SEQUENCED-RELEASE-1 - the release order, in one place.
 //
 // THE SEQUENCE (each step gates the next):
-//   1. Student Feedback: Preceptor & Unit   student_preceptor_eval    / post_rotation
-//   2. Casey-Fink Post-Rotation Survey      casey_fink_readiness_2024 / post_rotation
-//   3. ASPIRE Post-Rotation Evaluation      post_rotation_evaluation  / post_rotation
+//   1. Student's Feedback on Unit and Preceptor          student_preceptor_eval    / post_rotation
+//   2. Casey-Fink Readiness for Practice (Post-Rotation)  casey_fink_readiness_2024 / post_rotation
+//   3. Student's Feedback on ASPIRE                       post_rotation_evaluation  / post_rotation
 //
 // Steps 2 and 3 are released MANUALLY, per student, by an Owner/Admin. Nothing here
 // sends, writes, or schedules anything: it answers "may this be released yet, and if
@@ -22,8 +22,10 @@
 // an assignment merely released, a student's status, or a file existing.
 //
 // CERTIFICATE SEMANTICS ARE UNCHANGED. Casey-Fink post-rotation completion remains
-// the certificate gate; the ASPIRE Post-Rotation Evaluation stays decoupled from it.
+// the certificate gate; Student's Feedback on ASPIRE stays decoupled from it.
 // This module reads no certificate data and changes no certificate behavior.
+
+import { surveyName, surveyLabel } from './surveyNames.js'
 
 export const STEP_SLUGS = Object.freeze({
   feedback: 'student_preceptor_eval',
@@ -34,9 +36,9 @@ export const STEP_SLUGS = Object.freeze({
 export const POST_ROTATION_TIMEPOINT = 'post_rotation'
 
 export const STEP_LABELS = Object.freeze({
-  feedback: 'Student Feedback: Preceptor & Unit',
-  caseyFink: 'Casey-Fink Post-Rotation Survey',
-  aspire: 'ASPIRE Post-Rotation Evaluation',
+  feedback: surveyName(STEP_SLUGS.feedback),
+  caseyFink: surveyLabel(STEP_SLUGS.caseyFink, 'post_rotation'),
+  aspire: surveyName(STEP_SLUGS.aspire),
 })
 
 // ── Required program activities ─────────────────────────────────────────────
@@ -118,7 +120,7 @@ export function slugOf(a) {
 
 /**
  * May the Casey-Fink post-rotation survey be released to this student?
- * The ONLY prerequisite this adds is a completed Student Feedback assignment;
+ * The ONLY prerequisite this adds is a completed Student's Feedback on Unit and Preceptor assignment;
  * the existing hours/in-flow/certificate rules stay where they are.
  */
 export function caseyFinkPrerequisite(assignments) {
@@ -132,7 +134,7 @@ export function caseyFinkPrerequisite(assignments) {
   return { ok: false, code, reason: PREREQ_REASONS[code], feedback }
 }
 
-// ── Step 3: ASPIRE Post-Rotation Evaluation ─────────────────────────────────
+// ── Step 3: Student's Feedback on ASPIRE ─────────────────────────────────
 
 /**
  * Reduce the append-only activity ledger to the CURRENT state per activity.
@@ -176,8 +178,8 @@ export function currentActivityState(events) {
 }
 
 /**
- * May the ASPIRE Post-Rotation Evaluation be released?
- * Requires Student Feedback completed, Casey-Fink completed, AND every required
+ * May Student's Feedback on ASPIRE be released?
+ * Requires Student's Feedback on Unit and Preceptor completed, Casey-Fink completed, AND every required
  * program activity completed. Each unmet prerequisite reports itself separately so
  * the panel can show a specific reason rather than one vague refusal.
  *
@@ -251,13 +253,13 @@ export function aspirePrerequisites(assignments, activityCompletions = [], requi
 
 export const PREREQ_REASONS = Object.freeze({
   feedback_missing:
-    'Student Feedback: Preceptor & Unit has not been released to this student yet, so it cannot have been completed.',
+    `${STEP_LABELS.feedback} has not been released to this student yet, so it cannot have been completed.`,
   feedback_incomplete:
-    'Student Feedback: Preceptor & Unit has been released but the student has not completed it yet.',
+    `${STEP_LABELS.feedback} has been released but the student has not completed it yet.`,
   casey_fink_missing:
-    'The Casey-Fink Post-Rotation Survey has not been released to this student yet.',
+    `The ${STEP_LABELS.caseyFink} has not been released to this student yet.`,
   casey_fink_incomplete:
-    'The Casey-Fink Post-Rotation Survey has been released but the student has not completed it yet.',
+    `The ${STEP_LABELS.caseyFink} has been released but the student has not completed it yet.`,
 })
 
 function reasonFor(u) {

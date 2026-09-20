@@ -30,19 +30,15 @@ import { appUrl } from '../lib/server/appUrl.js'
 import { aspireEmailShell } from '../lib/server/email/aspireShell.js'
 import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js'
 import { archiveSentMessage } from './lib/messageArchive.js'
+import { SURVEY_WORKFLOWS } from '../src/lib/evaluation/surveyCatalog.js'
 
 const FROM = 'ASPIRE at Cedars-Sinai <noreply@aspire-program.com>'
 const REPLY_TO = 'aspire@cshs.org'
 
-// Mirrors src/lib/evaluation/surveyCatalog.js. Kept as a small server-side allowlist so a
-// caller cannot name an arbitrary key, and so the email can label the workflow.
-const WORKFLOWS = {
-  caseyFinkPreRotation: 'Casey-Fink Readiness for Practice, Pre-Rotation',
-  preceptor: "Preceptor's Assessment of Student Readiness",
-  student: "Student's Feedback on Unit and Preceptor",
-  caseyFinkPostRotation: 'Casey-Fink Readiness for Practice, Post-Rotation',
-  postRotation: "Student's Feedback on ASPIRE",
-}
+// The five survey workflows from src/lib/evaluation/surveyCatalog.js, as a server-side
+// allowlist: a caller cannot name an arbitrary key, and the email labels the workflow with
+// the same title the clipboard shows (SURVEY-NAMES-1).
+const WORKFLOWS = Object.fromEntries(SURVEY_WORKFLOWS.map(w => [w.key, w.title]))
 
 function getServiceDb() {
   return createClient(

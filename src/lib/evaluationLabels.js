@@ -9,17 +9,15 @@
 // is deliberate: Casey-Fink is one instrument given at two timepoints, so it is one entry here
 // and two workflows there. Splitting it here would break the pre-to-post comparison.
 
-// Slug → instrument name shown on the packet tabs and in the roster.
-export const INSTRUMENT_COMPACT_LABELS = {
-  casey_fink_readiness_2024: 'Casey-Fink Readiness for Practice',
-  preceptor_progress:        "Preceptor's Assessment of Student Readiness",
-  student_preceptor_eval:    "Student's Feedback on Unit and Preceptor",
-  post_rotation_evaluation:  "Student's Feedback on ASPIRE",
-}
+import { SURVEY_NAMES, surveyName } from './evaluation/surveyNames.js'
+
+// Slug → instrument name shown on the packet tabs and in the roster. The names themselves
+// live in evaluation/surveyNames.js (SURVEY-NAMES-1); this is that map under its older export.
+export const INSTRUMENT_COMPACT_LABELS = SURVEY_NAMES
 
 // Compact label for a slug, falling back to the provided display_name, then '-'.
 export function instrumentCompactLabel(slug, fallbackDisplayName) {
-  return INSTRUMENT_COMPACT_LABELS[slug] || fallbackDisplayName || '-'
+  return surveyName(slug, fallbackDisplayName) || '-'
 }
 
 // Canonical instrument order (for sorting + the packet's file tabs). Student's Feedback on

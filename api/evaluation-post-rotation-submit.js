@@ -1,6 +1,6 @@
 // api/evaluation-post-rotation-submit.js
 //
-// Public submission endpoint for the ASPIRE Post-Rotation Evaluation (slug:
+// Public submission endpoint for Student's Feedback on ASPIRE (slug:
 // post_rotation_evaluation). Isolated from the Casey-Fink (evaluation-submit.js), preceptor
 // (evaluation-preceptor-submit.js), and student experience (evaluation-student-eval-submit.js)
 // endpoints, none of which is modified.

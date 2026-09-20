@@ -123,7 +123,7 @@ ok('Scenario 2b - initial selection is URL, then last-opened, then first in orde
 {
   const effective = resolveEffectiveWorkflow('student');
   assert.equal(effective, 'student');
-  assert.equal(getEvaluationPreviewFixture(effective).render().subject, 'ASPIRE: Share Feedback on Your Preceptor & Unit');
+  assert.equal(getEvaluationPreviewFixture(effective).render().subject, 'ASPIRE: Share Feedback on Your Preceptor and Unit');
   assert.equal(RELEASE_ROUTES[effective].endpoint, '/api/evaluation-release-student-eval-survey');
   ok('Scenario 4 - explicit Student Feedback drives its own preview/dialog/release route');
 }
@@ -180,7 +180,7 @@ const casey = getEvaluationPreviewFixture('caseyFinkPostRotation').render();
 assert.equal(casey.subject, 'Complete Your ASPIRE Readiness Survey');
 assert.ok(/Complete Readiness Survey/.test(casey.html));
 const student = getEvaluationPreviewFixture('student').render();
-assert.equal(student.subject, 'ASPIRE: Share Feedback on Your Preceptor & Unit');
+assert.equal(student.subject, 'ASPIRE: Share Feedback on Your Preceptor and Unit');
 assert.notEqual(casey.subject, student.subject);
 ok('Casey-Fink preview = readiness email; Student Feedback preview = experience email; distinct');
 

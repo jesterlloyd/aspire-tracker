@@ -2,8 +2,10 @@
 //
 // ASPIRE-EVAL-PREVIEW-1: the single descriptive catalog of evaluation workflows.
 // REVIEW-RELEASE-1 (Owner brief, 2026-09-19): six workflows, in the order the rail shows
-// them, under the names the Owner chose. The old label rides along as `was` for one
-// release cycle so people can still find things, then it comes out.
+// them, under the names the Owner chose. The names themselves live in surveyNames.js
+// (SURVEY-NAMES-1, 2026-09-20): the catalog composes its labels and titles from that one
+// map, so the rail, the respondent pages and the emails cannot disagree. The `was` field
+// that carried each old label for one release cycle came out in the same pass.
 //
 // WHY THIS EXISTS. Workflow identity was previously spread across four hand-synced
 // places: the module-local WORKFLOWS array in SurveyAutomationDashboard, WORKFLOW_KEYS
@@ -26,13 +28,16 @@
 // Preview resolves content at read time from the same source the live survey renders
 // from. See surveyPreviewSource.js.
 
+import { surveyName, surveyTitle, surveyLabel } from './surveyNames.js'
+
+const CASEY_FINK = 'casey_fink_readiness_2024'
+const FEEDBACK = 'student_preceptor_eval'
+
 /**
  * One entry per registered workflow, in display order.
  *
  * key            the internal workflow key used by selection, routing, and the queue
  * label          the compact navigator label the operator sees (the Owner's new name)
- * was            the label this workflow carried before REVIEW-RELEASE-1, shown beside
- *                the new one for one release cycle; null for a new workflow
  * title          the full survey title
  * slug           evaluation_instruments.slug. Two workflows may share a slug when they
  *                administer the SAME instrument at different timepoints (the pre- and
@@ -53,9 +58,8 @@
 export const SURVEY_CATALOG = Object.freeze([
   Object.freeze({
     key: 'caseyFinkPreRotation',
-    label: 'Casey-Fink Readiness for Practice (Pre-Rotation)',
-    was: null,
-    title: 'Casey-Fink Readiness for Practice, Pre-Rotation',
+    label: surveyLabel(CASEY_FINK, 'baseline'),
+    title: surveyTitle(CASEY_FINK, 'baseline'),
     slug: 'casey_fink_readiness_2024',
     formType: 'casey_fink_readiness_2024',
     timepoint: 'baseline',
@@ -72,9 +76,8 @@ export const SURVEY_CATALOG = Object.freeze([
   }),
   Object.freeze({
     key: 'preceptor',
-    label: "Preceptor's Assessment of Student Readiness",
-    was: 'Preceptor Readiness',
-    title: "Preceptor's Assessment of Student Readiness",
+    label: surveyName('preceptor_progress'),
+    title: surveyName('preceptor_progress'),
     slug: 'preceptor_progress',
     formType: 'preceptor_progress',
     timepoint: 'midpoint or post_rotation',
@@ -91,9 +94,8 @@ export const SURVEY_CATALOG = Object.freeze([
   }),
   Object.freeze({
     key: 'student',
-    label: "Student's Feedback on Unit and Preceptor",
-    was: 'Student Feedback',
-    title: "Student's Feedback on Unit and Preceptor",
+    label: surveyName(FEEDBACK),
+    title: surveyName(FEEDBACK),
     slug: 'student_preceptor_eval',
     formType: 'student_preceptor_eval',
     timepoint: 'post_rotation',
@@ -110,16 +112,15 @@ export const SURVEY_CATALOG = Object.freeze([
   }),
   Object.freeze({
     key: 'caseyFinkPostRotation',
-    label: 'Casey-Fink Readiness for Practice (Post-Rotation)',
-    was: 'Casey-Fink Post-Rotation',
-    title: 'Casey-Fink Readiness for Practice, Post-Rotation',
+    label: surveyLabel(CASEY_FINK, 'post_rotation'),
+    title: surveyTitle(CASEY_FINK, 'post_rotation'),
     slug: 'casey_fink_readiness_2024',
     formType: 'casey_fink_readiness_2024',
     timepoint: 'post_rotation',
     recipient: 'Student',
     to: 'student',
     evaluatedTarget: 'The student, self-reported readiness',
-    trigger: "Student's Feedback on Unit and Preceptor submitted",
+    trigger: `${surveyName(FEEDBACK)} submitted`,
     gate: 'Unlocks the Certificate of Completion',
     status: 'active',
     version: '2024-revised',
@@ -129,9 +130,8 @@ export const SURVEY_CATALOG = Object.freeze([
   }),
   Object.freeze({
     key: 'postRotation',
-    label: "Student's Feedback on ASPIRE",
-    was: 'ASPIRE Rotation Feedback',
-    title: "Student's Feedback on ASPIRE",
+    label: surveyName('post_rotation_evaluation'),
+    title: surveyName('post_rotation_evaluation'),
     slug: 'post_rotation_evaluation',
     formType: 'post_rotation_evaluation',
     timepoint: 'post_rotation',
@@ -148,9 +148,8 @@ export const SURVEY_CATALOG = Object.freeze([
   }),
   Object.freeze({
     key: 'unitLeaderRelease',
-    label: "Release Student's Feedback on Unit and Preceptor to Unit Leaders",
-    was: 'Release to Unit Leaders',
-    title: "Release Student's Feedback on Unit and Preceptor to Unit Leaders",
+    label: `Release ${surveyName(FEEDBACK)} to Unit Leaders`,
+    title: `Release ${surveyName(FEEDBACK)} to Unit Leaders`,
     // Not a survey: it releases already-submitted responses to the Unit Leader portal.
     // It has no instrument of its own, no email, and no timepoint; the rows it releases
     // belong to the two instruments named here.
@@ -160,7 +159,7 @@ export const SURVEY_CATALOG = Object.freeze([
     recipient: 'Unit leader',
     to: 'unit leader',
     evaluatedTarget: 'A unit and its preceptor, as the student rated them',
-    trigger: "Student's Feedback on Unit and Preceptor submitted, 7 days after the rotation ends",
+    trigger: `${surveyName(FEEDBACK)} submitted, 7 days after the rotation ends`,
     gate: 'No certificate gate',
     status: 'active',
     version: null,
@@ -210,8 +209,8 @@ export function sharesInstrumentWith(key) {
  * Workflows that are EASILY CONFUSED with this one: a different survey that goes to the
  * same recipient at the same timepoint.
  *
- * This is the honest answer to "do Student Feedback and ASPIRE Rotation Feedback use the
- * same survey?" They do not, but they are both sent to a Student after the rotation, which
+ * This is the honest answer to "do Student's Feedback on Unit and Preceptor and Student's
+ * Feedback on ASPIRE use the same survey?" They do not, but they are both sent to a Student after the rotation, which
  * is exactly why they look like duplicates in the queue. Naming that relationship is more
  * useful than only reporting the absence of a shared slug.
  */

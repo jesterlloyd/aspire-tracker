@@ -189,7 +189,7 @@ test('the student-facing thank-you screen contains no certificate explanation', 
   assert.ok(!code.includes('Casey-Fink'),
     'this survey must not name another workflow to the respondent')
   // The rest of the thank-you screen is intact.
-  assert.match(code, /Thank you for completing the ASPIRE Post-Rotation Evaluation\./)
+  assert.match(code, /Thank you for sharing your feedback on ASPIRE\./)
   assert.match(code, /Your feedback has been submitted\./)
 })
 

@@ -228,7 +228,7 @@ test('certificate-ready email carries the approved copy and CTA', async () => {
   const { buildPreceptorCertificateEmail, PRECEPTOR_CERT_EMAIL_SUBJECT } = await import('../lib/server/evaluation/preceptorCertificateEmail.js')
   assert.equal(PRECEPTOR_CERT_EMAIL_SUBJECT, 'Your ASPIRE Certificate of Appreciation')
   const { html } = buildPreceptorCertificateEmail({ preceptorFirstName: 'Kelly', certificateNumber: 'ASPIRE-2026-055', downloadUrl: 'https://x/evaluation/feedback#t=abc' })
-  assert.match(html, /We received your\s*\nPreceptor Student Readiness Assessment/)
+  assert.match(html, /We received your\s*\nPreceptor's Assessment of Student Readiness/)
   assert.match(html, /Certificate of Appreciation is now available/)
   assert.match(html, /Download Certificate/)
   assert.match(html, /ASPIRE-2026-055/)

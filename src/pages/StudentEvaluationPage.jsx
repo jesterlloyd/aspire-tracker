@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import { surveyName } from '../lib/evaluation/surveyNames.js'
 
 // Public tokenized renderer for the ASPIRE Student Evaluation of Preceptor/Unit Experience
 // survey (slug: student_preceptor_eval). Fully isolated from EvaluationPage.jsx (Casey-Fink)
@@ -204,7 +205,7 @@ export default function StudentEvaluationPage() {
         <div className="se-title-block">
           <div className="se-title-inner">
             <h1 style={{ fontSize: 21, fontWeight: 700, color: '#191919', margin: '0 0 4px', fontFamily: 'Plus Jakarta Sans, system-ui, sans-serif', lineHeight: 1.3 }}>
-              Student Feedback: Preceptor & Unit
+              {surveyName('student_preceptor_eval')}
             </h1>
             <p style={{ fontSize: 12, color: '#9ca3af', margin: 0, fontFamily: 'Plus Jakarta Sans, system-ui, sans-serif' }}>
               Your feedback helps improve the ASPIRE learning environment

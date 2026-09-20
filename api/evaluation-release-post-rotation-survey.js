@@ -1,6 +1,6 @@
 // api/evaluation-release-post-rotation-survey.js
 //
-// Owner/Admin per-student RELEASE for the ASPIRE Post-Rotation Evaluation & Certificate
+// Owner/Admin per-student RELEASE for Student's Feedback on ASPIRE & Certificate
 // workflow (slug: post_rotation_evaluation). Parallel to the student-experience release endpoint
 // (evaluation-release-student-eval-survey.js), which is NOT modified.
 //
@@ -192,7 +192,7 @@ async function _handler(req, res) {
 
   // ── 4b. POST-ROTATION-SEQUENCED-RELEASE-1: independent prerequisite recheck. ────
   // This is the LAST step of the sequence, so it re-derives every earlier one from
-  // the student's own rows: Student Feedback completed, Casey-Fink post-rotation
+  // the student's own rows: Student's Feedback on Unit and Preceptor completed, Casey-Fink post-rotation
   // completed, and every required program activity recorded complete. The UI gate
   // is not trusted and is not consulted. This runs BEFORE the classifier, the
   // dedup, the assignment insert, the token mint and the send, so a blocked call

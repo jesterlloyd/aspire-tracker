@@ -18,8 +18,7 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import {
-  SURVEY_CATALOG, surveyByKey, sameSurveyAs, similarAudienceTo, relationshipFor,
-} from '../src/lib/evaluation/surveyCatalog.js'
+  SURVEY_CATALOG, surveyByKey, sameSurveyAs, similarAudienceTo, relationshipFor, SURVEY_WORKFLOWS } from '../src/lib/evaluation/surveyCatalog.js'
 import { buildPreviewModel, countQuestions } from '../src/lib/evaluation/surveyPreviewModel.js'
 import { WORKFLOW_KEYS } from '../src/lib/evaluation/workflowSelection.js'
 import { sharesInstrumentWith } from '../src/lib/evaluation/surveyCatalog.js'
@@ -273,8 +272,11 @@ test('every survey workflow can be previewed and tested regardless of release st
     'no workflow is paused today')
   for (const s of SURVEY_CATALOG.filter(w => w.slug)) {
     assert.ok(['active', 'paused'].includes(s.status), `${s.key} must declare a status`)
-    assert.match(endpointCode, new RegExp(`${s.key}: ['"]`), `${s.key} must be testable`)
+    assert.ok(SURVEY_WORKFLOWS.some(w => w.key === s.key && w.title), `${s.key} must be testable`)
   }
+  // SURVEY-NAMES-1: the endpoint's allowlist IS the catalog's five survey workflows, titled
+  // from the same map the clipboard reads, so a test email cannot name a survey differently.
+  assert.match(endpointCode, /Object\.fromEntries\(SURVEY_WORKFLOWS\.map\(w => \[w\.key, w\.title\]\)\)/)
   assert.ok(buildPreviewModel('post_rotation_evaluation', null))
 })
 

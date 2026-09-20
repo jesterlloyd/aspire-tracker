@@ -32,6 +32,7 @@ import { deriveBadgeStatus, deriveCertificateStatus } from '../lib/portalDocumen
 import { generateBadgePNGs } from '../lib/badgeGenerator'
 import { fetchPortalHeadshotUrl } from '../lib/studentFileClient'
 import { fmtDate, placementWindow, TBC } from '../lib/portalDates'
+import { surveyName, TIMEPOINT_QUALIFIERS } from '../lib/evaluation/surveyNames.js'
 import { buildStudentShiftOrdinals } from '../lib/shiftOrdinals'
 import ShiftNumberBadge from '../components/ShiftNumberBadge'
 import ShiftLogHistoryDrawer from './ShiftLogHistoryDrawer'
@@ -57,10 +58,8 @@ const EVAL_STATUS_LABELS = {
 }
 const EVAL_WAITING = new Set(['sent', 'opened', 'reminder_due'])
 
-const TIMEPOINT_LABELS = {
-  baseline: 'Baseline', early_rotation_baseline: 'Early rotation',
-  midpoint: 'Midpoint', post_rotation: 'Post-rotation',
-}
+// One timepoint vocabulary with the survey pages and the staff app (SURVEY-NAMES-1).
+const TIMEPOINT_LABELS = TIMEPOINT_QUALIFIERS
 
 // Approved, non-sensitive support message body (no ids, notes, scores, or history).
 function buildContactBody({ name, school, cohort, status } = {}) {
@@ -621,7 +620,7 @@ export default function StudentPortal({
                   return (
                     <li key={e.id} className="ptl-eval-item">
                       <div className="ptl-eval-head">
-                        <span className="ptl-eval-title">{e.instrument_title || e.instrument_slug}</span>
+                        <span className="ptl-eval-title">{surveyName(e.instrument_slug, e.instrument_title) || e.instrument_slug}</span>
                         <span className={`ptl-chip ptl-chip-soft ptl-chip-${e.status === 'completed' ? 'ok' : 'wait'}`}>{EVAL_STATUS_LABELS[e.status] || e.status}</span>
                       </div>
                       {meta && <div className="ptl-muted ptl-small ptl-eval-meta">{meta}</div>}

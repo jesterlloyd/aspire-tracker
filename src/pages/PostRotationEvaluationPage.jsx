@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import { surveyName } from '../lib/evaluation/surveyNames.js'
 
-// Public tokenized renderer for the ASPIRE Post-Rotation Evaluation (slug:
+// Public tokenized renderer for Student's Feedback on ASPIRE (slug:
 // post_rotation_evaluation). Mounted at /evaluation/post-rotation. This is NON-GATING experience
 // feedback, and it does not gate anything: migration 20260710000000 removed certificate issuance
 // from submit_post_rotation_evaluation_response, so this survey cannot issue one. Fully isolated
@@ -213,7 +214,7 @@ export default function PostRotationEvaluationPage() {
         <div className="pr-title-block">
           <div className="pr-title-inner">
             <h1 style={{ fontSize: 21, fontWeight: 700, color: '#191919', margin: '0 0 4px', fontFamily: 'Plus Jakarta Sans, system-ui, sans-serif', lineHeight: 1.3 }}>
-              {content?.title || 'ASPIRE Post-Rotation Evaluation'}
+              {content?.title || surveyName('post_rotation_evaluation')}
             </h1>
             <p style={{ fontSize: 12, color: '#9ca3af', margin: 0, fontFamily: 'Plus Jakarta Sans, system-ui, sans-serif' }}>
               Your feedback helps improve ASPIRE for future students and academic partners
@@ -227,7 +228,7 @@ export default function PostRotationEvaluationPage() {
           {view === 'thank_you' ? (
             <div className="pr-card" style={{ textAlign: 'center', marginTop: 40 }}>
               <h2 style={{ fontSize: 19, fontWeight: 700, color: '#191919', margin: '0 0 12px' }}>
-                Thank you for completing the ASPIRE Post-Rotation Evaluation.
+                Thank you for sharing your feedback on ASPIRE.
               </h2>
               <p style={{ fontSize: 15, color: '#4b5563', lineHeight: 1.65, margin: '0 0 10px' }}>
                 Your feedback has been submitted. Your responses help us improve ASPIRE for future

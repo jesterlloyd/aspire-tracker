@@ -1,6 +1,6 @@
 // api/evaluation-post-rotation-token-validate.js
 //
-// Public token-validate endpoint for the ASPIRE Post-Rotation Evaluation (slug:
+// Public token-validate endpoint for Student's Feedback on ASPIRE (slug:
 // post_rotation_evaluation). Isolated from the Casey-Fink (evaluation-token-validate.js),
 // preceptor (evaluation-preceptor-token-validate.js), and student experience
 // (evaluation-student-eval-token-validate.js) endpoints, none of which is modified.

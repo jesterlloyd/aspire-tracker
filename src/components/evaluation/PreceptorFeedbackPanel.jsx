@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { resolvePreceptor } from '../../lib/preceptor'
 import { getStudentPreferredFullName } from '../../lib/studentNameFormatters'
+import { surveyName } from '../../lib/evaluation/surveyNames.js'
 
 // Owner/Admin-only manual send flow for the ASPIRE Preceptor Student Progress &
 // Readiness Feedback survey. Evaluation-specific - NOT the Connect/Outreach bulk path.
@@ -182,7 +183,7 @@ export default function PreceptorFeedbackPanel({ cohortId }) {
           Preceptor Feedback Requests
         </h2>
         <p style={{ fontSize: 13, color: '#9ca3af', margin: 0, lineHeight: 1.6 }}>
-          Send the Preceptor Student Readiness Assessment to each
+          Send the {surveyName('preceptor_progress')} to each
           selected student&rsquo;s preceptor. This is developmental and readiness feedback, not a
           hiring tool. Up to {MAX_BATCH} students per send.
         </p>

@@ -52,7 +52,7 @@ const asg = (o) => ({ id: `a-${Math.random().toString(36).slice(2, 8)}`, status:
 
 // ── 1. The catalog ──────────────────────────────────────────────────────────
 
-test('six workflows, in the Owner\'s order, under the Owner\'s names, old names beside them', () => {
+test('six workflows, in the Owner\'s order, under the Owner\'s names, composed from the one name map', () => {
   assert.deepEqual(SURVEY_CATALOG.map(s => s.key),
     ['caseyFinkPreRotation', 'preceptor', 'student', 'caseyFinkPostRotation', 'postRotation', 'unitLeaderRelease'])
   assert.deepEqual(SURVEY_CATALOG.map(s => s.label), [
@@ -63,8 +63,10 @@ test('six workflows, in the Owner\'s order, under the Owner\'s names, old names 
     "Student's Feedback on ASPIRE",
     "Release Student's Feedback on Unit and Preceptor to Unit Leaders",
   ])
-  assert.deepEqual(SURVEY_CATALOG.map(s => s.was),
-    [null, 'Preceptor Readiness', 'Student Feedback', 'Casey-Fink Post-Rotation', 'ASPIRE Rotation Feedback', 'Release to Unit Leaders'])
+  // SURVEY-NAMES-1: the old labels came out with the rename pass, and the catalog composes
+  // every label and title from the one name map rather than spelling them itself.
+  assert.ok(SURVEY_CATALOG.every(s => !('was' in s)), 'no catalog entry carries an old label')
+  assert.match(read('src/lib/evaluation/surveyCatalog.js'), /from '\.\/surveyNames\.js'/)
   assert.deepEqual(SURVEY_CATALOG.map(s => s.group), ['survey', 'survey', 'survey', 'survey', 'survey', 'unitLeader'])
   assert.deepEqual(SURVEY_CATALOG.map(s => s.to), ['student', 'preceptor', 'student', 'student', 'student', 'unit leader'])
   for (const s of SURVEY_CATALOG) {
@@ -182,7 +184,8 @@ test('the pre-rotation endpoint carries every guard its model carries, in the sa
   // The response echoes both halves of the identity for the post-send tripwire.
   assert.match(src, /instrument_slug: INSTRUMENT_SLUG,\s*timepoint: TIMEPOINT,/)
   // Send test to me knows the new key.
-  assert.match(read('api/evaluation-send-survey-test.js'), /caseyFinkPreRotation: 'Casey-Fink Readiness for Practice, Pre-Rotation'/)
+  assert.match(stripJs(read('api/evaluation-send-survey-test.js')), /Object\.fromEntries\(SURVEY_WORKFLOWS\.map\(w => \[w\.key, w\.title\]\)\)/,
+    'SURVEY-NAMES-1: the test-send allowlist is the catalog, titled from the one map')
 })
 
 // ── 3. The shared shape ─────────────────────────────────────────────────────
@@ -252,7 +255,7 @@ test('adapters: Student Feedback ready, blocked on email, not yet eligible, and 
 
 test('adapters: Casey-Fink post-rotation waits, jumps, or is ready, per the prerequisite', () => {
   // s1: feedback completed -> ready. s3: feedback sent 6d ago, not submitted -> waiting.
-  // s5: feedback never released -> jump to the Student Feedback stack.
+  // s5: feedback never released -> jump to the Student's Feedback on Unit and Preceptor stack.
   const feedbackDone = asg({ student_id: 's1', ...inst('student_preceptor_eval'), timepoint: 'post_rotation', status: 'completed', completed_at: daysAgo(2), sent_at: daysAgo(4) })
   const feedbackSent = asg({ student_id: 's3', ...inst('student_preceptor_eval'), timepoint: 'post_rotation', status: 'sent', sent_at: daysAgo(6) })
   const all = new Map([['s1', [feedbackDone]], ['s3', [feedbackSent]], ['s5', []]])
@@ -268,7 +271,7 @@ test('adapters: Casey-Fink post-rotation waits, jumps, or is ready, per the prer
   assert.equal(by.s3.stamp.text, 'Waiting 6d'); assert.equal(by.s3.stamp.tone, 'soon')
   assert.match(by.s3.blocker.text, /Ethan has had the feedback survey for 6 days\. Next reminder Sep 20\./)
   assert.equal(by.s5.state, 'blocked'); assert.equal(by.s5.blocker.action, 'jump')
-  assert.deepEqual(by.s5.blocker.target, { workflowId: 'student', itemId: 'q:s5', label: "Release Sofia's Student Feedback first" })
+  assert.deepEqual(by.s5.blocker.target, { workflowId: 'student', itemId: 'q:s5', label: "Release Student's Feedback on Unit and Preceptor for Sofia first" })
   assert.equal(by.s5.chain[0].status, 'waiting'); assert.equal(by.s5.chain[0].detail, 'Not released yet')
 })
 

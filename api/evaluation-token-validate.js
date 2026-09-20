@@ -2,13 +2,7 @@ import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js';
 import { hashToken, isWellFormedRawToken, hashPrefixOf } from '../lib/server/evaluation/tokens.js';
 import { extractClientIp, bucketKey } from '../lib/server/evaluation/rate_limit.js';
 import { SCHEMA } from '../lib/server/evaluation/casey_fink_2024_validation.js';
-
-const TIMEPOINT_LABELS = {
-  baseline:               'Baseline',
-  early_rotation_baseline:'Baseline',
-  mid_rotation:           'Mid-Rotation Check-In',
-  post_rotation:          'Post-Rotation',
-};
+import { TIMEPOINT_QUALIFIERS } from '../src/lib/evaluation/surveyNames.js';
 
 function allowedInstrumentSlugs() {
   const slugs = ['casey_fink_readiness_2024'];
@@ -176,7 +170,8 @@ export default async function handler(req, res) {
         firstName:             rpcResult.first_name,
         instrumentSlug:        rpcResult.instrument_slug,
         instrumentDisplayName: rpcResult.instrument_display_name,
-        timepointLabel:        TIMEPOINT_LABELS[rpcResult.timepoint] || rpcResult.timepoint,
+        timepoint:             rpcResult.timepoint,
+        timepointLabel:        TIMEPOINT_QUALIFIERS[rpcResult.timepoint] || rpcResult.timepoint,
         sections:              SCHEMA.sections,
         requiredItemCodes:     SCHEMA.requiredItemCodes,
         optionalItemCodes:     SCHEMA.optionalItemCodes,

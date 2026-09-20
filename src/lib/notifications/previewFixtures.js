@@ -25,6 +25,7 @@ import { buildClockoutReminderEmail } from './templates/clockoutReminder.js';
 // RESIDENCY-REFLECTION-1: the one fixture the Support tab also renders, so the
 // Automations card and the Start button preview the same email.
 import { NGRP_REFLECTION_PREVIEW } from '../ngrp/reflectionPreviewFixture.js';
+import { SURVEY_NAMES } from '../evaluation/surveyNames.js';
 
 // ── Safe synthetic data (never real) ─────────────────────────────────────────
 const MOCK = {
@@ -155,10 +156,10 @@ export const AUTOMATION_PREVIEW_FIXTURES = {
   evaluation_reminders: {
     recipientType: 'Student or Preceptor',
     variants: [
-      { key: 'casey_fink_readiness',     label: 'Casey-Fink (certificate)' },
-      { key: 'post_rotation_evaluation', label: 'Post-Rotation Evaluation' },
-      { key: 'student_preceptor_eval',   label: 'Preceptor & Unit Feedback' },
-      { key: 'preceptor_progress',       label: 'Preceptor (certificate)' },
+      { key: 'casey_fink_readiness',     label: `${SURVEY_NAMES.casey_fink_readiness_2024} (certificate)` },
+      { key: 'post_rotation_evaluation', label: SURVEY_NAMES.post_rotation_evaluation },
+      { key: 'student_preceptor_eval',   label: SURVEY_NAMES.student_preceptor_eval },
+      { key: 'preceptor_progress',       label: `${SURVEY_NAMES.preceptor_progress} (certificate)` },
     ],
     render: (variant = 'casey_fink_readiness') => buildEvaluationReminderEmail({
       workflowKey: variant,

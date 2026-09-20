@@ -1,4 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
+import { surveyName, surveyQualifier, surveyTitle } from '../lib/evaluation/surveyNames.js'
+
+const CASEY_FINK_SLUG = 'casey_fink_readiness_2024'
 
 // Token format: 43-character base64url string after the #t= fragment
 const TOKEN_PATTERN = /^#t=([A-Za-z0-9_-]{43})$/
@@ -425,9 +428,12 @@ export default function EvaluationPage() {
   // Destructure surveyData with defaults so code-paths are null-safe when not in form view.
 
   const {
-    firstName = null, instrumentDisplayName = null, timepointLabel = null,
+    firstName = null, timepoint = null,
     requiredItemCodes = [], optionalItemCodes = [], content = null,
   } = surveyData || {}
+  // The title carries the timepoint the way the Review & Release head does (SURVEY-NAMES-1);
+  // it is known once the token has validated, so the header shows the name alone before that.
+  const qualifier = surveyQualifier(CASEY_FINK_SLUG, timepoint)
 
   const s1Codes = requiredItemCodes.filter(c => c.startsWith('S1_'))
   const s2Codes = requiredItemCodes.filter(c => c.startsWith('S2_'))
@@ -460,10 +466,15 @@ export default function EvaluationPage() {
               fontSize: 22, fontWeight: 700, color: '#191919',
               margin: '0 0 6px', fontFamily: 'Plus Jakarta Sans, system-ui, sans-serif', lineHeight: 1.3,
             }}>
-              Casey-Fink Readiness for Practice Survey
+              {surveyName(CASEY_FINK_SLUG)}
+              {qualifier && (
+                <span className="eval-title-qualifier" style={{ fontSize: 15, fontWeight: 500, color: '#6b7280', marginLeft: 10, whiteSpace: 'nowrap' }}>
+                  {qualifier}
+                </span>
+              )}
             </h1>
             <p style={{ fontSize: 12, color: '#9ca3af', margin: 0, fontFamily: 'Plus Jakarta Sans, system-ui, sans-serif' }}>
-              Instrument: Casey-Fink Readiness for Practice Survey
+              Instrument: {surveyName(CASEY_FINK_SLUG)}
             </p>
           </div>
         </div>
@@ -530,7 +541,7 @@ export default function EvaluationPage() {
             Hello, {firstName}.
           </p>
           <p style={{ fontSize: 14, color: '#6b7280', margin: 0 }}>
-            {instrumentDisplayName}, {timepointLabel}
+            {surveyTitle(CASEY_FINK_SLUG, timepoint)}
           </p>
         </div>
 

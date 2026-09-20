@@ -76,9 +76,11 @@ test('student-facing vocabulary', async (t) => {
     assert.match(portal, /Your survey link arrives by email/)
   })
 
-  await t.test('API fields and instrument names are untouched by the renames', () => {
+  await t.test('API fields are untouched by the renames; a survey is named through the one name map', () => {
     assert.match(portal, /portal_my_evaluation_assignments/)
-    assert.match(portal, /e\.instrument_title \|\| e\.instrument_slug/)
+    // SURVEY-NAMES-1: the portal names a survey by its slug through surveyNames.js and keeps
+    // the stored title only as the fallback for a slug the map does not know.
+    assert.match(portal, /surveyName\(e\.instrument_slug, e\.instrument_title\) \|\| e\.instrument_slug/)
   })
 })
 

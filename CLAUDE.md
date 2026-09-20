@@ -544,6 +544,36 @@ action); the four classifiers are untouched and the release endpoints keep every
 - An identity-echo mismatch after a send sets `identityHold`, which disables every
   Release on the board until Re-run detection.
 
+## A survey has one name (SURVEY-NAMES-1, 2026-09-20)
+
+The four instruments are named in `src/lib/evaluation/surveyNames.js` and nowhere else:
+Casey-Fink Readiness for Practice, Preceptor's Assessment of Student Readiness, Student's
+Feedback on Unit and Preceptor, Student's Feedback on ASPIRE. Everything that prints a name
+reads that module: the Review & Release catalog composes its labels and titles from it, the
+four respondent pages take their heading from it, the invitation, reminder and certificate
+emails name the survey from it in the body, and the reminder ledger, the Responses packet, the
+Unit Leader and Student portals and the staff response viewers map the slug through it.
+`test/surveyNames.test.mjs` sweeps `api/`, `lib/` and `src/` for the retired spellings.
+
+- **Only Casey-Fink carries a timepoint in its title**, because it is the one instrument
+  given twice: `surveyLabel(slug, timepoint)` is the "(Pre-Rotation)" form the rail and prose
+  use, `surveyTitle` is the ", Pre-Rotation" form for meta lines. The respondent page shows
+  the qualifier as a smaller word beside the name, the way the clipboard head does, and only
+  once the token has said which administration this is. `TIMEPOINT_QUALIFIERS` is the one
+  timepoint vocabulary (Pre-Rotation, Midpoint, Post-Rotation); the packet, the response
+  viewer, the Student Portal and the Casey-Fink token endpoint all read it.
+- **Email subjects stay sentences** (Owner, 2026-09-20): "Complete Your ASPIRE Readiness
+  Survey", "Share Your ASPIRE Rotation Feedback". The body names the survey. The student
+  invitation and its reminder now agree on "Preceptor and Unit".
+- **`evaluation_instruments.display_name` is not rendered any more.** Readers that used it
+  pass it as the FALLBACK to `surveyName(slug, display_name)`; the CSV export keeps it on
+  purpose. Renaming the stored values is a separate, Owner-gated decision
+  (`db/audit/survey_display_names_audit.sql` lists them beside what the app shows).
+- **Out of scope, on purpose**: Connect's "Student Casey-Fink Survey" send mode keeps its own
+  name (it names a mode, not the instrument), the Action Center's orientation draft links a
+  separate Microsoft Forms readiness survey, and Keith's retrieval aliases keep the old
+  spellings because the governed documents still use them.
+
 ## Student Portal on phones (STUDENT-PHONE-1)
 
 Students open the portal on their phones first. Below 760px the Rotation Activity calendar is

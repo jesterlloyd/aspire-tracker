@@ -1,6 +1,6 @@
 // api/evaluation-release-casey-fink-post-rotation-survey.js
 //
-// Owner/Admin per-student RELEASE for the post-rotation Casey-Fink Readiness for Practice Survey
+// Owner/Admin per-student RELEASE for the Casey-Fink Readiness for Practice (Post-Rotation)
 // (slug: casey_fink_readiness_2024, timepoint: post_rotation). This is the certificate-gating
 // workflow: completing this survey unlocks the ASPIRE Certificate of Completion (issuance
 // happens at submit, inside submit_evaluation_response, NOT here). Parallel to the ASPIRE
@@ -302,7 +302,7 @@ async function _handler(req, res) {
   const assignments = (rawAssignments || []).filter(a => slugForAssignment(a) === INSTRUMENT_SLUG && a.timepoint === TIMEPOINT);
 
   // ── 4b. POST-ROTATION-SEQUENCED-RELEASE-1: independent prerequisite recheck. ────
-  // Step 1 (Student Feedback: Preceptor & Unit) must be COMPLETED before this
+  // Step 1 (Student's Feedback on Unit and Preceptor) must be COMPLETED before this
   // survey may be released. This is re-derived here from the student's own
   // assignment rows - the UI gate is not trusted and is not consulted. It runs
   // BEFORE the classifier, the notification_log dedup, the assignment insert,

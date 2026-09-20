@@ -49,6 +49,7 @@ import { POST_ROTATION_CONTENT } from '../../../lib/server/evaluation/postRotati
 import { getStudentPreferredFullName } from '../studentNameFormatters.js'
 import { shortenProgram } from '../displayFormatters.js'
 import { isReissuableAssignment } from './assignmentReissue.js'
+import { TIMEPOINT_QUALIFIERS } from './surveyNames.js'
 
 export { CASEY_FINK_SLUG }
 
@@ -56,14 +57,7 @@ export { CASEY_FINK_SLUG }
 
 // Display labels for the packet. The header block says "Pre-Rotation and Post-Rotation",
 // so the roster's filter says the same; "Baseline" is what the database calls it.
-export const TIMEPOINT_LABELS = Object.freeze({
-  baseline:                'Pre-Rotation',
-  early_rotation_baseline: 'Pre-Rotation',
-  midpoint:                'Midpoint',
-  mid_rotation:            'Midpoint',
-  post_rotation:           'Post-Rotation',
-  custom:                  'Custom',
-})
+export const TIMEPOINT_LABELS = TIMEPOINT_QUALIFIERS
 export function timepointLabel(timepoint) {
   return TIMEPOINT_LABELS[timepoint] || timepoint || '–'
 }

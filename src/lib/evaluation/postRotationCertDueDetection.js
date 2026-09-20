@@ -1,4 +1,4 @@
-// Pure, READ-ONLY status detection for the ASPIRE Post-Rotation Evaluation workflow (instrument
+// Pure, READ-ONLY status detection for the Student's Feedback on ASPIRE workflow (instrument
 // slug: post_rotation_evaluation). Recipient is the STUDENT. This is NON-GATING experience
 // feedback: it is fully decoupled from the Certificate of Completion (the Casey-Fink
 // post-rotation survey is the certificate gate). This module reads NO certificate data and never
@@ -86,7 +86,7 @@ export function classifyPostRotationCohort({
 
   const rows = []
   const summary = {
-    // The ASPIRE Post-Rotation Evaluation is NOT the certificate gate (Casey-Fink is), but it
+    // Student's Feedback on ASPIRE is NOT the certificate gate (Casey-Fink is), but it
     // is an active, releasable workflow: students are still surveyed about the overall rotation
     // experience. These counts were previously hard-zeroed while release was paused, which made
     // the shared "Ready to release" band under-report. They are now real counts again.

@@ -25,9 +25,12 @@ import { classifyPostRotationCohort } from './postRotationCertDueDetection.js'
 import { caseyFinkPrerequisite, aspirePrerequisites, slugOf, STEP_SLUGS } from './postRotationSequence.js'
 import { REMINDER_DAY_OFFSETS, RESPONSE_WINDOW_DAYS } from './reminderSchedule.js'
 import { availableActions, rowIsReadOnly, isEligibleNow } from '../unitEvaluationReleaseActions.js'
+import { surveyName } from './surveyNames.js'
 import {
   node, stamp, blockedTone, daysBetween, shortDate, submissionLabel,
 } from './reviewQueueShape.js'
+
+const FEEDBACK_NAME = surveyName('student_preceptor_eval')
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -370,8 +373,8 @@ export function adaptCaseyFinkPostRotation({
         items.push({
           ...base, state: 'blocked', stamp: stamp('soon', 'Step behind'),
           chain: [node('before', 'waiting', 'Student feedback', 'Not released yet'), node('this', 'next', 'Casey-Fink', 'Waits on feedback'), after],
-          blocker: { text: 'The prerequisite is sitting in the Student Feedback stack.', action: 'jump',
-            target: { workflowId: 'student', itemId: `q:${r.studentId}`, label: `Release ${firstNameOnly(r.studentName)}'s Student Feedback first` } },
+          blocker: { text: `The prerequisite is sitting in the ${FEEDBACK_NAME} stack.`, action: 'jump',
+            target: { workflowId: 'student', itemId: `q:${r.studentId}`, label: `Release ${FEEDBACK_NAME} for ${firstNameOnly(r.studentName)} first` } },
         })
       } else {
         const tone = blockedTone({ sinceIso: feedbackAsg?.sent_at, nowMs })
@@ -454,8 +457,8 @@ export function adaptAspireFeedback({
           items.push({
             ...base, state: 'blocked', stamp: stamp('soon', 'Step behind'),
             chain: [node('before', 'waiting', 'Student feedback', 'Not released yet'), node('this', 'next', 'ASPIRE feedback', 'Waits on feedback'), after],
-            blocker: { text: 'Student Feedback has not been released yet; it comes before Casey-Fink.', action: 'jump',
-              target: { workflowId: 'student', itemId: `q:${r.studentId}`, label: `Release ${firstNameOnly(r.studentName)}'s Student Feedback first` } },
+            blocker: { text: `${FEEDBACK_NAME} has not been released yet; it comes before Casey-Fink.`, action: 'jump',
+              target: { workflowId: 'student', itemId: `q:${r.studentId}`, label: `Release ${FEEDBACK_NAME} for ${firstNameOnly(r.studentName)} first` } },
           })
         } else {
           const tone = blockedTone({ sinceIso: feedbackAsg?.sent_at, nowMs })

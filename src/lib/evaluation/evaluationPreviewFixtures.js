@@ -72,7 +72,7 @@ export function getEvaluationPreviewFixture(workflowKey) {
   }
 
   if (workflowKey === 'postRotation') {
-    // ASPIRE Post-Rotation Evaluation email: NON-GATING experience feedback, focused only on
+    // Student's Feedback on ASPIRE email: NON-GATING experience feedback, focused only on
     // rotation/unit/preceptor feedback. Subject "Share Your ASPIRE Rotation Feedback", button
     // "Share Feedback".
     return {

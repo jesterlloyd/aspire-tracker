@@ -25,7 +25,7 @@ test('display metadata covers exactly the five approved paths and two instrument
   assert.equal(metricKind('developmental_feedback.context.shifts_observed'), 'context')  // context, not outcome
   assert.equal(metricKind('readiness_endorsement.transition_readiness'), 'outcome')
   assert.deepEqual(APPROVED_UL_INSTRUMENTS.map(i => i.slug).sort(), ['preceptor_progress', 'student_preceptor_eval'])
-  assert.equal(instrumentLabel('student_preceptor_eval'), 'Preceptor & Unit Feedback')
+  assert.equal(instrumentLabel('student_preceptor_eval'), "Student's Feedback on Unit and Preceptor")
 })
 test('fmtMetric formats integers plainly and decimals to two places; blanks on non-numbers', () => {
   assert.equal(fmtMetric(4), '4')

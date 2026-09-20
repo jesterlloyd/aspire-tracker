@@ -6,9 +6,11 @@
 // each path carries an explicit kind ('outcome' vs 'context'). The server + database are the
 // source of truth for WHAT is exposed; this only names it.
 
+import { surveyName } from './evaluation/surveyNames.js'
+
 export const APPROVED_UL_INSTRUMENTS = Object.freeze([
-  { slug: 'student_preceptor_eval', label: 'Preceptor & Unit Feedback' },
-  { slug: 'preceptor_progress', label: 'Preceptor Readiness Assessment' },
+  { slug: 'student_preceptor_eval', label: surveyName('student_preceptor_eval') },
+  { slug: 'preceptor_progress', label: surveyName('preceptor_progress') },
 ])
 
 export const UL_TIMEPOINTS = Object.freeze([

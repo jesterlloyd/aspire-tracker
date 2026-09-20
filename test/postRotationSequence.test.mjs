@@ -3,9 +3,9 @@
 // POST-ROTATION-SEQUENCED-RELEASE-1.
 //
 // The sequence:
-//   1. Student Feedback: Preceptor & Unit  (student_preceptor_eval)
-//   2. Casey-Fink Post-Rotation Survey     (casey_fink_readiness_2024)
-//   3. ASPIRE Post-Rotation Evaluation     (post_rotation_evaluation)
+//   1. Student's Feedback on Unit and Preceptor        (student_preceptor_eval)
+//   2. Casey-Fink Readiness for Practice (Post-Rotation) (casey_fink_readiness_2024)
+//   3. Student's Feedback on ASPIRE                     (post_rotation_evaluation)
 //
 // What matters most here is what CANNOT unlock a step: a released-but-unfinished
 // assignment, an expired one, a revoked one, a delivered or opened email, a

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import { surveyName } from '../lib/evaluation/surveyNames.js'
 
 // Public tokenized renderer for the ASPIRE Preceptor Student Progress & Readiness
 // Feedback survey. Fully isolated from EvaluationPage.jsx (Casey-Fink/student), which is
@@ -274,7 +275,7 @@ export default function PreceptorEvaluationPage() {
         <div className="pe-title-block">
           <div className="pe-title-inner">
             <h1 style={{ fontSize: 21, fontWeight: 700, color: '#191919', margin: '0 0 4px', fontFamily: 'Plus Jakarta Sans, system-ui, sans-serif', lineHeight: 1.3 }}>
-              Preceptor Student Readiness Assessment
+              {surveyName('preceptor_progress')}
             </h1>
             <p style={{ fontSize: 12, color: '#9ca3af', margin: 0, fontFamily: 'Plus Jakarta Sans, system-ui, sans-serif' }}>
               Developmental and readiness feedback to support student growth

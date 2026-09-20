@@ -39,6 +39,7 @@ import { EMAIL_SOURCE_OPTIONS, studentHasEmailSource, studentEmailForSource, ema
 import { getStudentPreferredFirstName, getStudentPreferredFullName, getStudentPreferredGreetingName } from '../../lib/studentNameFormatters'
 import { buildStudentInvitationEmail, formatExpiresAt, TIMEPOINT_LABELS } from '../../../lib/server/evaluation/emailTemplates'
 import { RELEASE_ROUTES } from '../../lib/evaluation/releaseRouting'
+import { SURVEY_NAMES } from '../../lib/evaluation/surveyNames.js'
 
 const F = 'Plus Jakarta Sans, sans-serif'
 const POST_ROTATION_ROUTE = RELEASE_ROUTES.caseyFinkPostRotation
@@ -47,10 +48,10 @@ const postRotationStudentEmail = student => (student?.personal_email || '').trim
 // Canonical default body for the editable Survey Invitation draft (Send-to-One).
 // Mirrors the fixed intro paragraph the server template falls back to when no
 // body_override is supplied (DEFAULT_INTRO in lib/server/evaluation/emailTemplates.js).
-const SURVEY_DRAFT_DEFAULT_BODY = 'As part of ASPIRE at Cedars-Sinai, please complete the Casey-Fink Readiness for Practice Survey. This short survey helps us understand your readiness as you prepare for your clinical rotation.'
+const SURVEY_DRAFT_DEFAULT_BODY = 'As part of ASPIRE at Cedars-Sinai, please complete the Casey-Fink Readiness for Practice survey. This short survey helps us understand your readiness as you prepare for your clinical rotation.'
 
 const INSTRUMENTS = [
-  { slug: 'casey_fink_readiness_2024', label: 'Casey-Fink Readiness for Practice Survey' },
+  { slug: 'casey_fink_readiness_2024', label: SURVEY_NAMES.casey_fink_readiness_2024 },
 ]
 
 const TIMEPOINTS = [
@@ -3831,7 +3832,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
             {/* Eligibility note */}
             <div style={{ fontSize: 10, color: '#9ca3af', fontFamily: F, marginBottom: 8, lineHeight: 1.5 }}>
               {isPostRotationBulk ? (
-                <>Eligible for Post-Rotation: <strong style={{ color: '#6b7280' }}>required hours complete, Student Feedback complete, and no completed or active Casey-Fink survey</strong></>
+                <>Eligible for Post-Rotation: <strong style={{ color: '#6b7280' }}>required hours complete, {SURVEY_NAMES.student_preceptor_eval} complete, and no completed or active Casey-Fink survey</strong></>
               ) : (
                 <>Eligible for {TIMEPOINTS.find(t => t.value === bulkTimepoint)?.label || bulkTimepoint}:{' '}
                   <strong style={{ color: '#6b7280' }}>{bulkEligible.join(', ')}</strong></>
@@ -3951,7 +3952,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                   </select>
                   <div style={{ fontSize: 10, color: '#9ca3af', fontFamily: F, marginTop: 4, lineHeight: 1.5 }}>
                     {isPostRotationBulk
-                      ? 'Eligibility uses required hours, completed Student Feedback, and the Post-Rotation Casey-Fink state.'
+                      ? `Eligibility uses required hours, a completed ${SURVEY_NAMES.student_preceptor_eval}, and the Post-Rotation Casey-Fink state.`
                       : `Eligible: ${(BULK_ELIGIBILITY[bulkTimepoint] || []).join(', ')}`}
                   </div>
                 </div>
@@ -4431,7 +4432,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                 These are real emails to real students. They cannot be unsent.
               </div>
               <div style={{ marginBottom: 16, fontSize: 12, fontFamily: F, color: '#374151', lineHeight: 1.6 }}>
-                <div><strong>Survey:</strong> Casey-Fink Readiness for Practice Survey</div>
+                <div><strong>Survey:</strong> {SURVEY_NAMES.casey_fink_readiness_2024}</div>
                 <div><strong>Timepoint:</strong> {TIMEPOINTS.find(t => t.value === bulkTimepoint)?.label || bulkTimepoint}</div>
                 <div><strong>Expires:</strong> {fmtDate(bulkExpiresAt)}</div>
                 <div><strong>Recipients:</strong> {eligible.length} student{eligible.length !== 1 ? 's' : ''}</div>

@@ -23,6 +23,8 @@
 // be added here on purpose - it cannot start emailing people by inheriting a
 // generic default.
 
+import { surveyName } from './surveyNames.js'
+
 /** Days after the original send at which each reminder is owed. Index + 1 = reminder_number. */
 export const REMINDER_DAY_OFFSETS = Object.freeze([7, 14, 21]);
 
@@ -56,7 +58,7 @@ export const CERTIFICATE_KINDS = Object.freeze({
 export const REMINDER_WORKFLOWS = Object.freeze({
   casey_fink_readiness_2024: Object.freeze({
     key: 'casey_fink_readiness',
-    label: 'Casey-Fink Readiness for Practice Survey',
+    label: surveyName('casey_fink_readiness_2024'),
     respondent: 'student',
     surveyPath: '/evaluation/readiness',
     certificateFor: (timepoint) =>
@@ -64,7 +66,7 @@ export const REMINDER_WORKFLOWS = Object.freeze({
   }),
   post_rotation_evaluation: Object.freeze({
     key: 'post_rotation_evaluation',
-    label: 'ASPIRE Post-Rotation Evaluation',
+    label: surveyName('post_rotation_evaluation'),
     respondent: 'student',
     surveyPath: '/evaluation/post-rotation',
     // Gates nothing. The invitation template is explicit that it "never mentions
@@ -73,14 +75,14 @@ export const REMINDER_WORKFLOWS = Object.freeze({
   }),
   student_preceptor_eval: Object.freeze({
     key: 'student_preceptor_eval',
-    label: 'Preceptor and Unit Feedback',
+    label: surveyName('student_preceptor_eval'),
     respondent: 'student',
     surveyPath: '/evaluation/experience',
     certificateFor: () => null,
   }),
   preceptor_progress: Object.freeze({
     key: 'preceptor_progress',
-    label: 'Student Readiness Assessment',
+    label: surveyName('preceptor_progress'),
     respondent: 'preceptor',
     surveyPath: '/evaluation/feedback',
     certificateFor: (timepoint) =>
