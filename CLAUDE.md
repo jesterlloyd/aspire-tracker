@@ -621,11 +621,15 @@ DataSheet, full level), and a bubble sheet behind every row. The reference is
 ResponsesPacket.jsx`, `BubbleSheet.jsx`, `responsesPacket.css`, and the tab.
 
 - **The sheet sits in a manila folder, not on a stack** (Owner, 2026-09-20). `.rp-folder` is
-  a plain frame (`--folder*` tokens, both themes) whose top band carries the four tabs as
-  file-folder tabs. The selected tab is the folder's own surface: it rises to the band, loses
-  its seam and casts a shadow on the tabs behind it; the others sit 3px lower in
-  `--folder-deep`. The sheet lies inside the frame, so a tab never overlaps the page. The
-  mockup's offset sheet behind the paper and its -11px tab overlap are gone.
+  a plain frame (`--folder*` tokens, both themes) whose top band carries the four tabs.
+  **The selected tab IS the sheet's paper**: paper-coloured, no grid, the sheet's own rule
+  for its edge, and a -1px overlap that erases the sheet's top border beneath it, so
+  pressing a tab means "I am looking at this paper". The others sit 3px lower and behind, in
+  `--folder-deep`. There is no band between the tabs and the sheet. A tab is a wrapper
+  (`.rp-tab`) around its button (`.rp-tab-main`) because the square-arrow at its top right
+  (`.rp-tab-preview`) is a second button: it opens the same read-only SurveyPreviewDrawer
+  Review & Release opens, with the same icon and tooltip. The mockup's offset sheet behind
+  the paper and its -11px tab overlap are gone.
 - **The grid is subtle**: `--grid` and `--grid-5` are about 40% lighter than the mockup so
   the squares never compete with a bar or a label. Present, never loud.
 - **No Paired scores button.** Every assignment is a roster row, so a matched student's pre

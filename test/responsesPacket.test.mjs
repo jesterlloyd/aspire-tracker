@@ -456,16 +456,19 @@ test('B2 to B5: the sheet, the tabs, the roster chrome and the mandatory seconda
   // The sheet sits inside a manila frame; there is no stack of paper behind it.
   assert.doesNotMatch(css, /rp-sheetwrap/)
   assert.match(css, /\.rp-folder \{[^}]*background: var\(--folder\);[^}]*border: 1px solid var\(--folder-edge\);[^}]*padding: 0 14px 14px;/s)
-  assert.match(css, /\.rp-sheet \{[^}]*margin-top: 8px;/s)
   // Text halo on every text block.
   assert.match(css, /\.rp-spec, \.rp-stamp, \.rp-basis, \.rp-findtitle, \.rp-findsub, \.rp-name, \.rp-counts, \.rp-means,\n\.rp-caveat[^{]*\{\n\s*text-shadow: 0 0 3px var\(--paper\), 0 0 7px var\(--paper\);/)
   // Header closed by a 2px ink rule.
   assert.match(css, /\.rp-sheethead \{[^}]*border-bottom: 2px solid var\(--paper-ink\);/s)
   // File tabs on the frame's band: 9px top corners via token, no bottom border, no overlap
   // with the page; the selected one rises to the band and joins it; the meter is a block.
-  assert.match(css, /\.rp-tab \{[^}]*top: 3px;[^}]*background: var\(--folder-deep\);[^}]*border-bottom: none;[^}]*border-radius: var\(--aspire-radius-filetab\) var\(--aspire-radius-filetab\) 0 0;/s)
+  assert.match(css, /\.rp-tab \{[^}]*top: 3px;[^}]*z-index: 0;/s)
+  assert.match(css, /\.rp-tab-main \{[^}]*background: var\(--folder-deep\);[^}]*border-bottom: none;[^}]*border-radius: var\(--aspire-radius-filetab\) var\(--aspire-radius-filetab\) 0 0;/s)
   assert.doesNotMatch(css, /margin-bottom: -11px/)
-  assert.match(css, /\.rp-tab\[aria-pressed="true"\] \{[^}]*top: 0;[^}]*background: var\(--folder\);[^}]*margin-bottom: -1px;[^}]*box-shadow:/s)
+  // The selected tab IS the sheet: paper, the sheet's own rule, no gap, no seam.
+  assert.match(css, /\.rp-tab\[data-selected="true"\] \.rp-tab-main \{[^}]*background: var\(--paper\);[^}]*border-color: var\(--rule\);[^}]*margin-bottom: -1px;/s)
+  assert.match(css, /\.rp-sheet \{[^}]*margin-top: 0;/s)
+  assert.match(css, /\.rp-tab-preview \{[^}]*position: absolute;[^}]*top: 6px;[^}]*right: 6px;/s)
   assert.match(css, /\.rp-meter \{\n\s*display: block;/)
   assert.match(read('src/styles/aspireBrand.css'), /--aspire-radius-filetab: 9px;/)
   // The down segment is textured, segments are gapped 2px, narrow ones hide their number.
@@ -504,6 +507,11 @@ test('B2 to B5: the sheet, the tabs, the roster chrome and the mandatory seconda
 test('the markup carries the accessibility contract', () => {
   const rp = read('src/components/evaluation/ResponsesPacket.jsx')
   assert.match(rp, /aria-pressed=\{tab\.slug === selected\}/, 'tabs are pressed')
+  assert.match(rp, /<Tooltip label="Open a sample of the survey" placement="bottom" tone="contrast">/, 'the preview icon carries the same tooltip as Review & Release')
+  assert.match(rp, /aria-label=\{`Open a sample of \$\{tab\.name\}`\}/)
+  assert.match(rp, /<ExternalLink size=\{14\} aria-hidden="true" \/>/, 'and the same square-arrow icon')
+  assert.match(read('src/components/EvaluationTab.jsx'), /<SurveyPreviewDrawer workflowKey=\{surveyPreviewKey\}/, 'it opens the read-only sample drawer')
+  assert.match(read('src/components/EvaluationTab.jsx'), /SURVEY_WORKFLOWS\.find\(w => w\.slug === slug\)/)
   assert.match(rp, /tabIndex=\{0\}\s*\n\s*role="img"\s*\n\s*aria-label=\{text\}/, 'segments are focusable and speak their count')
   assert.match(rp, /data-tip=\{text\}/, 'and carry the same text as a tooltip')
   assert.match(rp, /data-narrow=\{w < 9 \? 1 : 0\}/)

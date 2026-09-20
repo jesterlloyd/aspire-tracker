@@ -7,12 +7,14 @@ import PreceptorFeedbackPanel from './evaluation/PreceptorFeedbackPanel'
 import PreceptorResponseDetail from './evaluation/PreceptorResponseDetail'
 import StudentEvalResponseDetail from './evaluation/StudentEvalResponseDetail'
 import SurveyAutomationDashboard from './evaluation/SurveyAutomationDashboard'
+import SurveyPreviewDrawer from './evaluation/SurveyPreviewDrawer'
 import RestrictedAccessOverlay from './RestrictedAccessOverlay'
 import DataSheet, { Pill, Missing, DetailField } from './shared/DataSheet'
 import { sortRows } from './shared/dataSheetSort'
 import { InstrumentTabs, AnalysisSheet } from './evaluation/ResponsesPacket'
 import BubbleSheet from './evaluation/BubbleSheet'
 import { completedByLabel } from '../lib/evaluationLabels'
+import { SURVEY_WORKFLOWS } from '../lib/evaluation/surveyCatalog'
 import {
   PACKET_SLUGS, DEFAULT_PACKET_SLUG, STATUS_GROUPS,
   buildPacket, buildInstrumentTabs, buildRosterRows, buildBubbleSheet,
@@ -123,6 +125,9 @@ export default function EvaluationTab({ cohortId, cohortLabel = '' }) {
   const [activeKpiFilter,  setActiveKpiFilter]  = useState(null)
   const [rosterFocus,      setRosterFocus]      = useState(null)
   const [tableView,        setTableView]        = useState(false)
+  // The square-arrow on a tab opens the same read-only sample Review & Release opens,
+  // keyed by the first workflow that administers the instrument.
+  const [surveyPreviewKey, setSurveyPreviewKey] = useState(null)
   const [live,             setLive]             = useState('')
   // Until the reader picks a tab, the packet opens on the first instrument that has rows.
   const [userPickedInstrument, setUserPickedInstrument] = useState(false)
@@ -254,6 +259,11 @@ export default function EvaluationTab({ cohortId, cohortLabel = '' }) {
     setTableView(false)
     const tab = instrumentTabs.find(t => t.slug === slug)
     setLive(`${tab?.name || 'Instrument'} selected`)
+  }
+
+  function previewInstrument(slug) {
+    const workflow = SURVEY_WORKFLOWS.find(w => w.slug === slug)
+    if (workflow) setSurveyPreviewKey(workflow.key)
   }
 
   function scrollToRoster() {
@@ -522,7 +532,7 @@ export default function EvaluationTab({ cohortId, cohortLabel = '' }) {
               {/* The folder: a manila frame around the sheet whose top edge carries the four
                   instrument tabs. The selected tab joins the frame; nothing overlaps the page. */}
               <div className="rp-folder">
-                <InstrumentTabs tabs={instrumentTabs} selected={activeInstrumentFilter} onSelect={selectInstrument} />
+                <InstrumentTabs tabs={instrumentTabs} selected={activeInstrumentFilter} onSelect={selectInstrument} onPreview={previewInstrument} />
                 <AnalysisSheet
                   packet={packet}
                   cohortLabel={cohortLabel}
@@ -559,6 +569,10 @@ export default function EvaluationTab({ cohortId, cohortLabel = '' }) {
             </div>
           )}
         </div>
+      )}
+
+      {surveyPreviewKey && (
+        <SurveyPreviewDrawer workflowKey={surveyPreviewKey} onClose={() => setSurveyPreviewKey(null)} />
       )}
 
       {/* Response detail modal - mounted at EvaluationTab level, one at a time. Each

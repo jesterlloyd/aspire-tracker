@@ -13,6 +13,8 @@
 // the means are secondary text to the right. A +0.12 and a +0.51 must not look alike, so
 // the delta is an outline chip, never a filled pill.
 
+import { ExternalLink } from 'lucide-react'
+import Tooltip from '../ui/Tooltip'
 import { segmentText } from '../../lib/evaluation/responsesPacketModel'
 import './responsesPacket.css'
 
@@ -22,21 +24,38 @@ const signedInt = v => (v == null ? '–' : `${v >= 0 ? '+' : ''}${v}`)
 
 // ── Instrument tabs ───────────────────────────────────────────────────────────
 
-export function InstrumentTabs({ tabs, selected, onSelect }) {
+// A tab is the sheet's own paper (Owner, 2026-09-20): the selected one is paper-coloured
+// and joins the sheet's top edge with no seam, so pressing it means "I am looking at this
+// paper". The others sit behind in the folder's manila. The square-arrow at a tab's top
+// right opens a sample of that instrument, the same control Review & Release uses.
+export function InstrumentTabs({ tabs, selected, onSelect, onPreview }) {
   return (
     <div className="rp-tabs" role="group" aria-label="Instrument">
       {tabs.map(tab => (
-        <button
-          key={tab.slug}
-          type="button"
-          className="rp-tab"
-          aria-pressed={tab.slug === selected}
-          onClick={() => onSelect(tab.slug)}
-        >
-          <b>{tab.name}</b>
-          <span className="rp-n">{tab.completed} of {tab.assigned} · {tab.pct}%</span>
-          <span className="rp-meter" aria-hidden="true"><i style={{ width: `${tab.pct}%` }} /></span>
-        </button>
+        <div key={tab.slug} className="rp-tab" data-selected={tab.slug === selected}>
+          <button
+            type="button"
+            className="rp-tab-main"
+            aria-pressed={tab.slug === selected}
+            onClick={() => onSelect(tab.slug)}
+          >
+            <b>{tab.name}</b>
+            <span className="rp-n">{tab.completed} of {tab.assigned} · {tab.pct}%</span>
+            <span className="rp-meter" aria-hidden="true"><i style={{ width: `${tab.pct}%` }} /></span>
+          </button>
+          {onPreview && (
+            <Tooltip label="Open a sample of the survey" placement="bottom" tone="contrast">
+              <button
+                type="button"
+                className="rp-tab-preview"
+                aria-label={`Open a sample of ${tab.name}`}
+                onClick={() => onPreview(tab.slug)}
+              >
+                <ExternalLink size={14} aria-hidden="true" />
+              </button>
+            </Tooltip>
+          )}
+        </div>
       ))}
     </div>
   )

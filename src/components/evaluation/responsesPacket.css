@@ -46,31 +46,36 @@
   padding: 8px 0 0;
   margin: 0;
 }
+/* A tab is a wrapper (the preview icon cannot live inside the tab's button). Unselected
+   tabs sit 3px lower and behind the sheet, in the folder's deeper manila. */
 .rp-tab {
   position: relative;
   top: 3px;
+  z-index: 0;
+  flex: 1 1 190px;
+  max-width: 340px;
+  min-width: 0;
+}
+.rp-tab-main {
+  display: block;
+  width: 100%;
   background: var(--folder-deep);
   border: 1px solid var(--folder-edge);
   border-bottom: none;
   border-radius: var(--aspire-radius-filetab) var(--aspire-radius-filetab) 0 0;
-  padding: 8px 15px 9px;
+  padding: 8px 40px 9px 15px;
   text-align: left;
-  /* Four tabs share one row and wrap their titles, rather than wrapping to a second row
-     that would float above the frame instead of sitting on it. */
-  flex: 1 1 190px;
-  max-width: 340px;
-  min-width: 0;
   color: var(--folder-ink-muted);
   font: inherit;
   cursor: pointer;
 }
-.rp-tab b {
+.rp-tab-main b {
   display: block;
   font-size: 13.5px;
   color: var(--folder-ink-muted);
   font-weight: 600;
 }
-.rp-tab .rp-n {
+.rp-tab-main .rp-n {
   display: block;
   font-family: var(--aspire-mono);
   font-size: 10.5px;
@@ -91,26 +96,49 @@
   border-radius: var(--aspire-radius-pill);
   background: var(--same);
 }
-/* The selected tab is the folder's own surface: it rises to the band, loses the seam,
-   and casts a shadow on the tabs behind it. */
-.rp-tab[aria-pressed="true"] {
+.rp-tab-main:hover b { color: var(--folder-ink); }
+/* The selected tab IS the sheet: paper-coloured, no grid, the same rule as the sheet's
+   edge, and a -1px overlap that erases the sheet's top border beneath it. */
+.rp-tab[data-selected="true"] {
   top: 0;
-  z-index: 1;
-  background: var(--folder);
-  color: var(--folder-ink);
+  z-index: 2;
+}
+.rp-tab[data-selected="true"] .rp-tab-main {
+  background: var(--paper);
+  color: var(--paper-muted);
+  border-color: var(--rule);
   padding-bottom: 12px;
   margin-bottom: -1px;
-  box-shadow: 0 -2px 6px rgba(24, 32, 63, 0.10), 6px 0 10px -6px rgba(24, 32, 63, 0.28), -6px 0 10px -6px rgba(24, 32, 63, 0.28);
+  box-shadow: 0 -2px 6px rgba(24, 32, 63, 0.08), 6px 0 10px -6px rgba(24, 32, 63, 0.22), -6px 0 10px -6px rgba(24, 32, 63, 0.22);
 }
-.rp-tab[aria-pressed="true"] b { color: var(--folder-ink); }
-.rp-tab[aria-pressed="true"] .rp-meter i { background: var(--up); }
-.rp-tab:hover:not([aria-pressed="true"]) { color: var(--folder-ink); }
-.rp-tab:hover:not([aria-pressed="true"]) b { color: var(--folder-ink); }
+.rp-tab[data-selected="true"] .rp-tab-main b { color: var(--paper-ink); }
+.rp-tab[data-selected="true"] .rp-meter { background: var(--rule); }
+.rp-tab[data-selected="true"] .rp-meter i { background: var(--up); }
+/* The square-arrow at the tab's top right opens a sample of the survey. */
+.rp-tab-preview {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 0;
+  padding: 0;
+  border-radius: var(--aspire-radius-control);
+  color: var(--folder-ink-muted);
+  cursor: pointer;
+}
+.rp-tab-preview:hover { background: rgba(24, 32, 63, 0.08); color: var(--folder-ink); }
+.rp-tab[data-selected="true"] .rp-tab-preview { color: var(--paper-muted); }
+.rp-tab[data-selected="true"] .rp-tab-preview:hover { color: var(--paper-ink); }
 
 /* ── The gridded analysis sheet, inside the frame ───────────────────────── */
 .rp-sheet {
   position: relative;
-  margin-top: 8px;
+  margin-top: 0;
   background-color: var(--paper);
   background-image:
     linear-gradient(var(--grid-5) 1px, transparent 1px),
@@ -498,6 +526,7 @@
   .rp-item .rp-shift { display: none; }
   .rp-bs-legend { margin-left: 0; }
   .rp-tab { flex: 1 1 140px; max-width: none; }
+  .rp-tab-main { padding-right: 34px; }
 }
 
 /* ── Focus ──────────────────────────────────────────────────────────────── */
