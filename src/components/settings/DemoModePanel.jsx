@@ -17,7 +17,7 @@ import Toggle from '../ui/Toggle'
 import { useAuth } from '../../contexts/AuthContext'
 import { isDemoMode, isDemoModeAvailable, setDemoMode, subscribeDemoMode } from '../../lib/demoMode'
 import { DEMO_SCOPED_TABLES } from '../../lib/demoScope'
-import { SETTINGS_HEADING_STYLE } from './settingsSections'
+import SettingsPageHeader from './SettingsPageHeader'
 
 const TEXT_PRIMARY = 'var(--color-text-primary, #191919)'
 const TEXT_SECONDARY = 'var(--color-text-secondary, #6b7280)'
@@ -45,8 +45,12 @@ export default function DemoModePanel() {
   }
 
   return (
-    <section aria-label="Demo Mode">
-      <h2 style={SETTINGS_HEADING_STYLE}>Demo Mode</h2>
+    <section aria-labelledby="settings-demo-heading">
+      <SettingsPageHeader
+        id="settings-demo-heading"
+        title="Demo Mode"
+        subtitle="Present the app with fabricated records. Real data is never shown or changed."
+      />
 
       <SurfaceCard padding="16px 18px">
         <Toggle

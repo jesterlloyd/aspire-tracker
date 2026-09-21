@@ -26,7 +26,7 @@ import StatusBadge from '../ui/StatusBadge'
 import { FilterKPICard } from '../KPIBand'
 import RoleGuidePanel from './RoleGuidePanel'
 import { UserInitials, displayRole, formatLoginDate, ROLE_OPTIONS, compareAccountsByName } from './accountsShared'
-import { SETTINGS_HEADING_STYLE } from './settingsSections'
+import SettingsPageHeader from './SettingsPageHeader'
 import { PORTAL_ROLE_LABELS, PORTAL_ROLE_OPTIONS, PORTAL_STATUS_STYLES, EXPIRING_SOON_DAYS, summarizeScope } from '../../lib/portalAccessStatus'
 // ACCOUNTS-KPI-SORT-1: pure client-side sorting for the Portal Access table.
 import { PORTAL_SORT_COLUMNS, DEFAULT_PORTAL_SORT, nextPortalSort, sortPortalAccounts } from '../../lib/portalAccessSort'
@@ -432,17 +432,18 @@ export default function AccountsDirectory() {
         <div role="status" style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 2600, padding: '10px 18px', borderRadius: 10, fontFamily: F, fontSize: 13, fontWeight: 600, background: toast.type === 'error' ? '#fee2e2' : '#f0fdf4', color: toast.type === 'error' ? '#991b1b' : '#166534', border: `1px solid ${toast.type === 'error' ? '#fca5a5' : '#86efac'}`, boxShadow: '0 4px 16px rgba(0,0,0,0.1)' }}>{toast.msg}</div>
       )}
 
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 14 }}>
-        <div style={{ minWidth: 0, flex: '1 1 360px' }}>
-          <h2 id="accounts-directory-heading" style={{ ...SETTINGS_HEADING_STYLE, margin: '0 0 4px' }}>Accounts &amp; Access</h2>
-          <p style={{ margin: 0, fontSize: 13.5, color: '#6b7280' }}>Manage staff accounts and scoped portal access.</p>
-        </div>
-        <div style={{ display: 'flex', gap: 10, flexShrink: 0, flexWrap: 'wrap' }}>
-          <button type="button" onClick={() => setInviteStaffOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 15px', background: '#fff', border: '1px solid #d5d9e2', borderRadius: 8, fontFamily: F, fontWeight: 600, fontSize: 13, color: '#1D2567', cursor: 'pointer', whiteSpace: 'nowrap' }}><UserPlus size={15} /> Invite Staff User</button>
-          <button type="button" onClick={() => openGrant(null)} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 15px', background: '#1D2567', border: 'none', borderRadius: 8, fontFamily: F, fontWeight: 600, fontSize: 13, color: '#fff', cursor: 'pointer', whiteSpace: 'nowrap' }}><ShieldPlus size={15} /> Grant Portal Access</button>
-        </div>
-      </div>
+      {/* Header: the Settings header band (SETTINGS-BAND-1), the actions on its title line. */}
+      <SettingsPageHeader
+        id="accounts-directory-heading"
+        title="Accounts & Access"
+        subtitle="Manage staff accounts and scoped portal access."
+        actions={(
+          <>
+            <button type="button" onClick={() => setInviteStaffOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 15px', background: '#fff', border: '1px solid #d5d9e2', borderRadius: 8, fontFamily: F, fontWeight: 600, fontSize: 13, color: '#1D2567', cursor: 'pointer', whiteSpace: 'nowrap' }}><UserPlus size={15} /> Invite Staff User</button>
+            <button type="button" onClick={() => openGrant(null)} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 15px', background: '#1D2567', border: 'none', borderRadius: 8, fontFamily: F, fontWeight: 600, fontSize: 13, color: '#fff', cursor: 'pointer', whiteSpace: 'nowrap' }}><ShieldPlus size={15} /> Grant Portal Access</button>
+          </>
+        )}
+      />
 
       {/* ACCOUNTS-KPI-SORT-1: the KPI row adapts to the selected tab (the segmented
           control below owns tab switching). Portal Access: six portal-access cards -

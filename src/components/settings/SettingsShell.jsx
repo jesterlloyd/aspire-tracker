@@ -16,11 +16,12 @@
 //     with the parent still selected in the rail, at its own route.
 // Two panes, never three. Layout lives in settingsShell.css.
 //
-// SETTINGS-FIX-2 (Owner, 2026-09-21): "Titles the same, aligned. First panes aligned."
-// "Settings" heads the rail's column in the same heading spec as the page's own title, so
-// the two sit on one baseline, and a list page carries no generic subtitle, so the rail
-// card and the list card start on one line. A drill-in's breadcrumb sits ABOVE that line,
-// in space the grid reserves, so it never pushes the page title off the baseline.
+// SETTINGS-FIX-2 and SETTINGS-BAND-1 (Owner, 2026-09-21): every page, and the rail's own
+// column, opens with the same header band (SettingsPageHeader): a title line and ONE
+// reserved subtitle line. Equal bands mean "Settings" and the page title share a baseline
+// and the rail card and the page's first card start on one line, on every page. A
+// drill-in's breadcrumb rides the back link's row, over the page column, so the titles
+// sit right under it.
 import { useEffect, Fragment } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
@@ -29,7 +30,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import {
-  visibleSections, routableSections, childSections, SETTINGS_HEADING_STYLE, SETTINGS_GROUPS,
+  visibleSections, routableSections, childSections, SETTINGS_GROUPS,
   DEFAULT_SETTINGS_PATH, LEGACY_SETTINGS_REDIRECTS,
 } from './settingsSections'
 import AppearancePanel from './AppearancePanel'
@@ -45,6 +46,7 @@ import DemoModePanel from './DemoModePanel'
 import CommunityBenefitPanel from './CommunityBenefitPanel'
 import SurfaceCard from '../ui/SurfaceCard'
 import WorkspaceBackLink from '../ui/WorkspaceBackLink'
+import SettingsPageHeader from './SettingsPageHeader'
 import '../../styles/selectionRail.css'
 import './settingsShell.css'
 
@@ -57,8 +59,14 @@ const SECTION_ICONS = {
   keithKnowledge: FileText, keithSkills: Sparkles, keithUsage: BarChart3,
 }
 
-// The drill-ins that bring no heading of their own. Appearance and the three Keith
-// workspaces title themselves.
+// What a list page says on its subtitle line: one sentence, one line.
+const LIST_PAGE_COPY = {
+  general: 'Settings that are yours alone. They follow you to any device.',
+  keith: 'Govern what Keith knows, what Keith can do, and what it costs.',
+}
+
+// The drill-ins that bring no heading of their own; the shell titles them with their
+// row's name and line. Every other page renders its own SettingsPageHeader.
 const TITLED_BY_SHELL = ['signature', 'tours', 'about']
 
 function SettingsRail({ sections, activeKey, navigate }) {
@@ -94,14 +102,12 @@ function SettingsRail({ sections, activeKey, navigate }) {
   )
 }
 
-// A list page: the parent's title and one grouped list of drill-in rows. No subtitle: a
-// generic one would push the list below the rail card (SETTINGS-VISUAL-DENSITY-1 removed
-// them for the same reason).
+// A list page: the parent's header band and one grouped list of drill-in rows.
 function SettingsListPage({ section, rows, navigate }) {
   const headingId = `settings-${section.key}-heading`
   return (
     <section aria-labelledby={headingId}>
-      <h2 id={headingId} style={SETTINGS_HEADING_STYLE}>{section.label}</h2>
+      <SettingsPageHeader id={headingId} title={section.label} subtitle={LIST_PAGE_COPY[section.key]} />
       <SurfaceCard as="ul" className="settings-list" padding={0} aria-label={section.label}>
         {rows.map(row => {
           const Icon = SECTION_ICONS[row.key]
@@ -175,24 +181,28 @@ export default function SettingsShell({ backPath = '/aggregate', backLabel = 'At
     // canonical card-column inset every main tab applies inside .app-main.
     <div className="settings-shell">
       {/* Back-to-workspace affordance - shared component (reuses MainApp's prior-workspace path) */}
-      <WorkspaceBackLink path={backPath} label={backLabel} />
+      {/* The back link over the rail's column; a drill-in's breadcrumb on the same row,
+          over the page column. */}
+      <div className="settings-top">
+        <WorkspaceBackLink path={backPath} label={backLabel} />
+        {parent && <SettingsCrumb parent={parent} here={current} navigate={navigate} />}
+      </div>
 
       <div className="settings-grid">
-        {/* The rail's column: its title, then the rail. Stretched to the row so the rail
-            has room to stay pinned (ANCHORED-NAV-1). */}
+        {/* The rail's column: its header band, then the rail. Stretched to the row so the
+            rail has room to stay pinned (ANCHORED-NAV-1). */}
         <div className="settings-side">
-          <h1 style={SETTINGS_HEADING_STYLE}>Settings</h1>
+          <SettingsPageHeader as="h1" title="Settings" />
           <SettingsRail sections={sections} activeKey={railActiveKey} navigate={navigate} />
         </div>
 
         {/* The active page. EVERY page uses the full canonical workspace width,
             bounded only by the .app-main 1580px shell. */}
         <div className="settings-content">
-          {parent && <SettingsCrumb parent={parent} here={current} navigate={navigate} />}
           {isListPage && (
             <SettingsListPage section={current} rows={childSections(currentKey, roleFlags)} navigate={navigate} />
           )}
-          {shellTitle && <h2 style={SETTINGS_HEADING_STYLE}>{shellTitle}</h2>}
+          {shellTitle && <SettingsPageHeader title={shellTitle} subtitle={current.sub} />}
           {currentKey === 'appearance' && <AppearancePanel />}
           {currentKey === 'signature'  && <SignaturePanel />}
           {currentKey === 'tours'      && <ToursHelpPanel onRestartTour={onRestartTour} />}

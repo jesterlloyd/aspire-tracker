@@ -10,7 +10,7 @@ import { Download, DollarSign, Plus, X } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { SCHOOLS } from '../../lib/constants'
 import { downloadCSV } from '../../lib/utils'
-import { SETTINGS_HEADING_STYLE } from './settingsSections'
+import SettingsPageHeader from './SettingsPageHeader'
 import SurfaceCard from '../ui/SurfaceCard'
 import CommunityBenefitView from '../../portal/na/CommunityBenefitView'
 import '../../portal/portal.css'
@@ -230,36 +230,49 @@ export default function CommunityBenefitPanel() {
     setExporting(false)
   }
 
-  if (loading) return <div className="cb-inline-state">Loading community-benefit settings…</div>
-  if (error) return <div className="cb-inline-state cb-inline-error">{error}</div>
+  // SETTINGS-BAND-1: the Settings header band, outside the section's flex gap. One
+  // subtitle line; the read-only fact is the band's note and sits again by the inputs. It
+  // renders in the loading and error states too, so the title never arrives late and the
+  // page never jumps; only the actions wait for the data they act on.
+  const band = (actions) => (
+    <SettingsPageHeader
+      id="community-benefit-heading"
+      title="Community Benefit"
+      subtitle="Fiscal-year impact, and the inputs behind the Nursing Education & Leadership report."
+      // Only once the data says so: an Owner must not see "Read-only" while it loads.
+      accessNote={data && !canEdit ? 'Read-only access' : undefined}
+      actions={actions}
+    />
+  )
+
+  if (loading) return <>{band()}<div className="cb-inline-state">Loading community-benefit settings…</div></>
+  if (error) return <>{band()}<div className="cb-inline-state cb-inline-error">{error}</div></>
 
   return (
+    <>
+    {band(
+      <div className="cb-page-actions" role="group" aria-label="Community Benefit actions">
+        <label className="cb-fy-control" htmlFor="cb-settings-fy">
+          <span>Fiscal year</span>
+          <select id="cb-settings-fy" value={selectedFy} onChange={event => setSelectedFy(Number(event.target.value))}>
+            {fiscalYears.map(year => <option key={year} value={year}>FY {year} (Jul {year - 1} to Jun {year})</option>)}
+          </select>
+        </label>
+          <button type="button" className="cb-button cb-button-primary" onClick={onExport} disabled={exporting}><Download size={16} />{exporting ? 'Preparing CSV…' : 'Download CSV'}</button>
+      </div>
+    )}
     <section className="cb-settings" aria-labelledby="community-benefit-heading">
       {toast && <div role="status" className={`cb-toast ${toast.ok ? 'cb-toast-success' : 'cb-toast-error'}`}>{toast.msg}</div>}
-      <div className="cb-page-header">
-        <div>
-          <h2 id="community-benefit-heading" style={{ ...SETTINGS_HEADING_STYLE, margin: '0 0 4px' }}>Community Benefit</h2>
-          <p>
-            Review fiscal-year impact and manage the reporting inputs behind the Nursing Education and Leadership report.
-            {!canEdit && ' You have read-only access; only the Owner can change reporting inputs.'}
-          </p>
-        </div>
-        <div className="cb-page-actions" role="group" aria-label="Community Benefit actions">
-          <label className="cb-fy-control" htmlFor="cb-settings-fy">
-            <span>Fiscal year</span>
-            <select id="cb-settings-fy" value={selectedFy} onChange={event => setSelectedFy(Number(event.target.value))}>
-              {fiscalYears.map(year => <option key={year} value={year}>FY {year} (Jul {year - 1} to Jun {year})</option>)}
-            </select>
-          </label>
-          {canEdit && <><button type="button" className="cb-button cb-button-secondary" onClick={openRateModal}><DollarSign size={16} />Set hourly rate</button><button type="button" className="cb-button cb-button-secondary" onClick={openHoursModal}><Plus size={16} />Add non-clinical hours</button></>}
-          <button type="button" className="cb-button cb-button-primary" onClick={onExport} disabled={exporting}><Download size={16} />{exporting ? 'Preparing CSV…' : 'Download CSV'}</button>
-        </div>
-      </div>
 
       <SurfaceCard padding="14px 16px" className="cb-inputs-card">
         <div className="cb-inputs-heading">
-          <div><h3>Reporting Inputs</h3><p>Current values applied to FY {selectedFy}.</p></div>
-          <span>Benefit estimates update when these inputs change.</span>
+          <div><h3>Reporting Inputs</h3><p>Current values applied to FY {selectedFy}.{!canEdit && ' Only the Owner can change these.'}</p></div>
+          {/* SETTINGS-BAND-1: the two edits sit with the inputs they change; the band keeps
+              what applies to the whole page (the fiscal year and the export). */}
+          <div className="cb-inputs-side">
+            <span>Benefit estimates update when these inputs change.</span>
+            {canEdit && <><button type="button" className="cb-button cb-button-secondary" onClick={openRateModal}><DollarSign size={16} />Set hourly rate</button><button type="button" className="cb-button cb-button-secondary" onClick={openHoursModal}><Plus size={16} />Add non-clinical hours</button></>}
+          </div>
         </div>
         <div className="cb-inputs-grid">
           <div className="cb-input-summary"><span>RN hourly rate</span><strong>{selectedRates.rn_preceptor ? `${money.format(Number(selectedRates.rn_preceptor.hourly_rate))}/hr` : 'Not set'}</strong></div>
@@ -316,5 +329,6 @@ export default function CommunityBenefitPanel() {
         </form>
       </ReportingModal>}
     </section>
+    </>
   )
 }

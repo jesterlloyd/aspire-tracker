@@ -37,7 +37,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { resolvePreceptor } from '../../lib/preceptor'
 import SurfaceCard from '../ui/SurfaceCard'
-import { SETTINGS_HEADING_STYLE } from './settingsSections'
+import SettingsPageHeader from './SettingsPageHeader'
 import DataTable from '../ui/DataTable'
 import { FilterKPICard } from '../KPIBand'
 
@@ -226,18 +226,12 @@ export default function PreceptorParityPanel() {
 
   return (
     <div style={{ fontFamily: F }}>
-      <div style={{ marginBottom: 14 }}>
-        <h2 style={{ ...SETTINGS_HEADING_STYLE, margin: 0 }}>Preceptor Assignment Integrity</h2>
-        <p style={{ margin: '6px 0 0', fontSize: 13, color: '#6b7280', lineHeight: 1.55 }}>
-          Read-only diagnostic over the <strong>union</strong> of students with a current primary
-          (<code style={{ fontSize: 12 }}>students.preceptor_id</code>, the canonical primary-preceptor identity) and
-          students with an active-primary row in the assignment model (its synchronized mirror, maintained by a
-          database trigger on every application write). Parity is computed <strong>by preceptor identity (ID)</strong>,
-          both directions, names are display-only. Because every in-app assignment routes through the audited
-          workflow, a “Mismatch” or “Missing” row signals drift from out-of-band changes, most likely a manual SQL
-          session, and warrants investigation. This view writes nothing.
-        </p>
-      </div>
+      {/* SETTINGS-BAND-1: the Settings header band, one subtitle line. The full method,
+          which used to sit here, closes the page (How This Check Works, below). */}
+      <SettingsPageHeader
+        title="Preceptor Assignment Integrity"
+        subtitle="A read-only check that each student's primary preceptor matches the assignment model."
+      />
 
       {loading && (
         <div style={{ padding: '32px 0', textAlign: 'center', color: 'var(--color-text-secondary, #6b7280)', fontSize: 13 }}>
@@ -289,6 +283,19 @@ export default function PreceptorParityPanel() {
           />
         </>
       )}
+
+      <SurfaceCard padding="14px 18px" style={{ marginTop: 'var(--aspire-gap-card, 16px)' }}>
+        <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: 'var(--color-text-primary, #191919)' }}>How This Check Works</h3>
+        <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--color-text-secondary, #4A5560)', lineHeight: 1.55 }}>
+          Read-only diagnostic over the <strong>union</strong> of students with a current primary
+          (<code style={{ fontSize: 12 }}>students.preceptor_id</code>, the canonical primary-preceptor identity) and
+          students with an active-primary row in the assignment model (its synchronized mirror, maintained by a
+          database trigger on every application write). Parity is computed <strong>by preceptor identity (ID)</strong>,
+          both directions, names are display-only. Because every in-app assignment routes through the audited
+          workflow, a “Mismatch” or “Missing” row signals drift from out-of-band changes, most likely a manual SQL
+          session, and warrants investigation. This view writes nothing.
+        </p>
+      </SurfaceCard>
     </div>
   )
 }

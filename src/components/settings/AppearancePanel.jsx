@@ -18,7 +18,7 @@ import { useId } from 'react'
 import { useAppearance } from '../../hooks/useAppearance'
 import { useToast } from '../../hooks/useToast'
 import { ToastContainer } from '../Toast'
-import { SETTINGS_HEADING_STYLE } from './settingsSections'
+import SettingsPageHeader from './SettingsPageHeader'
 import SurfaceCard from '../ui/SurfaceCard'
 import {
   STYLE_SURFACES, styleToast, colorModeToast, systemStatusLine,
@@ -102,12 +102,15 @@ export function AppearanceSettings({ style, colorMode, systemTheme, synced, onSt
     style: `${uid}-style`, mode: `${uid}-mode`,
   }
   return (
+    <>
+    {/* SETTINGS-BAND-1: the page's header band, outside the section's grid so the grid's
+        gap cannot add to the band's own spacing. The intro is its one subtitle line. */}
+    <SettingsPageHeader
+      id={`${uid}-title`}
+      title="Appearance"
+      subtitle="How ASPIRE Intelligence looks for you. Your choices follow you to any device."
+    />
     <section className="apx" aria-labelledby={`${uid}-title`}>
-      {/* SETTINGS-FIX-2: the title and nothing else above the first card, so the card
-          starts on the rail card's line; the one fact the old intro carried closes the page. */}
-      {/* The heading spec puts 14px under a title; the grid already puts --aspire-gap-card
-          (16px) there, so the title gives the difference back. */}
-      <h2 id={`${uid}-title`} style={{ ...SETTINGS_HEADING_STYLE, margin: 0, marginBottom: 'calc(14px - var(--aspire-gap-card))' }}>Appearance</h2>
 
       <SurfaceCard className="apx-group" padding="18px 20px" role="radiogroup" aria-labelledby={ids.styleH} aria-describedby={ids.styleD}>
         <div className="apx-ghead">
@@ -194,11 +197,11 @@ export function AppearanceSettings({ style, colorMode, systemTheme, synced, onSt
         </p>
       </SurfaceCard>
 
-      <p className="apx-note apx-foot">
-        These choices are yours alone and follow you to any device.
-        {synced === false ? ' For now they are saved in this browser only.' : ''}
-      </p>
+      {synced === false && (
+        <p className="apx-note apx-foot">For now your choices are saved in this browser only.</p>
+      )}
     </section>
+    </>
   )
 }
 

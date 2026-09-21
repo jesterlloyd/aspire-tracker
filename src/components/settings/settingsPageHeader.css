@@ -1,0 +1,67 @@
+/* SETTINGS-BAND-1 (Owner, 2026-09-21): the header band every Settings page wears, the
+   rail's column included. Fixed shape, so every band is the same height and the first
+   cards on both sides start on one line:
+     title line   36px, holding the title, an access note and the page's actions
+     subtitle     one line, 20px, reserved even when empty
+     below        --aspire-gap-card to the first card
+   The 36px is the tallest action a band carries (a 34px button or segmented control plus
+   its edge). A page whose actions do not fit beside its title at the width it has (only
+   Community Benefit, below about 1300px) wraps them under the title, and that page alone
+   drops below the line; nothing overflows. When the columns stack (900px and below)
+   alignment no longer applies: the subtitle may wrap, and an empty subtitle folds. */
+
+.settings-page-head {
+  margin: 0 0 var(--aspire-gap-card, 16px);
+}
+
+.settings-page-head-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  min-height: 36px;
+  min-width: 0;
+}
+.settings-page-title {
+  flex: none;
+  white-space: nowrap;
+}
+
+.settings-page-note {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  padding: 2px 9px;
+  border-radius: var(--aspire-radius-pill);
+  background: color-mix(in srgb, var(--color-accent-primary, #1D2567) 9%, transparent);
+  color: var(--color-accent-primary, #1D2567);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.settings-page-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  min-width: 0;
+}
+
+.settings-page-sub {
+  height: 20px;
+  margin: 2px 0 0;
+  overflow: hidden;
+  color: var(--color-text-secondary, #4A5560);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 13px;
+  line-height: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .settings-page-sub { height: auto; white-space: normal; }
+  .settings-page-sub:empty { display: none; }
+}

@@ -1,9 +1,9 @@
 .cb-settings { display: flex; flex-direction: column; gap: 16px; font-family: 'Plus Jakarta Sans', sans-serif; color: #191919; }
-.cb-page-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; }
-.cb-page-header > div:first-child { min-width: 240px; }
-.cb-page-header p { margin: 0; max-width: 760px; color: #6b7280; font-size: 13.5px; line-height: 1.5; }
-.cb-page-actions { display: flex; align-items: flex-end; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
-.cb-fy-control { display: flex; flex-direction: column; gap: 4px; color: #4b5563; font-size: 11.5px; font-weight: 700; }
+/* SETTINGS-BAND-1: the actions sit on the Settings header band's title line, so they are
+   one row at the band's height: the fiscal-year label beside its select, controls 34px. */
+.cb-page-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
+.cb-fy-control { display: flex; flex-direction: row; align-items: center; gap: 8px; color: #4b5563; font-size: 11.5px; font-weight: 700; white-space: nowrap; }
+.cb-page-actions .cb-button, .cb-page-actions .cb-fy-control select { min-height: 34px; padding-top: 6px; padding-bottom: 6px; }
 .cb-fy-control select, .cb-modal-form input, .cb-modal-form select { min-height: 38px; box-sizing: border-box; padding: 8px 10px; border: 1px solid #d5d9e2; border-radius: 8px; background: #fff; color: #191919; font: 13px 'Plus Jakarta Sans', sans-serif; }
 .cb-fy-control select { min-width: 220px; }
 .cb-button { min-height: 38px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 8px 12px; border-radius: 8px; font: 700 12.5px 'Plus Jakarta Sans', sans-serif; cursor: pointer; }
@@ -15,7 +15,9 @@
 .cb-inputs-card { display: flex; flex-direction: column; gap: 12px; }
 .cb-inputs-heading { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; }
 .cb-inputs-heading h3 { margin: 0 0 2px; color: #1D2567; font-size: 14px; }
-.cb-inputs-heading p, .cb-inputs-heading > span { margin: 0; color: #6b7280; font-size: 11.5px; }
+.cb-inputs-heading p, .cb-inputs-heading > span, .cb-inputs-side > span { margin: 0; color: #6b7280; font-size: 11.5px; }
+.cb-inputs-side { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px 10px; }
+.cb-inputs-side .cb-button { min-height: 34px; padding-top: 6px; padding-bottom: 6px; }
 .cb-inputs-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .cb-input-summary { min-width: 0; padding: 11px 13px; border: 1px solid #e5e7eb; border-radius: 10px; background: #f8f9fc; }
 .cb-input-summary span { display: block; margin-bottom: 4px; color: #6b7280; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
@@ -55,7 +57,6 @@
 .cb-inline-state { color: #6b7280; font: 13px 'Plus Jakarta Sans', sans-serif; }
 .cb-inline-error { color: #991b1b; }
 @media (max-width: 980px) {
-  .cb-page-header { align-items: stretch; flex-direction: column; }
   .cb-page-actions { justify-content: flex-start; }
   .cb-history-body { grid-template-columns: 1fr; }
 }
@@ -63,5 +64,6 @@
   .cb-page-actions, .cb-page-actions .cb-button, .cb-fy-control, .cb-fy-control select { width: 100%; }
   .cb-inputs-grid { grid-template-columns: 1fr; }
   .cb-inputs-heading { flex-direction: column; }
+  .cb-inputs-side { justify-content: flex-start; }
   .cb-history > summary { align-items: flex-start; flex-direction: column; }
 }

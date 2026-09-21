@@ -936,15 +936,22 @@ Two panes, never three. The Owner reference is `settings-appearance-mockup (1).h
 - **A drill-in's heading is its row's name.** The Skills workspace was titled "Keith" from
   when it was all of Keith's settings; under "‹ Keith / Skills" it is titled Skills (Owner:
   content may change where the hierarchy needs it to make sense).
-- **One baseline, one line, one size (SETTINGS-FIX-2, Owner, 2026-09-21: "Titles the same,
-  aligned. First panes aligned.")** "Settings" heads the rail's column in
-  `SETTINGS_HEADING_STYLE`, the spec every page title uses, so the two titles share a
-  baseline. A list page has no subtitle and Appearance's intro became its closing line, so
-  the rail card and the page's first card start on one line. A drill-in's breadcrumb sits
-  in room the grid reserves above the titles (`position: absolute`), never pushing a title
-  down; stacked below 900px it returns to the flow. A list row's title is set exactly like
-  a rail label (13.5px, 600). Pages whose own header carries real guidance (Accounts,
-  Keith's workspaces, Community Benefit, Parity) keep it, and their first card sits below.
+- **Every page opens with the same header band (SETTINGS-BAND-1, Owner, 2026-09-21)**:
+  `SettingsPageHeader`, which the rail's column wears too ("Settings", as an h1). One fixed
+  shape: a 36px title line (title, an access note, the page's actions) and ONE 20px
+  subtitle line, reserved even when empty, then `--aspire-gap-card`. Equal bands put
+  "Settings" and every page title on one baseline and the rail card and every page's
+  first card on one line, measured on all 13 pages in both CSS load orders down to 1000px.
+  Rules that keep it true: a page draws no title of its own; a subtitle is one sentence of
+  85 characters or fewer (a test counts them), and longer guidance moves into the page
+  (Preceptor Parity's method is a closing How This Check Works card); the band renders in
+  loading and error states too; an action row must fit beside its title, so an edit that
+  belongs to one card sits on that card (Community Benefit's rate and hours buttons are
+  on Reporting Inputs; its band keeps the fiscal year and the export). A drill-in's
+  breadcrumb rides the back link's row, over the page column. Below about 1000px a page
+  whose actions cannot fit wraps them and drops below the line; nothing overflows.
+- **A destination reads the same size in the rail and in a list**: a list row's title is
+  set exactly like a rail label (13.5px, 600), icons 16px on both sides.
 - **An override must win in either load order, because the build does not promise one.**
   `selectionRail.css` is its own CSS chunk; on the live site Settings' sheet loaded FIRST,
   an equal-specificity `.settings-rail-row` lost to `.rr-row-select`, and every label slid

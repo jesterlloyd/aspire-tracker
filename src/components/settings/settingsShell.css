@@ -13,16 +13,26 @@
   font-family: 'Plus Jakarta Sans', sans-serif;
 }
 
-/* Two columns, each opening with a title in the one Settings heading spec, so "Settings"
+/* The top row: the back link over the rail's column and, on a drill-in, the breadcrumb
+   over the page column, on the same grid as the two panes below. */
+.settings-top {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  column-gap: 28px;
+  align-items: center;
+  min-height: 36px;
+}
+.settings-top > :first-child { justify-self: start; max-width: 100%; }
+
+/* Two columns, each opening with the same header band (SettingsPageHeader), so "Settings"
    and the page's title share a baseline and the rail card and the page's first card start
-   on one line. The top margin is the room a drill-in's breadcrumb sits in, reserved on
-   every page so the titles never move between a list and its drill-in. */
+   on one line, on every page. */
 .settings-grid {
   display: grid;
   grid-template-columns: 240px minmax(0, 1fr);
   gap: 28px;
   align-items: start;
-  margin-top: 34px;
+  margin-top: 16px;
 }
 /* The rail's column stretches to the row: a sticky element travels only inside its
    containing block, and a column sized to its content gives it none (ANCHORED-NAV-1). */
@@ -39,7 +49,6 @@
 .rr-row-select.sel .settings-rail-ic { color: #FFFFFF; }
 
 .settings-content {
-  position: relative;
   min-width: 0;
 }
 
@@ -102,19 +111,16 @@
 .settings-list-chev { flex: none; color: var(--color-text-secondary, #4A5560); }
 
 /* ── The breadcrumb over a drill-in: ‹ General / Appearance ─────────────────── */
-/* Out of the flow, in the room the grid reserves above the titles, so the page title
-   stays on the "Settings" baseline. */
+/* On the back link's row, over the page column: it takes no height of its own, so the
+   page title sits on the "Settings" baseline. */
 .settings-crumb {
-  position: absolute;
-  left: 0;
-  bottom: calc(100% + 6px);
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
+  min-width: 0;
   margin: 0;
   font-size: 13px;
-  white-space: nowrap;
 }
 .settings-crumb-back {
   display: inline-flex;
@@ -139,11 +145,11 @@
 .settings-crumb-here { color: var(--color-text-secondary, #4A5560); }
 
 /* Stacked: the rail sits above the page (the canon stops pinning it at the same width),
-   and the breadcrumb returns to the flow at the top of the page. */
+   and the top row stacks the back link over the breadcrumb. */
 @media (max-width: 900px) {
-  .settings-grid { grid-template-columns: minmax(0, 1fr); margin-top: 18px; }
+  .settings-top { grid-template-columns: minmax(0, 1fr); row-gap: 8px; }
+  .settings-grid { grid-template-columns: minmax(0, 1fr); }
   .settings-side { align-self: auto; }
-  .settings-crumb { position: static; margin: 0 0 10px; white-space: normal; }
 }
 
 @media (prefers-reduced-motion: reduce) {

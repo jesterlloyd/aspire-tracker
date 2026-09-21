@@ -335,17 +335,15 @@ test('the page says what the brief says, in the canon\'s case', async () => {
   const html = await renderPage()
   for (const text of [
     '>Appearance</h2>',
-    'These choices are yours alone and follow you to any device.',
+    'How ASPIRE Intelligence looks for you. Your choices follow you to any device.',
     '>Style</h3>', '>Color Mode</h3>', '>Preview</h3>', '>Where Style Applies</h3>',
     'Leather, paper, pins and brass', 'Clean surfaces, same layout', 'Match my computer',
     'Classic shows the address book, and Modern shows',
   ]) assert.ok(html.includes(text), text)
   assert.doesNotMatch(html, /Contacts Layout/)
-  // SETTINGS-FIX-2: the title and then the first card, so it starts on the rail card's
-  // line; the one fact the old intro carried closes the page instead.
-  assert.doesNotMatch(html, /How ASPIRE Intelligence looks for you/)
-  assert.ok(html.indexOf('follow you to any device') > html.lastIndexOf('class="apx-applies"'), 'the fact closes the page')
-  assert.match(html, /<section class="apx"[^>]*><h2 [^>]*>Appearance<\/h2><div [^>]*class="apx-group"/, 'nothing sits between the title and the first card')
+  // SETTINGS-BAND-1: the intro is the band's one subtitle line, and the section's first
+  // child is the first card.
+  assert.match(html, /<header class="settings-page-head">[\s\S]*?>Appearance<\/h2>[\s\S]*?class="settings-page-sub">How ASPIRE Intelligence looks for you\. Your choices follow you to any device\.<\/p><\/header><section class="apx"[^>]*><div [^>]*class="apx-group"/)
 })
 
 test('the status line follows the OS, and says so when the account cannot be reached', async () => {

@@ -116,8 +116,10 @@ test('General lists About, Appearance, Email Signature, Tours & Help, with the a
   ])
   assert.deepEqual(rows.map(r => r.path),
     ['/settings/general/about', '/settings/general/appearance', '/settings/general/signature', '/settings/general/tours'])
-  // SETTINGS-FIX-2: no generic subtitle, so the list starts on the rail card's line.
-  assert.doesNotMatch(shell, /Settings that are yours alone|LIST_PAGE_COPY|settings-phead/)
+  // SETTINGS-BAND-1: the list page's one subtitle line lives in the header band, which
+  // is the same height on every page, so it no longer pushes the list down.
+  assert.match(shell, /general: 'Settings that are yours alone\. They follow you to any device\.'/)
+  assert.match(shell, /<SettingsPageHeader id=\{headingId\} title=\{section\.label\} subtitle=\{LIST_PAGE_COPY\[section\.key\]\} \/>/)
 })
 
 test('a list row is a real button with an icon, a title, a line and a chevron', () => {
@@ -167,8 +169,12 @@ test('every drill-in has its own route under its parent, and renders its existin
 
 test('the pages that bring no heading get one from the shell, on the shared spec', () => {
   assert.match(shell, /const TITLED_BY_SHELL = \['signature', 'tours', 'about'\]/)
-  assert.match(shell, /\{shellTitle && <h2 style=\{SETTINGS_HEADING_STYLE\}>\{shellTitle\}<\/h2>\}/)
-  assert.match(read('src/components/settings/AppearancePanel.jsx'), /style=\{\{ \.\.\.SETTINGS_HEADING_STYLE, margin: 0, marginBottom: 'calc\(14px - var\(--aspire-gap-card\)\)' \}\}>Appearance<\/h2>/)
+  assert.match(shell, /\{shellTitle && <SettingsPageHeader title=\{shellTitle\} subtitle=\{current\.sub\} \/>\}/)
+  assert.match(read('src/components/settings/AppearancePanel.jsx'), /<SettingsPageHeader\s+id=\{`\$\{uid\}-title`\}\s+title="Appearance"/)
+  // Every other page's title comes through the one band, which reads the shared spec.
+  assert.match(read('src/components/settings/AccountsDirectory.jsx'), /<SettingsPageHeader\s+id="accounts-directory-heading"/)
+  assert.match(read('src/components/settings/PreceptorParityPanel.jsx'), /<SettingsPageHeader\s+title="Preceptor Assignment Integrity"/)
+  assert.match(read('src/components/settings/SettingsPageHeader.jsx'), /\.\.\.SETTINGS_HEADING_STYLE/)
 })
 
 // ── Routes ──────────────────────────────────────────────────────────────────
@@ -217,11 +223,9 @@ test('every Settings override beats the canon whatever order the two sheets load
   assert.ok(rail.indexOf('@media (max-width: 900px)') > rail.indexOf('.rr-nav {'))
 })
 
-test('"Settings" and the page title share one heading spec and one baseline; the first cards align', () => {
-  assert.match(shell, /<div className="settings-side">\s*<h1 style=\{SETTINGS_HEADING_STYLE\}>Settings<\/h1>\s*<SettingsRail /)
+test('"Settings" and the page title share one header band, so titles and first cards align', () => {
+  assert.match(shell, /<div className="settings-side">\s*<SettingsPageHeader as="h1" title="Settings" \/>\s*<SettingsRail /)
   assert.doesNotMatch(shell, /settings-title/)
-  assert.match(shell, /<h2 id=\{headingId\} style=\{SETTINGS_HEADING_STYLE\}>\{section\.label\}<\/h2>/,
-    'a list page title is the same spec, margin included, so its list starts where the rail does')
   assert.match(shellCss, /\.settings-side \{\s*align-self: stretch;/, 'the rail column stretches so the rail can stay pinned')
 })
 
@@ -234,11 +238,48 @@ test('a destination reads the same size in the rail and in a list', () => {
   assert.equal((shell.match(/size=\{16\} strokeWidth=\{2\} aria-hidden="true" className="settings-(rail|list)-ic"/g) || []).length, 2, 'same icon size')
 })
 
-test('the breadcrumb sits above the title line, never pushing the title down', () => {
-  assert.match(shellCss, /\.settings-crumb \{\s*position: absolute;\s*left: 0;\s*bottom: calc\(100% \+ 6px\);/)
-  assert.match(shellCss, /\.settings-content \{\s*position: relative;/)
-  assert.match(shellCss, /\.settings-grid \{[^}]*margin-top: 34px;/, 'the room it sits in is reserved on every page')
-  assert.match(shellCss, /@media \(max-width: 900px\) \{[^}]*\.settings-grid \{[^}]*\}\s*\.settings-side \{ align-self: auto; \}\s*\.settings-crumb \{ position: static;/)
+test('the breadcrumb rides the back link\'s row, over the page column, so titles sit right under it', () => {
+  assert.match(shell, /<div className="settings-top">\s*<WorkspaceBackLink path=\{backPath\} label=\{backLabel\} \/>\s*\{parent && <SettingsCrumb parent=\{parent\} here=\{current\} navigate=\{navigate\} \/>\}/)
+  // The top row is the same two columns as the panes, so the crumb starts where the page does.
+  assert.match(shellCss, /\.settings-top \{\s*display: grid;\s*grid-template-columns: 240px minmax\(0, 1fr\);\s*column-gap: 28px;/)
+  assert.match(shellCss, /\.settings-grid \{[^}]*margin-top: 16px;/)
+  assert.doesNotMatch(shellCss, /\.settings-crumb \{[^}]*position: absolute/)
+})
+
+// ── SETTINGS-BAND-1: one header band on every page ──────────────────────────
+
+const band = read('src/components/settings/SettingsPageHeader.jsx')
+const bandCss = read('src/components/settings/settingsPageHeader.css')
+
+test('the band is one fixed shape: a title line and ONE reserved subtitle line', () => {
+  assert.match(band, /<p className="settings-page-sub" aria-hidden=\{subtitle \? undefined : 'true'\}>\{subtitle \|\| null\}<\/p>/,
+    'the subtitle line renders even when empty; that is what keeps every band the same height')
+  assert.match(bandCss, /\.settings-page-head-row \{[^}]*min-height: 36px;/)
+  assert.match(bandCss, /\.settings-page-sub \{\s*height: 20px;[^}]*line-height: 20px;[^}]*white-space: nowrap;/)
+  assert.match(bandCss, /\.settings-page-head \{\s*margin: 0 0 var\(--aspire-gap-card, 16px\);/)
+})
+
+test('every Settings page opens with the band, and nothing else draws a page title', () => {
+  for (const f of ['AppearancePanel', 'AccountsDirectory', 'CommunityBenefitPanel', 'DemoModePanel', 'PreceptorParityPanel',
+    'KnowledgeCenterPanel', 'KeithSkillsPanel', 'KeithUsagePanel']) {
+    const src = read(`src/components/settings/${f}.jsx`)
+    assert.match(src, /<SettingsPageHeader\b/, `${f} opens with the band`)
+    assert.doesNotMatch(src, /<h2 [^>]*SETTINGS_HEADING_STYLE/, `${f} draws no title of its own`)
+  }
+  assert.doesNotMatch(shell, /<h[12] [^>]*SETTINGS_HEADING_STYLE/)
+})
+
+test('every subtitle is one sentence that fits one line (85 characters)', () => {
+  const subs = []
+  for (const f of ['SettingsShell', 'AppearancePanel', 'AccountsDirectory', 'CommunityBenefitPanel', 'DemoModePanel',
+    'PreceptorParityPanel', 'KnowledgeCenterPanel', 'KeithSkillsPanel', 'KeithUsagePanel']) {
+    const src = read(`src/components/settings/${f}.jsx`)
+    for (const m of src.matchAll(/subtitle="([^"]+)"/g)) subs.push(m[1])
+    for (const m of src.matchAll(/(?:general|keith): '([^']+)'/g)) subs.push(m[1])
+  }
+  for (const s of SETTINGS_SECTIONS.filter(x => x.sub)) subs.push(s.sub)
+  assert.ok(subs.length >= 14, `found ${subs.length} subtitles`)
+  for (const s of subs) assert.ok(s.length <= 85, `"${s}" is ${s.length} characters`)
 })
 
 // ── Preserved from earlier passes ───────────────────────────────────────────
