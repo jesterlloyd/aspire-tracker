@@ -2,9 +2,15 @@
 //
 // A preference is a choice about how the app LOOKS to one person, and it follows that
 // person to every device they sign in on. So it lives on their own profile row
-// (user_profiles.ui_preferences, a jsonb object) and not in the browser. Theme is the
-// exception on purpose: it stays device-local in ThemeContext, because a phone and a
-// desktop can reasonably want different themes.
+// (user_profiles.ui_preferences, a jsonb object) and not in the browser.
+//
+// APPEARANCE-STYLE-1 (2026-09-21): the color mode joined the account. It used to be
+// device-local on purpose; the Owner's Appearance brief reversed that, so a person's
+// Light, Dark or System choice now follows them like everything else here. The device
+// keeps a MIRROR of what it last painted (src/lib/appearance.js), because the page has
+// to be painted before anyone is signed in. appearance.contactsLayout is retired:
+// Contacts follows Style now. Rows that stored it keep the key (a write preserves keys
+// it does not know) and nothing reads it.
 //
 // Every key is registered here, with the values it may hold and the value everyone
 // gets until they choose. A key that is not registered is never written by this
@@ -12,16 +18,20 @@
 // never put the app in a state it does not have. Other screens add their own
 // `appearance.*` key below; nothing else needs to change.
 //
-// The column is Owner-gated (supabase/migrations/20260924000000_user_ui_preferences.sql).
-// Until it is applied the read answers 42703 (undefined column) and the store keeps
-// the choice in this browser only. When the column arrives, the first load adopts
+// The column is applied (supabase/migrations/20260924000000_user_ui_preferences.sql,
+// 2026-09-20). A database without it answers 42703 (undefined column), and the store
+// keeps the choice in this browser only. When the column arrives, the first load adopts
 // whatever this browser chose for any key the account has not stored yet, so nobody
 // who opted in early is quietly switched back.
 
-export const CONTACTS_LAYOUT = 'appearance.contactsLayout'
+export const APPEARANCE_STYLE = 'appearance.style'
+export const APPEARANCE_COLOR_MODE = 'appearance.colorMode'
 
+// Light stays everyone's default color mode (Owner, 2026-09-21), not the brief's System,
+// until the portals get a setting of their own or a toggle in place of Refresh.
 export const USER_PREFERENCES = Object.freeze({
-  [CONTACTS_LAYOUT]: Object.freeze({ values: Object.freeze(['classic', 'book']), fallback: 'classic' }),
+  [APPEARANCE_STYLE]: Object.freeze({ values: Object.freeze(['classic', 'modern']), fallback: 'classic' }),
+  [APPEARANCE_COLOR_MODE]: Object.freeze({ values: Object.freeze(['light', 'dark', 'system']), fallback: 'light' }),
 })
 
 const UNDEFINED_COLUMN = '42703'
@@ -61,13 +71,16 @@ export function keysToAdopt(server, local) {
 export const preferenceCacheKey = (uid) => `aspire:ui-preferences:${uid}`
 
 // One store per client. `client` is a supabase client (the real one in the app, a fake
-// in the tests); `storage` is Storage-like and may be null or throw. State:
+// in the tests); `storage` is Storage-like and may be null or throw. `legacy`, when
+// given, returns choices this browser made BEFORE they were account preferences (the
+// old device-local theme); they are adopted exactly like a cached choice, and a choice
+// in this person's own cache outranks them. State:
 //   uid     whose preferences these are (null before sign-in)
 //   prefs   the stored object, unknown keys included and preserved on write
 //   synced  true once the account row was read; false when this build can only keep
 //           the choice in the browser (column absent, or the read failed); null while
 //           the first read is in flight
-export function createUserPreferenceStore({ client, storage }) {
+export function createUserPreferenceStore({ client, storage, legacy = null }) {
   let state = { uid: null, prefs: {}, synced: null }
   const listeners = new Set()
   let writes = Promise.resolve()
@@ -84,6 +97,14 @@ export function createUserPreferenceStore({ client, storage }) {
   const writeCache = (uid, prefs) => {
     if (!uid || !storage) return
     try { storage.setItem(preferenceCacheKey(uid), JSON.stringify(prefs)) } catch { /* private mode */ }
+  }
+
+  const readLegacy = () => {
+    if (!legacy) return {}
+    try {
+      const v = legacy()
+      return isPlainObject(v) ? v : {}
+    } catch { return {} }
   }
 
   const readRow = (uid) => client
@@ -115,7 +136,7 @@ export function createUserPreferenceStore({ client, storage }) {
       return
     }
     const server = isPlainObject(data?.ui_preferences) ? data.ui_preferences : {}
-    const adopted = keysToAdopt(server, readCache(uid))
+    const adopted = keysToAdopt(server, { ...readLegacy(), ...readCache(uid) })
     const prefs = { ...server, ...adopted }
     writeCache(uid, prefs)
     emit({ uid, prefs, synced: true })
@@ -135,6 +156,21 @@ export function createUserPreferenceStore({ client, storage }) {
       if (!uid || state.uid === uid) return null
       emit({ uid, prefs: readCache(uid), synced: null })
       return load(uid)
+    },
+
+    // Put a value back WITHOUT writing: the caller's account write failed and the screen
+    // should show what the account still holds. Only undoes `from` if it is still the
+    // value on screen, so a newer choice made while the write was in flight survives.
+    // Returns true when it put the value back.
+    restore(key, from, to) {
+      if (!isKnownPreference(key)) return false
+      if (preferenceValue(state.prefs, key) !== from) return false
+      const prefs = { ...state.prefs }
+      if (to === undefined) delete prefs[key]
+      else prefs[key] = to
+      emit({ ...state, prefs })
+      writeCache(state.uid, prefs)
+      return true
     },
 
     // The choice shows at once; the account write follows, one at a time, re-reading the

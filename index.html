@@ -39,20 +39,25 @@
     <link rel="preload" href="/fonts/playfair-display/PlayfairDisplay-Variable.woff2" as="font" type="font/woff2" crossorigin>
   </head>
   <body>
-    <!-- FOUC prevention: apply stored theme before first paint -->
+    <!-- FOUC prevention: paint this device's last appearance before first paint.
+         APPEARANCE-STYLE-1: the keys are the device mirror in src/lib/appearance.js
+         (aspire-color-mode = light | dark | system, falling back to the old aspire-theme;
+         aspire-style = classic | modern). data-theme is always the RESOLVED mode; the
+         signed-in person's account choice is applied by the app once it has been read.
+         test/appearanceStyle.test.mjs runs this script. -->
     <script>
       (function() {
+        var root = document.documentElement;
+        var t = 'light', s = 'classic';
         try {
-          var t = localStorage.getItem('aspire-theme');
-          var valid = ['light', 'dark', 'system'];
-          if (!valid.includes(t)) t = 'light';
-          if (t === 'system') {
-            t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-          }
-          document.documentElement.setAttribute('data-theme', t);
-        } catch(e) {
-          document.documentElement.setAttribute('data-theme', 'light');
-        }
+          var m = localStorage.getItem('aspire-color-mode');
+          if (m !== 'light' && m !== 'dark' && m !== 'system') m = localStorage.getItem('aspire-theme');
+          if (m === 'dark') t = 'dark';
+          else if (m === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches) t = 'dark';
+          if (localStorage.getItem('aspire-style') === 'modern') s = 'modern';
+        } catch(e) {}
+        root.setAttribute('data-theme', t);
+        root.setAttribute('data-style', s);
       })();
     </script>
     <div id="root"></div>

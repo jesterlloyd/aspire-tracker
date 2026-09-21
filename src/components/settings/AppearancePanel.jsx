@@ -1,80 +1,230 @@
-// WS2.4: Settings → Appearance panel. The Appearance control was consolidated here from
-// the UserMenu dropdown and Settings → General so theme/display has a single canonical
-// home. It reuses the existing ThemeToggle unchanged - theme persistence, data-theme
-// behavior, the OS listener, and the public data-theme-lock all remain in ThemeContext.
+// Settings > Appearance (APPEARANCE-STYLE-1, 2026-09-21; the Owner's mockup,
+// settings-appearance-mockup.html, is the reference).
 //
-// CONTACTS-BOOK-1 (2026-09-20): a second card, Contacts Layout, chooses between Classic
-// and the Address book on ASPIRE Connect > Contacts. Unlike Theme it is per-USER, not
-// per-device: it reads and writes appearance.contactsLayout through useUserPreference,
-// the same store the link beside Refresh uses, so the two always agree.
+// Two choices that combine freely, both saved to the person's account the moment they
+// are made (no Save button): Style (Classic or Modern) and Color mode (Light, Dark or
+// System). Each card is a real <input type="radio"> inside its <label>, so the arrow
+// keys, one tab stop per group and a screen reader's "radio, 1 of 3" come from the
+// browser. A change paints at once and confirms with a short toast; a save the account
+// refuses puts the earlier choice back and says so.
+//
+// Below them: a small preview of Contacts, the one screen whose drawing follows Style
+// today, and the list of screens Style reaches, each marked Coming until its Modern
+// version is built (src/lib/appearance.js STYLE_SURFACES).
+//
+// The drawing is AppearanceSettings, on plain props, so it renders without a provider in
+// the tests; AppearancePanel wires it to the account.
 import { useId } from 'react'
-import ThemeToggle from '../ThemeToggle'
+import { useAppearance } from '../../hooks/useAppearance'
+import { useToast } from '../../hooks/useToast'
+import { ToastContainer } from '../Toast'
+import { SETTINGS_HEADING_STYLE } from './settingsSections'
 import SurfaceCard from '../ui/SurfaceCard'
-import { useUserPreference } from '../../hooks/useUserPreference'
-import { CONTACTS_LAYOUT } from '../../lib/userPreferences'
+import {
+  STYLE_SURFACES, styleToast, colorModeToast, systemStatusLine,
+} from '../../lib/appearance'
+import './appearanceSettings.css'
 
-const CONTACTS_LAYOUT_OPTIONS = [
-  { value: 'classic', label: 'Classic' },
-  { value: 'book',    label: 'Address Book' },
+const STYLE_OPTIONS = [
+  { value: 'classic', title: 'Classic', sub: 'Leather, paper, pins and brass' },
+  { value: 'modern', title: 'Modern', sub: 'Clean surfaces, same layout' },
+]
+const MODE_OPTIONS = [
+  { value: 'light', title: 'Light' },
+  { value: 'dark', title: 'Dark' },
+  { value: 'system', title: 'System', sub: 'Match my computer' },
 ]
 
-const CARD_STYLE = {
-  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap',
-}
-const TITLE_STYLE = { fontSize: 14, fontWeight: 600, color: 'var(--color-text-primary, #191919)' }
-const HINT_STYLE = { fontSize: 12.5, color: 'var(--color-text-secondary, #6b7280)', marginTop: 2 }
-
-// A real radio group: native radios give arrow-key movement and one tab stop for free.
-// The visible title labels the group; the segments are styled in index.css.
-function ContactsLayoutCard() {
-  const [layout, setLayout, { synced }] = useUserPreference(CONTACTS_LAYOUT)
-  const titleId = useId()
-  const hintId = useId()
-  const name = useId()
+function RadioCard({ name, value, checked, onChoose, title, sub, thumb }) {
   return (
-    <SurfaceCard padding="16px 18px" style={CARD_STYLE}>
-      {/* The text shrinks before the row wraps, so the control stays beside the title. */}
-      <div style={{ minWidth: 0, flex: '1 1 260px' }}>
-        <div id={titleId} style={TITLE_STYLE}>Contacts Layout</div>
-        <div id={hintId} style={HINT_STYLE}>
-          ASPIRE Connect Contacts as three columns, or as an address book with the whole record on one page.
-          {synced === false ? ' Saved in this browser for now.' : ''}
-        </div>
-      </div>
-      <div role="radiogroup" aria-labelledby={titleId} aria-describedby={hintId} className="appearance-segmented">
-        {CONTACTS_LAYOUT_OPTIONS.map(option => (
-          <label key={option.value} className="appearance-segment">
-            <input
-              type="radio"
-              name={name}
-              value={option.value}
-              checked={layout === option.value}
-              onChange={() => setLayout(option.value)}
-            />
-            <span>{option.label}</span>
-          </label>
-        ))}
-      </div>
-    </SurfaceCard>
+    <label className="apx-rc">
+      <input
+        type="radio"
+        name={name}
+        value={value}
+        checked={checked}
+        onChange={() => onChoose(value)}
+      />
+      <span className={`apx-th apx-th-${value}`} aria-hidden="true">{thumb}</span>
+      <span className="apx-lab">
+        <span>
+          <b>{title}</b>
+          {sub && <small>{sub}</small>}
+        </span>
+        <span className="apx-tick" aria-hidden="true">✓</span>
+      </span>
+    </label>
   )
 }
 
-// SETTINGS-VISUAL-DENSITY-1: the heading is provided by the General master-detail hub
-// (one shared baseline with Settings | General); the generic subtitle is removed. The
-// operational guidance lives inside the card. Custom border card -> canonical SurfaceCard.
-export default function AppearancePanel() {
+// Thumbnails are pictures of a style or a palette, so their colours are fixed.
+const THUMBS = {
+  classic: <><i className="apx-th-gilt apx-th-gilt-l" /><i className="apx-th-gilt apx-th-gilt-r" /><span className="apx-th-pages"><i /><i /></span><i className="apx-th-ribbon" /></>,
+  modern: <><i /><i /></>,
+  light: <><i className="apx-th-bar" /><span className="apx-th-body"><i /><i /></span></>,
+  dark: <><i className="apx-th-bar" /><span className="apx-th-body"><i /><i /></span></>,
+  system: <><i className="apx-th-bar" /><span className="apx-th-body"><i /><i /></span></>,
+}
+
+const PREVIEW_NAMES = ['Esther Kere', 'Tony Kim', 'Gary Mittelberg', 'Karen Mills', 'Krystal Rodriguez']
+
+// A miniature of Contacts in the chosen style: the address book in Classic, the three
+// columns in Modern, with the flag drawn the way that style draws it.
+function ContactsPreview({ style }) {
   return (
-    <section aria-label="Appearance" style={{ display: 'grid', gap: 'var(--aspire-gap-card)' }}>
-      <SurfaceCard padding="16px 18px" style={CARD_STYLE}>
-        <div style={{ minWidth: 0 }}>
-          <div style={TITLE_STYLE}>Theme</div>
-          <div style={HINT_STYLE}>
-            Choose Light, Dark, or follow your system setting.
+    <div className={`apx-pv apx-pv-${style}`} role="img"
+      aria-label={style === 'modern'
+        ? 'Preview: Contacts as plain panels, with a Flagged tag beside the open contact'
+        : 'Preview: Contacts as a leather address book, with a ribbon marking the open contact'}>
+      <i className="apx-pv-ribbon" />
+      <div className="apx-pv-sheet">
+        <div className="apx-pv-bar">Contacts</div>
+        <div className="apx-pv-list">
+          {PREVIEW_NAMES.map((n, i) => (
+            <div key={n} className={`apx-pv-ent${i === 2 ? ' apx-pv-on' : ''}`}><i />{n}</div>
+          ))}
+        </div>
+        <div className="apx-pv-rec">
+          <div className="apx-pv-name">Gary Mittelberg<span className="apx-pv-flag">Flagged</span></div>
+          <span className="apx-pv-badge">Assistant Professor</span>
+          <i className="apx-pv-ln" /><i className="apx-pv-ln apx-pv-s" /><i className="apx-pv-ln" /><i className="apx-pv-ln apx-pv-s" />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export function AppearanceSettings({ style, colorMode, systemTheme, synced, onStyle, onColorMode }) {
+  const uid = useId()
+  const ids = {
+    styleH: `${uid}-style-h`, styleD: `${uid}-style-d`,
+    modeH: `${uid}-mode-h`, modeD: `${uid}-mode-d`,
+    style: `${uid}-style`, mode: `${uid}-mode`,
+  }
+  return (
+    <section className="apx" aria-labelledby={`${uid}-title`}>
+      <header className="apx-head">
+        <h2 id={`${uid}-title`} style={{ ...SETTINGS_HEADING_STYLE, margin: 0 }}>Appearance</h2>
+        <p>
+          How ASPIRE Intelligence looks for you. These choices are yours alone and follow you to any device.
+          {synced === false ? ' For now they are saved in this browser only.' : ''}
+        </p>
+      </header>
+
+      <SurfaceCard className="apx-group" padding="18px 20px" role="radiogroup" aria-labelledby={ids.styleH} aria-describedby={ids.styleD}>
+        <div className="apx-ghead">
+          <div>
+            <h3 id={ids.styleH}>Style</h3>
+            <p id={ids.styleD}>
+              Classic gives each workspace its own material: the placement board, the chart binder, the
+              address book. Modern keeps every screen and every feature, with the materials turned off.
+            </p>
           </div>
         </div>
-        <ThemeToggle />
+        <div className="apx-cards apx-cards-2">
+          {STYLE_OPTIONS.map(o => (
+            <RadioCard key={o.value} name={ids.style} {...o} checked={style === o.value}
+              onChoose={onStyle} thumb={THUMBS[o.value]} />
+          ))}
+        </div>
       </SurfaceCard>
-      <ContactsLayoutCard />
+
+      <SurfaceCard className="apx-group" padding="18px 20px" role="radiogroup" aria-labelledby={ids.modeH} aria-describedby={ids.modeD}>
+        <div className="apx-ghead">
+          <div>
+            <h3 id={ids.modeH}>Color Mode</h3>
+            <p id={ids.modeD}>Light or dark, for either style. System follows your computer and switches at sunset if it does.</p>
+          </div>
+          <span className="apx-now" data-testid="system-status">{systemStatusLine(systemTheme === 'dark')}</span>
+        </div>
+        <div className="apx-cards apx-cards-3">
+          {MODE_OPTIONS.map(o => (
+            <RadioCard key={o.value} name={ids.mode} {...o} checked={colorMode === o.value}
+              onChoose={onColorMode} thumb={THUMBS[o.value]} />
+          ))}
+        </div>
+      </SurfaceCard>
+
+      <SurfaceCard className="apx-group" padding="18px 20px">
+        <div className="apx-ghead">
+          <div>
+            <h3>Preview</h3>
+            <p>Contacts in whichever style and mode you pick.</p>
+          </div>
+        </div>
+        <div className="apx-previewwrap">
+          <ContactsPreview style={style} />
+          <div className="apx-pvnote">
+            <b>What Modern changes</b>
+            <ul>
+              <li>Leather, felt, cork and brass become plain surfaces</li>
+              <li>Paper grain, gilt edges and page stacks are removed</li>
+              <li>Rings, pins and clips are hidden</li>
+              <li>The ribbon becomes a Flagged tag</li>
+            </ul>
+            <b>What stays the same</b>
+            <ul>
+              <li>Every layout, button and shortcut</li>
+              <li>Your data, flags and filters</li>
+            </ul>
+          </div>
+        </div>
+      </SurfaceCard>
+
+      <SurfaceCard className="apx-group" padding="18px 20px">
+        <div className="apx-ghead">
+          <div>
+            <h3>Where Style Applies</h3>
+            <p>
+              Every crafted workspace switches together, and screens that are already flat look the same in
+              both. A screen marked Coming keeps its material in both styles until its Modern version ships.
+            </p>
+          </div>
+        </div>
+        <ul className="apx-applies">
+          {STYLE_SURFACES.map(s => (
+            <li key={s.key} className="apx-ap">
+              <span className={`apx-sw apx-sw-${s.key}`} aria-hidden="true" />
+              <span className="apx-ap-text">{s.label}<small>{s.material}</small></span>
+              {!s.modern && <span className="apx-coming">Coming</span>}
+            </li>
+          ))}
+        </ul>
+        <p className="apx-note">
+          Contacts no longer has a layout setting of its own: Classic shows the address book, and Modern shows
+          the three-column view.
+        </p>
+      </SurfaceCard>
     </section>
+  )
+}
+
+export default function AppearancePanel() {
+  const { style, colorMode, systemTheme, synced, setStyle, setColorMode } = useAppearance()
+  const { toasts, removeToast, toast } = useToast()
+
+  const onStyle = async (next) => {
+    const r = await setStyle(next)
+    if (r.ok) toast.success(styleToast(next), undefined, { duration: 2200 })
+    else toast.error('Style not saved', 'Your earlier choice is back. Please try again.')
+  }
+  const onColorMode = async (next) => {
+    const r = await setColorMode(next)
+    if (r.ok) toast.success(colorModeToast(next), undefined, { duration: 2200 })
+    else toast.error('Color mode not saved', 'Your earlier choice is back. Please try again.')
+  }
+
+  return (
+    <>
+      <AppearanceSettings
+        style={style}
+        colorMode={colorMode}
+        systemTheme={systemTheme}
+        synced={synced}
+        onStyle={onStyle}
+        onColorMode={onColorMode}
+      />
+      <ToastContainer toasts={toasts} removeToast={removeToast} />
+    </>
   )
 }

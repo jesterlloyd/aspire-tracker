@@ -18,9 +18,8 @@ import { ToastContainer } from '../components/Toast'
 import { RefreshHint } from '../components/UnifiedNav'
 import WorkspaceBackLink from '../components/ui/WorkspaceBackLink'
 import SegmentedTabs from '../components/ui/SegmentedTabs'
-import ContactsLayoutLink from '../components/connect/ContactsLayoutLink'
-import { useUserPreference } from '../hooks/useUserPreference'
-import { CONTACTS_LAYOUT } from '../lib/userPreferences'
+import { useTheme } from '../contexts/ThemeContext'
+import { contactsUsesBook } from '../lib/appearance'
 import { useChartViewport } from '../components/student/useChartViewport'
 
 const F = 'Plus Jakarta Sans, sans-serif'
@@ -122,10 +121,11 @@ export default function ConnectPage({ cohortId, onNavigateToStudent, refreshRef,
   // The back row, the title and the subtitle scroll away, the section picker pins under
   // the app chrome, and everything left in the window is the book. The student chart's
   // rule and its measurement: useChartViewport measures the sticky chrome and the picker
-  // and reports the height that remains. Every other tab, and Classic, keep the fixed
-  // page they always had.
-  const [contactsLayout] = useUserPreference(CONTACTS_LAYOUT)
-  const bookPage = activeSubTab === 'contacts' && contactsLayout === 'book'
+  // and reports the height that remains. Every other tab, and the three-column view, keep
+  // the fixed page they always had. APPEARANCE-STYLE-1: the book is Classic style's
+  // Contacts and the three columns are Modern's; the layout has no setting of its own.
+  const { style } = useTheme()
+  const bookPage = activeSubTab === 'contacts' && contactsUsesBook(style)
   const { barRef: pickerRef, chartHeight: bookHeight, toolbarTop: chromeHeight } = useChartViewport()
 
   return (
@@ -138,11 +138,9 @@ export default function ConnectPage({ cohortId, onNavigateToStudent, refreshRef,
         {/* Return control (left) + refresh (right) - on the page background, no utility bar. */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
           <WorkspaceBackLink path={backPath} label={backLabel} />
-          {/* CONTACTS-BOOK-1: on Contacts only, the layout switch sits just left of Refresh. */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            {activeSubTab === 'contacts' && <ContactsLayoutLink />}
-            <RefreshHint onClick={handleRefresh} tooltipLabel="Refresh Connect data" loading={refreshing} />
-          </div>
+          {/* APPEARANCE-STYLE-1: the Contacts layout link that sat here is retired;
+              Settings > Appearance > Style decides the drawing. */}
+          <RefreshHint onClick={handleRefresh} tooltipLabel="Refresh Connect data" loading={refreshing} />
         </div>
         <div style={{ marginBottom: 12 }}>
           <h1 style={{

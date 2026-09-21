@@ -37,7 +37,8 @@ test('UserMenu links the canonical public site in a new tab, portal-style', () =
   assert.match(userMenu, /Public site/)
   // Order: identity block -> Public site -> Settings -> Sign out.
   const publicIdx = userMenu.indexOf('Public site')
-  const settingsIdx = userMenu.indexOf('navigate(\'/settings/general\')')
+  // APPEARANCE-STYLE-1: Settings opens on Appearance, through the one shared path.
+  const settingsIdx = userMenu.indexOf('navigate(STAFF_SETTINGS_PATH)')
   const signOutIdx = userMenu.indexOf('Sign out')
   assert.ok(publicIdx > -1 && publicIdx < settingsIdx && settingsIdx < signOutIdx)
   // Existing self-photo controls are untouched.

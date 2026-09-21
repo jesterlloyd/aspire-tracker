@@ -56,6 +56,7 @@ import MainMessagesLauncher from '../components/MainMessagesLauncher'
 import FeedbackPanel from '../components/FeedbackPanel'
 import { logEvent, eventExists } from '../lib/logEvent'
 import { useToast } from '../hooks/useToast'
+import { useAppearanceSync } from '../hooks/useAppearance'
 import { ToastContainer } from '../components/Toast'
 import { logActivity } from '../lib/logActivity'
 import { safeWrite } from '../lib/safeWrite'
@@ -142,6 +143,9 @@ const LEGACY_COHORT_KEY = 'aspire_active_cohort_id'
 function MainApp({ onLogout }) {
   const { toasts, removeToast, toast } = useToast()
   const { user, userProfile: currentUserProfile, canEdit } = useAuth()
+  // APPEARANCE-STYLE-1: paint the signed-in person's Style and Color mode from their
+  // account. Staff only: the portals keep the device's own appearance (Owner, 2026-09-21).
+  useAppearanceSync()
 
   // One-time cleanup of old shared-password auth storage keys
   useEffect(() => {
@@ -1378,7 +1382,7 @@ function MainApp({ onLogout }) {
         <Header
           cohort={{ cohorts, activeCohort, activeCohortId, sortedCohorts, handleCohortSwitch, canEdit, setShowManageCohort, setShowNewCohort }}
           search={{ searchAreaRef, searchInputRef, searchQuery, searchFocused, searchOpen, searchLoading, searchFlat, searchResults, searchActiveIdx, setSearchActiveIdx, setSearchOpen, setSearchFocused, handleSearchChange, handleSearchKey, handleSearchResult }}
-          actions={{ cohorts, navigate, activeTab, bellRef, setShowActionCenter, showActionCenter, actionBadgeCount, notificationsUnread }}
+          actions={{ cohorts, navigate, activeTab, bellRef, setShowActionCenter, showActionCenter, actionBadgeCount, notificationsUnread, toast }}
           /* SCOPE-PICKER-1: `experience` is passed ONLY for profiles holding
              ngrp_access. Its absence means one experience, which the Scope pill
              renders as the cohort name alone - a caller with no Residency has no

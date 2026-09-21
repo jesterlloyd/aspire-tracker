@@ -1,0 +1,47 @@
+/* FlagTag (APPEARANCE-STYLE-1): Modern style's follow-up flag. A literal colour pair,
+   because the surfaces it sits on (the three-column Contacts profile, and later the
+   rubric's and the chart's pages) are light in both themes. The flagged pair is the
+   light theme's --aspire-bad on --aspire-bad-soft, 6.8:1. The quiet ink is 7.5:1 on
+   white. A theme-following surface redefines these four properties on itself. */
+.flag-tag {
+  --flag-tag-ink: #4A5560;
+  --flag-tag-edge: rgba(25, 25, 25, 0.22);
+  --flag-tag-on-ink: #A32A32;
+  --flag-tag-on-bg: #FBEAEC;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 9px;
+  border: 1px solid var(--flag-tag-edge);
+  border-radius: var(--aspire-radius-pill);
+  background: transparent;
+  color: var(--flag-tag-ink);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.5;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+}
+.flag-tag:hover:not(:disabled) {
+  border-color: var(--flag-tag-on-ink);
+  color: var(--flag-tag-on-ink);
+}
+/* The state rule pairs itself with :hover so pointing at a flagged tag never hides it. */
+.flag-tag.flag-tag-on,
+.flag-tag.flag-tag-on:hover:not(:disabled) {
+  border-color: transparent;
+  background: var(--flag-tag-on-bg);
+  color: var(--flag-tag-on-ink);
+}
+.flag-tag:focus-visible {
+  outline: 3px solid #1D2567;
+  outline-offset: 2px;
+}
+.flag-tag:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+@media (prefers-reduced-motion: reduce) {
+  .flag-tag { transition: none; }
+}

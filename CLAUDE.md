@@ -322,7 +322,7 @@ Three ribbons, the same gesture, three different columns, and they must never be
 |---|---|---|---|
 | Interview rubric | `students.flagged_for_second_interview` | bring this candidate back for a second interview | Interview Recommendations, Action Center |
 | Student chart | `students.flagged_for_followup` | come back to this student | the roster row, and nothing else |
-| Contacts address book | `contacts.flagged_for_followup` | come back to this person | the book's entry mark and Flagged only filter, and nothing else (not Classic) |
+| Contacts | `contacts.flagged_for_followup` | come back to this person | Contacts only: the book's ribbon, entry mark and Flagged only in Classic style; the three columns' Flagged tag, row mark and Flagged only in Modern (APPEARANCE-STYLE-1) |
 
 Neither carries a note: the pull is the whole interaction. One component,
 `src/components/rubric/FlagRibbon.jsx`, serves both; the rubric's values are its defaults,
@@ -775,11 +775,14 @@ ResponsesPacket.jsx`, `BubbleSheet.jsx`, `responsesPacket.css`, and the tab.
 
 ## Contacts can be an address book (CONTACTS-BOOK-1, 2026-09-20)
 
-ASPIRE Connect > Contacts has two layouts, chosen per person: **Classic** (the three-zone
-screen, everyone's default) and the **Address book** (`src/components/connect/ContactsBook.jsx`
-and `contactsBook.css`), bound in cognac leather, the same leather as the Interview Rubric
-(CONTACTS-BOOK-3; it was oxblood before). The reference is
-`docs/mockups/contacts-book-mockup.html`, with its brief beside it.
+ASPIRE Connect > Contacts has two drawings: the three-zone screen (`ClassicContacts`) and
+the **Address book** (`src/components/connect/ContactsBook.jsx` and `contactsBook.css`),
+bound in cognac leather, the same leather as the Interview Rubric (CONTACTS-BOOK-3; it was
+oxblood before). The reference is `docs/mockups/contacts-book-mockup.html`, with its brief
+beside it. **Since APPEARANCE-STYLE-1 (2026-09-21) there is no Contacts layout setting:
+Style decides.** Classic style is the address book, Modern style is the three columns, so
+the address book is everyone's default. Mind the name: `ClassicContacts` was the classic
+LAYOUT before the book existed, and it is the MODERN style's Contacts now.
 
 - **One data hook, two drawings.** `useContactsDirectory` holds the contacts, the three
   queries, the selection restore order (URL, then this browser's last contact, then the
@@ -790,17 +793,23 @@ and `contactsBook.css`), bound in cognac leather, the same leather as the Interv
 - **Classic is frozen.** Its markup moved into `ClassicContacts` unchanged except the call
   sites that now name the shared action (select, Deactivate). A harness rendered it beside
   the pre-change build: every element's geometry and computed style matched at 1440, 900
-  and 700px, light and dark. Change Classic only on purpose. The one change since was on
-  purpose (CONTACTS-BOOK-2, Owner): **Repair Preceptor Contacts is gone from both layouts**,
-  modal and all; the automatic sync in `PreceptorFormModal` is the only preceptor writer.
+  and 700px, light and dark. Change Classic only on purpose. Two changes since were on
+  purpose: **Repair Preceptor Contacts is gone from both layouts** (CONTACTS-BOOK-2, Owner),
+  modal and all, the automatic sync in `PreceptorFormModal` being the only preceptor
+  writer; and it carries the follow-up flag (APPEARANCE-STYLE-1), because Modern keeps
+  every feature: a `FlagTag` under the name, a mark on the row, and Flagged only beside
+  Show inactive, all on the same `handleFlag` write the ribbon uses. Its panels are fixed
+  light in dark mode, as they always were; Modern + Dark Contacts shows them that way.
 - **A preference follows the person, not the browser.** `src/lib/userPreferences.js` is
   the registry (every key, its legal values, its default) and the store;
-  `useUserPreference(key)` is the only way a component reads or writes one, which is why
-  Settings > Appearance and the link beside Refresh can never disagree. The column is
+  `useUserPreference(key)` (or, for Style and Color mode, `useAppearance`) is the only way a
+  component reads or writes one, so two controls can never disagree. The column is
   `user_profiles.ui_preferences` (`20260924000000_user_ui_preferences.sql`, applied 2026-09-20).
   Without it the choice is kept in the browser and Settings says so; with it, the first
   load adopts that browser's choice and the account wins from then on. A new `appearance.*`
-  key is one line in the registry. Theme stays device-local in ThemeContext on purpose.
+  key is one line in the registry. `appearance.contactsLayout` is retired: nothing reads
+  it, and rows that stored it keep the key. The color mode is NOT device-local any more;
+  see "Style is a material switch" below.
 - **The book files by last name**, reading the DISPLAYED name (`contactsBookModel.js`):
   the last word, less a credential after a comma or a Jr/III suffix. A category change that
   hides the open record opens the first entry instead; typing does not.
@@ -847,8 +856,54 @@ and `contactsBook.css`), bound in cognac leather, the same leather as the Interv
   (`--ab-accent`), because the cover tones sit too close to the dark paper. The open
   entry's subline reads `--ab-mute-on-tint`. Copy visible emails stays, quietly, on the
   count row. Swept: every text node, both themes, every branch open, zero failures.
-- **The link beside Refresh hides below 480px**, where the header cannot hold three
-  controls on one row. Settings still switches the layout there.
+- **The link beside Refresh is retired** (APPEARANCE-STYLE-1). Refresh stands alone again.
+
+## Style is a material switch (APPEARANCE-STYLE-1, 2026-09-21)
+
+Two per-user choices that combine freely, both in `user_profiles.ui_preferences` through the
+registry: **Style** `appearance.style` (`classic` | `modern`, default classic) and **Color
+mode** `appearance.colorMode` (`light` | `dark` | `system`, default **light**: the brief said
+System, the Owner kept Light until the portals get a setting of their own or a toggle in
+place of Refresh). The rules live in `src/lib/appearance.js`; the reference is the Owner's
+`settings-appearance-mockup.html`.
+
+- **Modern turns materials off; it never forks a screen.** Every screen keeps ONE component
+  tree. Its material rules go quiet under `:root[data-style="modern"]`, mostly as token
+  overrides, with `display: none` only for pure decoration (pins, rings, clips, gilt, page
+  stacks, tractor holes). Layout, data, actions, shortcuts, permissions and status colours
+  do not change. A ribbon becomes `src/components/shared/FlagTag.jsx`, the same flag with the
+  same write. Contacts is the one exception, because its two drawings already existed.
+- **Where it applies is a list with an honesty flag.** `STYLE_SURFACES` names the seven
+  screens with a material; Settings marks any whose Modern is not built as **Coming**. As of
+  this build only Contacts switches. A session that builds a screen's Modern flips its
+  `modern` flag in the same commit. Automations has no equipment panel, so it is not on the
+  list; add it when a material for it ships. Messages stays a plain chat in both styles.
+- **`data-theme` is always the RESOLVED mode** (`light` | `dark`). Every dark rule keys on
+  `[data-theme="dark"]` and none on `prefers-color-scheme`, so System is resolved in
+  ThemeContext rather than by removing the attribute (the brief's shape would switch dark
+  mode off for every System user). `data-style` sits beside it.
+- **Paint before React, from the device; correct from the account.** index.html paints from
+  a device mirror (`aspire-color-mode`, `aspire-style`) before first paint, and
+  `useAppearanceSync` (staff app only; the portals keep the device's appearance, Owner) paints
+  the account's choice once it has been read. A key the account has not stored paints
+  nothing until the read has happened. A new device therefore shows its default for a
+  moment after sign-in the first time, and never again.
+- **The migration reads `aspire-theme` and never writes it.** The old build wrote that key
+  only when a person clicked a theme, so it means "chosen"; the store's `legacy` seed adopts
+  it into an account with no color mode. The mirror has its own key because a Light painted
+  only as the default, written to `aspire-theme`, would read as a choice on the next load
+  and could outvote a real Dark from another device (found in the harness, fixed before
+  commit). `test/appearanceStyle.test.mjs` runs the index.html script over 200 stored states.
+- **A refused save puts the earlier choice back.** `useAppearance` paints, saves, and on an
+  error calls `store.restore(key, from, to)`, which undoes only if `from` is still on screen.
+- **Settings is two panes** (`settingsShell.css`): a 240px rail in groups You / Workspace /
+  Diagnostics, the page beside it, one column below 860px. The General hub is deleted;
+  `/settings/general` and unknown paths land on `DEFAULT_SETTINGS_PATH` (Appearance). Rail
+  labels stay Title Case per the canon, not the mockup's sentence case. The rail pins at
+  120px, the offset Keith's workspace nav pins at, and a test holds the two equal.
+- **The header's light/dark button** (`ColorModeButton`) shows what is painted and sets the
+  opposite as an explicit choice, System included. It hides below 560px, where a fifth icon
+  crushed the brand from 87px to 41px; Settings still switches there.
 
 ## Both books wear one cover (BOOK-COVER-1, 2026-09-21)
 

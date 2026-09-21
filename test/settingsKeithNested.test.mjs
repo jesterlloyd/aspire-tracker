@@ -18,6 +18,8 @@ import { SETTINGS_SECTIONS, visibleSections, routableSections } from '../src/com
 const here = dirname(fileURLToPath(import.meta.url))
 const read = (p) => readFileSync(join(here, '..', p), 'utf8')
 const shell = read('src/components/settings/SettingsShell.jsx')
+// APPEARANCE-STYLE-1: the shell's layout rules moved from an inline <style> to this sheet.
+const shellCss = read('src/components/settings/settingsShell.css')
 const panel = read('src/components/settings/KeithPanel.jsx')
 
 const ADMIN = { isOwner: false, isAdmin: true }
@@ -79,7 +81,7 @@ test('all three workspace routes are directly reachable, not only via redirect',
 test('the rail highlights Keith for every Keith workspace', () => {
   // KEITH-USAGE-1: the fold map gained keithUsage.
   assert.match(shell, /const KEITH_SUBKEYS = \{ keithSkills: 'skills', keithKnowledge: 'knowledge', keithUsage: 'usage' \}/)
-  assert.match(shell, /KEITH_SUBKEYS\[matchedKey\] \? 'keith' : matchedKey/)
+  assert.match(shell, /KEITH_SUBKEYS\[currentKey\] \? 'keith' : currentKey/)
   assert.match(shell, /active = s\.key === railActiveKey/)
 })
 
@@ -123,12 +125,13 @@ test('Owner and Admin reach Keith and both workspaces; other staff reach none', 
   assert.ok(!visibleSections(STAFF).some(s => s.key === 'keith'))
 })
 
-test('an unauthorized deep link falls back to General rather than rendering Keith', () => {
+test('an unauthorized deep link falls back to the default page rather than rendering Keith', () => {
   // knownPaths is built from routableSections(roleFlags), so for a non-admin the
   // Keith paths are unknown and the normalization effect bounces them.
+  // APPEARANCE-STYLE-1: the default is Appearance now that General is retired.
   assert.match(shell, /const knownPaths = routable\.map\(s => s\.path\)/)
   assert.match(shell, /!knownPaths\.includes\(path\)/)
-  assert.match(shell, /navigate\('\/settings\/general', \{ replace: true \}\)/)
+  assert.match(shell, /navigate\(DEFAULT_SETTINGS_PATH, \{ replace: true \}\)/)
 })
 
 // ── Responsive and accessibility ─────────────────────────────────────────────
@@ -153,19 +156,13 @@ test('three columns above 1280px, compact picker at or below it', () => {
 })
 
 test('the 1280 breakpoint is Keith-local and does not touch the shared Settings grid', () => {
-  const general = read('src/components/settings/GeneralPanel.jsx')
-  assert.match(general, /function useIsNarrow\(bp = 768\)/, 'General keeps its own 768 breakpoint')
-  assert.doesNotMatch(general, /1280/)
-  // The shell's rail-stacking rule is unchanged too.
-  assert.match(shell, /@media \(max-width: 768px\)/)
-  // Pin the CONSTRUCT, not the number: the shell mentions 1280 in a comment
-  // recording the widths a past layout was measured at.
+  // APPEARANCE-STYLE-1: the General hub is gone; the shell's own rail-stacking rule
+  // is 860px (the mockup's), in its stylesheet.
+  assert.match(shellCss, /@media \(max-width: 860px\) \{\s*\.settings-grid \{ grid-template-columns: minmax\(0, 1fr\); \}/)
+  // Pin the CONSTRUCT, not the number.
+  assert.doesNotMatch(shellCss, /max-width: 1280/)
   assert.doesNotMatch(shell, /max-width: 1280/)
   assert.doesNotMatch(shell, /useIsCompact|KEITH_COMPACT_BREAKPOINT/)
-  // And General's master-detail widths are untouched, so the two hubs still
-  // share one grid above the Keith breakpoint.
-  assert.match(general, /flex: '0 0 248px', minWidth: 220/)
-  assert.match(general, /flex: '1 1 420px', minWidth: 0/)
 })
 
 test('the compact picker keeps the wide layout\'s semantics exactly', () => {
@@ -283,13 +280,15 @@ test('the refinement is table-only: navigation and the breakpoint are untouched'
 // PAGE SCROLL. Not an independently scrolling right pane, which would put two
 // vertical scrollbars on one screen.
 
-test('the Settings rail column stretches, so its sticky rule can actually work', () => {
-  assert.match(shell, /\.settings-nav-col \{ align-self: stretch; \}/)
-  assert.match(shell, /className="settings-nav-col"/)
-  assert.match(shell, /\.settings-nav-rail \{ position: sticky; top: 120px;/)
-  // Below the shell's own breakpoint the rail stacks above content, so stretching
-  // it there would strand the nav in a tall empty column.
-  assert.match(shell, /@media \(max-width: 768px\) \{ \.settings-nav-col \{ align-self: auto; \}/)
+test('the Settings rail is a sticky grid item, so its sticky rule can actually work', () => {
+  // APPEARANCE-STYLE-1: the rail is a grid item now, not a flex column. A sticky grid
+  // item travels inside its grid AREA, which spans the row's full height, so it needs
+  // no stretched wrapper (the flex layout did: ANCHORED-NAV-1).
+  assert.match(shellCss, /\.settings-grid \{[^}]*display: grid;[^}]*align-items: start;/)
+  assert.match(shell, /<nav className="settings-nav" aria-label="Settings sections">/)
+  assert.match(shellCss, /\.settings-nav \{\s*position: sticky;\s*top: 120px;/)
+  // Below the stacking breakpoint the rail sits above the page and is not sticky.
+  assert.match(shellCss, /@media \(max-width: 860px\) \{[\s\S]*?\.settings-nav \{\s*position: static;/)
 })
 
 test('the Keith secondary nav anchors the same way, at the same offset', () => {
@@ -299,7 +298,7 @@ test('the Keith secondary nav anchors the same way, at the same offset', () => {
   assert.match(panel, /className="keith-nav-card"/)
   // Same top offset as the primary rail, so the two pin on one line rather than
   // at two different heights.
-  const railTop = /\.settings-nav-rail \{ position: sticky; top: (\d+)px/.exec(shell)[1]
+  const railTop = /\.settings-nav \{\s*position: sticky;\s*top: (\d+)px/.exec(shellCss)[1]
   const navTop = /\.keith-nav-card \{[\s\S]*?top: (\d+)px/.exec(panel)[1]
   assert.equal(navTop, railTop, 'both navs must pin at the same offset')
 })
@@ -317,7 +316,7 @@ test('anchoring adds NO second vertical scroll region', () => {
   // The reference deliberately keeps the page as the single scroll owner. The
   // navs carry overflow-y only as a safety valve for a nav taller than the
   // viewport, with overscroll-behavior so it cannot chain to the page.
-  for (const src of [shell, panel]) {
+  for (const src of [shellCss, panel]) {
     assert.match(src, /overscroll-behavior: contain/)
   }
   // The workspace pane itself must NOT become a scroller - that is the thing the
@@ -327,13 +326,13 @@ test('anchoring adds NO second vertical scroll region', () => {
   assert.doesNotMatch(wide, /overflow/, 'the right workspace pane owns no scrolling of its own')
 })
 
-test('General, Accounts and Preceptor Parity are not restructured', () => {
+test('Accounts and Preceptor Parity are not restructured', () => {
   // They gain the rail fix for free (it lives in the shell) and are otherwise
-  // untouched: no secondary nav to anchor, no scroll owner changed.
-  const general = read('src/components/settings/GeneralPanel.jsx')
+  // untouched: no secondary nav to anchor, no scroll owner changed. (General was
+  // retired by APPEARANCE-STYLE-1.)
   const parity = read('src/components/settings/PreceptorParityPanel.jsx')
   const accounts = read('src/components/settings/AccountsAccessPanel.jsx')
-  for (const src of [general, parity, accounts]) {
+  for (const src of [parity, accounts]) {
     assert.doesNotMatch(src, /position: 'sticky'|keith-nav-col|settings-nav-col/)
   }
 })

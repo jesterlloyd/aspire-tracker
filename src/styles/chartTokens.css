@@ -116,6 +116,11 @@
 }
 
 .chart-header-actions { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+/* APPEARANCE-STYLE-1: the header's light/dark button. Below 560px the actions row cannot
+   take a fifth icon: it crushed the brand from 87px to 41px at 375 (measured). Settings >
+   Appearance still switches the mode there. */
+.chart-color-mode { display: flex; }
+@media (max-width: 560px) { .chart-color-mode { display: none; } }
 
 /* Search: width moved from inline styles to CSS so it can flex on
    small screens. Focus growth preserved on desktop. */

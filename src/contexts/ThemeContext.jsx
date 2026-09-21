@@ -1,63 +1,80 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react'
+// APPEARANCE-STYLE-1 (2026-09-21): the device's painter. It owns the two attributes on
+// <html> (data-theme, always resolved to light or dark, and data-style) and the device
+// mirror in localStorage that index.html paints from before React loads.
+//
+// It knows nothing about accounts, because it sits above AuthProvider and the public
+// pages and portals use it too. The staff app's useAppearanceSync pushes the signed-in
+// person's account choice into it; every control writes through useAppearance, never
+// through here directly.
+import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react'
+import {
+  readDeviceAppearance, writeDeviceAppearance, resolveColorMode, isColorMode, isStyle,
+  DEFAULT_COLOR_MODE, DEFAULT_STYLE,
+} from '../lib/appearance'
 
-const STORAGE_KEY = 'aspire-theme'
-const VALID_THEMES = ['light', 'dark', 'system']
+function browserStorage() {
+  try { return typeof window !== 'undefined' ? window.localStorage : null } catch { return null }
+}
+
+const DARK_QUERY = '(prefers-color-scheme: dark)'
+const systemIsDark = () =>
+  typeof window !== 'undefined' && !!window.matchMedia?.(DARK_QUERY).matches
 
 const ThemeContext = createContext({
-  theme: 'light',
+  colorMode: DEFAULT_COLOR_MODE,
   effectiveTheme: 'light',
-  setTheme: () => {},
+  systemTheme: 'light',
+  style: DEFAULT_STYLE,
+  paintColorMode: () => {},
+  paintStyle: () => {},
 })
 
 export function ThemeProvider({ children }) {
-  const [theme, setThemeState] = useState(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY)
-      return VALID_THEMES.includes(stored) ? stored : 'light'
-    } catch {
-      return 'light'
-    }
-  })
+  const [initial] = useState(() => readDeviceAppearance(browserStorage()))
+  const [colorMode, setColorMode] = useState(initial.colorMode)
+  const [style, setStyle] = useState(initial.style)
+  // The OS setting is tracked whatever the mode, because Settings shows it live beside
+  // the System card even while Light or Dark is chosen.
+  const [systemDark, setSystemDark] = useState(systemIsDark)
 
-  const getSystemIsDark = () =>
-    typeof window !== 'undefined' &&
-    window.matchMedia?.('(prefers-color-scheme: dark)').matches
-
-  const resolveEffective = useCallback((t) => {
-    if (t === 'system') return getSystemIsDark() ? 'dark' : 'light'
-    return t
-  }, [])
-
-  const [effectiveTheme, setEffectiveTheme] = useState(() => resolveEffective(theme))
-
-  // Apply data-theme to <html> whenever effectiveTheme changes
   useEffect(() => {
-    const resolved = resolveEffective(theme)
-    setEffectiveTheme(resolved)
-    document.documentElement.setAttribute('data-theme', resolved)
-  }, [theme, resolveEffective])
-
-  // Listen for OS preference changes when theme === 'system'
-  useEffect(() => {
-    if (theme !== 'system') return
-    const mq = window.matchMedia('(prefers-color-scheme: dark)')
-    const handler = (e) => {
-      const resolved = e.matches ? 'dark' : 'light'
-      setEffectiveTheme(resolved)
-      document.documentElement.setAttribute('data-theme', resolved)
-    }
+    const mq = window.matchMedia?.(DARK_QUERY)
+    if (!mq) return undefined
+    const handler = (e) => setSystemDark(e.matches)
     mq.addEventListener('change', handler)
     return () => mq.removeEventListener('change', handler)
-  }, [theme])
-
-  const setTheme = useCallback((t) => {
-    if (!VALID_THEMES.includes(t)) return
-    setThemeState(t)
-    try { localStorage.setItem(STORAGE_KEY, t) } catch {}
   }, [])
 
+  const effectiveTheme = resolveColorMode(colorMode, systemDark)
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', effectiveTheme)
+  }, [effectiveTheme])
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-style', style)
+  }, [style])
+
+  // Paint a choice and remember it on this device. Illegal values are ignored.
+  const paintColorMode = useCallback((next) => {
+    if (!isColorMode(next)) return
+    setColorMode(next)
+    writeDeviceAppearance(browserStorage(), { colorMode: next })
+  }, [])
+
+  const paintStyle = useCallback((next) => {
+    if (!isStyle(next)) return
+    setStyle(next)
+    writeDeviceAppearance(browserStorage(), { style: next })
+  }, [])
+
+  const value = useMemo(() => ({
+    colorMode, effectiveTheme, systemTheme: systemDark ? 'dark' : 'light', style,
+    paintColorMode, paintStyle,
+  }), [colorMode, effectiveTheme, systemDark, style, paintColorMode, paintStyle])
+
   return (
-    <ThemeContext.Provider value={{ theme, effectiveTheme, setTheme }}>
+    <ThemeContext.Provider value={value}>
       {children}
     </ThemeContext.Provider>
   )

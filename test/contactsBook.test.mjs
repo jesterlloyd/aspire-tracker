@@ -6,7 +6,8 @@
 //   1. The preference is per USER. It is read from and written to the caller's own
 //      user_profiles row through one store, it survives the column being absent (the
 //      migration is Owner-gated), and it never writes a value the registry does not
-//      allow or erases a key it does not know.
+//      allow or erases a key it does not know. APPEARANCE-STYLE-1 retired the book's own
+//      layout key: Contacts follows Style, so the store is exercised with appearance.style.
 //   2. The book files by last name and says honest things (the pure model).
 //   3. The book RENDERS: a real server render, the thumb index, the entries, and the
 //      record's sections in the order the brief gives.
@@ -21,7 +22,7 @@ import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { createServer } from 'vite'
 import {
-  CONTACTS_LAYOUT, USER_PREFERENCES, preferenceValue, isValidPreferenceValue, keysToAdopt,
+  APPEARANCE_STYLE, USER_PREFERENCES, preferenceValue, isValidPreferenceValue, keysToAdopt,
   createUserPreferenceStore, preferenceCacheKey,
 } from '../src/lib/userPreferences.js'
 import {
@@ -36,25 +37,29 @@ const strip = s => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '
 
 // ── 1. The preference ───────────────────────────────────────────────────────────
 
-test('appearance.contactsLayout is registered with classic as everyone\'s default', () => {
-  assert.equal(CONTACTS_LAYOUT, 'appearance.contactsLayout')
-  assert.deepEqual([...USER_PREFERENCES[CONTACTS_LAYOUT].values], ['classic', 'book'])
-  assert.equal(USER_PREFERENCES[CONTACTS_LAYOUT].fallback, 'classic')
-  assert.equal(preferenceValue({}, CONTACTS_LAYOUT), 'classic')
-  assert.equal(preferenceValue(null, CONTACTS_LAYOUT), 'classic')
-  assert.equal(preferenceValue({ [CONTACTS_LAYOUT]: 'book' }, CONTACTS_LAYOUT), 'book')
+test('appearance.contactsLayout is retired; appearance.style is registered with classic as everyone\'s default', () => {
+  assert.equal(USER_PREFERENCES['appearance.contactsLayout'], undefined, 'Contacts follows Style now')
+  assert.throws(() => preferenceValue({ 'appearance.contactsLayout': 'book' }, 'appearance.contactsLayout'))
+  assert.equal(APPEARANCE_STYLE, 'appearance.style')
+  assert.deepEqual([...USER_PREFERENCES[APPEARANCE_STYLE].values], ['classic', 'modern'])
+  assert.equal(USER_PREFERENCES[APPEARANCE_STYLE].fallback, 'classic')
+  assert.equal(preferenceValue({}, APPEARANCE_STYLE), 'classic')
+  assert.equal(preferenceValue(null, APPEARANCE_STYLE), 'classic')
+  assert.equal(preferenceValue({ [APPEARANCE_STYLE]: 'modern' }, APPEARANCE_STYLE), 'modern')
   // A stored value this build does not know reads as the default, never as itself.
-  assert.equal(preferenceValue({ [CONTACTS_LAYOUT]: 'grid' }, CONTACTS_LAYOUT), 'classic')
-  assert.equal(isValidPreferenceValue(CONTACTS_LAYOUT, 'grid'), false)
+  assert.equal(preferenceValue({ [APPEARANCE_STYLE]: 'grid' }, APPEARANCE_STYLE), 'classic')
+  assert.equal(isValidPreferenceValue(APPEARANCE_STYLE, 'grid'), false)
   assert.equal(isValidPreferenceValue('appearance.unknown', 'book'), false)
   assert.throws(() => preferenceValue({}, 'appearance.unknown'))
 })
 
 test('the one-time adoption takes only registered, legal keys the account does not hold', () => {
-  assert.deepEqual(keysToAdopt({}, { [CONTACTS_LAYOUT]: 'book' }), { [CONTACTS_LAYOUT]: 'book' })
-  assert.deepEqual(keysToAdopt({ [CONTACTS_LAYOUT]: 'classic' }, { [CONTACTS_LAYOUT]: 'book' }), {},
+  assert.deepEqual(keysToAdopt({}, { [APPEARANCE_STYLE]: 'modern' }), { [APPEARANCE_STYLE]: 'modern' })
+  assert.deepEqual(keysToAdopt({ [APPEARANCE_STYLE]: 'classic' }, { [APPEARANCE_STYLE]: 'modern' }), {},
     'a key the account already stores always wins over this browser')
-  assert.deepEqual(keysToAdopt({}, { [CONTACTS_LAYOUT]: 'grid', 'appearance.other': 'x' }), {})
+  assert.deepEqual(keysToAdopt({}, { [APPEARANCE_STYLE]: 'grid', 'appearance.other': 'x' }), {})
+  // A retired key in this browser is never adopted.
+  assert.deepEqual(keysToAdopt({}, { 'appearance.contactsLayout': 'book' }), {})
   assert.deepEqual(keysToAdopt({}, null), {})
 })
 
@@ -112,47 +117,47 @@ test('before the column exists the choice is kept in the browser, and nothing is
   await store.ensure('u1')
   assert.equal(store.getSnapshot().synced, false)
   assert.equal(store.getSnapshot().reason, 'unavailable')
-  const result = await store.set(CONTACTS_LAYOUT, 'book')
+  const result = await store.set(APPEARANCE_STYLE, 'modern')
   assert.deepEqual(result, { saved: 'browser' })
-  assert.equal(preferenceValue(store.getSnapshot().prefs, CONTACTS_LAYOUT), 'book', 'the choice shows at once')
-  assert.equal(JSON.parse(storage.getItem(preferenceCacheKey('u1')))[CONTACTS_LAYOUT], 'book')
+  assert.equal(preferenceValue(store.getSnapshot().prefs, APPEARANCE_STYLE), 'modern', 'the choice shows at once')
+  assert.equal(JSON.parse(storage.getItem(preferenceCacheKey('u1')))[APPEARANCE_STYLE], 'modern')
   assert.equal(calls.filter(c => c.op === 'update').length, 0)
 })
 
 test('when the column arrives, the browser\'s earlier choice is adopted into the account once', async () => {
   const { client, calls, stored } = fakeClient({ row: {} })
-  const storage = memoryStorage({ [preferenceCacheKey('u1')]: JSON.stringify({ [CONTACTS_LAYOUT]: 'book' }) })
+  const storage = memoryStorage({ [preferenceCacheKey('u1')]: JSON.stringify({ [APPEARANCE_STYLE]: 'modern' }) })
   const store = createUserPreferenceStore({ client, storage })
   await store.ensure('u1')
   assert.equal(store.getSnapshot().synced, true)
-  assert.equal(preferenceValue(store.getSnapshot().prefs, CONTACTS_LAYOUT), 'book')
-  assert.deepEqual(stored(), { [CONTACTS_LAYOUT]: 'book' })
+  assert.equal(preferenceValue(store.getSnapshot().prefs, APPEARANCE_STYLE), 'modern')
+  assert.deepEqual(stored(), { [APPEARANCE_STYLE]: 'modern' })
   assert.equal(calls.filter(c => c.op === 'update').length, 1)
 })
 
 test('the account wins over this browser once it holds the key (the choice follows the person)', async () => {
-  const { client, calls } = fakeClient({ row: { [CONTACTS_LAYOUT]: 'classic' } })
-  const storage = memoryStorage({ [preferenceCacheKey('u1')]: JSON.stringify({ [CONTACTS_LAYOUT]: 'book' }) })
+  const { client, calls } = fakeClient({ row: { [APPEARANCE_STYLE]: 'classic' } })
+  const storage = memoryStorage({ [preferenceCacheKey('u1')]: JSON.stringify({ [APPEARANCE_STYLE]: 'modern' }) })
   const store = createUserPreferenceStore({ client, storage })
   await store.ensure('u1')
-  assert.equal(preferenceValue(store.getSnapshot().prefs, CONTACTS_LAYOUT), 'classic')
+  assert.equal(preferenceValue(store.getSnapshot().prefs, APPEARANCE_STYLE), 'classic')
   assert.equal(calls.filter(c => c.op === 'update').length, 0)
-  assert.equal(JSON.parse(storage.getItem(preferenceCacheKey('u1')))[CONTACTS_LAYOUT], 'classic',
+  assert.equal(JSON.parse(storage.getItem(preferenceCacheKey('u1')))[APPEARANCE_STYLE], 'classic',
     'the browser copy is refreshed from the account')
 })
 
 test('a write re-reads the row and keeps keys another device or a newer build wrote', async () => {
-  const { client, calls, stored } = fakeClient({ row: { [CONTACTS_LAYOUT]: 'classic' } })
+  const { client, calls, stored } = fakeClient({ row: { [APPEARANCE_STYLE]: 'classic' } })
   const store = createUserPreferenceStore({ client, storage: memoryStorage() })
   await store.ensure('u1')
   // After this tab loaded, another device (or a newer build) writes a key this one does
   // not know. The fake's own update stands in for that write.
-  await client.from('user_profiles').update({ ui_preferences: { [CONTACTS_LAYOUT]: 'classic', 'appearance.future': 'x' } }).eq('auth_user_id', 'u1').select('auth_user_id')
+  await client.from('user_profiles').update({ ui_preferences: { [APPEARANCE_STYLE]: 'classic', 'appearance.future': 'x' } }).eq('auth_user_id', 'u1').select('auth_user_id')
   calls.length = 0
-  const result = await store.set(CONTACTS_LAYOUT, 'book')
+  const result = await store.set(APPEARANCE_STYLE, 'modern')
   assert.deepEqual(result, { saved: 'account' })
   assert.deepEqual(calls.map(c => c.op), ['read', 'update'], 'read first, then write')
-  assert.deepEqual(stored(), { [CONTACTS_LAYOUT]: 'book', 'appearance.future': 'x' })
+  assert.deepEqual(stored(), { [APPEARANCE_STYLE]: 'modern', 'appearance.future': 'x' })
 })
 
 test('writes are serialized, so the last choice is the one the account keeps', async () => {
@@ -160,18 +165,18 @@ test('writes are serialized, so the last choice is the one the account keeps', a
   const store = createUserPreferenceStore({ client, storage: memoryStorage() })
   await store.ensure('u1')
   calls.length = 0
-  const a = store.set(CONTACTS_LAYOUT, 'book')
-  const b = store.set(CONTACTS_LAYOUT, 'classic')
+  const a = store.set(APPEARANCE_STYLE, 'modern')
+  const b = store.set(APPEARANCE_STYLE, 'classic')
   await Promise.all([a, b])
-  assert.deepEqual(calls.filter(c => c.op === 'update').map(c => c.prefs[CONTACTS_LAYOUT]), ['book', 'classic'])
-  assert.equal(stored()[CONTACTS_LAYOUT], 'classic')
+  assert.deepEqual(calls.filter(c => c.op === 'update').map(c => c.prefs[APPEARANCE_STYLE]), ['modern', 'classic'])
+  assert.equal(stored()[APPEARANCE_STYLE], 'classic')
 })
 
 test('a write the self policy refused (no row came back) is not reported as saved', async () => {
   const { client } = fakeClient({ row: {}, updateRows: 0 })
   const store = createUserPreferenceStore({ client, storage: memoryStorage() })
   await store.ensure('u1')
-  const result = await store.set(CONTACTS_LAYOUT, 'book')
+  const result = await store.set(APPEARANCE_STYLE, 'modern')
   assert.equal(result.saved, 'browser')
 })
 
@@ -180,10 +185,10 @@ test('an illegal value is refused before anything changes', async () => {
   const store = createUserPreferenceStore({ client, storage: memoryStorage() })
   await store.ensure('u1')
   calls.length = 0
-  await assert.rejects(() => store.set(CONTACTS_LAYOUT, 'grid'))
-  await assert.rejects(() => store.set('appearance.unknown', 'book'))
+  await assert.rejects(() => store.set(APPEARANCE_STYLE, 'grid'))
+  await assert.rejects(() => store.set('appearance.unknown', 'modern'))
   assert.equal(calls.length, 0)
-  assert.equal(preferenceValue(store.getSnapshot().prefs, CONTACTS_LAYOUT), 'classic')
+  assert.equal(preferenceValue(store.getSnapshot().prefs, APPEARANCE_STYLE), 'classic')
 })
 
 test('another person signing in on the same browser does not inherit the choice', async () => {
@@ -191,10 +196,10 @@ test('another person signing in on the same browser does not inherit the choice'
   const storage = memoryStorage()
   const store = createUserPreferenceStore({ client, storage })
   await store.ensure('u1')
-  await store.set(CONTACTS_LAYOUT, 'book')
+  await store.set(APPEARANCE_STYLE, 'modern')
   await store.ensure('u2')
   assert.equal(store.getSnapshot().uid, 'u2')
-  assert.equal(preferenceValue(store.getSnapshot().prefs, CONTACTS_LAYOUT), 'classic')
+  assert.equal(preferenceValue(store.getSnapshot().prefs, APPEARANCE_STYLE), 'classic')
 })
 
 // ── 2. The model ────────────────────────────────────────────────────────────────
@@ -435,9 +440,11 @@ test('both layouts read ONE data hook, called once, and the book fetches nothing
     'Classic no longer carries its own copy of the contacts query')
 })
 
-test('Classic is the default and keeps its three columns; the book is its own chunk', () => {
+test('the three columns are Modern style\'s Contacts and keep their shape; the book is its own chunk', () => {
   const view = strip(read('src/components/connect/ContactsView.jsx'))
-  assert.match(view, /layout === 'book' \?/)
+  // APPEARANCE-STYLE-1: the painted Style picks the drawing.
+  assert.match(view, /const isBook = contactsUsesBook\(style\)/)
+  assert.match(view, /\{isBook \? \(/)
   assert.match(view, /className="connect-three-zone"/)
   for (const zone of ['c3-contacts', 'c3-profile', 'c3-context']) assert.match(view, new RegExp(zone))
   assert.match(view, /<ContactContext/, 'Recent Communications and Linked Students stay in Classic\'s third column')
@@ -447,7 +454,7 @@ test('Classic is the default and keeps its three columns; the book is its own ch
 
 test('on the Address book the page scrolls, the picker pins, and the book gets the rest of the window', () => {
   const connect = strip(read('src/pages/Connect.jsx'))
-  assert.match(connect, /const bookPage = activeSubTab === 'contacts' && contactsLayout === 'book'/)
+  assert.match(connect, /const bookPage = activeSubTab === 'contacts' && contactsUsesBook\(style\)/)
   assert.match(connect, /useChartViewport\(\)/, 'the student chart\'s measurement, not a second copy')
   assert.match(connect, /ref=\{pickerRef\}/)
   assert.match(connect, /position: 'sticky', top: chromeHeight/)
@@ -461,19 +468,17 @@ test('Repair Preceptor Contacts is gone from both layouts, and its modal with it
   assert.deepEqual(hits, [])
 })
 
-test('the link beside Refresh and Settings flip the same preference through the same hook', () => {
+test('Contacts has no layout setting of its own: Style decides, the link and the card are gone', () => {
+  // APPEARANCE-STYLE-1 (Owner, 2026-09-21): Classic style shows the book, Modern the
+  // three columns. The link beside Refresh and Settings' Contacts Layout card retired.
   const connect = strip(read('src/pages/Connect.jsx'))
-  assert.match(connect, /activeSubTab === 'contacts' && <ContactsLayoutLink \/>/)
-  const link = strip(read('src/components/connect/ContactsLayoutLink.jsx'))
-  assert.match(link, /useUserPreference\(CONTACTS_LAYOUT\)/)
-  assert.match(link, /'Switch to classic' : 'Try the address book'/)
+  assert.doesNotMatch(connect, /ContactsLayoutLink|CONTACTS_LAYOUT|contactsLayout/)
+  assert.equal(walk('src').filter(f => f.endsWith('ContactsLayoutLink.jsx')).length, 0)
+  const hits = walk('src').filter(f => /CONTACTS_LAYOUT|appearance\.contactsLayout/.test(strip(read(f))))
+  assert.deepEqual(hits, [], 'nothing reads the retired key')
   const panel = strip(read('src/components/settings/AppearancePanel.jsx'))
-  assert.match(panel, /useUserPreference\(CONTACTS_LAYOUT\)/)
-  assert.match(panel, /role="radiogroup" aria-labelledby=\{titleId\}/)
+  assert.doesNotMatch(panel, /Contacts Layout/)
   assert.match(panel, /type="radio"/)
-  assert.match(panel, />Contacts Layout</)
-  assert.match(panel, /label: 'Classic'/)
-  assert.match(panel, /label: 'Address Book'/)
   // Nothing else writes the column.
   const writers = walk('src').filter(f => /ui_preferences/.test(strip(read(f))))
   assert.deepEqual(writers, ['src/lib/userPreferences.js'])

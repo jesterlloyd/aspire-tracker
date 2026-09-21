@@ -1,6 +1,6 @@
 import { useState, useCallback, Suspense } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Mail, Pencil, Phone } from 'lucide-react'
+import { Flag, Mail, Pencil, Phone } from 'lucide-react'
 import ProfileActionButton from '../ui/ProfileActionButton'
 import { useToast } from '../../hooks/useToast'
 import { ToastContainer } from '../Toast'
@@ -26,10 +26,11 @@ import MultiScopePicker from '../shared/MultiScopePicker'
 import { toneGradient } from '../../lib/connectTones'
 import ConnectPanel, { ConnectPanelIcon } from './ConnectPanel'
 import { useContactsDirectory, CATEGORY_ORDER } from './useContactsDirectory'
-import { useUserPreference } from '../../hooks/useUserPreference'
-import { CONTACTS_LAYOUT } from '../../lib/userPreferences'
+import { useTheme } from '../../contexts/ThemeContext'
+import { contactsUsesBook } from '../../lib/appearance'
 import { lazyReload } from '../../lib/lazyReload'
-import { setContactFollowUpFlag } from '../../lib/contactFollowUpFlag'
+import { setContactFollowUpFlag, isContactFlagged, contactFlagAvailable } from '../../lib/contactFollowUpFlag'
+import FlagTag from '../shared/FlagTag'
 
 const F    = 'Plus Jakarta Sans, sans-serif'
 const NAVY = '#1D2567'
@@ -198,7 +199,10 @@ function CategoryDivider({ label, count }) {
 function ContactRow({ contact, isSelected, onClick }) {
   // CONTACTS-CANON-1 row shape: name, then the Role/Title pill, then the
   // per-category subline (school / unit(s) / Programs / Services / affiliation).
+  // APPEARANCE-STYLE-1: a flagged contact carries the flag's mark after the name, as
+  // its entry does in the address book, and says so in words.
   const contextLine = contactListSubline(contact)
+  const flagged = isContactFlagged(contact)
   return (
     <div
       onClick={onClick}
@@ -241,6 +245,13 @@ function ContactRow({ contact, isSelected, onClick }) {
               ? `${contact.preferred_name} ${contact.full_name.split(' ').slice(1).join(' ')}`
               : contact.full_name
             }
+            {flagged && (
+              <>
+                <Flag size={11} strokeWidth={2.4} aria-hidden="true"
+                  style={{ marginLeft: 6, verticalAlign: '-1px', color: '#A32A32' }} />
+                <span className="sr-only">, flagged for follow-up</span>
+              </>
+            )}
           </div>
           <div style={{ marginTop: 2 }}>
             {contact.role && <span style={roleChip(contact.role, getPrimaryCategory(contact))}>{contact.role}</span>}
@@ -269,7 +280,7 @@ function ContactRow({ contact, isSelected, onClick }) {
 
 // ── Zone 2: Contact profile panel ────────────────────────────────────────────
 
-function ContactProfile({ contact, navigate, onEdit, onDeactivate }) {
+function ContactProfile({ contact, navigate, onEdit, onDeactivate, onFlag, flagAvailable }) {
   const relatedUnits = Array.isArray(contact.related_units) ? contact.related_units.filter(Boolean) : []
   const showAffiliation = contact.school_name || contact.program_type || contact.unit_name || relatedUnits.length > 0 || contact.services
   const hasWeeklyDigest = contact.notification_preferences?.weekly_digest !== false
@@ -338,6 +349,24 @@ function ContactProfile({ contact, navigate, onEdit, onDeactivate }) {
             background: '#f3f4f6', color: '#9ca3af', border: '1px solid #e5e7eb',
             fontFamily: F, textTransform: 'uppercase', letterSpacing: '0.07em',
           }}>Inactive</span>
+        )}
+
+        {/* APPEARANCE-STYLE-1: the follow-up flag. Modern style shows Contacts in these
+            three columns, and Modern keeps every feature, so the address book's ribbon
+            is a tag here: same column, same write, same inert state without it. */}
+        {onFlag && (
+          <div style={{ marginTop: 8 }}>
+            <FlagTag
+              flagged={isContactFlagged(contact)}
+              disabled={!flagAvailable}
+              onFlag={() => onFlag(contact, true)}
+              onUnflag={() => onFlag(contact, false)}
+              labelOn={`${contact.full_name} is flagged for follow-up. Press to remove the flag.`}
+              labelOff={flagAvailable
+                ? `Flag ${contact.full_name} for follow-up.`
+                : 'The follow-up flag is not enabled on this database yet.'}
+            />
+          </div>
         )}
 
         {/* Role + qualifier */}
@@ -1404,15 +1433,24 @@ function ContactModal({ mode, initialData, onClose, onSaved }) {
 // picking a row (selectContact) and Deactivate. CONTACTS-BOOK-2 (Owner, 2026-09-20)
 // removed Repair Preceptor Contacts from both layouts, and its modal with it: the
 // backfill for preceptors added before automatic contact sync is no longer needed.
+// APPEARANCE-STYLE-1 (2026-09-21) made this Modern style's Contacts and gave it the
+// follow-up flag the book already had: a mark on the row, a tag under the name, and
+// Flagged only. Nothing else about it changed.
 
 function ClassicContacts({ dir, actions }) {
   const {
     contacts, loading, error, search, setSearch, categoryFilter, setCategoryFilter,
     selectedId, selectContact, selected, showInactive, setShowInactive,
     commHistory, loadingComm, linkedStudents, loadingStudents,
-    categoryCounts, inactiveCount, activeCount, activeCategories, filtered,
+    categoryCounts, inactiveCount, activeCount, activeCategories, filtered: dirFiltered,
   } = dir
-  const { navigate, toast, onAdd: handleOpenAdd, onEdit: handleOpenEdit, onDeactivate } = actions
+  const { navigate, toast, onAdd: handleOpenAdd, onEdit: handleOpenEdit, onDeactivate, onFlag } = actions
+
+  // APPEARANCE-STYLE-1: the address book's Flagged only filter, here too, because this is
+  // Modern style's Contacts. Offered only once the column exists.
+  const [flaggedOnly, setFlaggedOnly] = useState(false)
+  const flagAvailable = contacts.length > 0 && contactFlagAvailable(contacts[0])
+  const filtered = flaggedOnly && flagAvailable ? dirFiltered.filter(isContactFlagged) : dirFiltered
 
   // CONTACTS-CANON-1 ordering: each category has an approved sort (Unit
   // Leaders by unit then AD > ANM > NPD-P/CNS; BNI by ED > Lead Admin > NPD-P
@@ -1565,20 +1603,37 @@ function ClassicContacts({ dir, actions }) {
         </div>{/* end flex wrap */}
         </div>{/* end category section */}
 
-        {/* Show inactive toggle - only when inactive contacts exist */}
-        {inactiveCount > 0 && (
-          <div style={{ padding: '2px 14px 6px', flexShrink: 0 }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', userSelect: 'none' }}>
-              <input
-                type="checkbox"
-                checked={showInactive}
-                onChange={e => setShowInactive(e.target.checked)}
-                style={{ width: 12, height: 12, accentColor: NAVY }}
-              />
-              <span style={{ fontSize: 10, color: '#9ca3af', fontFamily: F, fontWeight: 500 }}>
-                Show inactive ({inactiveCount})
-              </span>
-            </label>
+        {/* Show inactive toggle - only when inactive contacts exist. APPEARANCE-STYLE-1:
+            Flagged only sits beside it, once the flag column exists. */}
+        {(inactiveCount > 0 || flagAvailable) && (
+          <div style={{ padding: '2px 14px 6px', flexShrink: 0, display: 'flex', flexWrap: 'wrap', gap: '4px 14px' }}>
+            {inactiveCount > 0 && (
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', userSelect: 'none' }}>
+                <input
+                  type="checkbox"
+                  checked={showInactive}
+                  onChange={e => setShowInactive(e.target.checked)}
+                  style={{ width: 12, height: 12, accentColor: NAVY }}
+                />
+                <span style={{ fontSize: 10, color: '#9ca3af', fontFamily: F, fontWeight: 500 }}>
+                  Show inactive ({inactiveCount})
+                </span>
+              </label>
+            )}
+            {flagAvailable && (
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', userSelect: 'none' }}>
+                <input
+                  type="checkbox"
+                  data-testid="contacts-flagged-only"
+                  checked={flaggedOnly}
+                  onChange={e => setFlaggedOnly(e.target.checked)}
+                  style={{ width: 12, height: 12, accentColor: NAVY }}
+                />
+                <span style={{ fontSize: 10, color: '#9ca3af', fontFamily: F, fontWeight: 500 }}>
+                  Flagged only
+                </span>
+              </label>
+            )}
           </div>
         )}
 
@@ -1617,7 +1672,7 @@ function ClassicContacts({ dir, actions }) {
             </div>
           ) : listItems.length === 0 ? (
             <div style={{ padding: '20px 16px', fontSize: 12, color: '#9ca3af', fontFamily: F, lineHeight: 1.6 }}>
-              No contacts match your search.
+              {flaggedOnly && flagAvailable ? 'No flagged contacts here.' : 'No contacts match your search.'}
             </div>
           ) : (
             listItems.map((item, idx) =>
@@ -1650,6 +1705,8 @@ function ClassicContacts({ dir, actions }) {
             navigate={navigate}
             onEdit={handleOpenEdit}
             onDeactivate={() => onDeactivate(selected)}
+            onFlag={onFlag}
+            flagAvailable={flagAvailable}
           />
         ) : (
           <NoSelection count={filtered.length} />
@@ -1686,9 +1743,11 @@ function ClassicContacts({ dir, actions }) {
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-// CONTACTS-BOOK-1: one data hook, two drawings of it. The person's
-// appearance.contactsLayout preference picks the drawing; Classic is the default, and
-// the Address book is code-split so nobody on Classic downloads it.
+// CONTACTS-BOOK-1: one data hook, two drawings of it. APPEARANCE-STYLE-1 (2026-09-21):
+// the person's Style picks the drawing, and the old appearance.contactsLayout setting is
+// retired. Classic style is the address book; Modern style is the three columns, which
+// the code still calls ClassicContacts (it was the classic LAYOUT before the book). The
+// book is code-split, so a person on Modern never downloads it.
 
 const ContactsBook = lazyReload(() => import('./ContactsBook'), 'ContactsBook')
 
@@ -1697,7 +1756,8 @@ export default function ContactsView({ refreshKey = 0 }) {
   const { toasts, removeToast, toast } = useToast()
   const dir = useContactsDirectory({ refreshKey })
   const { setContacts, setSelectedId, showInactive } = dir
-  const [layout] = useUserPreference(CONTACTS_LAYOUT)
+  const { style } = useTheme()
+  const isBook = contactsUsesBook(style)
 
   const [showContactModal, setShowContactModal] = useState(false)
   const [editingContact,   setEditingContact]   = useState(null)
@@ -1744,7 +1804,7 @@ export default function ContactsView({ refreshKey = 0 }) {
       setDeactivateTarget(null)
       // The Address book always lists inactive contacts (CONTACTS-BOOK-3), so the record
       // it deactivated stays open there; Classic hides it unless its toggle is on.
-      if (!newIsActive && !showInactive && layout !== 'book') setSelectedId(null)
+      if (!newIsActive && !showInactive && !isBook) setSelectedId(null)
       toast.success(
         newIsActive ? 'Reactivated' : 'Deactivated',
         newIsActive
@@ -1756,14 +1816,15 @@ export default function ContactsView({ refreshKey = 0 }) {
     } finally {
       setDeactivating(false)
     }
-  }, [deactivateTarget, showInactive, toast, setContacts, setSelectedId, layout])
+  }, [deactivateTarget, showInactive, toast, setContacts, setSelectedId, isBook])
 
   const handleDeactivateRequest = useCallback(contact => setDeactivateTarget({
     contact,
     action: contact.is_active === false ? 'reactivate' : 'deactivate',
   }), [])
 
-  // CONTACTS-BOOK-3: the follow-up ribbon (Address book only). Paints the list at once,
+  // CONTACTS-BOOK-3: the follow-up flag, the book's ribbon and (APPEARANCE-STYLE-1) the
+  // three columns' tag. Paints the list at once,
   // takes the server's row when it answers, and puts the flag back if the write fails.
   // The ribbon and the list entry read the same contacts array, so painting it is the
   // whole refresh; nothing else in the app reads this flag.
@@ -1796,7 +1857,7 @@ export default function ContactsView({ refreshKey = 0 }) {
 
   return (
     <>
-    {layout === 'book' ? (
+    {isBook ? (
       <Suspense fallback={null}>
         <ContactsBook dir={dir} actions={actions} />
       </Suspense>

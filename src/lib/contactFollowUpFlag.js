@@ -7,8 +7,10 @@
 //   contacts.flagged_for_followup          come back to this person (the address book)
 //
 // One shared flag per contact that every staff member sees. It carries NO note, and it
-// reaches the address book only: the ribbon, the list entry's mark, the Flagged only
-// filter. Classic Contacts does not show it (Owner, 2026-09-20).
+// reaches Contacts only: in Classic style the address book's ribbon, its entry mark and
+// its Flagged only filter; in Modern style (APPEARANCE-STYLE-1, 2026-09-21) the three
+// columns' Flagged tag, row mark and Flagged only. It used to be the book's alone (Owner,
+// 2026-09-20); the Appearance brief made Modern keep every feature, flags included.
 //
 // SHIPPING BEFORE THE COLUMN EXISTS, the student flag's contract.
 // supabase/migrations/20260925000000_contact_followup_flag.sql is Owner-gated, so:

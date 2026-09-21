@@ -6,6 +6,7 @@
 import { MessagesSquare, Library } from 'lucide-react'
 import Tooltip from '../ui/Tooltip'
 import UserMenu from '../UserMenu'
+import ColorModeButton from './ColorModeButton'
 import { useAuth } from '../../contexts/AuthContext'
 import { IDLE_UNREAD_POLL_MS, useStaffUnreadCount } from '../../lib/messages/messagesPolling'
 import { pinBadgeStyle } from '../../lib/badgeTokens'
@@ -13,7 +14,7 @@ import { formatUnread, unreadLabel } from '../../lib/messages/messagesConstants'
 
 export default function HeaderActions({
   cohorts, navigate, activeTab, bellRef, setShowActionCenter, showActionCenter, actionBadgeCount,
-  notificationsUnread = 0,
+  notificationsUnread = 0, toast,
 }) {
   const { isOwner, isAdmin, isInterviewer, userProfile } = useAuth()
   // One bell, one badge: the derived-task count plus the durable staff-notification unread count.
@@ -198,6 +199,10 @@ export default function HeaderActions({
           (The gear's data-tour="settings" was not referenced by any tour step.)
           ASPIRE Catalog is intentionally NOT rendered yet (Approach B, added later
           when it has an approved scope, data model, and real destination). */}
+
+      {/* APPEARANCE-STYLE-1: the quick light/dark switch. Always present, unlike the
+          three above, because it does not depend on there being a cohort. */}
+      <ColorModeButton toast={toast} />
 
       <UserMenu />
     </>
