@@ -169,13 +169,15 @@ sheet, `src/styles/pageStack.css`, holds both forms; a surface says where its to
 sits with four inset tokens and picks the form that matches what it IS.
 
 - **`material-pagestack`, offset sheets.** Loose paper on a surface: two sheets peeking
-  down and to the right. The six calendars (on a desk pad) and the student chart (a ring
-  binder holding loose sheets) use this. Whatever holds it must reserve the overhang on
-  its RIGHT and BOTTOM padding.
+  down and to the right. The six calendars (on a desk pad) use this. Whatever holds it
+  must reserve the overhang on its RIGHT and BOTTOM padding.
 - **`material-forestack`, a fore edge.** A sewn block seen edge-on: many thin page edges
-  packed tight, on both sides, and NOTHING at the bottom, because an open book has no
-  loose bottom edge. The rubric book uses this. Whatever holds it reserves `--fore-w` on
-  each side.
+  packed tight, on both sides, exactly the pages' height, and NOTHING at the bottom,
+  because an open book has no loose bottom edge. Both books use this. Whatever holds it
+  reserves `--fore-w` on each side. **`material-forestack-right`** drops the left block:
+  the student chart wears it (BOOK-COVER-2, Owner, 2026-09-21: "the stack should only be
+  present in the right side, remove it from the bottom"), because its rings hold the
+  left and the loose edges can only show at the open one.
 
 **Pitch and contrast fight each other.** A fore edge at a ~2px pitch is sub-pixel on a 1x
 display. Wide contrast between adjacent lines aliases into a barcode, which is why the
@@ -184,8 +186,9 @@ widths blurs into paper instead. Judge one magnified, never at 1x.
 
 **The spine is the fold.** The rubric's cover is one leather with a darker band of the same
 leather down the gutter and the crease inside it (Owner, from the macOS Contacts book:
-only the spine is dark). Since CONTACTS-BOOK-3 the leather is cognac and the band a deeper
-cognac (`--aspire-book-spine*`). Near-black reads as a gap rather than as leather turning. The band aligns with `.rb-seam`, which sits on the boundary between
+only the spine is dark). Since BOOK-COVER-2 it is a subtle translucent crease that both
+books wear (`.material-book-spine`, see "Both books wear one cover" below); an opaque band
+read as a stripe, and near-black read as a gap rather than as leather turning. The band aligns with `.rb-seam`, which sits on the boundary between
 the two page columns and is NOT the geometric centre of the cover, so it is a child of
 the spread and not a background on the leather. One page has no gutter, so single-page
 mode has no fold.
@@ -196,8 +199,10 @@ clearance, so its sides were cut flush while its bottom smeared onto the page be
 shadow on anything inside a scroll container carries a negative spread and stays under
 its object.
 
-**One edge per sheet.** A border AND a ring shadow is two rules, and the pair holds the
-page apart from the sheets behind it. Keep the border, which is inside the box.
+**One edge per sheet, and the chart's is none.** A border AND a ring shadow is two rules,
+and the pair holds the page apart from the sheets behind it. The ring went on 2026-09-19;
+the chart's border went too on 2026-09-21 (Owner: "remove as well the hairline outline
+present around the page"). White paper on black leather needs no rule.
 
 ## The student record is a binder (STUDENT-CHART-1, 2026-09-18)
 
@@ -877,6 +882,17 @@ the Contacts address book are one cover, defined once:
   dark, so it read as a white stroke exactly where the paper turns. The head has no
   bottom border; the band's own edge is the line, and the lift shadow draws it once the
   page scrolls.
-- **Not shared, on purpose:** the rubric keeps its dark spine band down the fold (an
-  Owner decision from 2026-09-19); the address book has none. The address book keeps its
-  own paper and ink (it follows the theme; the rubric's white pages do not).
+- **The spine is a crease, and both books have one** (BOOK-COVER-2, Owner, 2026-09-21:
+  "keep it for both but make it subtle. it's meant to be a shadow or a crease when a book
+  is folded"). `.material-book-spine` is three translucent steps of the leather's darkest
+  brown (`--aspire-book-spine-edge / -spine / -crease`, alpha 0.07 / 0.18 / 0.34, one
+  value in both themes, because a shadow darkens with the leather under it), 28px wide
+  (`--aspire-book-spine-w`). Each book only places it on its own fold: the rubric's as a
+  grid item on the seam, the address book's absolutely at 38%, and it hides where the
+  address book's pages stack. It used to be an opaque near-black band.
+- **The rubric's tabs come straight off the page**: no inset and no rule between the page
+  and the index, the chart's minimal `--aspire-radius-tab` on the outer corners, and the
+  current tab open on its page side so it joins the page. The tab is turned 180deg, so
+  the box's right side is the page side.
+- **Not shared, on purpose:** the address book keeps its own paper and ink (it follows the
+  theme; the rubric's white pages do not).

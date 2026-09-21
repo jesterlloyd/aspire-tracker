@@ -39,32 +39,29 @@
   display: flex;
   border-radius: var(--aspire-radius-binder);
   --sc-board-pad: 14px;
-  --sc-stack-w: 7px;
-  /* The sheets underneath fall down as well as out (PAGE-STACK-1), so the bottom board
-     needs the allowance the right board already had. */
-  --sc-stack-h: 8px;
+  /* The books' fore edge, at the books' thickness (BOOK-COVER-2). */
+  --sc-stack-w: var(--aspire-book-stack-w);
   /* Rings live in the left gutter, so the left board is wider than the other three, and
-     the right board carries the extra width the sheet stack needs. */
-  padding: var(--sc-board-pad) calc(var(--sc-board-pad) + var(--sc-stack-w)) calc(var(--sc-board-pad) + var(--sc-stack-h)) 30px;
+     the right board carries the fore edge on top of its own leather. Nothing below: the
+     sheets show only at the open edge (Owner, 2026-09-21: "remove it from the bottom"). */
+  padding: var(--sc-board-pad) calc(var(--sc-board-pad) + var(--sc-stack-w)) var(--sc-board-pad) 30px;
 }
 
 /* ── The sheets underneath ─────────────────────────────────────────────────── */
-/* The calendars' page stack (PAGE-STACK-1, Owner, 2026-09-19): "I like the stack of paper
-   effect in the calendars. it's more realistic." This was a striped fore edge, borrowed
-   on 2026-09-18 from the rubric, which now reads the same shared definition, so the
-   three bound objects in the app show paper the same way. It is
-   src/styles/pageStack.css.
-   The offsets go down and to the RIGHT, which keeps the Owner's 2026-09-18 decision
-   intact: the rings are the spine, the spine is on the left, and the loose fore edges of
-   the sheets underneath can only show on the other side.
-   `--sc-stack-w` still reserves the room in the right board, and the inset tokens put the
-   sheets inside the board's padding rather than at the binder's own outer edge. */
-.sc-binder.material-pagestack {
+/* The books' fore edge, on the right only (BOOK-COVER-2, Owner, 2026-09-21: "use this
+   same stack in the student profile chart. the stack should only be present in the right
+   side, remove it from the bottom"). It replaced the calendars' offset sheets
+   (PAGE-STACK-1), which fell down as well as out. The definition is the rubric's and the
+   address book's, `material-forestack` in src/styles/pageStack.css; `-right` drops the
+   left block, because the rings hold that side and the loose edges can only show on the
+   other one (the Owner's 2026-09-18 decision). `--sc-stack-w` reserves the room in the
+   right board, and the insets put the block against the paper's own edge. */
+.sc-binder.material-forestack {
   --stack-inset-t: var(--sc-board-pad);
   --stack-inset-r: calc(var(--sc-board-pad) + var(--sc-stack-w));
-  --stack-inset-b: calc(var(--sc-board-pad) + var(--sc-stack-h));
+  --stack-inset-b: var(--sc-board-pad);
   --stack-inset-l: 30px;
-  --stack-paper: var(--aspire-page-band, #EEF1F8);
+  --fore-w: var(--sc-stack-w);
 }
 
 /* Five rings down the spine. Decorative: the binder is a picture of a binder, and a
@@ -113,13 +110,10 @@
   background: var(--aspire-page);
   border-radius: 0;
   overflow: hidden;
-  /* ONE edge (Owner, 2026-09-19: "there is like an additional shadow or outline around
-     the rectangle profile. remove it so the stack is more part of the effect"). There
-     were two: a 1px border AND a 1px ring shadow, drawn one outside the other, which
-     read as a double rule and cut the page off from the sheets behind it. The ring goes
-     and the border stays, because a border is inside the element's box and so the
-     sheets underneath meet the paper instead of meeting a shadow. */
-  border: 1px solid var(--aspire-binder-edge);
+  /* NO edge (Owner, 2026-09-21: "remove as well the hairline outline present around the
+     page"). On 2026-09-19 it had two, a border and a ring shadow, and the ring went
+     first; now the border has gone too. White paper on black leather needs no rule, and
+     the fore edge meets the paper directly, as it does in both books. */
 }
 
 /* ── The name plate ────────────────────────────────────────────────────────── */
@@ -668,7 +662,7 @@
   .sc-binder {
     --sc-board-pad: 8px;
     --sc-stack-w: 5px;
-    padding: var(--sc-board-pad) calc(var(--sc-board-pad) + var(--sc-stack-w)) calc(var(--sc-board-pad) + var(--sc-stack-h)) 22px;
+    padding: var(--sc-board-pad) calc(var(--sc-board-pad) + var(--sc-stack-w)) var(--sc-board-pad) 22px;
   }
   .sc-rings { left: 5px; top: 18px; bottom: 18px; width: 12px; }
   .sc-ring { height: 12px; }

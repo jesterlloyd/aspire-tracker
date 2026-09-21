@@ -35,7 +35,7 @@ const roster = read('src/components/StudentListPanel.jsx')
 // ── BINDER: the object on screen ────────────────────────────────────────────
 
 test('BINDER 1: the binder is black leather with five rings, and the rings are decorative', () => {
-  assert.match(panel, /className="sc-binder material-leather-black material-pagestack"/)
+  assert.match(panel, /className="sc-binder material-leather-black material-forestack material-forestack-right"/)
   assert.equal((panel.match(/className="sc-ring"/g) || []).length, 5)
   assert.match(panel, /className="sc-rings" aria-hidden="true"/)
 })
@@ -393,54 +393,44 @@ test('PAPER 2: a real block keeps its box, and the mockup says which', () => {
 
 test('PAPER 3: the page stack is on the fore edge, which is the right', () => {
   const css = noComments(read('src/components/student/studentChart.css'))
-  // PAGE-STACK-1 (Owner, 2026-09-19): "I like the stack of paper effect in the calendars.
-  // it's more realistic." The striped fore edge is gone and the binder reads the
-  // calendars' offset sheets from src/styles/pageStack.css. What this test protects is
+  // BOOK-COVER-2 (Owner, 2026-09-21): "use this same stack in the student profile chart.
+  // the stack should only be present in the right side, remove it from the bottom." The
+  // books' fore edge replaced the calendars' offset sheets. What this test protects is
   // unchanged and is in its name: the sheets show on the RIGHT, because the rings are the
   // spine and the spine is on the left.
   const paper = css.match(/\.sc-paper \{[\s\S]*?\}/)[0]
   assert.ok(!/box-shadow:[^;]*\dpx 0 0 -1px/.test(paper), 'the paper is drawing the stack again')
   assert.match(css, /@import '\.\.\/\.\.\/styles\/pageStack\.css';/)
-  const stack = css.match(/\.sc-binder\.material-pagestack \{[\s\S]*?\}/)
-  assert.ok(stack, 'the sheet stack is gone')
-  // The shared definition only ever offsets down and to the right, so a stack that reads
-  // its inset tokens can never draw down the binder's bound edge.
+  assert.doesNotMatch(css, /material-pagestack/, 'the offset sheets are back')
+  const stack = css.match(/\.sc-binder\.material-forestack \{[\s\S]*?\}/)
+  assert.ok(stack, 'the fore edge is gone')
   const shared = noComments(read('src/styles/pageStack.css'))
-  for (const which of ['::before', '::after']) {
-    // Find the rule by what it CONTAINS, not by where it starts: the shared
-    // `::before, ::after` block puts `.material-pagestack::after {` at the start of a
-    // line too, and it carries no offsets, so both an anchor and a lazy match find it
-    // first. The offset rules are the ones that position from the inset tokens.
-    const found = shared.match(new RegExp(`\\.material-pagestack${which} \\{[^}]*--stack-inset-l[^}]*\\}`))
-    assert.ok(found, `the ${which} offsets are gone`)
-    const rule = found[0]
-    assert.match(rule, /right: calc\(var\(--stack-inset-r\) - \d+px\)/, 'the sheets stopped reaching past the right edge')
-    assert.match(rule, /bottom: calc\(var\(--stack-inset-b\) - \d+px\)/, 'the sheets stopped falling below')
-    assert.match(rule, /left: calc\(var\(--stack-inset-l\) \+ \d+px\)/, 'a binder bound down its open edge')
-  }
-  // The board must hold the room the stack draws into, on BOTH the right and the bottom,
-  // or the sheets land outside the leather. Every rule that sets the padding derives it
-  // from the same three tokens.
+  assert.match(shared, /\.material-forestack-right::before \{ content: none; \}/, 'the bound edge shows pages')
+  assert.match(shared, /\.material-forestack::after \{[^}]*right: calc\(var\(--stack-inset-r\) - var\(--fore-w\)\);/)
+  // The board holds the fore edge on the right and nothing at the bottom. Every rule
+  // that sets the padding derives it from the same two tokens.
   for (const m of css.matchAll(/\.sc-binder \{[\s\S]*?\}/g)) {
     if (!/padding:/.test(m[0])) continue
-    assert.match(m[0], /padding: var\(--sc-board-pad\) calc\(var\(--sc-board-pad\) \+ var\(--sc-stack-w\)\) calc\(var\(--sc-board-pad\) \+ var\(--sc-stack-h\)\)/,
+    assert.match(m[0], /padding: var\(--sc-board-pad\) calc\(var\(--sc-board-pad\) \+ var\(--sc-stack-w\)\) var\(--sc-board-pad\) /,
       'a hand-written padding here and the stack disagree')
   }
+  assert.ok(!css.includes('--sc-stack-h'), 'the sheets fall below the page again')
+  assert.match(css, /--sc-stack-w: var\(--aspire-book-stack-w\);/, 'not the books\' thickness')
   assert.match(stack[0], /--stack-inset-r: calc\(var\(--sc-board-pad\) \+ var\(--sc-stack-w\)\);/)
-  assert.match(stack[0], /--stack-inset-b: calc\(var\(--sc-board-pad\) \+ var\(--sc-stack-h\)\);/)
+  assert.match(stack[0], /--stack-inset-b: var\(--sc-board-pad\);/)
+  assert.match(stack[0], /--fore-w: var\(--sc-stack-w\);/)
   // and the page is above the pseudo-element whatever happens
   assert.match(paper, /z-index: 1;/)
 })
 
-test('PAPER 3b: the page has ONE edge, and the binder does not smudge the surface', () => {
+test('PAPER 3b: the page has NO edge, and the binder does not smudge the surface', () => {
   // Owner, 2026-09-19: "there is like an additional shadow or outline around the
-  // rectangle profile. remove it so the stack is more part of the effect." There were
-  // two edges, a border and a 1px ring shadow drawn just outside it, which read as a
-  // double rule and cut the page off from the sheets behind it.
+  // rectangle profile", and the ring shadow went. Owner, 2026-09-21: "remove as well the
+  // hairline outline present around the page", and the border went too.
   const css = noComments(read('src/components/student/studentChart.css'))
   const paper = css.match(/\.sc-paper \{[\s\S]*?\n\}/)[0]
-  assert.match(paper, /border: 1px solid var\(--aspire-binder-edge\);/)
-  assert.ok(!/box-shadow: 0 0 0 1px/.test(paper), 'the page grew a second edge again')
+  assert.doesNotMatch(paper, /border:/, 'the page has an outline again')
+  assert.ok(!/box-shadow: 0 0 0 1px/.test(paper), 'the page grew a ring again')
   // "there is a shadow at the bottom of the chart on either side, it looks off on the
   // right edge". `.profiles-detail-col` is overflow-y:auto, which clips BOTH axes, so a
   // wide low shadow was cut off flush at the sides and free to smear below. A negative

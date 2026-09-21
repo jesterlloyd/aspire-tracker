@@ -37,7 +37,6 @@
   --rb-cover-pad: var(--aspire-book-board);
   --rb-stack-w: var(--aspire-book-stack-w);
   --rb-cover-pad-x: calc(var(--aspire-book-board-x) + var(--rb-stack-w));
-  --rb-spine-w: 38px;
   display: flex;
   flex-direction: column;
   /* useBookScale measures what is left below the shell's own top edge and sets
@@ -154,28 +153,19 @@
    reaches past the spread's top and bottom into the cover's padding, which is the only
    place it is visible; nothing clips the spread, which is why that works. It is first
    in DOM order and carries no z-index, so every page paints over it.
-   Two highlights either side of one dark line is what a fold looks like on a hide. */
+   Owner, 2026-09-21 (BOOK-COVER-2): subtle, "a shadow or a crease when a book is
+   folded". The near-black band read as a stripe; it is now a translucent shadow. */
 .rb-spine {
   grid-column: 1;
   grid-row: 1 / -1;
   justify-self: end;
   align-self: stretch;
-  width: var(--rb-spine-w);
-  margin-right: calc(var(--rb-spine-w) / -2);
+  width: var(--aspire-book-spine-w);
+  margin-right: calc(var(--aspire-book-spine-w) / -2);
   margin-top: calc(-1 * var(--rb-cover-pad));
   margin-bottom: calc(-1 * var(--rb-cover-pad));
-  pointer-events: none;
-  background-image:
-    var(--aspire-noise-fine),
-    linear-gradient(90deg,
-      var(--aspire-leather-cognac-deep) 0%,
-      var(--aspire-book-spine-edge) 16%,
-      var(--aspire-book-spine) 36%,
-      var(--aspire-book-spine-crease) 50%,
-      var(--aspire-book-spine) 64%,
-      var(--aspire-book-spine-edge) 84%,
-      var(--aspire-leather-cognac-deep) 100%);
-  background-blend-mode: soft-light, normal;
+  /* What it looks like is .material-book-spine, shared with the address book: a crease
+     in the leather, not a band on it (BOOK-COVER-2). */
 }
 /* Every child is placed by hand: the seam and the ribbon share the candidate page's
    cell, so auto-placement would push the pages and the index into another row. */
@@ -762,14 +752,16 @@
    share ends in an ellipsis rather than pushing the last tab out of the book. */
 /* The index is the page's own paper (Owner, 2026-09-21: "the tabs should be the same
    color as the page"), and it starts below the head, which spans it. It was a tinted
-   strip beside the page, which read as a panel bolted onto the book. */
+   strip beside the page, which read as a panel bolted onto the book.
+   The tabs come straight off the page (BOOK-COVER-2, Owner: "there is a space between
+   the right page and the tabs. remove this"): no inset on the page side and no rule
+   between the page and the index. Each tab draws its own edge. */
 .rb-index {
   display: flex;
   flex-direction: column;
   gap: 3px;
-  padding: 10px 0 10px 6px;
+  padding: 10px 0;
   background: var(--aspire-page);
-  border-left: 1px solid var(--aspire-page-rule);
   overflow: hidden;
 }
 /* Each tab is as long as its own word, so nothing is ever clipped: a tab that read
@@ -786,7 +778,10 @@
   justify-content: flex-start;
   gap: 9px;
   border: 0;
-  border-radius: var(--aspire-radius-control) 0 0 var(--aspire-radius-control);
+  /* The student chart's die-cut corner, on the outer edge only (Owner, 2026-09-21: "make
+     the tab corner rounding minimal just like the tabs in the student profiles"). The tab
+     is turned 180deg, so the box's LEFT corners are the ones on the outside. */
+  border-radius: var(--aspire-radius-tab) 0 0 var(--aspire-radius-tab);
   /* Paper, cut from the page: the tab is the page's colour and a hairline edge is what
      makes it a tab. */
   background: var(--aspire-page);
@@ -812,12 +807,19 @@
   opacity: 0.8;
 }
 /* The section you are in reads as the page you have open: it joins the page. */
+/* It joins the page: its edge runs round the three outer sides and stops where the tab
+   meets the page. The tab is turned 180deg, so the box's RIGHT side is the page side and
+   is the one left open; its top and bottom swap too, which is why both are drawn. */
 .rb-tab-active,
 .rb-tab-active:hover {
   background: var(--aspire-page);
   color: var(--aspire-navy);
   font-weight: 700;
-  box-shadow: inset 0 0 0 1px var(--aspire-page-rule), -2px 0 6px -2px rgba(24, 32, 63, 0.18);
+  box-shadow:
+    inset 1px 0 0 var(--aspire-page-rule),
+    inset 0 1px 0 var(--aspire-page-rule),
+    inset 0 -1px 0 var(--aspire-page-rule),
+    -2px 0 6px -2px rgba(24, 32, 63, 0.18);
 }
 .rb-tab:focus-visible { outline: var(--aspire-focus-ring); outline-offset: -3px; }
 

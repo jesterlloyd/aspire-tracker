@@ -193,12 +193,27 @@
 
 /* Cognac in the dark, the mockup's dark tones. One definition, read by both books, so
    the rubric and the address book darken together. Specific enough (0,2,0) to beat the
-   light values on :root whichever sheet loads first. The spine darkens with the cover. */
+   light values on :root whichever sheet loads first. The spine needs no dark values: it
+   is a translucent shadow, so it darkens with whatever leather is under it. */
 :root[data-theme='dark'] {
   --aspire-leather-cognac: #442C18;
   --aspire-leather-cognac-lift: #5A3A20;
   --aspire-leather-cognac-deep: #2E1D10;
-  --aspire-book-spine: #24150A;
-  --aspire-book-spine-edge: #2E1D10;
-  --aspire-book-spine-crease: #140B05;
+}
+
+/* The spine: the fold of the cover, as a crease in the leather rather than a band on it
+   (BOOK-COVER-2). Symmetric, darkest on the fold line, fading to nothing on each board.
+   Each book places it on its own fold; this is only what it looks like. It carries no
+   z-index and comes first in its spread, so every page paints over it and it shows only
+   in the boards above and below the pages. */
+.material-book-spine {
+  pointer-events: none;
+  background-image: linear-gradient(90deg,
+    rgba(26, 12, 3, 0) 0%,
+    var(--aspire-book-spine-edge) 22%,
+    var(--aspire-book-spine) 40%,
+    var(--aspire-book-spine-crease) 50%,
+    var(--aspire-book-spine) 60%,
+    var(--aspire-book-spine-edge) 78%,
+    rgba(26, 12, 3, 0) 100%);
 }

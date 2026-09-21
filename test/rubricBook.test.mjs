@@ -395,13 +395,15 @@ test('BOOK 7: the book is a bound object: a heavy fold, square pages, a stack of
   // The spine: tan leather with one dark band down the gutter, aligned to the SEAM
   // rather than to the middle of the cover, and reaching into the leather above and
   // below the pages, which is the only place it shows.
-  assert.match(read('src/components/RubricSession.jsx'), /<i className="rb-spine" aria-hidden="true" \/>/)
+  assert.match(read('src/components/RubricSession.jsx'), /<i className="rb-spine material-book-spine" aria-hidden="true" \/>/)
   const spine = bookCss.match(/\.rb-spine \{[\s\S]*?\n\}/)[0]
   assert.match(spine, /grid-column: 1;/)
   assert.match(spine, /justify-self: end;/)
   assert.match(spine, /margin-top: calc\(-1 \* var\(--rb-cover-pad\)\);/)
   assert.match(spine, /margin-bottom: calc\(-1 \* var\(--rb-cover-pad\)\);/)
-  assert.match(spine, /var\(--aspire-book-spine-crease\) 50%/)
+  // What it looks like is shared with the address book (BOOK-COVER-2): a crease.
+  assert.match(read('src/components/RubricSession.jsx'), /<i className="rb-spine material-book-spine" aria-hidden="true" \/>/)
+  assert.match(read('src/styles/aspireMaterials.css'), /\.material-book-spine \{[\s\S]*?var\(--aspire-book-spine-crease\) 50%/)
   // One page has no gutter, so it has no fold.
   assert.match(bookCss, /\.rb-shell\[data-rb-mode='single'\] \.rb-spine \{ display: none; \}/)
   // The strip at the head turns into the gutter with the paper it is printed on.
@@ -671,4 +673,52 @@ test('COVER 3: the index is the page\'s own paper, and the head has no white lin
   // dark shading at the gutter: a white stroke where the paper turns (Owner, 2026-09-21).
   const head = bookCss.match(/\n\.rb-head \{[\s\S]*?\n\}/)[0]
   assert.doesNotMatch(head, /border-bottom:/)
+})
+
+// ── 11. BOOK-COVER-2 (Owner, 2026-09-21) ─────────────────────────────────────
+
+test('COVER 4: the spine is a subtle crease, and both books wear it', () => {
+  // "keep it for both but make it subtle. it's meant to be a shadow or a crease when a
+  // book is folded."
+  const materials = read('src/styles/aspireMaterials.css')
+  const spine = materials.match(/\.material-book-spine \{[\s\S]*?\n\}/)[0]
+  for (const t of ['--aspire-book-spine-edge', '--aspire-book-spine)', '--aspire-book-spine-crease']) assert.ok(spine.includes(t), t)
+  assert.doesNotMatch(spine, /--aspire-leather-cognac/, 'the band is painted in leather again, not shadow')
+  // A shadow: every tone is translucent and none is heavy, so the leather shows through.
+  const brand = read('src/styles/aspireBrand.css')
+  for (const name of ['--aspire-book-spine-edge', '--aspire-book-spine', '--aspire-book-spine-crease']) {
+    const m = brand.match(new RegExp(`${name}: rgba\\(\\d+, \\d+, \\d+, ([0-9.]+)\\);`))
+    assert.ok(m, `${name} is not a translucent shadow`)
+    assert.ok(Number(m[1]) <= 0.4, `${name} at ${m[1]} is a band, not a crease`)
+  }
+  // One value in both themes: a shadow darkens with whatever leather is under it.
+  assert.doesNotMatch(materials, /\[data-theme='dark'\][^{]*\{[^}]*--aspire-book-spine/, 'the spine has dark-only values again')
+  const book = read('src/components/connect/ContactsBook.jsx')
+  assert.match(book, /<i className="ab-spine material-book-spine" aria-hidden="true" \/>/)
+  // First in the spread, so the pages paint over it.
+  assert.ok(book.indexOf('ab-spine') > book.indexOf('className="ab-spread"'))
+  assert.ok(book.indexOf('ab-spine') < book.indexOf('className="ab-page ab-page-left"'))
+  const abCss = read('src/components/connect/contactsBook.css')
+  assert.match(abCss, /\.ab-spine \{[\s\S]*?left: 38%;[\s\S]*?width: var\(--aspire-book-spine-w\);/)
+  const narrow = abCss.slice(abCss.indexOf('@media (max-width: 980px)'))
+  assert.match(narrow, /\.ab-spine \{ display: none; \}/, 'stacked pages have no fold')
+  assert.match(bookCss, /\.rb-spine \{[\s\S]*?width: var\(--aspire-book-spine-w\);/)
+  assert.ok(!bookCss.includes('--rb-spine-w'), 'the rubric has its own spine width again')
+})
+
+test('COVER 5: the tabs come straight off the page, with the chart\'s minimal corner', () => {
+  // "there is a space between the right page in interview rubric and the tabs. remove
+  // this. the tabs should also not have rounded corners ... or ... minimal just like the
+  // tabs in the student profiles."
+  const index = bookCss.match(/\n\.rb-index \{[\s\S]*?\n\}/)[0]
+  assert.match(index, /padding: 10px 0;/)
+  assert.doesNotMatch(index, /border-left/, 'a rule stands between the page and the index again')
+  const tab = bookCss.match(/\n\.rb-tab \{[\s\S]*?\n\}/)[0]
+  assert.match(tab, /border-radius: var\(--aspire-radius-tab\) 0 0 var\(--aspire-radius-tab\);/)
+  assert.match(read('src/components/student/studentChart.css'), /\.sc-tab \{[\s\S]*?border-radius: var\(--aspire-radius-tab\) 0 0 var\(--aspire-radius-tab\);/)
+  // The current tab joins the page: no edge on the page side (the box's right, since the
+  // tab is turned 180deg), and never a full outline.
+  const active = bookCss.match(/\.rb-tab-active,\n\.rb-tab-active:hover \{[\s\S]*?\n\}/)[0]
+  assert.doesNotMatch(active, /inset -1px 0 0|inset 0 0 0 1px/, 'the current tab is walled off from its page')
+  assert.match(active, /inset 1px 0 0 var\(--aspire-page-rule\)/)
 })

@@ -146,14 +146,17 @@
   --aspire-leather-cognac: #7A4A26;
   --aspire-leather-cognac-lift: #9A6236;
   --aspire-leather-cognac-deep: #5A351A;
-  /* BOOK-FORE-1: the rubric book's spine. Owner, 2026-09-19: the cover is one leather
-     and only the spine is dark. Three tones, because a fold on a hide is a dark line
-     with a lift either side of it, and one flat band reads as a painted stripe. They are
-     a darker COGNAC, not black: a near-black band reads as a gap in the cover rather than
-     as the leather turning into the fold. */
-  --aspire-book-spine: #3E2412;
-  --aspire-book-spine-edge: #52301A;
-  --aspire-book-spine-crease: #26160A;
+  /* The spine: where the cover folds. BOOK-FORE-1 (Owner, 2026-09-19) made it a darker
+     band of the same leather; BOOK-COVER-2 (Owner, 2026-09-21: "keep it for both but make
+     it subtle. it's meant to be a shadow or a crease when a book is folded") makes it a
+     SHADOW: three translucent steps of the leather's own darkest brown, so the grain and
+     the colour of whichever cover it lies on show through, in both themes, and it reads
+     as the leather turning rather than as a stripe painted across it. Both books wear it
+     (.material-book-spine). */
+  --aspire-book-spine-w: 28px;
+  --aspire-book-spine-edge: rgba(26, 12, 3, 0.07);
+  --aspire-book-spine: rgba(26, 12, 3, 0.18);
+  --aspire-book-spine-crease: rgba(26, 12, 3, 0.34);
   --aspire-book-edge: rgba(60, 50, 34, 0.42);
   --aspire-book-seam: rgba(20, 24, 36, 0.50);
   --aspire-page: #FFFFFF;
@@ -180,7 +183,6 @@
   --aspire-leather-black: #15161A;
   --aspire-leather-black-lift: #2A2C33;
   --aspire-leather-black-deep: #0D0E11;
-  --aspire-binder-edge: rgba(0, 0, 0, 0.45);
   --aspire-binder-ring: #9AA0AC;
   --aspire-binder-ring-face: #E6E9EF;
   --aspire-binder-ring-base: #6E7480;

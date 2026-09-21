@@ -538,6 +538,9 @@ export default function ContactsBook({ dir, actions }) {
         )}
 
         <div className="ab-spread">
+          {/* The cover's crease on the fold, the rubric's spine (BOOK-COVER-2). First, so
+              both pages paint over it: it shows only in the boards. */}
+          <i className="ab-spine material-book-spine" aria-hidden="true" />
 
           <div className="ab-page ab-page-left">
             <ThumbIndex

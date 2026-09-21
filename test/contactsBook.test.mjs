@@ -679,7 +679,10 @@ test('the rubric is bound in the same cognac, and both darken together', () => {
   const block = materials.slice(materials.indexOf('.material-leather-cognac {'), materials.indexOf('\n}', materials.indexOf('.material-leather-cognac {')))
   assert.match(block, /background-color: var\(--aspire-leather-cognac\)/)
   assert.match(materials, /:root\[data-theme='dark'\] \{[\s\S]*?--aspire-leather-cognac: #442C18;/)
-  assert.match(read('src/components/rubric/rubricBook.css'), /var\(--aspire-leather-cognac-deep\) 0%/)
+  // The spine is a translucent crease both books share (BOOK-COVER-2), so it darkens with
+  // the cognac under it rather than keeping dark values of its own.
+  assert.match(read('src/components/rubric/rubricBook.css'), /\.rb-spine \{/)
+  assert.match(strip(read('src/components/connect/ContactsBook.jsx')), /className="ab-spine material-book-spine"/)
   assert.doesNotMatch(read('src/components/connect/contactsBook.css'), /--aspire-leather-cognac(-lift|-deep)?:/, 'the book does not keep its own copy of the leather')
 })
 

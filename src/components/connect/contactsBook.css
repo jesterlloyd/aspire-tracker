@@ -132,6 +132,19 @@
      right-hand block of page edges would draw over the open pages. */
   z-index: 1;
 }
+/* The spine: the cover's crease on the fold, the rubric's own (BOOK-COVER-2, Owner,
+   2026-09-21: "keep it for both but make it subtle"). What it looks like is
+   .material-book-spine; this only puts it on the fold and reaches it into the boards
+   above and below the pages, the one place it shows. First in the spread with no
+   z-index, so both pages (position: relative, later in the DOM) paint over it. */
+.ab-spine {
+  position: absolute;
+  top: calc(-1 * var(--ab-cover-pad));
+  bottom: calc(-1 * var(--ab-cover-pad));
+  left: 38%;
+  width: var(--aspire-book-spine-w);
+  translate: -50% 0;
+}
 /* The fold: 26px of shadow down the gutter, darkest at its centre. */
 .ab-spread::after {
   content: "";
@@ -860,7 +873,8 @@
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto auto;
   }
-  .ab-spread::after { display: none; }
+  .ab-spread::after,
+  .ab-spine { display: none; }
   .ab-page-right { border-top: 1px solid var(--ab-rule); }
   .ab-entries-wrap { flex: none; }
   .ab-entries {

@@ -1169,7 +1169,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
             <span className="material-cover-tooling" aria-hidden="true" />
             <div className="rb-spread">
               {/* The spine, first so every page paints over it (BOOK-FORE-1). */}
-              <i className="rb-spine" aria-hidden="true" />
+              <i className="rb-spine material-book-spine" aria-hidden="true" />
 
               {/* The ribbon is sewn into the book, so it stays put while the page
                   under it scrolls. */}

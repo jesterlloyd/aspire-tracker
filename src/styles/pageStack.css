@@ -146,6 +146,12 @@
   box-shadow: inset 1px 0 2px rgba(58, 48, 32, 0.28);
 }
 
+/* One fore edge, on the right (BOOK-COVER-2, Owner, 2026-09-21: the student chart takes
+   the books' stack, "only ... in the right side, remove it from the bottom"). A ring
+   binder is held on the left by its rings, so the only edge its sheets can show is the
+   open one. Pair it with `material-forestack`. */
+.material-forestack-right::before { content: none; }
+
 /* The notepad's stack is a hair tighter than the calendar's, because the rings hold its
    top edge and paper bound at the top cannot fan as far. */
 .material-pagestack-bound::before {
