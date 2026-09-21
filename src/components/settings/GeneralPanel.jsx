@@ -30,7 +30,7 @@ import { SETTINGS_HEADING_STYLE } from './settingsSections'
 // (No Preferences/Support/Information grouping - the master list is short enough to scan.)
 const SUBSETTINGS = [
   { key: 'about',      path: '/settings/about',      icon: BadgeInfo, label: 'About',           description: 'Version, build, and deployment details' },
-  { key: 'appearance', path: '/settings/appearance', icon: Monitor,   label: 'Appearance',      description: 'Theme for this device' },
+  { key: 'appearance', path: '/settings/appearance', icon: Monitor,   label: 'Appearance',      description: 'Theme and Contacts layout' },
   { key: 'signature',  path: '/settings/signature',  icon: PenLine,   label: 'Email Signature', description: 'Your Connect signature' },
   { key: 'tours',      path: '/settings/tours',      icon: Info,      label: 'Tours & Help',    description: 'Replay the welcome tour and find help' },
 ]

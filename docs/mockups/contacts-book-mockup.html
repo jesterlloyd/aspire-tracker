@@ -1,0 +1,358 @@
+<title>Contacts Address Book</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Instrument+Sans:wght@500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+:root{
+  --ground:#F3F2EE; --surface:#FFFFFF; --ink:#18203F; --muted:#5E6480; --line:#E3E4EC;
+  --navy:#1E2A6E; --navy-bar:#1E2A6E; --navy-soft:#EFF3FB;
+  --green:#0F7A4D; --green-soft:#E1F3EA; --amber:#8F5A0A; --amber-soft:#FBEFD9; --red:#A32A32; --red-soft:#FBEAEC;
+  /* oxblood book */
+  --bk-a:#7E2B33; --bk-b:#5E1E26; --bk-c:#43141B; --bk-edge:rgba(255,255,255,.14);
+  --gilt:#C9A227; --gilt-2:#8F7318;
+  --pg:#FBF7F0; --pg-2:#F3EDE3; --pg-ink:#2A1D20; --pg-mute:#7A6560; --pg-rule:rgba(90,40,45,.16);
+  --pg-line:rgba(90,40,45,.09);
+  --display:"Instrument Sans",system-ui,sans-serif; --body:"Atkinson Hyperlegible",system-ui,sans-serif; --mono:"JetBrains Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --ground:#0E111C; --surface:#181C2B; --ink:#E9EAF2; --muted:#9CA1BA; --line:#2B3046; --navy:#9FB0F5; --navy-bar:#151C45; --navy-soft:#1E2540;
+  --green:#3CCB8A; --green-soft:#15372A; --amber:#E6A544; --amber-soft:#3A2C14; --red:#F08A92; --red-soft:#3A1B1F;
+  --bk-a:#3E1A20; --bk-b:#2E1218; --bk-c:#210C11;
+  --gilt:#A8862B; --gilt-2:#6E5713;
+  --pg:#1E1A1C; --pg-2:#191517; --pg-ink:#F0E8E4; --pg-mute:#B49E98; --pg-rule:rgba(240,220,215,.18); --pg-line:rgba(240,220,215,.07);
+}}
+:root[data-theme="dark"]{
+  --ground:#0E111C; --surface:#181C2B; --ink:#E9EAF2; --muted:#9CA1BA; --line:#2B3046; --navy:#9FB0F5; --navy-bar:#151C45; --navy-soft:#1E2540;
+  --green:#3CCB8A; --green-soft:#15372A; --amber:#E6A544; --amber-soft:#3A2C14; --red:#F08A92; --red-soft:#3A1B1F;
+  --bk-a:#3E1A20; --bk-b:#2E1218; --bk-c:#210C11;
+  --gilt:#A8862B; --gilt-2:#6E5713;
+  --pg:#1E1A1C; --pg-2:#191517; --pg-ink:#F0E8E4; --pg-mute:#B49E98; --pg-rule:rgba(240,220,215,.18); --pg-line:rgba(240,220,215,.07);
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--ground);color:var(--ink);font-family:var(--body);font-size:14px;line-height:1.55;margin:0}
+button{font:inherit;cursor:pointer;color:inherit}
+input,select{font:inherit}
+:focus-visible{outline:3px solid var(--navy);outline-offset:2px}
+
+.topbar{background:var(--navy-bar);color:#fff;padding-inline:20px;padding-block:13px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.topbar b{font-family:var(--display);font-size:19px}
+.chrome{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.scope{font-family:var(--mono);font-size:11px;border:1px solid rgba(255,255,255,.25);border-radius:8px;padding:5px 10px;white-space:nowrap}
+.theme-toggle{display:inline-flex;border:1px solid rgba(255,255,255,.35);border-radius:8px;overflow:hidden}
+.theme-toggle button{background:transparent;color:#fff;border:none;padding:5px 10px;font-size:12px}
+.theme-toggle button[aria-pressed="true"]{background:#fff;color:#1E2A6E}
+main{max-width:1340px;margin:0 auto;padding-inline:20px;padding-block:16px 80px;display:grid;gap:12px}
+.demo{font-family:var(--mono);font-size:11px;color:var(--amber);background:var(--amber-soft);padding:3px 8px;border-radius:4px;justify-self:start}
+h1{font-family:var(--display);font-size:24px;margin:2px 0;color:var(--navy)}
+.lede{color:var(--muted);margin:0;font-size:13.5px}
+.ctabs{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface);justify-self:start;margin-top:4px}
+.ctabs span{padding:8px 15px;font-size:13.5px;color:var(--muted)}
+.ctabs .on{background:var(--navy);color:#fff;font-weight:700}
+
+/* ---------- THE BOOK ---------- */
+.book{position:relative;border-radius:8px;padding:15px 16px;
+  background-color:#5E1E26;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='p'><feTurbulence type='fractalNoise' baseFrequency='1.1' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .5 0'/></filter><rect width='100%' height='100%' filter='url(%23p)'/></svg>"),
+    radial-gradient(ellipse at 50% 0%,rgba(255,255,255,.10),transparent 60%),
+    linear-gradient(180deg,var(--bk-a),var(--bk-b) 55%,var(--bk-c));
+  background-blend-mode:soft-light,normal,normal;
+  box-shadow:inset 0 1px 0 var(--bk-edge),inset 0 -2px 0 rgba(0,0,0,.45),0 2px 5px rgba(30,10,14,.35),0 22px 50px rgba(30,10,14,.3)}
+/* gilt rule tooled into the cover */
+.book::before{content:"";position:absolute;inset:7px;border-radius:5px;border:1px solid rgba(201,162,39,.32);pointer-events:none}
+
+.spread{position:relative;display:grid;grid-template-columns:38fr 62fr;align-items:stretch;
+  box-shadow:0 2px 5px rgba(30,10,14,.4),0 10px 26px rgba(30,10,14,.3)}
+@media (max-width:980px){.spread{grid-template-columns:1fr}}
+.page{position:relative;background:var(--pg);color:var(--pg-ink);min-width:0}
+.page.left{padding:16px 14px 16px 42px;border-radius:3px 0 0 3px}
+.page.right{padding:18px 22px 20px;border-radius:0 3px 3px 0}
+/* gutter: the fold between pages */
+.spread::after{content:"";position:absolute;left:38%;top:0;bottom:0;width:26px;translate:-50% 0;pointer-events:none;z-index:3;
+  background:linear-gradient(90deg,rgba(60,25,28,0),rgba(60,25,28,.16) 38%,rgba(60,25,28,.30) 50%,rgba(60,25,28,.14) 62%,rgba(60,25,28,0))}
+@media (max-width:980px){.spread::after{display:none}}
+/* gilt fore edges */
+.page.left::after{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;
+  background:linear-gradient(180deg,var(--gilt),var(--gilt-2) 50%,var(--gilt))}
+.page.right::after{content:"";position:absolute;right:0;top:0;bottom:0;width:3px;
+  background:linear-gradient(180deg,var(--gilt),var(--gilt-2) 50%,var(--gilt))}
+
+/* A-Z thumb index stepped into the outer left edge */
+.thumb{position:absolute;left:3px;top:14px;bottom:14px;width:33px;display:flex;flex-direction:column;gap:1px;z-index:4}
+.thumb button{flex:1;min-height:0;border:none;background:var(--pg-2);color:var(--pg-mute);
+  font-family:var(--mono);font-size:8.5px;letter-spacing:.02em;border-radius:3px 0 0 3px;padding:0;
+  box-shadow:inset -1px 0 0 rgba(90,40,45,.14),0 1px 1px rgba(0,0,0,.08)}
+.thumb button:hover{background:var(--pg);color:var(--pg-ink)}
+.thumb button[aria-pressed="true"]{background:var(--bk-a);color:#FBEFD9;font-weight:600}
+.thumb button:disabled{opacity:.32;cursor:default}
+
+.lhead{display:grid;gap:9px;margin-bottom:10px}
+.lhead .t{display:flex;justify-content:space-between;align-items:center;gap:9px}
+.lhead h2{font-family:var(--display);font-size:15px;margin:0;letter-spacing:.02em}
+.addbtn{background:var(--bk-a);border:none;color:#FBEFD9;border-radius:7px;padding:5px 11px;font-size:12px;font-weight:700}
+.srch{width:100%;padding:7px 11px;border-radius:7px;border:1px solid var(--pg-rule);background:var(--pg-2);color:var(--pg-ink);font-size:12.5px}
+.cats{display:flex;gap:5px;flex-wrap:wrap}
+.cat{background:var(--pg-2);border:1px solid var(--pg-rule);border-radius:99px;padding:3px 9px;font-size:11.5px;color:var(--pg-mute);display:flex;gap:5px;align-items:center}
+.cat b{font-family:var(--mono);font-size:10px}
+.cat[aria-pressed="true"]{background:var(--bk-a);border-color:var(--bk-a);color:#FBEFD9}
+.count{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--pg-mute)}
+
+/* ruled entry lines */
+.entries{max-height:500px;overflow-y:auto}
+.gsep{font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;color:var(--pg-mute);padding:6px 4px 3px;
+  border-bottom:1px solid var(--pg-rule);background:var(--pg)}
+.ent{width:100%;height:52px;text-align:left;background:none;border:none;border-bottom:1px solid var(--pg-line);padding:0 6px;display:grid;
+  grid-template-columns:30px 1fr;gap:9px;align-items:center}
+.ent:hover{background:rgba(126,43,51,.06)}
+.ent[aria-current="true"]{background:rgba(126,43,51,.11);box-shadow:inset 3px 0 0 var(--bk-a)}
+.ent .av{width:30px;height:30px;border-radius:50%;overflow:hidden;display:grid;place-items:center;
+  background:var(--pg-2);color:var(--bk-a);font-family:var(--display);font-size:11px;font-weight:600;border:1px solid var(--pg-rule)}
+.ent .nm{display:block;font-family:var(--display);font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ent .rl{display:block;font-size:11.5px;color:var(--pg-mute);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ent>span:last-child{min-width:0}
+
+/* right page: the record */
+.rec{display:grid;gap:15px}
+.plate{display:grid;gap:9px;justify-items:center;text-align:center;padding-bottom:13px;border-bottom:2px solid var(--pg-ink)}
+.plate .ph{width:78px;height:78px;border-radius:50%;background:var(--pg-2);display:grid;place-items:center;
+  font-family:var(--display);font-size:25px;font-weight:600;color:var(--bk-a);
+  border:2px solid var(--pg);box-shadow:0 0 0 1px var(--pg-rule),0 3px 8px rgba(60,25,28,.18)}
+.plate h3{font-family:var(--display);font-size:23px;margin:0;letter-spacing:-.01em}
+.plate .role{display:flex;gap:7px;align-items:center;flex-wrap:wrap;justify-content:center}
+.rolebadge{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;
+  background:var(--bk-a);color:#FBEFD9;border-radius:4px;padding:3px 9px}
+.plate .org{font-size:13.5px;color:var(--pg-mute)}
+.acts{display:flex;gap:7px;flex-wrap:wrap;justify-content:center;margin-top:3px}
+.abtn{background:var(--pg-2);border:1px solid var(--pg-rule);border-radius:7px;padding:6px 13px;font-size:12.5px;color:var(--pg-ink)}
+.abtn:hover{border-color:var(--bk-a)}
+.abtn.pri{background:var(--bk-a);border-color:var(--bk-a);color:#FBEFD9;font-weight:700}
+.abtn:disabled{opacity:.4;cursor:not-allowed}
+
+.sec{display:grid;gap:7px}
+.sec>h4{font-family:var(--mono);font-size:9.5px;letter-spacing:.15em;text-transform:uppercase;color:var(--pg-mute);
+  margin:0;padding-bottom:5px;border-bottom:1px solid var(--pg-rule);display:flex;justify-content:space-between;gap:10px}
+.sec>h4 em{font-style:normal;letter-spacing:0;text-transform:none;font-family:var(--body);font-size:11.5px}
+.fld{display:grid;grid-template-columns:118px 1fr;gap:12px;padding:5px 0;font-size:13.5px}
+.fld .k{color:var(--pg-mute);font-size:12.5px}
+.fld .v{min-width:0;overflow-wrap:anywhere}
+.fld .v a{color:var(--bk-a)}
+.note{background:var(--pg-2);border-left:3px solid var(--pg-rule);padding:9px 12px;font-size:13px;border-radius:0 5px 5px 0}
+.prefs{display:flex;gap:6px;flex-wrap:wrap}
+.pref{font-family:var(--mono);font-size:10px;letter-spacing:.04em;border-radius:4px;padding:3px 9px;background:var(--green-soft);color:var(--green)}
+.pref.off{background:var(--pg-2);color:var(--pg-mute)}
+
+/* comms log */
+.log{display:grid;gap:0}
+.logrow{display:grid;grid-template-columns:1fr 84px 74px;gap:11px;align-items:center;padding:8px 2px;border-bottom:1px solid var(--pg-rule);font-size:13px}
+.logrow:last-child{border-bottom:none}
+.logrow .sj{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.logrow .st{font-family:var(--mono);font-size:9.5px;letter-spacing:.05em;border-radius:4px;padding:2px 7px;justify-self:start;
+  background:var(--green-soft);color:var(--green)}
+.logrow .st.open{background:var(--navy-soft);color:var(--navy)}
+.logrow .dt{font-family:var(--mono);font-size:10.5px;color:var(--pg-mute);text-align:right}
+.seeall{background:none;border:none;color:var(--bk-a);font-size:12.5px;text-decoration:underline;text-underline-offset:3px;padding:4px 0 0;justify-self:start}
+
+/* linked students */
+.studs{display:grid;gap:0}
+.stud{display:grid;grid-template-columns:26px 1fr auto;gap:10px;align-items:center;padding:7px 2px;border-bottom:1px solid var(--pg-rule);font-size:13px}
+.stud:last-child{border-bottom:none}
+.stud .sav{width:26px;height:26px;border-radius:50%;background:var(--pg-2);display:grid;place-items:center;
+  font-family:var(--display);font-size:10px;font-weight:600;color:var(--bk-a);border:1px solid var(--pg-rule)}
+.stud .stt{font-family:var(--mono);font-size:9.5px;letter-spacing:.04em;border-radius:99px;padding:2px 9px}
+.stud .stt.act{background:var(--green-soft);color:var(--green)}
+.stud .stt.done{background:var(--pg-2);color:var(--pg-mute)}
+.stud .stt.pend{background:var(--amber-soft);color:var(--amber)}
+
+#toast{position:fixed;left:50%;bottom:22px;translate:-50% 0;background:#2A1D20;color:#FBF7F0;padding:10px 16px;border-radius:9px;font-size:13px;
+  opacity:0;pointer-events:none;transition:opacity .2s;box-shadow:0 10px 26px rgba(0,0,0,.35);z-index:70;max-width:min(560px,calc(100vw - 32px))}
+#toast.show{opacity:1}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="topbar"><b>ASPIRE Intelligence</b>
+  <span class="chrome">
+    <span class="scope">SCOPE · Internship · Summer 2026</span>
+    <span class="theme-toggle" role="group" aria-label="Theme"><button type="button" data-t="light">☀ Light</button><button type="button" data-t="dark">☾ Dark</button></span>
+  </span>
+</div>
+
+<main>
+  <span class="demo">Mockup · synthetic demo data · staff-facing screen</span>
+  <h1>ASPIRE Connect</h1>
+  <p class="lede">Contacts, outreach, and announcements across cohorts.</p>
+  <span class="ctabs" role="group" aria-label="Connect sections"><span class="on">Contacts</span><span>Outreach</span><span>Messages</span><span>Automations</span></span>
+
+  <section class="book">
+    <div class="spread">
+      <div class="page left">
+        <nav class="thumb" id="thumb" aria-label="Jump to letter"></nav>
+        <div class="lhead">
+          <div class="t"><h2>Contacts</h2><button class="addbtn" type="button" data-a="add">+ Add</button></div>
+          <input class="srch" id="srch" type="search" placeholder="Search name, school, role">
+          <div class="cats" id="cats"></div>
+          <div class="count" id="count"></div>
+        </div>
+        <div class="entries" id="entries"></div>
+      </div>
+      <div class="page right"><div class="rec" id="rec"></div></div>
+    </div>
+  </section>
+</main>
+
+<div id="toast" role="status"></div>
+<p class="sr" id="live" aria-live="polite"></p>
+
+<script>
+const $=s=>document.querySelector(s);
+const esc=t=>String(t??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove('show'),3200)}
+const ini=n=>n.split(/[\s,]+/).filter(Boolean).map(w=>w[0]).slice(0,2).join('').toUpperCase();
+const sortKey=n=>n.split(' ').slice(-1)[0].toUpperCase();
+
+const CATS=[['all','All Contacts',231],['acad','Academic Partners',12],['unit','Unit Leaders',110],['prec','Preceptors',71],['bni','BNI Team',17],['exec','Nursing Executives',14],['other','Others',9]];
+
+const C=[
+ {id:'c1',n:'Gary Mittelberg',cat:'acad',role:'Assistant Professor',prog:'ELM',org:'Azusa Pacific University',
+  email:'gmittelberg@apu.edu',phone:null,li:true,note:'Covers ELMN program.',digest:true,sms:false,
+  log:[['ASPIRE Orientation – Friday, August 28, 2026','Delivered','Aug 26'],
+       ['Welcome to ASPIRE! You’re Invited: ASPIRE Orientation – Monday, August 24','Delivered','Aug 20'],
+       ['Final Reminder: Schedule Your ASPIRE Interview by Wednesday, August 12','Delivered','Aug 10'],
+       ['Schedule Your ASPIRE Interview','Delivered','Aug 7'],
+       ['Cedars-Sinai | Complete Your ASPIRE Intake Form','Delivered','Aug 3']],
+  studs:[['Cline, Dylan','done','Completed'],['Delos Santos, Eden Rose','act','Active Rotation'],['Khoshkhou, Nicole','act','Active Rotation'],['Marquez, Victoria','act','Active Rotation'],['Rabanales, Allison','pend','Placed']]},
+ {id:'c2',n:'Susan Hunter',cat:'acad',role:'Clinical Placement Coordinator',prog:null,org:'Azusa Pacific University',
+  email:'shunter@apu.edu',phone:'(626) 555-0142',li:false,note:'Primary placement contact for all APU cohorts. Prefers email over phone.',digest:true,sms:false,
+  log:[['Fall 2026 Placement Confirmation','Delivered','Sep 2'],['ASPIRE Orientation – Friday, August 28, 2026','Delivered','Aug 26'],['Affiliation Agreement Renewal','Opened','Aug 12']],
+  studs:[['Capati, Ace','act','Active Rotation'],['Rabanales, Allison','pend','Placed'],['Sato, Emma','done','Completed']]},
+ {id:'c3',n:'Alyssa Manlangit',cat:'acad',role:'Program Coordinator',prog:null,org:'Cal State LA',
+  email:'amanlangit@calstatela.edu',phone:'(323) 555-0198',li:true,note:'',digest:true,sms:true,
+  log:[['ASPIRE Orientation – Friday, August 28, 2026','Delivered','Aug 26'],['Schedule Your ASPIRE Interview','Delivered','Aug 7']],
+  studs:[['Ortega, Ben','pend','Placed']]},
+ {id:'c4',n:'Marissa Grafil Ramirez',cat:'acad',role:'Clinical Placement Coordinator',prog:null,org:'Cal State LA',
+  email:'mgramirez@calstatela.edu',phone:null,li:false,note:'Covers ABSN track only.',digest:false,sms:false,
+  log:[['Fall 2026 Placement Confirmation','Delivered','Sep 2']],studs:[]},
+ {id:'c5',n:'Lucy Van Otterloo',cat:'acad',role:'Clinical Placement Coordinator',prog:null,org:'Cal State Long Beach',
+  email:'lucy.vanotterloo@csulb.edu',phone:'(562) 555-0176',li:true,note:'',digest:true,sms:false,
+  log:[['ASPIRE Orientation – Friday, August 28, 2026','Delivered','Aug 26'],['Cedars-Sinai | Complete Your ASPIRE Intake Form','Delivered','Aug 3']],
+  studs:[['Grigorian, Alex','act','Active Rotation'],['Chung, Annalise','act','Active Rotation']]},
+ {id:'c6',n:'Ana Lopez-Silva',cat:'prec',role:'Preceptor',prog:null,org:'6 South · Cedars-Sinai',
+  email:'ana.lopez-silva@cshs.org',phone:'(310) 555-0121',li:false,note:'Precepts days. Requested no more than one student per rotation.',digest:true,sms:true,
+  log:[['Preceptor Readiness Assessment · Midpoint','Delivered','Sep 4'],['Preceptor Packet · Fall 2026','Delivered','Aug 18']],
+  studs:[['Tergalstanian, Chloe','act','Active Rotation']]},
+ {id:'c7',n:'Dana Whitfield',cat:'prec',role:'Preceptor',prog:null,org:'6 NW · Cedars-Sinai',
+  email:'dana.whitfield@cshs.org',phone:null,li:false,note:'',digest:true,sms:false,
+  log:[['Preceptor Readiness Assessment · End of Rotation','Delivered','Sep 15']],
+  studs:[['Reyes, Jordan','done','Completed'],['Alvarez, Sofia','act','Active Rotation']]},
+ {id:'c8',n:'Karen Mills',cat:'unit',role:'Unit Leader',prog:null,org:'6 NW · Cedars-Sinai',
+  email:'karen.mills@cshs.org',phone:'(310) 555-0155',li:false,note:'Unit leader for 6 NW. Receives forwarded student feedback.',digest:true,sms:false,
+  log:[['Student Feedback Forwarded · Jordan Reyes','Delivered','Sep 16'],['Unit Leader Digest · Week of Sep 7','Delivered','Sep 7']],
+  studs:[['Reyes, Jordan','done','Completed'],['Alvarez, Sofia','act','Active Rotation'],['Rabanales, Allison','pend','Placed']]},
+ {id:'c9',n:'Bernice Coleman',cat:'exec',role:'Nursing Executive',prog:null,org:'Brawerman Nursing Institute',
+  email:'bernice.coleman@cshs.org',phone:null,li:true,note:'iWIN program lead.',digest:true,sms:false,
+  log:[['ASPIRE Quarterly Summary · Q3 2026','Delivered','Sep 1']],studs:[]},
+ {id:'c10',n:'Krystal Rodriguez',cat:'bni',role:'ASPIRE Co-Lead',prog:null,org:'Brawerman Nursing Institute',
+  email:'krystal.rodriguez@cshs.org',phone:'(310) 555-0133',li:false,note:'Preceptor Program Lead. Covers placement when I am out.',digest:true,sms:true,
+  log:[['Weekly Coordinator Digest','Delivered','Sep 18'],['ASPIRE Orientation – Friday, August 28, 2026','Delivered','Aug 26']],
+  studs:[['Bell, Marcus','done','Completed']]},
+ {id:'c11',n:'Esther Kere',cat:'bni',role:'Clinical Nurse II',prog:null,org:'6 South · Cedars-Sinai',
+  email:'esther.kere@cshs.org',phone:null,li:true,note:'ASPIRE alum. Now precepts on 6 South.',digest:true,sms:false,
+  log:[['Preceptor Packet · Fall 2026','Delivered','Aug 18']],
+  studs:[['Kim, Hannah','act','Active Rotation']]},
+ {id:'c12',n:'Tony Kim',cat:'acad',role:'Clinical Placement Coordinator',prog:null,org:'West Coast University North Hollywood',
+  email:'tokim@westcoastuniversity.edu',phone:'(818) 555-0188',li:false,note:'Agreement expires Oct 15. Renewal in progress.',digest:true,sms:false,
+  log:[['Affiliation Agreement Renewal','Opened','Sep 10'],['Fall 2026 Placement Confirmation','Delivered','Sep 2']],
+  studs:[['Capati, Ace','act','Active Rotation'],['Friedenthal, Adam','done','Completed']]}
+];
+
+const state={sel:'c1',cat:'all',q:'',letter:null};
+const cur=()=>C.find(x=>x.id===state.sel);
+function filtered(){
+  let r=C.slice();
+  if(state.cat!=='all')r=r.filter(x=>x.cat===state.cat);
+  if(state.q){const q=state.q.toLowerCase();r=r.filter(x=>(x.n+' '+x.org+' '+x.role).toLowerCase().includes(q))}
+  if(state.letter)r=r.filter(x=>sortKey(x.n)[0]===state.letter);
+  return r.sort((a,b)=>sortKey(a.n).localeCompare(sortKey(b.n)));
+}
+
+function renderCats(){
+  $('#cats').innerHTML=CATS.map(([k,l,n])=>'<button class="cat" type="button" data-c="'+k+'" aria-pressed="'+(state.cat===k)+'">'+esc(l)+' <b>'+n+'</b></button>').join('');
+}
+function renderThumb(){
+  const present=new Set(C.filter(x=>state.cat==='all'||x.cat===state.cat).map(x=>sortKey(x.n)[0]));
+  $('#thumb').innerHTML='ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map(L=>
+    '<button type="button" data-l="'+L+'" aria-pressed="'+(state.letter===L)+'"'+(present.has(L)?'':' disabled')+
+    ' aria-label="Jump to '+L+'">'+L+'</button>').join('');
+}
+function renderList(){
+  const rows=filtered();
+  $('#count').textContent=rows.length+' of '+C.length+' shown · 231 in the full book';
+  let h='',last=null;
+  rows.forEach(c=>{
+    const L=sortKey(c.n)[0];
+    if(L!==last){h+='<div class="gsep">'+L+'</div>';last=L}
+    h+='<button class="ent" type="button" data-e="'+c.id+'" aria-current="'+(state.sel===c.id)+'">'+
+      '<span class="av">'+ini(c.n)+'</span><span><span class="nm">'+esc(c.n)+'</span>'+
+      '<span class="rl">'+esc(c.role)+' · '+esc(c.org)+'</span></span></button>';
+  });
+  $('#entries').innerHTML=h||'<div style="padding:20px 6px;color:var(--pg-mute);font-size:13px">No contacts match.</div>';
+  const on=document.querySelector('.ent[aria-current="true"]');
+  if(on){const box=$('#entries');box.scrollTop=Math.max(0,on.offsetTop-box.offsetTop-120)}
+}
+function renderRec(){
+  const c=cur();
+  if(!c){$('#rec').innerHTML='';return}
+  const act=c.studs.filter(s=>s[1]==='act').length;
+  $('#rec').innerHTML=
+    '<div class="plate"><div class="ph">'+ini(c.n)+'</div>'+
+      '<h3>'+esc(c.n)+'</h3>'+
+      '<div class="role"><span class="rolebadge">'+esc(c.role)+'</span>'+(c.prog?'<span style="font-size:12.5px;color:var(--pg-mute)">· '+esc(c.prog)+'</span>':'')+'</div>'+
+      '<div class="org">'+esc(c.org)+'</div>'+
+      '<div class="acts"><button class="abtn pri" type="button" data-a="email">✉ Email</button>'+
+      '<button class="abtn" type="button" data-a="call"'+(c.phone?'':' disabled')+'>✆ Call</button>'+
+      '<button class="abtn" type="button" data-a="edit">✎ Edit</button>'+
+      (c.li?'<button class="abtn" type="button" data-a="li">in LinkedIn</button>':'')+'</div></div>'+
+
+    '<div class="sec"><h4>Contact</h4>'+
+      '<div class="fld"><span class="k">Email</span><span class="v"><a href="#" data-a="email">'+esc(c.email)+'</a></span></div>'+
+      (c.phone?'<div class="fld"><span class="k">Phone</span><span class="v">'+esc(c.phone)+'</span></div>':'')+
+      '<div class="fld"><span class="k">Affiliation</span><span class="v">'+esc(c.org)+(c.prog?' · '+esc(c.prog):'')+'</span></div></div>'+
+
+    '<div class="sec"><h4>Notes</h4>'+(c.note?'<div class="note">'+esc(c.note)+'</div>':'<div class="note" style="color:var(--pg-mute)">No notes yet.</div>')+'</div>'+
+
+    '<div class="sec"><h4>Notification preferences</h4><div class="prefs">'+
+      '<span class="pref'+(c.digest?'':' off')+'">Weekly digest '+(c.digest?'on':'off')+'</span>'+
+      '<span class="pref'+(c.sms?'':' off')+'">SMS '+(c.sms?'on':'off')+'</span></div></div>'+
+
+    '<div class="sec"><h4>Recent communications <em>'+c.log.length+' shown</em></h4><div class="log">'+
+      c.log.map(([s,st,d])=>'<div class="logrow"><span class="sj" title="'+esc(s)+'">'+esc(s)+'</span>'+
+        '<span class="st'+(st==='Opened'?' open':'')+'">'+esc(st)+'</span>'+
+        '<span class="dt">'+esc(d)+'</span></div>').join('')+
+      '</div><button class="seeall" type="button" data-a="allcomms">View all communications for this contact →</button></div>'+
+
+    '<div class="sec"><h4>Linked students <em>'+(c.studs.length?c.studs.length+' assigned'+(act?' · '+act+' on active rotation':''):'none')+'</em></h4>'+
+      (c.studs.length?'<div class="studs">'+c.studs.map(([n,k,l])=>
+        '<div class="stud"><span class="sav">'+ini(n)+'</span><span>'+esc(n)+'</span><span class="stt '+k+'">'+esc(l)+'</span></div>').join('')+'</div>'
+        :'<div class="note" style="color:var(--pg-mute)">No students are linked to this contact.</div>')+'</div>';
+}
+function render(){renderCats();renderThumb();renderList();renderRec()}
+
+document.addEventListener('click',e=>{
+  const c=e.target.closest('[data-c]');
+  if(c){state.cat=c.dataset.c;state.letter=null;const f=filtered();if(f.length)state.sel=f[0].id;render();return}
+  const l=e.target.closest('[data-l]');
+  if(l){state.letter=state.letter===l.dataset.l?null:l.dataset.l;const f=filtered();if(f.length)state.sel=f[0].id;render();
+    $('#live').textContent=state.letter?('Jumped to '+state.letter):'Letter filter cleared';return}
+  const en=e.target.closest('[data-e]');
+  if(en){state.sel=en.dataset.e;renderList();renderRec();$('#live').textContent='Opened '+cur().n;return}
+  const a=e.target.closest('[data-a]');
+  if(a){e.preventDefault();const k=a.dataset.a,x=cur();
+    toast({email:'Opens a new message to '+(x?x.email:''),call:'Calls '+(x&&x.phone?x.phone:''),edit:'Opens the edit form for this contact',
+      li:'Opens this contact on LinkedIn',add:'Adds a new contact to the book',
+      allcomms:'Opens the full send history for '+(x?x.n:'')}[k]||'');return}
+});
+$('#srch').addEventListener('input',e=>{state.q=e.target.value;state.letter=null;const f=filtered();if(f.length)state.sel=f[0].id;renderThumb();renderList();renderRec()});
+document.querySelectorAll('.theme-toggle button').forEach(b=>b.onclick=()=>{
+  document.documentElement.setAttribute('data-theme',b.dataset.t);
+  document.querySelectorAll('.theme-toggle button').forEach(x=>x.setAttribute('aria-pressed',x.dataset.t===b.dataset.t));
+});
+render();
+</script>

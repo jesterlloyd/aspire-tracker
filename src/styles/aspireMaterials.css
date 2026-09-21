@@ -187,3 +187,27 @@
     0 1px 2px rgba(0, 0, 0, 0.45),
     0 8px 16px -6px rgba(24, 32, 63, 0.34);
 }
+
+/* ── Oxblood leather (an address book) ─────────────────────────────────────── */
+/* CONTACTS-BOOK-1 (2026-09-20): ASPIRE Connect > Contacts, read as an address book. The
+   mockup's cover: a fine soft-light grain over a soft top highlight and a straight fall
+   from lift to deep. The two insets are the rolled top edge and the board's underside.
+   The deep drop is kept UNDER the book with a negative spread (the mockup's 0 22px 50px
+   needs fifty pixels of room, and the Contacts pane is a scroll container that gives it
+   ten), for the reason the black binder's shadow was pulled in. */
+.material-leather-oxblood {
+  background-color: var(--aspire-leather-oxblood);
+  background-image:
+    var(--aspire-noise-oxblood),
+    radial-gradient(ellipse at 50% 0%, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0) 60%),
+    linear-gradient(180deg,
+      var(--aspire-leather-oxblood-lift),
+      var(--aspire-leather-oxblood) 55%,
+      var(--aspire-leather-oxblood-deep));
+  background-blend-mode: soft-light, normal, normal;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.45),
+    0 2px 5px rgba(30, 10, 14, 0.35),
+    0 12px 20px -10px rgba(30, 10, 14, 0.3);
+}

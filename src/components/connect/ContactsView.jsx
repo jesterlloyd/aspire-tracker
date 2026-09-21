@@ -1,19 +1,17 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useState, useEffect, useCallback, Suspense } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Mail, Pencil, Phone } from 'lucide-react'
 import ProfileActionButton from '../ui/ProfileActionButton'
 import { useToast } from '../../hooks/useToast'
 import { ToastContainer } from '../Toast'
 
-const LAST_CONTACT_KEY = 'aspire.connect.contacts.lastContactId'
 import { supabase } from '../../lib/supabase'
 import { uploadContactAvatar } from '../../lib/contactAvatarUpload'
 import Tooltip from '../ui/Tooltip'
-import { isValidEmail } from '../../lib/notifications/studentRecipient'
-import { normalizeEmailForLookup } from '../../lib/emailUtils'
+import { copyVisibleContactEmails } from '../../lib/connect/copyContactEmails'
 import {
   PRECEPTOR_ROLES, contactRoleChipColors,
-  getPrimaryCategory, getContactCategories,
+  getPrimaryCategory,
   CONTACT_CATEGORY_ORDER, canonicalCategory,
   titleOptionsFor, titleAllowsFreeText,
   affiliationKind, showsUnitAffiliation, contactServicesMeta, showsDivisionsField,
@@ -27,6 +25,10 @@ import { SCHOOL_PICKER_OPTIONS, schoolPickerLabel } from '../../lib/schoolIdenti
 import MultiScopePicker from '../shared/MultiScopePicker'
 import { toneGradient } from '../../lib/connectTones'
 import ConnectPanel, { ConnectPanelIcon } from './ConnectPanel'
+import { useContactsDirectory, CATEGORY_ORDER } from './useContactsDirectory'
+import { useUserPreference } from '../../hooks/useUserPreference'
+import { CONTACTS_LAYOUT } from '../../lib/userPreferences'
+import { lazyReload } from '../../lib/lazyReload'
 
 const F    = 'Plus Jakarta Sans, sans-serif'
 const NAVY = '#1D2567'
@@ -38,9 +40,9 @@ const NAVY = '#1D2567'
 // the shared src/lib/contactCategories.js module (imported above) so the Contacts page and the
 // Send-to-Many Contacts source share one source of truth. Behavior is unchanged.
 
-// CONTACTS-CANON-1: the chip row derives from the shared canonical order, and
-// per-category sorting lives in the shared sortContactsForCategory comparator.
-const CATEGORY_ORDER = ['All', ...CONTACT_CATEGORY_ORDER]
+// CONTACTS-CANON-1: the chip row derives from the shared canonical order (CATEGORY_ORDER,
+// now defined once in useContactsDirectory), and per-category sorting lives in the shared
+// sortContactsForCategory comparator.
 
 // Category-level chip fallback - used when the contact's role string isn't in the shared role map.
 // Ensures contacts with non-standard role titles (e.g., "Professor & Assistant Director")
@@ -1625,243 +1627,20 @@ function ContactModal({ mode, initialData, onClose, onSaved }) {
   )
 }
 
-// ── Main component ────────────────────────────────────────────────────────────
+// ── Classic layout (the three-zone CRM screen) ────────────────────────────────
+// CONTACTS-BOOK-1: the screen as it always was. Its markup is unchanged; only where its
+// values come from moved, into useContactsDirectory, so the Address book can read the
+// same ones. Three call sites now name the shared action instead of repeating it:
+// picking a row (selectContact), Deactivate, and Repair Preceptor Contacts.
 
-export default function ContactsView({ refreshKey = 0 }) {
-  const navigate    = useNavigate()
-  const location    = useLocation()
-  const restoredRef = useRef(false)   // tracks whether initial selection restore has run
-  const { toasts, removeToast, toast } = useToast()
-
-  const [showContactModal, setShowContactModal] = useState(false)
-  const [editingContact,   setEditingContact]   = useState(null)
-  const [showSyncModal,    setShowSyncModal]    = useState(false)
-  const [showInactive,     setShowInactive]     = useState(false)
-  const [deactivateTarget, setDeactivateTarget] = useState(null)  // { contact, action }
-  const [deactivating,     setDeactivating]     = useState(false)
-
-  const handleOpenAdd  = useCallback(() => { setEditingContact(null); setShowContactModal(true) }, [])
-  const handleOpenEdit = useCallback(contact => { setEditingContact(contact); setShowContactModal(true) }, [])
-  const handleModalClose = useCallback(() => { setShowContactModal(false); setEditingContact(null) }, [])
-
-  const handleContactSaved = useCallback((savedContact, wasEdit) => {
-    setContacts(prev =>
-      wasEdit
-        ? prev.map(c => c.id === savedContact.id ? savedContact : c)
-        : [...prev, savedContact]
-    )
-    setSelectedId(savedContact.id)
-    handleModalClose()
-  }, [handleModalClose])
-
-  const handleDeactivateConfirm = useCallback(async () => {
-    if (!deactivateTarget) return
-    const { contact, action } = deactivateTarget
-    const newIsActive = action === 'reactivate'
-    setDeactivating(true)
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session?.access_token) {
-        toast.error('Error', 'Session expired. Please refresh and try again.')
-        return
-      }
-      const res = await fetch('/api/contacts-upsert', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-        body: JSON.stringify({ id: contact.id, is_active: newIsActive }),
-      })
-      let payload = null
-      try { payload = await res.json() } catch {}
-      if (!res.ok) {
-        toast.error('Error', payload?.error || `Failed to ${action} contact.`)
-        return
-      }
-      setContacts(prev => prev.map(c => c.id === contact.id ? { ...c, is_active: newIsActive } : c))
-      setDeactivateTarget(null)
-      if (!newIsActive && !showInactive) setSelectedId(null)
-      toast.success(
-        newIsActive ? 'Reactivated' : 'Deactivated',
-        newIsActive
-          ? `${contact.full_name} has been reactivated.`
-          : `${contact.full_name} has been deactivated.`
-      )
-    } catch {
-      toast.error('Error', 'Network error. Please try again.')
-    } finally {
-      setDeactivating(false)
-    }
-  }, [deactivateTarget, showInactive, toast])
-
-  const [contacts,        setContacts]        = useState([])
-  const [loading,         setLoading]         = useState(true)
-  const [error,           setError]           = useState(null)
-  const [search,          setSearch]          = useState('')
-  const [categoryFilter,  setCategoryFilter]  = useState('All')
-  const [selectedId,      setSelectedId]      = useState(null)
-  const [commHistory,     setCommHistory]     = useState([])
-  const [loadingComm,     setLoadingComm]     = useState(false)
-  const [linkedStudents,  setLinkedStudents]  = useState([])
-  const [loadingStudents, setLoadingStudents] = useState(false)
-
-  // ── Fetch all contacts ──────────────────────────────────────────────────────
-  useEffect(() => {
-    setLoading(true)
-    supabase
-      .from('contacts')
-      .select('*')
-      .order('organization')
-      .order('full_name')
-      .then(({ data, error: err }) => {
-        if (err) setError(err.message)
-        else setContacts(data || [])
-        setLoading(false)
-      })
-  }, [refreshKey]) // refreshKey triggers re-fetch when Connect refresh button is clicked
-
-  // ── Fetch communication history on contact select ──────────────────────────
-  useEffect(() => {
-    if (!selectedId) { setCommHistory([]); return }
-    setLoadingComm(true)
-    supabase
-      .from('notification_log')
-      .select('id, notification_type, subject, status, sent_at, delivered_at, opened_at')
-      .eq('contact_id', selectedId)
-      .order('sent_at', { ascending: false })
-      .limit(5)
-      .then(({ data }) => {
-        setCommHistory(data || [])
-        setLoadingComm(false)
-      })
-  }, [selectedId])
-
-  // ── Fetch linked students ─────────────────────────────────────────────────
-  // Academic Partners: students from the same school.
-  // Preceptors: students currently assigned to this preceptor via preceptor_email.
-  useEffect(() => {
-    const contact = contacts.find(c => c.id === selectedId)
-    if (!contact) { setLinkedStudents([]); return }
-
-    const isPreceptor = PRECEPTOR_ROLES.has(contact.role)
-
-    if (isPreceptor && contact.email) {
-      // Match students whose preceptor_email matches this contact's email
-      setLoadingStudents(true)
-      supabase
-        .from('students')
-        .select('id, first_name, preferred_first_name, last_name, status, matched_unit_id')
-        .ilike('preceptor_email', contact.email)
-        .not('status', 'in', '(Not Proceeding,Declined)')
-        .order('last_name')
-        .order('first_name')
-        .limit(15)
-        .then(({ data }) => {
-          setLinkedStudents(data || [])
-          setLoadingStudents(false)
-        })
-      return
-    }
-
-    if (contact.school_name) {
-      setLoadingStudents(true)
-      supabase
-        .from('students')
-        .select('id, first_name, preferred_first_name, last_name, status')
-        .eq('school', contact.school_name)
-        .order('last_name')
-        .order('first_name')
-        .limit(12)
-        .then(({ data }) => {
-          setLinkedStudents(data || [])
-          setLoadingStudents(false)
-        })
-      return
-    }
-
-    setLinkedStudents([])
-  }, [selectedId, contacts])
-
-  // ── Restore selected contact on initial load ───────────────────────────────
-  // Priority: URL ?contactId → localStorage → first contact in list.
-  // Runs once after the contacts fetch completes; never re-runs on filter changes.
-  useEffect(() => {
-    if (loading || contacts.length === 0 || restoredRef.current) return
-    restoredRef.current = true
-
-    // 1. URL search param
-    const urlId = new URLSearchParams(location.search).get('contactId')
-    if (urlId && contacts.find(c => c.id === urlId)) {
-      setSelectedId(urlId)
-      return
-    }
-
-    // 2. localStorage
-    const savedId = localStorage.getItem(LAST_CONTACT_KEY)
-    if (savedId && contacts.find(c => c.id === savedId)) {
-      setSelectedId(savedId)
-      // Only update the URL when the Contacts tab is actually active.
-      // If the user navigated directly to Outreach or another tab, do NOT
-      // replace their URL with a contact URL - that would stomp the explicit route.
-      if (location.pathname.startsWith('/connect/contacts')) {
-        navigate(`/connect/contacts?contactId=${savedId}`, { replace: true })
-      }
-      return
-    }
-
-    // 3. First contact as default
-    setSelectedId(contacts[0].id)
-    if (location.pathname.startsWith('/connect/contacts')) {
-      navigate(`/connect/contacts?contactId=${contacts[0].id}`, { replace: true })
-    }
-  }, [loading, contacts]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── React to ?contactId changes after initial mount ────────────────────────
-  // Universal Search (and other deep links) can change the URL contactId while
-  // ContactsView is already mounted. The restore effect above runs only once, so
-  // without this the selection would not follow the new URL. Acts only on an
-  // explicit, valid, changed id; absence of contactId is intentionally left to
-  // the restore effect / existing state (direct nav to /connect/contacts keeps
-  // the current selection). A non-existent/deleted id silently no-ops.
-  useEffect(() => {
-    const urlId = new URLSearchParams(location.search).get('contactId')
-    if (urlId && urlId !== selectedId && contacts.some(c => c.id === urlId)) {
-      setSelectedId(urlId)
-    }
-  }, [location.search, contacts]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── Derived values ──────────────────────────────────────────────────────────
-  const selected = contacts.find(c => c.id === selectedId) || null
-
-  // Category counts - respect the showInactive toggle so pills count only visible contacts
-  const categoryCounts = {}
-  contacts
-    .filter(c => showInactive || c.is_active !== false)
-    .forEach(c => {
-      getContactCategories(c).forEach(cat => {
-        categoryCounts[cat] = (categoryCounts[cat] || 0) + 1
-      })
-    })
-  const inactiveCount   = contacts.filter(c => c.is_active === false).length
-  const activeCount     = contacts.length - inactiveCount
-
-  const activeCategories = CATEGORY_ORDER.filter(cat =>
-    cat === 'All' || (categoryCounts[cat] || 0) > 0
-  )
-
-  const filtered = contacts.filter(c => {
-    // Hide inactive contacts when toggle is OFF
-    if (!showInactive && c.is_active === false) return false
-    const q = search.trim().toLowerCase()
-    if (q) {
-      const relatedStr = Array.isArray(c.related_units) ? c.related_units.join(' ') : ''
-      const searchText = [
-        c.full_name, c.preferred_name, c.email, c.organization,
-        c.role, c.unit_name, relatedStr, c.school_name, c.notes,
-      ].filter(Boolean).join(' ').toLowerCase()
-      if (!searchText.includes(q)) return false
-    }
-    if (categoryFilter !== 'All' && !getContactCategories(c).includes(categoryFilter)) return false
-    return true
-  })
+function ClassicContacts({ dir, actions }) {
+  const {
+    contacts, loading, error, search, setSearch, categoryFilter, setCategoryFilter,
+    selectedId, selectContact, selected, showInactive, setShowInactive,
+    commHistory, loadingComm, linkedStudents, loadingStudents,
+    categoryCounts, inactiveCount, activeCount, activeCategories, filtered,
+  } = dir
+  const { navigate, toast, onAdd: handleOpenAdd, onEdit: handleOpenEdit, onDeactivate, onRepair } = actions
 
   // CONTACTS-CANON-1 ordering: each category has an approved sort (Unit
   // Leaders by unit then AD > ANM > NPD-P/CNS; BNI by ED > Lead Admin > NPD-P
@@ -1898,45 +1677,15 @@ export default function ContactsView({ refreshKey = 0 }) {
   }
 
   // ── Copy visible emails (COPY-FILTERED-EMAILS) ────────────────────────────
-  // Copies the valid, deduped emails of exactly the currently-visible filtered contacts
-  // (sortedFiltered → respects search + category + show-inactive + sort order), as a
-  // comma-separated list with no spaces. Read-only: no send, no mutation, no backend.
-  const handleCopyVisibleEmails = async () => {
-    if (sortedFiltered.length === 0) {
-      toast.info('No contacts found.', 'There are no visible contacts to copy.')
-      return
-    }
-    const emails = []
-    const seen = new Set()
-    let skipped = 0
-    for (const c of sortedFiltered) {
-      if (!isValidEmail(c.email)) { skipped++; continue }
-      const norm = normalizeEmailForLookup(c.email)
-      if (seen.has(norm)) continue   // dedupe (not counted as skipped)
-      seen.add(norm)
-      emails.push(c.email.trim())
-    }
-    if (emails.length === 0) {
-      toast.info('No valid emails in visible results.', 'None of the visible contacts have a valid email on file.')
-      return
-    }
-    try {
-      await navigator.clipboard.writeText(emails.join(','))
-      const n = emails.length
-      const base = `Copied ${n} email${n === 1 ? '' : 's'}.`
-      const tail = skipped > 0 ? ` Skipped ${skipped} without valid email.` : ''
-      toast.success(base + tail, 'Paste into the To/CC field of your email.')
-    } catch {
-      toast.error('Copy failed', 'Your browser blocked clipboard access.')
-    }
-  }
+  // Copies exactly the currently-visible filtered contacts (sortedFiltered → respects
+  // search + category + show-inactive + sort order). Shared with the Address book.
+  const handleCopyVisibleEmails = () => copyVisibleContactEmails(sortedFiltered, toast)
 
   // ── Three-zone CRM layout ─────────────────────────────────────────────────
+  // LAYOUT-SHELL-CONSISTENCY-1B: three-zone CRM grid. Layout (columns, gap, height, overflow,
+  // 20px inset, responsive reflow) lives in .connect-three-zone (index.css). Three columns on
+  // large desktop, two columns at <=1024px (context under profile), one column at <=768px.
   return (
-    <>
-    {/* LAYOUT-SHELL-CONSISTENCY-1B: three-zone CRM grid. Layout (columns, gap, height, overflow,
-        20px inset, responsive reflow) lives in .connect-three-zone (index.css). Three columns on
-        large desktop, two columns at <=1024px (context under profile), one column at <=768px. */}
     <div className="connect-three-zone">
 
       {/* ── Zone 1: Directory (left) ──────────────────────────────────── */}
@@ -2107,11 +1856,7 @@ export default function ContactsView({ refreshKey = 0 }) {
                   key={item.contact.id}
                   contact={item.contact}
                   isSelected={item.contact.id === selectedId}
-                  onClick={() => {
-                    setSelectedId(item.contact.id)
-                    localStorage.setItem(LAST_CONTACT_KEY, item.contact.id)
-                    navigate(`/connect/contacts?contactId=${item.contact.id}`, { replace: true })
-                  }}
+                  onClick={() => selectContact(item.contact.id)}
                 />
               )
             )
@@ -2121,7 +1866,7 @@ export default function ContactsView({ refreshKey = 0 }) {
         {/* Repair tool - muted footer link for backfilling pre-auto-sync preceptors */}
         <div style={{ padding: '6px 14px 8px', borderTop: '1px solid rgba(29,37,103,0.05)', flexShrink: 0, textAlign: 'center' }}>
           <button
-            onClick={() => setShowSyncModal(true)}
+            onClick={onRepair}
             style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 10, color: '#c0c7d0', fontFamily: F, padding: 0 }}
             onMouseEnter={e => e.currentTarget.style.color = '#6b7280'}
             onMouseLeave={e => e.currentTarget.style.color = '#c0c7d0'}
@@ -2144,10 +1889,7 @@ export default function ContactsView({ refreshKey = 0 }) {
             contact={selected}
             navigate={navigate}
             onEdit={handleOpenEdit}
-            onDeactivate={() => setDeactivateTarget({
-              contact: selected,
-              action: selected.is_active === false ? 'reactivate' : 'deactivate',
-            })}
+            onDeactivate={() => onDeactivate(selected)}
           />
         ) : (
           <NoSelection count={filtered.length} />
@@ -2179,7 +1921,104 @@ export default function ContactsView({ refreshKey = 0 }) {
         )}
       </div>
 
-    </div>{/* end three-zone layout */}
+    </div>
+  ) // end three-zone layout
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
+// CONTACTS-BOOK-1: one data hook, two drawings of it. The person's
+// appearance.contactsLayout preference picks the drawing; Classic is the default, and
+// the Address book is code-split so nobody on Classic downloads it.
+
+const ContactsBook = lazyReload(() => import('./ContactsBook'), 'ContactsBook')
+
+export default function ContactsView({ refreshKey = 0 }) {
+  const navigate    = useNavigate()
+  const { toasts, removeToast, toast } = useToast()
+  const dir = useContactsDirectory({ refreshKey })
+  const { setContacts, setSelectedId, showInactive, reloadContacts } = dir
+  const [layout] = useUserPreference(CONTACTS_LAYOUT)
+
+  const [showContactModal, setShowContactModal] = useState(false)
+  const [editingContact,   setEditingContact]   = useState(null)
+  const [showSyncModal,    setShowSyncModal]    = useState(false)
+  const [deactivateTarget, setDeactivateTarget] = useState(null)  // { contact, action }
+  const [deactivating,     setDeactivating]     = useState(false)
+
+  const handleOpenAdd  = useCallback(() => { setEditingContact(null); setShowContactModal(true) }, [])
+  const handleOpenEdit = useCallback(contact => { setEditingContact(contact); setShowContactModal(true) }, [])
+  const handleModalClose = useCallback(() => { setShowContactModal(false); setEditingContact(null) }, [])
+
+  const handleContactSaved = useCallback((savedContact, wasEdit) => {
+    setContacts(prev =>
+      wasEdit
+        ? prev.map(c => c.id === savedContact.id ? savedContact : c)
+        : [...prev, savedContact]
+    )
+    setSelectedId(savedContact.id)
+    handleModalClose()
+  }, [handleModalClose, setContacts, setSelectedId])
+
+  const handleDeactivateConfirm = useCallback(async () => {
+    if (!deactivateTarget) return
+    const { contact, action } = deactivateTarget
+    const newIsActive = action === 'reactivate'
+    setDeactivating(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) {
+        toast.error('Error', 'Session expired. Please refresh and try again.')
+        return
+      }
+      const res = await fetch('/api/contacts-upsert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+        body: JSON.stringify({ id: contact.id, is_active: newIsActive }),
+      })
+      let payload = null
+      try { payload = await res.json() } catch {}
+      if (!res.ok) {
+        toast.error('Error', payload?.error || `Failed to ${action} contact.`)
+        return
+      }
+      setContacts(prev => prev.map(c => c.id === contact.id ? { ...c, is_active: newIsActive } : c))
+      setDeactivateTarget(null)
+      if (!newIsActive && !showInactive) setSelectedId(null)
+      toast.success(
+        newIsActive ? 'Reactivated' : 'Deactivated',
+        newIsActive
+          ? `${contact.full_name} has been reactivated.`
+          : `${contact.full_name} has been deactivated.`
+      )
+    } catch {
+      toast.error('Error', 'Network error. Please try again.')
+    } finally {
+      setDeactivating(false)
+    }
+  }, [deactivateTarget, showInactive, toast, setContacts, setSelectedId])
+
+  const handleDeactivateRequest = useCallback(contact => setDeactivateTarget({
+    contact,
+    action: contact.is_active === false ? 'reactivate' : 'deactivate',
+  }), [])
+
+  const actions = {
+    navigate, toast,
+    onAdd: handleOpenAdd,
+    onEdit: handleOpenEdit,
+    onDeactivate: handleDeactivateRequest,
+    onRepair: () => setShowSyncModal(true),
+  }
+
+  return (
+    <>
+    {layout === 'book' ? (
+      <Suspense fallback={null}>
+        <ContactsBook dir={dir} actions={actions} />
+      </Suspense>
+    ) : (
+      <ClassicContacts dir={dir} actions={actions} />
+    )}
 
     {/* Add / Edit Contact Modal */}
     {showContactModal && (
@@ -2208,8 +2047,7 @@ export default function ContactsView({ refreshKey = 0 }) {
         onClose={() => setShowSyncModal(false)}
         onSynced={() => {
           setShowSyncModal(false)
-          supabase.from('contacts').select('*').order('organization').order('full_name')
-            .then(({ data }) => { if (data) setContacts(data) })
+          reloadContacts()
         }}
       />
     )}

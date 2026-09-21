@@ -18,6 +18,7 @@ import { ToastContainer } from '../components/Toast'
 import { RefreshHint } from '../components/UnifiedNav'
 import WorkspaceBackLink from '../components/ui/WorkspaceBackLink'
 import SegmentedTabs from '../components/ui/SegmentedTabs'
+import ContactsLayoutLink from '../components/connect/ContactsLayoutLink'
 
 const F = 'Plus Jakarta Sans, sans-serif'
 
@@ -122,7 +123,11 @@ export default function ConnectPage({ cohortId, onNavigateToStudent, refreshRef,
         {/* Return control (left) + refresh (right) - on the page background, no utility bar. */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
           <WorkspaceBackLink path={backPath} label={backLabel} />
-          <RefreshHint onClick={handleRefresh} tooltipLabel="Refresh Connect data" loading={refreshing} />
+          {/* CONTACTS-BOOK-1: on Contacts only, the layout switch sits just left of Refresh. */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            {activeSubTab === 'contacts' && <ContactsLayoutLink />}
+            <RefreshHint onClick={handleRefresh} tooltipLabel="Refresh Connect data" loading={refreshing} />
+          </div>
         </div>
         <div style={{ marginBottom: 12 }}>
           <h1 style={{

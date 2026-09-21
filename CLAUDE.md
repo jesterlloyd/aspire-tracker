@@ -765,3 +765,42 @@ ResponsesPacket.jsx`, `BubbleSheet.jsx`, `responsesPacket.css`, and the tab.
 - The CSV export keeps its columns, its filename and its old timepoint words; only its rows
   changed to mirror the roster. The roster's timepoint filter offers one option per label
   (`timepointMatches`), so "Pre-Rotation" is never listed twice.
+
+## Contacts can be an address book (CONTACTS-BOOK-1, 2026-09-20)
+
+ASPIRE Connect > Contacts has two layouts, chosen per person: **Classic** (the three-zone
+screen, everyone's default) and the **Address book** (`src/components/connect/ContactsBook.jsx`
+and `contactsBook.css`), an oxblood leather book. The reference is
+`docs/mockups/contacts-book-mockup.html`, with its brief beside it.
+
+- **One data hook, two drawings.** `useContactsDirectory` holds the contacts, the three
+  queries, the selection restore order (URL, then this browser's last contact, then the
+  first) and the filter. ContactsView calls it ONCE and hands the same `dir` to whichever
+  layout is chosen, so switching keeps the open contact, the category and the search. The
+  book fetches nothing (a test forbids it) and is split out through `lazyReload`, so a
+  person on Classic never downloads it.
+- **Classic is frozen.** Its markup moved into `ClassicContacts` unchanged except three
+  call sites that now name the shared action (select, Deactivate, Repair). A harness
+  rendered it beside the pre-change build: every element's geometry and computed style
+  matched at 1440, 900 and 700px, light and dark. Change Classic only on purpose.
+- **A preference follows the person, not the browser.** `src/lib/userPreferences.js` is
+  the registry (every key, its legal values, its default) and the store;
+  `useUserPreference(key)` is the only way a component reads or writes one, which is why
+  Settings > Appearance and the link beside Refresh can never disagree. The column is
+  `user_profiles.ui_preferences` (Owner-gated, `20260924000000_user_ui_preferences.sql`).
+  Without it the choice is kept in the browser and Settings says so; with it, the first
+  load adopts that browser's choice and the account wins from then on. A new `appearance.*`
+  key is one line in the registry. Theme stays device-local in ThemeContext on purpose.
+- **The book files by last name**, reading the DISPLAYED name (`contactsBookModel.js`):
+  the last word, less a credential after a comma or a Jr/III suffix. A letter or category
+  change that hides the open record opens the first entry instead; typing does not.
+- **Where the book leaves the mockup, on purpose.** The cover's deep drop has a negative
+  spread (the pane is a scroll container). Dark mode lifts the oxblood used as INK
+  (`--ab-accent`) because the mockup's cover tone measures 1.2:1 on the dark paper. The
+  open entry's subline reads `--ab-mute-on-tint` (the mockup's muted ink is 4.24:1 on the
+  tint). An inactive contact is muted ink plus the word "inactive", not Classic's 60%
+  opacity (2.4:1 on this paper). Classic's actions the mockup omits (Show inactive, Copy
+  visible emails, Repair Preceptor Contacts, Deactivate) stay, quietly. Swept: every text
+  node, both themes, every branch open, zero failures.
+- **The link beside Refresh hides below 480px**, where the header cannot hold three
+  controls on one row. Settings still switches the layout there.

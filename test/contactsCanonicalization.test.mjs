@@ -494,7 +494,13 @@ test('the portal endpoint no longer reads or writes preferred_contact_method', (
 test('both editors drive category, title, affiliation, units, and services from the shared module', () => {
   // Comments may NAME the retirement; code may not carry the field.
   const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '').replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
-  const staff = strip(read('src/components/connect/ContactsView.jsx'))
+  // CONTACTS-BOOK-1: the staff directory is ContactsView plus the data hook both of its
+  // layouts read (CATEGORY_ORDER moved there) and the Address book that draws it.
+  const staff = strip([
+    'src/components/connect/ContactsView.jsx',
+    'src/components/connect/useContactsDirectory.js',
+    'src/components/connect/ContactsBook.jsx',
+  ].map(read).join('\n'))
   const portal = strip(read('src/portal/na/AcademicsContactsView.jsx'))
   for (const src of [staff, portal]) {
     assert.match(src, /CONTACT_CATEGORY_ORDER/)

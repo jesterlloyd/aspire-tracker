@@ -1,0 +1,757 @@
+/* CONTACTS-BOOK-1 (2026-09-20): ASPIRE Connect > Contacts, read as an address book.
+   The reference is docs/mockups/contacts-book-mockup.html. Two pages bound in oxblood
+   leather: the list on the left (38%), the whole contact record on the right (62%),
+   including Recent Communications and Linked Students, which Classic keeps in a third
+   column. Every class here is ab-* and belongs to this book only; Classic's three-zone
+   screen is not touched by any rule in this file, and this file loads only when a person
+   has chosen the book (ContactsBook is its own chunk).
+
+   The cover is .material-leather-oxblood from aspireMaterials.css. Corners read tokens:
+   the cover --aspire-radius-address-book, the paper --aspire-radius-sheet, a thumb tab
+   --aspire-radius-tab (it is an index tab), controls --aspire-radius-control, pills
+   --aspire-radius-pill. The two chip corners the mockup draws are named once below. */
+@import '../../styles/aspireMaterials.css';
+
+/* ── Paper and ink ─────────────────────────────────────────────────────────── */
+/* An ink and its surface are one decision, so both themes are defined here together.
+   --ab-accent is the oxblood used as INK (the selection bar, initials, links) and
+   --ab-fill the oxblood used as a SURFACE under cream text (+ Add, Email, the active
+   chip and letter). In light they are the mockup's one colour. In dark the mockup's
+   cover tone (#3E1A20) measures about 1.2:1 against the dark paper, which would make
+   the selection bar and every initial invisible, so dark lifts the ink and deepens
+   nothing else. */
+.ab-shell {
+  --ab-radius-chip: 4px;   /* role badge, preference and log pills */
+  --ab-radius-note: 5px;   /* the notes block's two open corners */
+  --ab-page: #FBF7F0;
+  --ab-page-2: #F3EDE3;
+  --ab-ink: #2A1D20;
+  --ab-mute: #7A6560;
+  /* The mockup's muted ink measures 4.24:1 on the open entry's tint; this is the
+     nearest step that clears 4.5 there. Only the open entry's subline reads it. */
+  --ab-mute-on-tint: #6E5954;
+  --ab-rule: rgba(90, 40, 45, 0.16);
+  --ab-line: rgba(90, 40, 45, 0.09);
+  --ab-accent: var(--aspire-leather-oxblood-lift);
+  --ab-fill: var(--aspire-leather-oxblood-lift);
+  --ab-on-fill: #FBEFD9;
+  --ab-hover: rgba(126, 43, 51, 0.06);
+  --ab-current: rgba(126, 43, 51, 0.11);
+  --ab-fold: linear-gradient(90deg,
+    rgba(60, 25, 28, 0), rgba(60, 25, 28, 0.16) 38%, rgba(60, 25, 28, 0.30) 50%, rgba(60, 25, 28, 0.14) 62%, rgba(60, 25, 28, 0));
+  --ab-focus: var(--aspire-navy);
+
+  height: 100%;
+  min-height: 0;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  /* The same inset and ground as Classic's .connect-three-zone, so the book sits where
+     the three columns sat. */
+  padding: 10px 20px;
+  background: var(--bg-app, #F4F1EC);
+  color: var(--ab-ink);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 14px;
+  line-height: 1.55;
+}
+[data-theme='dark'] .ab-shell {
+  --aspire-leather-oxblood-lift: #3E1A20;
+  --aspire-leather-oxblood: #2E1218;
+  --aspire-leather-oxblood-deep: #210C11;
+  --aspire-gilt: #A8862B;
+  --aspire-gilt-deep: #6E5713;
+  --ab-page: #1E1A1C;
+  --ab-page-2: #191517;
+  --ab-ink: #F0E8E4;
+  --ab-mute: #B49E98;
+  --ab-mute-on-tint: #B49E98;
+  --ab-rule: rgba(240, 220, 215, 0.18);
+  --ab-line: rgba(240, 220, 215, 0.07);
+  --ab-accent: #E39AA3;
+  --ab-fill: #7A2F39;
+  --ab-hover: rgba(227, 154, 163, 0.06);
+  --ab-current: rgba(227, 154, 163, 0.12);
+  --ab-fold: linear-gradient(90deg,
+    rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.16) 38%, rgba(0, 0, 0, 0.30) 50%, rgba(0, 0, 0, 0.14) 62%, rgba(0, 0, 0, 0));
+  --ab-focus: var(--color-focus-ring, #9FB0F5);
+}
+.ab-shell :focus-visible {
+  outline: 2px solid var(--ab-focus);
+  outline-offset: 2px;
+}
+
+/* ── The cover ─────────────────────────────────────────────────────────────── */
+.ab-book {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  padding: 15px 16px;
+  border-radius: var(--aspire-radius-address-book);
+}
+/* The gilt rule tooled into the cover, 7px in from its edge. */
+.ab-book::before {
+  content: "";
+  position: absolute;
+  inset: 7px;
+  border: 1px solid var(--aspire-gilt-hairline);
+  border-radius: calc(var(--aspire-radius-address-book) - 3px);
+  pointer-events: none;
+}
+
+/* ── The spread ────────────────────────────────────────────────────────────── */
+.ab-spread {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 38fr 62fr;
+  grid-template-rows: minmax(0, 1fr);
+  box-shadow: 0 2px 5px rgba(30, 10, 14, 0.4), 0 10px 26px rgba(30, 10, 14, 0.3);
+}
+/* The fold: 26px of shadow down the gutter, darkest at its centre. */
+.ab-spread::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 38%;
+  width: 26px;
+  translate: -50% 0;
+  pointer-events: none;
+  z-index: 3;
+  background: var(--ab-fold);
+}
+
+.ab-page {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--ab-page);
+  color: var(--ab-ink);
+}
+.ab-page-left {
+  padding: 16px 14px 10px 42px;
+  border-radius: var(--aspire-radius-sheet) 0 0 var(--aspire-radius-sheet);
+}
+.ab-page-right {
+  border-radius: 0 var(--aspire-radius-sheet) var(--aspire-radius-sheet) 0;
+}
+/* Gilt on both outer page edges. The pages do not scroll (their insides do), so the
+   gilt stays put. */
+.ab-page-left::after,
+.ab-page-right::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: linear-gradient(180deg, var(--aspire-gilt), var(--aspire-gilt-deep) 50%, var(--aspire-gilt));
+  pointer-events: none;
+}
+.ab-page-left::after { left: 0; }
+.ab-page-right::after { right: 0; }
+
+/* ── A-Z thumb index ───────────────────────────────────────────────────────── */
+.ab-thumb {
+  position: absolute;
+  left: 3px;
+  top: 14px;
+  bottom: 14px;
+  width: 33px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  z-index: 4;
+}
+.ab-thumb-tab {
+  flex: 1 1 0;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--aspire-radius-tab) 0 0 var(--aspire-radius-tab);
+  background: var(--ab-page-2);
+  color: var(--ab-mute);
+  font-family: var(--aspire-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.02em;
+  box-shadow: inset -1px 0 0 var(--ab-rule), 0 1px 1px rgba(0, 0, 0, 0.08);
+  cursor: pointer;
+  transition: background-color 0.12s, color 0.12s;
+}
+.ab-thumb-tab:hover {
+  background: var(--ab-page);
+  color: var(--ab-ink);
+}
+/* After :hover, and paired with it: a pressed letter must stay pressed under the pointer. */
+.ab-thumb-tab[aria-pressed='true'],
+.ab-thumb-tab[aria-pressed='true']:hover {
+  background: var(--ab-fill);
+  color: var(--ab-on-fill);
+  font-weight: 600;
+}
+.ab-thumb-tab:disabled,
+.ab-thumb-tab:disabled:hover {
+  background: var(--ab-page-2);
+  color: var(--ab-mute);
+  opacity: 0.32;
+  cursor: default;
+}
+
+/* ── Left page: the list ───────────────────────────────────────────────────── */
+.ab-lhead {
+  flex: none;
+  display: grid;
+  gap: 9px;
+  margin-bottom: 10px;
+}
+.ab-lhead-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 9px;
+}
+.ab-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--ab-ink);
+}
+.ab-add {
+  padding: 5px 11px;
+  border: 0;
+  border-radius: var(--aspire-radius-control);
+  background: var(--ab-fill);
+  color: var(--ab-on-fill);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
+  cursor: pointer;
+}
+/* Three classes and a type: the app's dark input rule is [data-theme] input[type=search]
+   at (0,2,1), and paper must stay paper. */
+.ab-shell .ab-lhead input.ab-search {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 7px 11px;
+  border: 1px solid var(--ab-rule);
+  border-radius: var(--aspire-radius-control);
+  background: var(--ab-page-2);
+  color: var(--ab-ink);
+  font: inherit;
+  font-size: 12.5px;
+}
+.ab-shell .ab-lhead input.ab-search::placeholder { color: var(--ab-mute); opacity: 1; }
+.ab-cats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.ab-cat {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border: 1px solid var(--ab-rule);
+  border-radius: var(--aspire-radius-pill);
+  background: var(--ab-page-2);
+  color: var(--ab-mute);
+  font: inherit;
+  font-size: 11.5px;
+  line-height: 1.5;
+  cursor: pointer;
+  transition: background-color 0.12s, color 0.12s;
+}
+.ab-cat:hover { color: var(--ab-ink); }
+.ab-cat b {
+  font-family: var(--aspire-mono);
+  font-size: 10px;
+  font-weight: 600;
+}
+.ab-cat[aria-pressed='true'],
+.ab-cat[aria-pressed='true']:hover {
+  background: var(--ab-fill);
+  border-color: var(--ab-fill);
+  color: var(--ab-on-fill);
+}
+.ab-count {
+  font-family: var(--aspire-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ab-mute);
+}
+.ab-tools {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  font-size: 11.5px;
+  color: var(--ab-mute);
+}
+.ab-tools label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.ab-tools input { accent-color: var(--ab-fill); margin: 0; }
+.ab-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ab-accent);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+/* The entries scroll; the page around them does not. position: relative makes this the
+   offsetParent, so the selected entry's offsetTop is measured from here. */
+.ab-entries {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+.ab-sep {
+  padding: 6px 4px 3px;
+  border-bottom: 1px solid var(--ab-rule);
+  background: var(--ab-page);
+  color: var(--ab-mute);
+  font-family: var(--aspire-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.16em;
+}
+.ab-entry {
+  width: 100%;
+  height: 52px;
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  padding: 0 6px;
+  border: 0;
+  border-bottom: 1px solid var(--ab-line);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.12s;
+}
+.ab-entry:hover { background: var(--ab-hover); }
+.ab-entry[aria-current='true'],
+.ab-entry[aria-current='true']:hover {
+  background: var(--ab-current);
+  box-shadow: inset 3px 0 0 var(--ab-accent);
+}
+.ab-entry[aria-current='true'] .ab-rl,
+.ab-entry[aria-current='true'] .ab-quiet { color: var(--ab-mute-on-tint); }
+/* An inactive contact is quieter, not fainter: the name takes the muted ink and the entry
+   says "inactive" in words. Classic's 60% opacity measures 2.4:1 on this paper. */
+.ab-entry-inactive .ab-nm { color: var(--ab-mute); }
+.ab-entry-inactive[aria-current='true'] .ab-nm { color: var(--ab-mute-on-tint); }
+.ab-entry-text { min-width: 0; }
+.ab-av {
+  position: relative;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--ab-rule);
+  border-radius: 50%;
+  background: var(--ab-page-2);
+  color: var(--ab-accent);
+  font-size: 11px;
+  font-weight: 600;
+}
+.ab-av img,
+.ab-photo img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.ab-nm {
+  display: block;
+  overflow: hidden;
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ab-rl {
+  display: block;
+  overflow: hidden;
+  color: var(--ab-mute);
+  font-size: 11.5px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ab-empty {
+  padding: 20px 6px;
+  color: var(--ab-mute);
+  font-size: 13px;
+}
+.ab-foot {
+  flex: none;
+  padding-top: 8px;
+  text-align: center;
+}
+.ab-foot .ab-link {
+  color: var(--ab-mute);
+  font-size: 10.5px;
+  text-decoration: none;
+}
+.ab-foot .ab-link:hover { color: var(--ab-ink); }
+
+/* ── Right page: the record ────────────────────────────────────────────────── */
+.ab-record-scroll {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 18px 22px 20px;
+  /* Clear of the 3px gilt on the page edge, so a scrollbar never sits under it. */
+  margin-right: 3px;
+}
+.ab-rec {
+  display: grid;
+  gap: 15px;
+}
+.ab-plate {
+  display: grid;
+  justify-items: center;
+  gap: 9px;
+  padding-bottom: 13px;
+  border-bottom: 2px solid var(--ab-ink);
+  text-align: center;
+}
+.ab-photo {
+  position: relative;
+  width: 78px;
+  height: 78px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 2px solid var(--ab-page);
+  border-radius: 50%;
+  background: var(--ab-page-2);
+  box-shadow: 0 0 0 1px var(--ab-rule), 0 3px 8px rgba(60, 25, 28, 0.18);
+  color: var(--ab-accent);
+  font-size: 25px;
+  font-weight: 600;
+}
+.ab-name {
+  margin: 0;
+  font-size: 23px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+.ab-goes-by {
+  margin-top: -5px;
+  color: var(--ab-mute);
+  font-size: 12px;
+}
+.ab-role {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 7px;
+}
+.ab-role-badge {
+  padding: 3px 9px;
+  border-radius: var(--ab-radius-chip);
+  background: var(--ab-fill);
+  color: var(--ab-on-fill);
+  font-family: var(--aspire-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.ab-role-note,
+.ab-org {
+  color: var(--ab-mute);
+  font-size: 12.5px;
+}
+.ab-org { font-size: 13.5px; }
+.ab-flag {
+  padding: 2px 7px;
+  border: 1px solid var(--ab-rule);
+  border-radius: var(--ab-radius-chip);
+  color: var(--ab-mute);
+  font-family: var(--aspire-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.ab-acts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 7px;
+  margin-top: 3px;
+}
+.ab-act {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 13px;
+  border: 1px solid var(--ab-rule);
+  border-radius: var(--aspire-radius-control);
+  background: var(--ab-page-2);
+  color: var(--ab-ink);
+  font: inherit;
+  font-size: 12.5px;
+  line-height: 1.3;
+  text-decoration: none;
+  cursor: pointer;
+  transition: border-color 0.12s;
+}
+.ab-act:hover { border-color: var(--ab-accent); }
+.ab-act-primary,
+.ab-act-primary:hover {
+  border-color: var(--ab-fill);
+  background: var(--ab-fill);
+  color: var(--ab-on-fill);
+  font-weight: 700;
+}
+.ab-act:disabled,
+.ab-act:disabled:hover {
+  border-color: var(--ab-rule);
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.ab-sec {
+  display: grid;
+  gap: 7px;
+}
+.ab-sec-h {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0;
+  padding-bottom: 5px;
+  border-bottom: 1px solid var(--ab-rule);
+  color: var(--ab-mute);
+  font-family: var(--aspire-mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+.ab-sec-h em {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 11.5px;
+  font-style: normal;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.ab-fld {
+  display: grid;
+  grid-template-columns: 118px minmax(0, 1fr);
+  gap: 12px;
+  padding: 5px 0;
+  font-size: 13.5px;
+}
+.ab-fld-k {
+  color: var(--ab-mute);
+  font-size: 12.5px;
+}
+.ab-fld-v {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.ab-copy {
+  margin-left: 6px;
+  padding: 0 2px;
+  border: 0;
+  background: none;
+  color: var(--ab-mute);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.ab-copy:hover { color: var(--ab-accent); }
+.ab-note {
+  padding: 9px 12px;
+  border-left: 3px solid var(--ab-rule);
+  border-radius: 0 var(--ab-radius-note) var(--ab-radius-note) 0;
+  background: var(--ab-page-2);
+  font-size: 13px;
+  white-space: pre-wrap;
+}
+.ab-note-empty { color: var(--ab-mute); white-space: normal; }
+.ab-prefs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.ab-pill {
+  padding: 3px 9px;
+  border-radius: var(--ab-radius-chip);
+  font-family: var(--aspire-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+.ab-tone-ok      { background: var(--pill-ok-bg);      color: var(--pill-ok-fg); }
+.ab-tone-warn    { background: var(--pill-warn-bg);    color: var(--pill-warn-fg); }
+.ab-tone-info    { background: var(--pill-info-bg);    color: var(--pill-info-fg); }
+.ab-tone-bad     { background: var(--aspire-bad-soft); color: var(--aspire-bad); }
+.ab-tone-neutral { background: var(--ab-page-2);       color: var(--ab-mute); }
+
+/* Recent communications: subject | status | date. */
+.ab-log-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 84px 74px;
+  align-items: center;
+  gap: 11px;
+  padding: 8px 2px;
+  border-bottom: 1px solid var(--ab-rule);
+  font-size: 13px;
+}
+.ab-log-row:last-child { border-bottom: 0; }
+.ab-log-sj {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ab-log-st {
+  justify-self: start;
+  padding: 2px 7px;
+  border-radius: var(--ab-radius-chip);
+  font-family: var(--aspire-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.05em;
+}
+.ab-log-dt {
+  color: var(--ab-mute);
+  font-family: var(--aspire-mono);
+  font-size: 10.5px;
+  text-align: right;
+}
+.ab-seeall {
+  justify-self: start;
+  padding: 4px 0 0;
+  border: 0;
+  background: none;
+  color: var(--ab-accent);
+  font: inherit;
+  font-size: 12.5px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+/* Linked students: initials | name | status. */
+.ab-stud {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 2px;
+  border-bottom: 1px solid var(--ab-rule);
+  font-size: 13px;
+}
+.ab-stud:last-child { border-bottom: 0; }
+.ab-stud-av {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--ab-rule);
+  border-radius: 50%;
+  background: var(--ab-page-2);
+  color: var(--ab-accent);
+  font-size: 10px;
+  font-weight: 600;
+}
+.ab-stud-st {
+  padding: 2px 9px;
+  border-radius: var(--aspire-radius-pill);
+  font-family: var(--aspire-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.ab-quiet {
+  color: var(--ab-mute);
+  font-size: 12.5px;
+}
+.ab-closing {
+  padding-top: 12px;
+  border-top: 1px solid var(--ab-rule);
+  text-align: center;
+}
+.ab-closing .ab-link {
+  color: var(--ab-mute);
+  font-size: 11.5px;
+}
+.ab-closing .ab-link:hover { color: var(--ab-accent); }
+.ab-blank {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  padding: 40px 24px;
+  color: var(--ab-mute);
+  font-size: 13px;
+  text-align: center;
+}
+
+/* ── Narrow: the pages stack, list first ───────────────────────────────────── */
+/* Last in the file: a media query carries no specificity, so it must come after the
+   rules it changes. */
+@media (max-width: 980px) {
+  .ab-shell { height: auto; }
+  .ab-book { flex: none; }
+  .ab-spread {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto;
+  }
+  .ab-spread::after { display: none; }
+  .ab-page-left { border-radius: var(--aspire-radius-sheet) var(--aspire-radius-sheet) 0 0; }
+  .ab-page-right {
+    border-top: 1px solid var(--ab-rule);
+    border-radius: 0 0 var(--aspire-radius-sheet) var(--aspire-radius-sheet);
+  }
+  .ab-entries {
+    flex: none;
+    max-height: 60vh;
+  }
+  .ab-record-scroll { overflow: visible; }
+}
+@media (max-width: 560px) {
+  .ab-shell { padding: 10px 16px; }
+  .ab-book { padding: 11px 10px; }
+  .ab-record-scroll { padding: 16px 14px 18px; }
+  .ab-fld { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .ab-log-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .ab-log-dt { grid-column: 2; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ab-shell *,
+  .ab-shell *::before,
+  .ab-shell *::after {
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
