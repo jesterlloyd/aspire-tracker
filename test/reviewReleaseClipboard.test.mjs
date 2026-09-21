@@ -104,7 +104,12 @@ test('the rail meets the board at the top edge, keeps its own height, stays pinn
   assert.match(cssCode, /\.rq-board \{[^}]*margin-top: 14px;/)
   assert.match(cssCode, /\.rr-layout \{[^}]*align-items: start;/)
   assert.match(cssCode, /\.rr-nav \{[^}]*position: sticky; top: var\(--app-chrome-height, 0px\); align-self: start;/)
-  assert.match(cssCode, /@media \(max-width: 900px\) \{\s*\.rr-layout \{ grid-template-columns: 1fr; \}\s*\.rr-nav \{ margin-top: 0; position: static; \}/)
+  // SETTINGS-FIX-2: the layout stacks in the clipboard's sheet; the rail's own unpin lives
+  // with the rail (selectionRail.css), AFTER its base rule, so no load order can undo it.
+  assert.match(cssCode, /@media \(max-width: 900px\) \{\s*\.rr-layout \{ grid-template-columns: 1fr; \}/)
+  const railSheet = read('src/styles/selectionRail.css')
+  assert.match(railSheet, /@media \(max-width: 900px\) \{\s*\.rr-nav \{ margin-top: 0; position: static; \}\s*\}/)
+  assert.ok(railSheet.indexOf('@media (max-width: 900px)') > railSheet.indexOf('.rr-nav {'), 'the unpin comes after the rule it modifies')
   assert.doesNotMatch(dash, /rr-nav-mobile|<optgroup|<select/)
 })
 

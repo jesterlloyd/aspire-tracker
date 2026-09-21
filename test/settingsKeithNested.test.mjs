@@ -59,7 +59,6 @@ test('/settings/keith is the Keith list page, not a redirect', () => {
   assert.equal(LEGACY_SETTINGS_REDIRECTS['/settings/keith'], undefined)
   assert.match(shell, /const isListPage = currentKey === 'general' \|\| currentKey === 'keith'/)
   assert.match(shell, /<SettingsListPage section=\{current\} rows=\{childSections\(currentKey, roleFlags\)\} navigate=\{navigate\} \/>/)
-  assert.match(shell, /keith: 'Govern what Keith knows, what Keith can do, and what it costs\.'/)
 })
 
 test('the rows are alphabetical, in the registry, for Owner and Admin', () => {
@@ -207,7 +206,9 @@ test('the Settings rail is the canon rail: sticky under the chrome, static once 
   assert.match(shell, /<nav className="rr-nav settings-rail" aria-label="Settings sections">/)
   assert.match(rail, /\.rr-nav \{[^}]*position: sticky; top: var\(--app-chrome-height, 0px\); align-self: start;/)
   assert.match(shellCss, /\.settings-grid \{[^}]*display: grid;[^}]*align-items: start;/)
-  assert.match(shellCss, /@media \(max-width: 900px\) \{\s*\.settings-grid \{ grid-template-columns: minmax\(0, 1fr\); \}\s*\.settings-rail\.rr-nav \{ position: static; \}/)
+  // The unpin lives with the canon (after its base rule); Settings only stacks its grid.
+  assert.match(rail, /@media \(max-width: 900px\) \{\s*\.rr-nav \{ margin-top: 0; position: static; \}/)
+  assert.match(shellCss, /@media \(max-width: 900px\) \{\s*\.settings-grid \{ grid-template-columns: minmax\(0, 1fr\);/)
 })
 
 test('there is one navigation, and no second vertical scroll region', () => {

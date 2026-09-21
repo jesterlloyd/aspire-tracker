@@ -326,7 +326,8 @@
    scrolls sideways: its children shrink (min-width: 0) and its long lines wrap. */
 @media (max-width: 900px) {
   .rr-layout { grid-template-columns: 1fr; }
-  .rr-nav { margin-top: 0; position: static; }
+  /* The rail's own unpin lives with the rail (selectionRail.css): a rule here could lose
+     to it when the two sheets load in the other order. */
 }
 @media (max-width: 700px) {
   .rq-eligible ul { columns: 1; }

@@ -80,7 +80,12 @@ test('the left rail has both sections, grouped as the brief names them', () => {
   assert.match(dash, /aria-pressed=\{selected\}/)
   // REVIEW-RELEASE-2 (brief, section 10): below 900px the rail itself stacks above the
   // board and loses its top margin. The narrow-screen <select> it replaced is gone.
-  assert.match(css, /@media \(max-width: 900px\) \{\s*\.rr-layout \{ grid-template-columns: 1fr; \}\s*\.rr-nav \{ margin-top: 0; position: static; \}/)
+  // SETTINGS-FIX-2: the layout stacks in the clipboard's sheet; the rail's own unpin lives
+  // with the rail (selectionRail.css), AFTER its base rule, so no load order can undo it.
+  assert.match(css, /@media \(max-width: 900px\) \{\s*\.rr-layout \{ grid-template-columns: 1fr; \}/)
+  const railSheet = read('src/styles/selectionRail.css')
+  assert.match(railSheet, /@media \(max-width: 900px\) \{\s*\.rr-nav \{ margin-top: 0; position: static; \}\s*\}/)
+  assert.ok(railSheet.indexOf('@media (max-width: 900px)') > railSheet.indexOf('.rr-nav {'), 'the unpin comes after the rule it modifies')
   assert.doesNotMatch(dash, /rr-nav-mobile|<optgroup/)
 })
 

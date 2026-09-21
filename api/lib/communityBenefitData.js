@@ -20,12 +20,23 @@
 //
 // Every potentially large read is paged so the report is not silently
 // truncated at the database API's default row limit.
+//
+// DEMO-DATA-1 (Owner, 2026-09-21): "we're not supposed to mix real and fake data." The
+// report is ONE population, always. A client that arrives inside the demo boundary
+// (lib/server/demoScope.js) keeps its scope: real rows, or fabricated rows during a demo.
+// A client that arrives with NO boundary, which is what the staff endpoints used to pass
+// and what a request without the x-aspire-demo header still produces, is scoped to REAL
+// rows here. "No filter" was the right default only before is_demo existed (migration
+// 20260921000000, applied), and here it summed demo students into a report the Owner
+// hands to leadership. Capstone hours have no is_demo of their own, so they follow their
+// cohort: see capstoneRowsInScope.
 
 import {
   REPORT_CANDIDATE_STATUSES,
   summarizeShiftHours,
 } from '../../lib/server/communityBenefit/compute.js'
 import { fetchAllRows } from './fetchAllRows.js'
+import { demoScopeOf, scopedServiceDb } from '../../lib/server/demoScope.js'
 
 const STUDENT_COLUMNS = [
   'id', 'first_name', 'last_name', 'name', 'school', 'program_type',
@@ -104,10 +115,30 @@ async function fetchPrimaryPreceptorNames(db, students) {
 }
 
 /**
+ * Keep the capstone rows that belong to the population being reported.
+ *
+ * community_benefit_capstone_hours has no is_demo column; a row belongs to its cohort,
+ * and cohort_id is a foreign key with ON DELETE SET NULL, so it never points at a cohort
+ * that does not exist. `cohortIds` are the cohorts the scoped read returned, so:
+ *   - a row naming one of them is in scope;
+ *   - a row naming any other cohort names a cohort of the OTHER population: out;
+ *   - a row naming no cohort is a real school-level entry: in for real, out for a demo.
+ * A null scope (a client with no boundary at all) keeps everything, as before.
+ */
+export function capstoneRowsInScope(rows, cohortIds, scope) {
+  if (scope === null || scope === undefined) return rows || []
+  const ids = cohortIds instanceof Set ? cohortIds : new Set(cohortIds || [])
+  return (rows || []).filter(row => (row?.cohort_id ? ids.has(row.cohort_id) : scope === false))
+}
+
+/**
  * Fetch every input the compute module needs. Throws Error(reason) on any
  * query failure; callers map that to a 500 without leaking details.
  */
-export async function fetchCommunityBenefitInputs(db) {
+export async function fetchCommunityBenefitInputs(client) {
+  // One population, always: an unscoped client reads real rows only (DEMO-DATA-1).
+  const db = demoScopeOf(client) === null ? scopedServiceDb(client, false) : client
+  const scope = demoScopeOf(db)
   const [students, rotations, cohorts, rateRows, capstoneRows] = await Promise.all([
     fetchAllRows(
       () => db.from('students').select(STUDENT_COLUMNS)
@@ -146,6 +177,6 @@ export async function fetchCommunityBenefitInputs(db) {
     shiftHoursById,
     preceptorNameById,
     rateRows,
-    capstoneRows,
+    capstoneRows: capstoneRowsInScope(capstoneRows, cohorts.map(c => c.id), scope),
   }
 }

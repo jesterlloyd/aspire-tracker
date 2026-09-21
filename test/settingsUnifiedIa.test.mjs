@@ -116,7 +116,8 @@ test('General lists About, Appearance, Email Signature, Tours & Help, with the a
   ])
   assert.deepEqual(rows.map(r => r.path),
     ['/settings/general/about', '/settings/general/appearance', '/settings/general/signature', '/settings/general/tours'])
-  assert.match(shell, /general: 'Settings that are yours alone\. They follow you to any device\.'/)
+  // SETTINGS-FIX-2: no generic subtitle, so the list starts on the rail card's line.
+  assert.doesNotMatch(shell, /Settings that are yours alone|LIST_PAGE_COPY|settings-phead/)
 })
 
 test('a list row is a real button with an icon, a title, a line and a chevron', () => {
@@ -167,7 +168,7 @@ test('every drill-in has its own route under its parent, and renders its existin
 test('the pages that bring no heading get one from the shell, on the shared spec', () => {
   assert.match(shell, /const TITLED_BY_SHELL = \['signature', 'tours', 'about'\]/)
   assert.match(shell, /\{shellTitle && <h2 style=\{SETTINGS_HEADING_STYLE\}>\{shellTitle\}<\/h2>\}/)
-  assert.match(read('src/components/settings/AppearancePanel.jsx'), /style=\{\{ \.\.\.SETTINGS_HEADING_STYLE, margin: 0 \}\}>Appearance<\/h2>/)
+  assert.match(read('src/components/settings/AppearancePanel.jsx'), /style=\{\{ \.\.\.SETTINGS_HEADING_STYLE, margin: 0, marginBottom: 'calc\(14px - var\(--aspire-gap-card\)\)' \}\}>Appearance<\/h2>/)
 })
 
 // ── Routes ──────────────────────────────────────────────────────────────────
@@ -201,6 +202,43 @@ test('deep-link consumers: the user menu and the portals open General; Interview
   assert.equal(STAFF_SETTINGS_PATH, '/settings/general')
   assert.match(read('src/components/UserMenu.jsx'), /navigate\(STAFF_SETTINGS_PATH\)/)
   assert.match(read('src/components/InterviewersModal.jsx'), /navigate\('\/settings\/accounts'\)/)
+})
+
+// ── SETTINGS-FIX-2: order-proof, one baseline, one size ─────────────────────
+
+test('every Settings override beats the canon whatever order the two sheets load in', () => {
+  // The live site loaded settingsShell.css BEFORE selectionRail.css, so an override of
+  // equal specificity lost and every label slid right. Overrides carry one class more.
+  assert.match(shellCss, /\.rr-row-select\.settings-rail-row \{ grid-template-columns: auto minmax\(0, 1fr\); gap: 10px; \}/)
+  assert.match(shellCss, /\.settings-rail\.rr-nav \{ margin-top: 0; \}/)
+  // No single-class rule in this sheet touches a property the canon sets on its rows.
+  assert.doesNotMatch(shellCss, /(^|\n)\.settings-rail-row \{/)
+  // And the canon keeps its own unpin after its base rule, in its own file.
+  assert.ok(rail.indexOf('@media (max-width: 900px)') > rail.indexOf('.rr-nav {'))
+})
+
+test('"Settings" and the page title share one heading spec and one baseline; the first cards align', () => {
+  assert.match(shell, /<div className="settings-side">\s*<h1 style=\{SETTINGS_HEADING_STYLE\}>Settings<\/h1>\s*<SettingsRail /)
+  assert.doesNotMatch(shell, /settings-title/)
+  assert.match(shell, /<h2 id=\{headingId\} style=\{SETTINGS_HEADING_STYLE\}>\{section\.label\}<\/h2>/,
+    'a list page title is the same spec, margin included, so its list starts where the rail does')
+  assert.match(shellCss, /\.settings-side \{\s*align-self: stretch;/, 'the rail column stretches so the rail can stay pinned')
+})
+
+test('a destination reads the same size in the rail and in a list', () => {
+  const label = /\.rr-row-label \{ min-width: 0; font-size: ([\d.]+)px; font-weight: (\d+);/.exec(rail)
+  const row = /\.settings-list-text \{[^}]*font-size: ([\d.]+)px;\s*font-weight: (\d+);/.exec(shellCss)
+  assert.ok(label && row)
+  assert.equal(row[1], label[1], 'same size')
+  assert.equal(row[2], label[2], 'same weight')
+  assert.equal((shell.match(/size=\{16\} strokeWidth=\{2\} aria-hidden="true" className="settings-(rail|list)-ic"/g) || []).length, 2, 'same icon size')
+})
+
+test('the breadcrumb sits above the title line, never pushing the title down', () => {
+  assert.match(shellCss, /\.settings-crumb \{\s*position: absolute;\s*left: 0;\s*bottom: calc\(100% \+ 6px\);/)
+  assert.match(shellCss, /\.settings-content \{\s*position: relative;/)
+  assert.match(shellCss, /\.settings-grid \{[^}]*margin-top: 34px;/, 'the room it sits in is reserved on every page')
+  assert.match(shellCss, /@media \(max-width: 900px\) \{[^}]*\.settings-grid \{[^}]*\}\s*\.settings-side \{ align-self: auto; \}\s*\.settings-crumb \{ position: static;/)
 })
 
 // ── Preserved from earlier passes ───────────────────────────────────────────

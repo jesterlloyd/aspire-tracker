@@ -4,6 +4,7 @@
 // community_benefit_view capability.
 
 import { verifyPortalCaller, getServiceDb } from './lib/portalAuth.js'
+import { serviceDbForRequest } from '../lib/server/demoScope.js'
 import { can } from '../lib/server/access.js'
 import { fetchCommunityBenefitInputs } from './lib/communityBenefitData.js'
 import {
@@ -41,7 +42,10 @@ export function createCommunityBenefitExportHandler({
     }
 
     let db
-    try { db = makeDb() } catch { return res.status(500).json({ error: 'server_misconfigured' }) }
+    // DEMO-DATA-1: inside the demo boundary, like the Nursing Academics portal's copy of
+    // this report. A demo shows demo rows; everything else is real rows only (the loader
+    // scopes a client that arrives without a boundary).
+    try { db = serviceDbForRequest(makeDb(), req) } catch { return res.status(500).json({ error: 'server_misconfigured' }) }
 
     try {
       const inputs = await fetchInputs(db)

@@ -20,13 +20,6 @@
   font-family: 'Plus Jakarta Sans', sans-serif;
 }
 
-.apx-head p {
-  max-width: 66ch;
-  margin: 4px 0 0;
-  color: var(--color-text-secondary, #4A5560);
-  font-size: 13px;
-  line-height: 1.5;
-}
 
 .apx-group {
   display: grid;
@@ -505,6 +498,8 @@
   font-size: 12.5px;
   line-height: 1.5;
 }
+/* The page's closing line, under the last card. */
+.apx-foot { padding: 0 2px; }
 
 /* The page column, not the window, decides when things stack: the rail takes 268px
    of the window beside it. */

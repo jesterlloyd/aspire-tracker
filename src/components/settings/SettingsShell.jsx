@@ -15,6 +15,12 @@
 //   - a drill-in opens in the same right pane, under a breadcrumb back to its parent,
 //     with the parent still selected in the rail, at its own route.
 // Two panes, never three. Layout lives in settingsShell.css.
+//
+// SETTINGS-FIX-2 (Owner, 2026-09-21): "Titles the same, aligned. First panes aligned."
+// "Settings" heads the rail's column in the same heading spec as the page's own title, so
+// the two sit on one baseline, and a list page carries no generic subtitle, so the rail
+// card and the list card start on one line. A drill-in's breadcrumb sits ABOVE that line,
+// in space the grid reserves, so it never pushes the page title off the baseline.
 import { useEffect, Fragment } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
@@ -49,12 +55,6 @@ const SECTION_ICONS = {
   demoMode: Presentation, preceptorParity: Scale,
   about: BadgeInfo, appearance: Monitor, signature: PenLine, tours: Info,
   keithKnowledge: FileText, keithSkills: Sparkles, keithUsage: BarChart3,
-}
-
-// What a list page says under its title.
-const LIST_PAGE_COPY = {
-  general: 'Settings that are yours alone. They follow you to any device.',
-  keith: 'Govern what Keith knows, what Keith can do, and what it costs.',
 }
 
 // The drill-ins that bring no heading of their own. Appearance and the three Keith
@@ -94,22 +94,21 @@ function SettingsRail({ sections, activeKey, navigate }) {
   )
 }
 
-// A list page: the parent's title and one grouped list of drill-in rows.
+// A list page: the parent's title and one grouped list of drill-in rows. No subtitle: a
+// generic one would push the list below the rail card (SETTINGS-VISUAL-DENSITY-1 removed
+// them for the same reason).
 function SettingsListPage({ section, rows, navigate }) {
   const headingId = `settings-${section.key}-heading`
   return (
     <section aria-labelledby={headingId}>
-      <header className="settings-phead">
-        <h2 id={headingId} style={{ ...SETTINGS_HEADING_STYLE, margin: 0 }}>{section.label}</h2>
-        {LIST_PAGE_COPY[section.key] && <p>{LIST_PAGE_COPY[section.key]}</p>}
-      </header>
+      <h2 id={headingId} style={SETTINGS_HEADING_STYLE}>{section.label}</h2>
       <SurfaceCard as="ul" className="settings-list" padding={0} aria-label={section.label}>
         {rows.map(row => {
           const Icon = SECTION_ICONS[row.key]
           return (
             <li key={row.key}>
               <button type="button" className="settings-list-row" onClick={() => navigate(row.path)}>
-                {Icon && <Icon size={17} strokeWidth={2} aria-hidden="true" className="settings-list-ic" />}
+                {Icon && <Icon size={16} strokeWidth={2} aria-hidden="true" className="settings-list-ic" />}
                 <span className="settings-list-text">
                   {row.label}
                   {row.sub && <small>{row.sub}</small>}
@@ -177,10 +176,14 @@ export default function SettingsShell({ backPath = '/aggregate', backLabel = 'At
     <div className="settings-shell">
       {/* Back-to-workspace affordance - shared component (reuses MainApp's prior-workspace path) */}
       <WorkspaceBackLink path={backPath} label={backLabel} />
-      <h1 className="settings-title">Settings</h1>
 
       <div className="settings-grid">
-        <SettingsRail sections={sections} activeKey={railActiveKey} navigate={navigate} />
+        {/* The rail's column: its title, then the rail. Stretched to the row so the rail
+            has room to stay pinned (ANCHORED-NAV-1). */}
+        <div className="settings-side">
+          <h1 style={SETTINGS_HEADING_STYLE}>Settings</h1>
+          <SettingsRail sections={sections} activeKey={railActiveKey} navigate={navigate} />
+        </div>
 
         {/* The active page. EVERY page uses the full canonical workspace width,
             bounded only by the .app-main 1580px shell. */}

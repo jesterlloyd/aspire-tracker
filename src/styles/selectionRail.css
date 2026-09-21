@@ -11,7 +11,16 @@
 
    A host sets its own layout around the rail (column width, where it stacks) and may add
    what its rows carry (Settings adds an icon column), but it does not restyle the rail.
-   Change the look here and both screens change together, or it does not change. */
+   Change the look here and both screens change together, or it does not change.
+
+   ORDER-PROOF, OR IT IS WRONG IN PRODUCTION (SETTINGS-FIX-2, 2026-09-21). This sheet is its
+   own CSS chunk, and the build does NOT promise it loads before or after a host's sheet:
+   on the live site Settings' sheet loaded FIRST, so a host rule of equal specificity lost
+   to the canon and every Settings label slid to the right. So: every rule that must beat
+   the canon lives in THIS file after the rule it modifies (the 900px unpin, below), and
+   every host override carries one more class than the canon rule it overrides
+   (.rr-row-select.settings-rail-row). test/settingsUnifiedIa.test.mjs renders both load
+   orders and fails if they differ. */
 .rr-nav {
   min-width: 0; margin-top: 14px; display: flex; flex-direction: column; gap: 2px; align-content: start;
   /* Its own height, and it stays in view while the board scrolls: pinned just under the
@@ -39,3 +48,8 @@
 .rr-row-label small { display: block; font-family: var(--rr-mono); font-size: 11.5px; font-weight: 400; color: var(--text-muted); }
 .rr-row-select.sel .rr-row-label small { color: rgba(255, 255, 255, 0.72); }
 .rr-row-select:focus-visible { outline: 3px solid var(--rr-navy); outline-offset: 2px; }
+/* Once a host stacks the rail above its content (both hosts do at 900px) the rail stops
+   pinning. Here, after the base rule, so no load order can undo it. */
+@media (max-width: 900px) {
+  .rr-nav { margin-top: 0; position: static; }
+}

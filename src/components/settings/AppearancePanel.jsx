@@ -103,13 +103,11 @@ export function AppearanceSettings({ style, colorMode, systemTheme, synced, onSt
   }
   return (
     <section className="apx" aria-labelledby={`${uid}-title`}>
-      <header className="apx-head">
-        <h2 id={`${uid}-title`} style={{ ...SETTINGS_HEADING_STYLE, margin: 0 }}>Appearance</h2>
-        <p>
-          How ASPIRE Intelligence looks for you. These choices are yours alone and follow you to any device.
-          {synced === false ? ' For now they are saved in this browser only.' : ''}
-        </p>
-      </header>
+      {/* SETTINGS-FIX-2: the title and nothing else above the first card, so the card
+          starts on the rail card's line; the one fact the old intro carried closes the page. */}
+      {/* The heading spec puts 14px under a title; the grid already puts --aspire-gap-card
+          (16px) there, so the title gives the difference back. */}
+      <h2 id={`${uid}-title`} style={{ ...SETTINGS_HEADING_STYLE, margin: 0, marginBottom: 'calc(14px - var(--aspire-gap-card))' }}>Appearance</h2>
 
       <SurfaceCard className="apx-group" padding="18px 20px" role="radiogroup" aria-labelledby={ids.styleH} aria-describedby={ids.styleD}>
         <div className="apx-ghead">
@@ -195,6 +193,11 @@ export function AppearanceSettings({ style, colorMode, systemTheme, synced, onSt
           the three-column view.
         </p>
       </SurfaceCard>
+
+      <p className="apx-note apx-foot">
+        These choices are yours alone and follow you to any device.
+        {synced === false ? ' For now they are saved in this browser only.' : ''}
+      </p>
     </section>
   )
 }

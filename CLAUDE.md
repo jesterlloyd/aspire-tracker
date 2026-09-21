@@ -936,6 +936,41 @@ Two panes, never three. The Owner reference is `settings-appearance-mockup (1).h
 - **A drill-in's heading is its row's name.** The Skills workspace was titled "Keith" from
   when it was all of Keith's settings; under "‹ Keith / Skills" it is titled Skills (Owner:
   content may change where the hierarchy needs it to make sense).
+- **One baseline, one line, one size (SETTINGS-FIX-2, Owner, 2026-09-21: "Titles the same,
+  aligned. First panes aligned.")** "Settings" heads the rail's column in
+  `SETTINGS_HEADING_STYLE`, the spec every page title uses, so the two titles share a
+  baseline. A list page has no subtitle and Appearance's intro became its closing line, so
+  the rail card and the page's first card start on one line. A drill-in's breadcrumb sits
+  in room the grid reserves above the titles (`position: absolute`), never pushing a title
+  down; stacked below 900px it returns to the flow. A list row's title is set exactly like
+  a rail label (13.5px, 600). Pages whose own header carries real guidance (Accounts,
+  Keith's workspaces, Community Benefit, Parity) keep it, and their first card sits below.
+- **An override must win in either load order, because the build does not promise one.**
+  `selectionRail.css` is its own CSS chunk; on the live site Settings' sheet loaded FIRST,
+  an equal-specificity `.settings-rail-row` lost to `.rr-row-select`, and every label slid
+  right. The harness had loaded them the other way, and my "identical to main" fingerprint
+  glued the sheets in the order I expected. So a host override carries one class more than
+  the canon rule (`.rr-row-select.settings-rail-row`), the canon's own 900px unpin lives in
+  its sheet after its base rule, and verification renders BOTH orders and compares them.
+
+## A report is one population (DEMO-DATA-1, 2026-09-21)
+
+"We're not supposed to mix real and fake data" (Owner). Demo students were being summed
+into Settings > Community Benefit, because its two staff endpoints read through the raw
+service client, outside the demo boundary. Now:
+
+- `api/lib/communityBenefitData.js` scopes any client that arrives WITHOUT a boundary to
+  real rows (`scopedServiceDb(client, false)`); a boundary a caller already applied (demo
+  or real) is kept. The staff report and export join the boundary through
+  `serviceDbForRequest`, like the Nursing Academics copies, so a demo shows demo rows only.
+- Capstone hours have no `is_demo`; they follow their cohort (`capstoneRowsInScope`).
+  `cohort_id` is an FK with ON DELETE SET NULL, so a row naming a cohort outside the
+  scoped list names the other population's cohort, and a row naming none is real.
+- "No header, no filter" (lib/server/demoScope.js) was right only before is_demo existed.
+  Anything that AGGREGATES real people into a number or a list must not inherit it. 76
+  server files still read scoped tables through a raw client; most act on one record the
+  UI chose inside the boundary, but the aggregating ones need the same treatment, audited
+  endpoint by endpoint (open task, 2026-09-21).
 
 ## Both books wear one cover (BOOK-COVER-1, 2026-09-21)
 
