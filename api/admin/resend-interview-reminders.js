@@ -23,12 +23,14 @@
 // Returns a full summary of what was sent, skipped, and failed.
 
 import { createClient } from '@supabase/supabase-js';
+import { populationDb } from '../../lib/server/demoScope.js';
 import { sendNotification } from '../../src/lib/notifications/index.js';
 
-const supabase = createClient(
+// DEMO-DATA-2: real rows only. This re-runs a cron by hand, so it reads what the cron reads.
+const supabase = populationDb(createClient(
   process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+));
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin',  '*');

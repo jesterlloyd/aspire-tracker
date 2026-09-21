@@ -25,6 +25,7 @@ import { detectSkillHelp, buildSkillHelpResponse, buildSkillUnavailableResponse,
 import { runResumeInterviewQuestions, RIQ_SLUG } from '../lib/server/keith/resumeInterviewQuestions.js';
 import { schoolMatches } from './lib/schoolAliases.js';
 import { createClient } from '@supabase/supabase-js';
+import { populationDb, narrowSendLog } from '../lib/server/demoScope.js';
 import { randomUUID } from 'crypto';
 import { isActiveProfile, INACTIVE_STATUS, INACTIVE_REASON, INACTIVE_MESSAGE } from './lib/activeAccount.js';
 
@@ -729,6 +730,14 @@ async function runToolLoop(initialMessages, systemPrompt, tools, supabase, activ
 // ── Main handler ──────────────────────────────────────────────────────────────
 
 export default async function handler(req, res) {
+  // DEMO-DATA-2: every client this request builds reads ONE population. A demo session
+  // (x-aspire-demo: 1) sees only demo people; anything else sees only real ones. Before
+  // this, Keith's unit roster and contact answers listed the seeded demo Unit Leaders on
+  // real units. Only tables inside the boundary are affected. The skills catalog keeps
+  // its own client: it reads no boundary table, and its call is pinned by the skill
+  // tests. A new client per call, so the scope never outlives this request.
+  const keithDb = () => populationDb(makeServiceRoleClient(), req);
+
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,POST');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -822,7 +831,7 @@ export default async function handler(req, res) {
   // Runs after identity is verified (so budget is attributable) and before any
   // context assembly or model call (so a refused request costs nothing).
   const requestStartedAt = Date.now();
-  const meterClient = makeServiceRoleClient();
+  const meterClient = keithDb();
   const skillRequested = typeof req.body?.skill_slug === 'string' ? req.body.skill_slug : null;
   const rate = await consumeRateLimit(meterClient, {
     profileId: auth.profileId,
@@ -966,7 +975,7 @@ export default async function handler(req, res) {
   // short-circuited to a Contacts search, and returned unrelated preceptors
   // while the Active BNI routing directory was never consulted. The retrieval
   // result is computed once here and reused by the main model path below.
-  const governed = await retrieveGovernedKnowledge(makeServiceRoleClient(), lastUserText);
+  const governed = await retrieveGovernedKnowledge(keithDb(), lastUserText);
   const governedTopScore = governed.scores.length ? Math.max(...governed.scores) : 0;
   const governedRouting = isPersonContactRole
     && preferGovernedRouting({ question: lastUserText, topScore: governedTopScore });
@@ -983,7 +992,7 @@ export default async function handler(req, res) {
       console.log('[keith-contacts]', { request_id: requestId, intent, role_gate: 'fail' });
       return res.status(200).json({ response: CONTACTS_ROLE_DENIED, tool_calls: [] });
     }
-    const { response, resultCount, error } = await answerPersonContactQuery(makeServiceRoleClient(), lastUserText);
+    const { response, resultCount, error } = await answerPersonContactQuery(keithDb(), lastUserText);
     // [keith-contacts]: PII-free - no query text, names, emails, or contact content.
     console.log('[keith-contacts]', { request_id: requestId, intent, role_gate: 'pass', result_count: resultCount ?? 0, ...(error ? { error } : {}) });
     return res.status(200).json({ response, tool_calls: [] });
@@ -1113,7 +1122,7 @@ Cohort Status: ${cohort.status || 'unknown'}`
         console.log('[keith] preceptor FK fallback fired for', studentsNeedingPreceptorLookup.length, 'students');
         const preceptorIds = [...new Set(studentsNeedingPreceptorLookup.map(s => s.preceptor_id))];
         try {
-          const dbFallback = makeServiceRoleClient();
+          const dbFallback = keithDb();
           const { data: preceptorRecords, error: preceptorLookupError } = await dbFallback
             .from('preceptors')
             .select('id, full_name')
@@ -1139,7 +1148,7 @@ Cohort Status: ${cohort.status || 'unknown'}`
       try {
         const rotCohortId = liveData.activeCohortId || liveData.cohort?.id;
         if (rotCohortId) {
-          const { data: rotRows } = await makeServiceRoleClient()
+          const { data: rotRows } = await keithDb()
             .from('cohort_school_rotations')
             .select('id, rotation_start_date, rotation_end_date')
             .eq('cohort_id', rotCohortId);
@@ -1197,7 +1206,7 @@ Cohort Status: ${cohort.status || 'unknown'}`
       let unitLeaderSection = '';
 
       if (supabaseUrl && serviceKey) {
-        const dbkeith = makeServiceRoleClient();
+        const dbkeith = keithDb();
         const ctxCohortId = liveData.activeCohortId || liveData.cohort?.id;
 
         // KEITH-ON-CAMPUS-NOW-1: derive On Campus Now from the database using the SAME
@@ -1274,7 +1283,7 @@ Cohort Status: ${cohort.status || 'unknown'}`
           // ROLE-MODEL-1: a section the caller's scope does not include is
           // never fetched, so it cannot be assembled or leak.
           allowsContextSection(auth, 'communications')
-            ? getRecentCommunications(dbkeith, { limit: 30, sinceDays: 30 })
+            ? getRecentCommunications(dbkeith, { limit: 30, sinceDays: 30 }).then(rows => narrowSendLog(dbkeith, rows))
             : Promise.resolve([]),
           ctxCohortId ? getUnitResponseStats(dbkeith, ctxCohortId) : Promise.resolve(null),
           ctxCohortId ? getUnitResponses(dbkeith, ctxCohortId) : Promise.resolve([]),
@@ -1524,7 +1533,7 @@ Be transparent: after forming a recommendation, briefly note which tools you use
   const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
   const serviceKey  = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const toolsSupabase = (canUseTools && supabaseUrl && serviceKey)
-    ? makeServiceRoleClient()
+    ? keithDb()
     : null;
 
   if (timeRemaining() <= 0) {

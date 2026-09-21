@@ -8,14 +8,16 @@
 // so the frontend hasSent() check (and ActionCenter act8) clears automatically.
 
 import { createClient } from '@supabase/supabase-js';
+import { populationDb } from '../../lib/server/demoScope.js';
 import { sendNotification } from '../../src/lib/notifications/index.js';
 import { startCronRun, finishCronRunSuccess, finishCronRunError } from '../lib/cronRuns.js';
 import { isAuthorizedCronRequest } from '../lib/cronAuth.js';
 
-const supabase = createClient(
+// DEMO-DATA-2: real rows only. A cron has no request and so no demo mode; see populationDb.
+const supabase = populationDb(createClient(
   process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+));
 
 // notification_log.status is advanced by the Resend webhook (sent → delivered → opened →
 // clicked, plus terminal bounced/complained and transient delayed). Idempotency must treat

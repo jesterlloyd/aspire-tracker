@@ -14,6 +14,8 @@ const STUDENT_COLUMNS = [
   'headshot_url', 'phone', 'badge_created',
   // STUDENT-BADGE-1: the coordinator-owned rotation row feeds the badge dates.
   'cohort_school_rotation_id',
+  // DEMO-DATA-2: read, never returned. It picks the population of the leadership below.
+  'is_demo',
 ].join(', ')
 
 const COHORT_COLUMNS = 'id, name, status, start_date, end_date'
@@ -122,13 +124,19 @@ export async function buildStudentPortalSummary(db, studentIds) {
   // the leadership source (not the legacy unit_leaders table). One read for the
   // whole student set; selectUnitLeadershipCc narrows it to each student's own
   // unit(s) and to AD / ANM / NPD-P / CNS titles, exposing name, title, email.
+  //
+  // DEMO-DATA-2: this is the one read here not keyed by the student, so it takes the
+  // student's population explicitly: a real student is never shown a demo unit leader
+  // filed under a real unit, and a demo preview never shows a real one.
   let leadershipContacts = []
   if ((students || []).length > 0) {
+    const leadershipIsDemo = (students || []).some(s => s.is_demo === true)
     const { data: leaders, error: lErr } = await db
       .from('contacts')
       .select('full_name, preferred_name, category, role, email, unit_name, related_units, is_active')
       .in('category', ['Unit Leader', 'Unit Leadership'])
       .eq('is_active', true)
+      .eq('is_demo', leadershipIsDemo)
     if (!lErr && leaders) leadershipContacts = leaders
   }
   const studentUnits = (student) => (unitsByStudent[student.id]?.length

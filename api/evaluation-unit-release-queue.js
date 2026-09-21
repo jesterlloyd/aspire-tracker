@@ -18,6 +18,7 @@ import { getUserScopedDb } from './lib/messagesAuth.js'
 import { APPROVED_INSTRUMENTS } from '../lib/server/unitEvaluations/config.js'
 import { validateQueueQuery } from '../lib/server/unitEvaluations/validation.js'
 import { serializeReviewQueueRow } from '../lib/server/unitEvaluations/serialize.js'
+import { populationDb } from '../lib/server/demoScope.js'
 
 const RELEASE_COLUMNS = [
   'response_id', 'instrument_slug', 'timepoint', 'hist_unit_key', 'hist_preceptor_label',
@@ -51,8 +52,13 @@ export function createReviewQueueHandler({
     if (!v.ok) return res.status(v.status).json({ error: v.error })
     const f = v.value
 
-    const db = makeUserDb(req)
-    if (!db) return res.status(401).json({ error: 'unauthenticated' })
+    // DEMO-DATA-2: one population. The release table has no is_demo; its student does,
+    // so the students read below returns only this request's population and a row whose
+    // student it does not return is left out. A new client per request, so the scope
+    // never outlives it.
+    const userDb = makeUserDb(req)
+    if (!userDb) return res.status(401).json({ error: 'unauthenticated' })
+    const db = populationDb(userDb, req)
 
     try {
       // 1) Release rows (owner/admin RLS), scoped to the two approved instruments + filters.
@@ -73,6 +79,7 @@ export function createReviewQueueHandler({
       // 2) Resolve student display names via responses → students (owner/admin RLS).
       const responseIds = [...new Set(rels.map(r => r.response_id).filter(Boolean))]
       const nameByResponse = new Map()
+      const outsidePopulation = new Set()
       if (responseIds.length > 0) {
         const respRes = await db.from('evaluation_responses')
           .select('id, student_id').in('id', responseIds)
@@ -86,10 +93,15 @@ export function createReviewQueueHandler({
           if (stuRes.error) return res.status(500).json({ error: 'internal_error' })
           for (const s of stuRes.data || []) nameByStudent.set(s.id, displayName(s))
         }
-        for (const [rid, sid] of studentByResponse) nameByResponse.set(rid, nameByStudent.get(sid) || null)
+        for (const [rid, sid] of studentByResponse) {
+          if (sid && !nameByStudent.has(sid)) outsidePopulation.add(rid)
+          nameByResponse.set(rid, nameByStudent.get(sid) || null)
+        }
       }
 
-      const rows = rels.map(r => serializeReviewQueueRow(r, nameByResponse.get(r.response_id)))
+      const rows = rels
+        .filter(r => !outsidePopulation.has(r.response_id))
+        .map(r => serializeReviewQueueRow(r, nameByResponse.get(r.response_id)))
       return res.status(200).json({ rows })
     } catch {
       return res.status(500).json({ error: 'internal_error' })

@@ -147,7 +147,9 @@ function walk(dir, out = []) {
 
 test('nothing constructs Resend directly except the mailer itself', () => {
   const offenders = []
-  for (const base of ['api', 'lib']) {
+  // src/ too: src/lib/notifications/index.js is server code that lives there, and it was
+  // the one send site this sweep could not see (DEMO-DATA-2).
+  for (const base of ['api', 'lib', 'src']) {
     for (const file of walk(join(root, base))) {
       const rel = relative(root, file)
       if (rel === join('lib', 'server', 'email', 'mailer.js')) continue

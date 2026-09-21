@@ -29,6 +29,7 @@
 // student emails, no phone numbers, no identifiers.
 
 import { createClient } from '@supabase/supabase-js';
+import { populationDb } from '../../lib/server/demoScope.js';
 import { startCronRun, finishCronRunSuccess, finishCronRunError } from '../lib/cronRuns.js';
 import { isAutomationEnabled } from '../lib/automationSettings.js';
 import { sendNotification } from '../../src/lib/notifications/index.js';
@@ -69,10 +70,11 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  const supabase = createClient(
+  // DEMO-DATA-2: real rows only. A cron has no request and so no demo mode; see populationDb.
+  const supabase = populationDb(createClient(
     process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY,
-  );
+  ));
 
   const now = new Date();
   const todayPacific = pacificDateString(now);

@@ -14,13 +14,15 @@
 //   • ?mode=live&confirm=clockout_reminder → LIVE: send to the CURRENT would-send rows only.
 
 import { createClient } from '@supabase/supabase-js';
+import { populationDb } from '../../lib/server/demoScope.js';
 import { runClockoutReminders } from '../lib/clockoutReminders.js';
 import { isAuthorizedCronRequest } from '../lib/cronAuth.js';
 
-const supabase = createClient(
+// DEMO-DATA-2: real rows only. A cron has no request and so no demo mode; see populationDb.
+const supabase = populationDb(createClient(
   process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+));
 
 export default async function handler(req, res) {
   if (!isAuthorizedCronRequest(req)) {

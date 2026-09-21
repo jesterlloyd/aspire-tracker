@@ -11,12 +11,17 @@ import { createClient } from '@supabase/supabase-js';
 import {
   UNIT_LEADER_CONTACT_COLUMNS, UNIT_LEADER_CATEGORY_VALUES, unitLeaderRows, selectUnitFormCc,
 } from '../unitLeadersFromConnect.js';
+import { populationDb } from '../../../lib/server/demoScope.js';
 
+// DEMO-DATA-2: real rows only. The one read here routes the public unit form's CC, and
+// a public form is real by definition; a demo Unit Leader filed under a real unit must
+// never be copied on a real leader's confirmation (the mailer would then hold the whole
+// message, real recipients and all).
 function getDb() {
   const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) return null;
-  return createClient(url, key);
+  return populationDb(createClient(url, key));
 }
 
 const INTERNAL_TEAM_EMAILS = {

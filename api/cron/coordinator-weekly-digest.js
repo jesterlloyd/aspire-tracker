@@ -25,6 +25,7 @@
 // Auth (CRON_SECRET) is still required in dry-run mode.
 
 import { createClient } from '@supabase/supabase-js';
+import { populationDb, demoScopeOf, narrowByEmbed } from '../../lib/server/demoScope.js';
 import { createMailer } from '../../lib/server/email/mailer.js';
 import { buildCoordinatorWeeklyDigestEmail, formatDateRange } from '../../src/lib/notifications/templates/coordinatorWeeklyDigest.js';
 import { startCronRun, finishCronRunSuccess, finishCronRunError } from '../lib/cronRuns.js';
@@ -48,7 +49,8 @@ function getServiceClient() {
   const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) throw new Error('Missing Supabase service role credentials');
-  return createClient(url, key);
+  // DEMO-DATA-2: real rows only. A cron has no request and so no demo mode; see populationDb.
+  return populationDb(createClient(url, key));
 }
 
 export default async function handler(req, res) {
@@ -118,15 +120,18 @@ export default async function handler(req, res) {
     }
 
     // ── 1. Fetch qualifying events ────────────────────────────────────────────
-    const { data: events, error: eventsErr } = await db
+    const { data: eventRows, error: eventsErr } = await db
       .from('program_events')
       .select(`
         id, event_type, event_date, created_at, notes,
-        students!inner(id, first_name, preferred_first_name, last_name, school, program_type, status)
+        students!inner(id, first_name, preferred_first_name, last_name, school, program_type, status, is_demo)
       `)
       .gte('created_at', windowStart.toISOString())
       .lt('created_at', windowEnd.toISOString())
       .in('event_type', COORDINATOR_DIGEST_EVENT_TYPES);
+    // DEMO-DATA-2: program_events has no is_demo, and the client filters only the root
+    // table, so the embedded student decides. Real students only, like the rest of this run.
+    const events = narrowByEmbed(eventRows, demoScopeOf(db), e => e.students);
 
     if (eventsErr) {
       console.error('[coordinator-digest] events query error:', eventsErr);

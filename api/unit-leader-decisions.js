@@ -32,6 +32,18 @@ const CAPACITY_DECISIONS = new Set(['under_review', 'accepted', 'adjusted', 'dec
 const NOMINATION_DECISIONS = new Set(['confirmed', 'declined', 'withdrawn'])
 const MAX_NOTE = 2000
 
+// DEMO-DATA-2: a decision on a demo row is a demo decision. The row is decided as asked,
+// but no real Unit Leader is emailed about it: the demo units carry real unit names
+// ('6 NE', '5 North'), so the alert's audience, which is resolved by unit, would be the
+// real leaders of the real unit. Placement requests and capacity submissions carry
+// is_demo themselves; a nomination does not, so its cohort answers for it.
+async function isDemoDecision(db, row) {
+  if (row?.is_demo === true) return true
+  if (!row?.cohort_id) return false
+  const { data } = await db.from('cohorts').select('is_demo').eq('id', row.cohort_id).maybeSingle()
+  return data?.is_demo === true
+}
+
 const isUuid = (v) =>
   typeof v === 'string' &&
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v)
@@ -74,7 +86,7 @@ async function decidePlacement(res, { db, profile, id, decision, note }) {
 
   const { data: row, error: loadErr } = await db
     .from('unit_placement_requests')
-    .select('id, unit_key, cohort_id, aspire_status')
+    .select('id, unit_key, cohort_id, aspire_status, is_demo')
     .eq('id', id)
     .maybeSingle()
   if (loadErr) return res.status(500).json({ error: 'internal_error' })
@@ -116,15 +128,17 @@ async function decidePlacement(res, { db, profile, id, decision, note }) {
   })
   if (evErr) return res.status(500).json({ error: 'internal_error' })
 
-  await emitUnitLeaderAlert(db, {
-    alertType: 'placement_request',
-    unitKey: row.unit_key,
-    cohortId: row.cohort_id,
-    subjectId: `${id}:${decision}`,
-    subject: 'Placement request decided',
-    summary: `ASPIRE ${decision} a placement request.`,
-    ctaPath: '/portal/unit/placements',
-  })
+  if (!(await isDemoDecision(db, row))) {
+    await emitUnitLeaderAlert(db, {
+      alertType: 'placement_request',
+      unitKey: row.unit_key,
+      cohortId: row.cohort_id,
+      subjectId: `${id}:${decision}`,
+      subject: 'Placement request decided',
+      summary: `ASPIRE ${decision} a placement request.`,
+      ctaPath: '/portal/unit/placements',
+    })
+  }
 
   return res.status(200).json({ request: updated })
 }
@@ -134,7 +148,7 @@ async function decideCapacity(res, { db, profile, id, decision, note }) {
 
   const { data: row, error: loadErr } = await db
     .from('unit_capacity_submissions')
-    .select('id, unit_key, cohort_id, review_status, superseded_at')
+    .select('id, unit_key, cohort_id, review_status, superseded_at, is_demo')
     .eq('id', id)
     .maybeSingle()
   if (loadErr) return res.status(500).json({ error: 'internal_error' })
@@ -158,15 +172,17 @@ async function decideCapacity(res, { db, profile, id, decision, note }) {
   if (updErr) return res.status(500).json({ error: 'internal_error' })
   if (!updated) return res.status(409).json({ error: 'already_superseded' })
 
-  await emitUnitLeaderAlert(db, {
-    alertType: 'capacity_review_outcome',
-    unitKey: row.unit_key,
-    cohortId: row.cohort_id,
-    subjectId: `${id}:${decision}`,
-    subject: 'Capacity reviewed',
-    summary: `ASPIRE marked a capacity submission ${decision}.`,
-    ctaPath: '/portal/unit/capacity',
-  })
+  if (!(await isDemoDecision(db, row))) {
+    await emitUnitLeaderAlert(db, {
+      alertType: 'capacity_review_outcome',
+      unitKey: row.unit_key,
+      cohortId: row.cohort_id,
+      subjectId: `${id}:${decision}`,
+      subject: 'Capacity reviewed',
+      summary: `ASPIRE marked a capacity submission ${decision}.`,
+      ctaPath: '/portal/unit/capacity',
+    })
+  }
 
   return res.status(200).json({ submission: updated })
 }
@@ -205,15 +221,17 @@ async function decideNomination(res, { db, profile, id, decision, note }) {
   // That table stays the authoritative assignment record and is written by the
   // existing staff preceptor workflow, so this endpoint cannot create an
   // assignment as a side effect of a decision.
-  await emitUnitLeaderAlert(db, {
-    alertType: 'preceptor_assignment_update',
-    unitKey: row.unit_key,
-    cohortId: row.cohort_id,
-    subjectId: `${id}:${decision}`,
-    subject: 'Preceptor nomination decided',
-    summary: `ASPIRE ${decision} a preceptor nomination.`,
-    ctaPath: '/portal/unit/preceptors',
-  })
+  if (!(await isDemoDecision(db, row))) {
+    await emitUnitLeaderAlert(db, {
+      alertType: 'preceptor_assignment_update',
+      unitKey: row.unit_key,
+      cohortId: row.cohort_id,
+      subjectId: `${id}:${decision}`,
+      subject: 'Preceptor nomination decided',
+      summary: `ASPIRE ${decision} a preceptor nomination.`,
+      ctaPath: '/portal/unit/preceptors',
+    })
+  }
 
   return res.status(200).json({ nomination: updated })
 }

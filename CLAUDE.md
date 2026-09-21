@@ -974,10 +974,45 @@ service client, outside the demo boundary. Now:
   `cohort_id` is an FK with ON DELETE SET NULL, so a row naming a cohort outside the
   scoped list names the other population's cohort, and a row naming none is real.
 - "No header, no filter" (lib/server/demoScope.js) was right only before is_demo existed.
-  Anything that AGGREGATES real people into a number or a list must not inherit it. 76
-  server files still read scoped tables through a raw client; most act on one record the
-  UI chose inside the boundary, but the aggregating ones need the same treatment, audited
-  endpoint by endpoint (open task, 2026-09-21).
+  Anything that AGGREGATES real people into a number or a list must not inherit it.
+
+### The audit (DEMO-DATA-2, 2026-09-21)
+
+All 76 server files that read boundary tables through a raw client were audited. About 60
+act on one record the UI chose inside the boundary (an id, a token, the caller's own
+row) and are correct as they are: the id already pins the population. The rest are fixed,
+and the rules they follow are these.
+
+- **`populationDb(db, req)` is the client for anything that sweeps or aggregates.** An
+  explicit `x-aspire-demo: 1` (or `?demo=1`) reads demo rows; everything else reads REAL
+  rows, including a request that says nothing and a cron that has no request. It mutates
+  the client, so wrap a client built for this request or a module-level client whose scope
+  never changes (a cron's). Never wrap a shared client with a request-dependent scope.
+- **Every cron that builds a service client wraps it**, and the two hand re-runs
+  (`api/admin/resend-*`) read what their crons read. `test/demoDataBoundary2.test.mjs`
+  sweeps `api/cron/` and fails on a bare `createClient`; the five exempt crons (queue
+  workers, a two-id correction, a per-student rpc) are listed there with the reason.
+- **The wrapper filters the ROOT table, never an embed.** A root with no `is_demo`
+  (program_events) read with `students!inner(...)` must select the student's `is_demo`
+  and run `narrowByEmbed`, or a demo student's event reaches a real coordinator's digest.
+- **notification_log has no `is_demo`.** A row is demo when it was addressed to a demo
+  address, or when its subject student is a demo student (a real interviewer's reminder
+  about a demo candidate is a demo row). `sendLogPopulationFilters` is that rule as
+  PostgREST filters, inside `applyFilters`, so Sent History's list, exact count and KPIs
+  agree; `narrowSendLog` is the same rule in memory (Keith's recent communications).
+  Both spell out NULLs: `not.ilike` and `not.in` drop a NULL row.
+- **`sendNotification` sends through `createMailer()`.** It used to construct Resend
+  itself, so its thirteen call sites bypassed the demo recipient guard.
+  `test/demoMailer.test.mjs` now sweeps `src/` too.
+- **Demo units carry real unit names** ('6 NE', '5 North'), so anything that resolves
+  people BY UNIT crosses populations unless it is scoped: the unit form's CC
+  (`recipients.js`, real only), the Student Portal's leadership (the student's own
+  population), Keith's roster, and Unit Leader alerts (`unit-leader-decisions.js` sends
+  none for a demo row; nominations have no `is_demo`, so their cohort answers).
+- **A server-side insert made in a demo session stamps `is_demo`.** The browser stamps
+  its own inserts; `api/contacts-upsert.js` now stamps its one.
+- Found and left alone: `api/list-portal-access.js` reads contact avatars by email, and a
+  demo address never matches a real account, so nothing can show.
 
 ## Both books wear one cover (BOOK-COVER-1, 2026-09-21)
 

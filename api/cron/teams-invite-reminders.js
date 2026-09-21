@@ -6,15 +6,17 @@
 // Prerequisites: run migration_teams_reminder_tracking.sql in Supabase first.
 
 import { createClient } from '@supabase/supabase-js';
+import { populationDb } from '../../lib/server/demoScope.js';
 import { sendNotification } from '../../src/lib/notifications/index.js';
 import { startCronRun, finishCronRunSuccess, finishCronRunError } from '../lib/cronRuns.js';
 import { isAutomationEnabled } from '../lib/automationSettings.js';
 import { isAuthorizedCronRequest } from '../lib/cronAuth.js';
 
-const supabase = createClient(
+// DEMO-DATA-2: real rows only. A cron has no request and so no demo mode; see populationDb.
+const supabase = populationDb(createClient(
   process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+));
 
 // Reminder cadence:
 //   First reminder  - 24-36h before interview, teams_reminder_count === 0

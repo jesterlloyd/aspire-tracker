@@ -18,6 +18,7 @@
 // due date has not is still sent on the next run.
 /* global process */
 import { createClient } from '@supabase/supabase-js'
+import { populationDb } from '../../lib/server/demoScope.js'
 import { createMailer } from '../../lib/server/email/mailer.js';
 import { startCronRun, finishCronRunSuccess, finishCronRunError } from '../lib/cronRuns.js'
 import { isAutomationEnabled } from '../lib/automationSettings.js'
@@ -47,10 +48,11 @@ const sleep = ms => new Promise(r => setTimeout(r, ms))
 export default async function handler(req, res) {
   if (!isAuthorizedCronRequest(req)) return res.status(401).json({ error: 'Unauthorized' })
 
-  const supabase = createClient(
+  // DEMO-DATA-2: real rows only. A cron has no request and so no demo mode; see populationDb.
+  const supabase = populationDb(createClient(
     process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY,
-  )
+  ))
   const now = new Date()
   const nowIso = now.toISOString()
   const today = pacificDateString(now)
@@ -80,11 +82,11 @@ export default async function handler(req, res) {
     const periods = await supabase.from(PERIODS).select(PERIOD_FIELDS)
       .in('run_id', [...runsById.keys()]).is('sent_at', null).lte('send_on', today).gte('due_on', today)
     if (periods.error) throw new Error(`periods: ${periods.error.message}`)
-    const due = periodsToSend(periods.data || [], runsById, today)
+    const dueAll = periodsToSend(periods.data || [], runsById, today)
 
     // Residents and their addresses, in two bounded reads.
-    const candidateIds = [...new Set(due.map(p => p.candidate_id))]
-    const studentIds = [...new Set(due.map(p => p.student_id))]
+    const candidateIds = [...new Set(dueAll.map(p => p.candidate_id))]
+    const studentIds = [...new Set(dueAll.map(p => p.student_id))]
     const [outcomes, students] = candidateIds.length ? await Promise.all([
       supabase.from('ngrp_residency_outcomes').select('candidate_id, hired_at, separated_at, cs_email').in('candidate_id', candidateIds),
       supabase.from('students').select('id, first_name, last_name, preferred_first_name, name, personal_email').in('id', studentIds),
@@ -93,6 +95,10 @@ export default async function handler(req, res) {
     if (students.error) throw new Error(`students: ${students.error.message}`)
     const outcomeByCandidate = new Map((outcomes.data || []).map(o => [o.candidate_id, o]))
     const studentById = new Map((students.data || []).map(s => [s.id, s]))
+    // DEMO-DATA-2: a reflection run has no is_demo of its own; its resident does. Both
+    // reads above are real-only, so a demo resident's period finds neither record, and it
+    // is not this cron's to send (it would otherwise fail as no_email every morning).
+    const due = dueAll.filter(p => studentById.has(p.student_id) || outcomeByCandidate.has(p.candidate_id))
 
     const resendClient = createMailer()
     const baseUrl = emailBaseUrl(req)
@@ -139,7 +145,7 @@ export default async function handler(req, res) {
       }
     }
 
-    const summary = { target_date: today, active_runs: runsById.size, due_count: due.length, sent_count: sent.length, skipped_count: skipped.length, failed_count: failed.length }
+    const summary = { target_date: today, active_runs: runsById.size, due_count: due.length, outside_population: dueAll.length - due.length, sent_count: sent.length, skipped_count: skipped.length, failed_count: failed.length }
     console.log(`[resident-reflections] SUMMARY: ${JSON.stringify(summary)}`)
     await finishCronRunSuccess(supabase, runId, summary)
     return res.status(200).json({ success: true, ...summary, failed })

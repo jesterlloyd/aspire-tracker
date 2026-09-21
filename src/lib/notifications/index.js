@@ -3,12 +3,12 @@
 // Server-side only - imported by API routes, never by frontend components.
 // Requires RESEND_API_KEY and SUPABASE_SERVICE_ROLE_KEY environment variables.
 
-import { Resend } from 'resend';
 import { createClient } from '@supabase/supabase-js';
 import { templates } from './templates/index.js';
 import { resolveRecipients } from './recipients.js';
 import { sharedSenderMayArchive } from '../../../api/lib/archiveClassification.js';
 import { archiveSentMessage } from '../../../api/lib/messageArchive.js';
+import { createMailer } from '../../../lib/server/email/mailer.js';
 
 // ARCHIVE-SNAPSHOT-1: recorded in archive metadata so a stored body can be tied
 // to the renderer that produced it. Bump when a template's shape changes.
@@ -17,8 +17,13 @@ const TEMPLATE_NOTIFICATION_VERSION = 1;
 const FROM     = 'ASPIRE at Cedars-Sinai <noreply@aspire-program.com>';
 const REPLY_TO = 'JesterLloyd.Bautista@cshs.org';
 
+// DEMO-DATA-2 (2026-09-21): through the mailer, like every other send site. This one
+// constructed Resend itself, so the demo recipient guard never saw the thirteen callers
+// of sendNotification. The hourly clock-out sweep reaches the two seeded demo shifts
+// (in progress since the seed) and handed their reminders straight to Resend.
+// test/demoMailer.test.mjs now sweeps src/ as well as api/ and lib/.
 function getResend() {
-  return new Resend(process.env.RESEND_API_KEY);
+  return createMailer();
 }
 
 function getDb() {

@@ -29,6 +29,7 @@ import { createClient } from '@supabase/supabase-js';
 import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js';
 import { AUDIENCES, aggregateOutreach, classifyAudience } from '../lib/server/outreachAnalytics.js';
 import { INACTIVE_MESSAGE } from './lib/activeAccount.js';
+import { populationOf, sendLogPopulationFilters } from '../lib/server/demoScope.js';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function isUuid(v) { return typeof v === 'string' && UUID_PATTERN.test(v); }
@@ -138,6 +139,21 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Invalid audience_filter' });
     }
 
+    // DEMO-DATA-2: one population. notification_log has no is_demo, so the rule in
+    // sendLogPopulationFilters decides (a demo address, or a demo student as the subject),
+    // and it is applied inside applyFilters so the list, its exact count and the KPIs all
+    // see the same rows. The demo roster is small, and read unscoped on purpose: the real
+    // view needs it to know what to leave out.
+    const { data: demoStudents, error: demoErr } = await supabaseAdmin
+      .from('students').select('id').eq('is_demo', true);
+    if (demoErr) {
+      console.error('[notification-log-query] demo roster error:', demoErr.message);
+      return res.status(500).json({ error: 'Failed to load communication history' });
+    }
+    const populationFilters = sendLogPopulationFilters(
+      populationOf(req), (demoStudents || []).map(s => s.id),
+    );
+
     // ── 4a. OUTREACH-ANALYTICS-1: aggregate mode ─────────────────────────────
     // Same authorization, same window, same filter chain as the list below -
     // built by applyFilters so the KPI total is by construction the number the
@@ -155,6 +171,7 @@ export default async function handler(req, res) {
       else if (recipientTypeFilter === 'contact') x = x.eq('recipient_type', 'contact');
       else if (recipientTypeFilter === 'null')    x = x.is('recipient_type', null);
       if (statusFilter === 'failed') x = x.in('status', ['failed', 'bounced', 'complained']);
+      for (const expr of populationFilters) x = x.or(expr);
       return x;
     };
 

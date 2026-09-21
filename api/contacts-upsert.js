@@ -62,6 +62,7 @@ import { getCanonicalUnitNames } from '../src/lib/unitCatalog.js';
 import { CONTACT_DIVISION_OPTIONS } from '../src/lib/contactScopeFilter.js';
 import { resolveOperativeSchoolName } from '../src/lib/schoolIdentity.js';
 import { isContactStatusUpdate, applyContactStatusUpdate } from './lib/contactStatusUpdate.js';
+import { demoScopeFromRequest } from '../lib/server/demoScope.js';
 
 const ALLOWED_FIELDS = new Set([
   'full_name',
@@ -475,6 +476,10 @@ async function _handler(req, res) {
     }
     contact = data;
   } else {
+    // DEMO-DATA-2: a contact created in a demo session is a demo contact. The browser
+    // stamps its own inserts, but this one is the server's, and without the stamp a contact
+    // added during a demo was saved as REAL and vanished from the demo it was made in.
+    if (demoScopeFromRequest(req) === true) payload.is_demo = true;
     const { data, error: insertErr } = await supabaseAdmin
       .from('contacts')
       .insert(payload)

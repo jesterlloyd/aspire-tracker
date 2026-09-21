@@ -28,6 +28,7 @@
 // silently dropped - the next run picks it up because nothing was claimed.
 
 import { createClient } from '@supabase/supabase-js';
+import { populationDb } from '../../lib/server/demoScope.js';
 import { createMailer } from '../../lib/server/email/mailer.js';
 import { startCronRun, finishCronRunSuccess, finishCronRunError } from '../lib/cronRuns.js';
 import { isAutomationEnabled } from '../lib/automationSettings.js';
@@ -132,11 +133,12 @@ export async function runEvaluationReminders(req, res, { sweep = false } = {}) {
   // 7/14/21 cadence while ambiguous sends are resolved inside the provider's
   // 24-hour idempotency window.
   const isSweep = sweep === true;
-  const supabase = createClient(
+  // DEMO-DATA-2: real rows only. A cron has no request and so no demo mode; see populationDb.
+  const supabase = populationDb(createClient(
     process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY,
     { auth: { persistSession: false, autoRefreshToken: false } },
-  );
+  ));
 
   const now = new Date();
   const cronName = isSweep ? RECOVERY_CRON_NAME : CRON_NAME;

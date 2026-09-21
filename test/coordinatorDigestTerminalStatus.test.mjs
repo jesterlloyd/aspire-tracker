@@ -92,7 +92,8 @@ test('scheduled and manual digest paths share the classifier, current status, ev
   for (const [name, source] of [['cron', cron], ['admin', admin]]) {
     // preferred_first_name joined the select when student names started honouring a preferred
     // first name; both paths gained it identically, which is what this parity test guards.
-    assert.match(source, /students!inner\(id, first_name, preferred_first_name, last_name, school, program_type, status\)/, `${name} reads current status`);
+    // is_demo joined it for DEMO-DATA-2: the embedded student decides the event's population.
+    assert.match(source, /students!inner\(id, first_name, preferred_first_name, last_name, school, program_type, status, is_demo\)/, `${name} reads current status`);
     assert.match(source, /COORDINATOR_DIGEST_EVENT_TYPES/, `${name} uses the shared event set`);
     assert.match(source, /createCoordinatorDigestTransitions\(\)/, `${name} uses the shared bucket shape`);
     assert.match(source, /addCoordinatorDigestEvent\(bucket, event\)/, `${name} uses terminal precedence`);
