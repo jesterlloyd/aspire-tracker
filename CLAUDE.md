@@ -933,9 +933,9 @@ Two panes, never three. The Owner reference is `settings-appearance-mockup (1).h
   host places the rail and may add a column to its rows (Settings adds an icon); it never
   restates the rail's look. Where a screen stacks is the host's: Settings stacks at 900px,
   where the canon's own rail stops being sticky.
-- **Known, left alone on purpose**: the Skills workspace titles itself "Keith" (its own
-  `SettingsPageHeader`), so its page reads "‹ Keith / Skills" over a "Keith" heading. The
-  brief said not to touch page content.
+- **A drill-in's heading is its row's name.** The Skills workspace was titled "Keith" from
+  when it was all of Keith's settings; under "‹ Keith / Skills" it is titled Skills (Owner:
+  content may change where the hierarchy needs it to make sense).
 
 ## Both books wear one cover (BOOK-COVER-1, 2026-09-21)
 

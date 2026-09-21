@@ -233,10 +233,12 @@ export default function KeithSkillsPanel() {
   }
 
   return (
-    <section aria-labelledby="settings-keith-heading" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
-      <div id="settings-keith-heading">
+    <section aria-labelledby="settings-keith-skills-heading" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
+      {/* SETTINGS-HIERARCHY-1: this page opens under "‹ Keith / Skills", so it is titled
+          Skills; it was titled Keith when it was the whole of Keith's settings. */}
+      <div id="settings-keith-skills-heading">
         <SettingsPageHeader
-          title="Keith"
+          title="Skills"
           subtitle="Governed Keith skills, their lifecycle, and what is running"
           accessNote="Owner and Admin access"
         />

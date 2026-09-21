@@ -120,6 +120,14 @@ test('an unauthorized deep link falls back to the default page rather than rende
 
 // ── Functional preservation ──────────────────────────────────────────────────
 
+test('a drill-in is titled with its row\'s name: Skills, not Keith', () => {
+  const skills = read('src/components/settings/KeithSkillsPanel.jsx')
+  assert.match(skills, /<SettingsPageHeader\s+title="Skills"/)
+  assert.match(skills, /aria-labelledby="settings-keith-skills-heading"/)
+  assert.match(read('src/components/settings/KnowledgeCenterPanel.jsx'), /<SettingsPageHeader\s+title="Knowledge Center"/)
+  assert.match(read('src/components/settings/KeithUsagePanel.jsx'), /<SettingsPageHeader\s+title="Usage & Cost"/)
+})
+
 test('every workspace renders its own panel, unmodified, from the shell', () => {
   assert.equal(existsSync(join(here, '..', 'src/components/settings/KeithPanel.jsx')), false, 'KeithPanel is retired')
   assert.match(shell, /import KnowledgeCenterPanel from '\.\/KnowledgeCenterPanel'/)
