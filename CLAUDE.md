@@ -578,9 +578,12 @@ Unit Leader and Student portals and the staff response viewers map the slug thro
 
 "Whatever is in ASPIRE Connect > Contacts is the canon" (Owner). Unit leadership is read from
 Connect contacts in the Unit Leader category, active, with an email, and from nowhere else;
-the hand-seeded `public.unit_leaders` table is read by NOTHING and waits for its Owner-gated
-drop (`db/audit/unit_leaders_vs_connect_preflight.sql` shows what changed per unit; run it
-before writing that migration). Rows that only ever lived in the old table are not carried
+the hand-seeded `public.unit_leaders` table is read by NOTHING. Its drop is
+`supabase/migrations/20260923000000_drop_unit_leaders.sql` (Owner-gated, refuses to run while
+anything out of band depends on the table; checks in `db/audit/unit_leaders_drop_checks.sql`).
+The Owner ran `db/audit/unit_leaders_vs_connect_preflight.sql` on 2026-09-20 before it was
+written: 26 of 28 units resolve the same lead, and Float Pool has no Associate Director in
+Connect yet. Rows that only ever lived in the old table are not carried
 over.
 
 - **One adapter, the old shape.** `src/lib/unitLeadersFromConnect.js` turns contacts into the
