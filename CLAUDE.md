@@ -787,7 +787,7 @@ and `contactsBook.css`), an oxblood leather book. The reference is
   the registry (every key, its legal values, its default) and the store;
   `useUserPreference(key)` is the only way a component reads or writes one, which is why
   Settings > Appearance and the link beside Refresh can never disagree. The column is
-  `user_profiles.ui_preferences` (Owner-gated, `20260924000000_user_ui_preferences.sql`).
+  `user_profiles.ui_preferences` (`20260924000000_user_ui_preferences.sql`, applied 2026-09-20).
   Without it the choice is kept in the browser and Settings says so; with it, the first
   load adopts that browser's choice and the account wins from then on. A new `appearance.*`
   key is one line in the registry. Theme stays device-local in ThemeContext on purpose.

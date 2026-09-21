@@ -461,5 +461,5 @@ test('the SQL adds one column, one check and one column grant, and nothing else'
   assert.doesNotMatch(code, /CREATE TABLE|CREATE POLICY|CREATE (OR REPLACE )?FUNCTION|anon|DROP /i)
   const checks = read('db/audit/user_ui_preferences_checks.sql')
   for (const s of ['PRE 1', 'PRE 2', 'POST 1', 'POST 2', 'POST 3', 'POST 4', 'POST 5']) assert.ok(checks.includes(s), s)
-  assert.match(read('docs/security/OWNER_SQL_GATE.md'), /\| 20260924000000_user_ui_preferences\.sql \|[^\n]*NOT APPLIED/)
+  assert.match(read('docs/security/OWNER_SQL_GATE.md'), /\| 20260924000000_user_ui_preferences\.sql \|[^\n]*APPLIED[^\n]*user_ui_preferences_checks\.sql/)
 })
