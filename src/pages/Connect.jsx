@@ -19,6 +19,9 @@ import { RefreshHint } from '../components/UnifiedNav'
 import WorkspaceBackLink from '../components/ui/WorkspaceBackLink'
 import SegmentedTabs from '../components/ui/SegmentedTabs'
 import ContactsLayoutLink from '../components/connect/ContactsLayoutLink'
+import { useUserPreference } from '../hooks/useUserPreference'
+import { CONTACTS_LAYOUT } from '../lib/userPreferences'
+import { useChartViewport } from '../components/student/useChartViewport'
 
 const F = 'Plus Jakarta Sans, sans-serif'
 
@@ -115,8 +118,20 @@ export default function ConnectPage({ cohortId, onNavigateToStudent, refreshRef,
     { key: 'broadcasts', label: 'Automations', Icon: Activity, path: '/connect/broadcasts' },
   ].filter(Boolean)
 
+  // CONTACTS-BOOK-2 (Owner, 2026-09-20): on Contacts in the Address book, the page scrolls.
+  // The back row, the title and the subtitle scroll away, the section picker pins under
+  // the app chrome, and everything left in the window is the book. The student chart's
+  // rule and its measurement: useChartViewport measures the sticky chrome and the picker
+  // and reports the height that remains. Every other tab, and Classic, keep the fixed
+  // page they always had.
+  const [contactsLayout] = useUserPreference(CONTACTS_LAYOUT)
+  const bookPage = activeSubTab === 'contacts' && contactsLayout === 'book'
+  const { barRef: pickerRef, chartHeight: bookHeight, toolbarTop: chromeHeight } = useChartViewport()
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100dvh - 128px)', fontFamily: F }}>
+    <div style={bookPage
+      ? { display: 'flex', flexDirection: 'column', fontFamily: F }
+      : { display: 'flex', flexDirection: 'column', height: 'calc(100dvh - 128px)', fontFamily: F }}>
 
       {/* Page header. LAYOUT-SHELL-CONSISTENCY-1: 20px horizontal inset matches the primary tabs. */}
       <div style={{ padding: '12px 20px 0', flexShrink: 0 }}>
@@ -141,22 +156,34 @@ export default function ConnectPage({ cohortId, onNavigateToStudent, refreshRef,
             Contacts, outreach, and announcements across cohorts.
           </p>
         </div>
+      </div>
 
-        {/* Sub-tab picker */}
-        <div style={{ paddingBottom: 12 }}>
-          <SegmentedTabs
-            label="ASPIRE Connect sections"
-            items={tabs}
-            value={activeSubTab}
-            onChange={key => navigate(tabs.find(tab => tab.key === key)?.path || '/connect/contacts')}
-          />
-        </div>
+      {/* Sub-tab picker. Its own block, directly in the page column, because a sticky
+          element is bounded by its parent: inside the header above it would unpin as soon
+          as the header scrolled away. Same 20px inset and 12px below as before. */}
+      <div
+        ref={pickerRef}
+        style={bookPage
+          ? { padding: '0 20px 12px', flexShrink: 0, position: 'sticky', top: chromeHeight, zIndex: 20, background: 'var(--bg-app, #F4F1EC)' }
+          : { padding: '0 20px 12px', flexShrink: 0 }}
+      >
+        <SegmentedTabs
+          label="ASPIRE Connect sections"
+          items={tabs}
+          value={activeSubTab}
+          onChange={key => navigate(tabs.find(tab => tab.key === key)?.path || '/connect/contacts')}
+        />
       </div>
 
       {/* Sub-tab content - all three mounted; inactive hidden to preserve form state */}
-      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
-        {/* Contacts uses flex+height:100% so its three columns scroll independently */}
-        <div style={{ display: activeSubTab === 'contacts' ? 'flex' : 'none', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+      <div style={bookPage ? undefined : { flex: 1, minHeight: 0, overflowY: 'auto' }}>
+        {/* Contacts uses flex+height:100% so its three columns scroll independently. The
+            Address book takes its height from --connect-book-h instead. */}
+        <div style={{
+          display: activeSubTab === 'contacts' ? 'flex' : 'none', flexDirection: 'column',
+          height: bookPage ? 'auto' : '100%', minHeight: 0,
+          '--connect-book-h': bookPage && bookHeight ? `${bookHeight}px` : undefined,
+        }}>
           <ContactsView refreshKey={refreshKey} />
         </div>
         <div style={{ display: activeSubTab === 'outreach' ? 'block' : 'none' }}>

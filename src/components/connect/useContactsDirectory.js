@@ -185,10 +185,6 @@ export function useContactsDirectory({ refreshKey = 0 } = {}) {
     navigate(`/connect/contacts?contactId=${id}`, { replace: true })
   }, [navigate])
 
-  const reloadContacts = useCallback(() => (
-    CONTACTS_SELECT().then(({ data }) => { if (data) setContacts(data) })
-  ), [])
-
   // ── Derived values ──────────────────────────────────────────────────────────
   const selected = contacts.find(c => c.id === selectedId) || null
 
@@ -232,6 +228,5 @@ export function useContactsDirectory({ refreshKey = 0 } = {}) {
     commHistory, loadingComm,
     linkedStudents, linkedStudentsTotal, loadingStudents,
     categoryCounts, inactiveCount, activeCount, activeCategories, filtered,
-    reloadContacts,
   }
 }

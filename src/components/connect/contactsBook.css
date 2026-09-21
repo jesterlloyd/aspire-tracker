@@ -23,6 +23,7 @@
 .ab-shell {
   --ab-radius-chip: 4px;   /* role badge, preference and log pills */
   --ab-radius-note: 5px;   /* the notes block's two open corners */
+  --ab-radius-bubble: 16px; /* the thumb index's letter bubble */
   --ab-page: #FBF7F0;
   --ab-page-2: #F3EDE3;
   --ab-ink: #2A1D20;
@@ -41,7 +42,10 @@
     rgba(60, 25, 28, 0), rgba(60, 25, 28, 0.16) 38%, rgba(60, 25, 28, 0.30) 50%, rgba(60, 25, 28, 0.14) 62%, rgba(60, 25, 28, 0));
   --ab-focus: var(--aspire-navy);
 
-  height: 100%;
+  /* CONTACTS-BOOK-2: the page gives the book everything below the pinned section picker
+     (Connect.jsx measures it with useChartViewport and sets --connect-book-h); 100% is
+     the fallback when nothing sets it. */
+  height: var(--connect-book-h, 100%);
   min-height: 0;
   box-sizing: border-box;
   display: flex;
@@ -167,6 +171,11 @@
   flex-direction: column;
   gap: 1px;
   z-index: 4;
+  /* A scrubber: a finger dragging here moves the list, never the page. */
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: pointer;
 }
 .ab-thumb-tab {
   flex: 1 1 0;
@@ -187,9 +196,10 @@
   background: var(--ab-page);
   color: var(--ab-ink);
 }
-/* After :hover, and paired with it: a pressed letter must stay pressed under the pointer. */
-.ab-thumb-tab[aria-pressed='true'],
-.ab-thumb-tab[aria-pressed='true']:hover {
+/* The letter under the pointer while it is on the index. After :hover, and paired with
+   it, so the highlight holds under the pointer it follows. */
+.ab-thumb-tab[data-active='true'],
+.ab-thumb-tab[data-active='true']:hover {
   background: var(--ab-fill);
   color: var(--ab-on-fill);
   font-weight: 600;
@@ -199,7 +209,8 @@
   background: var(--ab-page-2);
   color: var(--ab-mute);
   opacity: 0.32;
-  cursor: default;
+  /* Lets the pointer through to the column, so a drag passes over an empty letter. */
+  pointer-events: none;
 }
 
 /* ── Left page: the list ───────────────────────────────────────────────────── */
@@ -314,6 +325,46 @@
   cursor: pointer;
 }
 
+/* The list and the bubble over it. The bubble is a sibling of the scroller, not a child,
+   so it stays in the middle of the list however far the list scrolls. */
+.ab-entries-wrap {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+/* The letter bubble: the app's contrast-tooltip ink, left semi-transparent (Owner) so the
+   list reads through it. White on it measures above 8:1 on either paper. */
+.ab-bubble {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 5;
+  width: 76px;
+  height: 76px;
+  display: grid;
+  place-items: center;
+  translate: -50% -50%;
+  border-radius: var(--ab-radius-bubble);
+  background: rgba(9, 12, 28, 0.72);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+  color: #FFFFFF;
+  font-size: 38px;
+  font-weight: 700;
+  line-height: 1;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.16s ease;
+}
+.ab-bubble-on {
+  opacity: 1;
+  transition-duration: 0.06s;
+}
+[data-theme='dark'] .ab-bubble {
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.16), 0 6px 18px rgba(0, 0, 0, 0.5);
+}
+
 /* The entries scroll; the page around them does not. position: relative makes this the
    offsetParent, so the selected entry's offsetTop is measured from here. */
 .ab-entries {
@@ -406,17 +457,6 @@
   color: var(--ab-mute);
   font-size: 13px;
 }
-.ab-foot {
-  flex: none;
-  padding-top: 8px;
-  text-align: center;
-}
-.ab-foot .ab-link {
-  color: var(--ab-mute);
-  font-size: 10.5px;
-  text-decoration: none;
-}
-.ab-foot .ab-link:hover { color: var(--ab-ink); }
 
 /* ── Right page: the record ────────────────────────────────────────────────── */
 .ab-record-scroll {
@@ -732,6 +772,7 @@
     border-top: 1px solid var(--ab-rule);
     border-radius: 0 0 var(--aspire-radius-sheet) var(--aspire-radius-sheet);
   }
+  .ab-entries-wrap { flex: none; }
   .ab-entries {
     flex: none;
     max-height: 60vh;

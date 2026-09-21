@@ -27,6 +27,7 @@ import {
 import {
   lastNameOf, letterOf, sortForBook, bookRows, lettersPresent, entryLine, bookCountLine,
   commStatus, studentStatusTone, linkedStudentsHeading, shortDate, initialsOf, OTHER_LETTER,
+  nearestLetter,
 } from '../src/lib/connect/contactsBookModel.js'
 
 const read = p => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8')
@@ -225,6 +226,17 @@ test('the book sorts by last name, files the displayed name, and puts # after Z'
   assert.deepEqual([...lettersPresent(list)].sort(), ['#', 'A', 'B', 'P', 'Z'])
 })
 
+test('a drag over an empty letter lands on the nearest letter that has entries', () => {
+  const present = new Set(['C', 'H', 'M', '#'])
+  assert.equal(nearestLetter('H', present), 'H')
+  assert.equal(nearestLetter('D', present), 'H', 'forward first')
+  assert.equal(nearestLetter('N', present), '#', 'past Z is the # section')
+  assert.equal(nearestLetter('A', new Set(['C'])), 'C')
+  assert.equal(nearestLetter('Z', new Set(['C', 'M'])), 'M', 'then backward')
+  assert.equal(nearestLetter('M', new Set()), null)
+  assert.equal(nearestLetter(null, present), null)
+})
+
 test('an entry reads Role · where, and the count line drops its tail under All Contacts', () => {
   assert.equal(entryLine({ role: 'Unit Leader', unit_name: '6 NW', category: 'Unit Leader', organization: 'Cedars-Sinai' }), 'Unit Leader · 6 NW')
   assert.equal(entryLine({ role: '', organization: 'Azusa Pacific University' }), 'Azusa Pacific University')
@@ -308,7 +320,7 @@ function dirFor(overrides = {}) {
     ...overrides,
   }
 }
-const ACTIONS = { navigate() {}, toast: {}, onAdd() {}, onEdit() {}, onDeactivate() {}, onRepair() {} }
+const ACTIONS = { navigate() {}, toast: {}, onAdd() {}, onEdit() {}, onDeactivate() {} }
 
 async function renderBook(dirOverrides) {
   const { default: ContactsBook } = await vite.ssrLoadModule('/src/components/connect/ContactsBook.jsx')
@@ -319,7 +331,7 @@ async function renderBook(dirOverrides) {
   }
 }
 
-test('the book renders: an A-Z thumb index of real buttons, empty letters disabled', async () => {
+test('the book renders: an A-Z thumb index of real buttons that jump, empty letters disabled', async () => {
   const html = await renderBook()
   const tabs = html.match(/<button[^>]*class="ab-thumb-tab"[^>]*>/g) || []
   assert.equal(tabs.length, 26)
@@ -327,7 +339,21 @@ test('the book renders: an A-Z thumb index of real buttons, empty letters disabl
   // Present: H (Hunter), L (Lopez-Silva), M (Mittelberg). Everything else is disabled.
   const disabled = tabs.filter(t => / disabled=""/.test(t)).length
   assert.equal(disabled, 23)
-  assert.ok(tabs.every(t => /aria-pressed="false"/.test(t)))
+  // CONTACTS-BOOK-2: a letter is a jump, not a filter, so it has no pressed state.
+  assert.ok(tabs.every(t => !/aria-pressed/.test(t)), 'a jump is not a toggle')
+  assert.ok(tabs.every(t => /data-letter="[A-Z]"/.test(t)))
+  // Every letter header in the list is a jump target, and the bubble is decoration.
+  assert.deepEqual((html.match(/class="ab-sep" data-letter="([A-Z#])"/g) || []).map(m => m.slice(-2, -1)), ['H', 'L', 'M'])
+  assert.match(html, /<div class="ab-bubble" aria-hidden="true">/)
+})
+
+test('the letter index never filters: every contact in the category stays in the list', async () => {
+  const html = await renderBook()
+  for (const name of ['Susan Hunter', 'Ana Lopez-Silva', 'Gary Mittelberg']) assert.match(html, new RegExp(name))
+  const src = strip(read('src/components/connect/ContactsBook.jsx'))
+  assert.doesNotMatch(src, /setLetter|\.filter\(c => contactLetter/, 'no letter filter survives')
+  assert.match(src, /box\.scrollTop = header\.offsetTop/, 'a jump scrolls the list to the letter header')
+  assert.match(src, /setPointerCapture/, 'a drag keeps the column')
 })
 
 test('the list files by last name, the open entry carries aria-current, and the count line reads plainly', async () => {
@@ -418,6 +444,22 @@ test('Classic is the default and keeps its three columns; the book is its own ch
   assert.doesNotMatch(view, /import ContactsBook from/, 'a static import would ship the book to everyone')
 })
 
+test('on the Address book the page scrolls, the picker pins, and the book gets the rest of the window', () => {
+  const connect = strip(read('src/pages/Connect.jsx'))
+  assert.match(connect, /const bookPage = activeSubTab === 'contacts' && contactsLayout === 'book'/)
+  assert.match(connect, /useChartViewport\(\)/, 'the student chart\'s measurement, not a second copy')
+  assert.match(connect, /ref=\{pickerRef\}/)
+  assert.match(connect, /position: 'sticky', top: chromeHeight/)
+  assert.match(connect, /'--connect-book-h': bookPage && bookHeight/)
+  // Classic and every other tab keep the fixed page.
+  assert.match(connect, /height: 'calc\(100dvh - 128px\)'/)
+})
+
+test('Repair Preceptor Contacts is gone from both layouts, and its modal with it', () => {
+  const hits = walk('src').filter(f => /Repair Preceptor Contacts|SyncPreceptorsModal|onRepair/.test(strip(read(f))))
+  assert.deepEqual(hits, [])
+})
+
 test('the link beside Refresh and Settings flip the same preference through the same hook', () => {
   const connect = strip(read('src/pages/Connect.jsx'))
   assert.match(connect, /activeSubTab === 'contacts' && <ContactsLayoutLink \/>/)
@@ -440,7 +482,11 @@ test('the book\'s sheet reads tokens, and every state rule is paired with :hover
   const css = read('src/components/connect/contactsBook.css')
   assert.doesNotMatch(css, /border-radius:\s*[0-9.]+px/, 'no literal radii')
   assert.match(css, /@import '\.\.\/\.\.\/styles\/aspireMaterials\.css'/)
-  assert.match(css, /\.ab-thumb-tab\[aria-pressed='true'\],\s*\.ab-thumb-tab\[aria-pressed='true'\]:hover/)
+  assert.match(css, /\.ab-thumb-tab\[data-active='true'\],\s*\.ab-thumb-tab\[data-active='true'\]:hover/)
+  assert.match(css, /\.ab-thumb \{[^}]*touch-action: none/, 'a finger on the index scrubs, never scrolls the page')
+  assert.match(css, /\.ab-thumb-tab:disabled,[^{]*\{[^}]*pointer-events: none/, 'a drag passes over an empty letter')
+  assert.match(css, /\.ab-shell \{[^}]*height: var\(--connect-book-h, 100%\)/)
+  assert.match(css, /\.ab-bubble \{[^}]*pointer-events: none/)
   assert.match(css, /\.ab-entry\[aria-current='true'\],\s*\.ab-entry\[aria-current='true'\]:hover/)
   assert.match(css, /\.ab-cat\[aria-pressed='true'\],\s*\.ab-cat\[aria-pressed='true'\]:hover/)
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/)

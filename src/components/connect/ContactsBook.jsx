@@ -7,8 +7,8 @@
 // change it makes (search, category, selection) goes back through the same hook, so
 // switching layouts keeps what the reader was looking at. The Add, Edit and Deactivate
 // dialogs, the toast and the preceptor repair tool are ContactsView's (`actions`),
-// shared with Classic. The only state that is the book's own is the thumb-index letter
-// and the sentence it last announced.
+// shared with Classic. The only state that is the book's own is the letter bubble the
+// thumb index shows and the sentence it last announced.
 //
 // Two pages: the list files by LAST name under letter headers (contactsBookModel.js);
 // the record on the right carries the whole contact, Recent Communications and Linked
@@ -16,13 +16,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { Mail, Pencil, Phone } from 'lucide-react'
 import {
-  getPrimaryCategory, getContactCategories, categoryPluralLabel, contactDisplayName,
+  getPrimaryCategory, categoryPluralLabel, contactDisplayName,
   contactUnitList, contactServicesMeta, contactDivisionList, PRECEPTOR_ROLES,
 } from '../../lib/contactCategories'
 import { getStudentPreferredFullName } from '../../lib/studentNameFormatters'
 import { copyVisibleContactEmails } from '../../lib/connect/copyContactEmails'
 import {
-  BOOK_LETTERS, sortForBook, bookRows, lettersPresent, contactLetter, entryLine, bookCountLine,
+  BOOK_LETTERS, sortForBook, bookRows, lettersPresent, nearestLetter, entryLine, bookCountLine,
   initialsOf, commStatus, studentStatusTone, linkedStudentsHeading, shortDate,
 } from '../../lib/connect/contactsBookModel'
 import './contactsBook.css'
@@ -96,18 +96,78 @@ function Field({ label, children }) {
 
 // ── Left page ─────────────────────────────────────────────────────────────────
 
-function ThumbIndex({ letter, present, onPick }) {
+// The index is a scrubber, not a filter (CONTACTS-BOOK-2, Owner 2026-09-20). Press a
+// letter, or press and drag through the column with a mouse or a finger, and the list
+// scrolls to the first contact filed under it; the whole list stays scrollable. With a
+// mouse, simply moving over the column shows the letter bubble without moving the list.
+// The column captures the pointer, so a drag keeps working when it strays sideways, and
+// `touch-action: none` keeps a finger from scrolling the page instead. A letter with
+// nothing under it is disabled and lets the pointer through to the column, so a drag
+// passes over it to the nearest letter that has entries. Keyboard: each letter is a
+// button, and Enter or Space jumps; a pointer press is handled on the column, so a
+// button's own click only acts when it came from the keyboard (detail 0).
+function ThumbIndex({ present, active, onPoint, onJump, onRelease }) {
+  const navRef = useRef(null)
+  const dragging = useRef(false)
+  const last = useRef(null)
+
+  const letterAt = (clientY) => {
+    let best = null
+    let bestGap = Infinity
+    for (const tab of navRef.current?.querySelectorAll('[data-letter]') || []) {
+      const r = tab.getBoundingClientRect()
+      const gap = clientY < r.top ? r.top - clientY : clientY > r.bottom ? clientY - r.bottom : 0
+      if (gap < bestGap) { bestGap = gap; best = tab.dataset.letter }
+    }
+    return best
+  }
+  const point = (L, jump) => {
+    if (!L || L === last.current) return
+    last.current = L
+    onPoint(L)
+    if (jump) onJump(L)
+  }
+
   return (
-    <nav className="ab-thumb" aria-label="Jump to letter">
+    <nav
+      ref={navRef}
+      className="ab-thumb"
+      aria-label="Jump to letter"
+      onPointerDown={e => {
+        if (e.pointerType === 'mouse' && e.button !== 0) return
+        e.preventDefault()
+        dragging.current = true
+        last.current = null
+        try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* capture unavailable */ }
+        point(letterAt(e.clientY), true)
+      }}
+      onPointerMove={e => {
+        if (dragging.current) point(letterAt(e.clientY), true)
+        else if (e.pointerType === 'mouse') point(letterAt(e.clientY), false)
+      }}
+      onPointerUp={() => {
+        if (!dragging.current) return
+        dragging.current = false
+        last.current = null
+        onRelease(true)
+      }}
+      onPointerCancel={() => { dragging.current = false; last.current = null; onRelease(false) }}
+      onPointerLeave={e => {
+        if (dragging.current || e.pointerType !== 'mouse') return
+        last.current = null
+        onRelease(false)
+      }}
+    >
       {BOOK_LETTERS.map(L => (
         <button
           key={L}
           type="button"
           className="ab-thumb-tab"
+          data-letter={L}
+          data-active={active === L ? 'true' : undefined}
           aria-label={`Jump to ${L}`}
-          aria-pressed={letter === L}
           disabled={!present.has(L)}
-          onClick={() => onPick(L)}
+          onClick={e => { if (e.detail === 0) onJump(L, { announce: true }) }}
         >
           {L}
         </button>
@@ -338,8 +398,12 @@ export default function ContactsBook({ dir, actions }) {
     categoryCounts, inactiveCount, activeCount, activeCategories, filtered,
   } = dir
 
-  const [letter, setLetter] = useState(null)
   const [announcement, setAnnouncement] = useState('')
+  // The bubble keeps its letter while it fades, so it never flashes empty on the way out.
+  const [bubbleLetter, setBubbleLetter] = useState(null)
+  const [bubbleOn, setBubbleOn] = useState(false)
+  const bubbleTimer = useRef(null)
+  const lastJump = useRef(null)
   const entriesRef = useRef(null)
   const currentRef = useRef(null)
   const recordRef = useRef(null)
@@ -347,36 +411,20 @@ export default function ContactsBook({ dir, actions }) {
   const inBook = showInactive ? contacts.length : activeCount
   const inCategory = categoryFilter === 'All' ? inBook : (categoryCounts[categoryFilter] || 0)
 
-  // The thumb index answers "which letters does this category have?", so it ignores
-  // the search text and the letter itself.
-  const categoryPool = contacts.filter(c =>
-    (showInactive || c.is_active !== false) &&
-    (categoryFilter === 'All' || getContactCategories(c).includes(categoryFilter)))
-  const present = lettersPresent(categoryPool)
-
   const sorted = sortForBook(filtered)
-  const visible = letter ? sorted.filter(c => contactLetter(c) === letter) : sorted
-  const rows = bookRows(visible)
+  const rows = bookRows(sorted)
+  // A letter is live when the list has something filed under it: the index moves the
+  // list, so a letter with no entries in it has nowhere to go.
+  const present = lettersPresent(sorted)
 
-  // A category or letter change that hides the open record opens the first entry
-  // instead, the way turning to a letter in a book shows its first page. Typing in the
-  // search box does not: the record stays on what the reader was reading.
-  const lastFilterRef = useRef({ categoryFilter, letter })
+  // A category change that hides the open record opens the first entry instead. Typing
+  // in the search box does not: the record stays on what the reader was reading.
+  const lastCategoryRef = useRef(categoryFilter)
   useEffect(() => {
-    const prev = lastFilterRef.current
-    lastFilterRef.current = { categoryFilter, letter }
-    if (prev.categoryFilter === categoryFilter && prev.letter === letter) return
-    if (visible.length > 0 && !visible.some(c => c.id === selectedId)) selectContact(visible[0].id)
-  }, [categoryFilter, letter]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // A selection that arrives from outside the book (a deep link, Universal Search) and
-  // is not under the pressed letter clears the letter, so the entry is on the page.
-  // Adjusted during render, React's pattern for state that follows a prop.
-  const [seenSelectedId, setSeenSelectedId] = useState(selectedId)
-  if (seenSelectedId !== selectedId) {
-    setSeenSelectedId(selectedId)
-    if (letter && selected && contactLetter(selected) !== letter) setLetter(null)
-  }
+    if (lastCategoryRef.current === categoryFilter) return
+    lastCategoryRef.current = categoryFilter
+    if (sorted.length > 0 && !sorted.some(c => c.id === selectedId)) selectContact(sorted[0].id)
+  }, [categoryFilter]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // The selected entry scrolls into view inside the list (never the page around it),
   // and the record returns to its top.
@@ -391,21 +439,43 @@ export default function ContactsBook({ dir, actions }) {
       }
     }
     if (recordRef.current) recordRef.current.scrollTop = 0
-  }, [selectedId, letter, categoryFilter, loading])
+  }, [selectedId, categoryFilter, loading])
+
+  useEffect(() => () => clearTimeout(bubbleTimer.current), [])
+
+  // Scroll the list so the letter's header is its first line. Instant, because a drag
+  // asks for a new letter on every move and a smooth scroll would lag behind the finger.
+  const jumpTo = (L, { announce = false } = {}) => {
+    const target = nearestLetter(L, present)
+    const box = entriesRef.current
+    const header = target && box ? box.querySelector(`[data-letter="${target}"]`) : null
+    if (!header) return
+    box.scrollTop = header.offsetTop
+    lastJump.current = target
+    if (announce) setAnnouncement(`Jumped to ${target}`)
+  }
+  const pointAt = (L) => {
+    clearTimeout(bubbleTimer.current)
+    setBubbleLetter(L)
+    setBubbleOn(true)
+  }
+  // A drag or a press leaves the bubble up for a moment so the reader sees where they
+  // landed; a mouse that merely passed over the column takes it away at once.
+  const releaseIndex = (pressed) => {
+    clearTimeout(bubbleTimer.current)
+    if (pressed) {
+      if (lastJump.current) setAnnouncement(`Jumped to ${lastJump.current}`)
+      bubbleTimer.current = setTimeout(() => setBubbleOn(false), 600)
+    } else {
+      setBubbleOn(false)
+    }
+  }
 
   const openEntry = (contact) => {
     selectContact(contact.id)
     setAnnouncement(`Opened ${contactDisplayName(contact)}`)
   }
-  const pickLetter = (L) => {
-    const next = letter === L ? null : L
-    setLetter(next)
-    setAnnouncement(next ? `Jumped to ${next}` : 'Letter filter cleared')
-  }
-  const pickCategory = (cat) => {
-    setCategoryFilter(cat)
-    setLetter(null)
-  }
+  const pickCategory = (cat) => setCategoryFilter(cat)
 
   return (
     <div className="ab-shell">
@@ -413,7 +483,13 @@ export default function ContactsBook({ dir, actions }) {
         <div className="ab-spread">
 
           <div className="ab-page ab-page-left">
-            <ThumbIndex letter={letter} present={present} onPick={pickLetter} />
+            <ThumbIndex
+              present={present}
+              active={bubbleOn ? bubbleLetter : null}
+              onPoint={pointAt}
+              onJump={jumpTo}
+              onRelease={releaseIndex}
+            />
             <div className="ab-lhead">
               <div className="ab-lhead-top">
                 <h2 className="ab-title">Contacts</h2>
@@ -423,7 +499,7 @@ export default function ContactsBook({ dir, actions }) {
                 className="ab-search"
                 type="search"
                 value={search}
-                onChange={e => { setSearch(e.target.value); setLetter(null) }}
+                onChange={e => setSearch(e.target.value)}
                 placeholder="Search name, school, role"
                 aria-label="Search contacts"
               />
@@ -443,10 +519,10 @@ export default function ContactsBook({ dir, actions }) {
               </div>
               <div className="ab-count">
                 {loading ? 'Loading…' : error ? 'Failed to load' : bookCountLine({
-                  shown: visible.length, inCategory, inBook, isAll: categoryFilter === 'All',
+                  shown: sorted.length, inCategory, inBook, isAll: categoryFilter === 'All',
                 })}
               </div>
-              {!loading && !error && (inactiveCount > 0 || visible.length > 0) && (
+              {!loading && !error && (inactiveCount > 0 || sorted.length > 0) && (
                 <div className="ab-tools">
                   {inactiveCount > 0 ? (
                     <label>
@@ -454,12 +530,12 @@ export default function ContactsBook({ dir, actions }) {
                       Show inactive ({inactiveCount})
                     </label>
                   ) : <span />}
-                  {visible.length > 0 && (
+                  {sorted.length > 0 && (
                     <button
                       type="button"
                       className="ab-link"
                       title="Copy the emails of the visible contacts (comma-separated)"
-                      onClick={() => copyVisibleContactEmails(visible, actions.toast)}
+                      onClick={() => copyVisibleContactEmails(sorted, actions.toast)}
                     >
                       Copy visible emails
                     </button>
@@ -468,28 +544,29 @@ export default function ContactsBook({ dir, actions }) {
               )}
             </div>
 
-            <div className="ab-entries" ref={entriesRef}>
-              {loading ? (
-                <div className="ab-empty">Loading contacts…</div>
-              ) : error ? (
-                <div className="ab-empty">Failed to load: {error}</div>
-              ) : rows.length === 0 ? (
-                <div className="ab-empty">No contacts match.</div>
-              ) : rows.map(row => row.type === 'letter' ? (
-                <div key={`L-${row.letter}`} className="ab-sep" aria-hidden="true">{row.letter}</div>
-              ) : (
-                <Entry
-                  key={row.contact.id}
-                  contact={row.contact}
-                  current={row.contact.id === selectedId}
-                  entryRef={row.contact.id === selectedId ? currentRef : undefined}
-                  onOpen={openEntry}
-                />
-              ))}
-            </div>
-
-            <div className="ab-foot">
-              <button type="button" className="ab-link" onClick={actions.onRepair}>Repair Preceptor Contacts</button>
+            {/* The bubble sits over the list, not inside its scroller, so it stays dead centre
+                however far the list moves under it. */}
+            <div className="ab-entries-wrap">
+              <div className="ab-entries" ref={entriesRef}>
+                {loading ? (
+                  <div className="ab-empty">Loading contacts…</div>
+                ) : error ? (
+                  <div className="ab-empty">Failed to load: {error}</div>
+                ) : rows.length === 0 ? (
+                  <div className="ab-empty">No contacts match.</div>
+                ) : rows.map(row => row.type === 'letter' ? (
+                  <div key={`L-${row.letter}`} className="ab-sep" data-letter={row.letter} aria-hidden="true">{row.letter}</div>
+                ) : (
+                  <Entry
+                    key={row.contact.id}
+                    contact={row.contact}
+                    current={row.contact.id === selectedId}
+                    entryRef={row.contact.id === selectedId ? currentRef : undefined}
+                    onOpen={openEntry}
+                  />
+                ))}
+              </div>
+              <div className={`ab-bubble${bubbleOn ? ' ab-bubble-on' : ''}`} aria-hidden="true">{bubbleLetter}</div>
             </div>
           </div>
 

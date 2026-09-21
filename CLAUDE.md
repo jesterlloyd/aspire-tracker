@@ -779,10 +779,12 @@ and `contactsBook.css`), an oxblood leather book. The reference is
   layout is chosen, so switching keeps the open contact, the category and the search. The
   book fetches nothing (a test forbids it) and is split out through `lazyReload`, so a
   person on Classic never downloads it.
-- **Classic is frozen.** Its markup moved into `ClassicContacts` unchanged except three
-  call sites that now name the shared action (select, Deactivate, Repair). A harness
-  rendered it beside the pre-change build: every element's geometry and computed style
-  matched at 1440, 900 and 700px, light and dark. Change Classic only on purpose.
+- **Classic is frozen.** Its markup moved into `ClassicContacts` unchanged except the call
+  sites that now name the shared action (select, Deactivate). A harness rendered it beside
+  the pre-change build: every element's geometry and computed style matched at 1440, 900
+  and 700px, light and dark. Change Classic only on purpose. The one change since was on
+  purpose (CONTACTS-BOOK-2, Owner): **Repair Preceptor Contacts is gone from both layouts**,
+  modal and all; the automatic sync in `PreceptorFormModal` is the only preceptor writer.
 - **A preference follows the person, not the browser.** `src/lib/userPreferences.js` is
   the registry (every key, its legal values, its default) and the store;
   `useUserPreference(key)` is the only way a component reads or writes one, which is why
@@ -792,8 +794,24 @@ and `contactsBook.css`), an oxblood leather book. The reference is
   load adopts that browser's choice and the account wins from then on. A new `appearance.*`
   key is one line in the registry. Theme stays device-local in ThemeContext on purpose.
 - **The book files by last name**, reading the DISPLAYED name (`contactsBookModel.js`):
-  the last word, less a credential after a comma or a Jr/III suffix. A letter or category
-  change that hides the open record opens the first entry instead; typing does not.
+  the last word, less a credential after a comma or a Jr/III suffix. A category change that
+  hides the open record opens the first entry instead; typing does not.
+- **The A-Z index is a scrubber, never a filter** (CONTACTS-BOOK-2, Owner). A letter scrolls
+  the list to its header and the whole list stays scrollable; the open record does not
+  change. Press and drag (mouse or finger) scrubs through the letters; a mouse merely
+  passing over the column shows the bubble without moving the list. The bubble is the
+  contrast-tooltip ink at 72% (Owner: black, semi-transparent), dead centre of the list,
+  a SIBLING of the scroller so it never scrolls. The column captures the pointer and is
+  `touch-action: none`; a letter with no entries is disabled and `pointer-events: none`,
+  so a drag passes over it to `nearestLetter`. Letters are buttons (Enter jumps); there is
+  no pressed state, because a jump is not a toggle.
+- **On the book, the page scrolls and the picker pins** (CONTACTS-BOOK-2, Owner): the back
+  row, title and subtitle scroll away, the Contacts | Outreach | Messages | Automations
+  picker pins under the app chrome, and the book is everything left in the window. Connect
+  reuses the student chart's `useChartViewport` (chrome + picker measured, the rest
+  published as `--connect-book-h`). The picker is its own block in the page column
+  because a sticky element is bounded by its parent. Classic and every other tab keep the
+  fixed `calc(100dvh - 128px)` page.
 - **Where the book leaves the mockup, on purpose.** The cover's deep drop has a negative
   spread (the pane is a scroll container). Dark mode lifts the oxblood used as INK
   (`--ab-accent`) because the mockup's cover tone measures 1.2:1 on the dark paper. The

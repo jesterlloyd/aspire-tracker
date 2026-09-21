@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, Suspense } from 'react'
+import { useState, useCallback, Suspense } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Mail, Pencil, Phone } from 'lucide-react'
 import ProfileActionButton from '../ui/ProfileActionButton'
@@ -696,237 +696,6 @@ function NoSelection({ count }) {
         {count > 0
           ? 'Choose a contact from the list to view their profile and communication history.'
           : 'No contacts match your current search or filter.'}
-      </div>
-    </div>
-  )
-}
-
-// ── Repair Preceptor Contacts Modal ──────────────────────────────────────────
-// Backfill/repair tool for preceptors added before automatic contact sync.
-// Compares the preceptors table against contacts by lowercase-trimmed email.
-// Shows a bucketed preview and only writes after Owner confirmation.
-
-function SyncPreceptorsModal({ onClose, onSynced }) {
-  const [phase,   setPhase]   = useState('loading')  // loading | preview | syncing | done
-  const [preview, setPreview] = useState({ toInsert: [], alreadyExists: [], missingEmail: [] })
-  const [result,  setResult]  = useState({ inserted: 0, skippedExisting: 0, skippedMissing: 0, failed: 0, failedNames: [] })
-  const [loadErr, setLoadErr] = useState(null)
-
-  useEffect(() => {
-    let cancelled = false
-    async function loadPreview() {
-      try {
-        const [{ data: precs, error: precsErr }, { data: existingContacts, error: contactsErr }] = await Promise.all([
-          supabase.from('preceptors').select('id, full_name, email, unit_name, phone').order('full_name'),
-          supabase.from('contacts').select('email').not('email', 'is', null),
-        ])
-        if (precsErr)    throw new Error(`Preceptors: ${precsErr.message}`)
-        if (contactsErr) throw new Error(`Contacts: ${contactsErr.message}`)
-        if (cancelled)   return
-        const existingEmails = new Set(
-          (existingContacts || []).map(c => c.email?.toLowerCase().trim()).filter(Boolean)
-        )
-        const toInsert = [], alreadyExists = [], missingEmail = []
-        for (const p of (precs || [])) {
-          if (!p.email?.trim()) { missingEmail.push(p); continue }
-          if (existingEmails.has(p.email.toLowerCase().trim())) { alreadyExists.push(p); continue }
-          toInsert.push(p)
-        }
-        if (!cancelled) { setPreview({ toInsert, alreadyExists, missingEmail }); setPhase('preview') }
-      } catch (err) {
-        if (!cancelled) { setLoadErr(err.message); setPhase('preview') }
-      }
-    }
-    loadPreview()
-    return () => { cancelled = true }
-  }, [])
-
-  async function handleSync() {
-    setPhase('syncing')
-    let sessionToken
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session?.access_token) { setLoadErr('Session expired. Please refresh.'); setPhase('preview'); return }
-      sessionToken = session.access_token
-    } catch { setLoadErr('Failed to get session. Please refresh.'); setPhase('preview'); return }
-
-    let inserted = 0, raceSkipped = 0, failed = 0
-    const failedNames = []
-    for (const p of preview.toInsert) {
-      try {
-        const body = {
-          full_name:    p.full_name,
-          email:        p.email.toLowerCase().trim(),
-          // CONTACTS-CANON-1: the CN level is unknown for an auto-synced
-          // preceptor, so the canonical state is "no title" (CN II / CN III
-          // are set by hand); the category is the singular canonical key and
-          // the Cedars-Sinai affiliation is derived server-side.
-          role:         '',
-          category:     'Preceptor',
-          is_active:    true,
-          notes:        'Imported from Rotations > Preceptors.',
-          ...(p.unit_name ? { unit_name: p.unit_name } : {}),
-          ...(p.phone     ? { phone:     p.phone     } : {}),
-        }
-        const res = await fetch('/api/contacts-upsert', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionToken}` },
-          body: JSON.stringify(body),
-        })
-        if (res.status === 409) { raceSkipped++; continue }  // added between preview and sync
-        if (!res.ok)            { failed++; failedNames.push(p.full_name); continue }
-        inserted++
-      } catch { failed++; failedNames.push(p.full_name) }
-    }
-    setResult({
-      inserted,
-      skippedExisting: preview.alreadyExists.length + raceSkipped,
-      skippedMissing:  preview.missingEmail.length,
-      failed,
-      failedNames,
-    })
-    setPhase('done')
-    if (inserted > 0) onSynced()
-  }
-
-  const isSyncing    = phase === 'syncing'
-  const confirmLabel = isSyncing
-    ? 'Syncing…'
-    : preview.toInsert.length > 0
-      ? `Add ${preview.toInsert.length} Missing Preceptor${preview.toInsert.length !== 1 ? 's' : ''} to Contacts`
-      : 'Nothing to Add'
-
-  return (
-    <div
-      onClick={!isSyncing ? onClose : undefined}
-      style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-    >
-      <div
-        onClick={e => e.stopPropagation()}
-        style={{ background: '#fff', borderRadius: 12, padding: '28px 32px', maxWidth: 500, width: '90vw', maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 8px 40px rgba(0,0,0,0.18)', fontFamily: F }}
-      >
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#0E1428', fontFamily: F }}>Repair Preceptor Contacts</h2>
-          {!isSyncing && (
-            <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: '#9ca3af', lineHeight: 1, padding: '0 2px' }} aria-label="Close">×</button>
-          )}
-        </div>
-
-        {/* Loading */}
-        {phase === 'loading' && (
-          <div style={{ fontSize: 13, color: '#6b7280', padding: '16px 0' }}>Loading preceptor and contact data…</div>
-        )}
-
-        {/* Error banner */}
-        {loadErr && (
-          <div style={{ fontSize: 13, color: '#dc2626', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '10px 14px', marginBottom: 16 }}>{loadErr}</div>
-        )}
-
-        {/* Syncing */}
-        {phase === 'syncing' && (
-          <div style={{ fontSize: 13, color: '#6b7280', padding: '8px 0' }}>Syncing preceptors to Contacts…</div>
-        )}
-
-        {/* Preview */}
-        {phase === 'preview' && !loadErr && (
-          <>
-            <p style={{ fontSize: 12, color: '#6b7280', margin: '0 0 12px', lineHeight: 1.6, fontStyle: 'italic' }}>
-              Only needed for preceptors added before automatic contact sync was enabled, or to repair missing contacts. New preceptors now sync automatically when saved.
-            </p>
-            <p style={{ fontSize: 13, color: '#374151', margin: '0 0 16px', lineHeight: 1.6 }}>
-              This will create new Contact records for preceptors who have an email and are not already in Contacts.{' '}
-              <strong>Existing Contacts will not be overwritten.</strong>
-            </p>
-
-            {/* Bucket summary */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px', borderRadius: 8, background: preview.toInsert.length > 0 ? '#f0fdf4' : '#f9fafb', border: `1px solid ${preview.toInsert.length > 0 ? '#bbf7d0' : '#e5e7eb'}` }}>
-                <span style={{ fontSize: 13, fontWeight: 700, color: preview.toInsert.length > 0 ? '#166534' : '#6b7280', minWidth: 22, textAlign: 'right' }}>{preview.toInsert.length}</span>
-                <span style={{ fontSize: 12, color: preview.toInsert.length > 0 ? '#166534' : '#6b7280' }}>will be added to Contacts</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px', borderRadius: 8, background: '#f9fafb', border: '1px solid #e5e7eb' }}>
-                <span style={{ fontSize: 13, fontWeight: 700, color: '#6b7280', minWidth: 22, textAlign: 'right' }}>{preview.alreadyExists.length}</span>
-                <span style={{ fontSize: 12, color: '#6b7280' }}>already in Contacts, will be skipped</span>
-              </div>
-              {preview.missingEmail.length > 0 && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px', borderRadius: 8, background: '#fffbeb', border: '1px solid #fde68a' }}>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: '#92400e', minWidth: 22, textAlign: 'right' }}>{preview.missingEmail.length}</span>
-                  <span style={{ fontSize: 12, color: '#92400e' }}>missing email, cannot be synced</span>
-                </div>
-              )}
-            </div>
-
-            {/* Will-be-added list */}
-            {preview.toInsert.length > 0 && (
-              <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#374151', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Will be added</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 150, overflowY: 'auto' }}>
-                  {preview.toInsert.slice(0, 12).map(p => (
-                    <div key={p.id} style={{ fontSize: 12, display: 'flex', gap: 6, alignItems: 'baseline' }}>
-                      <span style={{ fontWeight: 600, color: '#191919' }}>{p.full_name}</span>
-                      {p.email && <span style={{ color: '#9ca3af', fontSize: 11 }}>{p.email}</span>}
-                    </div>
-                  ))}
-                  {preview.toInsert.length > 12 && (
-                    <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>+ {preview.toInsert.length - 12} more</div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Missing email list */}
-            {preview.missingEmail.length > 0 && (
-              <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#92400e', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Missing email, skipped</div>
-                <div style={{ fontSize: 12, color: '#92400e', lineHeight: 1.6 }}>{preview.missingEmail.map(p => p.full_name).join(' · ')}</div>
-              </div>
-            )}
-
-            {preview.toInsert.length === 0 && (
-              <div style={{ fontSize: 13, color: '#6b7280', marginBottom: 16 }}>
-                All preceptors with email addresses are already in Contacts. Nothing to sync.
-              </div>
-            )}
-          </>
-        )}
-
-        {/* Done summary */}
-        {phase === 'done' && (
-          <div style={{ fontSize: 13, color: '#374151', lineHeight: 1.8 }}>
-            <div style={{ fontWeight: 700, fontSize: 14, color: '#166534', marginBottom: 10 }}>Sync complete</div>
-            <div>✓ <strong>{result.inserted}</strong> preceptor{result.inserted !== 1 ? 's' : ''} added to Contacts</div>
-            <div style={{ color: '#6b7280' }}>- <strong>{result.skippedExisting}</strong> already in Contacts (skipped)</div>
-            <div style={{ color: '#6b7280' }}>- <strong>{result.skippedMissing}</strong> missing email (skipped)</div>
-            {result.failed > 0 && (
-              <div style={{ marginTop: 8, color: '#dc2626' }}>✗ <strong>{result.failed}</strong> failed: {result.failedNames.join(', ')}</div>
-            )}
-          </div>
-        )}
-
-        {/* Footer */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 24 }}>
-          {phase === 'done' ? (
-            <button onClick={onClose} style={{ padding: '8px 20px', borderRadius: 8, border: `1.5px solid ${NAVY}`, background: NAVY, color: '#fff', fontSize: 13, fontWeight: 600, fontFamily: F, cursor: 'pointer' }}>Done</button>
-          ) : (
-            <>
-              <button
-                onClick={onClose}
-                disabled={isSyncing}
-                style={{ padding: '8px 16px', borderRadius: 8, border: '1.5px solid #e5e7eb', background: '#fff', color: '#374151', fontSize: 13, fontWeight: 500, fontFamily: F, cursor: isSyncing ? 'not-allowed' : 'pointer', opacity: isSyncing ? 0.5 : 1 }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSync}
-                disabled={isSyncing || phase !== 'preview' || preview.toInsert.length === 0}
-                style={{ padding: '8px 20px', borderRadius: 8, border: `1.5px solid ${NAVY}`, background: NAVY, color: '#fff', fontSize: 13, fontWeight: 600, fontFamily: F, cursor: (isSyncing || phase !== 'preview' || preview.toInsert.length === 0) ? 'not-allowed' : 'pointer', opacity: (isSyncing || phase !== 'preview' || preview.toInsert.length === 0) ? 0.65 : 1 }}
-              >
-                {confirmLabel}
-              </button>
-            </>
-          )}
-        </div>
       </div>
     </div>
   )
@@ -1630,8 +1399,10 @@ function ContactModal({ mode, initialData, onClose, onSaved }) {
 // ── Classic layout (the three-zone CRM screen) ────────────────────────────────
 // CONTACTS-BOOK-1: the screen as it always was. Its markup is unchanged; only where its
 // values come from moved, into useContactsDirectory, so the Address book can read the
-// same ones. Three call sites now name the shared action instead of repeating it:
-// picking a row (selectContact), Deactivate, and Repair Preceptor Contacts.
+// same ones. Two call sites now name the shared action instead of repeating it:
+// picking a row (selectContact) and Deactivate. CONTACTS-BOOK-2 (Owner, 2026-09-20)
+// removed Repair Preceptor Contacts from both layouts, and its modal with it: the
+// backfill for preceptors added before automatic contact sync is no longer needed.
 
 function ClassicContacts({ dir, actions }) {
   const {
@@ -1640,7 +1411,7 @@ function ClassicContacts({ dir, actions }) {
     commHistory, loadingComm, linkedStudents, loadingStudents,
     categoryCounts, inactiveCount, activeCount, activeCategories, filtered,
   } = dir
-  const { navigate, toast, onAdd: handleOpenAdd, onEdit: handleOpenEdit, onDeactivate, onRepair } = actions
+  const { navigate, toast, onAdd: handleOpenAdd, onEdit: handleOpenEdit, onDeactivate } = actions
 
   // CONTACTS-CANON-1 ordering: each category has an approved sort (Unit
   // Leaders by unit then AD > ANM > NPD-P/CNS; BNI by ED > Lead Admin > NPD-P
@@ -1863,18 +1634,6 @@ function ClassicContacts({ dir, actions }) {
           )}
         </div>
 
-        {/* Repair tool - muted footer link for backfilling pre-auto-sync preceptors */}
-        <div style={{ padding: '6px 14px 8px', borderTop: '1px solid rgba(29,37,103,0.05)', flexShrink: 0, textAlign: 'center' }}>
-          <button
-            onClick={onRepair}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 10, color: '#c0c7d0', fontFamily: F, padding: 0 }}
-            onMouseEnter={e => e.currentTarget.style.color = '#6b7280'}
-            onMouseLeave={e => e.currentTarget.style.color = '#c0c7d0'}
-          >
-            Repair Preceptor Contacts
-          </button>
-        </div>
-
       </div>
 
       {/* ── Zone 2: Contact Profile (center) ──────────────────────────── */}
@@ -1936,12 +1695,11 @@ export default function ContactsView({ refreshKey = 0 }) {
   const navigate    = useNavigate()
   const { toasts, removeToast, toast } = useToast()
   const dir = useContactsDirectory({ refreshKey })
-  const { setContacts, setSelectedId, showInactive, reloadContacts } = dir
+  const { setContacts, setSelectedId, showInactive } = dir
   const [layout] = useUserPreference(CONTACTS_LAYOUT)
 
   const [showContactModal, setShowContactModal] = useState(false)
   const [editingContact,   setEditingContact]   = useState(null)
-  const [showSyncModal,    setShowSyncModal]    = useState(false)
   const [deactivateTarget, setDeactivateTarget] = useState(null)  // { contact, action }
   const [deactivating,     setDeactivating]     = useState(false)
 
@@ -2007,7 +1765,6 @@ export default function ContactsView({ refreshKey = 0 }) {
     onAdd: handleOpenAdd,
     onEdit: handleOpenEdit,
     onDeactivate: handleDeactivateRequest,
-    onRepair: () => setShowSyncModal(true),
   }
 
   return (
@@ -2041,16 +1798,6 @@ export default function ContactsView({ refreshKey = 0 }) {
       />
     )}
 
-    {/* Repair Preceptor Contacts Modal */}
-    {showSyncModal && (
-      <SyncPreceptorsModal
-        onClose={() => setShowSyncModal(false)}
-        onSynced={() => {
-          setShowSyncModal(false)
-          reloadContacts()
-        }}
-      />
-    )}
     <ToastContainer toasts={toasts} removeToast={removeToast} />
     </>
   )

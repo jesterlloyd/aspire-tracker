@@ -361,14 +361,16 @@ test('contacts-upsert enforces the canon server-side and retired the preferred m
   assert.match(src, /'services',/)
 })
 
-test('both preceptor sync writers use the canonical category with no invented title', () => {
-  const view = read('src/components/connect/ContactsView.jsx')
+// CONTACTS-BOOK-2 (Owner, 2026-09-20): the Repair Preceptor Contacts backfill in
+// ContactsView was removed, so the automatic sync in PreceptorFormModal is the one
+// preceptor-to-contact writer left. It keeps the canonical category; the backfill does
+// not come back.
+test('the preceptor sync writer uses the canonical category with no invented title', () => {
   const modal = read('src/components/PreceptorFormModal.jsx')
-  for (const src of [view, modal]) {
-    assert.match(src, /category:\s*'Preceptor',/)
-    assert.doesNotMatch(src, /category:\s*'Preceptors'/)
-    assert.doesNotMatch(src, /role:\s*'Preceptor'/)
-  }
+  assert.match(modal, /category:\s*'Preceptor',/)
+  assert.doesNotMatch(modal, /category:\s*'Preceptors'/)
+  assert.doesNotMatch(modal, /role:\s*'Preceptor'/)
+  assert.doesNotMatch(read('src/components/connect/ContactsView.jsx'), /SyncPreceptorsModal/)
 })
 
 // ── The portal endpoint (DI factory, behavioral) ─────────────────────────────

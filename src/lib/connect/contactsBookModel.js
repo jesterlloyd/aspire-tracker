@@ -70,6 +70,20 @@ export function lettersPresent(contacts) {
   return new Set(contacts.map(contactLetter))
 }
 
+// The index is a scrubber (CONTACTS-BOOK-2): a drag passes over letters that have nothing
+// filed under them. It lands on the letter itself when it has entries, else the next one
+// down the alphabet (then the # section after Z), else the previous one; null when the
+// list is empty.
+export function nearestLetter(letter, present) {
+  if (!letter || !present || present.size === 0) return null
+  if (present.has(letter)) return letter
+  const i = BOOK_LETTERS.indexOf(letter)
+  for (let j = i + 1; j < BOOK_LETTERS.length; j++) if (present.has(BOOK_LETTERS[j])) return BOOK_LETTERS[j]
+  if (present.has(OTHER_LETTER)) return OTHER_LETTER
+  for (let j = i - 1; j >= 0; j--) if (present.has(BOOK_LETTERS[j])) return BOOK_LETTERS[j]
+  return null
+}
+
 // "Role · Organization" on one line. Classic's per-category subline says more than the
 // bare organization (a Unit Leader's units, a school), so it is used when it has
 // something; the organization is the fallback.
