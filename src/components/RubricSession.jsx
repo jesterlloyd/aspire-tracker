@@ -1163,7 +1163,10 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
 
       <div className="rb-stage" ref={stageRef}>
         <div className="rb-book">
-          <div className="rb-cover material-leather-cognac-hide material-forestack">
+          <div className="rb-cover material-leather-cognac material-forestack">
+            {/* The address book's cover, exactly (BOOK-COVER-1): its leather, this gilt
+                rule, its corner and its boards. */}
+            <span className="material-cover-tooling" aria-hidden="true" />
             <div className="rb-spread">
               {/* The spine, first so every page paints over it (BOOK-FORE-1). */}
               <i className="rb-spine" aria-hidden="true" />
@@ -1297,29 +1300,31 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
               <div className="rb-seam" aria-hidden="true" />
 
               {/* ── Right page: the rubric ─────────────────────────────────── */}
+              {/* The head spans the rubric page AND the index, so the tabs begin below
+                  it (Owner, 2026-09-21). It is a child of the spread, not of the page.
+                  Three things, and the head stays one line: how much of THIS rubric is
+                  done, the guide that explains the scale, and the score it adds up to.
+                  The recommendation is Section 7's own answer and the ASPIRE status is on
+                  the candidate page; neither is repeated here (Owner, 2026-09-17). */}
+              <header className={`rb-head${headLifted ? ' rb-head-lifted' : ''}`} data-testid="rb-head">
+                <span className="rb-head-side">
+                  <span className="rb-head-key">Completion</span>
+                  <span className="rb-head-pct" data-testid="rb-completion">{completion}%</span>
+                </span>
+
+                <button type="button" className="rb-head-guide" data-testid="rb-guide-toggle"
+                  aria-expanded={legendOpen} onClick={() => setLegendOpen(p => !p)}>
+                  {legendOpen ? '▾' : '▸'} Scoring Guide
+                </button>
+
+                <span className="rb-head-score">
+                  <span className="rb-head-key">Composite</span>
+                  <span className="rb-head-num" data-testid="rb-composite">{composite}</span>
+                  <span className="rb-head-den">/ 15</span>
+                </span>
+              </header>
+
               <section className="rb-page rb-page-right" aria-label="Rubric">
-                {/* Three things, and the head stays one line: how much of THIS rubric is
-                    done, the guide that explains the scale, and the score it adds up to.
-                    The recommendation is Section 7's own answer and the ASPIRE status is on
-                    the candidate page; neither is repeated here (Owner, 2026-09-17). */}
-                <header className={`rb-head${headLifted ? ' rb-head-lifted' : ''}`} data-testid="rb-head">
-                  <span className="rb-head-side">
-                    <span className="rb-head-key">Completion</span>
-                    <span className="rb-head-pct" data-testid="rb-completion">{completion}%</span>
-                  </span>
-
-                  <button type="button" className="rb-head-guide" data-testid="rb-guide-toggle"
-                    aria-expanded={legendOpen} onClick={() => setLegendOpen(p => !p)}>
-                    {legendOpen ? '▾' : '▸'} Scoring Guide
-                  </button>
-
-                  <span className="rb-head-score">
-                    <span className="rb-head-key">Composite</span>
-                    <span className="rb-head-num" data-testid="rb-composite">{composite}</span>
-                    <span className="rb-head-den">/ 15</span>
-                  </span>
-                </header>
-
                 {/* Open from the head, so a 4 can be looked up from anywhere on the page. */}
                 {legendOpen && (
                   <div className="rb-guide-drawer" data-testid="scoring-guide">

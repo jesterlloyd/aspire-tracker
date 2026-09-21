@@ -9,10 +9,13 @@
 
    The cover is .material-leather-cognac from aspireMaterials.css, with the canonical
    fore edge (.material-forestack, pageStack.css) either side of the spread: the
-   Interview Rubric's own stack, untouched (Owner, 2026-09-21). Corners read tokens:
-   the cover --aspire-radius-address-book, the paper --aspire-radius-sheet, a thumb tab
-   --aspire-radius-tab (it is an index tab), controls --aspire-radius-control, pills
-   --aspire-radius-pill. The two chip corners the mockup draws are named once below. */
+   Interview Rubric's own stack, untouched (Owner, 2026-09-21). Since BOOK-COVER-1 the
+   rubric wears this cover too: the leather, the gilt rule (.material-cover-tooling), the
+   corner and the boards are shared tokens and classes, not values in this file. Corners
+   read tokens: the cover --aspire-radius-book, a thumb tab --aspire-radius-tab (it is an
+   index tab), controls --aspire-radius-control, pills --aspire-radius-pill. The pages
+   are square (Owner, 2026-09-21: "they're pages"). The two chip corners the mockup
+   draws are named once below. */
 @import '../../styles/aspireMaterials.css';
 
 /* ── Paper and ink ─────────────────────────────────────────────────────────── */
@@ -26,11 +29,11 @@
   --ab-radius-chip: 4px;   /* role badge, preference and log pills */
   --ab-radius-note: 5px;   /* the notes block's two open corners */
   --ab-radius-bubble: 18px; /* the thumb index's letter bubble (the mockup's) */
-  /* The cover's board around the spread: 15px of leather top and bottom, and on each
-     side the page stack (--ab-stack-w, the rubric's thickness) plus 16px of leather. */
-  --ab-stack-w: 13px;
-  --ab-cover-pad: 15px;
-  --ab-cover-pad-x: calc(16px + var(--ab-stack-w));
+  /* The cover's board around the spread, the rubric's exactly (BOOK-COVER-1): leather
+     above and below, and on each side the page stack plus the side board. */
+  --ab-stack-w: var(--aspire-book-stack-w);
+  --ab-cover-pad: var(--aspire-book-board);
+  --ab-cover-pad-x: calc(var(--aspire-book-board-x) + var(--ab-stack-w));
   --ab-page: #FEFCF8;
   --ab-page-2: #F7F3EC;
   --ab-ink: #2A2019;
@@ -100,17 +103,7 @@
   min-height: 0;
   display: flex;
   padding: var(--ab-cover-pad) var(--ab-cover-pad-x);
-  border-radius: var(--aspire-radius-address-book);
-}
-/* The gilt rule tooled into the cover, 7px in from its edge: its own element, because
-   the cover's ::before and ::after are the page stack. It sits outside the stack, which
-   starts at the spread's edge and reaches --ab-stack-w into the leather. */
-.ab-tooling {
-  position: absolute;
-  inset: 7px;
-  border: 1px solid var(--aspire-gilt-hairline);
-  border-radius: calc(var(--aspire-radius-address-book) - 3px);
-  pointer-events: none;
+  border-radius: var(--aspire-radius-book);
 }
 /* The pages underneath (CONTACTS-BOOK-3, Owner: "improve the stack on either side of the
    pages"; 2026-09-21: "I like the stack you used in interview rubric. use that in address
@@ -162,12 +155,9 @@
   background: var(--ab-page);
   color: var(--ab-ink);
 }
+/* Paper is square (Owner, 2026-09-21): a page with a rounded corner reads as a card. */
 .ab-page-left {
   padding: 12px 14px 10px 42px;
-  border-radius: var(--aspire-radius-sheet) 0 0 var(--aspire-radius-sheet);
-}
-.ab-page-right {
-  border-radius: 0 var(--aspire-radius-sheet) var(--aspire-radius-sheet) 0;
 }
 
 /* ── A-Z thumb index ───────────────────────────────────────────────────────── */
@@ -871,11 +861,7 @@
     grid-template-rows: auto auto;
   }
   .ab-spread::after { display: none; }
-  .ab-page-left { border-radius: var(--aspire-radius-sheet) var(--aspire-radius-sheet) 0 0; }
-  .ab-page-right {
-    border-top: 1px solid var(--ab-rule);
-    border-radius: 0 0 var(--aspire-radius-sheet) var(--aspire-radius-sheet);
-  }
+  .ab-page-right { border-top: 1px solid var(--ab-rule); }
   .ab-entries-wrap { flex: none; }
   .ab-entries {
     flex: none;

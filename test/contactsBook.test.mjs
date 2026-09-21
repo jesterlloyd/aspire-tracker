@@ -495,7 +495,8 @@ test('the book\'s sheet reads tokens, and every state rule is paired with :hover
   assert.ok(css.indexOf('@media (max-width: 980px)') > css.indexOf('.ab-record-scroll {'))
   const brand = read('src/styles/aspireBrand.css')
   for (const t of ['--aspire-leather-cognac:', '--aspire-leather-cognac-lift:', '--aspire-leather-cognac-deep:',
-    '--aspire-gilt:', '--aspire-radius-address-book:', '--aspire-noise-cognac:']) assert.ok(brand.includes(t), t)
+    '--aspire-gilt-hairline:', '--aspire-radius-book:', '--aspire-book-board:', '--aspire-book-board-x:',
+    '--aspire-book-stack-w:', '--aspire-noise-cognac:']) assert.ok(brand.includes(t), t)
   assert.match(read('src/styles/aspireMaterials.css'), /\.material-leather-cognac \{/)
 })
 
@@ -660,21 +661,23 @@ test('the stack either side of the pages is the rubric\'s own fore edge, and the
   assert.match(css, /\.ab-spread \{[\s\S]*?z-index: 1;/, 'the right-hand block would draw over the pages')
   assert.doesNotMatch(css, /\.ab-page-left::after|\.ab-page-right::after/)
   assert.doesNotMatch(css, /\.ab-book::before/, 'the cover\'s pseudo-elements belong to the stack')
-  assert.match(css, /\.ab-tooling \{/)
+  // The gilt rule is the shared cover's own element (BOOK-COVER-1), not a copy here.
+  assert.match(strip(read('src/components/connect/ContactsBook.jsx')), /<span className="material-cover-tooling" aria-hidden="true" \/>/)
+  assert.doesNotMatch(css, /\.ab-tooling/)
   // Owner, 2026-09-21: the rubric's stack, not a tinted copy of it. The book sets only
   // where the block sits and how thick it is; the page edges themselves are pageStack.css.
   assert.doesNotMatch(css, /\.material-forestack::(before|after)|--ab-fore-/, 'the book is repainting the stack')
-  assert.match(read('src/components/rubric/rubricBook.css'), /--rb-stack-w: 13px/)
-  assert.match(css, /--ab-stack-w: 13px/, 'the same thickness as the rubric')
+  assert.match(read('src/components/rubric/rubricBook.css'), /--rb-stack-w: var\(--aspire-book-stack-w\);/)
+  assert.match(css, /--ab-stack-w: var\(--aspire-book-stack-w\);/, 'the same thickness as the rubric')
 })
 
 test('the rubric is bound in the same cognac, and both darken together', () => {
-  assert.match(read('src/components/RubricSession.jsx'), /className="rb-cover material-leather-cognac-hide material-forestack"/)
+  // BOOK-COVER-1 (Owner, 2026-09-21): the same leather class, not a second grain of it.
+  assert.match(read('src/components/RubricSession.jsx'), /className="rb-cover material-leather-cognac material-forestack"/)
   const materials = read('src/styles/aspireMaterials.css')
-  for (const m of ['.material-leather-cognac-hide {', '.material-leather-cognac {']) {
-    const block = materials.slice(materials.indexOf(m), materials.indexOf('\n}', materials.indexOf(m)))
-    assert.match(block, /background-color: var\(--aspire-leather-cognac\)/, m)
-  }
+  assert.ok(!materials.includes('cognac-hide'), 'the rubric has its own grain again')
+  const block = materials.slice(materials.indexOf('.material-leather-cognac {'), materials.indexOf('\n}', materials.indexOf('.material-leather-cognac {')))
+  assert.match(block, /background-color: var\(--aspire-leather-cognac\)/)
   assert.match(materials, /:root\[data-theme='dark'\] \{[\s\S]*?--aspire-leather-cognac: #442C18;/)
   assert.match(read('src/components/rubric/rubricBook.css'), /var\(--aspire-leather-cognac-deep\) 0%/)
   assert.doesNotMatch(read('src/components/connect/contactsBook.css'), /--aspire-leather-cognac(-lift|-deep)?:/, 'the book does not keep its own copy of the leather')
@@ -688,4 +691,14 @@ test('the flag migration adds one column and nothing else', () => {
   assert.equal(checks.length, 4)
   for (const section of checks) assert.equal((section.replace(/--.*$/gm, '').match(/;/g) || []).length, 1, 'one query per section')
   assert.match(read('docs/security/OWNER_SQL_GATE.md'), /\| 20260925000000_contact_followup_flag\.sql \|[^\n]*APPLIED[^\n]*contact_followup_flag_checks\.sql/)
+})
+
+test('the pages are square: a page with a rounded corner reads as a card (Owner, 2026-09-21)', () => {
+  const css = read('src/components/connect/contactsBook.css')
+  for (const m of css.matchAll(/([^{}]*)\{([^{}]*)\}/g)) {
+    if (/\.ab-(page|page-left|page-right|spread)\b/.test(m[1])) {
+      assert.doesNotMatch(m[2], /border-radius/, `${m[1].trim()} rounds a page corner`)
+    }
+  }
+  assert.ok(!css.includes('--aspire-radius-sheet'), 'the paper is reading the sheet corner again')
 })

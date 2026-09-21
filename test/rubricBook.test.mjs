@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import {
   bookMetrics, CHROME, SPREAD_MIN, LEFT_SHARE, RIGHT_SHARE, COVER_PAD, COVER_PAD_X,
-  RAIL_WIDTH, MIN_BOOK_H, BOTTOM_GAP,
+  COVER_BOARD_X, PAGE_STACK, RAIL_WIDTH, MIN_BOOK_H, BOTTOM_GAP,
 } from '../src/components/rubric/useBookScale.js'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
@@ -43,9 +43,14 @@ test('BOOK 2: nothing is scaled; resizing changes the pages, not the book', () =
   // Owner, 2026-09-17: the cover keeps one thickness at every width.
   assert.ok(!bookCss.includes('transform: scale('), 'the book is being transform-scaled again')
   assert.ok(!bookCss.includes('--rb-scale'), 'the scale variable is back')
-  assert.match(bookCss, /--rb-cover-pad: 14px/)
-  assert.match(bookCss, /--rb-cover-pad-x: calc\(var\(--rb-cover-pad\) \+ var\(--rb-stack-w\)\)/)
-  assert.equal(COVER_PAD_X, COVER_PAD + 8)
+  // The boards are the shared cover's (BOOK-COVER-1), and the arithmetic agrees with them.
+  assert.match(bookCss, /--rb-cover-pad: var\(--aspire-book-board\);/)
+  assert.match(bookCss, /--rb-cover-pad-x: calc\(var\(--aspire-book-board-x\) \+ var\(--rb-stack-w\)\);/)
+  const brand = read('src/styles/aspireBrand.css')
+  assert.equal(COVER_PAD, Number(brand.match(/--aspire-book-board: (\d+)px;/)[1]))
+  assert.equal(COVER_BOARD_X, Number(brand.match(/--aspire-book-board-x: (\d+)px;/)[1]))
+  assert.equal(PAGE_STACK, Number(brand.match(/--aspire-book-stack-w: (\d+)px;/)[1]))
+  assert.equal(COVER_PAD_X, COVER_BOARD_X + PAGE_STACK)
   // The paper flexes in the proportion the pages were designed in.
   assert.match(bookCss, /minmax\(var\(--rb-left-min\), var\(--rb-left-share\)\)/)
   assert.match(bookCss, /--rb-left-share: 42\.5fr/)
@@ -92,7 +97,7 @@ test('BOOK 6: a missing measurement never produces a broken book', () => {
 // ── 2. The spread ───────────────────────────────────────────────────────────
 
 test('SPREAD 1: a cover, two pages, a seam and an index, in that order', () => {
-  const order = ['rb-cover material-leather-cognac-hide', 'rb-page rb-page-left', 'rb-seam', 'rb-page rb-page-right', 'rb-index']
+  const order = ['rb-cover material-leather-cognac material-forestack', 'material-cover-tooling', 'rb-page rb-page-left', 'rb-seam', 'data-testid="rb-head"', 'rb-page rb-page-right', 'rb-index']
   let at = -1
   for (const cls of order) {
     const next = session.indexOf(cls)
@@ -101,8 +106,10 @@ test('SPREAD 1: a cover, two pages, a seam and an index, in that order', () => {
   }
   // The cover is a material, and the material is defined once, with the others.
   // CONTACTS-BOOK-3 (Owner): cognac, the leather the address book is bound in; the tan
-  // is retired so the app's two books are one leather.
-  assert.match(read('src/styles/aspireMaterials.css'), /\.material-leather-cognac-hide\s*\{/)
+  // is retired so the app's two books are one leather. BOOK-COVER-1 (Owner, 2026-09-21):
+  // one COVER, so the rubric's pebbled hide is retired too.
+  assert.match(read('src/styles/aspireMaterials.css'), /\.material-leather-cognac\s*\{/)
+  assert.ok(!read('src/styles/aspireMaterials.css').includes('cognac-hide'), 'the second grain came back')
   assert.match(read('src/styles/aspireBrand.css'), /--aspire-leather-cognac:/)
   assert.ok(!read('src/styles/aspireBrand.css').includes('--aspire-leather-tan'), 'the tan came back')
 })
@@ -364,7 +371,7 @@ test('BOOK 7: the book is a bound object: a heavy fold, square pages, a stack of
   // because an open book has no loose bottom edge. What this test is for is unchanged:
   // the book must SHOW the sheets it holds.
   assert.match(bookCss, /@import '\.\.\/\.\.\/styles\/pageStack\.css';/)
-  assert.match(read('src/components/RubricSession.jsx'), /className="rb-cover material-leather-cognac-hide material-forestack"/)
+  assert.match(read('src/components/RubricSession.jsx'), /className="rb-cover material-leather-cognac material-forestack"/)
   assert.match(bookCss, /\.rb-cover\.material-forestack \{[\s\S]*?--fore-w: var\(--rb-stack-w\);/)
   // Both fore edges, and NOTHING below: the cover's padding is two values, so the bottom
   // board is the same leather as the top and holds no overhang.
@@ -374,22 +381,14 @@ test('BOOK 7: the book is a bound object: a heavy fold, square pages, a stack of
   // The page LAYS ON the block (Owner, 2026-09-19): at a 6px crop "it feels like the page
   // is not laying on top of the stack because it's too low on top and too high at the
   // bottom". A physical book's top sheet and the block under it are the same height; you
-  // see the block because it is WIDER. One pixel, not six.
+  // see the block because it is WIDER. Owner, 2026-09-21: "make the stack be the same
+  // height (top and bottom) as the pages", so not even the one pixel that was left.
   const crop = shared.match(/--fore-crop: (\d+)px;/)
-  assert.ok(crop && Number(crop[1]) <= 2, `the block sits ${crop?.[1]}px in from the page; it should lie under it`)
-  // The cover is hide, not cork: a uniform fine speckle on a flat tone is what cork is.
+  assert.ok(crop && Number(crop[1]) === 0, `the block sits ${crop?.[1]}px in from the page; it is the page's height`)
+  // BOOK-COVER-1: the address book's cover, the fine grain, not the pebbled hide.
   const materials = read('src/styles/aspireMaterials.css')
-  const tan = materials.match(/\.material-leather-cognac-hide \{[\s\S]*?\n\}/)[0]
-  assert.match(tan, /var\(--aspire-noise-hide\)/, 'the cover went back to dust')
-  assert.ok(!tan.includes('--aspire-noise-fine'), 'the fine speckle is what read as cork')
-  // Lit from one side: the same texture twice, offset, is what makes a relief out of a
-  // pattern. One copy is not a grain, it is a stain.
-  assert.equal((tan.match(/var\(--aspire-noise-hide\)/g) || []).length, 2)
-  assert.match(tan, /background-position: -2px -2px, 2px 2px/)
-  const brand = read('src/styles/aspireBrand.css')
-  const hide = brand.match(/--aspire-noise-hide:[^\n]*/)[0]
-  const freq = Number(hide.match(/baseFrequency='\.(\d+)'/)[1].padEnd(2, '0')) / 100
-  assert.ok(freq > 0.1 && freq < 0.4, `a ${(1 / freq).toFixed(1)}px cell is dust or cloud, not a pebble`)
+  assert.ok(!materials.includes('.material-leather-cognac-hide'), 'the rubric has its own grain again')
+  assert.ok(!read('src/styles/aspireBrand.css').includes('--aspire-noise-hide'), 'the hide texture is back with nothing to wear it')
   assert.match(bookCss, /padding: var\(--rb-cover-pad\) var\(--rb-cover-pad-x\);/)
   assert.ok(!bookCss.includes('--rb-cover-pad-b'), 'the book grew a bottom edge again')
   assert.match(bookCss, /\.rb-spread \{[\s\S]*?z-index: 1;/)
@@ -406,19 +405,17 @@ test('BOOK 7: the book is a bound object: a heavy fold, square pages, a stack of
   // One page has no gutter, so it has no fold.
   assert.match(bookCss, /\.rb-shell\[data-rb-mode='single'\] \.rb-spine \{ display: none; \}/)
   // The strip at the head turns into the gutter with the paper it is printed on.
-  const head = bookCss.match(/\.rb-head \{[\s\S]*?\n\}/)[0]
+  const head = bookCss.match(/\n\.rb-head \{[\s\S]*?\n\}/)[0]
   assert.match(head, /background-image: linear-gradient\(90deg,/)
   // The shading stops BEFORE the text starts, and is written from the same token as the
   // padding so the two cannot drift. Ink on this band is 6.43:1 and must never have to
   // be measured against the dark end of a gradient instead.
-  assert.match(head, /padding: 9px var\(--rb-head-pad-x\);/)
+  assert.match(head, /padding: 9px var\(--rb-head-pad-x\) 10px;/)
   assert.match(head, /rgba\(20, 24, 36, 0\) calc\(var\(--rb-head-pad-x\) - 4px\)/)
   // The cover is a thin board, and it is leather rather than grain.
-  assert.match(bookCss, /--rb-cover-pad: 14px/)
-  assert.ok(!read('src/styles/aspireMaterials.css').slice(
-    read('src/styles/aspireMaterials.css').indexOf('.material-leather-cognac-hide'),
-    read('src/styles/aspireMaterials.css').indexOf('.paper-note')).includes('--aspire-noise-grain'),
-    'the cover is wearing the coarse grain again')
+  assert.match(bookCss, /--rb-cover-pad: var\(--aspire-book-board\);/)
+  const cover = materials.match(/\.material-leather-cognac \{[\s\S]*?\n\}/)[0]
+  assert.ok(!cover.includes('--aspire-noise-grain'), 'the cover is wearing the coarse grain again')
 })
 
 test('RIBBON 4: pulled, the ribbon hangs lower and the word travels with it', () => {
@@ -503,7 +500,7 @@ test('HEAD 2: completion left, the guide centred, the composite right, on ONE li
   // so that the strip can turn into the fold without the text ever landing on the
   // dark end of it.
   assert.match(bookCss, /\.rb-head \{[\s\S]*?--rb-head-pad-x: 34px;/)
-  assert.match(bookCss, /\.rb-head \{[\s\S]*?padding: 9px var\(--rb-head-pad-x\);/)
+  assert.match(bookCss, /\.rb-head \{[\s\S]*?padding: 9px var\(--rb-head-pad-x\) 10px;/)
   assert.ok(!bookCss.includes('.rb-head-line'), 'the head is stacking again')
 })
 
@@ -606,4 +603,72 @@ test('QUIET 1: no Refresh control, and the schedule band speaks only on a refusa
   assert.ok(!session.includes('loadUnitAvailability'), 'the Refresh control is back')
   assert.ok(!session.includes('Changing the date or time moves the booked interview'),
     'the reschedule notice is back')
+})
+
+// ── 10. BOOK-COVER-1 (Owner, 2026-09-21) ─────────────────────────────────────
+
+test('COVER 1: the rubric wears the address book\'s cover, exactly', () => {
+  // "use the same exact cover you're using in address book": one leather class, one gilt
+  // rule, one corner and one set of boards, and both books read them.
+  const jsx = read('src/components/RubricSession.jsx')
+  const book = read('src/components/connect/ContactsBook.jsx')
+  const abCss = read('src/components/connect/contactsBook.css')
+  assert.match(jsx, /className="rb-cover material-leather-cognac material-forestack"/)
+  assert.match(book, /className="ab-book material-leather-cognac material-forestack"/)
+  for (const src of [jsx, book]) assert.match(src, /<span className="material-cover-tooling" aria-hidden="true" \/>/)
+  assert.match(read('src/styles/aspireMaterials.css'), /\.material-cover-tooling \{[\s\S]*?border: 1px solid var\(--aspire-gilt-hairline\);[\s\S]*?border-radius: calc\(var\(--aspire-radius-book\) - 3px\);/)
+  assert.doesNotMatch(abCss, /\.ab-tooling/, 'the book keeps its own copy of the gilt rule')
+  assert.doesNotMatch(bookCss, /\.rb-tooling/, 'the rubric keeps its own copy of the gilt rule')
+  assert.match(bookCss, /\.rb-cover \{[\s\S]*?border-radius: var\(--aspire-radius-book\);/)
+  assert.match(abCss, /\.ab-book \{[\s\S]*?border-radius: var\(--aspire-radius-book\);/)
+  assert.match(abCss, /--ab-cover-pad: var\(--aspire-book-board\);/)
+  assert.match(abCss, /--ab-cover-pad-x: calc\(var\(--aspire-book-board-x\) \+ var\(--ab-stack-w\)\);/)
+  assert.match(abCss, /--ab-stack-w: var\(--aspire-book-stack-w\);/)
+  assert.match(bookCss, /--rb-stack-w: var\(--aspire-book-stack-w\);/)
+  const brand = read('src/styles/aspireBrand.css')
+  assert.ok(!brand.includes('--aspire-radius-address-book'), 'the book has its own corner again')
+  assert.match(brand, /--aspire-radius-book: 8px;/)
+})
+
+test('COVER 2: the head spans the page and the index, and the index starts below it', () => {
+  // Owner, 2026-09-21: the tabs "start below the Completion | Scoring Guide | Composite
+  // banner". The head is a child of the spread in a row of its own, not of the page.
+  assert.match(bookCss, /\.rb-spread \{[\s\S]*?grid-template-rows: auto minmax\(0, 1fr\);/)
+  assert.match(bookCss, /\.rb-head       \{ grid-column: 2 \/ 4; grid-row: 1; \}/)
+  assert.match(bookCss, /\.rb-page-right \{ grid-column: 2; grid-row: 2; \}/)
+  assert.match(bookCss, /\.rb-index      \{ grid-column: 3; grid-row: 2; \}/)
+  for (const full of ['.rb-page-left  { grid-column: 1; grid-row: 1 / -1; }']) assert.ok(bookCss.includes(full), full)
+  for (const sel of ['\n.rb-spine {', '\n.rb-seam {', '\n.rb-ribbon {']) {
+    assert.ok(bookCss.includes(sel), sel)
+    const block = bookCss.slice(bookCss.indexOf(sel), bookCss.indexOf('}', bookCss.indexOf(sel)))
+    assert.match(block, /grid-row: 1 \/ -1;/, `${sel} no longer runs the full height`)
+  }
+  // The head is outside the rubric page's section, and the drawer stays inside it, so
+  // opening the guide never moves the index.
+  const head = session.indexOf('data-testid="rb-head"')
+  const page = session.indexOf('className="rb-page rb-page-right"')
+  assert.ok(head > 0 && head < page, 'the head went back inside the page')
+  assert.ok(session.indexOf('rb-guide-drawer') > page, 'the drawer left the page')
+  // One page: the head spans page and index; on the candidate's page it is hidden and the
+  // index runs the full height.
+  assert.match(bookCss, /\.rb-shell\[data-rb-mode='single'\] \.rb-head \{ grid-column: 1 \/ -1; \}/)
+  assert.match(bookCss, /\.rb-shell\[data-rb-mode='single'\]\[data-rb-page='left'\] \.rb-head \{ display: none; \}/)
+  // Its narrow rule asks the spread, since the head left the page's container.
+  assert.match(bookCss, /container: rb-spread \/ inline-size;/)
+  assert.match(bookCss, /@container rb-spread \(max-width: 618px\) \{\s*\.rb-head \{/)
+  const unnamed = bookCss.slice(bookCss.indexOf('@container (max-width: 560px)'))
+  assert.ok(!unnamed.slice(0, unnamed.indexOf('\n}')).includes('.rb-head'), 'the head is measured against the wrong box')
+})
+
+test('COVER 3: the index is the page\'s own paper, and the head has no white line', () => {
+  const index = bookCss.match(/\n\.rb-index \{[\s\S]*?\n\}/)[0]
+  assert.match(index, /background: var\(--aspire-page\);/)
+  const tab = bookCss.match(/\n\.rb-tab \{[\s\S]*?\n\}/)[0]
+  assert.match(tab, /background: var\(--aspire-page\);/)
+  assert.ok(!bookCss.includes('#F7F8FC'), 'the tabs are a tint again')
+  assert.doesNotMatch(index, /--aspire-page-band/, 'the index is a tinted strip again')
+  // A border paints over the background, so the head's hairline stayed light across the
+  // dark shading at the gutter: a white stroke where the paper turns (Owner, 2026-09-21).
+  const head = bookCss.match(/\n\.rb-head \{[\s\S]*?\n\}/)[0]
+  assert.doesNotMatch(head, /border-bottom:/)
 })

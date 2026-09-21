@@ -29,15 +29,14 @@
   --rb-left-min: 300px;
   --rb-right-min: 340px;
   --rb-rail-w: 58px;
-  --rb-cover-pad: 14px;
-  /* The fore edges carry the page stack, so the side needs the stack's width on top
-     of the leather to read as thick as the top and the bottom. */
-  /* How thick the book is. Each fore edge is a BLOCK of page edges, so a side board
-     carries it on top of its own leather (BOOK-FORE-1, Owner, 2026-09-19). There is no
-     bottom allowance: an open book is sewn at the spine and cropped at the head and
-     tail, so it has no loose bottom edge to show. */
-  --rb-stack-w: 13px;
-  --rb-cover-pad-x: calc(var(--rb-cover-pad) + var(--rb-stack-w));
+  /* The address book's boards, read from the shared cover tokens (BOOK-COVER-1, Owner,
+     2026-09-21: "the same exact cover"). How thick the book is: each fore edge is a
+     BLOCK of page edges, so a side board carries it on top of its own leather
+     (BOOK-FORE-1). There is no bottom allowance: an open book is sewn at the spine and
+     cropped at the head and tail, so it has no loose bottom edge to show. */
+  --rb-cover-pad: var(--aspire-book-board);
+  --rb-stack-w: var(--aspire-book-stack-w);
+  --rb-cover-pad-x: calc(var(--aspire-book-board-x) + var(--rb-stack-w));
   --rb-spine-w: 38px;
   display: flex;
   flex-direction: column;
@@ -113,6 +112,10 @@
     minmax(var(--rb-left-min), var(--rb-left-share))
     minmax(var(--rb-right-min), var(--rb-right-share))
     var(--rb-rail-w);
+  /* Two rows on the rubric's side: the head, then the page beside the index. The head
+     spans the page AND the index, so the tabs begin below it (Owner, 2026-09-21); the
+     candidate page, the fold and the ribbon run the full height. */
+  grid-template-rows: auto minmax(0, 1fr);
   /* Paper is square: a rounded sheet reads as a card, which is the same rule the
      Placement Board's notes follow. Nothing is clipped here any more, so the ribbon
      can hang over the top edge of the cover the way a sewn bookmark does; each page
@@ -120,6 +123,8 @@
   border-radius: 0;
   background: var(--aspire-page);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.22);
+  /* The head sits in the spread, so its narrow rule asks the spread (end of file). */
+  container: rb-spread / inline-size;
   /* Above the sheets underneath. `.rb-cover::after` paints AFTER its children, so
      without this the page stack draws ON TOP of the open pages. */
   z-index: 1;
@@ -152,7 +157,7 @@
    Two highlights either side of one dark line is what a fold looks like on a hide. */
 .rb-spine {
   grid-column: 1;
-  grid-row: 1;
+  grid-row: 1 / -1;
   justify-self: end;
   align-self: stretch;
   width: var(--rb-spine-w);
@@ -173,15 +178,20 @@
   background-blend-mode: soft-light, normal;
 }
 /* Every child is placed by hand: the seam and the ribbon share the candidate page's
-   cell, so auto-placement would push the pages and the index into a second row. */
-.rb-page-left  { grid-column: 1; grid-row: 1; }
-.rb-page-right { grid-column: 2; grid-row: 1; }
-.rb-index      { grid-column: 3; grid-row: 1; }
+   cell, so auto-placement would push the pages and the index into another row. */
+.rb-page-left  { grid-column: 1; grid-row: 1 / -1; }
+.rb-head       { grid-column: 2 / 4; grid-row: 1; }
+.rb-page-right { grid-column: 2; grid-row: 2; }
+.rb-index      { grid-column: 3; grid-row: 2; }
 
 .rb-shell[data-rb-mode='single'] .rb-spread { grid-template-columns: minmax(0, 1fr) var(--rb-rail-w); }
-.rb-shell[data-rb-mode='single'] .rb-page-left,
-.rb-shell[data-rb-mode='single'] .rb-page-right { grid-column: 1; grid-row: 1; }
-.rb-shell[data-rb-mode='single'] .rb-index { grid-column: 2; grid-row: 1; }
+.rb-shell[data-rb-mode='single'] .rb-page-left { grid-column: 1; grid-row: 1 / -1; }
+.rb-shell[data-rb-mode='single'] .rb-head { grid-column: 1 / -1; }
+.rb-shell[data-rb-mode='single'] .rb-page-right { grid-column: 1; grid-row: 2; }
+.rb-shell[data-rb-mode='single'] .rb-index { grid-column: 2; grid-row: 2; }
+/* The candidate page has no head, so the index runs the full height beside it: the
+   empty head row collapses to nothing. */
+.rb-shell[data-rb-mode='single'][data-rb-page='left'] .rb-head { display: none; }
 .rb-shell[data-rb-mode='single'][data-rb-page='left'] .rb-page-right,
 .rb-shell[data-rb-mode='single'][data-rb-page='right'] .rb-page-left { display: none; }
 /* A page's scrollbar is part of the paper, so it is the fold's own grey rather than
@@ -226,7 +236,7 @@
    currently has, so it is a grid item rather than an absolute offset. */
 .rb-seam {
   grid-column: 1;
-  grid-row: 1;
+  grid-row: 1 / -1;
   position: relative;
   justify-self: end;
   align-self: stretch;
@@ -383,7 +393,7 @@
    edge whatever width that page has. */
 .rb-ribbon {
   grid-column: 1;
-  grid-row: 1;
+  grid-row: 1 / -1;
   justify-self: end;
   align-self: start;
   margin-right: 30px;
@@ -427,13 +437,13 @@
 /* ── Right page: the rubric ────────────────────────────────────────────────── */
 .rb-page-right { display: flex; flex-direction: column; overflow: hidden; container-type: inline-size; }
 .rb-head {
-  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
   --rb-head-pad-x: 34px;
-  padding: 9px var(--rb-head-pad-x);
+  /* One pixel more at the bottom than the top: that is where the hairline was. */
+  padding: 9px var(--rb-head-pad-x) 10px;
   /* The strip curves into the gutter at its left end (Owner, 2026-09-19). The page under
      it already does: `.rb-seam` shades the paper as it turns into the fold. The head
      sits at z-index 3 and the seam at 2, so the head was painting OVER that shading and
@@ -451,7 +461,11 @@
     rgba(20, 24, 36, 0.02) calc(var(--rb-head-pad-x) * 0.6),
     rgba(20, 24, 36, 0) calc(var(--rb-head-pad-x) - 4px));
   background-color: var(--aspire-page-band);
-  border-bottom: 1px solid var(--aspire-page-rule);
+  /* No bottom border (Owner, 2026-09-21, the white line at the head's left end). A
+     border paints OVER the background, so the hairline kept its light grey right across
+     the shading at the gutter, where the band above it and the fold below it are both
+     dark: a white stroke exactly where the paper turns. The band's own edge is the line;
+     scrolled, the lift shadow draws it. */
   font-size: 13px;
   color: var(--aspire-paper-ink);
   /* RIBBON-CALM-1: the same lift the student chart's name plate has, so the two books
@@ -746,12 +760,15 @@
 /* The seven tabs divide the fore edge between them and never scroll (Owner,
    2026-09-17): each takes an equal share of the height, and a label too long for its
    share ends in an ellipsis rather than pushing the last tab out of the book. */
+/* The index is the page's own paper (Owner, 2026-09-21: "the tabs should be the same
+   color as the page"), and it starts below the head, which spans it. It was a tinted
+   strip beside the page, which read as a panel bolted onto the book. */
 .rb-index {
   display: flex;
   flex-direction: column;
   gap: 3px;
   padding: 10px 0 10px 6px;
-  background: var(--aspire-page-band);
+  background: var(--aspire-page);
   border-left: 1px solid var(--aspire-page-rule);
   overflow: hidden;
 }
@@ -770,7 +787,10 @@
   gap: 9px;
   border: 0;
   border-radius: var(--aspire-radius-control) 0 0 var(--aspire-radius-control);
-  background: #F7F8FC;
+  /* Paper, cut from the page: the tab is the page's colour and a hairline edge is what
+     makes it a tab. */
+  background: var(--aspire-page);
+  box-shadow: inset 0 0 0 1px var(--aspire-page-rule);
   color: var(--aspire-ink-soft);
   font: 600 10px/1 var(--aspire-sans);
   writing-mode: vertical-rl;
@@ -781,7 +801,10 @@
 }
 .rb-tab > span { min-height: 0; overflow: hidden; text-overflow: ellipsis; }
 .rb-tab-num { flex: 0 0 auto; }
-.rb-tab:hover { background: var(--aspire-page); color: var(--aspire-navy); }
+.rb-tab:hover {
+  color: var(--aspire-navy);
+  box-shadow: inset 0 0 0 1px var(--aspire-page-rule), 0 1px 4px rgba(24, 32, 63, 0.14);
+}
 .rb-tab-num {
   font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
   font-size: 9.5px;
@@ -794,7 +817,7 @@
   background: var(--aspire-page);
   color: var(--aspire-navy);
   font-weight: 700;
-  box-shadow: -2px 0 6px -2px rgba(24, 32, 63, 0.18);
+  box-shadow: inset 0 0 0 1px var(--aspire-page-rule), -2px 0 6px -2px rgba(24, 32, 63, 0.18);
 }
 .rb-tab:focus-visible { outline: var(--aspire-focus-ring); outline-offset: -3px; }
 
@@ -822,7 +845,8 @@
 
 /* ── Read-only: the same book with the pen put down ────────────────────────── */
 .rb-shell[data-rb-readonly='true'] .rb-stage { padding: 0; }
-.rb-shell[data-rb-readonly='true'] .rb-cover { border-radius: 0; }
+.rb-shell[data-rb-readonly='true'] .rb-cover,
+.rb-shell[data-rb-readonly='true'] .material-cover-tooling { border-radius: 0; }
 
 /* The modal that shows a colleague's rubric gives the book its own height. */
 .modal-rubric-view .rb-shell { height: 78vh; min-height: 0; }
@@ -859,10 +883,16 @@
    The design does not change: the same fields in the same order, one per line. */
 @container (max-width: 560px) {
   .rb-scroll { padding: 20px 20px 80px; }
-  .rb-head { padding: 14px 20px; }
   .rb-grid-2, .rb-grid-3 { grid-template-columns: 1fr; }
   .rb-scale { gap: 6px; }
   .rb-score { padding: 10px 2px; }
   .rb-score-lbl { font-size: 9.5px; }
   .rb-title { font-size: 20px; }
+}
+
+/* The head is a child of the spread, not of the rubric page, so it asks the spread how
+   wide it is: the page is 560px or narrower when the spread (the page plus the 58px
+   index) is 618px or narrower. Only single-page mode is ever that narrow. */
+@container rb-spread (max-width: 618px) {
+  .rb-head { padding: 14px 20px 15px; }
 }

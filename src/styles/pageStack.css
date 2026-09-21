@@ -104,9 +104,10 @@
      at 6px "it feels like the page is not laying on top of the stack because it's too
      low on top and too high at the bottom", which is right, and is what a physical book
      does NOT do: the top sheet and the block under it are the same height, and you see
-     the block because it is WIDER, not because it is taller or shorter. 1px is enough to
-     keep the corners from reading as one square block with the page. */
-  --fore-crop: 1px;
+     the block because it is WIDER, not because it is taller or shorter. Owner,
+     2026-09-21: "make the stack be the same height (top and bottom) as the pages", so
+     the 1px that was left is gone too. Both books read this. */
+  --fore-crop: 0px;
 }
 
 .material-forestack::before,

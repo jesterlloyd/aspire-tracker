@@ -519,7 +519,7 @@ export default function ContactsBook({ dir, actions }) {
       <section className="ab-book material-leather-cognac material-forestack" aria-label="Contacts address book">
         {/* The gilt rule tooled into the cover. Its own element: the cover's two
             pseudo-elements draw the page stack either side of the spread. */}
-        <span className="ab-tooling" aria-hidden="true" />
+        <span className="material-cover-tooling" aria-hidden="true" />
 
         {/* The ribbon is sewn into the cover, as in the rubric and the chart, and hangs
             over the record's page. */}

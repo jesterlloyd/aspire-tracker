@@ -113,8 +113,8 @@ same ten seconds, different mechanism - do not unify them.
 ## The rubric is a book (RUBRIC-BOOK-1, 2026-09-17)
 
 Interviews > a student's rubric is a bound two-page spread, built from the same materials
-as the matching boards: a cognac leather cover (`.material-leather-cognac-hide`, tan until
-CONTACTS-BOOK-3 put both books in one leather), two white pages, a
+as the matching boards: the address book's cognac cover (tan until CONTACTS-BOOK-3, its
+own pebbled hide until BOOK-COVER-1 made the two books one cover), two white pages, a
 seam, and an index down the fore edge. The left page is the candidate and never changes
 while you write; the right page is the rubric. The stylesheet is
 `src/components/rubric/rubricBook.css`, which imports the materials and reads the tokens;
@@ -835,7 +835,8 @@ and `contactsBook.css`), bound in cognac leather, the same leather as the Interv
 - **The pages sit on the rubric's own fore edge** (`.material-forestack`, untouched) on
   both sides (Owner, 2026-09-21: "I like the stack you used in interview rubric"; a
   gold-tinted copy was tried first and dropped). The gilt hairline is its own element
-  (`.ab-tooling`) because the cover's pseudo-elements are the stack.
+  (`.material-cover-tooling`, shared with the rubric) because the cover's pseudo-elements
+  are the stack.
 - **Where the book leaves the mockup, on purpose.** The cover's deep drop has a negative
   spread (the pane is a scroll container). Dark mode lifts the cognac used as INK
   (`--ab-accent`), because the cover tones sit too close to the dark paper. The open
@@ -843,3 +844,39 @@ and `contactsBook.css`), bound in cognac leather, the same leather as the Interv
   count row. Swept: every text node, both themes, every branch open, zero failures.
 - **The link beside Refresh hides below 480px**, where the header cannot hold three
   controls on one row. Settings still switches the layout there.
+
+## Both books wear one cover (BOOK-COVER-1, 2026-09-21)
+
+"Use the same exact cover you're using in address book" (Owner). The Interview Rubric and
+the Contacts address book are one cover, defined once:
+
+- **The leather is `.material-leather-cognac`** (the fine grain) and **the gilt rule is
+  `.material-cover-tooling`**, a span first inside the cover. Both live in
+  `aspireMaterials.css`. The rubric's pebbled hide and `--aspire-noise-hide` are deleted:
+  one cover cannot have two grains.
+- **The corner and the boards are tokens** in `aspireBrand.css`: `--aspire-radius-book`
+  (8px), `--aspire-book-board` (15px above and below the pages), `--aspire-book-board-x`
+  (16px of leather outside the stack) and `--aspire-book-stack-w` (13px of fore edge).
+  `--rb-*` and `--ab-*` read them; neither book writes a number. `useBookScale.js`
+  mirrors them for its arithmetic, and a test holds the two equal.
+- **The page stack is exactly the pages' height** (`--fore-crop: 0px`, Owner: "the same
+  height (top and bottom) as the pages"). Both books read it.
+- **Pages are square in both books** (Owner: "because they're pages"). The address book
+  used to round its paper on `--aspire-radius-sheet`.
+- **The rubric's head spans the page AND the index**, and the index starts below it. The
+  head is a child of `.rb-spread` in a row of its own (`grid-template-rows: auto
+  minmax(0, 1fr)`), not of the rubric page; the candidate page, the seam, the spine and
+  the ribbon run both rows. The scoring guide drawer stays inside the page, so opening
+  it never moves the index. On the candidate's side of single-page mode the head is
+  hidden and its row collapses. The head's narrow rule asks the spread
+  (`@container rb-spread`), because it left the page's container.
+- **The index is the page's own paper**: the rail and the tabs are `--aspire-page` with a
+  hairline edge, not the tinted strip they were.
+- **A border paints over the background.** The head's bottom hairline stayed light grey
+  across the shading at the gutter, where the band above and the fold below are both
+  dark, so it read as a white stroke exactly where the paper turns. The head has no
+  bottom border; the band's own edge is the line, and the lift shadow draws it once the
+  page scrolls.
+- **Not shared, on purpose:** the rubric keeps its dark spine band down the fold (an
+  Owner decision from 2026-09-19); the address book has none. The address book keeps its
+  own paper and ink (it follows the theme; the rubric's white pages do not).

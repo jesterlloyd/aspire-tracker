@@ -81,46 +81,6 @@
   letter-spacing: 0.1em;
 }
 
-/* ── Cognac leather, pebbled (the rubric's cover) ──────────────────────────── */
-/* CONTACTS-BOOK-3 (Owner, 2026-09-20): cognac, the colour the address book is bound in,
-   so the app's two books are one leather. The grain below is unchanged: the Owner chose
-   this pebbled hide for the rubric on 2026-09-19.
-   RUBRIC-BOOK-1: the Interview Rubric's cover. Deeper than the cream leather because
-   it is the outside of the object, not a surface inside it, and finished with the
-   same gilt the pool headers use so the two materials read as one family. */
-/* Owner, 2026-09-17: the coarse grain read as WOOD, so the cover keeps only the fine
-   noise and a flat vertical gradient. It is a thin board around the pages, not a
-   plank: the edge that shows is a few pixels of leather, not a frame. */
-/* Owner, 2026-09-19: this "looks more like a cork than a leather book cover", and it did.
-   A uniform fine speckle on a flat mid-tone IS cork. Three things make it hide instead:
-   the grain is PEBBLED rather than dusty; the pebbles are lit from one side, which is the
-   difference between a pattern and a relief (the same texture twice, a pixel apart, one
-   lightening and one darkening); and the light falls unevenly across the whole cover
-   rather than in one even band, because a hide is not flat. */
-.material-leather-cognac-hide {
-  background-color: var(--aspire-leather-cognac);
-  background-image:
-    var(--aspire-noise-hide),
-    var(--aspire-noise-hide),
-    radial-gradient(130% 100% at 20% 0%, rgba(255, 244, 222, 0.26), rgba(255, 244, 222, 0) 62%),
-    linear-gradient(158deg,
-      var(--aspire-leather-cognac-lift),
-      var(--aspire-leather-cognac) 38%,
-      var(--aspire-leather-cognac-deep) 88%,
-      var(--aspire-leather-cognac) 100%);
-  /* Two pixels apart, which is about half a pebble: enough to light one side. */
-  background-position: -2px -2px, 2px 2px, 0 0, 0 0;
-  /* `multiply` on a 0.75-alpha dark noise crushed the tan to near-black on the first
-     try. The relief comes from the OFFSET between the two copies, not from the weight of
-     either: overlay lifts and darkens around the mid-tone, soft-light does the same more
-     gently a pixel away, and the colour stays where the gradient put it. */
-  background-blend-mode: overlay, soft-light, screen, normal;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.28),
-    inset 0 0 0 1px var(--aspire-book-edge),
-    0 14px 34px rgba(40, 34, 20, 0.20);
-}
-
 /* ── White paper ───────────────────────────────────────────────────────────── */
 /* A plain rectangle with SHARP corners (Owner, 2026-09-17): a rounded sheet reads
    as a card, and this is meant to read as paper. No folded corner either. Cards,
@@ -191,8 +151,12 @@
     0 8px 16px -6px rgba(24, 32, 63, 0.34);
 }
 
-/* ── Cognac leather, fine grain (the address book's cover) ─────────────────── */
-/* CONTACTS-BOOK-1 (2026-09-20): ASPIRE Connect > Contacts, read as an address book. The
+/* ── Cognac leather, fine grain (the cover of both books) ─────────────────── */
+/* BOOK-COVER-1 (Owner, 2026-09-21: "use the same exact cover you're using in address
+   book"): the Interview Rubric and the Contacts address book wear this one cover, with
+   the gilt rule below and the corner and boards from aspireBrand.css. The rubric's
+   pebbled hide (2026-09-19) is gone; one cover cannot have two grains.
+   CONTACTS-BOOK-1 (2026-09-20): ASPIRE Connect > Contacts, read as an address book. The
    mockup's cover: a fine soft-light grain over a soft top highlight and a straight fall
    from lift to deep. The two insets are the rolled top edge and the board's underside.
    The deep drop is kept UNDER the book with a negative spread (the mockup's 0 22px 50px
@@ -213,6 +177,18 @@
     inset 0 -2px 0 rgba(0, 0, 0, 0.45),
     0 2px 5px rgba(40, 22, 8, 0.35),
     0 12px 20px -10px rgba(40, 22, 8, 0.3);
+}
+
+/* The gilt rule tooled into the cover, 7px in from its edge. It is its own element (a
+   span, first inside the cover) because a book's cover spends both of its pseudo-
+   elements on the page stack. It sits in the board, outside the stack, and whatever is
+   bound into the spread (the pages, the rubric's spine, a ribbon) paints over it. */
+.material-cover-tooling {
+  position: absolute;
+  inset: 7px;
+  border: 1px solid var(--aspire-gilt-hairline);
+  border-radius: calc(var(--aspire-radius-book) - 3px);
+  pointer-events: none;
 }
 
 /* Cognac in the dark, the mockup's dark tones. One definition, read by both books, so

@@ -18,9 +18,13 @@
 import { useEffect, useRef, useState } from 'react'
 
 export const RAIL_WIDTH = 58      // the index down the fore edge, constant
-export const COVER_PAD = 14       // leather above and below the pages, constant
-export const PAGE_STACK = 8       // the sheets showing at each fore edge
-export const COVER_PAD_X = COVER_PAD + PAGE_STACK   // 22, so the sides read as thick
+// The shared cover's boards (BOOK-COVER-1): --aspire-book-board, --aspire-book-board-x
+// and --aspire-book-stack-w in aspireBrand.css. Only the mode is used at runtime; these
+// keep the arithmetic in bookMetrics true to what the stylesheet draws.
+export const COVER_PAD = 15       // leather above and below the pages, constant
+export const COVER_BOARD_X = 16   // leather outside the page stack at each side
+export const PAGE_STACK = 13      // the fore edge's block of pages at each side
+export const COVER_PAD_X = COVER_BOARD_X + PAGE_STACK   // 29
 export const CHROME = RAIL_WIDTH + (2 * COVER_PAD_X)
 export const LEFT_SHARE = 42.5    // the candidate page's share of the paper
 export const RIGHT_SHARE = 57.5   // the rubric page's share
