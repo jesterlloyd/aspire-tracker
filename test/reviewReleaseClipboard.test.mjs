@@ -31,7 +31,8 @@ const stripJs = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/g
 const theme = read('src/styles/theme.css')
 const brand = read('src/styles/aspireBrand.css')
 const fonts = read('src/styles/fonts.css')
-const css = read('src/components/evaluation/reviewReleaseClipboard.css')
+// The rail's own rules moved to the shared selection canon (SETTINGS-HIERARCHY-1).
+const css = read('src/components/evaluation/reviewReleaseClipboard.css') + '\n' + read('src/styles/selectionRail.css')
 const cssCode = stripCss(css)
 const queue = read('src/components/evaluation/ReviewReleaseQueue.jsx')
 const dash = read('src/components/evaluation/SurveyAutomationDashboard.jsx')

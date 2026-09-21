@@ -66,29 +66,9 @@
 
 /* ── Two columns: rail and board, same top edge; the rail is pinned ─────────── */
 .rr-layout { display: grid; grid-template-columns: 270px minmax(0, 1fr); gap: 20px; align-items: start; }
-.rr-nav {
-  min-width: 0; margin-top: 14px; display: flex; flex-direction: column; gap: 2px; align-content: start;
-  /* Its own height, and it stays in view while the board scrolls: pinned just under the
-     sticky app chrome, the same offset every in-page sidebar uses. */
-  position: sticky; top: var(--app-chrome-height, 0px); align-self: start;
-  background: var(--color-bg-surface); border: 0; border-radius: var(--aspire-radius-card);
-  padding: 10px; box-shadow: var(--aspire-shadow-card);
-}
-.rr-nav-group {
-  font-family: var(--rr-mono); font-size: 10px; letter-spacing: 0.13em; text-transform: uppercase;
-  color: var(--text-muted); padding: 8px 10px 4px; margin: 0;
-}
-.rr-nav .rr-nav-group:not(:first-child) { margin-top: 6px; border-top: 1px solid var(--aspire-rule); padding-top: 12px; }
-.rr-row-select {
-  width: 100%; display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; text-align: left;
-  padding: 9px 10px; margin: 0; cursor: pointer; background: transparent; border: 0;
-  border-radius: var(--aspire-radius-control); font-family: var(--rr-sans); color: var(--text-heading);
-}
-.rr-row-select:hover { background: var(--color-bg-hover); }
-.rr-row-select.sel, .rr-row-select.sel:hover { background: var(--aspire-navy); color: #fff; }
-.rr-row-label { min-width: 0; font-size: 13.5px; font-weight: 600; line-height: 1.3; }
-.rr-row-label small { display: block; font-family: var(--rr-mono); font-size: 11.5px; font-weight: 400; color: var(--text-muted); }
-.rr-row-select.sel .rr-row-label small { color: rgba(255, 255, 255, 0.72); }
+/* The rail itself (.rr-nav, .rr-nav-group, .rr-row-select, .rr-row-label) is the app's
+   left selection canon and lives in src/styles/selectionRail.css, which Settings wears
+   too (APPEARANCE-STYLE-1). Its rules moved there verbatim. */
 .rr-cnt { display: inline-flex; gap: 4px; }
 .rr-cnt i {
   font-style: normal; font-family: var(--rr-mono); font-size: 10.5px; font-weight: 700; min-width: 20px; height: 20px;
@@ -97,7 +77,6 @@
 .rr-cnt .r { background: var(--aspire-ok); }
 .rr-cnt .b { background: var(--aspire-warn); }
 [data-theme="dark"] .rr-cnt i { color: #0E111C; }
-.rr-row-select:focus-visible { outline: 3px solid var(--rr-navy); outline-offset: 2px; }
 
 /* ── The board ────────────────────────────────────────────────────────────── */
 .rq-board {

@@ -896,14 +896,46 @@ place of Refresh). The rules live in `src/lib/appearance.js`; the reference is t
   commit). `test/appearanceStyle.test.mjs` runs the index.html script over 200 stored states.
 - **A refused save puts the earlier choice back.** `useAppearance` paints, saves, and on an
   error calls `store.restore(key, from, to)`, which undoes only if `from` is still on screen.
-- **Settings is two panes** (`settingsShell.css`): a 240px rail in groups You / Workspace /
-  Diagnostics, the page beside it, one column below 860px. The General hub is deleted;
-  `/settings/general` and unknown paths land on `DEFAULT_SETTINGS_PATH` (Appearance). Rail
-  labels stay Title Case per the canon, not the mockup's sentence case. The rail pins at
-  120px, the offset Keith's workspace nav pins at, and a test holds the two equal.
+- **Settings lives in "Settings is Apple's System Settings" below**; Appearance is General's
+  row at `/settings/general/appearance`.
 - **The header's light/dark button** (`ColorModeButton`) shows what is painted and sets the
   opposite as an explicit choice, System included. It hides below 560px, where a fifth icon
   crushed the brand from 87px to 41px; Settings still switches there.
+
+## Settings is Apple's System Settings (SETTINGS-HIERARCHY-1, 2026-09-21)
+
+Two panes, never three. The Owner reference is `settings-appearance-mockup (1).html` with
+`settings-hierarchy-fix-prompt.md`; this reversed a one-day-old flat rail.
+
+- **The rail is the top-level destinations only**: Workspace (General), Administration
+  (Accounts & Access, Community Benefit, Keith), Diagnostics (Demo Mode, Preceptor Parity),
+  each still behind the role gate it always had. Icons are the ones Settings already used,
+  monochrome, no tile.
+- **General and Keith are list pages**: one grouped `SurfaceCard` list of drill-in rows
+  (icon, title, grey line, chevron), each a real `<button>`. General's rows are About,
+  Appearance, Email Signature, Tours & Help; Keith's are Knowledge Center, Skills, Usage &
+  Cost. A drill-in is a registry entry with `parent` and `sub` in `settingsSections.js`;
+  `childSections(parent, roleFlags)` is the list. There is no GeneralPanel and no KeithPanel.
+- **A drill-in opens in the same right pane**, under a breadcrumb (`‹ General / Appearance`,
+  `aria-current="page"` on the last part), at its own route under its parent
+  (`/settings/general/appearance`, `/settings/keith/skills`), with the PARENT selected in
+  the rail (`current.parent || current.key`). Back and Forward work because every step is a
+  real route.
+- **Old paths redirect, with replace**: `LEGACY_SETTINGS_REDIRECTS` maps `/settings`,
+  `/settings/appearance|signature|tours|about` and `/settings/knowledge`; anything else
+  unknown, or not this role's, falls to `/settings/general`. `/settings/keith` is the Keith
+  list now, not a redirect to Knowledge Center.
+- **The left selection canon is ONE sheet: `src/styles/selectionRail.css`.** It was Review &
+  Release's rail (`.rr-nav`, `.rr-nav-group`, `.rr-row-select`, `.rr-row-label`), moved out of
+  `reviewReleaseClipboard.css` verbatim, with the three variables it reads now defined on the
+  rail itself. Both screens import it. A computed-style fingerprint of Review & Release's
+  rail (17 elements, 19 properties, both themes, 1440 and 820px) matched `main` exactly. A
+  host places the rail and may add a column to its rows (Settings adds an icon); it never
+  restates the rail's look. Where a screen stacks is the host's: Settings stacks at 900px,
+  where the canon's own rail stops being sticky.
+- **Known, left alone on purpose**: the Skills workspace titles itself "Keith" (its own
+  `SettingsPageHeader`), so its page reads "‹ Keith / Skills" over a "Keith" heading. The
+  brief said not to touch page content.
 
 ## Both books wear one cover (BOOK-COVER-1, 2026-09-21)
 

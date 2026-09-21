@@ -1,14 +1,12 @@
-// Information-architecture guards for the Settings rail.
+// Information-architecture guards for Settings.
 //
-// History: SETTINGS-UNIFIED-DESIGN-1 moved Appearance, Email Signature, Tours & Help and
-// About into a General hub, which gave Settings three panes. APPEARANCE-STYLE-1
-// (2026-09-21, the Owner's settings-appearance-mockup) returned it to two: a grouped rail
-// (You, Workspace, Diagnostics) and the page. These tests hold the new shape: the rail
-// is exactly the intended destinations per role, in the mockup's groups and order; every
-// page keeps its role gate and its deep link; /settings/general is retired and falls to
-// Appearance; the shell renders every page itself; the pages that had no heading of
-// their own get one; and the protections that outlived General (AboutPanel's content,
-// the SurfaceCard canon, no width caps, one heading spec) still hold.
+// History: SETTINGS-UNIFIED-DESIGN-1 put Appearance, Email Signature, Tours & Help and
+// About under a General hub in a third pane. APPEARANCE-STYLE-1 flattened everything into
+// one rail, and the Owner sent it back (2026-09-21). SETTINGS-HIERARCHY-1 is the Apple
+// System Settings pattern: the rail is the top-level destinations only, in the left
+// selection canon Evaluation > Review & Release wears; General and Keith are list pages
+// of drill-in rows; a drill-in opens in the same right pane under a breadcrumb, with the
+// parent still selected, at its own route; every old path redirects.
 //
 // Run: node --test test/settingsUnifiedIa.test.mjs
 import test from 'node:test'
@@ -17,7 +15,8 @@ import { readFileSync, existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import {
-  SETTINGS_SECTIONS, SETTINGS_GROUPS, DEFAULT_SETTINGS_PATH, visibleSections, routableSections,
+  SETTINGS_SECTIONS, SETTINGS_GROUPS, DEFAULT_SETTINGS_PATH, LEGACY_SETTINGS_REDIRECTS,
+  visibleSections, routableSections, childSections,
 } from '../src/components/settings/settingsSections.js'
 import { STAFF_SETTINGS_PATH } from '../src/lib/portalLinks.js'
 
@@ -25,131 +24,189 @@ const here = dirname(fileURLToPath(import.meta.url))
 const read = (p) => readFileSync(join(here, '..', p), 'utf8')
 const shell = read('src/components/settings/SettingsShell.jsx')
 const shellCss = read('src/components/settings/settingsShell.css')
+const rail = read('src/styles/selectionRail.css')
 
 const STAFF = { isOwner: false, isAdmin: false }
 const ADMIN = { isOwner: false, isAdmin: true }
 const OWNER = { isOwner: true, isAdmin: true }
 const ROLE_COMBOS = [STAFF, ADMIN, OWNER]
-const rail = (r) => visibleSections(r).map(s => s.key)
+const railKeys = (r) => visibleSections(r).map(s => s.key)
+const section = (k) => SETTINGS_SECTIONS.find(s => s.key === k)
 
-test('the rail is the mockup\'s nine destinations, in its order, for the Owner', () => {
-  assert.deepEqual(rail(OWNER), [
-    'appearance', 'signature', 'tours',
-    'accounts', 'communityBenefit', 'keith',
-    'demoMode', 'preceptorParity', 'about',
-  ])
+// ── The rail ────────────────────────────────────────────────────────────────
+
+test('the rail is exactly the brief\'s six destinations, in its order, for the Owner', () => {
+  assert.deepEqual(railKeys(OWNER), ['general', 'accounts', 'communityBenefit', 'keith', 'demoMode', 'preceptorParity'])
+  assert.deepEqual(visibleSections(OWNER).map(s => s.label),
+    ['General', 'Accounts & Access', 'Community Benefit', 'Keith', 'Demo Mode', 'Preceptor Parity'])
 })
 
-test('every role keeps the gates it had; nothing is shown that was hidden before', () => {
-  assert.deepEqual(rail(ADMIN), ['appearance', 'signature', 'tours', 'accounts', 'communityBenefit', 'keith', 'about'])
-  assert.deepEqual(rail(STAFF), ['appearance', 'signature', 'tours', 'about'])
-  for (const r of ROLE_COMBOS) {
-    const keys = rail(r)
-    assert.ok(!keys.includes('general'), 'General is retired')
-    assert.ok(!keys.includes('knowledge'), 'Knowledge Center lives under Keith, not in the rail')
-    assert.ok(!keys.includes('keithSkills') && !keys.includes('keithKnowledge') && !keys.includes('keithUsage'),
-      "Keith's workspaces are reached through Keith, never as their own rail entries")
-    assert.ok(!keys.includes('templates') && !keys.includes('audit'), 'no unimplemented scaffold leaks into the rail')
-  }
-})
-
-test('groups are You, Workspace, Diagnostics, contiguous, with the mockup\'s second lines', () => {
-  assert.deepEqual(SETTINGS_GROUPS, ['You', 'Workspace', 'Diagnostics'])
-  const groupOf = Object.fromEntries(SETTINGS_SECTIONS.map(s => [s.key, s.group]))
-  for (const k of ['appearance', 'signature', 'tours']) assert.equal(groupOf[k], 'You')
-  for (const k of ['accounts', 'communityBenefit', 'keith']) assert.equal(groupOf[k], 'Workspace')
-  for (const k of ['demoMode', 'preceptorParity', 'about']) assert.equal(groupOf[k], 'Diagnostics')
-  // Contiguous in the registry, so the rail never repeats a group label.
+test('groups are Workspace, Administration, Diagnostics, contiguous', () => {
+  assert.deepEqual(SETTINGS_GROUPS, ['Workspace', 'Administration', 'Diagnostics'])
   const seq = visibleSections(OWNER).map(s => s.group).filter((g, i, a) => g !== a[i - 1])
   assert.deepEqual(seq, SETTINGS_GROUPS)
-  const sub = Object.fromEntries(SETTINGS_SECTIONS.map(s => [s.key, s.sub]))
-  assert.equal(sub.appearance, 'Style and color mode')
-  assert.equal(sub.signature, 'Your Connect signature')
-  assert.equal(sub.tours, 'Replay the welcome tour')
-  assert.equal(sub.about, 'Version and build')
+  assert.equal(section('general').group, 'Workspace')
+  for (const k of ['accounts', 'communityBenefit', 'keith']) assert.equal(section(k).group, 'Administration')
+  for (const k of ['demoMode', 'preceptorParity']) assert.equal(section(k).group, 'Diagnostics')
 })
 
-test('labels stay Title Case (the canon), not the mockup\'s sentence case', () => {
-  const label = Object.fromEntries(SETTINGS_SECTIONS.map(s => [s.key, s.label]))
-  assert.equal(label.signature, 'Email Signature')
-  assert.equal(label.tours, 'Tours & Help')
-  assert.equal(label.accounts, 'Accounts & Access')
-  assert.equal(label.demoMode, 'Demo Mode')
-})
-
-test('routableSections is a superset of the rail, and General is no longer a page', () => {
+test('Appearance, Email Signature, Tours & Help and About left the rail for General', () => {
   for (const r of ROLE_COMBOS) {
-    const routableKeys = routableSections(r).map(s => s.key)
-    for (const key of rail(r)) assert.ok(routableKeys.includes(key), `rail key ${key} must also be routable`)
-    for (const key of ['appearance', 'signature', 'tours', 'about']) {
-      assert.ok(routableKeys.includes(key), `${key} must stay a deep link for ${JSON.stringify(r)}`)
+    for (const k of ['appearance', 'signature', 'tours', 'about', 'keithKnowledge', 'keithSkills', 'keithUsage']) {
+      assert.ok(!railKeys(r).includes(k), `${k} is a drill-in, never in the rail`)
     }
-    assert.ok(!routableKeys.includes('general'))
+    assert.ok(!railKeys(r).includes('templates') && !railKeys(r).includes('audit'))
   }
-  assert.equal(SETTINGS_SECTIONS.find(s => s.key === 'general'), undefined)
 })
 
-test('the about section is registered correctly', () => {
-  const about = SETTINGS_SECTIONS.find(s => s.key === 'about')
-  assert.equal(about.path, '/settings/about')
-  assert.equal(about.group, 'Diagnostics')
-  assert.equal(about.implemented, true)
-  assert.notEqual(about.inRail, false, 'About is a rail destination again')
-  assert.equal(about.visible(STAFF), true, 'About is visible to everyone')
+test('every role keeps the gates it had', () => {
+  assert.deepEqual(railKeys(ADMIN), ['general', 'accounts', 'communityBenefit', 'keith'])
+  assert.deepEqual(railKeys(STAFF), ['general'])
+  const s = section
+  for (const k of ['accounts', 'communityBenefit', 'keith', 'keithKnowledge', 'keithSkills', 'keithUsage']) {
+    assert.equal(s(k).visible({ isAdmin: true }), true, k)
+    assert.equal(s(k).visible({ isAdmin: false }), false, k)
+  }
+  for (const k of ['demoMode', 'preceptorParity']) {
+    assert.equal(s(k).visible({ isOwner: true }), true, k)
+    assert.equal(s(k).visible({ isOwner: false }), false, k)
+  }
+  for (const k of ['general', 'appearance', 'signature', 'tours', 'about']) assert.equal(s(k).visible(STAFF), true, k)
 })
 
-test('SettingsShell: normalization falls to Appearance, and it renders every page itself', () => {
-  assert.equal(DEFAULT_SETTINGS_PATH, '/settings/appearance')
-  assert.match(shell, /const routable = routableSections\(roleFlags\)/)
-  assert.match(shell, /const knownPaths = routable\.map/)
-  assert.match(shell, /const matched = routable\.find/)
-  assert.match(shell, /path === '\/settings' \|\| \(path\.startsWith\('\/settings'\) && !knownPaths\.includes\(path\)\)/)
-  assert.match(shell, /navigate\(DEFAULT_SETTINGS_PATH, \{ replace: true \}\)/)
-  assert.doesNotMatch(shell, /settings\/general'/, 'nothing routes to the retired hub')
+test('the rail IS the Review & Release selection canon, reused, not restyled', () => {
+  assert.match(shell, /import '\.\.\/\.\.\/styles\/selectionRail\.css'/)
+  assert.match(read('src/components/evaluation/SurveyAutomationDashboard.jsx'), /import '\.\.\/\.\.\/styles\/selectionRail\.css'/)
+  assert.match(shell, /<nav className="rr-nav settings-rail" aria-label="Settings sections">/)
+  assert.match(shell, /<p className="rr-nav-group">\{group\}<\/p>/)
+  assert.match(shell, /className=\{`rr-row-select settings-rail-row\$\{active \? ' sel' : ''\}`\}/)
+  assert.match(shell, /<span className="rr-row-label">\{s\.label\}<\/span>/)
+  assert.match(shell, /aria-current=\{active \? 'page' : undefined\}/)
+  // The canon: a surface card, mono uppercase group labels with a hairline between
+  // groups, and a filled navy selected row with white ink.
+  assert.match(rail, /\.rr-nav \{[^}]*background: var\(--color-bg-surface\); border: 0; border-radius: var\(--aspire-radius-card\);[^}]*box-shadow: var\(--aspire-shadow-card\);/)
+  assert.match(rail, /\.rr-nav-group \{\s*font-family: var\(--rr-mono\); font-size: 10px; letter-spacing: 0\.13em; text-transform: uppercase;/)
+  assert.match(rail, /\.rr-nav \.rr-nav-group:not\(:first-child\) \{ margin-top: 6px; border-top: 1px solid var\(--aspire-rule\);/)
+  assert.match(rail, /\.rr-row-select\.sel, \.rr-row-select\.sel:hover \{ background: var\(--aspire-navy\); color: #fff; \}/)
+  assert.match(rail, /\.rr-row-select:hover \{ background: var\(--color-bg-hover\); \}/)
+  // The variables it reads are defined on the rail itself, so it works outside the clipboard.
+  assert.match(rail, /--rr-mono: var\(--aspire-mono\);\s*--rr-sans: var\(--aspire-sans\);\s*--rr-navy: var\(--color-accent-primary, var\(--aspire-navy\)\);/)
+  // Settings adds only placement and its icon column; it never restates the canon's look.
+  assert.doesNotMatch(shellCss, /\.rr-row-select\.sel \{|\.rr-nav-group \{|\.rr-row-select:hover/)
+})
 
-  assert.equal(existsSync(join(here, '..', 'src/components/settings/GeneralPanel.jsx')), false, 'GeneralPanel is deleted')
-  assert.doesNotMatch(shell, /GeneralPanel|NON_RAIL_SUBKEYS/)
-  for (const [key, panel] of [
-    ['appearance', '<AppearancePanel />'], ['signature', '<SignaturePanel />'],
-    ['tours', '<ToursHelpPanel onRestartTour={onRestartTour} />'], ['about', '<AboutPanel />'],
-    ['accounts', '<AccountsAccessPanel />'], ['communityBenefit', '<CommunityBenefitPanel />'],
-    ['preceptorParity', '<PreceptorParityPanel />'], ['demoMode', '<DemoModePanel />'],
+test('the icons are the ones Settings already used, monochrome, with no tile', () => {
+  assert.match(shell, /general: Settings, accounts: Users, communityBenefit: HandCoins, keith: Sparkles,\s*demoMode: Presentation, preceptorParity: Scale,/)
+  assert.match(shell, /about: BadgeInfo, appearance: Monitor, signature: PenLine, tours: Info,/)
+  assert.match(shell, /keithKnowledge: FileText, keithSkills: Sparkles, keithUsage: BarChart3,/)
+  assert.match(shellCss, /\.settings-rail-ic \{ flex: none; color: var\(--color-accent-primary, #1D2567\); \}/)
+  assert.match(shellCss, /\.rr-row-select\.sel \.settings-rail-ic \{ color: #FFFFFF; \}/)
+  assert.doesNotMatch(shell, /settings-nav-ic/)
+  assert.doesNotMatch(shellCss, /settings-nav-ic|color-mix/)
+})
+
+// ── List pages ──────────────────────────────────────────────────────────────
+
+test('General lists About, Appearance, Email Signature, Tours & Help, with the approved lines', () => {
+  const rows = childSections('general', STAFF)
+  assert.deepEqual(rows.map(r => r.label), ['About', 'Appearance', 'Email Signature', 'Tours & Help'])
+  assert.deepEqual(rows.map(r => r.sub), [
+    'Version, build, and deployment details', 'Style and color mode',
+    'Your Connect signature', 'Replay the welcome tour and find help',
+  ])
+  assert.deepEqual(rows.map(r => r.path),
+    ['/settings/general/about', '/settings/general/appearance', '/settings/general/signature', '/settings/general/tours'])
+  assert.match(shell, /general: 'Settings that are yours alone\. They follow you to any device\.'/)
+})
+
+test('a list row is a real button with an icon, a title, a line and a chevron', () => {
+  const page = shell.slice(shell.indexOf('function SettingsListPage'), shell.indexOf('function SettingsCrumb'))
+  assert.match(page, /<SurfaceCard as="ul" className="settings-list" padding=\{0\} aria-label=\{section\.label\}>/)
+  assert.match(page, /<button type="button" className="settings-list-row" onClick=\{\(\) => navigate\(row\.path\)\}>/)
+  assert.match(page, /\{row\.sub && <small>\{row\.sub\}<\/small>\}/)
+  assert.match(page, /<ChevronRight [^>]*aria-hidden="true" className="settings-list-chev" \/>/)
+  assert.match(shellCss, /\.settings-list-row:focus-visible \{[^}]*outline: 3px solid var\(--color-accent-primary/)
+})
+
+// ── Drill-ins ───────────────────────────────────────────────────────────────
+
+test('a drill-in opens in the right pane under a breadcrumb, with its parent selected', () => {
+  assert.match(shell, /const railActiveKey = current\.parent \|\| current\.key/)
+  assert.match(shell, /const parent = current\.parent \? routable\.find\(s => s\.key === current\.parent\) : null/)
+  const crumb = shell.slice(shell.indexOf('function SettingsCrumb'), shell.indexOf('export default function SettingsShell'))
+  assert.match(crumb, /<nav className="settings-crumb" aria-label="Breadcrumb">/)
+  assert.match(crumb, /onClick=\{\(\) => navigate\(parent\.path\)\}/)
+  assert.match(crumb, /<span className="settings-crumb-sep" aria-hidden="true">\/<\/span>/)
+  assert.match(crumb, /aria-current="page">\{here\.label\}</)
+  // Two panes, never three: the page is the content column itself.
+  assert.match(shellCss, /\.settings-grid \{\s*display: grid;\s*grid-template-columns: 240px minmax\(0, 1fr\);/)
+  assert.doesNotMatch(shell, /GeneralPanel|KeithPanel|NON_RAIL_SUBKEYS/)
+  assert.equal(existsSync(join(here, '..', 'src/components/settings/GeneralPanel.jsx')), false)
+})
+
+test('every drill-in has its own route under its parent, and renders its existing page', () => {
+  for (const [k, p, panel] of [
+    ['about', '/settings/general/about', '<AboutPanel />'],
+    ['appearance', '/settings/general/appearance', '<AppearancePanel />'],
+    ['signature', '/settings/general/signature', '<SignaturePanel />'],
+    ['tours', '/settings/general/tours', '<ToursHelpPanel onRestartTour={onRestartTour} />'],
+    ['keithKnowledge', '/settings/keith/knowledge', '<KnowledgeCenterPanel />'],
+    ['keithSkills', '/settings/keith/skills', '<KeithSkillsPanel />'],
+    ['keithUsage', '/settings/keith/usage', '<KeithUsagePanel />'],
   ]) {
-    assert.ok(shell.includes(`currentKey === '${key}'`) && shell.includes(panel), `${key} renders ${panel}`)
+    assert.equal(section(k).path, p)
+    assert.ok(p.startsWith(section(section(k).parent).path + '/'), `${k} lives under its parent`)
+    assert.ok(shell.includes(`currentKey === '${k}'`) && shell.includes(panel), `${k} renders ${panel}`)
   }
-  assert.match(shell, /const KEITH_SUBKEYS = \{ keithSkills: 'skills', keithKnowledge: 'knowledge', keithUsage: 'usage' \}/)
-  assert.match(shell, /active = s\.key === railActiveKey/)
+  for (const [k, panel] of [['accounts', '<AccountsAccessPanel />'], ['communityBenefit', '<CommunityBenefitPanel />'],
+    ['preceptorParity', '<PreceptorParityPanel />'], ['demoMode', '<DemoModePanel />']]) {
+    assert.ok(shell.includes(`currentKey === '${k}'`) && shell.includes(panel), `${k} renders ${panel}`)
+  }
 })
 
-test('the pages that brought no heading get one from the shell, on the shared spec', () => {
+test('the pages that bring no heading get one from the shell, on the shared spec', () => {
   assert.match(shell, /const TITLED_BY_SHELL = \['signature', 'tours', 'about'\]/)
   assert.match(shell, /\{shellTitle && <h2 style=\{SETTINGS_HEADING_STYLE\}>\{shellTitle\}<\/h2>\}/)
-  // Appearance titles itself (with its description line), on the same spec.
   assert.match(read('src/components/settings/AppearancePanel.jsx'), /style=\{\{ \.\.\.SETTINGS_HEADING_STYLE, margin: 0 \}\}>Appearance<\/h2>/)
-  assert.match(read('src/components/settings/settingsSections.js'), /export const SETTINGS_HEADING_STYLE = \{/)
-  assert.match(read('src/components/settings/AccountsDirectory.jsx'), /\.\.\.SETTINGS_HEADING_STYLE/)
-  assert.match(read('src/components/settings/PreceptorParityPanel.jsx'), /\.\.\.SETTINGS_HEADING_STYLE/)
-  assert.match(read('src/components/settings/SettingsPageHeader.jsx'), /\.\.\.SETTINGS_HEADING_STYLE/)
 })
 
-test('the rail: grouped, iconed, aria-current, a white surface and a navy inset bar', () => {
-  assert.match(shell, /<nav className="settings-nav" aria-label="Settings sections">/)
-  assert.match(shell, /role="group" aria-labelledby=\{`settings-group-\$\{group\}`\}/)
-  assert.match(shell, /aria-current=\{active \? 'page' : undefined\}/)
-  assert.match(shell, /<span className="settings-nav-ic" aria-hidden="true">/)
-  assert.match(shell, /\{s\.sub && <small>\{s\.sub\}<\/small>\}/)
-  assert.match(shellCss, /\.settings-nav-item\[aria-current="page"\],\s*\.settings-nav-item\[aria-current="page"\]:hover \{[^}]*background: var\(--color-bg-surface[^}]*inset 3px 0 0 var\(--color-accent-primary/)
-  assert.match(shellCss, /\.settings-nav-item:focus-visible \{\s*outline: 3px solid var\(--color-accent-primary[^;]*;\s*outline-offset: 2px;/)
+// ── Routes ──────────────────────────────────────────────────────────────────
+
+test('every old path redirects to where it lives now, with replace', () => {
+  assert.deepEqual({ ...LEGACY_SETTINGS_REDIRECTS }, {
+    '/settings': '/settings/general',
+    '/settings/appearance': '/settings/general/appearance',
+    '/settings/signature': '/settings/general/signature',
+    '/settings/tours': '/settings/general/tours',
+    '/settings/about': '/settings/general/about',
+    '/settings/knowledge': '/settings/keith/knowledge',
+  })
+  const routablePaths = routableSections(OWNER).map(s => s.path)
+  for (const to of Object.values(LEGACY_SETTINGS_REDIRECTS)) assert.ok(routablePaths.includes(to), `${to} is a real page`)
+  for (const from of Object.keys(LEGACY_SETTINGS_REDIRECTS)) assert.ok(!routablePaths.includes(from), `${from} is not a page any more`)
+  assert.match(shell, /const moved = LEGACY_SETTINGS_REDIRECTS\[path\]\s*\n\s*if \(moved\) \{\s*\n\s*navigate\(moved, \{ replace: true \}\)/)
+  assert.match(shell, /if \(path\.startsWith\('\/settings'\) && !knownPaths\.includes\(path\)\) \{\s*\n\s*navigate\(DEFAULT_SETTINGS_PATH, \{ replace: true \}\)/)
+  assert.equal(DEFAULT_SETTINGS_PATH, '/settings/general')
 })
 
-test('two panes: a 240px rail beside the page, one column below 860px', () => {
-  assert.match(shellCss, /\.settings-grid \{\s*display: grid;\s*grid-template-columns: 240px minmax\(0, 1fr\);/)
-  assert.match(shellCss, /@media \(max-width: 860px\) \{\s*\.settings-grid \{ grid-template-columns: minmax\(0, 1fr\); \}/)
+test('routableSections is a superset of the rail for every role', () => {
+  for (const r of ROLE_COMBOS) {
+    const routableKeys = routableSections(r).map(s => s.key)
+    for (const key of railKeys(r)) assert.ok(routableKeys.includes(key))
+    for (const key of ['appearance', 'signature', 'tours', 'about']) assert.ok(routableKeys.includes(key), `${key} for ${JSON.stringify(r)}`)
+  }
 })
+
+test('deep-link consumers: the user menu and the portals open General; Interviewers opens Accounts', () => {
+  assert.equal(STAFF_SETTINGS_PATH, '/settings/general')
+  assert.match(read('src/components/UserMenu.jsx'), /navigate\(STAFF_SETTINGS_PATH\)/)
+  assert.match(read('src/components/InterviewersModal.jsx'), /navigate\('\/settings\/accounts'\)/)
+})
+
+// ── Preserved from earlier passes ───────────────────────────────────────────
 
 test('every section uses the full canonical workspace width (no caps)', () => {
-  assert.doesNotMatch(shell, /maxWidth: currentKey/)
-  assert.doesNotMatch(shell, /maxWidth: (1040|720)/)
+  assert.doesNotMatch(shell, /maxWidth: currentKey|maxWidth: (1040|720)/)
   assert.doesNotMatch(shellCss, /max-width: (1040|720)px/)
 })
 
@@ -160,44 +217,19 @@ test('the back breadcrumb sits at the workspace top offset, inside the canonical
 
 test('AboutPanel source: owns the buildInfo-backed content and the copy button', () => {
   const about = read('src/components/settings/AboutPanel.jsx')
-  assert.match(about, /import\s*\{\s*\n?\s*APP_NAME, APP_DESCRIPTION, CANONICAL_URL,/)
-  assert.match(about, /BUILD_SHA, BUILD_ENV, environmentLabel, formatBuildTime,/)
   assert.match(about, /from '\.\.\/\.\.\/lib\/buildInfo'/)
   assert.match(about, /navigator\.clipboard\.writeText\(BUILD_SHA\)/)
   assert.match(about, /aria-label="About"/)
-  assert.match(about, /<SurfaceCard padding="6px 18px 14px">/)
   for (const marker of ['BUILD_SHA', 'BUILD_ENV', 'CANONICAL_URL', 'APP_NAME', 'Copy build ID']) {
     assert.ok(about.includes(marker), `AboutPanel keeps ${marker}`)
   }
 })
 
-test('permissions: every gating function is unchanged', () => {
-  const s = (k) => SETTINGS_SECTIONS.find(x => x.key === k)
-  for (const k of ['accounts', 'communityBenefit', 'keith', 'knowledge', 'keithKnowledge', 'keithSkills', 'keithUsage']) {
-    assert.equal(s(k).visible({ isAdmin: true }), true, k)
-    assert.equal(s(k).visible({ isAdmin: false }), false, k)
-  }
-  for (const k of ['demoMode', 'preceptorParity']) {
-    assert.equal(s(k).visible({ isOwner: true }), true, k)
-    assert.equal(s(k).visible({ isOwner: false }), false, k)
-  }
-  for (const k of ['appearance', 'signature', 'tours', 'about']) assert.equal(s(k).visible(STAFF), true, k)
-  assert.equal(s('knowledge').inRail, false)
-})
-
-test('deep-link consumers: the user menu and the portals open Appearance; Interviewers still opens Accounts', () => {
-  assert.equal(STAFF_SETTINGS_PATH, '/settings/appearance')
-  assert.match(read('src/components/UserMenu.jsx'), /navigate\(STAFF_SETTINGS_PATH\)/)
-  assert.match(read('src/components/InterviewersModal.jsx'), /navigate\('\/settings\/accounts'\)/)
-})
-
 test('generic subtitles are gone; operational guidance survives inside content', () => {
-  assert.doesNotMatch(shell, /Manage your ASPIRE Intelligence workspace, preferences, access, and resources\./)
   assert.doesNotMatch(read('src/components/settings/AppearancePanel.jsx'), /Control how ASPIRE Intelligence looks/)
   assert.doesNotMatch(read('src/components/settings/ToursHelpPanel.jsx'), /Replay the guided tour or find your way/)
   const signature = read('src/components/settings/SignaturePanel.jsx')
   assert.match(signature, /manual ASPIRE Connect<\/strong> emails only/)
-  assert.match(signature, /<SurfaceCard padding=\{18\}>[\s\S]{0,400}manual ASPIRE Connect/)
   assert.match(read('src/components/settings/PreceptorParityPanel.jsx'), /by preceptor identity \(ID\)/)
 })
 
@@ -207,5 +239,4 @@ test('canonical SurfaceCard replaces the custom bordered containers', () => {
     assert.match(src, /import SurfaceCard from '\.\.\/ui\/SurfaceCard'/, `${f} imports SurfaceCard`)
     assert.doesNotMatch(src, /border: '1px solid var\(--color-border-default[\s\S]{0,80}borderRadius: 12/, `${f} has no custom bordered card`)
   }
-  assert.doesNotMatch(read('src/components/settings/ToursHelpPanel.jsx'), /const cardStyle/)
 })

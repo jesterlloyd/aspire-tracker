@@ -481,10 +481,11 @@ test('the migration carries a precheck, verification and an exact rollback', () 
 test('routes, IA and Keith behavior are untouched', () => {
   const sections = read('src/components/settings/settingsSections.js')
   assert.match(sections, /path: '\/settings\/keith\/knowledge'/)
-  const panel = read('src/components/settings/KeithPanel.jsx')
-  assert.match(panel, /const KEITH_DEFAULT_WORKSPACE = 'knowledge'/)
-  const order = [...panel.matchAll(/key: '(skills|knowledge|usage)',/g)].map(m => m[1])
-  assert.deepEqual(order, ['knowledge', 'skills', 'usage'], 'the alphabetical Keith IA is preserved')
+  // SETTINGS-HIERARCHY-1: Keith is a list page whose rows are the registry's drill-ins
+  // (KeithPanel's own nav is gone); the alphabetical order is what is preserved.
+  const order = [...sections.matchAll(/key: '(keithKnowledge|keithSkills|keithUsage)',/g)].map(m => m[1])
+  assert.deepEqual(order, ['keithKnowledge', 'keithSkills', 'keithUsage'], 'the alphabetical Keith IA is preserved')
+  assert.match(sections, /key: 'keithKnowledge'[^\n]*parent: 'keith'/)
 
   // Keith's own runtime, the skills surface and Usage & Cost are not touched.
   const keith = read('api/keith.js')

@@ -26,7 +26,9 @@ const read = (p) => readFileSync(join(here, '..', p), 'utf8')
 
 const dash    = read('src/components/evaluation/SurveyAutomationDashboard.jsx')
 const queue   = read('src/components/evaluation/ReviewReleaseQueue.jsx')
-const css     = read('src/components/evaluation/reviewReleaseClipboard.css') // REVIEW-RELEASE-2
+// REVIEW-RELEASE-2; the rail's own rules moved to the shared selection canon
+// (src/styles/selectionRail.css, SETTINGS-HIERARCHY-1), which Settings wears too.
+const css     = read('src/components/evaluation/reviewReleaseClipboard.css') + '\n' + read('src/styles/selectionRail.css')
 const tab     = read('src/components/EvaluationTab.jsx')
 
 // ── Nav-key routing (functional) ─────────────────────────────────────────────────────

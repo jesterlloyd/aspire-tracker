@@ -1,6 +1,9 @@
-// SETTINGS-KEITH-NESTED-1: Keith is a parent destination with its own secondary
-// navigation, following the Settings > General master-detail pattern rather than
-// the Rotation segmented control.
+// SETTINGS-KEITH-NESTED-1 made Keith a parent destination with three workspaces.
+// SETTINGS-HIERARCHY-1 (Owner, 2026-09-21) settled how a parent shows them: the Apple
+// System Settings pattern. /settings/keith is a LIST page of drill-in rows, a row opens
+// its workspace in the same right pane under a "Keith" breadcrumb, and the rail keeps
+// Keith selected. The master-detail middle pane, the 1280px compact picker and the
+// second sticky nav are gone with KeithPanel.
 //
 // Navigation and information architecture only. No Keith behavior, skill state,
 // permission, SQL, API or data-model change is in scope here, and several of
@@ -10,210 +13,131 @@
 
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readFileSync, existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
-import { SETTINGS_SECTIONS, visibleSections, routableSections } from '../src/components/settings/settingsSections.js'
+import {
+  SETTINGS_SECTIONS, LEGACY_SETTINGS_REDIRECTS, visibleSections, routableSections, childSections,
+} from '../src/components/settings/settingsSections.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const read = (p) => readFileSync(join(here, '..', p), 'utf8')
 const shell = read('src/components/settings/SettingsShell.jsx')
-// APPEARANCE-STYLE-1: the shell's layout rules moved from an inline <style> to this sheet.
 const shellCss = read('src/components/settings/settingsShell.css')
-const panel = read('src/components/settings/KeithPanel.jsx')
+const rail = read('src/styles/selectionRail.css')
 
 const ADMIN = { isOwner: false, isAdmin: true }
 const OWNER = { isOwner: true, isAdmin: true }
 const STAFF = { isOwner: false, isAdmin: false }
 const sectionFor = (key) => SETTINGS_SECTIONS.find(s => s.key === key)
+const WORKSPACES = [
+  ['keithKnowledge', '/settings/keith/knowledge', 'Knowledge Center', "Keith's governed knowledge and future Markdown vault"],
+  ['keithSkills', '/settings/keith/skills', 'Skills', 'Governed capabilities, lifecycle, and usage'],
+  ['keithUsage', '/settings/keith/usage', 'Usage & Cost', 'Keith activity, model usage, estimated spend, and operational health'],
+]
 
 // ── Route structure ──────────────────────────────────────────────────────────
 
-// KEITH-USAGE-1 updated this suite: Usage & Cost became the third workspace,
-// the order went alphabetical (Knowledge Center, Skills, Usage & Cost), and the
-// parent redirect landed on the first alphabetical entry instead of Skills.
-
-test('the Keith routes exist with the intended rail membership', () => {
+test('Keith is a rail destination; its three workspaces are its drill-ins', () => {
   const keith = sectionFor('keith')
   assert.equal(keith.path, '/settings/keith')
+  assert.equal(keith.group, 'Administration')
   assert.notEqual(keith.inRail, false, 'Keith is the top-level destination and stays in the rail')
-
-  for (const [key, path] of [['keithSkills', '/settings/keith/skills'], ['keithKnowledge', '/settings/keith/knowledge'], ['keithUsage', '/settings/keith/usage']]) {
+  for (const [key, path, label, sub] of WORKSPACES) {
     const s = sectionFor(key)
     assert.equal(s.path, path)
+    assert.equal(s.parent, 'keith')
+    assert.equal(s.label, label)
+    assert.equal(s.sub, sub, 'the supporting text is the approved copy')
     assert.equal(s.implemented, true)
     assert.equal(s.inRail, false, `${key} is reached through Keith, not from the rail`)
   }
-  // The legacy route survives so old links keep working.
-  assert.equal(sectionFor('knowledge').path, '/settings/knowledge')
-  assert.equal(sectionFor('knowledge').inRail, false)
 })
 
-test('/settings/keith redirects to Knowledge Center, the first alphabetical workspace', () => {
-  // KEITH-USAGE-1: the default landing destination moved from Skills to
-  // Knowledge Center when the workspace order went alphabetical.
-  assert.match(shell, /if \(path === '\/settings\/keith'\) \{[\s\S]*?navigate\('\/settings\/keith\/knowledge', \{ replace: true \}\)/)
-  // replace, not push: the parent must not become a history entry the user can
-  // land back on and be redirected from again.
-  assert.doesNotMatch(shell, /navigate\('\/settings\/keith\/knowledge'\)(?!, \{ replace)/)
+test('/settings/keith is the Keith list page, not a redirect', () => {
+  assert.doesNotMatch(shell, /path === '\/settings\/keith'\)/)
+  assert.equal(LEGACY_SETTINGS_REDIRECTS['/settings/keith'], undefined)
+  assert.match(shell, /const isListPage = currentKey === 'general' \|\| currentKey === 'keith'/)
+  assert.match(shell, /<SettingsListPage section=\{current\} rows=\{childSections\(currentKey, roleFlags\)\} navigate=\{navigate\} \/>/)
+  assert.match(shell, /keith: 'Govern what Keith knows, what Keith can do, and what it costs\.'/)
 })
 
-test('the legacy Knowledge Center route redirects under Keith', () => {
-  assert.match(shell, /if \(path === '\/settings\/knowledge'\) \{\s*\n\s*navigate\('\/settings\/keith\/knowledge', \{ replace: true \}\)/)
-  // It must NOT fall through to the unknown-path handler, which would bounce a
-  // valid old bookmark to General.
+test('the rows are alphabetical, in the registry, for Owner and Admin', () => {
+  for (const flags of [OWNER, ADMIN]) {
+    assert.deepEqual(childSections('keith', flags).map(s => s.key), WORKSPACES.map(w => w[0]))
+  }
+  assert.deepEqual(childSections('keith', STAFF), [])
+})
+
+test('the legacy Knowledge Center route redirects under Keith, before the unknown-path fallback', () => {
+  assert.equal(LEGACY_SETTINGS_REDIRECTS['/settings/knowledge'], '/settings/keith/knowledge')
+  assert.equal(sectionFor('knowledge'), undefined, 'it is a redirect now, not a page')
   const effect = shell.slice(shell.indexOf('useEffect(() => {'), shell.indexOf('}, [path])'))
-  assert.ok(effect.indexOf("path === '/settings/knowledge'") < effect.indexOf("!knownPaths.includes(path)"),
+  assert.ok(effect.indexOf('LEGACY_SETTINGS_REDIRECTS[path]') > -1)
+  assert.ok(effect.indexOf('LEGACY_SETTINGS_REDIRECTS[path]') < effect.indexOf('!knownPaths.includes(path)'),
     'the legacy redirect must be evaluated before the unknown-path fallback')
+  assert.match(effect, /navigate\(moved, \{ replace: true \}\)/)
 })
 
-test('all three workspace routes are directly reachable, not only via redirect', () => {
+test('all three workspace routes are directly reachable, not only through the list', () => {
   const paths = routableSections(ADMIN).map(s => s.path)
-  assert.ok(paths.includes('/settings/keith/skills'))
-  assert.ok(paths.includes('/settings/keith/knowledge'))
-  assert.ok(paths.includes('/settings/keith/usage'))
+  for (const [, path] of WORKSPACES) assert.ok(paths.includes(path))
   assert.ok(paths.includes('/settings/keith'))
-  assert.ok(paths.includes('/settings/knowledge'), 'the legacy path must stay routable to be redirectable')
 })
 
 // ── Selection state ──────────────────────────────────────────────────────────
 
-test('the rail highlights Keith for every Keith workspace', () => {
-  // KEITH-USAGE-1: the fold map gained keithUsage.
-  assert.match(shell, /const KEITH_SUBKEYS = \{ keithSkills: 'skills', keithKnowledge: 'knowledge', keithUsage: 'usage' \}/)
-  assert.match(shell, /KEITH_SUBKEYS\[currentKey\] \? 'keith' : currentKey/)
-  assert.match(shell, /active = s\.key === railActiveKey/)
-})
-
-test('the secondary navigation marks the selected workspace', () => {
-  assert.match(panel, /aria-current=\{active \? 'page' : undefined\}/)
-  assert.match(panel, /const active = row\.key === activeKey/)
-  // Desktop passes the resolved key so a row is always selected.
-  assert.match(panel, /<WorkspaceList activeKey=\{selectedKey\} \/>/)
-})
-
-test('the workspaces are alphabetical and Knowledge Center is the default', () => {
-  // KEITH-USAGE-1: was skills-first by deliberate choice; the approved Usage &
-  // Cost plan switched Keith to the Settings > General alphabetical convention.
-  assert.match(panel, /const KEITH_DEFAULT_WORKSPACE = 'knowledge'/)
-  const order = [...panel.matchAll(/key: '(skills|knowledge|usage)',/g)].map(m => m[1])
-  assert.deepEqual(order, ['knowledge', 'skills', 'usage'],
-    'alphabetical by label: Knowledge Center, Skills, Usage & Cost')
-  assert.match(panel, /const selectedKey = subKey \|\| KEITH_DEFAULT_WORKSPACE/)
-})
-
-test('the supporting text matches the approved copy', () => {
-  assert.match(panel, /description: 'Governed capabilities, lifecycle, and usage'/)
-  assert.match(panel, /description: "Keith's governed knowledge and future Markdown vault"/)
-  assert.match(panel, /description: 'Keith activity, model usage, estimated spend, and operational health'/)
+test('the rail keeps Keith selected on every Keith workspace, and the page gets a breadcrumb', () => {
+  assert.match(shell, /const railActiveKey = current\.parent \|\| current\.key/)
+  assert.match(shell, /const active = s\.key === activeKey/)
+  assert.match(shell, /\{parent && <SettingsCrumb parent=\{parent\} here=\{current\} navigate=\{navigate\} \/>\}/)
+  assert.match(shell, /<nav className="settings-crumb" aria-label="Breadcrumb">/)
+  assert.match(shell, /<span className="settings-crumb-here" aria-current="page">\{here\.label\}<\/span>/)
 })
 
 // ── Access ───────────────────────────────────────────────────────────────────
 
-test('Owner and Admin reach Keith and both workspaces; other staff reach none', () => {
+test('Owner and Admin reach Keith and every workspace; other staff reach none', () => {
   for (const flags of [OWNER, ADMIN]) {
     const paths = routableSections(flags).map(s => s.path)
-    for (const p of ['/settings/keith', '/settings/keith/skills', '/settings/keith/knowledge', '/settings/keith/usage']) {
+    for (const p of ['/settings/keith', ...WORKSPACES.map(w => w[1])]) {
       assert.ok(paths.includes(p), `${p} must be reachable`)
     }
     assert.ok(visibleSections(flags).some(s => s.key === 'keith'))
   }
   const staffPaths = routableSections(STAFF).map(s => s.path)
-  for (const p of ['/settings/keith', '/settings/keith/skills', '/settings/keith/knowledge', '/settings/keith/usage', '/settings/knowledge']) {
+  for (const p of ['/settings/keith', ...WORKSPACES.map(w => w[1])]) {
     assert.ok(!staffPaths.includes(p), `${p} must not be reachable without admin`)
   }
   assert.ok(!visibleSections(STAFF).some(s => s.key === 'keith'))
 })
 
 test('an unauthorized deep link falls back to the default page rather than rendering Keith', () => {
-  // knownPaths is built from routableSections(roleFlags), so for a non-admin the
-  // Keith paths are unknown and the normalization effect bounces them.
-  // APPEARANCE-STYLE-1: the default is Appearance now that General is retired.
   assert.match(shell, /const knownPaths = routable\.map\(s => s\.path\)/)
   assert.match(shell, /!knownPaths\.includes\(path\)/)
   assert.match(shell, /navigate\(DEFAULT_SETTINGS_PATH, \{ replace: true \}\)/)
 })
 
-// ── Responsive and accessibility ─────────────────────────────────────────────
-
-test('three columns above 1280px, compact picker at or below it', () => {
-  // Shell owns column 1; this panel owns columns 2 and 3 in the wide layout.
-  assert.match(panel, /flex: '0 0 248px', minWidth: 220/)
-  assert.match(panel, /flex: '1 1 420px', minWidth: 0/)
-  assert.match(panel, /const KEITH_COMPACT_BREAKPOINT = 1280/)
-  assert.match(panel, /function useIsCompact\(bp = KEITH_COMPACT_BREAKPOINT\)/)
-  assert.match(panel, /if \(compact\) \{/)
-  assert.match(panel, /<CompactWorkspacePicker activeKey=\{selectedKey\} \/>/)
-  // The compact branch is ONE column: the workspace follows the picker with no
-  // second pane competing for width.
-  const compactBranch = panel.slice(panel.indexOf('if (compact) {'), panel.indexOf('// Wide master-detail'))
-  assert.doesNotMatch(compactBranch, /flex: '0 0 248px'/)
-  assert.match(compactBranch, /<WorkspaceContent subKey=\{selectedKey\} \/>/)
-  // The old drill-down is gone: a compact picker replaces it, so there is no
-  // list-only state and no Back affordance to strand anyone in.
-  assert.doesNotMatch(panel, /BackToKeith/)
-  assert.doesNotMatch(panel, /useIsNarrow/)
-})
-
-test('the 1280 breakpoint is Keith-local and does not touch the shared Settings grid', () => {
-  // APPEARANCE-STYLE-1: the General hub is gone; the shell's own rail-stacking rule
-  // is 860px (the mockup's), in its stylesheet.
-  assert.match(shellCss, /@media \(max-width: 860px\) \{\s*\.settings-grid \{ grid-template-columns: minmax\(0, 1fr\); \}/)
-  // Pin the CONSTRUCT, not the number.
-  assert.doesNotMatch(shellCss, /max-width: 1280/)
-  assert.doesNotMatch(shell, /max-width: 1280/)
-  assert.doesNotMatch(shell, /useIsCompact|KEITH_COMPACT_BREAKPOINT/)
-})
-
-test('the compact picker keeps the wide layout\'s semantics exactly', () => {
-  const picker = panel.slice(panel.indexOf('function CompactWorkspacePicker'), panel.indexOf('function WorkspaceContent'))
-  // Same nav landmark and label as the wide list, so the accessibility tree does
-  // not change shape with the viewport.
-  assert.match(picker, /<SurfaceCard as="nav" aria-label="Keith workspaces"/)
-  assert.match(picker, /aria-current=\{active \? 'page' : undefined\}/)
-  assert.match(picker, /aria-label=\{`\$\{row\.label\}: \$\{row\.description\}`\}/)
-  assert.match(picker, /type="button"/, 'real buttons: native Tab and Enter, no roving-tabindex to get wrong')
-  // Not a select and not a segmented control - the approved direction rejected a
-  // segmented control as the Keith hierarchy.
-  assert.doesNotMatch(picker, /<select|role="tablist"|role="tab"/)
-  // Touch target large enough to hit on a tablet.
-  assert.match(picker, /minHeight: 44/)
-  // It navigates to the same real routes, so history behavior is identical.
-  assert.match(picker, /onClick=\{\(\) => navigate\(row\.path\)\}/)
-})
-
-test('the secondary navigation is labelled and keyboard-operable', () => {
-  assert.match(panel, /<SurfaceCard as="nav" aria-label="Keith workspaces"/)
-  assert.match(panel, /type="button"/, 'real buttons, so Tab and Enter work without extra handlers')
-  assert.match(panel, /aria-label=\{`\$\{row\.label\}: \$\{row\.description\}`\}/)
-  assert.match(panel, /<section aria-label="Keith"/)
-  assert.match(panel, /id="settings-keith-heading"/)
-})
-
 // ── Functional preservation ──────────────────────────────────────────────────
 
-test('every workspace renders its own panel through the hub', () => {
-  assert.match(panel, /import KeithSkillsPanel from '\.\/KeithSkillsPanel'/)
-  assert.match(panel, /import KnowledgeCenterPanel from '\.\/KnowledgeCenterPanel'/)
-  assert.match(panel, /import KeithUsagePanel from '\.\/KeithUsagePanel'/)
-  assert.match(panel, /if \(subKey === 'skills'\) return <KeithSkillsPanel \/>/)
-  assert.match(panel, /if \(subKey === 'usage'\) return <KeithUsagePanel \/>/)
-  // The fallthrough is the default workspace, matching KEITH_DEFAULT_WORKSPACE.
-  assert.match(panel, /return <KnowledgeCenterPanel \/>/)
-  // The shell no longer mounts them directly; the hub owns both.
-  assert.doesNotMatch(shell, /<KnowledgeCenterPanel \/>/)
-  assert.doesNotMatch(shell, /<KeithSkillsPanel \/>/)
-  assert.match(shell, /<KeithPanel subKey=\{keithSubKey\} \/>/)
+test('every workspace renders its own panel, unmodified, from the shell', () => {
+  assert.equal(existsSync(join(here, '..', 'src/components/settings/KeithPanel.jsx')), false, 'KeithPanel is retired')
+  assert.match(shell, /import KnowledgeCenterPanel from '\.\/KnowledgeCenterPanel'/)
+  assert.match(shell, /import KeithSkillsPanel from '\.\/KeithSkillsPanel'/)
+  assert.match(shell, /import KeithUsagePanel from '\.\/KeithUsagePanel'/)
+  assert.match(shell, /currentKey === 'keithKnowledge' && <KnowledgeCenterPanel \/>/)
+  assert.match(shell, /currentKey === 'keithSkills'    && <KeithSkillsPanel \/>/)
+  assert.match(shell, /currentKey === 'keithUsage'     && <KeithUsagePanel \/>/)
 })
 
 test('this change touches navigation only: no API, permission or skill-state edit', () => {
-  // The hub must not talk to the server or reason about skill lifecycle itself.
-  assert.doesNotMatch(panel, /fetch\(|supabase|keith-skills-admin|activate|enabled/i)
+  // The shell must not talk to the server or reason about skill lifecycle itself.
+  assert.doesNotMatch(shell, /fetch\(|supabase|keith-skills-admin/i)
   // Panel role gating is unchanged and still lives in the panels themselves.
   assert.match(read('src/components/settings/KeithSkillsPanel.jsx'), /isAdmin/)
   assert.match(read('src/components/settings/KnowledgeCenterPanel.jsx'), /isAdmin/)
   // Visibility predicates for the Keith routes are the same isAdmin gate as before.
-  for (const key of ['keith', 'keithSkills', 'keithKnowledge', 'keithUsage', 'knowledge']) {
+  for (const key of ['keith', 'keithSkills', 'keithKnowledge', 'keithUsage']) {
     assert.equal(sectionFor(key).visible({ isAdmin: true }), true)
     assert.equal(sectionFor(key).visible({ isAdmin: false }), false)
   }
@@ -259,77 +183,32 @@ test('Invocations and Failures merge into one Activity column with both values',
   assert.match(cell, /aria-label=\{`\$\{total\} invocation\$\{total === 1 \? '' : 's'\}, \$\{fails\} failure\$\{fails === 1 \? '' : 's'\}`\}/)
 })
 
-test('the refinement is table-only: navigation and the breakpoint are untouched', () => {
-  assert.match(panel, /const KEITH_COMPACT_BREAKPOINT = 1280/)
-  assert.match(panel, /<CompactWorkspacePicker activeKey=\{selectedKey\} \/>/)
-  // failureCount itself is unchanged shared logic.
+test('the refinement is table-only: failureCount is unchanged shared logic', () => {
   assert.match(read('src/components/settings/keithSkillFields.js'), /export function failureCount\(stats\)/)
 })
 
-// ── ANCHORED-NAV-1: navigation stays put while the workspace scrolls ─────────
+// ── ANCHORED-NAV-1: navigation stays put while the page scrolls ──────────────
 //
-// Root cause found by measurement, not by reading: the .settings-nav-rail sticky
-// rule had existed for some time and had NEVER worked. A sticky element travels
-// only inside its containing block, and the rail's column was sized to its own
-// content (315px) inside a 1346px row, because the row uses
-// align-items: flex-start. With ~315px of travel it unpinned almost immediately
-// and left with the page. Stretching the COLUMN is the fix; the sticky rule
-// itself was already correct.
-//
-// The model copied is Evaluation > Review and Release (.rr-nav): STICKY NAV +
-// PAGE SCROLL. Not an independently scrolling right pane, which would put two
-// vertical scrollbars on one screen.
+// Root cause, found by measurement: a sticky element travels only inside its
+// containing block. The Settings rail is a GRID item now (SETTINGS-HIERARCHY-1), whose
+// containing block is its grid area, the row's full height, so it needs no stretched
+// wrapper. The model is Evaluation > Review and Release's rail, and since this change it
+// IS that rail: STICKY NAV + PAGE SCROLL, never an independently scrolling right pane.
 
-test('the Settings rail is a sticky grid item, so its sticky rule can actually work', () => {
-  // APPEARANCE-STYLE-1: the rail is a grid item now, not a flex column. A sticky grid
-  // item travels inside its grid AREA, which spans the row's full height, so it needs
-  // no stretched wrapper (the flex layout did: ANCHORED-NAV-1).
+test('the Settings rail is the canon rail: sticky under the chrome, static once stacked', () => {
+  assert.match(shell, /<nav className="rr-nav settings-rail" aria-label="Settings sections">/)
+  assert.match(rail, /\.rr-nav \{[^}]*position: sticky; top: var\(--app-chrome-height, 0px\); align-self: start;/)
   assert.match(shellCss, /\.settings-grid \{[^}]*display: grid;[^}]*align-items: start;/)
-  assert.match(shell, /<nav className="settings-nav" aria-label="Settings sections">/)
-  assert.match(shellCss, /\.settings-nav \{\s*position: sticky;\s*top: 120px;/)
-  // Below the stacking breakpoint the rail sits above the page and is not sticky.
-  assert.match(shellCss, /@media \(max-width: 860px\) \{[\s\S]*?\.settings-nav \{\s*position: static;/)
+  assert.match(shellCss, /@media \(max-width: 900px\) \{\s*\.settings-grid \{ grid-template-columns: minmax\(0, 1fr\); \}\s*\.settings-rail\.rr-nav \{ position: static; \}/)
 })
 
-test('the Keith secondary nav anchors the same way, at the same offset', () => {
-  assert.match(panel, /\.keith-nav-col \{ align-self: stretch; \}/)
-  assert.match(panel, /className="keith-nav-col"/)
-  assert.match(panel, /position: sticky; top: 120px; align-self: flex-start;/)
-  assert.match(panel, /className="keith-nav-card"/)
-  // Same top offset as the primary rail, so the two pin on one line rather than
-  // at two different heights.
-  const railTop = /\.settings-nav \{\s*position: sticky;\s*top: (\d+)px/.exec(shellCss)[1]
-  const navTop = /\.keith-nav-card \{[\s\S]*?top: (\d+)px/.exec(panel)[1]
-  assert.equal(navTop, railTop, 'both navs must pin at the same offset')
-})
-
-test('the compact picker stays reachable during a long scroll', () => {
-  assert.match(panel, /\.keith-picker \{\s*\n\s*position: sticky; top: 120px;/)
-  // It needs an opaque background or scrolled rows would show through it.
-  assert.match(panel, /background: var\(--color-bg-app, #faf8f4\)/)
-  assert.match(panel, /className="keith-picker"/)
-  // The approved compact mode is preserved: no drill-down comes back.
-  assert.doesNotMatch(panel, /BackToKeith/)
-})
-
-test('anchoring adds NO second vertical scroll region', () => {
-  // The reference deliberately keeps the page as the single scroll owner. The
-  // navs carry overflow-y only as a safety valve for a nav taller than the
-  // viewport, with overscroll-behavior so it cannot chain to the page.
-  for (const src of [shellCss, panel]) {
-    assert.match(src, /overscroll-behavior: contain/)
-  }
-  // The workspace pane itself must NOT become a scroller - that is the thing the
-  // approved scope rules out.
-  assert.doesNotMatch(panel, /overflowY: 'auto'|overflow-y: auto;[^}]*keith-workspace/)
-  const wide = panel.slice(panel.indexOf('// Wide master-detail'))
-  assert.doesNotMatch(wide, /overflow/, 'the right workspace pane owns no scrolling of its own')
+test('there is one navigation, and no second vertical scroll region', () => {
+  assert.doesNotMatch(shell, /keith-nav|keith-picker|KEITH_COMPACT_BREAKPOINT|useIsCompact/)
+  assert.doesNotMatch(shellCss, /overflow-y: auto/)
+  assert.doesNotMatch(shellCss, /max-width: 1280/)
 })
 
 test('Accounts and Preceptor Parity are not restructured', () => {
-  // They gain the rail fix for free (it lives in the shell) and are otherwise
-  // untouched: no secondary nav to anchor, no scroll owner changed. (General was
-  // retired by APPEARANCE-STYLE-1.)
   const parity = read('src/components/settings/PreceptorParityPanel.jsx')
   const accounts = read('src/components/settings/AccountsAccessPanel.jsx')
   for (const src of [parity, accounts]) {

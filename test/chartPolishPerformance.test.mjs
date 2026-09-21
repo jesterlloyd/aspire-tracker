@@ -18,12 +18,13 @@ test('Catalog: honest access copy, no inert Manage labels', () => {
   assert.doesNotMatch(cat, />Manage<\/span>/)
 })
 
-test('Settings: personal vs workspace vs owner diagnostics', () => {
+test('Settings: workspace vs administration vs owner diagnostics', () => {
   const sections = read('src/components/settings/settingsSections.js')
-  // APPEARANCE-STYLE-1: Personal became "You", and General was retired.
-  assert.match(sections, /key: 'appearance'[^\n]*group: 'You'/)
-  assert.match(sections, /key: 'signature',\s*label: 'Email Signature'[^\n]*group: 'You'/)
-  assert.match(sections, /key: 'accounts'[^\n]*group: 'Workspace'/)
+  // SETTINGS-HIERARCHY-1: the personal pages are General's rows, not rail groups.
+  assert.match(sections, /key: 'general'[^\n]*group: 'Workspace'/)
+  assert.match(sections, /key: 'appearance'[^\n]*parent: 'general'/)
+  assert.match(sections, /key: 'signature',\s*label: 'Email Signature'[^\n]*parent: 'general'/)
+  assert.match(sections, /key: 'accounts'[^\n]*group: 'Administration'/)
   // The migration diagnostic is Owner-only and lives under Diagnostics.
   assert.match(sections, /key: 'preceptorParity'[^\n]*group: 'Diagnostics'[^\n]*visible: r => r\.isOwner/)
   // Server-authorization reminder retained.

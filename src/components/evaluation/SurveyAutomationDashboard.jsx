@@ -17,6 +17,7 @@ import {
   adaptCaseyFinkPostRotation, adaptAspireFeedback, adaptUnitLeaderRelease,
 } from '../../lib/evaluation/reviewQueueAdapters'
 import { countsOf, sumCounts, isToday, localToday } from '../../lib/evaluation/reviewQueueShape'
+import '../../styles/selectionRail.css'
 import './reviewReleaseClipboard.css'
 import {
   LAST_WORKFLOW_STORAGE_KEY,

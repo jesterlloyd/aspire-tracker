@@ -23,8 +23,8 @@ export const PORTAL_LINKS = Object.freeze([
 
 // Where the portal menus send a staff member who wants back out of the portals.
 export const MAIN_APP_PATH = '/aggregate'
-// APPEARANCE-STYLE-1: Settings opens on Appearance; the General hub is retired.
-export const STAFF_SETTINGS_PATH = '/settings/appearance'
+// SETTINGS-HIERARCHY-1: Settings opens on General, the first destination in its rail.
+export const STAFF_SETTINGS_PATH = '/settings/general'
 
 // The portal a staff-preview path names, or null when the path is not a preview path.
 // A real portal user lives at /portal (and /portal/messages, /portal/profile), which is

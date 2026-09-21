@@ -250,8 +250,7 @@ export default function UserMenu() {
               </div>
             )}
 
-            {/* WS2.1: Settings link. APPEARANCE-STYLE-1: it opens on Appearance, the first
-                page of the rail, now that the General hub is retired. */}
+            {/* WS2.1: Settings link, to General (SETTINGS-HIERARCHY-1). */}
             <button
               onClick={() => { setIsOpen(false); navigate(STAFF_SETTINGS_PATH); }}
               style={{ width: '100%', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '10px', background: 'none', border: 'none', fontFamily: 'Plus Jakarta Sans', fontSize: '13px', color: 'var(--color-text-primary,#374151)', cursor: 'pointer', textAlign: 'left', borderTop: '1px solid var(--color-border-subtle,#f3f4f6)', transition: 'background 0.15s ease' }}
