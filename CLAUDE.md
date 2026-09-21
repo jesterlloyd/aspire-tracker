@@ -832,8 +832,9 @@ and `contactsBook.css`), bound in cognac leather, the same leather as the Interv
   no `full_name`, in both layouts.
 - **The plate wears Student Profiles' icons** (Mail, Phone, Pencil at 15px) and LinkedIn is
   `/linkedin-logo.svg` on a fixed white face (a blue wordmark goes muddy on dark paper).
-- **The pages sit on the canonical fore edge** (`.material-forestack`) on both sides,
-  gold-toned because the book is gilt-edged; the gilt hairline is its own element
+- **The pages sit on the rubric's own fore edge** (`.material-forestack`, untouched) on
+  both sides (Owner, 2026-09-21: "I like the stack you used in interview rubric"; a
+  gold-tinted copy was tried first and dropped). The gilt hairline is its own element
   (`.ab-tooling`) because the cover's pseudo-elements are the stack.
 - **Where the book leaves the mockup, on purpose.** The cover's deep drop has a negative
   spread (the pane is a scroll container). Dark mode lifts the cognac used as INK

@@ -653,7 +653,7 @@ test('hover lifts a letter on paper and a shadow; only a press, a drag or a key 
   assert.doesNotMatch(src, /onPointerLeave|pointerType === 'mouse'\) point/, 'no hover preview survives')
 })
 
-test('the stack either side of the pages is the canonical fore edge, gold, and the gilt strips are gone', () => {
+test('the stack either side of the pages is the rubric\'s own fore edge, and the gilt strips are gone', () => {
   const css = read('src/components/connect/contactsBook.css')
   assert.match(strip(read('src/components/connect/ContactsBook.jsx')), /className="ab-book material-leather-cognac material-forestack"/)
   assert.match(css, /\.ab-book\.material-forestack \{[\s\S]*?--fore-w: var\(--ab-stack-w\);/)
@@ -661,6 +661,11 @@ test('the stack either side of the pages is the canonical fore edge, gold, and t
   assert.doesNotMatch(css, /\.ab-page-left::after|\.ab-page-right::after/)
   assert.doesNotMatch(css, /\.ab-book::before/, 'the cover\'s pseudo-elements belong to the stack')
   assert.match(css, /\.ab-tooling \{/)
+  // Owner, 2026-09-21: the rubric's stack, not a tinted copy of it. The book sets only
+  // where the block sits and how thick it is; the page edges themselves are pageStack.css.
+  assert.doesNotMatch(css, /\.material-forestack::(before|after)|--ab-fore-/, 'the book is repainting the stack')
+  assert.match(read('src/components/rubric/rubricBook.css'), /--rb-stack-w: 13px/)
+  assert.match(css, /--ab-stack-w: 13px/, 'the same thickness as the rubric')
 })
 
 test('the rubric is bound in the same cognac, and both darken together', () => {
@@ -682,5 +687,5 @@ test('the flag migration adds one column and nothing else', () => {
   const checks = read('db/audit/contact_followup_flag_checks.sql').split(/^-- ── /m).slice(1)
   assert.equal(checks.length, 4)
   for (const section of checks) assert.equal((section.replace(/--.*$/gm, '').match(/;/g) || []).length, 1, 'one query per section')
-  assert.match(read('docs/security/OWNER_SQL_GATE.md'), /\| 20260925000000_contact_followup_flag\.sql \|[^\n]*NOT APPLIED/)
+  assert.match(read('docs/security/OWNER_SQL_GATE.md'), /\| 20260925000000_contact_followup_flag\.sql \|[^\n]*APPLIED[^\n]*contact_followup_flag_checks\.sql/)
 })

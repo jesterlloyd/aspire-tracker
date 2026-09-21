@@ -33,8 +33,10 @@ SELECT
 FROM public.contacts;
 
 -- ── POST 3: the policies on contacts are exactly what they were ─────────────────────
--- Expect the same policy names PRE-existing: the staff SELECT policy and the writer
--- INSERT / UPDATE / DELETE policies. This migration adds none and changes none.
+-- Expect the policies contacts already had: contacts_service_role_all (ALL), the staff
+-- SELECT policy, and the writer INSERT / UPDATE / DELETE policies. This migration adds
+-- none and changes none. (The first version of this comment left out the service-role
+-- policy; the Owner's run on 2026-09-21 listed it, and it predates this migration.)
 SELECT string_agg(policyname || ' (' || cmd || ')', ', ' ORDER BY policyname) AS contacts_policies
 FROM pg_policies
 WHERE schemaname = 'public' AND tablename = 'contacts';

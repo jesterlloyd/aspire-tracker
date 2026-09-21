@@ -8,8 +8,8 @@
    has chosen the book (ContactsBook is its own chunk).
 
    The cover is .material-leather-cognac from aspireMaterials.css, with the canonical
-   fore edge (.material-forestack, pageStack.css) either side of the spread, gold-toned
-   because this book's page edges are gilt. Corners read tokens:
+   fore edge (.material-forestack, pageStack.css) either side of the spread: the
+   Interview Rubric's own stack, untouched (Owner, 2026-09-21). Corners read tokens:
    the cover --aspire-radius-address-book, the paper --aspire-radius-sheet, a thumb tab
    --aspire-radius-tab (it is an index tab), controls --aspire-radius-control, pills
    --aspire-radius-pill. The two chip corners the mockup draws are named once below. */
@@ -47,11 +47,6 @@
   --ab-current: rgba(154, 98, 54, 0.13);
   --ab-fold: linear-gradient(90deg,
     rgba(70, 45, 20, 0), rgba(70, 45, 20, 0.16) 38%, rgba(70, 45, 20, 0.30) 50%, rgba(70, 45, 20, 0.14) 62%, rgba(70, 45, 20, 0));
-  /* Gilt page edges: the fore edge's four close tones, gold instead of white. */
-  --ab-fore-1: #F3E7C1;
-  --ab-fore-2: #DCC585;
-  --ab-fore-3: #F8EFD2;
-  --ab-fore-4: #D2B872;
   /* The canonical ribbon's two reds (the rubric's and the chart's), for the list mark
      and the Flagged only chip that stand for it. */
   --ab-ribbon: #C0392B;
@@ -91,10 +86,6 @@
   --ab-current: rgba(221, 169, 124, 0.12);
   --ab-fold: linear-gradient(90deg,
     rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.16) 38%, rgba(0, 0, 0, 0.30) 50%, rgba(0, 0, 0, 0.14) 62%, rgba(0, 0, 0, 0));
-  --ab-fore-1: #9A8144;
-  --ab-fore-2: #7F6A36;
-  --ab-fore-3: #A58B4C;
-  --ab-fore-4: #76622F;
   --ab-focus: var(--color-focus-ring, #9FB0F5);
 }
 .ab-shell :focus-visible {
@@ -122,7 +113,8 @@
   pointer-events: none;
 }
 /* The pages underneath (CONTACTS-BOOK-3, Owner: "improve the stack on either side of the
-   pages"). The rubric's fore edge, not a stripe: a block of many page edges on each
+   pages"; 2026-09-21: "I like the stack you used in interview rubric. use that in address
+   book too"). The rubric's fore edge, exactly, not a stripe and not a tinted copy: a block of many page edges on each
    side, nothing at the bottom, because an open book has no loose bottom edge. The
    insets say where the spread's box is, so the blocks land in the cover's padding. */
 .ab-book.material-forestack {
@@ -131,18 +123,6 @@
   --stack-inset-b: var(--ab-cover-pad);
   --stack-inset-l: var(--ab-cover-pad-x);
   --fore-w: var(--ab-stack-w);
-}
-/* Same pitch, same four unequal widths, same turn away from the light as the canonical
-   stack: only the tones are gold, because this book is gilt-edged. */
-.ab-book.material-forestack::before,
-.ab-book.material-forestack::after {
-  background-image:
-    linear-gradient(var(--fore-turn, 90deg), rgba(70, 45, 20, 0) 45%, rgba(70, 45, 20, 0.26) 100%),
-    repeating-linear-gradient(90deg,
-      var(--ab-fore-1) 0, var(--ab-fore-1) 0.7px,
-      var(--ab-fore-2) 0.7px, var(--ab-fore-2) 1.0px,
-      var(--ab-fore-3) 1.0px, var(--ab-fore-3) 1.6px,
-      var(--ab-fore-4) 1.6px, var(--ab-fore-4) 1.9px);
 }
 
 /* ── The spread ────────────────────────────────────────────────────────────── */
