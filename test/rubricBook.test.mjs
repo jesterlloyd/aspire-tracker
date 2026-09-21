@@ -92,7 +92,7 @@ test('BOOK 6: a missing measurement never produces a broken book', () => {
 // ── 2. The spread ───────────────────────────────────────────────────────────
 
 test('SPREAD 1: a cover, two pages, a seam and an index, in that order', () => {
-  const order = ['rb-cover material-leather-tan', 'rb-page rb-page-left', 'rb-seam', 'rb-page rb-page-right', 'rb-index']
+  const order = ['rb-cover material-leather-cognac-hide', 'rb-page rb-page-left', 'rb-seam', 'rb-page rb-page-right', 'rb-index']
   let at = -1
   for (const cls of order) {
     const next = session.indexOf(cls)
@@ -100,8 +100,11 @@ test('SPREAD 1: a cover, two pages, a seam and an index, in that order', () => {
     at = next
   }
   // The cover is a material, and the material is defined once, with the others.
-  assert.match(read('src/styles/aspireMaterials.css'), /\.material-leather-tan\s*\{/)
-  assert.match(read('src/styles/aspireBrand.css'), /--aspire-leather-tan:/)
+  // CONTACTS-BOOK-3 (Owner): cognac, the leather the address book is bound in; the tan
+  // is retired so the app's two books are one leather.
+  assert.match(read('src/styles/aspireMaterials.css'), /\.material-leather-cognac-hide\s*\{/)
+  assert.match(read('src/styles/aspireBrand.css'), /--aspire-leather-cognac:/)
+  assert.ok(!read('src/styles/aspireBrand.css').includes('--aspire-leather-tan'), 'the tan came back')
 })
 
 test('SPREAD 2: the candidate is on the LEFT and the rubric on the RIGHT, as on the Placement Board', () => {
@@ -361,7 +364,7 @@ test('BOOK 7: the book is a bound object: a heavy fold, square pages, a stack of
   // because an open book has no loose bottom edge. What this test is for is unchanged:
   // the book must SHOW the sheets it holds.
   assert.match(bookCss, /@import '\.\.\/\.\.\/styles\/pageStack\.css';/)
-  assert.match(read('src/components/RubricSession.jsx'), /className="rb-cover material-leather-tan material-forestack"/)
+  assert.match(read('src/components/RubricSession.jsx'), /className="rb-cover material-leather-cognac-hide material-forestack"/)
   assert.match(bookCss, /\.rb-cover\.material-forestack \{[\s\S]*?--fore-w: var\(--rb-stack-w\);/)
   // Both fore edges, and NOTHING below: the cover's padding is two values, so the bottom
   // board is the same leather as the top and holds no overhang.
@@ -376,7 +379,7 @@ test('BOOK 7: the book is a bound object: a heavy fold, square pages, a stack of
   assert.ok(crop && Number(crop[1]) <= 2, `the block sits ${crop?.[1]}px in from the page; it should lie under it`)
   // The cover is hide, not cork: a uniform fine speckle on a flat tone is what cork is.
   const materials = read('src/styles/aspireMaterials.css')
-  const tan = materials.match(/\.material-leather-tan \{[\s\S]*?\n\}/)[0]
+  const tan = materials.match(/\.material-leather-cognac-hide \{[\s\S]*?\n\}/)[0]
   assert.match(tan, /var\(--aspire-noise-hide\)/, 'the cover went back to dust')
   assert.ok(!tan.includes('--aspire-noise-fine'), 'the fine speckle is what read as cork')
   // Lit from one side: the same texture twice, offset, is what makes a relief out of a
@@ -413,7 +416,7 @@ test('BOOK 7: the book is a bound object: a heavy fold, square pages, a stack of
   // The cover is a thin board, and it is leather rather than grain.
   assert.match(bookCss, /--rb-cover-pad: 14px/)
   assert.ok(!read('src/styles/aspireMaterials.css').slice(
-    read('src/styles/aspireMaterials.css').indexOf('.material-leather-tan'),
+    read('src/styles/aspireMaterials.css').indexOf('.material-leather-cognac-hide'),
     read('src/styles/aspireMaterials.css').indexOf('.paper-note')).includes('--aspire-noise-grain'),
     'the cover is wearing the coarse grain again')
 })

@@ -1,12 +1,15 @@
 /* CONTACTS-BOOK-1 (2026-09-20): ASPIRE Connect > Contacts, read as an address book.
-   The reference is docs/mockups/contacts-book-mockup.html. Two pages bound in oxblood
-   leather: the list on the left (38%), the whole contact record on the right (62%),
+   The reference is docs/mockups/contacts-book-mockup.html. Two pages bound in cognac
+   leather (oxblood until CONTACTS-BOOK-3; the Interview Rubric wears the same cognac):
+   the list on the left (38%), the whole contact record on the right (62%),
    including Recent Communications and Linked Students, which Classic keeps in a third
    column. Every class here is ab-* and belongs to this book only; Classic's three-zone
    screen is not touched by any rule in this file, and this file loads only when a person
    has chosen the book (ContactsBook is its own chunk).
 
-   The cover is .material-leather-oxblood from aspireMaterials.css. Corners read tokens:
+   The cover is .material-leather-cognac from aspireMaterials.css, with the canonical
+   fore edge (.material-forestack, pageStack.css) either side of the spread, gold-toned
+   because this book's page edges are gilt. Corners read tokens:
    the cover --aspire-radius-address-book, the paper --aspire-radius-sheet, a thumb tab
    --aspire-radius-tab (it is an index tab), controls --aspire-radius-control, pills
    --aspire-radius-pill. The two chip corners the mockup draws are named once below. */
@@ -14,32 +17,45 @@
 
 /* ── Paper and ink ─────────────────────────────────────────────────────────── */
 /* An ink and its surface are one decision, so both themes are defined here together.
-   --ab-accent is the oxblood used as INK (the selection bar, initials, links) and
-   --ab-fill the oxblood used as a SURFACE under cream text (+ Add, Email, the active
-   chip and letter). In light they are the mockup's one colour. In dark the mockup's
-   cover tone (#3E1A20) measures about 1.2:1 against the dark paper, which would make
-   the selection bar and every initial invisible, so dark lifts the ink and deepens
-   nothing else. */
+   --ab-accent is the cognac used as INK (the selection bar, initials, links) and
+   --ab-fill the cognac used as a SURFACE under cream text (+ Add contact, Email, the
+   active chip and letter). Light is the mockup's paper and ink. In dark the cover tones
+   sit too close to the dark paper to be an ink, so dark lifts the ink and keeps the
+   light fill, which still carries cream text. */
 .ab-shell {
   --ab-radius-chip: 4px;   /* role badge, preference and log pills */
   --ab-radius-note: 5px;   /* the notes block's two open corners */
-  --ab-radius-bubble: 16px; /* the thumb index's letter bubble */
-  --ab-page: #FBF7F0;
-  --ab-page-2: #F3EDE3;
-  --ab-ink: #2A1D20;
-  --ab-mute: #7A6560;
-  /* The mockup's muted ink measures 4.24:1 on the open entry's tint; this is the
-     nearest step that clears 4.5 there. Only the open entry's subline reads it. */
-  --ab-mute-on-tint: #6E5954;
-  --ab-rule: rgba(90, 40, 45, 0.16);
-  --ab-line: rgba(90, 40, 45, 0.09);
-  --ab-accent: var(--aspire-leather-oxblood-lift);
-  --ab-fill: var(--aspire-leather-oxblood-lift);
+  --ab-radius-bubble: 18px; /* the thumb index's letter bubble (the mockup's) */
+  /* The cover's board around the spread: 15px of leather top and bottom, and on each
+     side the page stack (--ab-stack-w, the rubric's thickness) plus 16px of leather. */
+  --ab-stack-w: 13px;
+  --ab-cover-pad: 15px;
+  --ab-cover-pad-x: calc(16px + var(--ab-stack-w));
+  --ab-page: #FEFCF8;
+  --ab-page-2: #F7F3EC;
+  --ab-ink: #2A2019;
+  --ab-mute: #7A6A5C;
+  /* The muted ink on the open entry's tint, stepped down until it clears 4.5 there.
+     Only the open entry's subline reads it. */
+  --ab-mute-on-tint: #6A5A4D;
+  --ab-rule: rgba(110, 75, 40, 0.15);
+  --ab-line: rgba(110, 75, 40, 0.08);
+  --ab-accent: var(--aspire-leather-cognac-lift);
+  --ab-fill: var(--aspire-leather-cognac);
   --ab-on-fill: #FBEFD9;
-  --ab-hover: rgba(126, 43, 51, 0.06);
-  --ab-current: rgba(126, 43, 51, 0.11);
+  --ab-hover: rgba(154, 98, 54, 0.07);
+  --ab-current: rgba(154, 98, 54, 0.13);
   --ab-fold: linear-gradient(90deg,
-    rgba(60, 25, 28, 0), rgba(60, 25, 28, 0.16) 38%, rgba(60, 25, 28, 0.30) 50%, rgba(60, 25, 28, 0.14) 62%, rgba(60, 25, 28, 0));
+    rgba(70, 45, 20, 0), rgba(70, 45, 20, 0.16) 38%, rgba(70, 45, 20, 0.30) 50%, rgba(70, 45, 20, 0.14) 62%, rgba(70, 45, 20, 0));
+  /* Gilt page edges: the fore edge's four close tones, gold instead of white. */
+  --ab-fore-1: #F3E7C1;
+  --ab-fore-2: #DCC585;
+  --ab-fore-3: #F8EFD2;
+  --ab-fore-4: #D2B872;
+  /* The canonical ribbon's two reds (the rubric's and the chart's), for the list mark
+     and the Flagged only chip that stand for it. */
+  --ab-ribbon: #C0392B;
+  --ab-ribbon-deep: #96271C;
   --ab-focus: var(--aspire-navy);
 
   /* CONTACTS-BOOK-2: the page gives the book everything below the pinned section picker
@@ -60,9 +76,6 @@
   line-height: 1.55;
 }
 [data-theme='dark'] .ab-shell {
-  --aspire-leather-oxblood-lift: #3E1A20;
-  --aspire-leather-oxblood: #2E1218;
-  --aspire-leather-oxblood-deep: #210C11;
   --aspire-gilt: #A8862B;
   --aspire-gilt-deep: #6E5713;
   --ab-page: #1E1A1C;
@@ -72,12 +85,16 @@
   --ab-mute-on-tint: #B49E98;
   --ab-rule: rgba(240, 220, 215, 0.18);
   --ab-line: rgba(240, 220, 215, 0.07);
-  --ab-accent: #E39AA3;
-  --ab-fill: #7A2F39;
-  --ab-hover: rgba(227, 154, 163, 0.06);
-  --ab-current: rgba(227, 154, 163, 0.12);
+  --ab-accent: #DDA97C;
+  --ab-fill: #7A4A26;
+  --ab-hover: rgba(221, 169, 124, 0.06);
+  --ab-current: rgba(221, 169, 124, 0.12);
   --ab-fold: linear-gradient(90deg,
     rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.16) 38%, rgba(0, 0, 0, 0.30) 50%, rgba(0, 0, 0, 0.14) 62%, rgba(0, 0, 0, 0));
+  --ab-fore-1: #9A8144;
+  --ab-fore-2: #7F6A36;
+  --ab-fore-3: #A58B4C;
+  --ab-fore-4: #76622F;
   --ab-focus: var(--color-focus-ring, #9FB0F5);
 }
 .ab-shell :focus-visible {
@@ -91,17 +108,41 @@
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
-  padding: 15px 16px;
+  padding: var(--ab-cover-pad) var(--ab-cover-pad-x);
   border-radius: var(--aspire-radius-address-book);
 }
-/* The gilt rule tooled into the cover, 7px in from its edge. */
-.ab-book::before {
-  content: "";
+/* The gilt rule tooled into the cover, 7px in from its edge: its own element, because
+   the cover's ::before and ::after are the page stack. It sits outside the stack, which
+   starts at the spread's edge and reaches --ab-stack-w into the leather. */
+.ab-tooling {
   position: absolute;
   inset: 7px;
   border: 1px solid var(--aspire-gilt-hairline);
   border-radius: calc(var(--aspire-radius-address-book) - 3px);
   pointer-events: none;
+}
+/* The pages underneath (CONTACTS-BOOK-3, Owner: "improve the stack on either side of the
+   pages"). The rubric's fore edge, not a stripe: a block of many page edges on each
+   side, nothing at the bottom, because an open book has no loose bottom edge. The
+   insets say where the spread's box is, so the blocks land in the cover's padding. */
+.ab-book.material-forestack {
+  --stack-inset-t: var(--ab-cover-pad);
+  --stack-inset-r: var(--ab-cover-pad-x);
+  --stack-inset-b: var(--ab-cover-pad);
+  --stack-inset-l: var(--ab-cover-pad-x);
+  --fore-w: var(--ab-stack-w);
+}
+/* Same pitch, same four unequal widths, same turn away from the light as the canonical
+   stack: only the tones are gold, because this book is gilt-edged. */
+.ab-book.material-forestack::before,
+.ab-book.material-forestack::after {
+  background-image:
+    linear-gradient(var(--fore-turn, 90deg), rgba(70, 45, 20, 0) 45%, rgba(70, 45, 20, 0.26) 100%),
+    repeating-linear-gradient(90deg,
+      var(--ab-fore-1) 0, var(--ab-fore-1) 0.7px,
+      var(--ab-fore-2) 0.7px, var(--ab-fore-2) 1.0px,
+      var(--ab-fore-3) 1.0px, var(--ab-fore-3) 1.6px,
+      var(--ab-fore-4) 1.6px, var(--ab-fore-4) 1.9px);
 }
 
 /* ── The spread ────────────────────────────────────────────────────────────── */
@@ -113,7 +154,10 @@
   display: grid;
   grid-template-columns: 38fr 62fr;
   grid-template-rows: minmax(0, 1fr);
-  box-shadow: 0 2px 5px rgba(30, 10, 14, 0.4), 0 10px 26px rgba(30, 10, 14, 0.3);
+  box-shadow: 0 2px 5px rgba(40, 22, 8, 0.4), 0 10px 26px rgba(40, 22, 8, 0.3);
+  /* Above the stack: the cover's ::after paints after its children, so without this the
+     right-hand block of page edges would draw over the open pages. */
+  z-index: 1;
 }
 /* The fold: 26px of shadow down the gutter, darkest at its centre. */
 .ab-spread::after {
@@ -139,31 +183,17 @@
   color: var(--ab-ink);
 }
 .ab-page-left {
-  padding: 16px 14px 10px 42px;
+  padding: 12px 14px 10px 42px;
   border-radius: var(--aspire-radius-sheet) 0 0 var(--aspire-radius-sheet);
 }
 .ab-page-right {
   border-radius: 0 var(--aspire-radius-sheet) var(--aspire-radius-sheet) 0;
 }
-/* Gilt on both outer page edges. The pages do not scroll (their insides do), so the
-   gilt stays put. */
-.ab-page-left::after,
-.ab-page-right::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 3px;
-  background: linear-gradient(180deg, var(--aspire-gilt), var(--aspire-gilt-deep) 50%, var(--aspire-gilt));
-  pointer-events: none;
-}
-.ab-page-left::after { left: 0; }
-.ab-page-right::after { right: 0; }
 
 /* ── A-Z thumb index ───────────────────────────────────────────────────────── */
 .ab-thumb {
   position: absolute;
-  left: 3px;
+  left: 0;
   top: 14px;
   bottom: 14px;
   width: 33px;
@@ -178,6 +208,7 @@
   cursor: pointer;
 }
 .ab-thumb-tab {
+  position: relative;
   flex: 1 1 0;
   min-height: 0;
   padding: 0;
@@ -190,19 +221,28 @@
   letter-spacing: 0.02em;
   box-shadow: inset -1px 0 0 var(--ab-rule), 0 1px 1px rgba(0, 0, 0, 0.08);
   cursor: pointer;
-  transition: background-color 0.12s, color 0.12s;
+  transition: background-color 0.12s, color 0.12s, box-shadow 0.12s;
 }
+/* Hover lifts the letter on a paper face and a shadow (Owner, CONTACTS-BOOK-3): never a
+   dark fill, and never the bubble. Nothing moves; the shadow does the lifting. */
 .ab-thumb-tab:hover {
+  z-index: 1;
   background: var(--ab-page);
   color: var(--ab-ink);
+  box-shadow: 0 1px 2px rgba(70, 45, 20, 0.22), 0 3px 9px rgba(70, 45, 20, 0.28);
 }
-/* The letter under the pointer while it is on the index. After :hover, and paired with
-   it, so the highlight holds under the pointer it follows. */
+[data-theme='dark'] .ab-thumb-tab:hover {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 3px 9px rgba(0, 0, 0, 0.55);
+}
+/* The letter a press, a drag or a keyboard jump is on: the one dark letter, while the
+   bubble shows it. After :hover, and paired with it, so it holds under the pointer. */
 .ab-thumb-tab[data-active='true'],
 .ab-thumb-tab[data-active='true']:hover {
+  z-index: 1;
   background: var(--ab-fill);
   color: var(--ab-on-fill);
   font-weight: 600;
+  box-shadow: 0 2px 7px rgba(40, 22, 8, 0.38);
 }
 .ab-thumb-tab:disabled,
 .ab-thumb-tab:disabled:hover {
@@ -214,27 +254,32 @@
 }
 
 /* ── Left page: the list ───────────────────────────────────────────────────── */
+/* The list's header (Owner's mockup, CONTACTS-BOOK-3): search and Add on one row, the
+   categories, then the count with its two tools, closed by a hairline. */
 .ab-lhead {
   flex: none;
   display: grid;
   gap: 9px;
   margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--ab-rule);
 }
-.ab-lhead-top {
+.ab-lhead-row {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  gap: 9px;
+  gap: 8px;
 }
-.ab-title {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  color: var(--ab-ink);
+.ab-lhead-meta { justify-content: space-between; }
+.ab-meta-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 11.5px;
 }
 .ab-add {
-  padding: 5px 11px;
+  flex: none;
+  white-space: nowrap;
+  padding: 7px 12px;
   border: 0;
   border-radius: var(--aspire-radius-control);
   background: var(--ab-fill);
@@ -248,7 +293,8 @@
 /* Three classes and a type: the app's dark input rule is [data-theme] input[type=search]
    at (0,2,1), and paper must stay paper. */
 .ab-shell .ab-lhead input.ab-search {
-  width: 100%;
+  flex: 1 1 auto;
+  min-width: 0;
   box-sizing: border-box;
   padding: 7px 11px;
   border: 1px solid var(--ab-rule);
@@ -298,22 +344,36 @@
   text-transform: uppercase;
   color: var(--ab-mute);
 }
-.ab-tools {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 4px 10px;
-  font-size: 11.5px;
-  color: var(--ab-mute);
-}
-.ab-tools label {
+/* Flagged only: a chip that wears a small ribbon. */
+.ab-flagfilter {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
+  padding: 3px 10px;
+  border: 1px solid var(--ab-rule);
+  border-radius: var(--aspire-radius-pill);
+  background: none;
+  color: var(--ab-mute);
+  font: inherit;
+  font-size: 11.5px;
+  line-height: 1.5;
   cursor: pointer;
+  transition: background-color 0.12s, color 0.12s;
 }
-.ab-tools input { accent-color: var(--ab-fill); margin: 0; }
+.ab-flagfilter i {
+  width: 7px;
+  height: 11px;
+  background: var(--ab-ribbon);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 72%, 0 100%);
+}
+.ab-flagfilter:hover { color: var(--ab-ink); }
+.ab-flagfilter[aria-pressed='true'],
+.ab-flagfilter[aria-pressed='true']:hover {
+  border-color: var(--ab-ribbon-deep);
+  background: var(--ab-ribbon-deep);
+  color: #FFFFFF;
+}
+.ab-flagfilter[aria-pressed='true'] i { background: #FFFFFF; }
 .ab-link {
   padding: 0;
   border: 0;
@@ -334,24 +394,26 @@
   display: flex;
   flex-direction: column;
 }
-/* The letter bubble: the app's contrast-tooltip ink, left semi-transparent (Owner) so the
-   list reads through it. White on it measures above 8:1 on either paper. */
+/* The letter bubble (the Owner's mockup): black at 55% over a slight blur, dead centre of
+   the list, only while a press, a drag or a keyboard jump is under way. */
 .ab-bubble {
   position: absolute;
   top: 50%;
   left: 50%;
   z-index: 5;
-  width: 76px;
-  height: 76px;
+  width: 78px;
+  height: 78px;
   display: grid;
   place-items: center;
   translate: -50% -50%;
   border-radius: var(--ab-radius-bubble);
-  background: rgba(9, 12, 28, 0.72);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+  background: rgba(0, 0, 0, 0.55);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
   color: #FFFFFF;
   font-size: 38px;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1;
   opacity: 0;
   pointer-events: none;
@@ -386,7 +448,7 @@
   width: 100%;
   height: 52px;
   display: grid;
-  grid-template-columns: 30px minmax(0, 1fr);
+  grid-template-columns: 30px minmax(0, 1fr) auto;
   align-items: center;
   gap: 9px;
   padding: 0 6px;
@@ -412,6 +474,15 @@
 .ab-entry-inactive .ab-nm { color: var(--ab-mute); }
 .ab-entry-inactive[aria-current='true'] .ab-nm { color: var(--ab-mute-on-tint); }
 .ab-entry-text { min-width: 0; }
+/* A flagged contact's entry carries a small ribbon, the list form of the one on its
+   record. Paired with words for a screen reader, never colour alone. */
+.ab-flagmark {
+  width: 8px;
+  height: 15px;
+  margin-right: 2px;
+  background: linear-gradient(var(--ab-ribbon), var(--ab-ribbon-deep));
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 70%, 0 100%);
+}
 .ab-av {
   position: relative;
   width: 30px;
@@ -465,8 +536,6 @@
   min-height: 0;
   overflow-y: auto;
   padding: 18px 22px 20px;
-  /* Clear of the 3px gilt on the page edge, so a scrollbar never sits under it. */
-  margin-right: 3px;
 }
 .ab-rec {
   display: grid;
@@ -530,6 +599,12 @@
   font-size: 12.5px;
 }
 .ab-org { font-size: 13.5px; }
+/* The ribbon's state in words, under the organization: the rubric's pattern. */
+.ab-flagnote {
+  color: var(--ab-mute);
+  font-size: 12px;
+}
+.ab-flagnote b { color: var(--aspire-bad); font-weight: 700; }
 .ab-flag {
   padding: 2px 7px;
   border: 1px solid var(--ab-rule);
@@ -577,6 +652,55 @@
   opacity: 0.4;
   cursor: not-allowed;
 }
+/* LinkedIn is its wordmark from /public, as Classic shows it. The mark is one LinkedIn
+   blue, so it keeps a fixed white face in both themes: a literal ink beside a literal
+   surface (a blue wordmark on the dark paper went muddy). */
+.ab-act-linkedin,
+.ab-act-linkedin:hover {
+  padding: 6px 12px;
+  background: #FFFFFF;
+  border-color: rgba(10, 102, 194, 0.25);
+}
+.ab-act-linkedin:hover { border-color: rgba(10, 102, 194, 0.6); }
+.ab-act-linkedin img { display: block; }
+
+/* ── The follow-up ribbon ──────────────────────────────────────────────────── */
+/* CONTACTS-BOOK-3: the canonical FlagRibbon, sewn into the cover and hanging over the
+   record's page. Every declaration but its position is the Student Chart's .sc-ribbon,
+   value for value, so the three ribbons in the app read as one object;
+   test/contactsBook.test.mjs holds the two copies equal. */
+.ab-ribbon {
+  position: absolute;
+  top: 0;
+  right: calc(var(--ab-cover-pad-x) + 34px);
+  z-index: 6;
+  width: 48px;
+  padding: 26px 0 30px;
+  border: 0;
+  background: linear-gradient(#C0392B, #96271C);
+  color: #fff;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 78%, 0 100%);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.28);
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  display: grid;
+  justify-items: center;
+  cursor: pointer;
+  transition: background 0.18s ease, box-shadow 0.18s ease;
+}
+.ab-ribbon[aria-pressed="false"] {
+  padding: 10px 0 14px;
+  background: linear-gradient(var(--aspire-ribbon-idle), var(--aspire-ribbon-idle));
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.16);
+}
+/* After the state rules, and paired with them: equal specificity, so order decides. */
+.ab-ribbon:hover,
+.ab-ribbon[aria-pressed="false"]:hover { box-shadow: 0 4px 10px rgba(0, 0, 0, 0.32); }
+.ab-ribbon-dragging { transition: none; }
+.ab-ribbon:disabled { cursor: not-allowed; opacity: 0.55; }
+.ab-ribbon:focus-visible { z-index: 7; }
 
 .ab-sec {
   display: grid;
@@ -780,8 +904,12 @@
   .ab-record-scroll { overflow: visible; }
 }
 @media (max-width: 560px) {
-  .ab-shell { padding: 10px 16px; }
-  .ab-book { padding: 11px 10px; }
+  .ab-shell {
+    padding: 10px 16px;
+    --ab-stack-w: 7px;
+    --ab-cover-pad: 11px;
+    --ab-cover-pad-x: calc(8px + var(--ab-stack-w));
+  }
   .ab-record-scroll { padding: 16px 14px 18px; }
   .ab-fld { grid-template-columns: minmax(0, 1fr); gap: 0; }
   .ab-log-row { grid-template-columns: minmax(0, 1fr) auto; }

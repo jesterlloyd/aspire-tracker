@@ -40,10 +40,11 @@ test('BINDER 1: the binder is black leather with five rings, and the rings are d
   assert.match(panel, /className="sc-rings" aria-hidden="true"/)
 })
 
-test('BINDER 2: the leather is a material, defined once, beside the rubric book\'s tan', () => {
+test('BINDER 2: the leather is a material, defined once, beside the two books\' cognac', () => {
   const materials = read('src/styles/aspireMaterials.css')
   assert.match(materials, /\.material-leather-black \{/)
-  assert.match(materials, /\.material-leather-tan \{/)
+  assert.match(materials, /\.material-leather-cognac-hide \{/)
+  assert.match(materials, /\.material-leather-cognac \{/)
   // It reads the shared noise and the shared tokens; it does not restate a colour.
   assert.match(materials, /--aspire-noise-fine/)
   assert.ok(!/\.material-leather-black[\s\S]*?background-color: #/.test(materials),

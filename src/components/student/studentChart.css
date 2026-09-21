@@ -758,8 +758,7 @@
    surface needs whatever the page around it is doing. */
 [data-theme="dark"] .sc-paper .paper-note,
 [data-theme="dark"] .sc-paper .material-board,
-[data-theme="dark"] .sc-paper .material-leather-cream,
-[data-theme="dark"] .sc-paper .material-leather-tan {
+[data-theme="dark"] .sc-paper .material-leather-cream {
   --text-muted: #6B7785;
   --color-text-muted: #6B7785;
   --color-text-placeholder: #9CA3AF;

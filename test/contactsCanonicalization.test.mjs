@@ -502,6 +502,8 @@ test('both editors drive category, title, affiliation, units, and services from 
     'src/components/connect/ContactsView.jsx',
     'src/components/connect/useContactsDirectory.js',
     'src/components/connect/ContactsBook.jsx',
+    // CONTACTS-BOOK-3: the filter, the counts and CATEGORY_ORDER, pure, for both layouts.
+    'src/lib/connect/contactsDirectoryFilter.js',
   ].map(read).join('\n'))
   const portal = strip(read('src/portal/na/AcademicsContactsView.jsx'))
   for (const src of [staff, portal]) {

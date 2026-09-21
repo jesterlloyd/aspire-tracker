@@ -29,6 +29,7 @@ import { useContactsDirectory, CATEGORY_ORDER } from './useContactsDirectory'
 import { useUserPreference } from '../../hooks/useUserPreference'
 import { CONTACTS_LAYOUT } from '../../lib/userPreferences'
 import { lazyReload } from '../../lib/lazyReload'
+import { setContactFollowUpFlag } from '../../lib/contactFollowUpFlag'
 
 const F    = 'Plus Jakarta Sans, sans-serif'
 const NAVY = '#1D2567'
@@ -1741,7 +1742,9 @@ export default function ContactsView({ refreshKey = 0 }) {
       }
       setContacts(prev => prev.map(c => c.id === contact.id ? { ...c, is_active: newIsActive } : c))
       setDeactivateTarget(null)
-      if (!newIsActive && !showInactive) setSelectedId(null)
+      // The Address book always lists inactive contacts (CONTACTS-BOOK-3), so the record
+      // it deactivated stays open there; Classic hides it unless its toggle is on.
+      if (!newIsActive && !showInactive && layout !== 'book') setSelectedId(null)
       toast.success(
         newIsActive ? 'Reactivated' : 'Deactivated',
         newIsActive
@@ -1753,18 +1756,42 @@ export default function ContactsView({ refreshKey = 0 }) {
     } finally {
       setDeactivating(false)
     }
-  }, [deactivateTarget, showInactive, toast, setContacts, setSelectedId])
+  }, [deactivateTarget, showInactive, toast, setContacts, setSelectedId, layout])
 
   const handleDeactivateRequest = useCallback(contact => setDeactivateTarget({
     contact,
     action: contact.is_active === false ? 'reactivate' : 'deactivate',
   }), [])
 
+  // CONTACTS-BOOK-3: the follow-up ribbon (Address book only). Paints the list at once,
+  // takes the server's row when it answers, and puts the flag back if the write fails.
+  // The ribbon and the list entry read the same contacts array, so painting it is the
+  // whole refresh; nothing else in the app reads this flag.
+  const handleFlag = useCallback(async (contact, next) => {
+    const paint = (value) => setContacts(prev => prev.map(c => c.id === contact.id ? { ...c, flagged_for_followup: value } : c))
+    paint(next)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const r = await setContactFollowUpFlag(contact.id, next, { accessToken: session?.access_token })
+      if (!r.ok && r.notEnabled) {
+        paint(contact.flagged_for_followup)
+        toast.info('Follow-up flag not enabled', 'The database column has not been added yet.')
+        return
+      }
+      if (r.contact) setContacts(prev => prev.map(c => c.id === contact.id ? { ...c, ...r.contact } : c))
+      toast.success(next ? 'Flagged for follow-up' : 'Follow-up flag removed', contact.full_name)
+    } catch (e) {
+      paint(contact.flagged_for_followup)
+      toast.error(next ? 'Not flagged' : 'Flag not removed', e?.message || 'Please try again.')
+    }
+  }, [setContacts, toast])
+
   const actions = {
     navigate, toast,
     onAdd: handleOpenAdd,
     onEdit: handleOpenEdit,
     onDeactivate: handleDeactivateRequest,
+    onFlag: handleFlag,
   }
 
   return (

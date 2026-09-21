@@ -9,14 +9,15 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
-import {
-  PRECEPTOR_ROLES, getContactCategories, CONTACT_CATEGORY_ORDER,
-} from '../../lib/contactCategories'
+import { PRECEPTOR_ROLES } from '../../lib/contactCategories'
+import { contactMatches, countCategories, CATEGORY_ORDER } from '../../lib/connect/contactsDirectoryFilter.js'
 
 export const LAST_CONTACT_KEY = 'aspire.connect.contacts.lastContactId'
 
-// CONTACTS-CANON-1: the chip row derives from the shared canonical order.
-export const CATEGORY_ORDER = ['All', ...CONTACT_CATEGORY_ORDER]
+// CATEGORY_ORDER, the filter and the counts are pure and live in
+// src/lib/connect/contactsDirectoryFilter.js, so the Address book can read them without
+// importing this hook's network code. CATEGORY_ORDER is re-exported for ContactsView.
+export { CATEGORY_ORDER } from '../../lib/connect/contactsDirectoryFilter.js'
 
 const CONTACTS_SELECT = () => supabase
   .from('contacts')
@@ -189,14 +190,7 @@ export function useContactsDirectory({ refreshKey = 0 } = {}) {
   const selected = contacts.find(c => c.id === selectedId) || null
 
   // Category counts - respect the showInactive toggle so pills count only visible contacts
-  const categoryCounts = {}
-  contacts
-    .filter(c => showInactive || c.is_active !== false)
-    .forEach(c => {
-      getContactCategories(c).forEach(cat => {
-        categoryCounts[cat] = (categoryCounts[cat] || 0) + 1
-      })
-    })
+  const categoryCounts = countCategories(contacts, { showInactive })
   const inactiveCount   = contacts.filter(c => c.is_active === false).length
   const activeCount     = contacts.length - inactiveCount
 
@@ -204,21 +198,7 @@ export function useContactsDirectory({ refreshKey = 0 } = {}) {
     cat === 'All' || (categoryCounts[cat] || 0) > 0
   )
 
-  const filtered = contacts.filter(c => {
-    // Hide inactive contacts when toggle is OFF
-    if (!showInactive && c.is_active === false) return false
-    const q = search.trim().toLowerCase()
-    if (q) {
-      const relatedStr = Array.isArray(c.related_units) ? c.related_units.join(' ') : ''
-      const searchText = [
-        c.full_name, c.preferred_name, c.email, c.organization,
-        c.role, c.unit_name, relatedStr, c.school_name, c.notes,
-      ].filter(Boolean).join(' ').toLowerCase()
-      if (!searchText.includes(q)) return false
-    }
-    if (categoryFilter !== 'All' && !getContactCategories(c).includes(categoryFilter)) return false
-    return true
-  })
+  const filtered = contacts.filter(c => contactMatches(c, { search, categoryFilter, showInactive }))
 
   return {
     contacts, setContacts, loading, error,

@@ -133,21 +133,24 @@
   --aspire-rank-second: #A5690F;
   --aspire-rank-third: #1E2A6E;
   --aspire-rank-other: #717685;
-  /* RUBRIC-BOOK-1 (2026-09-17): the Interview Rubric is a bound book, so it needs a
-     cover. Tan leather, one step warmer and much deeper than the cream the Placement
-     Board's pool wears, because a cover holds pages rather than sitting behind them.
-     The gilt is the same piping gold; the seam is the shadow where two pages meet. */
-  --aspire-leather-tan: #A08A68;
-  --aspire-leather-tan-lift: #BCA684;
-  --aspire-leather-tan-deep: #6E5F48;
-  /* BOOK-FORE-1: the rubric book's spine. Owner, 2026-09-19: the Contacts book is tan
-     leather and only the spine is dark. Three tones, because a fold on a hide is a dark
-     line with a lift either side of it, and one flat band reads as a painted stripe.
-     They are dark BROWN, not black: a near-black band on tan reads as a gap in the
-     cover rather than as the leather turning into the fold. */
-  --aspire-book-spine: #3A332A;
-  --aspire-book-spine-edge: #574C3F;
-  --aspire-book-spine-crease: #221D17;
+  /* CONTACTS-BOOK-3 (Owner, 2026-09-20): the app's two books are bound in ONE leather,
+     cognac: the Interview Rubric (RUBRIC-BOOK-1, which was tan until now) and the
+     Contacts address book (CONTACTS-BOOK-1, which was oxblood). The values are the
+     Owner's mockup (docs/mockups/contacts-book-mockup.html). Lift, base and deep are a
+     cover's fall of light. Each book keeps its own grain: the rubric the pebbled hide the
+     Owner chose on 2026-09-19, the address book the mockup's fine grain. The dark-theme
+     tones are in aspireMaterials.css, beside the materials that read them. */
+  --aspire-leather-cognac: #7A4A26;
+  --aspire-leather-cognac-lift: #9A6236;
+  --aspire-leather-cognac-deep: #5A351A;
+  /* BOOK-FORE-1: the rubric book's spine. Owner, 2026-09-19: the cover is one leather
+     and only the spine is dark. Three tones, because a fold on a hide is a dark line
+     with a lift either side of it, and one flat band reads as a painted stripe. They are
+     a darker COGNAC, not black: a near-black band reads as a gap in the cover rather than
+     as the leather turning into the fold. */
+  --aspire-book-spine: #3E2412;
+  --aspire-book-spine-edge: #52301A;
+  --aspire-book-spine-crease: #26160A;
   --aspire-book-edge: rgba(60, 50, 34, 0.42);
   --aspire-book-seam: rgba(20, 24, 36, 0.50);
   --aspire-page: #FFFFFF;
@@ -174,13 +177,8 @@
   --aspire-binder-ring-base: #6E7480;
   --aspire-radius-binder: 16px;
   /* CONTACTS-BOOK-1 (2026-09-20): ASPIRE Connect > Contacts can be read as an address
-     book, the app's third bound object. Oxblood leather with a gilt edge, from the Owner's
-     mockup (docs/mockups/contacts-book-mockup.html). Lift, base and deep are the cover's
-     top-to-bottom fall of light. This file is theme-independent: contactsBook.css
-     redefines the three leather tones and the gilt for dark, as the mockup specifies. */
-  --aspire-leather-oxblood: #5E1E26;
-  --aspire-leather-oxblood-lift: #7E2B33;
-  --aspire-leather-oxblood-deep: #43141B;
+     book, bound in the cognac above with a gilt edge. This file is theme-independent:
+     contactsBook.css redefines the gilt for dark, as the mockup specifies. */
   --aspire-gilt: #C9A227;
   --aspire-gilt-deep: #8F7318;
   --aspire-gilt-hairline: rgba(201, 162, 39, 0.32);
@@ -229,8 +227,8 @@
      alpha .55, blended soft-light over the board gradient. */
   --aspire-noise-pressboard: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='p'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .55 0'/></filter><rect width='100%' height='100%' filter='url(%23p)'/></svg>");
   --aspire-noise-grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='.045' numOctaves='4' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .35 0'/></filter><rect width='100%' height='100%' filter='url(%23g)'/></svg>");
-  /* CONTACTS-BOOK-1: the oxblood cover's grain, the mockup's exact values (baseFrequency 1.1,
+  /* CONTACTS-BOOK-1: the address book cover's grain, the mockup's exact values (baseFrequency 1.1,
      2 octaves, alpha .5), blended soft-light. Finer than the hide on the rubric's tan cover:
      a small book is a smoother skin. */
-  --aspire-noise-oxblood: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='o'><feTurbulence type='fractalNoise' baseFrequency='1.1' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .5 0'/></filter><rect width='100%' height='100%' filter='url(%23o)'/></svg>");
+  --aspire-noise-cognac: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='o'><feTurbulence type='fractalNoise' baseFrequency='1.1' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .5 0'/></filter><rect width='100%' height='100%' filter='url(%23o)'/></svg>");
 }

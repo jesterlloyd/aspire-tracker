@@ -26,6 +26,9 @@
 //
 // Body (JSON):
 //   id            - optional UUID; if present → UPDATE, if absent → INSERT
+//   A body of { id } plus only is_active and/or flagged_for_followup is a STATUS
+//   update (api/lib/contactStatusUpdate.js): it skips the record validation below,
+//   so Deactivate, Reactivate and the follow-up ribbon need not resend the record.
 //   full_name     - required, non-empty string
 //   preferred_name, email, phone, organization, role, role_qualifier,
 //   school_name, program_type, unit_name, related_units, is_active,
@@ -40,7 +43,7 @@
 //   401 - missing or invalid session
 //   403 - authenticated but not owner or admin
 //   405 - wrong HTTP method
-//   409 - duplicate email
+//   409 - duplicate email, or not_enabled: the follow-up flag column is not applied yet
 //   500 - database error
 //   503 - services or divisions column not yet in the live schema (Owner SQL gate)
 
@@ -58,6 +61,7 @@ import {
 import { getCanonicalUnitNames } from '../src/lib/unitCatalog.js';
 import { CONTACT_DIVISION_OPTIONS } from '../src/lib/contactScopeFilter.js';
 import { resolveOperativeSchoolName } from '../src/lib/schoolIdentity.js';
+import { isContactStatusUpdate, applyContactStatusUpdate } from './lib/contactStatusUpdate.js';
 
 const ALLOWED_FIELDS = new Set([
   'full_name',
@@ -180,6 +184,15 @@ async function _handler(req, res) {
   // 4. Validate id on update
   if (isUpdate && !isUuid(body.id)) {
     return res.status(400).json({ error: 'id must be a valid UUID' });
+  }
+
+  // 4b. CONTACTS-BOOK-3: a status update (is_active, flagged_for_followup) is not a
+  //     record edit, so it does not owe the record validation that follows. Deactivate
+  //     and Reactivate send { id, is_active } and were refused for having no full_name.
+  if (isUpdate && isContactStatusUpdate(body)) {
+    const result = await applyContactStatusUpdate(supabaseAdmin, body);
+    if (result.status === 200) console.log('[contacts-upsert] contact status', body.id, Object.keys(body).filter(k => k !== 'id').join(','));
+    return res.status(result.status).json(result.body);
   }
 
   // 5. Strip to allowed fields only

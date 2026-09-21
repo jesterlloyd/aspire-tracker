@@ -240,8 +240,9 @@ test('a drag over an empty letter lands on the nearest letter that has entries',
 test('an entry reads Role · where, and the count line drops its tail under All Contacts', () => {
   assert.equal(entryLine({ role: 'Unit Leader', unit_name: '6 NW', category: 'Unit Leader', organization: 'Cedars-Sinai' }), 'Unit Leader · 6 NW')
   assert.equal(entryLine({ role: '', organization: 'Azusa Pacific University' }), 'Azusa Pacific University')
-  assert.equal(bookCountLine({ shown: 12, inCategory: 110, inBook: 231, isAll: false }), '12 of 110 shown · 231 in the full book')
-  assert.equal(bookCountLine({ shown: 231, inCategory: 231, inBook: 231, isAll: true }), '231 of 231 shown')
+  // CONTACTS-BOOK-3: the Owner's mockup form, "42 of 231".
+  assert.equal(bookCountLine({ shown: 42, inCategory: 231 }), '42 of 231')
+  assert.equal(bookCountLine({ shown: 0, inCategory: 12 }), '0 of 12')
   assert.equal(initialsOf('Gary Mittelberg'), 'GM')
   assert.equal(initialsOf(''), '?')
 })
@@ -322,10 +323,10 @@ function dirFor(overrides = {}) {
 }
 const ACTIONS = { navigate() {}, toast: {}, onAdd() {}, onEdit() {}, onDeactivate() {} }
 
-async function renderBook(dirOverrides) {
+async function renderBook(dirOverrides, actions = ACTIONS) {
   const { default: ContactsBook } = await vite.ssrLoadModule('/src/components/connect/ContactsBook.jsx')
   try {
-    return renderToStaticMarkup(React.createElement(ContactsBook, { dir: dirFor(dirOverrides), actions: ACTIONS }))
+    return renderToStaticMarkup(React.createElement(ContactsBook, { dir: dirFor(dirOverrides), actions }))
   } catch (err) {
     assert.fail(`ContactsBook threw while rendering: ${err.constructor.name}: ${err.message}`)
   }
@@ -362,7 +363,7 @@ test('the list files by last name, the open entry carries aria-current, and the 
   assert.ok(order.every(i => i > 0) && order[0] < order[1] && order[1] < order[2], 'H, then L, then M')
   assert.equal((html.match(/aria-current="true"/g) || []).length, 1)
   assert.match(html, /<button[^>]*class="ab-entry"[^>]*aria-current="true"[^>]*>(?:(?!<\/button>)[\s\S])*Gary Mittelberg/)
-  assert.match(html, /3 of 3 shown/)
+  assert.match(html, />3 of 3</)
   assert.match(html, /aria-live="polite"/, 'contact changes and letter jumps are announced')
 })
 
@@ -493,9 +494,9 @@ test('the book\'s sheet reads tokens, and every state rule is paired with :hover
   // The narrow query comes after the rules it changes: a media query has no specificity.
   assert.ok(css.indexOf('@media (max-width: 980px)') > css.indexOf('.ab-record-scroll {'))
   const brand = read('src/styles/aspireBrand.css')
-  for (const t of ['--aspire-leather-oxblood:', '--aspire-leather-oxblood-lift:', '--aspire-leather-oxblood-deep:',
-    '--aspire-gilt:', '--aspire-radius-address-book:', '--aspire-noise-oxblood:']) assert.ok(brand.includes(t), t)
-  assert.match(read('src/styles/aspireMaterials.css'), /\.material-leather-oxblood \{/)
+  for (const t of ['--aspire-leather-cognac:', '--aspire-leather-cognac-lift:', '--aspire-leather-cognac-deep:',
+    '--aspire-gilt:', '--aspire-radius-address-book:', '--aspire-noise-cognac:']) assert.ok(brand.includes(t), t)
+  assert.match(read('src/styles/aspireMaterials.css'), /\.material-leather-cognac \{/)
 })
 
 test('the SQL adds one column, one check and one column grant, and nothing else', () => {
@@ -508,4 +509,178 @@ test('the SQL adds one column, one check and one column grant, and nothing else'
   const checks = read('db/audit/user_ui_preferences_checks.sql')
   for (const s of ['PRE 1', 'PRE 2', 'POST 1', 'POST 2', 'POST 3', 'POST 4', 'POST 5']) assert.ok(checks.includes(s), s)
   assert.match(read('docs/security/OWNER_SQL_GATE.md'), /\| 20260924000000_user_ui_preferences\.sql \|[^\n]*APPLIED[^\n]*user_ui_preferences_checks\.sql/)
+})
+
+// ── 5. CONTACTS-BOOK-3: the Owner's refinements ────────────────────────────────
+
+const { contactMatches, countCategories } = await import('../src/lib/connect/contactsDirectoryFilter.js')
+const { isContactFlagged, contactFlagAvailable, setContactFollowUpFlag } = await import('../src/lib/contactFollowUpFlag.js')
+const { isContactStatusUpdate, applyContactStatusUpdate } = await import('../api/lib/contactStatusUpdate.js')
+
+const FLAGGABLE = CONTACTS.map((c, i) => ({ ...c, flagged_for_followup: i === 1 }))
+const WITH_INACTIVE = [...FLAGGABLE, C('c4', 'Priya Natarajan', { category: 'Preceptor', unit_name: '7 West', is_active: false, flagged_for_followup: false })]
+const FLAG_ACTIONS = { ...ACTIONS, onFlag() {} }
+
+test('the address book lists inactive contacts, marked, and has no Show inactive toggle', async () => {
+  const html = await renderBook({ contacts: WITH_INACTIVE }, FLAG_ACTIONS)
+  assert.match(html, /Priya Natarajan<span class="ab-quiet"> · inactive<\/span>/)
+  assert.doesNotMatch(html, /Show inactive/)
+  assert.match(html, />4 of 4</, 'the inactive contact counts too')
+  // Classic still hides them behind its toggle: the shared filter takes the rule as an argument.
+  const inactive = WITH_INACTIVE[3]
+  assert.equal(contactMatches(inactive, { search: '', categoryFilter: 'All', showInactive: false }), false)
+  assert.equal(contactMatches(inactive, { search: '', categoryFilter: 'All', showInactive: true }), true)
+  assert.equal(countCategories(WITH_INACTIVE, { showInactive: false }).Preceptor, 1)
+  assert.equal(countCategories(WITH_INACTIVE, { showInactive: true }).Preceptor, 2)
+})
+
+test('the list header is search and Add contact, the categories, then the count with its two tools', async () => {
+  const html = await renderBook({ contacts: FLAGGABLE }, FLAG_ACTIONS)
+  const at = (needle) => { const i = html.indexOf(needle); assert.ok(i > 0, needle); return i }
+  const order = [at('class="ab-search"'), at('+ Add contact'), at('class="ab-cats"'), at('class="ab-count"'), at('Flagged only'), at('Copy visible emails')]
+  assert.deepEqual([...order].sort((a, b) => a - b), order)
+  assert.match(html, /<h2 class="sr-only">Contacts<\/h2>/, 'the page keeps a heading for a screen reader')
+  assert.doesNotMatch(html, /class="ab-title"/)
+})
+
+test('the canonical ribbon flags a contact: enabled once the column exists, a mark on the entry, a filter', async () => {
+  const off = await renderBook({ contacts: FLAGGABLE, selected: FLAGGABLE[0], selectedId: 'c1' }, FLAG_ACTIONS)
+  assert.match(off, /<button[^>]*data-testid="flag-ribbon"[^>]*class="ab-ribbon"[^>]*aria-pressed="false"/)
+  assert.doesNotMatch(off, /data-testid="flag-ribbon"[^>]*disabled=""/)
+  assert.match(off, /Not flagged\. Pull the ribbon down to flag for follow-up\./)
+  assert.match(off, /class="ab-flagfilter" aria-pressed="false"/)
+  // Susan Hunter is flagged: her entry carries the mark and says so in words.
+  assert.match(off, /Susan Hunter[\s\S]*?<span class="ab-flagmark" aria-hidden="true"><\/span><span class="sr-only">, flagged for follow-up<\/span>/)
+  const on = await renderBook({ contacts: FLAGGABLE, selected: FLAGGABLE[1], selectedId: 'c2' }, FLAG_ACTIONS)
+  assert.match(on, /class="ab-ribbon ab-ribbon-on"[^>]*aria-pressed="true"/)
+  assert.match(on, /<b>Flagged for follow-up\.<\/b> Pull the ribbon up to clear\./)
+})
+
+test('before the column exists the ribbon is inert and says so, and there is no filter to offer', async () => {
+  const html = await renderBook({}, FLAG_ACTIONS)
+  assert.match(html, /<button[^>]*data-testid="flag-ribbon"[^>]*disabled=""/)
+  assert.match(html, /Follow-up flags are not enabled yet\./)
+  assert.doesNotMatch(html, /Flagged only/)
+  assert.equal(contactFlagAvailable(CONTACTS[0]), false)
+  assert.equal(contactFlagAvailable(FLAGGABLE[0]), true)
+  assert.equal(isContactFlagged(FLAGGABLE[1]), true)
+  assert.equal(isContactFlagged({}), false)
+})
+
+test('the flag is the address book\'s alone: Classic renders no ribbon', () => {
+  const view = strip(read('src/components/connect/ContactsView.jsx'))
+  const classic = view.slice(view.indexOf('function ClassicContacts('), view.indexOf('const ContactsBook = lazyReload'))
+  assert.ok(classic.length > 1000)
+  assert.doesNotMatch(classic, /FlagRibbon|flagged_for_followup/)
+  assert.doesNotMatch(strip(read('src/components/connect/ContactsBook.jsx')), /supabase|fetch\(/, 'the book still draws and does not fetch')
+})
+
+test('the book\'s ribbon is the Student Chart\'s ribbon, value for value, except where it hangs', () => {
+  const block = (css, sel) => {
+    const i = css.indexOf(sel + ' {'); assert.ok(i >= 0, sel)
+    return css.slice(i, css.indexOf('\n}', i)).replace(/\/\*[\s\S]*?\*\//g, '').split('\n').slice(1).map(l => l.trim())
+      .filter(l => l && !/^(position|top|right|left|z-index):/.test(l))
+  }
+  const chart = read('src/components/student/studentChart.css')
+  const book = read('src/components/connect/contactsBook.css')
+  const decl = (lines) => lines
+  assert.deepEqual(decl(block(book, '.ab-ribbon')), decl(block(chart, '.sc-ribbon')))
+  assert.deepEqual(decl(block(book, '.ab-ribbon[aria-pressed="false"]')), decl(block(chart, '.sc-ribbon[aria-pressed="false"]')))
+})
+
+test('a status update (Deactivate, Reactivate, the flag) skips the record validation that refused it', async () => {
+  assert.equal(isContactStatusUpdate({ id: 'x', is_active: false }), true)
+  assert.equal(isContactStatusUpdate({ id: 'x', flagged_for_followup: true }), true)
+  assert.equal(isContactStatusUpdate({ id: 'x', is_active: true, full_name: 'A' }), false, 'a record edit is not a status update')
+  assert.equal(isContactStatusUpdate({ is_active: false }), false, 'an insert is never a status update')
+  assert.equal(isContactStatusUpdate({ id: 'x' }), false)
+  // The handler routes to it BEFORE the full_name check that refused every Deactivate.
+  const api = read('api/contacts-upsert.js')
+  assert.ok(api.indexOf('isContactStatusUpdate(body)') > 0)
+  assert.ok(api.indexOf('isContactStatusUpdate(body)') < api.indexOf('// 7. Validate full_name'))
+  // The guard itself, exactly: a status update on an existing row goes to the status path
+  // and returns what it says, with nothing standing in front of it.
+  assert.match(api, /\n  if \(isUpdate && isContactStatusUpdate\(body\)\) \{\n    const result = await applyContactStatusUpdate\(supabaseAdmin, body\);[\s\S]{0,200}?return res\.status\(result\.status\)\.json\(result\.body\);/)
+  const db = (result) => {
+    const calls = []
+    return { calls, from(t) { assert.equal(t, 'contacts'); return { update(patch) { calls.push(patch); return { eq() { return { select() { return { maybeSingle: async () => result } } } } } } } } }
+  }
+  let d = db({ data: { id: 'x', is_active: false }, error: null })
+  assert.deepEqual(await applyContactStatusUpdate(d, { id: 'x', is_active: false }), { status: 200, body: { contact: { id: 'x', is_active: false } } })
+  assert.deepEqual(d.calls, [{ is_active: false }], 'writes only the status it was given')
+  assert.equal((await applyContactStatusUpdate(db({ data: null, error: null }), { id: 'x', is_active: 'no' })).status, 400)
+  for (const code of ['42703', 'PGRST204']) {
+    const r = await applyContactStatusUpdate(db({ data: null, error: { code } }), { id: 'x', flagged_for_followup: true })
+    assert.equal(r.status, 409); assert.equal(r.body.error, 'not_enabled')
+  }
+  assert.equal((await applyContactStatusUpdate(db({ data: null, error: { code: '42703' } }), { id: 'x', is_active: true })).status, 500,
+    'only the flag has a column that may not exist yet')
+  assert.equal((await applyContactStatusUpdate(db({ data: null, error: null }), { id: 'x', is_active: true })).status, 400)
+})
+
+test('the flag writer turns not_enabled into a result, and every other failure into an error', async () => {
+  const fake = (status, body) => async (url, init) => {
+    assert.equal(url, '/api/contacts-upsert')
+    assert.deepEqual(JSON.parse(init.body), { id: 'c1', flagged_for_followup: true })
+    assert.equal(init.headers.Authorization, 'Bearer tok')
+    return { status, ok: status < 300, json: async () => body }
+  }
+  assert.deepEqual(await setContactFollowUpFlag('c1', true, { accessToken: 'tok', fetchImpl: fake(200, { contact: { id: 'c1' } }) }), { ok: true, contact: { id: 'c1' } })
+  const ne = await setContactFollowUpFlag('c1', true, { accessToken: 'tok', fetchImpl: fake(409, { error: 'not_enabled', message: 'm' }) })
+  assert.equal(ne.notEnabled, true)
+  await assert.rejects(() => setContactFollowUpFlag('c1', true, { accessToken: 'tok', fetchImpl: fake(403, { error: 'Forbidden' }) }), /Forbidden/)
+  await assert.rejects(() => setContactFollowUpFlag('c1', true, { fetchImpl: fake(200, {}) }), /Session expired/)
+})
+
+test('the plate wears Student Profiles\' icons and the LinkedIn wordmark', async () => {
+  const src = strip(read('src/components/connect/ContactsBook.jsx'))
+  for (const icon of ['Mail', 'Phone', 'Pencil']) assert.match(src, new RegExp(`<${icon} size=\\{15\\} aria-hidden="true" />`))
+  const profile = read('src/components/StudentSidePanel.jsx')
+  for (const icon of ['Mail', 'Phone', 'Pencil']) assert.match(profile, new RegExp(`<${icon} size=\\{15\\}`), `Student Profiles no longer uses ${icon} at 15`)
+  const html = await renderBook()
+  assert.match(html, /<img src="\/linkedin-logo\.svg" alt="LinkedIn" height="17"\/>/)
+  assert.doesNotMatch(html, />in<\/span> LinkedIn/, 'the letters "in" are not the LinkedIn logo')
+})
+
+test('hover lifts a letter on paper and a shadow; only a press, a drag or a key shows the bubble', () => {
+  const css = read('src/components/connect/contactsBook.css')
+  const hover = css.slice(css.indexOf('.ab-thumb-tab:hover {'), css.indexOf('}', css.indexOf('.ab-thumb-tab:hover {')))
+  assert.match(hover, /background: var\(--ab-page\)/)
+  assert.match(hover, /box-shadow:/)
+  assert.doesNotMatch(hover, /--ab-fill/, 'hover must never go dark')
+  const src = strip(read('src/components/connect/ContactsBook.jsx'))
+  assert.match(src, /onPointerMove=\{e => \{ if \(dragging\.current\) point\(letterAt\(e\.clientY\)\) \}\}/, 'a move without a press does nothing')
+  assert.doesNotMatch(src, /onPointerLeave|pointerType === 'mouse'\) point/, 'no hover preview survives')
+})
+
+test('the stack either side of the pages is the canonical fore edge, gold, and the gilt strips are gone', () => {
+  const css = read('src/components/connect/contactsBook.css')
+  assert.match(strip(read('src/components/connect/ContactsBook.jsx')), /className="ab-book material-leather-cognac material-forestack"/)
+  assert.match(css, /\.ab-book\.material-forestack \{[\s\S]*?--fore-w: var\(--ab-stack-w\);/)
+  assert.match(css, /\.ab-spread \{[\s\S]*?z-index: 1;/, 'the right-hand block would draw over the pages')
+  assert.doesNotMatch(css, /\.ab-page-left::after|\.ab-page-right::after/)
+  assert.doesNotMatch(css, /\.ab-book::before/, 'the cover\'s pseudo-elements belong to the stack')
+  assert.match(css, /\.ab-tooling \{/)
+})
+
+test('the rubric is bound in the same cognac, and both darken together', () => {
+  assert.match(read('src/components/RubricSession.jsx'), /className="rb-cover material-leather-cognac-hide material-forestack"/)
+  const materials = read('src/styles/aspireMaterials.css')
+  for (const m of ['.material-leather-cognac-hide {', '.material-leather-cognac {']) {
+    const block = materials.slice(materials.indexOf(m), materials.indexOf('\n}', materials.indexOf(m)))
+    assert.match(block, /background-color: var\(--aspire-leather-cognac\)/, m)
+  }
+  assert.match(materials, /:root\[data-theme='dark'\] \{[\s\S]*?--aspire-leather-cognac: #442C18;/)
+  assert.match(read('src/components/rubric/rubricBook.css'), /var\(--aspire-leather-cognac-deep\) 0%/)
+  assert.doesNotMatch(read('src/components/connect/contactsBook.css'), /--aspire-leather-cognac(-lift|-deep)?:/, 'the book does not keep its own copy of the leather')
+})
+
+test('the flag migration adds one column and nothing else', () => {
+  const code = read('supabase/migrations/20260925000000_contact_followup_flag.sql').replace(/--.*$/gm, '')
+  assert.match(code, /ADD COLUMN IF NOT EXISTS flagged_for_followup boolean NOT NULL DEFAULT false/)
+  assert.doesNotMatch(code, /CREATE TABLE|CREATE POLICY|GRANT|CREATE (OR REPLACE )?FUNCTION|DROP /i)
+  const checks = read('db/audit/contact_followup_flag_checks.sql').split(/^-- ── /m).slice(1)
+  assert.equal(checks.length, 4)
+  for (const section of checks) assert.equal((section.replace(/--.*$/gm, '').match(/;/g) || []).length, 1, 'one query per section')
+  assert.match(read('docs/security/OWNER_SQL_GATE.md'), /\| 20260925000000_contact_followup_flag\.sql \|[^\n]*NOT APPLIED/)
 })

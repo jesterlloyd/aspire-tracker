@@ -163,13 +163,13 @@
   background-image:
     var(--aspire-noise-fine),
     linear-gradient(90deg,
-      var(--aspire-leather-tan-deep) 0%,
+      var(--aspire-leather-cognac-deep) 0%,
       var(--aspire-book-spine-edge) 16%,
       var(--aspire-book-spine) 36%,
       var(--aspire-book-spine-crease) 50%,
       var(--aspire-book-spine) 64%,
       var(--aspire-book-spine-edge) 84%,
-      var(--aspire-leather-tan-deep) 100%);
+      var(--aspire-leather-cognac-deep) 100%);
   background-blend-mode: soft-light, normal;
 }
 /* Every child is placed by hand: the seam and the ribbon share the candidate page's

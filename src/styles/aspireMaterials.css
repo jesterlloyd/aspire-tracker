@@ -81,8 +81,11 @@
   letter-spacing: 0.1em;
 }
 
-/* ── Tan leather (a cover) ─────────────────────────────────────────────────── */
-/* RUBRIC-BOOK-1: the Interview Rubric's cover. Deeper than the cream leather because
+/* ── Cognac leather, pebbled (the rubric's cover) ──────────────────────────── */
+/* CONTACTS-BOOK-3 (Owner, 2026-09-20): cognac, the colour the address book is bound in,
+   so the app's two books are one leather. The grain below is unchanged: the Owner chose
+   this pebbled hide for the rubric on 2026-09-19.
+   RUBRIC-BOOK-1: the Interview Rubric's cover. Deeper than the cream leather because
    it is the outside of the object, not a surface inside it, and finished with the
    same gilt the pool headers use so the two materials read as one family. */
 /* Owner, 2026-09-17: the coarse grain read as WOOD, so the cover keeps only the fine
@@ -94,17 +97,17 @@
    difference between a pattern and a relief (the same texture twice, a pixel apart, one
    lightening and one darkening); and the light falls unevenly across the whole cover
    rather than in one even band, because a hide is not flat. */
-.material-leather-tan {
-  background-color: var(--aspire-leather-tan);
+.material-leather-cognac-hide {
+  background-color: var(--aspire-leather-cognac);
   background-image:
     var(--aspire-noise-hide),
     var(--aspire-noise-hide),
     radial-gradient(130% 100% at 20% 0%, rgba(255, 244, 222, 0.26), rgba(255, 244, 222, 0) 62%),
     linear-gradient(158deg,
-      var(--aspire-leather-tan-lift),
-      var(--aspire-leather-tan) 38%,
-      var(--aspire-leather-tan-deep) 88%,
-      var(--aspire-leather-tan) 100%);
+      var(--aspire-leather-cognac-lift),
+      var(--aspire-leather-cognac) 38%,
+      var(--aspire-leather-cognac-deep) 88%,
+      var(--aspire-leather-cognac) 100%);
   /* Two pixels apart, which is about half a pebble: enough to light one side. */
   background-position: -2px -2px, 2px 2px, 0 0, 0 0;
   /* `multiply` on a 0.75-alpha dark noise crushed the tan to near-black on the first
@@ -188,26 +191,38 @@
     0 8px 16px -6px rgba(24, 32, 63, 0.34);
 }
 
-/* ── Oxblood leather (an address book) ─────────────────────────────────────── */
+/* ── Cognac leather, fine grain (the address book's cover) ─────────────────── */
 /* CONTACTS-BOOK-1 (2026-09-20): ASPIRE Connect > Contacts, read as an address book. The
    mockup's cover: a fine soft-light grain over a soft top highlight and a straight fall
    from lift to deep. The two insets are the rolled top edge and the board's underside.
    The deep drop is kept UNDER the book with a negative spread (the mockup's 0 22px 50px
    needs fifty pixels of room, and the Contacts pane is a scroll container that gives it
    ten), for the reason the black binder's shadow was pulled in. */
-.material-leather-oxblood {
-  background-color: var(--aspire-leather-oxblood);
+.material-leather-cognac {
+  background-color: var(--aspire-leather-cognac);
   background-image:
-    var(--aspire-noise-oxblood),
+    var(--aspire-noise-cognac),
     radial-gradient(ellipse at 50% 0%, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0) 60%),
     linear-gradient(180deg,
-      var(--aspire-leather-oxblood-lift),
-      var(--aspire-leather-oxblood) 55%,
-      var(--aspire-leather-oxblood-deep));
+      var(--aspire-leather-cognac-lift),
+      var(--aspire-leather-cognac) 55%,
+      var(--aspire-leather-cognac-deep));
   background-blend-mode: soft-light, normal, normal;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.14),
     inset 0 -2px 0 rgba(0, 0, 0, 0.45),
-    0 2px 5px rgba(30, 10, 14, 0.35),
-    0 12px 20px -10px rgba(30, 10, 14, 0.3);
+    0 2px 5px rgba(40, 22, 8, 0.35),
+    0 12px 20px -10px rgba(40, 22, 8, 0.3);
+}
+
+/* Cognac in the dark, the mockup's dark tones. One definition, read by both books, so
+   the rubric and the address book darken together. Specific enough (0,2,0) to beat the
+   light values on :root whichever sheet loads first. The spine darkens with the cover. */
+:root[data-theme='dark'] {
+  --aspire-leather-cognac: #442C18;
+  --aspire-leather-cognac-lift: #5A3A20;
+  --aspire-leather-cognac-deep: #2E1D10;
+  --aspire-book-spine: #24150A;
+  --aspire-book-spine-edge: #2E1D10;
+  --aspire-book-spine-crease: #140B05;
 }

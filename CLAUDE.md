@@ -113,7 +113,8 @@ same ten seconds, different mechanism - do not unify them.
 ## The rubric is a book (RUBRIC-BOOK-1, 2026-09-17)
 
 Interviews > a student's rubric is a bound two-page spread, built from the same materials
-as the matching boards: a tan leather cover (`.material-leather-tan`), two white pages, a
+as the matching boards: a cognac leather cover (`.material-leather-cognac-hide`, tan until
+CONTACTS-BOOK-3 put both books in one leather), two white pages, a
 seam, and an index down the fore edge. The left page is the candidate and never changes
 while you write; the right page is the rubric. The stylesheet is
 `src/components/rubric/rubricBook.css`, which imports the materials and reads the tokens;
@@ -181,10 +182,10 @@ display. Wide contrast between adjacent lines aliases into a barcode, which is w
 book's first fore edge was thrown out; a narrow range of four tones at four unequal
 widths blurs into paper instead. Judge one magnified, never at 1x.
 
-**The spine is the fold.** The rubric's cover is tan leather with one dark BROWN band
-down the gutter and the crease inside it (Owner, from the macOS Contacts book: the
-leather is tan and only the spine is dark). Near-black on tan reads as a gap rather than
-as leather turning. The band aligns with `.rb-seam`, which sits on the boundary between
+**The spine is the fold.** The rubric's cover is one leather with a darker band of the same
+leather down the gutter and the crease inside it (Owner, from the macOS Contacts book:
+only the spine is dark). Since CONTACTS-BOOK-3 the leather is cognac and the band a deeper
+cognac (`--aspire-book-spine*`). Near-black reads as a gap rather than as leather turning. The band aligns with `.rb-seam`, which sits on the boundary between
 the two page columns and is NOT the geometric centre of the cover, so it is a child of
 the spread and not a background on the leather. One page has no gutter, so single-page
 mode has no fold.
@@ -204,7 +205,7 @@ Student Profiles' detail panel is a black leather ring binder holding loose shee
 the app's second bound object, and it is deliberately not the rubric's tan book: a book is
 written once and closed, a binder is added to and taken from for months, which is what a
 student record is. They share the leather grammar (`--aspire-noise-fine`, a thin board,
-sharp paper) through `.material-leather-black` beside `.material-leather-tan`, and nothing
+sharp paper) through `.material-leather-black` beside the books' cognac, and nothing
 else. The chart lives in `src/components/student/`.
 
 - **The binder is chrome. The form inside it is the one that was already there.** Every
@@ -310,12 +311,13 @@ is 110.
 
 ### The follow-up flag is not the interview flag (STUDENT-CHART-1)
 
-Two ribbons, the same gesture, two different columns, and they must never be merged.
+Three ribbons, the same gesture, three different columns, and they must never be merged.
 
 | | column | means | reaches |
 |---|---|---|---|
-| Interview rubric | `flagged_for_second_interview` | bring this candidate back for a second interview | Interview Recommendations, Action Center |
-| Student chart | `flagged_for_followup` | come back to this student | the roster row, and nothing else |
+| Interview rubric | `students.flagged_for_second_interview` | bring this candidate back for a second interview | Interview Recommendations, Action Center |
+| Student chart | `students.flagged_for_followup` | come back to this student | the roster row, and nothing else |
+| Contacts address book | `contacts.flagged_for_followup` | come back to this person | the book's entry mark and Flagged only filter, and nothing else (not Classic) |
 
 Neither carries a note: the pull is the whole interaction. One component,
 `src/components/rubric/FlagRibbon.jsx`, serves both; the rubric's values are its defaults,
@@ -770,7 +772,8 @@ ResponsesPacket.jsx`, `BubbleSheet.jsx`, `responsesPacket.css`, and the tab.
 
 ASPIRE Connect > Contacts has two layouts, chosen per person: **Classic** (the three-zone
 screen, everyone's default) and the **Address book** (`src/components/connect/ContactsBook.jsx`
-and `contactsBook.css`), an oxblood leather book. The reference is
+and `contactsBook.css`), bound in cognac leather, the same leather as the Interview Rubric
+(CONTACTS-BOOK-3; it was oxblood before). The reference is
 `docs/mockups/contacts-book-mockup.html`, with its brief beside it.
 
 - **One data hook, two drawings.** `useContactsDirectory` holds the contacts, the three
@@ -798,10 +801,11 @@ and `contactsBook.css`), an oxblood leather book. The reference is
   hides the open record opens the first entry instead; typing does not.
 - **The A-Z index is a scrubber, never a filter** (CONTACTS-BOOK-2, Owner). A letter scrolls
   the list to its header and the whole list stays scrollable; the open record does not
-  change. Press and drag (mouse or finger) scrubs through the letters; a mouse merely
-  passing over the column shows the bubble without moving the list. The bubble is the
-  contrast-tooltip ink at 72% (Owner: black, semi-transparent), dead centre of the list,
-  a SIBLING of the scroller so it never scrolls. The column captures the pointer and is
+  change. Press and drag (mouse or finger) scrubs through the letters. **The bubble shows
+  only for a press, a drag or a keyboard jump** (CONTACTS-BOOK-3, Owner); hover lifts a
+  letter on a paper face and a shadow and never goes dark. The bubble is black at 55% over
+  a 2px blur (the mockup), dead centre of the list, a SIBLING of the scroller so it never
+  scrolls. The column captures the pointer and is
   `touch-action: none`; a letter with no entries is disabled and `pointer-events: none`,
   so a drag passes over it to `nearestLetter`. Letters are buttons (Enter jumps); there is
   no pressed state, because a jump is not a toggle.
@@ -812,13 +816,29 @@ and `contactsBook.css`), an oxblood leather book. The reference is
   published as `--connect-book-h`). The picker is its own block in the page column
   because a sticky element is bounded by its parent. Classic and every other tab keep the
   fixed `calc(100dvh - 128px)` page.
+- **The book lists every contact** (CONTACTS-BOOK-3, Owner): inactive ones are marked
+  ("· inactive", muted ink, never Classic's 60% opacity) and can be opened and reactivated
+  in the book; there is no Show inactive toggle there. Classic keeps its toggle. Both apply
+  the one pure filter in `src/lib/connect/contactsDirectoryFilter.js` with their own rule.
+- **The follow-up ribbon** (CONTACTS-BOOK-3): the canonical `FlagRibbon` sewn into the
+  cover over the record, with the rubric's state sentence under the organization, a mark
+  on the list entry, and a Flagged only chip. `.ab-ribbon` is `.sc-ribbon` value for value
+  (a test holds them equal). The column is Owner-gated
+  (`20260925000000_contact_followup_flag.sql`); without it the ribbon is inert and says so.
+- **A contact's status is not its record.** `/api/contacts-upsert` routes a body of
+  `{ id }` plus only `is_active` / `flagged_for_followup` through
+  `api/lib/contactStatusUpdate.js`, before the record validation. Until CONTACTS-BOOK-3
+  every Deactivate and Reactivate (which send `{ id, is_active }`) was refused for having
+  no `full_name`, in both layouts.
+- **The plate wears Student Profiles' icons** (Mail, Phone, Pencil at 15px) and LinkedIn is
+  `/linkedin-logo.svg` on a fixed white face (a blue wordmark goes muddy on dark paper).
+- **The pages sit on the canonical fore edge** (`.material-forestack`) on both sides,
+  gold-toned because the book is gilt-edged; the gilt hairline is its own element
+  (`.ab-tooling`) because the cover's pseudo-elements are the stack.
 - **Where the book leaves the mockup, on purpose.** The cover's deep drop has a negative
-  spread (the pane is a scroll container). Dark mode lifts the oxblood used as INK
-  (`--ab-accent`) because the mockup's cover tone measures 1.2:1 on the dark paper. The
-  open entry's subline reads `--ab-mute-on-tint` (the mockup's muted ink is 4.24:1 on the
-  tint). An inactive contact is muted ink plus the word "inactive", not Classic's 60%
-  opacity (2.4:1 on this paper). Classic's actions the mockup omits (Show inactive, Copy
-  visible emails, Repair Preceptor Contacts, Deactivate) stay, quietly. Swept: every text
-  node, both themes, every branch open, zero failures.
+  spread (the pane is a scroll container). Dark mode lifts the cognac used as INK
+  (`--ab-accent`), because the cover tones sit too close to the dark paper. The open
+  entry's subline reads `--ab-mute-on-tint`. Copy visible emails stays, quietly, on the
+  count row. Swept: every text node, both themes, every branch open, zero failures.
 - **The link beside Refresh hides below 480px**, where the header cannot hold three
   controls on one row. Settings still switches the layout there.

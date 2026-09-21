@@ -92,11 +92,10 @@ export function entryLine(contact) {
   return [String(contact?.role || '').trim(), where].filter(Boolean).join(' · ')
 }
 
-// "12 of 110 shown · 231 in the full book". The tail is dropped under All Contacts,
-// where the category IS the full book and saying it twice reads as a mistake.
-export function bookCountLine({ shown, inCategory, inBook, isAll }) {
-  const head = `${shown} of ${inCategory} shown`
-  return isAll ? head : `${head} · ${inBook} in the full book`
+// "42 of 231": how many entries the list is showing, of how many the category holds
+// (CONTACTS-BOOK-3, the Owner's mockup). Search and Flagged only narrow the first number.
+export function bookCountLine({ shown, inCategory }) {
+  return `${shown} of ${inCategory}`
 }
 
 export function initialsOf(name) {

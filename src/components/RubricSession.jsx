@@ -1163,7 +1163,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
 
       <div className="rb-stage" ref={stageRef}>
         <div className="rb-book">
-          <div className="rb-cover material-leather-tan material-forestack">
+          <div className="rb-cover material-leather-cognac-hide material-forestack">
             <div className="rb-spread">
               {/* The spine, first so every page paints over it (BOOK-FORE-1). */}
               <i className="rb-spine" aria-hidden="true" />

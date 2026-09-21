@@ -5,22 +5,29 @@
 // This component draws; it does not fetch. Everything it shows comes from the one
 // useContactsDirectory call ContactsView makes for both layouts (`dir`), and every
 // change it makes (search, category, selection) goes back through the same hook, so
-// switching layouts keeps what the reader was looking at. The Add, Edit and Deactivate
-// dialogs, the toast and the preceptor repair tool are ContactsView's (`actions`),
-// shared with Classic. The only state that is the book's own is the letter bubble the
-// thumb index shows and the sentence it last announced.
+// switching layouts keeps what the reader was looking at. The Add, Edit, Deactivate and
+// flag writes, and the toast, are ContactsView's (`actions`). The book's own state is
+// the letter bubble, the Flagged only filter, and the sentence it last announced.
 //
-// Two pages: the list files by LAST name under letter headers (contactsBookModel.js);
-// the record on the right carries the whole contact, Recent Communications and Linked
-// Students included, where Classic gives those a third column.
+// Two pages bound in cognac: the list files by LAST name under letter headers
+// (contactsBookModel.js); the record on the right carries the whole contact, Recent
+// Communications and Linked Students included, where Classic gives those a third column.
+//
+// CONTACTS-BOOK-3 (Owner, 2026-09-20): the book lists inactive contacts, marked, instead
+// of hiding them behind a toggle, so any contact can be opened and reactivated here; it
+// carries the canonical follow-up ribbon; its header is search and Add on one row, the
+// categories, then the count with Flagged only and Copy visible emails.
 import { useEffect, useRef, useState } from 'react'
 import { Mail, Pencil, Phone } from 'lucide-react'
+import FlagRibbon from '../rubric/FlagRibbon'
 import {
   getPrimaryCategory, categoryPluralLabel, contactDisplayName,
   contactUnitList, contactServicesMeta, contactDivisionList, PRECEPTOR_ROLES,
 } from '../../lib/contactCategories'
 import { getStudentPreferredFullName } from '../../lib/studentNameFormatters'
 import { copyVisibleContactEmails } from '../../lib/connect/copyContactEmails'
+import { isContactFlagged, contactFlagAvailable } from '../../lib/contactFollowUpFlag'
+import { contactMatches, countCategories, CATEGORY_ORDER } from '../../lib/connect/contactsDirectoryFilter'
 import {
   BOOK_LETTERS, sortForBook, bookRows, lettersPresent, nearestLetter, entryLine, bookCountLine,
   initialsOf, commStatus, studentStatusTone, linkedStudentsHeading, shortDate,
@@ -32,6 +39,9 @@ const NOTIF_LABELS = {
   coordinator_weekly_digest_test: 'Weekly Digest (Test)',
 }
 const notifLabel = (type) => NOTIF_LABELS[type] || type?.replace(/_/g, ' ') || '-'
+
+// How long the letter bubble stays after a press, a drag or a keyboard jump.
+const BUBBLE_LINGER_MS = 650
 
 function reducedMotion() {
   try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches } catch { return false }
@@ -98,15 +108,17 @@ function Field({ label, children }) {
 
 // The index is a scrubber, not a filter (CONTACTS-BOOK-2, Owner 2026-09-20). Press a
 // letter, or press and drag through the column with a mouse or a finger, and the list
-// scrolls to the first contact filed under it; the whole list stays scrollable. With a
-// mouse, simply moving over the column shows the letter bubble without moving the list.
+// scrolls to the first contact filed under it; the whole list stays scrollable.
+// CONTACTS-BOOK-3 (Owner): the letter bubble appears only for a press, a drag or a
+// keyboard jump. Hovering never shows it; a hovered letter lifts on a paper face and a
+// shadow instead (contactsBook.css), and only a pressed or dragged letter goes dark.
 // The column captures the pointer, so a drag keeps working when it strays sideways, and
 // `touch-action: none` keeps a finger from scrolling the page instead. A letter with
 // nothing under it is disabled and lets the pointer through to the column, so a drag
 // passes over it to the nearest letter that has entries. Keyboard: each letter is a
 // button, and Enter or Space jumps; a pointer press is handled on the column, so a
 // button's own click only acts when it came from the keyboard (detail 0).
-function ThumbIndex({ present, active, onPoint, onJump, onRelease }) {
+function ThumbIndex({ present, active, onPoint, onJump, onRelease, onKeyJump }) {
   const navRef = useRef(null)
   const dragging = useRef(false)
   const last = useRef(null)
@@ -121,11 +133,17 @@ function ThumbIndex({ present, active, onPoint, onJump, onRelease }) {
     }
     return best
   }
-  const point = (L, jump) => {
+  const point = (L) => {
     if (!L || L === last.current) return
     last.current = L
     onPoint(L)
-    if (jump) onJump(L)
+    onJump(L)
+  }
+  const end = (pressed) => {
+    if (!dragging.current) return
+    dragging.current = false
+    last.current = null
+    onRelease(pressed)
   }
 
   return (
@@ -139,24 +157,11 @@ function ThumbIndex({ present, active, onPoint, onJump, onRelease }) {
         dragging.current = true
         last.current = null
         try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* capture unavailable */ }
-        point(letterAt(e.clientY), true)
+        point(letterAt(e.clientY))
       }}
-      onPointerMove={e => {
-        if (dragging.current) point(letterAt(e.clientY), true)
-        else if (e.pointerType === 'mouse') point(letterAt(e.clientY), false)
-      }}
-      onPointerUp={() => {
-        if (!dragging.current) return
-        dragging.current = false
-        last.current = null
-        onRelease(true)
-      }}
-      onPointerCancel={() => { dragging.current = false; last.current = null; onRelease(false) }}
-      onPointerLeave={e => {
-        if (dragging.current || e.pointerType !== 'mouse') return
-        last.current = null
-        onRelease(false)
-      }}
+      onPointerMove={e => { if (dragging.current) point(letterAt(e.clientY)) }}
+      onPointerUp={() => end(true)}
+      onPointerCancel={() => end(false)}
     >
       {BOOK_LETTERS.map(L => (
         <button
@@ -167,7 +172,7 @@ function ThumbIndex({ present, active, onPoint, onJump, onRelease }) {
           data-active={active === L ? 'true' : undefined}
           aria-label={`Jump to ${L}`}
           disabled={!present.has(L)}
-          onClick={e => { if (e.detail === 0) onJump(L, { announce: true }) }}
+          onClick={e => { if (e.detail === 0) onKeyJump(L) }}
         >
           {L}
         </button>
@@ -178,28 +183,38 @@ function ThumbIndex({ present, active, onPoint, onJump, onRelease }) {
 
 function Entry({ contact, current, onOpen, entryRef }) {
   const name = contactDisplayName(contact)
+  const inactive = contact.is_active === false
+  const flagged = isContactFlagged(contact)
   return (
     <button
       ref={entryRef}
       type="button"
-      className={`ab-entry${contact.is_active === false ? ' ab-entry-inactive' : ''}`}
+      className={`ab-entry${inactive ? ' ab-entry-inactive' : ''}`}
       aria-current={current ? 'true' : undefined}
       onClick={() => onOpen(contact)}
     >
       <Avatar className="ab-av" url={contact.avatar_url} name={contact.full_name} />
       <span className="ab-entry-text">
         <span className="ab-nm">
-          {name}{contact.is_active === false && <span className="ab-quiet"> · inactive</span>}
+          {name}{inactive && <span className="ab-quiet"> · inactive</span>}
         </span>
         <span className="ab-rl">{entryLine(contact)}</span>
       </span>
+      {flagged
+        ? <span className="ab-flagmark" aria-hidden="true" />
+        : <span aria-hidden="true" />}
+      {flagged && <span className="sr-only">, flagged for follow-up</span>}
     </button>
   )
 }
 
 // ── Right page ────────────────────────────────────────────────────────────────
 
-function NamePlate({ contact, actions }) {
+// Email, Call and Edit wear Student Profiles' icons at its size (Mail, Phone, Pencil at
+// 15px), so the two records read alike; LinkedIn is the wordmark from /public, as
+// Classic shows it.
+function NamePlate({ contact, actions, flagAvailable }) {
+  const flagged = isContactFlagged(contact)
   return (
     <div className="ab-plate">
       <Avatar className="ab-photo" url={contact.avatar_url} name={contact.full_name} />
@@ -211,6 +226,14 @@ function NamePlate({ contact, actions }) {
         {contact.is_active === false && <span className="ab-flag">Inactive</span>}
       </div>
       {contact.organization && <div className="ab-org">{contact.organization}</div>}
+      {/* The ribbon's state in words, the rubric's pattern: a pull is not self-explaining. */}
+      <div className="ab-flagnote">
+        {!flagAvailable
+          ? 'Follow-up flags are not enabled yet.'
+          : flagged
+            ? <><b>Flagged for follow-up.</b> Pull the ribbon up to clear.</>
+            : 'Not flagged. Pull the ribbon down to flag for follow-up.'}
+      </div>
       <div className="ab-acts">
         <button
           type="button"
@@ -222,23 +245,23 @@ function NamePlate({ contact, actions }) {
             { state: { fromContact: { id: contact.id, name: contact.full_name, email: contact.email } } }
           )}
         >
-          <Mail size={14} aria-hidden="true" /> Email
+          <Mail size={15} aria-hidden="true" /> Email
         </button>
         {contact.phone ? (
           <a className="ab-act" href={`tel:${contact.phone}`}>
-            <Phone size={14} aria-hidden="true" /> Call
+            <Phone size={15} aria-hidden="true" /> Call
           </a>
         ) : (
           <button type="button" className="ab-act" disabled title="No phone on file" aria-label="Call (no phone on file)">
-            <Phone size={14} aria-hidden="true" /> Call
+            <Phone size={15} aria-hidden="true" /> Call
           </button>
         )}
         <button type="button" className="ab-act" onClick={() => actions.onEdit(contact)}>
-          <Pencil size={14} aria-hidden="true" /> Edit
+          <Pencil size={15} aria-hidden="true" /> Edit
         </button>
         {contact.linkedin_url && (
-          <a className="ab-act" href={contact.linkedin_url} target="_blank" rel="noreferrer">
-            <span aria-hidden="true">in</span> LinkedIn
+          <a className="ab-act ab-act-linkedin" href={contact.linkedin_url} target="_blank" rel="noreferrer">
+            <img src="/linkedin-logo.svg" alt="LinkedIn" height={17} />
           </a>
         )}
       </div>
@@ -356,11 +379,11 @@ function StudentsSection({ contact, linkedStudents, linkedStudentsTotal, loading
   )
 }
 
-function Record({ contact, dir, actions }) {
+function Record({ contact, dir, actions, flagAvailable }) {
   const digest = contact.notification_preferences?.weekly_digest !== false
   return (
     <article className="ab-rec" aria-label={contact.full_name}>
-      <NamePlate contact={contact} actions={actions} />
+      <NamePlate contact={contact} actions={actions} flagAvailable={flagAvailable} />
       <ContactSection contact={contact} />
       <Section title="Notes">
         {contact.notes
@@ -394,11 +417,11 @@ function Record({ contact, dir, actions }) {
 export default function ContactsBook({ dir, actions }) {
   const {
     contacts, loading, error, search, setSearch, categoryFilter, setCategoryFilter,
-    selectedId, selectContact, selected, showInactive, setShowInactive,
-    categoryCounts, inactiveCount, activeCount, activeCategories, filtered,
+    selectedId, selectContact, selected,
   } = dir
 
   const [announcement, setAnnouncement] = useState('')
+  const [flaggedOnly, setFlaggedOnly] = useState(false)
   // The bubble keeps its letter while it fades, so it never flashes empty on the way out.
   const [bubbleLetter, setBubbleLetter] = useState(null)
   const [bubbleOn, setBubbleOn] = useState(false)
@@ -408,23 +431,32 @@ export default function ContactsBook({ dir, actions }) {
   const currentRef = useRef(null)
   const recordRef = useRef(null)
 
-  const inBook = showInactive ? contacts.length : activeCount
-  const inCategory = categoryFilter === 'All' ? inBook : (categoryCounts[categoryFilter] || 0)
+  // The book lists every contact, inactive ones marked (Owner, CONTACTS-BOOK-3), so it
+  // applies the shared filter and counts with inactive contacts included. Classic keeps
+  // its own toggle; the hook's `filtered` and `categoryCounts` are Classic's.
+  const categoryCounts = countCategories(contacts, { showInactive: true })
+  const categories = CATEGORY_ORDER.filter(cat => cat === 'All' || (categoryCounts[cat] || 0) > 0)
+  const inCategory = categoryFilter === 'All' ? contacts.length : (categoryCounts[categoryFilter] || 0)
+  const flagAvailable = contacts.length > 0 && contactFlagAvailable(contacts[0])
+  const matching = contacts.filter(c => contactMatches(c, { search, categoryFilter, showInactive: true }))
+  const shown = flaggedOnly && flagAvailable ? matching.filter(isContactFlagged) : matching
 
-  const sorted = sortForBook(filtered)
+  const sorted = sortForBook(shown)
   const rows = bookRows(sorted)
   // A letter is live when the list has something filed under it: the index moves the
   // list, so a letter with no entries in it has nowhere to go.
   const present = lettersPresent(sorted)
 
-  // A category change that hides the open record opens the first entry instead. Typing
-  // in the search box does not: the record stays on what the reader was reading.
-  const lastCategoryRef = useRef(categoryFilter)
+  // A category or Flagged only change that hides the open record opens the first entry
+  // instead. Typing in the search box does not: the record stays on what the reader
+  // was reading.
+  const lastViewRef = useRef({ categoryFilter, flaggedOnly })
   useEffect(() => {
-    if (lastCategoryRef.current === categoryFilter) return
-    lastCategoryRef.current = categoryFilter
+    const prev = lastViewRef.current
+    lastViewRef.current = { categoryFilter, flaggedOnly }
+    if (prev.categoryFilter === categoryFilter && prev.flaggedOnly === flaggedOnly) return
     if (sorted.length > 0 && !sorted.some(c => c.id === selectedId)) selectContact(sorted[0].id)
-  }, [categoryFilter]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [categoryFilter, flaggedOnly]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // The selected entry scrolls into view inside the list (never the page around it),
   // and the record returns to its top.
@@ -439,109 +471,139 @@ export default function ContactsBook({ dir, actions }) {
       }
     }
     if (recordRef.current) recordRef.current.scrollTop = 0
-  }, [selectedId, categoryFilter, loading])
+  }, [selectedId, categoryFilter, flaggedOnly, loading])
 
   useEffect(() => () => clearTimeout(bubbleTimer.current), [])
 
   // Scroll the list so the letter's header is its first line. Instant, because a drag
   // asks for a new letter on every move and a smooth scroll would lag behind the finger.
-  const jumpTo = (L, { announce = false } = {}) => {
+  const jumpTo = (L) => {
     const target = nearestLetter(L, present)
     const box = entriesRef.current
     const header = target && box ? box.querySelector(`[data-letter="${target}"]`) : null
-    if (!header) return
+    if (!header) return null
     box.scrollTop = header.offsetTop
     lastJump.current = target
-    if (announce) setAnnouncement(`Jumped to ${target}`)
+    return target
   }
-  const pointAt = (L) => {
+  const showBubble = (L) => {
     clearTimeout(bubbleTimer.current)
     setBubbleLetter(L)
     setBubbleOn(true)
   }
-  // A drag or a press leaves the bubble up for a moment so the reader sees where they
-  // landed; a mouse that merely passed over the column takes it away at once.
-  const releaseIndex = (pressed) => {
+  const fadeBubble = () => {
     clearTimeout(bubbleTimer.current)
-    if (pressed) {
-      if (lastJump.current) setAnnouncement(`Jumped to ${lastJump.current}`)
-      bubbleTimer.current = setTimeout(() => setBubbleOn(false), 600)
-    } else {
-      setBubbleOn(false)
-    }
+    bubbleTimer.current = setTimeout(() => setBubbleOn(false), BUBBLE_LINGER_MS)
+  }
+  // A press or a drag leaves the bubble up for a moment so the reader sees where they
+  // landed, then announces the letter once, not on every letter the drag passed.
+  const releaseIndex = (pressed) => {
+    if (pressed && lastJump.current) setAnnouncement(`Jumped to ${lastJump.current}`)
+    fadeBubble()
+  }
+  const keyJump = (L) => {
+    const target = jumpTo(L)
+    if (!target) return
+    showBubble(target)
+    setAnnouncement(`Jumped to ${target}`)
+    fadeBubble()
   }
 
   const openEntry = (contact) => {
     selectContact(contact.id)
     setAnnouncement(`Opened ${contactDisplayName(contact)}`)
   }
-  const pickCategory = (cat) => setCategoryFilter(cat)
 
   return (
     <div className="ab-shell">
-      <section className="ab-book material-leather-oxblood" aria-label="Contacts address book">
+      <section className="ab-book material-leather-cognac material-forestack" aria-label="Contacts address book">
+        {/* The gilt rule tooled into the cover. Its own element: the cover's two
+            pseudo-elements draw the page stack either side of the spread. */}
+        <span className="ab-tooling" aria-hidden="true" />
+
+        {/* The ribbon is sewn into the cover, as in the rubric and the chart, and hangs
+            over the record's page. */}
+        {selected && (
+          <FlagRibbon
+            flagged={isContactFlagged(selected)}
+            disabled={!flagAvailable || !actions.onFlag}
+            onFlag={() => actions.onFlag(selected, true)}
+            onUnflag={() => actions.onFlag(selected, false)}
+            classPrefix="ab-ribbon"
+            labelOn={`${selected.full_name} is flagged for follow-up. Pull the ribbon up, or press, to remove the flag.`}
+            labelOff={flagAvailable
+              ? `Pull the ribbon down, or press, to flag ${selected.full_name} for follow-up.`
+              : 'The follow-up flag is not enabled on this database yet.'}
+          />
+        )}
+
         <div className="ab-spread">
 
           <div className="ab-page ab-page-left">
             <ThumbIndex
               present={present}
               active={bubbleOn ? bubbleLetter : null}
-              onPoint={pointAt}
+              onPoint={showBubble}
               onJump={jumpTo}
               onRelease={releaseIndex}
+              onKeyJump={keyJump}
             />
             <div className="ab-lhead">
-              <div className="ab-lhead-top">
-                <h2 className="ab-title">Contacts</h2>
-                <button type="button" className="ab-add" onClick={actions.onAdd}>+ Add</button>
+              <h2 className="sr-only">Contacts</h2>
+              <div className="ab-lhead-row">
+                <input
+                  className="ab-search"
+                  type="search"
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Search name, school, role"
+                  aria-label="Search contacts"
+                />
+                <button type="button" className="ab-add" onClick={actions.onAdd}>+ Add contact</button>
               </div>
-              <input
-                className="ab-search"
-                type="search"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Search name, school, role"
-                aria-label="Search contacts"
-              />
               <div className="ab-cats" role="group" aria-label="Category">
-                {activeCategories.map(cat => (
+                {categories.map(cat => (
                   <button
                     key={cat}
                     type="button"
                     className="ab-cat"
                     aria-pressed={categoryFilter === cat}
-                    onClick={() => pickCategory(cat)}
+                    onClick={() => setCategoryFilter(cat)}
                   >
                     {cat === 'All' ? 'All Contacts' : categoryPluralLabel(cat)}
-                    <b>{cat === 'All' ? inBook : (categoryCounts[cat] || 0)}</b>
+                    <b>{cat === 'All' ? contacts.length : (categoryCounts[cat] || 0)}</b>
                   </button>
                 ))}
               </div>
-              <div className="ab-count">
-                {loading ? 'Loading…' : error ? 'Failed to load' : bookCountLine({
-                  shown: sorted.length, inCategory, inBook, isAll: categoryFilter === 'All',
-                })}
+              <div className="ab-lhead-row ab-lhead-meta">
+                <span className="ab-count">
+                  {loading ? 'Loading…' : error ? 'Failed to load' : bookCountLine({ shown: sorted.length, inCategory })}
+                </span>
+                {!loading && !error && (
+                  <span className="ab-meta-tools">
+                    {flagAvailable && (
+                      <button
+                        type="button"
+                        className="ab-flagfilter"
+                        aria-pressed={flaggedOnly}
+                        onClick={() => setFlaggedOnly(v => !v)}
+                      >
+                        <i aria-hidden="true" />Flagged only
+                      </button>
+                    )}
+                    {sorted.length > 0 && (
+                      <button
+                        type="button"
+                        className="ab-link"
+                        title="Copy the emails of the contacts in this list (comma-separated)"
+                        onClick={() => copyVisibleContactEmails(sorted, actions.toast)}
+                      >
+                        Copy visible emails
+                      </button>
+                    )}
+                  </span>
+                )}
               </div>
-              {!loading && !error && (inactiveCount > 0 || sorted.length > 0) && (
-                <div className="ab-tools">
-                  {inactiveCount > 0 ? (
-                    <label>
-                      <input type="checkbox" checked={showInactive} onChange={e => setShowInactive(e.target.checked)} />
-                      Show inactive ({inactiveCount})
-                    </label>
-                  ) : <span />}
-                  {sorted.length > 0 && (
-                    <button
-                      type="button"
-                      className="ab-link"
-                      title="Copy the emails of the visible contacts (comma-separated)"
-                      onClick={() => copyVisibleContactEmails(sorted, actions.toast)}
-                    >
-                      Copy visible emails
-                    </button>
-                  )}
-                </div>
-              )}
             </div>
 
             {/* The bubble sits over the list, not inside its scroller, so it stays dead centre
@@ -553,7 +615,7 @@ export default function ContactsBook({ dir, actions }) {
                 ) : error ? (
                   <div className="ab-empty">Failed to load: {error}</div>
                 ) : rows.length === 0 ? (
-                  <div className="ab-empty">No contacts match.</div>
+                  <div className="ab-empty">{flaggedOnly ? 'No flagged contacts here.' : 'No contacts match.'}</div>
                 ) : rows.map(row => row.type === 'letter' ? (
                   <div key={`L-${row.letter}`} className="ab-sep" data-letter={row.letter} aria-hidden="true">{row.letter}</div>
                 ) : (
@@ -573,10 +635,10 @@ export default function ContactsBook({ dir, actions }) {
           <div className="ab-page ab-page-right">
             <div className="ab-record-scroll" ref={recordRef}>
               {selected ? (
-                <Record contact={selected} dir={dir} actions={actions} />
+                <Record contact={selected} dir={dir} actions={actions} flagAvailable={flagAvailable} />
               ) : (
                 <div className="ab-blank">
-                  {loading ? 'Loading…' : filtered.length > 0
+                  {loading ? 'Loading…' : sorted.length > 0
                     ? 'Choose a contact from the list to open their record.'
                     : 'No contacts match your current search or filter.'}
                 </div>
