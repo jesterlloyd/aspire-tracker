@@ -142,15 +142,18 @@ export default function ConnectPage({ cohortId, onNavigateToStudent, refreshRef,
               Settings > Appearance > Style decides the drawing. */}
           <RefreshHint onClick={handleRefresh} tooltipLabel="Refresh Connect data" loading={refreshing} />
         </div>
+        {/* CONNECT-TITLE-INK-1 (2026-09-21): the title sits on the page background, which
+            follows the theme, so its ink must too. It read var(--text-primary), which is
+            defined nowhere: the fallback #0E1428 painted it near-black on the dark page. */}
         <div style={{ marginBottom: 12 }}>
           <h1 style={{
             margin: 0, fontSize: 24, fontWeight: 700,
-            color: 'var(--text-primary,#0E1428)',
+            color: 'var(--color-text-primary, #191919)',
             letterSpacing: '-0.02em', lineHeight: 1.2, fontFamily: F,
           }}>
             ASPIRE Connect
           </h1>
-          <p style={{ margin: '5px 0 0', fontSize: 13, color: '#6b7280', lineHeight: 1.5, fontFamily: F }}>
+          <p style={{ margin: '5px 0 0', fontSize: 13, color: 'var(--color-text-secondary, #4A5560)', lineHeight: 1.5, fontFamily: F }}>
             Contacts, outreach, and announcements across cohorts.
           </p>
         </div>
