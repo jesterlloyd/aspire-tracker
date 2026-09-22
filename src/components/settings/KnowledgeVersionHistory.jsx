@@ -16,6 +16,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
 import { CATEGORY_LABELS, fmtDate } from './knowledgeCategories'
+import BackButton from '../BackButton'
 
 async function postAdmin(payload) {
   const { data: { session } } = await supabase.auth.getSession()
@@ -145,7 +146,7 @@ export default function KnowledgeVersionHistory({ entryId, open, reloadToken, is
       <div style={wrap}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 12 }}>
           <div style={sectionLabel}>Version {selNum}</div>
-          <button type="button" style={quietBtn} onClick={backToList}>← Back to history</button>
+          <BackButton label="Back to history" onClick={backToList} />
         </div>
         {selLoading ? (
           <div style={{ fontSize: 13, color: 'var(--color-text-secondary, #6b7280)' }}>Loading version…</div>

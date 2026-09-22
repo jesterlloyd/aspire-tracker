@@ -21,6 +21,7 @@ import { postShiftLifecycle, shiftLifecycleTransport } from '../lib/myShiftLifec
 import { useRegisterPortalRefresh } from './PortalRefresh'
 import { LoadingState, EmptyState } from './unit/UnitLeaderChrome'
 import { useReportPortalFailure, ACCESS_FAILURE } from './portalAccessSignal'
+import BackButton from '../components/BackButton'
 
 export default function StudentShiftLog({ active = true, readOnlyPreview = false }) {
   const [phase, setPhase] = useState('loading')
@@ -118,9 +119,7 @@ export default function StudentShiftLog({ active = true, readOnlyPreview = false
   } else if (phase === 'past_shift') {
     inner = (
       <div>
-        <button type="button" className="ptl-inline-link ptl-inline-btn ptl-shift-tab-back" onClick={() => setPhase('check_in')}>
-          Back to check-in
-        </button>
+        <BackButton label="Back to check-in" onClick={() => setPhase('check_in')} className="ptl-shift-tab-back" />
         <ShiftLogPage presetStudent={studentData} embedded transport={pastShiftTransport} />
       </div>
     )

@@ -27,7 +27,8 @@
 // UNCHANGED: the /api/invite-user contract ({ email, full_name, role }), role
 // gating and options, and the caller's onInvited() refresh.
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { X, Mail, Loader, ChevronLeft, ShieldCheck, Contact as ContactIcon, AlertTriangle } from 'lucide-react'
+import { X, Mail, Loader, ShieldCheck, Contact as ContactIcon, AlertTriangle } from 'lucide-react'
+import BackButton from '../BackButton'
 import { supabase } from '../../lib/supabase'
 import { ROLE_OPTIONS, OWNER_NOT_ASSIGNABLE_NOTE } from './accountsShared'
 import ContactSuggest from './ContactSuggest'
@@ -227,10 +228,14 @@ export default function InviteUserModal({ onClose, onInvited }) {
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '12px 20px', borderTop: '1px solid #f3f4f6' }}>
-          <button type="button" onClick={() => step === 'review' ? setStep('form') : onClose?.()} disabled={loading}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '8px 16px', border: '1px solid #e5e7eb', borderRadius: 8, background: '#f9fafb', fontFamily: F, fontSize: 13, cursor: loading ? 'default' : 'pointer' }}>
-            {step === 'review' && <ChevronLeft size={14} />}{step === 'review' ? 'Back' : 'Cancel'}
-          </button>
+          {step === 'review' ? (
+            <BackButton label="Back to invitation details" onClick={() => setStep('form')} disabled={loading} />
+          ) : (
+            <button type="button" onClick={() => onClose?.()} disabled={loading}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '8px 16px', border: '1px solid #e5e7eb', borderRadius: 8, background: '#f9fafb', fontFamily: F, fontSize: 13, cursor: loading ? 'default' : 'pointer' }}>
+              Cancel
+            </button>
+          )}
           {step === 'form' ? (
             <button type="button" onClick={() => setStep('review')} disabled={!formValid}
               style={{ padding: '8px 16px', border: 'none', borderRadius: 8, background: formValid ? '#1D2567' : '#e5e7eb', color: '#fff', fontFamily: F, fontWeight: 700, fontSize: 13, cursor: formValid ? 'pointer' : 'default' }}>Review</button>

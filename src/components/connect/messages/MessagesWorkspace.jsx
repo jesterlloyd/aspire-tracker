@@ -18,7 +18,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, RotateCw, Flag, MessageSquare, AlertCircle, Plus } from 'lucide-react'
+import { RotateCw, Flag, MessageSquare, AlertCircle, Plus } from 'lucide-react'
+import BackButton from '../../BackButton'
 import MessageBubble from '../../shared/MessageBubble'
 import MessagesInbox from './MessagesInbox'
 import NewMessageDialog from './NewMessageDialog'
@@ -177,9 +178,7 @@ export default function MessagesWorkspace({
         <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
           {narrow && (
             <div style={{ padding: '8px 14px 0' }}>
-              <button type="button" onClick={backToList} style={backBtn}>
-                <ArrowLeft size={14} aria-hidden="true" /> Back to messages
-              </button>
+              <BackButton label="Back to messages" onClick={backToList} />
             </div>
           )}
           {selectedId
@@ -562,9 +561,4 @@ const secondaryBtn = {
   minHeight: 32, padding: '0 14px', borderRadius: 7, cursor: 'pointer',
   border: `1px solid ${T.border}`, background: T.input, color: T.text,
   fontSize: 12.5, fontWeight: 600, fontFamily: F,
-}
-const backBtn = {
-  display: 'inline-flex', alignItems: 'center', gap: 6, minHeight: 44,
-  padding: '0 4px', border: 'none', background: 'none', cursor: 'pointer',
-  color: T.accent, fontSize: 13, fontWeight: 600, fontFamily: F,
 }

@@ -23,6 +23,7 @@ const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '
 
 const threadApi = read('../api/messages-staff-thread.js')
 const workspace = read('../src/components/connect/messages/MessagesWorkspace.jsx')
+const navigationPillCss = read('../src/components/ui/navigationPill.css')
 const polling = read('../src/lib/messages/messagesPolling.js')
 const inbox = read('../src/components/connect/messages/MessagesInbox.jsx')
 const client = read('../src/lib/messages/messagesApiClient.js')
@@ -282,9 +283,9 @@ test('mobile state model', async (t) => {
   })
 
   await t.test('the Back control is keyboard accessible with a real name', () => {
-    assert.match(workspace, /<button type="button" onClick=\{backToList\} style=\{backBtn\}>/)
-    assert.match(workspace, /minHeight: 44/)
-    assert.match(workspace, /<ArrowLeft size=\{14\} aria-hidden="true" \/> Back to messages/)
+    assert.match(workspace, /<BackButton label="Back to messages" onClick=\{backToList\} \/>/)
+    assert.match(navigationPillCss, /@media \(max-width: 760px\) \{\s*\.nav-pill \{ min-height: 44px; \}/)
+    assert.match(navigationPillCss, /\.nav-pill:focus-visible/)
   })
 })
 

@@ -12,6 +12,7 @@ import { supabase } from '../lib/supabase';
 import { appUrl } from '../lib/appUrl';
 import '../styles/aspireBrand.css';
 import './login.css';
+import BackButton from '../components/BackButton';
 
 // Safe error mapping. NEVER distinguishes an unknown email from a wrong
 // password: every credential-shaped failure collapses to one message. Only
@@ -151,10 +152,7 @@ export default function Login() {
                 <h2>Check your email</h2>
                 <p>If an ASPIRE account uses {email}, a reset link is on its way.</p>
                 <div className="lg-form-links">
-                  <button onClick={() => { setShowForgot(false); setResetSent(false); }}
-                    className="lg-linkbtn lg-linkbtn-strong">
-                    ← Back to sign in
-                  </button>
+                  <BackButton label="Back to sign in" onClick={() => { setShowForgot(false); setResetSent(false); }} />
                 </div>
               </div>
             ) : (
@@ -175,9 +173,7 @@ export default function Login() {
                   </button>
                 </form>
                 <div className="lg-form-links">
-                  <button onClick={() => setShowForgot(false)} className="lg-linkbtn">
-                    ← Back to sign in
-                  </button>
+                  <BackButton label="Back to sign in" onClick={() => setShowForgot(false)} />
                 </div>
               </>
             )}

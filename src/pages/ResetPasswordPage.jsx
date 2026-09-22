@@ -12,6 +12,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import BackButton from '../components/BackButton'
 
 const F = 'Plus Jakarta Sans, sans-serif'
 const NAVY = '#1D2567'
@@ -219,9 +220,7 @@ export default function ResetPasswordPage() {
       </form>
 
       <div style={{ textAlign: 'center', marginTop: '16px' }}>
-        <button onClick={() => navigate('/', { replace: true })} style={{ ...linkBtn, color: '#6b7280', fontWeight: 500, fontSize: '12px' }}>
-          ← Back to sign in
-        </button>
+        <BackButton label="Back to sign in" onClick={() => navigate('/', { replace: true })} />
       </div>
     </Shell>
   )

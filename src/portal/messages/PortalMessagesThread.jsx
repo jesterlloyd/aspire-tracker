@@ -9,7 +9,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
-import { ChevronLeft, RefreshCw } from 'lucide-react'
+import { RefreshCw } from 'lucide-react'
+import BackButton from '../../components/BackButton'
 import MessageBubble from '../../components/shared/MessageBubble'
 import { getPortalThreadPage, portalSetMessageReaction } from '../../lib/messages/portalMessagesApiClient'
 import {
@@ -192,9 +193,7 @@ export default function PortalMessagesThread({
     <div className="ptl-msg-thread">
       <div className="ptl-msg-thread-head">
         {showBack && (
-          <button type="button" className="ptl-icon-btn ptl-msg-back" onClick={onBack}>
-            <ChevronLeft size={16} aria-hidden="true" /> Back to messages
-          </button>
+          <BackButton label="Back to messages" onClick={onBack} className="ptl-msg-back" />
         )}
         <h3 className="ptl-msg-thread-subject">{conversation?.subject}</h3>
         <div className="ptl-msg-thread-meta">

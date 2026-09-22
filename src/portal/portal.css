@@ -913,12 +913,8 @@
 .ptl-msg-thread-subject { margin: 0; font-size: 18px; font-weight: 700; line-height: 1.3; overflow-wrap: anywhere; }
 .ptl-msg-thread-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12px; }
 .ptl-msg-back {
-  align-self: flex-start; align-items: center; gap: 4px;
-  min-height: 44px; margin-left: -8px; padding: 8px;
-  color: #1D2567; font-size: 13.5px; font-weight: 600;
+  align-self: flex-start;
 }
-.ptl-msg-back:hover { color: #2a3480; }
-.ptl-msg-back:focus-visible { outline: 2px solid #1D2567; outline-offset: 2px; border-radius: 8px; }
 
 .ptl-msg-scroll { display: flex; flex-direction: column; gap: 10px; max-height: 460px; overflow-y: auto; padding-right: 4px; }
 @media (max-width: 760px) { .ptl-msg-scroll { max-height: none; } }

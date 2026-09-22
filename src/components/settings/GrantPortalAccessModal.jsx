@@ -13,7 +13,8 @@
 // the Owner never selects the same person twice; the selected students.id is the
 // authoritative linkage and the login email is only the sign-in identity.
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
-import { X, Mail, Loader, ChevronLeft, ShieldCheck, Contact as ContactIcon, GraduationCap } from 'lucide-react'
+import { X, Mail, Loader, ShieldCheck, Contact as ContactIcon, GraduationCap } from 'lucide-react'
+import BackButton from '../BackButton'
 import { supabase } from '../../lib/supabase'
 import { PORTAL_ROLE_OPTIONS, PORTAL_ROLE_LABELS } from '../../lib/portalAccessStatus'
 import { UNIT_SCOPE_OPTIONS, SCHOOL_SCOPE_OPTIONS } from '../../lib/portalScopeCatalog'
@@ -486,10 +487,14 @@ export default function GrantPortalAccessModal({ onClose, onGranted, initial = n
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '12px 20px', borderTop: '1px solid #f3f4f6' }}>
-          <button type="button" onClick={() => step === 'review' ? setStep('form') : onClose?.()} disabled={loading}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '8px 16px', border: '1px solid #e5e7eb', borderRadius: 8, background: '#f9fafb', fontFamily: F, fontSize: 13, cursor: loading ? 'default' : 'pointer' }}>
-            {step === 'review' && <ChevronLeft size={14} />}{step === 'review' ? 'Back' : 'Cancel'}
-          </button>
+          {step === 'review' ? (
+            <BackButton label="Back to access details" onClick={() => setStep('form')} disabled={loading} />
+          ) : (
+            <button type="button" onClick={() => onClose?.()} disabled={loading}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '8px 16px', border: '1px solid #e5e7eb', borderRadius: 8, background: '#f9fafb', fontFamily: F, fontSize: 13, cursor: loading ? 'default' : 'pointer' }}>
+              Cancel
+            </button>
+          )}
           {blockingReason && (
             <span role="status" style={{ alignSelf: 'center', flex: 1, textAlign: 'right', fontSize: 11.5, color: '#6b7280', fontFamily: F, lineHeight: 1.4 }}>{blockingReason}</span>
           )}

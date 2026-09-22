@@ -11,6 +11,7 @@ import LifecycleResultView from './LifecycleResultView'
 import ShiftLogPage from '../ShiftLogPage'
 import { useLookupStudent } from './useLookupStudent'
 import { getStudentPreferredGreetingName } from '../../lib/studentNameFormatters'
+import BackButton from '../BackButton'
 
 const F = 'Plus Jakarta Sans, sans-serif'
 
@@ -60,9 +61,7 @@ export default function ShiftLogLifecycle() {
     return (
       <div data-theme-lock="light" style={{ position: 'relative' }}>
         <div style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--sand,#F4F1EC)', padding: '10px 16px' }}>
-          <button onClick={() => setPhase('check_in')} style={{ background: 'none', border: 'none', color: 'var(--nightfall,#1D2567)', fontSize: 14, fontWeight: 600, fontFamily: F, cursor: 'pointer', padding: 8 }}>
-            ← Back
-          </button>
+          <BackButton label="Back to check-in" onClick={() => setPhase('check_in')} />
         </div>
         <ShiftLogPage initialSchoolEmail={emailInput} />
       </div>

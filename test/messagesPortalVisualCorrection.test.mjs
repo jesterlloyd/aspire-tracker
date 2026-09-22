@@ -16,6 +16,7 @@ const here = dirname(fileURLToPath(import.meta.url))
 const read = (p) => readFileSync(join(here, p), 'utf8')
 
 const css = read('../src/portal/portal.css')
+const navigationPillCss = read('../src/components/ui/navigationPill.css')
 const polling = read('../src/lib/messages/portalMessagesPolling.js')
 const workspace = read('../src/portal/messages/PortalMessagesWorkspace.jsx')
 const inbox = read('../src/portal/messages/PortalMessagesInbox.jsx')
@@ -61,11 +62,10 @@ test('primary buttons use the established base, not the hero-only modifier', asy
   })
 
   await t.test('secondary controls keep a 44px target', () => {
-    assert.match(css, /\.ptl-msg-back \{[\s\S]{0,220}?min-height: 44px/)
+    assert.match(navigationPillCss, /@media \(max-width: 760px\) \{\s*\.nav-pill \{ min-height: 44px; \}/)
     assert.match(css, /\.ptl-msg-loadmore, \.ptl-msg-loadearlier \{ align-self: center; min-height: 44px; \}/)
-    // Back is quiet but legible, not the old grey 13.3px UA text.
-    assert.match(css, /\.ptl-msg-back \{[\s\S]{0,220}?color: #1D2567;/)
-    assert.match(css, /\.ptl-msg-back:focus-visible/)
+    assert.match(navigationPillCss, /color: var\(--color-accent-primary, #1d2567\)/)
+    assert.match(navigationPillCss, /\.nav-pill:focus-visible/)
   })
 })
 

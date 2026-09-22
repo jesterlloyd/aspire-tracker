@@ -24,7 +24,8 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { AlertTriangle, ArrowLeft } from 'lucide-react'
+import { AlertTriangle } from 'lucide-react'
+import BackButton from '../components/BackButton'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import { surveyByKey } from '../lib/evaluation/surveyCatalog'
@@ -147,13 +148,7 @@ export default function SurveyTestModePage() {
     <div style={{ minHeight: '100vh', background: '#F4F1EC', fontFamily: F }}>
       <Banner />
       <div style={{ maxWidth: 760, margin: '0 auto', padding: '20px 16px 60px' }}>
-        <button
-          type="button"
-          onClick={() => navigate('/evaluation')}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: NAVY, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', padding: 0, marginBottom: 12, fontFamily: F }}
-        >
-          <ArrowLeft size={14} aria-hidden="true" /> Back to Evaluation
-        </button>
+        <BackButton label="Back to Evaluation" onClick={() => navigate('/evaluation')} style={{ marginBottom: 12 }} />
 
         <div style={{ background: '#fff', borderRadius: 14, padding: '22px 24px', boxShadow: '0 1px 3px rgba(25,25,25,0.08)' }}>
           <h1 style={{ margin: '0 0 4px', fontSize: 19, fontWeight: 700, color: '#191919' }}>{survey.title}</h1>

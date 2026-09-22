@@ -7,6 +7,7 @@ import { displayName } from '../lib/utils'
 import StudentAvatar from './StudentAvatar'
 import { isFollowUpFlagged } from '../lib/studentFollowUpFlag'
 import RubricSession from './RubricSession'
+import BackButton from './BackButton'
 import InterviewCalendar from './InterviewCalendar'
 import TodaysInterviews from './TodaysInterviews'
 import { ASPIRE_STATUS_CONFIG } from '../lib/constants'
@@ -339,10 +340,7 @@ export default function InterviewRubricTab({
       return (
         <div style={{ padding:'32px', textAlign:'center', color:'#9ca3af', fontFamily:'Plus Jakarta Sans,sans-serif' }}>
           <div style={{ fontSize:14, marginBottom:12 }}>Rubric submission requires Interviewer access or above.</div>
-          <button onClick={() => selectStudent(null)}
-            style={{ background:'#1D2567', color:'#fff', border:'none', borderRadius:8, padding:'8px 18px', fontFamily:'Plus Jakarta Sans,sans-serif', fontWeight:600, cursor:'pointer' }}>
-            ← Back to list
-          </button>
+          <BackButton label="Back to Interview List" onClick={() => selectStudent(null)} />
         </div>
       )
     }

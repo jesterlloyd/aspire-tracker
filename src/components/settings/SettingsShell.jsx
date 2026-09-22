@@ -26,7 +26,7 @@ import { useEffect, Fragment } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   Settings, Users, HandCoins, Sparkles, Presentation, Scale, BadgeInfo, Monitor, PenLine, Info,
-  FileText, BarChart3, ChevronLeft, ChevronRight,
+  FileText, BarChart3, ChevronRight,
 } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import {
@@ -47,6 +47,7 @@ import CommunityBenefitPanel from './CommunityBenefitPanel'
 import SurfaceCard from '../ui/SurfaceCard'
 import WorkspaceBackLink from '../ui/WorkspaceBackLink'
 import SettingsPageHeader from './SettingsPageHeader'
+import BackButton from '../BackButton'
 import '../../styles/selectionRail.css'
 import './settingsShell.css'
 
@@ -133,10 +134,7 @@ function SettingsListPage({ section, rows, navigate }) {
 function SettingsCrumb({ parent, here, navigate }) {
   return (
     <nav className="settings-crumb" aria-label="Breadcrumb">
-      <button type="button" className="settings-crumb-back" onClick={() => navigate(parent.path)}>
-        <ChevronLeft size={15} strokeWidth={2.4} aria-hidden="true" />
-        {parent.label}
-      </button>
+      <BackButton label={`Back to ${parent.label}`} onClick={() => navigate(parent.path)} />
       <span className="settings-crumb-sep" aria-hidden="true">/</span>
       <span className="settings-crumb-here" aria-current="page">{here.label}</span>
     </nav>

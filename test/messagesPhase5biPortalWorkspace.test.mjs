@@ -37,6 +37,7 @@ const thread = jsx('PortalMessagesThread.jsx')
 const newMsg = jsx('PortalNewMessageDrawer.jsx')
 const reply = jsx('PortalReplyComposer.jsx')
 const css = read('../src/portal/portal.css')
+const navigationPillCss = read('../src/components/ui/navigationPill.css')
 const all = [workspace, inbox, thread, newMsg, reply]
 const allCode = all.map(strip)
 
@@ -626,7 +627,7 @@ test('accessibility foundation', async (t) => {
   await t.test('focus is visible and touch targets are adequate', () => {
     assert.match(css, /\.ptl-msg-row:focus-visible \{ outline: 2px solid #1D2567; outline-offset: 2px; \}/)
     assert.match(css, /\.ptl-msg-row \{[\s\S]*?min-height: 44px;/)
-    assert.match(css, /\.ptl-msg-back \{[\s\S]{0,200}?min-height: 44px/)
+    assert.match(navigationPillCss, /@media \(max-width: 760px\) \{\s*\.nav-pill \{ min-height: 44px; \}/)
     assert.match(css, /\.ptl-msg-loadmore, \.ptl-msg-loadearlier \{ align-self: center; min-height: 44px; \}/)
   })
 

@@ -103,7 +103,7 @@ test('the tab opens on the truth (open shift or not), hides in staff preview, an
 
 test('the fourth tab, its routes, and the Home button all lead to the same place', () => {
   assert.match(nav, /data-tour="portal-nav-shiftlog"/)
-  assert.match(nav, /<span className="ptl-nav-label">Shift Log<\/span>/)
+  assert.match(nav, /<span className="ptl-nav-label">\{NAV_LABELS\.shiftLog\}<\/span>/)
   assert.match(nav, /onShiftLog, messagesEnabled = true/)
   assert.match(app, /const StudentShiftLog = lazyReload\(\(\) => import\('\.\/StudentShiftLog'\), 'StudentShiftLog'\)/)
   assert.match(app, /location\.pathname\.startsWith\('\/portal\/shift-log'\) \|\| location\.pathname\.startsWith\('\/portal\/student\/shift-log'\) \? 'shiftlog'/)
