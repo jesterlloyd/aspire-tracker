@@ -278,8 +278,9 @@
   left: 50%;
   bottom: calc(100% + 6px);
   transform: translateX(-50%);
-  background: var(--paper-ink);
-  color: var(--paper);
+  background: var(--aspire-tooltip-bg, rgba(9, 12, 28, 0.94));
+  color: var(--aspire-tooltip-fg, #ffffff);
+  border: 1px solid var(--aspire-tooltip-border, transparent);
   padding: 5px 9px;
   border-radius: var(--aspire-radius-control);
   font-family: var(--aspire-sans);
@@ -291,6 +292,7 @@
   pointer-events: none;
   transition: opacity 0.12s;
   z-index: 5;
+  box-shadow: var(--aspire-tooltip-shadow, 0 4px 14px rgba(0,0,0,0.45));
   text-shadow: none;
 }
 .rp-seg:first-child::after { left: 0; transform: none; }

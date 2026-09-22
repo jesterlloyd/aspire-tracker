@@ -419,17 +419,18 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
           position: 'fixed',
           bottom: '38px',
           right: '96px',
-          background: '#1d2567',
-          color: '#ffffff',
+          background: 'var(--aspire-tooltip-bg, rgba(9, 12, 28, 0.94))',
+          color: 'var(--aspire-tooltip-fg, #ffffff)',
           fontFamily: 'Plus Jakarta Sans',
           fontSize: '12px',
           fontWeight: 500,
           padding: '6px 12px',
           borderRadius: '8px',
+          border: '1px solid var(--aspire-tooltip-border, transparent)',
           whiteSpace: 'nowrap',
           zIndex: 1001,
           pointerEvents: 'none',
-          boxShadow: '0 2px 8px rgba(29,37,103,0.25)',
+          boxShadow: 'var(--aspire-tooltip-shadow, 0 4px 14px rgba(0,0,0,0.45))',
         }}>
           Ask Keith
         </div>

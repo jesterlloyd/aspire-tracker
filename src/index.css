@@ -28,6 +28,10 @@ input[type="number"] { -moz-appearance: textfield; }
      so they cannot drift. Values are the main app's existing ones, so its output is unchanged. */
   --nightfall-gradient: linear-gradient(180deg, #1c2452 0%, #141928 100%);
   --nightfall-shadow:   0 2px 8px rgba(29,37,103,0.25);
+  --aspire-tooltip-bg: rgba(9, 12, 28, 0.94);
+  --aspire-tooltip-fg: #ffffff;
+  --aspire-tooltip-border: transparent;
+  --aspire-tooltip-shadow: 0 4px 14px rgba(0,0,0,0.45);
   --nova:        #9faff8;
   --nova-tint:   rgba(159,175,248,0.18);
   --marina:      #dceff8;
@@ -78,6 +82,9 @@ body { min-height: 100vh; }
    so the portal Nightfall taskbar inherits the identical dark treatment. */
 [data-theme="dark"] {
   --nightfall-shadow: 0 2px 8px rgba(0,0,0,0.40);
+  --aspire-tooltip-bg: rgba(0, 0, 0, 0.96);
+  --aspire-tooltip-border: rgba(255,255,255,0.16);
+  --aspire-tooltip-shadow: 0 6px 18px rgba(0,0,0,0.58);
 }
 [data-theme="dark"] .app-header {
   background: var(--color-header-bg, #0A0E14);
@@ -3064,12 +3071,13 @@ button.ir-wl-th { background: transparent; border: 0; text-align: left; cursor: 
 .euc-slot-tooltip {
   position: absolute; bottom: calc(100% + 6px); left: 50%;
   transform: translateX(-50%);
-  background: var(--nightfall); color: var(--pearl);
+  background: var(--aspire-tooltip-bg); color: var(--aspire-tooltip-fg);
+  border: 1px solid var(--aspire-tooltip-border);
   font-size: 12px; font-weight: 500;
   padding: 8px 10px; border-radius: 6px;
   white-space: nowrap; z-index: 50;
   pointer-events: none;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  box-shadow: var(--aspire-tooltip-shadow);
 }
 
 /* Student card exit/enter animations */
@@ -3383,8 +3391,9 @@ button.ir-wl-th { background: transparent; border: 0; text-align: left; cursor: 
 .shared-feedback-tooltip {
   position: fixed;
   bottom: 88px;
-  background: #1d2567;
-  color: #ffffff;
+  background: var(--aspire-tooltip-bg);
+  color: var(--aspire-tooltip-fg);
+  border: 1px solid var(--aspire-tooltip-border);
   font-family: 'Plus Jakarta Sans', sans-serif;
   font-size: 12px;
   font-weight: 500;
@@ -3395,6 +3404,7 @@ button.ir-wl-th { background: transparent; border: 0; text-align: left; cursor: 
   transition: opacity 0.2s ease;
   pointer-events: none;
   z-index: 1001;
+  box-shadow: var(--aspire-tooltip-shadow);
 }
 .shared-feedback-tooltip-left { left: max(24px, env(safe-area-inset-left)); }
 .shared-feedback-tooltip-right { right: max(24px, env(safe-area-inset-right)); }

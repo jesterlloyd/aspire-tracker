@@ -141,15 +141,14 @@ export default function StatusLegendPopover({ position = 'bottom-left', dark = f
           top: tooltipPos.top,
           left: tooltipPos.left,
           transform: 'translateX(-50%)',
-          // On a nightfall header the default nightfall bubble disappears into its
-          // own background, so the dark surfaces get the near-black one (same as the
-          // Placement Board's tooltips).
-          background: dark ? 'rgba(9, 12, 28, 0.94)' : '#1D2567', color: '#ffffff',
+          background: 'var(--aspire-tooltip-bg, rgba(9, 12, 28, 0.94))',
+          color: 'var(--aspire-tooltip-fg, #ffffff)',
+          border: '1px solid var(--aspire-tooltip-border, transparent)',
           fontFamily: 'Plus Jakarta Sans', fontSize: '11px', fontWeight: 500,
           padding: '4px 10px', borderRadius: '6px',
           whiteSpace: 'nowrap', pointerEvents: 'none',
           zIndex: 9999,
-          boxShadow: '0 2px 8px rgba(29,37,103,0.25)',
+          boxShadow: 'var(--aspire-tooltip-shadow, 0 4px 14px rgba(0,0,0,0.45))',
           textTransform: 'none', letterSpacing: 'normal',
         }}>
           View status legend

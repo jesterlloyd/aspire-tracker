@@ -464,17 +464,19 @@ export default function KnowledgeGraphView({
         {tooltip && (
           <div style={{
             position: 'fixed', left: tooltip.x + 14, top: tooltip.y + 14, zIndex: 40,
-            background: 'var(--color-bg-surface, #ffffff)', border: '1px solid var(--color-border-default, #e5e7eb)',
-            borderRadius: 10, boxShadow: '0 4px 14px rgba(25,25,25,0.10)', padding: '8px 11px',
+            background: 'var(--aspire-tooltip-bg, rgba(9, 12, 28, 0.94))',
+            color: 'var(--aspire-tooltip-fg, #ffffff)',
+            border: '1px solid var(--aspire-tooltip-border, transparent)',
+            borderRadius: 10, boxShadow: 'var(--aspire-tooltip-shadow, 0 4px 14px rgba(0,0,0,0.45))', padding: '8px 11px',
             fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 12.5, pointerEvents: 'none', maxWidth: 260,
           }}>
             <div style={{ fontWeight: 700, marginBottom: 2 }}>{tooltip.node.title}</div>
-            <div style={{ color: secondary, fontSize: 11.5 }}>
+            <div style={{ color: 'rgba(255,255,255,0.72)', fontSize: 11.5 }}>
               {CATEGORY_LABELS[tooltip.node.category] || tooltip.node.category}
               {' · '}{tooltip.node.state}
               {' · '}{tooltip.node.degree} connection{tooltip.node.degree === 1 ? '' : 's'}
-              {tooltip.node.broken_count > 0 && <span style={{ color: AMBER }}> · {tooltip.node.broken_count} unresolved link{tooltip.node.broken_count === 1 ? '' : 's'}</span>}
-              {tooltip.node.superseded_by && <span style={{ color: AMBER }}> · superseded</span>}
+              {tooltip.node.broken_count > 0 && <span style={{ color: '#fbbf24' }}> · {tooltip.node.broken_count} unresolved link{tooltip.node.broken_count === 1 ? '' : 's'}</span>}
+              {tooltip.node.superseded_by && <span style={{ color: '#fbbf24' }}> · superseded</span>}
             </div>
           </div>
         )}

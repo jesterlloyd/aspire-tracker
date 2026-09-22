@@ -1,7 +1,7 @@
 // src/components/ui/Tooltip.jsx
 //
-// Reusable Nightfall/navy tooltip following the house style established by
-// Keith.jsx and StatusLegendPopover.jsx.
+// Reusable translucent-black tooltip following the compact hover treatment used
+// by Evaluation results charts and Placement Board pin actions.
 //
 // PLACEMENT-DRAFT-CONTINUITY-1: the tooltip is now PORTALED to document.body.
 // position:fixed alone was not enough: a transformed ancestor becomes the
@@ -48,9 +48,6 @@ export default function Tooltip({
   hideDelay  = 100,
   applyAriaLabel = true,
   disabled   = false,
-  // 'contrast' is for a tooltip that opens ON a nightfall surface, where the
-  // default nightfall bubble would disappear into its own background.
-  tone       = 'default',
   children,
 }) {
   const [visible, setVisible] = useState(false)
@@ -152,17 +149,18 @@ export default function Tooltip({
         position:   'fixed',
         top:        pos.top,
         left:       pos.left,
-        background: tone === 'contrast' ? 'rgba(9, 12, 28, 0.94)' : '#1D2567',
-        color:      '#ffffff',
+        background: 'var(--aspire-tooltip-bg, rgba(9, 12, 28, 0.94))',
+        color:      'var(--aspire-tooltip-fg, #ffffff)',
         fontFamily: 'Plus Jakarta Sans, sans-serif',
         fontSize:   '12px',
         fontWeight: 500,
         padding:    '6px 12px',
         borderRadius: '8px',
+        border: '1px solid var(--aspire-tooltip-border, transparent)',
         whiteSpace: 'nowrap',
         zIndex:     9999,
         pointerEvents: 'none',
-        boxShadow:  tone === 'contrast' ? '0 4px 14px rgba(0,0,0,0.45)' : '0 2px 8px rgba(29,37,103,0.25)',
+        boxShadow:  'var(--aspire-tooltip-shadow, 0 4px 14px rgba(0,0,0,0.45))',
       }}
     >
       {label}

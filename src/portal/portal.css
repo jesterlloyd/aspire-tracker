@@ -1576,8 +1576,9 @@ img.ptl-detail-photo {
   position: absolute;
   right: 0;
   bottom: 68px;
-  background: #1d2567;
-  color: #fff;
+  background: var(--aspire-tooltip-bg, rgba(9, 12, 28, 0.94));
+  color: var(--aspire-tooltip-fg, #fff);
+  border: 1px solid var(--aspire-tooltip-border, transparent);
   font-size: 12px;
   font-weight: 600;
   padding: 6px 12px;
@@ -1585,7 +1586,7 @@ img.ptl-detail-photo {
   white-space: nowrap;
   opacity: 0;
   pointer-events: none;
-  box-shadow: 0 2px 8px rgba(29, 37, 103, 0.25);
+  box-shadow: var(--aspire-tooltip-shadow, 0 4px 14px rgba(0,0,0,0.45));
   transition: opacity 0.2s ease;
 }
 .ptl-team-message-launcher-wrap:hover .ptl-team-message-tooltip,

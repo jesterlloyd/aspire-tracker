@@ -111,9 +111,13 @@ export default function MainMessagesLauncher() {
       {hover && !open && !keithOpen && (
         <div style={{
           position: 'fixed', bottom: '158px', right: '28px',
-          background: 'var(--color-header-bg,#1D2567)', color: 'var(--color-header-text,#fff)', fontFamily: F, fontSize: 12, fontWeight: 500,
+          background: 'var(--aspire-tooltip-bg, rgba(9, 12, 28, 0.94))',
+          color: 'var(--aspire-tooltip-fg, #fff)',
+          border: '1px solid var(--aspire-tooltip-border, transparent)',
+          fontFamily: F, fontSize: 12, fontWeight: 500,
           padding: '6px 12px', borderRadius: 8, whiteSpace: 'nowrap',
-          zIndex: 1001, pointerEvents: 'none', boxShadow: '0 2px 8px rgba(29,37,103,0.25)',
+          zIndex: 1001, pointerEvents: 'none',
+          boxShadow: 'var(--aspire-tooltip-shadow, 0 4px 14px rgba(0,0,0,0.45))',
         }}>
           Messages
         </div>
