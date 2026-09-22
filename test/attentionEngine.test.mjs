@@ -306,7 +306,7 @@ test('consumers share the engine - no private predicate copies remain', async (t
 
 test('Connect icon honors its badge (approved destination behavior)', () => {
   const ha = read('src/components/Header/HeaderActions.jsx')
-  assert.match(ha, /if \(canUseMessages && messagesUnread > 0\) \{\s*\n\s*navigate\('\/connect\/messages'\)/)
+  assert.match(ha, /if \(canUseMessages && messagesNeedsReply > 0\) \{\s*\n\s*navigate\('\/connect\/messages'\)/)
   assert.match(ha, /\? \['contacts', 'outreach', 'broadcasts', 'messages'\]/)
   assert.match(ha, /: \['contacts', 'outreach', 'broadcasts'\]/)
   // The bell's accessible name carries the true count.

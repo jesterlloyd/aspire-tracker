@@ -102,11 +102,11 @@ test('PortalMessagesThread wires the same hook (docked panel inherits it)', () =
 // ── Main-app launcher: canonical shortcut above Keith ────────────────────────
 
 test('the launcher reuses the shared staff Messages state, permissions, and surface', () => {
-  assert.match(launcher, /useStaffUnreadCount\(\{ intervalMs: IDLE_UNREAD_POLL_MS, enabled: canUseMessages \}\)/)
+  assert.match(launcher, /useStaffNeedsReplyCount\(\{ intervalMs: IDLE_UNREAD_POLL_MS, enabled: canUseMessages \}\)/)
   assert.match(launcher, /\['owner', 'admin'\]\.includes\(userProfile\?\.role\) && userProfile\?\.is_active !== false/)
-  assert.match(launcher, /navigate\('\/connect\/messages'\)/)
-  assert.match(launcher, /aria-label=\{unreadLabel\(unread\)\}/)
-  assert.match(launcher, /\{formatUnread\(unread\)\}/)
+  assert.match(launcher, /navigate\(lastSelectedId/)
+  assert.match(launcher, /needsReplyLabel\(needsReply\)/)
+  assert.match(launcher, /\{formatUnread\(needsReply\)\}/)
   assert.match(launcher, /if \(!canUseMessages\) return null/)
   // No second Messages implementation: the launcher renders no thread UI.
   assert.doesNotMatch(launcher, /MessageBubble|useInfiniteQuery|getStaffThread/)
@@ -115,8 +115,8 @@ test('the launcher reuses the shared staff Messages state, permissions, and surf
 test('the launcher sits directly above the 60px Keith orb, canonical visuals', () => {
   assert.match(launcher, /bottom: 'calc\(96px \+ env\(safe-area-inset-bottom, 0px\)\)', right: '28px'/)
   assert.match(launcher, /width: 52, height: 52, borderRadius: '50%'/)
-  assert.match(launcher, /background: '#1D2567'/)
-  assert.match(launcher, /background: '#DC1E34'/)   // the canonical unread red
+  assert.match(launcher, /background: 'var\(--color-accent-primary,#1D2567\)'/)
+  assert.match(launcher, /background: BADGE_COUNT_BG/)   // the canonical count red
   assert.match(launcher, /MessageCircle size=\{24\}/)
   assert.match(launcher, /zIndex: 1000/)
   // Mounted in the App beside Keith; Keith's tooltip moved beside the orb so it

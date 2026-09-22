@@ -92,6 +92,7 @@ export default function PortalMessagesThread({
   // archiveAvailable convention elsewhere - until a page confirms the
   // migration is applied, no reaction UI renders at all.
   const reactionsAvailable = pages.some((p) => p?.reactions_available === true)
+  const reactionSetVersion = Math.max(1, ...pages.map((p) => Number(p?.reaction_set_version) || 1))
   const reactionBusyRef = useRef(new Set())
   const [busyReactionIds, setBusyReactionIds] = useState(() => new Set())
   const [reactionError, setReactionError] = useState('')
@@ -230,6 +231,7 @@ export default function PortalMessagesThread({
             message={m}
             perspective="portal"
             reactionsEnabled={reactionsAvailable}
+            reactionSetVersion={reactionSetVersion}
             onSetReaction={setReaction}
             reactionsDisabled={busyReactionIds.has(m.id)}
           />

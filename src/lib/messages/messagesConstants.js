@@ -86,6 +86,12 @@ export function unreadLabel(count) {
   return n === 1 ? '1 unread message' : `${n} unread messages`;
 }
 
+export function needsReplyLabel(count) {
+  const n = Number(count) || 0;
+  if (n <= 0) return '';
+  return n === 1 ? '1 conversation needs your reply' : `${n} conversations need your reply`;
+}
+
 // Concise inbox timestamp: time today, weekday this week, else a short date.
 // Uses Intl only. Returns '' for a missing or unparsable value.
 export function formatInboxTimestamp(value, now = new Date()) {

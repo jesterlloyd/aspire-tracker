@@ -21,6 +21,7 @@ export const DEFAULT_FILTERS = Object.freeze({
 // still participates in queryIdentity below, so switching it starts a fresh
 // cursor chain exactly like a filter change does.
 export const DEFAULT_VIEW = 'active';
+export const DEFAULT_ATTENTION = 'all';
 
 export function filtersAreDefault(filters) {
   return DEFAULT_FILTERS.status === filters.status
@@ -46,11 +47,13 @@ export function filtersAreDefault(filters) {
 // DEFAULT_VIEW above). It is omitted when it is the default 'active', the same
 // "narrowing values only" convention every filter below already follows.
 export function serializeInboxQuery({
-  filters = DEFAULT_FILTERS, search = '', view = DEFAULT_VIEW, cursor = null, limit = 25,
+  filters = DEFAULT_FILTERS, search = '', view = DEFAULT_VIEW,
+  attention = DEFAULT_ATTENTION, cursor = null, limit = 25,
 } = {}) {
   const query = { limit: String(clampLimit(limit)) };
 
   if (view && view !== DEFAULT_VIEW) query.view = view;
+  if (attention && attention !== DEFAULT_ATTENTION) query.attention = attention;
 
   if (filters.status !== 'all') query.status = filters.status;
   if (filters.assignee !== 'all') query.assignee = filters.assignee;
@@ -109,8 +112,13 @@ export function normalizeCursor(cursor) {
 // across different server queries. MESSAGES-ARCHIVE-P1: `view` is folded in
 // here too, so switching Active/Archived also starts a fresh cursor chain, even
 // though it is not itself a "filter" (see DEFAULT_VIEW).
-export function queryIdentity({ filters = DEFAULT_FILTERS, search = '', view = DEFAULT_VIEW } = {}) {
-  return JSON.stringify([filters.status, filters.assignee, filters.category, filters.flagged, String(search || '').trim(), view]);
+export function queryIdentity({
+  filters = DEFAULT_FILTERS, search = '', view = DEFAULT_VIEW, attention = DEFAULT_ATTENTION,
+} = {}) {
+  return JSON.stringify([
+    filters.status, filters.assignee, filters.category, filters.flagged,
+    String(search || '').trim(), view, attention,
+  ]);
 }
 
 // Small debounce used by the search input. Returns a cancelable function so a

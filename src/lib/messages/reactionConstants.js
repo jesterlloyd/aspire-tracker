@@ -7,22 +7,36 @@
 // change unread or archive state. That is enforced entirely server-side; this
 // file only carries display constants and local (optimistic) merge helpers.
 //
-// The three keys below are a SERVER-ENFORCED allowlist (the
-// message_reactions.reaction_key CHECK constraint in
-// supabase/migrations/20260801000000_messages_phase3a_reactions.sql). A caller
-// must never render a key outside this list; reactionByKey() returns undefined
-// for anything else, and every renderer must treat that as "skip".
+// The six keys below are a SERVER-ENFORCED allowlist. The original keys remain
+// stable so existing acknowledge, thanks, and celebrate rows keep their meaning
+// while the refined picker changes their glyphs and labels. Migration
+// 20260922000000_messages_refinement_triage_reactions expands the CHECK with
+// on_it, done, and warm. A caller must never render a key outside this list.
 
 export const MESSAGE_REACTIONS = [
-  { key: 'acknowledge', glyph: '✓', label: 'Got it' },
-  { key: 'thanks', glyph: '🙏', label: 'Thank you' },
-  { key: 'celebrate', glyph: '🎉', label: 'Celebrate' },
+  { key: 'acknowledge', glyph: '👍', label: 'Got it' },
+  { key: 'on_it', glyph: '👀', label: 'On it' },
+  { key: 'done', glyph: '✅', label: 'Done' },
+  { key: 'thanks', glyph: '🙏', label: 'Thanks' },
+  { key: 'warm', glyph: '🙂', label: 'Warm' },
+  { key: 'celebrate', glyph: '🎉', label: 'Milestone' },
 ];
+
+// Before the refinement migration is present, the thread endpoint reports
+// reaction_set_version=1. Keep the deployed three-key set available so a
+// code-first release never offers keys the database cannot yet accept.
+export const LEGACY_MESSAGE_REACTIONS = MESSAGE_REACTIONS.filter((r) => (
+  r.key === 'acknowledge' || r.key === 'thanks' || r.key === 'celebrate'
+));
 
 const BY_KEY = new Map(MESSAGE_REACTIONS.map((r) => [r.key, r]));
 
 export function reactionByKey(key) {
   return BY_KEY.get(key);
+}
+
+export function reactionsForVersion(version) {
+  return Number(version) >= 2 ? MESSAGE_REACTIONS : LEGACY_MESSAGE_REACTIONS;
 }
 
 // Optimistically apply a local reaction change to one message's `reactions`

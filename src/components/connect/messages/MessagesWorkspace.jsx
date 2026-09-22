@@ -31,8 +31,9 @@ import { appendPage } from '../../../lib/messages/inboxState'
 import { useThreadAutoScroll } from '../../../lib/messages/useThreadAutoScroll'
 // MESSAGES-LIFECYCLE-PHASE3A-REACTIONS
 import { applyOptimisticReaction } from '../../../lib/messages/reactionConstants'
+import { waitState } from '../../../lib/messages/messagesTriage'
 import {
-  ACTIVE_POLL_MS, useDocumentVisible, useStaffUnreadCount, useIsNarrow,
+  ACTIVE_POLL_MS, useDocumentVisible, useStaffNeedsReplyCount, useIsNarrow,
 } from '../../../lib/messages/messagesPolling'
 import * as defaultApi from '../../../lib/messages/messagesApiClient'
 
@@ -66,8 +67,19 @@ export default function MessagesWorkspace({
   // Reusable announcement region. Sends announce "Message sent."; management
   // actions announce a concise result. Message content is never announced.
   const [announcement, setAnnouncement] = useState('')
+  const [toast, setToast] = useState('')
+  const toastTimerRef = useRef(null)
   const newBtnRef = useRef(null)
-  const announce = useCallback((text) => setAnnouncement(String(text || '')), [])
+  const announce = useCallback((text) => {
+    const next = String(text || '')
+    setAnnouncement(next)
+    setToast(next)
+    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current)
+    toastTimerRef.current = window.setTimeout(() => setToast(''), 3200)
+  }, [])
+  useEffect(() => () => {
+    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current)
+  }, [])
   // Mobile is list-first. Selecting a conversation opens the thread view; Back
   // returns to the list with search, filters, and pagination intact (the inbox
   // stays mounted, so its state is never torn down).
@@ -77,11 +89,9 @@ export default function MessagesWorkspace({
     setSelectedIdState(id)
     onSelectionChange?.(id)
   }, [onSelectionChange])
-  // MAIN-MESSAGES-HEADER-POLISH-1: the returned count is no longer displayed
-  // here (the tab badge and row badges communicate unread), but the hook call
-  // stays: its subscription keeps the shared unread query polling at the
-  // 30-second active cadence while the workspace is open.
-  useStaffUnreadCount({ intervalMs: ACTIVE_POLL_MS, api })
+  // Keep the shared staff attention query fresh while any Messages workspace
+  // is open. All three badges subscribe to this same query key.
+  useStaffNeedsReplyCount({ intervalMs: ACTIVE_POLL_MS, api })
 
   const onSelect = useCallback((id) => {
     setSelectedId(id)
@@ -108,8 +118,9 @@ export default function MessagesWorkspace({
   const showThread = !narrow || mobileView === 'thread'
 
   return (
-    <div style={{
+    <div className="messages-workspace" style={{
       display: 'flex', height: '100%', minHeight: 0, fontFamily: F,
+      position: 'relative',
       // Phone width never renders a compressed two-column split.
       flexDirection: narrow ? 'column' : 'row',
     }}>
@@ -122,9 +133,20 @@ export default function MessagesWorkspace({
           padding: '0 14px',
         }}>
           <div style={{ paddingBottom: 8 }}>
-            <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: T.text, fontFamily: F }}>
-              Messages
-            </h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: T.text, fontFamily: F }}>
+                Messages
+              </h2>
+              <button
+                type="button"
+                ref={newBtnRef}
+                onClick={() => setNewOpen(true)}
+                className="messages-focusable"
+                style={{ ...primaryBtn, minHeight: 30, marginLeft: 'auto' }}
+              >
+                <Plus size={13} aria-hidden="true" /> New
+              </button>
+            </div>
             <p style={{ margin: '3px 0 0', fontSize: 12.5, color: T.muted, lineHeight: 1.5, fontFamily: F }}>
               Communicate securely with active ASPIRE portal participants.
             </p>
@@ -146,20 +168,6 @@ export default function MessagesWorkspace({
               api={api}
               announce={announce}
               onSelectedRowChange={setSelectedId}
-              toolbarAction={
-                // MAIN-MESSAGES-HEADER-POLISH-1: the ONE New message button,
-                // rendered by the inbox's toolbar row (right-aligned beside
-                // Active | Archived). Defined here so newBtnRef, dialog state,
-                // and NewMessageDialog's focus restoration are unchanged.
-                <button
-                  type="button"
-                  ref={newBtnRef}
-                  onClick={() => setNewOpen(true)}
-                  style={{ ...primaryBtn, minHeight: 30 }}
-                >
-                  <Plus size={13} aria-hidden="true" /> New message
-                </button>
-              }
             />
           </div>
         </div>
@@ -193,6 +201,11 @@ export default function MessagesWorkspace({
       {/* Polite announcements for sends and management results. Never carries
           message content or unnecessary participant detail. */}
       <div role="status" aria-live="polite" style={srOnly}>{announcement}</div>
+      {toast && (
+        <div className="messages-save-toast" role="status">
+          {toast}
+        </div>
+      )}
     </div>
   )
 }
@@ -269,6 +282,7 @@ export function ThreadPanel({ conversationId, api = defaultApi, announce = () =>
   // archiveAvailable convention - until a page confirms the migration is
   // applied, no reaction UI renders at all.
   const reactionsAvailable = pages.some((p) => p?.reactions_available === true)
+  const reactionSetVersion = Math.max(1, ...pages.map((p) => Number(p?.reaction_set_version) || 1))
 
   // One in-flight reaction request per message id, tracked in a ref for a
   // synchronous double-fire guard and mirrored into state so the disabled chip
@@ -377,7 +391,13 @@ export function ThreadPanel({ conversationId, api = defaultApi, announce = () =>
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
-      <ThreadHeader conversation={conversation} api={api} announce={announce} onOpenStudent={onOpenStudent} />
+      <ThreadHeader
+        conversation={conversation}
+        latestMessage={messages[messages.length - 1]}
+        api={api}
+        announce={announce}
+        onOpenStudent={onOpenStudent}
+      />
 
       {/* MESSAGES-AUTOSCROLL-1: the relative wrapper hosts the floating "New
           messages" affordance without joining the scroll flow; the inner div
@@ -411,6 +431,7 @@ export function ThreadPanel({ conversationId, api = defaultApi, announce = () =>
               message={m}
               previous={messages[i - 1]}
               reactionsEnabled={reactionsAvailable}
+              reactionSetVersion={reactionSetVersion}
               onSetReaction={setReaction}
               reactionsDisabled={busyReactionIds.has(m.id)}
             />
@@ -445,8 +466,9 @@ export function ThreadPanel({ conversationId, api = defaultApi, announce = () =>
   )
 }
 
-function ThreadHeader({ conversation: c, api, announce, onOpenStudent }) {
+function ThreadHeader({ conversation: c, latestMessage, api, announce, onOpenStudent }) {
   const accessActive = c.participant_access_active !== false
+  const waiting = waitState(c, latestMessage)
   return (
     <header style={{ padding: '10px 16px', borderBottom: `1px solid ${T.border}` }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
@@ -483,11 +505,17 @@ function ThreadHeader({ conversation: c, api, announce, onOpenStudent }) {
         ))}
       </div>
       <ThreadManagementControls conversation={c} api={api} announce={announce} />
+      <div className={`messages-waitbar messages-waitbar--${waiting.kind}`}>
+        {waiting.label}
+      </div>
     </header>
   )
 }
 
-function MessageRow({ message: m, previous, reactionsEnabled, onSetReaction, reactionsDisabled }) {
+function MessageRow({
+  message: m, previous, reactionsEnabled, reactionSetVersion,
+  onSetReaction, reactionsDisabled,
+}) {
   const showDate = !previous || !sameDay(previous.created_at, m.created_at)
   return (
     <MessageBubble
@@ -498,6 +526,7 @@ function MessageRow({ message: m, previous, reactionsEnabled, onSetReaction, rea
       dateLabel={formatInboxTimestamp(m.created_at)}
       timeMode="short"
       reactionsEnabled={reactionsEnabled}
+      reactionSetVersion={reactionSetVersion}
       onSetReaction={onSetReaction}
       reactionsDisabled={reactionsDisabled}
     />
@@ -527,7 +556,7 @@ const badge = {
 const primaryBtn = {
   display: 'inline-flex', alignItems: 'center', gap: 6, minHeight: 32,
   padding: '0 12px', borderRadius: 7, border: 'none', cursor: 'pointer',
-  background: T.accent, color: '#fff', fontSize: 12.5, fontWeight: 600, fontFamily: F,
+  background: T.accent, color: 'var(--color-text-inverse,#fff)', fontSize: 12.5, fontWeight: 600, fontFamily: F,
 }
 const secondaryBtn = {
   minHeight: 32, padding: '0 14px', borderRadius: 7, cursor: 'pointer',

@@ -20,7 +20,8 @@ import { isUuid } from '../../lib/server/messages/validation.js';
 
 // The closed reaction set. Matches the table CHECK in the Phase 3A migration;
 // the UI cannot invent keys and neither can this endpoint.
-const REACTION_KEYS = ['acknowledge', 'thanks', 'celebrate'];
+const LEGACY_REACTION_KEYS = ['acknowledge', 'thanks', 'celebrate'];
+const REACTION_KEYS = ['acknowledge', 'on_it', 'done', 'thanks', 'warm', 'celebrate'];
 
 export default async function handler(req, res) {
   if (!methodGuard(req, res, ['POST'])) return;
@@ -43,12 +44,19 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { data, error } = await getServiceDb().rpc('messages_set_message_reaction', {
+    const args = {
       p_actor_profile_id: caller.profile.id,
       p_actor_kind: caller.actorKind,
       p_message_id: messageId,
       p_reaction_key: reaction ?? null,
-    });
+    };
+    const db = getServiceDb();
+    let { data, error } = await db.rpc('messages_set_message_reaction_v2', args);
+    if (error
+        && (String(error.code) === 'PGRST202' || String(error.code) === '42883')
+        && (args.p_reaction_key === null || LEGACY_REACTION_KEYS.includes(args.p_reaction_key))) {
+      ;({ data, error } = await db.rpc('messages_set_message_reaction', args));
+    }
     if (error) {
       // MESSAGES-LIFECYCLE-PHASE3A-REACTIONS: pre-migration readiness. The RPC
       // does not exist yet, so report 503 rather than a generic 500.

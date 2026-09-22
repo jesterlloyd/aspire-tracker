@@ -29,7 +29,7 @@ test('the launcher opens docked Messages; Connect is a restrained secondary acti
   assert.match(dock, /const openPanel = \(\) => \{\n {4}announceFloatingPanelOpen\('main-messages'\)/)
   assert.match(dock, /onClick=\{openPanel\}/)
   // Navigation exists ONLY behind the explicit header action.
-  assert.match(dock, /const openInConnect = \(\) => \{\n {4}closePanel\(false\)\n {4}navigate\('\/connect\/messages'\)\n {2}\}/)
+  assert.match(dock, /const openInConnect = \(\) => \{[\s\S]{0,240}navigate\(lastSelectedId[\s\S]{0,180}`\/connect\/messages\?conversation=/)
   assert.match(dock, /Open in ASPIRE Connect/)
   const clickIdx = dock.indexOf('onClick={openPanel}')
   assert.ok(clickIdx > -1, 'the launcher click opens the panel')
@@ -64,8 +64,8 @@ test('first open shows the list; reopen restores the last thread and re-anchors'
   assert.match(workspace, /onGone=\{\(\) => \{ setSelectedId\(null\); setMobileView\('list'\) \}\}/)
 })
 
-test('unread behavior is the shared query and existing read-state rules', () => {
-  assert.match(dock, /useStaffUnreadCount\(\{ intervalMs: IDLE_UNREAD_POLL_MS, enabled: canUseMessages \}\)/)
+test('Needs your reply behavior is the shared query and existing read-state rules', () => {
+  assert.match(dock, /useStaffNeedsReplyCount\(\{ intervalMs: IDLE_UNREAD_POLL_MS, enabled: canUseMessages \}\)/)
   assert.match(dock, /\['owner', 'admin'\]\.includes\(userProfile\?\.role\) && userProfile\?\.is_active !== false/)
   // The dock itself never marks anything read - only ThreadPanel's existing
   // newest-page rule does that.
@@ -112,9 +112,12 @@ test('panel geometry mirrors the corner-drawer convention and clears Keith\'s or
   assert.match(dock, /aria-label="Messages"/)
 })
 
-test('the Connect workspace and the portals are untouched', () => {
-  // Connect still mounts the full workspace without docked props.
-  assert.match(read('src/pages/Connect.jsx'), /<MessagesWorkspace refreshKey=\{refreshKey\} onOpenStudent=\{onNavigateToStudent\} \/>/)
+test('the Connect workspace keeps the shared implementation and the portals stay intact', () => {
+  const connect = read('src/pages/Connect.jsx')
+  assert.match(connect, /<MessagesWorkspace/)
+  assert.match(connect, /refreshKey=\{refreshKey\}/)
+  assert.match(connect, /initialSelectedId=\{new URLSearchParams\(location\.search\)\.get\('conversation'\)\}/)
+  assert.match(connect, /onOpenStudent=\{onNavigateToStudent\}/)
   // The portal docked panel keeps its own launcher and thread host.
   assert.match(read('src/portal/PortalUtilityLayer.jsx'), /aria-label="Open messages with the ASPIRE Team"/)
   // The shared auto-scroll contract stays pinned in both thread hosts.

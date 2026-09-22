@@ -11,8 +11,8 @@ import OutreachView from '../components/connect/OutreachView'
 import AutomationView from '../components/connect/AutomationView'
 import MessagesWorkspace from '../components/connect/messages/MessagesWorkspace'
 import { useAuth } from '../contexts/AuthContext'
-import { formatUnread, unreadLabel } from '../lib/messages/messagesConstants'
-import { ACTIVE_POLL_MS, IDLE_UNREAD_POLL_MS, useStaffUnreadCount } from '../lib/messages/messagesPolling'
+import { formatUnread, needsReplyLabel } from '../lib/messages/messagesConstants'
+import { ACTIVE_POLL_MS, IDLE_UNREAD_POLL_MS, useStaffNeedsReplyCount } from '../lib/messages/messagesPolling'
 import { useToast } from '../hooks/useToast'
 import { ToastContainer } from '../components/Toast'
 import { RefreshHint } from '../components/UnifiedNav'
@@ -98,7 +98,7 @@ export default function ConnectPage({ cohortId, onNavigateToStudent, refreshRef,
   // Tab unread badge. Polls at 30s while Messages is active and 60s otherwise,
   // pauses while the document is hidden, and refreshes on focus. `enabled` keeps
   // an unauthorized user from requesting the endpoint at all.
-  const messagesUnread = useStaffUnreadCount({
+  const messagesNeedsReply = useStaffNeedsReplyCount({
     enabled: canUseMessages,
     intervalMs: activeSubTab === 'messages' ? ACTIVE_POLL_MS : IDLE_UNREAD_POLL_MS,
   })
@@ -111,8 +111,8 @@ export default function ConnectPage({ cohortId, onNavigateToStudent, refreshRef,
       label: 'Messages',
       Icon: MessageSquare,
       path: '/connect/messages',
-      badge: messagesUnread > 0 ? formatUnread(messagesUnread) : null,
-      srLabel: messagesUnread > 0 ? unreadLabel(messagesUnread) : '',
+      badge: messagesNeedsReply > 0 ? formatUnread(messagesNeedsReply) : null,
+      srLabel: messagesNeedsReply > 0 ? needsReplyLabel(messagesNeedsReply) : '',
     } : null,
     { key: 'broadcasts', label: 'Automations', Icon: Activity, path: '/connect/broadcasts' },
   ].filter(Boolean)
@@ -200,7 +200,11 @@ export default function ConnectPage({ cohortId, onNavigateToStudent, refreshRef,
             pagination, selection, and the reply draft survive tab switches. */}
         {canUseMessages && (
           <div style={{ display: activeSubTab === 'messages' ? 'flex' : 'none', flexDirection: 'column', height: '100%', minHeight: 0 }}>
-            <MessagesWorkspace refreshKey={refreshKey} onOpenStudent={onNavigateToStudent} />
+            <MessagesWorkspace
+              refreshKey={refreshKey}
+              onOpenStudent={onNavigateToStudent}
+              initialSelectedId={new URLSearchParams(location.search).get('conversation')}
+            />
           </div>
         )}
         <div style={{ display: activeSubTab === 'broadcasts' ? 'block' : 'none' }}>

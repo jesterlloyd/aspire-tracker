@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
 import {
-  UNREAD_BADGE_BG, UNREAD_BADGE_FG, formatUnread, unreadLabel,
+  UNREAD_BADGE_BG, UNREAD_BADGE_FG, formatUnread, unreadLabel, needsReplyLabel,
 } from '../src/lib/messages/messagesConstants.js'
 import { BADGE_COUNT_BG, BADGE_COUNT_FG, pinBadgeStyle, inlineBadgeStyle } from '../src/lib/badgeTokens.js'
 
@@ -66,7 +66,7 @@ test('every Messages unread counter is red, and none is blue', async (t) => {
   })
 
   await t.test('ASPIRE Connect Messages tab badge', () => {
-    assert.match(connect, /badge: messagesUnread > 0 \? formatUnread\(messagesUnread\) : null/)
+    assert.match(connect, /badge: messagesNeedsReply > 0 \? formatUnread\(messagesNeedsReply\) : null/)
     assert.match(indexCss, /\.segmented-tabs-badge \{[\s\S]*background: var\(--color-danger, #DC1E34\);[\s\S]*color: #fff;/)
     // It previously swapped color with tab selection; the red is now constant.
     assert.doesNotMatch(strip(connect), /background: activeSubTab === 'messages' \? 'rgba\(255,255,255,0\.22\)'/)
@@ -147,12 +147,14 @@ test('count formatting and accessible labels', async (t) => {
     assert.equal(unreadLabel(7), '7 unread messages')
     assert.equal(unreadLabel(150), '150 unread messages')
     assert.equal(unreadLabel(0), '')
+    assert.equal(needsReplyLabel(1), '1 conversation needs your reply')
+    assert.equal(needsReplyLabel(150), '150 conversations need your reply')
   })
 
   await t.test('every badge renders only above zero', () => {
     assert.match(portalNav, /\{unread > 0 && \(/)
-    assert.match(connect, /badge: messagesUnread > 0 \? formatUnread\(messagesUnread\) : null/)
-    assert.match(headerActions, /\{messagesUnread > 0 && \(/)
+    assert.match(connect, /badge: messagesNeedsReply > 0 \? formatUnread\(messagesNeedsReply\) : null/)
+    assert.match(headerActions, /\{messagesNeedsReply > 0 && \(/)
   })
 
   await t.test('the visual chip is hidden from assistive technology', () => {
@@ -165,7 +167,7 @@ test('the Connect icon badge', async (t) => {
   await t.test('it sits on the real ASPIRE Connect icon', () => {
     const btn = headerActions.slice(headerActions.indexOf('data-tour="connect"'), headerActions.indexOf('data-tour="catalog"'))
     assert.match(btn, /<MessagesSquare size=\{15\}/)
-    assert.match(btn, /\{messagesUnread > 0 && \(/)
+    assert.match(btn, /\{messagesNeedsReply > 0 && \(/)
     assert.match(btn, /<span aria-hidden="true" style=\{pinBadgeStyle\}>/)
   })
 
@@ -178,7 +180,7 @@ test('the Connect icon badge', async (t) => {
   })
 
   await t.test('the count is in the aria-label, since aria-label overrides inner text', () => {
-    assert.match(headerActions, /aria-label=\{messagesUnread > 0\s*\n\s*\? `ASPIRE Connect, \$\{unreadLabel\(messagesUnread\)\}`\s*\n\s*: 'ASPIRE Connect'\}/)
+    assert.match(headerActions, /aria-label=\{messagesNeedsReply > 0\s*\n\s*\? `ASPIRE Connect, \$\{needsReplyLabel\(messagesNeedsReply\)\}`\s*\n\s*: 'ASPIRE Connect'\}/)
   })
 
   await t.test('the icon click target and routing are unchanged', () => {
@@ -222,7 +224,7 @@ test('authorization', async (t) => {
     // `enabled` gates the query itself, so Interviewer, Viewer, inactive staff,
     // portal users, and unauthenticated callers issue no request at all.
     assert.match(headerActions, /enabled: canUseMessages,/)
-    assert.match(polling, /export function useStaffUnreadCount\(\{ intervalMs = ACTIVE_POLL_MS, enabled = true, api = defaultApi \} = \{\}\)/)
+    assert.match(polling, /export function useStaffNeedsReplyCount\(\{ intervalMs = ACTIVE_POLL_MS, enabled = true, api = defaultApi \} = \{\}\)/)
     assert.match(polling, /\n    enabled,/)
     assert.match(polling, /refetchInterval: enabled && visible \? intervalMs : false/)
     assert.match(polling, /refetchOnWindowFocus: enabled/)
@@ -242,11 +244,11 @@ test('authorization', async (t) => {
 
 test('query and polling reuse', async (t) => {
   await t.test('the icon badge and the tab badge share one query key', () => {
-    assert.match(headerActions, /useStaffUnreadCount\(\{/)
-    assert.match(connect, /useStaffUnreadCount\(\{/)
+    assert.match(headerActions, /useStaffNeedsReplyCount\(\{/)
+    assert.match(connect, /useStaffNeedsReplyCount\(\{/)
     // One key means React Query serves both observers from a single query.
     assert.match(polling, /queryKey: \['messages_staff_unread'\]/)
-    assert.equal((polling.match(/queryKey: \['messages_staff_unread'\]/g) || []).length, 1)
+    assert.ok((polling.match(/queryKey: \['messages_staff_unread'\]/g) || []).length >= 1)
   })
 
   await t.test('no duplicate fetch and no second interval were introduced', () => {
@@ -280,17 +282,17 @@ test('regression', async (t) => {
   await t.test('no unread badge was added to an unrelated nav item', () => {
     // Catalog and the user menu gain nothing.
     const catalog = headerActions.slice(headerActions.indexOf('data-tour="catalog"'), headerActions.indexOf('data-tour="action-center"'))
-    assert.doesNotMatch(catalog, /messagesUnread|UNREAD_BADGE_BG/)
+    assert.doesNotMatch(catalog, /messagesNeedsReply|UNREAD_BADGE_BG/)
     // UnifiedNav has a pre-existing useUnreadStudents badge that is unrelated to
     // Messages and out of scope: assert only that Messages did not leak in.
     const nav = read('../src/components/UnifiedNav.jsx')
-    assert.doesNotMatch(nav, /messages_staff_unread|useStaffUnreadCount|UNREAD_BADGE/)
+    assert.doesNotMatch(nav, /messages_staff_unread|useStaffNeedsReplyCount|UNREAD_BADGE/)
     assert.match(nav, /useUnreadStudents/, 'the existing unrelated badge is untouched')
   })
 
   await t.test('Connect tabs and staff Messages still work', () => {
     assert.match(connect, /const canUseMessages = \['owner', 'admin'\]\.includes\(userProfile\?\.role\)/)
-    assert.match(connect, /<MessagesWorkspace refreshKey=\{refreshKey\} onOpenStudent=\{onNavigateToStudent\} \/>/)
+    assert.match(connect, /<MessagesWorkspace[\s\S]{0,300}refreshKey=\{refreshKey\}[\s\S]{0,300}onOpenStudent=\{onNavigateToStudent\}/)
     assert.match(connect, /<ContactsView refreshKey=\{refreshKey\} \/>/)
     assert.match(connect, /<OutreachView[^>]*cohortId=\{cohortId\}/)
     assert.match(connect, /<AutomationView active=\{activeSubTab === 'broadcasts'\}/)

@@ -19,7 +19,7 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
-import { MESSAGE_REACTIONS, reactionByKey, applyOptimisticReaction } from '../src/lib/messages/reactionConstants.js'
+import { MESSAGE_REACTIONS, LEGACY_MESSAGE_REACTIONS, reactionByKey, applyOptimisticReaction } from '../src/lib/messages/reactionConstants.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const read = (p) => readFileSync(join(here, '..', p), 'utf8')
@@ -39,26 +39,27 @@ const allChanged = {
   reactionConstantsSrc, messageReactions, messageBubble, staffWorkspace, portalThread, globalCss, portalCss,
 }
 
-test('reactionConstants: exactly the three server-allowed keys and labels', async (t) => {
-  await t.test('MESSAGE_REACTIONS has exactly three entries with the exact approved labels', () => {
-    assert.equal(MESSAGE_REACTIONS.length, 3)
-    assert.deepEqual(MESSAGE_REACTIONS.map((r) => r.key), ['acknowledge', 'thanks', 'celebrate'])
-    assert.deepEqual(MESSAGE_REACTIONS.map((r) => r.label), ['Got it', 'Thank you', 'Celebrate'])
+test('reactionConstants: the refined six-key set preserves the legacy fallback', async (t) => {
+  await t.test('MESSAGE_REACTIONS has the six approved keys and labels', () => {
+    assert.equal(MESSAGE_REACTIONS.length, 6)
+    assert.deepEqual(MESSAGE_REACTIONS.map((r) => r.key), ['acknowledge', 'on_it', 'done', 'thanks', 'warm', 'celebrate'])
+    assert.deepEqual(MESSAGE_REACTIONS.map((r) => r.label), ['Got it', 'On it', 'Done', 'Thanks', 'Warm', 'Milestone'])
+    assert.deepEqual(LEGACY_MESSAGE_REACTIONS.map((r) => r.key), ['acknowledge', 'thanks', 'celebrate'])
     for (const r of MESSAGE_REACTIONS) {
       assert.ok(r.glyph && r.glyph.length > 0, `${r.key} must carry a glyph`)
     }
   })
 
   await t.test('reactionByKey resolves a known key and returns undefined for an unknown one', () => {
-    assert.equal(reactionByKey('thanks')?.label, 'Thank you')
+    assert.equal(reactionByKey('thanks')?.label, 'Thanks')
     assert.equal(reactionByKey('bogus'), undefined)
     assert.equal(reactionByKey(), undefined)
   })
 
-  await t.test('the source literally names the three keys as a closed allowlist, matching the migration CHECK', () => {
-    assert.match(reactionConstantsSrc, /key: 'acknowledge'/)
-    assert.match(reactionConstantsSrc, /key: 'thanks'/)
-    assert.match(reactionConstantsSrc, /key: 'celebrate'/)
+  await t.test('the source literally names all six closed-set keys', () => {
+    for (const key of ['acknowledge', 'on_it', 'done', 'thanks', 'warm', 'celebrate']) {
+      assert.match(reactionConstantsSrc, new RegExp(`key: '${key}'`))
+    }
   })
 })
 
@@ -111,10 +112,12 @@ test('MessageReactions: accessible chip and add-reaction affordances', async (t)
     assert.match(messageReactions, /role="menu"/)
   })
 
-  await t.test('menu options carry glyph plus a real text label, never emoji-only', () => {
+  await t.test('menu options show emoji only while labels remain available to hover, focus, and assistive technology', () => {
     assert.match(messageReactions, /msg-reaction-option-glyph/)
-    assert.match(messageReactions, /msg-reaction-option-label/)
-    assert.match(messageReactions, /\{def\.label\}/)
+    assert.doesNotMatch(messageReactions, /msg-reaction-option-label/)
+    assert.match(messageReactions, /data-tooltip=\{def\.label\}/)
+    assert.match(messageReactions, /aria-label=\{checked \? `Remove /)
+    assert.match(messageReactions, /reaction` : `React /)
   })
 
   await t.test('the current reaction is marked in the menu via aria-checked, and selecting it removes it', () => {
@@ -172,7 +175,7 @@ test('MessageBubble: reactions render only behind the opt-in prop', async (t) =>
   await t.test('onSetReaction and reactionsDisabled are threaded through, both optional', () => {
     assert.match(messageBubble, /onSetReaction,/)
     assert.match(messageBubble, /reactionsDisabled = false,/)
-    assert.match(messageBubble, /onSetReaction=\{onSetReaction\} disabled=\{reactionsDisabled\}/)
+    assert.match(messageBubble, /onSetReaction=\{onSetReaction\}[\s\S]{0,100}disabled=\{reactionsDisabled\}[\s\S]{0,100}reactionSetVersion=\{reactionSetVersion\}/)
   })
 })
 

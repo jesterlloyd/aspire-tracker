@@ -73,6 +73,13 @@
   /* Focus */
   --color-focus-ring: #4F6DA8;
 
+  /* Messages stays a standard chat in both Classic and Modern style. */
+  --messages-bubble-in:       #EEF0F4;
+  --messages-bubble-in-ink:   #1F2937;
+  --messages-bubble-out:      #1D2567;
+  --messages-bubble-out-ink:  #FFFFFF;
+  --messages-soft-surface:    #F7F8FB;
+
   /* ── Sheet family: printed-paper surfaces (RESPONSES-PACKET-1, table canon) ──
      One paper for every DataSheet and results packet, and it is the SAME slate
      paper the Review & Release clipboard reads (--aspire-paper, below): Owner
@@ -201,6 +208,12 @@
 
   /* Focus */
   --color-focus-ring: #8FA9FF;
+
+  --messages-bubble-in:       #232A34;
+  --messages-bubble-in-ink:   #F2F5F8;
+  --messages-bubble-out:      #283A8A;
+  --messages-bubble-out-ink:  #FFFFFF;
+  --messages-soft-surface:    #1C232D;
 
   /* Sheet family, dark: the same slate paper as the clipboard. */
   --paper:        var(--aspire-paper);

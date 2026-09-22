@@ -57,13 +57,16 @@ export default async function handler(req, res) {
       p_cursor_ts: cursor.value.ts,
       p_cursor_id: cursor.value.id,
     };
-    // MESSAGES-LIFECYCLE-PHASE3A-REACTIONS: prefer v3 (adds per-message
-    // reactions); fall back to v2 while the migration has not yet been applied.
-    let { data, error } = await db.rpc('messages_portal_get_thread_v3', rpcArgs);
+    // v4 wraps v3 and reports the six-reaction capability. Fall back to v3 and
+    // then v2 so either migration/deploy order is safe.
+    let { data, error } = await db.rpc('messages_portal_get_thread_v4', rpcArgs);
     let reactionsAvailable = true;
     if (error && (String(error.code) === 'PGRST202' || String(error.code) === '42883')) {
-      reactionsAvailable = false;
-      ;({ data, error } = await db.rpc('messages_portal_get_thread_v2', rpcArgs));
+      ;({ data, error } = await db.rpc('messages_portal_get_thread_v3', rpcArgs));
+      if (error && (String(error.code) === 'PGRST202' || String(error.code) === '42883')) {
+        reactionsAvailable = false;
+        ;({ data, error } = await db.rpc('messages_portal_get_thread_v2', rpcArgs));
+      }
     }
     if (error) {
       logApiError('portal/messages-thread', 'rpc_failed', error);
@@ -100,6 +103,7 @@ export default async function handler(req, res) {
       next_cursor: data.next_cursor ?? null,
       has_more: data.has_more === true,
       reactions_available: reactionsAvailable,
+      reaction_set_version: Number(data.reaction_set_version) || 1,
     });
   } catch (err) {
     logApiError('portal/messages-thread', 'threw', err);

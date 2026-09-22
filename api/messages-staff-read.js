@@ -24,13 +24,25 @@ export default async function handler(req, res) {
     const db = getUserScopedDb(req);
     if (!db) return res.status(401).json({ error: 'unauthenticated' });
     try {
-      const { data, error } = await db.rpc('messages_staff_unread_count');
-      if (error) {
-        logApiError('messages-staff-read', 'rpc_failed', error);
-        return res.status(error.code === 'MS403' ? 403 : 500)
-          .json({ error: error.code === 'MS403' ? 'forbidden' : 'internal_error' });
+      const unreadResult = await db.rpc('messages_staff_unread_count');
+      if (unreadResult.error) {
+        logApiError('messages-staff-read', 'rpc_failed', unreadResult.error);
+        return res.status(unreadResult.error.code === 'MS403' ? 403 : 500)
+          .json({ error: unreadResult.error.code === 'MS403' ? 'forbidden' : 'internal_error' });
       }
-      return res.status(200).json({ unread_count: Number(data) || 0 });
+      const attentionResult = await db.rpc('messages_staff_needs_reply_count');
+      const unavailable = attentionResult.error
+        && (String(attentionResult.error.code) === 'PGRST202' || String(attentionResult.error.code) === '42883');
+      if (attentionResult.error && !unavailable) {
+        logApiError('messages-staff-read', 'attention_rpc_failed', attentionResult.error);
+        return res.status(attentionResult.error.code === 'MS403' ? 403 : 500)
+          .json({ error: attentionResult.error.code === 'MS403' ? 'forbidden' : 'internal_error' });
+      }
+      return res.status(200).json({
+        unread_count: Number(unreadResult.data) || 0,
+        needs_reply_count: unavailable ? 0 : (Number(attentionResult.data) || 0),
+        attention_available: !unavailable,
+      });
     } catch (err) {
       logApiError('messages-staff-read', 'threw', err);
       return res.status(500).json({ error: 'internal_error' });

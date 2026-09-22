@@ -35,7 +35,8 @@ import { isUuid, validateStatus, validateCategory } from '../lib/server/messages
 const ACTIONS = ['assign', 'status', 'category', 'flag', 'archive', 'react'];
 // The closed reaction set. Matches the table CHECK in the Phase 3A migration;
 // the UI cannot invent keys and neither can this endpoint.
-const REACTION_KEYS = ['acknowledge', 'thanks', 'celebrate'];
+const LEGACY_REACTION_KEYS = ['acknowledge', 'thanks', 'celebrate'];
+const REACTION_KEYS = ['acknowledge', 'on_it', 'done', 'thanks', 'warm', 'celebrate'];
 
 export default async function handler(req, res) {
   if (!methodGuard(req, res, ['POST'])) return;
@@ -104,7 +105,7 @@ export default async function handler(req, res) {
     if (reaction !== null && reaction !== undefined && !REACTION_KEYS.includes(reaction)) {
       return res.status(422).json({ error: 'invalid_reaction' });
     }
-    rpc = 'messages_set_message_reaction';
+    rpc = 'messages_set_message_reaction_v2';
     args = {
       p_actor_profile_id: caller.profile.id,
       p_actor_kind: 'staff',
@@ -114,7 +115,15 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { data, error } = await db.rpc(rpc, args);
+    let { data, error } = await db.rpc(rpc, args);
+    // Code-first safety: the legacy three reactions and removal continue through
+    // v1 until the Owner applies the six-key migration. New keys fail closed.
+    if (action === 'react'
+        && error
+        && (String(error.code) === 'PGRST202' || String(error.code) === '42883')
+        && (args.p_reaction_key === null || LEGACY_REACTION_KEYS.includes(args.p_reaction_key))) {
+      ;({ data, error } = await db.rpc('messages_set_message_reaction', args));
+    }
     if (error) {
       // MESSAGES-ARCHIVE-P1 / MESSAGES-LIFECYCLE-PHASE3A-REACTIONS: pre-migration
       // readiness. The archive or reaction RPC does not exist yet, so report 503

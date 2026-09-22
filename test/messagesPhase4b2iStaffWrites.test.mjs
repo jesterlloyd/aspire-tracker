@@ -243,7 +243,7 @@ test('workspace wiring and aria-live', async (t) => {
 
   await t.test('has a polite announcement region carrying no message content', () => {
     assert.match(workspace, /role="status" aria-live="polite" style=\{srOnly\}>\{announcement\}/)
-    assert.match(workspace, /const announce = useCallback\(\(text\) => setAnnouncement\(String\(text \|\| ''\)\), \[\]\)/)
+    assert.match(workspace, /const announce = useCallback\(\(text\) => \{[\s\S]{0,300}setAnnouncement\(next\)[\s\S]{0,300}setToast\(next\)/)
   })
 
   await t.test('New message returns focus to its trigger', () => {
@@ -298,7 +298,7 @@ test('privacy and dormancy', async (t) => {
   })
 
   await t.test('the Connect unread badge is present and accessible', () => {
-    assert.match(connect, /messagesUnread/)
+    assert.match(connect, /messagesNeedsReply/)
   })
 
   await t.test('Student Portal Messages is activated and mounted only in the student branch', () => {

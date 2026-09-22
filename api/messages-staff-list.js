@@ -18,6 +18,7 @@ import {
 } from '../lib/server/messages/validation.js';
 
 const VIEWS = ['active', 'archived', 'all'];
+const ATTENTION_MODES = ['all', 'needs_reply', 'unassigned'];
 
 export default async function handler(req, res) {
   if (!methodGuard(req, res, ['GET'])) return;
@@ -34,6 +35,8 @@ export default async function handler(req, res) {
   // only other accepted values.
   const view = req.query?.view === undefined ? 'active' : req.query.view;
   if (!VIEWS.includes(view)) return res.status(422).json({ error: 'invalid_view' });
+  const attention = req.query?.attention === undefined ? 'all' : req.query.attention;
+  if (!ATTENTION_MODES.includes(attention)) return res.status(422).json({ error: 'invalid_attention' });
 
   let status = null;
   if (req.query?.status) {
@@ -105,13 +108,23 @@ export default async function handler(req, res) {
   };
 
   try {
-    // MESSAGES-ARCHIVE-P1: prefer v3 (adds p_view and is_archived); fall back
-    // to v2 (no archive support) while the migration has not yet been applied.
-    let { data, error } = await db.rpc('messages_staff_list_conversations_v3', { ...rpcArgs, p_view: view });
+    // The refinement v4 adds sender search, latest-author direction, quick
+    // filtering, and authoritative counts. Fall back through the deployed v3
+    // path so code-first deploys retain the canonical inbox until the Owner
+    // applies the additive migration.
+    let { data, error } = await db.rpc('messages_staff_list_conversations_v4', {
+      ...rpcArgs, p_view: view, p_attention: attention,
+    });
+    let triageAvailable = true;
     let archiveAvailable = true;
     if (error && (String(error.code) === 'PGRST202' || String(error.code) === '42883')) {
-      archiveAvailable = false;
-      ;({ data, error } = await db.rpc('messages_staff_list_conversations_v2', rpcArgs));
+      triageAvailable = false;
+      if (attention !== 'all') return res.status(503).json({ error: 'triage_not_ready' });
+      ;({ data, error } = await db.rpc('messages_staff_list_conversations_v3', { ...rpcArgs, p_view: view }));
+      if (error && (String(error.code) === 'PGRST202' || String(error.code) === '42883')) {
+        archiveAvailable = false;
+        ;({ data, error } = await db.rpc('messages_staff_list_conversations_v2', rpcArgs));
+      }
     }
     if (error) {
       logApiError('messages-staff-list', 'rpc_failed', error);
@@ -126,6 +139,8 @@ export default async function handler(req, res) {
       conversations,
       next_cursor: nextCursorFrom(conversations, limit.value, 'last_message_at'),
       archive_available: archiveAvailable,
+      triage_available: triageAvailable,
+      counts: triageAvailable ? (data?.counts || { active: 0, needs_reply: 0, unassigned: 0 }) : null,
     });
   } catch (err) {
     logApiError('messages-staff-list', 'threw', err);

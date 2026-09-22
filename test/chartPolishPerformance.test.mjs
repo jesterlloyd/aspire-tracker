@@ -37,7 +37,7 @@ test('Messages: the linked student is a real, wired affordance', () => {
   assert.match(ws, /Open student record →/)
   assert.match(ws, /<ThreadPanel[\s\S]{0,220}?onOpenStudent=\{onOpenStudent\}/)
   const connect = read('src/pages/Connect.jsx')
-  assert.match(connect, /<MessagesWorkspace refreshKey=\{refreshKey\} onOpenStudent=\{onNavigateToStudent\} \/>/)
+  assert.match(connect, /<MessagesWorkspace[\s\S]{0,300}refreshKey=\{refreshKey\}[\s\S]{0,300}onOpenStudent=\{onNavigateToStudent\}/)
   // Cross-route focus never writes the URL from a stale route closure.
   const spt = read('src/components/StudentProfilesTab.jsx')
   const focusEffect = spt.slice(spt.indexOf('cross-route focus'), spt.indexOf('Mark profile as read'))

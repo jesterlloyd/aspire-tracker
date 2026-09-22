@@ -219,12 +219,12 @@ test('polling and visibility', async (t) => {
     assert.match(polling, /export const MOBILE_MAX_WIDTH = 900/)
   })
 
-  await t.test('thread and unread poll at the active cadence', () => {
+  await t.test('thread and Needs reply count poll at the active cadence', () => {
     assert.match(workspace, /refetchInterval: visible \? ACTIVE_POLL_MS : false/)
     // Phase 4B2b-ii added the authorization guard, so an unauthorized caller
     // never polls at all.
     assert.match(polling, /refetchInterval: enabled && visible \? intervalMs : false/)
-    assert.match(workspace, /useStaffUnreadCount\(\{ intervalMs: ACTIVE_POLL_MS, api \}\)/)
+    assert.match(workspace, /useStaffNeedsReplyCount\(\{ intervalMs: ACTIVE_POLL_MS, api \}\)/)
   })
 
   await t.test('polling pauses while hidden and refreshes on focus', () => {
@@ -242,12 +242,12 @@ test('polling and visibility', async (t) => {
     assert.doesNotMatch(strip(workspace), /setInterval/)
   })
 
-  await t.test('the idle unread hook drives the Connect tab badge', () => {
+  await t.test('the idle Needs reply hook drives the Connect tab badge', () => {
     // Phase 4B2b-ii mounts this in Connect: ACTIVE_POLL_MS on the Messages tab,
     // IDLE_UNREAD_POLL_MS elsewhere, and disabled entirely without authorization.
-    assert.match(polling, /export function useStaffUnreadCount/)
+    assert.match(polling, /export function useStaffNeedsReplyCount/)
     assert.match(polling, /intervalMs = ACTIVE_POLL_MS/)
-    assert.match(connect, /useStaffUnreadCount\(\{/)
+    assert.match(connect, /useStaffNeedsReplyCount\(\{/)
     assert.match(connect, /intervalMs: activeSubTab === 'messages' \? ACTIVE_POLL_MS : IDLE_UNREAD_POLL_MS/)
     assert.match(connect, /enabled: canUseMessages/)
   })

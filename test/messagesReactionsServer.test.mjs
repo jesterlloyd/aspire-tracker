@@ -183,13 +183,15 @@ test('v2 thread functions are never redefined by this migration', () => {
 
 // ── Staff thread endpoint: v3-first, v2 fallback, reactions_available ────────
 
-test('staff thread endpoint: prefers v3, falls back to v2 on PGRST202/42883', () => {
+test('staff thread endpoint: prefers v4, then falls back through v3 to v2', () => {
+  assert.match(staffThread, /db\.rpc\('messages_staff_get_thread_v4', rpcArgs\)/)
   assert.match(staffThread, /db\.rpc\('messages_staff_get_thread_v3', rpcArgs\)/)
   assert.match(staffThread, /db\.rpc\('messages_staff_get_thread_v2', rpcArgs\)/)
   assert.match(staffThread, /PGRST202.*42883|42883.*PGRST202/)
-  const v3Idx = staffThread.indexOf("rpc('messages_staff_get_thread_v3'")
+  const v4Idx = staffThread.indexOf("rpc('messages_staff_get_thread_v4'")
+  const v3Idx = staffThread.indexOf("rpc('messages_staff_get_thread_v3'", v4Idx)
   const v2Idx = staffThread.indexOf("rpc('messages_staff_get_thread_v2'", v3Idx)
-  assert.ok(v3Idx >= 0 && v2Idx > v3Idx, 'v2 fallback textually follows the v3 attempt')
+  assert.ok(v4Idx >= 0 && v3Idx > v4Idx && v2Idx > v3Idx)
 })
 
 test('staff thread endpoint: reports reactions_available, false only on fallback', () => {
@@ -198,13 +200,15 @@ test('staff thread endpoint: reports reactions_available, false only on fallback
   assert.match(staffThread, /reactions_available: reactionsAvailable,/)
 })
 
-test('portal thread endpoint: prefers v3, falls back to v2 on PGRST202/42883', () => {
+test('portal thread endpoint: prefers v4, then falls back through v3 to v2', () => {
+  assert.match(portalThread, /db\.rpc\('messages_portal_get_thread_v4', rpcArgs\)/)
   assert.match(portalThread, /db\.rpc\('messages_portal_get_thread_v3', rpcArgs\)/)
   assert.match(portalThread, /db\.rpc\('messages_portal_get_thread_v2', rpcArgs\)/)
   assert.match(portalThread, /PGRST202.*42883|42883.*PGRST202/)
-  const v3Idx = portalThread.indexOf("rpc('messages_portal_get_thread_v3'")
+  const v4Idx = portalThread.indexOf("rpc('messages_portal_get_thread_v4'")
+  const v3Idx = portalThread.indexOf("rpc('messages_portal_get_thread_v3'", v4Idx)
   const v2Idx = portalThread.indexOf("rpc('messages_portal_get_thread_v2'", v3Idx)
-  assert.ok(v3Idx >= 0 && v2Idx > v3Idx, 'v2 fallback textually follows the v3 attempt')
+  assert.ok(v4Idx >= 0 && v3Idx > v4Idx && v2Idx > v3Idx)
 })
 
 test('portal thread endpoint: reports reactions_available, false only on fallback', () => {
@@ -226,13 +230,14 @@ test('staff-manage endpoint: react targets message_id, not conversation_id', () 
 
 test('staff-manage endpoint: react always passes the literal staff actor kind, never a body value', () => {
   const reactBranch = sliceBetween(staffManage, "// MESSAGES-LIFECYCLE-PHASE3A-REACTIONS: react is always for the calling", '\n  }\n\n  try {')
-  assert.match(reactBranch, /rpc = 'messages_set_message_reaction';/)
+  assert.match(reactBranch, /rpc = 'messages_set_message_reaction_v2';/)
   assert.match(reactBranch, /p_actor_kind: 'staff',/)
   assert.match(reactBranch, /p_reaction_key: reaction \?\? null,/)
 })
 
 test('staff-manage endpoint: rejects an invalid reaction with 422 invalid_reaction', () => {
-  assert.match(staffManage, /const REACTION_KEYS = \['acknowledge', 'thanks', 'celebrate'\];/)
+  assert.match(staffManage, /const REACTION_KEYS = \['acknowledge', 'on_it', 'done', 'thanks', 'warm', 'celebrate'\];/)
+  assert.match(staffManage, /const LEGACY_REACTION_KEYS = \['acknowledge', 'thanks', 'celebrate'\];/)
   assert.match(staffManage, /if \(reaction !== null && reaction !== undefined && !REACTION_KEYS\.includes\(reaction\)\) \{\s*\n\s*return res\.status\(422\)\.json\(\{ error: 'invalid_reaction' \}\);/)
 })
 
@@ -256,7 +261,8 @@ test('portal react endpoint: POST-only, verifyPortalMessagesCaller, validates bo
 })
 
 test('portal react endpoint: rejects an invalid reaction with 422 invalid_reaction', () => {
-  assert.match(portalReact, /const REACTION_KEYS = \['acknowledge', 'thanks', 'celebrate'\];/)
+  assert.match(portalReact, /const REACTION_KEYS = \['acknowledge', 'on_it', 'done', 'thanks', 'warm', 'celebrate'\];/)
+  assert.match(portalReact, /const LEGACY_REACTION_KEYS = \['acknowledge', 'thanks', 'celebrate'\];/)
   assert.match(portalReact, /if \(reaction !== null && reaction !== undefined && !REACTION_KEYS\.includes\(reaction\)\) \{\s*\n\s*return res\.status\(422\)\.json\(\{ error: 'invalid_reaction' \}\);/)
 })
 

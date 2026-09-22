@@ -2,7 +2,7 @@
 // launcher plus a docked Messages panel, replacing the earlier deep link to
 // Connect > Messages. The panel hosts the ONE staff MessagesWorkspace in its
 // docked single-pane mode (same inbox, thread host, New message dialog,
-// permissions, unread query, read-state rules, and useThreadAutoScroll -
+// permissions, attention query, read-state rules, and useThreadAutoScroll -
 // nothing is duplicated), floating above the current page like the portals'
 // docked ASPIRE Team panel and Keith's drawer.
 //
@@ -19,15 +19,16 @@
 // remounted thread host re-anchors to the latest message through
 // useThreadAutoScroll.
 // First open (no prior state) shows the conversation list with the existing
-// New message action and the inbox's unread affordances. A restrained
+// New message action and the inbox's attention affordances. A restrained
 // "Open in ASPIRE Connect" action deep-links to the full workspace; it is no
 // longer the launcher's primary behavior.
 import { useEffect, useRef, useState, Suspense } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { MessageCircle, ExternalLink, X } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
-import { useStaffUnreadCount, IDLE_UNREAD_POLL_MS } from '../lib/messages/messagesPolling'
-import { formatUnread, unreadLabel } from '../lib/messages/messagesConstants'
+import { useStaffNeedsReplyCount, IDLE_UNREAD_POLL_MS } from '../lib/messages/messagesPolling'
+import { formatUnread, needsReplyLabel } from '../lib/messages/messagesConstants'
+import { BADGE_COUNT_BG, BADGE_COUNT_FG } from '../lib/badgeTokens'
 import { announceFloatingPanelOpen, onFloatingPanelOpen, announceFloatingPanelClosed, onFloatingPanelClosed } from '../lib/floatingPanels'
 import { lazyReload } from '../lib/lazyReload'
 // PORTAL-SPLIT Phase 2: the launcher is mounted on every staff screen, but the
@@ -50,7 +51,7 @@ export default function MainMessagesLauncher() {
   const launcherRef = useRef(null)
   // Same authorization the Connect Messages tab and header pin use.
   const canUseMessages = ['owner', 'admin'].includes(userProfile?.role) && userProfile?.is_active !== false
-  const unread = useStaffUnreadCount({ intervalMs: IDLE_UNREAD_POLL_MS, enabled: canUseMessages })
+  const needsReply = useStaffNeedsReplyCount({ intervalMs: IDLE_UNREAD_POLL_MS, enabled: canUseMessages })
 
   // ONE dock: another panel opening (Keith, UserMenu) closes this one; Keith's
   // open/closed edges reposition the launcher.
@@ -93,7 +94,9 @@ export default function MainMessagesLauncher() {
   }
   const openInConnect = () => {
     closePanel(false)
-    navigate('/connect/messages')
+    navigate(lastSelectedId
+      ? `/connect/messages?conversation=${encodeURIComponent(lastSelectedId)}`
+      : '/connect/messages')
   }
 
   // Launcher geometry: idle = directly above the 60px Keith orb (24+60+12);
@@ -108,7 +111,7 @@ export default function MainMessagesLauncher() {
       {hover && !open && !keithOpen && (
         <div style={{
           position: 'fixed', bottom: '158px', right: '28px',
-          background: '#1D2567', color: '#fff', fontFamily: F, fontSize: 12, fontWeight: 500,
+          background: 'var(--color-header-bg,#1D2567)', color: 'var(--color-header-text,#fff)', fontFamily: F, fontSize: 12, fontWeight: 500,
           padding: '6px 12px', borderRadius: 8, whiteSpace: 'nowrap',
           zIndex: 1001, pointerEvents: 'none', boxShadow: '0 2px 8px rgba(29,37,103,0.25)',
         }}>
@@ -120,7 +123,7 @@ export default function MainMessagesLauncher() {
           type="button"
           ref={launcherRef}
           data-tour="main-messages-launcher"
-          aria-label={unreadLabel(unread)}
+          aria-label={needsReply > 0 ? `Messages, ${needsReplyLabel(needsReply)}` : 'Messages'}
           aria-expanded={open}
           onClick={openPanel}
           onMouseEnter={() => setHover(true)}
@@ -129,21 +132,21 @@ export default function MainMessagesLauncher() {
           style={{
             position: 'fixed', ...launcherPos,
             width: 52, height: 52, borderRadius: '50%',
-            background: '#1D2567', color: '#fff', border: 'none', cursor: 'pointer',
+            background: 'var(--color-accent-primary,#1D2567)', color: 'var(--color-text-inverse,#fff)', border: 'none', cursor: 'pointer',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             boxShadow: '0 4px 16px rgba(29,37,103,0.30)', zIndex: 1000,
           }}
         >
           <MessageCircle size={24} aria-hidden="true" />
-          {unread > 0 && (
+          {needsReply > 0 && (
             <span aria-hidden="true" style={{
               position: 'absolute', top: -5, right: -5,
               minWidth: 20, height: 20, padding: '0 5px', borderRadius: 10,
-              background: '#DC1E34', color: '#fff', fontFamily: F, fontSize: 11, fontWeight: 700,
+              background: BADGE_COUNT_BG, color: BADGE_COUNT_FG, fontFamily: F, fontSize: 11, fontWeight: 700,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              border: '2px solid #fff', boxSizing: 'border-box',
+              border: '2px solid var(--bg-card,#fff)', boxSizing: 'border-box',
             }}>
-              {formatUnread(unread)}
+              {formatUnread(needsReply)}
             </span>
           )}
         </button>
@@ -167,7 +170,7 @@ export default function MainMessagesLauncher() {
             }}
           >
             <div style={{
-              flexShrink: 0, background: '#1D2567', color: '#fff',
+              flexShrink: 0, background: 'var(--color-header-bg,#1D2567)', color: 'var(--color-header-text,#fff)',
               padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10,
             }}>
               <MessageCircle size={17} aria-hidden="true" />

@@ -8,9 +8,9 @@ import Tooltip from '../ui/Tooltip'
 import UserMenu from '../UserMenu'
 import ColorModeButton from './ColorModeButton'
 import { useAuth } from '../../contexts/AuthContext'
-import { IDLE_UNREAD_POLL_MS, useStaffUnreadCount } from '../../lib/messages/messagesPolling'
+import { IDLE_UNREAD_POLL_MS, useStaffNeedsReplyCount } from '../../lib/messages/messagesPolling'
 import { pinBadgeStyle } from '../../lib/badgeTokens'
-import { formatUnread, unreadLabel } from '../../lib/messages/messagesConstants'
+import { formatUnread, needsReplyLabel } from '../../lib/messages/messagesConstants'
 
 export default function HeaderActions({
   cohorts, navigate, activeTab, bellRef, setShowActionCenter, showActionCenter, actionBadgeCount,
@@ -34,7 +34,7 @@ export default function HeaderActions({
   // 30s observer simply wins while it is mounted, and this 60s cadence applies
   // everywhere else. `enabled` keeps an unauthorized caller from requesting at
   // all.
-  const messagesUnread = useStaffUnreadCount({
+  const messagesNeedsReply = useStaffNeedsReplyCount({
     enabled: canUseMessages,
     intervalMs: IDLE_UNREAD_POLL_MS,
   })
@@ -52,8 +52,8 @@ export default function HeaderActions({
           // aria-label overrides inner text for the accessible name, so the count
           // belongs in the label itself rather than in hidden text that would
           // never be announced. It carries the TRUE count, not the 99+ cap.
-          aria-label={messagesUnread > 0
-            ? `ASPIRE Connect, ${unreadLabel(messagesUnread)}`
+          aria-label={messagesNeedsReply > 0
+            ? `ASPIRE Connect, ${needsReplyLabel(messagesNeedsReply)}`
             : 'ASPIRE Connect'}
           onClick={() => {
             // ASPIRE-CHART approved destination behavior: when unread Messages
@@ -62,7 +62,7 @@ export default function HeaderActions({
             // Connect subview, which may now include 'messages' for authorized
             // users. Authorization itself is unchanged: Connect.jsx re-gates
             // and the server re-authorizes every Messages read.
-            if (canUseMessages && messagesUnread > 0) {
+            if (canUseMessages && messagesNeedsReply > 0) {
               navigate('/connect/messages')
               return
             }
@@ -90,9 +90,9 @@ export default function HeaderActions({
           <MessagesSquare size={15} strokeWidth={1.9} />
           {/* Unread counter, sharing the one pin badge with the Action Center
               bell so the two cannot drift apart again. */}
-          {messagesUnread > 0 && (
+          {messagesNeedsReply > 0 && (
             <span aria-hidden="true" style={pinBadgeStyle}>
-              {formatUnread(messagesUnread)}
+              {formatUnread(messagesNeedsReply)}
             </span>
           )}
           {connectActive && (

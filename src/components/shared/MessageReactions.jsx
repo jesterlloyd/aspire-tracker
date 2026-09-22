@@ -24,14 +24,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { SmilePlus } from 'lucide-react'
-import { MESSAGE_REACTIONS, reactionByKey } from '../../lib/messages/reactionConstants'
+import { reactionByKey, reactionsForVersion } from '../../lib/messages/reactionConstants'
 
-const MENU_WIDTH = 200
+const FULL_MENU_WIDTH = 286
+const LEGACY_MENU_WIDTH = 154
 const GAP = 6
 const EDGE = 8
 
-export default function MessageReactions({ message, onSetReaction, disabled = false }) {
+export default function MessageReactions({
+  message, onSetReaction, disabled = false, reactionSetVersion = 1,
+}) {
   const [open, setOpen] = useState(false)
+  const [announcement, setAnnouncement] = useState('')
   const btnRef = useRef(null)
   const menuRef = useRef(null)
 
@@ -40,6 +44,7 @@ export default function MessageReactions({ message, onSetReaction, disabled = fa
   // never render a chip with a non-positive count.
   const chips = rawReactions.filter((r) => r && reactionByKey(r.key) && r.count > 0)
   const mineKey = rawReactions.find((r) => r?.mine)?.key || null
+  const definitions = reactionsForVersion(reactionSetVersion)
 
   const close = useCallback(() => {
     setOpen(false)
@@ -55,7 +60,8 @@ export default function MessageReactions({ message, onSetReaction, disabled = fa
     menuRef.current = node
     if (!node || !btnRef.current) return
     const r = btnRef.current.getBoundingClientRect()
-    const left = Math.max(EDGE, Math.min(r.right - MENU_WIDTH, window.innerWidth - MENU_WIDTH - EDGE))
+    const menuWidth = definitions.length > 3 ? FULL_MENU_WIDTH : LEGACY_MENU_WIDTH
+    const left = Math.max(EDGE, Math.min(r.right - menuWidth, window.innerWidth - menuWidth - EDGE))
     const height = node.offsetHeight || 48
     let top = r.bottom + GAP
     if (top + height > window.innerHeight - EDGE && r.top - GAP - height > EDGE) {
@@ -63,9 +69,9 @@ export default function MessageReactions({ message, onSetReaction, disabled = fa
     }
     node.style.left = `${Math.round(left)}px`
     node.style.top = `${Math.round(top)}px`
-    node.style.width = `${MENU_WIDTH}px`
+    node.style.width = `${menuWidth}px`
     node.querySelector('[role="menuitemradio"]')?.focus()
-  }, [])
+  }, [definitions.length])
 
   useEffect(() => {
     if (!open) return
@@ -109,6 +115,8 @@ export default function MessageReactions({ message, onSetReaction, disabled = fa
   const pick = (key) => {
     const next = key === mineKey ? null : key
     onSetReaction?.(message?.id, next)
+    const label = reactionByKey(key)?.label || 'reaction'
+    setAnnouncement(next ? `Reacted ${label}` : `Removed ${label} reaction`)
   }
 
   const onChipClick = (key) => {
@@ -135,6 +143,7 @@ export default function MessageReactions({ message, onSetReaction, disabled = fa
             className={`msg-reaction-chip${mine ? ' msg-reaction-chip-mine' : ''}`}
             aria-pressed={mine}
             aria-label={accessibleName}
+            data-tooltip={def.label}
             disabled={disabled}
             onClick={() => onChipClick(r.key)}
           >
@@ -165,7 +174,7 @@ export default function MessageReactions({ message, onSetReaction, disabled = fa
           aria-label="Add reaction"
           style={{ position: 'fixed' }}
         >
-          {MESSAGE_REACTIONS.map((def) => {
+          {definitions.map((def) => {
             const checked = def.key === mineKey
             return (
               <button
@@ -173,17 +182,19 @@ export default function MessageReactions({ message, onSetReaction, disabled = fa
                 type="button"
                 role="menuitemradio"
                 aria-checked={checked}
+                aria-label={checked ? `Remove ${def.label} reaction` : `React ${def.label}`}
+                data-tooltip={def.label}
                 className={`msg-reaction-option${checked ? ' msg-reaction-option-checked' : ''}`}
                 onClick={() => onOptionSelect(def.key)}
               >
                 <span aria-hidden="true" className="msg-reaction-option-glyph">{def.glyph}</span>
-                <span className="msg-reaction-option-label">{def.label}</span>
               </button>
             )
           })}
         </div>,
         document.body,
       )}
+      <span className="msg-reaction-live" role="status" aria-live="polite">{announcement}</span>
     </div>
   )
 }

@@ -293,11 +293,11 @@ test('staff inbox component', async (t) => {
     assert.doesNotMatch(strip(inbox), /localStorage|sessionStorage/, 'no message state persisted in the browser')
   })
 
-  await t.test('unread is signalled by weight, a dot, a badge, and accessible text', () => {
+  await t.test('unread remains signalled by weight, a badge, and accessible text', () => {
     assert.match(inbox, /fontWeight: isUnread \? 700 : 500/)
-    assert.match(inbox, /\{isUnread && <span aria-hidden="true" style=\{dot\} \/>\}/)
     assert.match(inbox, /formatUnread\(unread\)/)
     assert.match(inbox, /<span style=\{srOnly\}>\{unreadLabel\(unread\)\}<\/span>/)
+    assert.match(inbox, /<span style=\{srOnly\}>Needs your reply<\/span>/)
   })
 
   await t.test('the selected row is programmatically identifiable', () => {
@@ -348,7 +348,8 @@ test('staff inbox component', async (t) => {
     // MESSAGES-ARCHIVE-P1: identity also folds in `view` (Active/Archived), so
     // switching the scope picker resets pagination the same way a filter change
     // does. The queryKey line above is untouched: view travels inside identity.
-    assert.match(inbox, /const identity = useMemo\(\(\) => queryIdentity\(\{ filters, search, view \}\), \[filters, search, view\]\)/)
+    assert.match(inbox, /queryIdentity\(\{ filters, search, view, attention \}\)/)
+    assert.match(inbox, /\[filters, search, view, attention\]/)
     // The soft-refresh key refetches without clearing filters or search.
     assert.match(inbox, /refreshKey/)
   })

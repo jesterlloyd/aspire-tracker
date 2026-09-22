@@ -51,7 +51,7 @@ test('Connect authorization gate', async (t) => {
 
   await t.test('the workspace mounts only for an authorized user', () => {
     assert.match(connect, /\{canUseMessages && \(\s*\n\s*<div style=\{\{ display: activeSubTab === 'messages'/)
-    assert.match(connect, /<MessagesWorkspace refreshKey=\{refreshKey\} onOpenStudent=\{onNavigateToStudent\} \/>/)
+    assert.match(connect, /<MessagesWorkspace[\s\S]{0,300}refreshKey=\{refreshKey\}[\s\S]{0,300}onOpenStudent=\{onNavigateToStudent\}/)
   })
 
   await t.test('an unauthorized user never resolves to Messages and never calls its APIs', () => {
@@ -60,7 +60,7 @@ test('Connect authorization gate', async (t) => {
     assert.match(connect, /const activeSubTab = \(rawSubTab === 'messages' && !canUseMessages\) \? 'contacts' : rawSubTab/)
     // The unread badge query is disabled, so not even the count is requested.
     assert.match(connect, /enabled: canUseMessages/)
-    assert.match(polling, /export function useStaffUnreadCount\(\{ intervalMs = ACTIVE_POLL_MS, enabled = true, api = defaultApi \} = \{\}\)/)
+    assert.match(polling, /export function useStaffNeedsReplyCount\(\{ intervalMs = ACTIVE_POLL_MS, enabled = true, api = defaultApi \} = \{\}\)/)
     assert.match(polling, /\n    enabled,/)
   })
 
@@ -119,17 +119,17 @@ test('Connect routing', async (t) => {
 
 test('Messages tab unread badge', async (t) => {
   await t.test('shows only above zero, with 99+ formatting and accessible text', () => {
-    assert.match(connect, /badge: messagesUnread > 0 \? formatUnread\(messagesUnread\) : null/)
-    assert.match(connect, /srLabel: messagesUnread > 0 \? unreadLabel\(messagesUnread\) : ''/)
-    // formatUnread caps at 99+ and unreadLabel supplies the text; both are
+    assert.match(connect, /badge: messagesNeedsReply > 0 \? formatUnread\(messagesNeedsReply\) : null/)
+    assert.match(connect, /srLabel: messagesNeedsReply > 0 \? needsReplyLabel\(messagesNeedsReply\) : ''/)
+    // formatUnread caps at 99+ and needsReplyLabel supplies the text; both are
     // covered by the Phase 4A constants tests.
-    assert.match(connect, /import \{[^}]*formatUnread, unreadLabel \}/)
+    assert.match(connect, /import \{[^}]*formatUnread, needsReplyLabel \}/)
   })
 
   await t.test('is not conveyed by color alone', () => {
     // The chip carries the count itself, plus screen-reader text.
-    assert.match(connect, /badge: messagesUnread > 0 \? formatUnread\(messagesUnread\) : null/)
-    assert.match(connect, /srLabel: messagesUnread > 0 \? unreadLabel\(messagesUnread\) : ''/)
+    assert.match(connect, /badge: messagesNeedsReply > 0 \? formatUnread\(messagesNeedsReply\) : null/)
+    assert.match(connect, /srLabel: messagesNeedsReply > 0 \? needsReplyLabel\(messagesNeedsReply\) : ''/)
   })
 
   await t.test('polls at 30s active and 60s idle, pausing while hidden', () => {

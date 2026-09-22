@@ -177,10 +177,12 @@ test('safety notice is compact but exact', async (t) => {
     assert.doesNotMatch(block, /min-height/)
   })
 
-  await t.test('the staff notice is styled independently and was not touched', () => {
+  await t.test('the staff notice stays independent and now exposes compact plus full text', () => {
     // Staff uses an inline style object, so the portal restyle cannot reach it.
     const staff = read('../src/components/connect/messages/ThreadActions.jsx')
-    assert.match(staff, /<p id="reply-safety" style=\{safety\}>\{SAFETY_NOTICE\}<\/p>/)
+    assert.match(staff, /<div id="reply-safety" style=\{safety\}>/)
+    assert.match(staff, /\{PRIVACY_NOTICE\}/)
+    assert.match(staff, /\{FULL_NOTICE\}/)
     assert.doesNotMatch(staff, /ptl-msg-safety|ptl-compose-note/)
   })
 })
@@ -226,7 +228,7 @@ test('no horizontal overflow and no regressions', async (t) => {
   })
 
   await t.test('staff Messages and the migrations were not touched', () => {
-    assert.match(read('../src/pages/Connect.jsx'), /<MessagesWorkspace refreshKey=\{refreshKey\} onOpenStudent=\{onNavigateToStudent\} \/>/)
+    assert.match(read('../src/pages/Connect.jsx'), /<MessagesWorkspace[\s\S]{0,300}refreshKey=\{refreshKey\}[\s\S]{0,300}onOpenStudent=\{onNavigateToStudent\}/)
     assert.match(read('../api/messages-staff-thread.js'), /messages_staff_get_thread_v2/)
     for (const n of ['20260716000000_messages_phase1_schema_foundation',
       '20260716000006_messages_phase5_portal_thread_reverse_pagination']) {

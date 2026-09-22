@@ -55,17 +55,13 @@ test('inboxState: view is a scope, not a filter', async (t) => {
   })
 })
 
-test('staff: Active | Archived picker', async (t) => {
-  await t.test('the picker is a binary segmented pair, default Active, hidden until archiveAvailable', () => {
+test('staff: Active and Archived scopes', async (t) => {
+  await t.test('Active is the default quick view and Archived stays in the advanced panel until available', () => {
     assert.match(staffInbox, /const \[view, setView\] = useState\(DEFAULT_VIEW\)/)
+    assert.match(staffInbox, /label="Active"/)
     assert.match(staffInbox, /\{archiveAvailable && \(/)
-    assert.match(staffInbox, /aria-pressed=\{view === 'active'\}/)
-    assert.match(staffInbox, /aria-pressed=\{view === 'archived'\}/)
-    assert.match(staffInbox, />\s*Active\s*<\/button>/)
-    assert.match(staffInbox, />\s*Archived\s*<\/button>/)
-    // Binary: 'all' is a real server view, but the staff picker never offers it.
+    assert.match(staffInbox, /options=\{\[\{ value: 'active', label: 'Active' \}, \{ value: 'archived', label: 'Archived' \}\]\}/)
     assert.doesNotMatch(strip(staffInbox), /setView\('all'\)/)
-    assert.doesNotMatch(strip(staffInbox), /aria-pressed=\{view === 'all'\}/)
   })
 
   await t.test('archiveAvailable is derived from the server response and fails closed', () => {
@@ -73,13 +69,14 @@ test('staff: Active | Archived picker', async (t) => {
   })
 
   await t.test('view participates in the query so switching resets pagination', () => {
-    assert.match(staffInbox, /const identity = useMemo\(\(\) => queryIdentity\(\{ filters, search, view \}\), \[filters, search, view\]\)/)
-    assert.match(staffInbox, /filters, search, view, cursor: pageParam, limit: PAGE_LIMIT/)
+    assert.match(staffInbox, /queryIdentity\(\{ filters, search, view, attention \}\)/)
+    assert.match(staffInbox, /\[filters, search, view, attention\]/)
+    assert.match(staffInbox, /filters, search, view, attention, cursor: pageParam, limit: PAGE_LIMIT/)
   })
 
   await t.test('Reset filters never touches view: it is a scope, not a filter', () => {
     const fn = staffInbox.slice(staffInbox.indexOf('const resetFilters ='), staffInbox.indexOf('const hasFilters ='))
-    assert.match(fn, /setFilters\(DEFAULT_FILTERS\); clearSearch\(\)/)
+    assert.match(fn, /setFilters\(DEFAULT_FILTERS\); setAttention\(DEFAULT_ATTENTION\); clearSearch\(\)/)
     assert.doesNotMatch(fn, /setView/)
   })
 })

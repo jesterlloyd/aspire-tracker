@@ -31,6 +31,7 @@ export default function MessageBubble({
   reactionsEnabled = false,
   onSetReaction,
   reactionsDisabled = false,
+  reactionSetVersion = 1,
 }) {
   const direction = messageBubbleDirection(message, perspective)
   const fromStaff = messageAuthorRole(message) === 'staff'
@@ -82,7 +83,12 @@ export default function MessageBubble({
           </div>
           <div className={`msg-bubble-body ${bodyClassName}`}>{message?.body}</div>
           {reactionsEnabled && (
-            <MessageReactions message={message} onSetReaction={onSetReaction} disabled={reactionsDisabled} />
+            <MessageReactions
+              message={message}
+              onSetReaction={onSetReaction}
+              disabled={reactionsDisabled}
+              reactionSetVersion={reactionSetVersion}
+            />
           )}
         </div>
       </Container>

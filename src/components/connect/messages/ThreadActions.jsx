@@ -41,6 +41,8 @@ const F = 'Plus Jakarta Sans, sans-serif'
 
 // The exact approved safety notice. Never shortened or paraphrased.
 export const SAFETY_NOTICE = "ASPIRE Messages is not monitored continuously. Do not include patient names, medical record numbers, or other identifying information. For urgent patient-care or safety concerns, follow your unit's established escalation process."
+export const PRIVACY_NOTICE = 'Do not include patient names, medical record numbers, or other identifying information.'
+export const FULL_NOTICE = "ASPIRE Messages is not monitored continuously. For urgent patient-care or safety concerns, follow your unit's established escalation process."
 
 // The exact approved inactive-participant notice.
 export const INACTIVE_NOTICE = 'This participant no longer has active portal access. You can review and manage this conversation, but you cannot send a new message.'
@@ -61,6 +63,7 @@ export function ReplyComposer({ conversationId, accessActive, api = defaultApi, 
   const [body, setBody] = useState('')
   const [pending, setPending] = useState(false)
   const [error, setError] = useState(null)
+  const [noticeOpen, setNoticeOpen] = useState(false)
 
   const trimmed = body.trim()
   const tooLong = body.length > MESSAGE_MAX_BODY_CHARS
@@ -112,6 +115,7 @@ export function ReplyComposer({ conversationId, accessActive, api = defaultApi, 
         <label htmlFor="reply-body" style={srOnly}>Reply to this conversation</label>
         <textarea
           id="reply-body"
+          className="messages-focusable"
           rows={3}
           value={body}
           disabled={!accessActive || pending}
@@ -134,13 +138,29 @@ export function ReplyComposer({ conversationId, accessActive, api = defaultApi, 
               <AlertCircle size={12} aria-hidden="true" /> {error}
             </span>
           )}
-          <button type="submit" disabled={disabled} style={{ ...primaryBtn, marginLeft: 'auto', opacity: disabled ? 0.5 : 1 }}>
+          <button
+            type="submit"
+            disabled={disabled}
+            className="messages-focusable"
+            style={{ ...primaryBtn, marginLeft: 'auto', opacity: disabled ? 0.5 : 1 }}
+          >
             {pending ? 'Sending' : 'Send'}
           </button>
         </div>
 
-        {/* The exact approved safety notice, verbatim. */}
-        <p id="reply-safety" style={safety}>{SAFETY_NOTICE}</p>
+        <div id="reply-safety" style={safety}>
+          <span>{PRIVACY_NOTICE}</span>{' '}
+          <button
+            type="button"
+            className="messages-focusable"
+            aria-expanded={noticeOpen}
+            onClick={() => setNoticeOpen((open) => !open)}
+            style={noticeButton}
+          >
+            {noticeOpen ? 'Hide full notice' : 'Full notice'}
+          </button>
+          {noticeOpen && <p style={{ margin: '5px 0 0' }}>{FULL_NOTICE}</p>}
+        </div>
       </form>
     </div>
   )
@@ -193,6 +213,7 @@ export function ThreadManagementControls({ conversation, api = defaultApi, annou
       <Control id="mg-status" label="Status" busy={busy === 'status'}>
         <select
           id="mg-status"
+          className="messages-focusable"
           value={conversation?.status || 'open'}
           disabled={busy === 'status'}
           onChange={(e) => run('status', { status: e.target.value }, `Status set to ${STAFF_STATUS_LABEL[e.target.value]}.`)}
@@ -205,11 +226,15 @@ export function ThreadManagementControls({ conversation, api = defaultApi, annou
       <Control id="mg-assignee" label="Assignee" busy={busy === 'assign'}>
         <select
           id="mg-assignee"
+          className="messages-focusable"
           value={conversation?.assigned_staff_profile_id || ''}
           disabled={busy === 'assign'}
-          onChange={(e) => run('assign', { assignee_profile_id: e.target.value || null },
-            e.target.value ? 'Assignment updated.' : 'Assignment cleared.')}
-          style={select}
+          onChange={(e) => {
+            const option = e.target.options[e.target.selectedIndex]
+            run('assign', { assignee_profile_id: e.target.value || null },
+              e.target.value ? `Assigned to ${option.text.replace(' (me)', '')}.` : 'Set to Unassigned.')
+          }}
+          style={{ ...select, ...(!conversation?.assigned_staff_profile_id ? unassignedSelect : null) }}
         >
           <option value="">Unassigned</option>
           {assignees.map((a) => (
@@ -223,10 +248,11 @@ export function ThreadManagementControls({ conversation, api = defaultApi, annou
       <Control id="mg-category" label="Category" busy={busy === 'category'}>
         <select
           id="mg-category"
+          className="messages-focusable"
           value={conversation?.category || ''}
           disabled={busy === 'category'}
           onChange={(e) => run('category', { category: e.target.value || null },
-            e.target.value ? 'Category updated.' : 'Category cleared.')}
+            e.target.value ? `Category set to ${e.target.value}.` : 'Category cleared.')}
           style={select}
         >
           <option value="">Uncategorized</option>
@@ -236,13 +262,15 @@ export function ThreadManagementControls({ conversation, api = defaultApi, annou
 
       <button
         type="button"
+        className="messages-focusable"
         disabled={busy === 'flag'}
         aria-pressed={flagged}
         onClick={() => run('flag', { flagged: !flagged }, flagged ? 'Follow up cleared.' : 'Marked for follow up.')}
         style={{
           ...toggleBtn,
-          background: flagged ? T.accent : T.input,
-          color: flagged ? '#fff' : T.text,
+          background: flagged ? '#F59E0B' : T.input,
+          borderColor: flagged ? '#D97706' : T.border,
+          color: flagged ? '#241600' : T.text,
         }}
       >
         <Flag size={11} aria-hidden="true" />
@@ -277,6 +305,9 @@ const select = {
   border: `1px solid ${T.border}`, background: T.input, color: T.text, cursor: 'pointer',
   maxWidth: 190,
 }
+const unassignedSelect = {
+  border: '1.5px solid #B3282D', color: '#B3282D', fontWeight: 700,
+}
 const toggleBtn = {
   display: 'inline-flex', alignItems: 'center', gap: 4, minHeight: 30,
   padding: '0 10px', borderRadius: 999, cursor: 'pointer',
@@ -284,7 +315,7 @@ const toggleBtn = {
 }
 const primaryBtn = {
   minHeight: 34, padding: '0 14px', borderRadius: 7, border: 'none', cursor: 'pointer',
-  background: T.accent, color: '#fff', fontSize: 12.5, fontWeight: 600, fontFamily: F,
+  background: T.accent, color: 'var(--color-text-inverse,#fff)', fontSize: 12.5, fontWeight: 600, fontFamily: F,
 }
 const notice = {
   margin: '0 0 8px', padding: '7px 10px', fontSize: 12, lineHeight: 1.5,
@@ -293,4 +324,8 @@ const notice = {
 }
 const safety = {
   margin: '8px 0 0', fontSize: 11, lineHeight: 1.5, color: T.muted, fontFamily: F,
+}
+const noticeButton = {
+  padding: 0, border: 0, background: 'transparent', color: T.accent,
+  font: 'inherit', fontWeight: 700, textDecoration: 'underline', cursor: 'pointer',
 }

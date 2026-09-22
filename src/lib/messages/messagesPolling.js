@@ -64,6 +64,23 @@ export function useStaffUnreadCount({ intervalMs = ACTIVE_POLL_MS, enabled = tru
   return Number(data?.unread_count) || 0;
 }
 
+// Staff-facing badges use actionable conversations, not message-level unread
+// volume. This observes the same query key and endpoint as useStaffUnreadCount,
+// so the header, tab, shortcut, and workspace still share one request.
+export function useStaffNeedsReplyCount({ intervalMs = ACTIVE_POLL_MS, enabled = true, api = defaultApi } = {}) {
+  const visible = useDocumentVisible();
+  const { data } = useQuery({
+    queryKey: ['messages_staff_unread'],
+    queryFn: ({ signal }) => api.getStaffUnreadCount({ signal }),
+    enabled,
+    refetchInterval: enabled && visible ? intervalMs : false,
+    refetchOnWindowFocus: enabled,
+    staleTime: 10 * 1000,
+    retry: 1,
+  });
+  return Number(data?.needs_reply_count) || 0;
+}
+
 // Narrow-width detection for the mobile list-to-thread state model.
 export const MOBILE_MAX_WIDTH = 900;
 export function useIsNarrow(maxWidth = MOBILE_MAX_WIDTH) {
