@@ -206,7 +206,7 @@ export default function RichTextEditor({ html = '', richDocRef = null, onChange,
   const sep = <span style={{ width: 1, alignSelf: 'stretch', background: '#ececec', margin: '2px 2px' }} />
 
   return (
-    <div>
+    <div className="outreach-rich-editor">
       <style>{`
         .rte-content{outline:none;min-height:${minHeight}px;padding:10px 13px;font-size:13px;line-height:1.6;color:#191919;font-family:${F};}
         .rte-content p{margin:0 0 10px;} .rte-content p:last-child{margin-bottom:0;}
@@ -226,7 +226,7 @@ export default function RichTextEditor({ html = '', richDocRef = null, onChange,
           here and the page scroll, so it remains visible while editing the body and scrolls away once
           past the editor. top:0 sits at the viewport top after the (position:relative) app header has
           scrolled off, so it never covers the header or the recipient/template sidebar. */}
-      <div style={{ position: 'sticky', top: 0, zIndex: 5, boxShadow: '0 2px 6px rgba(0,0,0,0.05)' }}>
+      <div className="outreach-rich-editor-carriage" style={{ position: 'sticky', top: 0, zIndex: 5, boxShadow: '0 2px 6px rgba(0,0,0,0.05)' }}>
       {/* Compact toolbar */}
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 4, padding: 6, border: '1.5px solid #e5e7eb', borderBottom: 'none', borderRadius: '8px 8px 0 0', background: '#faf9f7' }}>
         {/* Style dropdown: Body / Heading / Subheading (locked styles applied server-side at render) */}

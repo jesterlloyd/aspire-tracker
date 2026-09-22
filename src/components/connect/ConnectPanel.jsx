@@ -47,9 +47,9 @@ const ICON_PATHS = {
   </>),
 }
 
-export default function ConnectPanel({ tone = 'audience', title, helper, icon, padding = 20, style, children }) {
+export default function ConnectPanel({ tone = 'audience', title, helper, icon, padding = 20, style, className = '', children }) {
   return (
-    <div style={{
+    <div className={`connect-panel${className ? ` ${className}` : ''}`} data-connect-tone={tone} style={{
       background: toneGradient(tone),
       border: '1px solid rgba(29,37,103,0.10)',
       borderRadius: 12,
@@ -60,14 +60,14 @@ export default function ConnectPanel({ tone = 'audience', title, helper, icon, p
       ...style,
     }}>
       {(title || helper) && (
-        <div style={{ marginBottom: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+        <div className="connect-panel-head" style={{ marginBottom: 12 }}>
+          <div className="connect-panel-title-row" style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
             <ConnectPanelIcon name={icon || tone} tone={tone} />
             {title && (
-              <span style={{ fontSize: 13.5, fontWeight: 700, color: NAVY, letterSpacing: '-0.01em', fontFamily: F }}>{title}</span>
+              <span className="connect-panel-title" style={{ fontSize: 13.5, fontWeight: 700, color: NAVY, letterSpacing: '-0.01em', fontFamily: F }}>{title}</span>
             )}
           </div>
-          {helper && <div style={{ fontSize: 10, color: '#6b7280', fontFamily: F, marginTop: 4 }}>{helper}</div>}
+          {helper && <div className="connect-panel-helper" style={{ fontSize: 10, color: '#6b7280', fontFamily: F, marginTop: 4 }}>{helper}</div>}
         </div>
       )}
       {children}

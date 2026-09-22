@@ -25,6 +25,8 @@ import { isValidEmail, resolveStudentCorrespondenceRecipient } from '../../lib/n
 import { normalizeEmailForLookup } from '../../lib/emailUtils'
 import { mergeCcRecipientText, parseRecipientText } from '../../lib/recipientParse'
 import { useAuth } from '../../contexts/AuthContext'
+import { useTheme } from '../../contexts/ThemeContext'
+import './outreachCorrespondenceDesk.css'
 import {
   buildPreceptorAssignmentDraft, buildAcademicPartnerUpdateDraft,
   PRECEPTOR_ATTACHMENT_REMINDER, STUDENT_NAME_PLACEHOLDER,
@@ -303,6 +305,8 @@ const sectionLabel = {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
+  const { style: appearanceStyle } = useTheme()
+  const classicDesk = appearanceStyle !== 'modern'
   const location       = useLocation()
   const navigate       = useNavigate()
   const [searchParams] = useSearchParams()
@@ -2639,18 +2643,19 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div style={{ padding: '20px 24px', fontFamily: F }}>
+    <div className={`outreach-workspace${classicDesk ? ' outreach-workspace-classic' : ' outreach-workspace-modern'}`} style={{ padding: '20px 24px', fontFamily: F }}>
 
       {/* ══════════════════════════════════════════════════════════════════
           RECIPIENT MODE TOGGLE, Single vs Bulk
           Segmented control above the three zones.
       ═══════════════════════════════════════════════════════════════════ */}
-      <div style={{ marginBottom: 20, display: 'flex', alignItems: 'center', gap: 16 }}>
-        <div style={{
+      <div className="outreach-mode-row" style={{ marginBottom: 20, display: 'flex', alignItems: 'center', gap: 16 }}>
+        <div className="outreach-mode-tabs" role="tablist" aria-label="Outreach workflow" style={{
           display: 'flex', border: '1px solid rgba(29,37,103,0.14)',
           borderRadius: 8, overflow: 'hidden',
         }}>
           <button
+            type="button" role="tab" aria-selected={recipientMode === 'single'}
             onClick={() => setRecipientMode('single')}
             style={{
               padding: '8px 20px', border: 'none', cursor: 'pointer',
@@ -2663,6 +2668,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
             Send to one
           </button>
           <button
+            type="button" role="tab" aria-selected={recipientMode === 'bulk'}
             onClick={() => setRecipientMode('bulk')}
             style={{
               padding: '8px 20px', border: 'none', cursor: 'pointer',
@@ -2676,6 +2682,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
             Send to many
           </button>
           <button
+            type="button" role="tab" aria-selected={recipientMode === 'history'}
             onClick={() => setRecipientMode('history')}
             style={{
               padding: '8px 20px', border: 'none', cursor: 'pointer',
@@ -2694,18 +2701,21 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
         </span>
       </div>
 
+      <div className="outreach-desk-shell" data-outreach-mode={recipientMode} aria-label={classicDesk ? 'Correspondence desk' : undefined}>
+        {classicDesk && <div className="outreach-desk-plaque" aria-hidden="true">Correspondence Desk</div>}
+
       {/* ══════════════════════════════════════════════════════════════════
           SINGLE RECIPIENT MODE, all existing three-zone behavior preserved
       ═══════════════════════════════════════════════════════════════════ */}
       {recipientMode === 'single' && (
-      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+      <div className="outreach-single-layout" style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'flex-start' }}>
 
         {/* ═══════════════════════════════════════════════════════════════
             LEFT COLUMN, Recipient profile card + message type picker
             (Rich profile card replaces the former Audience card.
              Message Type picker is stacked below it in this column.)
         ════════════════════════════════════════════════════════════════ */}
-        <div style={{ flex: '0 0 340px', minWidth: 280, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div className="outreach-correspondence-files" style={{ flex: '0 0 340px', minWidth: 280, display: 'flex', flexDirection: 'column', gap: 10 }}>
 
           {/* ── Recipient picker (Phase 1) vs. profile card ──────────────────
               urlRecipient: recipient came from a deep link OR a picker selection
@@ -3114,16 +3124,26 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
             Actual writing, preview, generated-link placement, and actions.
             Right column: fills remaining width.
         ════════════════════════════════════════════════════════════════ */}
-        <div style={{ flex: '1 1 300px', minWidth: 260 }}>
+        <div className="outreach-correspondence-letter" style={{ flex: '1 1 300px', minWidth: 260 }}>
 
           {/* Direct Message: subject + body editor + live preview + actions */}
           {outreachMode === 'message' && (
             <>
-            <ConnectPanel tone="draft" title="Draft">
+            <ConnectPanel tone="draft" title="Draft" className="outreach-draft-panel">
+
+              {classicDesk && (
+                <div className="outreach-address-to" style={fieldWrap}>
+                  <label style={labelStyle}>To</label>
+                  <div className="outreach-address-value">
+                    <span>{dmRecipientName || 'Choose a recipient'}</span>
+                    {resolvedToEmail && <span>&lt;{resolvedToEmail}&gt;</span>}
+                  </div>
+                </div>
+              )}
 
               {/* Subject input */}
               {/* Subject input - enabled for any loaded recipient (contact or student) */}
-              <div style={fieldWrap}>
+              <div className="outreach-address-subject" style={fieldWrap}>
                 <label style={labelStyle}>Subject</label>
                 <input
                   type="text"
@@ -3136,7 +3156,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
               </div>
 
               {/* Body - rich editor when the Owner has opted in (flag), else the plain-text textarea. */}
-              <div style={fieldWrap}>
+              <div className="outreach-message-body" style={fieldWrap}>
                 <label style={labelStyle}>Message</label>
                 {richEnabled ? (
                   <RichTextEditor
@@ -3186,7 +3206,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
               {/* CC field (CONNECT-COMMS-1D) - Direct Message only. Chips + free entry; the clinical
                   coordinator is pre-filled as a removable suggestion. Server is source of truth
                   (validates, dedupes, drops CC==To, caps at 5). */}
-              <div style={fieldWrap}>
+              <div className="outreach-address-cc" style={fieldWrap}>
                 <label style={labelStyle}>CC <span style={{ fontWeight: 400, color: '#9ca3af' }}>(optional)</span></label>
                 <div style={{
                   position: 'relative',   // CONNECT-COMMS-1F: anchor for the autocomplete dropdown
@@ -4403,6 +4423,8 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
       {recipientMode === 'history' && (
         <SentHistory />
       )}
+
+      </div>{/* end correspondence desk shell */}
 
       {/* ── Review Recipients Modal ───────────────────────────────────────── */}
       {/* ── Bulk Send via Resend confirmation modal (Phase 3B.2B) ─────────── */}

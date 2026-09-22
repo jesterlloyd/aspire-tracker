@@ -13,6 +13,7 @@ import { useSearchParams } from 'react-router-dom'
 import { Clock, Check, X, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Inbox, AlertCircle, Repeat, Eye } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import OutreachAnalytics from './OutreachAnalytics'
+import { useTheme } from '../../contexts/ThemeContext'
 
 const F = 'Plus Jakarta Sans, sans-serif'
 const NAVY = '#1D2567'
@@ -314,6 +315,7 @@ function MessageDrawer({ detail, onClose, onRetry }) {
 }
 
 export default function SentHistory() {
+  const { style: appearanceStyle } = useTheme()
   const [rows, setRows]       = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState(null)
@@ -709,10 +711,12 @@ export default function SentHistory() {
   }
 
   return (
-    <div style={wrap}>
+    <div className="outreach-dispatch-ledger" style={wrap}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 14 }}>
-        <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: NAVY }}>Sent History</h2>
+      <div className="outreach-ledger-heading" style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 14 }}>
+        <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: NAVY }}>
+          {appearanceStyle === 'modern' ? 'Sent History' : 'Dispatch Ledger'}
+        </h2>
         {!loading && !error && (
           <span style={{ fontSize: 12, color: '#6b7280' }}>
             {total.toLocaleString()} communication{total === 1 ? '' : 's'}

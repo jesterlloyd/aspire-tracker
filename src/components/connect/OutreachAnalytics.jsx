@@ -126,9 +126,9 @@ export default function OutreachAnalytics({ data, loading, error, audienceFilter
   const empty = !totals.total
 
   return (
-    <div style={{ fontFamily: F, marginBottom: 14 }}>
+    <div className="outreach-analytics" style={{ fontFamily: F, marginBottom: 14 }}>
       {/* KPI band - total first, then the audience split that sums to it. */}
-      <div style={{
+      <div className="outreach-ledger-totals" style={{
         display: 'grid', gap: 10, marginBottom: 12,
         gridTemplateColumns: 'repeat(auto-fit, minmax(148px, 1fr))',
       }}>
@@ -159,7 +159,7 @@ export default function OutreachAnalytics({ data, loading, error, audienceFilter
       </div>
 
       {/* Chart */}
-      <div style={{ background: '#fff', border: '1px solid rgba(29,37,103,0.08)', borderRadius: 10, padding: '14px 16px 12px' }}>
+      <div className="outreach-activity-register" style={{ background: '#fff', border: '1px solid rgba(29,37,103,0.08)', borderRadius: 10, padding: '14px 16px 12px' }}>
         {empty ? (
           <div style={{ padding: '26px 0', textAlign: 'center', color: '#9ca3af', fontSize: 12.5 }}>
             No communications in this period.

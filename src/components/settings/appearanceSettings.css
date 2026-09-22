@@ -479,6 +479,7 @@
 .apx-sw-studentProfiles { background: linear-gradient(180deg, var(--aspire-leather-black-lift), var(--aspire-leather-black)); }
 .apx-sw-interviewRubric,
 .apx-sw-contacts { background: linear-gradient(180deg, var(--aspire-leather-cognac-lift), var(--aspire-leather-cognac-deep)); }
+.apx-sw-outreach { background: linear-gradient(135deg, #26314f 0 62%, #fffdf7 62% 100%); }
 .apx-sw-calendars { background: linear-gradient(180deg, #5A6280, #373D51); }
 .apx-sw-reviewRelease { background: linear-gradient(180deg, #554E43, #332E27); }
 .apx-sw-responses { background: repeating-linear-gradient(0deg, #FCFDFA 0 5px, rgba(15, 122, 77, 0.18) 5px 6px); }

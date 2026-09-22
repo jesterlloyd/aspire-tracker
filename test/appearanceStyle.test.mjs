@@ -338,7 +338,7 @@ test('the page says what the brief says, in the canon\'s case', async () => {
     'How ASPIRE Intelligence looks for you. Your choices follow you to any device.',
     '>Style</h3>', '>Color Mode</h3>', '>Preview</h3>', '>Where Style Applies</h3>',
     'Leather, paper, pins and brass', 'Clean surfaces, same layout', 'Match my computer',
-    'Classic shows the address book, and Modern shows',
+    'Classic shows the address book and correspondence desk;',
   ]) assert.ok(html.includes(text), text)
   assert.doesNotMatch(html, /Contacts Layout/)
   // SETTINGS-BAND-1: the intro is the band's one subtitle line, and the section's first
@@ -361,13 +361,13 @@ test('the preview draws the chosen style, and the flag the way that style draws 
   assert.match(css, /\.apx-pv-flag \{ display: none; \}/)
 })
 
-test('the list is honest: seven screens, only Contacts switches today, Automations is absent', async () => {
+test('the list is honest: Outreach and Contacts switch today, Automations is absent', async () => {
   assert.deepEqual(STYLE_SURFACES.map(s => s.key),
-    ['placementBoard', 'studentProfiles', 'interviewRubric', 'calendars', 'reviewRelease', 'responses', 'contacts'])
-  assert.deepEqual(STYLE_SURFACES.filter(s => s.modern).map(s => s.key), ['contacts'])
+    ['placementBoard', 'studentProfiles', 'interviewRubric', 'calendars', 'reviewRelease', 'responses', 'contacts', 'outreach'])
+  assert.deepEqual(STYLE_SURFACES.filter(s => s.modern).map(s => s.key), ['contacts', 'outreach'])
   assert.ok(!STYLE_SURFACES.some(s => /automation/i.test(s.key + s.label)), 'no equipment panel exists to switch')
   const html = await renderPage()
-  assert.equal((html.match(/class="apx-ap"/g) || []).length, 7)
+  assert.equal((html.match(/class="apx-ap"/g) || []).length, 8)
   assert.equal((html.match(/class="apx-coming">Coming</g) || []).length, 6)
 })
 

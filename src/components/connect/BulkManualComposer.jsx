@@ -866,7 +866,7 @@ export default function BulkManualComposer({
   )
 
   return (
-    <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'flex-start', width: '100%' }}>
+    <div className="outreach-bulk-manual" style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'flex-start', width: '100%' }}>
 
       {/* ── Zone 1: Audience ─────────────────────────────────────────────── */}
       {/* overflow stays auto for the long Students/Contacts lists, but is visible for Paste · Type

@@ -118,7 +118,7 @@ export function AppearanceSettings({ style, colorMode, systemTheme, synced, onSt
             <h3 id={ids.styleH}>Style</h3>
             <p id={ids.styleD}>
               Classic gives each workspace its own material: the placement board, the chart binder, the
-              address book. Modern keeps every screen and every feature, with the materials turned off.
+              address book, the correspondence desk. Modern keeps every screen and every feature, with the materials turned off.
             </p>
           </div>
         </div>
@@ -192,8 +192,8 @@ export function AppearanceSettings({ style, colorMode, systemTheme, synced, onSt
           ))}
         </ul>
         <p className="apx-note">
-          Contacts no longer has a layout setting of its own: Classic shows the address book, and Modern shows
-          the three-column view.
+          Contacts and Outreach follow this one setting: Classic shows the address book and correspondence desk;
+          Modern keeps their clean production surfaces. Their data, controls, and workflows stay the same.
         </p>
       </SurfaceCard>
 

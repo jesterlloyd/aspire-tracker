@@ -1,0 +1,260 @@
+/* Classic ASPIRE Connect Outreach skin. This file changes presentation only. The
+   same components, state, handlers, editor and APIs remain mounted in both styles. */
+.outreach-workspace-classic {
+  --ocd-navy: #1d285f;
+  --ocd-navy-deep: #10184f;
+  --ocd-leather: #26314f;
+  --ocd-leather-edge: #12182b;
+  --ocd-wood: #754624;
+  --ocd-wood-dark: #4b2a15;
+  --ocd-brass: #b68a3c;
+  --ocd-brass-dark: #806020;
+  --ocd-paper: #fffdf7;
+  --ocd-paper-warm: #f7f0e2;
+  --ocd-paper-edge: #d6cbb5;
+  --ocd-ink: #172044;
+  --ocd-muted: #73798a;
+}
+
+.outreach-mode-tabs button:hover:not(:disabled) {
+  background: rgba(29, 37, 103, 0.04) !important;
+  color: #1d2567 !important;
+}
+.outreach-mode-tabs button[aria-selected='true'],
+.outreach-mode-tabs button[aria-selected='true']:hover {
+  background: #1d2567 !important;
+  color: #fff !important;
+}
+
+.outreach-desk-shell { position: relative; }
+.outreach-workspace-classic .outreach-desk-shell {
+  min-height: 540px;
+  padding: 18px;
+  border: 6px solid var(--ocd-wood);
+  background: var(--ocd-leather);
+  box-shadow: inset 0 0 0 2px var(--ocd-wood-dark), 0 12px 28px rgba(30, 31, 45, 0.15);
+}
+.outreach-workspace-classic .outreach-desk-shell::before,
+.outreach-workspace-classic .outreach-desk-shell::after {
+  content: '';
+  position: absolute;
+  z-index: 2;
+  top: 7px;
+  width: 11px;
+  height: 11px;
+  border: 1px solid var(--ocd-brass-dark);
+  border-radius: 50%;
+  background: var(--ocd-brass);
+}
+.outreach-workspace-classic .outreach-desk-shell::before { left: 7px; }
+.outreach-workspace-classic .outreach-desk-shell::after { right: 7px; }
+.outreach-desk-plaque {
+  position: absolute;
+  z-index: 4;
+  top: -15px;
+  left: 50%;
+  translate: -50% 0;
+  padding: 5px 17px;
+  border: 1px solid var(--ocd-brass-dark);
+  background: var(--ocd-brass);
+  box-shadow: 0 3px 7px rgba(0, 0, 0, 0.2);
+  color: #34250d;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  line-height: 1.3;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* Warm stationery and file cards. The literal paper stays warm under Dark mode by
+   design; only the surrounding application chrome follows the selected color mode. */
+.outreach-workspace-classic .connect-panel {
+  position: relative;
+  border-color: var(--ocd-paper-edge) !important;
+  border-radius: 0 !important;
+  background: var(--ocd-paper) !important;
+  box-shadow: 0 7px 14px rgba(10, 14, 29, 0.18) !important;
+  color: var(--ocd-ink);
+}
+.outreach-workspace-classic .connect-panel-title {
+  color: var(--ocd-ink) !important;
+  font-family: Georgia, 'Times New Roman', serif !important;
+  font-size: 19px !important;
+  font-weight: 400 !important;
+}
+.outreach-workspace-classic .connect-panel-helper {
+  color: var(--ocd-brass-dark) !important;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace !important;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+.outreach-workspace-classic .outreach-correspondence-files .connect-panel:first-child::before,
+.outreach-workspace-classic .outreach-bulk-manual > .connect-panel:first-child::before {
+  content: '';
+  position: absolute;
+  z-index: 2;
+  top: -9px;
+  left: 50%;
+  width: 62px;
+  height: 19px;
+  translate: -50% 0;
+  border: 1px solid #767a82;
+  border-radius: 5px 5px 3px 3px;
+  background: linear-gradient(#d9dce1, #aeb2ba);
+  box-shadow: inset 0 2px 2px rgba(255, 255, 255, 0.65), 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* The draft and preview column reads as formal stationery. */
+.outreach-workspace-classic .outreach-correspondence-letter > .connect-panel,
+.outreach-workspace-classic .outreach-bulk-manual > .connect-panel:last-of-type {
+  padding: 28px 34px 24px !important;
+}
+.outreach-workspace-classic .outreach-correspondence-letter > .connect-panel::after,
+.outreach-workspace-classic .outreach-bulk-manual > .connect-panel:last-of-type::after {
+  content: '';
+  position: absolute;
+  right: 14px;
+  bottom: -6px;
+  left: 14px;
+  height: 5px;
+  border: 1px solid var(--ocd-paper-edge);
+  border-top: 0;
+  background: #f2ead9;
+}
+.outreach-workspace-classic .outreach-correspondence-letter .connect-panel-head {
+  padding-bottom: 13px;
+  border-bottom: 2px solid var(--ocd-ink);
+}
+.outreach-workspace-classic .outreach-draft-panel {
+  display: flex;
+  flex-direction: column;
+}
+.outreach-workspace-classic .outreach-draft-panel > * { order: 5; }
+.outreach-workspace-classic .outreach-draft-panel > .connect-panel-head { order: 0; }
+.outreach-workspace-classic .outreach-draft-panel > .outreach-address-to { order: 1; }
+.outreach-workspace-classic .outreach-draft-panel > .outreach-address-cc { order: 2; }
+.outreach-workspace-classic .outreach-draft-panel > .outreach-address-subject { order: 3; }
+.outreach-workspace-classic .outreach-draft-panel > .outreach-message-body { order: 4; }
+.outreach-workspace-classic .outreach-address-value {
+  display: flex;
+  min-height: 39px;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-bottom: 1px solid #c9c0af;
+  color: var(--ocd-ink);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.outreach-workspace-classic .outreach-address-value span:last-child {
+  color: var(--ocd-muted);
+}
+.outreach-workspace-classic input,
+.outreach-workspace-classic select,
+.outreach-workspace-classic textarea {
+  border-color: #cfd2d9 !important;
+  background-color: rgba(255, 255, 255, 0.78) !important;
+  color: var(--ocd-ink) !important;
+}
+
+/* Existing rich text controls become the restrained typewriter carriage. */
+.outreach-workspace-classic .outreach-rich-editor-carriage > div:first-child {
+  border-color: #898d95 !important;
+  border-radius: 0 !important;
+  background: #b8bbc1 !important;
+  box-shadow: inset 0 2px 2px rgba(255, 255, 255, 0.63), 0 2px 3px rgba(0, 0, 0, 0.13);
+}
+.outreach-workspace-classic .outreach-rich-editor-carriage button,
+.outreach-workspace-classic .outreach-rich-editor-carriage select {
+  border-color: #8b8f97 !important;
+  border-radius: 4px !important;
+  background: #f4f4f2 !important;
+}
+.outreach-workspace-classic .outreach-rich-editor-carriage button[aria-pressed='true'] {
+  border-color: var(--ocd-navy) !important;
+  background: var(--ocd-navy) !important;
+  color: #fff !important;
+}
+.outreach-workspace-classic .rte-content {
+  min-height: 285px !important;
+  background: var(--ocd-paper);
+  color: var(--ocd-ink);
+}
+
+/* Template buttons retain their real handlers and state; the skin supplies the card index. */
+.outreach-workspace-classic .outreach-correspondence-files button,
+.outreach-workspace-classic .outreach-bulk-manual .connect-panel button {
+  border-radius: 0 !important;
+}
+
+/* Sent History becomes one outgoing-correspondence ledger. */
+.outreach-workspace-classic .outreach-dispatch-ledger {
+  padding: 24px;
+  border: 1px solid var(--ocd-paper-edge);
+  background: var(--ocd-paper-warm);
+  box-shadow: 0 8px 16px rgba(7, 11, 24, 0.22);
+  color: var(--ocd-ink);
+}
+.outreach-workspace-classic .outreach-ledger-heading {
+  margin: -24px -24px 16px !important;
+  padding: 22px 24px 16px;
+  border-bottom: 2px solid var(--ocd-ink);
+  background: var(--ocd-paper);
+}
+.outreach-workspace-classic .outreach-ledger-heading h2 {
+  color: var(--ocd-ink) !important;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 27px !important;
+  font-weight: 400 !important;
+}
+.outreach-workspace-classic .outreach-ledger-totals {
+  gap: 0 !important;
+  border: 1px solid var(--ocd-paper-edge);
+  background: var(--ocd-paper);
+}
+.outreach-workspace-classic .outreach-ledger-totals > * {
+  border: 0 !important;
+  border-right: 1px solid var(--ocd-paper-edge) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+.outreach-workspace-classic .outreach-ledger-totals > *:last-child {
+  border-right: 0 !important;
+}
+.outreach-workspace-classic .outreach-activity-register {
+  border-color: var(--ocd-paper-edge) !important;
+  border-radius: 0 !important;
+  background: var(--ocd-paper) !important;
+  box-shadow: none !important;
+}
+.outreach-workspace-classic .outreach-dispatch-ledger > div,
+.outreach-workspace-classic .outreach-dispatch-ledger > section {
+  color: var(--ocd-ink);
+}
+
+@media (max-width: 840px) {
+  .outreach-workspace-classic .outreach-desk-shell { padding: 12px; border-width: 4px; }
+  .outreach-workspace-classic .outreach-single-layout,
+  .outreach-workspace-classic .outreach-bulk-manual { flex-direction: column; }
+  .outreach-workspace-classic .outreach-correspondence-files,
+  .outreach-workspace-classic .outreach-correspondence-letter,
+  .outreach-workspace-classic .outreach-bulk-manual > .connect-panel { width: 100%; min-width: 0 !important; flex-basis: auto !important; }
+}
+
+@media (max-width: 590px) {
+  .outreach-workspace { padding-right: 12px !important; padding-left: 12px !important; }
+  .outreach-mode-row { align-items: stretch !important; }
+  .outreach-mode-tabs { width: 100%; }
+  .outreach-mode-tabs button { flex: 1; padding-right: 8px !important; padding-left: 8px !important; }
+  .outreach-workspace-classic .outreach-correspondence-letter > .connect-panel,
+  .outreach-workspace-classic .outreach-bulk-manual > .connect-panel:last-of-type { padding: 22px 16px !important; }
+  .outreach-workspace-classic .outreach-dispatch-ledger { padding: 16px; }
+  .outreach-workspace-classic .outreach-ledger-heading { margin: -16px -16px 14px !important; padding: 18px 16px 14px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .outreach-workspace-classic *,
+  .outreach-workspace-classic *::before,
+  .outreach-workspace-classic *::after { transition: none !important; }
+}
