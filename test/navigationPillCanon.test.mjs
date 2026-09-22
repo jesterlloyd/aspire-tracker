@@ -12,10 +12,12 @@ test('one shared pill owns back and refresh presentation', () => {
   const css = read('src/components/ui/navigationPill.css')
   assert.match(component, /export function BackPill/)
   assert.match(component, /export function RefreshPill/)
+  assert.match(component, /icon=\{RotateCw\}/)
   assert.match(component, /disabled=\{disabled \|\| loading\}/)
   assert.match(component, /aria-busy=\{loading \|\| undefined\}/)
-  assert.match(css, /\.nav-pill:focus-visible/)
-  assert.match(css, /\.nav-pill:hover:not\(:disabled\)/)
+  assert.match(css, /\.nav-pill:focus-visible[\s\S]*box-shadow: 0 0 0 3px #93c5fd/)
+  assert.match(css, /\.nav-pill:hover:not\(:disabled\)[\s\S]*background: rgba\(29, 37, 103, 0\.04\)/)
+  assert.match(css, /\.nav-pill:active:not\(:disabled\)[\s\S]*background: var\(--color-accent-primary/)
   assert.match(css, /\.nav-pill-icon-spin/)
 })
 
@@ -47,4 +49,9 @@ test('every Back to surface uses BackButton', () => {
     'src/portal/messages/PortalMessagesThread.jsx',
   ]
   for (const path of surfaces) assert.match(read(path), /<BackButton\b/, path)
+})
+
+test('Interview Rubric unlock action uses the same canonical pill shape', () => {
+  const source = read('src/components/RubricSession.jsx')
+  assert.match(source, /<NavigationPill onClick=\{\(\) => setConfirmUnlock\(true\)\}>Unlock to Edit<\/NavigationPill>/)
 })

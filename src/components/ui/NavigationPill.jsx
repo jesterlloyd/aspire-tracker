@@ -1,4 +1,4 @@
-import { ChevronLeft, RefreshCw } from 'lucide-react'
+import { ChevronLeft, RotateCw } from 'lucide-react'
 import './navigationPill.css'
 
 export function NavigationPill({
@@ -34,7 +34,7 @@ export function BackPill({ children, label, ...props }) {
 
 export function RefreshPill({ loading = false, ...props }) {
   return (
-    <NavigationPill icon={RefreshCw} loading={loading} ariaLabel="Refresh" {...props}>
+    <NavigationPill icon={RotateCw} loading={loading} ariaLabel="Refresh" {...props}>
       {loading ? 'Refreshing…' : 'Refresh'}
     </NavigationPill>
   )

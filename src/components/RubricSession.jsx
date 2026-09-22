@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import Tooltip from './ui/Tooltip'
 import BackButton from './BackButton'
+import { NavigationPill } from './ui/NavigationPill'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { safeWrite } from '../lib/safeWrite'
@@ -1155,7 +1156,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
           )}
           {locked && (
             <div className="rb-toolbar-right">
-              <button type="button" className="rb-btn" onClick={() => setConfirmUnlock(true)}>Unlock to Edit</button>
+              <NavigationPill onClick={() => setConfirmUnlock(true)}>Unlock to Edit</NavigationPill>
             </div>
           )}
         </div>

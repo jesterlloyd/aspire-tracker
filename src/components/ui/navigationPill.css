@@ -21,16 +21,23 @@
 }
 
 .nav-pill:hover:not(:disabled) {
-  border-color: var(--border-accent, #c7d0ee);
-  background: var(--color-bg-elevated, #eef1fb);
+  background: rgba(29, 37, 103, 0.04);
   color: var(--color-accent-primary, #1d2567);
 }
 
-.nav-pill:active:not(:disabled) { transform: scale(0.98); }
+.nav-pill:active:not(:disabled) {
+  border-color: var(--color-accent-primary, #1d2567);
+  background: var(--color-accent-primary, #1d2567);
+  color: #fff;
+  box-shadow: none;
+  transform: none;
+}
+
+.nav-pill:active:not(:disabled) .nav-pill-icon { color: #fff; }
 
 .nav-pill:focus-visible {
-  outline: 2px solid var(--color-accent-primary, #1d2567);
-  outline-offset: 2px;
+  outline: 0;
+  box-shadow: 0 0 0 3px #93c5fd;
 }
 
 .nav-pill:disabled {
