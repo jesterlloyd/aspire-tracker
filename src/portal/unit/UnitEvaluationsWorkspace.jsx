@@ -107,7 +107,7 @@ export default function UnitEvaluationsWorkspace({ unitKeys = [] }) {
 
   return (
     <>
-      <SectionHeading focusKey="evaluations">Evaluations</SectionHeading>
+      <SectionHeading focusKey="evaluations">Evaluation</SectionHeading>
 
       <p className="ptl-muted" style={{ marginTop: -4 }}>
         Results are released by the ASPIRE team after the rotation and include quantitative

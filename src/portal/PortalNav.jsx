@@ -7,8 +7,8 @@
 // Destinations are real route changes handled by PortalApp (URL-driven), so
 // back, forward, and refresh behave like the rest of the app.
 
-import { MessageSquare, Home, MapPin, ClipboardCheck } from 'lucide-react'
 import { formatUnread, unreadLabel } from '../lib/messages/messagesConstants'
+import { NAV_ICONS, NAV_LABELS } from '../lib/navigationCanon'
 import { PortalNavRefresh } from './PortalRefresh'
 
 const srOnly = {
@@ -27,8 +27,8 @@ export default function PortalNav({ view, unread = 0, onHome, onPlacement, onMes
         data-tour="portal-nav-home"
         onClick={() => onHome?.()}
       >
-        <Home size={16} aria-hidden="true" />
-        <span className="ptl-nav-label">Home</span>
+        <NAV_ICONS.home size={16} aria-hidden="true" />
+        <span className="ptl-nav-label">{NAV_LABELS.home}</span>
       </button>
 
       <button
@@ -38,8 +38,8 @@ export default function PortalNav({ view, unread = 0, onHome, onPlacement, onMes
         data-tour="portal-nav-placement"
         onClick={() => onPlacement?.()}
       >
-        <MapPin size={16} aria-hidden="true" />
-        <span className="ptl-nav-label">My Placement</span>
+        <NAV_ICONS.myPlacement size={16} aria-hidden="true" />
+        <span className="ptl-nav-label">{NAV_LABELS.myPlacement}</span>
       </button>
 
       {messagesEnabled && (
@@ -51,14 +51,14 @@ export default function PortalNav({ view, unread = 0, onHome, onPlacement, onMes
           onClick={() => onMessages?.()}
         >
           <span className="ptl-nav-iconwrap">
-            <MessageSquare size={16} aria-hidden="true" />
+            <NAV_ICONS.messages size={16} aria-hidden="true" />
             {/* The count itself carries the meaning, and screen-reader text spells
                 it out, so unread is never conveyed by color alone. Hidden at 0. */}
             {unread > 0 && (
               <span className="ptl-nav-badge" aria-hidden="true">{formatUnread(unread)}</span>
             )}
           </span>
-          <span className="ptl-nav-label">Messages</span>
+          <span className="ptl-nav-label">{NAV_LABELS.messages}</span>
           <span style={srOnly}>{unread > 0 ? unreadLabel(unread) : ''}</span>
         </button>
       )}
@@ -72,8 +72,8 @@ export default function PortalNav({ view, unread = 0, onHome, onPlacement, onMes
         data-tour="portal-nav-shiftlog"
         onClick={() => onShiftLog?.()}
       >
-        <ClipboardCheck size={16} aria-hidden="true" />
-        <span className="ptl-nav-label">Shift Log</span>
+        <NAV_ICONS.shiftLog size={16} aria-hidden="true" />
+        <span className="ptl-nav-label">{NAV_LABELS.shiftLog}</span>
       </button>
 
       {/* Right-aligned shared Refresh (desktop only; hidden in the phone bottom bar). */}

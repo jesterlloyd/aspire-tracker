@@ -32,10 +32,9 @@ const activity = read('src/components/ngrp/ActivityCalendar.jsx')
 
 // ── Structure ────────────────────────────────────────────────────────────────
 
-test('five tabs, and the chips still spell ASPIRE', () => {
+test('five tabs use canonical labels without letter chips', () => {
   assert.deepEqual(NGRP_TABS.map(t => t.id), ['overview', 'support', 'profiles', 'residency', 'evaluation'])
-  assert.deepEqual(NGRP_TABS.map(t => t.chip), ['A', 'S', 'PI', 'R', 'E'])
-  assert.equal(NGRP_TABS.map(t => t.chip).join(''), 'ASPIRE')
+  assert.ok(NGRP_TABS.every(t => !('chip' in t)), 'letter chips are retired in favor of icons')
   assert.deepEqual(NGRP_TABS.map(t => t.label), [
     'At a Glance', 'Support', 'Profiles & Interest', 'Residency', 'Evaluation',
   ])

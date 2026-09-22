@@ -31,7 +31,7 @@ export const PORTAL_ROLE_SUMMARY = Object.freeze({
   nursing_academic: {
     label: 'Nursing Education & Leadership',
     tagline: 'ASPIRE-wide reporting with optional contact management.',
-    detail: 'Views At A Glance, Community Benefit, and Contacts across ASPIRE. Reporting stays view-only. The optional Contacts Editor permission allows adding, editing, deactivating, and reactivating contacts, but never permanent deletion or changes to school, program, cohort, or rotation data.',
+    detail: 'Views At a Glance, Community Benefit, and Contacts across ASPIRE. Reporting stays view-only. The optional Contacts Editor permission allows adding, editing, deactivating, and reactivating contacts, but never permanent deletion or changes to school, program, cohort, or rotation data.',
   },
   talent_acquisition: {
     label: 'Talent Acquisition',
@@ -152,7 +152,7 @@ export const PORTAL_LEVELS = Object.freeze([
 export const PORTAL_MODEL_NOTES = Object.freeze([
   'Portal access is separate from staff application access. A portal grant never creates a staff role.',
   'Student, Unit Leader, and Academic Partner access stays within the linked student, assigned units, or assigned schools.',
-  'Nursing Education & Leadership is ASPIRE-wide, but At A Glance and Community Benefit remain view-only.',
+  'Nursing Education & Leadership is ASPIRE-wide, but At a Glance and Community Benefit remain view-only.',
   'Talent Acquisition works in the Residency Portal across every residency cohort; sending Transition Forms stays with the ASPIRE team.',
   'Contacts Editor is an optional Nursing Education & Leadership permission, not another role. It never allows permanent deletion.',
   'Portal grants can start later, expire, or be revoked without changing the person’s contact record.',

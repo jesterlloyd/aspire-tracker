@@ -1,4 +1,4 @@
-// NURSING-ACADEMICS-1: the At A Glance section.
+// NURSING-ACADEMICS-1: the At a Glance section.
 //
 // A TIMELINE presentation (one school rotation per row) inside the shared
 // CanonicalCalendarLayout shell, with the canonical month navigation. Each
@@ -80,7 +80,7 @@ export default function AcademicsCalendarView({ active = true }) {
         if (kind === ACCESS_FAILURE.ACCESS_ENDED) { setLoading(false); return }
         setError(kind === ACCESS_FAILURE.SIGNED_OUT
           ? 'Your session expired. Please sign in again.'
-          : 'We could not load At A Glance right now. Please try again shortly.')
+          : 'We could not load At a Glance right now. Please try again shortly.')
         setLoading(false); return
       }
       setPayload(res.data)
@@ -125,7 +125,7 @@ export default function AcademicsCalendarView({ active = true }) {
     rotations.filter(r => !r.has_dates && matchesShared(r)),
   [rotations, matchesShared])
 
-  if (loading) return <LoadingState label="Loading At A Glance" />
+  if (loading) return <LoadingState label="Loading At a Glance" />
   if (error) return <ErrorState detail={error} onRetry={reload} />
 
   const benefitTotals = benefit?.totals || {}

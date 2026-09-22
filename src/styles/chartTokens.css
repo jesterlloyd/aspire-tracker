@@ -236,7 +236,6 @@
   .chart-nav-tab { font-size: 15px; padding: 10px 12px; }
 }
 @media (max-width: 760px) {
-  .chart-nav-chip { display: none !important; }
   .chart-nav-refresh { display: none; }
   .chart-nav-tab { font-size: 14px; padding: 10px 10px; }
 }

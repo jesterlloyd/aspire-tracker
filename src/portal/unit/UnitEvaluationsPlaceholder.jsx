@@ -42,7 +42,7 @@ const SAFEGUARDS = [
 export default function UnitEvaluationsPlaceholder() {
   return (
     <>
-      <SectionHeading focusKey="evaluations">Evaluations</SectionHeading>
+      <SectionHeading focusKey="evaluations">Evaluation</SectionHeading>
 
       <div className="ptl-card">
         <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>

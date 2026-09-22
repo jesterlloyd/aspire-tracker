@@ -1,6 +1,5 @@
 // ASPIRE-MASTHEAD: functional tests for the deterministic greeting system,
-// plus static guards for the A-name decision (tab renamed, mnemonic and
-// route preserved).
+// plus static guards for the At a Glance name and route.
 // Run: node --test test/mastheadGreeting.test.mjs
 
 import test from 'node:test'
@@ -50,12 +49,13 @@ test('the heading composes with a name and stands alone without one', () => {
   assert.doesNotMatch(greetingLine('', at(8)).heading, /there/)
 })
 
-test('the A-name decision: tab renamed, mnemonic and route preserved', async (t) => {
+test('the At a Glance name and route remain canonical', async (t) => {
   const nav = read('src/components/UnifiedNav.jsx')
   const app = read('src/staff/StaffApp.jsx')
 
-  await t.test('the first workspace tab is At a Glance with the A chip', () => {
-    assert.match(nav, /\{ id: 'overview',\s+label: 'At a Glance',\s+chip: 'A'\s+\}/)
+  await t.test('the first workspace tab uses the canonical At a Glance label and icon', () => {
+    assert.match(nav, /label: NAV_LABELS\.atAGlance,\s+Icon: NAV_ICONS\.atAGlance/)
+    assert.doesNotMatch(nav, /chart-nav-chip/)
     assert.doesNotMatch(nav, /label: 'Today'/)
   })
 
@@ -73,4 +73,3 @@ test('the A-name decision: tab renamed, mnemonic and route preserved', async (t)
     assert.doesNotMatch(app, /full_name[\s\S]{0,80}document\.title/)
   })
 })
-

@@ -3,29 +3,20 @@
 // happy and App.jsx can derive the active tab from the URL without importing a
 // component.
 //
-// THE MNEMONIC IS A-S-PI-R-E, and the chips are multi-letter where they need to
-// be, exactly as the Internship nav already does it ("SP" for Student Profiles,
-// giving A-SP-I-R-E). Residency reads:
-//
-//   A   At a Glance            the cohort right now
-//   S   Support                before residency | after residency
-//   PI  Profiles & Interest    the roster: who they are AND where they are
-//   R   Residency              placement board | activity
-//   E   Evaluation             bootcamp evals, retention, Casey-Fink
-//
-// THERE IS NO SIXTH TAB. The old six spelled ASPIRE with one letter each, but
+// THERE IS NO SIXTH TAB. The old six included Interviews, but
 // Interviews only ever meant rubrics we do not keep, and Interest is a set of
 // columns on the roster rather than a place of its own. Naming the roster
-// "Profiles & Interest" says what it holds and gives the mnemonic its I back
-// without inventing a page to hold a letter.
+// "Profiles & Interest" says what it holds without inventing a page.
 //
 // Sub-tabs are a SECOND path segment (/ngrp/support/before). Every tab resolves
 // to a default sub-tab, so a bare /ngrp/support is always a valid destination
 // and never a dead route.
 
+import { NAV_LABELS } from '../navigationCanon.js'
+
 export const NGRP_TABS = [
-  { id: 'overview',   label: 'At a Glance',         chip: 'A'  },
-  { id: 'support',    label: 'Support',             chip: 'S',
+  { id: 'overview',   label: NAV_LABELS.atAGlance },
+  { id: 'support',    label: NAV_LABELS.support,
     subTabs: [
       { id: 'before', label: 'Before Residency' },
       // MENTORSHIP-1 (Owner, 2026-09-14): the ten-week Clinical Orientation
@@ -35,8 +26,8 @@ export const NGRP_TABS = [
       { id: 'start',  label: 'At the Start of Residency' },
       { id: 'during', label: 'During Residency' },
     ] },
-  { id: 'profiles',   label: 'Profiles & Interest', chip: 'PI' },
-  { id: 'residency',  label: 'Residency',           chip: 'R',
+  { id: 'profiles',   label: NAV_LABELS.profilesInterest },
+  { id: 'residency',  label: NAV_LABELS.residency,
     subTabs: [
       // INTERVIEW-BOARD-1 (Owner, 2026-09-17): the board pairs someone with the unit
       // that will INTERVIEW them, so it says so. The id is unchanged, because it is in
@@ -46,7 +37,7 @@ export const NGRP_TABS = [
       { id: 'residents', label: 'Residents' },
       { id: 'activity',  label: 'Activity' },
     ] },
-  { id: 'evaluation', label: 'Evaluation',          chip: 'E'  },
+  { id: 'evaluation', label: NAV_LABELS.evaluation },
 ]
 
 export function isNgrpTabId(id) {

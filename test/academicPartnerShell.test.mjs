@@ -42,9 +42,9 @@ test('the three sections are stable URL routes; /portal resolves to Students', (
 
 test('AcademicPartnerNav is exactly Students, Placement Requests, Messages', () => {
   assert.match(nav, /export function AcademicPartnerNav\(\{ view, onNavigate \}\)/)
-  assert.match(nav, /key: 'students',\s*label: 'Students'/)
-  assert.match(nav, /key: 'placement-requests', label: 'Placement Requests'/)
-  assert.match(nav, /key: 'messages',\s*label: 'Messages'/)
+  assert.match(nav, /key: 'students',\s*label: NAV_LABELS\.students/)
+  assert.match(nav, /key: 'placement-requests', label: NAV_LABELS\.placementRequests/)
+  assert.match(nav, /key: 'messages',\s*label: NAV_LABELS\.messages/)
   // Reuses the shared attached-nav language and the accessible current-page + tab semantics.
   assert.match(nav, /<nav className="ptl-nav" aria-label="Academic Partner Portal sections">/)
   assert.match(nav, /className=\{`ptl-nav-item\$\{view === key \? ' ptl-nav-item-active' : ''\}`\}/)

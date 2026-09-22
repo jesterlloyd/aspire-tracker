@@ -2,7 +2,7 @@
 //
 // Organization-wide, VIEW-ONLY portal for authorized BNI nursing education
 // and leadership users: the shared greeting masthead plus three URL-driven
-// sections (At A Glance, Community Benefit, and Contacts). Sections stay mounted and hide
+// sections (At a Glance, Community Benefit, and Contacts). Sections stay mounted and hide
 // with display, matching the other portals, so month position, filters, and
 // the loaded report survive navigation.
 //

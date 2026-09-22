@@ -7,9 +7,9 @@
 // already does; no ptl-* class is shared component-to-component beyond that
 // established primitive set.
 
-import { LayoutDashboard, HandCoins, ContactRound, MessageSquare } from 'lucide-react'
 import { PortalNavRefresh } from '../PortalRefresh'
 import { formatUnread, unreadLabel } from '../../lib/messages/messagesConstants'
+import { NAV_ICONS, NAV_LABELS } from '../../lib/navigationCanon'
 
 const srOnly = {
   position: 'absolute', width: 1, height: 1, padding: 0, margin: -1,
@@ -18,13 +18,13 @@ const srOnly = {
 
 // Product order. Module-local, consumed only by NursingAcademicsNav.
 const SECTIONS = [
-  { key: 'calendar', label: 'At A Glance', Icon: LayoutDashboard },
-  { key: 'community-benefit', label: 'Community Benefit', Icon: HandCoins },
-  { key: 'contacts', label: 'Contacts', Icon: ContactRound },
+  { key: 'calendar', label: NAV_LABELS.atAGlance, Icon: NAV_ICONS.atAGlance },
+  { key: 'community-benefit', label: NAV_LABELS.communityBenefit, Icon: NAV_ICONS.communityBenefit },
+  { key: 'contacts', label: NAV_LABELS.contacts, Icon: NAV_ICONS.contacts },
 ]
 // NA-PORTAL-UTILITIES-1: Messages joins the row only when the server capability
 // reports it enabled (fail-closed before the Owner SQL gate).
-const MESSAGES_SECTION = { key: 'messages', label: 'Messages', Icon: MessageSquare }
+const MESSAGES_SECTION = { key: 'messages', label: NAV_LABELS.messages, Icon: NAV_ICONS.messages }
 
 /**
  * Section navigation. Real route changes are handled by the caller

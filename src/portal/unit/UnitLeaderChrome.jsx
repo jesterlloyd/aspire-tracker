@@ -11,11 +11,9 @@
 // the responsive breakpoints, and the focus treatment already in portal.css.
 
 import { useEffect, useRef, useState } from 'react'
-import {
-  Home, ClipboardList, CalendarRange, UserCheck, MessageSquare,
-  MoreHorizontal, ClipboardCheck,
-} from 'lucide-react'
+import { MoreHorizontal } from 'lucide-react'
 import { formatUnread, unreadLabel } from '../../lib/messages/messagesConstants'
+import { NAV_ICONS, NAV_LABELS } from '../../lib/navigationCanon'
 import { ALL_UNITS } from './unitLeaderApi'
 import SegmentedTabs from '../../components/ui/SegmentedTabs'
 import { PortalNavRefresh } from '../PortalRefresh'
@@ -28,12 +26,12 @@ const srOnly = {
 // Section order is the product's, not alphabetical. Not exported: it is consumed
 // only by UnitLeaderNav below, and exporting a non-component breaks fast refresh.
 const SECTIONS = [
-  { key: 'home',          label: 'Home',                    Icon: Home },
-  { key: 'preceptors',    label: 'Preceptors',              Icon: UserCheck },
-  { key: 'messages',      label: 'Messages',                Icon: MessageSquare },
-  { key: 'evaluations',   label: 'Evaluations',             Icon: ClipboardCheck },
-  { key: 'placements',    label: 'Placement Requests',      Icon: ClipboardList },
-  { key: 'capacity',      label: 'Capacity',                Icon: CalendarRange },
+  { key: 'home',          label: NAV_LABELS.home,              Icon: NAV_ICONS.home },
+  { key: 'preceptors',    label: NAV_LABELS.preceptors,        Icon: NAV_ICONS.preceptors },
+  { key: 'messages',      label: NAV_LABELS.messages,           Icon: NAV_ICONS.messages },
+  { key: 'evaluations',   label: NAV_LABELS.evaluation,         Icon: NAV_ICONS.evaluation },
+  { key: 'placements',    label: NAV_LABELS.placementRequests,  Icon: NAV_ICONS.placementRequests },
+  { key: 'capacity',      label: NAV_LABELS.capacity,           Icon: NAV_ICONS.capacity },
 ]
 
 /**

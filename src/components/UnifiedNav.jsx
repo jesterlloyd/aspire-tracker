@@ -2,6 +2,7 @@ import { RefreshCw } from 'lucide-react'
 import { useUnreadStudents } from '../hooks/useUnreadStudents'
 import { BADGE_COUNT_BG, BADGE_COUNT_FG } from '../lib/badgeTokens'
 import Tooltip from './ui/Tooltip'
+import { NAV_ICONS, NAV_LABELS } from '../lib/navigationCanon'
 
 // A real "Refresh" button (no longer a "Missing data?" warning; no visible keyboard shortcut).
 // `loading` spins the icon, disables the button, and swaps the label to "Refreshing…". The refresh
@@ -33,14 +34,11 @@ export function RefreshHint({ onClick, tooltipLabel, loading = false, disabled =
 }
 
 const TABS = [
-  // ASPIRE-MASTHEAD: A-name preserved by owner decision (the A-SP-I-R-E
-  // mnemonic stays); 'At a Glance' replaces the database word 'Aggregate'.
-  // The route is unchanged: /aggregate.
-  { id: 'overview',   label: 'At a Glance',      chip: 'A'  },
-  { id: 'profiles',   label: 'Student Profiles', chip: 'SP' },
-  { id: 'interviews', label: 'Interviews',        chip: 'I'  },
-  { id: 'rotation',   label: 'Rotation',          chip: 'R'  },
-  { id: 'evaluation', label: 'Evaluation',        chip: 'E'  },
+  { id: 'overview',   label: NAV_LABELS.atAGlance,       Icon: NAV_ICONS.atAGlance },
+  { id: 'profiles',   label: NAV_LABELS.studentProfiles, Icon: NAV_ICONS.studentProfiles },
+  { id: 'interviews', label: NAV_LABELS.interviews,      Icon: NAV_ICONS.interviews },
+  { id: 'rotation',   label: NAV_LABELS.rotation,        Icon: NAV_ICONS.rotation },
+  { id: 'evaluation', label: NAV_LABELS.evaluation,      Icon: NAV_ICONS.evaluation },
 ]
 
 export default function UnifiedNav({
@@ -57,7 +55,7 @@ export default function UnifiedNav({
     // ASPIRE-CHART: layout moved to .chart-nav (chartTokens.css). The tab row
     // scrolls horizontally on narrow screens instead of overflowing the page.
     <nav className="chart-nav" aria-label="Workspaces">
-      {TABS.map(({ id, label, chip }) => {
+      {TABS.map(({ id, label, Icon }) => {
         const isActive   = activeTab === id
         const tourTarget = {
           overview:   'tab-aggregate',
@@ -83,18 +81,7 @@ export default function UnifiedNav({
             onMouseEnter={e => { if (!isActive) e.currentTarget.style.color = 'var(--text-caption,#374151)' }}
             onMouseLeave={e => { if (!isActive) e.currentTarget.style.color = 'var(--text-muted,#6B7280)' }}
           >
-            {/* ASPIRE mnemonic chip - quiet, always muted grey; hidden on phones */}
-            <span className="chart-nav-chip" style={{
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              height: 20, minWidth: chip.length > 1 ? 26 : 20,
-              padding: chip.length > 1 ? '0 4px' : 0,
-              borderRadius: 4, border: '1px solid #8B8F99',
-              fontSize: 10, fontWeight: 600, letterSpacing: '0.01em',
-              color: '#8B8F99', background: 'transparent',
-              flexShrink: 0, lineHeight: 1,
-            }}>
-              {chip}
-            </span>
+            <Icon size={16} aria-hidden="true" />
 
             {label}
 

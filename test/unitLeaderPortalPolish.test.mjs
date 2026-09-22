@@ -165,8 +165,8 @@ test('P1-9: Home uses the canonical calendar first with actionable attention row
   await t.test('capacity and placement stay as dedicated routed sections', () => {
     assert.match(portal, /view === 'capacity'/)
     assert.match(portal, /view === 'placements'/)
-    assert.match(chrome, /label: 'Capacity'/)
-    assert.match(chrome, /label: 'Placement Requests'/)
+    assert.match(chrome, /label: NAV_LABELS\.capacity/)
+    assert.match(chrome, /label: NAV_LABELS\.placementRequests/)
   })
 })
 

@@ -40,7 +40,7 @@ export const TOUR_EXPERIENCES = {
   // (Placement Requests submits only; tracking lives on Students).
   // v3 -> v4: the masthead step.
   academic_partner: 'v4',
-  // v1 -> v2: renamed the portal and At A Glance section, then added the
+  // v1 -> v2: renamed the portal and At a Glance section, then added the
   // read-only Contacts directory.
   // v2 -> v3: the masthead step, plus the Messages tab and the two utility
   // launchers this portal gained in NA-PORTAL-UTILITIES-1.
@@ -673,7 +673,7 @@ function getNursingAcademicSteps(userProfile) {
     },
     {
       target: '[data-tour="portal-nav-calendar"]',
-      title: 'At A Glance',
+      title: 'At a Glance',
       content: 'See fiscal-year impact totals and school rotation windows across every cohort, color-coded by school.',
     },
     mastheadStep,

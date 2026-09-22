@@ -5,23 +5,23 @@
 // tab list is NGRP_TABS itself, so the portal and the staff app can never offer
 // different tabs. The cohort picker is NOT here: it is the staff header's own
 // ScopePicker, placed in the portal header by ResidencyPortal.
-import { LayoutDashboard, Handshake, Users, Hospital, ChartColumn } from 'lucide-react'
 import { PortalNavRefresh } from '../PortalRefresh'
 import { NGRP_TABS } from '../../lib/ngrp/ngrpTabs'
+import { NAV_ICONS } from '../../lib/navigationCanon'
 
 const TAB_ICONS = {
-  overview: LayoutDashboard,
-  support: Handshake,
-  profiles: Users,
-  residency: Hospital,
-  evaluation: ChartColumn,
+  overview: NAV_ICONS.atAGlance,
+  support: NAV_ICONS.support,
+  profiles: NAV_ICONS.profilesInterest,
+  residency: NAV_ICONS.residency,
+  evaluation: NAV_ICONS.evaluation,
 }
 
 export function ResidencyNav({ tab, onNavigate }) {
   return (
     <nav className="ptl-nav" aria-label="Residency Portal sections">
       {NGRP_TABS.map(({ id, label }) => {
-        const Icon = TAB_ICONS[id] || LayoutDashboard
+        const Icon = TAB_ICONS[id] || NAV_ICONS.atAGlance
         return (
           <button
             key={id}

@@ -603,20 +603,13 @@ test('tabs: the location-derived tab is persisted, and a retired id still resolv
   assert.match(appJsx, /const ngrpActiveTab = resolveNgrpPath\(location\.pathname\)\.tab/)
 })
 
-test('the mnemonic still reads ASPIRE, with multi-letter chips like the Internship nav', () => {
-  // The Internship nav already does this: A / SP / I / R / E. Residency reads
-  // A / S / PI / R / E, so "Profiles & Interest" carries the I without a sixth
-  // tab existing only to hold a letter.
-  assert.equal(NGRP_TABS.map(t => t.chip).join('-'), 'A-S-PI-R-E')
-  assert.equal(NGRP_TABS.map(t => t.chip).join(''), 'ASPIRE')
+test('the Residency workspace uses five canonical icon tabs', () => {
   assert.equal(NGRP_TABS.length, 5)
-  // The chip box widens for a two-letter chip; the single-letter width was
-  // hardcoded in NgrpNav and would have clipped "PI".
   const nav = read('src/components/ngrp/NgrpNav.jsx')
-  assert.match(nav, /minWidth: chip\.length > 1 \? 26 : 20/)
-  assert.match(nav, /padding: chip\.length > 1 \? '0 4px' : 0/)
-  // Same rule as the Internship nav, not a second one.
-  assert.match(read('src/components/UnifiedNav.jsx'), /minWidth: chip\.length > 1 \? 26 : 20/)
+  assert.match(nav, /const TAB_ICONS =/)
+  assert.match(nav, /<Icon size=\{16\} aria-hidden="true" \/>/)
+  assert.doesNotMatch(nav, /chart-nav-chip|\bchip\b/)
+  assert.doesNotMatch(read('src/components/UnifiedNav.jsx'), /chart-nav-chip|\bchip\b/)
 })
 
 test('pickers: Escape closes and refocuses the trigger; options are native buttons with Enter/Space for free', () => {

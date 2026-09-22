@@ -8,15 +8,15 @@
 // re-implemented. Messages carries no unread badge in this phase: the Academic
 // Partner Messages backend is not authorized yet, so no unread is polled.
 
-import { Users, ClipboardList, MessageSquare } from 'lucide-react'
 import { PortalNavRefresh } from '../PortalRefresh'
+import { NAV_ICONS, NAV_LABELS } from '../../lib/navigationCanon'
 
 // Product order, not alphabetical. Module-local (exporting a non-component from a
 // component module breaks fast refresh), consumed only by AcademicPartnerNav.
 const SECTIONS = [
-  { key: 'students',           label: 'Students',           Icon: Users },
-  { key: 'placement-requests', label: 'Placement Requests', Icon: ClipboardList },
-  { key: 'messages',           label: 'Messages',           Icon: MessageSquare },
+  { key: 'students',           label: NAV_LABELS.students,          Icon: NAV_ICONS.students },
+  { key: 'placement-requests', label: NAV_LABELS.placementRequests, Icon: NAV_ICONS.placementRequests },
+  { key: 'messages',           label: NAV_LABELS.messages,          Icon: NAV_ICONS.messages },
 ]
 
 /**

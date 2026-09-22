@@ -22,7 +22,7 @@ const app = read('src/portal/PortalApp.jsx')
 
 // ── Routing and shell ────────────────────────────────────────────────────────
 
-test('the route namespace is /portal/academics with three sections, At A Glance default', () => {
+test('the route namespace is /portal/academics with three sections, At a Glance default', () => {
   assert.match(app, /const NA_SECTIONS = new Set\(\['calendar', 'community-benefit', 'contacts', 'messages'\]\)/)
   assert.match(app, /\/portal\\\/academics\\\//)
   assert.match(app, /navigate\(`\/portal\/academics\/\$\{key\}`\)/)
@@ -34,13 +34,13 @@ test('the nav uses the shared .ptl-nav language with stable tour anchors and ari
   assert.match(chrome, /data-tour=\{`portal-nav-\$\{key\}`\}/)
   assert.match(chrome, /aria-current=\{view === key \? 'page' : undefined\}/)
   assert.match(chrome, /PortalNavRefresh/)
-  assert.match(chrome, /'calendar'[\s\S]{0,80}At A Glance/)
-  assert.match(chrome, /'community-benefit'[\s\S]{0,80}Community Benefit/)
-  assert.match(chrome, /'contacts'[\s\S]{0,80}Contacts/)
+  assert.match(chrome, /'calendar'[\s\S]{0,120}NAV_LABELS\.atAGlance/)
+  assert.match(chrome, /'community-benefit'[\s\S]{0,120}NAV_LABELS\.communityBenefit/)
+  assert.match(chrome, /'contacts'[\s\S]{0,120}NAV_LABELS\.contacts/)
 })
 
 test('sections stay mounted and hide with display, matching the other portals', () => {
-  // At A Glance is a flex column because it also carries the masthead above
+  // At a Glance is a flex column because it also carries the masthead above
   // the calendar (the other two sections hold a single child, so they stay
   // 'block'); all three still MOUNT and hide with display, which is what
   // preserves month position, filters, and the loaded report across nav.
