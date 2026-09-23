@@ -51,3 +51,25 @@ test('a template can be saved without sending, and a re-save never blanks its Ca
   // A template whose Catalog row failed is removed, never left unreachable.
   assert.match(api, /await db\.from\('sig_templates'\)\.delete\(\)\.eq\('id', data\.id\)/)
 })
+
+test('a Catalog PDF can start a template: picked in the wizard or from its ⋯ menu', async () => {
+  const api = read('api/sig-staff.js')
+  assert.match(api, /case 'import_catalog_file':/)
+  // It copies from the Catalog bucket and never writes back to it.
+  assert.match(api, /db\.storage\.from\(CATALOG_BUCKET\)\.download\(r\.storage_path\)/)
+  assert.doesNotMatch(api, /from\(CATALOG_BUCKET\)\.(upload|remove|move)/)
+  assert.match(api, /\/\^sig-template:\/\.test\(r\.storage_path\)/)
+  const w = read('src/components/signatures/PrepareWizard.jsx')
+  assert.match(w, /<b>Choose from the Catalog<\/b>/)
+  const page = read('src/components/catalog/CatalogPage.jsx')
+  assert.match(page, /label: 'Make a signature template'/)
+  // The bookcase's + New is the header's menu, never a straight-to-upload button.
+  assert.match(page, /<NewMenu inCase /)
+  assert.doesNotMatch(page, /onNew=\{canManage \? \(\) => setDialog\(\{ type: 'upload' \}\)/)
+  // sigLink must exist before the menu that reads it, or the page throws on render.
+  assert.ok(page.indexOf('const sigLink = useCallback') < page.indexOf('const menuItems = useCallback'))
+  const { isPdfFile } = await import('../src/lib/catalog/catalogModel.js')
+  assert.equal(isPdfFile({ resource_type: 'internal_file', file_type_label: 'PDF' }), true)
+  assert.equal(isPdfFile({ resource_type: 'internal_file', file_type_label: 'DOCX' }), false)
+  assert.equal(isPdfFile({ resource_type: 'internal_file', file_type_label: 'PDF', kind: 'signature' }), false)
+})

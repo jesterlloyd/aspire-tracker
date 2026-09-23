@@ -40,6 +40,7 @@ import { isExcludedType, bulkCounts, REQUEST_STATUS } from '../src/lib/signature
 import { Buffer } from 'node:buffer'
 import process from 'node:process'
 
+const CATALOG_BUCKET = 'aspire-catalog'   // the Catalog's own files (api/catalog-resource-open.js)
 const MAX_PDF_BYTES = 25 * 1024 * 1024
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const SIGNER_COLS = 'id, request_id, role_key, order_index, recipient_type, name, email, student_id, contact_id, school_name, user_profile_id, color, status, verified_at, verify_method, consent_version, consented_at, opened_at, signed_at, declined_at, decline_reason, completed_copy_sent_at, notified_at, last_reminded_at, reminder_count, delegation, paper_copy_requested_at, adopted_signature, code_sent_to'
@@ -140,6 +141,27 @@ async function act(db, body, { profile, ctx, isDemo }) {
       }
       const pageSizes = doc.getPages().map(p => ({ w: Math.round(p.getWidth()), h: Math.round(p.getHeight()) }))
       return { path, sha256: createHash('sha256').update(bytes).digest('hex'), page_count: pageSizes.length, page_sizes: pageSizes }
+    }
+    case 'import_catalog_file': {
+      // A PDF already in the Catalog, copied into signing storage so a template can be
+      // made from it (Owner, 2026-09-23). The Catalog's copy is never changed or moved.
+      if (!UUID.test(body.resource_id || '')) throw new EngineError('invalid', 'Choose a Catalog file.')
+      const { data: r } = await db.from('catalog_resources').select('id, title, storage_path, resource_type, kind, is_active').eq('id', body.resource_id).maybeSingle()
+      if (!r || r.is_active === false || r.resource_type !== 'internal_file' || (r.kind && r.kind !== 'file') || !r.storage_path || /^sig-template:/.test(r.storage_path)) {
+        throw new EngineError('not_found', 'That Catalog file is not available.', 404)
+      }
+      const { data: blob, error } = await db.storage.from(CATALOG_BUCKET).download(r.storage_path)
+      if (error || !blob) throw new EngineError('missing', 'The Catalog file could not be read.', 409)
+      const bytes = Buffer.from(await blob.arrayBuffer())
+      if (bytes.length > MAX_PDF_BYTES) throw new EngineError('too_big', 'PDF files can be up to 25 MB.', 413)
+      if (bytes.subarray(0, 5).toString('latin1') !== '%PDF-') throw new EngineError('not_pdf', 'That Catalog file is not a PDF. Only PDFs can be signed.', 415)
+      let doc
+      try { doc = await PDFDocument.load(bytes, { updateMetadata: false }) } catch { throw new EngineError('not_pdf', 'That PDF could not be read. It may be encrypted or damaged.', 415) }
+      const path = `uploads/${randomUUID()}.pdf`
+      const up = await db.storage.from(DOC_BUCKET).upload(path, bytes, { contentType: 'application/pdf', upsert: false })
+      if (up.error) throw new EngineError('upload_failed', 'Could not copy the Catalog file.', 502)
+      const pageSizes = doc.getPages().map(p => ({ w: Math.round(p.getWidth()), h: Math.round(p.getHeight()) }))
+      return { path, sha256: createHash('sha256').update(bytes).digest('hex'), page_count: pageSizes.length, page_sizes: pageSizes, title: r.title, resource_id: r.id }
     }
     case 'doc_url': {
       let path = body.path

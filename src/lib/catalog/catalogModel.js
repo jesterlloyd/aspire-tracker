@@ -203,6 +203,9 @@ export const SEND_AS = Object.freeze({
 })
 export const sendAsFor = (row) => (row?.resource_type === 'external_link' ? SEND_AS.link : SEND_AS[kindOf(row)])
 
+// A PDF the Catalog stores itself: the only kind of file that can become a signature template.
+export const isPdfFile = (row) => row?.resource_type === 'internal_file' && kindOf(row) === 'file' && fileBadge(row).label === 'PDF'
+
 // A cover holds about four lines of title at its normal size. A title longer than this is
 // set a step smaller (Classic covers), so it is read whole rather than cut off.
 export const COVER_LONG_TITLE = 44

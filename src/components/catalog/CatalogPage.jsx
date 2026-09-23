@@ -29,7 +29,7 @@ import WorkspaceBackLink from '../ui/WorkspaceBackLink'
 import RowActionsMenu from '../shared/RowActionsMenu'
 import {
   CATALOG_FEATURES, KIND_LABEL, SORTS, audienceOf, audienceLabel, kindOf, fileBadge, fmtShortDate, fmtBytes,
-  catalogSummary, railCounts, isLongCoverTitle, filterItems, sortItems, listSections, shelfOrder, viewTitle, sendButtonLabel,
+  catalogSummary, railCounts, isLongCoverTitle, isPdfFile, filterItems, sortItems, listSections, shelfOrder, viewTitle, sendButtonLabel,
 } from '../../lib/catalog/catalogModel'
 import CatalogSendModal from './CatalogSendModal'
 import {
@@ -99,6 +99,7 @@ export default function CatalogPage({
   const [shelfMode, setShelfMode] = useState('shelf')   // Classic only: 'shelf' | 'list'
   const [menuFor, setMenuFor] = useState(null)
   const [newOpen, setNewOpen] = useState(false)
+  const [caseNewOpen, setCaseNewOpen] = useState(false)   // the bookcase bar's + New: the same menu
   const [dismissed, setDismissed] = useState(readDismissed)
 
   // ── Dialogs ──
@@ -231,6 +232,8 @@ export default function CatalogPage({
     catch { say('err', `Copy failed. Link: ${link}`) }
   }, [say])
 
+  const sigLink = useCallback((qs = '') => navigate(`/catalog/signatures${qs}`), [navigate])
+
   const menuItems = useCallback((r) => {
     const ext = r.resource_type === 'external_link'
     const sig = kindOf(r) === 'signature'
@@ -250,14 +253,15 @@ export default function CatalogPage({
     return [
       ...items,
       { key: 'edit', label: 'Edit details', onSelect: () => setDialog({ type: 'edit', row: r }) },
+      // A PDF can become a signature template without being uploaded again.
+      ...(features.signatures && !sig && !ext && isPdfFile(r) ? [{ key: 'sigtpl', label: 'Make a signature template', onSelect: () => sigLink(`?tab=prepare&from=${encodeURIComponent(r.id)}`) }] : []),
       ...(ext || sig ? [] : [{ key: 'ver', label: 'Upload new version', disabled: !phase1, onSelect: () => setDialog({ type: 'version', row: r }) }]),
       { key: 'pin', label: r.is_pinned ? 'Unpin' : 'Pin to top', onSelect: () => runUpdate(r.id, { is_pinned: !r.is_pinned }, r.is_pinned ? 'Unpinned.' : 'Pinned to the top.') },
       { key: 'remove', label: 'Remove', danger: true, onSelect: () => setDialog({ type: 'remove', row: r }) },
     ]
-  }, [accessResource, copyLink, canManage, runUpdate, phase1])
+  }, [accessResource, copyLink, canManage, runUpdate, phase1, features.signatures, sigLink])
 
   const openSend = useCallback((r) => { if (canManage) setDialog({ type: 'send', row: r }) }, [canManage])
-  const sigLink = useCallback((qs = '') => navigate(`/catalog/signatures${qs}`), [navigate])
 
   const pickView = (next) => {
     setView({ type: 'all', category: null, track: null, ...next })
@@ -392,7 +396,8 @@ export default function CatalogPage({
             : error ? <div className="ctl-state ctl-state-err">Could not load the Catalog: {error.message}</div>
             : classic ? (
               <Bookcase {...listProps} mode={shelfMode} setMode={setShelfMode}
-                onNew={canManage ? () => setDialog({ type: 'upload' }) : null} items={visible} />
+                newMenu={canManage ? <NewMenu inCase open={caseNewOpen} setOpen={setCaseNewOpen} features={features} onUpload={() => setDialog({ type: 'upload' })}
+                  onPrepare={() => sigLink('?tab=prepare')} onReview={() => setDialog({ type: 'personal' })} /> : null} items={visible} />
             ) : (
               <ItemList {...listProps} />
             )}
@@ -464,7 +469,7 @@ function emptyTextFor(view, total, q) {
 }
 
 // ── + New ─────────────────────────────────────────────────────────────────────────
-function NewMenu({ open, setOpen, features, onUpload, onPrepare, onReview }) {
+function NewMenu({ open, setOpen, features, onUpload, onPrepare, onReview, inCase = false }) {
   const wrap = useRef(null)
   useEffect(() => {
     if (!open) return
@@ -476,8 +481,8 @@ function NewMenu({ open, setOpen, features, onUpload, onPrepare, onReview }) {
   }, [open, setOpen])
   const pick = (fn) => { setOpen(false); fn() }
   return (
-    <div className="ctl-new" ref={wrap}>
-      <button type="button" className="ctl-btn ctl-btn-pri" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)}>+ New</button>
+    <div className={`ctl-new${inCase ? ' ctl-new-case' : ''}`} ref={wrap}>
+      <button type="button" className={inCase ? 'ctl-wbtn' : 'ctl-btn ctl-btn-pri'} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)}>+ New</button>
       {open && (
         <div className="ctl-menu" role="menu">
           <button type="button" role="menuitem" onClick={() => pick(onUpload)}>
@@ -597,7 +602,7 @@ function ItemList({ sections, title, count, selectedId, onSelect, onSend, canMan
 }
 
 // ── Classic: the bookcase ─────────────────────────────────────────────────────────
-function Bookcase({ mode, setMode, onNew, items, ...listProps }) {
+function Bookcase({ mode, setMode, newMenu, items, ...listProps }) {
   const { title, count, selectedId, onSelect, onSend, canManage, catLabel, usage, emptyText } = listProps
   const bar = (
     <div className="ctl-casebar">
@@ -606,7 +611,7 @@ function Bookcase({ mode, setMode, onNew, items, ...listProps }) {
         <button type="button" className="ctl-wbtn" aria-pressed={mode === 'list'} aria-label="List view" onClick={() => setMode('list')}><ListIcon size={15} /></button>
       </span>
       <b className="ctl-engr">{title}<small>{count}</small></b>
-      {onNew ? <button type="button" className="ctl-wbtn" onClick={onNew}>+ New</button> : <span className="ctl-wbtn-space" />}
+      {newMenu || <span className="ctl-wbtn-space" />}
     </div>
   )
   if (mode === 'list') {

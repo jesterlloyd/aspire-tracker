@@ -16,7 +16,7 @@ import { blankRecipient, emptyDraft, nextRoleKey } from '../../lib/signatures/dr
 
 const STEPS = ['Document', 'Recipients', 'Place fields', 'Review and send']
 
-export default function PrepareWizard({ initial, draftId: initialDraftId, startStep = 0, onSent, onPreview, notify, people }) {
+export default function PrepareWizard({ initial, draftId: initialDraftId, startStep = 0, onSent, onPreview, notify, people, importFrom = null }) {
   const [d, setD] = useState(() => ({ ...emptyDraft(), ...(initial || {}) }))
   const [step, setStep] = useState(startStep)
   const [draftId, setDraftId] = useState(initialDraftId || null)
@@ -25,6 +25,7 @@ export default function PrepareWizard({ initial, draftId: initialDraftId, startS
   const [templates, setTemplates] = useState([])
   const [docUrl, setDocUrl] = useState(null)
   const [cats, setCats] = useState([])
+  const [catalogPdfs, setCatalogPdfs] = useState(null)   // null until the Catalog is read
   const set = (patch) => setD(x => ({ ...x, ...patch }))
   const cat = { ...emptyDraft().catalog, ...(d.catalog || {}) }
   const setCat = (patch) => set({ catalog: { ...cat, ...patch, touched: true } })
@@ -44,7 +45,7 @@ export default function PrepareWizard({ initial, draftId: initialDraftId, startS
   const signers = d.recipients.map((r, i) => ({ ...r, roleKey: r.roleKey || `r${i + 1}` }))
   const issues = useMemo(() => sendIssues({ recipients: signers, fields: d.fields, documentType: d.documentType, excludedConfirmed: d.excludedConfirmed, senderValues: d.senderValues }), [signers, d.fields, d.documentType, d.excludedConfirmed, d.senderValues])
   const tplIssues = useMemo(() => templateIssues({ recipients: signers, fields: d.fields, documentType: d.documentType, excludedConfirmed: d.excludedConfirmed }), [signers, d.fields, d.documentType, d.excludedConfirmed])
-  const stepBlock = step === 0 && !d.documentPath ? 'Upload a PDF or pick a template first.' : step === 0 && !d.title.trim() ? 'Name the document.' : null
+  const stepBlock = step === 0 && !d.documentPath ? 'Upload a PDF, choose one from the Catalog, or pick a template first.' : step === 0 && !d.title.trim() ? 'Name the document.' : null
 
   const pickTemplate = async (id) => {
     if (!id) { set({ templateId: null }); return }
@@ -58,6 +59,30 @@ export default function PrepareWizard({ initial, draftId: initialDraftId, startS
       })
     } catch (e) { setErr(e.message) }
   }
+
+  // The Catalog's own PDFs, for "Choose from the Catalog". Signature templates and links
+  // are not files, and only a PDF can be signed as-is.
+  useEffect(() => {
+    if (d.source !== 'catalog' || catalogPdfs) return
+    supabase.from('catalog_resources').select('id, title, kind, file_type_label, storage_path, resource_type, is_active')
+      .eq('resource_type', 'internal_file').order('title')
+      .then(({ data }) => setCatalogPdfs((data || []).filter(r => r.is_active !== false && (r.kind || 'file') === 'file'
+        && !String(r.storage_path || '').startsWith('sig-template:')
+        && (String(r.file_type_label || '').toUpperCase() === 'PDF' || /\.pdf$/i.test(r.storage_path || '')))))
+  }, [d.source, catalogPdfs])
+
+  const importFromCatalog = async (id) => {
+    if (!id) return
+    setErr(null); setBusy(true)
+    try {
+      const c = await sigStaff('import_catalog_file', { resource_id: id })
+      set({ source: 'catalog', catalogFileId: id, documentPath: c.path, sha256: c.sha256, pageSizes: c.page_sizes, templateId: null, fields: [], title: d.title || c.title })
+      notify?.(`Copied from the Catalog, ${c.page_count} ${c.page_count === 1 ? 'page' : 'pages'}. The Catalog file is unchanged.`)
+    } catch (e) { setErr(e.message) } finally { setBusy(false) }
+  }
+
+  // Opened from a Catalog file's "Make a signature template": start with that file.
+  useEffect(() => { if (importFrom) { set({ source: 'catalog' }); importFromCatalog(importFrom) } }, [importFrom])  // eslint-disable-line react-hooks/exhaustive-deps
 
   const upload = async (files) => {
     setErr(null); setBusy(true)
@@ -140,6 +165,7 @@ export default function PrepareWizard({ initial, draftId: initialDraftId, startS
           <div className="sg-srcs">
             <button type="button" className="sg-src" aria-pressed={d.source === 'tpl'} onClick={() => set({ source: 'tpl' })}><b>Use a template</b><small>Fields and recipients already placed.</small></button>
             <button type="button" className="sg-src" aria-pressed={d.source === 'pdf'} onClick={() => set({ source: 'pdf' })}><b>Upload a PDF</b><small>Signs exactly as uploaded. Several files join into one.</small></button>
+            <button type="button" className="sg-src" aria-pressed={d.source === 'catalog'} onClick={() => set({ source: 'catalog' })}><b>Choose from the Catalog</b><small>A PDF already in the Catalog. It is copied; the file stays as it is.</small></button>
             <div className="sg-src sg-src-off" aria-disabled="true"><b>Upload a Word file</b><small>Not available: save the file as PDF first, so pages never shift.</small></div>
           </div>
           {d.source === 'tpl' ? (
@@ -149,6 +175,14 @@ export default function PrepareWizard({ initial, draftId: initialDraftId, startS
                 {templates.map(t => <option key={t.id} value={t.id}>{t.name} · {(t.signer_roles || []).filter(r => r.type !== 'cc').length} signers · {(t.fields || []).length} fields</option>)}
               </select>
               {!templates.length && <p className="sg-hint">No templates yet. Upload a PDF and turn on "Save as a template" when you send.</p>}
+            </div>
+          ) : d.source === 'catalog' ? (
+            <div className="sg-field"><label htmlFor="sg-catpdf">Catalog file</label>
+              <select id="sg-catpdf" value={d.catalogFileId || ''} disabled={busy} onChange={e => importFromCatalog(e.target.value)}>
+                <option value="">{catalogPdfs ? 'Choose a PDF…' : 'Loading the Catalog…'}</option>
+                {(catalogPdfs || []).map(r => <option key={r.id} value={r.id}>{r.title}</option>)}
+              </select>
+              <p className="sg-hint">{busy ? 'Copying…' : d.documentPath && d.catalogFileId ? `${d.pageSizes.length} pages ready.` : catalogPdfs && !catalogPdfs.length ? 'The Catalog has no PDF files.' : 'Only PDFs are listed. Word files and links cannot be signed as they are.'}</p>
             </div>
           ) : (
             <div className="sg-drop">

@@ -3,7 +3,8 @@
 // SIGNATURES-PHASE2: /catalog/signatures, three tabs (brief section 2): Signature requests,
 // Prepare and send, Signer preview. Reached only when the catalog.signatures flag admits the
 // caller; the Catalog renders nothing that links here otherwise, and the server answers 404.
-// Deep links: ?request=<id>, ?tab=prepare&template=<id>&step=2, ?tab=preview&template=<id>.
+// Deep links: ?request=<id>, ?tab=prepare&template=<id>&step=2, ?tab=preview&template=<id>,
+// ?tab=prepare&from=<catalog file id> (a Catalog PDF's "Make a signature template").
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import RequestsView from './RequestsView'
@@ -71,6 +72,7 @@ export default function SignaturesPage({ flagState, people, notify, backPath = '
       {tab === 'requests' && <RequestsView focusId={params.get('request')} notify={notify} onContinueDraft={continueDraft} onResend={resend} />}
       {tab === 'prepare' && (
         <PrepareWizard key={prep.key} initial={prep.initial} draftId={prep.draftId} startStep={prep.step} notify={notify} people={people}
+          importFrom={prep.key === 0 ? params.get('from') : null}
           onPreview={(d) => { setPreview(d); go('preview') }}
           onSent={(out) => { notify?.(out.requestIds.length > 1 ? `Sent ${out.requestIds.length} requests.` : 'Sent. Track it in Signature requests.'); setPrep(p => ({ key: p.key + 1, initial: null, draftId: null, step: 0 })); go('requests') }} />
       )}

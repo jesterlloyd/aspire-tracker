@@ -504,3 +504,8 @@
 .ctl-sigopts .ctl-check input[type="radio"] { margin: 0; accent-color: var(--ctl-navy); }
 .ctl-sigopts > .ctl-hint { grid-column: 1 / -1; margin: 0; }
 @media (max-width: 640px) { .ctl-sigopts { grid-template-columns: 1fr; } }
+
+/* The bookcase bar's + New opens the same menu as the header's. The case clips its corners
+   with overflow: hidden, so while the menu is open the case lets it hang out. */
+.ctl-case:has(.ctl-new-case .ctl-menu) { overflow: visible; }
+.ctl-new-case .ctl-menu { text-shadow: none; }
