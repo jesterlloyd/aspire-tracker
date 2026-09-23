@@ -66,7 +66,7 @@ const THUMBS = {
   system: <><i className="apx-th-bar" /><span className="apx-th-body"><i /><i /></span></>,
 }
 
-const PREVIEW_NAMES = ['Esther Kere', 'Tony Kim', 'Gary Mittelberg', 'Karen Mills', 'Krystal Rodriguez']
+const PREVIEW_NAMES = ['Contact One', 'Contact Two', 'Contact Three', 'Contact Four', 'Contact Five']
 
 // A miniature of Contacts in the chosen style: the address book in Classic, the three
 // columns in Modern, with the flag drawn the way that style draws it.
@@ -85,8 +85,8 @@ function ContactsPreview({ style }) {
           ))}
         </div>
         <div className="apx-pv-rec">
-          <div className="apx-pv-name">Gary Mittelberg<span className="apx-pv-flag">Flagged</span></div>
-          <span className="apx-pv-badge">Assistant Professor</span>
+          <div className="apx-pv-name">Contact Three<span className="apx-pv-flag">Flagged</span></div>
+          <span className="apx-pv-badge">Sample role</span>
           <i className="apx-pv-ln" /><i className="apx-pv-ln apx-pv-s" /><i className="apx-pv-ln" /><i className="apx-pv-ln apx-pv-s" />
         </div>
       </div>

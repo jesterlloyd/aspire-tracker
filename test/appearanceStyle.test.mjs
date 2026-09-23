@@ -362,14 +362,19 @@ test('the preview draws the chosen style, and the flag the way that style draws 
 })
 
 // CATALOG-REVAMP-1 added the Catalog (Classic is its bookcase, Modern its plain list).
-test('the list is honest: Calendars, Contacts, Outreach and the Catalog switch today, Automations is absent', async () => {
+test('the list is honest about every shipped Modern surface, and Automations is absent', async () => {
   assert.deepEqual(STYLE_SURFACES.map(s => s.key),
     ['placementBoard', 'studentProfiles', 'interviewRubric', 'calendars', 'reviewRelease', 'responses', 'contacts', 'outreach', 'catalog'])
-  assert.deepEqual(STYLE_SURFACES.filter(s => s.modern).map(s => s.key), ['calendars', 'contacts', 'outreach', 'catalog'])
+  assert.deepEqual(STYLE_SURFACES.filter(s => s.modern).map(s => s.key),
+    ['studentProfiles', 'interviewRubric', 'calendars', 'contacts', 'outreach', 'catalog'])
   assert.ok(!STYLE_SURFACES.some(s => /automation/i.test(s.key + s.label)), 'no equipment panel exists to switch')
   const html = await renderPage()
   assert.equal((html.match(/class="apx-ap"/g) || []).length, 9)
-  assert.equal((html.match(/class="apx-coming">Coming</g) || []).length, 5)
+  assert.equal((html.match(/class="apx-coming">Coming</g) || []).length, 3)
+  for (const realName of ['Esther Kere', 'Tony Kim', 'Gary Mittelberg', 'Karen Mills', 'Krystal Rodriguez']) {
+    assert.doesNotMatch(html, new RegExp(realName))
+  }
+  assert.match(read('src/components/settings/appearanceSettings.css'), /\.apx-sw-catalog \{[\s\S]*?linear-gradient/)
 })
 
 test('the radio card state is drawn from the checked input, with a visible focus ring', () => {

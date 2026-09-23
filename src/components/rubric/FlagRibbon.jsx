@@ -88,7 +88,7 @@ export default function FlagRibbon({
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle() }
       }}
     >
-      {text}
+      {flagged ? 'FLAGGED' : text}
     </button>
   )
 }

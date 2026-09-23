@@ -126,8 +126,8 @@ export function colorModeToast(colorMode) {
 // the same in both styles. Add it here when a material for it ships.
 export const STYLE_SURFACES = Object.freeze([
   { key: 'placementBoard', label: 'Placement Board', material: 'Pinboard', modern: false },
-  { key: 'studentProfiles', label: 'Student Profiles', material: 'Chart binder', modern: false },
-  { key: 'interviewRubric', label: 'Interview Rubric', material: 'Bound book', modern: false },
+  { key: 'studentProfiles', label: 'Student Profiles', material: 'Chart binder', modern: true },
+  { key: 'interviewRubric', label: 'Interview Rubric', material: 'Bound book', modern: true },
   { key: 'calendars', label: 'Calendars', material: 'Desk planner', modern: true },
   { key: 'reviewRelease', label: 'Review & Release', material: 'Clipboard', modern: false },
   { key: 'responses', label: 'Evaluation Responses', material: 'Printout', modern: false },

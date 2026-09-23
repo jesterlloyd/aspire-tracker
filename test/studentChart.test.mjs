@@ -24,6 +24,7 @@ test('Modern appearance removes the binder chrome and uses the Contacts-style su
   assert.match(css, /\[data-style="modern"\] \.sc-binder\.material-forestack::before,[\s\S]*?\.sc-rings \{ display: none; \}/)
   assert.match(css, /\[data-style="modern"\] \.sc-index \{[\s\S]*?border-left: 1px solid/)
   assert.match(css, /\[data-style="modern"\] \.sc-ribbon \{[\s\S]*?clip-path: none;/)
+  assert.match(css, /\[data-style="modern"\] \.sc-plate \{[\s\S]*?linear-gradient\(160deg, #dceff8/)
 })
 // Several assertions below say "this file must NOT contain X". The comments in these
 // files explain why X is wrong, and quote it, so a naive search finds the warning and

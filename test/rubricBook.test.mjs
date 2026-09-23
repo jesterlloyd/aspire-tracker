@@ -30,7 +30,12 @@ test('Modern appearance presents the rubric as one connected two-pane surface', 
   assert.match(bookCss, /\[data-style='modern'\] \.rb-cover \{[\s\S]*?padding: 0;[\s\S]*?border-radius: var\(--aspire-radius-card\);/)
   assert.match(bookCss, /\[data-style='modern'\] \.rb-cover\.material-forestack::before,[\s\S]*?\.rb-seam \{ display: none; \}/)
   assert.match(bookCss, /\[data-style='modern'\] \.rb-page-left \{[\s\S]*?border-right: 1px solid/)
+  assert.match(bookCss, /\[data-style='modern'\] \.rb-page-left \{[\s\S]*?linear-gradient\(160deg, #dceff8/)
   assert.match(bookCss, /\[data-style='modern'\] \.rb-ribbon,[\s\S]*?clip-path: none;/)
+})
+
+test('the flag control names its selected state', () => {
+  assert.match(ribbon, /\{flagged \? 'FLAGGED' : text\}/)
 })
 
 // ── 1. The book takes the room it is given, and the PAGES absorb the change ─

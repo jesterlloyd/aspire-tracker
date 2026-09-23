@@ -480,6 +480,11 @@
 .apx-sw-interviewRubric,
 .apx-sw-contacts { background: linear-gradient(180deg, var(--aspire-leather-cognac-lift), var(--aspire-leather-cognac-deep)); }
 .apx-sw-outreach { background: linear-gradient(135deg, #26314f 0 62%, #fffdf7 62% 100%); }
+.apx-sw-catalog {
+  background:
+    linear-gradient(90deg, transparent 0 12%, #6f421f 12% 18%, #c7955a 18% 31%, #4c6a91 31% 39%, #b75645 39% 52%, #d0ad62 52% 61%, #4d775f 61% 74%, #814f31 74% 84%, transparent 84%),
+    linear-gradient(180deg, #8b572d 0 12%, #d0a36a 12% 82%, #70401f 82% 100%);
+}
 .apx-sw-calendars { background: linear-gradient(180deg, #5A6280, #373D51); }
 .apx-sw-reviewRelease { background: linear-gradient(180deg, #554E43, #332E27); }
 .apx-sw-responses { background: repeating-linear-gradient(0deg, #FCFDFA 0 5px, rgba(15, 122, 77, 0.18) 5px 6px); }

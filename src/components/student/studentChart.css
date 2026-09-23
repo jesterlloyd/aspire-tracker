@@ -805,8 +805,10 @@
 }
 [data-style="modern"] .sc-plate {
   padding-right: 76px;
-  background: var(--color-info-subtle, #EEF4FF);
+  background: linear-gradient(160deg, #dceff8 0%, #f0f6fb 50%, #ffffff 100%);
 }
+[data-theme="dark"][data-style="modern"] .sc-plate-name { color: #191919; }
+[data-theme="dark"][data-style="modern"] .sc-plate-school { color: #4A5560; }
 [data-style="modern"] .sc-main { grid-template-columns: minmax(0, 1fr) 46px; }
 [data-style="modern"] .sc-index {
   background: var(--color-bg-elevated, var(--pearl, #FFFFFF));
