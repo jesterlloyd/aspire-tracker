@@ -1,1284 +1,686 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+// src/components/catalog/CatalogPage.jsx
+//
+// CATALOG-REVAMP-1 (Phase 1, 2026-09-23). The ASPIRE Catalog: find a resource, then send
+// it (and, from Phase 2 on, collect it or get it signed). Reference:
+// docs/mockups/catalog-mockup.html with its build prompt.
+//
+// ONE component tree, two drawings. Style decides the drawing (APPEARANCE-STYLE-1):
+// Classic is an iBooks-style bookcase with covers on shelves, a torn sheet for details, a
+// library checkout card for the send history; Modern is the plain list and panel. The
+// data, the actions, the keyboard and every count are the same in both, because both
+// read src/lib/catalog/catalogModel.js and nothing is computed here.
+//
+// Who can do what (unchanged, Owner 2026-09-23): Owner and Admin browse, send and
+// manage, the same roles Outreach allows; an Interviewer browses and opens files only.
+// Send goes out through Outreach (/api/connect-send-bulk-message), never Messages.
+//
+// Every read here works on both sides of the Phase 1 migration: a column or table that
+// is not there yet (42703 / 42P01) reads as "not enabled", never as an error.
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  Search, FileText, FileType2, ExternalLink, Star, Pin, Folder, Clock, Download, Plus, X,
-  MoreHorizontal, Pencil, Link2, FolderInput, Archive, RotateCcw, Check, ChevronUp, ChevronDown,
+  Search, FileText, ListChecks, Signature, Send as SendIcon, Clock, ArrowRightFromLine, Pin, Paperclip,
+  X, Upload, LayoutGrid, List as ListIcon, UserRound, Tag,
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
-import { FilterKPICard } from '../KPIBand'
+import { useTheme } from '../../contexts/ThemeContext'
 import WorkspaceBackLink from '../ui/WorkspaceBackLink'
+import RowActionsMenu from '../shared/RowActionsMenu'
+import {
+  CATALOG_FEATURES, KIND_LABEL, SORTS, audienceOf, audienceLabel, kindOf, fileBadge, fmtShortDate, fmtBytes,
+  catalogSummary, railCounts, filterItems, sortItems, listSections, shelfOrder, viewTitle, sendButtonLabel,
+} from '../../lib/catalog/catalogModel'
+import CatalogSendModal from './CatalogSendModal'
+import {
+  AddResourceModal, NewVersionModal, EditResourceModal, RemoveConfirmDialog, ManageCategoriesModal,
+  PersonalFilesModal,
+} from './CatalogModals'
+import { authedPost } from './catalogApi'
+import '../../styles/selectionRail.css'
+import './catalog.css'
 
-// CATALOG-1 - ASPIRE Catalog browse UI. View: Owner/Admin/Interviewer (read).
-// Manage (add/edit/move/remove): Owner/Admin only. ASPIRE-CHART corrected the
-// stale 'Owner/Admin only' copy - the code has admitted Interviewers as
-// readers since the header nav gate (HeaderActions canViewCatalog); RLS and
-// the server endpoints remain the real authority on every read and write.
-//
-// Reads catalog_resources via the user session; the table's Owner/Admin SELECT RLS is the
-// gate (a non-Owner/Admin simply sees no rows). Internal files open through the server-side
-// /api/catalog-resource-open endpoint (short-lived signed URL, never persisted); external
-// links navigate out. No writes, no uploads, no edit/delete - Manage affordances are inert
-// placeholders only.
+const BASE_COLS = 'id, slug, title, description, category, resource_type, external_url, file_type_label, tags, audience, is_featured, is_pinned, is_active, updated_at, created_at'
+const PHASE1_COLS = 'kind, version, version_updated_at, file_size_bytes, moved_to_record_document_id'
+const notEnabled = (e) => e && (e.code === '42703' || e.code === '42P01' || e.code === 'PGRST204' || e.code === 'PGRST205')
+const MOVED_DISMISS_KEY = 'aspire-catalog-moved-dismissed'
+const MOVED_NOTICE_DAYS = 14
 
-const F = 'Plus Jakarta Sans, sans-serif'
-const NAVY = '#1D2567'
-
-// Stored categories (7) + the UI-only "All" filter. Labels are display-only.
-const CATEGORIES = [
-  { key: 'all',                 label: 'All' },
-  { key: 'orientation',         label: 'Orientation' },
-  { key: 'forms',               label: 'Forms' },
-  { key: 'clinical_resources',  label: 'Clinical Resources' },
-  { key: 'unit_guides',         label: 'Unit Guides' },
-  { key: 'student_support',     label: 'Student Support' },
-  { key: 'preceptor_resources', label: 'Preceptor Resources' },
-  { key: 'policies',            label: 'Policies' },
-]
-const CATEGORY_LABEL = Object.fromEntries(CATEGORIES.map(c => [c.key, c.label]))
-// Upload form uses the stored categories only (no "All").
-const UPLOAD_CATEGORIES = CATEGORIES.filter(c => c.key !== 'all')
-// Client-side pre-check allowlist (server re-validates authoritatively).
-const ALLOWED_EXTS = ['pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'png', 'jpg', 'jpeg']
-const MAX_FILE_BYTES = 10 * 1024 * 1024
-
-const DAY_MS = 24 * 60 * 60 * 1000
-
-function fmtDate(iso) {
-  if (!iso) return '-'
-  const d = new Date(iso)
-  if (isNaN(d.getTime())) return '-'
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+function readDismissed() {
+  try { return new Set(JSON.parse(localStorage.getItem(MOVED_DISMISS_KEY) || '[]')) } catch { return new Set() }
+}
+function writeDismissed(set) {
+  try { localStorage.setItem(MOVED_DISMISS_KEY, JSON.stringify([...set].slice(-50))) } catch { /* per-browser convenience only */ }
 }
 
-function fileIcon(label) {
-  const l = (label || '').toUpperCase()
-  if (l === 'LINK') return <ExternalLink size={16} strokeWidth={1.9} />
-  if (l === 'DOC')  return <FileType2 size={16} strokeWidth={1.9} />
-  return <FileText size={16} strokeWidth={1.9} /> // PDF / default
+// Caveat is the checkout card's handwriting (Classic only). It loads the first time a
+// Classic send history is drawn; until it arrives, or if it cannot, a system cursive stands in.
+let caveatRequested = false
+function useCaveat(active) {
+  useEffect(() => {
+    if (!active || caveatRequested) return
+    caveatRequested = true
+    const link = document.createElement('link')
+    link.rel = 'stylesheet'
+    link.href = 'https://fonts.googleapis.com/css2?family=Caveat:wght@500;600&display=swap'
+    document.head.appendChild(link)
+  }, [active])
 }
 
-export default function CatalogPage({ backPath = '/aggregate', backLabel = 'At a Glance' }) {
+export default function CatalogPage({
+  backPath = '/aggregate', backLabel = 'At a Glance',
+  students = [], units = [], matches = [], cohortName = '', toast,
+}) {
   const { isOwner, isAdmin, isInterviewer } = useAuth()
-  const canView = isOwner || isAdmin || isInterviewer  // read access (Interviewers included)
-  const canManage = isOwner || isAdmin                  // upload / edit / move / feature / pin / remove
+  const { style } = useTheme()
+  const classic = style !== 'modern'
+  const canView = canViewCatalog(isOwner, isAdmin, isInterviewer)
+  const canManage = isOwner || isAdmin   // browse + send + manage; Interviewers read only
 
+  // ── Data ──
   const [rows, setRows] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [phase1, setPhase1] = useState(true)      // the Phase 1 columns exist
+  const [loading, setLoading] = useState(canViewCatalog(isOwner, isAdmin, isInterviewer))
   const [error, setError] = useState(null)
-  const [query, setQuery] = useState('')
-  const [category, setCategory] = useState('all')
-  // CATALOG-2A: KPI filter ('all' | 'recent' | 'featured') and grouped-by-category view.
-  const [kpi, setKpi] = useState('all')
-  const [grouped, setGrouped] = useState(false)
-  // busy = { id, mode } so the right action button on the right row shows progress.
-  const [busy, setBusy] = useState(null)
-  const [openError, setOpenError] = useState(null)
-  // CATALOG-2B: Owner/Admin "Add resource" upload modal state.
-  const [showAdd, setShowAdd] = useState(false)
-  // CATALOG-2C: sort, soft-removed visibility, metadata edit/remove, deep-link, action feedback.
-  const [sortBy, setSortBy] = useState('recent')
-  const [showInactive, setShowInactive] = useState(false)
-  const [editing, setEditing] = useState(null)          // resource being edited (metadata)
-  const [confirmRemove, setConfirmRemove] = useState(null)
-  const [actionMsg, setActionMsg] = useState(null)      // { tone:'ok'|'err', text }
-  const [highlightSlug, setHighlightSlug] = useState(null)
-  // CATALOG-3: editable categories (display_name + sort_order) from catalog_categories.
   const [cats, setCats] = useState([])
-  const [showCats, setShowCats] = useState(false)
+  const [sends, setSends] = useState([])
+  const [sendsEnabled, setSendsEnabled] = useState(true)
+  const [contacts, setContacts] = useState(null)
+  const [personal, setPersonal] = useState({ candidates: 0, moved: [] })
 
+  // ── View state ──
+  const [view, setView] = useState({ type: 'all', category: null, track: null })
+  const [query, setQuery] = useState('')
+  const [sort, setSort] = useState('recent')
+  const [showRemoved, setShowRemoved] = useState(false)
+  // null: nothing chosen yet, so a /catalog?resource=<slug> deep link decides; '' after ✕.
+  const [selectedId, setSelectedId] = useState(null)
+  const [deepSlug] = useState(() => new URLSearchParams(window.location.search).get('resource'))
+  const [shelfMode, setShelfMode] = useState('shelf')   // Classic only: 'shelf' | 'list'
+  const [menuFor, setMenuFor] = useState(null)
+  const [newOpen, setNewOpen] = useState(false)
+  const [dismissed, setDismissed] = useState(readDismissed)
+
+  // ── Dialogs ──
+  const [dialog, setDialog] = useState(null)   // { type, row? }
+  const [msg, setMsg] = useState(null)         // { tone: 'ok' | 'err', text }
+
+  const say = useCallback((tone, text) => {
+    if (toast?.success && tone === 'ok') toast.success(text)
+    else if (toast?.error && tone === 'err') toast.error(text)
+    else setMsg({ tone, text })
+  }, [toast])
+
+  // A reload after an action keeps the list on screen; only the first load shows the state line.
   const load = useCallback(async () => {
-    setLoading(true); setError(null)
     try {
-      let q = supabase
-        .from('catalog_resources')
-        .select(`
-          id, slug, title, description, category, resource_type, external_url,
-          file_type_label, tags, collection_keys, sort_order, is_featured, is_pinned, is_active, updated_at
-        `)
-      // Default view = active only. "Show removed" includes soft-deactivated rows (Owner/Admin).
-      if (!showInactive) q = q.eq('is_active', true)
-      const { data, error: qErr } = await q
-        .order('sort_order', { ascending: true })
-        .order('updated_at', { ascending: false })
-      if (qErr) throw qErr
-      setRows(data || [])
-    } catch (e) {
-      setError(e)
-    } finally {
-      setLoading(false)
-    }
-  }, [showInactive])
+      let res = await supabase.from('catalog_resources').select(`${BASE_COLS}, ${PHASE1_COLS}`)
+      if (notEnabled(res.error)) {
+        setPhase1(false)
+        res = await supabase.from('catalog_resources').select(BASE_COLS)
+      } else setPhase1(true)
+      if (res.error) throw res.error
+      setRows(res.data || []); setError(null)
+    } catch (e) { setError(e) } finally { setLoading(false) }
+  }, [])
 
-  useEffect(() => { if (canView) load(); else setLoading(false) }, [canView, load])
-
-  // CATALOG-3: load editable categories (read policy allows Owner/Admin/Interviewer).
   const loadCats = useCallback(async () => {
-    const { data } = await supabase
-      .from('catalog_categories')
-      .select('slug, display_name, description, sort_order')
-      .order('sort_order', { ascending: true })
-    setCats(data || [])
+    let res = await supabase.from('catalog_categories').select('slug, display_name, description, sort_order, retired_at').order('sort_order')
+    if (notEnabled(res.error)) res = await supabase.from('catalog_categories').select('slug, display_name, description, sort_order').order('sort_order')
+    setCats(res.data || [])
   }, [])
-  useEffect(() => { if (canView) loadCats() }, [canView, loadCats])
 
-  // Category label/order derived from catalog_categories, with the static list as a fallback
-  // until it loads. Filtering/grouping/selection keep operating on the stable SLUG (c.key).
-  const storedCats = useMemo(
-    () => (cats.length ? cats.map(c => ({ key: c.slug, label: c.display_name })) : UPLOAD_CATEGORIES),
-    [cats]
-  )
-  const chipCats = useMemo(() => [{ key: 'all', label: 'All' }, ...storedCats], [storedCats])
-  const catLabelMap = useMemo(() => {
-    const m = { ...CATEGORY_LABEL }
-    for (const c of cats) m[c.slug] = c.display_name
-    return m
-  }, [cats])
-  const catLabel = useCallback((slug) => catLabelMap[slug] || slug, [catLabelMap])
+  const loadSends = useCallback(async () => {
+    if (!canManage) return
+    const res = await supabase.from('catalog_sends')
+      .select('id, resource_id, resource_version, sent_at, audience_labels, sent_count, failed_count, skipped_count, channel')
+      .order('sent_at', { ascending: false }).limit(1000)
+    if (notEnabled(res.error)) { setSendsEnabled(false); setSends([]); return }
+    setSendsEnabled(true)
+    setSends(res.data || [])
+  }, [canManage])
 
-  // Deep-link: /catalog?resource=<slug> highlights + scrolls to that resource (no file access).
+  const loadPersonal = useCallback(async () => {
+    if (!canManage) return
+    try {
+      const data = await authedPost('/api/catalog-personal-files')
+      const cutoff = Date.now() - MOVED_NOTICE_DAYS * 86400000
+      setPersonal({
+        candidates: (data.candidates || []).length,
+        moved: (data.moved || []).filter(m => new Date(m.moved_at).getTime() >= cutoff),
+      })
+    } catch { /* the review is reachable from the + New menu either way */ }
+  }, [canManage])
+
+  useEffect(() => { if (canView) { load(); loadCats() } }, [canView, load, loadCats])
+  useEffect(() => { loadSends(); loadPersonal() }, [loadSends, loadPersonal])
+
+  // Contacts are the school, preceptor and staff recipients. Loaded once, before any Send
+  // opens, so a Send's default recipients are never computed from a half-loaded list.
   useEffect(() => {
-    const slug = new URLSearchParams(window.location.search).get('resource')
-    if (slug) setHighlightSlug(slug)
-  }, [])
+    if (!canManage || contacts) return
+    supabase.from('contacts').select('id, full_name, preferred_name, email, category, school_name, is_active')
+      .then(({ data }) => setContacts(data || []))
+  }, [canManage, contacts])
 
-  // Active (non-deactivated) rows drive the metrics and right rail, regardless of "Show removed".
+  // ── Derived (all from the model) ──
+  const assignableCats = useMemo(() => cats.filter(c => !c.retired_at).map(c => ({ key: c.slug, label: c.display_name })), [cats])
+  const catLabel = useCallback((slug) => cats.find(c => c.slug === slug)?.display_name || slug, [cats])
   const activeRows = useMemo(() => rows.filter(r => r.is_active !== false), [rows])
+  const statsById = useMemo(() => ({}), [])   // completion requests arrive in Phase 2
+  const summary = useMemo(() => catalogSummary(activeRows, statsById), [activeRows, statsById])
+  const counts = useMemo(() => railCounts(activeRows, statsById, assignableCats), [activeRows, statsById, assignableCats])
+  const usage = useMemo(() => {
+    const u = {}
+    for (const s of sends) u[s.resource_id] = (u[s.resource_id] || 0) + 1
+    return u
+  }, [sends])
+  const sendsById = useMemo(() => {
+    const m = {}
+    for (const s of sends) (m[s.resource_id] ||= []).push(s)
+    return m
+  }, [sends])
+  const visible = useMemo(() => sortItems(filterItems(rows, { view, q: query, showRemoved, catLabel, statsById }), sort, usage),
+    [rows, view, query, showRemoved, catLabel, statsById, sort, usage])
+  const sections = useMemo(() => listSections(visible, { view, q: query }), [visible, view, query])
+  const title = viewTitle(view, catLabel)
+  // The open item: the one chosen, else a deep-linked one. A selection the current view
+  // hides closes the panel rather than pointing at nothing.
+  const chosenId = selectedId ?? (deepSlug ? rows.find(r => r.slug === deepSlug)?.id : null)
+  const selected = (chosenId && visible.find(r => r.id === chosenId)) || null
+  const sendCtx = useMemo(() => ({ students, units, matches, contacts: contacts || [], cohortName }),
+    [students, units, matches, contacts, cohortName])
 
-  // Metric cards - computed from the active data (never hardcoded).
-  const metrics = useMemo(() => {
-    const now = Date.now()
-    const categories = new Set(activeRows.map(r => r.category).filter(Boolean))
-    const recent = activeRows.filter(r => r.updated_at && (now - new Date(r.updated_at).getTime()) <= 30 * DAY_MS)
-    const featured = activeRows.filter(r => r.is_featured)
-    return {
-      resources: activeRows.length,
-      categories: categories.size,
-      recent: recent.length,
-      featured: featured.length,
-    }
-  }, [activeRows])
+  const movedNotice = useMemo(() => personal.moved.filter(m => !dismissed.has(m.record_document_id)), [personal.moved, dismissed])
 
-  // Search + category + KPI filter, all client-side over the loaded rows (no new query).
-  // KPI filters (recent / featured) AND-combine with the category chip and search.
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    const now = Date.now()
-    return rows.filter(r => {
-      // A KPI always describes active resources. Apply the same rule locally
-      // during the Show removed refetch so the count and visible rows cannot
-      // temporarily disagree.
-      if (!showInactive && r.is_active === false) return false
-      if (category !== 'all' && r.category !== category) return false
-      if (kpi === 'featured' && !r.is_featured) return false
-      if (kpi === 'recent' && !(r.updated_at && (now - new Date(r.updated_at).getTime()) <= 30 * DAY_MS)) return false
-      if (!q) return true
-      const hay = [
-        r.title, r.description,
-        ...(Array.isArray(r.tags) ? r.tags : []),
-      ].filter(Boolean).join(' ').toLowerCase()
-      return hay.includes(q)
-    })
-  }, [rows, query, category, kpi, showInactive])
+  useCaveat(classic && !!selected && kindOf(selected) === 'file')
 
-  const resetToActiveCatalog = () => setShowInactive(false)
-  const showAllResources = () => {
-    resetToActiveCatalog()
-    setKpi('all')
-    setCategory('all')
-    setGrouped(false)
-    setQuery('')
-  }
-  const toggleGroupedCatalog = () => {
-    resetToActiveCatalog()
-    setGrouped(current => !current)
-  }
-  const toggleCatalogKpi = key => {
-    resetToActiveCatalog()
-    setKpi(current => current === key ? 'all' : key)
-  }
-  const changeRemovedVisibility = checked => {
-    setShowInactive(checked)
-    if (checked) {
-      // Removed resources are a separate maintenance view, not part of the
-      // active-resource KPI population.
-      setKpi('all')
-      setGrouped(false)
-    }
-  }
-
-  // Right-rail derivations (active resources only).
-  const featuredCollections = useMemo(() => {
-    const counts = new Map()
-    for (const r of activeRows) {
-      for (const k of (Array.isArray(r.collection_keys) ? r.collection_keys : [])) {
-        counts.set(k, (counts.get(k) || 0) + 1)
-      }
-    }
-    return [...counts.entries()].map(([key, count]) => ({ key, count }))
-  }, [activeRows])
-
-  const recentUpdates = useMemo(
-    () => [...activeRows].sort((a, b) => new Date(b.updated_at || 0) - new Date(a.updated_at || 0)).slice(0, 5),
-    [activeRows]
-  )
-  const pinned = useMemo(() => activeRows.filter(r => r.is_pinned), [activeRows])
-
-  // Client-side sort over the filtered set (no query/schema change).
-  const sorted = useMemo(() => {
-    const arr = [...filtered]
-    switch (sortBy) {
-      case 'title':
-        arr.sort((a, b) => (a.title || '').localeCompare(b.title || '')); break
-      case 'category':
-        arr.sort((a, b) =>
-          (catLabel(a.category) || '').localeCompare(catLabel(b.category) || '')
-          || (a.title || '').localeCompare(b.title || '')); break
-      case 'featured':
-        arr.sort((a, b) => (b.is_featured ? 1 : 0) - (a.is_featured ? 1 : 0)); break
-      case 'pinned':
-        arr.sort((a, b) => (b.is_pinned ? 1 : 0) - (a.is_pinned ? 1 : 0)); break
-      case 'recent':
-      default:
-        arr.sort((a, b) => new Date(b.updated_at || 0) - new Date(a.updated_at || 0)); break
-    }
-    return arr
-  }, [filtered, sortBy, catLabel])
-
-  // After data is ready, scroll a deep-linked resource into view.
-  useEffect(() => {
-    if (!highlightSlug || loading) return
-    const el = document.getElementById(`catalog-res-${highlightSlug}`)
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-  }, [highlightSlug, loading, sorted])
-
-  // Open/Download an internal_file via the server signed-URL endpoint; external_link → navigate.
-  // mode is 'open' (inline view) or 'download' (attachment disposition). The client still sends
-  // ONLY the slug - the server resolves storage_path and mints a short-lived signed URL that is
-  // used immediately and never persisted.
+  // ── Actions ──
   const accessResource = useCallback(async (r, mode = 'open') => {
-    setOpenError(null)
     if (r.resource_type === 'external_link') {
       if (r.external_url) window.open(r.external_url, '_blank', 'noopener,noreferrer')
       return
     }
-    // For 'open', pre-open a blank tab synchronously (popup-safe). 'download' uses a transient
-    // anchor instead, so no extra tab is opened.
     const pending = mode === 'open' ? window.open('', '_blank') : null
     if (pending) pending.opener = null
-    setBusy({ id: r.id, mode })
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session?.access_token) {
-        if (pending) pending.close()
-        setOpenError('Your session expired. Please sign in again.')
-        return
-      }
-      const res = await fetch('/api/catalog-resource-open', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ slug: r.slug, mode }),
-      })
-      const body = await res.json().catch(() => ({}))
-      if (res.ok && body.signedUrl) {
-        if (mode === 'download') {
-          // Transient anchor - the server's attachment disposition drives the download.
-          const a = document.createElement('a')
-          a.href = body.signedUrl
-          a.rel = 'noopener'
-          a.download = ''
-          document.body.appendChild(a)
-          a.click()
-          a.remove()
-        } else if (pending) {
-          pending.location = body.signedUrl
-        } else {
-          window.open(body.signedUrl, '_blank', 'noopener,noreferrer')
-        }
-      } else {
-        if (pending) pending.close()
-        const verb = mode === 'download' ? 'download' : 'open'
-        setOpenError(body.error ? `Could not ${verb} “${r.title}”: ${body.error}` : `Could not ${verb} “${r.title}”.`)
-      }
-    } catch {
+      const body = await authedPost('/api/catalog-resource-open', { slug: r.slug, mode })
+      if (mode === 'download') {
+        const a = document.createElement('a')
+        a.href = body.signedUrl; a.rel = 'noopener'; a.download = ''
+        document.body.appendChild(a); a.click(); a.remove()
+      } else if (pending) pending.location = body.signedUrl
+      else window.open(body.signedUrl, '_blank', 'noopener,noreferrer')
+    } catch (e) {
       if (pending) pending.close()
-      setOpenError(`Network error. Please try again.`)
-    } finally {
-      setBusy(null)
+      say('err', `Could not ${mode === 'download' ? 'download' : 'open'} "${r.title}": ${e.message}`)
     }
-  }, [])
+  }, [say])
 
-  // CATALOG-2C - metadata-only update via the server-verified endpoint (strict whitelist).
-  // Used by edit, move-to-category, feature/pin toggles, soft-remove, and reactivate. No
-  // Storage operation is ever involved; the server updates metadata columns only.
   const runUpdate = useCallback(async (id, patch, okText) => {
-    setActionMsg(null)
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session?.access_token) { setActionMsg({ tone: 'err', text: 'Your session expired. Please sign in again.' }); return false }
-      const res = await fetch('/api/catalog-resource-update', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ id, ...patch }),
-      })
-      const body = await res.json().catch(() => ({}))
-      if (res.ok && body.resource) { setActionMsg({ tone: 'ok', text: okText }); await load(); return true }
-      setActionMsg({ tone: 'err', text: body.error || 'Update failed.' }); return false
-    } catch {
-      setActionMsg({ tone: 'err', text: 'Network error. Please try again.' }); return false
-    }
-  }, [load])
+      await authedPost('/api/catalog-resource-update', { id, ...patch })
+      say('ok', okText); await load(); return true
+    } catch (e) { say('err', e.message); return false }
+  }, [load, say])
 
   const copyLink = useCallback(async (r) => {
-    // Internal slug-link only - NOT a signed/file URL. Opening it still requires auth + Owner/Admin.
     const link = `${window.location.origin}/catalog?resource=${encodeURIComponent(r.slug)}`
-    try {
-      await navigator.clipboard.writeText(link)
-      setActionMsg({ tone: 'ok', text: 'Catalog link copied.' })
-    } catch {
-      setActionMsg({ tone: 'err', text: `Copy failed. Link: ${link}` })
+    try { await navigator.clipboard.writeText(link); say('ok', 'Catalog link copied.') }
+    catch { say('err', `Copy failed. Link: ${link}`) }
+  }, [say])
+
+  const menuItems = useCallback((r) => {
+    const ext = r.resource_type === 'external_link'
+    const items = [
+      { key: 'open', label: ext ? 'Open link' : 'Open', onSelect: () => accessResource(r, 'open') },
+      ...(ext ? [] : [{ key: 'dl', label: 'Download', onSelect: () => accessResource(r, 'download') }]),
+      { key: 'copy', label: 'Copy link', onSelect: () => copyLink(r) },
+    ]
+    if (!canManage) return items
+    if (r.is_active === false) {
+      return r.moved_to_record_document_id ? items
+        : [...items, { key: 'restore', label: 'Restore', onSelect: () => runUpdate(r.id, { is_active: true }, 'Restored to the Catalog.') }]
     }
-  }, [])
+    return [
+      ...items,
+      { key: 'edit', label: 'Edit details', onSelect: () => setDialog({ type: 'edit', row: r }) },
+      ...(ext ? [] : [{ key: 'ver', label: 'Upload new version', disabled: !phase1, onSelect: () => setDialog({ type: 'version', row: r }) }]),
+      { key: 'pin', label: r.is_pinned ? 'Unpin' : 'Pin to top', onSelect: () => runUpdate(r.id, { is_pinned: !r.is_pinned }, r.is_pinned ? 'Unpinned.' : 'Pinned to the top.') },
+      { key: 'remove', label: 'Remove', danger: true, onSelect: () => setDialog({ type: 'remove', row: r }) },
+    ]
+  }, [accessResource, copyLink, canManage, runUpdate, phase1])
 
-  // Bundle of metadata actions handed to each row's "…" menu.
-  const rowActions = useMemo(() => ({
-    onEdit: (r) => { setActionMsg(null); setEditing(r) },
-    onMove: (r, cat) => runUpdate(r.id, { category: cat }, `Moved to ${catLabel(cat)}.`),
-    onCopyLink: copyLink,
-    onToggleFeatured: (r) => runUpdate(r.id, { is_featured: !r.is_featured }, r.is_featured ? 'Unfeatured.' : 'Featured.'),
-    onTogglePinned: (r) => runUpdate(r.id, { is_pinned: !r.is_pinned }, r.is_pinned ? 'Unpinned.' : 'Pinned.'),
-    onRemove: (r) => { setActionMsg(null); setConfirmRemove(r) },
-    onReactivate: (r) => runUpdate(r.id, { is_active: true }, 'Resource restored.'),
-  }), [runUpdate, copyLink, catLabel])
+  const openSend = useCallback((r) => { if (canManage) setDialog({ type: 'send', row: r }) }, [canManage])
 
+  const pickView = (next) => {
+    setView({ type: 'all', category: null, track: null, ...next })
+    setMenuFor(null)
+  }
   if (!canView) {
-    return (
-      <div style={{ padding: '40px 24px', color: '#9ca3af', fontSize: 14, fontFamily: F }}>
-        The ASPIRE Catalog is available to Owner, Admin, and Interviewer accounts.
-      </div>
-    )
+    return <div className="ctl ctl-denied">The ASPIRE Catalog is available to Owner, Admin, and Interviewer accounts.</div>
+  }
+
+  const isCur = (k, v) => (k === 'type' ? view.type === v && !view.category && !view.track : view[k] === v)
+  const railRow = (key, k, v, label, icon, count, warn = false) => (
+    <button key={key} type="button" className={`rr-row-select ctl-rail-row${isCur(k, v) ? ' sel' : ''}`}
+      aria-current={isCur(k, v) ? 'true' : undefined}
+      onClick={() => pickView(k === 'type' ? { type: v } : { [k]: v })}>
+      <span className="ctl-rail-ico" aria-hidden="true">{icon}</span>
+      <span className="rr-row-label">{label}</span>
+      <span className={`ctl-rail-n${warn && count > 0 ? ' ctl-rail-warn' : ''}`}>{count}</span>
+    </button>
+  )
+
+  const listProps = {
+    sections, title, count: visible.length, selectedId: selected?.id || null, onSelect: setSelectedId, onSend: openSend,
+    canManage, catLabel, usage, menuFor, setMenuFor, menuItems, emptyText: emptyTextFor(view, rows.length, query),
   }
 
   return (
-    <div style={{ padding: '4px 20px 40px', fontFamily: F }}>
-      {/* Return control - on the page background, no utility bar. */}
-      <div style={{ marginBottom: 12 }}>
-        <WorkspaceBackLink path={backPath} label={backLabel} />
-      </div>
-      {/* Header */}
-      <div style={{ marginBottom: 18, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+    <div className={`ctl${classic ? ' ctl-classic' : ''}`}>
+      <div className="ctl-back"><WorkspaceBackLink path={backPath} label={backLabel} /></div>
+
+      <header className="ctl-head">
         <div>
-          <h1 style={{ fontSize: 24, fontWeight: 700, color: '#191919', margin: '0 0 4px' }}>ASPIRE Catalog</h1>
-          <p style={{ fontSize: 14, color: '#6b7280', margin: 0 }}>
-            Curated resources, guides, forms, and documents for ASPIRE.
+          <h1>ASPIRE Catalog</h1>
+          <p>Find a resource, then send it, collect it or get it signed.</p>
+          <p className="ctl-summary">
+            <b>{summary.items}</b> {summary.items === 1 ? 'item' : 'items'} · <b>{summary.out}</b> out for completion · <span className="ctl-summary-warn"><b>{summary.overduePeople}</b> people overdue</span>
           </p>
         </div>
-        {/* Owner/Admin only - the upload/category endpoints re-verify server-side. */}
-        {canManage && (
-          <div style={{ display: 'flex', gap: 10, flexShrink: 0, flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              onClick={() => setShowCats(true)}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6,
-                padding: '9px 14px', background: '#fff', color: NAVY, border: `1px solid ${NAVY}`,
-                borderRadius: 9, fontSize: 13, fontWeight: 600, fontFamily: F, cursor: 'pointer',
-              }}
-            >
-              <FolderInput size={15} strokeWidth={2} /> Manage categories
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowAdd(true)}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6,
-                padding: '9px 16px', background: NAVY, color: '#fff', border: 'none',
-                borderRadius: 9, fontSize: 13, fontWeight: 600, fontFamily: F, cursor: 'pointer',
-              }}
-            >
-              <Plus size={15} strokeWidth={2.2} /> Add resource
-            </button>
-          </div>
-        )}
-      </div>
+        {canManage && <NewMenu open={newOpen} setOpen={setNewOpen} onUpload={() => setDialog({ type: 'upload' })}
+          onReview={() => setDialog({ type: 'personal' })} />}
+      </header>
 
-      {showAdd && (
-        <AddResourceModal
-          categories={storedCats}
-          onClose={() => setShowAdd(false)}
-          onCreated={() => { setShowAdd(false); load() }}
-        />
-      )}
-
-      {showCats && (
-        <ManageCategoriesModal
-          cats={cats}
-          onClose={() => setShowCats(false)}
-          onSaved={() => { loadCats() }}
-          setActionMsg={setActionMsg}
-        />
-      )}
-
-      {editing && (
-        <EditResourceModal
-          resource={editing}
-          categories={storedCats}
-          onClose={() => setEditing(null)}
-          onSaved={async (patch) => {
-            const ok = await runUpdate(editing.id, patch, 'Resource updated.')
-            if (ok) setEditing(null)
-          }}
-        />
-      )}
-
-      {confirmRemove && (
-        <RemoveConfirmDialog
-          resource={confirmRemove}
-          onCancel={() => setConfirmRemove(null)}
-          onConfirm={async () => {
-            const ok = await runUpdate(confirmRemove.id, { is_active: false }, 'Removed from catalog (reversible via “Show removed”).')
-            if (ok) setConfirmRemove(null)
-          }}
-        />
-      )}
-
-      {/* Search */}
-      <div style={{ position: 'relative', marginBottom: 14, maxWidth: 520 }}>
-        <Search size={16} strokeWidth={1.9} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
-        <input
-          type="text"
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-          placeholder="Search by title, description, or tag…"
-          aria-label="Search catalog resources"
-          style={{
-            width: '100%', boxSizing: 'border-box', padding: '10px 12px 10px 36px',
-            fontSize: 14, fontFamily: F, color: '#191919',
-            border: '1px solid #e2e0d9', borderRadius: 10, background: '#fff', outline: 'none',
-          }}
-        />
-      </div>
-
-      {/* Category chips */}
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
-        {chipCats.map(c => {
-          const on = category === c.key
-          return (
-            <button
-              key={c.key}
-              type="button"
-              aria-pressed={on}
-              onClick={() => setCategory(c.key)}
-              style={{
-                fontSize: 12.5, fontWeight: 600, fontFamily: F, cursor: 'pointer',
-                padding: '6px 13px', borderRadius: 999,
-                border: `1px solid ${on ? NAVY : '#e2e0d9'}`,
-                background: on ? NAVY : '#fff', color: on ? '#fff' : '#4A5560',
-                transition: 'all 0.12s',
-              }}
-            >
-              {c.label}
-            </button>
-          )
-        })}
-      </div>
-
-      {/* Metric cards - interactive KPI filters. Reuses the shared FilterKPICard so the
-          hover lift / shadow / active treatment matches Student Profiles exactly. Counts are
-          computed from loaded data; filtering stays client-side. */}
-      <div className="stat-cards-row" style={{ marginBottom: 24 }}>
-        <FilterKPICard
-          accent="nightfall" value={metrics.resources} label="Resources" sub="Show all"
-          active={!showInactive && kpi === 'all' && category === 'all' && !grouped && query === ''}
-          onClick={showAllResources}
-        />
-        <FilterKPICard
-          accent="marina" value={metrics.categories} label="Categories"
-          sub={grouped ? 'Grouped' : 'Group view'} active={grouped}
-          onClick={toggleGroupedCatalog}
-        />
-        <FilterKPICard
-          accent="sage" value={metrics.recent} label="Recently Updated" sub="Last 30 days"
-          active={!showInactive && kpi === 'recent'}
-          onClick={() => toggleCatalogKpi('recent')}
-        />
-        <FilterKPICard
-          accent="dawn" value={metrics.featured} label="Featured" sub="Highlighted"
-          active={!showInactive && kpi === 'featured'}
-          onClick={() => toggleCatalogKpi('featured')}
-        />
-      </div>
-
-      {openError && (
-        <div style={{
-          fontSize: 13, borderRadius: 8, padding: '10px 14px', marginBottom: 16,
-          background: '#FEECEC', color: '#991b1b', border: '1px solid #f3c6c6',
-        }}>
-          {openError}
-        </div>
-      )}
-
-      {actionMsg && (
-        <div style={{
-          fontSize: 13, borderRadius: 8, padding: '10px 14px', marginBottom: 16,
-          background: actionMsg.tone === 'ok' ? '#EDF7F0' : '#FEECEC',
-          color: actionMsg.tone === 'ok' ? '#166534' : '#991b1b',
-          border: `1px solid ${actionMsg.tone === 'ok' ? '#c6e7d0' : '#f3c6c6'}`,
-        }}>
-          {actionMsg.text}
-        </div>
-      )}
-
-      {/* Toolbar: sort + show-removed (Owner/Admin). Sort is client-side over loaded rows. */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16, flexWrap: 'wrap' }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: '#4A5560' }}>
-          Sort
-          <select
-            value={sortBy}
-            onChange={e => setSortBy(e.target.value)}
-            style={{
-              fontSize: 12.5, fontFamily: F, color: '#191919', cursor: 'pointer',
-              border: '1px solid #e2e0d9', borderRadius: 8, background: '#fff', padding: '6px 9px',
-            }}
-          >
-            <option value="recent">Most Recent</option>
-            <option value="title">Title A–Z</option>
-            <option value="category">Category</option>
-            <option value="featured">Featured first</option>
-            <option value="pinned">Pinned first</option>
-          </select>
-        </label>
-        {canManage && (
-          <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: '#4A5560', cursor: 'pointer' }}>
-            <input type="checkbox" checked={showInactive} onChange={e => changeRemovedVisibility(e.target.checked)} />
-            Show removed
-          </label>
-        )}
-      </div>
-
-      {/* Two-column: resource list + right rail. LAYOUT-SHELL-CONSISTENCY-1/1B: main list takes the
-          flexible width; the supporting sidebar uses a bounded responsive range on desktop and stacks
-          below the list at <=1024px (see .catalog-content-grid in index.css). */}
-      <div className="catalog-content-grid">
-        {/* Main: resource list */}
-        <div>
-          {loading ? (
-            <div style={{ padding: '32px 0', color: '#9ca3af', fontSize: 14 }}>Loading catalog…</div>
-          ) : error ? (
-            <div style={{ padding: '14px 0', color: '#dc2626', fontSize: 14 }}>
-              Error loading catalog: {error.message}
-            </div>
-          ) : filtered.length === 0 ? (
-            <div style={{ padding: '32px 0', color: '#9ca3af', fontSize: 14 }}>
-              {rows.length === 0 ? 'No resources yet.' : 'No resources match your filters.'}
-            </div>
-          ) : grouped ? (
-            // Grouped-by-category view (Categories KPI). Category chip + search + KPI + sort still
-            // apply via `sorted`; we just section the same rows by category.
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
-              {storedCats.map(c => {
-                const list = sorted.filter(r => r.category === c.key)
-                if (list.length === 0) return null
-                return (
-                  <div key={c.key}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: NAVY, marginBottom: 10 }}>
-                      {c.label} <span style={{ color: '#9ca3af', fontWeight: 500 }}>({list.length})</span>
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                      {list.map(r => (
-                        <ResourceRow key={r.id} r={r} busy={busy} onAccess={accessResource} actions={rowActions} canManage={canManage} categories={storedCats} catLabel={catLabel} highlight={r.slug === highlightSlug} />
-                      ))}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {sorted.map(r => (
-                <ResourceRow key={r.id} r={r} busy={busy} onAccess={accessResource} actions={rowActions} canManage={canManage} categories={storedCats} catLabel={catLabel} highlight={r.slug === highlightSlug} />
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Right rail - view-only; Manage is an inert placeholder */}
-        <aside style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <RailCard icon={<Folder size={14} strokeWidth={2} />} title="Featured Collections">
-            {featuredCollections.length === 0 ? (
-              <RailEmpty>No collections yet.</RailEmpty>
-            ) : featuredCollections.map(c => (
-              <div key={c.key} style={railRow}>
-                <span style={{ color: '#374151', textTransform: 'capitalize' }}>{c.key.replace(/[-_]/g, ' ')}</span>
-                <span style={{ color: '#9ca3af', fontWeight: 600 }}>{c.count}</span>
-              </div>
-            ))}
-          </RailCard>
-
-          <RailCard icon={<Clock size={14} strokeWidth={2} />} title="Recent Updates">
-            {recentUpdates.length === 0 ? (
-              <RailEmpty>Nothing recent.</RailEmpty>
-            ) : recentUpdates.map(r => (
-              <div key={r.id} style={{ ...railRow, alignItems: 'baseline' }}>
-                <span style={{ color: '#374151', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.title}</span>
-                <span style={{ color: '#9ca3af', flexShrink: 0 }}>{fmtDate(r.updated_at)}</span>
-              </div>
-            ))}
-          </RailCard>
-
-          <RailCard icon={<Pin size={14} strokeWidth={2} />} title="Pinned Resources">
-            {pinned.length === 0 ? (
-              <RailEmpty>No pinned resources.</RailEmpty>
-            ) : pinned.map(r => (
-              <div key={r.id} style={railRow}>
-                <span style={{ color: '#374151', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.title}</span>
-              </div>
-            ))}
-          </RailCard>
-        </aside>
-      </div>
-    </div>
-  )
-}
-
-const railRow = {
-  display: 'flex', justifyContent: 'space-between', gap: 10,
-  fontSize: 12.5, padding: '6px 0', borderBottom: '1px solid #f1efe9',
-}
-
-function RailCard({ icon, title, children }) {
-  return (
-    <div style={{ background: '#fff', border: '1px solid #e8e4dc', borderRadius: 14, boxShadow: '0 1px 3px rgba(25,25,25,0.06)', overflow: 'hidden' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid #f1efe9' }}>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 700, color: '#191919' }}>
-          <span style={{ color: NAVY }}>{icon}</span>{title}
-        </span>
-        {/* ASPIRE-CHART: the inert 'Manage' label is gone - a control that
-            does nothing is a broken promise, not an affordance. */}
-      </div>
-      <div style={{ padding: '6px 16px 12px' }}>{children}</div>
-    </div>
-  )
-}
-
-function RailEmpty({ children }) {
-  return <div style={{ fontSize: 12.5, color: '#9ca3af', padding: '6px 0' }}>{children}</div>
-}
-
-// CATALOG-2B - Owner/Admin "Add resource" modal. Uploads a NEW internal_file via the
-// signed-upload-URL flow: (1) POST phase 'sign' to get a one-time per-path token, (2) PUT the
-// bytes straight to Supabase via uploadToSignedUrl, (3) POST phase 'commit' so the server
-// verifies the object and inserts the row. The client never holds a broad Storage credential
-// and never writes catalog_resources directly.
-function AddResourceModal({ categories = UPLOAD_CATEGORIES, onClose, onCreated }) {
-  const [file, setFile] = useState(null)
-  const [title, setTitle] = useState('')
-  const [description, setDescription] = useState('')
-  const [category, setCategory] = useState(categories[0].key)
-  const [tagsStr, setTagsStr] = useState('')
-  const [isFeatured, setIsFeatured] = useState(false)
-  const [isPinned, setIsPinned] = useState(false)
-  const [uploading, setUploading] = useState(false)
-  const [err, setErr] = useState(null)
-
-  const fieldStyle = {
-    width: '100%', boxSizing: 'border-box', padding: '9px 11px', fontSize: 13.5, fontFamily: F,
-    color: '#191919', border: '1px solid #e2e0d9', borderRadius: 8, background: '#fff', outline: 'none',
-  }
-  const labelStyle = { display: 'block', fontSize: 12, fontWeight: 600, color: '#4A5560', marginBottom: 5 }
-
-  async function submit() {
-    setErr(null)
-    if (!file) { setErr('Choose a file to upload.'); return }
-    if (!title.trim()) { setErr('Title is required.'); return }
-    const ext = (file.name.split('.').pop() || '').toLowerCase()
-    if (!ALLOWED_EXTS.includes(ext)) { setErr(`Unsupported file type “.${ext}”. Allowed: ${ALLOWED_EXTS.join(', ')}.`); return }
-    if (file.size > MAX_FILE_BYTES) { setErr('File exceeds the 10 MB limit.'); return }
-
-    const meta = {
-      title: title.trim(),
-      description: description.trim(),
-      category,
-      filename: file.name,
-      tags: tagsStr.split(',').map(t => t.trim()).filter(Boolean),
-      is_featured: isFeatured,
-      is_pinned: isPinned,
-    }
-
-    setUploading(true)
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session?.access_token) { setErr('Your session expired. Please sign in again.'); return }
-      const authHeaders = { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` }
-
-      // 1) sign
-      const signRes = await fetch('/api/catalog-resource-upload', {
-        method: 'POST', headers: authHeaders, body: JSON.stringify({ phase: 'sign', ...meta, size: file.size }),
-      })
-      const sign = await signRes.json().catch(() => ({}))
-      if (!signRes.ok) { setErr(sign.error || 'Could not start the upload.'); return }
-
-      // 2) upload bytes directly to Supabase Storage via the one-time token
-      const up = await supabase.storage.from('aspire-catalog')
-        .uploadToSignedUrl(sign.path, sign.token, file, { contentType: file.type || undefined })
-      if (up.error) { setErr(`File upload failed: ${up.error.message}`); return }
-
-      // 3) commit - server verifies the object and inserts the row
-      const commitRes = await fetch('/api/catalog-resource-upload', {
-        method: 'POST', headers: authHeaders, body: JSON.stringify({ phase: 'commit', ...meta }),
-      })
-      const commit = await commitRes.json().catch(() => ({}))
-      if (!commitRes.ok) { setErr(commit.error || 'Could not save the resource.'); return }
-
-      onCreated()
-    } catch {
-      setErr('Network error. Please try again.')
-    } finally {
-      setUploading(false)
-    }
-  }
-
-  return (
-    <div className="modal-overlay" onMouseDown={() => !uploading && onClose()}>
-      <div
-        className="modal"
-        role="dialog"
-        aria-modal="true"
-        style={{ maxWidth: 520, fontFamily: F }}
-        onMouseDown={e => e.stopPropagation()}
-      >
-        <div className="modal-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#1D2567', fontFamily: F }}>Add resource</h2>
-          <button type="button" onClick={() => !uploading && onClose()} aria-label="Close"
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', display: 'flex', padding: 4 }}>
-            <X size={18} strokeWidth={2} />
-          </button>
-        </div>
-
-        <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div>
-            <label style={labelStyle}>File <span style={{ color: '#9ca3af', fontWeight: 400 }}>(PDF, DOC, PPT, XLS, or image · max 10 MB)</span></label>
-            <input type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.png,.jpg,.jpeg"
-              onChange={e => setFile(e.target.files?.[0] || null)} style={{ fontSize: 13, fontFamily: F }} />
-          </div>
-          <div>
-            <label style={labelStyle}>Title</label>
-            <input type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Pre-licensure Student General Guidelines" style={fieldStyle} />
-          </div>
-          <div>
-            <label style={labelStyle}>Description <span style={{ color: '#9ca3af', fontWeight: 400 }}>(optional)</span></label>
-            <textarea value={description} onChange={e => setDescription(e.target.value)} rows={2} style={{ ...fieldStyle, resize: 'vertical' }} />
-          </div>
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-            <div style={{ flex: '1 1 200px' }}>
-              <label style={labelStyle}>Category</label>
-              <select value={category} onChange={e => setCategory(e.target.value)} style={{ ...fieldStyle, cursor: 'pointer' }}>
-                {categories.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
-              </select>
-            </div>
-            <div style={{ flex: '1 1 200px' }}>
-              <label style={labelStyle}>Tags <span style={{ color: '#9ca3af', fontWeight: 400 }}>(comma-separated)</span></label>
-              <input type="text" value={tagsStr} onChange={e => setTagsStr(e.target.value)} placeholder="guidelines, onboarding" style={fieldStyle} />
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: 18 }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, color: '#374151', cursor: 'pointer' }}>
-              <input type="checkbox" checked={isFeatured} onChange={e => setIsFeatured(e.target.checked)} /> Featured
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, color: '#374151', cursor: 'pointer' }}>
-              <input type="checkbox" checked={isPinned} onChange={e => setIsPinned(e.target.checked)} /> Pinned
-            </label>
-          </div>
-
-          {err && (
-            <div style={{ fontSize: 12.5, borderRadius: 8, padding: '9px 12px', background: '#FEECEC', color: '#991b1b', border: '1px solid #f3c6c6' }}>
-              {err}
-            </div>
-          )}
-        </div>
-
-        <div className="modal-footer" style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-          <button className="btn-outline-modal" onClick={() => !uploading && onClose()} disabled={uploading}>Cancel</button>
-          <button
-            type="button"
-            onClick={submit}
-            disabled={uploading}
-            style={{
-              padding: '9px 18px', background: NAVY, color: '#fff', border: 'none', borderRadius: 8,
-              fontSize: 13, fontWeight: 600, fontFamily: F, cursor: uploading ? 'default' : 'pointer', opacity: uploading ? 0.6 : 1,
-            }}
-          >
-            {uploading ? 'Uploading…' : 'Upload resource'}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// One resource row. Open (inline) is primary; Download (attachment) is offered for
-// internal_file only. External links show a single "Open external" action. Both internal
-// actions route through onAccess(r, mode) → the slug-only signed-URL endpoint.
-function ResourceRow({ r, busy, onAccess, actions, canManage, categories, catLabel, highlight }) {
-  const external = r.resource_type === 'external_link'
-  const openBusy = busy?.id === r.id && busy?.mode === 'open'
-  const dlBusy = busy?.id === r.id && busy?.mode === 'download'
-  const anyBusy = busy?.id === r.id
-  const inactive = r.is_active === false
-
-  return (
-    <div
-      id={`catalog-res-${r.slug}`}
-      style={{
-        display: 'flex', alignItems: 'flex-start', gap: 14, padding: '16px 18px',
-        background: inactive ? '#faf9f7' : '#fff',
-        border: `1px solid ${highlight ? NAVY : '#e8e4dc'}`, borderRadius: 14,
-        boxShadow: highlight ? `0 0 0 2px rgba(29,37,103,0.30)` : '0 1px 3px rgba(25,25,25,0.06)',
-        opacity: inactive ? 0.72 : 1,
-      }}
-    >
-      {/* Icon */}
-      <div style={{
-        flexShrink: 0, width: 38, height: 38, borderRadius: 10,
-        background: '#EEF1FB', color: NAVY, display: 'flex', alignItems: 'center', justifyContent: 'center',
-      }}>
-        {fileIcon(r.file_type_label)}
-      </div>
-
-      {/* Body */}
-      <div style={{ minWidth: 0, flex: 1 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 14.5, fontWeight: 700, color: '#191919' }}>{r.title}</span>
-          {inactive && (
-            <span style={{ fontSize: 10.5, fontWeight: 700, color: '#991b1b', background: '#FEECEC', border: '1px solid #f3c6c6', borderRadius: 999, padding: '1px 7px' }}>
-              Removed
-            </span>
-          )}
-          {r.is_featured && (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10.5, fontWeight: 700, color: '#92400e', background: '#FBF5E8', border: '1px solid #f0e0bd', borderRadius: 999, padding: '1px 7px' }}>
-              <Star size={10} strokeWidth={2.2} /> Featured
-            </span>
-          )}
-          {r.is_pinned && (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10.5, fontWeight: 700, color: NAVY, background: '#EEF1FB', border: '1px solid #d7ddf5', borderRadius: 999, padding: '1px 7px' }}>
-              <Pin size={10} strokeWidth={2.2} /> Pinned
-            </span>
-          )}
-        </div>
-        {r.description && (
-          <div style={{ fontSize: 13, color: '#6b7280', marginTop: 4, lineHeight: 1.5 }}>{r.description}</div>
-        )}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 11, fontWeight: 600, color: '#4A5560', background: '#F4F3F1', borderRadius: 8, padding: '2px 9px' }}>
-            {catLabel ? catLabel(r.category) : (CATEGORY_LABEL[r.category] || r.category)}
+      {canManage && movedNotice.length > 0 && (
+        <div className="ctl-notice" role="status">
+          <UserRound size={16} aria-hidden="true" />
+          <span>
+            <b>{movedNotice.length} personal {movedNotice.length === 1 ? 'file' : 'files'} moved.</b>{' '}
+            {movedNotice.length === 1
+              ? <>{movedNotice[0].title} now lives on {movedNotice[0].student.name}'s record.</>
+              : <>They now live on each student's record.</>}{' '}
+            The Catalog holds shared resources only.
           </span>
-          <span style={{ fontSize: 11.5, color: '#9ca3af' }}>Updated {fmtDate(r.updated_at)}</span>
-          {external && (
-            <span style={{ fontSize: 11, fontWeight: 600, color: '#92400e' }}>External link</span>
-          )}
+          <button type="button" onClick={() => {
+            const next = new Set(dismissed); movedNotice.forEach(m => next.add(m.record_document_id))
+            setDismissed(next); writeDismissed(next)
+          }}>Dismiss</button>
         </div>
+      )}
+      {canManage && personal.candidates > 0 && (
+        <div className="ctl-notice ctl-notice-warn" role="status">
+          <UserRound size={16} aria-hidden="true" />
+          <span><b>{personal.candidates} {personal.candidates === 1 ? 'file looks' : 'files look'} personal.</b> {personal.candidates === 1 ? 'Its name matches' : 'Their names match'} a student. Review before moving anything.</span>
+          <button type="button" onClick={() => setDialog({ type: 'personal' })}>Review</button>
+        </div>
+      )}
+      {msg && (
+        <div className={`ctl-msg ctl-msg-${msg.tone}`} role={msg.tone === 'err' ? 'alert' : 'status'}>
+          {msg.text}<button type="button" aria-label="Dismiss message" onClick={() => setMsg(null)}><X size={14} /></button>
+        </div>
+      )}
+
+      <div className={`ctl-grid${selected ? '' : ' ctl-nodetail'}`}>
+        <nav className="rr-nav ctl-rail" aria-label="Catalog sections">
+          <p className="rr-nav-group">Library</p>
+          {railRow('all', 'type', 'all', 'All items', <ListIcon size={16} />, counts.byKind.all)}
+          {railRow('file', 'type', 'file', 'Files', <FileText size={16} />, counts.byKind.file)}
+          {CATALOG_FEATURES.forms && railRow('form', 'type', 'form', 'Forms', <ListChecks size={16} />, counts.byKind.form)}
+          {CATALOG_FEATURES.signatures && railRow('sig', 'type', 'signature', 'Signature documents', <Signature size={16} />, counts.byKind.signature)}
+          <p className="rr-nav-group">Tracking</p>
+          {railRow('out', 'track', 'out', 'Out for completion', <ArrowRightFromLine size={16} />, counts.out)}
+          {railRow('late', 'track', 'overdue', 'Overdue people', <Clock size={16} />, counts.overduePeople, true)}
+          <p className="rr-nav-group ctl-rail-grouphead">
+            Categories
+            {canManage && <button type="button" className="ctl-rail-manage" onClick={() => setDialog({ type: 'cats' })}>Manage</button>}
+          </p>
+          {assignableCats.map(c => railRow(`c:${c.key}`, 'category', c.key, c.label, <Tag size={14} />, counts.byCategory[c.key] || 0))}
+        </nav>
+
+        <section className="ctl-main" aria-label={title}>
+          <div className="ctl-tools">
+            <div className="ctl-search">
+              <Search size={16} aria-hidden="true" />
+              <input type="search" value={query} onChange={e => setQuery(e.target.value)}
+                placeholder="Search titles, descriptions and categories" aria-label="Search the Catalog" />
+            </div>
+            <select value={sort} onChange={e => setSort(e.target.value)} aria-label="Sort">
+              {SORTS.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
+            </select>
+            {canManage && (
+              <label className="ctl-check"><input type="checkbox" checked={showRemoved} onChange={e => setShowRemoved(e.target.checked)} /> Show removed</label>
+            )}
+          </div>
+
+          {loading ? <div className="ctl-state">Loading the Catalog…</div>
+            : error ? <div className="ctl-state ctl-state-err">Could not load the Catalog: {error.message}</div>
+            : classic ? (
+              <Bookcase {...listProps} mode={shelfMode} setMode={setShelfMode}
+                onNew={canManage ? () => setDialog({ type: 'upload' }) : null} items={visible} />
+            ) : (
+              <ItemList {...listProps} />
+            )}
+        </section>
+
+        {selected && (
+          <div className="ctl-detail-wrap">
+            <DetailPanel row={selected} catLabel={catLabel} sends={sendsById[selected.id] || []} sendsEnabled={sendsEnabled}
+              canManage={canManage} onClose={() => setSelectedId('')} onSend={openSend} onAccess={accessResource} />
+          </div>
+        )}
       </div>
 
-      {/* Actions */}
-      <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-        <button
-          type="button"
-          onClick={() => onAccess(r, 'open')}
-          disabled={anyBusy}
-          style={{
-            display: 'inline-flex', alignItems: 'center', gap: 6,
-            padding: '7px 14px', background: NAVY, color: '#fff', border: 'none',
-            borderRadius: 8, fontSize: 12.5, fontWeight: 600, fontFamily: F,
-            cursor: anyBusy ? 'default' : 'pointer', opacity: anyBusy ? 0.6 : 1, whiteSpace: 'nowrap',
-          }}
-        >
-          {external ? <>Open external <ExternalLink size={13} strokeWidth={2} /></> : (openBusy ? 'Opening…' : 'Open')}
-        </button>
-        {!external && (
-          <button
-            type="button"
-            onClick={() => onAccess(r, 'download')}
-            disabled={anyBusy}
-            aria-label={`Download ${r.title}`}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              padding: '7px 12px', background: '#fff', color: NAVY, border: `1px solid ${NAVY}`,
-              borderRadius: 8, fontSize: 12.5, fontWeight: 600, fontFamily: F,
-              cursor: anyBusy ? 'default' : 'pointer', opacity: anyBusy ? 0.6 : 1, whiteSpace: 'nowrap',
-            }}
-          >
-            <Download size={13} strokeWidth={2} /> {dlBusy ? 'Preparing…' : 'Download'}
-          </button>
-        )}
-        {actions && <RowMenu r={r} external={external} inactive={inactive} onAccess={onAccess} actions={actions} canManage={canManage} categories={categories} />}
-      </div>
+      {dialog?.type === 'send' && contacts && (
+        <CatalogSendModal item={dialog.row} ctx={sendCtx} onClose={() => setDialog(null)}
+          onSent={({ sent, log, keepOpen }) => {
+            const note = log.includes('not_enabled') ? ' The send log starts once the Catalog update is applied.' : ' Logged on the item.'
+            say('ok', `Sent to ${sent} ${sent === 1 ? 'person' : 'people'}.${note}`)
+            loadSends()
+            if (!keepOpen) setDialog(null)
+          }} />
+      )}
+      {dialog?.type === 'send' && !contacts && <div className="modal-overlay"><div className="modal ctl-modal ctl-state" role="status">Loading recipients…</div></div>}
+      {dialog?.type === 'upload' && (
+        <AddResourceModal categories={assignableCats} onClose={() => setDialog(null)}
+          onCreated={() => { setDialog(null); say('ok', 'File uploaded.'); load() }} />
+      )}
+      {dialog?.type === 'version' && (
+        <NewVersionModal resource={dialog.row} onClose={() => setDialog(null)}
+          onSaved={(v) => { setDialog(null); say('ok', `Version ${v} uploaded.`); load() }} />
+      )}
+      {dialog?.type === 'edit' && (
+        <EditResourceModal resource={dialog.row} categories={assignableCats} onClose={() => setDialog(null)}
+          onSaved={async (patch) => { const ok = await runUpdate(dialog.row.id, patch, 'Details saved.'); if (ok) setDialog(null); return ok }} />
+      )}
+      {dialog?.type === 'remove' && (
+        <RemoveConfirmDialog resource={dialog.row} onCancel={() => setDialog(null)}
+          onConfirm={async () => { const ok = await runUpdate(dialog.row.id, { is_active: false }, 'Removed. Turn on Show removed to restore it.'); if (ok) { setDialog(null); setSelectedId('') } }} />
+      )}
+      {dialog?.type === 'cats' && (
+        <ManageCategoriesModal cats={cats} rows={rows} assignable={assignableCats} onClose={() => setDialog(null)}
+          onSaved={() => { loadCats(); say('ok', 'Categories saved.') }}
+          onReassign={(r, slug) => runUpdate(r.id, { category: slug }, `${r.title} moved to ${catLabel(slug)}.`)} />
+      )}
+      {dialog?.type === 'personal' && (
+        <PersonalFilesModal onClose={() => { setDialog(null); loadPersonal() }}
+          onMoved={(m) => { say('ok', `${m.title} now lives on ${m.student.name}'s record.`); load(); loadPersonal() }} />
+      )}
     </div>
   )
 }
 
-// Row "…" action menu (Owner/Admin). Metadata-only actions + Open/Download/Copy-link. NO
-// rename-storage, hard-delete, or broad-share entries. Closes on outside click / Escape.
-function RowMenu({ r, external, inactive, onAccess, actions, canManage, categories = UPLOAD_CATEGORIES }) {
-  const [open, setOpen] = useState(false)
-  const [moveOpen, setMoveOpen] = useState(false)
-  const wrapRef = useRef(null)
+function canViewCatalog(isOwner, isAdmin, isInterviewer) {
+  return !!(isOwner || isAdmin || isInterviewer)
+}
 
+function emptyTextFor(view, total, q) {
+  if (!total) return 'Nothing in the Catalog yet.'
+  if (view.track) return 'Nothing is out for completion. Forms and signature requests show here once they are sent.'
+  if (q) return 'No items match. Clear the search or pick another section.'
+  return 'Nothing here yet.'
+}
+
+// ── + New ─────────────────────────────────────────────────────────────────────────
+function NewMenu({ open, setOpen, onUpload, onReview }) {
+  const wrap = useRef(null)
   useEffect(() => {
     if (!open) return
-    const onDoc = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) { setOpen(false); setMoveOpen(false) } }
-    const onKey = (e) => { if (e.key === 'Escape') { setOpen(false); setMoveOpen(false) } }
-    document.addEventListener('mousedown', onDoc)
-    document.addEventListener('keydown', onKey)
-    return () => { document.removeEventListener('mousedown', onDoc); document.removeEventListener('keydown', onKey) }
-  }, [open])
-
-  const close = () => { setOpen(false); setMoveOpen(false) }
-  const run = (fn) => { close(); fn() }
-
-  const itemStyle = {
-    display: 'flex', alignItems: 'center', gap: 9, width: '100%', textAlign: 'left',
-    padding: '8px 12px', background: 'none', border: 'none', cursor: 'pointer',
-    fontSize: 12.5, fontFamily: F, color: '#374151', whiteSpace: 'nowrap',
-  }
-
+    const down = (e) => { if (!wrap.current?.contains(e.target)) setOpen(false) }
+    const key = (e) => { if (e.key === 'Escape') { setOpen(false); wrap.current?.querySelector('button')?.focus() } }
+    document.addEventListener('mousedown', down); document.addEventListener('keydown', key)
+    wrap.current?.querySelector('[role="menuitem"]')?.focus()
+    return () => { document.removeEventListener('mousedown', down); document.removeEventListener('keydown', key) }
+  }, [open, setOpen])
+  const pick = (fn) => { setOpen(false); fn() }
   return (
-    <div ref={wrapRef} style={{ position: 'relative' }}>
-      <button
-        type="button"
-        aria-label="More actions"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        onClick={() => setOpen(o => !o)}
-        style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32,
-          background: open ? '#f1efe9' : '#fff', color: '#6b7280', border: '1px solid #e2e0d9',
-          borderRadius: 8, cursor: 'pointer',
-        }}
-      >
-        <MoreHorizontal size={16} strokeWidth={2} />
-      </button>
-
+    <div className="ctl-new" ref={wrap}>
+      <button type="button" className="ctl-btn ctl-btn-pri" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)}>+ New</button>
       {open && (
-        <div role="menu" style={{
-          position: 'absolute', top: '110%', right: 0, zIndex: 20, minWidth: 200,
-          background: '#fff', border: '1px solid #e8e4dc', borderRadius: 12,
-          boxShadow: '0 8px 24px rgba(25,25,25,0.14)', overflow: 'hidden', padding: '4px 0',
-        }}>
-          <button type="button" style={itemStyle} onClick={() => run(() => onAccess(r, 'open'))}>
-            {external ? <ExternalLink size={14} /> : <FileText size={14} />} {external ? 'Open external' : 'Open'}
+        <div className="ctl-menu" role="menu">
+          <button type="button" role="menuitem" onClick={() => pick(onUpload)}>
+            <span className="ctl-mi ctl-mi-file"><Upload size={16} /></span>
+            <span><b>Upload a file</b><small>PDF, Word, Excel or image</small></span>
           </button>
-          {!external && (
-            <button type="button" style={itemStyle} onClick={() => run(() => onAccess(r, 'download'))}>
-              <Download size={14} /> Download
-            </button>
+          {CATALOG_FEATURES.forms && (
+            <button type="button" role="menuitem"><span className="ctl-mi ctl-mi-form"><ListChecks size={16} /></span>
+              <span><b>Build a form</b><small>Collect answers. Prefill from the student record.</small></span></button>
           )}
-          <button type="button" style={itemStyle} onClick={() => run(() => actions.onCopyLink(r))}>
-            <Link2 size={14} /> Copy link
+          {CATALOG_FEATURES.signatures && (
+            <button type="button" role="menuitem"><span className="ctl-mi ctl-mi-sign"><Signature size={16} /></span>
+              <span><b>Prepare a document for signature</b><small>Upload a PDF, place fields, set signers.</small></span></button>
+          )}
+          <hr />
+          <button type="button" role="menuitem" onClick={() => pick(onReview)}>
+            <span className="ctl-mi ctl-mi-file"><UserRound size={16} /></span>
+            <span><b>Review personal files</b><small>Move a file that belongs to one student onto their record.</small></span>
           </button>
-
-          {/* Management actions - Owner/Admin only. Interviewers see read actions above only. */}
-          {canManage && <div style={{ height: 1, background: '#f1efe9', margin: '4px 0' }} />}
-
-          {canManage && (inactive ? (
-            <button type="button" style={{ ...itemStyle, color: '#166534', fontWeight: 600 }} onClick={() => run(() => actions.onReactivate(r))}>
-              <RotateCcw size={14} /> Reactivate
-            </button>
-          ) : (
-            <>
-              <button type="button" style={itemStyle} onClick={() => run(() => actions.onEdit(r))}>
-                <Pencil size={14} /> Edit details
-              </button>
-
-              {/* Move to category - metadata-only category-field change (file never moves). */}
-              <button type="button" style={itemStyle} onClick={() => setMoveOpen(o => !o)} aria-expanded={moveOpen}>
-                <FolderInput size={14} /> Move to category
-              </button>
-              {moveOpen && (
-                <div style={{ padding: '2px 0 2px 0', background: '#faf9f7' }}>
-                  {categories.map(c => (
-                    <button key={c.key} type="button"
-                      style={{ ...itemStyle, padding: '7px 12px 7px 34px', color: c.key === r.category ? NAVY : '#374151', fontWeight: c.key === r.category ? 700 : 400 }}
-                      onClick={() => run(() => actions.onMove(r, c.key))}>
-                      {c.key === r.category && <Check size={13} />} {c.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              <button type="button" style={itemStyle} onClick={() => run(() => actions.onToggleFeatured(r))}>
-                <Star size={14} /> {r.is_featured ? 'Unfeature' : 'Feature'}
-              </button>
-              <button type="button" style={itemStyle} onClick={() => run(() => actions.onTogglePinned(r))}>
-                <Pin size={14} /> {r.is_pinned ? 'Unpin' : 'Pin'}
-              </button>
-
-              <div style={{ height: 1, background: '#f1efe9', margin: '4px 0' }} />
-
-              <button type="button" style={{ ...itemStyle, color: '#991b1b' }} onClick={() => run(() => actions.onRemove(r))}>
-                <Archive size={14} /> Remove from catalog
-              </button>
-            </>
-          ))}
         </div>
       )}
     </div>
   )
 }
 
-// CATALOG-2C - Edit details (metadata only). Sends only title/description/category/tags/
-// featured/pinned to the strict-whitelist endpoint. Slug, storage_path, and the file are never
-// touched (copied links stay stable; the file stays at its original key).
-function EditResourceModal({ resource, categories = UPLOAD_CATEGORIES, onClose, onSaved }) {
-  const [title, setTitle] = useState(resource.title || '')
-  const [description, setDescription] = useState(resource.description || '')
-  const [category, setCategory] = useState(resource.category || categories[0].key)
-  const [tagsStr, setTagsStr] = useState(Array.isArray(resource.tags) ? resource.tags.join(', ') : '')
-  const [isFeatured, setIsFeatured] = useState(!!resource.is_featured)
-  const [isPinned, setIsPinned] = useState(!!resource.is_pinned)
-  const [saving, setSaving] = useState(false)
-  const [err, setErr] = useState(null)
+// ── Shared pieces of a row and a cover ─────────────────────────────────────────────
+function TypeIcon({ row }) {
+  const k = kindOf(row)
+  if (k === 'form') return <span className="ctl-ft ctl-ft-form" aria-hidden="true"><ListChecks size={19} /></span>
+  if (k === 'signature') return <span className="ctl-ft ctl-ft-sign" aria-hidden="true"><Signature size={19} /></span>
+  const b = fileBadge(row)
+  return <span className={`ctl-ft ctl-ft-${b.tone}`} aria-hidden="true">{b.label}</span>
+}
 
-  const fieldStyle = {
-    width: '100%', boxSizing: 'border-box', padding: '9px 11px', fontSize: 13.5, fontFamily: F,
-    color: '#191919', border: '1px solid #e2e0d9', borderRadius: 8, background: '#fff', outline: 'none',
-  }
-  const labelStyle = { display: 'block', fontSize: 12, fontWeight: 600, color: '#4A5560', marginBottom: 5 }
-
-  async function save() {
-    setErr(null)
-    if (!title.trim()) { setErr('Title is required.'); return }
-    setSaving(true)
-    try {
-      await onSaved({
-        title: title.trim(),
-        description: description.trim(),
-        category,
-        tags: tagsStr.split(',').map(t => t.trim()).filter(Boolean),
-        is_featured: isFeatured,
-        is_pinned: isPinned,
-      })
-    } finally {
-      setSaving(false)
-    }
-  }
-
+function PinMark() {
   return (
-    <div className="modal-overlay" onMouseDown={() => !saving && onClose()}>
-      <div className="modal" role="dialog" aria-modal="true" style={{ maxWidth: 520, fontFamily: F }} onMouseDown={e => e.stopPropagation()}>
-        <div className="modal-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#1D2567', fontFamily: F }}>Edit details</h2>
-          <button type="button" onClick={() => !saving && onClose()} aria-label="Close"
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', display: 'flex', padding: 4 }}>
-            <X size={18} strokeWidth={2} />
-          </button>
-        </div>
+    <span className="ctl-pin" title="Pinned">
+      <Pin className="ctl-pin-star" size={13} aria-hidden="true" />
+      <Paperclip className="ctl-pin-clip" size={15} aria-hidden="true" />
+      <span className="ctl-sr">Pinned. </span>
+    </span>
+  )
+}
 
-        <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div>
-            <label style={labelStyle}>Title</label>
-            <input type="text" value={title} onChange={e => setTitle(e.target.value)} style={fieldStyle} />
-          </div>
-          <div>
-            <label style={labelStyle}>Description <span style={{ color: '#9ca3af', fontWeight: 400 }}>(optional)</span></label>
-            <textarea value={description} onChange={e => setDescription(e.target.value)} rows={2} style={{ ...fieldStyle, resize: 'vertical' }} />
-          </div>
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-            <div style={{ flex: '1 1 200px' }}>
-              <label style={labelStyle}>Category</label>
-              <select value={category} onChange={e => setCategory(e.target.value)} style={{ ...fieldStyle, cursor: 'pointer' }}>
-                {categories.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
-              </select>
-            </div>
-            <div style={{ flex: '1 1 200px' }}>
-              <label style={labelStyle}>Tags <span style={{ color: '#9ca3af', fontWeight: 400 }}>(comma-separated)</span></label>
-              <input type="text" value={tagsStr} onChange={e => setTagsStr(e.target.value)} style={fieldStyle} />
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: 18 }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, color: '#374151', cursor: 'pointer' }}>
-              <input type="checkbox" checked={isFeatured} onChange={e => setIsFeatured(e.target.checked)} /> Featured
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, color: '#374151', cursor: 'pointer' }}>
-              <input type="checkbox" checked={isPinned} onChange={e => setIsPinned(e.target.checked)} /> Pinned
-            </label>
-          </div>
-          <div style={{ fontSize: 11.5, color: '#9ca3af' }}>
-            The file and its link stay the same, only these details change.
-          </div>
-          {err && (
-            <div style={{ fontSize: 12.5, borderRadius: 8, padding: '9px 12px', background: '#FEECEC', color: '#991b1b', border: '1px solid #f3c6c6' }}>
-              {err}
-            </div>
-          )}
-        </div>
+function StatusCell({ row, usage }) {
+  if (row.is_active === false) {
+    return <div className="ctl-st"><span className="ctl-removed">{row.moved_to_record_document_id ? 'Moved to a record' : 'Removed'}</span></div>
+  }
+  const n = usage[row.id] || 0
+  return (
+    <div className="ctl-st">
+      <span>Sent {n} {n === 1 ? 'time' : 'times'}</span>
+      <span className="ctl-when">Updated {fmtShortDate(row.version_updated_at || row.updated_at)}</span>
+    </div>
+  )
+}
 
-        <div className="modal-footer" style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-          <button className="btn-outline-modal" onClick={() => !saving && onClose()} disabled={saving}>Cancel</button>
-          <button type="button" onClick={save} disabled={saving}
-            style={{ padding: '9px 18px', background: NAVY, color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, fontFamily: F, cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.6 : 1 }}>
-            {saving ? 'Saving…' : 'Save changes'}
-          </button>
-        </div>
+// Arrow keys move between the options of one listbox; Enter and Space select.
+function listKeys(e, onSelect, id) {
+  if (e.key === 'Enter' || e.key === ' ') {
+    if (e.target !== e.currentTarget) return
+    e.preventDefault(); onSelect(id); return
+  }
+  const dir = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }[e.key]
+  if (!dir && e.key !== 'Home' && e.key !== 'End') return
+  const box = e.currentTarget.closest('[role="listbox"]')
+  const opts = [...(box?.querySelectorAll('[role="option"]') || [])]
+  const i = opts.indexOf(e.currentTarget)
+  const next = e.key === 'Home' ? 0 : e.key === 'End' ? opts.length - 1 : i + dir
+  if (opts[next]) { e.preventDefault(); opts[next].focus() }
+}
+
+// ── Modern list (and Classic's list view, on paper) ─────────────────────────────────
+function ItemList({ sections, title, count, selectedId, onSelect, onSend, canManage, catLabel, usage, menuFor, setMenuFor, menuItems, emptyText }) {
+  return (
+    <div className="ctl-listcard">
+      <div className="ctl-lh" aria-hidden="true"><span /><span>{title} · {count}</span><span>Status</span><span /></div>
+      <div role="listbox" aria-label={`${title}, ${count} items`}>
+        {count === 0 && <div className="ctl-empty">{emptyText}</div>}
+        {sections.map(sec => (
+          <div key={sec.key} role="presentation">
+            {sec.label && <div className="ctl-sect" role="presentation">{sec.label}</div>}
+            {sec.rows.map(r => {
+              const aud = audienceOf(r)
+              return (
+                <div key={r.id} id={`catalog-res-${r.slug}`} className={`ctl-it${r.is_active === false ? ' ctl-it-off' : ''}`}
+                  role="option" tabIndex={0} aria-selected={r.id === selectedId}
+                  onClick={(e) => { if (!e.target.closest('button')) onSelect(r.id) }}
+                  onKeyDown={(e) => listKeys(e, onSelect, r.id)}>
+                  <TypeIcon row={r} />
+                  <div className="ctl-nm">
+                    <b>{r.is_pinned && <PinMark />}<span>{r.title}</span></b>
+                    {r.description && <small>{r.description}</small>}
+                    <div className="ctl-meta">
+                      <span className="ctl-tag">{catLabel(r.category)}</span>
+                      <span className={`ctl-aud${aud === 'staff' ? ' ctl-aud-staff' : ''}`}>{audienceLabel(aud)}</span>
+                    </div>
+                  </div>
+                  <StatusCell row={r} usage={usage} />
+                  <div className="ctl-acts">
+                    {canManage && r.is_active !== false && (
+                      <button type="button" className="ctl-btn ctl-btn-sm" onClick={() => onSend(r)}><SendIcon size={14} /> {sendButtonLabel(r)}</button>
+                    )}
+                    <RowActionsMenu label={`More actions for ${r.title}`} open={menuFor === r.id}
+                      onToggle={() => setMenuFor(menuFor === r.id ? null : r.id)} onClose={() => setMenuFor(null)} items={menuItems(r)} />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        ))}
       </div>
     </div>
   )
 }
 
-// CATALOG-2C - Soft-remove confirmation. Sets is_active=false (reversible); never deletes the
-// row and never touches Storage.
-function RemoveConfirmDialog({ resource, onCancel, onConfirm }) {
-  const [working, setWorking] = useState(false)
-  return (
-    <div className="modal-overlay" onMouseDown={() => !working && onCancel()}>
-      <div className="modal" role="dialog" aria-modal="true" style={{ maxWidth: 440, fontFamily: F }} onMouseDown={e => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#1D2567', fontFamily: F }}>Remove from catalog?</h2>
-        </div>
-        <div style={{ padding: '16px 20px', fontSize: 13.5, color: '#374151', lineHeight: 1.6 }}>
-          <p style={{ margin: '0 0 10px' }}>
-            <strong>{resource.title}</strong> will be hidden from the catalog. The file is <strong>not</strong> deleted
-            and this is reversible, turn on <strong>Show removed</strong> to restore it.
-          </p>
-        </div>
-        <div className="modal-footer" style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-          <button className="btn-outline-modal" onClick={() => !working && onCancel()} disabled={working}>Cancel</button>
-          <button type="button" onClick={async () => { setWorking(true); try { await onConfirm() } finally { setWorking(false) } }} disabled={working}
-            style={{ padding: '9px 18px', background: '#991b1b', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, fontFamily: F, cursor: working ? 'default' : 'pointer', opacity: working ? 0.6 : 1 }}>
-            {working ? 'Removing…' : 'Remove'}
-          </button>
-        </div>
-      </div>
+// ── Classic: the bookcase ─────────────────────────────────────────────────────────
+function Bookcase({ mode, setMode, onNew, items, ...listProps }) {
+  const { title, count, selectedId, onSelect, onSend, canManage, catLabel, usage, emptyText } = listProps
+  const bar = (
+    <div className="ctl-casebar">
+      <span className="ctl-wseg" role="group" aria-label="View">
+        <button type="button" className="ctl-wbtn" aria-pressed={mode === 'shelf'} aria-label="Shelf view" onClick={() => setMode('shelf')}><LayoutGrid size={15} /></button>
+        <button type="button" className="ctl-wbtn" aria-pressed={mode === 'list'} aria-label="List view" onClick={() => setMode('list')}><ListIcon size={15} /></button>
+      </span>
+      <b className="ctl-engr">{title}<small>{count}</small></b>
+      {onNew ? <button type="button" className="ctl-wbtn" onClick={onNew}>+ New</button> : <span className="ctl-wbtn-space" />}
     </div>
   )
-}
-
-// CATALOG-3 - Manage Categories (Owner/Admin). Rename display_name (+ optional description) and
-// reorder via up/down. Saves through the server endpoint: renames as per-category metadata
-// updates, reorder as ONE coherent write of the full ordered slug list. NO Add, NO Archive, NO
-// slug editing - slug is shown read-only as the stable anchor. No resource row or Storage touch.
-function ManageCategoriesModal({ cats, onClose, onSaved, setActionMsg }) {
-  const [draft, setDraft] = useState(() => cats.map(c => ({
-    slug: c.slug, display_name: c.display_name || '', description: c.description || '',
-  })))
-  const [saving, setSaving] = useState(false)
-  const [err, setErr] = useState(null)
-
-  const move = (i, dir) => {
-    const j = i + dir
-    if (j < 0 || j >= draft.length) return
-    const next = draft.slice()
-    ;[next[i], next[j]] = [next[j], next[i]]
-    setDraft(next)
+  if (mode === 'list') {
+    return <div className="ctl-case">{bar}<div className="ctl-caselist"><ItemList {...listProps} /></div></div>
   }
-  const setField = (i, field, val) => {
-    const next = draft.slice()
-    next[i] = { ...next[i], [field]: val }
-    setDraft(next)
-  }
-
-  async function post(body) {
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session?.access_token) throw new Error('Your session expired. Please sign in again.')
-    const res = await fetch('/api/catalog-category-update', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify(body),
-    })
-    const json = await res.json().catch(() => ({}))
-    if (!res.ok) throw new Error(json.error || 'Save failed.')
-    return json
-  }
-
-  async function save() {
-    setErr(null)
-    if (draft.some(d => !d.display_name.trim())) { setErr('Display name is required for every category.'); return }
-    const origBySlug = Object.fromEntries(cats.map(c => [c.slug, c]))
-    setSaving(true)
-    try {
-      // 1) Renames (display_name / description changes) - per-category metadata updates.
-      for (const d of draft) {
-        const o = origBySlug[d.slug] || {}
-        const dn = d.display_name.trim()
-        const desc = d.description.trim()
-        if (dn !== (o.display_name || '') || desc !== (o.description || '')) {
-          await post({ action: 'rename', slug: d.slug, display_name: dn, description: desc })
-        }
-      }
-      // 2) Reorder - one coherent write of the full ordered slug list (only if order changed).
-      const newOrder = draft.map(d => d.slug)
-      const oldOrder = cats.map(c => c.slug)
-      if (JSON.stringify(newOrder) !== JSON.stringify(oldOrder)) {
-        await post({ action: 'reorder', order: newOrder })
-      }
-      setActionMsg?.({ tone: 'ok', text: 'Categories updated.' })
-      onSaved()
-      onClose()
-    } catch (e) {
-      setErr(e.message || 'Save failed.')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const inputStyle = {
-    flex: 1, minWidth: 0, boxSizing: 'border-box', padding: '7px 10px', fontSize: 13, fontFamily: F,
-    color: '#191919', border: '1px solid #e2e0d9', borderRadius: 8, background: '#fff', outline: 'none',
-  }
-  const arrowBtn = (disabled) => ({
-    display: 'flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 22,
-    background: '#fff', color: disabled ? '#cbd0d6' : '#4A5560', border: '1px solid #e2e0d9',
-    borderRadius: 6, cursor: disabled ? 'default' : 'pointer',
-  })
-
+  const ordered = shelfOrder(items)
   return (
-    <div className="modal-overlay" onMouseDown={() => !saving && onClose()}>
-      <div className="modal" role="dialog" aria-modal="true" style={{ maxWidth: 580, fontFamily: F }} onMouseDown={e => e.stopPropagation()}>
-        <div className="modal-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#1D2567', fontFamily: F }}>Manage categories</h2>
-          <button type="button" onClick={() => !saving && onClose()} aria-label="Close"
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', display: 'flex', padding: 4 }}>
-            <X size={18} strokeWidth={2} />
-          </button>
-        </div>
-
-        <div style={{ padding: '14px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 2 }}>
-            Rename display names and reorder. Category IDs (slugs) are fixed, so existing resources and links keep working.
-          </div>
-          {draft.map((d, i) => (
-            <div key={d.slug} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', background: '#faf9f7', border: '1px solid #eee7da', borderRadius: 10 }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flexShrink: 0 }}>
-                <button type="button" aria-label="Move up" disabled={i === 0} onClick={() => move(i, -1)} style={arrowBtn(i === 0)}>
-                  <ChevronUp size={14} strokeWidth={2.2} />
+    <>
+      <div className="ctl-case">
+        {bar}
+        <div className="ctl-shelves" role="listbox" aria-label={`${title}, ${count} items`}>
+          {ordered.map(r => (
+            <div key={r.id} className="ctl-slot">
+              <Cover row={r} selected={r.id === selectedId} onSelect={onSelect} catLabel={catLabel} usage={usage} />
+              {canManage && r.is_active !== false && (
+                <button type="button" className="ctl-qs" onClick={() => onSend(r)} aria-label={`${sendButtonLabel(r)}: ${r.title}`}>
+                  <SendIcon size={12} aria-hidden="true" /> Send
                 </button>
-                <button type="button" aria-label="Move down" disabled={i === draft.length - 1} onClick={() => move(i, 1)} style={arrowBtn(i === draft.length - 1)}>
-                  <ChevronDown size={14} strokeWidth={2.2} />
-                </button>
-              </div>
-              <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <input type="text" value={d.display_name} onChange={e => setField(i, 'display_name', e.target.value)}
-                  aria-label={`Display name for ${d.slug}`} placeholder="Display name" style={inputStyle} />
-                <input type="text" value={d.description} onChange={e => setField(i, 'description', e.target.value)}
-                  aria-label={`Description for ${d.slug}`} placeholder="Description (optional)" style={{ ...inputStyle, fontSize: 12, color: '#6b7280' }} />
-              </div>
-              <span style={{ flexShrink: 0, fontSize: 10.5, color: '#9ca3af', fontFamily: 'monospace' }}>{d.slug}</span>
+              )}
             </div>
           ))}
-
-          {err && (
-            <div style={{ fontSize: 12.5, borderRadius: 8, padding: '9px 12px', background: '#FEECEC', color: '#991b1b', border: '1px solid #f3c6c6' }}>
-              {err}
-            </div>
-          )}
-        </div>
-
-        <div className="modal-footer" style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-          <button className="btn-outline-modal" onClick={() => !saving && onClose()} disabled={saving}>Cancel</button>
-          <button type="button" onClick={save} disabled={saving}
-            style={{ padding: '9px 18px', background: NAVY, color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, fontFamily: F, cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.6 : 1 }}>
-            {saving ? 'Saving…' : 'Save categories'}
-          </button>
         </div>
       </div>
-    </div>
+      {count === 0
+        ? <p className="ctl-shelfnote">{emptyText}</p>
+        : <p className="ctl-shelfnote">Pinned items stand first on the top shelf.</p>}
+    </>
+  )
+}
+
+function Cover({ row, selected, onSelect, catLabel, usage }) {
+  const k = kindOf(row)
+  const badge = fileBadge(row)
+  const n = usage[row.id] || 0
+  const label = k === 'file' ? catLabel(row.category) : k === 'form' ? 'Form' : 'Signature'
+  return (
+    <button type="button" role="option" aria-selected={selected}
+      className={`ctl-cover ctl-cover-${k} ctl-cover-${badge.tone}${row.is_pinned ? ' ctl-cover-pinned' : ''}${row.is_active === false ? ' ctl-cover-off' : ''}`}
+      aria-label={`${row.title}${row.is_pinned ? ', pinned' : ''}`}
+      onClick={() => onSelect(row.id)} onKeyDown={(e) => listKeys(e, onSelect, row.id)}>
+      <span className="ctl-pg">
+        <span className="ctl-band" />
+        <span><span className="ctl-kind">{label}</span><span className="ctl-ttl">{row.title}</span></span>
+        <span className="ctl-lines" aria-hidden="true">
+          {k === 'form' ? <><i className="ctl-box" /><i className="ctl-box" /><i className="ctl-box" /></> : <><i /><i /><i className="ctl-short" /></>}
+        </span>
+        <span className="ctl-ft2">
+          <span>{badge.label}{row.version ? ` · v${row.version}` : ''}</span>
+          <span>{row.is_active === false ? (row.moved_to_record_document_id ? 'Moved' : 'Removed') : `Sent ${n} ${n === 1 ? 'time' : 'times'}`}</span>
+        </span>
+      </span>
+      {k === 'signature' && <span className="ctl-flag" aria-hidden="true">SIGN HERE</span>}
+      {row.is_pinned && <span className="ctl-sash" aria-hidden="true"><span>PINNED</span></span>}
+    </button>
+  )
+}
+
+// ── Detail panel ──────────────────────────────────────────────────────────────────
+function DetailPanel({ row, catLabel, sends, sendsEnabled, canManage, onClose, onSend, onAccess }) {
+  const k = kindOf(row)
+  const badge = fileBadge(row)
+  const ext = row.resource_type === 'external_link'
+  const off = row.is_active === false
+  const kindLine = k === 'file' ? `${KIND_LABEL.file} · ${badge.label}` : KIND_LABEL[k]
+  return (
+    <aside className="ctl-detail" aria-label="Item details">
+      <div className="ctl-dh">
+        <div className={`ctl-k ctl-k-${k}`}>
+          <span>{kindLine}</span>
+          <button type="button" className="ctl-icon-btn" onClick={onClose} aria-label="Close details"><X size={16} /></button>
+        </div>
+        <h2>{row.title}</h2>
+        {row.description && <p>{row.description}</p>}
+        <div className="ctl-row">
+          {canManage && !off && <button type="button" className="ctl-btn ctl-btn-pri ctl-btn-sm" onClick={() => onSend(row)}><SendIcon size={14} /> {sendButtonLabel(row)}</button>}
+          {!off && <button type="button" className="ctl-btn ctl-btn-sm" onClick={() => onAccess(row, 'open')}>{ext ? 'Open link' : 'Open'}</button>}
+          {!off && !ext && <button type="button" className="ctl-btn ctl-btn-sm" onClick={() => onAccess(row, 'download')}>Download</button>}
+        </div>
+        {off && <p className="ctl-removed">{row.moved_to_record_document_id ? 'This file moved to a student record and is no longer in the Catalog.' : 'Removed from the Catalog. Restore it from the ⋯ menu.'}</p>}
+      </div>
+      <div className="ctl-db">
+        <div className="ctl-preview" aria-hidden="true"><div className="ctl-preview-pg"><i className="h" /><i /><i /><i className="s" /><i /><i /><i className="s" /></div></div>
+        <dl className="ctl-kv">
+          <dt>Category</dt><dd>{catLabel(row.category)}</dd>
+          <dt>Audience</dt><dd>{audienceLabel(audienceOf(row))}</dd>
+          {!ext && <><dt>Version</dt><dd>v{row.version || 1} · {fmtShortDate(row.version_updated_at || row.created_at || row.updated_at)}</dd></>}
+          {!ext && row.file_size_bytes ? <><dt>Size</dt><dd>{fmtBytes(row.file_size_bytes)}</dd></> : null}
+        </dl>
+        {canManage && <SendHistory sends={sends} enabled={sendsEnabled} current={row.version || 1} />}
+      </div>
+    </aside>
+  )
+}
+
+// A send of an earlier version says which one; a send of the current version needs no tag.
+function SendHistory({ sends, enabled, current }) {
+  if (!enabled) return <p className="ctl-hint">The send log starts once the Catalog update is applied.</p>
+  const n = sends.length
+  const issued = (s) => (s.audience_labels?.length ? s.audience_labels.join(', ') : `${s.sent_count} ${s.sent_count === 1 ? 'person' : 'people'}`)
+  return (
+    <>
+      <div className="ctl-envelope">
+        <table className="ctl-route">
+          <caption>Send history</caption>
+          <thead><tr><th scope="col">Date sent</th><th scope="col">Issued to</th><th scope="col">Via</th></tr></thead>
+          <tbody>
+            {n === 0 && <tr><td className="ctl-route-d"><span>-</span></td><td>Not sent yet</td><td className="ctl-route-v" /></tr>}
+            {sends.slice(0, 8).map(s => (
+              <tr key={s.id}>
+                <td className="ctl-route-d"><span>{fmtShortDate(s.sent_at)}</span></td>
+                <td>{issued(s)}{s.resource_version !== current ? ` (v${s.resource_version})` : ''}</td>
+                <td className="ctl-route-v">Outreach</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="ctl-hint">Sent {n} {n === 1 ? 'time' : 'times'}. Every send is logged here and on each recipient's record.</p>
+    </>
   )
 }

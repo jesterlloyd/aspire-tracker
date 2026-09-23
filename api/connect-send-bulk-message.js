@@ -47,6 +47,8 @@ import { archiveSentMessage } from './lib/messageArchive.js';
 import { resolveAttachments } from './lib/outreachAttachments.js';
 import { validateBulkRecipients } from './lib/bulkRecipientAllowlist.js';
 import { INACTIVE_MESSAGE } from './lib/activeAccount.js';
+import { recordCatalogSend, isCatalogResourceId } from './lib/catalogSendLog.js';
+import { demoScopeFromRequest } from '../lib/server/demoScope.js';
 
 // Seeded fallback signatures for the two known leads (mirrors api/connect-send-direct-email.js).
 const SIGNATURE_SEED = {
@@ -304,13 +306,15 @@ async function _handler(req, res) {
   // (before this branch), and runSendMode needs the resolved format for its body-size cap and html
   // escaping. Without this argument runSendMode referenced an out-of-scope variable (ReferenceError:
   // resolvedBodyFormat is not defined) on every bulk send.
-  return await runSendMode(res, body, senderSig, profile, resolvedBodyFormat);
+  // CATALOG-REVAMP-1: a demo session's Catalog send log is stamped is_demo.
+  const isDemo = demoScopeFromRequest(req) === true;
+  return await runSendMode(res, body, senderSig, profile, resolvedBodyFormat, isDemo);
 }
 
 // Send-mode handler. Kept separate from the preview path so preview behavior is provably untouched.
 // `resolvedBodyFormat` is passed in from the gated caller (never re-derived here) so the Owner-only
 // html gate stays the single source of truth.
-async function runSendMode(res, body, senderSig, profile, resolvedBodyFormat) {
+async function runSendMode(res, body, senderSig, profile, resolvedBodyFormat, isDemo = false) {
   // ── S1. Reject any caller attempt to inject a top-level recipient override. ──
   for (const f of ['email', 'to', 'cc', 'bcc']) {
     if (f in body) {
@@ -377,6 +381,8 @@ async function runSendMode(res, body, senderSig, profile, resolvedBodyFormat) {
   const sent    = [];
   const skipped = [...rejected];
   const failed  = [];
+  // CATALOG-REVAMP-1: the ids a Catalog send log needs, kept out of the response shape.
+  const logIds  = new Map();   // index -> { notification_log_id, resend_message_id }
 
   if (rejected.length > 0) {
     console.warn('[connect-send-bulk-message] preflight_rejected:', {
@@ -534,6 +540,7 @@ async function runSendMode(res, body, senderSig, profile, resolvedBodyFormat) {
       }
 
       sent.push({ index: c.index, source, email: rawEmail, recipient_id: recipientId, sent_at: sentAt });
+      logIds.set(c.index, { notification_log_id: notificationLogId, resend_message_id: resendMessageId });
 
     } catch (itemErr) {
       console.error('[connect-send-bulk-message] item_error:', { batch_id: batchId, index: c.index, error: itemErr?.message });
@@ -545,9 +552,33 @@ async function runSendMode(res, body, senderSig, profile, resolvedBodyFormat) {
     batch_id: batchId, sent: sent.length, skipped: skipped.length, failed: failed.length,
   });
 
+  // CATALOG-REVAMP-1: a send made from the Catalog names its item; the log records what
+  // actually happened to each recipient. Best-effort: it never changes the result above.
+  let catalogLog;
+  if (isCatalogResourceId(body.catalog_resource_id)) {
+    const logged = await recordCatalogSend({
+      db: supabaseAdmin,
+      resourceId: body.catalog_resource_id,
+      batchId,
+      subject: subjectRaw.trim(),
+      audienceLabels: body.catalog_audience_labels,
+      recipients,
+      sent: sent.map(x => ({ ...x, ...(logIds.get(x.index) || {}) })),
+      skipped,
+      failed,
+      sentBy: senderUserId,
+      isDemo,
+    });
+    catalogLog = logged.status;
+    if (logged.status === 'error') {
+      console.error('[connect-send-bulk-message] catalog_log_failed:', { batch_id: batchId, reason: logged.reason });
+    }
+  }
+
   return res.status(200).json({
     success: true,
     batch_id: batchId,
+    ...(catalogLog ? { catalog_log: catalogLog } : {}),
     summary: { total: recipients.length, sent: sent.length, skipped: skipped.length, failed: failed.length },
     sent,
     skipped,

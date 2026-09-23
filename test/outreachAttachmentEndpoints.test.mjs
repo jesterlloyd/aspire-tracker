@@ -277,6 +277,9 @@ function swap(src) {
     .replace(/from '\.\/lib\/messageArchive\.js'/, `from ${abs('api/lib/messageArchive.js')}`)
     .replace(/from '\.\/lib\/outreachAttachments\.js'/, `from ${abs('api/lib/outreachAttachments.js')}`)
     .replace(/from '\.\/lib\/bulkRecipientAllowlist\.js'/, `from ${abs('api/lib/bulkRecipientAllowlist.js')}`)
+    // CATALOG-REVAMP-1: the Catalog send log and the demo flag it stamps, both real.
+    .replace(/from '\.\/lib\/catalogSendLog\.js'/, `from ${abs('api/lib/catalogSendLog.js')}`)
+    .replace(/from '\.\.\/lib\/server\/demoScope\.js'/, `from ${abs('lib/server/demoScope.js')}`)
     .replace(/const SEND_DELAY_MS\s*=\s*300;/, 'const SEND_DELAY_MS = 0;')
 }
 

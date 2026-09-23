@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js';
 import { isActiveProfile, INACTIVE_STATUS, INACTIVE_REASON, INACTIVE_MESSAGE } from './lib/activeAccount.js';
+import { assignableCategorySlugs, cleanAudience } from './lib/catalogCategories.js';
 
 // CATALOG-2C - Owner/Admin METADATA-ONLY edit of an existing catalog_resources row.
 //
@@ -10,13 +11,12 @@ import { isActiveProfile, INACTIVE_STATUS, INACTIVE_REASON, INACTIVE_MESSAGE } f
 // REJECTED (not silently ignored). "Move to category" is just a category-field update; the file
 // stays at its original storage key. "Remove from catalog" is is_active=false (reversible).
 
-const CATEGORIES = [
-  'orientation', 'forms', 'clinical_resources', 'unit_guides',
-  'student_support', 'preceptor_resources', 'policies',
-];
+// CATALOG-REVAMP-1: the assignable categories are catalog_categories less retired ones
+// (api/lib/catalogCategories.js), and audience is one value. is_featured is still accepted
+// so an old tab cannot fail, but Featured became Pinned and the Catalog no longer sends it.
 
 // The ONLY columns this endpoint may write. Anything else → 400.
-const ALLOWED_FIELDS = ['title', 'description', 'tags', 'category', 'is_featured', 'is_pinned', 'is_active'];
+const ALLOWED_FIELDS = ['title', 'description', 'tags', 'category', 'audience', 'is_featured', 'is_pinned', 'is_active'];
 
 async function verifyCaller(req) {
   const authHeader = req.headers['authorization'] || req.headers['Authorization'] || '';
@@ -115,8 +115,15 @@ export default async function handler(req, res) {
     patch.tags = tags;
   }
   if ('category' in body) {
-    if (!CATEGORIES.includes(body.category)) return res.status(400).json({ error: 'Invalid category' });
+    const cats = await assignableCategorySlugs(supabaseAdmin);
+    if (!cats.ok) return res.status(500).json({ error: 'Lookup failed' });
+    if (!cats.slugs.has(body.category)) return res.status(400).json({ error: 'Invalid category' });
     patch.category = body.category;
+  }
+  if ('audience' in body) {
+    const audience = cleanAudience(body.audience);
+    if (audience === null) return res.status(400).json({ error: 'Invalid audience' });
+    patch.audience = audience;
   }
   for (const flag of ['is_featured', 'is_pinned', 'is_active']) {
     if (flag in body) {
@@ -130,6 +137,16 @@ export default async function handler(req, res) {
   }
 
   // Server-controlled audit columns (not part of the client whitelist).
+  // A personal file that was moved to a student's record stays out of the Catalog: it is
+  // restored from the record, never by reactivating the old row.
+  if (patch.is_active === true) {
+    const { data: row, error: rowErr } = await supabaseAdmin
+      .from('catalog_resources').select('moved_to_record_document_id').eq('id', id).maybeSingle();
+    if (!rowErr && row?.moved_to_record_document_id) {
+      return res.status(409).json({ error: 'This file was moved to a student record and cannot be restored here.' });
+    }
+  }
+
   patch.updated_by = auth.profileId || null;
   patch.updated_at = new Date().toISOString();
 
@@ -137,7 +154,7 @@ export default async function handler(req, res) {
     .from('catalog_resources')
     .update(patch)
     .eq('id', id)
-    .select('id, slug, title, description, category, tags, is_featured, is_pinned, is_active, updated_at')
+    .select('id, slug, title, description, category, tags, audience, is_featured, is_pinned, is_active, updated_at')
     .single();
 
   if (updErr) return res.status(500).json({ error: 'Could not update resource' });

@@ -48,12 +48,14 @@ test('Nursing Academics contact KPIs fall back when a scope removes the selected
   assert.match(contacts, /const nextCategory = activeCategory === 'All'/)
 })
 
-test('Catalog KPI cards and active-resource counts cannot include removed rows', () => {
-  assert.match(catalog, /if \(!showInactive && r\.is_active === false\) return false/)
-  assert.match(catalog, /const resetToActiveCatalog = \(\) => setShowInactive\(false\)/)
-  assert.match(catalog, /active=\{!showInactive && kpi === 'recent'\}/)
-  assert.match(catalog, /active=\{!showInactive && kpi === 'featured'\}/)
-  assert.match(catalog, /onChange=\{e => changeRemovedVisibility\(e\.target\.checked\)\}/)
+// CATALOG-REVAMP-1 retired the four KPI tiles for a summary line and a left list. The rule
+// they carried stays: every count reads ACTIVE rows, and a removed row is listed only
+// while Show removed is on. The behaviour itself is pinned in test/catalogRevamp.test.mjs.
+test('Catalog counts cannot include removed rows', () => {
+  assert.match(catalog, /const activeRows = useMemo\(\(\) => rows\.filter\(r => r\.is_active !== false\)/)
+  assert.match(catalog, /catalogSummary\(activeRows, statsById\)/)
+  assert.match(catalog, /railCounts\(activeRows, statsById, assignableCats\)/)
+  assert.match(catalog, /filterItems\(rows, \{ view, q: query, showRemoved/)
 })
 
 test('Knowledge Center ignores a tag filter after that tag disappears', () => {

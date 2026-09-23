@@ -1060,3 +1060,54 @@ the Contacts address book are one cover, defined once:
   the box's right side is the page side.
 - **Not shared, on purpose:** the address book keeps its own paper and ink (it follows the
   theme; the rubric's white pages do not).
+
+## The Catalog is a bookcase (CATALOG-REVAMP-1, 2026-09-23)
+
+The ASPIRE Catalog (`/catalog`) is where staff find a resource and send it (Phase 1), collect
+a form (Phase 2) or get a document signed (Phase 3, behind `catalog.signatures`, off until
+Legal and IT approve). Reference: `docs/mockups/catalog-mockup.html` with
+`docs/mockups/catalog-brief.md`. Every rule lives in `src/lib/catalog/catalogModel.js`, which is
+pure and tested without a browser; the page computes nothing in JSX.
+
+- **Style decides the drawing, never the data.** Classic is an iBooks bookcase (covers on
+  maple shelves, a sheet torn from a pad for details, a library checkout card for the send
+  history); Modern is the plain list and panel. One component tree, one sheet
+  (`src/components/catalog/catalog.css`, Classic keyed on `.ctl-classic`). Counts, order,
+  actions and keys are identical in both. It is on `STYLE_SURFACES` with `modern: true`.
+- **Send is Outreach, never Messages** (Owner, 2026-09-23). A Catalog send is exactly an
+  Outreach bulk send (`/api/connect-send-bulk-message`, the file attached by slug) plus
+  `catalog_resource_id`, which makes that endpoint write `catalog_sends` and
+  `catalog_send_recipients` after the batch, best-effort, recording sent, skipped and failed.
+  The To field's tokens are expanded to people in the browser and shown before sending; the
+  server only verifies that list. Not Proceeding students are never in a group token.
+  `{first name}` in the modal becomes Outreach's `[First Name]`. Over 75 people is several
+  batches, each its own logged send.
+- **Who**: Owner and Admin send and manage (Outreach's roles); an Interviewer browses and opens
+  files only. Widen it in `CatalogPage` (`canManage`) and the Outreach endpoint together.
+- **The left list is the selection canon** (`selectionRail.css`), with `.rr-row-select.ctl-rail-row`
+  one class stronger than the canon. Forms and Signature documents rows, and the + New
+  entries for them, render only when `CATALOG_FEATURES` says the kind is built.
+- **Featured is Pinned.** `is_featured` is folded into `is_pinned` by the migration and read by
+  nothing. The four stat tiles and the Featured Collections, Recent Updates and Pinned Resources
+  panels are gone; the header summary line counts live from active rows.
+- **Categories come from `catalog_categories` less retired ones** (`api/lib/catalogCategories.js`);
+  no writer hardcodes a list. `forms` is retired, not deleted: its rows stay valid and Manage
+  categories lists them for reassignment. Slugs never change.
+- **Audience is one value** in the existing `audience text[]`: everyone, students, preceptors,
+  schools, staff ("Staff only" reads bold red).
+- **A record holds documents now.** `record_documents` + the private `record-documents` bucket
+  are a student's or school's filed files, shown as rows in the chart's Documents list (same
+  columns) and in the school drawer, opened only through `/api/record-document-open`. Sends
+  that reached a record show under "Sent from the Catalog". Schools are keyed by the operative
+  name (`schoolIdentity.js`).
+- **A personal file moves only on a confirm.** `/api/catalog-personal-files` finds Catalog files
+  named for a student (first AND last name), and moves one only for `confirm: true` and a
+  student the review offered for that file; it copies, records, hides the row, and deletes the
+  Catalog copy last, after the record's copy is confirmed at the same size.
+- **Overdue is computed, never stored**: past due and not done (`completionStatus`).
+- **Inks**: the app's `--text-muted` measures 4.05:1 on the page; the Catalog reads
+  `--text-caption`. Wood inks were measured against the lightest gradient stop behind them
+  (a sweep cannot see a gradient). Caveat, the checkout card's hand, loads from Google Fonts
+  only when a Classic send history is drawn, with a cursive fallback.
+- `supabase/migrations/20260926000000_catalog_revamp_1.sql` is Owner-gated; the app runs on both
+  sides of it (a missing column or table reads as "not enabled").

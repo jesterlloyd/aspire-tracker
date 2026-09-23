@@ -12,6 +12,7 @@ import {
 } from '../lib/availability'
 import { collectAdditionalNotes } from '../lib/schoolResponseDisplay'
 import { displayName } from '../lib/utils'
+import { RecordFilesBlock } from './records/RecordDocuments'
 
 const F = 'Plus Jakarta Sans, sans-serif'
 const PENDING_WINDOW = 'Pending coordinator/admin review'
@@ -158,6 +159,10 @@ export default function SchoolResponseDrawer({
           </Section>
         </>
       )}
+      {/* CATALOG-REVAMP-1: what is on this school's record, and the Catalog sends that
+          reached its contacts. The block reads its own data (Owner/Admin by RLS) and draws
+          nothing when there is nothing, so this drawer stays display-only. */}
+      <RecordFilesBlock schoolName={schoolName || response?.school_name} />
     </DetailDrawer>
   )
 }

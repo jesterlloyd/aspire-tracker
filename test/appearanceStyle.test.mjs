@@ -361,13 +361,14 @@ test('the preview draws the chosen style, and the flag the way that style draws 
   assert.match(css, /\.apx-pv-flag \{ display: none; \}/)
 })
 
-test('the list is honest: Calendars, Outreach and Contacts switch today, Automations is absent', async () => {
+// CATALOG-REVAMP-1 added the Catalog (Classic is its bookcase, Modern its plain list).
+test('the list is honest: Calendars, Contacts, Outreach and the Catalog switch today, Automations is absent', async () => {
   assert.deepEqual(STYLE_SURFACES.map(s => s.key),
-    ['placementBoard', 'studentProfiles', 'interviewRubric', 'calendars', 'reviewRelease', 'responses', 'contacts', 'outreach'])
-  assert.deepEqual(STYLE_SURFACES.filter(s => s.modern).map(s => s.key), ['calendars', 'contacts', 'outreach'])
+    ['placementBoard', 'studentProfiles', 'interviewRubric', 'calendars', 'reviewRelease', 'responses', 'contacts', 'outreach', 'catalog'])
+  assert.deepEqual(STYLE_SURFACES.filter(s => s.modern).map(s => s.key), ['calendars', 'contacts', 'outreach', 'catalog'])
   assert.ok(!STYLE_SURFACES.some(s => /automation/i.test(s.key + s.label)), 'no equipment panel exists to switch')
   const html = await renderPage()
-  assert.equal((html.match(/class="apx-ap"/g) || []).length, 8)
+  assert.equal((html.match(/class="apx-ap"/g) || []).length, 9)
   assert.equal((html.match(/class="apx-coming">Coming</g) || []).length, 5)
 })
 

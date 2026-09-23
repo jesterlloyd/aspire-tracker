@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js';
 import { isActiveProfile, INACTIVE_STATUS, INACTIVE_REASON, INACTIVE_MESSAGE } from './lib/activeAccount.js';
+import { assignableCategorySlugs, cleanAudience } from './lib/catalogCategories.js';
 
 // CATALOG-2B - Owner/Admin upload of a NEW internal_file resource (first write phase).
 //
@@ -21,10 +22,9 @@ import { isActiveProfile, INACTIVE_STATUS, INACTIVE_REASON, INACTIVE_MESSAGE } f
 const BUCKET = 'aspire-catalog';
 const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB hard cap, enforced server-side at commit
 
-const CATEGORIES = [
-  'orientation', 'forms', 'clinical_resources', 'unit_guides',
-  'student_support', 'preceptor_resources', 'policies',
-];
+// CATALOG-REVAMP-1: the category must be an assignable catalog_categories slug (not
+// retired), checked in the handler against the table rather than a constant here.
+const SLUG_SHAPE = /^[a-z0-9_]{1,60}$/;
 
 // Extension allowlist → file_type_label (icon hint). Anything not listed is rejected,
 // which excludes exe/js/html/svg/zip/unknown binaries by construction.
@@ -115,7 +115,7 @@ function deriveAndValidate(body) {
   if (title.length > 200) return { ok: false, status: 400, error: 'Title is too long' };
 
   const category = typeof body?.category === 'string' ? body.category.trim() : '';
-  if (!CATEGORIES.includes(category)) return { ok: false, status: 400, error: 'Invalid category' };
+  if (!SLUG_SHAPE.test(category)) return { ok: false, status: 400, error: 'Invalid category' };
 
   const ext = extOf(body?.filename);
   if (!ext || !Object.prototype.hasOwnProperty.call(EXT_LABEL, ext)) {
@@ -137,7 +137,7 @@ function deriveAndValidate(body) {
     fileTypeLabel: EXT_LABEL[ext],
     description: typeof body?.description === 'string' ? body.description.trim().slice(0, 2000) : '',
     tags: cleanStringArray(body?.tags),
-    audience: cleanStringArray(body?.audience),
+    audience: cleanAudience(body?.audience),
     collection_keys: cleanStringArray(body?.collection_keys),
     sort_order: Number.isInteger(body?.sort_order) ? body.sort_order : 0,
     is_featured: body?.is_featured === true,
@@ -189,8 +189,18 @@ export default async function handler(req, res) {
   const phase = req.body?.phase === 'commit' ? 'commit' : req.body?.phase === 'sign' ? 'sign' : null;
   if (!phase) return res.status(400).json({ error: 'Missing phase' });
 
+  // CATALOG-REVAMP-1: Upload new version replaces an existing file's bytes under the same
+  // slug, title and links. It is its own branch so a new upload's rules stay unchanged.
+  if (typeof req.body?.replace_id === 'string' && req.body.replace_id) {
+    return replaceVersion(req, res, phase, auth);
+  }
+
   const v = deriveAndValidate(req.body);
   if (!v.ok) return res.status(v.status).json({ error: v.error });
+  if (v.audience === null) return res.status(400).json({ error: 'Invalid audience' });
+  const cats = await assignableCategorySlugs(supabaseAdmin);
+  if (!cats.ok) return res.status(500).json({ error: 'Lookup failed' });
+  if (!cats.slugs.has(v.category)) return res.status(400).json({ error: 'Invalid category' });
 
   // ── Phase 1: sign ───────────────────────────────────────────────────────────
   if (phase === 'sign') {
@@ -241,9 +251,7 @@ export default async function handler(req, res) {
     return res.status(409).json({ error: 'A resource with this title already exists' });
   }
 
-  const { data: created, error: insErr } = await supabaseAdmin
-    .from('catalog_resources')
-    .insert({
+  const row = {
       slug: v.slug,
       title: v.title,
       description: v.description || null,
@@ -260,9 +268,15 @@ export default async function handler(req, res) {
       is_active: true,
       created_by: auth.profileId || null,
       updated_by: auth.profileId || null,
-    })
-    .select('id, slug, title, category, resource_type, file_type_label, is_featured, is_pinned, updated_at')
-    .single();
+  };
+  const pick = 'id, slug, title, category, resource_type, file_type_label, is_featured, is_pinned, updated_at';
+  // file_size_bytes arrives with CATALOG-REVAMP-1; before it is applied, insert without it.
+  let { data: created, error: insErr } = await supabaseAdmin
+    .from('catalog_resources').insert({ ...row, file_size_bytes: obj.size ?? null }).select(pick).single();
+  if (insErr && insErr.code === '42703') {
+    ({ data: created, error: insErr } = await supabaseAdmin
+      .from('catalog_resources').insert(row).select(pick).single());
+  }
 
   if (insErr || !created) {
     // Row insert failed - never leave a visible row pointing at a file. Remove the file we just
@@ -283,4 +297,84 @@ export default async function handler(req, res) {
 
   // Created metadata only - no storage_path, no URL.
   return res.status(200).json({ resource: created });
+}
+
+// ── Upload new version (CATALOG-REVAMP-1) ─────────────────────────────────────────
+// The new bytes go to <same folder>/<slug>-v<n>.<ext>; the old object is kept, because a
+// send records the version it sent. Slug, title, category and every copied link stay.
+async function replaceVersion(req, res, phase, auth) {
+  const id = String(req.body.replace_id).trim();
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return res.status(400).json({ error: 'Invalid replace_id' });
+  const ext = extOf(req.body?.filename);
+  if (!ext || !Object.prototype.hasOwnProperty.call(EXT_LABEL, ext)) {
+    return res.status(400).json({ error: 'Unsupported file type' });
+  }
+
+  const { data: current, error: curErr } = await supabaseAdmin
+    .from('catalog_resources')
+    .select('id, slug, storage_path, resource_type, is_active, version')
+    .eq('id', id).maybeSingle();
+  if (curErr && curErr.code === '42703') {
+    return res.status(409).json({ error: 'Upload new version is available once the Catalog update is applied.' });
+  }
+  if (curErr) return res.status(500).json({ error: 'Lookup failed' });
+  if (!current) return res.status(404).json({ error: 'Resource not found' });
+  if (current.resource_type !== 'internal_file' || !current.storage_path) {
+    return res.status(400).json({ error: 'Only an uploaded file can take a new version' });
+  }
+  if (current.is_active === false) return res.status(409).json({ error: 'Restore the resource before uploading a new version' });
+
+  const folder = current.storage_path.slice(0, current.storage_path.lastIndexOf('/'));
+  const nextVersion = (current.version || 1) + 1;
+  const key = `${folder}/${current.slug}-v${nextVersion}.${ext}`;
+  if (!folder || key.includes('..') || (key.match(/\//g) || []).length !== 1) {
+    return res.status(400).json({ error: 'Invalid storage path' });
+  }
+
+  if (phase === 'sign') {
+    const declared = Number(req.body?.size);
+    if (Number.isFinite(declared) && declared > MAX_FILE_BYTES) {
+      return res.status(413).json({ error: 'File exceeds the 10 MB limit' });
+    }
+    const obj = await findObject(key);
+    if (obj.error) return res.status(500).json({ error: 'Storage check failed' });
+    // A leftover from an attempt that never committed is unreferenced; clear it first.
+    if (obj.exists) {
+      const cleared = await safeRemoveOrphan(key);
+      if (!cleared.removed) return res.status(409).json({ error: 'A previous upload is still in place; try again' });
+    }
+    const { data: signed, error: signErr } = await supabaseAdmin.storage.from(BUCKET).createSignedUploadUrl(key);
+    if (signErr || !signed?.token) return res.status(502).json({ error: 'Could not start upload' });
+    return res.status(200).json({ token: signed.token, path: signed.path || key, slug: current.slug, version: nextVersion });
+  }
+
+  const obj = await findObject(key);
+  if (obj.error) return res.status(500).json({ error: 'Storage check failed' });
+  if (!obj.exists) return res.status(409).json({ error: 'File was not uploaded; please retry' });
+  if (obj.size != null && obj.size > MAX_FILE_BYTES) {
+    await safeRemoveOrphan(key);
+    return res.status(413).json({ error: 'File exceeds the 10 MB limit' });
+  }
+
+  const now = new Date().toISOString();
+  const { data: updated, error: updErr } = await supabaseAdmin
+    .from('catalog_resources')
+    .update({
+      storage_path: key,
+      file_type_label: EXT_LABEL[ext],
+      version: nextVersion,
+      version_updated_at: now,
+      file_size_bytes: obj.size ?? null,
+      updated_at: now,
+      updated_by: auth.profileId || null,
+    })
+    .eq('id', current.id)
+    .eq('version', current.version || 1)   // a concurrent new version loses, never overwrites
+    .select('id, slug, version, file_type_label, updated_at')
+    .maybeSingle();
+  if (updErr || !updated) {
+    await safeRemoveOrphan(key);
+    return res.status(409).json({ error: 'The file changed while you were uploading; reload and try again' });
+  }
+  return res.status(200).json({ resource: updated });
 }

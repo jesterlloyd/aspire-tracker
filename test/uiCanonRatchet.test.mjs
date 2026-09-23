@@ -24,7 +24,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 // tokens. Never raise them: that is the whole point.
 const BASELINE = {
   cssRadiusLiterals: 402,   // border-radius: <n>px in any src/**/*.css (409 -> 402, RESPONSES-PACKET-1)
-  jsxRadiusLiterals: 1154,  // borderRadius: <n> in any src/**/*.jsx (REVIEW-RELEASE-2 retired the five panels)
+  jsxRadiusLiterals: 1109,  // borderRadius: <n> in any src/**/*.jsx (1154 -> 1109, CATALOG-REVAMP-1 moved the Catalog to its sheet)
 }
 
 function walk(dir, out = []) {
