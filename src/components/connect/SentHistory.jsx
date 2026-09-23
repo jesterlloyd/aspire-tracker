@@ -427,6 +427,7 @@ export default function SentHistory() {
     // collapsing every other KPI to zero.
     params.delete('audience_filter')
     params.set('aggregate', '1')
+    if (dateRange === 'all_time') params.set('observed_range', '1')
     params.set('tz_offset_minutes', String(new Date().getTimezoneOffset()))
     return params.toString()
     // eslint-disable-next-line react-hooks/exhaustive-deps

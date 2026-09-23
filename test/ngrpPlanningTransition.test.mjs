@@ -1408,14 +1408,12 @@ test('regression: alumni never confirm or assign themselves; preferences never b
   assert.match(drawerUi, /Nobody confirms this/)
 })
 
-test('regression: launch handoff carries cycle + filters and the dedicated panel replaces the composer', () => {
+test('regression: transition-form delivery remains outside the Outreach template library', () => {
   assert.match(launchCtx, /NGRP_TRANSITION_FORM: 'ngrp_transition_form'/)
   assert.match(applicantsUi, /kind: LAUNCH_KINDS\.NGRP_TRANSITION_FORM/)
   assert.match(applicantsUi, /returnPath: `\/ngrp\/applicants\$\{window\.location\.search \|\| ''\}`/)
-  assert.match(registry, /key: 'ngrp_transition_form_invitation'/)
-  assert.match(registry, /templateKind: 'ngrp_secure'/)
-  assert.match(outreachView, /bulkMsgType !== 'ngrp_transition_form_invitation' && \(\s*<BulkManualComposer/)
-  assert.match(outreachView, /bulkMsgType === 'ngrp_transition_form_invitation' && \(\s*<NgrpTransitionSendPanel/)
+  assert.doesNotMatch(registry, /key: 'ngrp_transition_form_invitation'/)
+  assert.doesNotMatch(outreachView, /NgrpTransitionSendPanel/)
   assert.doesNotMatch(sendPanel, /[Ii]nvited to [Aa]pply/)
   assert.match(sendPanel, /not an invitation to apply/)
 })

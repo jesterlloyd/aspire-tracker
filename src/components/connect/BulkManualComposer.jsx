@@ -273,6 +273,7 @@ export default function BulkManualComposer({
 
   // Preview / Review
   const [reviewOpen, setReviewOpen]       = useState(false)
+  const [previewOpen, setPreviewOpen]     = useState(false)
   // Branded "Preview as sent" - { html, loading, error } from the existing DM preview endpoint
   // (preview:true → no send, no log, no archive). Only for id-bearing sample recipients.
   const [preview, setPreview]             = useState({ html: '', attachments: [], loading: false, error: null })
@@ -315,6 +316,7 @@ export default function BulkManualComposer({
     setManualInvalids([])
     setRestoredAudience(0)
     setAckNotProceeding(false)
+    setPreviewOpen(false)
     // OUTREACH-ATTACHMENTS-1: attachments are per message type. The hydrate
     // effect below restores THIS type's saved list, if it has one.
     setAttachments([])
@@ -448,6 +450,7 @@ export default function BulkManualComposer({
     setAckNotProceeding(false)
     setTrayOpen(false)
     setAttachments([])
+    setPreviewOpen(false)
     try { if (BULK_DRAFT_KEY) localStorage.removeItem(BULK_DRAFT_KEY) } catch { /* ignore */ }
     flashDraftStatus('discarded')
   }, [bulkMsgType, BULK_DRAFT_KEY, richEnabled, flashDraftStatus])
@@ -868,10 +871,10 @@ export default function BulkManualComposer({
   return (
     <div className="outreach-bulk-manual" style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'flex-start', width: '100%' }}>
 
-      {/* ── Zone 1: Audience ─────────────────────────────────────────────── */}
+      {/* ── Zone 1: Recipients ───────────────────────────────────────────── */}
       {/* overflow stays auto for the long Students/Contacts lists, but is visible for Paste · Type
           so the typeahead suggestion dropdown is never clipped by the card. */}
-      <ConnectPanel tone="audience" title="Audience" helper="Build one recipient list from any source."
+      <ConnectPanel tone="audience" title="Recipients" helper="Build one recipient list from any source."
         style={{ flex: '0 0 340px', minWidth: 280, maxHeight: 'calc(100dvh - 280px)', overflowY: source === 'paste' ? 'visible' : 'auto' }}>
 
         {/* Audience Source selector */}
@@ -1162,7 +1165,7 @@ export default function BulkManualComposer({
       {/* ── Zone 2: Message Type (shared selector from parent) ───────────── */}
       {/* CONNECT-TEMPLATE-AUDIENCE-UX-2: pass the audience inferred from THIS composer's live source +
           contact-category selection so the parent selector groups templates accordingly. */}
-      <ConnectPanel tone="message" title="Message Type" helper="Bulk workflow" style={{ flex: '0 0 270px', minWidth: 220 }}>
+      <ConnectPanel tone="message" title="Message Type" style={{ flex: '0 0 270px', minWidth: 220 }}>
         {renderTypeSelector?.(audienceForBulkSelection({ source, contactCategory: contactCat }))}
         <div style={{ marginTop: 12, padding: '8px 10px', background: '#FBF5E8', border: '1px solid #f0c9b0', borderRadius: 8, fontSize: 10, color: '#8B5E1A', fontFamily: F, lineHeight: 1.5 }}>
           Compose your audience and draft here, then open <strong>Review &amp; send</strong>. A typed confirmation is required before any email is sent.
@@ -1170,12 +1173,12 @@ export default function BulkManualComposer({
       </ConnectPanel>
 
       {/* ── Zone 3: Draft / Preview / Review ─────────────────────────────── */}
-      <div style={{ flex: '1 1 320px', minWidth: 280 }}>
-        <ConnectPanel tone="draft" title="Draft">
+      <div className="outreach-bulk-draft-column" style={{ flex: '1 1 320px', minWidth: 280 }}>
+        <ConnectPanel tone="draft" title="Draft" className="outreach-draft-panel">
 
           <div style={{ marginBottom: 12 }}>
             <label style={labelStyle}>Subject</label>
-            <input value={subject} onChange={e => setSubject(e.target.value)} style={inputBase} />
+            <input className="outreach-field-control" value={subject} onChange={e => setSubject(e.target.value)} style={inputBase} />
           </div>
           <div style={{ marginBottom: 12 }}>
             <label style={labelStyle}>Message</label>
@@ -1186,7 +1189,7 @@ export default function BulkManualComposer({
               // bulkMsgType, so there is no remount mid-edit.
               <RichTextEditor key={bulkMsgType} html={body} richDocRef={bulkRichDocRef} onChange={(html, json) => { setBody(html); bulkRichDocRef.current = json || null }} ariaLabel="Message" minHeight={240} />
             ) : (
-              <textarea value={body} onChange={e => setBody(e.target.value)} rows={14}
+              <textarea className="outreach-field-control" value={body} onChange={e => setBody(e.target.value)} rows={14}
                 style={{ ...inputBase, resize: 'vertical', lineHeight: 1.6, minHeight: 240, fontSize: 13 }} />
             )}
             {/* CONNECT-DRAFT-AUTOSAVE-1 parity: unobtrusive autosave status (bottom-left) + explicit
@@ -1199,13 +1202,10 @@ export default function BulkManualComposer({
                   : ''}
               </span>
               {(!bulkDraftIsPristine(bulkMsgType, subject, body, richEnabled) || studentSel.size > 0 || contactSel.size > 0 || picked.length > 0) && (
-                <button
+                <button className="outreach-discard-draft"
                   type="button"
                   onClick={handleDiscardBulkDraft}
-                  style={{
-                    marginLeft: 'auto', background: 'none', border: 'none', padding: 0, cursor: 'pointer',
-                    fontFamily: F, fontSize: 11, fontWeight: 600, color: '#9ca3af',
-                  }}>
+                  style={{ marginLeft: 'auto' }}>
                   Discard draft
                 </button>
               )}
@@ -1229,7 +1229,8 @@ export default function BulkManualComposer({
           </div>
         </ConnectPanel>
 
-        {/* Email Preview - tint on the shell; the branded email card inside stays white */}
+        {/* The branded preview is a deliberate review step, not permanent draft clutter. */}
+        {previewOpen && (
         <ConnectPanel tone="preview" title="Email Preview" padding={24} style={{ marginTop: 14 }}>
 
           {recipients.length === 0 ? (
@@ -1291,24 +1292,25 @@ export default function BulkManualComposer({
             </div>
           )}
         </ConnectPanel>
+        )}
 
         {/* Action row - Review & send opens the final review panel (the only path to a live send) */}
         <div style={{ ...panelCard, marginTop: 14, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           {(() => {
             const reviewReady = recipients.length > 0 && subject.trim() && body.trim()
             return (
-              <button onClick={() => setReviewOpen(true)} disabled={!reviewReady} style={{
+              <button onClick={() => previewOpen ? setReviewOpen(true) : setPreviewOpen(true)} disabled={!reviewReady} style={{
                 padding: '9px 18px', borderRadius: 8, border: 'none',
                 background: reviewReady ? NAVY : '#e5e7eb', color: reviewReady ? '#fff' : '#9ca3af',
                 fontSize: 13, fontWeight: 600, fontFamily: F, cursor: reviewReady ? 'pointer' : 'not-allowed',
-              }}>Review &amp; send ({recipients.length})</button>
+              }}>{previewOpen ? `Continue to final review (${recipients.length})` : `Review & send (${recipients.length})`}</button>
             )
           })()}
           <span style={{ fontSize: 11, color: '#9ca3af', fontFamily: F }}>
             {recipients.length === 0 ? 'Add recipients to continue.'
               : !subject.trim() ? 'Add a subject to continue.'
               : !body.trim() ? 'Add a message to continue.'
-              : 'A typed confirmation is required in the next step.'}
+              : previewOpen ? 'A typed confirmation is required in the next step.' : 'Review the final email before confirming the send.'}
           </span>
         </div>
       </div>
@@ -1481,7 +1483,7 @@ export default function BulkManualComposer({
             <div style={{ padding: '14px 22px', borderTop: '1px solid #f3f4f6' }}>
               {sendResult ? (
                 <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                  <button onClick={() => setReviewOpen(false)} style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: NAVY, color: '#fff', fontSize: 13, fontWeight: 600, fontFamily: F, cursor: 'pointer' }}>Done</button>
+                  <button onClick={() => { setReviewOpen(false); setPreviewOpen(false) }} style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: NAVY, color: '#fff', fontSize: 13, fontWeight: 600, fontFamily: F, cursor: 'pointer' }}>Done</button>
                 </div>
               ) : (
                 <div>

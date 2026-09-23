@@ -134,11 +134,27 @@ test('daily buckets follow the viewer local day, matching the date filters', () 
     ['2026-08-01', '2026-08-02', '2026-08-03'])
 })
 
-test('long ranges keep the latest 400 days so current sends remain visible', () => {
+test('dayRange preserves the requested window without inventing a recent cutoff', () => {
   const days = dayRange('2025-01-01T00:00:00.000Z', '2026-09-23T00:00:00.000Z', 0)
-  assert.equal(days.length, 400)
+  assert.equal(days.at(0), '2025-01-01')
   assert.equal(days.at(-1), '2026-09-22')
-  assert.equal(days.at(0), '2025-08-19')
+})
+
+test('All time analytics span the first observed communication through the last', () => {
+  const rows = [
+    row({ sent_at: '2026-05-12T18:00:00.000Z' }),
+    row({ sent_at: '2026-09-22T18:00:00.000Z' }),
+  ]
+  const { daily } = aggregateOutreach(rows, {
+    contactCategories: CATS,
+    startIso: '2025-01-01T00:00:00.000Z',
+    endIso: '2026-09-23T00:00:00.000Z',
+    tzOffsetMinutes: 420,
+    observedRange: true,
+  })
+  assert.equal(daily[0].date, '2026-05-12')
+  assert.equal(daily.at(-1).date, '2026-09-22')
+  assert.equal(daily.reduce((sum, day) => sum + day.total, 0), 2)
 })
 
 // ── Delivery health ──────────────────────────────────────────────────────────

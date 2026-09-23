@@ -160,7 +160,7 @@ export default function ConnectPage({ cohortId, onNavigateToStudent, refreshRef,
       <div
         ref={pickerRef}
         style={{
-          padding: '0 20px 12px', flexShrink: 0, position: 'sticky', top: chromeHeight,
+          padding: '12px 20px', flexShrink: 0, position: 'sticky', top: chromeHeight,
           zIndex: 20, background: 'var(--bg-app, #F4F1EC)',
         }}
       >

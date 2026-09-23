@@ -20,7 +20,6 @@ import { readLaunchContext, LAUNCH_KINDS } from '../../lib/connect/launchContext
 import RichTextEditor from './RichTextEditor'
 import { isRichComposeEnabled, plainTextToHtml, htmlToPlainText } from '../../lib/connect/richCompose'
 import ConnectPanel from './ConnectPanel'
-import NgrpTransitionSendPanel from './NgrpTransitionSendPanel'
 import { isValidEmail, resolveStudentCorrespondenceRecipient } from '../../lib/notifications/studentRecipient'
 import { normalizeEmailForLookup } from '../../lib/emailUtils'
 import { mergeCcRecipientText, parseRecipientText } from '../../lib/recipientParse'
@@ -35,7 +34,7 @@ import {
 } from '../../lib/outreachTemplates'
 import {
   SEND_TO_ONE_TEMPLATES, SEND_TO_MANY_TEMPLATES,
-  splitTemplatesForAudience, getPrimarySectionTitle, audienceForContact, AUDIENCES,
+  splitTemplatesForAudience, audienceForContact, AUDIENCES,
 } from '../../lib/connect/templateRegistry'
 import { EMAIL_SOURCE_OPTIONS, studentHasEmailSource, studentEmailForSource, emailTypeLabel } from '../../lib/studentBulkEmail'
 import { getStudentPreferredFirstName, getStudentPreferredFullName, getStudentPreferredGreetingName } from '../../lib/studentNameFormatters'
@@ -197,16 +196,9 @@ function liftSelectedIntoPrimary({ primary, other }, selectedKey) {
 // supplies its own button markup via renderItem(template) so existing visuals are untouched. When the
 // audience is null (no inference yet) the caller passes the full list as `primary` with empty `other`,
 // so this renders a flat list with no heading - preserving the pre-filtering look.
-function TemplateGroup({ audience, helperText, primary, other, otherOpen, onToggleOther, renderItem }) {
-  const title = audience ? getPrimarySectionTitle(audience) : null
+function TemplateGroup({ primary, other, otherOpen, onToggleOther, renderItem }) {
   return (
-    <div style={{ marginBottom: 16 }}>
-      {title && (
-        <div style={{ fontSize: 11, fontWeight: 700, color: '#374151', marginBottom: 3, fontFamily: F }}>{title}</div>
-      )}
-      {title && helperText && (
-        <div style={{ fontSize: 10.5, color: '#9ca3af', marginBottom: 9, fontFamily: F, lineHeight: 1.5 }}>{helperText}</div>
-      )}
+    <div className="outreach-template-group" style={{ marginBottom: 16 }}>
       {primary.map(renderItem)}
       {other.length > 0 && (
         <div style={{ marginTop: 6 }}>
@@ -549,7 +541,11 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
   // ── Bulk Operation state ──────────────────────────────────────────────────
   // A Send-and-confirm launch preselects its template (e.g. Unit Leader Capacity Request /
   // Student Profile Form Invitation); otherwise the long-standing survey default.
-  const [bulkMsgType,            setBulkMsgType]            = useState(launchCtx?.templateKey || 'survey_invitation')
+  const [bulkMsgType,            setBulkMsgType]            = useState(
+    SEND_TO_MANY_TEMPLATES.some(t => t.key === launchCtx?.templateKey)
+      ? launchCtx.templateKey
+      : 'survey_invitation',
+  )
   const [bulkInstrument,         setBulkInstrument]         = useState('casey_fink_readiness_2024')
   const [bulkTimepoint,          setBulkTimepoint]          = useState('baseline')
   const [bulkExpiresAt,          setBulkExpiresAt]          = useState(defaultExpiresAt)
@@ -1584,7 +1580,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
         display: 'flex', alignItems: 'center', gap: 8,
         width: '100%', padding: '7px 10px',
         border: bulkMsgType === key ? '1.5px solid #1D2567' : '1.5px solid #e5e7eb',
-        borderRadius: 7, background: bulkMsgType === key ? '#EEF2FB' : '#fff',
+        borderRadius: 0, background: bulkMsgType === key ? '#EEF2FB' : '#fff',
         cursor: 'pointer', marginBottom: 4,
         fontSize: 12, fontWeight: bulkMsgType === key ? 700 : 500,
         color: bulkMsgType === key ? '#1D2567' : '#374151',
@@ -1600,8 +1596,6 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
     )
     return (
       <TemplateGroup
-        audience={audience}
-        helperText="Showing templates based on the selected audience."
         primary={split.primary}
         other={split.other}
         otherOpen={bulkOtherOpen}
@@ -2819,7 +2813,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
           </ConnectPanel>
 
           {/* ── Message Type picker (moved into left column below profile card) ── */}
-          <ConnectPanel tone="message" title="Message Type" helper="Workflow">
+          <ConnectPanel tone="message" title="Message Type">
 
           {/* Type selector - audience-aware (CONNECT-TEMPLATE-AUDIENCE-UX-2). Grouping/behavior of
               each item is unchanged; templates are split into a primary list for the inferred
@@ -2837,7 +2831,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                     border: isTypeSelected(t)
                       ? '1.5px solid #1D2567'
                       : '1.5px solid #e5e7eb',
-                    borderRadius: 7,
+                    borderRadius: 0,
                     background: isTypeSelected(t) ? '#EEF2FB' : '#fff',
                     cursor: 'pointer', marginBottom: 4,
                     fontSize: 12,
@@ -2882,8 +2876,6 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
             )
             return (
               <TemplateGroup
-                audience={singleAudience}
-                helperText="Showing templates based on the selected recipient."
                 primary={split.primary}
                 other={split.other}
                 otherOpen={singleOtherOpen}
@@ -3151,7 +3143,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
               {/* Subject input - enabled for any loaded recipient (contact or student) */}
               <div className="outreach-address-subject" style={fieldWrap}>
                 <label style={labelStyle}>Subject</label>
-                <input
+                <input className="outreach-field-control"
                   type="text"
                   value={msgSubject}
                   onChange={e => { markDraftDirty(); setMsgSubject(e.target.value) }}
@@ -3174,7 +3166,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                     minHeight={160}
                   />
                 ) : (
-                  <textarea
+                  <textarea className="outreach-field-control"
                     value={msgBody}
                     onChange={e => { markDraftDirty(); setMsgBody(e.target.value) }}
                     placeholder={
@@ -3196,13 +3188,10 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                       : ''}
                   </span>
                   {dmHasAnyRecipient && (String(msgSubject).trim() || String(msgBody).trim()) && (
-                    <button
+                    <button className="outreach-discard-draft"
                       type="button"
                       onClick={handleDiscardDraft}
-                      style={{
-                        marginLeft: 'auto', background: 'none', border: 'none', padding: 0, cursor: 'pointer',
-                        fontFamily: F, fontSize: 11, fontWeight: 600, color: '#9ca3af',
-                      }}>
+                      style={{ marginLeft: 'auto' }}>
                       Discard draft
                     </button>
                   )}
@@ -3214,7 +3203,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                   (validates, dedupes, drops CC==To, caps at 5). */}
               <div className="outreach-address-cc" style={fieldWrap}>
                 <label style={labelStyle}>CC <span style={{ fontWeight: 400, color: '#9ca3af' }}>(optional)</span></label>
-                <div style={{
+                <div className="outreach-field-control outreach-cc-control" style={{
                   position: 'relative',   // CONNECT-COMMS-1F: anchor for the autocomplete dropdown
                   display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center',
                   padding: '6px 8px', border: '1px solid #e5e7eb', borderRadius: 8,
@@ -3785,7 +3774,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
           Calls /api/evaluation-bulk-invitations for generate_only.
           No email. No Resend. Generated surveyUrls live in React state only.
       ═══════════════════════════════════════════════════════════════════ */}
-      {recipientMode === 'bulk' && bulkMsgType !== 'survey_invitation' && bulkMsgType !== 'ngrp_transition_form_invitation' && (
+      {recipientMode === 'bulk' && bulkMsgType !== 'survey_invitation' && (
         <BulkManualComposer
           bulkMsgType={bulkMsgType}
           students={students}
@@ -3798,18 +3787,11 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
         />
       )}
 
-      {/* NGRP-RELEASE-2: the secure Transition Form invitation renders its own
-          server-minted panel - never the manual composer, whose client-authored
-          body could not carry per-recipient secure links. */}
-      {recipientMode === 'bulk' && bulkMsgType === 'ngrp_transition_form_invitation' && (
-        <NgrpTransitionSendPanel renderTypeSelector={renderBulkTypeSelector} />
-      )}
-
       {recipientMode === 'bulk' && bulkMsgType === 'survey_invitation' && (
         <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'flex-start' }}>
 
           {/* ── Bulk Zone 1: Student Audience Picker ─────────────────── */}
-          <ConnectPanel tone="audience" title="Audience"
+          <ConnectPanel tone="audience" title="Recipients"
             helper={loadingStudents ? 'Loading students…' : `${students.length} students in cohort`}
             style={{ flex: '0 0 340px', minWidth: 280, maxHeight: 'calc(100dvh - 280px)', overflowY: 'auto' }}>
 
@@ -3997,7 +3979,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
           </ConnectPanel>
 
           {/* ── Bulk Zone 2: Message Type + Workflow ──────────────────── */}
-          <ConnectPanel tone="message" title="Message Type" helper="Bulk workflow" style={{ flex: '0 0 270px', minWidth: 220 }}>
+          <ConnectPanel tone="message" title="Message Type" style={{ flex: '0 0 270px', minWidth: 220 }}>
 
             {/* Bulk message type selector (shared with the manual composer). This zone is the survey
                 workflow, which is student-only, so the audience is always 'student'. */}

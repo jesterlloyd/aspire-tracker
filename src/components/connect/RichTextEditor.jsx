@@ -347,7 +347,7 @@ export default function RichTextEditor({ html = '', richDocRef = null, onChange,
       />
 
       {/* Editable surface */}
-      <div style={{ border: '1.5px solid #e5e7eb', borderRadius: '0 0 8px 8px', background: '#fff' }}>
+      <div className="outreach-rich-editor-surface" style={{ border: '1.5px solid #e5e7eb', borderRadius: '0 0 8px 8px', background: '#fff' }}>
         <EditorContent editor={editor} />
       </div>
     </div>

@@ -215,6 +215,7 @@ export default async function handler(req, res) {
         startIso: startInstant.toISOString(),
         endIso: endInstant.toISOString(),
         tzOffsetMinutes,
+        observedRange: q.observed_range === '1' || q.observed_range === 'true',
       });
       return res.status(200).json({ ...agg, truncated });
     }
