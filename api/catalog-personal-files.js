@@ -76,6 +76,7 @@ async function list(req, res) {
     .select('id, slug, title, category, storage_path, resource_type, is_active')
     .eq('resource_type', 'internal_file')
     .eq('is_active', true)
+    .not('storage_path', 'like', 'sig-template:%')   // SIGNATURES-PHASE2: templates are not files
   if (error) return res.status(500).json({ error: 'Lookup failed' })
 
   const st = await loadStudents(req)
@@ -128,7 +129,7 @@ async function move(req, res, auth) {
   if (rErr) return res.status(500).json({ error: 'Lookup failed' })
   if (!r) return res.status(404).json({ error: 'Resource not found' })
   if (r.moved_to_record_document_id) return res.status(409).json({ error: 'This file has already moved' })
-  if (r.resource_type !== 'internal_file' || !r.storage_path || r.is_active !== true) {
+  if (r.resource_type !== 'internal_file' || !r.storage_path || r.storage_path.startsWith('sig-template:') || r.is_active !== true) {
     return res.status(400).json({ error: 'Only an active uploaded file can move' })
   }
 
