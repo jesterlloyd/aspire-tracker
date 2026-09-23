@@ -258,7 +258,9 @@
 .ctl-k-signature { color: var(--ctl-plum); }
 .ctl-dh h2 { margin: 0; font-size: 18px; line-height: 1.25; font-weight: 700; text-wrap: balance; color: var(--ctl-ink); }
 .ctl-dh p { margin: 0; font-size: 13px; color: var(--ctl-muted); }
-.ctl-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.ctl-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.ctl-row-more { margin-left: auto; display: inline-flex; }
+.ctl-row-more .shared-row-actions { width: auto; }
 .ctl-db { padding: 14px 18px 18px; display: grid; gap: 14px; }
 .ctl-preview { height: 150px; display: grid; place-items: center; overflow: hidden; background: var(--ctl-surface-2); border-radius: var(--aspire-radius-control); }
 .ctl-preview-pg { width: 104px; height: 134px; margin-top: 22px; padding: 12px 10px; box-sizing: border-box; display: grid; gap: 5px; align-content: start;

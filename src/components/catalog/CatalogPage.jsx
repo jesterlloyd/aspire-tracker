@@ -216,16 +216,19 @@ export default function CatalogPage({
 
   const menuItems = useCallback((r) => {
     const ext = r.resource_type === 'external_link'
+    // A removed file cannot be opened, downloaded or linked to (the server refuses an
+    // inactive row), so its menu offers only Restore; a file moved to a record, nothing.
+    if (r.is_active === false) {
+      return canManage && !r.moved_to_record_document_id
+        ? [{ key: 'restore', label: 'Restore', onSelect: () => runUpdate(r.id, { is_active: true }, 'Restored to the Catalog.') }]
+        : []
+    }
     const items = [
       { key: 'open', label: ext ? 'Open link' : 'Open', onSelect: () => accessResource(r, 'open') },
       ...(ext ? [] : [{ key: 'dl', label: 'Download', onSelect: () => accessResource(r, 'download') }]),
       { key: 'copy', label: 'Copy link', onSelect: () => copyLink(r) },
     ]
     if (!canManage) return items
-    if (r.is_active === false) {
-      return r.moved_to_record_document_id ? items
-        : [...items, { key: 'restore', label: 'Restore', onSelect: () => runUpdate(r.id, { is_active: true }, 'Restored to the Catalog.') }]
-    }
     return [
       ...items,
       { key: 'edit', label: 'Edit details', onSelect: () => setDialog({ type: 'edit', row: r }) },
@@ -351,7 +354,8 @@ export default function CatalogPage({
         {selected && (
           <div className="ctl-detail-wrap">
             <DetailPanel row={selected} catLabel={catLabel} sends={sendsById[selected.id] || []} sendsEnabled={sendsEnabled}
-              canManage={canManage} onClose={() => setSelectedId('')} onSend={openSend} onAccess={accessResource} />
+              canManage={canManage} onClose={() => setSelectedId('')} onSend={openSend} onAccess={accessResource}
+              menuItems={menuItems} />
           </div>
         )}
       </div>
@@ -524,8 +528,10 @@ function ItemList({ sections, title, count, selectedId, onSelect, onSend, canMan
                     {canManage && r.is_active !== false && (
                       <button type="button" className="ctl-btn ctl-btn-sm" onClick={() => onSend(r)}><SendIcon size={14} /> {sendButtonLabel(r)}</button>
                     )}
-                    <RowActionsMenu label={`More actions for ${r.title}`} open={menuFor === r.id}
-                      onToggle={() => setMenuFor(menuFor === r.id ? null : r.id)} onClose={() => setMenuFor(null)} items={menuItems(r)} />
+                    {menuItems(r).length > 0 && (
+                      <RowActionsMenu label={`More actions for ${r.title}`} open={menuFor === r.id}
+                        onToggle={() => setMenuFor(menuFor === r.id ? null : r.id)} onClose={() => setMenuFor(null)} items={menuItems(r)} />
+                    )}
                   </div>
                 </div>
               )
@@ -606,7 +612,13 @@ function Cover({ row, selected, onSelect, catLabel, usage }) {
 }
 
 // ── Detail panel ──────────────────────────────────────────────────────────────────
-function DetailPanel({ row, catLabel, sends, sendsEnabled, canManage, onClose, onSend, onAccess }) {
+// The panel carries the item's ⋯ menu too (Owner, 2026-09-23): the bookcase has no row to
+// hang one on, and a hover-only control on a cover is lost to touch and keyboard. So every
+// action a list row offers is reachable from the panel in both styles. Open and Download
+// are already buttons here, so the menu leaves them out while the item is active.
+function DetailPanel({ row, catLabel, sends, sendsEnabled, canManage, onClose, onSend, onAccess, menuItems }) {
+  const [menuOpen, setMenuOpen] = useState(false)
+  const panelItems = menuItems(row).filter(i => i.key !== 'open' && i.key !== 'dl')
   const k = kindOf(row)
   const badge = fileBadge(row)
   const ext = row.resource_type === 'external_link'
@@ -625,8 +637,14 @@ function DetailPanel({ row, catLabel, sends, sendsEnabled, canManage, onClose, o
           {canManage && !off && <button type="button" className="ctl-btn ctl-btn-pri ctl-btn-sm" onClick={() => onSend(row)}><SendIcon size={14} /> {sendButtonLabel(row)}</button>}
           {!off && <button type="button" className="ctl-btn ctl-btn-sm" onClick={() => onAccess(row, 'open')}>{ext ? 'Open link' : 'Open'}</button>}
           {!off && !ext && <button type="button" className="ctl-btn ctl-btn-sm" onClick={() => onAccess(row, 'download')}>Download</button>}
+          {panelItems.length > 0 && (
+            <span className="ctl-row-more">
+              <RowActionsMenu label={`More actions for ${row.title}`} open={menuOpen}
+                onToggle={() => setMenuOpen(o => !o)} onClose={() => setMenuOpen(false)} items={panelItems} />
+            </span>
+          )}
         </div>
-        {off && <p className="ctl-removed">{row.moved_to_record_document_id ? 'This file moved to a student record and is no longer in the Catalog.' : 'Removed from the Catalog. Restore it from the ⋯ menu.'}</p>}
+        {off && <p className="ctl-removed">{row.moved_to_record_document_id ? 'This file moved to a student record and is no longer in the Catalog.' : 'Removed from the Catalog. Restore it from the ⋯ menu above.'}</p>}
       </div>
       <div className="ctl-db">
         <div className="ctl-preview" aria-hidden="true"><div className="ctl-preview-pg"><i className="h" /><i /><i /><i className="s" /><i /><i /><i className="s" /></div></div>
