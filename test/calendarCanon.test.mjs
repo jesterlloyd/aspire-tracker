@@ -55,6 +55,9 @@ test('calendar appearance is canonical: app follows Style and portals stay Moder
   assert.match(foundation, /appearance === 'modern' \|\| \(appearance === 'auto' && style === 'modern'\)/)
   assert.match(css, /\.canonical-calendar-shell\.canonical-calendar-modern \{[\s\S]*?grid-template-columns:[^;]+;[\s\S]*?gap: 0;/)
   assert.match(css, /\.canonical-calendar-modern \.canonical-calendar-sidebar \{[\s\S]*?border-right: 1px solid var\(--rule\);/)
+  assert.match(css, /\.pl-planner \{[\s\S]*?border: 7px solid #85512A;/, 'Classic uses the approved wood frame')
+  assert.match(css, /--pad-base: #2B3453;/, 'Classic uses the approved navy desk pad')
+  assert.match(css, /\.pl-planner \.pl-cal-title,[\s\S]*?font-family: Georgia/, 'Classic uses the approved calendar typography')
   for (const name of ['Unit Leader', 'Student Portal', 'Academics']) {
     assert.match(read(ALL_CALENDARS[name]), /appearance="modern"/, `${name} is Modern-only`)
   }

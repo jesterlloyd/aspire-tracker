@@ -184,15 +184,15 @@
    are the app's shared paper (`--aspire-paper*` in theme.css, REVIEW-RELEASE-2), which
    the Review & Release clipboard reads too: one definition, two surfaces. */
 .pl-planner {
-  --paper: var(--aspire-paper);
-  --paper-2: var(--aspire-paper-2);
-  --paper-ink: var(--aspire-paper-ink);
-  --paper-muted: var(--aspire-paper-muted);
-  --rule: var(--aspire-rule);
-  --pad-a: #5A6280;
-  --pad-b: #434A60;
-  --pad-c: #373D51;
-  --pad-base: #4A5168;
+  --paper: #FFFDF7;
+  --paper-2: #E6E0D4;
+  --paper-ink: #2D2B27;
+  --paper-muted: #776F63;
+  --rule: #DDD3C2;
+  --pad-a: #2B3453;
+  --pad-b: #2B3453;
+  --pad-c: #252D49;
+  --pad-base: #2B3453;
 }
 .pl-planner[data-paper="tan"] {
   --paper: #FBF3E2;
@@ -238,7 +238,9 @@
   --pl-stack-x: 8px;
   --pl-stack-y: 8px;
   position: relative;
-  border-radius: var(--aspire-radius-page, 4px);
+  box-sizing: border-box;
+  border: 7px solid #85512A;
+  border-radius: 7px;
   padding:
     var(--pl-pad-y)
     calc(var(--pl-pad-x) + var(--pl-stack-x))
@@ -250,13 +252,13 @@
     linear-gradient(180deg, var(--pad-a), var(--pad-b) 55%, var(--pad-c));
   background-blend-mode: soft-light, normal;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.14),
-    0 2px 3px rgba(24, 32, 63, 0.35),
-    0 10px 22px rgba(24, 32, 63, 0.18);
+    inset 0 0 0 2px #553018,
+    0 16px 36px rgba(43, 30, 18, 0.22);
 }
 /* Dark mode is one pad for every theme. The papers are a light-mode distinction: in dark
    the room is already dark, and three different dark pads would read as three bugs. */
 [data-theme="dark"] .pl-planner {
+  border-color: #5B3A22;
   background-image: none;
   background: linear-gradient(180deg, #2B3145, #1E2333 55%, #181C29);
 }
@@ -295,8 +297,9 @@
   background: var(--paper);
   color: var(--paper-ink);
   box-shadow:
-    0 1px 1px rgba(0, 0, 0, 0.32),
-    0 10px 24px rgba(0, 0, 0, 0.34);
+    5px 6px 0 var(--paper-2),
+    8px 9px 0 rgba(17, 24, 49, 0.24),
+    0 1px 1px rgba(0, 0, 0, 0.18);
 }
 .pl-padwrap,
 .pl-holder {
@@ -410,6 +413,14 @@
 .pl-planner .canonical-calendar-title,
 .pl-planner .canonical-calendar-today-date {
   color: var(--paper-ink);
+}
+.pl-planner .pl-cal-title,
+.pl-planner .canonical-calendar-today-date {
+  font-family: Georgia, "Times New Roman", serif !important;
+}
+.pl-planner .pl-cal-title {
+  font-size: 24px !important;
+  letter-spacing: -0.025em !important;
 }
 .pl-planner .canonical-calendar-description,
 .pl-planner .canonical-calendar-kicker,
