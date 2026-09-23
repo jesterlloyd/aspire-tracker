@@ -18,10 +18,10 @@
 
 /** The month cell's capacity card, by the state of the day. */
 export const CAPACITY_STATES = {
-  fullyBooked: { bg: '#FEF2F2', accent: '#7F1D1D', border: '#FECACA', label: 'Fully booked' },
-  blocked:     { bg: '#FFF7ED', accent: '#7C2D12', border: '#FED7AA', label: 'Blocked time' },
-  scheduled:   { bg: '#EFF6FF', accent: '#1E3A8A', border: '#BFDBFE', label: 'Scheduled interview' },
-  available:   { bg: '#F0FDF4', accent: '#065F46', border: '#86EFAC', label: 'Open availability' },
+  fullyBooked: { bg: '#FAE9EC', accent: '#8D263B', border: '#F1C9D1', label: 'Fully booked' },
+  blocked:     { bg: '#FAE8DF', accent: '#8D4223', border: '#EFC9B8', label: 'Blocked time' },
+  scheduled:   { bg: '#E8EDFF', accent: '#283665', border: '#CBD5FA', label: 'Scheduled interview' },
+  available:   { bg: '#E7F7EF', accent: '#24694F', border: '#B9E8CF', label: 'Open availability' },
 }
 
 /**

@@ -296,10 +296,7 @@
   z-index: 1;
   background: var(--paper);
   color: var(--paper-ink);
-  box-shadow:
-    5px 6px 0 var(--paper-2),
-    8px 9px 0 rgba(17, 24, 49, 0.24),
-    0 1px 1px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 1px 2px rgba(17, 24, 49, 0.22);
 }
 .pl-padwrap,
 .pl-holder {
@@ -328,6 +325,20 @@
    wrappers ARE the sheet's box, so the four inset tokens stay at their zero default. */
 .pl-padwrap.material-pagestack,
 .pl-holder.material-pagestack { --stack-paper: var(--paper-2); }
+
+/* Keep the two loose sheets distinct, as in the approved calendar prototype. The top
+   sheet owns only its natural shadow; these two edges are the actual pages underneath. */
+.pl-padwrap.material-pagestack::before,
+.pl-padwrap.material-pagestack::after,
+.pl-holder.material-pagestack::before,
+.pl-holder.material-pagestack::after {
+  border: 1px solid rgba(91, 75, 52, 0.18);
+  box-shadow: 0 2px 4px rgba(17, 24, 49, 0.24);
+}
+.pl-padwrap.material-pagestack::before,
+.pl-holder.material-pagestack::before { background: #E8E2D5; }
+.pl-padwrap.material-pagestack::after,
+.pl-holder.material-pagestack::after { background: #F2EDE3; }
 
 /* ── The rings ─────────────────────────────────────────────────────────────── */
 /* Two chrome rings straddling the top edge of the notepad, 120px apart. Decorative: the

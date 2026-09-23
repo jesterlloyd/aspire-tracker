@@ -3,7 +3,7 @@
 // The cohort's calendar of workshops, town halls and bootcamps, built to MATCH
 // the Interviews calendar rather than to resemble it (Owner): the same mini
 // calendar in the sidebar, the same hover-to-add affordance on a day, the same
-// purple event action, US holidays alongside, and a day modal on click.
+// paper event action, US holidays alongside, and a day modal on click.
 //
 // SHARED, NOT COPIED. The month grid, weekday header, nav and day panel are the
 // canonical calendar foundation that Rotation Activity and the interview
@@ -33,7 +33,7 @@ import {
 } from '../shared/CanonicalCalendarFoundation'
 import { F } from '../../lib/ngrp/ngrpCohortForm'
 import {
-  initialActivityMonth, monthRange, EVENT_ACTION, EVENT_ACTION_HOVER, HOLIDAY_COLOR, shiftColor,
+  initialActivityMonth, monthRange, HOLIDAY_COLOR, shiftColor,
 } from '../../lib/ngrp/ngrpActivity'
 import { ModalShell } from './NgrpFormUi'
 // RESIDENCY-REFLECTION-2: residents' marked working days, from their own
@@ -53,13 +53,13 @@ function AddEventButton({ onClick, style }) {
       type="button"
       onClick={onClick}
       title="Add a custom ASPIRE event"
+      className="pl-ghost pl-ghost-event"
       style={{
-        height: 32, padding: '0 14px', background: EVENT_ACTION, border: 'none', borderRadius: 9,
-        cursor: 'pointer', fontFamily: 'Plus Jakarta Sans', fontWeight: 600, fontSize: 12, color: '#fff',
-        display: 'flex', alignItems: 'center', gap: 6, transition: 'background 0.15s ease', ...style,
+        height: 32, padding: '0 14px', borderRadius: 9,
+        cursor: 'pointer', fontFamily: 'Plus Jakarta Sans', fontWeight: 600, fontSize: 12,
+        display: 'flex', alignItems: 'center', gap: 6,
+        transition: 'background 0.15s ease, border-color 0.15s ease, color 0.15s ease', ...style,
       }}
-      onMouseEnter={e => { e.currentTarget.style.background = EVENT_ACTION_HOVER }}
-      onMouseLeave={e => { e.currentTarget.style.background = EVENT_ACTION }}
     >
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
         <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />

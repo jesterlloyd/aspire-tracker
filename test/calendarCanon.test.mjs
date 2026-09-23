@@ -66,6 +66,28 @@ test('calendar appearance is canonical: app follows Style and portals stay Moder
   }
 })
 
+test('Classic calendars use two real paper layers under each sheet', () => {
+  const foundation = read(FOUNDATION)
+  const css = read('src/components/shared/plannerCalendar.css')
+  assert.match(foundation, /pl-padwrap material-pagestack material-pagestack-bound/)
+  assert.match(foundation, /pl-holder material-pagestack/)
+  assert.match(css, /\.pl-holder\.material-pagestack::before/)
+  assert.match(css, /\.pl-holder\.material-pagestack::after/)
+  assert.match(css, /background: #E8E2D5/)
+  assert.match(css, /background: #F2EDE3/)
+  assert.doesNotMatch(css, /5px 6px 0 var\(--paper-2\)/, 'the top sheet must not fake the page stack')
+})
+
+test('calendar bookings use the approved pastel palette', () => {
+  const legend = read('src/lib/interviewCalendarLegend.js')
+  const foundation = read(FOUNDATION)
+  for (const color of ['#FAE9EC', '#FAE8DF', '#E8EDFF', '#E7F7EF']) {
+    assert.match(legend, new RegExp(color), `missing pastel ${color}`)
+  }
+  assert.match(foundation, /color \? tint\(color, 0\.18\)/, 'typed events use a pastel tint')
+  assert.match(foundation, /live \? '#E7F7EF' : '#E8EDFF'/, 'activity chips use pastel state fills')
+})
+
 // ── One navigation control ───────────────────────────────────────────────────
 
 test('every calendar navigates through the shared primitive, none hand-rolls arrows', () => {

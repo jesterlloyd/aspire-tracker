@@ -374,10 +374,10 @@ export function CanonicalActivityChip({ label, live = false, secondary = null, o
   }
   const base = {
     display: 'inline-flex', alignItems: 'center', gap: 3, maxWidth: '100%',
-    background: color ? tint(color, 0.14) : (live ? '#dcfce7' : '#e8eaf6'),
-    color: color ? 'var(--paper-ink, #1d2567)' : (live ? '#166534' : '#1d2567'),
+    background: color ? tint(color, 0.18) : (live ? '#E7F7EF' : '#E8EDFF'),
+    color: color ? 'var(--paper-ink, #1d2567)' : (live ? '#24694F' : '#283665'),
     borderLeft: color ? `3px solid ${color}` : undefined,
-    boxShadow: live ? 'inset 0 0 0 1px #86efac' : 'none',
+    boxShadow: live ? 'inset 0 0 0 1px #B9E8CF' : 'none',
     fontSize: 9, fontWeight: 700, letterSpacing: '0.02em',
     padding: '1px 5px', borderRadius: 4, lineHeight: 1.4, whiteSpace: 'nowrap',
   }

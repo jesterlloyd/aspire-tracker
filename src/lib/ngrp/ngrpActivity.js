@@ -22,12 +22,6 @@ export function initialActivityMonth(_cycle, todayStr) {
   return { year: y, month: m - 1 }
 }
 
-// NGRP-ACTIVITY-PARITY-1: the palette the Interviews calendar already uses for
-// its event actions, so the two calendars offer the same act in the same colour.
-// One definition, imported by both, rather than a hex repeated in two files.
-export const EVENT_ACTION = '#6D28D9'
-export const EVENT_ACTION_HOVER = '#5B21B6'
-
 // US holidays render as their own chips, distinct from ASPIRE events: they are
 // context, not something anyone scheduled, and nothing can be added to them.
 export const HOLIDAY_COLOR = '#D97706'

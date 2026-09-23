@@ -21,7 +21,7 @@ import {
   NGRP_TABS, LEGACY_NGRP_TABS, resolveNgrpPath, resolveNgrpEntryPath,
   ngrpPath, ngrpSubTabs, defaultSubTab, isNgrpSubTabId, canonicalNgrpTab,
 } from '../src/lib/ngrp/ngrpTabs.js'
-import { initialActivityMonth, monthRange, EVENT_ACTION, EVENT_ACTION_HOVER } from '../src/lib/ngrp/ngrpActivity.js'
+import { initialActivityMonth, monthRange } from '../src/lib/ngrp/ngrpActivity.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const read = p => readFileSync(join(here, '..', p), 'utf8')
@@ -198,14 +198,10 @@ test('the Activity calendar matches the Interviews calendar, part for part', () 
   assert.match(activity, /import \{ MiniCalendar \} from '\.\.\/CalendarSidebar'/)
   assert.match(read('src/components/CalendarSidebar.jsx'),
     /export function MiniCalendar\(\{ blocks = \[\], slots = \[\], aspireEvents = \[\]/)
-  // One definition of the event-action colour, read by both calendars.
-  assert.equal(EVENT_ACTION, '#6D28D9')
-  assert.equal(EVENT_ACTION_HOVER, '#5B21B6')
+  // Both calendars use the same neutral paper action with the shared amber hover cue.
   for (const [name, src] of [['interviews', interviews], ['activity', activity]]) {
-    assert.match(src, /EVENT_ACTION/, name)
-    // A comment documenting the palette's contrast ratios is fine; a second
-    // ASSIGNMENT of the hex is what would let the two calendars drift.
-    assert.doesNotMatch(src, /=\s*'#6D28D9'/, `${name} must not restate the hex`)
+    assert.match(src, /className="pl-ghost pl-ghost-event/, name)
+    assert.doesNotMatch(src, /EVENT_ACTION|EVENT_ACTION_HOVER|#6D28D9|#5B21B6/, name)
   }
   // US holidays, from the same client-computed helper the masthead uses, and
   // amber as they are on the Interviews calendar: context nobody scheduled,

@@ -38,10 +38,8 @@ const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0
 // PLANNER-CALENDAR-1: the add controls are paper now, so these two no longer paint a
 // button. Availability's navy survives as the HOVER cue on `.pl-ghost-avail`, beside the
 // event amber on `.pl-ghost-event`; both live in plannerCalendar.css with the rest of the
-// sheet. The violet EVENT_ACTION is untouched in lib/ngrp/ngrpActivity.js, because the
-// Residency calendar still paints with it and has not been reviewed yet.
-// NGRP-ACTIVITY-PARITY-1: moved to lib/ngrp/ngrpActivity.js so the Residency
-// Activity calendar offers the same act in the same colour from one definition.
+// sheet. Residency uses the same paper control, so neither calendar introduces a purple
+// one-off action treatment.
 import { getStudentPreferredFullName } from '../lib/studentNameFormatters'
 import SegmentedPicker from './shared/SegmentedPicker'
 import { CAPACITY_STATES, capacityState, slotStyle } from '../lib/interviewCalendarLegend'

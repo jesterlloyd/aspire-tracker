@@ -180,15 +180,10 @@ test('action colors are a single converged family, defined once', () => {
   // PLANNER-CALENDAR-1 (Owner, 2026-09-18): the Interviews add controls are PAPER now,
   // "both plain paper as drawn", with the distinction on hover and explicitly not the
   // bright violet. So this calendar no longer paints with the action palette. What the
-  // test was protecting is untouched and still asserted: the palette has exactly one
-  // definition, and the calendar that still uses it reads it rather than restating it.
-  assert.match(read('src/lib/ngrp/ngrpActivity.js'), /export const EVENT_ACTION = '#6D28D9'/)
-  assert.match(read('src/lib/ngrp/ngrpActivity.js'), /export const EVENT_ACTION_HOVER = '#5B21B6'/)
+  // Residency now follows that same treatment, so no calendar keeps a purple exception.
   const activity = read('src/components/ngrp/ActivityCalendar.jsx')
-  assert.match(activity, /EVENT_ACTION, EVENT_ACTION_HOVER/)
-  assert.doesNotMatch(activity, /#6D28D9/, 'no second copy of the hex')
-  const uses = activity.match(/background:\s*EVENT_ACTION\b/g) || []
-  assert.ok(uses.length >= 1, `expected the Residency calendar to paint with it, found ${uses.length}`)
+  assert.match(activity, /className="pl-ghost pl-ghost-event"/)
+  assert.doesNotMatch(activity, /EVENT_ACTION|EVENT_ACTION_HOVER|#6D28D9|#5B21B6/)
   // The Interviews calendar carries no hardcoded action hex of its own either.
   assert.doesNotMatch(staffCalendar, /background:\s*'#7C3AED'/)
   // Strip comments first: a "must NOT contain" assertion happily matches the comment that
