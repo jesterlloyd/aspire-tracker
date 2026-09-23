@@ -482,8 +482,8 @@
 .apx-sw-outreach { background: linear-gradient(135deg, #26314f 0 62%, #fffdf7 62% 100%); }
 .apx-sw-catalog {
   background:
-    linear-gradient(90deg, transparent 0 12%, #6f421f 12% 18%, #c7955a 18% 31%, #4c6a91 31% 39%, #b75645 39% 52%, #d0ad62 52% 61%, #4d775f 61% 74%, #814f31 74% 84%, transparent 84%),
-    linear-gradient(180deg, #8b572d 0 12%, #d0a36a 12% 82%, #70401f 82% 100%);
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='400'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='.09 .004' numOctaves='3' seed='11' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .35 0 0 0 0 .18 0 0 0 0 .04 0 0 0 .5 0'/></filter><rect width='100%' height='100%' filter='url(%23g)'/></svg>"),
+    linear-gradient(180deg, #e7b877 0 12%, #c98e4f 12% 72%, #f0c98e 72% 78%, #b47a3c 78% 100%);
 }
 .apx-sw-calendars { background: linear-gradient(180deg, #5A6280, #373D51); }
 .apx-sw-reviewRelease { background: linear-gradient(180deg, #554E43, #332E27); }

@@ -909,6 +909,9 @@
 }
 [data-style='modern'] .rb-page-left {
   border-right: 1px solid var(--border-card, rgba(29, 37, 103, 0.08));
+  background: var(--color-bg-elevated, var(--pearl, #FFFFFF));
+}
+[data-style='modern'] .rb-page-left .rb-id {
   background: linear-gradient(160deg, #dceff8 0%, #f0f6fb 50%, #ffffff 100%);
 }
 [data-style='modern'] .rb-head {

@@ -374,7 +374,7 @@ test('the list is honest about every shipped Modern surface, and Automations is 
   for (const realName of ['Esther Kere', 'Tony Kim', 'Gary Mittelberg', 'Karen Mills', 'Krystal Rodriguez']) {
     assert.doesNotMatch(html, new RegExp(realName))
   }
-  assert.match(read('src/components/settings/appearanceSettings.css'), /\.apx-sw-catalog \{[\s\S]*?linear-gradient/)
+  assert.match(read('src/components/settings/appearanceSettings.css'), /\.apx-sw-catalog \{[\s\S]*?feTurbulence[\s\S]*?linear-gradient/)
 })
 
 test('the radio card state is drawn from the checked input, with a visible focus ring', () => {
