@@ -74,6 +74,16 @@ test('Modern calendar add controls use a clear secondary and primary hierarchy',
   assert.match(css, /\.canonical-calendar-modern \.ngrp-dayadd\.pl-ghost-event:hover \{[\s\S]*?background: #151D57;/)
 })
 
+test('Modern timeline calendars can size themselves to their rendered rows', () => {
+  const foundation = read(FOUNDATION)
+  const css = read('src/components/shared/plannerCalendar.css')
+  const academics = read(ALL_CALENDARS.Academics)
+  assert.match(foundation, /contentAware = false/)
+  assert.match(foundation, /canonical-calendar-content-aware/)
+  assert.match(css, /\.canonical-calendar-modern\.canonical-calendar-content-aware \.pl-calbox \{[\s\S]*?height: auto;[\s\S]*?min-height: 0;/)
+  assert.match(academics, /appearance="modern"[\s\S]{0,80}contentAware/)
+})
+
 test('Classic calendars use the prototype paper stack under each sheet', () => {
   const foundation = read(FOUNDATION)
   const css = read('src/components/shared/plannerCalendar.css')
