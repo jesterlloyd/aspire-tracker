@@ -504,6 +504,74 @@
   backdrop-filter: blur(2px);
 }
 
+/* Modern calendar actions are compact product controls, not paper buttons. The
+   primary Event action carries the app navy; Availability stays a quieter,
+   related action. These overrides are intentionally scoped so Classic retains
+   its stationery treatment. */
+.canonical-calendar-modern .pl-ghost {
+  border-width: 1px;
+  border-style: solid;
+  border-radius: 8px !important;
+  box-shadow: none;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease, border-color 120ms ease, color 120ms ease !important;
+}
+.canonical-calendar-modern .pl-ghost-avail {
+  border-color: #D7DDF7;
+  background: #F2F4FF;
+  color: #1D2567;
+}
+.canonical-calendar-modern .pl-ghost-event {
+  border-color: #1D2567;
+  background: #1D2567;
+  color: #FFFFFF;
+}
+.canonical-calendar-modern .pl-ghost-avail:hover {
+  border-color: #BBC5F1;
+  background: #E8ECFF;
+  color: #17205E;
+  box-shadow: 0 4px 10px rgba(29, 37, 103, 0.12);
+  transform: translateY(-1px);
+}
+.canonical-calendar-modern .pl-ghost-event:hover {
+  border-color: #151D57;
+  background: #151D57;
+  color: #FFFFFF;
+  box-shadow: 0 5px 12px rgba(29, 37, 103, 0.22);
+  transform: translateY(-1px);
+}
+.canonical-calendar-modern .pl-ghost-mini {
+  min-height: 24px;
+  padding: 3px 8px;
+  border-radius: 6px !important;
+  backdrop-filter: blur(5px);
+}
+.canonical-calendar-modern .pl-ghost-mini.pl-ghost-avail {
+  border-color: #CBD3F6;
+  background: rgba(242, 244, 255, 0.96);
+}
+.canonical-calendar-modern .pl-ghost-mini.pl-ghost-event {
+  border-color: #1D2567;
+  background: rgba(29, 37, 103, 0.94);
+  color: #FFFFFF;
+}
+.canonical-calendar-modern .ngrp-dayadd.pl-ghost-event:hover {
+  border-color: #151D57;
+  background: #151D57;
+  color: #FFFFFF;
+}
+[data-theme="dark"] .canonical-calendar-modern .pl-ghost-avail {
+  border-color: #4B5688;
+  background: #242A43;
+  color: #C8D0FF;
+}
+[data-theme="dark"] .canonical-calendar-modern .pl-ghost-event {
+  border-color: #9AA8F3;
+  background: #9AA8F3;
+  color: #151A2A;
+}
+
 /* ── SEGMENTED-PICKER-1, on paper ──────────────────────────────────────────── */
 /* The pressed segment is NIGHTFALL and white, which is the canon the Rotation and Student
    Profiles pickers set; a paper sheet does not get to invent a different pressed state.

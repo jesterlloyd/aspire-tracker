@@ -66,6 +66,14 @@ test('calendar appearance is canonical: app follows Style and portals stay Moder
   }
 })
 
+test('Modern calendar add controls use a clear secondary and primary hierarchy', () => {
+  const css = read('src/components/shared/plannerCalendar.css')
+  assert.match(css, /\.canonical-calendar-modern \.pl-ghost-avail \{[\s\S]*?background: #F2F4FF;[\s\S]*?color: #1D2567;/)
+  assert.match(css, /\.canonical-calendar-modern \.pl-ghost-event \{[\s\S]*?background: #1D2567;[\s\S]*?color: #FFFFFF;/)
+  assert.match(css, /\.canonical-calendar-modern \.pl-ghost-mini \{[\s\S]*?border-radius: 6px !important;/)
+  assert.match(css, /\.canonical-calendar-modern \.ngrp-dayadd\.pl-ghost-event:hover \{[\s\S]*?background: #151D57;/)
+})
+
 test('Classic calendars use the prototype paper stack under each sheet', () => {
   const foundation = read(FOUNDATION)
   const css = read('src/components/shared/plannerCalendar.css')
