@@ -357,3 +357,20 @@ test('the migration is additive, retires Forms, keeps slugs, and adds a private 
   assert.match(live, /\) NOT VALID;/)
   assert.doesNotMatch(live, /overdue/i, 'overdue is computed, never stored')
 })
+
+test('a cover never lets one long line widen it, and a long title is read whole', async () => {
+  const css = read('src/components/catalog/catalog.css')
+  // An auto column grows to its widest line; one long category name clipped every title.
+  assert.match(css, /\.ctl-pg \{[^}]*grid-template-columns: minmax\(0, 1fr\)/)
+  assert.doesNotMatch(css, /\.ctl-kind \{[^}]*white-space: nowrap/)
+  assert.match(css, /\.ctl-ttl\.ctl-ttl-long \{/)
+  const { isLongCoverTitle } = await import('../src/lib/catalog/catalogModel.js')
+  assert.equal(isLongCoverTitle('CSMC Experience Confidentiality Policy Acknowledgment'), true)
+  assert.equal(isLongCoverTitle('Unit Brochure (6 NW – PM Shift)'), false)
+})
+
+test('the Library row for signature documents reads Signature templates', () => {
+  const page = read('src/components/catalog/CatalogPage.jsx')
+  assert.match(page, /'Signature templates', <Signature/)
+  assert.doesNotMatch(page, /'Signature documents'/)
+})

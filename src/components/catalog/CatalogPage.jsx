@@ -29,7 +29,7 @@ import WorkspaceBackLink from '../ui/WorkspaceBackLink'
 import RowActionsMenu from '../shared/RowActionsMenu'
 import {
   CATALOG_FEATURES, KIND_LABEL, SORTS, audienceOf, audienceLabel, kindOf, fileBadge, fmtShortDate, fmtBytes,
-  catalogSummary, railCounts, filterItems, sortItems, listSections, shelfOrder, viewTitle, sendButtonLabel,
+  catalogSummary, railCounts, isLongCoverTitle, filterItems, sortItems, listSections, shelfOrder, viewTitle, sendButtonLabel,
 } from '../../lib/catalog/catalogModel'
 import CatalogSendModal from './CatalogSendModal'
 import {
@@ -355,7 +355,7 @@ export default function CatalogPage({
           {railRow('all', 'type', 'all', 'All items', <ListIcon size={16} />, counts.byKind.all)}
           {railRow('file', 'type', 'file', 'Files', <FileText size={16} />, counts.byKind.file)}
           {features.forms && railRow('form', 'type', 'form', 'Forms', <ListChecks size={16} />, counts.byKind.form)}
-          {features.signatures && railRow('sig', 'type', 'signature', 'Signature documents', <Signature size={16} />, counts.byKind.signature)}
+          {features.signatures && railRow('sig', 'type', 'signature', 'Signature templates', <Signature size={16} />, counts.byKind.signature)}
           <p className="rr-nav-group">Tracking</p>
           {railRow('out', 'track', 'out', 'Out for completion', <ArrowRightFromLine size={16} />, counts.out)}
           {railRow('late', 'track', 'overdue', 'Overdue people', <Clock size={16} />, counts.overduePeople, true)}
@@ -457,7 +457,7 @@ function canViewCatalog(isOwner, isAdmin, isInterviewer) {
 function emptyTextFor(view, total, q) {
   if (!total) return 'Nothing in the Catalog yet.'
   // A signature document is a reusable template; one-off sends live in Signature requests.
-  if (view.type === 'signature' && !q) return 'No signature documents yet. Turn on "Save as a template in the Catalog" when you send one, and it appears here to send again. Documents already sent are in Tracking, Signature requests.'
+  if (view.type === 'signature' && !q) return 'No signature templates yet. Turn on "Save as a template in the Catalog" when you send a document, and it appears here to send again. Documents already sent are in Tracking, Signature requests.'
   if (view.track) return 'Nothing is out for completion. Forms and signature requests show here once they are sent.'
   if (q) return 'No items match. Clear the search or pick another section.'
   return 'Nothing here yet.'
@@ -649,7 +649,7 @@ function Cover({ row, selected, onSelect, catLabel, usage }) {
       onClick={() => onSelect(row.id)} onKeyDown={(e) => listKeys(e, onSelect, row.id)}>
       <span className="ctl-pg">
         <span className="ctl-band" />
-        <span><span className="ctl-kind">{label}</span><span className="ctl-ttl">{row.title}</span></span>
+        <span><span className="ctl-kind">{label}</span><span className={`ctl-ttl${isLongCoverTitle(row.title) ? ' ctl-ttl-long' : ''}`}>{row.title}</span></span>
         <span className="ctl-lines" aria-hidden="true">
           {k === 'form' ? <><i className="ctl-box" /><i className="ctl-box" /><i className="ctl-box" /></> : <><i /><i /><i className="ctl-short" /></>}
         </span>

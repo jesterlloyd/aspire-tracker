@@ -1085,7 +1085,7 @@ pure and tested without a browser; the page computes nothing in JSX.
 - **Who**: Owner and Admin send and manage (Outreach's roles); an Interviewer browses and opens
   files only. Widen it in `CatalogPage` (`canManage`) and the Outreach endpoint together.
 - **The left list is the selection canon** (`selectionRail.css`), with `.rr-row-select.ctl-rail-row`
-  one class stronger than the canon. Forms and Signature documents rows, and the + New
+  one class stronger than the canon. Forms and Signature templates rows, and the + New
   entries for them, render only when the kind is built (`CATALOG_FEATURES`) and, for
   signatures, when the server's flag admits the caller (`useSignaturesFlag`).
 - **Featured is Pinned.** `is_featured` is folded into `is_pinned` by the migration and read by
@@ -1122,7 +1122,7 @@ track, and seal. Reference: `docs/mockups/signatures-mockup.html` with
 `feature_flags` (state `off` | `owner` | `on`; `owner` admits the Owner only, for testing in
 production, `on` admits Owner and Admin). The flag is asked of the SERVER (`sig-staff` `flag`,
 read by `useSignaturesFlag`); no client constant turns it on, and every entry point (the rail's
-Signature documents and Signature requests, + New's Prepare, a signature item's Send, Edit
+Signature templates and Signature requests, + New's Prepare, a signature item's Send, Edit
 fields and Preview) is hidden until it answers yes. Both endpoints answer 404 while it is off.
 Owner decisions, 2026-09-23: ASPIRE's own self-signed seal for now, codes by email only (no
 SMS), PDF uploads only (no Word conversion), tamper-evident storage with `org_id` on every table.

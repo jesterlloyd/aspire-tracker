@@ -33,9 +33,9 @@ export const audienceLabel = (key) => AUDIENCES.find(a => a.key === key)?.label 
 export const KINDS = Object.freeze({ file: 'file', form: 'form', signature: 'signature' })
 export const kindOf = (row) => (row?.kind === 'form' || row?.kind === 'signature') ? row.kind : 'file'
 
-export const KIND_LABEL = Object.freeze({ file: 'File', form: 'Form', signature: 'Signature document' })
+export const KIND_LABEL = Object.freeze({ file: 'File', form: 'Form', signature: 'Signature template' })
 
-// Phase gates. Signature documents are Phase 2 and forms Phase 3 (Owner, 2026-09-23: the
+// Phase gates. Signature templates are Phase 2 and forms Phase 3 (Owner, 2026-09-23: the
 // order is intentional). These are the BUILD defaults; signatures are then admitted per
 // caller by the server's catalog.signatures flag (useSignaturesFlag), OFF by default until
 // Legal and IT approve in-app e-signature. An entry point for an unbuilt or unadmitted
@@ -190,7 +190,7 @@ export function viewTitle(view = {}, catLabel = s => s) {
   if (view.category) return catLabel(view.category)
   if (view.track === 'out') return 'Out for completion'
   if (view.track === 'overdue') return 'Items with overdue people'
-  return { all: 'All items', file: 'Files', form: 'Forms', signature: 'Signature documents' }[view.type || 'all']
+  return { all: 'All items', file: 'Files', form: 'Forms', signature: 'Signature templates' }[view.type || 'all']
 }
 
 // ── Send ────────────────────────────────────────────────────────────────────────
@@ -202,6 +202,11 @@ export const SEND_AS = Object.freeze({
   signature: { title: 'Signature request', line: 'Signers go in order, and you are notified when all sign.' },
 })
 export const sendAsFor = (row) => (row?.resource_type === 'external_link' ? SEND_AS.link : SEND_AS[kindOf(row)])
+
+// A cover holds about four lines of title at its normal size. A title longer than this is
+// set a step smaller (Classic covers), so it is read whole rather than cut off.
+export const COVER_LONG_TITLE = 44
+export const isLongCoverTitle = (title) => String(title || '').trim().length > COVER_LONG_TITLE
 
 export const sendButtonLabel = (row) => ({ file: 'Send', form: 'Send form', signature: 'Send for signature' }[kindOf(row)])
 

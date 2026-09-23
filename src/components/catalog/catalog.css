@@ -405,7 +405,9 @@
 }
 .ctl-slot { position: relative; display: flex; justify-content: center; align-items: flex-end; padding-bottom: 30px; }
 .ctl-cover { position: relative; width: 124px; height: 168px; padding: 0; border: 0; background: none; text-align: left; cursor: pointer; transition: transform 0.18s ease; }
-.ctl-pg { position: absolute; inset: 0; display: grid; grid-template-rows: auto 1fr auto; overflow: hidden;
+/* minmax(0, 1fr): an auto column grows to its widest line, so one long category name made
+   the column wider than the cover and every title on it was clipped at the right edge. */
+.ctl-pg { position: absolute; inset: 0; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto minmax(0, 1fr) auto; overflow: hidden;
   background: var(--ctl-paper); color: var(--ctl-paper-ink); border-radius: var(--ctl-r-cover);
   box-shadow: 0 1px 1px rgba(0, 0, 0, 0.25), 3px 6px 10px rgba(40, 20, 5, 0.35), inset 5px 0 6px -4px rgba(0, 0, 0, 0.28); }
 .ctl-band { height: 9px; background: var(--ctl-band-doc); }
@@ -414,13 +416,16 @@
 .ctl-cover-form .ctl-band { background: var(--ctl-band-doc); }
 .ctl-cover-signature .ctl-band { background: var(--ctl-plum); }
 .ctl-cover-link .ctl-band { background: var(--ctl-teal); }
-.ctl-kind { display: block; padding: 8px 44px 0 12px; font-family: var(--ctl-mono); font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase;
-  color: var(--ctl-paper-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ctl-ttl { padding: 8px 10px 0 12px; font-size: 12.5px; font-weight: 700; line-height: 1.22; text-wrap: balance; overflow-wrap: anywhere;
-  display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
-/* A pinned cover's title stays clear of the sash across its corner. */
+.ctl-kind { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; padding: 8px 10px 0 12px;
+  font-family: var(--ctl-mono); font-size: 9px; line-height: 1.3; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ctl-paper-muted); }
+.ctl-ttl { padding: 8px 10px 0 12px; font-size: 12.5px; font-weight: 700; line-height: 1.22; text-wrap: balance; hyphens: auto; overflow-wrap: break-word;
+  padding-bottom: 2px; display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; }
+.ctl-ttl.ctl-ttl-long { font-size: 11.5px; line-height: 1.2; }
+/* A pinned cover's words stay clear of the sash across its corner. */
+.ctl-cover-pinned .ctl-kind { padding-right: 44px; }
 .ctl-cover-pinned .ctl-ttl { padding-right: 24px; }
-.ctl-lines { position: absolute; left: 12px; right: 12px; bottom: 40px; display: grid; gap: 6px; }
+/* The ruled lines fill whatever the title leaves, and give way to a long title rather than run under it. */
+.ctl-lines { display: grid; align-content: end; gap: 6px; min-height: 0; overflow: hidden; padding: 8px 12px 10px; }
 .ctl-lines i { display: block; height: 3px; border-radius: var(--ctl-r-meter); background: var(--ctl-paper-line); }
 .ctl-lines i.ctl-short { width: 70%; }
 .ctl-lines i.ctl-box { display: flex; gap: 5px; align-items: center; height: auto; background: none; }
