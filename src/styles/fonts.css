@@ -63,3 +63,15 @@
   font-style: italic;
   font-display: swap;
 }
+/* Caveat (SIL OFL 1.1): the handwriting on the Catalog's library checkout card, Classic
+   style only (CATALOG-REVAMP-1, Owner decision 2026-09-23: self-hosted like the other
+   three, never loaded from Google Fonts). Same google/fonts source and the same subset.
+   Upright only (the family has no italic). NOT preloaded: only that card sets the face,
+   so the file is fetched the first time a Classic send history is drawn. */
+@font-face {
+  font-family: 'Caveat';
+  src: url('/fonts/caveat/Caveat-Variable.woff2') format('woff2');
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}

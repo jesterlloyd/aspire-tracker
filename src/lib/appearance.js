@@ -133,6 +133,7 @@ export const STYLE_SURFACES = Object.freeze([
   { key: 'responses', label: 'Evaluation Responses', material: 'Printout', modern: false },
   { key: 'contacts', label: 'Contacts', material: 'Address book', modern: true },
   { key: 'outreach', label: 'Outreach', material: 'Correspondence desk', modern: true },
+  { key: 'catalog', label: 'ASPIRE Catalog', material: 'Bookcase', modern: true },
 ].map(Object.freeze))
 
 /** Contacts is the one screen whose DRAWING follows Style: the book, or three columns. */

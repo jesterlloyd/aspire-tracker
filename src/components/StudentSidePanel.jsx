@@ -54,6 +54,8 @@ import AdditionalPreceptors from './AdditionalPreceptors'
 import DispositionModal from './DispositionModal'
 import { DISPOSITION_TYPES, DISPOSITION_PILL_COLORS, DECISION_ORIGINS, FOLLOWUP_TYPES, REASON_CATEGORIES_BY_TYPE } from '../lib/dispositions'
 import { realtimePayloadInScope } from '../lib/demoScope'
+import { RecordDocumentRows, CatalogSendsOnRecord } from './records/RecordDocuments'
+import { useRecordFiles, useOpenRecordDocument } from './records/useRecordFiles'
 
 function fmtCommTs(ts) {
   if (!ts) return ''
@@ -237,6 +239,9 @@ export default function StudentSidePanel({
   const [declineReason,        setDeclineReason]        = useState('')
   const [showDispositionModal, setShowDispositionModal] = useState(false)
   const { canEdit, canManageStudentFiles, canGenerateBadge, canViewStudentResumeInCohort, canViewStudentPhotoInCohort, userProfile } = useAuth()
+  // CATALOG-REVAMP-1: files filed to this record and the Catalog sends that reached it.
+  const recordFiles = useRecordFiles({ studentId: student?.id, enabled: !!canManageStudentFiles })
+  const recordOpen = useOpenRecordDocument()
   // WAVE F-2: per-cohort file-view checks. Resume view: active Owner/Admin or an
   // entitled active interviewer. Photo view additionally includes an active Viewer.
   const canViewResume = canViewStudentResumeInCohort(data?.cohort_id)
@@ -2615,7 +2620,12 @@ export default function StudentSidePanel({
                   <div className="doc-act" />
                 </div>
               )}
+
+              {/* CATALOG-REVAMP-1: files filed to this record (a personal file moved out of
+                  the Catalog now; filed forms and signed copies later), same columns. */}
+              <RecordDocumentRows docs={recordFiles.docs} onOpen={recordOpen.open} busy={recordOpen.busy} />
             </div>
+            <CatalogSendsOnRecord sends={recordFiles.sends} />
           </div>
 
 

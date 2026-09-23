@@ -1572,10 +1572,13 @@ function MainApp({ onLogout }) {
               </Suspense>
             )}
 
-            {/* CATALOG-1: read-only ASPIRE Catalog (Owner/Admin gated by RLS + endpoint). */}
+            {/* CATALOG-REVAMP-1: the Catalog sends through Outreach, so it reads the active
+                cohort's students, units and placements to build recipients. */}
             {activeTab === 'catalog' && (
               <Suspense fallback={<ChunkLoading label="Loading Catalog" />}>
-                <CatalogPage backPath={backPath} backLabel={backLabel} />
+                <CatalogPage backPath={backPath} backLabel={backLabel}
+                  students={students} units={units} matches={matches}
+                  cohortName={activeCohort?.name || ''} toast={toast} />
               </Suspense>
             )}
 
