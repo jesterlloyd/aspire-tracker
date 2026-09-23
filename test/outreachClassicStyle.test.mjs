@@ -27,6 +27,24 @@ test('the correspondence skin keeps physical materials warm in Dark mode', () =>
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/)
 })
 
+test('the composer spacing is compact and its writing canvas is visibly white', () => {
+  const outreach = read('src/components/connect/OutreachView.jsx')
+  const css = read('src/components/connect/outreachCorrespondenceDesk.css')
+  assert.match(outreach, /padding: '0 24px 20px'/)
+  assert.match(outreach, /marginBottom: 12, display: 'flex'/)
+  assert.match(css, /\.outreach-workspace-classic \.rte-content \{[^}]*background: #fff;/s)
+})
+
+test('direct email preview is revealed by the draft action and owns the confirming send', () => {
+  const outreach = read('src/components/connect/OutreachView.jsx')
+  assert.match(outreach, /\{dmConfirmOpen && \(\s*<div ref=\{dmPreviewRef\}>\s*<ConnectPanel tone="preview" title="Email Preview"/s)
+  assert.match(outreach, /requestAnimationFrame\(\(\) => dmPreviewRef\.current\?\.scrollIntoView/)
+  const preview = outreach.slice(outreach.indexOf('<div ref={dmPreviewRef}>'), outreach.indexOf('</ConnectPanel>', outreach.indexOf('<div ref={dmPreviewRef}>')))
+  assert.match(preview, /onClick=\{handleDmSend\}/)
+  assert.match(preview, /'Send Email'/)
+  assert.match(preview, /Back to Draft/)
+})
+
 test('the supplied metaphor is restrained and uses the live editor', () => {
   const css = read('src/components/connect/outreachCorrespondenceDesk.css')
   const editor = read('src/components/connect/RichTextEditor.jsx')

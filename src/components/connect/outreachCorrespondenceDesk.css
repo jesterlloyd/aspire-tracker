@@ -178,7 +178,7 @@
 }
 .outreach-workspace-classic .rte-content {
   min-height: 285px !important;
-  background: var(--ocd-paper);
+  background: #fff;
   color: var(--ocd-ink);
 }
 

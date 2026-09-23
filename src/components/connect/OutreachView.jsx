@@ -635,6 +635,11 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
   const [includeSignature,  setIncludeSignature]  = useState(true)
   const [dmConfirmOpen,     setDmConfirmOpen]      = useState(false)
   const [dmConfirmReady,    setDmConfirmReady]     = useState(false)
+  const dmPreviewRef = useRef(null)
+  // The confirming controls now live in the inline Email Preview. Retain the
+  // former dialog markup for one release as inert rollback context while the
+  // workflow settles; it is never mounted or reachable by a user.
+  const showLegacyDmConfirmModal = false
   const [dmSendInFlight,    setDmSendInFlight]     = useState(false)
   const [dmBodyExpanded,    setDmBodyExpanded]     = useState(false)
   const [dmSendStatus,      setDmSendStatus]       = useState(null) // null | { ok, msg }
@@ -1011,6 +1016,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
     if (!dmConfirmOpen) { setDmConfirmReady(false); return }
     setDmConfirmReady(false)
     const t = setTimeout(() => setDmConfirmReady(true), 2000)
+    requestAnimationFrame(() => dmPreviewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
     return () => clearTimeout(t)
   }, [dmConfirmOpen])
 
@@ -2643,13 +2649,13 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className={`outreach-workspace${classicDesk ? ' outreach-workspace-classic' : ' outreach-workspace-modern'}`} style={{ padding: '20px 24px', fontFamily: F }}>
+    <div className={`outreach-workspace${classicDesk ? ' outreach-workspace-classic' : ' outreach-workspace-modern'}`} style={{ padding: '0 24px 20px', fontFamily: F }}>
 
       {/* ══════════════════════════════════════════════════════════════════
           RECIPIENT MODE TOGGLE, Single vs Bulk
           Segmented control above the three zones.
       ═══════════════════════════════════════════════════════════════════ */}
-      <div className="outreach-mode-row" style={{ marginBottom: 20, display: 'flex', alignItems: 'center', gap: 16 }}>
+      <div className="outreach-mode-row" style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 16 }}>
         <div className="outreach-mode-tabs" role="tablist" aria-label="Outreach workflow" style={{
           display: 'flex', border: '1px solid rgba(29,37,103,0.14)',
           borderRadius: 8, overflow: 'hidden',
@@ -3397,6 +3403,8 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
 
             {/* CONNECT-COMMS-1B: branded "Email Preview" - exact server-rendered HTML from the same
                 renderer/endpoint used to send, plus the server-resolved (school-first) recipient. */}
+            {dmConfirmOpen && (
+            <div ref={dmPreviewRef}>
             <ConnectPanel tone="preview" title="Email Preview" style={{ marginTop: 14 }}>
 
                 {/* Resolved recipient + source */}
@@ -3470,7 +3478,48 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                     </div>
                   )}
                 </div>
+
+                {dmAttachmentBlock && (
+                  <div data-testid="dm-confirm-attachments-blocked" role="alert" style={{ marginTop: 10, fontSize: 12, color: '#991b1b', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '8px 12px', fontFamily: F }}>
+                    {dmAttachmentBlock}
+                  </div>
+                )}
+                {attachmentClaimBlock && (
+                  <div data-testid="dm-confirm-claim-blocked" role="alert" style={{ marginTop: 10, fontSize: 12, color: '#991b1b', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '8px 12px', fontFamily: F }}>
+                    {attachmentClaimBlock}
+                  </div>
+                )}
+                {unresolvedStudentWarning && (
+                  <div data-testid="dm-confirm-unresolved-student" role="alert" style={{ marginTop: 10, fontSize: 12, color: '#7c2d12', background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 8, padding: '8px 12px', fontFamily: F, lineHeight: 1.5 }}>
+                    {unresolvedStudentWarning}
+                  </div>
+                )}
+                {placementTracking && (
+                  <div data-testid="dm-confirm-placement-tracking" style={{ marginTop: 10, fontSize: 12, lineHeight: 1.5, fontFamily: F, borderRadius: 8, padding: '8px 12px', color: placementTracking.tracked ? '#0e4e6e' : '#7c2d12', background: placementTracking.tracked ? '#E1F3FB' : '#fff7ed', border: placementTracking.tracked ? '1px solid #89CEEA' : '1px solid #fed7aa' }}>
+                    {placementTracking.text}
+                  </div>
+                )}
+                {!dmConfirmReady && (
+                  <div style={{ marginTop: 10, fontSize: 11, color: '#9ca3af', fontFamily: F, textAlign: 'right' }}>
+                    Please review the email before sending…
+                  </div>
+                )}
+                {(() => {
+                  const sendBlocked = !dmConfirmReady || dmSendInFlight || dmPreview.loading || !!dmPreview.error || dmPreview.recipient?.type === 'missing' || !!dmAttachmentBlock || !!attachmentClaimBlock
+                  return (
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 12 }}>
+                      <button type="button" onClick={() => setDmConfirmOpen(false)} disabled={dmSendInFlight} style={{ padding: '8px 18px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', fontSize: 12, fontWeight: 600, fontFamily: F, color: '#374151', cursor: dmSendInFlight ? 'not-allowed' : 'pointer' }}>
+                        Back to Draft
+                      </button>
+                      <button type="button" onClick={handleDmSend} disabled={sendBlocked} style={{ padding: '8px 20px', borderRadius: 8, border: 'none', background: sendBlocked ? '#e5e7eb' : '#1D2567', fontSize: 12, fontWeight: 600, fontFamily: F, color: sendBlocked ? '#9ca3af' : '#fff', cursor: sendBlocked ? 'not-allowed' : 'pointer' }}>
+                        {dmSendInFlight ? 'Sending…' : 'Send Email'}
+                      </button>
+                    </div>
+                  )
+                })()}
             </ConnectPanel>
+            </div>
+            )}
             </>
           )}
 
@@ -4722,7 +4771,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
         </div>
       )}
 
-      {dmConfirmOpen && (
+      {showLegacyDmConfirmModal && dmConfirmOpen && (
         <div onClick={() => { if (!dmSendInFlight) setDmConfirmOpen(false) }} style={{
           position: 'fixed', inset: 0, zIndex: 1000,
           background: 'rgba(0,0,0,0.45)',

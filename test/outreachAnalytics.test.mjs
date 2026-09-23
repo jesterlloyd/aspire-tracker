@@ -134,6 +134,13 @@ test('daily buckets follow the viewer local day, matching the date filters', () 
     ['2026-08-01', '2026-08-02', '2026-08-03'])
 })
 
+test('long ranges keep the latest 400 days so current sends remain visible', () => {
+  const days = dayRange('2025-01-01T00:00:00.000Z', '2026-09-23T00:00:00.000Z', 0)
+  assert.equal(days.length, 400)
+  assert.equal(days.at(-1), '2026-09-22')
+  assert.equal(days.at(0), '2025-08-19')
+})
+
 // ── Delivery health ──────────────────────────────────────────────────────────
 
 test('delivery counts opened and clicked as reached - status is monotonic', () => {

@@ -452,15 +452,16 @@ test('the three columns are Modern style\'s Contacts and keep their shape; the b
   assert.doesNotMatch(view, /import ContactsBook from/, 'a static import would ship the book to everyone')
 })
 
-test('on the Address book the page scrolls, the picker pins, and the book gets the rest of the window', () => {
+test('Connect uses one document scroll, pins only the shared picker, and gives fixed workspaces the remaining window', () => {
   const connect = strip(read('src/pages/Connect.jsx'))
   assert.match(connect, /const bookPage = activeSubTab === 'contacts' && contactsUsesBook\(style\)/)
   assert.match(connect, /useChartViewport\(\)/, 'the student chart\'s measurement, not a second copy')
   assert.match(connect, /ref=\{pickerRef\}/)
   assert.match(connect, /position: 'sticky', top: chromeHeight/)
   assert.match(connect, /'--connect-book-h': bookPage && bookHeight/)
-  // Classic and every other tab keep the fixed page.
-  assert.match(connect, /height: 'calc\(100dvh - 128px\)'/)
+  assert.doesNotMatch(connect, /height: 'calc\(100dvh - 128px\)'/)
+  assert.match(connect, /minHeight: bookHeight \? `\$\{bookHeight\}px`/)
+  assert.match(connect, /Manage contacts and coordinate cohort communications\./)
 })
 
 test('Repair Preceptor Contacts is gone from both layouts, and its modal with it', () => {

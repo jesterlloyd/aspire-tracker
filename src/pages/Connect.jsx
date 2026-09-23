@@ -117,21 +117,16 @@ export default function ConnectPage({ cohortId, onNavigateToStudent, refreshRef,
     { key: 'broadcasts', label: 'Automations', Icon: Activity, path: '/connect/broadcasts' },
   ].filter(Boolean)
 
-  // CONTACTS-BOOK-2 (Owner, 2026-09-20): on Contacts in the Address book, the page scrolls.
-  // The back row, the title and the subtitle scroll away, the section picker pins under
-  // the app chrome, and everything left in the window is the book. The student chart's
-  // rule and its measurement: useChartViewport measures the sticky chrome and the picker
-  // and reports the height that remains. Every other tab, and the three-column view, keep
-  // the fixed page they always had. APPEARANCE-STYLE-1: the book is Classic style's
-  // Contacts and the three columns are Modern's; the layout has no setting of its own.
+  // CONNECT-DOCUMENT-SCROLL-1: every Connect workspace follows the proven Contacts rule.
+  // The page header scrolls away, the section picker pins below the app chrome, and the
+  // active workspace receives at least the remaining viewport height. This keeps one
+  // document scroll while still giving fixed-layout workspaces a useful canvas.
   const { style } = useTheme()
   const bookPage = activeSubTab === 'contacts' && contactsUsesBook(style)
   const { barRef: pickerRef, chartHeight: bookHeight, toolbarTop: chromeHeight } = useChartViewport()
 
   return (
-    <div style={bookPage
-      ? { display: 'flex', flexDirection: 'column', fontFamily: F }
-      : { display: 'flex', flexDirection: 'column', height: 'calc(100dvh - 128px)', fontFamily: F }}>
+    <div style={{ display: 'flex', flexDirection: 'column', fontFamily: F }}>
 
       {/* Page header. LAYOUT-SHELL-CONSISTENCY-1: 20px horizontal inset matches the primary tabs. */}
       <div style={{ padding: '12px 20px 0', flexShrink: 0 }}>
@@ -154,7 +149,7 @@ export default function ConnectPage({ cohortId, onNavigateToStudent, refreshRef,
             ASPIRE Connect
           </h1>
           <p style={{ margin: '5px 0 0', fontSize: 13, color: 'var(--color-text-secondary, #4A5560)', lineHeight: 1.5, fontFamily: F }}>
-            Contacts, outreach, and announcements across cohorts.
+            Manage contacts and coordinate cohort communications.
           </p>
         </div>
       </div>
@@ -164,9 +159,10 @@ export default function ConnectPage({ cohortId, onNavigateToStudent, refreshRef,
           as the header scrolled away. Same 20px inset and 12px below as before. */}
       <div
         ref={pickerRef}
-        style={bookPage
-          ? { padding: '0 20px 12px', flexShrink: 0, position: 'sticky', top: chromeHeight, zIndex: 20, background: 'var(--bg-app, #F4F1EC)' }
-          : { padding: '0 20px 12px', flexShrink: 0 }}
+        style={{
+          padding: '0 20px 12px', flexShrink: 0, position: 'sticky', top: chromeHeight,
+          zIndex: 20, background: 'var(--bg-app, #F4F1EC)',
+        }}
       >
         <SegmentedTabs
           label="ASPIRE Connect sections"
@@ -177,12 +173,12 @@ export default function ConnectPage({ cohortId, onNavigateToStudent, refreshRef,
       </div>
 
       {/* Sub-tab content - all three mounted; inactive hidden to preserve form state */}
-      <div style={bookPage ? undefined : { flex: 1, minHeight: 0, overflowY: 'auto' }}>
+      <div style={{ minHeight: bookHeight ? `${bookHeight}px` : undefined }}>
         {/* Contacts uses flex+height:100% so its three columns scroll independently. The
             Address book takes its height from --connect-book-h instead. */}
         <div style={{
           display: activeSubTab === 'contacts' ? 'flex' : 'none', flexDirection: 'column',
-          height: bookPage ? 'auto' : '100%', minHeight: 0,
+          height: bookPage ? 'auto' : (bookHeight ? `${bookHeight}px` : 'auto'), minHeight: 0,
           '--connect-book-h': bookPage && bookHeight ? `${bookHeight}px` : undefined,
         }}>
           <ContactsView refreshKey={refreshKey} />
@@ -199,7 +195,7 @@ export default function ConnectPage({ cohortId, onNavigateToStudent, refreshRef,
             other sub-tabs it stays mounted while hidden, so search, filters,
             pagination, selection, and the reply draft survive tab switches. */}
         {canUseMessages && (
-          <div style={{ display: activeSubTab === 'messages' ? 'flex' : 'none', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+          <div style={{ display: activeSubTab === 'messages' ? 'flex' : 'none', flexDirection: 'column', height: bookHeight ? `${bookHeight}px` : '70dvh', minHeight: 0 }}>
             <MessagesWorkspace
               refreshKey={refreshKey}
               onOpenStudent={onNavigateToStudent}

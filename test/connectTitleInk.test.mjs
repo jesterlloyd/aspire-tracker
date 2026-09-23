@@ -14,7 +14,7 @@ const read = p => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8')
 const connect = read('src/pages/Connect.jsx')
 const theme = read('src/styles/theme.css')
 
-const header = connect.slice(connect.indexOf('<h1 style={{'), connect.indexOf('Contacts, outreach, and announcements across cohorts.'))
+const header = connect.slice(connect.indexOf('<h1 style={{'), connect.indexOf('Manage contacts and coordinate cohort communications.'))
 
 test('the Connect title and its line read theme tokens, not an undefined variable or a literal', () => {
   assert.match(header, /color: 'var\(--color-text-primary, #191919\)'/)
