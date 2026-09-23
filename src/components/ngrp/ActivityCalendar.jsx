@@ -9,8 +9,8 @@
 // canonical calendar foundation that Rotation Activity and the interview
 // calendar already use. MiniCalendar is imported from CalendarSidebar (it grew
 // an export for this, and its interview inputs default to empty). The event
-// action palette moved to lib/ngrp/ngrpActivity.js so both calendars read one
-// definition. Events come through the SAME gated /api/aspire-events list and are
+// controls use the same shared paper classes as Interviews. Events come through
+// the SAME gated /api/aspire-events list and are
 // written through the SAME AspireEventModal, so an NGRP workshop added here is
 // an ASPIRE event like any other.
 //
@@ -394,7 +394,7 @@ export default function ActivityCalendar({ cycle, canManage: canManageCohort }) 
                 {canManage && (
                   <button
                     type="button"
-                    className="ngrp-dayadd"
+                    className="ngrp-dayadd pl-ghost pl-ghost-event pl-ghost-mini"
                     aria-label={`Add an event on ${longDate(date)}`}
                     onClick={() => { setSelected(date); setEditing({ isNew: true, on: date }) }}
                   >

@@ -543,24 +543,18 @@
   position: absolute;
   right: 5px;
   bottom: 5px;
-  border: none;
-  border-radius: 999px;
-  padding: 3px 8px;
-  background: #6D28D9;
-  color: #fff;
-  font-family: 'Plus Jakarta Sans', sans-serif;
-  font-size: 10px;
-  font-weight: 600;
-  line-height: 1.4;
-  cursor: pointer;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
   opacity: 0;
-  transition: opacity 0.12s ease, background 0.15s ease;
+  transition: opacity 0.12s ease, background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 .ngrp-daycell:hover .ngrp-dayadd { opacity: 1; }
 /* Keyboard users never hover, so the pill also appears when it is focused. */
 .ngrp-dayadd:focus-visible { opacity: 1; outline: 2px solid #1D2567; outline-offset: 2px; }
-.ngrp-dayadd:hover { background: #5B21B6; }
+.ngrp-dayadd.pl-ghost-event:hover {
+  border-color: #8F5A0A;
+  color: #8F5A0A;
+  background: rgba(143, 90, 10, 0.10);
+}
 
 @media (prefers-reduced-motion: reduce) {
   .ngrp-dayadd { transition: none; }
@@ -625,4 +619,3 @@
 .ngrp-glance-pill-ok { color: #166534; background: #dcfce7; }
 .ngrp-glance-pill-conf { color: #1D2567; background: #E8EAF4; }
 .ngrp-glance-pill-due { color: #92400E; background: #FEF3C7; }
-

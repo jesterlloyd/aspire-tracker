@@ -184,6 +184,10 @@ test('action colors are a single converged family, defined once', () => {
   const activity = read('src/components/ngrp/ActivityCalendar.jsx')
   assert.match(activity, /className="pl-ghost pl-ghost-event"/)
   assert.doesNotMatch(activity, /EVENT_ACTION|EVENT_ACTION_HOVER|#6D28D9|#5B21B6/)
+  assert.match(activity, /className="ngrp-dayadd pl-ghost pl-ghost-event pl-ghost-mini"/)
+  const ngrpCss = read('src/components/ngrp/ngrp.css')
+  assert.doesNotMatch(ngrpCss, /\.ngrp-dayadd[^}]*background:\s*#(?:6D28D9|5B21B6)/)
+  assert.match(ngrpCss, /\.ngrp-dayadd\.pl-ghost-event:hover[\s\S]*?#8F5A0A/)
   // The Interviews calendar carries no hardcoded action hex of its own either.
   assert.doesNotMatch(staffCalendar, /background:\s*'#7C3AED'/)
   // Strip comments first: a "must NOT contain" assertion happily matches the comment that

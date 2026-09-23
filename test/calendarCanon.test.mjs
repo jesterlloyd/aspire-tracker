@@ -66,16 +66,16 @@ test('calendar appearance is canonical: app follows Style and portals stay Moder
   }
 })
 
-test('Classic calendars use two real paper layers under each sheet', () => {
+test('Classic calendars use the prototype paper stack under each sheet', () => {
   const foundation = read(FOUNDATION)
   const css = read('src/components/shared/plannerCalendar.css')
   assert.match(foundation, /pl-padwrap material-pagestack material-pagestack-bound/)
   assert.match(foundation, /pl-holder material-pagestack/)
   assert.match(css, /\.pl-holder\.material-pagestack::before/)
   assert.match(css, /\.pl-holder\.material-pagestack::after/)
-  assert.match(css, /background: #E8E2D5/)
-  assert.match(css, /background: #F2EDE3/)
-  assert.doesNotMatch(css, /5px 6px 0 var\(--paper-2\)/, 'the top sheet must not fake the page stack')
+  assert.match(css, /5px 6px 0 #E6E0D4/)
+  assert.match(css, /8px 9px 0 rgba\(17, 24, 49, 0\.24\)/)
+  assert.match(css, /\.pl-holder\.material-pagestack::after[\s\S]*?content: none;/)
 })
 
 test('calendar bookings use the approved pastel palette', () => {
@@ -85,6 +85,7 @@ test('calendar bookings use the approved pastel palette', () => {
     assert.match(legend, new RegExp(color), `missing pastel ${color}`)
   }
   assert.match(foundation, /color \? tint\(color, 0\.18\)/, 'typed events use a pastel tint')
+  assert.match(foundation, /color: color \|\| \(live \? '#24694F' : '#283665'\)/, 'event text uses its darker accent')
   assert.match(foundation, /live \? '#E7F7EF' : '#E8EDFF'/, 'activity chips use pastel state fills')
 })
 

@@ -61,7 +61,7 @@ function AspireEventChip({ ev, compact = false, onClick }) {
         overflow: 'hidden', fontFamily: 'Plus Jakarta Sans, sans-serif',
       }}
     >
-      <span style={{ fontSize: compact ? 9 : 11, fontWeight: 600, color: 'var(--paper-ink, #374151)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+      <span style={{ fontSize: compact ? 9 : 11, fontWeight: 600, color, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
         {ev.title}
       </span>
     </button>

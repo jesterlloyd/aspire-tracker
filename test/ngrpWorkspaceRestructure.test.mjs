@@ -215,14 +215,14 @@ test('the Activity calendar matches the Interviews calendar, part for part', () 
   // Clicking a day opens a modal; hovering a day offers the add.
   assert.match(activity, /const openDay = date =>/)
   assert.match(activity, /\{dayOpen && \(/)
-  assert.match(activity, /className="ngrp-dayadd"/)
+  assert.match(activity, /className="ngrp-dayadd pl-ghost pl-ghost-event pl-ghost-mini"/)
 })
 
 test('the hover add is a sibling of the day button, and reachable without a mouse', () => {
   // Nesting a button inside CanonicalMonthCell's button would be invalid HTML
   // and would cost the pill its keyboard reachability.
-  const cell = activity.slice(activity.indexOf('<div key={date} className="ngrp-daycell">'), activity.indexOf('</div>', activity.indexOf('className="ngrp-dayadd"')))
-  assert.ok(cell.indexOf('</CanonicalMonthCell>') < cell.indexOf('className="ngrp-dayadd"'),
+  const cell = activity.slice(activity.indexOf('<div key={date} className="ngrp-daycell">'), activity.indexOf('</div>', activity.indexOf('className="ngrp-dayadd pl-ghost')))
+  assert.ok(cell.indexOf('</CanonicalMonthCell>') < cell.indexOf('className="ngrp-dayadd pl-ghost'),
     'the pill comes after the cell closes, not inside it')
   assert.match(activity, /aria-label=\{`Add an event on \$\{longDate\(date\)\}`\}/)
   const css = read('src/components/ngrp/ngrp.css')
