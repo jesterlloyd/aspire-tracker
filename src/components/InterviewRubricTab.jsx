@@ -547,7 +547,10 @@ export default function InterviewRubricTab({
           )}
         </div>
         <div style={{
-          overflow: 'hidden',
+          // The expanded Modern calendar owns a soft rounded shadow. Keeping this
+          // wrapper clipped while it is open cuts that shadow into sharp corner
+          // fragments. Clipping is only needed while the calendar collapses.
+          overflow: calendarCollapsed ? 'hidden' : 'visible',
           maxHeight: calendarCollapsed ? '0' : '900px',
           opacity: calendarCollapsed ? 0 : 1,
           transition: 'max-height 0.3s ease, opacity 0.2s ease',

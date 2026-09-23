@@ -74,6 +74,7 @@ test('the calendar is timeline-first on the shared canonical foundation with mon
   assert.match(calendar, /CanonicalCalendarLayout/)
   assert.match(calendar, /CanonicalCalendarNav/)
   assert.match(calendar, /CanonicalCalendarMonthTitle/)
+  assert.match(calendar, /contentAware/)
   // One rotation per row: the timeline row structure.
   assert.match(calendar, /ptl-na-row/)
   assert.match(calendar, /ptl-na-bar/)

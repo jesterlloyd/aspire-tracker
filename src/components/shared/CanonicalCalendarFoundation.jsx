@@ -47,6 +47,7 @@ export function CanonicalCalendarLayout({
   titleVisuallyHidden = false,
   paper = null,
   appearance = 'auto',
+  contentAware = false,
 }) {
   const { style } = useTheme()
   const isModern = appearance === 'modern' || (appearance === 'auto' && style === 'modern')
@@ -74,7 +75,7 @@ export function CanonicalCalendarLayout({
   if (isModern || !paper) {
     return (
       <section
-        className={`canonical-calendar-shell${isModern ? ' canonical-calendar-modern' : ''}`}
+        className={`canonical-calendar-shell${isModern ? ' canonical-calendar-modern' : ''}${contentAware ? ' canonical-calendar-content-aware' : ''}`}
         data-calendar-style={isModern ? 'modern' : 'plain'}
         aria-labelledby={labelledBy}
       >

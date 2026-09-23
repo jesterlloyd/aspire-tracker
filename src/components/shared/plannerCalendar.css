@@ -124,6 +124,17 @@
   min-width: 0;
 }
 .canonical-calendar-modern .pl-calbox-scroll { flex: 1; min-height: 0; overflow: auto hidden; }
+/* Timelines have an unknown number of rows rather than a month grid. Let explicitly
+   content-aware calendars end after their final row instead of reserving a 560px canvas. */
+.canonical-calendar-modern.canonical-calendar-content-aware .pl-calbox {
+  height: auto;
+  min-height: 0;
+  padding-bottom: 12px;
+}
+.canonical-calendar-modern.canonical-calendar-content-aware .pl-calbox-scroll {
+  flex: none;
+  overflow: visible;
+}
 .canonical-calendar-modern .pl-monthgrid {
   display: grid;
   grid-template-rows: repeat(var(--weeks, 6), minmax(0, 1fr));
