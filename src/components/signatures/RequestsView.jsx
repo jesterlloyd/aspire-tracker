@@ -8,7 +8,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   TRACKER_FILTERS, REQUEST_STATUS, trackerCounts, bulkCounts, bulkProgressLabel, currentTurn, isFinal,
-  formatInZone, describeEvent, summarizeAgent, fieldLabel,
+  formatInZone, describeEvent, summarizeAgent, fieldLabel, isAutoField, autoFieldValue,
 } from '../../lib/signatures/sigModel'
 import { sigStaff, sigStaffDownload } from './sigApi'
 import PdfPages from './PdfPages'
@@ -368,7 +368,7 @@ function SelfSignModal({ id, me, onClose, onDone }) {
   const mine = b.signers.find(s => s.user_profile_id === me?.id && s.status !== 'replaced')
   const people = b.signers.filter(s => s.recipient_type === 'signer' && s.status !== 'replaced')
   const myFields = b.request.fields.filter(f => f.role === mine?.role_key)
-  const inputs = myFields.filter(f => !['sig', 'ini', 'date'].includes(f.type))
+  const inputs = myFields.filter(f => !isAutoField(f) && !['sig', 'ini'].includes(f.type))
   const missing = inputs.filter(f => f.required && !String(vals[f.type === 'radio' ? f.group : f.id] || '').trim()).length
   const ok = !missing && pw && agree && typed.trim()
   const earlier = people.filter(s => s.signed_at)
@@ -384,7 +384,7 @@ function SelfSignModal({ id, me, onClose, onDone }) {
       <div className="sg-selfsign">
         <div className="sg-sspages">
           <PdfPages source={url ? { url } : null} pageSizes={b.request.page_sizes} overlay={(n) => b.request.fields.filter(f => (f.page || 1) === n).map(f => {
-            const v = f.role === mine?.role_key ? (f.type === 'sig' ? typed : f.type === 'ini' ? typed.split(/\s+/).map(w => w[0]).join('') : f.type === 'date' ? new Date().toLocaleDateString('en-US') : vals[f.id]) : b.values[f.id]
+            const v = f.role === mine?.role_key ? (f.type === 'sig' ? typed : f.type === 'ini' ? typed.split(/\s+/).map(w => w[0]).join('') : isAutoField(f) ? autoFieldValue(f.type, new Date(), b.time_zone) : vals[f.id]) : b.values[f.id]
             return <div key={f.id} className={`sg-sf${f.role === mine?.role_key ? ' sg-sf-mine' : ' sg-sf-other'}${v ? ' sg-sf-filled' : ''}${f.type === 'sig' || f.type === 'ini' ? ' sg-sf-sig' : ''}`}
               style={{ left: `${f.x}%`, top: `${f.y}%`, width: `${f.w}%`, height: `${f.h}%` }} aria-hidden="true">{v || (f.role === mine?.role_key ? fieldLabel(f) : '')}</div>
           })} />

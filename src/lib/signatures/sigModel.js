@@ -76,6 +76,7 @@ export const FIELD_TYPES = Object.freeze([
   { key: 'sig', label: 'Signature', w: 24, h: 6, required: true },
   { key: 'ini', label: 'Initials', w: 9, h: 5, required: true },
   { key: 'date', label: 'Date signed', w: 18, h: 4, required: true, auto: true },
+  { key: 'time', label: 'Time signed', w: 16, h: 4, required: true, auto: true },
   { key: 'name', label: 'Full name', w: 26, h: 4, required: true, prefill: 'name' },
   { key: 'email', label: 'Email', w: 26, h: 4, required: true, prefill: 'email', rule: 'email' },
   { key: 'phone', label: 'Phone', w: 20, h: 4, required: false, prefill: 'phone', rule: 'us_phone' },
@@ -88,6 +89,14 @@ export const FIELD_TYPES = Object.freeze([
   { key: 'radio', label: 'Radio group', w: 2.8, h: 2.8, required: false },
 ])
 export const fieldType = (k) => FIELD_TYPES.find(t => t.key === k)
+/** Date signed and Time signed fill themselves when the signer finishes; nobody types them. */
+export const isAutoField = (f) => f?.type === 'date' || f?.type === 'time'
+export function autoFieldValue(type, at = new Date(), timeZone) {
+  const zone = timeZone ? { timeZone } : {}
+  if (type === 'date') return at.toLocaleDateString('en-US', { ...zone, month: '2-digit', day: '2-digit', year: 'numeric' })
+  if (type === 'time') return at.toLocaleTimeString('en-US', { ...zone, hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })
+  return undefined
+}
 export const fieldLabel = (f) => (f?.label && f.label.trim()) || fieldType(f?.type)?.label || 'Field'
 
 // Format rules the editor offers per type (brief section 4, step 3).
@@ -248,6 +257,29 @@ export function sendIssues({ recipients, fields, documentType, excludedConfirmed
     const v = senderValues[f.id]
     if (f.required && (v == null || String(v).trim() === '')) issues.push(`Fill "${fieldLabel(f)}" before sending.`)
   }
+  return issues
+}
+
+/**
+ * What a TEMPLATE needs before it can be saved. Unlike a send, the first signer is a
+ * placeholder ("Student"): the Catalog's To field fills that role at send time, so it
+ * needs no email. Every other recipient is kept on the template as-is, so each needs one.
+ */
+export function templateIssues({ recipients, fields, documentType, excludedConfirmed = false }) {
+  const issues = []
+  const signers = recipients.filter(r => r.type === 'signer')
+  if (!signers.length) issues.push('Add at least one signer.')
+  signers.forEach((s, i) => {
+    if (!fields.some(f => f.role === s.roleKey && f.type === 'sig')) issues.push(`${s.name || `Signer ${i + 1}`} has no signature field.`)
+  })
+  const first = signers[0]?.roleKey
+  for (const r of recipients) {
+    const email = String(r.email || '').trim()
+    if (r.roleKey === first) { if (email && !EMAIL.test(email)) issues.push(`${r.name || 'Signer 1'} has an email that is not valid.`); continue }
+    if (!EMAIL.test(email)) issues.push(`${r.name || 'A recipient'} needs a valid email: the template keeps them on every send.`)
+  }
+  if (!documentType) issues.push('Choose a document type.')
+  else if (isExcludedType(documentType) && !excludedConfirmed) issues.push('This document type is excluded from e-signature by law. An admin must confirm before sending.')
   return issues
 }
 

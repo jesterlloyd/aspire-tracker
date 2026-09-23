@@ -34,6 +34,7 @@ import {
   decideDelegation, staffSign, DOC_BUCKET, ORG_ID,
 } from '../lib/server/signatures/engine.js'
 import { verifySealedPdf } from '../lib/server/signatures/verifySeal.js'
+import { assignableCategorySlugs, cleanAudience } from './lib/catalogCategories.js'
 import { zipStored } from '../lib/server/signatures/zip.js'
 import { isExcludedType, bulkCounts, REQUEST_STATUS } from '../src/lib/signatures/sigModel.js'
 import { Buffer } from 'node:buffer'
@@ -265,11 +266,12 @@ async function saveTemplate(db, t, profile) {
     signing_order: t.signingOrder === 'parallel' ? 'parallel' : 'sequential', status: 'active', updated_at: new Date().toISOString(),
     excluded_type_confirmed_by: isExcludedType(t.documentType) && t.excludedConfirmed ? profile.id : null,
   }
+  const details = await catalogDetails(db, t.catalog)
   if (UUID.test(t.id || '')) {
     const { data: prev } = await db.from('sig_templates').select('version, catalog_resource_id').eq('id', t.id).maybeSingle()
     const { data, error } = await db.from('sig_templates').update({ ...row, version: (prev?.version || 1) + 1 }).eq('id', t.id).select('id, version, catalog_resource_id').single()
     if (error) throw new EngineError('save_failed', error.message, 500)
-    if (prev?.catalog_resource_id) await db.from('catalog_resources').update({ title: row.name, updated_at: row.updated_at, updated_by: profile.id }).eq('id', prev.catalog_resource_id)
+    if (prev?.catalog_resource_id) await db.from('catalog_resources').update({ title: row.name, ...(details || {}), updated_at: row.updated_at, updated_by: profile.id }).eq('id', prev.catalog_resource_id)
     return { template: data }
   }
   const { data, error } = await db.from('sig_templates').insert({ ...row, created_by: profile.id }).select('id, version').single()
@@ -277,11 +279,41 @@ async function saveTemplate(db, t, profile) {
   // Its Catalog item: kind 'signature', no file in the Catalog bucket (the storage_path
   // names the template, and nothing opens it as a file; the Catalog routes it here).
   const slug = `${name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60)}-${data.id.slice(0, 6)}`
-  const { data: item } = await db.from('catalog_resources').insert({
-    slug, title: row.name, description: t.description || null, category: t.category || 'student_onboarding',
+  const { data: item, error: itemError } = await db.from('catalog_resources').insert({
+    slug, title: row.name, description: null, category: 'student_onboarding', audience: [], tags: [], is_pinned: false,
+    ...(details || {}),
     resource_type: 'internal_file', storage_path: `sig-template:${data.id}`, file_type_label: 'PDF', kind: 'signature',
-    audience: t.audience ? [t.audience] : [], is_active: true, created_by: profile.id, updated_by: profile.id,
+    is_active: true, created_by: profile.id, updated_by: profile.id,
   }).select('id').single()
-  if (item) await db.from('sig_templates').update({ catalog_resource_id: item.id }).eq('id', data.id)
-  return { template: { ...data, catalog_resource_id: item?.id || null } }
+  if (itemError || !item) {
+    // A template with no Catalog item cannot be found or sent from the Catalog: undo it.
+    await db.from('sig_templates').delete().eq('id', data.id)
+    throw new EngineError('save_failed', `Could not add it to the Catalog: ${itemError?.message || 'no row returned'}`, 500)
+  }
+  await db.from('sig_templates').update({ catalog_resource_id: item.id }).eq('id', data.id)
+  return { template: { ...data, catalog_resource_id: item.id } }
+}
+
+// The template's Catalog item details, validated as /api/catalog-resource-update validates
+// them. Absent: nothing to change (a re-save keeps what Edit details set).
+async function catalogDetails(db, c) {
+  if (!c || typeof c !== 'object') return null
+  const out = {}
+  if ('description' in c) out.description = String(c.description || '').trim().slice(0, 2000) || null
+  if ('category' in c) {
+    const cats = await assignableCategorySlugs(db)
+    if (!cats.ok || !cats.slugs.has(c.category)) throw new EngineError('invalid', 'Choose a Catalog category.')
+    out.category = c.category
+  }
+  if ('audience' in c) {
+    const a = cleanAudience(c.audience)
+    if (a === null) throw new EngineError('invalid', 'Choose an audience.')
+    out.audience = a
+  }
+  if ('tags' in c) {
+    const list = Array.isArray(c.tags) ? c.tags : String(c.tags || '').split(',')
+    out.tags = list.filter(x => typeof x === 'string').map(x => x.trim()).filter(Boolean).map(x => x.slice(0, 40)).slice(0, 20)
+  }
+  if ('pinned' in c) out.is_pinned = c.pinned === true
+  return out
 }

@@ -12,6 +12,8 @@ export function emptyDraft() {
     documentPath: null, sha256: null, pageSizes: [], recipients: [blankRecipient(0)], ordered: true, fields: [],
     senderValues: {}, subject: '', message: 'Hi {first name},\n\nPlease review and sign this document.\n\nThank you.',
     reminderRule: 'every_3_days', expiresDays: 30, saveTemplate: false,
+    // The template's Catalog item (Library > Signature templates).
+    catalog: { description: '', category: '', audience: 'everyone', tags: '', pinned: false },
   }
 }
 

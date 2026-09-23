@@ -8,7 +8,7 @@
 //
 // Steps: code -> consent -> sign -> done (or waiting / closed).
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { unmetRequirements, fieldLabel, fieldType, checkRule, initialsOf, formatInZone } from '../../lib/signatures/sigModel'
+import { unmetRequirements, fieldLabel, fieldType, checkRule, initialsOf, formatInZone, isAutoField, autoFieldValue } from '../../lib/signatures/sigModel'
 import PdfPages from './PdfPages'
 import './signerFlow.css'
 
@@ -146,14 +146,14 @@ function SignStep({ state, api, busy, run, error, preview }) {
 
   useEffect(() => { api.open().catch(() => {}); api.document().then(u => setSource(u ? { url: u } : null)).catch(() => setSource(null)) }, [api])
 
-  // Date signed shows today's date; the server writes the real time when you finish.
+  // Date and time signed show now; the server writes the real moment when you finish.
   const shown = useMemo(() => {
     const v = { ...values }
-    for (const f of mine) if (f.type === 'date') v[f.id] = new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })
+    for (const f of mine) if (isAutoField(f)) v[f.id] = autoFieldValue(f.type, new Date(), state.time_zone)
     for (const f of mine) if (f.type === 'sig' && adopted) v[f.id] = adopted.text
     for (const f of mine) if (f.type === 'ini' && adopted) v[f.id] = adopted.initials
     return v
-  }, [values, mine, adopted])
+  }, [values, mine, adopted, state.time_zone])
   const unmet = useMemo(() => unmetRequirements(doc.fields, shown, role), [doc.fields, shown, role])
   const next = unmet[0]
   const left = unmet.length
@@ -168,7 +168,7 @@ function SignStep({ state, api, busy, run, error, preview }) {
   const fill = (f) => {
     setCurId(f.id)
     if (f.type === 'sig' || f.type === 'ini') { if (!adopted) setAdopting(f); return }
-    if (f.type === 'date') return
+    if (isAutoField(f)) return
     if (f.type === 'check') { setValues(v => ({ ...v, [f.id]: v[f.id] === '✓' ? '' : '✓' })); return }
     if (f.type === 'radio') { setValues(v => ({ ...v, [f.group]: f.id })); return }
     if (!values[f.id] && PREFILL_OF[f.type] && state.prefill?.[PREFILL_OF[f.type]]) setValues(v => ({ ...v, [f.id]: state.prefill[PREFILL_OF[f.type]] }))
@@ -177,7 +177,7 @@ function SignStep({ state, api, busy, run, error, preview }) {
 
   const finish = () => run(async () => {
     const out = {}
-    for (const f of mine) { if (f.type === 'radio') out[f.group] = values[f.group]; else if (f.type !== 'date' && f.type !== 'sig' && f.type !== 'ini') out[f.id] = values[f.id] }
+    for (const f of mine) { if (f.type === 'radio') out[f.group] = values[f.group]; else if (!isAutoField(f) && f.type !== 'sig' && f.type !== 'ini') out[f.id] = values[f.id] }
     await api.finish(out, adopted)
   })
 

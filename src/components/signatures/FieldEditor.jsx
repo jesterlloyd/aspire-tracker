@@ -15,7 +15,7 @@ import {
 } from '../../lib/signatures/sigModel'
 import PdfPages from './PdfPages'
 
-const GLYPH = { sig: '✍', ini: 'AB', date: '31', name: 'Aa', email: '@', phone: '☏', title: 'T', org: '⌂', addr: '⌖', text: 'Tx', check: '☑', drop: '▾', radio: '◉' }
+const GLYPH = { sig: '✍', ini: 'AB', date: '31', time: '◷', name: 'Aa', email: '@', phone: '☏', title: 'T', org: '⌂', addr: '⌖', text: 'Tx', check: '☑', drop: '▾', radio: '◉' }
 const PREFILLABLE = new Set(['name', 'email', 'title', 'org', 'phone', 'addr'])
 let seq = 0
 const newId = () => `f${Date.now().toString(36)}${(seq++).toString(36)}`
@@ -244,6 +244,7 @@ export default function FieldEditor({ fields, setFields, signers, pageSizes, sou
                 <p className="sg-hint">The signer can still edit it.</p></>
             )}
             {selected.type === 'date' && <p className="sg-hint">Filled automatically with the date the signer signs. It cannot be edited.</p>}
+            {selected.type === 'time' && <p className="sg-hint">Filled automatically with the time the signer signs, in ASPIRE's time zone. It cannot be edited.</p>}
             {(selected.type === 'sig' || selected.type === 'ini') && <p className="sg-hint">The signer types or draws it. The audit trail records which.</p>}
             <div className="sg-two">
               <button type="button" className="sg-btn sg-sm" onClick={() => { const n = clampField({ ...selected, id: newId(), y: selected.y + selected.h + 1.5 }); setFields(fs => [...fs, n]); setSelId(n.id) }}>Duplicate</button>

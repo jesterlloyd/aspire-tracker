@@ -7,9 +7,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import {
-  DOCUMENT_TYPES, isExcludedType, RECIPIENT_TYPES, colorForIndex, SENDER_ROLE, sendIssues, ruleSummaries, fieldLabel,
+  DOCUMENT_TYPES, isExcludedType, RECIPIENT_TYPES, colorForIndex, SENDER_ROLE, sendIssues, templateIssues, ruleSummaries, fieldLabel,
 } from '../../lib/signatures/sigModel'
-import { searchPeople } from '../../lib/catalog/catalogModel'
+import { searchPeople, AUDIENCES } from '../../lib/catalog/catalogModel'
 import FieldEditor from './FieldEditor'
 import { sigStaff } from './sigApi'
 import { blankRecipient, emptyDraft, nextRoleKey } from '../../lib/signatures/draft'
@@ -24,7 +24,16 @@ export default function PrepareWizard({ initial, draftId: initialDraftId, startS
   const [err, setErr] = useState(null)
   const [templates, setTemplates] = useState([])
   const [docUrl, setDocUrl] = useState(null)
+  const [cats, setCats] = useState([])
   const set = (patch) => setD(x => ({ ...x, ...patch }))
+  const cat = { ...emptyDraft().catalog, ...(d.catalog || {}) }
+  const setCat = (patch) => set({ catalog: { ...cat, ...patch, touched: true } })
+
+  // The Catalog's own categories, less retired ones, for the template's Catalog item.
+  useEffect(() => {
+    supabase.from('catalog_categories').select('slug, display_name, retired_at').order('sort_order')
+      .then(({ data }) => setCats((data || []).filter(c => !c.retired_at)))
+  }, [])
 
   useEffect(() => { sigStaff('templates').then(r => setTemplates(r.templates || [])).catch(() => {}) }, [])
   useEffect(() => {
@@ -34,6 +43,7 @@ export default function PrepareWizard({ initial, draftId: initialDraftId, startS
 
   const signers = d.recipients.map((r, i) => ({ ...r, roleKey: r.roleKey || `r${i + 1}` }))
   const issues = useMemo(() => sendIssues({ recipients: signers, fields: d.fields, documentType: d.documentType, excludedConfirmed: d.excludedConfirmed, senderValues: d.senderValues }), [signers, d.fields, d.documentType, d.excludedConfirmed, d.senderValues])
+  const tplIssues = useMemo(() => templateIssues({ recipients: signers, fields: d.fields, documentType: d.documentType, excludedConfirmed: d.excludedConfirmed }), [signers, d.fields, d.documentType, d.excludedConfirmed])
   const stepBlock = step === 0 && !d.documentPath ? 'Upload a PDF or pick a template first.' : step === 0 && !d.title.trim() ? 'Name the document.' : null
 
   const pickTemplate = async (id) => {
@@ -72,15 +82,36 @@ export default function PrepareWizard({ initial, draftId: initialDraftId, startS
     catch (e) { setErr(e.message) } finally { setBusy(false) }
   }
 
+  const rolesOf = () => signers.map(r => ({ key: r.roleKey, type: r.type, label: r.label || r.name, defaultName: r.name, defaultEmail: r.email }))
+  // A new template writes its Catalog details; an update writes them only if they were
+  // changed here, so a re-save never blanks what Edit details set in the Catalog.
+  const catalogOf = () => (d.templateId && !cat.touched ? undefined : {
+    description: cat.description, audience: cat.audience, tags: cat.tags, pinned: cat.pinned,
+    ...(cat.category ? { category: cat.category } : {}),
+  })
+  const putTemplate = async (roles) => {
+    const t = await sigStaff('template_save', { template: { id: d.templateId, name: d.title, documentType: d.documentType, excludedConfirmed: d.excludedConfirmed, sourcePath: d.documentPath, sourceSha256: d.sha256, pageCount: d.pageSizes.length, pageSizes: d.pageSizes, fields: d.fields, roles, signingOrder: d.ordered ? 'sequential' : 'parallel', catalog: catalogOf() } })
+    set({ templateId: t.template.id })
+    return t.template.id
+  }
+
+  // Save the template without sending anything (Owner, 2026-09-23: the first template is
+  // made before anyone is asked to sign it).
+  const saveTemplateOnly = async () => {
+    setBusy(true); setErr(null)
+    try {
+      const had = !!d.templateId
+      await putTemplate(rolesOf())
+      notify?.(had ? 'Template updated in the Catalog.' : 'Saved to the Catalog under Signature templates. Nothing was sent.')
+    } catch (e) { setErr(e.message) } finally { setBusy(false) }
+  }
+
   const send = async () => {
     setBusy(true); setErr(null)
     try {
       let templateId = d.templateId
-      const roles = signers.map(r => ({ key: r.roleKey, type: r.type, label: r.label || r.name, defaultName: r.name, defaultEmail: r.email }))
-      if (d.saveTemplate) {
-        const t = await sigStaff('template_save', { template: { id: templateId, name: d.title, documentType: d.documentType, excludedConfirmed: d.excludedConfirmed, sourcePath: d.documentPath, sourceSha256: d.sha256, pageCount: d.pageSizes.length, pageSizes: d.pageSizes, fields: d.fields, roles, signingOrder: d.ordered ? 'sequential' : 'parallel' } })
-        templateId = t.template.id
-      }
+      const roles = rolesOf()
+      if (d.saveTemplate) templateId = await putTemplate(roles)
       const out = await sigStaff('send', { send: {
         templateId, title: d.title, documentType: d.documentType, excludedConfirmed: d.excludedConfirmed, documentPath: d.documentPath,
         originalSha256: d.sha256, pageSizes: d.pageSizes, fields: d.fields, roles, mode: 'one',
@@ -189,7 +220,25 @@ export default function PrepareWizard({ initial, draftId: initialDraftId, startS
             {signers.filter(r => r.type === 'cc').map(r => <div key={r.roleKey} className="sg-sumrow"><span>{r.name || r.email}</span><span>Receives a copy</span></div>)}
             <div className="sg-sumrow"><span>Signed copy returns to</span><b>You and every party</b></div>
             <label className="sg-tg"><span>Save as a template in the Catalog</span><input type="checkbox" checked={d.saveTemplate} onChange={e => set({ saveTemplate: e.target.checked })} /></label>
-            <p className="sg-hint">Off: a one-time request. It still shows under Signature requests.</p>
+            <p className="sg-hint">Off: a one-time request. It still shows under Signature requests. Save template, below, saves it without sending.</p>
+            <p className="sg-h3">Catalog details for the template</p>
+            <div className="sg-field"><label htmlFor="sg-cat-desc">Description (optional)</label>
+              <textarea id="sg-cat-desc" rows={3} value={cat.description} onChange={e => setCat({ description: e.target.value })} /></div>
+            <div className="sg-two">
+              <div className="sg-field"><label htmlFor="sg-cat-cat">Category</label>
+                <select id="sg-cat-cat" value={cat.category} onChange={e => setCat({ category: e.target.value })}>
+                  <option value="">Student Onboarding (default)</option>
+                  {cats.map(c => <option key={c.slug} value={c.slug}>{c.display_name}</option>)}
+                </select></div>
+              <div className="sg-field"><label htmlFor="sg-cat-aud">Audience</label>
+                <select id="sg-cat-aud" value={cat.audience} onChange={e => setCat({ audience: e.target.value })}>
+                  {AUDIENCES.map(a => <option key={a.key} value={a.key}>{a.label}</option>)}
+                </select></div>
+            </div>
+            <div className="sg-field"><label htmlFor="sg-cat-tags">Tags (comma-separated)</label>
+              <input id="sg-cat-tags" value={cat.tags} onChange={e => setCat({ tags: e.target.value })} /></div>
+            <label className="sg-tg"><span>Pin to the top</span><input type="checkbox" checked={cat.pinned} onChange={e => setCat({ pinned: e.target.checked })} /></label>
+            {tplIssues.length > 0 && <div className="sg-warnlist" aria-label="Before saving as a template">{tplIssues.map(x => <div key={x} className="sg-wl sg-bad">✕ <span>{x}</span></div>)}</div>}
             <button type="button" className="sg-btn sg-sm" onClick={() => onPreview?.(d)}>Preview as signer</button>
             <p className="sg-h3">Checks</p>
             <div className="sg-warnlist">
@@ -208,7 +257,10 @@ export default function PrepareWizard({ initial, draftId: initialDraftId, startS
           <button type="button" className="sg-btn" onClick={saveDraft} disabled={busy || !d.documentPath}>Save draft</button>
           {step < 3
             ? <button type="button" className="sg-btn sg-pri" disabled={!!stepBlock} title={stepBlock || undefined} onClick={() => setStep(step + 1)}>Next: {STEPS[step + 1]}</button>
-            : <button type="button" className="sg-btn sg-pri" disabled={busy || issues.length > 0} onClick={send}>{busy ? 'Sending…' : 'Send for signature'}</button>}
+            : <>
+                <button type="button" className="sg-btn" disabled={busy || tplIssues.length > 0} title={tplIssues[0] || undefined} onClick={saveTemplateOnly}>{d.templateId ? 'Update template' : 'Save template'}</button>
+                <button type="button" className="sg-btn sg-pri" disabled={busy || issues.length > 0} onClick={send}>{busy ? 'Sending…' : 'Send for signature'}</button>
+              </>}
         </span>
       </div>
     </div>
