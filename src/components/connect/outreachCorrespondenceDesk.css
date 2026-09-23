@@ -90,20 +90,73 @@
   letter-spacing: 0.11em;
   text-transform: uppercase;
 }
-.outreach-workspace-classic .outreach-correspondence-files .connect-panel:first-child::before,
-.outreach-workspace-classic .outreach-bulk-manual > .connect-panel:first-child::before {
-  content: '';
+.outreach-workspace-classic .outreach-clipboard-clip {
   position: absolute;
-  z-index: 2;
-  top: -9px;
+  z-index: 8;
+  top: -12px;
   left: 50%;
-  width: 62px;
-  height: 19px;
+  display: block;
+  width: 76px;
+  height: 24px;
   translate: -50% 0;
-  border: 1px solid #767a82;
-  border-radius: 5px 5px 3px 3px;
-  background: linear-gradient(#d9dce1, #aeb2ba);
-  box-shadow: inset 0 2px 2px rgba(255, 255, 255, 0.65), 0 2px 4px rgba(0, 0, 0, 0.2);
+  border: 1px solid #737780;
+  border-radius: 6px 6px 3px 3px;
+  background: linear-gradient(180deg, #eef0f3 0%, #c7cbd2 45%, #a9aeb7 100%);
+  box-shadow: inset 0 2px 2px rgba(255, 255, 255, 0.8), 0 3px 5px rgba(0, 0, 0, 0.28);
+  pointer-events: none;
+}
+.outreach-workspace-classic .outreach-clipboard-clip > span {
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  width: 25px;
+  height: 6px;
+  translate: -50% 0;
+  border: 1px solid #898d95;
+  border-radius: 4px;
+  background: #e2e5e9;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.14);
+}
+.outreach-workspace-classic .outreach-recipient-file {
+  overflow: visible !important;
+}
+.outreach-workspace-classic .outreach-recipient-file-bulk {
+  display: flex;
+  flex-direction: column;
+}
+.outreach-workspace-classic .outreach-recipient-file-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding-right: 2px;
+}
+.outreach-workspace-classic .outreach-recipient-file .connect-panel-head {
+  position: relative;
+  padding-right: 84px;
+}
+.outreach-workspace-classic .outreach-recipient-file .connect-panel-head::after {
+  content: 'ADDRESS FILE';
+  position: absolute;
+  top: 8px;
+  right: 0;
+  color: var(--ocd-brass-dark);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+  letter-spacing: 0.14em;
+}
+.outreach-workspace-classic .outreach-recipient-file .connect-panel-helper {
+  margin-top: 9px !important;
+}
+.outreach-workspace-classic .outreach-recipient-profile {
+  border-color: var(--ocd-paper-edge) !important;
+  border-radius: 0 !important;
+  background: #f8f3e9 !important;
+  box-shadow: none !important;
+}
+.outreach-workspace-classic .outreach-recipient-profile h3 {
+  color: var(--ocd-ink) !important;
+  font-family: Georgia, 'Times New Roman', serif !important;
+  font-size: 19px !important;
+  font-weight: 400 !important;
 }
 
 /* The draft and preview column reads as formal stationery. */

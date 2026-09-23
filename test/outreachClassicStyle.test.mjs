@@ -53,6 +53,20 @@ test('the supplied metaphor is restrained and uses the live editor', () => {
   assert.doesNotMatch(css, /typewriter-key|typing-sound|moving-carriage|distressed/)
 })
 
+test('Classic recipient files use a stable clipboard clip outside source-switched content', () => {
+  const panel = read('src/components/connect/ConnectPanel.jsx')
+  const outreach = read('src/components/connect/OutreachView.jsx')
+  const bulk = read('src/components/connect/BulkManualComposer.jsx')
+  const css = read('src/components/connect/outreachCorrespondenceDesk.css')
+
+  assert.match(panel, /clipboard && <span className="outreach-clipboard-clip" aria-hidden="true">/)
+  assert.match(outreach, /title="Recipient Card"[\s\S]*className="outreach-recipient-file outreach-recipient-file-single"[\s\S]*clipboard/)
+  assert.match(bulk, /className="outreach-recipient-file outreach-recipient-file-bulk"[\s\S]*clipboard[\s\S]*bodyClassName="outreach-recipient-file-body"/)
+  assert.match(css, /\.outreach-workspace-classic \.outreach-recipient-file \{[\s\S]*overflow: visible !important;/)
+  assert.match(css, /content: 'ADDRESS FILE'/)
+  assert.doesNotMatch(css, /\.outreach-bulk-manual > \.connect-panel:first-child::before/)
+})
+
 test('Settings documents Outreach as a shipped correspondence desk surface', () => {
   const appearance = read('src/lib/appearance.js')
   const settings = read('src/components/settings/AppearancePanel.jsx')

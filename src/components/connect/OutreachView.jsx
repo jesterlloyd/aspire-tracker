@@ -2723,7 +2723,13 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                 student chosen via the existing dropdown (so the picker does not
                 shadow the survey selection). The picker shows when explicitly
                 reopened ("Change recipient") or when no recipient is resolved. */}
-          <ConnectPanel tone="audience" icon="userSearch" title="Recipient">
+          <ConnectPanel
+            tone="audience"
+            icon="userSearch"
+            title="Recipient Card"
+            className="outreach-recipient-file outreach-recipient-file-single"
+            clipboard
+          >
           {(() => {
             const urlRecipient = !!(contactId || studentId)
             const anyRecipient = urlRecipient || !!selectedStudentId
@@ -3783,6 +3789,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
           userKey={userKey}
           cohortId={cohortId}
           richEnabled={richEnabled}
+          classicDesk={classicDesk}
           initialAudience={launchAudience}
         />
       )}
@@ -3792,8 +3799,12 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
 
           {/* ── Bulk Zone 1: Student Audience Picker ─────────────────── */}
           <ConnectPanel tone="audience" title="Recipients"
+            className="outreach-recipient-file outreach-recipient-file-bulk"
+            clipboard
+            bodyClassName="outreach-recipient-file-body"
             helper={loadingStudents ? 'Loading students…' : `${students.length} students in cohort`}
-            style={{ flex: '0 0 340px', minWidth: 280, maxHeight: 'calc(100dvh - 280px)', overflowY: 'auto' }}>
+            style={{ flex: '0 0 340px', minWidth: 280, maxHeight: 'calc(100dvh - 280px)', overflowY: classicDesk ? 'visible' : 'auto' }}
+            bodyStyle={classicDesk ? { minHeight: 0, overflowY: 'auto' } : undefined}>
 
             {/* Unified Audience Source tabs - Survey Invitation requires student recipients, so
                 Students is active/required and Contacts / Paste · Type are disabled with a note. */}

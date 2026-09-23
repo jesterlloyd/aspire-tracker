@@ -127,7 +127,7 @@ export default function RecipientProfileCard({
   // ── No recipient selected ─────────────────────────────────────────────────
   if (!recipientType && !fromContact && !displayStudent && !fetchedStudent) {
     return (
-      <div style={cardStyle}>
+      <div className="outreach-recipient-profile" style={cardStyle}>
         <div style={{ ...heroStyle, padding: '18px 16px' }}>
           <div style={{
             width: 40, height: 40, borderRadius: '50%', background: '#e5e7eb',
@@ -150,7 +150,7 @@ export default function RecipientProfileCard({
   // ── Student fetch error ───────────────────────────────────────────────────
   if (studentFetchFailed && recipientType === 'student') {
     return (
-      <div style={cardStyle}>
+      <div className="outreach-recipient-profile" style={cardStyle}>
         <div style={{ padding: '14px 16px', background: '#fef2f2', borderRadius: 12 }}>
           <div style={{ fontSize: 12, color: '#dc2626', fontFamily: F, lineHeight: 1.5 }}>
             Student context unavailable. Return to Student Profiles and click Email.
@@ -165,7 +165,7 @@ export default function RecipientProfileCard({
 
     if (!fromContact && !contact) {
       return (
-        <div style={cardStyle}>
+        <div className="outreach-recipient-profile" style={cardStyle}>
           <div style={{ ...heroStyle, padding: '18px 16px' }}>
             <div style={{ fontSize: 12, color: '#8B5E1A', fontFamily: F, lineHeight: 1.5, background: '#FBF5E8', border: '1px solid #f0c9b0', borderRadius: 8, padding: '10px 12px' }}>
               Contact context unavailable. Return to Contacts and click Email.
@@ -191,7 +191,7 @@ export default function RecipientProfileCard({
     const hasBody = !!(email || phone || organization || unitName || schoolName || linkedinUrl || services)
 
     return (
-      <div style={cardStyle}>
+      <div className="outreach-recipient-profile" style={cardStyle}>
         {/* Hero */}
         <div style={heroStyle}>
           <Avatar url={avatar} name={name} />
@@ -257,7 +257,7 @@ export default function RecipientProfileCard({
   if (!student) {
     // Loading state
     return (
-      <div style={cardStyle}>
+      <div className="outreach-recipient-profile" style={cardStyle}>
         <div style={{ ...heroStyle, padding: '18px 16px' }}>
           <div style={{ fontSize: 12, color: '#9ca3af', fontFamily: F }}>Loading recipient…</div>
         </div>
@@ -284,7 +284,7 @@ export default function RecipientProfileCard({
   const sAvatarUrl = studentHeadshotSignedUrl
 
   return (
-    <div style={cardStyle}>
+    <div className="outreach-recipient-profile" style={cardStyle}>
       {/* Hero */}
       <div style={heroStyle}>
         <Avatar url={sAvatarUrl} name={sName} />

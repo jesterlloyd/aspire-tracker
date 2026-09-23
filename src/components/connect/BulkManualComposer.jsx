@@ -204,6 +204,7 @@ export default function BulkManualComposer({
   userKey = null,
   cohortId = null,
   richEnabled = false,
+  classicDesk = false,
   // CAPACITY-RESPONSE-OUTREACH-2: one-shot audience preselection from a Send-and-confirm launch
   // ({ source, contactCategory?, contactEmails?, studentIds? }). Applied ONCE on the launched
   // template's first hydrate; manual type switches afterwards fall back to the registry defaults.
@@ -875,7 +876,14 @@ export default function BulkManualComposer({
       {/* overflow stays auto for the long Students/Contacts lists, but is visible for Paste · Type
           so the typeahead suggestion dropdown is never clipped by the card. */}
       <ConnectPanel tone="audience" title="Recipients" helper="Build one recipient list from any source."
-        style={{ flex: '0 0 340px', minWidth: 280, maxHeight: 'calc(100dvh - 280px)', overflowY: source === 'paste' ? 'visible' : 'auto' }}>
+        className="outreach-recipient-file outreach-recipient-file-bulk"
+        clipboard
+        bodyClassName="outreach-recipient-file-body"
+        style={{
+          flex: '0 0 340px', minWidth: 280, maxHeight: 'calc(100dvh - 280px)',
+          overflowY: classicDesk ? 'visible' : (source === 'paste' ? 'visible' : 'auto'),
+        }}
+        bodyStyle={classicDesk ? { minHeight: 0, overflowY: source === 'paste' ? 'visible' : 'auto' } : undefined}>
 
         {/* Audience Source selector */}
         <div style={{ display: 'flex', borderBottom: '1px solid #f3f4f6', marginBottom: 10 }}>

@@ -47,7 +47,7 @@ const ICON_PATHS = {
   </>),
 }
 
-export default function ConnectPanel({ tone = 'audience', title, helper, icon, padding = 20, style, className = '', children }) {
+export default function ConnectPanel({ tone = 'audience', title, helper, icon, padding = 20, style, className = '', bodyClassName = '', bodyStyle, clipboard = false, children }) {
   return (
     <div className={`connect-panel${className ? ` ${className}` : ''}`} data-connect-tone={tone} style={{
       background: toneGradient(tone),
@@ -59,6 +59,7 @@ export default function ConnectPanel({ tone = 'audience', title, helper, icon, p
       boxSizing: 'border-box',
       ...style,
     }}>
+      {clipboard && <span className="outreach-clipboard-clip" aria-hidden="true"><span /></span>}
       {(title || helper) && (
         <div className="connect-panel-head" style={{ marginBottom: 12 }}>
           <div className="connect-panel-title-row" style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
@@ -70,7 +71,9 @@ export default function ConnectPanel({ tone = 'audience', title, helper, icon, p
           {helper && <div className="connect-panel-helper" style={{ fontSize: 10, color: '#6b7280', fontFamily: F, marginTop: 4 }}>{helper}</div>}
         </div>
       )}
-      {children}
+      {bodyClassName || bodyStyle
+        ? <div className={bodyClassName} style={bodyStyle}>{children}</div>
+        : children}
     </div>
   )
 }
