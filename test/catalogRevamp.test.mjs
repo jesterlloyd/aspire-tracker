@@ -310,6 +310,9 @@ test('the stylesheet keeps the canon: token radii, Classic as a class, dark by a
   assert.doesNotMatch(css, /url\((?!["']?(?:data:|%23))/, 'no image files: every texture is inline SVG')
   const page = read('src/components/catalog/CatalogPage.jsx')
   assert.match(page, /const classic = style !== 'modern'/)
+  // Caveat is self-hosted (Owner, 2026-09-23): no screen reaches Google for a font.
+  assert.doesNotMatch(page, /fonts\.googleapis|fonts\.gstatic/)
+  assert.match(read('src/styles/fonts.css'), /font-family: 'Caveat';[^}]*url\('\/fonts\/caveat\/Caveat-Variable\.woff2'\)/)
 })
 
 test('the Catalog is a Style surface whose Modern is built', () => {

@@ -29,10 +29,12 @@ const FACES = [
   // (only the Review & Release clipboard sets it; @font-face fetches lazily).
   ['jetbrains-mono', 'JetBrainsMono-Variable.woff2', 'JetBrains Mono', '100 800', 'normal'],
   ['jetbrains-mono', 'JetBrainsMono-Italic-Variable.woff2', 'JetBrains Mono', '100 800', 'italic'],
+  // CATALOG-REVAMP-1: the checkout card's handwriting. Upright only, NOT preloaded.
+  ['caveat', 'Caveat-Variable.woff2', 'Caveat', '400 700', 'normal'],
 ]
 const RETIRED = ['DM Sans', 'Pangram Sans', 'Fraunces']
 
-test('the six variable faces exist, carry their OFL notice, and are declared with the documented ranges', () => {
+test('the seven variable faces exist, carry their OFL notice, and are declared with the documented ranges', () => {
   for (const [dir, file, family, weight, style] of FACES) {
     const p = join(root, 'public/fonts', dir, file)
     assert.ok(existsSync(p), `${file} missing from public/fonts/${dir}`)
@@ -57,6 +59,7 @@ test('index.html preloads the two upright variable files and never reaches Googl
   assert.match(html, /<link rel="preload" href="\/fonts\/playfair-display\/PlayfairDisplay-Variable\.woff2" as="font" type="font\/woff2" crossorigin>/)
   assert.doesNotMatch(html, /fonts\.googleapis\.com|fonts\.gstatic\.com/)
   assert.doesNotMatch(html, /jetbrains-mono/, 'the mono face is not preloaded: only one screen uses it')
+  assert.doesNotMatch(html, /\/fonts\/caveat\//, 'the handwriting face is not preloaded: only one card uses it')
 })
 
 test('the core brand tokens name the sans and the serif once, and the functional layers resolve through them', () => {

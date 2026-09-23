@@ -52,20 +52,6 @@ function writeDismissed(set) {
   try { localStorage.setItem(MOVED_DISMISS_KEY, JSON.stringify([...set].slice(-50))) } catch { /* per-browser convenience only */ }
 }
 
-// Caveat is the checkout card's handwriting (Classic only). It loads the first time a
-// Classic send history is drawn; until it arrives, or if it cannot, a system cursive stands in.
-let caveatRequested = false
-function useCaveat(active) {
-  useEffect(() => {
-    if (!active || caveatRequested) return
-    caveatRequested = true
-    const link = document.createElement('link')
-    link.rel = 'stylesheet'
-    link.href = 'https://fonts.googleapis.com/css2?family=Caveat:wght@500;600&display=swap'
-    document.head.appendChild(link)
-  }, [active])
-}
-
 export default function CatalogPage({
   backPath = '/aggregate', backLabel = 'At a Glance',
   students = [], units = [], matches = [], cohortName = '', toast,
@@ -192,7 +178,6 @@ export default function CatalogPage({
 
   const movedNotice = useMemo(() => personal.moved.filter(m => !dismissed.has(m.record_document_id)), [personal.moved, dismissed])
 
-  useCaveat(classic && !!selected && kindOf(selected) === 'file')
 
   // ── Actions ──
   const accessResource = useCallback(async (r, mode = 'open') => {

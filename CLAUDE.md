@@ -1107,7 +1107,8 @@ pure and tested without a browser; the page computes nothing in JSX.
 - **Overdue is computed, never stored**: past due and not done (`completionStatus`).
 - **Inks**: the app's `--text-muted` measures 4.05:1 on the page; the Catalog reads
   `--text-caption`. Wood inks were measured against the lightest gradient stop behind them
-  (a sweep cannot see a gradient). Caveat, the checkout card's hand, loads from Google Fonts
-  only when a Classic send history is drawn, with a cursive fallback.
+  (a sweep cannot see a gradient). Caveat, the checkout card's hand, is the fourth
+  self-hosted OFL family (`public/fonts/caveat/`, Owner 2026-09-23), declared in `fonts.css`
+  and not preloaded; nothing in the app loads a font from Google.
 - `supabase/migrations/20260926000000_catalog_revamp_1.sql` is Owner-gated; the app runs on both
   sides of it (a missing column or table reads as "not enabled").

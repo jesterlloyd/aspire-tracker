@@ -479,7 +479,7 @@
 .ctl-classic .ctl-route th { padding: 3px 6px; text-align: left; font-family: var(--ctl-mono); font-size: 9.5px; font-weight: 600; letter-spacing: 0.12em;
   text-transform: uppercase; color: var(--ctl-card-red); border-bottom: 3px double var(--ctl-card-red); }
 .ctl-classic .ctl-route td { height: 30px; padding: 0 6px; vertical-align: middle; border-bottom: 1px solid var(--ctl-card-rule);
-  color: var(--ctl-card-ink); font-family: "Caveat", "Segoe Print", "Bradley Hand", cursive; font-size: 16px; }
+  color: var(--ctl-card-ink); font-family: "Caveat", "Segoe Print", "Bradley Hand", cursive; font-weight: 500; font-size: 16px; }
 .ctl-classic .ctl-route td.ctl-route-d { width: 70px; white-space: nowrap; font-family: var(--ctl-mono); font-size: 10px; font-weight: 600;
   letter-spacing: 0.06em; text-transform: uppercase; color: var(--ctl-stamp-navy); }
 .ctl-classic .ctl-route td.ctl-route-d span { display: inline-block; padding: 0 4px; transform: rotate(-3deg); border: 1.5px solid currentColor; border-radius: var(--ctl-r-paper); }
