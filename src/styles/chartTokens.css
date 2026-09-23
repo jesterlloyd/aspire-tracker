@@ -108,6 +108,7 @@
 /* The tooltip wrapper around the wordmark must be allowed to shrink, or the
    title escapes the brand box and slides under the action icons on phones. */
 .chart-brand > * { min-width: 0; }
+.chart-brand-logo-link { display: flex; align-items: center; flex-shrink: 0; color: inherit; text-decoration: none; }
 .chart-brand-logo { height: 46px; width: auto; object-fit: contain; }
 .chart-brand-divider { width: 1px; height: 30px; background: rgba(255, 255, 255, 0.18); flex-shrink: 0; }
 .chart-brand-title {

@@ -6,7 +6,13 @@ import Tooltip from '../ui/Tooltip'
 export default function HeaderBrand() {
   return (
     <div className="chart-brand">
-      <img src="/cs-logo-large.png" alt="Cedars-Sinai" className="chart-brand-logo" />
+      <a
+        href="/aggregate"
+        className="chart-brand-logo-link"
+        aria-label="Go to At a Glance and refresh the app"
+      >
+        <img src="/cs-logo-large.png" alt="Cedars-Sinai" className="chart-brand-logo" />
+      </a>
       <div className="chart-brand-divider" />
       <Tooltip label="Affiliate Students' Pathway from Internship to Residency Experience" placement="bottom">
         <div className="chart-brand-title">

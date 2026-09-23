@@ -555,6 +555,7 @@ export default function PortalApp() {
       <PortalShell title="Student Portal" userName={userProfile?.full_name}
         onEditProfile={goProfile} withTabBar
         headerVariant="nightfall" logoSrc="/cs-logo-large.png"
+        homePath={staffPreview ? '/portal/student' : '/portal'} homeLabel="Home"
         profileImageUrl={studentHeaderPhotoUrl}
         previewProfileImageUrl={staffPreview ? previewStudentHeaderPhotoUrl : null}
         onChangePhoto={openChangePhoto} publicSiteUrl="https://aspireintelligence.app"
@@ -645,6 +646,7 @@ export default function PortalApp() {
       <PortalAccessSignalContext.Provider value={handleAccessEnded}>
       <PortalShell title="Unit Leader Portal" userName={userProfile?.full_name} withTabBar showHeaderName
         headerVariant="nightfall" logoSrc="/cs-logo-large.png"
+        homePath="/portal/unit/home" homeLabel="Home"
         profileImageUrl={userProfile?.avatar_url}
         onProfile={() => goUnitSection('profile')} onChangePhoto={openChangePhoto}
         publicSiteUrl="https://aspireintelligence.app"
@@ -698,6 +700,7 @@ export default function PortalApp() {
       <PortalAccessSignalContext.Provider value={handleAccessEnded}>
       <PortalShell title="Academic Partner Portal" userName={userProfile?.full_name} withTabBar showHeaderName
         headerVariant="nightfall" logoSrc="/cs-logo-large.png"
+        homePath="/portal/ap/students" homeLabel="Home"
         profileImageUrl={userProfile?.avatar_url}
         onChangePhoto={openChangePhoto}
         publicSiteUrl="https://aspireintelligence.app"
@@ -745,6 +748,7 @@ export default function PortalApp() {
       <PortalAccessSignalContext.Provider value={handleAccessEnded}>
       <PortalShell title="Nursing Education & Leadership Portal" userName={userProfile?.full_name} withTabBar showHeaderName
         headerVariant="nightfall" logoSrc="/cs-logo-large.png"
+        homePath="/portal/academics/calendar" homeLabel="Home"
         profileImageUrl={userProfile?.avatar_url}
         onChangePhoto={openChangePhoto}
         publicSiteUrl="https://aspireintelligence.app"
@@ -790,6 +794,7 @@ export default function PortalApp() {
       <PortalAccessSignalContext.Provider value={handleAccessEnded}>
       <PortalShell title="Residency Portal" userName={userProfile?.full_name} withTabBar showHeaderName
         headerVariant="nightfall" logoSrc="/cs-logo-large.png"
+        homePath="/portal/residency/overview" homeLabel="At a Glance"
         profileImageUrl={userProfile?.avatar_url}
         onChangePhoto={openChangePhoto}
         publicSiteUrl="https://aspireintelligence.app"

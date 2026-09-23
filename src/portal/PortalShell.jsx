@@ -146,6 +146,8 @@ export default function PortalShell({
   showHeaderName = false,
   headerVariant = 'light',
   logoSrc = '/Cedars-Sinai.png',
+  homePath = '/portal',
+  homeLabel = 'Home',
   profileImageUrl = null,
   previewProfileImageUrl = null,
   nav = null,
@@ -177,7 +179,13 @@ export default function PortalShell({
         <div className={chromeClass}>
           <header className={headerClass}>
             <div className="ptl-header-brand">
-              <img src={logoSrc} alt="Cedars-Sinai" className="ptl-header-logo" />
+              <a
+                href={homePath}
+                className="ptl-header-logo-link"
+                aria-label={`Go to ${homeLabel} and refresh the portal`}
+              >
+                <img src={logoSrc} alt="Cedars-Sinai" className="ptl-header-logo" />
+              </a>
               <span className="ptl-header-divider" aria-hidden="true" />
               <div className="ptl-header-title">
                 <span className="ptl-header-aspire">ASPIRE</span>
