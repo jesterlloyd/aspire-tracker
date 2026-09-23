@@ -80,7 +80,7 @@ test('Modern timeline calendars can size themselves to their rendered rows', () 
   const academics = read(ALL_CALENDARS.Academics)
   assert.match(foundation, /contentAware = false/)
   assert.match(foundation, /canonical-calendar-content-aware/)
-  assert.match(css, /\.canonical-calendar-modern\.canonical-calendar-content-aware \.pl-calbox \{[\s\S]*?height: auto;[\s\S]*?min-height: 0;/)
+  assert.match(css, /\.canonical-calendar-modern\.canonical-calendar-content-aware \.pl-calbox \{[\s\S]*?height: auto;[\s\S]*?min-height: 0;[\s\S]*?padding-bottom: 12px;/)
   assert.match(academics, /appearance="modern"[\s\S]{0,80}contentAware/)
 })
 

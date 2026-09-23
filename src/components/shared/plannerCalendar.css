@@ -129,6 +129,7 @@
 .canonical-calendar-modern.canonical-calendar-content-aware .pl-calbox {
   height: auto;
   min-height: 0;
+  padding-bottom: 12px;
 }
 .canonical-calendar-modern.canonical-calendar-content-aware .pl-calbox-scroll {
   flex: none;
