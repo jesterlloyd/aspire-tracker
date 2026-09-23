@@ -290,13 +290,15 @@ test('the tiles and the three side panels are gone; the page reads the model', (
   assert.match(page, /Find a resource, then send it, collect it or get it signed\./)
   assert.match(page, /className="rr-nav ctl-rail"/)
   assert.match(page, /aria-current=\{isCur\(k, v\) \? 'true' : undefined\}/)
-  assert.match(page, /\{CATALOG_FEATURES\.signatures && railRow/)
-  assert.match(page, /\{CATALOG_FEATURES\.forms && \(/)
+  // Signatures: the build default is read, then the server's catalog.signatures flag decides.
+  assert.match(page, /const features = useMemo\(\(\) => \(\{ \.\.\.CATALOG_FEATURES, signatures: sigFlag\.allowed \}\)/)
+  assert.match(page, /\{features\.signatures && railRow/)
+  assert.match(page, /\{features\.forms && \(/)
   assert.match(page, /const canManage = isOwner \|\| isAdmin /)
   assert.match(page, /role="option" tabIndex=\{0\} aria-selected=\{r\.id === selectedId\}/)
   assert.match(page, /<button type="button" role="option" aria-selected=\{selected\}/, 'covers are buttons with aria-selected')
   // The bookcase has no rows, so the detail panel carries the same ⋯ menu (Owner, 2026-09-23).
-  assert.match(page, /menuItems=\{menuItems\} \/>/)
+  assert.match(page, /menuItems=\{menuItems\} sigAllowed=\{features\.signatures\}/)
   assert.match(page, /const panelItems = menuItems\(row\)\.filter\(i => i\.key !== 'open' && i\.key !== 'dl'\)/)
   // A removed file offers only Restore; the server refuses to open an inactive row.
   assert.match(page, /if \(r\.is_active === false\) \{\s*return canManage && !r\.moved_to_record_document_id\s*\? \[\{ key: 'restore'/)

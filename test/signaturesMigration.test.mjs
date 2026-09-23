@@ -33,7 +33,7 @@ const PRELUDE = `
   CREATE TABLE IF NOT EXISTS user_profiles (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), auth_user_id uuid, role text, is_active boolean DEFAULT true);
   CREATE TABLE IF NOT EXISTS students (id uuid PRIMARY KEY DEFAULT gen_random_uuid());
   CREATE TABLE IF NOT EXISTS contacts (id uuid PRIMARY KEY DEFAULT gen_random_uuid());
-  CREATE TABLE IF NOT EXISTS catalog_resources (id uuid PRIMARY KEY DEFAULT gen_random_uuid());
+  CREATE TABLE IF NOT EXISTS catalog_resources (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), kind text DEFAULT 'file');
   CREATE OR REPLACE FUNCTION public.is_staff() RETURNS boolean LANGUAGE sql AS $$ SELECT true $$;
   CREATE OR REPLACE FUNCTION public.is_active_owner_or_admin() RETURNS boolean LANGUAGE sql AS $$ SELECT true $$;
 `
@@ -108,4 +108,46 @@ test('constraints refuse bad states and settings', async () => {
   await assert.rejects(db.query(`UPDATE sig_settings SET tsa_url = 'ftp://x'`), /chk_sig_settings_tsa_url/)
   const r = await newRequest(db)
   await assert.rejects(db.query(`INSERT INTO sig_request_signers (request_id, role_key, order_index, name, email, color) VALUES ($1, 'r1', 1, 'A', 'a@x.edu', 'pink')`, [r]), /chk_sig_signers_color/)
+})
+
+// The Owner's checks file is run here too, so its SQL is known to parse and its PASS
+// values are the ones the migration really produces.
+test('db/audit/signatures_phase2_checks.sql: PRE 1 is all false before, POST reads PASS after', async () => {
+  const checks = readFileSync(join(root, 'db/audit/signatures_phase2_checks.sql'), 'utf8')
+  const sections = {}
+  for (const part of checks.split(/\n(?=-- ── )/)) {
+    const m = part.match(/^-- ── (PRE|POST) (\d)\./)
+    if (m) sections[`${m[1]} ${m[2]}`] = part.split('\n').filter(l => !l.trim().startsWith('--')).join('\n')
+  }
+  assert.deepEqual(Object.keys(sections), ['PRE 1', 'PRE 2', 'PRE 3', 'POST 1', 'POST 2', 'POST 3', 'POST 4', 'POST 5', 'POST 6', 'POST 7'])
+
+  const db = new PGlite()
+  await db.exec(PRELUDE)
+  const pre1 = (await db.query(sections['PRE 1'])).rows[0]
+  assert.ok(Object.values(pre1).every(v => v === false), JSON.stringify(pre1))
+  await db.query(sections['PRE 2']); await db.query(sections['PRE 3'])   // parse and run
+  await db.exec(migration)
+
+  const post1 = (await db.query(sections['POST 1'])).rows
+  assert.equal(post1.length, 10)
+  for (const r of post1) {
+    assert.equal(r.rls, true, r.table_name)
+    assert.equal(r.has_org_id, r.table_name !== 'organizations', r.table_name)
+  }
+  const post2 = (await db.query(sections['POST 2'])).rows
+  assert.ok(post2.length >= 10)
+  assert.ok(post2.every(r => r.cmd === 'SELECT'), JSON.stringify(post2.filter(r => r.cmd !== 'SELECT')))
+  const post3 = await db.exec(sections['POST 3'])
+  assert.equal(post3[0].rows[0].state, 'off')
+  assert.equal(post3[1].rows[0].seal_provider, 'env_p12')
+  assert.equal(post3[1].rows[0].code_max_attempts, 5)
+  assert.equal(post3[2].rows[0].version, '1.0')
+  const post4 = (await db.query(sections['POST 4'])).rows.map(r => r.tgname)
+  assert.deepEqual(post4, ['trg_sig_events_append_only', 'trg_sig_events_chain', 'trg_sig_events_no_truncate'])
+  const post5 = (await db.query(sections['POST 5'])).rows[0]
+  assert.deepEqual({ ...post5, file_size_limit: Number(post5.file_size_limit) },
+    { id: 'signature-documents', public: false, file_size_limit: 26214400, allowed_mime_types: ['application/pdf'] })
+  const post6 = (await db.query(sections['POST 6'])).rows[0]
+  assert.deepEqual(Object.values(post6).map(Number), [0, 0, 0])
+  await db.query(sections['POST 7'])
 })

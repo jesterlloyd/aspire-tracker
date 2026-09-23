@@ -27,6 +27,7 @@ const StudentEvaluationPage      = lazyReload(() => import('./pages/StudentEvalu
 const PostRotationEvaluationPage = lazyReload(() => import('./pages/PostRotationEvaluationPage'), 'PostRotationEvaluationPage')
 const NgrpTransitionFormPage     = lazyReload(() => import('./pages/NgrpTransitionFormPage'), 'NgrpTransitionFormPage')
 const NgrpReflectionPage         = lazyReload(() => import('./pages/NgrpReflectionPage'), 'NgrpReflectionPage')
+const SignPage                   = lazyReload(() => import('./pages/SignPage'), 'SignPage')
 const UnitFormPage               = lazyReload(() => import('./components/UnitFormPage'), 'UnitFormPage')
 const SchoolFormPage             = lazyReload(() => import('./components/SchoolFormPage'), 'SchoolFormPage')
 const StudentIntakeFormPage      = lazyReload(() => import('./components/StudentIntakeFormPage'), 'StudentIntakeFormPage')
@@ -197,6 +198,9 @@ export default function App() {
       <Route path="/ngrp/transition/*" element={<div data-theme-lock="light"><NgrpTransitionFormPage /></div>} />
       {/* RESIDENCY-REFLECTION-1: the resident's bi-weekly reflection, by personal link. */}
       <Route path="/ngrp/reflection/*" element={<div data-theme-lock="light"><NgrpReflectionPage /></div>} />
+      {/* SIGNATURES-PHASE2: the public signing page (link + one-time code). Always light,
+          always the plain Modern flow; the server refuses every call while catalog.signatures is off. */}
+      <Route path="/sign/*" element={<div data-theme-lock="light"><SignPage /></div>} />
       {/* RECOVERY-PASSWORD-SCREEN-1: public password-recovery landing (Supabase reset link target).
           Must precede the /* wildcard so it renders outside AuthedShell even with a recovery session. */}
       <Route path="/auth/reset-password"   element={<div data-theme-lock="light"><ResetPasswordPage /></div>} />

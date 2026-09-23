@@ -16,7 +16,8 @@
 //
 // Every read here works on both sides of the Phase 1 migration: a column or table that
 // is not there yet (42703 / 42P01) reads as "not enabled", never as an error.
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import {
   Search, FileText, ListChecks, Signature, Send as SendIcon, Clock, ArrowRightFromLine, Pin, Paperclip,
   X, Upload, LayoutGrid, List as ListIcon, UserRound, Tag,
@@ -36,10 +37,15 @@ import {
   PersonalFilesModal,
 } from './CatalogModals'
 import { authedPost } from './catalogApi'
+import { useSignaturesFlag } from '../signatures/sigApi'
+import { lazyReload } from '../../lib/lazyReload'
 import '../../styles/selectionRail.css'
 import './catalog.css'
 
-const BASE_COLS = 'id, slug, title, description, category, resource_type, external_url, file_type_label, tags, audience, is_featured, is_pinned, is_active, updated_at, created_at'
+// SIGNATURES-PHASE2: the signature screens load only for a caller the flag admits.
+const SignaturesPage = lazyReload(() => import('../signatures/SignaturesPage'), 'SignaturesPage')
+
+const BASE_COLS = 'id, slug, title, description, category, resource_type, external_url, file_type_label, tags, audience, is_featured, is_pinned, is_active, updated_at, created_at, storage_path'
 const PHASE1_COLS = 'kind, version, version_updated_at, file_size_bytes, moved_to_record_document_id'
 const notEnabled = (e) => e && (e.code === '42703' || e.code === '42P01' || e.code === 'PGRST204' || e.code === 'PGRST205')
 const MOVED_DISMISS_KEY = 'aspire-catalog-moved-dismissed'
@@ -61,9 +67,18 @@ export default function CatalogPage({
   const classic = style !== 'modern'
   const canView = canViewCatalog(isOwner, isAdmin, isInterviewer)
   const canManage = isOwner || isAdmin   // browse + send + manage; Interviewers read only
+  const location = useLocation()
+  const navigate = useNavigate()
+  // catalog.signatures is decided by the SERVER (organization flag + caller role). Until it
+  // answers, and whenever it says no, no signature entry point renders.
+  const sigFlag = useSignaturesFlag(canManage)
+  const features = useMemo(() => ({ ...CATALOG_FEATURES, signatures: sigFlag.allowed }), [sigFlag.allowed])
+  const onSignatures = location.pathname.startsWith('/catalog/signatures')
 
   // ── Data ──
-  const [rows, setRows] = useState([])
+  const [allRows, setRows] = useState([])
+  // A signature document is shown only while the flag admits the caller.
+  const rows = useMemo(() => (features.signatures ? allRows : allRows.filter(r => kindOf(r) !== 'signature')), [allRows, features.signatures])
   const [phase1, setPhase1] = useState(true)      // the Phase 1 columns exist
   const [loading, setLoading] = useState(canViewCatalog(isOwner, isAdmin, isInterviewer))
   const [error, setError] = useState(null)
@@ -95,6 +110,8 @@ export default function CatalogPage({
     else if (toast?.error && tone === 'err') toast.error(text)
     else setMsg({ tone, text })
   }, [toast])
+
+  const notify = useCallback((text, tone = 'ok') => say(tone, text), [say])
 
   // A reload after an action keeps the list on screen; only the first load shows the state line.
   const load = useCallback(async () => {
@@ -216,6 +233,7 @@ export default function CatalogPage({
 
   const menuItems = useCallback((r) => {
     const ext = r.resource_type === 'external_link'
+    const sig = kindOf(r) === 'signature'
     // A removed file cannot be opened, downloaded or linked to (the server refuses an
     // inactive row), so its menu offers only Restore; a file moved to a record, nothing.
     if (r.is_active === false) {
@@ -224,21 +242,22 @@ export default function CatalogPage({
         : []
     }
     const items = [
-      { key: 'open', label: ext ? 'Open link' : 'Open', onSelect: () => accessResource(r, 'open') },
-      ...(ext ? [] : [{ key: 'dl', label: 'Download', onSelect: () => accessResource(r, 'download') }]),
+      ...(sig ? [] : [{ key: 'open', label: ext ? 'Open link' : 'Open', onSelect: () => accessResource(r, 'open') }]),
+      ...(ext || sig ? [] : [{ key: 'dl', label: 'Download', onSelect: () => accessResource(r, 'download') }]),
       { key: 'copy', label: 'Copy link', onSelect: () => copyLink(r) },
     ]
     if (!canManage) return items
     return [
       ...items,
       { key: 'edit', label: 'Edit details', onSelect: () => setDialog({ type: 'edit', row: r }) },
-      ...(ext ? [] : [{ key: 'ver', label: 'Upload new version', disabled: !phase1, onSelect: () => setDialog({ type: 'version', row: r }) }]),
+      ...(ext || sig ? [] : [{ key: 'ver', label: 'Upload new version', disabled: !phase1, onSelect: () => setDialog({ type: 'version', row: r }) }]),
       { key: 'pin', label: r.is_pinned ? 'Unpin' : 'Pin to top', onSelect: () => runUpdate(r.id, { is_pinned: !r.is_pinned }, r.is_pinned ? 'Unpinned.' : 'Pinned to the top.') },
       { key: 'remove', label: 'Remove', danger: true, onSelect: () => setDialog({ type: 'remove', row: r }) },
     ]
   }, [accessResource, copyLink, canManage, runUpdate, phase1])
 
   const openSend = useCallback((r) => { if (canManage) setDialog({ type: 'send', row: r }) }, [canManage])
+  const sigLink = useCallback((qs = '') => navigate(`/catalog/signatures${qs}`), [navigate])
 
   const pickView = (next) => {
     setView({ type: 'all', category: null, track: null, ...next })
@@ -246,6 +265,27 @@ export default function CatalogPage({
   }
   if (!canView) {
     return <div className="ctl ctl-denied">The ASPIRE Catalog is available to Owner, Admin, and Interviewer accounts.</div>
+  }
+
+  if (onSignatures) {
+    return (
+      <div className={`ctl${classic ? ' ctl-classic' : ''}`}>
+        {!canManage || (sigFlag.ready && !sigFlag.allowed)
+          ? <div className="ctl-state">Signatures are not available.</div>
+          : !sigFlag.ready ? <div className="ctl-state">Loading Signatures…</div>
+          : (
+            <Suspense fallback={<div className="ctl-state">Loading Signatures…</div>}>
+              {msg && (
+                <div className={`ctl-msg ctl-msg-${msg.tone}`} role={msg.tone === 'err' ? 'alert' : 'status'}>
+                  {msg.text}<button type="button" aria-label="Dismiss message" onClick={() => setMsg(null)}><X size={14} /></button>
+                </div>
+              )}
+              <SignaturesPage key={location.search} flagState={sigFlag.state} notify={notify}
+                people={{ students, contacts: contacts || [] }} backPath="/catalog" />
+            </Suspense>
+          )}
+      </div>
+    )
   }
 
   const isCur = (k, v) => (k === 'type' ? view.type === v && !view.category && !view.track : view[k] === v)
@@ -276,8 +316,8 @@ export default function CatalogPage({
             <b>{summary.items}</b> {summary.items === 1 ? 'item' : 'items'} · <b>{summary.out}</b> out for completion · <span className="ctl-summary-warn"><b>{summary.overduePeople}</b> people overdue</span>
           </p>
         </div>
-        {canManage && <NewMenu open={newOpen} setOpen={setNewOpen} onUpload={() => setDialog({ type: 'upload' })}
-          onReview={() => setDialog({ type: 'personal' })} />}
+        {canManage && <NewMenu open={newOpen} setOpen={setNewOpen} features={features} onUpload={() => setDialog({ type: 'upload' })}
+          onPrepare={() => sigLink('?tab=prepare')} onReview={() => setDialog({ type: 'personal' })} />}
       </header>
 
       {canManage && movedNotice.length > 0 && (
@@ -314,11 +354,18 @@ export default function CatalogPage({
           <p className="rr-nav-group">Library</p>
           {railRow('all', 'type', 'all', 'All items', <ListIcon size={16} />, counts.byKind.all)}
           {railRow('file', 'type', 'file', 'Files', <FileText size={16} />, counts.byKind.file)}
-          {CATALOG_FEATURES.forms && railRow('form', 'type', 'form', 'Forms', <ListChecks size={16} />, counts.byKind.form)}
-          {CATALOG_FEATURES.signatures && railRow('sig', 'type', 'signature', 'Signature documents', <Signature size={16} />, counts.byKind.signature)}
+          {features.forms && railRow('form', 'type', 'form', 'Forms', <ListChecks size={16} />, counts.byKind.form)}
+          {features.signatures && railRow('sig', 'type', 'signature', 'Signature documents', <Signature size={16} />, counts.byKind.signature)}
           <p className="rr-nav-group">Tracking</p>
           {railRow('out', 'track', 'out', 'Out for completion', <ArrowRightFromLine size={16} />, counts.out)}
           {railRow('late', 'track', 'overdue', 'Overdue people', <Clock size={16} />, counts.overduePeople, true)}
+          {features.signatures && (
+            <button type="button" className="rr-row-select ctl-rail-row" onClick={() => sigLink()}>
+              <span className="ctl-rail-ico" aria-hidden="true"><Signature size={16} /></span>
+              <span className="rr-row-label">Signature requests</span>
+              <span className="ctl-rail-n" aria-hidden="true">›</span>
+            </button>
+          )}
           <p className="rr-nav-group ctl-rail-grouphead">
             Categories
             {canManage && <button type="button" className="ctl-rail-manage" onClick={() => setDialog({ type: 'cats' })}>Manage</button>}
@@ -355,14 +402,18 @@ export default function CatalogPage({
           <div className="ctl-detail-wrap">
             <DetailPanel row={selected} catLabel={catLabel} sends={sendsById[selected.id] || []} sendsEnabled={sendsEnabled}
               canManage={canManage} onClose={() => setSelectedId('')} onSend={openSend} onAccess={accessResource}
-              menuItems={menuItems} />
+              menuItems={menuItems} sigAllowed={features.signatures} onSigLink={sigLink} />
           </div>
         )}
       </div>
 
       {dialog?.type === 'send' && contacts && (
         <CatalogSendModal item={dialog.row} ctx={sendCtx} onClose={() => setDialog(null)}
-          onSent={({ sent, log, keepOpen }) => {
+          onSent={({ sent, log, keepOpen, signature, requests }) => {
+            if (signature) {
+              say('ok', `Sent for signature: ${requests} ${requests === 1 ? 'request' : 'requests'} to ${sent} ${sent === 1 ? 'person' : 'people'}. Track them in Signature requests.`)
+              setDialog(null); return
+            }
             const note = log.includes('not_enabled') ? ' The send log starts once the Catalog update is applied.' : ' Logged on the item.'
             say('ok', `Sent to ${sent} ${sent === 1 ? 'person' : 'people'}.${note}`)
             loadSends()
@@ -411,7 +462,7 @@ function emptyTextFor(view, total, q) {
 }
 
 // ── + New ─────────────────────────────────────────────────────────────────────────
-function NewMenu({ open, setOpen, onUpload, onReview }) {
+function NewMenu({ open, setOpen, features, onUpload, onPrepare, onReview }) {
   const wrap = useRef(null)
   useEffect(() => {
     if (!open) return
@@ -431,12 +482,12 @@ function NewMenu({ open, setOpen, onUpload, onReview }) {
             <span className="ctl-mi ctl-mi-file"><Upload size={16} /></span>
             <span><b>Upload a file</b><small>PDF, Word, Excel or image</small></span>
           </button>
-          {CATALOG_FEATURES.forms && (
+          {features.forms && (
             <button type="button" role="menuitem"><span className="ctl-mi ctl-mi-form"><ListChecks size={16} /></span>
               <span><b>Build a form</b><small>Collect answers. Prefill from the student record.</small></span></button>
           )}
-          {CATALOG_FEATURES.signatures && (
-            <button type="button" role="menuitem"><span className="ctl-mi ctl-mi-sign"><Signature size={16} /></span>
+          {features.signatures && (
+            <button type="button" role="menuitem" onClick={() => pick(onPrepare)}><span className="ctl-mi ctl-mi-sign"><Signature size={16} /></span>
               <span><b>Prepare a document for signature</b><small>Upload a PDF, place fields, set signers.</small></span></button>
           )}
           <hr />
@@ -616,7 +667,7 @@ function Cover({ row, selected, onSelect, catLabel, usage }) {
 // hang one on, and a hover-only control on a cover is lost to touch and keyboard. So every
 // action a list row offers is reachable from the panel in both styles. Open and Download
 // are already buttons here, so the menu leaves them out while the item is active.
-function DetailPanel({ row, catLabel, sends, sendsEnabled, canManage, onClose, onSend, onAccess, menuItems }) {
+function DetailPanel({ row, catLabel, sends, sendsEnabled, canManage, onClose, onSend, onAccess, menuItems, sigAllowed, onSigLink }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const panelItems = menuItems(row).filter(i => i.key !== 'open' && i.key !== 'dl')
   const k = kindOf(row)
@@ -624,6 +675,9 @@ function DetailPanel({ row, catLabel, sends, sendsEnabled, canManage, onClose, o
   const ext = row.resource_type === 'external_link'
   const off = row.is_active === false
   const kindLine = k === 'file' ? `${KIND_LABEL.file} · ${badge.label}` : KIND_LABEL[k]
+  // A signature document is a template: it is sent, edited and previewed in Signatures,
+  // never opened as a file (its storage_path names the template, not an object).
+  const tplId = k === 'signature' ? String(row.storage_path || '').replace(/^sig-template:/, '') : null
   return (
     <aside className="ctl-detail" aria-label="Item details">
       <div className="ctl-dh">
@@ -634,9 +688,13 @@ function DetailPanel({ row, catLabel, sends, sendsEnabled, canManage, onClose, o
         <h2>{row.title}</h2>
         {row.description && <p>{row.description}</p>}
         <div className="ctl-row">
-          {canManage && !off && <button type="button" className="ctl-btn ctl-btn-pri ctl-btn-sm" onClick={() => onSend(row)}><SendIcon size={14} /> {sendButtonLabel(row)}</button>}
-          {!off && <button type="button" className="ctl-btn ctl-btn-sm" onClick={() => onAccess(row, 'open')}>{ext ? 'Open link' : 'Open'}</button>}
-          {!off && !ext && <button type="button" className="ctl-btn ctl-btn-sm" onClick={() => onAccess(row, 'download')}>Download</button>}
+          {canManage && !off && (k !== 'signature' || sigAllowed) && <button type="button" className="ctl-btn ctl-btn-pri ctl-btn-sm" onClick={() => onSend(row)}><SendIcon size={14} /> {sendButtonLabel(row)}</button>}
+          {k === 'signature' && sigAllowed && !off && tplId && <>
+            <button type="button" className="ctl-btn ctl-btn-sm" onClick={() => onSigLink(`?tab=prepare&template=${encodeURIComponent(tplId)}&step=2`)}>Edit fields</button>
+            <button type="button" className="ctl-btn ctl-btn-sm" onClick={() => onSigLink(`?tab=preview&template=${encodeURIComponent(tplId)}`)}>Preview as signer</button>
+          </>}
+          {!off && k !== 'signature' && <button type="button" className="ctl-btn ctl-btn-sm" onClick={() => onAccess(row, 'open')}>{ext ? 'Open link' : 'Open'}</button>}
+          {!off && !ext && k !== 'signature' && <button type="button" className="ctl-btn ctl-btn-sm" onClick={() => onAccess(row, 'download')}>Download</button>}
           {panelItems.length > 0 && (
             <span className="ctl-row-more">
               <RowActionsMenu label={`More actions for ${row.title}`} open={menuOpen}

@@ -13,6 +13,7 @@ import { isAuthorizedCronRequest } from '../lib/cronAuth.js'
 import { createMailer } from '../../lib/server/email/mailer.js'
 import { appBaseUrl } from '../../lib/server/appUrl.js'
 import { flagState, loadSettings, maintenance } from '../../lib/server/signatures/engine.js'
+import process from 'node:process'
 
 export const CRON_NAME = 'sig-maintenance'
 

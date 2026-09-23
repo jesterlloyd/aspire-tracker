@@ -32,6 +32,7 @@ import {
 } from '../lib/server/signatures/engine.js'
 import { currentTurn, SENDER_ROLE } from '../src/lib/signatures/sigModel.js'
 import { flattenDocument } from '../lib/server/signatures/sealing.js'
+import { Buffer } from 'node:buffer'
 
 const LIMITS = [
   { prefix: 'sig-signer-min', windowSeconds: 60, maxPerWindow: 40 },

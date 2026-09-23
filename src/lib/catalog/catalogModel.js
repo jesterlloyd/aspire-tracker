@@ -35,9 +35,11 @@ export const kindOf = (row) => (row?.kind === 'form' || row?.kind === 'signature
 
 export const KIND_LABEL = Object.freeze({ file: 'File', form: 'Form', signature: 'Signature document' })
 
-// Phase gates. Forms ship in Phase 2; signature documents ship in Phase 3 and stay behind
-// a flag that is OFF by default until Legal and IT approve in-app e-signature. An entry
-// point for an unbuilt kind is not shown: a control that does nothing is a broken promise.
+// Phase gates. Signature documents are Phase 2 and forms Phase 3 (Owner, 2026-09-23: the
+// order is intentional). These are the BUILD defaults; signatures are then admitted per
+// caller by the server's catalog.signatures flag (useSignaturesFlag), OFF by default until
+// Legal and IT approve in-app e-signature. An entry point for an unbuilt or unadmitted
+// kind is not shown: a control that does nothing is a broken promise.
 export const CATALOG_FEATURES = Object.freeze({ forms: false, signatures: false })
 
 // The badge a file shows: the stored label for an uploaded file, LINK for an external one.

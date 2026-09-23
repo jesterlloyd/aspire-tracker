@@ -302,7 +302,7 @@
 .ctl-field { display: grid; gap: 6px; }
 .ctl-field > label, .ctl-lab { font-size: 12.5px; font-weight: 700; color: var(--text-heading); }
 .ctl-opt { font-weight: 400; color: var(--text-caption); }
-.ctl-field input:not([type="file"]):not([type="checkbox"]), .ctl-field select, .ctl-field textarea,
+.ctl-field input:not([type="file"]):not([type="checkbox"]):not([type="radio"]), .ctl-field select, .ctl-field textarea,
 .ctl-catfields input, .ctl-workrow select, .ctl-pf-row select {
   width: 100%; box-sizing: border-box; padding: 9px 11px; font: 13.5px var(--aspire-sans); color: var(--text-heading);
   background: var(--color-bg-input); border: 1px solid var(--color-border-default); border-radius: var(--aspire-radius-control);
@@ -492,3 +492,10 @@
   .ctl-cover, .ctl-qs { transition: none; }
   .ctl-cover:hover, .ctl-cover[aria-selected="true"] { transform: none; }
 }
+
+/* SIGNATURES-PHASE2: the Send modal's signature options. */
+.ctl-sigopts { display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 12px; align-items: start; }
+.ctl-sigopts .ctl-field .ctl-check { display: flex; justify-content: flex-start; font-weight: 400; }
+.ctl-sigopts .ctl-check input[type="radio"] { margin: 0; accent-color: var(--ctl-navy); }
+.ctl-sigopts > .ctl-hint { grid-column: 1 / -1; margin: 0; }
+@media (max-width: 640px) { .ctl-sigopts { grid-template-columns: 1fr; } }

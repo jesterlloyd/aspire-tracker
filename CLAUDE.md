@@ -1064,8 +1064,8 @@ the Contacts address book are one cover, defined once:
 ## The Catalog is a bookcase (CATALOG-REVAMP-1, 2026-09-23)
 
 The ASPIRE Catalog (`/catalog`) is where staff find a resource and send it (Phase 1), collect
-a form (Phase 2) or get a document signed (Phase 3, behind `catalog.signatures`, off until
-Legal and IT approve). Reference: `docs/mockups/catalog-mockup.html` with
+a document signed (Phase 2, behind `catalog.signatures`, off until Legal and IT approve; see
+"Signatures are sealed" below) or collect a form (Phase 3). The order is the Owner's, on purpose. Reference: `docs/mockups/catalog-mockup.html` with
 `docs/mockups/catalog-brief.md`. Every rule lives in `src/lib/catalog/catalogModel.js`, which is
 pure and tested without a browser; the page computes nothing in JSX.
 
@@ -1086,7 +1086,8 @@ pure and tested without a browser; the page computes nothing in JSX.
   files only. Widen it in `CatalogPage` (`canManage`) and the Outreach endpoint together.
 - **The left list is the selection canon** (`selectionRail.css`), with `.rr-row-select.ctl-rail-row`
   one class stronger than the canon. Forms and Signature documents rows, and the + New
-  entries for them, render only when `CATALOG_FEATURES` says the kind is built.
+  entries for them, render only when the kind is built (`CATALOG_FEATURES`) and, for
+  signatures, when the server's flag admits the caller (`useSignaturesFlag`).
 - **Featured is Pinned.** `is_featured` is folded into `is_pinned` by the migration and read by
   nothing. The four stat tiles and the Featured Collections, Recent Updates and Pinned Resources
   panels are gone; the header summary line counts live from active rows.
@@ -1112,3 +1113,60 @@ pure and tested without a browser; the page computes nothing in JSX.
   and not preloaded; nothing in the app loads a font from Google.
 - `supabase/migrations/20260926000000_catalog_revamp_1.sql` is Owner-gated; the app runs on both
   sides of it (a missing column or table reads as "not enabled").
+
+## Signatures are sealed (SIGNATURES-PHASE2, 2026-09-23)
+
+The Catalog's Phase 2 is ASPIRE's own e-signature engine: prepare a PDF, place fields, send,
+track, and seal. Reference: `docs/mockups/signatures-mockup.html` with
+`docs/mockups/signatures-brief.md`. It is **behind `catalog.signatures`, OFF by default**, in
+`feature_flags` (state `off` | `owner` | `on`; `owner` admits the Owner only, for testing in
+production, `on` admits Owner and Admin). The flag is asked of the SERVER (`sig-staff` `flag`,
+read by `useSignaturesFlag`); no client constant turns it on, and every entry point (the rail's
+Signature documents and Signature requests, + New's Prepare, a signature item's Send, Edit
+fields and Preview) is hidden until it answers yes. Both endpoints answer 404 while it is off.
+Owner decisions, 2026-09-23: ASPIRE's own self-signed seal for now, codes by email only (no
+SMS), PDF uploads only (no Word conversion), tamper-evident storage with `org_id` on every table.
+
+- **Where things are.** Rules: `src/lib/signatures/sigModel.js` (pure, tested). Server:
+  `lib/server/signatures/` (`engine.js` the lifecycle, `sealing.js` flatten + certificate page
+  + seal, `cmsSigner.js` the CMS signature, `timestamp.js` RFC 3161, `sealProvider.js` the key,
+  `verifySeal.js`, `tokens.js`, `mail.js`, `zip.js`). Endpoints: `api/sig-staff.js` (staff,
+  Owner/Admin), `api/sig-signer.js` (public, rate-limited, token + code + session),
+  `api/cron/sig-maintenance.js` (reminders, expiry, seal retries). Staff screens:
+  `src/components/signatures/` at `/catalog/signatures` (Signature requests, Prepare and send,
+  Signer preview). The signer's page is `/sign/*` (`src/pages/SignPage.jsx`, light-locked,
+  mobile-first, `signerFlow.css`).
+- **The key is behind a provider, never in code.** `sig_settings.seal_provider` names one entry
+  in `PROVIDERS` (`sealProvider.js`); today `env_p12` reads `SIG_SEAL_P12_BASE64` and
+  `SIG_SEAL_P12_PASSPHRASE` (make them with `scripts/signatures/generate-seal-certificate.mjs`).
+  An AATL certificate in a cloud key vault is a new provider entry plus a settings row, with no
+  change to sealing. A provider signs a digest; the private key never leaves it.
+- **Every seal carries two RFC 3161 timestamps** from `sig_settings.tsa_url` (default DigiCert's
+  free TSA; only a hash is sent). One is over the flattened content and is PRINTED on the
+  certificate of completion; the other is over the signature value and EMBEDDED in the seal as
+  an unsigned attribute. A PDF cannot contain its own seal's timestamp, so it needs both. Both
+  go in the audit log. A TSA failure fails the seal, and the cron retries it (`seal_attempts`).
+- **The audit log is the database's, not the app's.** `sig_events` is hash-chained per request by
+  a trigger (the caller cannot supply or skip a hash), and UPDATE, DELETE and TRUNCATE are
+  refused. `test/signaturesMigration.test.mjs` proves all of it on real Postgres (PGlite).
+- **A link is not a login.** The emailed link is an HMAC of the signer and a link version
+  (`SIG_TOKEN_SECRET`; only its SHA-256 is stored), then a 6-digit code by email (HMAC stored,
+  10 minutes, 5 tries), then a 2-hour session. A completed, voided, declined or expired
+  request closes every link (`linkIsLive`). `link_version` exists so one link can be revoked
+  by bumping it; nothing bumps it yet, and a replaced signer is refused by status. A staff signer (matched by email to an active account) signs in the app with their
+  password, never through a link.
+- **Invitations are the engine's mail, not Outreach.** Each signer needs their own link, so the
+  Catalog's Send for signature calls `sig-staff` `send` with the item's template; the mail goes
+  through `createMailer()` (the demo guard) and is logged in `sig_events`, not
+  `notification_log`. `test/demoMailer.test.mjs` pins every caller of the engine.
+- **A template IS a Catalog item.** Saving one writes a `catalog_resources` row with
+  `kind 'signature'` and `storage_path 'sig-template:<id>'`. Nothing may treat that path as a
+  file: the open, attachment, personal-file and outreach readers all skip it. The detail panel
+  offers Send for signature, Edit fields and Preview as signer instead of Open and Download.
+- **Completion files the sealed PDF** onto each student's or school's record
+  (`record_documents`, source `signature`) and emails it to every party. The sealed file's own
+  hash cannot be printed inside it; it is shown in the app, the audit log and the email.
+- **Not built, on purpose:** SMS codes, portal sign-in, Word upload, an address prefill source.
+  The disclosure v1.0 text is a DRAFT for Legal. Migration
+  `20260927000000_signatures_phase2.sql` is Owner-gated; checks in
+  `db/audit/signatures_phase2_checks.sql`.

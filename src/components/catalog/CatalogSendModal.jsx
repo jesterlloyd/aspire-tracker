@@ -8,14 +8,19 @@
 // The To field holds tokens ("Fall 2026 cohort", "4 South students"); catalogModel turns
 // them into the exact people list, which the modal shows before anything is sent. The
 // server only verifies that list (BULK-EXACT-RECIPIENTS-1); it never widens it.
-import { useMemo, useState } from 'react'
-import { Paperclip, Link2, X, Send as SendIcon, ChevronDown, ChevronUp } from 'lucide-react'
+//
+// SIGNATURES-PHASE2: a signature document does NOT go through Outreach. Every signer needs
+// their own link, so the same To field feeds /api/sig-staff `send` with the item's
+// template; the invitations and the audit trail are the signature engine's (sig_events).
+import { useEffect, useMemo, useState } from 'react'
+import { Paperclip, Link2, X, Send as SendIcon, ChevronDown, ChevronUp, Signature } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { buildPayloadRecipients } from '../../lib/connect/bulkAudience'
 import {
   suggestTokens, defaultTokens, expandTokens, searchPeople, chunkRecipients, sendAsFor,
-  defaultMessage, defaultSubject, messageForSend,
+  defaultMessage, defaultSubject, messageForSend, kindOf,
 } from '../../lib/catalog/catalogModel'
+import { sigStaff } from '../signatures/sigApi'
 import useModalFocus from './useModalFocus'
 
 const SEND_ENDPOINT = '/api/connect-send-bulk-message'
@@ -40,6 +45,21 @@ export default function CatalogSendModal({ item, ctx, contactsLoading, onClose, 
   const [error, setError] = useState(null)
   const [result, setResult] = useState(null)   // shown when anything was skipped or failed
   const dialogRef = useModalFocus(onClose, { disabled: sending })
+  const isSig = kindOf(item) === 'signature'
+  const [tpl, setTpl] = useState(null)          // the item's signature template
+  const [sigMode, setSigMode] = useState('each')  // 'each': one request per person; 'one': everyone signs one copy
+  const [due, setDue] = useState('')
+  const [reminderRule, setReminderRule] = useState('every_3_days')
+  useEffect(() => {
+    if (!isSig) return
+    sigStaff('template_for_item', { catalog_resource_id: item.id }).then(r => setTpl(r.template)).catch(e => setError(e.message))
+  }, [isSig, item.id])
+  // The first signer role is filled by the To field; every other role keeps the name and
+  // email saved on the template (Edit fields sets them).
+  const sigRoles = useMemo(() => (tpl?.signer_roles || []), [tpl])
+  const firstSigner = sigRoles.find(r => r.type === 'signer')?.key
+  const fixedRoles = sigRoles.filter(r => r.key !== firstSigner)
+  const missingFixed = fixedRoles.filter(r => !String(r.defaultEmail || '').trim())
 
   const suggestions = useMemo(() => {
     const on = new Set(tokens.map(t => t.key))
@@ -56,7 +76,29 @@ export default function CatalogSendModal({ item, ctx, contactsLoading, onClose, 
   const addToken = (t) => { setTokens(ts => [...ts, t]); setQ('') }
   const removeToken = (key) => setTokens(ts => ts.filter(t => t.key !== key))
 
+  async function sendSignature() {
+    setError(null)
+    if (!tpl) { setError('The signature template is still loading.'); return }
+    if (!people.length) { setError('Add at least one recipient.'); return }
+    if (missingFixed.length) { setError(`Set a name and email for ${missingFixed.map(r => r.label || r.key).join(', ')} in Edit fields first.`); return }
+    if (!subject.trim()) { setError('Add a subject.'); return }
+    setSending(true)
+    try {
+      const out = await sigStaff('send', { send: {
+        templateId: tpl.id, templateVersion: tpl.version, catalogResourceId: item.id, title: item.title,
+        documentType: tpl.document_type, documentPath: tpl.source_path, originalSha256: tpl.source_sha256,
+        pageSizes: tpl.page_sizes || [], fields: tpl.fields || [], roles: sigRoles, mode: sigMode,
+        people: people.map(p => ({ name: p.name, email: p.email, studentId: p.studentId || null, contactId: p.contactId || null, schoolName: p.school || '', type: 'signer' })),
+        fixed: fixedRoles.map(r => ({ name: r.defaultName || '', email: r.defaultEmail, roleKey: r.key, type: r.type })),
+        signingOrder: tpl.signing_order || 'sequential', subject: subject.trim(), message, reminderRule,
+        dueAt: due ? new Date(`${due}T23:59:00`).toISOString() : null, audienceLabel: tokens.map(t => t.label).join(', '),
+      } })
+      onSent?.({ sent: people.length, log: [], signature: true, requests: (out.requestIds || []).length })
+    } catch (e) { setError(e.message) } finally { setSending(false) }
+  }
+
   async function send() {
+    if (isSig) return sendSignature()
     setError(null)
     if (!people.length) { setError('Add at least one recipient.'); return }
     if (!subject.trim()) { setError('Add a subject.'); return }
@@ -122,7 +164,7 @@ export default function CatalogSendModal({ item, ctx, contactsLoading, onClose, 
         <div className="ctl-mh">
           <div>
             <h2 id="ctl-send-title">Send {item.title}</h2>
-            <p>Goes out through ASPIRE Connect and is logged.</p>
+            <p>{isSig ? 'Each signer gets their own link. Every step is on the audit trail.' : 'Goes out through ASPIRE Connect and is logged.'}</p>
           </div>
           <button type="button" className="ctl-icon-btn" onClick={() => !sending && onClose()} aria-label="Close"><X size={16} /></button>
         </div>
@@ -185,9 +227,33 @@ export default function CatalogSendModal({ item, ctx, contactsLoading, onClose, 
             </div>
 
             <div className="ctl-sendas">
-              {isLink ? <Link2 size={18} /> : <Paperclip size={18} />}
-              <span><b>Sends as: {sendAs.title}.</b> {sendAs.line}</span>
+              {isSig ? <Signature size={18} /> : isLink ? <Link2 size={18} /> : <Paperclip size={18} />}
+              <span><b>Sends as: {sendAs.title}.</b> {isSig ? (sigMode === 'each'
+                ? `One request per person, ${people.length} in all. ${fixedRoles.length ? `Then ${fixedRoles.map(r => r.defaultName || r.label || r.key).join(', ')} ${fixedRoles.length === 1 ? 'signs' : 'sign'} each one.` : ''}`
+                : 'Everyone signs one copy, in order.') : sendAs.line}</span>
             </div>
+            {isSig && (
+              <div className="ctl-sigopts">
+                <div className="ctl-field">
+                  <span className="ctl-lab">Copies</span>
+                  <label className="ctl-check"><input type="radio" name="ctl-sigmode" checked={sigMode === 'each'} onChange={() => setSigMode('each')} /> A separate copy for each person</label>
+                  <label className="ctl-check"><input type="radio" name="ctl-sigmode" checked={sigMode === 'one'} onChange={() => setSigMode('one')} /> One copy everyone signs</label>
+                </div>
+                <div className="ctl-field">
+                  <label htmlFor="ctl-sig-due">Due date (optional)</label>
+                  <input id="ctl-sig-due" type="date" value={due} onChange={e => setDue(e.target.value)} />
+                </div>
+                <div className="ctl-field">
+                  <label htmlFor="ctl-sig-rem">Reminders</label>
+                  <select id="ctl-sig-rem" value={reminderRule} onChange={e => setReminderRule(e.target.value)}>
+                    <option value="every_3_days">Every 3 days until signed</option>
+                    <option value="once_before_expiry">Once, 2 days before it expires</option>
+                    <option value="off">Off</option>
+                  </select>
+                </div>
+                {missingFixed.length > 0 && <p className="ctl-hint">{missingFixed.map(r => r.label || r.key).join(', ')} {missingFixed.length === 1 ? 'has' : 'have'} no email on the template. Set it in Edit fields.</p>}
+              </div>
+            )}
 
             <div className="ctl-field">
               <label htmlFor="ctl-send-subject">Subject</label>
@@ -196,21 +262,21 @@ export default function CatalogSendModal({ item, ctx, contactsLoading, onClose, 
             <div className="ctl-field">
               <label htmlFor="ctl-send-msg">Message</label>
               <textarea id="ctl-send-msg" value={message} onChange={e => setMessage(e.target.value)} />
-              <p className="ctl-hint">{'{first name}'} is replaced with each person's first name. Your email signature is added.</p>
+              <p className="ctl-hint">{'{first name}'} is replaced with each person's first name.{isSig ? ' The signing link is added below your message.' : ' Your email signature is added.'}</p>
             </div>
             {error && <div className="ctl-err" role="alert">{error}</div>}
           </div>
         )}
 
         <div className="ctl-mf">
-          <small>Logged on this item and on each recipient's record.</small>
+          <small>{isSig ? 'Tracked in Signatures, with a sealed copy for everyone once all sign.' : "Logged on this item and on each recipient's record."}</small>
           <span className="ctl-mf-acts">
             {result ? (
               <button type="button" className="ctl-btn ctl-btn-pri" onClick={onClose}>Done</button>
             ) : (
               <>
                 <button type="button" className="ctl-btn" onClick={onClose} disabled={sending}>Cancel</button>
-                <button type="button" className="ctl-btn ctl-btn-pri" onClick={send} disabled={sending || !people.length}>
+                <button type="button" className="ctl-btn ctl-btn-pri" onClick={send} disabled={sending || !people.length || (isSig && (!tpl || missingFixed.length > 0))}>
                   <SendIcon size={15} /> {sending ? 'Sending…' : `Send to ${people.length}`}
                 </button>
               </>

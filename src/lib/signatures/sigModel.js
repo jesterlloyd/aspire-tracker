@@ -343,3 +343,40 @@ export function envelopeCode(date = new Date(), rand = Math.random) {
   const tail = Array.from({ length: 6 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(rand() * 32)]).join('')
   return `ENV-${y}-${md}-${tail}`
 }
+
+// ── Audit events, in words (the screen and the certificate page read the same) ─────
+
+export function summarizeAgent(ua) {
+  const s = String(ua || '')
+  if (!s) return 'unknown device'
+  const browser = /Edg\//.test(s) ? 'Edge' : /Chrome\//.test(s) ? 'Chrome' : /Firefox\//.test(s) ? 'Firefox' : /Safari\//.test(s) ? 'Safari' : 'Browser'
+  const os = /iPhone/.test(s) ? 'iPhone' : /iPad/.test(s) ? 'iPad' : /Android/.test(s) ? 'Android' : /Mac OS X/.test(s) ? 'macOS' : /Windows/.test(s) ? 'Windows' : /Linux/.test(s) ? 'Linux' : 'device'
+  return `${browser} · ${os}`
+}
+
+const EVENT_WORDS = {
+  created: 'Request created', sent: 'Sent for signature', delivered: 'Email delivered', link_opened: 'Signing link opened',
+  code_sent: 'One-time code sent', code_failed: 'One-time code entered incorrectly', code_verified: 'One-time code verified',
+  password_verified: 'Identity re-confirmed with account password', sample_pdf_opened: 'Sample PDF opened',
+  consent_accepted: 'Consent to electronic records accepted', opened: 'Document opened', downloaded: 'Document downloaded',
+  field_filled: 'Field filled', signature_adopted: 'Signature adopted', signed: 'Signed', viewed: 'Viewed',
+  routed: 'Routed to the next signer', declined: 'Declined', voided: 'Voided', expired: 'Expired',
+  reminder_sent: 'Reminder sent', delegation_requested: 'Asked to reassign to someone else',
+  delegation_approved: 'Reassignment approved by the sender', delegation_rejected: 'Reassignment declined by the sender',
+  paper_copy_requested: 'Paper copy requested', content_timestamped: 'Signed pages timestamped (RFC 3161)',
+  sealed: 'Document sealed and certificate appended', seal_failed: 'Sealing failed, will retry',
+  copies_sent: 'Completed copy emailed to every party', filed_to_record: 'Filed to the record',
+}
+export function describeEvent(e) {
+  const base = EVENT_WORDS[e.type] || e.type
+  const d = e.details || {}
+  if (e.type === 'code_verified' && d.sent_to) return `${base} (sent to ${d.sent_to})`
+  if (e.type === 'consent_accepted' && d.version) return `${base} (disclosure v${d.version})`
+  if (e.type === 'signed' && d.fields != null) return `${base} ${d.fields} field${d.fields === 1 ? '' : 's'} (${d.kind || 'typed'} signature)`
+  if ((e.type === 'declined' || e.type === 'voided') && d.reason) return `${base}: "${d.reason}"`
+  if (e.type === 'routed' && d.to) return `${base}: ${d.to}`
+  if (e.type === 'content_timestamped' && d.serial) return `${base}, serial ${d.serial}`
+  if (e.type === 'sealed' && d.sha256) return `${base}, SHA-256 ${d.sha256.slice(0, 12)}...`
+  return base
+}
+

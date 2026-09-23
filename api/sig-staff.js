@@ -36,6 +36,8 @@ import {
 import { verifySealedPdf } from '../lib/server/signatures/verifySeal.js'
 import { zipStored } from '../lib/server/signatures/zip.js'
 import { isExcludedType, bulkCounts, REQUEST_STATUS } from '../src/lib/signatures/sigModel.js'
+import { Buffer } from 'node:buffer'
+import process from 'node:process'
 
 const MAX_PDF_BYTES = 25 * 1024 * 1024
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -112,15 +114,29 @@ async function act(db, body, { profile, ctx, isDemo }) {
       return { path, token: data.token }
     }
     case 'upload_commit': {
-      const path = String(body.path || '')
-      if (!/^uploads\/[0-9a-f-]{36}\.pdf$/.test(path)) throw new EngineError('invalid', 'Bad upload path.')
-      const { data: blob, error } = await db.storage.from(DOC_BUCKET).download(path)
-      if (error || !blob) throw new EngineError('missing', 'The file was not uploaded.', 409)
-      const bytes = Buffer.from(await blob.arrayBuffer())
-      if (bytes.length > MAX_PDF_BYTES) throw new EngineError('too_big', 'PDF files can be up to 25 MB.', 413)
-      if (bytes.subarray(0, 5).toString('latin1') !== '%PDF-') throw new EngineError('not_pdf', 'That file is not a PDF. Save Word files as PDF first.', 415)
-      let doc
-      try { doc = await PDFDocument.load(bytes, { updateMetadata: false }) } catch { throw new EngineError('not_pdf', 'That PDF could not be read. It may be encrypted or damaged.', 415) }
+      // One file, or several joined into one document in the order given.
+      const paths = Array.isArray(body.paths) ? body.paths : [body.path]
+      if (!paths.length || paths.length > 10 || paths.some(x => !/^uploads\/[0-9a-f-]{36}\.pdf$/.test(String(x || '')))) throw new EngineError('invalid', 'Bad upload path.')
+      const docs = []
+      for (const p of paths) {
+        const { data: blob, error } = await db.storage.from(DOC_BUCKET).download(p)
+        if (error || !blob) throw new EngineError('missing', 'A file was not uploaded.', 409)
+        const bytes = Buffer.from(await blob.arrayBuffer())
+        if (bytes.length > MAX_PDF_BYTES) throw new EngineError('too_big', 'PDF files can be up to 25 MB.', 413)
+        if (bytes.subarray(0, 5).toString('latin1') !== '%PDF-') throw new EngineError('not_pdf', 'That file is not a PDF. Save Word files as PDF first.', 415)
+        try { docs.push({ bytes, doc: await PDFDocument.load(bytes, { updateMetadata: false }) }) } catch { throw new EngineError('not_pdf', 'That PDF could not be read. It may be encrypted or damaged.', 415) }
+      }
+      let path = paths[0], bytes = docs[0].bytes, doc = docs[0].doc
+      if (docs.length > 1) {
+        const joined = await PDFDocument.create()
+        for (const d of docs) for (const page of await joined.copyPages(d.doc, d.doc.getPageIndices())) joined.addPage(page)
+        bytes = Buffer.from(await joined.save())
+        if (bytes.length > MAX_PDF_BYTES) throw new EngineError('too_big', 'Together these files are over 25 MB.', 413)
+        path = `uploads/${randomUUID()}.pdf`
+        const up = await db.storage.from(DOC_BUCKET).upload(path, bytes, { contentType: 'application/pdf', upsert: false })
+        if (up.error) throw new EngineError('upload_failed', 'Could not join the files.', 502)
+        doc = joined
+      }
       const pageSizes = doc.getPages().map(p => ({ w: Math.round(p.getWidth()), h: Math.round(p.getHeight()) }))
       return { path, sha256: createHash('sha256').update(bytes).digest('hex'), page_count: pageSizes.length, page_sizes: pageSizes }
     }
@@ -137,6 +153,12 @@ async function act(db, body, { profile, ctx, isDemo }) {
       if (!UUID.test(body.template_id || '')) throw new EngineError('invalid', 'Missing template.')
       const { data } = await db.from('sig_templates').select('*').eq('id', body.template_id).eq('org_id', ORG_ID).maybeSingle()
       if (!data) throw new EngineError('not_found', 'Template not found.', 404)
+      return { template: data }
+    }
+    case 'template_for_item': {
+      if (!UUID.test(body.catalog_resource_id || '')) throw new EngineError('invalid', 'Missing item.')
+      const { data } = await db.from('sig_templates').select('*').eq('catalog_resource_id', body.catalog_resource_id).eq('org_id', ORG_ID).maybeSingle()
+      if (!data) throw new EngineError('not_found', 'This item has no signature template.', 404)
       return { template: data }
     }
     case 'templates': {
