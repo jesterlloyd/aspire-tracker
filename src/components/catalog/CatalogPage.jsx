@@ -456,6 +456,8 @@ function canViewCatalog(isOwner, isAdmin, isInterviewer) {
 
 function emptyTextFor(view, total, q) {
   if (!total) return 'Nothing in the Catalog yet.'
+  // A signature document is a reusable template; one-off sends live in Signature requests.
+  if (view.type === 'signature' && !q) return 'No signature documents yet. Turn on "Save as a template in the Catalog" when you send one, and it appears here to send again. Documents already sent are in Tracking, Signature requests.'
   if (view.track) return 'Nothing is out for completion. Forms and signature requests show here once they are sent.'
   if (q) return 'No items match. Clear the search or pick another section.'
   return 'Nothing here yet.'

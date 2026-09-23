@@ -190,6 +190,19 @@ test('in-order signing: code, consent, rules, sign, route, staff password, seal,
     assert.ok(types.includes(t), `event ${t}`)
   }
   for (let i = 1; i < b.events.length; i++) assert.equal(b.events[i].prev_hash, b.events[i - 1].hash)
+
+  // The copies event records each recipient's outcome, so the trail never overclaims.
+  const copiesEv = b.events.find(e => e.type === 'copies_sent')
+  assert.equal(copiesEv.details.recipients, 2)
+  assert.equal(copiesEv.details.accepted, 2)
+  assert.equal(copiesEv.details.sender_included, true)
+  assert.ok(copiesEv.details.results.every(r => r.ok && /•/.test(r.to)), 'masked, accepted')
+  assert.ok(copiesEv.details.results.some(r => r.role === 'signer and sender'), 'the staff signer is also the sender')
+  const { describeEvent } = await import('../src/lib/signatures/sigModel.js')
+  assert.match(describeEvent(copiesEv), /2 of 2 accepted by the mail service/)
+  assert.match(describeEvent({ type: 'copies_sent', details: { recipients: 2, accepted: 1, results: [
+    { to: 'a•••@x.org', role: 'signer', ok: true }, { to: 'j•••@cshs.org', role: 'sender', ok: false, error: 'domain not verified' }] } }),
+    /1 of 2 accepted.*j•••@cshs\.org \(sender\), not accepted: domain not verified/)
   assert.ok(b.events.find(e => e.type === 'signed' && e.ip === '172.58.0.9' && /iPhone/.test(e.user_agent)), 'IP and device on the signing event')
 
   // The link is dead after completion.

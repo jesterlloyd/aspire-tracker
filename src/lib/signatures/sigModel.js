@@ -365,7 +365,7 @@ const EVENT_WORDS = {
   delegation_approved: 'Reassignment approved by the sender', delegation_rejected: 'Reassignment declined by the sender',
   paper_copy_requested: 'Paper copy requested', content_timestamped: 'Signed pages timestamped (RFC 3161)',
   sealed: 'Document sealed and certificate appended', seal_failed: 'Sealing failed, will retry',
-  copies_sent: 'Completed copy emailed to every party', filed_to_record: 'Filed to the record',
+  copies_sent: 'Completed copy emailed', filed_to_record: 'Filed to the record',
 }
 export function describeEvent(e) {
   const base = EVENT_WORDS[e.type] || e.type
@@ -377,6 +377,12 @@ export function describeEvent(e) {
   if (e.type === 'routed' && d.to) return `${base}: ${d.to}`
   if (e.type === 'content_timestamped' && d.serial) return `${base}, serial ${d.serial}`
   if (e.type === 'sealed' && d.sha256) return `${base}, SHA-256 ${d.sha256.slice(0, 12)}...`
+  if (e.type === 'copies_sent' && d.recipients != null) {
+    // "Accepted" is the mail service taking the message, which is all the app can know.
+    const who = (d.results || []).map(r => `${r.to} (${r.role})${r.ok ? '' : `, not accepted: ${r.error || 'refused'}`}`)
+    const head = `${base}: ${d.accepted} of ${d.recipients} accepted by the mail service`
+    return who.length ? `${head}; ${who.join('; ')}` : head
+  }
   return base
 }
 
