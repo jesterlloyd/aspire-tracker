@@ -18,6 +18,13 @@ const read = (p) => readFileSync(join(root, p), 'utf8')
 
 const panel = read('src/components/StudentSidePanel.jsx')
 const css = read('src/components/student/studentChart.css')
+
+test('Modern appearance removes the binder chrome and uses the Contacts-style surface', () => {
+  assert.match(css, /\[data-style="modern"\] div\.sc-binder:is\(\*\) \{[\s\S]*?padding: 0;[\s\S]*?border-radius: var\(--aspire-radius-card\);/)
+  assert.match(css, /\[data-style="modern"\] \.sc-binder\.material-forestack::before,[\s\S]*?\.sc-rings \{ display: none; \}/)
+  assert.match(css, /\[data-style="modern"\] \.sc-index \{[\s\S]*?border-left: 1px solid/)
+  assert.match(css, /\[data-style="modern"\] \.sc-ribbon \{[\s\S]*?clip-path: none;/)
+})
 // Several assertions below say "this file must NOT contain X". The comments in these
 // files explain why X is wrong, and quote it, so a naive search finds the warning and
 // calls it the defect. Strip comments first and assert against the code.

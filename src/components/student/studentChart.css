@@ -780,3 +780,78 @@
 [data-theme="dark"] .sc-plate-name { color: var(--aspire-paper-ink); }
 [data-theme="dark"] .sc-plate-school { color: var(--aspire-paper-ink-soft); }
 [data-theme="dark"] .sc-sheet-title { color: var(--aspire-paper-ink); }
+
+/* ── Modern appearance ──────────────────────────────────────────────────────
+   The chart keeps the same record, scrolling model and index. Modern removes the
+   binder metaphor and returns the detail pane to the clean Contacts-style surface. */
+[data-style="modern"] .profiles-panel-slide:has(.sc-binder) {
+  border-radius: var(--aspire-radius-card);
+  overflow: hidden;
+}
+[data-style="modern"] div.sc-binder:is(*) {
+  padding: 0;
+  border: 1px solid var(--border-card, rgba(29, 37, 103, 0.08));
+  border-radius: var(--aspire-radius-card);
+  background: var(--color-bg-elevated, var(--pearl, #FFFFFF)) !important;
+  box-shadow: 0 10px 30px rgba(29, 37, 103, 0.10), 0 1px 3px rgba(15, 23, 42, 0.08);
+  overflow: hidden;
+}
+[data-style="modern"] .sc-binder.material-forestack::before,
+[data-style="modern"] .sc-binder.material-forestack::after,
+[data-style="modern"] .sc-rings { display: none; }
+[data-style="modern"] .sc-paper {
+  border-radius: inherit;
+  background: var(--color-bg-elevated, var(--pearl, #FFFFFF));
+}
+[data-style="modern"] .sc-plate {
+  padding-right: 76px;
+  background: var(--color-info-subtle, #EEF4FF);
+}
+[data-style="modern"] .sc-main { grid-template-columns: minmax(0, 1fr) 46px; }
+[data-style="modern"] .sc-index {
+  background: var(--color-bg-elevated, var(--pearl, #FFFFFF));
+  border-left: 1px solid var(--border-card, rgba(29, 37, 103, 0.08));
+  box-shadow: none;
+}
+[data-style="modern"] .sc-tab,
+[data-style="modern"] .sc-tab:hover,
+[data-style="modern"] .sc-tab[aria-current="true"] {
+  background: var(--color-bg-elevated, var(--pearl, #FFFFFF));
+  box-shadow: none;
+}
+[data-style="modern"] .sc-tab[aria-current="true"] {
+  color: var(--color-accent-primary, #1D2567);
+  box-shadow: inset 3px 0 0 var(--color-accent-primary, #1D2567);
+}
+[data-style="modern"] .sc-ribbon {
+  top: 16px;
+  right: 18px;
+  width: auto;
+  min-width: 42px;
+  padding: 7px 9px;
+  border: 1px solid var(--border-card, rgba(29, 37, 103, 0.14));
+  border-radius: var(--aspire-radius-control);
+  background: var(--color-bg-elevated, #FFFFFF);
+  color: var(--text-secondary, #667085);
+  clip-path: none;
+  box-shadow: none;
+  cursor: pointer;
+}
+[data-style="modern"] .sc-ribbon[aria-pressed="false"] {
+  padding: 7px 9px;
+  background: var(--color-bg-elevated, #FFFFFF);
+  box-shadow: none;
+}
+[data-style="modern"] .sc-ribbon-on,
+[data-style="modern"] .sc-ribbon-on:hover {
+  padding: 7px 9px;
+  border-color: var(--color-status-danger, #B42318);
+  background: var(--color-status-danger-bg, #FEE4E2);
+  color: var(--color-status-danger, #B42318);
+  box-shadow: none;
+}
+[data-style="modern"] .sc-ribbon[aria-pressed="false"]:hover {
+  border-color: var(--color-accent-primary, #1D2567);
+  color: var(--color-accent-primary, #1D2567);
+  box-shadow: 0 3px 8px rgba(29, 37, 103, 0.10);
+}

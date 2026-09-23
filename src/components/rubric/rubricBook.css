@@ -880,6 +880,85 @@
   color: var(--aspire-on-navy);
 }
 
+/* ── Modern appearance ──────────────────────────────────────────────────────
+   Modern preserves the two-pane interview workflow but removes the physical book.
+   The result follows the connected Modern calendar: one rounded surface, one divider,
+   and a quiet section rail. Classic rules above remain the complete book treatment. */
+[data-style='modern'] .rb-cover {
+  padding: 0;
+  border: 1px solid var(--border-card, rgba(29, 37, 103, 0.08));
+  border-radius: var(--aspire-radius-card);
+  background: var(--color-bg-elevated, var(--pearl, #FFFFFF)) !important;
+  box-shadow: 0 10px 30px rgba(29, 37, 103, 0.10), 0 1px 3px rgba(15, 23, 42, 0.08);
+  overflow: hidden;
+}
+[data-style='modern'] .rb-cover.material-forestack::before,
+[data-style='modern'] .rb-cover.material-forestack::after,
+[data-style='modern'] .rb-cover > .material-cover-tooling,
+[data-style='modern'] .rb-spine,
+[data-style='modern'] .rb-seam { display: none; }
+[data-style='modern'] .rb-spread {
+  border-radius: inherit;
+  background: var(--color-bg-elevated, var(--pearl, #FFFFFF));
+  box-shadow: none;
+}
+[data-style='modern'] .rb-page,
+[data-style='modern'] .rb-page-left,
+[data-style='modern'] .rb-page-right {
+  background: var(--color-bg-elevated, var(--pearl, #FFFFFF));
+}
+[data-style='modern'] .rb-page-left {
+  border-right: 1px solid var(--border-card, rgba(29, 37, 103, 0.08));
+}
+[data-style='modern'] .rb-head {
+  background-image: none;
+  background-color: var(--color-info-subtle, #EEF4FF);
+  border-bottom: 1px solid var(--border-card, rgba(29, 37, 103, 0.08));
+}
+[data-style='modern'] .rb-index {
+  background: var(--color-bg-elevated, var(--pearl, #FFFFFF));
+  border-left: 1px solid var(--border-card, rgba(29, 37, 103, 0.08));
+}
+[data-style='modern'] .rb-tab,
+[data-style='modern'] .rb-tab:hover,
+[data-style='modern'] .rb-tab-active,
+[data-style='modern'] .rb-tab-active:hover {
+  background: var(--color-bg-elevated, var(--pearl, #FFFFFF));
+  box-shadow: none;
+}
+[data-style='modern'] .rb-tab-active,
+[data-style='modern'] .rb-tab-active:hover {
+  color: var(--color-accent-primary, #1D2567);
+  box-shadow: inset 3px 0 0 var(--color-accent-primary, #1D2567);
+}
+[data-style='modern'] .rb-ribbon,
+[data-style='modern'] .rb-ribbon-on,
+[data-style='modern'] .rb-ribbon-on:hover {
+  margin-top: 14px;
+  margin-right: 16px;
+  width: auto;
+  min-width: 42px;
+  padding: 7px 9px;
+  border: 1px solid var(--border-card, rgba(29, 37, 103, 0.14));
+  border-radius: var(--aspire-radius-control);
+  background: var(--color-bg-elevated, #FFFFFF);
+  color: var(--text-secondary, #667085);
+  clip-path: none;
+  box-shadow: none;
+  cursor: pointer;
+}
+[data-style='modern'] .rb-ribbon-on,
+[data-style='modern'] .rb-ribbon-on:hover {
+  border-color: var(--color-status-danger, #B42318);
+  background: var(--color-status-danger-bg, #FEE4E2);
+  color: var(--color-status-danger, #B42318);
+}
+[data-style='modern'] .rb-ribbon[aria-pressed='false']:hover {
+  border-color: var(--color-accent-primary, #1D2567);
+  color: var(--color-accent-primary, #1D2567);
+  box-shadow: 0 3px 8px rgba(29, 37, 103, 0.10);
+}
+
 /* ── A narrow page stacks what it cannot sit side by side ──────────────────── */
 /* Only ever reached in single-page mode, where the page takes the width it is given.
    The design does not change: the same fields in the same order, one per line. */
