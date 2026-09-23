@@ -22,22 +22,19 @@
 // the inline-style rule above was written to work around.
 
 import './plannerCalendar.css'
+import { useTheme } from '../../contexts/ThemeContext'
 
 /**
  * PLANNER-CALENDAR-1: the shell can be a desk planner.
  *
- * `paper` picks the surface's paper, and it is a property of the SURFACE, not a user
- * setting: Interviews is slate, anything about shifts is tan, anything about residency is
- * forest. The notepad holds the sidebar under two chrome rings; the calendar sits on its
- * own sheet beside it; both have pages stacked under them. Every value lives in
- * `plannerCalendar.css`, which this file imports so it reaches the staff bundle and the
- * portal bundles alike.
+ * `paper` opts an app calendar into the canonical Classic planner. Classic always uses
+ * the approved Interview treatment; `appearance="auto"` swaps that same structure to
+ * the connected Modern surface. Portals pass `appearance="modern"` until they gain their
+ * own Appearance settings. Every value lives in `plannerCalendar.css`, which this file
+ * imports so it reaches the staff bundle and the portal bundles alike.
  *
- * IT IS OPT-IN, PER SURFACE, ON PURPOSE. Five calendars already render through this
- * layout. If the planner were the default, adopting it would repaint all of them in one
- * commit, and the Owner asked to see Interviews first and approve it before the others
- * move. A caller that passes no `paper` gets exactly the shell it got yesterday, which is
- * also what makes each adoption reviewable on its own.
+ * A caller that passes no `paper` keeps the plain shell. This lets non-calendar timeline
+ * consumers adopt the shared structure without implicitly opting into Classic material.
  */
 export function CanonicalCalendarLayout({
   title,
@@ -49,7 +46,10 @@ export function CanonicalCalendarLayout({
   labelledBy = 'canonical-calendar-title',
   titleVisuallyHidden = false,
   paper = null,
+  appearance = 'auto',
 }) {
+  const { style } = useTheme()
+  const isModern = appearance === 'modern' || (appearance === 'auto' && style === 'modern')
   const main = (
     <div className="canonical-calendar-main">
       <div className="canonical-calendar-toolbar">
@@ -71,9 +71,13 @@ export function CanonicalCalendarLayout({
     </div>
   )
 
-  if (!paper) {
+  if (isModern || !paper) {
     return (
-      <section className="canonical-calendar-shell" aria-labelledby={labelledBy}>
+      <section
+        className={`canonical-calendar-shell${isModern ? ' canonical-calendar-modern' : ''}`}
+        data-calendar-style={isModern ? 'modern' : 'plain'}
+        aria-labelledby={labelledBy}
+      >
         <div className="canonical-calendar-sidebar">
           {sidebar}
         </div>
@@ -83,7 +87,7 @@ export function CanonicalCalendarLayout({
   }
 
   return (
-    <div className="pl-planner" data-paper={paper}>
+    <div className="pl-planner" data-paper="slate" data-calendar-style="classic">
       <div className="pl-spread">
         <section className="canonical-calendar-shell" aria-labelledby={labelledBy}>
           {/* The notepad. The rings straddle the sheet's TOP EDGE, so they are a sibling

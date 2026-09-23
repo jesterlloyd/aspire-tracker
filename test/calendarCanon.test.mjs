@@ -48,6 +48,21 @@ const ALL_CALENDARS = {
   'Academics':  'src/portal/na/AcademicsCalendarView.jsx',
 }
 
+test('calendar appearance is canonical: app follows Style and portals stay Modern', () => {
+  const foundation = read(FOUNDATION)
+  const css = read('src/components/shared/plannerCalendar.css')
+  assert.match(foundation, /const \{ style \} = useTheme\(\)/)
+  assert.match(foundation, /appearance === 'modern' \|\| \(appearance === 'auto' && style === 'modern'\)/)
+  assert.match(css, /\.canonical-calendar-shell\.canonical-calendar-modern \{[\s\S]*?grid-template-columns:[^;]+;[\s\S]*?gap: 0;/)
+  assert.match(css, /\.canonical-calendar-modern \.canonical-calendar-sidebar \{[\s\S]*?border-right: 1px solid var\(--rule\);/)
+  for (const name of ['Unit Leader', 'Student Portal', 'Academics']) {
+    assert.match(read(ALL_CALENDARS[name]), /appearance="modern"/, `${name} is Modern-only`)
+  }
+  for (const name of ['NGRP Activity', 'Rotation Activity', 'Interviews']) {
+    assert.match(read(ALL_CALENDARS[name]), /paper="slate"/, `${name} uses the Interview Classic planner`)
+  }
+})
+
 // ── One navigation control ───────────────────────────────────────────────────
 
 test('every calendar navigates through the shared primitive, none hand-rolls arrows', () => {

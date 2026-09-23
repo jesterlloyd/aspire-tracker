@@ -363,6 +363,7 @@ export default function StudentRotationActivity({ student, logs = [], readOnly =
         // STUDENT-PHONE-1 is unchanged and is re-stated for paper in plannerCalendar.css:
         // below 760px the notepad comes first and the grid, the key and the footnote hide.
         paper="tan"
+        appearance="modern"
         title="Rotation Activity"
         description="Plan upcoming shifts and see completed shift logs in one calendar."
         labelledBy="student-rotation-activity-title"

@@ -1,9 +1,9 @@
 @import '../../styles/pageStack.css';
-/* PLANNER-CALENDAR-1: every ASPIRE calendar is a desk planner.
+/* PLANNER-CALENDAR-1: every Classic ASPIRE app calendar is one canonical desk planner.
  *
  * A two-ring notepad holding the mini calendar and the day detail, a stacked calendar
- * sheet beside it, both resting on a colored desk pad. ONE component; the only thing
- * that changes per surface is the paper, set by `data-paper` on the planner root.
+ * sheet beside it, both resting on a slate desk pad. ONE component and one material;
+ * the calendar's data and controls change, not the object around them.
  *
  * WHY THIS FILE EXISTS AT ALL, AND WHY IT IS IMPORTED BY THE COMPONENT.
  * The foundation's primitives were inline-styled on purpose, because "portal CSS is not
@@ -40,6 +40,142 @@
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
+}
+
+/* ── Modern calendar ────────────────────────────────────────────────────────
+   Modern keeps the Interview calendar's information architecture but removes the
+   desk, rings and loose sheets. The mini calendar and month calendar are one object:
+   the outside edge belongs to the calendar itself and the only line inside it is the
+   seam between the two panes. This block lives with the shared foundation so portals
+   and the staff bundle cannot drift into separate versions again. */
+.canonical-calendar-shell.canonical-calendar-modern {
+  --paper: var(--pearl, #fff);
+  --paper-2: var(--pearl, #fff);
+  --paper-ink: var(--text-primary, #1D2567);
+  --paper-muted: var(--text-secondary, #667085);
+  --rule: var(--border-lt, #E6E8EF);
+  --pl-title-size: 20px;
+  --pl-cell-h: 100%;
+  --pl-cell-out: #F8F9FC;
+  --pl-cell-future: #A8AFBD;
+  display: grid;
+  grid-template-columns: minmax(238px, 280px) minmax(0, 1fr);
+  gap: 0;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 16px;
+  background: var(--paper);
+  color: var(--paper-ink);
+  box-shadow: 0 10px 30px rgba(29, 37, 103, 0.10), 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+.canonical-calendar-modern .canonical-calendar-sidebar {
+  min-width: 0;
+  padding: 24px 20px 18px;
+  border: 0;
+  border-right: 1px solid var(--rule);
+  background: var(--paper);
+  color: var(--paper-ink);
+}
+.canonical-calendar-modern .canonical-calendar-main {
+  min-width: 0;
+  padding: 18px 24px;
+  background: var(--paper);
+  color: var(--paper-ink);
+}
+.canonical-calendar-modern .canonical-calendar-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+.canonical-calendar-modern .canonical-calendar-toolbar:empty { display: none; margin: 0; }
+.canonical-calendar-modern .canonical-calendar-title,
+.canonical-calendar-modern .canonical-calendar-today-date { color: var(--paper-ink); }
+.canonical-calendar-modern .canonical-calendar-title { margin: 0; font-size: 18px; line-height: 1.2; }
+.canonical-calendar-modern .canonical-calendar-description,
+.canonical-calendar-modern .canonical-calendar-kicker,
+.canonical-calendar-modern .canonical-calendar-today-summary { color: var(--paper-muted); }
+.canonical-calendar-modern .canonical-calendar-description { margin: 4px 0 0; font-size: 12.5px; line-height: 1.45; }
+.canonical-calendar-modern .canonical-calendar-sidebar-stack {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+.canonical-calendar-modern .canonical-calendar-today {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--rule);
+}
+.canonical-calendar-modern .canonical-calendar-empty {
+  padding: 12px;
+  border-radius: 10px;
+  background: #F5F6FA;
+  color: var(--paper-muted);
+  text-align: center;
+}
+.canonical-calendar-modern .pl-calbox {
+  height: var(--pl-calbox-h, 560px);
+  min-height: var(--pl-calbox-h, 560px);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.canonical-calendar-modern .pl-calbox-scroll { flex: 1; min-height: 0; overflow: auto hidden; }
+.canonical-calendar-modern .pl-monthgrid {
+  display: grid;
+  grid-template-rows: repeat(var(--weeks, 6), minmax(0, 1fr));
+  flex: 1;
+  min-height: 0;
+}
+.canonical-calendar-modern .pl-monthgrid > * { min-height: 0; }
+.canonical-calendar-modern .canonical-month-cell:hover { background: #F3F6FF !important; }
+.canonical-calendar-modern .pl-legend {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  color: var(--paper-muted);
+  border-top-color: var(--rule);
+}
+.canonical-calendar-modern .ptl-student-cal-plan {
+  background: #EEF2FF;
+  box-shadow: inset 0 0 0 1px #C7D2FE;
+}
+.canonical-calendar-modern .ptl-cal-today-list li {
+  background: #F8FAFF;
+  border-color: #E4E8F2;
+}
+[data-theme="dark"] .canonical-calendar-modern {
+  --paper: #171B26;
+  --paper-ink: #F4F6FA;
+  --paper-muted: #AAB2C2;
+  --rule: #303747;
+  --pl-cell-out: #141821;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+}
+[data-theme="dark"] .canonical-calendar-modern .canonical-calendar-empty,
+[data-theme="dark"] .canonical-calendar-modern .ptl-cal-today-list li { background: #1D2330; }
+
+@media (max-width: 960px) {
+  .canonical-calendar-shell.canonical-calendar-modern { grid-template-columns: 1fr; }
+  .canonical-calendar-modern .canonical-calendar-sidebar {
+    border-right: 0;
+    border-bottom: 1px solid var(--rule);
+  }
+}
+@media (max-width: 760px) {
+  .canonical-calendar-shell.canonical-calendar-modern {
+    width: 100%;
+    margin-inline: auto;
+    border-radius: 14px;
+  }
+  .canonical-calendar-modern .canonical-calendar-main { padding: 18px 16px 8px; }
+  .canonical-calendar-modern .canonical-calendar-sidebar {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 18px 16px;
+  }
+  .canonical-calendar-modern .pl-calbox { height: auto; min-height: 0; }
 }
 
 /* ── Paper themes ──────────────────────────────────────────────────────────── */

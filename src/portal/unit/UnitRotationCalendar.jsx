@@ -234,6 +234,7 @@ export default function UnitRotationCalendar({ shifts = [], onSelectDay, loading
       // staff Rotation > Activity calendar does, so it wears the same paper and a shift
       // reads identically whether staff or a unit leader opens it.
       paper="tan"
+      appearance="modern"
       title="Rotation Activity"
       titleVisuallyHidden
       labelledBy="ul-cal-title"

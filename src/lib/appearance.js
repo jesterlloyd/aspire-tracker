@@ -128,7 +128,7 @@ export const STYLE_SURFACES = Object.freeze([
   { key: 'placementBoard', label: 'Placement Board', material: 'Pinboard', modern: false },
   { key: 'studentProfiles', label: 'Student Profiles', material: 'Chart binder', modern: false },
   { key: 'interviewRubric', label: 'Interview Rubric', material: 'Bound book', modern: false },
-  { key: 'calendars', label: 'Calendars', material: 'Desk planner', modern: false },
+  { key: 'calendars', label: 'Calendars', material: 'Desk planner', modern: true },
   { key: 'reviewRelease', label: 'Review & Release', material: 'Clipboard', modern: false },
   { key: 'responses', label: 'Evaluation Responses', material: 'Printout', modern: false },
   { key: 'contacts', label: 'Contacts', material: 'Address book', modern: true },

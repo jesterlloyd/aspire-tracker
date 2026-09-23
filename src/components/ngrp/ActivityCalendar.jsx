@@ -247,9 +247,8 @@ export default function ActivityCalendar({ cycle, canManage: canManageCohort }) 
   return (
     <>
       <CanonicalCalendarLayout
-        // PLANNER-CALENDAR-1: forest, the residency paper. Same component as Interviews
-        // and Rotation; the paper is the only per-surface style difference.
-        paper="forest"
+        // Classic uses the same approved slate planner as Interviews and Rotation.
+        paper="slate"
         title="Activity"
         description={cycle?.name ? `Workshops, town halls and bootcamps across ${cycle.name}.` : 'Workshops, town halls and bootcamps.'}
         labelledBy="ngrp-activity-title"

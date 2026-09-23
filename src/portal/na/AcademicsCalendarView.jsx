@@ -234,6 +234,7 @@ export default function AcademicsCalendarView({ active = true }) {
         // the same constant height and scrolls its rows inside it, which keeps the panel
         // the same size whether two schools are in view or twelve.
         paper="forest"
+        appearance="modern"
         title="Rotation Calendar"
         description="School rotation windows from every ASPIRE cohort, one rotation per row."
         sidebar={(

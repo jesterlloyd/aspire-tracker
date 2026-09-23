@@ -311,10 +311,9 @@ export default function RotationActivityCalendar({
 
   return (
     <CanonicalCalendarLayout
-      // PLANNER-CALENDAR-1: tan, because the paper follows the SUBJECT and this surface is
-      // shifts. The Unit Leader and Student Portal calendars show the same shift records
-      // and will wear the same paper, so a shift reads the same whoever opens it.
-      paper="tan"
+      // Classic uses the same approved slate planner as Interviews. Modern keeps this
+      // exact structure but joins the mini and month calendars into one clean surface.
+      paper="slate"
       title="Rotation Activity"
       titleVisuallyHidden
       labelledBy="rotation-activity-cal-title"
