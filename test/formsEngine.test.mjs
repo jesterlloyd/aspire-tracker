@@ -159,8 +159,10 @@ test('publish refuses an unfinished form, in words', async () => {
 
 test('send, prefill, submit: the PDF is filed to the student record and the link closes', async () => {
   const w = await world()
-  await E.installStarters(w.db, w.owner)
-  const { rows: [f] } = await w.pg.query(`SELECT id FROM catalog_forms WHERE starter_key = 'scrubex-request-form'`)
+  // SCRUBEX-PAPER-1: ScrubEx now asks Linen Services' questions; this test keeps its earlier
+  // questions as an ordinary form, for their number limit, prefill and signature.
+  const f = await E.createForm(w.db, { title: 'Sizes', definition: M.RETIRED_STARTER_DRAFTS['scrubex-request-form'][0] }, w.owner)
+  await E.publish(w.db, f.id, w.owner)
   const out = await E.sendForm(w.db, { formId: f.id, people: [{ name: 'Ava Reyes', email: 'ava@ucla.edu', studentId: w.student.id }, { name: 'dup', email: 'AVA@ucla.edu' }],
     dueAt: '2026-10-01T23:59:00Z', subject: 'ScrubEx sizes', message: 'Hi {first name}, please fill this in.' }, { appUrl, mailer: w.mailer, sender: w.owner })
   assert.equal(out.created, 1, 'a duplicate address is sent once')
@@ -314,9 +316,11 @@ test('the paper original is chosen from the Catalog, only the measured file is a
     await E.installStarters(w.db, w.owner)
     const { rows: [pk] } = await w.pg.query(`SELECT * FROM catalog_forms WHERE starter_key = 'student-parking-request'`)
     const { rows: [sx] } = await w.pg.query(`SELECT * FROM catalog_forms WHERE starter_key = 'scrubex-request-form'`)
-    assert.deepEqual(await E.paperStatus(w.db, pk), { layout: 'parking-spd', name: 'Students Parking Data (SPD)', onFile: false })
-    assert.equal(await E.paperStatus(w.db, sx), null, 'a form with no paper layout offers no paper form')
-    await assert.rejects(E.setPaperFromCatalog(w.db, sx.id, spd), /no paper layout/)
+    assert.deepEqual(await E.paperStatus(w.db, pk), { layout: 'parking-spd', name: 'Students Parking Data (SPD)', redrawn: true, onFile: false })
+    const custom = await E.createForm(w.db, { title: 'Mine', definition: { title: 'Mine', questions: [M.newQuestion('short', 'a')] } }, w.owner)
+    assert.equal(await E.paperStatus(w.db, custom), null, 'a form with no paper layout offers no paper form')
+    await assert.rejects(E.setPaperFromCatalog(w.db, custom.id, spd), /no paper layout/)
+    assert.equal((await E.paperStatus(w.db, sx)).redrawn, false, 'ScrubEx has no drawn copy')
     await assert.rejects(E.setPaperFromCatalog(w.db, pk.id, wrong), /not the Students Parking Data \(SPD\) form the answer boxes were measured on/)
 
     const set = await E.setPaperFromCatalog(w.db, pk.id, spd)
@@ -341,6 +345,50 @@ test('the paper original is chosen from the Catalog, only the measured file is a
   } finally { E.PAPER_FILES['parking-spd'].sha256 = real }
 })
 
+// SCRUBEX-PAPER-1 (2026-09-24): ScrubEx is filed on Linen Services' fillable PDF. A stand-in
+// with their field names plays it (their file is not in this public repo).
+test('the ScrubEx answers are typed onto the paper form, and its broken form fields are removed', async () => {
+  const { buildSubmissionPdf } = await import('../lib/server/forms/formPdf.js')
+  const stand = await PDFDocument.create()
+  const page = stand.addPage([612, 792])
+  const f = stand.getForm()
+  for (const [i, n] of ['Initial', 'Last Name', 'First Name', 'Occupation', 'Badge Barcode #', 'Date5_af_date'].entries()) {
+    f.createTextField(n).addToPage(page, { x: 72, y: 700 - i * 24, width: 140, height: 16 })
+  }
+  const cb = f.createCheckBox('Scrub Size?')
+  for (let i = 0; i < 7; i++) cb.addToPage(page, { x: 300, y: 700 - i * 14, width: 12, height: 10 })
+  const paper = Buffer.from(await stand.save())
+
+  const scrubex = M.STARTER_FORMS.find(s => s.slug === 'scrubex-request-form')
+  assert.deepEqual(M.definitionIssues(scrubex.definition), [])
+  const answers = { initial: 'AR', last_name: 'Reyes', first_name: 'Ava', department: 'Nursing Education', occupation: 'Nursing Student', barcode: '123456789', badge_exp: '2027-09-30',
+    size: 'Medium', machines: ["Main OR's: 3rd - 8th", 'L&D: 3rd'] }
+  assert.deepEqual(M.answerIssues(scrubex.definition, answers), {})
+  const meta = { submissionId: 'abc', version: 2 }
+  const filed = await PDFDocument.load(await buildSubmissionPdf({ definition: scrubex.definition, answers, who: {}, meta, layout: 'scrubex', paper }))
+  assert.equal(filed.getPageCount(), 1)
+  assert.equal(filed.getSubject(), 'Cedars-Sinai scrubEx Policy')
+  assert.equal(filed.getForm().getFields().length, 0, 'no empty field is left over an answer')
+  const annots = filed.getPage(0).node.Annots()
+  assert.ok(!annots || annots.size() === 0, 'the widgets are off the page')
+
+  const plain = await PDFDocument.load(await buildSubmissionPdf({ definition: scrubex.definition, answers, who: {}, meta, layout: 'scrubex' }))
+  assert.notEqual(plain.getSubject(), 'Cedars-Sinai scrubEx Policy', 'without their PDF on file, the plain PDF')
+  assert.equal(M.SCRUB_SIZES.length, 7)
+  assert.equal(M.SCRUB_MACHINES.length, 8)
+})
+
+test('an unedited earlier ScrubEx form moves to Linen Services\' questions', async () => {
+  const w = await world()
+  const old = M.RETIRED_STARTER_DRAFTS['scrubex-request-form'][0]
+  const form = await E.createForm(w.db, { title: old.title, starterKey: 'scrubex-request-form', definition: old }, w.owner)
+  await E.publish(w.db, form.id, w.owner)
+  const out = await E.installStarters(w.db, w.owner)
+  assert.deepEqual(out.find(r => r.key === 'scrubex-request-form'), { key: 'scrubex-request-form', id: form.id, added: false, refreshed: true, published: true })
+  const v2 = await E.versionOf(w.db, form.id, 2)
+  assert.equal(E.layoutFor({ starter_key: 'scrubex-request-form' }, v2.definition), 'scrubex')
+})
+
 // PARKING-PDF-1: the Parking request is filed in Parking Services' own layout.
 test('the Parking PDF is drawn in the SPD layout, and nothing answered is dropped', async () => {
   const { buildSubmissionPdf } = await import('../lib/server/forms/formPdf.js')
@@ -349,6 +397,7 @@ test('the Parking PDF is drawn in the SPD layout, and nothing answered is droppe
   assert.equal(E.layoutFor({ starter_key: 'student-parking-request' }, parking.definition), 'parking-spd')
   assert.equal(E.layoutFor({ starter_key: 'student-parking-request' }, old), null, 'a version answered on the old questions keeps the plain PDF')
   assert.equal(E.layoutFor({ starter_key: 'scrubex-request-form' }, parking.definition), null)
+  assert.equal(E.layoutFor({ starter_key: 'scrubex-request-form' }, M.STARTER_FORMS[0].definition), 'scrubex')
   assert.equal(E.layoutFor({ starter_key: null }, parking.definition), null)
 
   const answers = { first_name: 'Ava', last_name: 'Reyes', school: 'UCLA', parking_app: 'Yes', days: ['Monday', 'Friday'], start: '2026-09-15',

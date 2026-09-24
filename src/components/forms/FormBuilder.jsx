@@ -157,7 +157,7 @@ export default function FormBuilder({ formId, notify, onBack, onResponses }) {
             </div>
           ) : (
             <div className="fm-paper-row">
-              <label className="fm-hint" htmlFor="fm-paper-pick">Choose {paper.name} from the Catalog to file every submission on that exact PDF. Until then, ASPIRE draws a copy of it.</label>
+              <label className="fm-hint" htmlFor="fm-paper-pick">Choose {paper.name} from the Catalog to file every submission on that exact PDF. {paper.redrawn ? 'Until then, ASPIRE draws a copy of it.' : 'Until then, submissions are filed as a plain list of answers.'}</label>
               <select id="fm-paper-pick" value="" disabled={paperBusy || !catalogPdfs} onChange={e => choosePaper(e.target.value)}>
                 <option value="">{paperBusy ? 'Copying…' : catalogPdfs ? 'Choose a Catalog PDF…' : 'Loading the Catalog…'}</option>
                 {(catalogPdfs || []).map(r => <option key={r.id} value={r.id}>{r.title}</option>)}

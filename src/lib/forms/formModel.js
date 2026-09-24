@@ -228,25 +228,38 @@ export function csvFor(def, rows) {
 // installStarters replaces a draft that still equals one of them word for word, so an
 // install made before the correction gets it, and a draft someone edited is never touched.
 
-const SIZES = ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL']
+// The size and scrub machine lists exactly as Linen Services' form prints them; the paper
+// layout (lib/server/forms/layouts/scrubex.js) finds each one's box by this text.
+export const SCRUB_SIZES = Object.freeze(['X-Small', 'Small', 'Medium', 'Large', 'X-Large', '2X-Large', '3X-Large'])
+export const SCRUB_MACHINES = Object.freeze([
+  "Main OR's: 3rd - 8th", "Pavilion OR's: 4th - 5th", 'Pathology: 8th', 'Endo: 7th', 'GI Lab: 7th', 'Cath Lab: 6th', 'L&D: 3rd', 'South Tower: LL',
+])
+
 export const STARTER_FORMS = Object.freeze([
   {
+    // SCRUBEX-PAPER-1 (2026-09-24): the questions are Linen Services' own "Cedars-Sinai scrubEx
+    // Policy" form, field for field, so the filed PDF is that form with the answers in its
+    // boxes. Department Name is asked: their form's printed "Nursing Education" is whited out.
+    // Students receive scrub credits only, so the Lavender Coats machines are not offered.
     slug: 'scrubex-request-form',
     title: 'ScrubEx Request Form',
-    catalogDescription: 'Scrub sizes and pickup date for badge-linked ScrubEx access.',
+    catalogDescription: 'Linen Services\' scrubEx policy and request: initials, badge, size and scrub machines.',
     category: 'student_onboarding',
     publish: true,
     definition: {
       title: 'ScrubEx Request Form',
-      description: 'Tell us your sizes so ScrubEx can load your badge before orientation. Takes about 2 minutes.',
+      description: 'Linen Services loads your scrub credits onto your badge. Read the scrubEx policy, then initial it. Takes about 2 minutes.',
       questions: [
-        { id: 'full_name', type: 'short', label: 'Full name', help: '', required: true, prefill: 'student.full_name' },
-        { id: 'unit', type: 'short', label: 'Placement unit', help: '', required: true, prefill: 'placement.unit' },
-        { id: 'top', type: 'choice', label: 'Scrub top size', help: '', required: true, options: SIZES },
-        { id: 'pant', type: 'choice', label: 'Scrub pant size', help: 'Pants run one size small.', required: true, options: SIZES },
-        { id: 'sets', type: 'number', label: 'Sets needed', help: 'Up to 3 sets for the rotation.', required: true, min: 1, max: 3 },
-        { id: 'pickup', type: 'date', label: 'Preferred pickup date', help: 'ScrubEx is open weekdays, 7 AM to 3 PM.', required: false },
-        { id: 'sig', type: 'signature', label: 'Student signature', help: 'I will return all scrubs by my last shift.', required: true },
+        { id: 'policy_h', type: 'section', label: 'Cedars-Sinai scrubEx policy', help: 'Students receive 2 scrub credits. Every garment goes back into a scrubEx unit, never a soiled linen hamper; the unit allows 20 seconds to deposit once your badge is swiped. Machines have cameras and deposits are monitored. Depositing non-Cedars scrubs or anything else (linen, disposables, trash) ends your scrub machine privileges. Linen Services: ext 3-0772, M/W/F 7-10 am and 1-4 pm, T/Th 7-11 am and 1-4 pm.', required: false },
+        { id: 'initial', type: 'short', label: 'Initial', help: 'Your initials acknowledge the scrubEx policy above.', required: true },
+        { id: 'last_name', type: 'short', label: 'Last name', help: '', required: true, prefill: 'student.last_name' },
+        { id: 'first_name', type: 'short', label: 'First name', help: '', required: true, prefill: 'student.first_name' },
+        { id: 'department', type: 'short', label: 'Department name', help: 'For example, Nursing Education.', required: true },
+        { id: 'occupation', type: 'short', label: 'Occupation', help: 'For example, Nursing Student.', required: true },
+        { id: 'barcode', type: 'short', label: 'Barcode number', help: 'The full number on the back of your badge. Leave blank if you do not have your badge yet.', required: false },
+        { id: 'badge_exp', type: 'date', label: 'Badge expiration date', help: '', required: false },
+        { id: 'size', type: 'choice', label: 'Size', help: 'A unisex combination (shirt and pant).', required: true, options: SCRUB_SIZES },
+        { id: 'machines', type: 'checkboxes', label: 'Scrub machine access', help: 'The scrub machines you need access to.', required: true, options: SCRUB_MACHINES },
       ],
     },
   },
@@ -300,6 +313,20 @@ export const STARTER_FORMS = Object.freeze([
 ])
 
 export const RETIRED_STARTER_DRAFTS = Object.freeze({
+  // The ScrubEx draft shipped with FORMS-PHASE3 (the mockup's questions), before Linen Services' form.
+  'scrubex-request-form': [{
+    title: 'ScrubEx Request Form',
+    description: 'Tell us your sizes so ScrubEx can load your badge before orientation. Takes about 2 minutes.',
+    questions: [
+      { id: 'full_name', type: 'short', label: 'Full name', help: '', required: true, prefill: 'student.full_name' },
+      { id: 'unit', type: 'short', label: 'Placement unit', help: '', required: true, prefill: 'placement.unit' },
+      { id: 'top', type: 'choice', label: 'Scrub top size', help: '', required: true, options: ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'] },
+      { id: 'pant', type: 'choice', label: 'Scrub pant size', help: 'Pants run one size small.', required: true, options: ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'] },
+      { id: 'sets', type: 'number', label: 'Sets needed', help: 'Up to 3 sets for the rotation.', required: true, min: 1, max: 3 },
+      { id: 'pickup', type: 'date', label: 'Preferred pickup date', help: 'ScrubEx is open weekdays, 7 AM to 3 PM.', required: false },
+      { id: 'sig', type: 'signature', label: 'Student signature', help: 'I will return all scrubs by my last shift.', required: true },
+    ],
+  }],
   // The draft shipped with FORMS-PHASE3 (1a4d25a1), before Parking Services sent their form.
   'student-parking-request': [{
     title: 'Student Parking Request',

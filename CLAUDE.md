@@ -1245,6 +1245,15 @@ the Parking form follows Parking Services' own form (received 2026-09-24).
   and accepts only the exact file the boxes were measured on (`PARKING_SPD_SHA256`). With it on
   file, a submission is that PDF with the answers stamped in its boxes; without it, the redrawn
   layout. A different edition of their form needs its boxes re-measured and a new hash.
+- **ScrubEx is filed on Linen Services' form the same way** (SCRUBEX-PAPER-1, 2026-09-24,
+  `layouts/scrubex.js`). Its questions are that form's (initials, names, department,
+  occupation, badge barcode and expiry, one unisex size, scrub machines). Their PDF LOOKS
+  fillable, but an iPhone re-save left the AcroForm pointing at widgets that are not on the
+  page, so filling fields shows nothing: answers are typed at the page widgets' rectangles, the
+  widgets and AcroForm are removed, and the iPhone white-out over "Nursing Education" becomes a
+  white patch in the content under the Department answer. ScrubEx has NO redrawn copy
+  (`needsPaper`): without their PDF on file, the plain PDF. `layouts/extraAnswers.js` is the one
+  second-page list both layouts use.
 - **Tables here follow `.aspire-th`.** Its grey on `#f9fafb` measures 4.37:1 (the app-wide header),
   noted, not changed. `--aspire-row-band` is a light-mode constant, so the Responses table bands
   from the Catalog surface instead.
