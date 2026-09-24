@@ -35,7 +35,7 @@ import OverviewTab from '../components/OverviewTab'
 import StudentProfilesTab from '../components/StudentProfilesTab'
 import RotationTab from '../components/RotationTab'
 import AddStudentModal from '../components/AddStudentModal'
-import UnifiedNav from '../components/UnifiedNav'
+import UnifiedNav, { RefreshHint } from '../components/UnifiedNav'
 import Header from '../components/Header/Header'
 import NewCohortModal from '../components/NewCohortModal'
 import ManageCohortModal from '../components/ManageCohortModal'
@@ -1435,6 +1435,13 @@ function MainApp({ onLogout }) {
               setTimeout(() => setHighlightUnitId(null), 2500)
             }}
           />
+        )}
+        {activeTab === 'catalog' && (
+          <nav className="chart-nav" aria-label="Catalog controls">
+            <div className="chart-nav-refresh">
+              <RefreshHint />
+            </div>
+          </nav>
         )}
       </div>
 
