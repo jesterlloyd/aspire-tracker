@@ -60,11 +60,24 @@ test('Classic recipient files use a stable clipboard clip outside source-switche
   const css = read('src/components/connect/outreachCorrespondenceDesk.css')
 
   assert.match(panel, /clipboard && <span className="outreach-clipboard-clip" aria-hidden="true">/)
-  assert.match(outreach, /title="Recipient Card"[\s\S]*className="outreach-recipient-file outreach-recipient-file-single"[\s\S]*clipboard/)
+  assert.match(outreach, /title="Recipient Card"[\s\S]*className="outreach-recipient-file outreach-recipient-file-single"[\s\S]*clipboard[\s\S]*bodyClassName="outreach-recipient-file-body"/)
   assert.match(bulk, /className="outreach-recipient-file outreach-recipient-file-bulk"[\s\S]*clipboard[\s\S]*bodyClassName="outreach-recipient-file-body"/)
   assert.match(css, /\.outreach-workspace-classic \.outreach-recipient-file \{[\s\S]*overflow: visible !important;/)
+  assert.match(css, /\.outreach-workspace-classic \.outreach-correspondence-files > \.outreach-recipient-file \{[\s\S]*overflow: visible !important;/)
   assert.match(css, /content: 'ADDRESS FILE'/)
   assert.doesNotMatch(css, /\.outreach-bulk-manual > \.connect-panel:first-child::before/)
+})
+
+test('composer desks use the measured viewport while Sent History keeps its full board', () => {
+  const connect = read('src/pages/Connect.jsx')
+  const outreach = read('src/components/connect/OutreachView.jsx')
+  const css = read('src/components/connect/outreachCorrespondenceDesk.css')
+
+  assert.match(connect, /<OutreachView[\s\S]*viewportHeight=\{bookHeight\}/)
+  assert.match(outreach, /'--outreach-desk-h': viewportHeight \? `\$\{viewportHeight\}px` : undefined/)
+  assert.match(css, /\.outreach-workspace-classic \.outreach-desk-shell \{[\s\S]*border: 6px solid var\(--ocd-wood\);[\s\S]*background: var\(--ocd-leather\);/)
+  assert.match(css, /\.outreach-workspace-classic \.outreach-desk-shell\[data-outreach-mode='single'\],[\s\S]*data-outreach-mode='bulk'[\s\S]*height: var\(--outreach-desk-h/)
+  assert.doesNotMatch(css, /\.outreach-workspace-classic \.outreach-desk-shell\[data-outreach-mode='history'\][^{]*\{[^}]*height:/s)
 })
 
 test('Settings documents Outreach as a shipped correspondence desk surface', () => {

@@ -30,15 +30,19 @@
 }
 
 .outreach-desk-shell { position: relative; }
-.outreach-workspace-classic .outreach-desk-shell[data-outreach-mode='single'],
-.outreach-workspace-classic .outreach-desk-shell[data-outreach-mode='bulk'] {
-  height: clamp(540px, calc(100dvh - 240px), 900px);
-  min-height: 0;
+.outreach-workspace-classic .outreach-desk-shell {
+  min-height: 540px;
   padding: 18px;
   border: 6px solid var(--ocd-wood);
   background: var(--ocd-leather);
   box-shadow: inset 0 0 0 2px var(--ocd-wood-dark), 0 12px 28px rgba(30, 31, 45, 0.15);
   overflow: visible;
+}
+.outreach-workspace-classic .outreach-desk-shell[data-outreach-mode='single'],
+.outreach-workspace-classic .outreach-desk-shell[data-outreach-mode='bulk'] {
+  box-sizing: border-box;
+  height: var(--outreach-desk-h, calc(100dvh - 180px));
+  min-height: 540px;
 }
 .outreach-workspace-classic .outreach-desk-shell::before,
 .outreach-workspace-classic .outreach-desk-shell::after {
@@ -246,10 +250,12 @@
   overflow: visible;
 }
 .outreach-workspace-classic .outreach-correspondence-files > .outreach-recipient-file {
+  display: flex;
+  flex-direction: column;
   flex: 0 1 auto;
   min-height: 0;
   max-height: 46%;
-  overflow-y: auto !important;
+  overflow: visible !important;
 }
 .outreach-workspace-classic .outreach-correspondence-files > .connect-panel:nth-child(2) {
   flex: 1 1 0;

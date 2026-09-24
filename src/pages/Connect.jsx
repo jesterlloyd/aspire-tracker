@@ -189,7 +189,14 @@ export default function ConnectPage({ cohortId, onNavigateToStudent, refreshRef,
               or attachment can survive into another cohort - and no in-flight
               autosave can flush the old cohort's content into the new cohort's
               key. Recipient-scoped restore inside one cohort is unchanged. */}
-          <OutreachView key={cohortId || 'no-cohort'} cohortId={cohortId} onNavigateToStudent={onNavigateToStudent} toast={toast} refreshKey={refreshKey} />
+          <OutreachView
+            key={cohortId || 'no-cohort'}
+            cohortId={cohortId}
+            onNavigateToStudent={onNavigateToStudent}
+            toast={toast}
+            refreshKey={refreshKey}
+            viewportHeight={bookHeight}
+          />
         </div>
         {/* Messages mounts only for an authorized active Owner/Admin. Like the
             other sub-tabs it stays mounted while hidden, so search, filters,

@@ -299,7 +299,7 @@ const sectionLabel = {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
+export default function OutreachView({ cohortId, toast, refreshKey = 0, viewportHeight = null }) {
   const { style: appearanceStyle } = useTheme()
   const classicDesk = appearanceStyle !== 'modern'
   const location       = useLocation()
@@ -2646,7 +2646,11 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className={`outreach-workspace${classicDesk ? ' outreach-workspace-classic' : ' outreach-workspace-modern'}`} style={{ padding: '0 24px 20px', fontFamily: F }}>
+    <div className={`outreach-workspace${classicDesk ? ' outreach-workspace-classic' : ' outreach-workspace-modern'}`} style={{
+      padding: '0 24px 20px',
+      fontFamily: F,
+      '--outreach-desk-h': viewportHeight ? `${viewportHeight}px` : undefined,
+    }}>
 
       {/* ══════════════════════════════════════════════════════════════════
           RECIPIENT MODE TOGGLE, Single vs Bulk
@@ -2732,6 +2736,8 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
             title="Recipient Card"
             className="outreach-recipient-file outreach-recipient-file-single"
             clipboard
+            bodyClassName="outreach-recipient-file-body"
+            bodyStyle={classicDesk ? { minHeight: 0, overflowY: 'auto' } : undefined}
           >
           {(() => {
             const urlRecipient = !!(contactId || studentId)
