@@ -183,6 +183,11 @@ export default function FormBuilder({ formId, notify, onBack, onResponses }) {
               <input className="fm-title" value={draft.title} onChange={e => change(d => ({ ...d, title: e.target.value }))} aria-label="Form title" />
               <textarea className="fm-desc" rows={2} value={draft.description || ''} placeholder="A sentence that tells people what this is for and how long it takes."
                 onChange={e => change(d => ({ ...d, description: e.target.value }))} aria-label="Form description" />
+              <label className="fm-conf">
+                <span>After they submit</span>
+                <textarea rows={2} maxLength={500} value={draft.confirmation || ''} placeholder="Shown on the thank-you screen. For example: Email your copy to linen@example.org. An email address becomes a link."
+                  onChange={e => change(d => ({ ...d, confirmation: e.target.value }))} />
+              </label>
             </div>
             {!draft.questions.length && <p className="fm-empty">No questions yet. Add one from the left.</p>}
             <ol className="fm-qs">

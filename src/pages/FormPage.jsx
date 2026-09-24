@@ -7,6 +7,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import FormRenderer from '../components/forms/FormRenderer'
 import PublicBrand from '../components/shared/PublicBrand'
+import { confirmationParts } from '../lib/forms/formModel'
 import '../components/forms/formRespond.css'
 
 const PATTERN = /^[A-Za-z0-9_-]{43}$/
@@ -47,6 +48,7 @@ export default function FormPage() {
   }
   const submit = async (answers) => setDone(await call(token, 'submit', { answers }))
   const title = state?.title || state?.definition?.title || 'Form'
+  const confirmation = state?.confirmation || state?.definition?.confirmation || ''
   // OUTREACH-FORM-BUTTON-1: the filed copy is the one just returned, or, when the link is opened
   // again later, fetched on demand from the same link.
   const [fetched, setFetched] = useState(null)   // { pdf, fileName }
@@ -100,6 +102,11 @@ export default function FormPage() {
             <button type="button" className="frm-btn frm-pri" onClick={download}>Download your copy</button>
             <button type="button" className="frm-btn" onClick={print}>Print</button>
           </div>
+        )}
+        {confirmation && (
+          <p className="frm-next">{confirmationParts(confirmation).map((p, i) => p.email
+            ? <a key={i} href={`mailto:${p.email}?subject=${encodeURIComponent(title)}`}>{p.email}</a>
+            : <span key={i}>{p.text}</span>)}</p>
         )}
         {canCopy && <p className="frm-copy-note">Open this link again any time to get your copy.</p>}
         {copyError && <p className="frm-copy-note" role="alert">{copyError}</p>}

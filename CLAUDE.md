@@ -1267,6 +1267,10 @@ the Parking form follows Parking Services' own form (received 2026-09-24).
   with a form button: a CC would hand the recipient's link to someone else.
 - **A respondent can get their copy again** from the same link (`form-respond` `copy`), with
   Download and Print on the thank-you screen.
+- **A form can say what happens next** (FORM-CONFIRMATION-1, 2026-09-24). The builder's "After
+  they submit" text (`definition.confirmation`, 500 characters) shows on the thank-you screen,
+  each email address in it a mailto link with the form's title as the subject
+  (`confirmationParts`). ScrubEx uses it for "email your copy to grouplinenservices@cshs.org".
 - **The no-account pages wear the organization's brand.** `/form` and `/sign` show the document
   logo and application title from Settings > Organization through `PublicBrand`, which reads
   the public `/api/organization-brand` (title, logo, alt text, and nothing else).

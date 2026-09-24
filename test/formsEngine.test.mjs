@@ -404,6 +404,34 @@ test('an unedited earlier ScrubEx form moves to Linen Services\' questions', asy
   assert.equal(E.layoutFor({ starter_key: 'scrubex-request-form' }, v2.definition), 'scrubex')
 })
 
+// FORM-CONFIRMATION-1 (2026-09-24): a form can tell people what to do once they submit, and
+// ScrubEx tells them to email their copy to Linen Services.
+test('the thank-you message is saved, shown when done, and its email address becomes a link', async () => {
+  const scrubex = M.STARTER_FORMS.find(s => s.slug === 'scrubex-request-form')
+  assert.match(scrubex.definition.confirmation, /grouplinenservices@cshs\.org/)
+  assert.match(scrubex.definition.description, /grouplinenservices@cshs\.org/)
+  assert.deepEqual(M.confirmationParts('Email it to a.b@cshs.org. Thanks'), [{ text: 'Email it to ' }, { email: 'a.b@cshs.org' }, { text: '. Thanks' }])
+  assert.deepEqual(M.confirmationParts(''), [])
+
+  const w = await world()
+  const form = await E.createForm(w.db, { title: 'T', definition: { title: 'T', confirmation: '  Send it to x@y.org  ', questions: [M.newQuestion('short', 'a')] } }, w.owner)
+  assert.equal(form.draft.confirmation, 'Send it to x@y.org', 'kept, trimmed')
+  const bare = await E.createForm(w.db, { title: 'U', definition: { title: 'U', questions: [M.newQuestion('short', 'a')] } }, w.owner)
+  assert.equal('confirmation' in bare.draft, false, 'absent when empty')
+  await E.publish(w.db, form.id, w.owner)
+  await E.sendForm(w.db, { formId: form.id, people: [{ name: 'Ava', email: 'ava@ucla.edu' }] }, { appUrl, mailer: w.mailer, sender: w.owner })
+  const link = await E.resolveLink(w.db, tokenOf(w.mailer.sent.at(-1).html))
+  await E.submit(w.db, { ...link, answers: { a: 'yes' } }, { mailer: w.mailer, appUrl })
+  const done = await E.respondentState(w.db, await E.resolveLink(w.db, tokenOf(w.mailer.sent.at(-1).html)))
+  assert.equal(done.state, 'done')
+  assert.equal(done.confirmation, 'Send it to x@y.org')
+
+  // The ScrubEx form the Owner has now (SCRUBEX-PAPER-1) is offered the Linen Services email.
+  const live = M.RETIRED_STARTER_DRAFTS['scrubex-request-form'][0]
+  assert.equal(M.starterUpdateFor({ starter_key: 'scrubex-request-form', status: 'published', draft: live })?.slug, 'scrubex-request-form')
+  assert.equal(M.starterUpdateFor({ starter_key: 'scrubex-request-form', status: 'published', draft: scrubex.definition }), null)
+})
+
 // PARKING-PDF-1: the Parking request is filed in Parking Services' own layout.
 test('the Parking PDF is drawn in the SPD layout, and nothing answered is dropped', async () => {
   const { buildSubmissionPdf } = await import('../lib/server/forms/formPdf.js')

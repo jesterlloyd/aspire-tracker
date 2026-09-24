@@ -235,6 +235,25 @@ export const SCRUB_MACHINES = Object.freeze([
   "Main OR's: 3rd - 8th", "Pavilion OR's: 4th - 5th", 'Pathology: 8th', 'Endo: 7th', 'GI Lab: 7th', 'Cath Lab: 6th', 'L&D: 3rd', 'South Tower: LL',
 ])
 
+// The ScrubEx definition as SCRUBEX-PAPER-1 shipped it (a9d894c8); FORM-CONFIRMATION-1 adds the
+// Linen Services email to it, and an unedited form made from this one is offered the update.
+const SCRUBEX_V2 = Object.freeze({
+  title: 'ScrubEx Request Form',
+  description: 'Linen Services loads your scrub credits onto your badge. Read the scrubEx policy, then initial it. Takes about 2 minutes.',
+  questions: [
+    { id: 'policy_h', type: 'section', label: 'Cedars-Sinai scrubEx policy', help: 'Students receive 2 scrub credits. Every garment goes back into a scrubEx unit, never a soiled linen hamper; the unit allows 20 seconds to deposit once your badge is swiped. Machines have cameras and deposits are monitored. Depositing non-Cedars scrubs or anything else (linen, disposables, trash) ends your scrub machine privileges. Linen Services: ext 3-0772, M/W/F 7-10 am and 1-4 pm, T/Th 7-11 am and 1-4 pm.', required: false },
+    { id: 'initial', type: 'short', label: 'Initial', help: 'Your initials acknowledge the scrubEx policy above.', required: true },
+    { id: 'last_name', type: 'short', label: 'Last name', help: '', required: true, prefill: 'student.last_name' },
+    { id: 'first_name', type: 'short', label: 'First name', help: '', required: true, prefill: 'student.first_name' },
+    { id: 'department', type: 'short', label: 'Department name', help: 'For example, Nursing Education.', required: true },
+    { id: 'occupation', type: 'short', label: 'Occupation', help: 'For example, Nursing Student.', required: true },
+    { id: 'barcode', type: 'short', label: 'Barcode number', help: 'The full number on the back of your badge. Leave blank if you do not have your badge yet.', required: false },
+    { id: 'badge_exp', type: 'date', label: 'Badge expiration date', help: '', required: false },
+    { id: 'size', type: 'choice', label: 'Size', help: 'A unisex combination (shirt and pant).', required: true, options: SCRUB_SIZES },
+    { id: 'machines', type: 'checkboxes', label: 'Scrub machine access', help: 'The scrub machines you need access to.', required: true, options: SCRUB_MACHINES },
+  ],
+})
+
 export const STARTER_FORMS = Object.freeze([
   {
     // SCRUBEX-PAPER-1 (2026-09-24): the questions are Linen Services' own "Cedars-Sinai scrubEx
@@ -246,21 +265,11 @@ export const STARTER_FORMS = Object.freeze([
     catalogDescription: 'Linen Services\' scrubEx policy and request: initials, badge, size and scrub machines.',
     category: 'student_onboarding',
     publish: true,
+    // FORM-CONFIRMATION-1 (2026-09-24, Owner): the filled form goes to Linen Services by email.
     definition: {
-      title: 'ScrubEx Request Form',
-      description: 'Linen Services loads your scrub credits onto your badge. Read the scrubEx policy, then initial it. Takes about 2 minutes.',
-      questions: [
-        { id: 'policy_h', type: 'section', label: 'Cedars-Sinai scrubEx policy', help: 'Students receive 2 scrub credits. Every garment goes back into a scrubEx unit, never a soiled linen hamper; the unit allows 20 seconds to deposit once your badge is swiped. Machines have cameras and deposits are monitored. Depositing non-Cedars scrubs or anything else (linen, disposables, trash) ends your scrub machine privileges. Linen Services: ext 3-0772, M/W/F 7-10 am and 1-4 pm, T/Th 7-11 am and 1-4 pm.', required: false },
-        { id: 'initial', type: 'short', label: 'Initial', help: 'Your initials acknowledge the scrubEx policy above.', required: true },
-        { id: 'last_name', type: 'short', label: 'Last name', help: '', required: true, prefill: 'student.last_name' },
-        { id: 'first_name', type: 'short', label: 'First name', help: '', required: true, prefill: 'student.first_name' },
-        { id: 'department', type: 'short', label: 'Department name', help: 'For example, Nursing Education.', required: true },
-        { id: 'occupation', type: 'short', label: 'Occupation', help: 'For example, Nursing Student.', required: true },
-        { id: 'barcode', type: 'short', label: 'Barcode number', help: 'The full number on the back of your badge. Leave blank if you do not have your badge yet.', required: false },
-        { id: 'badge_exp', type: 'date', label: 'Badge expiration date', help: '', required: false },
-        { id: 'size', type: 'choice', label: 'Size', help: 'A unisex combination (shirt and pant).', required: true, options: SCRUB_SIZES },
-        { id: 'machines', type: 'checkboxes', label: 'Scrub machine access', help: 'The scrub machines you need access to.', required: true, options: SCRUB_MACHINES },
-      ],
+      ...SCRUBEX_V2,
+      description: 'Linen Services loads your scrub credits onto your badge. Read the scrubEx policy, then initial it. When you submit, download your copy and email it to Linen Services at grouplinenservices@cshs.org. Takes about 2 minutes.',
+      confirmation: 'Next step: download your copy above and email it to Linen Services at grouplinenservices@cshs.org. Your scrub credits are loaded once they have it.',
     },
   },
   {
@@ -326,7 +335,7 @@ export const RETIRED_STARTER_DRAFTS = Object.freeze({
       { id: 'pickup', type: 'date', label: 'Preferred pickup date', help: 'ScrubEx is open weekdays, 7 AM to 3 PM.', required: false },
       { id: 'sig', type: 'signature', label: 'Student signature', help: 'I will return all scrubs by my last shift.', required: true },
     ],
-  }],
+  }, SCRUBEX_V2],
   // The draft shipped with FORMS-PHASE3 (1a4d25a1), before Parking Services sent their form.
   'student-parking-request': [{
     title: 'Student Parking Request',
@@ -353,7 +362,7 @@ export const RETIRED_STARTER_DRAFTS = Object.freeze({
 // whatever order jsonb stored their keys in and whatever blank fields the builder added.
 const stableOf = (v) => Array.isArray(v) ? v.map(stableOf)
   : v && typeof v === 'object' ? Object.fromEntries(Object.keys(v).sort().filter(k => v[k] !== undefined && v[k] !== null && v[k] !== '').map(k => [k, stableOf(v[k])])) : v
-const shapeOf = (d) => stableOf({ title: String(d?.title || '').trim(), description: String(d?.description || ''),
+const shapeOf = (d) => stableOf({ title: String(d?.title || '').trim(), description: String(d?.description || ''), confirmation: String(d?.confirmation || ''),
   questions: (d?.questions || []).map(q => ({ ...q, required: q.required === true })) })
 export const sameDefinition = (a, b) => JSON.stringify(shapeOf(a)) === JSON.stringify(shapeOf(b))
 
@@ -365,4 +374,21 @@ export function starterUpdateFor(form) {
   const s = STARTER_FORMS.find(x => x.slug === form?.starter_key)
   if (!s || !form?.draft || form.status === 'archived') return null
   return sameDefinition(form.draft, s.definition) ? null : s
+}
+
+// ── The thank-you message (FORM-CONFIRMATION-1) ─────────────────────────────────────
+// What a form tells people once they submit ("email your copy to ..."). Plain text; the
+// page makes each email address in it a link, so this splits it into text and addresses.
+const EMAIL_IN_TEXT = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g
+export function confirmationParts(text) {
+  const out = []
+  let at = 0
+  for (const m of String(text || '').matchAll(EMAIL_IN_TEXT)) {
+    const email = m[0].replace(/\.+$/, '')
+    if (m.index > at) out.push({ text: text.slice(at, m.index) })
+    out.push({ email })
+    at = m.index + email.length
+  }
+  if (at < String(text || '').length) out.push({ text: text.slice(at) })
+  return out
 }

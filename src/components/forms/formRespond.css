@@ -88,6 +88,8 @@
 .frm-done { background: #fff; border-radius: var(--aspire-radius-card, 12px); padding: 28px 20px; text-align: center; display: grid; gap: 10px; justify-items: center; }
 .frm-done h1 { margin: 0; font-size: 22px; }
 .frm-done p { margin: 0; color: var(--frm-muted); max-width: 46ch; }
+.frm-done .frm-next { color: var(--frm-ink); background: var(--frm-navy-soft); border-radius: var(--frm-r); padding: 10px 14px; font-size: 14.5px; line-height: 1.45; max-width: 52ch; text-align: left; overflow-wrap: anywhere; }
+.frm-next a { color: var(--frm-navy); font-weight: 700; }
 .frm-copy { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 4px; }
 .frm-done .frm-copy-note { font-size: 13px; }
 .frm-tick { width: 56px; height: 56px; display: grid; place-items: center; border-radius: 50%; background: var(--frm-green-soft); color: var(--frm-green); font-size: 28px; font-weight: 700; }
