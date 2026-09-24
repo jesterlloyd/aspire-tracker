@@ -157,14 +157,21 @@ export default function PortalShell({
   children,
 }) {
   const [organization, setOrganization] = useState(null)
+  const [organizationResolved, setOrganizationResolved] = useState(false)
   useEffect(() => {
     let live = true
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session?.access_token) return
+      if (!session?.access_token) {
+        if (live) setOrganizationResolved(true)
+        return
+      }
       fetch('/api/organization-settings', { headers: { Authorization: `Bearer ${session.access_token}` } })
         .then(response => response.ok ? response.json() : null)
         .then(data => { if (live && data?.organization) setOrganization(data.organization) })
         .catch(() => {})
+        .finally(() => { if (live) setOrganizationResolved(true) })
+    }).catch(() => {
+      if (live) setOrganizationResolved(true)
     })
     return () => { live = false }
   }, [])
@@ -197,7 +204,9 @@ export default function PortalShell({
                 className="ptl-header-logo-link"
                 aria-label={`Go to ${homeLabel} and refresh the portal`}
               >
-                <img src={(nightfall ? organization?.header_logo_url : organization?.document_logo_url) || logoSrc} alt={organization?.logo_alt_text || 'Cedars-Sinai'} className="ptl-header-logo" />
+                {organizationResolved
+                  ? <img src={(nightfall ? organization?.header_logo_url : organization?.document_logo_url) || logoSrc} alt={organization?.logo_alt_text || 'Cedars-Sinai'} className="ptl-header-logo" />
+                  : <span className="ptl-header-logo-placeholder" aria-hidden="true" />}
               </a>
               <span className="ptl-header-divider" aria-hidden="true" />
               <div className="ptl-header-title">

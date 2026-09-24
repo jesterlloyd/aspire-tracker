@@ -109,6 +109,7 @@
    title escapes the brand box and slides under the action icons on phones. */
 .chart-brand > * { min-width: 0; }
 .chart-brand-logo-link { display: flex; align-items: center; flex-shrink: 0; color: inherit; text-decoration: none; }
+.chart-brand-logo-placeholder { display: block; width: 46px; height: 46px; }
 .chart-brand-logo { height: 46px; width: auto; object-fit: contain; }
 .chart-brand-divider { width: 1px; height: 30px; background: rgba(255, 255, 255, 0.18); flex-shrink: 0; }
 .chart-brand-title {
@@ -186,6 +187,7 @@
 }
 @media (max-width: 560px) {
   .chart-brand { gap: 10px; }
+  .chart-brand-logo-placeholder { width: 34px; height: 34px; }
   .chart-brand-logo { height: 34px; }
   .chart-brand-divider { display: none; }
   .chart-brand-title { font-size: 15px; white-space: normal; line-height: 1.15; }

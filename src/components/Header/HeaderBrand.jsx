@@ -7,14 +7,21 @@ import { supabase } from '../../lib/supabase'
 
 export default function HeaderBrand() {
   const [organization, setOrganization] = useState(null)
+  const [organizationResolved, setOrganizationResolved] = useState(false)
   useEffect(() => {
     let live = true
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session?.access_token) return
+      if (!session?.access_token) {
+        if (live) setOrganizationResolved(true)
+        return
+      }
       fetch('/api/organization-settings', { headers: { Authorization: `Bearer ${session.access_token}` } })
         .then(response => response.ok ? response.json() : null)
         .then(data => { if (live && data?.organization) setOrganization(data.organization) })
         .catch(() => {})
+        .finally(() => { if (live) setOrganizationResolved(true) })
+    }).catch(() => {
+      if (live) setOrganizationResolved(true)
     })
     return () => { live = false }
   }, [])
@@ -26,7 +33,9 @@ export default function HeaderBrand() {
         className="chart-brand-logo-link"
         aria-label="Go to At a Glance and refresh the app"
       >
-        <img src={organization?.header_logo_url || '/cs-logo-large.png'} alt={organization?.logo_alt_text || 'Cedars-Sinai'} className="chart-brand-logo" />
+        {organizationResolved
+          ? <img src={organization?.header_logo_url || '/cs-logo-large.png'} alt={organization?.logo_alt_text || 'Cedars-Sinai'} className="chart-brand-logo" />
+          : <span className="chart-brand-logo-placeholder" aria-hidden="true" />}
       </a>
       <div className="chart-brand-divider" />
       <Tooltip label="Affiliate Students' Pathway from Internship to Residency Experience" placement="bottom">
