@@ -103,6 +103,7 @@ export default function FormPage() {
             <button type="button" className="frm-btn" onClick={print}>Print</button>
           </div>
         )}
+        {done?.forwardedTo && <p className="frm-next">Your form was sent to <b>{done.forwardedTo}</b>, and you were copied on the email.</p>}
         {confirmation && (
           <p className="frm-next">{confirmationParts(confirmation).map((p, i) => p.email
             ? <a key={i} href={`mailto:${p.email}?subject=${encodeURIComponent(title)}`}>{p.email}</a>

@@ -1270,7 +1270,16 @@ the Parking form follows Parking Services' own form (received 2026-09-24).
 - **A form can say what happens next** (FORM-CONFIRMATION-1, 2026-09-24). The builder's "After
   they submit" text (`definition.confirmation`, 500 characters) shows on the thank-you screen,
   each email address in it a mailto link with the form's title as the subject
-  (`confirmationParts`). ScrubEx uses it for "email your copy to grouplinenservices@cshs.org".
+  (`confirmationParts`).
+- **A form can send its filled PDF to an office** (FORM-FORWARD-1, Owner, 2026-09-24). Settings >
+  "Email each filled PDF to" (`settings.forwardTo`, read from the form's CURRENT settings at
+  submit, so a change needs no new version). On submit ASPIRE emails the PDF from
+  `noreply@aspire-program.com` as "<sender> via ASPIRE Intelligence", CCs the respondent, and
+  sets reply-to the sender (Owner's choice: the office's questions reach staff, not the
+  student). Every attempt is a `notification_log` row of type `form_pdf_forwarded`, which is
+  what Responses shows ("Sent to ..." or "Not sent ... Resend", `form-staff` `forward`). A demo
+  submission is never forwarded. ScrubEx ships with grouplinenservices@cshs.org; applying a
+  starter merges the starter's settings into the form's.
 - **The no-account pages wear the organization's brand.** `/form` and `/sign` show the document
   logo and application title from Settings > Organization through `PublicBrand`, which reads
   the public `/api/organization-brand` (title, logo, alt text, and nothing else).

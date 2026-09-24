@@ -61,6 +61,8 @@ export const REMINDER_RULES = Object.freeze([
 ])
 export const DEFAULT_SETTINGS = Object.freeze({
   audience: 'students', filePdf: true, notifyOnSubmit: false, closeAfterDue: true, reminders: 'every_3_days', exportCsv: true,
+  // FORM-FORWARD-1: an office that receives every filled PDF by email ('' = none).
+  forwardTo: '',
 })
 
 // ── Building ────────────────────────────────────────────────────────────────────────
@@ -254,6 +256,19 @@ const SCRUBEX_V2 = Object.freeze({
   ],
 })
 
+// FORM-CONFIRMATION-1 (64a0030b): the student emailed their copy to Linen Services.
+const SCRUBEX_V3 = Object.freeze({
+  ...SCRUBEX_V2,
+  description: 'Linen Services loads your scrub credits onto your badge. Read the scrubEx policy, then initial it. When you submit, download your copy and email it to Linen Services at grouplinenservices@cshs.org. Takes about 2 minutes.',
+  confirmation: 'Next step: download your copy above and email it to Linen Services at grouplinenservices@cshs.org. Your scrub credits are loaded once they have it.',
+})
+// FORM-FORWARD-1: ASPIRE sends it for them.
+const SCRUBEX_V4 = Object.freeze({
+  ...SCRUBEX_V2,
+  description: 'Linen Services loads your scrub credits onto your badge. Read the scrubEx policy, then initial it. When you submit, ASPIRE sends your form to Linen Services and copies you. Takes about 2 minutes.',
+  confirmation: 'Linen Services loads your scrub credits once they process your form. Questions: grouplinenservices@cshs.org.',
+})
+
 export const STARTER_FORMS = Object.freeze([
   {
     // SCRUBEX-PAPER-1 (2026-09-24): the questions are Linen Services' own "Cedars-Sinai scrubEx
@@ -265,12 +280,10 @@ export const STARTER_FORMS = Object.freeze([
     catalogDescription: 'Linen Services\' scrubEx policy and request: initials, badge, size and scrub machines.',
     category: 'student_onboarding',
     publish: true,
-    // FORM-CONFIRMATION-1 (2026-09-24, Owner): the filled form goes to Linen Services by email.
-    definition: {
-      ...SCRUBEX_V2,
-      description: 'Linen Services loads your scrub credits onto your badge. Read the scrubEx policy, then initial it. When you submit, download your copy and email it to Linen Services at grouplinenservices@cshs.org. Takes about 2 minutes.',
-      confirmation: 'Next step: download your copy above and email it to Linen Services at grouplinenservices@cshs.org. Your scrub credits are loaded once they have it.',
-    },
+    // FORM-FORWARD-1 (2026-09-24, Owner): ASPIRE emails the filled form to Linen Services
+    // itself, copying the student, so nobody forwards anything.
+    definition: SCRUBEX_V4,
+    settings: { forwardTo: 'grouplinenservices@cshs.org' },
   },
   {
     // PARKING-FORM-1 (2026-09-24): the questions are Parking Services' own "Students Parking
@@ -335,7 +348,7 @@ export const RETIRED_STARTER_DRAFTS = Object.freeze({
       { id: 'pickup', type: 'date', label: 'Preferred pickup date', help: 'ScrubEx is open weekdays, 7 AM to 3 PM.', required: false },
       { id: 'sig', type: 'signature', label: 'Student signature', help: 'I will return all scrubs by my last shift.', required: true },
     ],
-  }, SCRUBEX_V2],
+  }, SCRUBEX_V2, SCRUBEX_V3],
   // The draft shipped with FORMS-PHASE3 (1a4d25a1), before Parking Services sent their form.
   'student-parking-request': [{
     title: 'Student Parking Request',

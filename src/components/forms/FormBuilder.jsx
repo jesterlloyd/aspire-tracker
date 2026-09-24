@@ -291,6 +291,9 @@ function SettingsProps({ s, set }) {
           <option value="students">Students</option><option value="preceptors">Preceptors</option><option value="schools">Schools</option>
         </select></div>
       <label className="fm-tg"><span>File a PDF to the person's record</span><input type="checkbox" checked={s.filePdf} onChange={e => set({ filePdf: e.target.checked })} /></label>
+      <div className="fm-field"><label htmlFor="fm-fwd">Email each filled PDF to</label>
+        <input id="fm-fwd" type="email" value={s.forwardTo || ''} placeholder="office@cshs.org" onChange={e => set({ forwardTo: e.target.value })} />
+        <p className="fm-hint">Optional. ASPIRE emails the filled form there from its own address under your name, copies the person who submitted it, and replies come to you. Applies to every submission from now on.</p></div>
       <label className="fm-tg"><span>Notify me on each submission</span><input type="checkbox" checked={s.notifyOnSubmit} onChange={e => set({ notifyOnSubmit: e.target.checked })} /></label>
       <label className="fm-tg"><span>Close after the due date</span><input type="checkbox" checked={s.closeAfterDue} onChange={e => set({ closeAfterDue: e.target.checked })} /></label>
       <div className="fm-field"><label htmlFor="fm-rem">Reminders</label>

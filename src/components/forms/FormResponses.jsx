@@ -30,6 +30,11 @@ export default function FormResponses({ formId, notify, onBack, onEdit }) {
   const counts = useMemo(() => { const c = { all: rows.length }; for (const r of rows) c[r.state] = (c[r.state] || 0) + 1; return c }, [rows])
   const stats = useMemo(() => completionStats(rows.filter(r => r.state !== 'voided' && r.state !== 'closed').map(r => ({ due_at: r.due_at, opened_at: r.opened_at, completed_at: r.submitted_at }))), [rows])
   const shown = rows.filter(r => filter === 'all' || r.state === filter)
+  // FORM-FORWARD-1: a filled PDF the office's inbox did not accept can be sent again.
+  const resend = async (a) => {
+    try { await formStaff('forward', { assignment_id: a.id }); notify?.(`Sent ${a.name}'s form to ${a.forward.to}.`); await load() }
+    catch (e) { notify?.(e.message, 'err') }
+  }
   const remindable = [...picked].filter(id => ['sent', 'opened', 'overdue'].includes(rows.find(r => r.id === id)?.state))
 
   const act = async (fn, ok) => {
@@ -103,7 +108,10 @@ export default function FormResponses({ formId, notify, onBack, onEdit }) {
                 <td><span className={`fm-st fm-st-${a.state}`}>{WORD[a.state]}</span>{a.delivery_ok === false && <small className="fm-warn">Email not accepted</small>}</td>
                 <td>{short(a.due_at) || '-'}</td>
                 <td>{short(a.sent_at)}{a.reminder_count ? <small>{a.reminder_count} reminder{a.reminder_count === 1 ? '' : 's'}</small> : null}</td>
-                <td>{short(a.submitted_at) || '-'}{a.form_version !== form.current_version ? <small>version {a.form_version}</small> : null}</td>
+                <td>{short(a.submitted_at) || '-'}{a.form_version !== form.current_version ? <small>version {a.form_version}</small> : null}
+                  {a.forward && (a.forward.ok
+                    ? <small>Sent to {a.forward.to}</small>
+                    : <small className="fm-warn">Not sent to {a.forward.to} <button type="button" className="fm-link" onClick={() => resend(a)}>Resend</button></small>)}</td>
                 <td>{a.state === 'submitted' && <button type="button" className="fm-btn fm-sm" onClick={() => openAnswer(a)}>View</button>}</td>
               </tr>
             ))}

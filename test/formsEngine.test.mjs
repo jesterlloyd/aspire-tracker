@@ -409,7 +409,8 @@ test('an unedited earlier ScrubEx form moves to Linen Services\' questions', asy
 test('the thank-you message is saved, shown when done, and its email address becomes a link', async () => {
   const scrubex = M.STARTER_FORMS.find(s => s.slug === 'scrubex-request-form')
   assert.match(scrubex.definition.confirmation, /grouplinenservices@cshs\.org/)
-  assert.match(scrubex.definition.description, /grouplinenservices@cshs\.org/)
+  // FORM-FORWARD-1 changed the intro: ASPIRE sends the form now, so it says so.
+  assert.match(scrubex.definition.description, /ASPIRE sends your form to Linen Services and copies you/)
   assert.deepEqual(M.confirmationParts('Email it to a.b@cshs.org. Thanks'), [{ text: 'Email it to ' }, { email: 'a.b@cshs.org' }, { text: '. Thanks' }])
   assert.deepEqual(M.confirmationParts(''), [])
 
@@ -430,6 +431,56 @@ test('the thank-you message is saved, shown when done, and its email address bec
   const live = M.RETIRED_STARTER_DRAFTS['scrubex-request-form'][0]
   assert.equal(M.starterUpdateFor({ starter_key: 'scrubex-request-form', status: 'published', draft: live })?.slug, 'scrubex-request-form')
   assert.equal(M.starterUpdateFor({ starter_key: 'scrubex-request-form', status: 'published', draft: scrubex.definition }), null)
+  // ...and the one the Owner published from 64a0030b (email it yourself) is offered the update too.
+  const emailed = M.RETIRED_STARTER_DRAFTS['scrubex-request-form'].find(d => /email it to Linen Services/.test(d.confirmation || ''))
+  assert.ok(emailed)
+  assert.equal(M.starterUpdateFor({ starter_key: 'scrubex-request-form', status: 'published', draft: emailed })?.slug, 'scrubex-request-form')
+})
+
+// FORM-FORWARD-1 (2026-09-24, Owner): ASPIRE emails the filled PDF to the office itself, from
+// its own address under the sender's name, the respondent copied, replies to the sender.
+test('a filled PDF is forwarded to the form\'s office, logged, shown in Responses, and can be resent', async () => {
+  const w = await world()
+  await w.pg.exec(`CREATE TABLE notification_log (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), notification_type text, audience text, recipient_email text,
+    recipient_name text, subject text, status text, resend_email_id text, sent_at timestamptz, recipient_type text, student_id uuid, metadata jsonb)`)
+  assert.equal(E.cleanSettings({ forwardTo: '  Linen@CSHS.org ' }).forwardTo, 'linen@cshs.org')
+  assert.equal(E.cleanSettings({ forwardTo: 'not an address' }).forwardTo, '')
+
+  const scrubex = M.STARTER_FORMS.find(s => s.slug === 'scrubex-request-form')
+  assert.equal(scrubex.settings.forwardTo, 'grouplinenservices@cshs.org')
+  await E.installStarters(w.db, w.owner)
+  const { rows: [f] } = await w.pg.query(`SELECT id, settings FROM catalog_forms WHERE starter_key = 'scrubex-request-form'`)
+  assert.equal(f.settings.forwardTo, 'grouplinenservices@cshs.org', 'the starter arrives with Linen Services set')
+
+  await E.sendForm(w.db, { formId: f.id, people: [{ name: 'Ava Reyes', email: 'ava@ucla.edu', studentId: w.student.id }] }, { appUrl, mailer: w.mailer, sender: w.owner })
+  const link = await E.resolveLink(w.db, tokenOf(w.mailer.sent.at(-1).html))
+  const answers = { initial: 'AR', last_name: 'Reyes', first_name: 'Ava', department: 'Nursing Education', occupation: 'Nursing Student', size: 'Medium', machines: ['L&D: 3rd'] }
+  const done = await E.submit(w.db, { ...link, answers }, { mailer: w.mailer, appUrl })
+  assert.equal(done.forwardedTo, 'grouplinenservices@cshs.org')
+  const fwd = w.mailer.sent.at(-1)
+  assert.deepEqual(fwd.to, ['grouplinenservices@cshs.org'])
+  assert.deepEqual(fwd.cc, ['ava@ucla.edu'], 'the student is copied')
+  assert.equal(fwd.reply_to, 'owner@cshs.org', 'replies reach the sender')
+  assert.match(fwd.from, /^Jester Lloyd Bautista via ASPIRE Intelligence </)
+  assert.equal(fwd.subject, 'ScrubEx Request Form: Ava Reyes, UCLA')
+  assert.equal(fwd.attachments.length, 1)
+  assert.match(fwd.attachments[0].filename, /^ScrubEx Request Form - Ava Reyes\.pdf$/)
+  assert.equal(Buffer.from(fwd.attachments[0].content, 'base64').subarray(0, 5).toString('latin1'), '%PDF-')
+
+  const st = await E.forwardStatus(w.db, f.id)
+  assert.deepEqual({ ...st.get(link.assignment.id), at: undefined }, { to: 'grouplinenservices@cshs.org', ok: true, at: undefined })
+  const before = w.mailer.sent.length
+  const again = await E.resendForward(w.db, link.assignment.id, { mailer: w.mailer })
+  assert.equal(again.ok, true)
+  assert.equal(w.mailer.sent.length, before + 1, 'Resend sends the filed PDF once more')
+  const { rows: logs } = await w.pg.query(`SELECT status FROM notification_log WHERE notification_type = 'form_pdf_forwarded'`)
+  assert.equal(logs.length, 2)
+
+  // A demo submission never reaches a real office.
+  const demo = await E.forwardSubmission(w.db, { form: { id: f.id, settings: { forwardTo: 'x@cshs.org' } }, assignment: { ...link.assignment, is_demo: true }, submissionId: 's', pdf: Buffer.from('%PDF-'), title: 'T' }, { mailer: w.mailer })
+  assert.equal(demo, null)
+  // A form with no office sends nothing.
+  assert.equal(await E.forwardSubmission(w.db, { form: { id: f.id, settings: {} }, assignment: link.assignment, submissionId: 's', pdf: Buffer.from('%PDF-'), title: 'T' }, { mailer: w.mailer }), null)
 })
 
 // PARKING-PDF-1: the Parking request is filed in Parking Services' own layout.

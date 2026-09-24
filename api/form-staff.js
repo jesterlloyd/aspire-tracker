@@ -14,6 +14,7 @@
 //   publish         -> { form } freezes the draft as the next version
 //   paper_set       -> { paper } copies a Catalog PDF in as the form's paper original (the exact measured file only)
 //   paper_clear     -> { paper } removes it; submissions go back to the redrawn layout
+//   forward         -> { forward } sends one response's filed PDF to the form's forwardTo address again
 //   use_starter     -> { form } replaces a starter form's draft with the starter as it ships now (not published)
 //   starters        -> { results } adds the brief's starter forms that are missing
 //   send            -> { created, sent, failed } one personal link per person
@@ -29,7 +30,7 @@ import { createMailer } from '../lib/server/email/mailer.js'
 import { appBaseUrl } from '../lib/server/appUrl.js'
 import { populationOf } from '../lib/server/demoScope.js'
 import {
-  FormError, ORG_ID, FORM_BUCKET, notEnabled, createForm, loadForm, formForItem, saveDraft, publish, installStarters, applyStarter, paperStatus, setPaperFromCatalog, clearPaper,
+  FormError, ORG_ID, FORM_BUCKET, notEnabled, createForm, loadForm, formForItem, saveDraft, publish, installStarters, applyStarter, forwardStatus, resendForward, paperStatus, setPaperFromCatalog, clearPaper,
   sendForm, remind, voidAssignments, exportCsv, versionOf,
 } from '../lib/server/forms/engine.js'
 import { assignableCategorySlugs } from './lib/catalogCategories.js'
@@ -121,7 +122,9 @@ async function act(db, body, { profile, isDemo }) {
       const form = await loadForm(db, body.id)
       const { data: rows, error } = await db.from('form_assignments').select(ASSIGNMENT_COLS).eq('form_id', form.id).eq('is_demo', isDemo).order('created_at', { ascending: false }).limit(2000)
       if (error) throw new FormError('db_failed', error.message, 500)
-      return { form, assignments: rows || [] }
+      // FORM-FORWARD-1: where each filled PDF was sent, and whether it was accepted.
+      const fwd = isDemo ? new Map() : await forwardStatus(db, form.id)
+      return { form, assignments: (rows || []).map(a => (fwd.has(a.id) ? { ...a, forward: fwd.get(a.id) } : a)) }
     }
     case 'submission': {
       needUuid(body.assignment_id, 'response')
@@ -137,6 +140,7 @@ async function act(db, body, { profile, isDemo }) {
       }
       return { assignment: a, answers: sub.answers, submittedAt: sub.submitted_at, filed: !!sub.record_document_id, definition: version.definition, pdfUrl }
     }
+    case 'forward': needUuid(body.assignment_id, 'response'); return { forward: await resendForward(db, body.assignment_id, { mailer: createMailer() }) }
     case 'file_url': {
       // A File upload answer, for staff to open.
       needUuid(body.assignment_id, 'response')
