@@ -22,7 +22,7 @@
 // The caller supplies what the board means: whether a target has room, and what a drop
 // does. This module never touches data.
 
-import { useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Plus } from 'lucide-react'
 
 export function useBoardDrag({ hasRoom, onDropOnTarget, onDropOnList } = {}) {
@@ -43,36 +43,46 @@ export function useBoardDrag({ hasRoom, onDropOnTarget, onDropOnList } = {}) {
     return img
   })
 
-  const moveGhost = (e) => {
+  const moveGhost = useCallback((e) => {
     const ghost = ghostRef.current
     if (!ghost || (!e.clientX && !e.clientY)) return   // the last drag event reports 0,0
     ghost.style.transform = `translate3d(${e.clientX + 14}px, ${e.clientY + 14}px, 0)`
     ghost.style.opacity = '1'
-  }
-  const showBadgeAt = (e) => {
+  }, [])
+  const showBadgeAt = useCallback((e) => {
     badgeWanted.current = true
     moveGhost(e)
     if (badgeRef.current) badgeRef.current.style.opacity = '1'
-  }
-  const hideBadge = () => {
+  }, [moveGhost])
+  const hideBadge = useCallback(() => {
     if (badgeRef.current) badgeRef.current.style.opacity = '0'
-  }
-  const hideGhost = () => {
+  }, [])
+  const hideGhost = useCallback(() => {
     if (ghostRef.current) {
       ghostRef.current.style.opacity = '0'
       ghostRef.current.style.transform = 'translate3d(-9999px, -9999px, 0)'
     }
     hideBadge()
-  }
+  }, [hideBadge])
 
-  const onDocumentDragOver = (e) => {
+  // These handlers must keep the same identity through the state update that starts
+  // a drag. Otherwise endDrag removes a new function while the old document listener
+  // survives, and that stale listener hides the add icon on every later drag.
+  const onDocumentDragOver = useCallback((e) => {
     moveGhost(e)
     if (!badgeWanted.current) hideBadge()
     badgeWanted.current = false
-  }
-  const onDocumentDrag = (e) => moveGhost(e)
+  }, [hideBadge, moveGhost])
+  const onDocumentDrag = useCallback((e) => moveGhost(e), [moveGhost])
+
+  useEffect(() => () => {
+    document.removeEventListener('dragover', onDocumentDragOver)
+    document.removeEventListener('drag', onDocumentDrag)
+  }, [onDocumentDrag, onDocumentDragOver])
 
   const startDrag = (e, payload) => {
+    badgeWanted.current = false
+    hideBadge()
     if (ghostNameRef.current) ghostNameRef.current.textContent = payload.name
     document.addEventListener('dragover', onDocumentDragOver)
     document.addEventListener('drag', onDocumentDrag)
