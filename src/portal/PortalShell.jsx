@@ -197,7 +197,7 @@ export default function PortalShell({
                 className="ptl-header-logo-link"
                 aria-label={`Go to ${homeLabel} and refresh the portal`}
               >
-                <img src={organization?.document_logo_url || logoSrc} alt={organization?.logo_alt_text || 'Cedars-Sinai'} className="ptl-header-logo" />
+                <img src={(nightfall ? organization?.header_logo_url : organization?.document_logo_url) || logoSrc} alt={organization?.logo_alt_text || 'Cedars-Sinai'} className="ptl-header-logo" />
               </a>
               <span className="ptl-header-divider" aria-hidden="true" />
               <div className="ptl-header-title">
