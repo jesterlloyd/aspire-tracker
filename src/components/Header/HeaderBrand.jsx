@@ -18,6 +18,7 @@ export default function HeaderBrand() {
     })
     return () => { live = false }
   }, [])
+  const applicationTitle = organization?.header_short_name?.trim() || 'ASPIRE Intelligence'
   return (
     <div className="chart-brand">
       <a
@@ -30,7 +31,7 @@ export default function HeaderBrand() {
       <div className="chart-brand-divider" />
       <Tooltip label="Affiliate Students' Pathway from Internship to Residency Experience" placement="bottom">
         <div className="chart-brand-title">
-          {organization?.header_short_name || 'Cedars-Sinai'} <span aria-hidden="true">·</span> ASPIRE Intelligence
+          {applicationTitle}
         </div>
       </Tooltip>
     </div>

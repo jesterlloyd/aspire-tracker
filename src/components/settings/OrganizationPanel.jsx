@@ -6,7 +6,7 @@ import SurfaceCard from '../ui/SurfaceCard'
 import './organizationSettings.css'
 
 const TEXT_FIELDS = [
-  ['display_name', 'Organization display name', true], ['header_short_name', 'Header short name', true],
+  ['display_name', 'Organization display name', true], ['header_short_name', 'Application title', true],
   ['legal_name', 'Legal name', false], ['logo_alt_text', 'Logo description / alt text', false],
   ['address_line_1', 'Address line 1', true], ['address_line_2', 'Address line 2', false],
   ['city', 'City', true], ['state_province', 'State / province', true], ['postal_code', 'Postal code', true],
@@ -59,7 +59,7 @@ function PreviewLogo({ url, alt, dark = false }) {
 }
 
 function PreviewHeader({ form, headerUrl }) {
-  return <div className="org-preview-app-bar"><PreviewLogo url={headerUrl} alt={form.logo_alt_text} dark /><span className="org-preview-short-name">{form.header_short_name || 'Organization'}</span><span className="org-preview-divider" /><strong>ASPIRE Intelligence</strong><span className="org-preview-pill" /></div>
+  return <div className="org-preview-app-bar"><PreviewLogo url={headerUrl} alt={form.logo_alt_text} dark /><strong>{form.header_short_name || 'ASPIRE Intelligence'}</strong><span className="org-preview-pill" /></div>
 }
 
 function DocumentIdentity({ form, documentUrl }) {
@@ -82,7 +82,7 @@ function LivePreview({ form, headerUrl, documentUrl }) {
       {surface === 'application' && <div className="org-app-preview"><PreviewHeader form={form} headerUrl={headerUrl} /><div className="org-app-body"><span /><span /><div /></div></div>}
       {surface === 'email' && <div className="org-document-preview"><div className="org-document-head"><DocumentIdentity form={form} documentUrl={documentUrl} /><span className="org-runtime-label"><Mail size={12} /> Automated email</span></div><div className="org-letter-copy"><strong>Scheduled communication</strong><p>Your organization’s identity appears in the email header and footer.</p><p>Questions? <b>Email us at {email}</b></p></div><div className="org-document-footer">{displayName}<br />{form.address_line_1 || 'Organization address'}<br />{form.main_phone || 'Main telephone number'} · {email}</div></div>}
       {surface === 'report' && <div className="org-report-preview"><DocumentIdentity form={form} documentUrl={documentUrl} /><div className="org-report-title"><FileText size={16} /><strong>Cohort Placement Summary</strong></div><div className="org-report-kpis"><span /><span /><span /></div><div className="org-report-lines"><span /><span /><span /><span /></div><small>{displayName} · {email}</small></div>}
-      {surface === 'student' && <div className="org-student-preview"><div className="org-student-brand"><PreviewLogo url={documentUrl} alt={form.logo_alt_text} /><strong>{form.header_short_name || 'Organization'}</strong></div><div className="org-student-welcome"><GraduationCap size={18} /><strong>Welcome to ASPIRE</strong></div><div className="org-student-content"><span /><span /><div><Mail size={14} /><b>Need support?</b><small>Email us at {email}</small></div></div></div>}
+      {surface === 'student' && <div className="org-student-preview"><div className="org-student-brand"><PreviewLogo url={documentUrl} alt={form.logo_alt_text} /><strong>{form.header_short_name || 'ASPIRE Intelligence'}</strong></div><div className="org-student-welcome"><GraduationCap size={18} /><strong>Welcome to ASPIRE</strong></div><div className="org-student-content"><span /><span /><div><Mail size={14} /><b>Need support?</b><small>Email us at {email}</small></div></div></div>}
     </div>
     <p className="org-preview-caption">{tabs.find(([value]) => value === surface)?.[1]} branding updates as you edit.</p>
   </aside>
@@ -90,7 +90,7 @@ function LivePreview({ form, headerUrl, documentUrl }) {
 
 function UsageCard() {
   const rows = [
-    [Monitor, 'Application header', 'Header logo and organization short name'],
+    [Monitor, 'Application header', 'Header logo and application title'],
     [Mail, 'All outbound email', 'Manual Outreach, templates, scheduled and cron-generated messages, signatures, headers, and footers'],
     [FileText, 'Reports and PDF exports', 'Document header and organization contact footer'],
     [GraduationCap, 'Student-facing pages', 'Organization identity and support contact information'],
