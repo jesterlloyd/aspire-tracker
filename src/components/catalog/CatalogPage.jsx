@@ -255,10 +255,14 @@ export default function CatalogPage({
   const installStarters = useCallback(async () => {
     try {
       const { results } = await formStaff('starters')
+      const name = (r) => r.key === 'scrubex-request-form' ? 'ScrubEx Request Form' : 'Student Parking Request'
       const added = results.filter(r => r.added)
-      say('ok', added.length
-        ? `Added ${added.map(r => r.key === 'scrubex-request-form' ? 'ScrubEx Request Form (published)' : 'Student Parking Request (draft: check its columns with Parking Services, then publish)').join(' and ')}.`
-        : 'The starter forms are already in the Catalog.')
+      const refreshed = results.filter(r => r.refreshed)
+      const parts = [
+        added.length ? `Added ${added.map(name).join(' and ')}.` : '',
+        refreshed.length ? `Updated ${refreshed.map(name).join(' and ')} to Parking Services' form and published it.` : '',
+      ].filter(Boolean)
+      say('ok', parts.length ? parts.join(' ') : 'The starter forms are already in the Catalog.')
       await load()
     } catch (e) { say('err', e.message) }
   }, [say, load])
@@ -554,7 +558,7 @@ function NewMenu({ open, setOpen, features, onUpload, onPrepare, onFromCatalog, 
           )}
           {features.forms && (
             <button type="button" role="menuitem" onClick={() => pick(onStarters)}><span className="ctl-mi ctl-mi-form"><ListChecks size={16} /></span>
-              <span><b>Add the starter forms</b><small>ScrubEx Request, and Student Parking Request as a draft. Adds only what is missing.</small></span></button>
+              <span><b>Add the starter forms</b><small>ScrubEx Request and Student Parking Request. Adds only what is missing.</small></span></button>
           )}
           {features.signatures && (
             <button type="button" role="menuitem" onClick={() => pick(onPrepare)}><span className="ctl-mi ctl-mi-sign"><Signature size={16} /></span>

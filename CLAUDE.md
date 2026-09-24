@@ -1185,7 +1185,7 @@ on the person's record. Reference: section 5 of `docs/mockups/catalog-brief.md` 
 in `docs/mockups/catalog-mockup.html`. Owner decisions (2026-09-23): **a form link is the whole
 identity check** (no emailed code); **the Signature question is a simple typed or drawn
 signature printed on the PDF**, and anything legally binding goes out as a Signature template;
-the Parking CSV columns wait for Parking Services' list.
+the Parking form follows Parking Services' own form (received 2026-09-24).
 
 - **Where things are.** Rules: `src/lib/forms/formModel.js` (pure, tested: question types,
   prefill sources, validation, answer text, CSV, the starter forms). Server:
@@ -1222,8 +1222,10 @@ the Parking CSV columns wait for Parking Services' list.
 - **CSV.** One version's answers, formula-looking cells prefixed with `'` so no spreadsheet runs
   them, UTF-8 with a BOM for Excel.
 - **Starter forms** come from + New > Add the starter forms (idempotent by `starter_key`):
-  ScrubEx Request (published, the mockup's questions) and Student Parking Request (a DRAFT with
-  typical permit columns until Parking Services confirms theirs).
+  ScrubEx Request (the mockup's questions) and Student Parking Request (PARKING-FORM-1,
+  2026-09-24: Parking Services' own "Students Parking Data" form, field for field; its labels are
+  the CSV headers). Both publish. A never-published starter draft that still equals an earlier
+  shipped draft (`RETIRED_STARTER_DRAFTS`) is replaced on the next install; an edited one never is.
 - **Tables here follow `.aspire-th`.** Its grey on `#f9fafb` measures 4.37:1 (the app-wide header),
   noted, not changed. `--aspire-row-band` is a light-mode constant, so the Responses table bands
   from the Catalog surface instead.

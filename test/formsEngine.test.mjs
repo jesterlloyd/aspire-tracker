@@ -3,7 +3,7 @@
 // FORMS-PHASE3: the forms engine end to end against real Postgres (PGlite) with both
 // migrations it depends on, a fake mailer and an in-memory bucket. No network.
 //   - the migration applies twice, a published version is frozen, the checks file reads PASS
-//   - starters install once; ScrubEx publishes, Parking stays a draft
+//   - starters install once, both published; an untouched old Parking draft is replaced
 //   - publish refuses an unfinished form; versioning: new sends use the latest version,
 //     a submission keeps the version it was answered on
 //   - send -> link -> prefill from the student record -> submit -> PDF filed to the record,
@@ -74,15 +74,50 @@ test('the migration applies twice; a published version cannot be changed', async
   assert.equal(rows[0].public, false)
 })
 
-test('starters install once: ScrubEx is published, Parking waits as a draft', async () => {
+// PARKING-FORM-1 (2026-09-24): Parking now ships published, as Parking Services' own form.
+test('starters install once, both published', async () => {
   const w = await world()
   const first = await E.installStarters(w.db, w.owner)
-  assert.deepEqual(first.map(r => [r.key, r.added, !!r.published]), [['scrubex-request-form', true, true], ['student-parking-request', true, false]])
+  assert.deepEqual(first.map(r => [r.key, r.added, !!r.published]), [['scrubex-request-form', true, true], ['student-parking-request', true, true]])
   const again = await E.installStarters(w.db, w.owner)
-  assert.ok(again.every(r => r.added === false))
+  assert.ok(again.every(r => r.added === false && !r.refreshed))
   const { rows } = await w.pg.query(`SELECT c.slug, c.kind, c.storage_path, f.status, f.current_version FROM catalog_resources c JOIN catalog_forms f ON f.catalog_resource_id = c.id ORDER BY c.slug`)
-  assert.deepEqual(rows.map(r => [r.slug, r.kind, r.status, r.current_version]), [['scrubex-request-form', 'form', 'published', 1], ['student-parking-request', 'form', 'draft', 0]])
+  assert.deepEqual(rows.map(r => [r.slug, r.kind, r.status, r.current_version]), [['scrubex-request-form', 'form', 'published', 1], ['student-parking-request', 'form', 'published', 1]])
   assert.ok(rows.every(r => /^form:/.test(r.storage_path)))
+})
+
+test('an untouched earlier Parking draft gets Parking Services\' form; an edited one is left alone', async () => {
+  const w = await world()
+  const old = M.RETIRED_STARTER_DRAFTS['student-parking-request'][0]
+  const untouched = await E.createForm(w.db, { title: old.title, starterKey: 'student-parking-request', definition: old }, w.owner)
+  const out = await E.installStarters(w.db, w.owner)
+  assert.deepEqual(out.find(r => r.key === 'student-parking-request'), { key: 'student-parking-request', id: untouched.id, added: false, refreshed: true, published: true })
+  const { rows: [v] } = await w.pg.query(`SELECT definition FROM catalog_form_versions WHERE form_id = $1`, [untouched.id])
+  assert.deepEqual(v.definition.questions.map(q => q.id), M.STARTER_FORMS[1].definition.questions.map(q => q.id))
+
+  const w2 = await world()
+  const edited = await E.createForm(w2.db, { title: old.title, starterKey: 'student-parking-request', definition: { ...old, description: 'Mine.' } }, w2.owner)
+  const out2 = await E.installStarters(w2.db, w2.owner)
+  assert.deepEqual(out2.find(r => r.key === 'student-parking-request'), { key: 'student-parking-request', id: edited.id, added: false })
+  const { rows: [f] } = await w2.pg.query(`SELECT status, draft FROM catalog_forms WHERE id = $1`, [edited.id])
+  assert.equal(f.status, 'draft')
+  assert.equal(f.draft.description, 'Mine.')
+})
+
+test('the Parking form asks every field on Parking Services\' form, and prefills what ASPIRE knows', () => {
+  const parking = M.STARTER_FORMS.find(s => s.slug === 'student-parking-request')
+  const labels = parking.definition.questions.map(q => q.label)
+  for (const l of ['Badge number', 'First name', 'Last name', 'School name', 'Telephone', 'Email', 'Building', 'Department', 'Parking App access',
+    'Shift', 'Status', 'Start date', 'End date', 'Rotation duration', 'Days of the week',
+    'Vehicle 1 make and model', 'Vehicle 1 color', 'Vehicle 1 state', 'Vehicle 1 license plate',
+    'Vehicle 2 make and model', 'Vehicle 2 color', 'Vehicle 2 state', 'Vehicle 2 license plate', 'Signature']) assert.ok(labels.includes(l), l)
+  assert.deepEqual(M.definitionIssues(parking.definition), [])
+  assert.match(parking.definition.questions.find(q => q.type === 'signature').help, /agree to comply .* Parking Guide/)
+  for (const q of parking.definition.questions) {
+    if (q.prefill) assert.ok(M.prefillSource(q.prefill) && M.prefillFits(q.type, q.prefill), q.id)
+    for (const o of q.options || []) assert.ok(o.length <= 120, `${q.id} option fits the stored limit`)
+    assert.ok(q.help.length <= 500 && q.label.length <= 300, q.id)
+  }
 })
 
 test('publish refuses an unfinished form, in words', async () => {
@@ -112,6 +147,9 @@ test('send, prefill, submit: the PDF is filed to the student record and the link
   assert.equal(state.state, 'open')
   assert.equal(state.prefill.full_name, 'Ava Reyes')
   assert.equal(state.prefill.unit, '6 NE')
+  const known = await E.prefillFor(w.db, link.assignment)
+  assert.equal(known['student.first_name'], 'Ava', 'the Parking form splits the legal name')
+  assert.equal(known['student.last_name'], 'Reyes')
 
   await assert.rejects(E.submit(w.db, { ...(await E.resolveLink(w.db, token)), answers: { full_name: 'Ava Reyes', unit: '6 NE', top: 'M', pant: 'L', sets: 9, sig: { kind: 'type', text: 'Ava Reyes' } } },
     { mailer: w.mailer, appUrl }), /Sets needed: The largest allowed is 3/)

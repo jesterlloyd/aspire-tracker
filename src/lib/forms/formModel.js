@@ -33,6 +33,8 @@ export const takesAnswer = (q) => !!q && !questionType(q.type)?.noAnswer
 export const PREFILL_SOURCES = Object.freeze([
   { key: 'student.full_name', label: 'Student record · Legal name', group: 'Student record' },
   { key: 'student.preferred_name', label: 'Student record · Preferred name', group: 'Student record' },
+  { key: 'student.first_name', label: 'Student record · Legal first name', group: 'Student record' },
+  { key: 'student.last_name', label: 'Student record · Last name', group: 'Student record' },
   { key: 'student.email', label: 'Student record · Email', group: 'Student record' },
   { key: 'student.phone', label: 'Student record · Phone', group: 'Student record' },
   { key: 'student.school', label: 'Student record · School', group: 'Student record' },
@@ -222,6 +224,9 @@ export function csvFor(def, rows) {
 }
 
 // ── Starter forms (brief section 5) ─────────────────────────────────────────────────
+// A starter that ships as a draft and is later corrected lists its earlier drafts here.
+// installStarters replaces a draft that still equals one of them word for word, so an
+// install made before the correction gets it, and a draft someone edited is never touched.
 
 const SIZES = ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL']
 export const STARTER_FORMS = Object.freeze([
@@ -246,32 +251,73 @@ export const STARTER_FORMS = Object.freeze([
     },
   },
   {
-    // The Owner has not supplied the Parking Services column list yet (2026-09-24), so this
-    // ships as a DRAFT with the columns a parking permit list usually needs; publish it once
-    // the columns match what Parking Services asks for.
+    // PARKING-FORM-1 (2026-09-24): the questions are Parking Services' own "Students Parking
+    // Data (SPD)" form, section by section and field by field, so the CSV is their list. The
+    // labels ARE the CSV headers, which is why each vehicle field names its vehicle. Their
+    // "Today's Date" is the CSV's Submitted column and the PDF's date; "Parking Office Use
+    // Only" is theirs to fill and is not asked.
     slug: 'student-parking-request',
     title: 'Student Parking Request',
-    catalogDescription: 'Replaces the Students Parking Data spreadsheet. Answers build the list for Parking Services.',
+    catalogDescription: 'Parking Services\' Students Parking Data form. Answers export as their list.',
     category: 'student_onboarding',
-    publish: false,
+    publish: true,
     definition: {
       title: 'Student Parking Request',
-      description: 'Parking Services needs these details to add your vehicle for your rotation dates.',
+      description: 'Parking Services needs these details to set up your parking for your rotation. An approximate schedule is fine.',
       questions: [
-        { id: 'full_name', type: 'short', label: 'Full name', help: '', required: true, prefill: 'student.full_name' },
+        { id: 'requestor_h', type: 'section', label: 'Requestor information', help: '', required: false },
+        { id: 'badge', type: 'short', label: 'Badge number', help: 'Leave blank if you do not have your Cedars-Sinai badge yet.', required: false },
+        { id: 'first_name', type: 'short', label: 'First name', help: '', required: true, prefill: 'student.first_name' },
+        { id: 'last_name', type: 'short', label: 'Last name', help: '', required: true, prefill: 'student.last_name' },
+        { id: 'school', type: 'short', label: 'School name', help: '', required: true, prefill: 'student.school' },
+        { id: 'phone', type: 'short', label: 'Telephone', help: '', required: true, prefill: 'student.phone' },
         { id: 'email', type: 'short', label: 'Email', help: '', required: true, prefill: 'student.email' },
-        { id: 'phone', type: 'short', label: 'Mobile phone', help: '', required: false, prefill: 'student.phone' },
-        { id: 'school', type: 'short', label: 'School', help: '', required: true, prefill: 'student.school' },
-        { id: 'unit', type: 'short', label: 'Placement unit', help: '', required: true, prefill: 'placement.unit' },
-        { id: 'start', type: 'date', label: 'Rotation start date', help: '', required: true, prefill: 'placement.start_date' },
-        { id: 'end', type: 'date', label: 'Rotation end date', help: '', required: true, prefill: 'placement.end_date' },
-        { id: 'vehicle_h', type: 'section', label: 'Your vehicle', help: 'The vehicle you will park on campus.', required: false },
-        { id: 'make', type: 'short', label: 'Vehicle make', help: 'For example, Toyota.', required: true },
-        { id: 'model', type: 'short', label: 'Vehicle model', help: 'For example, Corolla.', required: true },
-        { id: 'color', type: 'short', label: 'Vehicle color', help: '', required: true },
-        { id: 'plate', type: 'short', label: 'License plate', help: '', required: true },
-        { id: 'plate_state', type: 'short', label: 'License plate state', help: 'For example, CA.', required: true },
+        { id: 'building', type: 'short', label: 'Building', help: 'The building your unit is in, if you know it.', required: false },
+        { id: 'department', type: 'short', label: 'Department', help: 'Your placement unit.', required: true, prefill: 'placement.unit' },
+        { id: 'parking_app', type: 'choice', label: 'Parking App access', help: 'Your cellphone can be added to your parking profile for access to the Parking App. Instructions for the app come separately.', required: true, options: ['Yes', 'No'] },
+        { id: 'schedule_h', type: 'section', label: 'Work schedule', help: 'An approximate time is acceptable.', required: false },
+        { id: 'shift', type: 'choice', label: 'Shift', help: '', required: true, options: ['Days', 'Evenings', 'Nights'] },
+        { id: 'status', type: 'choice', label: 'Status', help: '', required: true, options: ['Full-time (FT)', 'Part-time (PT)', 'Per diem (PD)'] },
+        { id: 'start', type: 'date', label: 'Start date', help: '', required: true, prefill: 'placement.start_date' },
+        { id: 'end', type: 'date', label: 'End date', help: '', required: true, prefill: 'placement.end_date' },
+        { id: 'duration', type: 'short', label: 'Rotation duration', help: 'For example, 12 weeks.', required: true },
+        { id: 'days', type: 'checkboxes', label: 'Days of the week', help: 'The days you expect to be on campus.', required: true, options: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] },
+        { id: 'vehicle1_h', type: 'section', label: 'Vehicle 1', help: 'The vehicle you will park on campus.', required: false },
+        { id: 'v1_make', type: 'short', label: 'Vehicle 1 make and model', help: 'For example, Toyota Corolla.', required: true },
+        { id: 'v1_color', type: 'short', label: 'Vehicle 1 color', help: '', required: true },
+        { id: 'v1_state', type: 'short', label: 'Vehicle 1 state', help: 'The state on the license plate, for example CA.', required: true },
+        { id: 'v1_plate', type: 'short', label: 'Vehicle 1 license plate', help: '', required: true },
+        { id: 'vehicle2_h', type: 'section', label: 'Vehicle 2', help: 'Only if you may drive a second vehicle.', required: false },
+        { id: 'v2_make', type: 'short', label: 'Vehicle 2 make and model', help: '', required: false },
+        { id: 'v2_color', type: 'short', label: 'Vehicle 2 color', help: '', required: false },
+        { id: 'v2_state', type: 'short', label: 'Vehicle 2 state', help: '', required: false },
+        { id: 'v2_plate', type: 'short', label: 'Vehicle 2 license plate', help: '', required: false },
+        { id: 'terms_h', type: 'section', label: 'Parking program agreement', help: 'Parking is a benefit offered to students on a voluntary basis. The Medical Center reserves the right to increase parking rates from time to time; you will be advised of any increase, and continuing to use parking after that notice means you consent to it.', required: false },
+        { id: 'sig', type: 'signature', label: 'Signature', help: 'By signing, I confirm I have read, understand, and agree to comply with the Cedars-Sinai Medical Center Parking Program rules and regulations as outlined in the Parking Guide. The date is recorded when you submit.', required: true },
       ],
     },
   },
 ])
+
+export const RETIRED_STARTER_DRAFTS = Object.freeze({
+  // The draft shipped with FORMS-PHASE3 (1a4d25a1), before Parking Services sent their form.
+  'student-parking-request': [{
+    title: 'Student Parking Request',
+    description: 'Parking Services needs these details to add your vehicle for your rotation dates.',
+    questions: [
+      { id: 'full_name', type: 'short', label: 'Full name', help: '', required: true, prefill: 'student.full_name' },
+      { id: 'email', type: 'short', label: 'Email', help: '', required: true, prefill: 'student.email' },
+      { id: 'phone', type: 'short', label: 'Mobile phone', help: '', required: false, prefill: 'student.phone' },
+      { id: 'school', type: 'short', label: 'School', help: '', required: true, prefill: 'student.school' },
+      { id: 'unit', type: 'short', label: 'Placement unit', help: '', required: true, prefill: 'placement.unit' },
+      { id: 'start', type: 'date', label: 'Rotation start date', help: '', required: true, prefill: 'placement.start_date' },
+      { id: 'end', type: 'date', label: 'Rotation end date', help: '', required: true, prefill: 'placement.end_date' },
+      { id: 'vehicle_h', type: 'section', label: 'Your vehicle', help: 'The vehicle you will park on campus.', required: false },
+      { id: 'make', type: 'short', label: 'Vehicle make', help: 'For example, Toyota.', required: true },
+      { id: 'model', type: 'short', label: 'Vehicle model', help: 'For example, Corolla.', required: true },
+      { id: 'color', type: 'short', label: 'Vehicle color', help: '', required: true },
+      { id: 'plate', type: 'short', label: 'License plate', help: '', required: true },
+      { id: 'plate_state', type: 'short', label: 'License plate state', help: 'For example, CA.', required: true },
+    ],
+  }],
+})
