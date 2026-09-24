@@ -55,7 +55,8 @@ export default function PrepareWizard({ initial, draftId: initialDraftId, startS
       set({
         templateId: t.id, title: t.name, documentType: t.document_type, documentPath: t.source_path, sha256: t.source_sha256,
         pageSizes: t.page_sizes, fields: t.fields || [], ordered: t.signing_order !== 'parallel',
-        recipients: roles.length ? roles.map((r, i) => ({ roleKey: r.key, type: r.type || 'signer', name: r.defaultName || '', email: r.defaultEmail || '', color: colorForIndex(i), label: r.label })) : [blankRecipient(0)],
+        // A role saved without an email is a placeholder: its name is the role, not a person.
+        recipients: roles.length ? roles.map((r, i) => ({ roleKey: r.key, type: r.type || 'signer', name: r.defaultEmail ? (r.defaultName || '') : '', email: r.defaultEmail || '', color: colorForIndex(i), label: r.label || r.defaultName })) : [blankRecipient(0)],
       })
     } catch (e) { setErr(e.message) }
   }
@@ -333,7 +334,7 @@ function Recipients({ d, set, people }) {
         {d.recipients.map((r, i) => (
           <div key={r.roleKey} className={`sg-rrow sg-c-${r.type === 'cc' ? 'slate' : r.color}`}>
             <span className="sg-ord">{r.type === 'cc' ? 'cc' : d.ordered ? i + 1 : '•'}</span>
-            <input value={r.name} onChange={e => upd(i, { name: e.target.value })} aria-label={`Recipient ${i + 1} name`} placeholder="Name" />
+            <input value={r.name} onChange={e => upd(i, { name: e.target.value })} aria-label={`Recipient ${i + 1} name`} placeholder={r.label ? `${r.label}: name` : 'Name'} />
             <input value={r.email} onChange={e => upd(i, { email: e.target.value })} aria-label={`Recipient ${i + 1} email`} placeholder="Email" type="email" />
             <select value={r.type} onChange={e => upd(i, { type: e.target.value })} aria-label={`Recipient ${i + 1} role`}>
               {RECIPIENT_TYPES.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}
@@ -351,6 +352,7 @@ function Recipients({ d, set, people }) {
       </div>
       {hits.length > 0 && <div className="sg-hits" role="listbox" aria-label="Matching people">{hits.map(h => <button key={h.key} type="button" role="option" aria-selected="false" onClick={() => addHit(h)}><b>{h.label}</b><small>{h.sub}</small></button>)}</div>}
       <p className="sg-hint">Signers fill and sign. "Needs to view" must open it before it moves on. "Receives a copy" gets the sealed copy. You always get the sealed copy back.</p>
+      <p className="sg-hint">Making a template? Name each recipient by role (Student, Witness) and leave the emails blank. The people are chosen when you send it.</p>
     </div>
   )
 }

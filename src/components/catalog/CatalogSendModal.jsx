@@ -21,6 +21,7 @@ import {
   defaultMessage, defaultSubject, messageForSend, kindOf,
 } from '../../lib/catalog/catalogModel'
 import { sigStaff } from '../signatures/sigApi'
+import { roleSlots, slotIssues } from '../../lib/signatures/sigModel'
 import useModalFocus from './useModalFocus'
 
 const SEND_ENDPOINT = '/api/connect-send-bulk-message'
@@ -57,9 +58,11 @@ export default function CatalogSendModal({ item, ctx, contactsLoading, onClose, 
   // The first signer role is filled by the To field; every other role keeps the name and
   // email saved on the template (Edit fields sets them).
   const sigRoles = useMemo(() => (tpl?.signer_roles || []), [tpl])
-  const firstSigner = sigRoles.find(r => r.type === 'signer')?.key
-  const fixedRoles = sigRoles.filter(r => r.key !== firstSigner)
-  const missingFixed = fixedRoles.filter(r => !String(r.defaultEmail || '').trim())
+  // Every role besides the first signer is filled here, at send time (roleSlots).
+  const [slots, setSlots] = useState([])
+  useEffect(() => { setSlots(roleSlots(sigRoles)) }, [sigRoles])
+  const setSlot = (key, patch) => setSlots(ss => ss.map(s => s.key === key ? { ...s, ...patch } : s))
+  const slotProblems = slotIssues(slots)
 
   const suggestions = useMemo(() => {
     const on = new Set(tokens.map(t => t.key))
@@ -80,7 +83,7 @@ export default function CatalogSendModal({ item, ctx, contactsLoading, onClose, 
     setError(null)
     if (!tpl) { setError('The signature template is still loading.'); return }
     if (!people.length) { setError('Add at least one recipient.'); return }
-    if (missingFixed.length) { setError(`Set a name and email for ${missingFixed.map(r => r.label || r.key).join(', ')} in Edit fields first.`); return }
+    if (slotProblems.length) { setError(slotProblems[0]); return }
     if (!subject.trim()) { setError('Add a subject.'); return }
     setSending(true)
     try {
@@ -89,7 +92,7 @@ export default function CatalogSendModal({ item, ctx, contactsLoading, onClose, 
         documentType: tpl.document_type, documentPath: tpl.source_path, originalSha256: tpl.source_sha256,
         pageSizes: tpl.page_sizes || [], fields: tpl.fields || [], roles: sigRoles, mode: sigMode,
         people: people.map(p => ({ name: p.name, email: p.email, studentId: p.studentId || null, contactId: p.contactId || null, schoolName: p.school || '', type: 'signer' })),
-        fixed: fixedRoles.map(r => ({ name: r.defaultName || '', email: r.defaultEmail, roleKey: r.key, type: r.type })),
+        fixed: slots.map(s => ({ name: s.name.trim() || s.email.trim(), email: s.email.trim(), roleKey: s.key, type: s.type })),
         signingOrder: tpl.signing_order || 'sequential', subject: subject.trim(), message, reminderRule,
         dueAt: due ? new Date(`${due}T23:59:00`).toISOString() : null, audienceLabel: tokens.map(t => t.label).join(', '),
       } })
@@ -229,7 +232,7 @@ export default function CatalogSendModal({ item, ctx, contactsLoading, onClose, 
             <div className="ctl-sendas">
               {isSig ? <Signature size={18} /> : isLink ? <Link2 size={18} /> : <Paperclip size={18} />}
               <span><b>Sends as: {sendAs.title}.</b> {isSig ? (sigMode === 'each'
-                ? `One request per person, ${people.length} in all. ${fixedRoles.length ? `Then ${fixedRoles.map(r => r.defaultName || r.label || r.key).join(', ')} ${fixedRoles.length === 1 ? 'signs' : 'sign'} each one.` : ''}`
+                ? `One request per person, ${people.length} in all. ${slots.length ? `Then ${slots.map(s => s.name.trim() || s.label).join(', ')} ${slots.length === 1 ? 'signs' : 'sign'} each one.` : ''}`
                 : 'Everyone signs one copy, in order.') : sendAs.line}</span>
             </div>
             {isSig && (
@@ -251,7 +254,13 @@ export default function CatalogSendModal({ item, ctx, contactsLoading, onClose, 
                     <option value="off">Off</option>
                   </select>
                 </div>
-                {missingFixed.length > 0 && <p className="ctl-hint">{missingFixed.map(r => r.label || r.key).join(', ')} {missingFixed.length === 1 ? 'has' : 'have'} no email on the template. Set it in Edit fields.</p>}
+                {slots.map(s => (
+                  <div key={s.key} className="ctl-field ctl-slot-row">
+                    <span className="ctl-lab">{s.label}{s.type === 'cc' ? ' (receives a copy)' : s.type === 'viewer' ? ' (needs to view)' : ''}</span>
+                    <input value={s.name} onChange={e => setSlot(s.key, { name: e.target.value })} placeholder="Name" aria-label={`${s.label} name`} />
+                    <input value={s.email} onChange={e => setSlot(s.key, { email: e.target.value })} placeholder="Email" type="email" aria-label={`${s.label} email`} />
+                  </div>
+                ))}
               </div>
             )}
 
@@ -276,7 +285,7 @@ export default function CatalogSendModal({ item, ctx, contactsLoading, onClose, 
             ) : (
               <>
                 <button type="button" className="ctl-btn" onClick={onClose} disabled={sending}>Cancel</button>
-                <button type="button" className="ctl-btn ctl-btn-pri" onClick={send} disabled={sending || !people.length || (isSig && (!tpl || missingFixed.length > 0))}>
+                <button type="button" className="ctl-btn ctl-btn-pri" onClick={send} disabled={sending || !people.length || (isSig && (!tpl || slotProblems.length > 0))}>
                   <SendIcon size={15} /> {sending ? 'Sending…' : `Send to ${people.length}`}
                 </button>
               </>

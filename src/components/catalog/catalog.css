@@ -509,3 +509,7 @@
    with overflow: hidden, so while the menu is open the case lets it hang out. */
 .ctl-case:has(.ctl-new-case .ctl-menu) { overflow: visible; }
 .ctl-new-case .ctl-menu { text-shadow: none; }
+/* The template's other roles (Witness, ...) are named at send time: label, name, email. */
+.ctl-sigopts .ctl-slot-row { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; }
+.ctl-slot-row .ctl-lab { grid-column: 1 / -1; }
+@media (max-width: 640px) { .ctl-sigopts .ctl-slot-row { grid-template-columns: 1fr; } }

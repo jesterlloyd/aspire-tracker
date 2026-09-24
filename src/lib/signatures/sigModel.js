@@ -248,9 +248,9 @@ export function sendIssues({ recipients, fields, documentType, excludedConfirmed
   const signers = recipients.filter(r => r.type === 'signer')
   if (!signers.length) issues.push('Add at least one signer.')
   for (const s of signers) {
-    if (!fields.some(f => f.role === s.roleKey && f.type === 'sig')) issues.push(`${s.name || 'A signer'} has no signature field.`)
+    if (!fields.some(f => f.role === s.roleKey && f.type === 'sig')) issues.push(`${s.name || s.label || 'A signer'} has no signature field.`)
   }
-  for (const r of recipients) if (!EMAIL.test(String(r.email || '').trim())) issues.push(`${r.name || 'A recipient'} needs a valid email.`)
+  for (const r of recipients) if (!EMAIL.test(String(r.email || '').trim())) issues.push(`${r.name || r.label || 'A recipient'} needs a valid email.`)
   if (!documentType) issues.push('Choose a document type.')
   else if (isExcludedType(documentType) && !excludedConfirmed) issues.push('This document type is excluded from e-signature by law. An admin must confirm before sending.')
   for (const f of fields.filter(x => x.role === SENDER_ROLE)) {
@@ -261,9 +261,11 @@ export function sendIssues({ recipients, fields, documentType, excludedConfirmed
 }
 
 /**
- * What a TEMPLATE needs before it can be saved. Unlike a send, the first signer is a
- * placeholder ("Student"): the Catalog's To field fills that role at send time, so it
- * needs no email. Every other recipient is kept on the template as-is, so each needs one.
+ * What a TEMPLATE needs before it can be saved. Its recipients are ROLES ("Student",
+ * "Witness"), named at send time the way DocuSign templates work (Owner, 2026-09-23): the
+ * Catalog's To field fills the first signer, and the send asks for everyone else. So no
+ * recipient needs an email here; one that is typed must be valid, and it is then the
+ * suggested person for that role.
  */
 export function templateIssues({ recipients, fields, documentType, excludedConfirmed = false }) {
   const issues = []
@@ -272,16 +274,30 @@ export function templateIssues({ recipients, fields, documentType, excludedConfi
   signers.forEach((s, i) => {
     if (!fields.some(f => f.role === s.roleKey && f.type === 'sig')) issues.push(`${s.name || `Signer ${i + 1}`} has no signature field.`)
   })
-  const first = signers[0]?.roleKey
-  for (const r of recipients) {
+  recipients.forEach((r, i) => {
     const email = String(r.email || '').trim()
-    if (r.roleKey === first) { if (email && !EMAIL.test(email)) issues.push(`${r.name || 'Signer 1'} has an email that is not valid.`); continue }
-    if (!EMAIL.test(email)) issues.push(`${r.name || 'A recipient'} needs a valid email: the template keeps them on every send.`)
-  }
+    if (email && !EMAIL.test(email)) issues.push(`${r.name || `Recipient ${i + 1}`} has an email that is not valid.`)
+  })
   if (!documentType) issues.push('Choose a document type.')
   else if (isExcludedType(documentType) && !excludedConfirmed) issues.push('This document type is excluded from e-signature by law. An admin must confirm before sending.')
   return issues
 }
+
+/**
+ * The roles a send must fill besides the first signer (whom the To field fills). A role
+ * saved with an email suggests that person; one saved without is a placeholder whose
+ * name is the role's label, and the sender types who it is.
+ */
+export function roleSlots(roles) {
+  const list = roles || []
+  const first = list.find(r => r.type === 'signer')?.key
+  return list.filter(r => r.key !== first).map((r, i) => {
+    const email = String(r.defaultEmail || '').trim()
+    const label = (email ? r.label : (r.label || r.defaultName)) || `Recipient ${i + 2}`
+    return { key: r.key, type: r.type, label, name: email ? (r.defaultName || '') : '', email }
+  })
+}
+export const slotIssues = (slots) => (slots || []).filter(s => !EMAIL.test(String(s.email || '').trim())).map(s => `Add an email for ${s.label}.`)
 
 // The rules the Checks panel lists when everything passes, in words.
 export function ruleSummaries(fields) {

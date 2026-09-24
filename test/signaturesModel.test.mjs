@@ -6,7 +6,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
-import { templateIssues, sendIssues, isAutoField, autoFieldValue, fieldType } from '../src/lib/signatures/sigModel.js'
+import { templateIssues, sendIssues, isAutoField, autoFieldValue, fieldType, roleSlots, slotIssues } from '../src/lib/signatures/sigModel.js'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const read = (p) => readFileSync(join(root, p), 'utf8')
@@ -24,9 +24,9 @@ test('a template may leave the first signer as a placeholder; a send may not', (
   assert.ok(sendIssues({ recipients, fields, documentType: 'acknowledgment' }).some(x => /Student needs a valid email/.test(x)))
 })
 
-test('a template still needs a signature field per signer and an email for every kept recipient', () => {
+test('a template is roles: no email needed, but a signature field per signer and valid emails when typed', () => {
   const noWitnessEmail = recipients.map(r => r.roleKey === 'r2' ? { ...r, email: '' } : r)
-  assert.ok(templateIssues({ recipients: noWitnessEmail, fields, documentType: 'acknowledgment' }).some(x => /Witness needs a valid email/.test(x)))
+  assert.deepEqual(templateIssues({ recipients: noWitnessEmail, fields, documentType: 'acknowledgment' }), [])
   assert.ok(templateIssues({ recipients, fields: fields.filter(f => f.id !== 'b'), documentType: 'acknowledgment' }).some(x => /Witness has no signature field/.test(x)))
   const badFirst = recipients.map(r => r.roleKey === 'r1' ? { ...r, email: 'nope' } : r)
   assert.ok(templateIssues({ recipients: badFirst, fields, documentType: 'acknowledgment' }).some(x => /not valid/.test(x)))
@@ -80,4 +80,19 @@ test('+ New reaches a Catalog PDF, and Classic shows one + New, on the bookcase'
   assert.match(page, /sigLink\('\?tab=prepare&source=catalog'\)/)
   assert.match(page, /\{canManage && !classic && <NewMenu open=\{newOpen\}/)
   assert.match(read('src/components/signatures/SignaturesPage.jsx'), /params\.get\('source'\) === 'catalog' \? \{ source: 'catalog' \}/)
+})
+
+test('a send names every role the To field does not fill; a saved person is only a suggestion', () => {
+  const roles = [
+    { key: 'r1', type: 'signer', label: 'Student', defaultName: 'Student', defaultEmail: '' },
+    { key: 'r2', type: 'signer', label: 'Witness', defaultName: 'Witness', defaultEmail: '' },
+    { key: 'r3', type: 'cc', label: 'Coordinator', defaultName: 'Jester', defaultEmail: 'j@cshs.org' },
+  ]
+  const slots = roleSlots(roles)
+  assert.deepEqual(slots.map(s => [s.key, s.label, s.name, s.email]), [['r2', 'Witness', '', ''], ['r3', 'Coordinator', 'Jester', 'j@cshs.org']])
+  assert.deepEqual(slotIssues(slots), ['Add an email for Witness.'])
+  assert.deepEqual(slotIssues(slots.map(s => ({ ...s, email: s.email || 'w@cshs.org' }))), [])
+  const modal = read('src/components/catalog/CatalogSendModal.jsx')
+  assert.doesNotMatch(modal, /in Edit fields first/)
+  assert.match(modal, /fixed: slots\.map\(/)
 })
