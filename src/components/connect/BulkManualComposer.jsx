@@ -1173,7 +1173,7 @@ export default function BulkManualComposer({
       {/* ── Zone 2: Message Type (shared selector from parent) ───────────── */}
       {/* CONNECT-TEMPLATE-AUDIENCE-UX-2: pass the audience inferred from THIS composer's live source +
           contact-category selection so the parent selector groups templates accordingly. */}
-      <ConnectPanel tone="message" title="Message Type" style={{ flex: '0 0 270px', minWidth: 220 }}>
+      <ConnectPanel tone="message" title="Message Type" bodyClassName="outreach-paper-scroll" style={{ flex: '0 0 270px', minWidth: 220 }}>
         {renderTypeSelector?.(audienceForBulkSelection({ source, contactCategory: contactCat }))}
         <div style={{ marginTop: 12, padding: '8px 10px', background: '#FBF5E8', border: '1px solid #f0c9b0', borderRadius: 8, fontSize: 10, color: '#8B5E1A', fontFamily: F, lineHeight: 1.5 }}>
           Compose your audience and draft here, then open <strong>Review &amp; send</strong>. A typed confirmation is required before any email is sent.
@@ -1234,6 +1234,26 @@ export default function BulkManualComposer({
           </label>
           <div style={{ fontSize: 10, color: '#9ca3af', fontFamily: F, lineHeight: 1.5 }}>
             First name and school merge per recipient at send. All other [placeholders] (links, deadlines, dates, unit, preceptor) are edited once here and sent as-is.
+          </div>
+
+          {/* Keep the review action inside the Draft paper, aligned with the other desk papers. */}
+          <div className="outreach-bulk-action-row" style={{ ...panelCard, marginTop: 14, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            {(() => {
+              const reviewReady = recipients.length > 0 && subject.trim() && body.trim()
+              return (
+                <button onClick={() => previewOpen ? setReviewOpen(true) : setPreviewOpen(true)} disabled={!reviewReady} style={{
+                  padding: '9px 18px', borderRadius: 8, border: 'none',
+                  background: reviewReady ? NAVY : '#e5e7eb', color: reviewReady ? '#fff' : '#9ca3af',
+                  fontSize: 13, fontWeight: 600, fontFamily: F, cursor: reviewReady ? 'pointer' : 'not-allowed',
+                }}>{previewOpen ? `Continue to final review (${recipients.length})` : `Review & send (${recipients.length})`}</button>
+              )
+            })()}
+            <span style={{ fontSize: 11, color: '#9ca3af', fontFamily: F }}>
+              {recipients.length === 0 ? 'Add recipients to continue.'
+                : !subject.trim() ? 'Add a subject to continue.'
+                : !body.trim() ? 'Add a message to continue.'
+                : previewOpen ? 'A typed confirmation is required in the next step.' : 'Review the final email before confirming the send.'}
+            </span>
           </div>
         </ConnectPanel>
 
@@ -1302,25 +1322,6 @@ export default function BulkManualComposer({
         </ConnectPanel>
         )}
 
-        {/* Action row - Review & send opens the final review panel (the only path to a live send) */}
-        <div style={{ ...panelCard, marginTop: 14, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          {(() => {
-            const reviewReady = recipients.length > 0 && subject.trim() && body.trim()
-            return (
-              <button onClick={() => previewOpen ? setReviewOpen(true) : setPreviewOpen(true)} disabled={!reviewReady} style={{
-                padding: '9px 18px', borderRadius: 8, border: 'none',
-                background: reviewReady ? NAVY : '#e5e7eb', color: reviewReady ? '#fff' : '#9ca3af',
-                fontSize: 13, fontWeight: 600, fontFamily: F, cursor: reviewReady ? 'pointer' : 'not-allowed',
-              }}>{previewOpen ? `Continue to final review (${recipients.length})` : `Review & send (${recipients.length})`}</button>
-            )
-          })()}
-          <span style={{ fontSize: 11, color: '#9ca3af', fontFamily: F }}>
-            {recipients.length === 0 ? 'Add recipients to continue.'
-              : !subject.trim() ? 'Add a subject to continue.'
-              : !body.trim() ? 'Add a message to continue.'
-              : previewOpen ? 'A typed confirmation is required in the next step.' : 'Review the final email before confirming the send.'}
-          </span>
-        </div>
       </div>
 
       {/* ── Final Review & Send panel (the only path to a live send) ─────────── */}

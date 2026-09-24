@@ -196,27 +196,30 @@ function liftSelectedIntoPrimary({ primary, other }, selectedKey) {
 // supplies its own button markup via renderItem(template) so existing visuals are untouched. When the
 // audience is null (no inference yet) the caller passes the full list as `primary` with empty `other`,
 // so this renders a flat list with no heading - preserving the pre-filtering look.
-function TemplateGroup({ primary, other, otherOpen, onToggleOther, renderItem }) {
+function TemplateGroup({ primary, other, otherOpen, onToggleOther, renderItem, alwaysShowOther = false }) {
   return (
     <div className="outreach-template-group" style={{ marginBottom: 16 }}>
       {primary.map(renderItem)}
-      {other.length > 0 && (
-        <div style={{ marginTop: 6 }}>
-          <button
-            type="button"
-            onClick={onToggleOther}
-            aria-expanded={otherOpen}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '6px 4px',
-              background: 'none', border: 'none', cursor: 'pointer', fontFamily: F,
-              fontSize: 11, fontWeight: 600, color: '#6b7280', textAlign: 'left',
-            }}
-          >
-            <span style={{ fontSize: 9, lineHeight: 1 }} aria-hidden="true">{otherOpen ? '▼' : '▶'}</span>
-            Other templates ({other.length})
-          </button>
-          {otherOpen && <div style={{ marginTop: 2 }}>{other.map(renderItem)}</div>}
-        </div>
+      {other.length > 0 && (alwaysShowOther
+        ? <div style={{ marginTop: 6 }}>{other.map(renderItem)}</div>
+        : (
+          <div style={{ marginTop: 6 }}>
+            <button
+              type="button"
+              onClick={onToggleOther}
+              aria-expanded={otherOpen}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '6px 4px',
+                background: 'none', border: 'none', cursor: 'pointer', fontFamily: F,
+                fontSize: 11, fontWeight: 600, color: '#6b7280', textAlign: 'left',
+              }}
+            >
+              <span style={{ fontSize: 9, lineHeight: 1 }} aria-hidden="true">{otherOpen ? '▼' : '▶'}</span>
+              Other templates ({other.length})
+            </button>
+            {otherOpen && <div style={{ marginTop: 2 }}>{other.map(renderItem)}</div>}
+          </div>
+        )
       )}
     </div>
   )
@@ -2819,7 +2822,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
           </ConnectPanel>
 
           {/* ── Message Type picker (moved into left column below profile card) ── */}
-          <ConnectPanel tone="message" title="Message Type">
+          <ConnectPanel tone="message" title="Message Type" bodyClassName="outreach-paper-scroll">
 
           {/* Type selector - audience-aware (CONNECT-TEMPLATE-AUDIENCE-UX-2). Grouping/behavior of
               each item is unchanged; templates are split into a primary list for the inferred
@@ -2886,6 +2889,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                 other={split.other}
                 otherOpen={singleOtherOpen}
                 onToggleOther={() => setSingleOtherOpen(o => !o)}
+                alwaysShowOther
                 renderItem={renderItem}
               />
             )
@@ -3795,7 +3799,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
       )}
 
       {recipientMode === 'bulk' && bulkMsgType === 'survey_invitation' && (
-        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+        <div className="outreach-bulk-survey-layout" style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'flex-start' }}>
 
           {/* ── Bulk Zone 1: Student Audience Picker ─────────────────── */}
           <ConnectPanel tone="audience" title="Recipients"
@@ -3990,7 +3994,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
           </ConnectPanel>
 
           {/* ── Bulk Zone 2: Message Type + Workflow ──────────────────── */}
-          <ConnectPanel tone="message" title="Message Type" style={{ flex: '0 0 270px', minWidth: 220 }}>
+          <ConnectPanel tone="message" title="Message Type" bodyClassName="outreach-paper-scroll" style={{ flex: '0 0 270px', minWidth: 220 }}>
 
             {/* Bulk message type selector (shared with the manual composer). This zone is the survey
                 workflow, which is student-only, so the audience is always 'student'. */}
@@ -4047,7 +4051,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
           </ConnectPanel>
 
           {/* ── Bulk Zone 3: Preview / Action / Results ───────────────── */}
-          <div style={{ flex: '1 1 300px', minWidth: 260 }}>
+          <div className="outreach-bulk-survey-draft-column" style={{ flex: '1 1 300px', minWidth: 260 }}>
 
             {/* Pre-generation summary */}
             {!bulkResults && (
