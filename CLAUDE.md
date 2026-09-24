@@ -1283,6 +1283,23 @@ the Parking form follows Parking Services' own form (received 2026-09-24).
 - **The no-account pages wear the organization's brand.** `/form` and `/sign` show the document
   logo and application title from Settings > Organization through `PublicBrand`, which reads
   the public `/api/organization-brand` (title, logo, alt text, and nothing else).
+- **Responses has a Sheet** (FORM-SHEET-1, Owner, 2026-09-24: "an excel like or smartsheet
+  like view"). People is the tracker; Sheet (`FormSheet.jsx`, `form-staff` `sheet`) is one row
+  per submission and one column per question, read live: search, filters (a choice column by
+  its options, "Other" by any Other answer), sort on every header (`SortHeader`), show or hide
+  columns, a row opens the answers and PDF. Columns follow the LATEST version; a question only
+  earlier versions asked keeps its column, marked earlier (`sheetFor`). Unlike DataSheet it
+  SCROLLS sideways inside its frame with the header and name pinned, on purpose: a spreadsheet
+  that drops columns is not one. **Export to Excel** (`sheet_xlsx`, `lib/server/forms/xlsx.js`)
+  is a real .xlsx of exactly the rows and columns shown, in that order, every cell an inline
+  string (no formulas), frozen header and autofilter, on the signatures ZIP writer
+  (`zipStored(..., { keepPaths: true })`). Summary charts are the next step, not built.
+- **"Other" with a text box** (FORM-OTHER-1): choice, checkbox and dropdown questions can set
+  `allowOther`; the answer is stored as the text `Other: <typed>` so every reader shows it as
+  written. One Other per checkbox answer, 200 characters.
+- **Build a form can add a category** (FORM-CATEGORY-1): "+ New category…" creates a real
+  Catalog category through the Owner-only `catalog-category-update` `create`; Admins see how to
+  get one. Never free text: a label outside `catalog_categories` would never list.
 - **Tables here follow `.aspire-th`.** Its grey on `#f9fafb` measures 4.37:1 (the app-wide header),
   noted, not changed. `--aspire-row-band` is a light-mode constant, so the Responses table bands
   from the Catalog surface instead.

@@ -24,6 +24,14 @@ export const QUESTION_TYPES = Object.freeze([
 ])
 export const questionType = (key) => QUESTION_TYPES.find(t => t.key === key)
 export const hasOptions = (q) => !!questionType(q?.type)?.options
+
+// FORM-OTHER-1 (2026-09-24, Owner): a choice, checkbox or dropdown question can offer "Other"
+// with a text box. Its answer is stored as the text "Other: <what they typed>", so every
+// reader (PDF, CSV, Sheet, viewer) shows it as written with no special case.
+export const OTHER_PREFIX = 'Other: '
+export const isOtherValue = (v) => typeof v === 'string' && /^Other:/.test(v)
+export const otherText = (v) => String(v || '').replace(/^Other:\s*/, '')
+export const otherValue = (text) => `${OTHER_PREFIX}${String(text || '')}`
 export const takesAnswer = (q) => !!q && !questionType(q.type)?.noAnswer
 
 // ── Prefill: answers ASPIRE already has (brief: "Prefill from") ─────────────────────
@@ -126,6 +134,8 @@ const isBlank = (v) => v == null || (typeof v === 'string' && !v.trim()) || (Arr
     || (typeof v === 'object' && !Array.isArray(v) && v.kind == null && v.path == null && v.name == null)
 
 /** Every problem with a set of answers, keyed by question id. Empty = submittable. */
+const otherIssue = (v) => !otherText(v).trim() ? 'Say what "Other" is.' : otherText(v).length > 200 ? 'Keep "Other" under 200 characters.' : null
+
 export function answerIssues(def, answers = {}) {
   const out = {}
   for (const q of def?.questions || []) {
@@ -135,8 +145,19 @@ export function answerIssues(def, answers = {}) {
     switch (q.type) {
       case 'short': if (String(v).length > 500) out[q.id] = 'Keep this under 500 characters.'; break
       case 'paragraph': if (String(v).length > 5000) out[q.id] = 'Keep this under 5,000 characters.'; break
-      case 'choice': case 'dropdown': if (!(q.options || []).includes(v)) out[q.id] = 'Choose one of the options.'; break
-      case 'checkboxes': if (!Array.isArray(v) || v.some(x => !(q.options || []).includes(x))) out[q.id] = 'Choose from the options.'; break
+      case 'choice': case 'dropdown': {
+        if ((q.options || []).includes(v)) break
+        out[q.id] = !isOtherValue(v) || !q.allowOther ? 'Choose one of the options.' : otherIssue(v)
+        if (!out[q.id]) delete out[q.id]
+        break
+      }
+      case 'checkboxes': {
+        if (!Array.isArray(v)) { out[q.id] = 'Choose from the options.'; break }
+        const others = v.filter(x => !(q.options || []).includes(x))
+        if (others.some(x => !isOtherValue(x)) || (others.length && !q.allowOther) || others.length > 1) { out[q.id] = 'Choose from the options.'; break }
+        if (others.length && otherIssue(others[0])) out[q.id] = otherIssue(others[0])
+        break
+      }
       case 'number': {
         const n = Number(v)
         if (String(v).trim() === '' || !Number.isFinite(n)) { out[q.id] = 'Enter a number.'; break }
@@ -162,7 +183,8 @@ export function cleanAnswers(def, answers = {}) {
     if (!takesAnswer(q) || !(q.id in answers)) continue
     const v = answers[q.id]
     if (isBlank(v)) continue
-    if (q.type === 'checkboxes') out[q.id] = (Array.isArray(v) ? v : [v]).map(String)
+    if (q.type === 'checkboxes') out[q.id] = (Array.isArray(v) ? v : [v]).map(x => (isOtherValue(x) ? otherValue(otherText(x).trim()) : String(x)))
+    else if ((q.type === 'choice' || q.type === 'dropdown') && isOtherValue(v)) out[q.id] = otherValue(otherText(v).trim())
     else if (q.type === 'number') out[q.id] = Number(v)
     else if (q.type === 'signature') out[q.id] = v.kind === 'draw'
       ? { kind: 'draw', path: String(v.path).slice(0, 20000).replace(/[^MLQCZmlqcz0-9.,\s-]/g, ''), text: String(v.text || '').slice(0, 120) }
@@ -404,4 +426,55 @@ export function confirmationParts(text) {
   }
   if (at < String(text || '').length) out.push({ text: text.slice(at) })
   return out
+}
+
+// ── The Sheet (FORM-SHEET-1) ────────────────────────────────────────────────────────
+// Responses > Sheet: one row per submission, one column per question, like a spreadsheet.
+// Columns follow the LATEST version's questions; a question that only earlier versions asked
+// keeps its column, marked earlier, for the people who answered it, so nothing disappears.
+// Every cell is the answer as text, read against the version that person answered.
+
+const SHEET_SKIP = new Set(['section', 'signature'])
+
+/**
+ * versions: [{ version, definition }]; rows: [{ id, name, email, school, submittedAt, version, answers }].
+ * Returns { columns: [{ key, label, type, options?, earlier? }], rows: [{ ...row, cells: { key: text } }] }.
+ */
+export function sheetFor(versions, rows) {
+  const ordered = [...(versions || [])].sort((a, b) => b.version - a.version)
+  const latest = ordered[0]?.definition?.questions || []
+  const columns = []
+  const seen = new Set()
+  const add = (q, earlier) => {
+    if (seen.has(q.id) || SHEET_SKIP.has(q.type) || !takesAnswer(q)) return
+    seen.add(q.id)
+    columns.push({ key: q.id, label: q.label, type: q.type, ...(q.options ? { options: [...q.options, ...(q.allowOther ? ['Other'] : [])] } : {}), ...(earlier ? { earlier: true } : {}) })
+  }
+  for (const q of latest) add(q, false)
+  const answered = new Set(rows.flatMap(r => Object.keys(r.answers || {})))
+  for (const v of ordered.slice(1)) for (const q of v.definition?.questions || []) if (answered.has(q.id)) add(q, true)
+  const byVersion = new Map(ordered.map(v => [v.version, new Map((v.definition?.questions || []).map(q => [q.id, q]))]))
+  return {
+    columns,
+    rows: rows.map(r => {
+      const qs = byVersion.get(r.version) || new Map()
+      const cells = {}
+      for (const c of columns) {
+        const q = qs.get(c.key)
+        cells[c.key] = q ? answerText(q, r.answers?.[c.key]) : ''
+      }
+      return { id: r.id, name: r.name, email: r.email, school: r.school || '', submittedAt: r.submittedAt, version: r.version, cells }
+    }),
+  }
+}
+
+/** Does a Sheet cell match a filter value? A choice matches its option; "Other" matches any Other answer. */
+export function cellMatches(column, cell, value) {
+  if (!value) return true
+  const text = String(cell || '')
+  if (column?.options) {
+    const parts = column.type === 'checkboxes' ? text.split('; ') : [text]
+    return value === 'Other' ? parts.some(isOtherValue) : parts.includes(value)
+  }
+  return text.toLowerCase().includes(String(value).toLowerCase())
 }

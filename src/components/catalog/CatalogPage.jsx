@@ -494,7 +494,7 @@ export default function CatalogPage({
           }} />
       )}
       {dialog?.type === 'newform' && (
-        <NewFormDialog categories={assignableCats} onClose={() => setDialog(null)}
+        <NewFormDialog categories={assignableCats} canAddCategory={isOwner} onCategoryAdded={loadCats} onClose={() => setDialog(null)}
           onCreated={(form) => { setDialog(null); navigate(`/catalog/forms/${form.id}/edit`) }} />
       )}
       {dialog?.type === 'send' && !contacts && <div className="modal-overlay"><div className="modal ctl-modal ctl-state" role="status">Loading recipients…</div></div>}
@@ -845,11 +845,27 @@ function SendHistory({ sends, enabled, current }) {
 }
 
 // FORMS-PHASE3: + New > Build a form. A name and a category, then the builder opens.
-function NewFormDialog({ categories, onClose, onCreated }) {
+function NewFormDialog({ categories, canAddCategory = false, onCategoryAdded, onClose, onCreated }) {
   const [title, setTitle] = useState('')
   const [category, setCategory] = useState('student_onboarding')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
+  // FORM-CATEGORY-1 (2026-09-24, Owner): a category that is not listed can be added right here,
+  // as a real Catalog category (the Owner-only create Manage categories uses), not free text.
+  const [added, setAdded] = useState([])
+  const [naming, setNaming] = useState(false)
+  const [newName, setNewName] = useState('')
+  const list = [...categories, ...added.filter(a => !categories.some(c => c.key === a.key))]
+  const addCategory = async () => {
+    if (!newName.trim()) { setError('Name the new category.'); return }
+    setBusy(true); setError(null)
+    try {
+      const { category: made } = await authedPost('/api/catalog-category-update', { action: 'create', display_name: newName.trim(), description: '' })
+      setAdded(a => [...a, { key: made.slug, label: made.display_name }])
+      setCategory(made.slug); setNaming(false); setNewName('')
+      onCategoryAdded?.()
+    } catch (err) { setError(err.message) } finally { setBusy(false) }
+  }
   const create = async (e) => {
     e.preventDefault()
     if (!title.trim()) { setError('Name the form.'); return }
@@ -866,9 +882,19 @@ function NewFormDialog({ categories, onClose, onCreated }) {
           <div className="ctl-field"><label htmlFor="ctl-newform-name">Form name</label>
             <input id="ctl-newform-name" autoFocus value={title} maxLength={200} onChange={e => setTitle(e.target.value)} placeholder="For example, Uniform Request" /></div>
           <div className="ctl-field"><label htmlFor="ctl-newform-cat">Category</label>
-            <select id="ctl-newform-cat" value={category} onChange={e => setCategory(e.target.value)}>
-              {categories.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
-            </select></div>
+            <select id="ctl-newform-cat" value={naming ? '__new' : category} onChange={e => { if (e.target.value === '__new') setNaming(true); else { setNaming(false); setCategory(e.target.value) } }}>
+              {list.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
+              {canAddCategory && <option value="__new">+ New category…</option>}
+            </select>
+            {naming && (
+              <span className="ctl-newcat">
+                <input autoFocus aria-label="New category name" value={newName} maxLength={60} placeholder="For example, Uniforms"
+                  onChange={e => setNewName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCategory() } }} />
+                <button type="button" className="ctl-btn" onClick={addCategory} disabled={busy}>Add</button>
+                <button type="button" className="ctl-btn" onClick={() => setNaming(false)} disabled={busy}>Cancel</button>
+              </span>
+            )}
+            {!canAddCategory && <small className="ctl-hint">Need a category that is not listed? The Owner can add one here or in Manage categories.</small>}</div>
           {error && <div className="ctl-err" role="alert">{error}</div>}
         </div>
         <div className="ctl-mf"><small>It stays a draft until you publish it.</small>

@@ -6,7 +6,7 @@
 // phone. Answers ASPIRE already has arrive filled in and stay editable; before submitting,
 // the respondent reviews every answer and can go back to change one (brief section 5).
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { takesAnswer, answerIssues, answerText } from '../../lib/forms/formModel'
+import { takesAnswer, answerIssues, answerText, isOtherValue, otherText, otherValue } from '../../lib/forms/formModel'
 import './formRespond.css'
 
 const readDraft = (key) => { try { return key ? JSON.parse(localStorage.getItem(key) || 'null') : null } catch { return null } }
@@ -107,25 +107,50 @@ function Control({ q, value, onChange, common, onUpload, preview }) {
     case 'paragraph': return <textarea {...common} rows={4} value={value || ''} onChange={e => onChange(e.target.value)} />
     case 'number': return <input {...common} type="number" inputMode="decimal" min={q.min ?? undefined} max={q.max ?? undefined} value={value ?? ''} onChange={e => onChange(e.target.value)} className="frm-num" />
     case 'date': return <input {...common} type="date" value={value || ''} onChange={e => onChange(e.target.value)} className="frm-date" />
-    case 'dropdown': return (
-      <select {...common} value={value || ''} onChange={e => onChange(e.target.value)}>
-        <option value="">Choose…</option>{(q.options || []).map(o => <option key={o} value={o}>{o}</option>)}
-      </select>)
-    case 'choice': return (
-      <div className="frm-opts" role="radiogroup" aria-describedby={common['aria-describedby']}>
-        {(q.options || []).map(o => <label key={o} className={`frm-opt${value === o ? ' frm-on' : ''}`}><input type="radio" name={common.id} checked={value === o} onChange={() => onChange(o)} /><span>{o}</span></label>)}
-      </div>)
+    case 'dropdown': {
+      const other = q.allowOther && isOtherValue(value)
+      return (<>
+        <select {...common} value={other ? '__other' : (value || '')} onChange={e => onChange(e.target.value === '__other' ? otherValue('') : e.target.value)}>
+          <option value="">Choose…</option>{(q.options || []).map(o => <option key={o} value={o}>{o}</option>)}
+          {q.allowOther && <option value="__other">Other…</option>}
+        </select>
+        {other && <OtherText q={q} value={value} onChange={onChange} />}
+      </>)
+    }
+    case 'choice': {
+      const other = q.allowOther && isOtherValue(value)
+      return (<>
+        <div className="frm-opts" role="radiogroup" aria-describedby={common['aria-describedby']}>
+          {(q.options || []).map(o => <label key={o} className={`frm-opt${value === o ? ' frm-on' : ''}`}><input type="radio" name={common.id} checked={value === o} onChange={() => onChange(o)} /><span>{o}</span></label>)}
+          {q.allowOther && <label className={`frm-opt${other ? ' frm-on' : ''}`}><input type="radio" name={common.id} checked={other} onChange={() => onChange(otherValue(''))} /><span>Other</span></label>}
+        </div>
+        {other && <OtherText q={q} value={value} onChange={onChange} />}
+      </>)
+    }
     case 'checkboxes': {
       const list = Array.isArray(value) ? value : []
-      return (
+      const other = list.find(isOtherValue)
+      const withOther = (text) => [...list.filter(x => !isOtherValue(x)), otherValue(text)]
+      return (<>
         <div className="frm-opts" aria-describedby={common['aria-describedby']}>
           {(q.options || []).map(o => <label key={o} className={`frm-opt${list.includes(o) ? ' frm-on' : ''}`}><input type="checkbox" checked={list.includes(o)} onChange={e => onChange(e.target.checked ? [...list, o] : list.filter(x => x !== o))} /><span>{o}</span></label>)}
-        </div>)
+          {q.allowOther && <label className={`frm-opt${other != null ? ' frm-on' : ''}`}><input type="checkbox" checked={other != null} onChange={e => onChange(e.target.checked ? withOther('') : list.filter(x => !isOtherValue(x)))} /><span>Other</span></label>}
+        </div>
+        {other != null && <OtherText q={q} value={other} onChange={(v) => onChange(withOther(otherText(v)))} />}
+      </>)
     }
     case 'file': return <FileControl common={common} value={value} onChange={onChange} onUpload={onUpload} preview={preview} />
     case 'signature': return <SignatureControl value={value} onChange={onChange} labelId={common.id} />
     default: return <input {...common} type="text" value={value || ''} onChange={e => onChange(e.target.value)} autoComplete="off" />
   }
+}
+
+// FORM-OTHER-1: the text box under a chosen "Other"; the answer is "Other: <text>".
+function OtherText({ q, value, onChange }) {
+  return (
+    <input type="text" className="frm-other" aria-label={`${q.label}: other`} placeholder="Please specify" maxLength={200} autoComplete="off"
+      value={otherText(value)} onChange={e => onChange(otherValue(e.target.value))} />
+  )
 }
 
 function FileControl({ common, value, onChange, onUpload, preview }) {

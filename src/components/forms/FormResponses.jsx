@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { assignmentState, takesAnswer, answerText } from '../../lib/forms/formModel'
 import { completionStats, progressLabel } from '../../lib/catalog/catalogModel'
 import { formStaff, downloadCsv } from './formsApi'
+import FormSheet from './FormSheet'
 
 const WORD = { submitted: 'Submitted', overdue: 'Overdue', opened: 'Opened', sent: 'Not opened', closed: 'Closed', voided: 'Withdrawn' }
 const FILTERS = [['all', 'Everyone'], ['submitted', 'Submitted'], ['overdue', 'Overdue'], ['opened', 'Opened'], ['sent', 'Not opened'], ['closed', 'Closed']]
@@ -20,6 +21,7 @@ export default function FormResponses({ formId, notify, onBack, onEdit }) {
   const [picked, setPicked] = useState(() => new Set())
   const [open, setOpen] = useState(null)      // a submission being read
   const [busy, setBusy] = useState(false)
+  const [view, setView] = useState('people')   // FORM-SHEET-1: People (who and status) | Sheet (the answers)
 
   const load = useCallback(async () => {
     try { setData(await formStaff('assignments', { id: formId })); setError(null) } catch (e) { setError(e.message) }
@@ -70,6 +72,12 @@ export default function FormResponses({ formId, notify, onBack, onEdit }) {
         </div>
       </div>
 
+      <div className="fm-tabs fs-views" role="tablist" aria-label="View">
+        <button type="button" role="tab" aria-selected={view === 'people'} onClick={() => setView('people')}>People</button>
+        <button type="button" role="tab" aria-selected={view === 'sheet'} onClick={() => setView('sheet')}>Sheet</button>
+      </div>
+
+      {view === 'sheet' ? <FormSheet formId={form.id} notify={notify} onOpen={openAnswer} /> : (<>
       {rows.length > 0 && (
         <div className="fm-bar" role="img" aria-label={progressLabel('form', stats)}>
           {['done', 'overdue', 'opened', 'not_opened'].map(k => <i key={k} className={`fm-bar-${k}`} style={{ width: `${stats.total ? (stats[k] / stats.total) * 100 : 0}%` }} />)}
@@ -118,6 +126,7 @@ export default function FormResponses({ formId, notify, onBack, onEdit }) {
           </tbody>
         </table>
       </div>
+      </>)}
 
       {open && (
         <div className="fm-scrim" onMouseDown={() => setOpen(null)}>

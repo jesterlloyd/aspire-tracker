@@ -55,6 +55,7 @@
 .frm-opts { display: flex; flex-wrap: wrap; gap: 8px; }
 .frm-opt { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 8px 14px; border: 1.5px solid var(--frm-line); border-radius: var(--frm-r); cursor: pointer; background: #fff; }
 .frm-opt input { width: 18px; height: 18px; margin: 0; accent-color: var(--frm-navy); }
+.frm-other { margin-top: 8px; width: 100%; }
 .frm-opt.frm-on { border-color: var(--frm-navy); background: var(--frm-navy-soft); font-weight: 600; }
 
 .frm-file { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; }

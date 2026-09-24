@@ -521,3 +521,6 @@
 .ctl-sigopts .ctl-slot-row { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; }
 .ctl-slot-row .ctl-lab { grid-column: 1 / -1; }
 @media (max-width: 640px) { .ctl-sigopts .ctl-slot-row { grid-template-columns: 1fr; } }
+/* FORM-CATEGORY-1: + New category… in Build a form. */
+.ctl-newcat { display: flex; gap: 6px; margin-top: 6px; align-items: center; }
+.ctl-newcat input { flex: 1 1 auto; min-width: 0; }

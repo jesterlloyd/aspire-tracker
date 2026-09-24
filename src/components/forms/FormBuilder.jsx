@@ -248,7 +248,7 @@ export default function FormBuilder({ formId, notify, onBack, onResponses }) {
 
 function FakeControl({ q }) {
   if (q.type === 'section') return null
-  if (hasOptions(q)) return <span className="fm-opts">{(q.options || []).slice(0, 8).map(o => <span key={o}>{o}</span>)}</span>
+  if (hasOptions(q)) return <span className="fm-opts">{(q.options || []).slice(0, 8).map(o => <span key={o}>{o}</span>)}{q.allowOther && <span>Other…</span>}</span>
   if (q.type === 'signature') return <span className="fm-fake fm-sigbox">Signs here</span>
   if (q.type === 'paragraph') return <span className="fm-fake fm-tall">Long answer</span>
   if (q.type === 'date') return <span className="fm-fake">mm / dd / yyyy</span>
@@ -266,6 +266,10 @@ function QuestionProps({ q, set, remove, moveUp, moveDown, first, last }) {
       {hasOptions(q) && (
         <div className="fm-field"><label htmlFor="fm-qo">Options, one per line</label>
           <textarea id="fm-qo" rows={Math.min(8, Math.max(3, (q.options || []).length + 1))} value={(q.options || []).join('\n')} onChange={e => set({ options: e.target.value.split('\n') })} /></div>
+      )}
+      {hasOptions(q) && (
+        <label className="fm-tg"><span>Add an "Other" choice with a text box</span>
+          <input type="checkbox" checked={q.allowOther === true} onChange={e => set({ allowOther: e.target.checked || undefined })} /></label>
       )}
       {q.type === 'number' && (
         <div className="fm-two">
