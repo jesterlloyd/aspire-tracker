@@ -302,8 +302,52 @@ test('the tiles and the three side panels are gone; the page reads the model', (
   // The bookcase has no rows, so the detail panel carries the same ⋯ menu (Owner, 2026-09-23).
   assert.match(page, /menuItems=\{menuItems\} sigAllowed=\{features\.signatures\}/)
   assert.match(page, /const panelItems = menuItems\(row\)\.filter\(i => i\.key !== 'open' && i\.key !== 'dl'\)/)
-  // A removed file offers only Restore; the server refuses to open an inactive row.
-  assert.match(page, /if \(r\.is_active === false\) \{\s*return canManage && !r\.moved_to_record_document_id\s*\? \[\{ key: 'restore'/)
+  // Removed items can be restored or permanently deleted; moved profile files cannot be restored.
+  assert.match(page, /if \(r\.is_active === false\) \{[\s\S]*key: 'restore'[\s\S]*key: 'delete'/)
+  assert.match(page, /\/api\/catalog-resource-delete/)
+  assert.match(page, /\/api\/catalog-send-history/)
+})
+
+test('category and item deletion are Owner-only and dependency-safe', () => {
+  const categories = read('api/catalog-category-update.js')
+  const deletion = read('api/catalog-resource-delete.js')
+  const modal = read('src/components/catalog/CatalogModals.jsx')
+  assert.match(categories, /action === 'create' \|\| action === 'delete'/)
+  assert.match(categories, /Only the Owner can add or delete categories/)
+  assert.match(categories, /from\('catalog_resources'\).*count: 'exact'/s)
+  assert.match(deletion, /Only the Owner can permanently delete Catalog items/)
+  for (const dependency of ['catalog_forms', 'form_assignments', 'sig_templates', 'sig_requests']) assert.match(deletion, new RegExp(dependency))
+  assert.match(deletion, /moved_to_record_document_id/)
+  assert.match(deletion, /storage\.from\('aspire-catalog'\)\.remove/)
+  assert.match(modal, /Add category/)
+  assert.match(modal, /Confirm delete/)
+})
+
+test('the torn-paper history combines Outreach, forms and signatures', () => {
+  const endpoint = read('api/catalog-send-history.js')
+  const page = read('src/components/catalog/CatalogPage.jsx')
+  assert.match(endpoint, /from\('catalog_sends'\)/)
+  assert.match(endpoint, /from\('form_assignments'\)/)
+  assert.match(endpoint, /from\('sig_requests'\)/)
+  assert.match(endpoint, /channel: 'form_assignment'/)
+  assert.match(endpoint, /channel: 'signature_request'/)
+  assert.match(page, /s\.channel === 'form_assignment' \? 'Form'/)
+  assert.match(page, /loadSends\(\); setDialog\(null\); return/)
+})
+
+test('cleanup SQL is review-first and never deletes Storage metadata directly', () => {
+  for (const name of ['db/audit/catalog_removed_items_cleanup.sql', 'db/audit/catalog_jester_test_activity_cleanup.sql']) {
+    const sql = read(name)
+    assert.match(sql, /BEGIN;/)
+    assert.match(sql, /ROLLBACK;/)
+    assert.doesNotMatch(sql, /CREATE\s+TEMP(?:ORARY)?\s+TABLE/i)
+    assert.doesNotMatch(sql, /DELETE\s+FROM\s+storage\.objects/i)
+  }
+  const manifest = read('db/audit/catalog_cleanup_storage_manifest.sql')
+  const executableManifest = manifest.split('\n').filter(line => !line.trim().startsWith('--')).join('\n')
+  assert.doesNotMatch(executableManifest, /\b(?:INSERT|UPDATE|DELETE|TRUNCATE|ALTER)\b/i)
+  assert.match(manifest, /storage\.objects/)
+  assert.match(manifest, /jesterlloyd\.bautista@cshs\.org/)
 })
 
 test('the stylesheet keeps the canon: token radii, Classic as a class, dark by attribute, reduced motion', () => {

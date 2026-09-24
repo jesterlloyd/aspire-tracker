@@ -347,12 +347,19 @@
 .ctl-sendas svg { flex: none; color: var(--text-caption); }
 
 .ctl-catlist { display: grid; gap: 8px; }
+.ctl-catadd { margin-bottom: 12px; }
+.ctl-catadd-fields { display: grid; grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr) auto; gap: 10px; align-items: end; padding: 10px; border: 1px solid var(--color-border); border-radius: var(--aspire-radius-control); }
+.ctl-catadd-fields .ctl-field { margin: 0; }
 .ctl-catrow { display: flex; gap: 10px; align-items: center; padding: 8px 10px; background: var(--color-bg-hover); border-radius: var(--aspire-radius-control); }
 .ctl-catmove { display: grid; gap: 3px; flex: none; }
 .ctl-catfields { flex: 1; min-width: 0; display: grid; gap: 6px; }
 .ctl-catfields .ctl-catdesc { font-size: 12px; }
 .ctl-catslug { flex: none; display: grid; justify-items: end; gap: 2px; font-family: var(--aspire-mono); font-size: 10.5px; color: var(--text-caption); }
 .ctl-catslug em { font-style: normal; font-weight: 600; color: var(--aspire-warn); }
+.ctl-catslug small { font-family: var(--font-sans); }
+.ctl-catdelete { color: var(--aspire-bad); }
+.ctl-catdelete-confirm { display: flex; gap: 4px; }
+@media (max-width: 720px) { .ctl-catadd-fields { grid-template-columns: 1fr; } }
 .ctl-worklist { display: grid; gap: 8px; padding-top: 6px; border-top: 1px solid var(--color-border-default); }
 .ctl-workrow, .ctl-pf-row { display: grid; grid-template-columns: minmax(0, 1fr) 200px auto; gap: 10px; align-items: center; font-size: 13px; color: var(--text-heading); }
 .ctl-pf-list { display: grid; gap: 10px; }

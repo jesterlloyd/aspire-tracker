@@ -6,7 +6,7 @@
 // hidden), Upload new version, the Forms reassignment worklist, and the personal-file
 // review. Every dialog traps focus and closes on Escape (useModalFocus).
 import { useEffect, useId, useState } from 'react'
-import { X, ChevronUp, ChevronDown, UserRound } from 'lucide-react'
+import { X, ChevronUp, ChevronDown, UserRound, Plus, Trash2 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { AUDIENCES, audienceOf } from '../../lib/catalog/catalogModel'
 import useModalFocus from './useModalFocus'
@@ -202,20 +202,24 @@ export function EditResourceModal({ resource, categories, onClose, onSaved }) {
   )
 }
 
-// ── Remove ──────────────────────────────────────────────────────────────────────
-export function RemoveConfirmDialog({ resource, onCancel, onConfirm }) {
+// ── Permanent delete ────────────────────────────────────────────────────────────
+export function DeleteConfirmDialog({ resource, onCancel, onConfirm }) {
   const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState(null)
   return (
-    <Shell title="Remove from the Catalog?" onClose={onCancel} busy={busy}
+    <Shell title="Permanently delete from the Catalog?" onClose={onCancel} busy={busy}
       footer={<>
         <button type="button" className="ctl-btn" onClick={onCancel} disabled={busy} data-autofocus>Cancel</button>
         <button type="button" className="ctl-btn ctl-btn-danger" disabled={busy}
-          onClick={async () => { setBusy(true); try { await onConfirm() } finally { setBusy(false) } }}>
-          {busy ? 'Removing…' : 'Remove'}
+          onClick={async () => { setErr(null); setBusy(true); try { await onConfirm() } catch (e) { setErr(e.message) } finally { setBusy(false) } }}>
+          {busy ? 'Deleting…' : 'Delete permanently'}
         </button>
       </>}>
-      <p className="ctl-p"><b>{resource.title}</b> will be hidden from the Catalog. The file is not deleted, and this is
-        reversible: turn on <b>Show removed</b> to restore it.</p>
+      <p className="ctl-p"><b>{resource.title}</b> and its Catalog send log will be permanently deleted. A stored Catalog file is deleted too.</p>
+      {resource.moved_to_record_document_id
+        ? <p className="ctl-hint">The copy already moved to the student profile is preserved.</p>
+        : <p className="ctl-hint">This cannot be undone. Items used by a form, form assignment, signature template or signature request cannot be deleted.</p>}
+      <Err>{err}</Err>
     </Shell>
   )
 }
@@ -224,12 +228,16 @@ export function RemoveConfirmDialog({ resource, onCancel, onConfirm }) {
 // Rename and reorder, as CATALOG-3 built it. The reorder endpoint needs every stored slug,
 // so a retired category stays in this list (marked) and at the end. Below it, the items
 // still filed under a retired category, each with a category to move to.
-export function ManageCategoriesModal({ cats, rows, assignable, onClose, onSaved, onReassign }) {
+export function ManageCategoriesModal({ cats, rows, assignable, ownerActions, onClose, onSaved, onReassign }) {
   const [draft, setDraft] = useState(() => cats.map(c => ({
     slug: c.slug, display_name: c.display_name || '', description: c.description || '', retired: !!c.retired_at,
   })))
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState(null)
+  const [adding, setAdding] = useState(false)
+  const [newName, setNewName] = useState('')
+  const [newDescription, setNewDescription] = useState('')
+  const [confirmSlug, setConfirmSlug] = useState(null)
   const retired = new Set(cats.filter(c => c.retired_at).map(c => c.slug))
   const worklist = rows.filter(r => retired.has(r.category) && r.is_active !== false)
   const suggest = (r) => (assignable.some(c => c.key === 'student_onboarding') && /student|onboard|scrub|parking|consent|form|request/i.test(`${r.title} ${r.description || ''}`))
@@ -242,6 +250,28 @@ export function ManageCategoriesModal({ cats, rows, assignable, onClose, onSaved
     const next = draft.slice(); [next[i], next[j]] = [next[j], next[i]]; setDraft(next)
   }
   const setField = (i, f, v) => { const next = draft.slice(); next[i] = { ...next[i], [f]: v }; setDraft(next) }
+  const itemCount = (slug) => rows.filter(r => r.category === slug).length
+
+  async function addCategory() {
+    setErr(null)
+    if (!newName.trim()) { setErr('Category name is required.'); return }
+    setBusy(true)
+    try {
+      const { category } = await authedPost('/api/catalog-category-update', {
+        action: 'create', display_name: newName.trim(), description: newDescription.trim(),
+      })
+      setDraft(d => [...d, { slug: category.slug, display_name: category.display_name, description: category.description || '', retired: false }])
+      setNewName(''); setNewDescription(''); setAdding(false); onSaved()
+    } catch (e) { setErr(e.message) } finally { setBusy(false) }
+  }
+
+  async function deleteCategory(slug) {
+    setErr(null); setBusy(true)
+    try {
+      await authedPost('/api/catalog-category-update', { action: 'delete', slug, confirm: true })
+      setDraft(d => d.filter(c => c.slug !== slug)); setConfirmSlug(null); onSaved()
+    } catch (e) { setErr(e.message) } finally { setBusy(false) }
+  }
 
   async function save() {
     setErr(null)
@@ -264,12 +294,30 @@ export function ManageCategoriesModal({ cats, rows, assignable, onClose, onSaved
   }
 
   return (
-    <Shell wide title="Manage categories" sub="Rename and reorder. Category IDs stay fixed, so existing items and links keep working."
+    <Shell wide title="Manage categories" sub="Rename, reorder, add or delete empty categories. Existing category IDs stay fixed."
       onClose={onClose} busy={busy}
       footer={<>
         <button type="button" className="ctl-btn" onClick={onClose} disabled={busy}>Cancel</button>
         <button type="button" className="ctl-btn ctl-btn-pri" onClick={save} disabled={busy}>{busy ? 'Saving…' : 'Save categories'}</button>
       </>}>
+      {ownerActions && (
+        <div className="ctl-catadd">
+          {!adding ? (
+            <button type="button" className="ctl-btn ctl-btn-sm" onClick={() => setAdding(true)} disabled={busy}><Plus size={14} /> Add category</button>
+          ) : (
+            <div className="ctl-catadd-fields">
+              <div className="ctl-field"><label htmlFor="ctl-new-cat-name">Category name</label>
+                <input id="ctl-new-cat-name" data-autofocus value={newName} maxLength={200} onChange={e => setNewName(e.target.value)} /></div>
+              <div className="ctl-field"><label htmlFor="ctl-new-cat-desc">Description <span className="ctl-opt">(optional)</span></label>
+                <input id="ctl-new-cat-desc" value={newDescription} maxLength={500} onChange={e => setNewDescription(e.target.value)} /></div>
+              <span className="ctl-mf-acts">
+                <button type="button" className="ctl-btn ctl-btn-sm" onClick={() => { setAdding(false); setNewName(''); setNewDescription('') }} disabled={busy}>Cancel</button>
+                <button type="button" className="ctl-btn ctl-btn-sm ctl-btn-pri" onClick={addCategory} disabled={busy}>{busy ? 'Adding…' : 'Add'}</button>
+              </span>
+            </div>
+          )}
+        </div>
+      )}
       <div className="ctl-catlist">
         {draft.map((d, i) => (
           <div key={d.slug} className="ctl-catrow">
@@ -281,7 +329,20 @@ export function ManageCategoriesModal({ cats, rows, assignable, onClose, onSaved
               <input value={d.display_name} onChange={e => setField(i, 'display_name', e.target.value)} aria-label={`Display name for ${d.slug}`} />
               <input value={d.description} onChange={e => setField(i, 'description', e.target.value)} aria-label={`Description for ${d.slug}`} placeholder="Description (optional)" className="ctl-catdesc" />
             </div>
-            <span className="ctl-catslug">{d.slug}{d.retired && <em>Retired</em>}</span>
+            <span className="ctl-catslug">
+              <span>{d.slug}</span>{d.retired && <em>Retired</em>}
+              {ownerActions && (confirmSlug === d.slug ? (
+                <span className="ctl-catdelete-confirm">
+                  <button type="button" className="ctl-btn ctl-btn-sm" onClick={() => setConfirmSlug(null)} disabled={busy}>Cancel</button>
+                  <button type="button" className="ctl-btn ctl-btn-sm ctl-btn-danger" onClick={() => deleteCategory(d.slug)} disabled={busy || itemCount(d.slug) > 0}>Confirm delete</button>
+                </span>
+              ) : (
+                <button type="button" className="ctl-icon-btn ctl-icon-sm ctl-catdelete" aria-label={`Delete ${d.display_name}`}
+                  title={itemCount(d.slug) > 0 ? `${itemCount(d.slug)} Catalog item${itemCount(d.slug) === 1 ? '' : 's'} must be moved or deleted first` : `Delete ${d.display_name}`}
+                  disabled={busy || itemCount(d.slug) > 0} onClick={() => setConfirmSlug(d.slug)}><Trash2 size={14} /></button>
+              ))}
+              {ownerActions && itemCount(d.slug) > 0 && <small>{itemCount(d.slug)} {itemCount(d.slug) === 1 ? 'item' : 'items'}</small>}
+            </span>
           </div>
         ))}
       </div>

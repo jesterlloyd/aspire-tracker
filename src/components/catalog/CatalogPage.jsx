@@ -34,7 +34,7 @@ import {
 } from '../../lib/catalog/catalogModel'
 import CatalogSendModal from './CatalogSendModal'
 import {
-  AddResourceModal, NewVersionModal, EditResourceModal, RemoveConfirmDialog, ManageCategoriesModal,
+  AddResourceModal, NewVersionModal, EditResourceModal, DeleteConfirmDialog, ManageCategoriesModal,
   PersonalFilesModal,
 } from './CatalogModals'
 import { authedPost } from './catalogApi'
@@ -144,12 +144,13 @@ export default function CatalogPage({
 
   const loadSends = useCallback(async () => {
     if (!canManage) return
-    const res = await supabase.from('catalog_sends')
-      .select('id, resource_id, resource_version, sent_at, audience_labels, sent_count, failed_count, skipped_count, channel')
-      .order('sent_at', { ascending: false }).limit(1000)
-    if (notEnabled(res.error)) { setSendsEnabled(false); setSends([]); return }
-    setSendsEnabled(true)
-    setSends(res.data || [])
+    try {
+      const data = await authedPost('/api/catalog-send-history')
+      setSendsEnabled(data.enabled !== false)
+      setSends(data.history || [])
+    } catch {
+      setSendsEnabled(false); setSends([])
+    }
   }, [canManage])
 
   const loadPersonal = useCallback(async () => {
@@ -273,12 +274,14 @@ export default function CatalogPage({
   const menuItems = useCallback((r) => {
     const ext = r.resource_type === 'external_link'
     const sig = kindOf(r) === 'signature' || kindOf(r) === 'form'   // neither is a file to open or download
-    // A removed file cannot be opened, downloaded or linked to (the server refuses an
-    // inactive row), so its menu offers only Restore; a file moved to a record, nothing.
+    // Removed items can be restored or permanently deleted. A file moved to a student
+    // record cannot be restored, but its obsolete Catalog row can be deleted safely.
     if (r.is_active === false) {
-      return canManage && !r.moved_to_record_document_id
-        ? [{ key: 'restore', label: 'Restore', onSelect: () => runUpdate(r.id, { is_active: true }, 'Restored to the Catalog.') }]
-        : []
+      if (!canManage) return []
+      return [
+        ...(!r.moved_to_record_document_id ? [{ key: 'restore', label: 'Restore', onSelect: () => runUpdate(r.id, { is_active: true }, 'Restored to the Catalog.') }] : []),
+        ...(isOwner ? [{ key: 'delete', label: 'Delete permanently', danger: true, onSelect: () => setDialog({ type: 'delete', row: r }) }] : []),
+      ]
     }
     const items = [
       ...(sig ? [] : [{ key: 'open', label: ext ? 'Open link' : 'Open', onSelect: () => accessResource(r, 'open') }]),
@@ -293,9 +296,9 @@ export default function CatalogPage({
       ...(features.signatures && !sig && !ext && isPdfFile(r) ? [{ key: 'sigtpl', label: 'Make a signature template', onSelect: () => sigLink(`?tab=prepare&from=${encodeURIComponent(r.id)}`) }] : []),
       ...(ext || sig ? [] : [{ key: 'ver', label: 'Upload new version', disabled: !phase1, onSelect: () => setDialog({ type: 'version', row: r }) }]),
       { key: 'pin', label: r.is_pinned ? 'Unpin' : 'Pin to top', onSelect: () => runUpdate(r.id, { is_pinned: !r.is_pinned }, r.is_pinned ? 'Unpinned.' : 'Pinned to the top.') },
-      { key: 'remove', label: 'Remove', danger: true, onSelect: () => setDialog({ type: 'remove', row: r }) },
+      ...(isOwner ? [{ key: 'delete', label: 'Delete permanently', danger: true, onSelect: () => setDialog({ type: 'delete', row: r }) }] : []),
     ]
-  }, [accessResource, copyLink, canManage, runUpdate, phase1, features.signatures, sigLink])
+  }, [accessResource, copyLink, canManage, isOwner, runUpdate, phase1, features.signatures, sigLink])
 
   const openSend = useCallback((r) => { if (canManage) setDialog({ type: 'send', row: r }) }, [canManage])
 
@@ -478,11 +481,11 @@ export default function CatalogPage({
             if (form) {
               say(failed?.length ? 'err' : 'ok', `Form sent to ${sent} ${sent === 1 ? 'person' : 'people'}.${failed?.length ? ` The mail service did not accept ${failed.length}: ${failed.slice(0, 3).join(', ')}${failed.length > 3 ? '…' : ''}.` : ''} Track them on its Responses.`)
               formStaff('tracker').then(r => setTrackRows(r.rows || [])).catch(() => {})
-              setDialog(null); return
+              loadSends(); setDialog(null); return
             }
             if (signature) {
               say('ok', `Sent for signature: ${requests} ${requests === 1 ? 'request' : 'requests'} to ${sent} ${sent === 1 ? 'person' : 'people'}. Track them in Signature requests.`)
-              setDialog(null); return
+              loadSends(); setDialog(null); return
             }
             const note = log.includes('not_enabled') ? ' The send log starts once the Catalog update is applied.' : ' Logged on the item.'
             say('ok', `Sent to ${sent} ${sent === 1 ? 'person' : 'people'}.${note}`)
@@ -507,12 +510,16 @@ export default function CatalogPage({
         <EditResourceModal resource={dialog.row} categories={assignableCats} onClose={() => setDialog(null)}
           onSaved={async (patch) => { const ok = await runUpdate(dialog.row.id, patch, 'Details saved.'); if (ok) setDialog(null); return ok }} />
       )}
-      {dialog?.type === 'remove' && (
-        <RemoveConfirmDialog resource={dialog.row} onCancel={() => setDialog(null)}
-          onConfirm={async () => { const ok = await runUpdate(dialog.row.id, { is_active: false }, 'Removed. Turn on Show removed to restore it.'); if (ok) { setDialog(null); setSelectedId('') } }} />
+      {dialog?.type === 'delete' && (
+        <DeleteConfirmDialog resource={dialog.row} onCancel={() => setDialog(null)}
+          onConfirm={async () => {
+            const result = await authedPost('/api/catalog-resource-delete', { id: dialog.row.id, confirm: true })
+            setDialog(null); setSelectedId(''); await Promise.all([load(), loadSends()])
+            say(result.cleanup_warning ? 'err' : 'ok', result.cleanup_warning || 'Catalog item permanently deleted.')
+          }} />
       )}
       {dialog?.type === 'cats' && (
-        <ManageCategoriesModal cats={cats} rows={rows} assignable={assignableCats} onClose={() => setDialog(null)}
+        <ManageCategoriesModal cats={cats} rows={rows} assignable={assignableCats} ownerActions={isOwner} onClose={() => setDialog(null)}
           onSaved={() => { loadCats(); say('ok', 'Categories saved.') }}
           onReassign={(r, slug) => runUpdate(r.id, { category: slug }, `${r.title} moved to ${catLabel(slug)}.`)} />
       )}
@@ -826,7 +833,7 @@ function SendHistory({ sends, enabled, current }) {
               <tr key={s.id}>
                 <td className="ctl-route-d"><span>{fmtShortDate(s.sent_at)}</span></td>
                 <td>{issued(s)}{s.resource_version !== current ? ` (v${s.resource_version})` : ''}</td>
-                <td className="ctl-route-v">Outreach</td>
+                <td className="ctl-route-v">{s.channel === 'form_assignment' ? 'Form' : s.channel === 'signature_request' ? 'Signature' : 'Outreach'}</td>
               </tr>
             ))}
           </tbody>

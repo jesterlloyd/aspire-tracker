@@ -7,9 +7,10 @@
 // drift from each other.
 
 import { createClient } from '@supabase/supabase-js'
+import process from 'node:process'
 import { isActiveProfile, INACTIVE_STATUS, INACTIVE_REASON, INACTIVE_MESSAGE } from './activeAccount.js'
 
-/** Resolves to { ok: true, profileId } or { ok: false, status, body }. */
+/** Resolves to the active Owner/Admin profile or { ok: false, status, body }. */
 export async function verifyOwnerAdmin(req, admin) {
   const header = req.headers?.authorization || req.headers?.Authorization || ''
   const token = String(header).replace(/^Bearer\s+/i, '').trim()
@@ -36,5 +37,10 @@ export async function verifyOwnerAdmin(req, admin) {
   if (!isActiveProfile(profile)) return { ok: false, status: INACTIVE_STATUS, body: { error: 'Forbidden', reason: INACTIVE_REASON, message: INACTIVE_MESSAGE } }
   const ownerAdmin = profile.is_owner === true || profile.role === 'owner' || profile.role === 'admin'
   if (!ownerAdmin) return { ok: false, status: 403, body: { error: 'Forbidden' } }
-  return { ok: true, profileId: profile.id }
+  return {
+    ok: true,
+    profileId: profile.id,
+    role: profile.role || '',
+    isOwner: profile.is_owner === true || profile.role === 'owner',
+  }
 }
