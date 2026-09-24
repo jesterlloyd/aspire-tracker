@@ -15,7 +15,7 @@ import Underline from '@tiptap/extension-underline'
 import Link from '@tiptap/extension-link'
 import { Bold, Italic, Underline as UnderlineIcon, List, ListOrdered, Link as LinkIcon, Unlink, RemoveFormatting, Minus, Plus, MousePointerClick, StickyNote, CalendarDays } from 'lucide-react'
 import { DividerBlock } from './blocks/DividerBlock'
-import { ButtonBlock } from './blocks/ButtonBlock'
+import { ButtonBlock, buttonAttrs } from './blocks/ButtonBlock'
 import ButtonModal from './blocks/ButtonModal'
 import { NoteBlock } from './blocks/NoteBlock'
 import NoteModal from './blocks/NoteModal'
@@ -64,7 +64,7 @@ export default function RichTextEditor({ html = '', richDocRef = null, onChange,
   const [linkError, setLinkError] = useState('')
   const [insertOpen, setInsertOpen] = useState(false)
   // Button block modal (shared for insert + edit). pos is the node position when editing.
-  const [buttonModal, setButtonModal] = useState({ open: false, mode: 'insert', pos: null, label: '', url: '' })
+  const [buttonModal, setButtonModal] = useState({ open: false, mode: 'insert', pos: null, attrs: {} })
   // Note block modal (shared for insert + edit).
   const [noteModal, setNoteModal] = useState({ open: false, mode: 'insert', pos: null, title: '', body: '' })
   // Event Details block modal (shared for insert + edit).
@@ -107,7 +107,7 @@ export default function RichTextEditor({ html = '', richDocRef = null, onChange,
     onCreate: ({ editor }) => {
       if (editor.storage.aspireButton) {
         editor.storage.aspireButton.requestEdit = (pos, attrs) =>
-          setButtonModal({ open: true, mode: 'edit', pos, label: attrs.label || '', url: attrs.url || '' })
+          setButtonModal({ open: true, mode: 'edit', pos, attrs: { ...attrs } })
       }
       if (editor.storage.aspireNote) {
         // `mailto` is carried through the modal untouched. It is template-owned
@@ -151,12 +151,14 @@ export default function RichTextEditor({ html = '', richDocRef = null, onChange,
     if (editor) editor.setEditable(!disabled)
   }, [disabled, editor])
 
-  const handleButtonSave = useCallback(({ label, url }) => {
+  const handleButtonSave = useCallback((saved) => {
     if (!editor) return
+    // setNodeMarkup replaces the whole attribute set, so every attribute goes through buttonAttrs.
+    const attrs = buttonAttrs(saved)
     if (buttonModal.mode === 'edit' && buttonModal.pos != null) {
-      editor.chain().focus().command(({ tr }) => { tr.setNodeMarkup(buttonModal.pos, undefined, { label, url }); return true }).run()
+      editor.chain().focus().command(({ tr }) => { tr.setNodeMarkup(buttonModal.pos, undefined, attrs); return true }).run()
     } else {
-      editor.chain().focus().insertAspireButton({ label, url }).run()
+      editor.chain().focus().insertAspireButton(attrs).run()
     }
     setButtonModal(m => ({ ...m, open: false }))
   }, [editor, buttonModal.mode, buttonModal.pos])
@@ -274,7 +276,7 @@ export default function RichTextEditor({ html = '', richDocRef = null, onChange,
               <button
                 type="button"
                 role="menuitem"
-                onClick={() => { setInsertOpen(false); setButtonModal({ open: true, mode: 'insert', pos: null, label: '', url: '' }) }}
+                onClick={() => { setInsertOpen(false); setButtonModal({ open: true, mode: 'insert', pos: null, attrs: {} }) }}
                 style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', minHeight: 36, padding: '0 10px', background: 'none', border: 'none', borderRadius: 6, cursor: 'pointer', fontFamily: F, fontSize: 12.5, fontWeight: 600, color: '#374151', textAlign: 'left' }}
               ><MousePointerClick size={15} /> Button</button>
               <button
@@ -319,8 +321,7 @@ export default function RichTextEditor({ html = '', richDocRef = null, onChange,
         key={buttonModal.open ? `${buttonModal.mode}:${buttonModal.pos ?? 'new'}` : 'closed'}
         open={buttonModal.open}
         mode={buttonModal.mode}
-        initialLabel={buttonModal.label}
-        initialUrl={buttonModal.url}
+        initial={buttonModal.attrs}
         onSave={handleButtonSave}
         onCancel={() => setButtonModal(m => ({ ...m, open: false }))}
       />

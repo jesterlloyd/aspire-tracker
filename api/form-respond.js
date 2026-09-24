@@ -8,6 +8,7 @@
 //   state   -> the form to answer (with ASPIRE's answers filled in), or done / closed
 //   upload  -> { path, token } a signed upload for a File upload question (10 MB)
 //   submit  -> { submittedAt, pdf } validates, files the PDF, marks the request done
+//   copy    -> { pdf, fileName } the respondent's filed copy again, once submitted
 
 import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js'
 import { createMailer } from '../lib/server/email/mailer.js'
@@ -15,7 +16,7 @@ import { appBaseUrl } from '../lib/server/appUrl.js'
 import { consumePublicRateLimit, TOO_MANY_REQUESTS } from './lib/publicRateLimit.js'
 import { clientContext } from '../lib/server/signatures/tokens.js'
 import { FORM_TOKEN_PATTERN } from '../lib/server/forms/tokens.js'
-import { FormError, resolveLink, respondentState, uploadSlot, submit } from '../lib/server/forms/engine.js'
+import { FormError, resolveLink, respondentState, respondentCopy, uploadSlot, submit } from '../lib/server/forms/engine.js'
 
 const LIMITS = [
   { prefix: 'form-respond-min', windowSeconds: 60, maxPerWindow: 40 },
@@ -35,6 +36,7 @@ export default async function handler(req, res) {
       case 'state': return res.status(200).json(await respondentState(db, link))
       case 'upload': return res.status(200).json(await uploadSlot(db, link.assignment, { name: body.name, size: body.size }))
       case 'submit': return res.status(200).json(await submit(db, { ...link, answers: body.answers, ctx: clientContext(req) }, { mailer: createMailer(), appUrl: appBaseUrl() }))
+      case 'copy': return res.status(200).json(await respondentCopy(db, link))
       default: throw new FormError('invalid', 'Unknown action.')
     }
   } catch (err) {

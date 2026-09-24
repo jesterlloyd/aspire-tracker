@@ -16,8 +16,7 @@
 }
 .sgn * { box-sizing: border-box; }
 .sgn :focus-visible { outline: 3px solid var(--sgn-navy); outline-offset: 2px; }
-.sgn-brand { display: flex; gap: 8px; align-items: center; padding: 14px 16px; font-weight: 700; font-size: 15px; }
-.sgn-brand i { width: 28px; height: 28px; display: grid; place-items: center; border-radius: var(--aspire-radius-control, 10px); background: var(--sgn-navy); color: #fff; font-style: normal; font-size: 13px; }
+.sgn-brand { padding: 14px 16px; }
 .sgn-brand small { margin-left: auto; font-weight: 500; color: var(--sgn-muted); font-size: 13px; }
 .sgn-body { max-width: 760px; margin: 0 auto; padding: 0 16px 120px; display: grid; gap: 12px; }
 .sgn-card { background: var(--sgn-surface); border: 1px solid var(--sgn-line); border-radius: var(--aspire-radius-card, 12px); padding: 18px; display: grid; gap: 12px; }

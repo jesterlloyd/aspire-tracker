@@ -14,6 +14,11 @@ import { Node, mergeAttributes } from '@tiptap/core'
 import { ReactNodeViewRenderer } from '@tiptap/react'
 import { ButtonNodeView } from './ButtonNodeView'
 
+/** The attributes a button carries: a web address, or a Catalog form (OUTREACH-FORM-BUTTON-1). */
+export const buttonAttrs = (a = {}) => a.form
+  ? { label: a.label || '', url: '', form: a.form, formTitle: a.formTitle || '', due: a.due || '', reminders: a.reminders || '' }
+  : { label: a.label || '', url: a.url || '', form: '', formTitle: '', due: '', reminders: '' }
+
 export const ButtonBlock = Node.create({
   name: 'aspireButton',
   group: 'block',
@@ -38,6 +43,28 @@ export const ButtonBlock = Node.create({
         parseHTML: el => el.getAttribute('data-url') || '',
         renderHTML: attrs => ({ 'data-url': attrs.url || '' }),
       },
+      // OUTREACH-FORM-BUTTON-1: a button that opens a Catalog form names the FORM; the send path
+      // puts each recipient's own link in data-url (lib/server/forms/outreachButtons.js).
+      form: {
+        default: '',
+        parseHTML: el => el.getAttribute('data-form') || '',
+        renderHTML: attrs => (attrs.form ? { 'data-form': attrs.form } : {}),
+      },
+      formTitle: {
+        default: '',
+        parseHTML: el => el.getAttribute('data-form-title') || '',
+        renderHTML: attrs => (attrs.form && attrs.formTitle ? { 'data-form-title': attrs.formTitle } : {}),
+      },
+      due: {
+        default: '',
+        parseHTML: el => el.getAttribute('data-due') || '',
+        renderHTML: attrs => (attrs.form && attrs.due ? { 'data-due': attrs.due } : {}),
+      },
+      reminders: {
+        default: '',
+        parseHTML: el => el.getAttribute('data-reminders') || '',
+        renderHTML: attrs => (attrs.form && attrs.reminders ? { 'data-reminders': attrs.reminders } : {}),
+      },
     }
   },
 
@@ -58,7 +85,7 @@ export const ButtonBlock = Node.create({
       insertAspireButton:
         (attrs) =>
         ({ commands }) =>
-          commands.insertContent({ type: this.name, attrs: { label: attrs?.label || '', url: attrs?.url || '' } }),
+          commands.insertContent({ type: this.name, attrs: buttonAttrs(attrs) }),
     }
   },
 })

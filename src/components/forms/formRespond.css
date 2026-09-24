@@ -12,8 +12,7 @@
   font-family: var(--aspire-sans, system-ui, sans-serif); font-size: 15.5px; line-height: 1.5;
 }
 .frm *, .frm-sheet * { box-sizing: border-box; }
-.frm-brand { display: flex; gap: 8px; align-items: center; padding: 14px 16px; font-weight: 700; font-size: 15px; color: var(--frm-ink); }
-.frm-brand i { width: 28px; height: 28px; display: grid; place-items: center; border-radius: var(--frm-r); background: var(--frm-navy); color: #fff; font-style: normal; font-size: 13px; }
+.frm-brand { padding: 14px 16px; }
 .frm-main { max-width: 680px; margin: 0 auto; padding: 0 16px 64px; display: grid; gap: 12px; }
 
 .frm-sheet {
@@ -89,5 +88,7 @@
 .frm-done { background: #fff; border-radius: var(--aspire-radius-card, 12px); padding: 28px 20px; text-align: center; display: grid; gap: 10px; justify-items: center; }
 .frm-done h1 { margin: 0; font-size: 22px; }
 .frm-done p { margin: 0; color: var(--frm-muted); max-width: 46ch; }
+.frm-copy { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 4px; }
+.frm-done .frm-copy-note { font-size: 13px; }
 .frm-tick { width: 56px; height: 56px; display: grid; place-items: center; border-radius: 50%; background: var(--frm-green-soft); color: var(--frm-green); font-size: 28px; font-weight: 700; }
 @media (prefers-reduced-motion: reduce) { .frm * { scroll-behavior: auto !important; } }

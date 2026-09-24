@@ -17,7 +17,7 @@ export function ButtonNodeView({ node, editor, getPos, deleteNode, selected }) {
   const openEdit = () => {
     const bridge = editor?.storage?.aspireButton
     if (bridge && typeof bridge.requestEdit === 'function') {
-      bridge.requestEdit(getPos(), { label: node.attrs.label || '', url: node.attrs.url || '' })
+      bridge.requestEdit(getPos(), { ...node.attrs })
     }
   }
 
@@ -45,6 +45,11 @@ export function ButtonNodeView({ node, editor, getPos, deleteNode, selected }) {
           maxWidth: 360, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         }}
       >{label}</span>
+      {node.attrs.form && (
+        <span style={{ fontFamily: F, fontSize: 12, color: '#4b5563' }}>
+          Opens {node.attrs.formTitle || 'a Catalog form'}: each person gets their own link{node.attrs.due ? `, due ${new Date(`${node.attrs.due}T12:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}` : ''}
+        </span>
+      )}
       <button
         type="button"
         onClick={openEdit}

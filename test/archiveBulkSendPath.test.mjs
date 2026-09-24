@@ -37,7 +37,10 @@ test('per-recipient personalization is preserved', () => {
   // mergedBody/mergedSubject are computed per iteration from that recipient's
   // merge context, and `html` is built from mergedBody, so the archived body is
   // that recipient's copy rather than the template.
-  assert.match(code, /const mergedBody\s*=\s*applyMergeFields\(bodyRaw\.trim\(\), bodyMergeCtx\)/)
+  // OUTREACH-FORM-BUTTON-1: mergedBody is `let`, because a form button then puts THIS
+  // recipient's own form link into it; it is still computed per iteration.
+  assert.match(code, /(?:const|let) mergedBody\s*=\s*applyMergeFields\(bodyRaw\.trim\(\), bodyMergeCtx\)/)
+  assert.match(code, /mergedBody = personal\.html;/)
   assert.match(code, /body:\s*mergedBody,/)
 })
 

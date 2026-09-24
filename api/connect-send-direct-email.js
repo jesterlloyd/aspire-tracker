@@ -53,6 +53,8 @@ import { verifyPlacementSend } from './lib/placementSendGuard.js';
 import { JESTER_SIGNATURE, KRYSTAL_SIGNATURE } from '../src/lib/notifications/templates/signatures.js';
 import { INACTIVE_MESSAGE } from './lib/activeAccount.js';
 import { getOrganizationSettings, organizationAssetUrl } from '../lib/server/organizationSettings.js';
+import { randomUUID } from 'node:crypto';
+import { prepareFormButtons, previewFormButtons, personalizeFormButtons, hasFormButtons, settleFormButtons, isDemoSend } from '../lib/server/forms/outreachButtons.js';
 
 // Templates a send may declare by key. The marker never changes the body; it
 // records WHICH template this was. Empty since RESIDENCY-REFLECTION-1 retired
@@ -415,9 +417,23 @@ async function _handler(req, res, startMs) {
     return res.status(400).json({ success: false, error: `Invalid CC email: ${ccResult.invalid[0]}` });
   }
 
+  // ── 4c. Form buttons (OUTREACH-FORM-BUTTON-1). A form button is a PERSONAL link, so it is
+  // checked here, previewed with the form's bare address, and made the recipient's own link
+  // only in SEND mode below. A CC would hand the recipient's link to someone else: refused.
+  let formButtonForms = null;
+  let bodyToRender = trimmedBody;
+  if (hasFormButtons(trimmedBody)) {
+    try { formButtonForms = await prepareFormButtons(supabaseAdmin, trimmedBody); }
+    catch (e) { return res.status(e.status || 400).json({ success: false, error: e.message }); }
+    if (ccList.length) {
+      return res.status(400).json({ success: false, error: 'A form button opens this recipient\'s own form, so it cannot be sent with CC. Remove the CC, or send the others their own email.' });
+    }
+    bodyToRender = await previewFormButtons(trimmedBody);
+  }
+
   // ── 5. Build email HTML (same renderer + same resolved signature for preview AND send) ──
-  const { html } = buildDirectMessageEmail({
-    body:             trimmedBody,
+  let { html } = buildDirectMessageEmail({
+    body:             bodyToRender,
     bodyFormat:       resolvedBodyFormat,
     includeSignature: resolvedIncludeSignature,
     signature:        senderSig.signature,
@@ -489,6 +505,23 @@ async function _handler(req, res, startMs) {
     placementMeta = verdict.metadata;
   }
 
+  // ── 5e. This recipient's own form links (OUTREACH-FORM-BUTTON-1), then the final HTML.
+  let formRows = [];
+  if (formButtonForms && formButtonForms.size) {
+    try {
+      const personal = await personalizeFormButtons(supabaseAdmin, trimmedBody, {
+        forms: formButtonForms, batchId: randomUUID(), subject: trimmedSubject, sender: profile, isDemo: isDemoSend(req),
+        person: { name: recipientName || recipientEmail, email: recipientEmail, studentId: recipientType === 'student' ? recipientId : null, contactId: recipientType === 'contact' ? recipientId : null },
+      });
+      formRows = personal.created;
+      ({ html } = buildDirectMessageEmail({
+        body: personal.html, bodyFormat: resolvedBodyFormat, includeSignature: resolvedIncludeSignature, signature: senderSig.signature, organization,
+      }));
+    } catch (e) {
+      return res.status(e.status || 500).json({ success: false, error: e.message || 'Could not make the form link.' });
+    }
+  }
+
   // ── 6. Send via Resend ────────────────────────────────────────────────────────
   const resend = createMailer();
 
@@ -525,6 +558,7 @@ async function _handler(req, res, startMs) {
     console.error('[connect-send-direct] failed:', { recipient_type: recipientType, recipient_id: recipientId, error: sendError });
   }
 
+  await settleFormButtons(supabaseAdmin, formRows, !sendError);
   if (sendError) {
     const durationMs = Date.now() - startMs;
     console.log('[connect-send-direct] complete:', { recipient_type: recipientType, recipient_id: recipientId, duration_ms: durationMs, status: 'failed' });

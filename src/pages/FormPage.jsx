@@ -6,6 +6,7 @@
 // this browser only, keyed to the link, so closing the tab does not lose the answers.
 import { useEffect, useMemo, useState } from 'react'
 import FormRenderer from '../components/forms/FormRenderer'
+import PublicBrand from '../components/shared/PublicBrand'
 import '../components/forms/formRespond.css'
 
 const PATTERN = /^[A-Za-z0-9_-]{43}$/
@@ -45,7 +46,44 @@ export default function FormPage() {
     return { path: slot.path, name: slot.name, size: file.size }
   }
   const submit = async (answers) => setDone(await call(token, 'submit', { answers }))
-  const copyUrl = useMemo(() => done?.pdf ? URL.createObjectURL(new Blob([Uint8Array.from(atob(done.pdf), c => c.charCodeAt(0))], { type: 'application/pdf' })) : null, [done])
+  const title = state?.title || state?.definition?.title || 'Form'
+  // OUTREACH-FORM-BUTTON-1: the filed copy is the one just returned, or, when the link is opened
+  // again later, fetched on demand from the same link.
+  const [fetched, setFetched] = useState(null)   // { pdf, fileName }
+  const [copyError, setCopyError] = useState(null)
+  const pdf = done?.pdf || fetched?.pdf || null
+  const copyUrl = useMemo(() => pdf ? URL.createObjectURL(new Blob([Uint8Array.from(atob(pdf), c => c.charCodeAt(0))], { type: 'application/pdf' })) : null, [pdf])
+  const fileName = fetched?.fileName || `${title.replace(/[^\w .-]+/g, '').slice(0, 80) || 'Form'}.pdf`
+  const canCopy = !!(done?.pdf || state?.copy)
+  const ensureCopy = async () => {
+    if (copyUrl) return copyUrl
+    setCopyError(null)
+    try {
+      const r = await call(token, 'copy')
+      setFetched(r)
+      return URL.createObjectURL(new Blob([Uint8Array.from(atob(r.pdf), c => c.charCodeAt(0))], { type: 'application/pdf' }))
+    } catch (e) { setCopyError(e.message); return null }
+  }
+  const download = async () => {
+    const url = await ensureCopy()
+    if (!url) return
+    const a = document.createElement('a'); a.href = url; a.download = fileName; document.body.appendChild(a); a.click(); a.remove()
+  }
+  // Print from a hidden frame where the browser allows it; a phone opens the PDF instead, and
+  // its own share sheet prints it.
+  const print = async () => {
+    const url = await ensureCopy()
+    if (!url) return
+    if (window.matchMedia?.('(pointer: coarse)').matches) { window.open(url, '_blank', 'noopener'); return }
+    const frame = document.createElement('iframe')
+    frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden'
+    frame.src = url
+    frame.onload = () => {
+      try { frame.contentWindow.focus(); frame.contentWindow.print() } catch { window.open(url, '_blank', 'noopener') }
+      setTimeout(() => frame.remove(), 60000)
+    }
+    document.body.appendChild(frame)
+  }
 
   let body
   if (!token) body = <Note title="This link is not complete">Open the most recent email about this form and use its Open the form button.</Note>
@@ -56,8 +94,15 @@ export default function FormPage() {
       <div className="frm-done" role="status">
         <span className="frm-tick" aria-hidden="true">✓</span>
         <h1>Thank you. Your answers are in.</h1>
-        <p>{state.title || state.definition?.title} was submitted{(done?.submittedAt || state.submittedAt) ? ` on ${new Date(done?.submittedAt || state.submittedAt).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}` : ''}. You can close this page.</p>
-        {copyUrl && <a className="frm-btn" href={copyUrl} target="_blank" rel="noopener">Open your copy (PDF)</a>}
+        <p>{state.title || state.definition?.title} was submitted{(done?.submittedAt || state.submittedAt) ? ` on ${new Date(done?.submittedAt || state.submittedAt).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}` : ''}. </p>
+        {canCopy && (
+          <div className="frm-copy">
+            <button type="button" className="frm-btn frm-pri" onClick={download}>Download your copy</button>
+            <button type="button" className="frm-btn" onClick={print}>Print</button>
+          </div>
+        )}
+        {canCopy && <p className="frm-copy-note">Open this link again any time to get your copy.</p>}
+        {copyError && <p className="frm-copy-note" role="alert">{copyError}</p>}
       </div>
     )
   } else if (state.state === 'closed') body = <Note title={`${state.title} is closed`}>{state.message}</Note>
@@ -68,7 +113,7 @@ export default function FormPage() {
 
   return (
     <div className="frm">
-      <div className="frm-brand"><i aria-hidden="true">A</i>ASPIRE Intelligence</div>
+      <PublicBrand className="frm-brand" />
       <main className="frm-main">{body}</main>
     </div>
   )

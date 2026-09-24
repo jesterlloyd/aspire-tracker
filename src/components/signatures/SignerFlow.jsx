@@ -10,6 +10,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { unmetRequirements, fieldLabel, fieldType, checkRule, initialsOf, formatInZone, isAutoField, autoFieldValue } from '../../lib/signatures/sigModel'
 import PdfPages from './PdfPages'
+import PublicBrand from '../shared/PublicBrand'
 import './signerFlow.css'
 
 const byPos = (a, b) => (a.page - b.page) || (a.y - b.y) || (a.x - b.x)
@@ -48,7 +49,7 @@ export default function SignerFlow({ api, preview = false }) {
 function Shell({ children, sender }) {
   return (
     <div className="sgn">
-      <header className="sgn-brand"><i aria-hidden="true">A</i>ASPIRE Intelligence{sender ? <small>from {sender}</small> : null}</header>
+      <PublicBrand className="sgn-brand">{sender ? <small>from {sender}</small> : null}</PublicBrand>
       <main className="sgn-body">{children}</main>
     </div>
   )

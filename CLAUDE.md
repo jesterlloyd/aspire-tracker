@@ -1254,6 +1254,20 @@ the Parking form follows Parking Services' own form (received 2026-09-24).
   white patch in the content under the Department answer. ScrubEx has NO redrawn copy
   (`needsPaper`): without their PDF on file, the plain PDF. `layouts/extraAnswers.js` is the one
   second-page list both layouts use.
+- **An Outreach button can open a form** (OUTREACH-FORM-BUTTON-1, 2026-09-24). The Button dialog
+  offers "A Catalog form" beside "A web address". The button marker stores the FORM
+  (`data-form`, plus an optional `data-due` and `data-reminders`), never a link, because every
+  form link is personal. `lib/server/forms/outreachButtons.js` is the only forms module the two
+  Outreach endpoints import: the send checks every form is published before anyone is emailed,
+  then gives each recipient their OWN link (their open assignment on that form if they have
+  one, else a new one, audience "ASPIRE Connect Outreach"), and a failed email voids the link
+  it made. A preview gets the bare `/form` address and creates nothing. Send-to-one refuses CC
+  with a form button: a CC would hand the recipient's link to someone else.
+- **A respondent can get their copy again** from the same link (`form-respond` `copy`), with
+  Download and Print on the thank-you screen.
+- **The no-account pages wear the organization's brand.** `/form` and `/sign` show the document
+  logo and application title from Settings > Organization through `PublicBrand`, which reads
+  the public `/api/organization-brand` (title, logo, alt text, and nothing else).
 - **Tables here follow `.aspire-th`.** Its grey on `#f9fafb` measures 4.37:1 (the app-wide header),
   noted, not changed. `--aspire-row-band` is a light-mode constant, so the Responses table bands
   from the Catalog surface instead.

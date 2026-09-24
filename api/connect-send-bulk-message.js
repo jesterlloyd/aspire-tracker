@@ -51,6 +51,7 @@ import { INACTIVE_MESSAGE } from './lib/activeAccount.js';
 import { getOrganizationSettings, organizationAssetUrl } from '../lib/server/organizationSettings.js';
 import { recordCatalogSend, isCatalogResourceId } from './lib/catalogSendLog.js';
 import { demoScopeFromRequest } from '../lib/server/demoScope.js';
+import { prepareFormButtons, previewFormButtons, personalizeFormButtons, hasFormButtons, settleFormButtons, isDemoSend } from '../lib/server/forms/outreachButtons.js';
 
 // Seeded fallback signatures for the two known leads (mirrors api/connect-send-direct-email.js).
 const SIGNATURE_SEED = {
@@ -275,8 +276,16 @@ async function _handler(req, res) {
     // inject markup; the body is then re-sanitized by the builder. Subject stays raw plain text.
     const esc = resolvedBodyFormat === 'html' ? escapeHtml : (v => v);
     const bodyMergeCtx  = { firstName: esc(mergeCtx.firstName), school: esc(mergeCtx.school) };
-    const mergedBody    = applyMergeFields(messageBody, bodyMergeCtx);
+    let mergedBody      = applyMergeFields(messageBody, bodyMergeCtx);
     const mergedSubject = applyMergeFields(subject, mergeCtx);
+
+    // OUTREACH-FORM-BUTTON-1: a form button previews with the form's bare address and creates
+    // nothing; a form that cannot be sent is reported here, before Review & Send.
+    if (hasFormButtons(mergedBody)) {
+      try { await prepareFormButtons(supabaseAdmin, mergedBody); }
+      catch (e) { return res.status(e.status || 400).json({ success: false, error: e.message }); }
+      mergedBody = await previewFormButtons(mergedBody);
+    }
 
     // ── 7. Render branded HTML (same renderer + server-resolved signature as Direct Message) ──
     const { html } = buildDirectMessageEmail({
@@ -410,6 +419,12 @@ async function runSendMode(res, body, senderSig, profile, resolvedBodyFormat, is
     return res.status(att.status || 400).json({ success: false, error: att.error });
   }
 
+  // ── S6c (OUTREACH-FORM-BUTTON-1). Every form button's form must exist and be published
+  // before anyone is emailed; each recipient then gets their OWN link in the loop below.
+  let forms;
+  try { forms = await prepareFormButtons(supabaseAdmin, bodyRaw); }
+  catch (e) { return res.status(e.status || 400).json({ success: false, error: e.message }); }
+
   const resend  = createMailer();
   let attemptedSend = false;    // gate pacing so we only delay around real Resend calls
 
@@ -426,7 +441,17 @@ async function runSendMode(res, body, senderSig, profile, resolvedBodyFormat, is
       const esc = resolvedBodyFormat === 'html' ? escapeHtml : (v => v);
       const bodyMergeCtx  = { firstName: esc(mergeCtx.firstName), school: esc(mergeCtx.school) };
       const mergedSubject = applyMergeFields(subjectRaw.trim(), mergeCtx);
-      const mergedBody    = applyMergeFields(bodyRaw.trim(), bodyMergeCtx);
+      let mergedBody      = applyMergeFields(bodyRaw.trim(), bodyMergeCtx);
+      // S7a2 (OUTREACH-FORM-BUTTON-1). This recipient's own form links.
+      let formRows = [];
+      if (forms.size) {
+        const personal = await personalizeFormButtons(supabaseAdmin, mergedBody, {
+          forms, batchId, subject: mergedSubject, sender: profile, isDemo,
+          person: { name: recipientName || rawEmail, email: rawEmail, studentId: source === 'student' ? recipientId : null, contactId: source === 'contact' ? recipientId : null },
+        });
+        mergedBody = personal.html;
+        formRows = personal.created;
+      }
 
       // S7b. Render branded HTML (same renderer + server-resolved signature as Direct Message).
       const { html } = buildDirectMessageEmail({
@@ -472,6 +497,7 @@ async function runSendMode(res, body, senderSig, profile, resolvedBodyFormat, is
         sendError = err?.message || 'unknown send error';
       }
 
+      await settleFormButtons(supabaseAdmin, formRows, !sendError);
       if (sendError) {
         console.error('[connect-send-bulk-message] send_failed:', { batch_id: batchId, index: c.index, error: sendError });
         failed.push({ ...label, reason: `send_error: ${sendError}` });

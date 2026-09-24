@@ -255,3 +255,13 @@ test('the forms engine is only ever handed a mailer built by createMailer', () =
   }
   assert.deepEqual(importers.sort(), callers.map(c => join(...c.split('/'))).sort())
 })
+
+// OUTREACH-FORM-BUTTON-1: the Outreach form-button module imports the forms engine to make
+// links, never to mail. The Outreach endpoints send the email through their own createMailer().
+test('the Outreach form-button module makes links only and never mails', () => {
+  const src = readFileSync(join(root, 'lib/server/forms/outreachButtons.js'), 'utf8')
+  assert.doesNotMatch(src, /mailer|sendForm|remind\(/i)
+  for (const rel of ['api/connect-send-bulk-message.js', 'api/connect-send-direct-email.js']) {
+    assert.match(readFileSync(join(root, rel), 'utf8'), /createMailer\(\)/, `${rel} mails through createMailer`)
+  }
+})
