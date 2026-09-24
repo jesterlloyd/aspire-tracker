@@ -30,7 +30,9 @@ test('canonical Cedars-Sinai logo asset exists and is used by all three Nightfal
   assert.match(shellCode, /logoSrc = '\/Cedars-Sinai\.png'/)
   // 1d79fa60 (organization settings branding): the organization's own logo wins when set;
   // the Cedars-Sinai asset stays the fallback.
-  assert.match(shellCode, /src=\{organization\?\.document_logo_url \|\| logoSrc\}/)
+  // 60e9a728 (white logos on Nightfall surfaces): a Nightfall header reads the organization's
+  // header logo, a light header its document logo.
+  assert.match(shellCode, /src=\{\(nightfall \? organization\?\.header_logo_url : organization\?\.document_logo_url\) \|\| logoSrc\}/)
   assert.match(shellCode, /alt=\{organization\?\.logo_alt_text \|\| 'Cedars-Sinai'\}/)
   assert.match(appCode, /title="Student Portal"[\s\S]{0,180}headerVariant="nightfall" logoSrc="\/cs-logo-large\.png"/)
   assert.match(appCode, /title="Unit Leader Portal"[\s\S]{0,140}headerVariant="nightfall" logoSrc="\/cs-logo-large\.png"/)
