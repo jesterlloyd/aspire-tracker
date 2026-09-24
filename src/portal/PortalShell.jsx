@@ -10,6 +10,7 @@ import {
   Settings, Check, GraduationCap, Building2, School, HeartHandshake, BriefcaseBusiness,
 } from 'lucide-react'
 import { PORTAL_LINKS } from '../lib/portalLinks'
+import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { PortalRefreshProvider } from './PortalRefresh'
 import { PortalHeaderSlotsContext } from './PortalHeaderSlots'
@@ -155,6 +156,18 @@ export default function PortalShell({
   onRestartTour,
   children,
 }) {
+  const [organization, setOrganization] = useState(null)
+  useEffect(() => {
+    let live = true
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session?.access_token) return
+      fetch('/api/organization-settings', { headers: { Authorization: `Bearer ${session.access_token}` } })
+        .then(response => response.ok ? response.json() : null)
+        .then(data => { if (live && data?.organization) setOrganization(data.organization) })
+        .catch(() => {})
+    })
+    return () => { live = false }
+  }, [])
   const nightfall = headerVariant === 'nightfall'
   const headerClass = `ptl-header${nightfall ? ' ptl-header-nightfall' : ''}`
   const resolvedProfileImageUrl = previewProfileImageUrl || profileImageUrl
@@ -184,7 +197,7 @@ export default function PortalShell({
                 className="ptl-header-logo-link"
                 aria-label={`Go to ${homeLabel} and refresh the portal`}
               >
-                <img src={logoSrc} alt="Cedars-Sinai" className="ptl-header-logo" />
+                <img src={organization?.document_logo_url || logoSrc} alt={organization?.logo_alt_text || 'Cedars-Sinai'} className="ptl-header-logo" />
               </a>
               <span className="ptl-header-divider" aria-hidden="true" />
               <div className="ptl-header-title">
@@ -213,7 +226,7 @@ export default function PortalShell({
         {utilityLayer}
         <main className="ptl-main">{children}</main>
         <footer className="ptl-footer">
-          ASPIRE, Geri and Richard Brawerman Nursing Institute, Cedars-Sinai
+          {organization?.display_name || 'Cedars-Sinai'} · ASPIRE Intelligence
         </footer>
       </div>
      </PortalHeaderSlotsContext.Provider>

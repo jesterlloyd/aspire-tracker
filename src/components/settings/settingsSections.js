@@ -38,6 +38,7 @@ export const SETTINGS_GROUPS = ['Workspace', 'Administration', 'Diagnostics']
 export const SETTINGS_SECTIONS = [
   { key: 'general',    label: 'General',           path: '/settings/general',    group: 'Workspace', implemented: true, visible: () => true },
   { key: 'accounts',   label: 'Accounts & Access', path: '/settings/accounts',   group: 'Administration', implemented: true, visible: r => r.isAdmin }, // WS2.2: Owner/Admin only
+  { key: 'organization', label: 'Organization', path: '/settings/organization', group: 'Administration', implemented: true, visible: r => r.isOwner },
   { key: 'communityBenefit', label: 'Community Benefit', path: '/settings/community-benefit', group: 'Administration', implemented: true, visible: r => r.isAdmin }, // NURSING-ACADEMICS-1: report + reporting inputs; Admin sees read-only, WRITES are Owner-only server-side
   { key: 'keith',      label: 'Keith',             path: '/settings/keith',      group: 'Administration', implemented: true, visible: r => r.isAdmin },
   // DEMO-MODE-1: Owner only, and grouped with Diagnostics because it is the other

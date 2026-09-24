@@ -25,7 +25,7 @@
 import { useEffect, Fragment } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
-  Settings, Users, HandCoins, Sparkles, Presentation, Scale, BadgeInfo, Monitor, PenLine, Info,
+  Settings, Users, HandCoins, Sparkles, Presentation, Scale, BadgeInfo, Monitor, PenLine, Info, Building2,
   FileText, BarChart3, ChevronRight,
 } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
@@ -44,6 +44,7 @@ import KeithUsagePanel from './KeithUsagePanel'
 import PreceptorParityPanel from './PreceptorParityPanel'
 import DemoModePanel from './DemoModePanel'
 import CommunityBenefitPanel from './CommunityBenefitPanel'
+import OrganizationPanel from './OrganizationPanel'
 import SurfaceCard from '../ui/SurfaceCard'
 import WorkspaceBackLink from '../ui/WorkspaceBackLink'
 import SettingsPageHeader from './SettingsPageHeader'
@@ -54,7 +55,7 @@ import './settingsShell.css'
 // The icons Settings already used, monochrome and without a tile: the rail's from the
 // old rail, the rows' from the old General and Keith lists.
 const SECTION_ICONS = {
-  general: Settings, accounts: Users, communityBenefit: HandCoins, keith: Sparkles,
+  general: Settings, accounts: Users, organization: Building2, communityBenefit: HandCoins, keith: Sparkles,
   demoMode: Presentation, preceptorParity: Scale,
   about: BadgeInfo, appearance: Monitor, signature: PenLine, tours: Info,
   keithKnowledge: FileText, keithSkills: Sparkles, keithUsage: BarChart3,
@@ -206,6 +207,7 @@ export default function SettingsShell({ backPath = '/aggregate', backLabel = 'At
           {currentKey === 'tours'      && <ToursHelpPanel onRestartTour={onRestartTour} />}
           {currentKey === 'about'      && <AboutPanel />}
           {currentKey === 'accounts'   && <AccountsAccessPanel />}
+          {currentKey === 'organization' && <OrganizationPanel />}
           {/* SETTINGS-KEITH-NESTED-1's three workspaces, unmodified. */}
           {currentKey === 'keithKnowledge' && <KnowledgeCenterPanel />}
           {currentKey === 'keithSkills'    && <KeithSkillsPanel />}
