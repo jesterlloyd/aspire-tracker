@@ -72,12 +72,35 @@ test('composer desks use the measured viewport while Sent History keeps its full
   const connect = read('src/pages/Connect.jsx')
   const outreach = read('src/components/connect/OutreachView.jsx')
   const css = read('src/components/connect/outreachCorrespondenceDesk.css')
+  const viewport = read('src/components/student/useChartViewport.js')
 
   assert.match(connect, /<OutreachView[\s\S]*viewportHeight=\{bookHeight\}/)
+  assert.match(connect, /viewportTop=\{workspaceTop\}/)
   assert.match(outreach, /'--outreach-desk-h': viewportHeight \? `\$\{viewportHeight\}px` : undefined/)
+  assert.match(outreach, /'--outreach-desk-top': viewportTop != null \? `\$\{viewportTop\}px` : undefined/)
+  assert.match(viewport, /return \{ barRef, chartHeight, toolbarTop, chartTop \}/)
   assert.match(css, /\.outreach-workspace-classic \.outreach-desk-shell \{[\s\S]*border: 6px solid var\(--ocd-wood\);[\s\S]*background: var\(--ocd-leather\);/)
-  assert.match(css, /\.outreach-workspace-classic \.outreach-desk-shell\[data-outreach-mode='single'\],[\s\S]*data-outreach-mode='bulk'[\s\S]*height: var\(--outreach-desk-h/)
+  assert.match(css, /\.outreach-workspace-classic \.outreach-desk-shell\[data-outreach-mode='single'\],[\s\S]*data-outreach-mode='bulk'[\s\S]*position: sticky;[\s\S]*top: calc\(var\(--outreach-desk-top[\s\S]*height: calc\(var\(--outreach-desk-h/)
+  assert.match(css, /@media \(max-width: 840px\)[\s\S]*data-outreach-mode='bulk'\] \{ position: relative; top: auto; height: auto;/)
   assert.doesNotMatch(css, /\.outreach-workspace-classic \.outreach-desk-shell\[data-outreach-mode='history'\][^{]*\{[^}]*height:/s)
+})
+
+test('bulk papers share one bottom edge and the obsolete scaffolding subtitle is gone', () => {
+  const outreach = read('src/components/connect/OutreachView.jsx')
+  const css = read('src/components/connect/outreachCorrespondenceDesk.css')
+
+  assert.doesNotMatch(outreach, /Bulk Operation, Phase 3A scaffolding/)
+  assert.match(css, /\.outreach-workspace-classic \.outreach-bulk-manual > \.connect-panel,[\s\S]*\.outreach-bulk-survey-layout > \.connect-panel \{[\s\S]*height: 100%;[\s\S]*max-height: none !important;/)
+})
+
+test('the To line never reuses a previous recipient preview', () => {
+  const outreach = read('src/components/connect/OutreachView.jsx')
+
+  assert.match(outreach, /dmPreview\.recipientKey === draftRecipientId \? dmPreview\.recipient\?\.email : ''/)
+  assert.match(outreach, /fetchedStudent\?\.id === studentId \? fetchedStudent\.school_email : ''/)
+  assert.match(outreach, /fetchedContact\?\.id === contactId \? fetchedContact\.email : ''/)
+  assert.match(outreach, /const previewRecipientKey = `\$\{recipientType\}:\$\{rid\}`/)
+  assert.match(outreach, /if \(!rid \|\| !msgBody\.trim\(\)\) \{\s*setDmPreview\(\{ recipientKey: null, html: '', recipient: null,/)
 })
 
 test('Settings documents Outreach as a shipped correspondence desk surface', () => {

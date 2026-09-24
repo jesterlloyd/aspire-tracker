@@ -17,6 +17,7 @@
   --ocd-ink: #172044;
   --ocd-muted: #73798a;
   --ocd-field-border: #aeb4bf;
+  --ocd-plaque-clearance: 24px;
 }
 
 .outreach-mode-tabs button:hover:not(:disabled) {
@@ -41,7 +42,9 @@
 .outreach-workspace-classic .outreach-desk-shell[data-outreach-mode='single'],
 .outreach-workspace-classic .outreach-desk-shell[data-outreach-mode='bulk'] {
   box-sizing: border-box;
-  height: var(--outreach-desk-h, calc(100dvh - 180px));
+  position: sticky;
+  top: calc(var(--outreach-desk-top, 156px) + var(--ocd-plaque-clearance));
+  height: calc(var(--outreach-desk-h, calc(100dvh - 180px)) - var(--ocd-plaque-clearance));
   min-height: 540px;
 }
 .outreach-workspace-classic .outreach-desk-shell::before,
@@ -277,6 +280,7 @@
 .outreach-workspace-classic .outreach-bulk-survey-layout > .connect-panel {
   height: 100%;
   min-height: 0;
+  max-height: none !important;
   box-sizing: border-box;
 }
 .outreach-workspace-classic .outreach-bulk-manual > .connect-panel:nth-child(2),
@@ -412,7 +416,7 @@
 
 @media (max-width: 840px) {
   .outreach-workspace-classic .outreach-desk-shell[data-outreach-mode='single'],
-  .outreach-workspace-classic .outreach-desk-shell[data-outreach-mode='bulk'] { height: auto; min-height: 0; }
+  .outreach-workspace-classic .outreach-desk-shell[data-outreach-mode='bulk'] { position: relative; top: auto; height: auto; min-height: 0; }
   .outreach-workspace-classic .outreach-desk-shell { padding: 12px; border-width: 4px; overflow: visible; }
   .outreach-workspace-classic .outreach-single-layout,
   .outreach-workspace-classic .outreach-bulk-manual,

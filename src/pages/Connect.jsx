@@ -123,7 +123,12 @@ export default function ConnectPage({ cohortId, onNavigateToStudent, refreshRef,
   // document scroll while still giving fixed-layout workspaces a useful canvas.
   const { style } = useTheme()
   const bookPage = activeSubTab === 'contacts' && contactsUsesBook(style)
-  const { barRef: pickerRef, chartHeight: bookHeight, toolbarTop: chromeHeight } = useChartViewport()
+  const {
+    barRef: pickerRef,
+    chartHeight: bookHeight,
+    toolbarTop: chromeHeight,
+    chartTop: workspaceTop,
+  } = useChartViewport()
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', fontFamily: F }}>
@@ -196,6 +201,7 @@ export default function ConnectPage({ cohortId, onNavigateToStudent, refreshRef,
             toast={toast}
             refreshKey={refreshKey}
             viewportHeight={bookHeight}
+            viewportTop={workspaceTop}
           />
         </div>
         {/* Messages mounts only for an authorized active Owner/Admin. Like the

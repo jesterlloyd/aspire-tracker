@@ -299,7 +299,7 @@ const sectionLabel = {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export default function OutreachView({ cohortId, toast, refreshKey = 0, viewportHeight = null }) {
+export default function OutreachView({ cohortId, toast, refreshKey = 0, viewportHeight = null, viewportTop = null }) {
   const { style: appearanceStyle } = useTheme()
   const classicDesk = appearanceStyle !== 'modern'
   const location       = useLocation()
@@ -644,7 +644,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
   const [dmSendStatus,      setDmSendStatus]       = useState(null) // null | { ok, msg }
   // CONNECT-COMMS-1B: true "Preview as sent" - the exact branded HTML + server-resolved recipient,
   // fetched (debounced) from the same endpoint/renderer used to send. { html, recipient, loading, error }
-  const [dmPreview,         setDmPreview]          = useState({ html: '', recipient: null, cc: [], signature: null, attachments: [], loading: false, error: null })
+  const [dmPreview,         setDmPreview]          = useState({ recipientKey: null, html: '', recipient: null, cc: [], signature: null, attachments: [], loading: false, error: null })
   // OUTREACH-ATTACHMENTS-1: slugs + display text only. Never bytes or paths.
   const [dmAttachments,     setDmAttachments]      = useState(() => handoffSeed?.attachments || [])
   // CONNECT-COMMS-1D: CC support (Direct Message only). ccList = confirmed chips; ccInput = in-progress typing.
@@ -2150,11 +2150,19 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
   // CONNECT-COMMS-1F: the server-resolved primary To (preferred), falling back to the school-first
   // client approximation, then a contact's email. Used to drop CC==To and to exclude it from
   // autocomplete suggestions. The server still enforces this authoritatively.
+  const currentRecipientEmail = recipientType === 'student'
+    ? (effectiveStudent?.school_email
+      || (fetchedStudent?.id === studentId ? fetchedStudent.school_email : '')
+      || effectiveStudent?.personal_email
+      || (fetchedStudent?.id === studentId ? fetchedStudent.personal_email : '')
+      || effectiveStudent?.email
+      || '')
+    : recipientType === 'contact'
+      ? (fromContact?.email || (fetchedContact?.id === contactId ? fetchedContact.email : '') || '')
+      : ''
   const resolvedToEmail = (
-    dmPreview.recipient?.email ||
-    effectiveStudent?.school_email || fetchedStudent?.school_email ||
-    effectiveStudent?.personal_email || fetchedStudent?.personal_email ||
-    (recipientType === 'contact' ? (fromContact?.email || fetchedContact?.email) : '') || ''
+    (dmPreview.recipientKey === draftRecipientId ? dmPreview.recipient?.email : '')
+    || currentRecipientEmail
   )
 
   // ── Direct Message send handler ───────────────────────────────────────────
@@ -2255,18 +2263,19 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
   // school-first resolved recipient. Debounced so it does not fire per keystroke.
   useEffect(() => {
     if (outreachMode !== 'message' || !recipientType) {
-      setDmPreview({ html: '', recipient: null, cc: [], signature: null, attachments: [], loading: false, error: null })
+      setDmPreview({ recipientKey: null, html: '', recipient: null, cc: [], signature: null, attachments: [], loading: false, error: null })
       return
     }
     const rid = recipientType === 'contact' ? contactId : studentId
+    const previewRecipientKey = `${recipientType}:${rid}`
     if (!rid || !msgBody.trim()) {
-      setDmPreview(p => ({ ...p, html: '', attachments: [], loading: false, error: null }))
+      setDmPreview({ recipientKey: null, html: '', recipient: null, cc: [], signature: null, attachments: [], loading: false, error: null })
       return
     }
     let cancelled = false
     // Drop the previous run's resolved list immediately, so a stale size or
     // filename can never be shown next to a changed selection.
-    setDmPreview(p => ({ ...p, attachments: [], loading: true, error: null }))
+    setDmPreview({ recipientKey: previewRecipientKey, html: '', recipient: null, cc: [], signature: null, attachments: [], loading: true, error: null })
     const timer = setTimeout(async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession()
@@ -2294,7 +2303,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
         if (cancelled) return
         if (res.ok && data?.success) {
           // Server-resolved attachment list: the exact files that will be sent.
-          setDmPreview({ html: data.html || '', recipient: data.recipient || null, cc: Array.isArray(data.cc) ? data.cc : [], signature: data.signature || null, attachments: Array.isArray(data.attachments) ? data.attachments : [], loading: false, error: null })
+          setDmPreview({ recipientKey: previewRecipientKey, html: data.html || '', recipient: data.recipient || null, cc: Array.isArray(data.cc) ? data.cc : [], signature: data.signature || null, attachments: Array.isArray(data.attachments) ? data.attachments : [], loading: false, error: null })
         } else {
           // Never leave a previous run's attachment list behind on failure.
           setDmPreview(p => ({ ...p, attachments: [], loading: false, error: data?.error || 'Preview unavailable.' }))
@@ -2650,6 +2659,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
       padding: '0 24px 20px',
       fontFamily: F,
       '--outreach-desk-h': viewportHeight ? `${viewportHeight}px` : undefined,
+      '--outreach-desk-top': viewportTop != null ? `${viewportTop}px` : undefined,
     }}>
 
       {/* ══════════════════════════════════════════════════════════════════
@@ -2703,9 +2713,6 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
             Sent History
           </button>
         </div>
-        <span style={{ fontSize: 11, color: '#9ca3af', fontFamily: F }}>
-          {recipientMode === 'bulk' ? 'Bulk Operation, Phase 3A scaffolding' : ''}
-        </span>
       </div>
 
       <div className="outreach-desk-shell" data-outreach-mode={recipientMode} aria-label={classicDesk ? 'Correspondence desk' : undefined}>

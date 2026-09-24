@@ -37,6 +37,7 @@ export function useChartViewport() {
   const barRef = useRef(null)
   const [chartHeight, setChartHeight] = useState(null)
   const [toolbarTop, setToolbarTop] = useState(0)
+  const [chartTop, setChartTop] = useState(0)
 
   useEffect(() => {
     const bar = barRef.current
@@ -51,6 +52,7 @@ export function useChartViewport() {
       const next = Math.max(MIN_CHART_H, Math.round(window.innerHeight - pinned - BOTTOM_GAP))
       setChartHeight(prev => (prev === next ? prev : next))
       setToolbarTop(prev => (prev === chromeH ? prev : chromeH))
+      setChartTop(prev => (prev === pinned ? prev : pinned))
     }
 
     measure()
@@ -63,5 +65,5 @@ export function useChartViewport() {
     return () => { window.removeEventListener('resize', measure); ro?.disconnect() }
   }, [])
 
-  return { barRef, chartHeight, toolbarTop }
+  return { barRef, chartHeight, toolbarTop, chartTop }
 }
