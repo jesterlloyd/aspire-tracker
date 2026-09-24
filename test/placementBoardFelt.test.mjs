@@ -266,12 +266,15 @@ test('MATERIAL 1: tokens live in aspireBrand.css; classes read them; no literal 
 test('MODERN 1: the placement workflow becomes two clean panels without changing its component tree', () => {
   const css = CSS()
   assert.match(css, /\[data-style="modern"\] \.pb-pool \{[\s\S]*?border: 1px solid[\s\S]*?box-shadow:/)
-  assert.match(css, /\[data-style="modern"\] \.pb-pool-hdr\.material-navy-flat \{[\s\S]*?background: var\(--color-bg-elevated/)
+  assert.match(css, /\[data-style="modern"\] \.pb-pool-hdr\.material-navy-flat \{[\s\S]*?background: var\(--nightfall/)
   assert.match(css, /\[data-style="modern"\] \.pb-pool-body\.material-leather-cream \{[\s\S]*?background-image: none;[\s\S]*?box-shadow: none;/)
   assert.match(css, /\[data-style="modern"\] \.pb-pool-note\.paper-note \{[\s\S]*?transform: none;[\s\S]*?box-shadow: none;/)
   assert.match(css, /\[data-style="modern"\] \.pb-unit-body\.material-board \{[\s\S]*?min-height: 88px;[\s\S]*?background-image: none;[\s\S]*?box-shadow: none;/)
   assert.match(css, /\[data-style="modern"\] \.pb-pin\.material-pin::after \{[\s\S]*?content: '\\00D7';/)
-  assert.match(css, /\[data-style="modern"\] \.pb-ribbon\.material-ribbon \{[\s\S]*?clip-path: none;/)
+  assert.match(css, /\[data-style="modern"\] \.pb-ribbon\.material-ribbon \{[\s\S]*?display: none;/)
+  assert.match(css, /\[data-style="modern"\] \.pb-choice-pill \{[\s\S]*?display: inline-flex;/)
+  assert.match(CARD(), /className=\{`material-rank-\$\{RANK_TONE\[highlightRank\]\} pb-choice-pill`\}/)
+  assert.match(css, /\[data-theme="dark"\]\[data-style="modern"\] \.pb-unit-hdr\.material-board-head \{[\s\S]*?background: #273345;/)
   assert.match(css, /\[data-style="modern"\] \.pb-unit-focused:hover \{[\s\S]*?box-shadow: 0 0 0 3px/)
   assert.match(css, /\[data-style="modern"\] \.pb-unit-drop \.pb-open-slot \{[\s\S]*?var\(--color-status-success/)
   assert.match(css, /\[data-style="modern"\] \.pb-dragging-list \.pb-unit-drop \.pb-open-slot::before \{[\s\S]*?content: '\+'/)
@@ -392,7 +395,7 @@ test('STUDENTS HEADER: only the School filter, and it sits after the spacer', ()
   }
   assert.ok(header.indexOf('<span className="pb-hdr-spacer" />') < header.indexOf('aria-label="School"'),
     'the School filter is on the far right')
-  assert.match(header, /<StatusLegendPopover position="bottom-right" dark=\{appearanceStyle !== 'modern'\} \/>/, 'the legend stays visible in either style')
+  assert.match(header, /<StatusLegendPopover position="bottom-right" dark \/>/, 'the legend is visible on the Nightfall header')
   assert.match(header, /student\$\{sortedPool\.length !== 1 \? 's' : ''\}/, 'the count stays')
 })
 

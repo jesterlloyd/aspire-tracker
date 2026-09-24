@@ -609,7 +609,17 @@ export default function EmbedUnitCard({
         {/* ── Leather header: identity, capacity, unit-leader status ── */}
         <header className="material-board-head pb-unit-hdr">
           <div className="pb-unit-hdr-top">
-            <h3 className="pb-unit-name">{unit.unit_name}</h3>
+            <div className="pb-unit-title-row">
+              <h3 className="pb-unit-name">{unit.unit_name}</h3>
+              {highlightRank && (
+                <span
+                  className={`material-rank-${RANK_TONE[highlightRank]} pb-choice-pill`}
+                  aria-hidden="true"
+                >
+                  #{highlightRank} choice{isFull ? ' · Full' : ''}
+                </span>
+              )}
+            </div>
             {/* Owner, 2026-09-17: the division pill left the board. The Division
                 filter in the Units header is where a division is chosen. */}
             <div className="pb-unit-chips">{shiftChips}</div>
