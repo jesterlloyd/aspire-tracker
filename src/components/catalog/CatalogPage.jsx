@@ -258,8 +258,10 @@ export default function CatalogPage({
       const name = (r) => r.key === 'scrubex-request-form' ? 'ScrubEx Request Form' : 'Student Parking Request'
       const added = results.filter(r => r.added)
       const refreshed = results.filter(r => r.refreshed)
+      const refused = results.filter(r => !r.added && !r.refreshed && r.reason)
       const parts = [
         added.length ? `Added ${added.map(name).join(' and ')}.` : '',
+        ...refused.map(r => `${name(r)} was not added: ${r.reason}`),
         refreshed.length ? `Updated ${refreshed.map(name).join(' and ')} to Parking Services' form and published it.` : '',
       ].filter(Boolean)
       say('ok', parts.length ? parts.join(' ') : 'The starter forms are already in the Catalog.')

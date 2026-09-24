@@ -75,6 +75,21 @@ test('the migration applies twice; a published version cannot be changed', async
   assert.equal(rows[0].public, false)
 })
 
+// STARTER-SLUG-1 (2026-09-24): the Owner's Catalog already held the ScrubEx PDF under the
+// starter's slug, so ScrubEx was skipped while the Catalog said it was already there.
+test('a Catalog file under a starter\'s slug keeps it, and the starter form is added beside it', async () => {
+  const w = await world()
+  await w.pg.query(`INSERT INTO catalog_resources (slug, title, resource_type, storage_path, file_type_label, kind, is_active)
+    VALUES ('scrubex-request-form', 'ScrubEx Request Form', 'internal_file', 'files/scrubex.pdf', 'PDF', 'file', true)`)
+  const out = await E.installStarters(w.db, w.owner)
+  assert.deepEqual(out.map(r => [r.key, r.added]), [['scrubex-request-form', true], ['student-parking-request', true]])
+  const { rows } = await w.pg.query(`SELECT slug, kind, storage_path FROM catalog_resources WHERE title = 'ScrubEx Request Form' ORDER BY slug`)
+  assert.deepEqual(rows.map(r => [r.slug, r.kind]), [['scrubex-request-form', 'file'], ['scrubex-request-form-form', 'form']])
+  assert.equal(rows[0].storage_path, 'files/scrubex.pdf', 'the PDF is untouched')
+  const again = await E.installStarters(w.db, w.owner)
+  assert.ok(again.every(r => !r.added), 'once added, it is found by its starter key, not its slug')
+})
+
 // PARKING-FORM-1 (2026-09-24): Parking now ships published, as Parking Services' own form.
 test('starters install once, both published', async () => {
   const w = await world()

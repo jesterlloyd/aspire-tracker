@@ -1226,7 +1226,9 @@ the Parking form follows Parking Services' own form (received 2026-09-24).
   2026-09-24: Parking Services' own "Students Parking Data" form, field for field; its labels are
   the CSV headers). Both publish. A never-published starter draft that still equals an earlier
   shipped draft (`RETIRED_STARTER_DRAFTS`) is replaced on the next install, as a new version if
-  it was published; an edited one never is. **That automatic path is not enough on its own**
+  it was published; an edited one never is. A Catalog FILE already under a starter's slug keeps
+  it (the ScrubEx PDF is `scrubex-request-form`, which the preceptor attachment reminder reads);
+  the starter form takes `<slug>-form` (STARTER-SLUG-1), and a starter that is not added says why. **That automatic path is not enough on its own**
   (STARTER-RESET-1: the Owner's form had the old draft published as v1 and v2, so it never
   qualified). The builder therefore shows "Use the updated starter" whenever a starter form's
   draft differs from its starter (`starterUpdateFor`); one click replaces the DRAFT only
