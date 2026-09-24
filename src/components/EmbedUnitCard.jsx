@@ -23,6 +23,7 @@ import { pinFor, RANK_TONE } from '../lib/placementBoardView'
 import NotificationControl from './placement/NotificationControl'
 import { NOTIFICATION_TARGETS, notificationStateFor } from '../lib/placementNotificationState'
 import { getStudentPreferredFullName } from '../lib/studentNameFormatters'
+import { useAppearance } from '../hooks/useAppearance'
 
 // PLACEMENT-BOARD-FELT-1 (2026-09-17): a unit is a board. Stitched navy leather
 // on top (name, chips, capacity, unit-leader status), blue felt below, where
@@ -53,6 +54,7 @@ function PinnedNote({
   onConfirmNotified, onCorrectNotified,
   tilt, isPulling, isPinningIn, isDragging, canDrag, onDragStart, onDragEnd,
 }) {
+  const { style: appearanceStyle } = useAppearance()
   const qCfg       = MATCH_RANK_CONFIG[matchRankOf(student, match)]
   const pin        = pinFor(student, match)
   const name       = getStudentPreferredFullName(student)
@@ -77,12 +79,14 @@ function PinnedNote({
   return (
     <div className={wrapClass}>
       <span className="pb-pin-anchor">
-        <Tooltip label="Pull pin" placement="top" tone="contrast">
+        <Tooltip label={appearanceStyle === 'modern' ? 'Unmatch student' : 'Pull pin'} placement="top" tone="contrast">
           <button
             type="button"
             data-testid="pull-pin"
             className={`material-pin material-rank-${pin.tone} pb-pin`}
-            aria-label={`Pull pin: unmatch ${name} from ${unit.unit_name}`}
+            aria-label={appearanceStyle === 'modern'
+              ? `Unmatch ${name} from ${unit.unit_name}`
+              : `Pull pin: unmatch ${name} from ${unit.unit_name}`}
             onClick={e => { e.stopPropagation(); onUnmatch(student) }}
           >
             <span aria-hidden="true">{pin.glyph}</span>

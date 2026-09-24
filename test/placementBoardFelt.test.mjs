@@ -266,12 +266,15 @@ test('MATERIAL 1: tokens live in aspireBrand.css; classes read them; no literal 
 test('MODERN 1: the placement workflow becomes two clean panels without changing its component tree', () => {
   const css = CSS()
   assert.match(css, /\[data-style="modern"\] \.pb-pool \{[\s\S]*?border: 1px solid[\s\S]*?box-shadow:/)
-  assert.match(css, /\[data-style="modern"\] \.pb-pool-hdr\.material-navy-flat \{[\s\S]*?linear-gradient/)
+  assert.match(css, /\[data-style="modern"\] \.pb-pool-hdr\.material-navy-flat \{[\s\S]*?background: var\(--color-bg-elevated/)
   assert.match(css, /\[data-style="modern"\] \.pb-pool-body\.material-leather-cream \{[\s\S]*?background-image: none;[\s\S]*?box-shadow: none;/)
   assert.match(css, /\[data-style="modern"\] \.pb-pool-note\.paper-note \{[\s\S]*?transform: none;[\s\S]*?box-shadow: none;/)
-  assert.match(css, /\[data-style="modern"\] \.pb-unit-body\.material-board \{[\s\S]*?background-image: none;[\s\S]*?box-shadow: none;/)
+  assert.match(css, /\[data-style="modern"\] \.pb-unit-body\.material-board \{[\s\S]*?min-height: 88px;[\s\S]*?background-image: none;[\s\S]*?box-shadow: none;/)
   assert.match(css, /\[data-style="modern"\] \.pb-pin\.material-pin::after \{[\s\S]*?content: '\\00D7';/)
+  assert.match(css, /\[data-style="modern"\] \.pb-ribbon\.material-ribbon \{[\s\S]*?clip-path: none;/)
+  assert.match(css, /\[data-style="modern"\] \.pb-unit-focused:hover \{[\s\S]*?box-shadow: 0 0 0 3px/)
   assert.match(css, /\[data-style="modern"\] \.pb-unit-drop \.pb-open-slot \{[\s\S]*?var\(--color-status-success/)
+  assert.match(css, /\[data-style="modern"\] \.pb-dragging-list \.pb-unit-drop \.pb-open-slot::before \{[\s\S]*?content: '\+'/)
   assert.ok(!TAB().includes('data-style='), 'the board keeps one component tree for both styles')
 })
 
@@ -303,7 +306,7 @@ test('A11Y 1: boards and notes are keyboard targets with the specified labels', 
   const card = CARD()
   assert.match(card, /role="group"\s+tabIndex=\{0\}\s+aria-label=\{`\$\{unit\.unit_name\} board, \$\{filledCount\} of \$\{unit\.total_slots\} filled`\}/)
   assert.match(card, /if \(\(e\.key === 'Enter' \|\| e\.key === ' '\) && e\.target === e\.currentTarget\)/)
-  assert.match(card, /aria-label=\{`Pull pin: unmatch \$\{name\} from \$\{unit\.unit_name\}`\}/)
+  assert.match(card, /appearanceStyle === 'modern'[\s\S]*?`Unmatch \$\{name\} from \$\{unit\.unit_name\}`[\s\S]*?`Pull pin: unmatch \$\{name\} from \$\{unit\.unit_name\}`/)
   const note = strip(read('src/components/StudentMatchingCard.jsx'))
   assert.match(note, /role=\{interactive \? 'button' : undefined\}/)
   assert.match(note, /tabIndex=\{interactive \? 0 : undefined\}/)
@@ -389,7 +392,7 @@ test('STUDENTS HEADER: only the School filter, and it sits after the spacer', ()
   }
   assert.ok(header.indexOf('<span className="pb-hdr-spacer" />') < header.indexOf('aria-label="School"'),
     'the School filter is on the far right')
-  assert.match(header, /<StatusLegendPopover position="bottom-right" dark \/>/, 'the legend explains the pills')
+  assert.match(header, /<StatusLegendPopover position="bottom-right" dark=\{appearanceStyle !== 'modern'\} \/>/, 'the legend stays visible in either style')
   assert.match(header, /student\$\{sortedPool\.length !== 1 \? 's' : ''\}/, 'the count stays')
 })
 

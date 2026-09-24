@@ -6,6 +6,7 @@ import EmbedUnitCard from './EmbedUnitCard'
 import StudentMatchingCard from './StudentMatchingCard'
 import { UNIT_DIVISION_MAP } from '../lib/constants'
 import StatusLegendPopover from './StatusLegendPopover'
+import { useAppearance } from '../hooks/useAppearance'
 import EmptyState from './EmptyState'
 import { Users, MapPin } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
@@ -108,6 +109,7 @@ export default function MatchingTab({
   onMatchLocalSync,
   toast,
 }) {
+  const { style: appearanceStyle } = useAppearance()
   const queryClient = useQueryClient()
   // PLACEMENT-NOTIFICATION-CONTROL-1: correcting a recorded notification rewrites
   // what the board says about a real person, so the affordance is Owner/Admin
@@ -746,7 +748,7 @@ export default function MatchingTab({
               </span>
               {/* The legend explains the ASPIRE Status pills, which are now the pool's
                   only readiness indicator. */}
-              <StatusLegendPopover position="bottom-right" dark />
+              <StatusLegendPopover position="bottom-right" dark={appearanceStyle !== 'modern'} />
               <span className="pb-hdr-spacer" />
               <select value={poolSchool} onChange={e => setPoolSchool(e.target.value)} className="pb-select" aria-label="School">
                 <option value="">All Schools</option>
