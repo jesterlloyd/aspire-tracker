@@ -66,6 +66,16 @@ function DocumentIdentity({ form, documentUrl }) {
   return <div className="org-document-identity"><PreviewLogo url={documentUrl} alt={form.logo_alt_text} /><div><strong>{form.display_name || 'Organization'}</strong><small>{form.address_line_1 || 'Address line 1'}{form.city ? ` · ${form.city}` : ''}</small></div></div>
 }
 
+function EmailPreview({ form, headerUrl, footerUrl }) {
+  const email = form.general_email || 'your general email'
+  const displayName = form.display_name || 'Organization'
+  return <div className="org-email-preview">
+    <div className="org-email-preview-head"><PreviewLogo url={headerUrl} alt={form.logo_alt_text} dark /><div><strong>ASPIRE</strong><small>Affiliate Students’ Pathway from Internship to Residency Experience</small></div></div>
+    <div className="org-email-preview-body"><strong>Scheduled communication</strong><p>Your Header Logo appears in the Nightfall email header.</p><p>Questions? <b>Email us at {email}</b></p></div>
+    <div className="org-email-preview-footer"><PreviewLogo url={footerUrl} alt={form.logo_alt_text} dark /><div><strong>{displayName} · {form.header_short_name || 'ASPIRE Intelligence'}</strong><small>{form.address_line_1 || 'Organization address'}<br />{form.main_phone || 'Main telephone number'} · {email}</small></div></div>
+  </div>
+}
+
 function LivePreview({ form, headerUrl, documentUrl, footerUrl }) {
   const [surface, setSurface] = useState('application')
   const tabs = [
@@ -80,7 +90,7 @@ function LivePreview({ form, headerUrl, documentUrl, footerUrl }) {
     </div>
     <div className="org-preview-stage">
       {surface === 'application' && <div className="org-app-preview"><PreviewHeader form={form} headerUrl={headerUrl} /><div className="org-app-body"><span /><span /><div /></div></div>}
-      {surface === 'email' && <div className="org-document-preview"><div className="org-document-head"><DocumentIdentity form={form} documentUrl={headerUrl} /><span className="org-runtime-label"><Mail size={12} /> Nightfall email</span></div><div className="org-letter-copy"><strong>Scheduled communication</strong><p>Your Header Logo appears in the Nightfall email header.</p><p>Questions? <b>Email us at {email}</b></p></div><div className="org-document-footer"><PreviewLogo url={footerUrl} alt={form.logo_alt_text} dark /><div>{displayName}<br />{form.address_line_1 || 'Organization address'}<br />{form.main_phone || 'Main telephone number'} · {email}</div></div></div>}
+      {surface === 'email' && <EmailPreview form={form} headerUrl={headerUrl} footerUrl={footerUrl} />}
       {surface === 'report' && <div className="org-report-preview"><DocumentIdentity form={form} documentUrl={documentUrl} /><div className="org-report-title"><FileText size={16} /><strong>Cohort Placement Summary</strong></div><div className="org-report-kpis"><span /><span /><span /></div><div className="org-report-lines"><span /><span /><span /><span /></div><small>{displayName} · {email}</small></div>}
       {surface === 'student' && <div className="org-student-preview"><div className="org-student-brand"><PreviewLogo url={headerUrl} alt={form.logo_alt_text} dark /><strong>{form.header_short_name || 'ASPIRE Intelligence'}</strong></div><div className="org-student-welcome"><GraduationCap size={18} /><strong>Welcome to ASPIRE</strong></div><div className="org-student-content"><span /><span /><div><Mail size={14} /><b>Need support?</b><small>Email us at {email}</small></div></div></div>}
     </div>
