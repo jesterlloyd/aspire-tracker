@@ -21,7 +21,8 @@ export default function SignaturesPage({ flagState, people, notify, backPath = '
   const navigate = useNavigate()
   const params = useMemo(() => new URLSearchParams(window.location.search), [])
   const [tab, setTab] = useState(params.get('tab') || 'requests')
-  const [prep, setPrep] = useState(() => ({ key: 0, initial: null, draftId: null, step: Number(params.get('step') || 0) }))
+  // ?source=catalog opens step 1 on "Choose from the Catalog" (+ New > Make a template from a Catalog file).
+  const [prep, setPrep] = useState(() => ({ key: 0, initial: params.get('source') === 'catalog' ? { source: 'catalog' } : null, draftId: null, step: Number(params.get('step') || 0) }))
   const [preview, setPreview] = useState(null)   // a wizard draft or template to preview
   const [count, setCount] = useState(null)
 

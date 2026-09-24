@@ -73,3 +73,11 @@ test('a Catalog PDF can start a template: picked in the wizard or from its ⋯ m
   assert.equal(isPdfFile({ resource_type: 'internal_file', file_type_label: 'DOCX' }), false)
   assert.equal(isPdfFile({ resource_type: 'internal_file', file_type_label: 'PDF', kind: 'signature' }), false)
 })
+
+test('+ New reaches a Catalog PDF, and Classic shows one + New, on the bookcase', () => {
+  const page = read('src/components/catalog/CatalogPage.jsx')
+  assert.match(page, /<b>Make a template from a Catalog file<\/b>/)
+  assert.match(page, /sigLink\('\?tab=prepare&source=catalog'\)/)
+  assert.match(page, /\{canManage && !classic && <NewMenu open=\{newOpen\}/)
+  assert.match(read('src/components/signatures/SignaturesPage.jsx'), /params\.get\('source'\) === 'catalog' \? \{ source: 'catalog' \}/)
+})

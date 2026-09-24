@@ -320,8 +320,9 @@ export default function CatalogPage({
             <b>{summary.items}</b> {summary.items === 1 ? 'item' : 'items'} · <b>{summary.out}</b> out for completion · <span className="ctl-summary-warn"><b>{summary.overduePeople}</b> people overdue</span>
           </p>
         </div>
-        {canManage && <NewMenu open={newOpen} setOpen={setNewOpen} features={features} onUpload={() => setDialog({ type: 'upload' })}
-          onPrepare={() => sigLink('?tab=prepare')} onReview={() => setDialog({ type: 'personal' })} />}
+        {/* Classic carries + New on the bookcase bar (the same menu), so the header holds none. */}
+        {canManage && !classic && <NewMenu open={newOpen} setOpen={setNewOpen} features={features} onUpload={() => setDialog({ type: 'upload' })}
+          onPrepare={() => sigLink('?tab=prepare')} onFromCatalog={() => sigLink('?tab=prepare&source=catalog')} onReview={() => setDialog({ type: 'personal' })} />}
       </header>
 
       {canManage && movedNotice.length > 0 && (
@@ -397,7 +398,7 @@ export default function CatalogPage({
             : classic ? (
               <Bookcase {...listProps} mode={shelfMode} setMode={setShelfMode}
                 newMenu={canManage ? <NewMenu inCase open={caseNewOpen} setOpen={setCaseNewOpen} features={features} onUpload={() => setDialog({ type: 'upload' })}
-                  onPrepare={() => sigLink('?tab=prepare')} onReview={() => setDialog({ type: 'personal' })} /> : null} items={visible} />
+                  onPrepare={() => sigLink('?tab=prepare')} onFromCatalog={() => sigLink('?tab=prepare&source=catalog')} onReview={() => setDialog({ type: 'personal' })} /> : null} items={visible} />
             ) : (
               <ItemList {...listProps} />
             )}
@@ -462,14 +463,14 @@ function canViewCatalog(isOwner, isAdmin, isInterviewer) {
 function emptyTextFor(view, total, q) {
   if (!total) return 'Nothing in the Catalog yet.'
   // A signature document is a reusable template; one-off sends live in Signature requests.
-  if (view.type === 'signature' && !q) return 'No signature templates yet. Turn on "Save as a template in the Catalog" when you send a document, and it appears here to send again. Documents already sent are in Tracking, Signature requests.'
+  if (view.type === 'signature' && !q) return 'No signature templates yet. Make one from + New: "Make a template from a Catalog file", or "Prepare a document for signature" and Save template. Documents already sent are in Tracking, Signature requests.'
   if (view.track) return 'Nothing is out for completion. Forms and signature requests show here once they are sent.'
   if (q) return 'No items match. Clear the search or pick another section.'
   return 'Nothing here yet.'
 }
 
 // ── + New ─────────────────────────────────────────────────────────────────────────
-function NewMenu({ open, setOpen, features, onUpload, onPrepare, onReview, inCase = false }) {
+function NewMenu({ open, setOpen, features, onUpload, onPrepare, onFromCatalog, onReview, inCase = false }) {
   const wrap = useRef(null)
   useEffect(() => {
     if (!open) return
@@ -496,6 +497,10 @@ function NewMenu({ open, setOpen, features, onUpload, onPrepare, onReview, inCas
           {features.signatures && (
             <button type="button" role="menuitem" onClick={() => pick(onPrepare)}><span className="ctl-mi ctl-mi-sign"><Signature size={16} /></span>
               <span><b>Prepare a document for signature</b><small>Upload a PDF, place fields, set signers.</small></span></button>
+          )}
+          {features.signatures && (
+            <button type="button" role="menuitem" onClick={() => pick(onFromCatalog)}><span className="ctl-mi ctl-mi-sign"><Signature size={16} /></span>
+              <span><b>Make a template from a Catalog file</b><small>Start from a PDF already in the Catalog. The file stays as it is.</small></span></button>
           )}
           <hr />
           <button type="button" role="menuitem" onClick={() => pick(onReview)}>
