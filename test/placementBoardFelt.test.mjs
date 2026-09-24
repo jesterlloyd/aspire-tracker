@@ -286,9 +286,11 @@ test('MODERN 1: the placement workflow becomes two clean panels without changing
   assert.match(CARD(), /className=\{`material-rank-\$\{RANK_TONE\[highlightRank\]\} pb-choice-pill`\}/)
   assert.match(css, /\[data-theme="dark"\]\[data-style="modern"\] \.pb-unit-hdr\.material-board-head \{[\s\S]*?background: #273345;/)
   assert.match(css, /\[data-style="modern"\] \.pb-unit-focused:hover \{[\s\S]*?box-shadow: 0 0 0 3px/)
-  assert.match(css, /\[data-style="modern"\] \.pb-unit-drop \.pb-open-slot \{[\s\S]*?var\(--color-status-success/)
+  assert.match(css, /\.pb-unit-drop \.pb-open-slot \{[\s\S]*?background: #EAF7EF;/,
+    'Classic and Modern share the same pastel valid-drop state')
   assert.ok(!css.includes('.pb-open-slot::before'), 'the add affordance follows the student name, not the slot')
-  assert.match(css, /\[data-style="modern"\] \.pb-drag-badge \{[\s\S]*?border-radius: 50%;/)
+  assert.match(css, /\.pb-drag-badge \{[\s\S]*?border-radius: 50%;/,
+    'the circular Plus icon is shared by Classic and Modern')
   assert.ok(!TAB().includes('data-style='), 'the board keeps one component tree for both styles')
 })
 
@@ -460,6 +462,11 @@ test('DRAG GHOST: one shared implementation draws it, badge only over a target w
   // The badge appears only where a drop will be accepted.
   assert.match(drag, /if \(room\) showBadgeAt\(e\); else hideBadge\(\)/)
   assert.match(drag, /dropEffect = room \? 'move' : 'none'/)
+  assert.match(drag, /const onDocumentDragOver = useCallback\(/,
+    'the document handler keeps one identity so later drags do not inherit stale listeners')
+  assert.match(drag, /document\.removeEventListener\('dragover', onDocumentDragOver\)/)
+  assert.match(drag, /const startDrag = \(e, payload\) => \{\s*badgeWanted\.current = false\s*hideBadge\(\)/,
+    'each new drag resets the icon before evaluating its current target')
   // Moved imperatively through refs: a dragover at 60Hz must not set state.
   assert.match(drag, /ghost\.style\.transform = `translate3d\(/)
   assert.ok(!/showBadgeAt[\s\S]{0,200}setState|setBadge/.test(drag), 'no badge state')
@@ -467,6 +474,6 @@ test('DRAG GHOST: one shared implementation draws it, badge only over a target w
   assert.match(drag, /document\.addEventListener\('drag', onDocumentDrag\)/)
   // A target's dragleave arrives AFTER the next target's dragover, so leave events
   // must never decide the badge.
-  assert.match(drag, /const onDocumentDragOver = \(e\) => \{[\s\S]{0,220}if \(!badgeWanted\.current\) hideBadge\(\)/)
+  assert.match(drag, /const onDocumentDragOver = useCallback\(\(e\) => \{[\s\S]{0,220}if \(!badgeWanted\.current\) hideBadge\(\)/)
   assert.match(CSS(), /\.pb-drag-ghost \{[^}]*position: fixed;[^}]*opacity: 0;[^}]*pointer-events: none;/)
 })
