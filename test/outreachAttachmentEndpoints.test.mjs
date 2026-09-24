@@ -280,6 +280,8 @@ function swap(src) {
     // CATALOG-REVAMP-1: the Catalog send log and the demo flag it stamps, both real.
     .replace(/from '\.\/lib\/catalogSendLog\.js'/, `from ${abs('api/lib/catalogSendLog.js')}`)
     .replace(/from '\.\.\/lib\/server\/demoScope\.js'/, `from ${abs('lib/server/demoScope.js')}`)
+    // The endpoint reads the organization's branding for its email (it tolerates a failed read).
+    .replace(/from '\.\.\/lib\/server\/organizationSettings\.js'/, `from ${abs('lib/server/organizationSettings.js')}`)
     .replace(/const SEND_DELAY_MS\s*=\s*300;/, 'const SEND_DELAY_MS = 0;')
 }
 

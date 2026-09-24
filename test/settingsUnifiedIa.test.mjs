@@ -35,10 +35,11 @@ const section = (k) => SETTINGS_SECTIONS.find(s => s.key === k)
 
 // ── The rail ────────────────────────────────────────────────────────────────
 
-test('the rail is exactly the brief\'s six destinations, in its order, for the Owner', () => {
-  assert.deepEqual(railKeys(OWNER), ['general', 'accounts', 'communityBenefit', 'keith', 'demoMode', 'preceptorParity'])
+// 1d79fa60 (organization settings branding) added Organization, Owner only, under Administration.
+test('the rail is the brief\'s six destinations plus Organization, in order, for the Owner', () => {
+  assert.deepEqual(railKeys(OWNER), ['general', 'accounts', 'organization', 'communityBenefit', 'keith', 'demoMode', 'preceptorParity'])
   assert.deepEqual(visibleSections(OWNER).map(s => s.label),
-    ['General', 'Accounts & Access', 'Community Benefit', 'Keith', 'Demo Mode', 'Preceptor Parity'])
+    ['General', 'Accounts & Access', 'Organization', 'Community Benefit', 'Keith', 'Demo Mode', 'Preceptor Parity'])
 })
 
 test('groups are Workspace, Administration, Diagnostics, contiguous', () => {
@@ -96,7 +97,7 @@ test('the rail IS the Review & Release selection canon, reused, not restyled', (
 })
 
 test('the icons are the ones Settings already used, monochrome, with no tile', () => {
-  assert.match(shell, /general: Settings, accounts: Users, communityBenefit: HandCoins, keith: Sparkles,\s*demoMode: Presentation, preceptorParity: Scale,/)
+  assert.match(shell, /general: Settings, accounts: Users, organization: Building2, communityBenefit: HandCoins, keith: Sparkles,\s*demoMode: Presentation, preceptorParity: Scale,/)
   assert.match(shell, /about: BadgeInfo, appearance: Monitor, signature: PenLine, tours: Info,/)
   assert.match(shell, /keithKnowledge: FileText, keithSkills: Sparkles, keithUsage: BarChart3,/)
   assert.match(shellCss, /\.settings-rail-ic \{ flex: none; color: var\(--color-accent-primary, #1D2567\); \}/)

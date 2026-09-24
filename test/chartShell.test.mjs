@@ -102,9 +102,14 @@ test('responsive workspace nav', async (t) => {
     assert.match(nav, /aria-current=\{isActive \? 'page' : undefined\}/)
   })
 
-  await t.test('mnemonic chips and refresh yield space on phones', () => {
-    assert.match(nav, /className="chart-nav-chip"/)
-    assert.match(tokens, /@media \(max-width: 760px\) \{[\s\S]*?\.chart-nav-chip \{ display: none !important; \}[\s\S]*?\.chart-nav-refresh \{ display: none; \}/)
+  // 8de00b0a (2026-09-22, Standardize navigation icons and labels): the A-SP-I-R-E letter
+  // chips became the shared navigation icons (src/lib/navigationCanon.js). Refresh still
+  // yields its space on phones.
+  await t.test('tabs carry the canonical icon, and refresh yields space on phones', () => {
+    assert.match(nav, /import \{ NAV_ICONS, NAV_LABELS \} from '\.\.\/lib\/navigationCanon'/)
+    assert.match(nav, /<Icon size=\{16\} aria-hidden="true" \/>/)
+    assert.doesNotMatch(nav, /chart-nav-chip/)
+    assert.match(tokens, /@media \(max-width: 760px\) \{[\s\S]*?\.chart-nav-refresh \{ display: none; \}/)
   })
 
   await t.test('the shared badge tokens still drive the nav counters', () => {

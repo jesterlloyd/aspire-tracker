@@ -17,6 +17,7 @@ const read = (p) => readFileSync(join(here, '..', p), 'utf8')
 
 const portal = read('src/portal/UnitLeaderPortal.jsx')
 const chrome = read('src/portal/unit/UnitLeaderChrome.jsx')
+const canon = read('src/lib/navigationCanon.js')
 const api    = read('src/portal/unit/unitLeaderApi.js')
 const app    = read('src/portal/PortalApp.jsx')
 const css    = read('src/portal/portal.css')
@@ -54,10 +55,14 @@ test('Home renders welcome, optional attention, calendar, then the table', () =>
 test('every workflow still has a nav entry after the Phase 1 restructure', () => {
   // Report a Concern is deliberately absent: it was never a separate workflow, only a
   // Messages conversation with destination 'aspire', and now lives inside Messages.
-  for (const label of [
-    'Home', 'Preceptors', 'Messages', 'Evaluations', 'Placement Requests', 'Capacity',
+  // 8de00b0a (Standardize navigation icons and labels): the words come from
+  // src/lib/navigationCanon.js. "Evaluations" became the app-wide "Evaluation" there.
+  for (const [key, label] of [
+    ['home', 'Home'], ['preceptors', 'Preceptors'], ['messages', 'Messages'], ['evaluation', 'Evaluation'],
+    ['placementRequests', 'Placement Requests'], ['capacity', 'Capacity'],
   ]) {
-    assert.ok(chrome.includes(`label: '${label}'`), `nav must include ${label}`)
+    assert.ok(chrome.includes(`label: NAV_LABELS.${key},`), `nav must include ${label}`)
+    assert.ok(canon.includes(`${key}: '${label}',`), `${key} reads ${label}`)
   }
   assert.ok(!chrome.includes("label: 'Profile'"), 'Profile lives in the avatar menu')
   assert.ok(!chrome.includes("label: 'Notification Preferences'"), 'preferences live inside Profile')

@@ -111,7 +111,10 @@ test('the two-step review flow mirrors the portal modal', () => {
   assert.match(modal, /onClick=\{\(\) => setStep\('review'\)\}[\s\S]{0,400}>Review<\/button>/)
   assert.match(modal, /Review staff access/)
   assert.match(modal, /Send invitation/)
-  assert.match(modal, /\{step === 'review' && <ChevronLeft size=\{14\} \/>\}\{step === 'review' \? 'Back' : 'Cancel'\}/)
+  // 6c671834 (Standardize back and refresh controls): Back is the shared BackButton, in both modals.
+  assert.match(modal, /step === 'review' \? \(\s*<BackButton label="Back to invitation details" onClick=\{\(\) => setStep\('form'\)\}/)
+  assert.match(portal, /step === 'review' \? \(\s*<BackButton label="Back to access details" onClick=\{\(\) => setStep\('form'\)\}/)
+  assert.match(modal, />\s*Cancel\s*<\/button>/)
   // Same width and modal chrome as Grant Portal Access.
   assert.match(modal, /width: 'min\(500px, 100%\)', maxHeight: '92vh'/)
   assert.match(portal, /width: 'min\(500px, 100%\)', maxHeight: '92vh'/)

@@ -229,10 +229,11 @@ test('navigation semantics and accessibility', async (t) => {
   })
 
   await t.test('icons are decorative and the label is text', () => {
-    assert.match(nav, /<Home size=\{16\} aria-hidden="true" \/>/)
-    assert.match(nav, /<MessageSquare size=\{16\} aria-hidden="true" \/>/)
-    assert.match(nav, /<span className="ptl-nav-label">Messages<\/span>/)
-    assert.match(nav, /<span className="ptl-nav-label">Home<\/span>/)
+    // 8de00b0a: the icons and words come from src/lib/navigationCanon.js, still decorative + text.
+    assert.match(nav, /<NAV_ICONS\.home size=\{16\} aria-hidden="true" \/>/)
+    assert.match(nav, /<NAV_ICONS\.messages size=\{16\} aria-hidden="true" \/>/)
+    assert.match(nav, /<span className="ptl-nav-label">\{NAV_LABELS\.messages\}<\/span>/)
+    assert.match(nav, /<span className="ptl-nav-label">\{NAV_LABELS\.home\}<\/span>/)
   })
 
   await t.test('unrelated portal items were not renamed', () => {

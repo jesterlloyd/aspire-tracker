@@ -295,6 +295,10 @@ test('data-theme is always the RESOLVED mode: the app\'s dark rules key on it an
 
 let vite
 before(async () => {
+  // The Appearance page reaches the Supabase client, which refuses to load without a URL.
+  // A render test talks to no database, so a placeholder is enough (and never overrides a real one).
+  process.env.VITE_SUPABASE_URL ||= 'https://render-test.supabase.co'
+  process.env.VITE_SUPABASE_ANON_KEY ||= 'render-test-anon-key'
   vite = await createServer({ server: { middlewareMode: true }, appType: 'custom', logLevel: 'error' })
 })
 after(async () => { await vite?.close() })

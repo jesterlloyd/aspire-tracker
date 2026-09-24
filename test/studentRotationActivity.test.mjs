@@ -93,9 +93,10 @@ test('Student Home and navigation match the approved information architecture', 
   assert.match(portalLinks, /pathname === '\/portal\/student' \|\| pathname\.startsWith\('\/portal\/student\/'\)/)
   assert.match(portalApp, /previewRole = ownerAdmin \? portalKeyFromPath\(location\.pathname\) : null/)
   assert.match(portalApp, /onPlacement=\{goPlacement\}/)
-  const home = nav.indexOf('>Home</span>')
-  const placement = nav.indexOf('>My Placement</span>')
-  const messages = nav.indexOf('>Messages</span>')
+  // 8de00b0a: the nav's words come from src/lib/navigationCanon.js; the order is unchanged.
+  const home = nav.indexOf('{NAV_LABELS.home}</span>')
+  const placement = nav.indexOf('{NAV_LABELS.myPlacement}</span>')
+  const messages = nav.indexOf('{NAV_LABELS.messages}</span>')
   assert.ok(home > 0 && home < placement && placement < messages)
   assert.doesNotMatch(nav, /portal-nav-action|data-tour="portal-nav-profile"/)
 })

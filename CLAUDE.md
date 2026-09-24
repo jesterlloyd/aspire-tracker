@@ -656,6 +656,13 @@ both.
   verification queries go in `db/audit/`, numbered, one section at a time.
 - Do not push without explicit approval.
 - Leave the untracked `" 2."` / `" 3."` duplicate files alone.
+- **`npm test` is green (7,077 of 7,077, TEST-GREEN-1, 2026-09-24); keep it that way.** Run it
+  before every push and judge it by its EXIT CODE, not by eyeballing the summary. A push that
+  turns it red is not a push: fix the code, or, when the change was deliberate, update the test
+  in the same commit with a comment naming the commit that changed the behaviour. A test that
+  reads source text (a regex over a .jsx or .css) is the usual casualty of a redesign; update
+  its pattern to the new shape rather than deleting the assertion. Run it in a worktree with
+  no `.env` too: a render test must not depend on the machine's Supabase settings.
 
 ## Every table is one component (TABLE-CANON-1, 2026-09-19)
 

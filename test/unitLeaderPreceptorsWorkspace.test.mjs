@@ -23,7 +23,7 @@ test('desktop and mobile navigation match the locked Preceptors workspace order'
   assert.match(chrome, /const DESKTOP_KEYS = \['home', 'preceptors', 'messages', 'evaluations', 'placements', 'capacity'\]/)
   assert.match(chrome, /const MOBILE_PRIMARY_KEYS = \['home', 'preceptors', 'messages'\]/)
   assert.match(chrome, /const MOBILE_MORE_KEYS = \['evaluations', 'placements', 'capacity'\]/)
-  assert.match(chrome, /label: 'Preceptors'/)
+  assert.match(chrome, /key: 'preceptors', +label: NAV_LABELS\.preceptors,/)   // 8de00b0a: words from navigationCanon
   assert.doesNotMatch(chrome, /Preceptor Assignments/)
 })
 

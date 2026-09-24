@@ -141,5 +141,6 @@ test('Owner-gated migration preserves data and fails closed before application',
   assert.match(audit, /SELECT-only/)
   assert.doesNotMatch(audit, /\b(?:INSERT|UPDATE|DELETE|ALTER|CREATE|DROP|GRANT|REVOKE)\b(?![^\n]*--)/)
   assert.match(ownerGate, /20260922000000_messages_refinement_triage_reactions\.sql/)
-  assert.match(ownerGate, /NOT APPLIED, Owner-gated/)
+  // a286a0c5: the Owner applied it on 2026-09-21, and the ledger row says so.
+  assert.match(ownerGate, /20260922000000_messages_refinement_triage_reactions\.sql[^\n]*\*\*APPLIED 2026-09-21 by the Owner\.\*\*/)
 })

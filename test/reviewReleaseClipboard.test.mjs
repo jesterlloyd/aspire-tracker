@@ -61,9 +61,11 @@ test('every clipboard token has a value in light AND in dark, and a pair travels
   assert.match(lightBlock, /--aspire-tape-muted:\s*#675E44;/)
 })
 
-test('the planner reads the shared paper instead of restating it, in both themes', () => {
-  assert.match(planner, /\.pl-planner \{\s*--paper: var\(--aspire-paper\);\s*--paper-2: var\(--aspire-paper-2\);\s*--paper-ink: var\(--aspire-paper-ink\);\s*--paper-muted: var\(--aspire-paper-muted\);\s*--rule: var\(--aspire-rule\);/)
-  assert.match(planner, /\[data-theme="dark"\] \.pl-planner\[data-paper="forest"\] \{\s*--paper: var\(--aspire-paper\);/)
+// 7961223f (2026-09-22, "Apply approved classic calendar skin"): in light mode the planner
+// wears its own approved warm paper; in dark mode all three papers read the shared paper.
+test('the planner reads the shared paper in dark mode; light mode is the approved skin', () => {
+  assert.match(planner, /\.pl-planner \{\s*--paper: #FFFDF7;/)
+  assert.match(planner, /\[data-theme="dark"\] \.pl-planner,\s*\[data-theme="dark"\] \.pl-planner\[data-paper="tan"\],\s*\[data-theme="dark"\] \.pl-planner\[data-paper="forest"\] \{\s*--paper: var\(--aspire-paper\);\s*--paper-2: var\(--aspire-paper-2\);\s*--paper-ink: var\(--aspire-paper-ink\);\s*--paper-muted: var\(--aspire-paper-muted\);\s*--rule: var\(--aspire-rule\);/)
   // The tan and forest papers are their own and stay literal.
   assert.match(planner, /\.pl-planner\[data-paper="tan"\] \{\s*--paper: #FBF3E2;/)
   // No second definition of the slate paper anywhere in the clipboard sheet.

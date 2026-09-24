@@ -70,7 +70,9 @@ test('Modern calendar add controls use a clear secondary and primary hierarchy',
   const css = read('src/components/shared/plannerCalendar.css')
   assert.match(css, /\.canonical-calendar-modern \.pl-ghost-avail \{[\s\S]*?background: #F2F4FF;[\s\S]*?color: #1D2567;/)
   assert.match(css, /\.canonical-calendar-modern \.pl-ghost-event \{[\s\S]*?background: #1D2567;[\s\S]*?color: #FFFFFF;/)
-  assert.match(css, /\.canonical-calendar-modern \.pl-ghost-mini \{[\s\S]*?border-radius: 6px !important;/)
+  // The 6px corner is named once at the top of the sheet (UI canon ratchet); same pixels.
+  assert.match(css, /--pl-r-6: 6px;/)
+  assert.match(css, /\.canonical-calendar-modern \.pl-ghost-mini \{[\s\S]*?border-radius: var\(--pl-r-6\) !important;/)
   assert.match(css, /\.canonical-calendar-modern \.ngrp-dayadd\.pl-ghost-event:hover \{[\s\S]*?background: #151D57;/)
 })
 

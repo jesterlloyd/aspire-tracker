@@ -117,7 +117,8 @@ test('no mailto remains for the migrated actions', () => {
 test('Connect opens launched: bulk mode, launched template, audience preselection mapping', () => {
   assert.match(outreach, /searchParams\.get\('launch'\) \? readLaunchContext\(\) : null/)
   assert.match(outreach, /if \(launchCtx\) return 'bulk'/)
-  assert.match(outreach, /useState\(launchCtx\?\.templateKey \|\| 'survey_invitation'\)/)
+  // 395f8cd6: a launched template is taken only when it is a Send-to-Many template.
+  assert.match(outreach, /SEND_TO_MANY_TEMPLATES\.some\(t => t\.key === launchCtx\?\.templateKey\)\s*\? launchCtx\.templateKey\s*: 'survey_invitation'/)
   assert.match(outreach, /contactCategory: 'Unit Leader'/)
   assert.match(outreach, /source: 'students', studentIds: launchCtx\.studentIds/)
   assert.match(outreach, /initialAudience=\{launchAudience\}/)

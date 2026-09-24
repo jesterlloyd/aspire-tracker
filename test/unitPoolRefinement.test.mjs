@@ -147,15 +147,18 @@ test('PROOF 8: the unmatch control is a real, labelled button (the pin)', () => 
   const card = CARD()
   // PLACEMENT-BOARD-FELT-1 (Owner-approved spec): pulling the pin replaced the
   // circled X. It is still a real <button> with an exact, specific label.
-  assert.match(card, /aria-label=\{`Pull pin: unmatch \$\{name\} from \$\{unit\.unit_name\}`\}/)
+  // 94c059f9 (Refine modern placement board interactions): Modern draws an X and says
+  // "Unmatch"; Classic keeps the pin and "Pull pin". Same button, same write, in both.
+  assert.match(card, /\? `Unmatch \$\{name\} from \$\{unit\.unit_name\}`\s*: `Pull pin: unmatch \$\{name\} from \$\{unit\.unit_name\}`/)
   // tone="contrast": the tooltip opens over nightfall, where the default bubble is nightfall.
-  assert.match(card, /<Tooltip label="Pull pin" placement="top" tone="contrast">/)
+  assert.match(card, /<Tooltip label=\{appearanceStyle === 'modern' \? 'Unmatch student' : 'Pull pin'\} placement="top" tone="contrast">/)
   assert.match(card, /<button\s+type="button"\s+data-testid="pull-pin"/)
   assert.ok(!/XCircle/.test(card), 'the circled X is gone')
   // An adequate target: a 24px round pin, not a bare glyph.
   assert.match(read('src/styles/aspireMaterials.css'), /\.material-pin \{[^}]*width: 24px; height: 24px;/)
   // NEGATIVE CONTROL: the old faint × glyph as an unmatch trigger is gone.
-  assert.ok(!/Unmatch student/.test(card), 'the old lowercase label has zero occurrences')
+  // Modern's tooltip reuses the words on the real pin button; the old faint × never returns.
+  assert.equal((card.match(/Unmatch student/g) || []).length, 1, 'only as the Modern tooltip on the pin button')
   assert.ok(!/>\s*×\s*<\/button>\s*<\/Tooltip>/.test(card), 'no bare × action remains on the rows')
 })
 

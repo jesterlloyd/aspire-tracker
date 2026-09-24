@@ -186,10 +186,11 @@ test('PortalApp: auto-start effect also gates on shouldAutoStartTour(userProfile
 test('PortalApp: onRestartTour is wired into all three PortalShell usages', () => {
   // PROFILE-MENU-AVATARS-1: each mount gained onChangePhoto (and the student
   // mount the canonical publicSiteUrl), widening the span before onRestartTour.
-  assert.match(appCode, /title="Student Portal"[\s\S]{0,400}onRestartTour=\{\(\) => setTourRunning\(true\)\}/)
-  assert.match(appCode, /title="Unit Leader Portal"[\s\S]{0,400}onRestartTour=\{\(\) => setTourRunning\(true\)\}/)
-  assert.match(appCode, /title="Academic Partner Portal"[\s\S]{0,400}onRestartTour=\{\(\) => setTourRunning\(true\)\}/)
-  assert.match(appCode, /title="Nursing Education & Leadership Portal"[\s\S]{0,500}onRestartTour=\{\(\) => setTourRunning\(true\)\}/)
+  // PREVIEW (staff viewing a portal) added props before it too, so the window is 700.
+  assert.match(appCode, /title="Student Portal"[\s\S]{0,700}onRestartTour=\{\(\) => setTourRunning\(true\)\}/)
+  assert.match(appCode, /title="Unit Leader Portal"[\s\S]{0,700}onRestartTour=\{\(\) => setTourRunning\(true\)\}/)
+  assert.match(appCode, /title="Academic Partner Portal"[\s\S]{0,700}onRestartTour=\{\(\) => setTourRunning\(true\)\}/)
+  assert.match(appCode, /title="Nursing Education & Leadership Portal"[\s\S]{0,700}onRestartTour=\{\(\) => setTourRunning\(true\)\}/)
   const wiredCount = (appCode.match(/onRestartTour=\{\(\) => setTourRunning\(true\)\}/g) || []).length
   assert.equal(wiredCount, 4)
 })

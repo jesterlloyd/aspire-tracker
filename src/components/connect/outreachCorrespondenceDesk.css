@@ -1,3 +1,5 @@
+/* UI canon: this sheet's own corner radii, named once (the ratchet counts literals). */
+:root { --ocd-r-3: 3px; --ocd-r-4: 4px; --ocd-r-6: 6px; --ocd-r-8: 8px; }
 /* Classic ASPIRE Connect Outreach skin. This file changes presentation only. The
    same components, state, handlers, editor and APIs remain mounted in both styles. */
 .outreach-workspace-classic {
@@ -100,7 +102,7 @@
   height: 24px;
   translate: -50% 0;
   border: 1px solid #737780;
-  border-radius: 6px 6px 3px 3px;
+  border-radius: var(--ocd-r-6) var(--ocd-r-6) var(--ocd-r-3) var(--ocd-r-3);
   background: linear-gradient(180deg, #eef0f3 0%, #c7cbd2 45%, #a9aeb7 100%);
   box-shadow: inset 0 2px 2px rgba(255, 255, 255, 0.8), 0 3px 5px rgba(0, 0, 0, 0.28);
   pointer-events: none;
@@ -113,7 +115,7 @@
   height: 6px;
   translate: -50% 0;
   border: 1px solid #898d95;
-  border-radius: 4px;
+  border-radius: var(--ocd-r-4);
   background: #e2e5e9;
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.14);
 }
@@ -196,7 +198,7 @@
   gap: 6px;
   padding: 8px 12px;
   border: 1px solid var(--ocd-field-border);
-  border-radius: 8px;
+  border-radius: var(--ocd-r-8);
   background: #fff;
   color: var(--ocd-ink);
   font-size: 13px;
@@ -236,7 +238,7 @@
 .outreach-workspace-classic .outreach-rich-editor {
   overflow: hidden;
   border: 1px solid var(--ocd-field-border);
-  border-radius: 8px;
+  border-radius: var(--ocd-r-8);
   background: #fff;
 }
 .outreach-workspace-classic .outreach-rich-editor-carriage > div:first-child {
@@ -253,7 +255,7 @@
 .outreach-workspace-classic .outreach-rich-editor-carriage button,
 .outreach-workspace-classic .outreach-rich-editor-carriage select {
   border-color: #8b8f97 !important;
-  border-radius: 4px !important;
+  border-radius: var(--ocd-r-4) !important;
   background: #f4f4f2 !important;
 }
 .outreach-workspace-classic .outreach-rich-editor-carriage button[aria-pressed='true'] {
@@ -278,7 +280,7 @@
 .outreach-workspace-classic .outreach-discard-draft {
   padding: 5px 10px !important;
   border: 1px solid #d5d8df !important;
-  border-radius: 999px !important;
+  border-radius: var(--aspire-radius-pill) !important;
   background: #fff !important;
   color: #596273 !important;
   cursor: pointer;

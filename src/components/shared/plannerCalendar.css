@@ -1,4 +1,6 @@
 @import '../../styles/pageStack.css';
+/* UI canon: this sheet's own corner radii, named once (the ratchet counts literals). */
+:root { --pl-r-6: 6px; --pl-r-7: 7px; --pl-r-8: 8px; --pl-r-14: 14px; --pl-r-16: 16px; }
 /* PLANNER-CALENDAR-1: every Classic ASPIRE app calendar is one canonical desk planner.
  *
  * A two-ring notepad holding the mini calendar and the day detail, a stacked calendar
@@ -65,7 +67,7 @@
   min-width: 0;
   overflow: hidden;
   border: 0;
-  border-radius: 16px;
+  border-radius: var(--pl-r-16);
   background: var(--paper);
   color: var(--paper-ink);
   box-shadow: 0 10px 30px rgba(29, 37, 103, 0.10), 0 1px 3px rgba(15, 23, 42, 0.08);
@@ -111,7 +113,7 @@
 }
 .canonical-calendar-modern .canonical-calendar-empty {
   padding: 12px;
-  border-radius: 10px;
+  border-radius: var(--aspire-radius-control);
   background: #F5F6FA;
   color: var(--paper-muted);
   text-align: center;
@@ -178,7 +180,7 @@
   .canonical-calendar-shell.canonical-calendar-modern {
     width: 100%;
     margin-inline: auto;
-    border-radius: 14px;
+    border-radius: var(--pl-r-14);
   }
   .canonical-calendar-modern .canonical-calendar-main { padding: 18px 16px 8px; }
   .canonical-calendar-modern .canonical-calendar-sidebar {
@@ -191,9 +193,10 @@
 
 /* ── Paper themes ──────────────────────────────────────────────────────────── */
 /* Slate is the default and needs no attribute. The tokens are scoped to the planner
-   rather than :root, so a calendar cannot repaint the page around it. The slate values
-   are the app's shared paper (`--aspire-paper*` in theme.css, REVIEW-RELEASE-2), which
-   the Review & Release clipboard reads too: one definition, two surfaces. */
+   rather than :root, so a calendar cannot repaint the page around it. In light mode the
+   planner wears the approved Classic skin's own paper (7961223f); in dark mode every paper
+   reads the app's shared paper (`--aspire-paper*` in theme.css), as the Review & Release
+   clipboard does. */
 .pl-planner {
   --paper: #FFFDF7;
   --paper-2: #E6E0D4;
@@ -251,7 +254,7 @@
   position: relative;
   box-sizing: border-box;
   border: 7px solid #85512A;
-  border-radius: 7px;
+  border-radius: var(--pl-r-7);
   padding:
     var(--pl-pad-y)
     calc(var(--pl-pad-x) + var(--pl-stack-x))
@@ -522,7 +525,7 @@
 .canonical-calendar-modern .pl-ghost {
   border-width: 1px;
   border-style: solid;
-  border-radius: 8px !important;
+  border-radius: var(--pl-r-8) !important;
   box-shadow: none;
   font-weight: 600;
   letter-spacing: -0.01em;
@@ -555,7 +558,7 @@
 .canonical-calendar-modern .pl-ghost-mini {
   min-height: 24px;
   padding: 3px 8px;
-  border-radius: 6px !important;
+  border-radius: var(--pl-r-6) !important;
   backdrop-filter: blur(5px);
 }
 .canonical-calendar-modern .pl-ghost-mini.pl-ghost-avail {
