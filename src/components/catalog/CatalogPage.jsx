@@ -26,6 +26,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { useTheme } from '../../contexts/ThemeContext'
 import WorkspaceBackLink from '../ui/WorkspaceBackLink'
+import { RefreshHint } from '../UnifiedNav'
 import RowActionsMenu from '../shared/RowActionsMenu'
 import {
   CATALOG_FEATURES, KIND_LABEL, SORTS, audienceOf, audienceLabel, kindOf, fileBadge, fmtShortDate, fmtBytes,
@@ -365,7 +366,10 @@ export default function CatalogPage({
 
   return (
     <div className={`ctl${classic ? ' ctl-classic' : ''}`}>
-      <div className="ctl-back"><WorkspaceBackLink path={backPath} label={backLabel} /></div>
+      <div className="ctl-topline">
+        <div className="ctl-back"><WorkspaceBackLink path={backPath} label={backLabel} /></div>
+        <RefreshHint tooltipLabel="Refresh Catalog" />
+      </div>
 
       <header className="ctl-head">
         <div>

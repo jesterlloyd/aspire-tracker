@@ -90,7 +90,8 @@
 .ctl :focus-visible { outline: 3px solid var(--ctl-navy); outline-offset: 2px; }
 .ctl-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .ctl-denied { padding: 40px 24px; color: var(--ctl-muted); font-size: 14px; }
-.ctl-back { margin-bottom: 12px; }
+.ctl-topline { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.ctl-back { margin-bottom: 0; }
 
 /* ── Controls ──────────────────────────────────────────────────────────────────── */
 .ctl-btn {
