@@ -1226,7 +1226,11 @@ the Parking form follows Parking Services' own form (received 2026-09-24).
   2026-09-24: Parking Services' own "Students Parking Data" form, field for field; its labels are
   the CSV headers). Both publish. A never-published starter draft that still equals an earlier
   shipped draft (`RETIRED_STARTER_DRAFTS`) is replaced on the next install, as a new version if
-  it was published; an edited one never is.
+  it was published; an edited one never is. **That automatic path is not enough on its own**
+  (STARTER-RESET-1: the Owner's form had the old draft published as v1 and v2, so it never
+  qualified). The builder therefore shows "Use the updated starter" whenever a starter form's
+  draft differs from its starter (`starterUpdateFor`); one click replaces the DRAFT only
+  (`form-staff` `use_starter`), and the person publishes it.
 - **A form can file in its paper original's layout** (PARKING-PDF-1, 2026-09-24). The Parking
   request's PDF is drawn as Parking Services' "Students Parking Data (SPD)" page
   (`lib/server/forms/layouts/parkingSpd.js`, positions measured from their form), with the

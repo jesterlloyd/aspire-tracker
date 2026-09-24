@@ -321,3 +321,21 @@ export const RETIRED_STARTER_DRAFTS = Object.freeze({
     ],
   }],
 })
+
+// Two definitions say the same thing when their title, description and questions match,
+// whatever order jsonb stored their keys in and whatever blank fields the builder added.
+const stableOf = (v) => Array.isArray(v) ? v.map(stableOf)
+  : v && typeof v === 'object' ? Object.fromEntries(Object.keys(v).sort().filter(k => v[k] !== undefined && v[k] !== null && v[k] !== '').map(k => [k, stableOf(v[k])])) : v
+const shapeOf = (d) => stableOf({ title: String(d?.title || '').trim(), description: String(d?.description || ''),
+  questions: (d?.questions || []).map(q => ({ ...q, required: q.required === true })) })
+export const sameDefinition = (a, b) => JSON.stringify(shapeOf(a)) === JSON.stringify(shapeOf(b))
+
+/**
+ * STARTER-RESET-1 (2026-09-24): the starter a form came from, when the starter has changed
+ * since this draft was made. The builder offers it; nothing replaces a draft without a click.
+ */
+export function starterUpdateFor(form) {
+  const s = STARTER_FORMS.find(x => x.slug === form?.starter_key)
+  if (!s || !form?.draft || form.status === 'archived') return null
+  return sameDefinition(form.draft, s.definition) ? null : s
+}

@@ -260,6 +260,37 @@ test('the PDF takes every question type, a drawn signature and characters its fo
   assert.ok(pdf.getPageCount() >= 2, 'long answers flow onto more pages')
 })
 
+// STARTER-RESET-1 (2026-09-24): the Owner's form was the old Parking draft published as v1
+// AND v2, so no automatic refresh applied. The builder offers the starter; one click replaces it.
+test('a starter form that drifted from its starter is offered it, and replaced only on request', async () => {
+  const w = await world()
+  const old = M.RETIRED_STARTER_DRAFTS['student-parking-request'][0]
+  const form = await E.createForm(w.db, { title: old.title, starterKey: 'student-parking-request', definition: old }, w.owner)
+  await E.publish(w.db, form.id, w.owner)
+  await E.saveDraft(w.db, form.id, { draft: { ...old, description: old.description + ' ' } }, w.owner)
+  await E.publish(w.db, form.id, w.owner)
+  const before = await E.loadForm(w.db, form.id)
+  assert.equal(M.starterUpdateFor(before)?.slug, 'student-parking-request', 'the builder offers the updated starter')
+  assert.equal(M.starterUpdateFor({ ...before, starter_key: null }), null, 'a form of your own is never offered one')
+
+  const saved = await E.applyStarter(w.db, form.id, w.owner)
+  assert.equal(saved.status, 'published')
+  assert.equal(saved.current_version, 2, 'replacing the draft publishes nothing')
+  assert.equal(saved.draft.questions[1].id, 'badge')
+  assert.equal(M.starterUpdateFor(saved), null, 'once replaced, the offer goes away')
+  await assert.rejects(E.applyStarter(w.db, form.id, w.owner), /already matches its starter/)
+  const v3 = await E.publish(w.db, form.id, w.owner)
+  assert.equal(v3.current_version, 3)
+  assert.equal(E.layoutFor(v3, (await E.versionOf(w.db, form.id, 3)).definition), 'parking-spd')
+})
+
+test('the same definition compares equal whatever jsonb and the builder did to it', () => {
+  const d = M.STARTER_FORMS[1].definition
+  const shuffled = { questions: d.questions.map(q => Object.fromEntries(Object.entries({ ...q, prefill: q.prefill ?? '' }).reverse())), description: d.description, title: ` ${d.title} ` }
+  assert.ok(M.sameDefinition(d, shuffled))
+  assert.ok(!M.sameDefinition(d, { ...d, questions: d.questions.slice(1) }))
+})
+
 // PARKING-PDF-1: the Parking request is filed in Parking Services' own layout.
 test('the Parking PDF is drawn in the SPD layout, and nothing answered is dropped', async () => {
   const { buildSubmissionPdf } = await import('../lib/server/forms/formPdf.js')

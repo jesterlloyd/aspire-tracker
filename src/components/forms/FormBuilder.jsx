@@ -7,13 +7,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   QUESTION_TYPES, PREFILL_SOURCES, REMINDER_RULES, questionType, hasOptions, takesAnswer, newQuestion, moveQuestion,
-  definitionIssues, prefillFits, prefillSource, DEFAULT_SETTINGS,
+  definitionIssues, prefillFits, prefillSource, DEFAULT_SETTINGS, starterUpdateFor,
 } from '../../lib/forms/formModel'
 import FormRenderer from './FormRenderer'
 import { formStaff } from './formsApi'
 
 const SAMPLE = {
-  'student.full_name': 'Ava Reyes', 'student.preferred_name': 'Ava Reyes', 'student.email': 'ava.reyes@example.edu', 'student.phone': '(310) 555-0101',
+  'student.full_name': 'Ava Reyes', 'student.preferred_name': 'Ava Reyes', 'student.first_name': 'Ava', 'student.last_name': 'Reyes', 'student.email': 'ava.reyes@example.edu', 'student.phone': '(310) 555-0101',
   'student.school': 'UCLA', 'placement.unit': '6 NE', 'placement.start_date': '2026-10-05', 'placement.end_date': '2026-12-11', 'placement.preceptor': 'Maria Lopez, RN',
 }
 
@@ -81,6 +81,20 @@ export default function FormBuilder({ formId, notify, onBack, onResponses }) {
     } catch (e) { notify?.(e.message, 'err') } finally { setPublishing(false) }
   }
 
+  // STARTER-RESET-1: a starter form whose starter has changed offers the new one; it never swaps itself.
+  const starter = form && save === 'saved' ? starterUpdateFor({ ...form, draft }) : null
+  const [replacing, setReplacing] = useState(false)
+  const replaceWithStarter = async () => {
+    if (!window.confirm(`Replace this draft with the updated ${starter.title} starter? Your published versions and every answer already given are kept. Publish changes afterwards to send it.`)) return
+    setReplacing(true)
+    try {
+      const r = await formStaff('use_starter', { id: formId })
+      dirty.current = false
+      setForm(r.form); setDraft(r.form.draft); setSel(r.form.draft.questions[0]?.id || null); setSave('saved')
+      notify?.('Draft replaced with the updated starter. Check it, then Publish changes.')
+    } catch (e) { notify?.(e.message, 'err') } finally { setReplacing(false) }
+  }
+
   if (error) return <div className="fm"><p className="fm-err" role="alert">{error}</p><button type="button" className="fm-btn" onClick={onBack}>‹ Catalog</button></div>
   if (!draft) return <div className="fm"><p className="fm-hint">Loading the form…</p></div>
 
@@ -102,6 +116,12 @@ export default function FormBuilder({ formId, notify, onBack, onResponses }) {
             title={issues[0] || undefined}>{publishing ? 'Publishing…' : form.status === 'draft' ? 'Publish' : 'Publish changes'}</button>
         </div>
       </div>
+      {starter && (
+        <div className="fm-note fm-starter" role="status">
+          <span>The {starter.title} starter has been updated since this draft was made{starter.slug === 'student-parking-request' ? ': it now asks Parking Services\' own questions' : ''}.</span>
+          <button type="button" className="fm-btn" onClick={replaceWithStarter} disabled={replacing}>{replacing ? 'Replacing…' : 'Use the updated starter'}</button>
+        </div>
+      )}
       {issues.length > 0 && <p className="fm-note" role="status">Before publishing: {issues[0]}{issues.length > 1 ? ` (and ${issues.length - 1} more)` : ''}</p>}
 
       <div className="fm-grid">

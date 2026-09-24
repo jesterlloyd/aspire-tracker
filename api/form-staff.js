@@ -12,6 +12,7 @@
 //   get             -> { form, versions, counts }   (id | catalog_resource_id)
 //   save            -> { form } the draft and settings (publishing is separate)
 //   publish         -> { form } freezes the draft as the next version
+//   use_starter     -> { form } replaces a starter form's draft with the starter as it ships now (not published)
 //   starters        -> { results } adds the brief's starter forms that are missing
 //   send            -> { created, sent, failed } one personal link per person
 //   assignments     -> { assignments, definitions } the responses screen
@@ -26,7 +27,7 @@ import { createMailer } from '../lib/server/email/mailer.js'
 import { appBaseUrl } from '../lib/server/appUrl.js'
 import { populationOf } from '../lib/server/demoScope.js'
 import {
-  FormError, ORG_ID, FORM_BUCKET, notEnabled, createForm, loadForm, formForItem, saveDraft, publish, installStarters,
+  FormError, ORG_ID, FORM_BUCKET, notEnabled, createForm, loadForm, formForItem, saveDraft, publish, installStarters, applyStarter,
   sendForm, remind, voidAssignments, exportCsv, versionOf,
 } from '../lib/server/forms/engine.js'
 import { assignableCategorySlugs } from './lib/catalogCategories.js'
@@ -102,6 +103,7 @@ async function act(db, body, { profile, isDemo }) {
     }
     case 'save': needUuid(body.id); return { form: await saveDraft(db, body.id, { draft: body.draft, settings: body.settings }, profile) }
     case 'publish': needUuid(body.id); return { form: await publish(db, body.id, profile) }
+    case 'use_starter': needUuid(body.id); return { form: await applyStarter(db, body.id, profile) }
     case 'starters': return { results: await installStarters(db, profile) }
     case 'send': {
       const s = body.send || {}
