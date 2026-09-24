@@ -263,6 +263,18 @@ test('MATERIAL 1: tokens live in aspireBrand.css; classes read them; no literal 
   assert.match(CSS(), /@media \(prefers-reduced-motion: reduce\)/)
 })
 
+test('MODERN 1: the placement workflow becomes two clean panels without changing its component tree', () => {
+  const css = CSS()
+  assert.match(css, /\[data-style="modern"\] \.pb-pool \{[\s\S]*?border: 1px solid[\s\S]*?box-shadow:/)
+  assert.match(css, /\[data-style="modern"\] \.pb-pool-hdr\.material-navy-flat \{[\s\S]*?linear-gradient/)
+  assert.match(css, /\[data-style="modern"\] \.pb-pool-body\.material-leather-cream \{[\s\S]*?background-image: none;[\s\S]*?box-shadow: none;/)
+  assert.match(css, /\[data-style="modern"\] \.pb-pool-note\.paper-note \{[\s\S]*?transform: none;[\s\S]*?box-shadow: none;/)
+  assert.match(css, /\[data-style="modern"\] \.pb-unit-body\.material-board \{[\s\S]*?background-image: none;[\s\S]*?box-shadow: none;/)
+  assert.match(css, /\[data-style="modern"\] \.pb-pin\.material-pin::after \{[\s\S]*?content: '\\00D7';/)
+  assert.match(css, /\[data-style="modern"\] \.pb-unit-drop \.pb-open-slot \{[\s\S]*?var\(--color-status-success/)
+  assert.ok(!TAB().includes('data-style='), 'the board keeps one component tree for both styles')
+})
+
 test('MATERIAL 2: white numbers on every rank colour meet WCAG AA (4.5:1)', () => {
   const brand = read('src/styles/aspireBrand.css')
   const lin = c => { c /= 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4 }

@@ -386,6 +386,182 @@
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
 }
 
+/* ── Modern appearance ──────────────────────────────────────────────────────
+   Modern keeps the same board, ordering and placement controls. It removes the
+   pinboard materials and presents Students and Units as the same separate elevated
+   panels used by Student Profiles. Classic remains the complete material treatment. */
+[data-style="modern"] .pb-glance {
+  overflow: visible;
+  background: transparent;
+  box-shadow: none;
+}
+[data-style="modern"] .pb-glance .snap-kpis {
+  gap: var(--aspire-gap-card);
+  background: transparent;
+}
+[data-style="modern"] .pb-glance .snap-kpis > div {
+  border: 1px solid var(--border-card, rgba(29, 37, 103, 0.08));
+  border-radius: var(--aspire-radius-card);
+  box-shadow: var(--aspire-shadow-card);
+}
+
+[data-style="modern"] .pb-pool {
+  border: 1px solid var(--border-card, rgba(29, 37, 103, 0.08));
+  background: var(--color-bg-elevated, var(--pearl, #FFFFFF));
+  box-shadow: 0 10px 30px rgba(29, 37, 103, 0.10), 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+[data-style="modern"] .pb-pool-hdr.material-navy-flat {
+  padding: 14px 16px;
+  margin-bottom: 0;
+  border-bottom: 1px solid var(--border-card, rgba(29, 37, 103, 0.08));
+  background: linear-gradient(135deg,
+    var(--color-status-info-bg, #EAF3FB),
+    var(--color-bg-elevated, #FFFFFF));
+  color: var(--color-text-primary, #191919);
+}
+[data-style="modern"] .pb-pool-units .pb-pool-hdr.material-navy-flat {
+  background: linear-gradient(135deg,
+    var(--color-status-info-bg, #EEF0FA),
+    var(--color-bg-elevated, #FFFFFF));
+}
+[data-style="modern"] .pb-pool-hdr.material-navy-flat::before { display: none; }
+[data-style="modern"] .pb-pool-hdr.material-navy-flat .material-soft,
+[data-style="modern"] .pb-pool-hdr.material-navy-flat .material-ok {
+  color: var(--color-text-secondary, #4A5560);
+}
+[data-style="modern"] .pb-pool-hdr.material-navy-flat select,
+[data-style="modern"] .pb-pool-hdr.material-navy-flat input,
+[data-style="modern"] .pb-pool-hdr.material-navy-flat button.material-inlay {
+  border-color: var(--color-border-default, rgba(25, 25, 25, 0.14));
+  background: var(--color-bg-elevated, #FFFFFF);
+  color: var(--color-text-primary, #191919);
+  box-shadow: none;
+}
+[data-style="modern"] .pb-pool-hdr .pb-select:focus-visible,
+[data-style="modern"] .pb-pool-hdr button:focus-visible {
+  outline-color: var(--color-accent-primary, var(--aspire-navy));
+}
+
+[data-style="modern"] .pb-pool-body.material-leather-cream {
+  gap: 0;
+  padding: 0 0 80px;
+  background: var(--color-bg-elevated, var(--pearl, #FFFFFF));
+  background-image: none;
+  box-shadow: none;
+}
+[data-style="modern"] .pb-pool-body .pb-banner { margin: 14px 16px 0; }
+[data-style="modern"] .pb-group-label {
+  margin: 0;
+  padding: 14px 16px 8px;
+  color: var(--color-text-secondary, #4A5560);
+}
+[data-style="modern"] .pb-note-list { gap: 0; }
+[data-style="modern"] .pb-pool-note.paper-note {
+  transform: none;
+  border-bottom: 1px solid var(--border-card, rgba(29, 37, 103, 0.08));
+  border-radius: 0;
+  background: var(--color-bg-elevated, var(--pearl, #FFFFFF));
+  color: var(--color-text-primary, #191919);
+  box-shadow: none;
+}
+[data-style="modern"] .pb-pool-note.paper-note .material-soft {
+  color: var(--color-text-secondary, #4A5560);
+}
+[data-style="modern"] .pb-note-interactive:hover {
+  transform: none;
+  background: var(--color-bg-hover, #F8FAFC);
+  box-shadow: inset 3px 0 0 rgba(29, 37, 103, 0.28);
+}
+[data-style="modern"] .pb-note-selected,
+[data-style="modern"] .pb-note-selected:hover {
+  outline: 0;
+  transform: none;
+  background: var(--color-status-info-bg, #EEF4FF);
+  box-shadow: inset 3px 0 0 var(--color-accent-primary, var(--aspire-navy));
+}
+
+[data-style="modern"] .pb-legend {
+  border-bottom: 0;
+  color: var(--color-text-secondary, #4A5560);
+}
+[data-style="modern"] .pb-unit {
+  border: 1px solid var(--border-card, rgba(29, 37, 103, 0.10));
+  background: var(--color-bg-elevated, var(--pearl, #FFFFFF));
+  box-shadow: 0 4px 14px rgba(29, 37, 103, 0.08);
+}
+[data-style="modern"] .pb-unit:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(29, 37, 103, 0.12);
+}
+[data-style="modern"] .pb-unit-hdr.material-board-head {
+  border-bottom: 1px solid var(--border-card, rgba(29, 37, 103, 0.08));
+  background: linear-gradient(135deg,
+    var(--color-status-info-bg, #E9EEFA),
+    var(--color-bg-hover, #F8FAFC));
+  color: var(--color-text-primary, #191919);
+}
+[data-style="modern"] .pb-unit-hdr.material-board-head .material-soft,
+[data-style="modern"] .pb-unit-hdr.material-board-head .material-chip {
+  color: var(--color-text-secondary, #4A5560);
+}
+[data-style="modern"] .pb-unit-body.material-board {
+  background: var(--color-bg-elevated, var(--pearl, #FFFFFF));
+  background-image: none;
+  box-shadow: none;
+  color: var(--color-text-primary, #191919);
+}
+[data-style="modern"] .pb-pinned:not(.pb-pull) { transform: none; }
+[data-style="modern"] .pb-pinned-note.paper-note {
+  padding-right: 48px;
+  border: 1px solid var(--border-card, rgba(29, 37, 103, 0.08));
+  border-radius: var(--aspire-radius-control);
+  background: var(--color-bg-hover, #F8FAFC);
+  color: var(--color-text-primary, #191919);
+  box-shadow: none;
+}
+[data-style="modern"] .pb-pinned-note.paper-note .material-soft {
+  color: var(--color-text-secondary, #4A5560);
+}
+[data-style="modern"] .pb-pin-anchor {
+  top: 8px;
+  right: 8px;
+  left: auto;
+  transform: none;
+}
+[data-style="modern"] .pb-pin.material-pin,
+[data-style="modern"] .pb-pin.material-pin:hover,
+[data-style="modern"] .pb-pin.material-pin:focus-visible {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--color-border-default, rgba(25, 25, 25, 0.14));
+  border-radius: var(--aspire-radius-control);
+  background: var(--color-bg-elevated, #FFFFFF);
+  color: var(--color-text-secondary, #4A5560);
+  box-shadow: none;
+}
+[data-style="modern"] .pb-pin.material-pin span { display: none; }
+[data-style="modern"] .pb-pin.material-pin::after {
+  content: '\00D7';
+  font: 600 18px/1 var(--aspire-sans);
+}
+[data-style="modern"] .pb-open-slot {
+  border-color: var(--color-border-default, rgba(25, 25, 25, 0.14));
+  background: var(--color-bg-hover, #F8FAFC);
+  color: var(--color-text-secondary, #4A5560);
+}
+[data-style="modern"] .pb-unit-drop .pb-open-slot {
+  border-color: var(--color-status-success, #0F7A4D);
+  background: var(--color-status-success-bg, #E8F5EE);
+  color: var(--color-status-success, #0F7A4D);
+}
+[data-style="modern"] .pb-drag-ghost {
+  border: 1px solid var(--border-card, rgba(29, 37, 103, 0.10));
+  border-radius: var(--aspire-radius-control);
+  background: var(--color-bg-elevated, #FFFFFF);
+  color: var(--color-text-primary, #191919);
+  box-shadow: 0 8px 20px rgba(29, 37, 103, 0.14);
+}
+
 /* ── Narrow screens: Students first, then Units ────────────────────────────── */
 @media (max-width: 900px) {
   .pb-board { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; }
