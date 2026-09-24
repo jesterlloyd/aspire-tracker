@@ -326,14 +326,16 @@ test('DIRECT: restore returns this recipient\'s attachment, and legacy drafts re
 
 test('a cohort switch REMOUNTS the composer, so nothing can survive it', () => {
   const connect = read('src/pages/Connect.jsx')
-  assert.match(connect, /<OutreachView key=\{cohortId \|\| 'no-cohort'\}/,
+  // d1b458f6 (Outreach desk viewport layout) put OutreachView's props on separate lines; the
+  // key is unchanged, so the pattern allows any whitespace between the tag and the key.
+  assert.match(connect, /<OutreachView\s+key=\{cohortId \|\| 'no-cohort'\}/,
     'the composer is keyed by cohort')
 
   // NEGATIVE CONTROL: without the key React reuses the same instance across a
   // cohort change, which is exactly how the previous cohort's subject, body and
   // attachments stayed on screen and were then autosaved into the new cohort.
-  const withoutKey = connect.replace(/<OutreachView key=\{cohortId \|\| 'no-cohort'\} /, '<OutreachView ')
-  assert.doesNotMatch(withoutKey, /<OutreachView key=/,
+  const withoutKey = connect.replace(/<OutreachView\s+key=\{cohortId \|\| 'no-cohort'\}\s+/, '<OutreachView ')
+  assert.doesNotMatch(withoutKey, /<OutreachView\s+key=/,
     'the control removes the boundary')
   assert.notEqual(withoutKey, connect, 'the key is load-bearing, not decoration')
 })
