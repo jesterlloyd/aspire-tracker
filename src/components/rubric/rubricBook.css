@@ -882,8 +882,9 @@
 
 /* ── Modern appearance ──────────────────────────────────────────────────────
    Modern preserves the two-pane interview workflow but removes the physical book.
-   The result follows the connected Modern calendar: one rounded surface, one divider,
-   and a quiet section rail. Classic rules above remain the complete book treatment. */
+   In spread mode, the candidate and rubric are separate elevated panels, matching the
+   list/detail composition in Student Profiles. Single-page mode remains one card.
+   Classic rules above remain the complete book treatment. */
 [data-style='modern'] .rb-cover {
   padding: 0;
   border: 1px solid var(--border-card, rgba(29, 37, 103, 0.08));
@@ -902,13 +903,58 @@
   background: var(--color-bg-elevated, var(--pearl, #FFFFFF));
   box-shadow: none;
 }
+[data-style='modern'] .rb-shell[data-rb-mode='spread'] .rb-cover {
+  border: 0;
+  border-radius: 0;
+  background: transparent !important;
+  box-shadow: none;
+  overflow: visible;
+}
+[data-style='modern'] .rb-shell[data-rb-mode='spread'] .rb-spread {
+  grid-template-columns:
+    minmax(var(--rb-left-min), var(--rb-left-share))
+    20px
+    minmax(var(--rb-right-min), var(--rb-right-share))
+    var(--rb-rail-w);
+  border-radius: 0;
+  background: transparent;
+}
+/* The rubric header, page and section rail remain separate grid items. This backing
+   surface makes them read as one right-hand panel without changing their behavior. */
+[data-style='modern'] .rb-shell[data-rb-mode='spread'] .rb-spread::before {
+  content: '';
+  grid-column: 3 / 5;
+  grid-row: 1 / -1;
+  border: 1px solid var(--border-card, rgba(29, 37, 103, 0.08));
+  border-radius: var(--aspire-radius-card);
+  background: var(--color-bg-elevated, var(--pearl, #FFFFFF));
+  box-shadow: 0 10px 30px rgba(29, 37, 103, 0.10), 0 1px 3px rgba(15, 23, 42, 0.08);
+  pointer-events: none;
+}
+[data-style='modern'] .rb-shell[data-rb-mode='spread'] .rb-page-left {
+  grid-column: 1;
+  border: 1px solid var(--border-card, rgba(29, 37, 103, 0.08));
+  border-radius: var(--aspire-radius-card);
+  box-shadow: 0 10px 30px rgba(29, 37, 103, 0.10), 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+[data-style='modern'] .rb-shell[data-rb-mode='spread'] .rb-head {
+  grid-column: 3 / 5;
+  border-radius: var(--aspire-radius-card) var(--aspire-radius-card) 0 0;
+}
+[data-style='modern'] .rb-shell[data-rb-mode='spread'] .rb-page-right {
+  grid-column: 3;
+  border-radius: 0 0 0 var(--aspire-radius-card);
+}
+[data-style='modern'] .rb-shell[data-rb-mode='spread'] .rb-index {
+  grid-column: 4;
+  border-radius: 0 0 var(--aspire-radius-card) 0;
+}
 [data-style='modern'] .rb-page,
 [data-style='modern'] .rb-page-left,
 [data-style='modern'] .rb-page-right {
   background: var(--color-bg-elevated, var(--pearl, #FFFFFF));
 }
 [data-style='modern'] .rb-page-left {
-  border-right: 1px solid var(--border-card, rgba(29, 37, 103, 0.08));
   background: var(--color-bg-elevated, var(--pearl, #FFFFFF));
 }
 [data-style='modern'] .rb-page-left .rb-id {

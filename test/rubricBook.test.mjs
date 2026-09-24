@@ -26,10 +26,16 @@ const indexCss = read('src/index.css')
 const boardCss = read('src/components/placement/placementBoard.css')
 const constants = await import('../src/lib/constants.js')
 
-test('Modern appearance presents the rubric as one connected two-pane surface', () => {
+test('Modern appearance presents the rubric as two separate elevated panels', () => {
   assert.match(bookCss, /\[data-style='modern'\] \.rb-cover \{[\s\S]*?padding: 0;[\s\S]*?border-radius: var\(--aspire-radius-card\);/)
   assert.match(bookCss, /\[data-style='modern'\] \.rb-cover\.material-forestack::before,[\s\S]*?\.rb-seam \{ display: none; \}/)
-  assert.match(bookCss, /\[data-style='modern'\] \.rb-page-left \{[\s\S]*?border-right: 1px solid/)
+  assert.match(bookCss, /\[data-style='modern'\] \.rb-shell\[data-rb-mode='spread'\] \.rb-cover \{[\s\S]*?background: transparent !important;[\s\S]*?overflow: visible;/)
+  assert.match(bookCss, /\[data-style='modern'\] \.rb-shell\[data-rb-mode='spread'\] \.rb-spread \{[\s\S]*?20px[\s\S]*?var\(--rb-rail-w\);/)
+  assert.match(bookCss, /\.rb-spread::before \{[\s\S]*?grid-column: 3 \/ 5;[\s\S]*?box-shadow:/)
+  assert.match(bookCss, /\.rb-shell\[data-rb-mode='spread'\] \.rb-page-left \{[\s\S]*?grid-column: 1;[\s\S]*?border-radius: var\(--aspire-radius-card\);[\s\S]*?box-shadow:/)
+  assert.match(bookCss, /\.rb-shell\[data-rb-mode='spread'\] \.rb-head \{[\s\S]*?grid-column: 3 \/ 5;/)
+  assert.match(bookCss, /\.rb-shell\[data-rb-mode='spread'\] \.rb-page-right \{[\s\S]*?grid-column: 3;/)
+  assert.match(bookCss, /\.rb-shell\[data-rb-mode='spread'\] \.rb-index \{[\s\S]*?grid-column: 4;/)
   assert.match(bookCss, /\[data-style='modern'\] \.rb-page-left \.rb-id \{[\s\S]*?linear-gradient\(160deg, #dceff8/)
   assert.match(bookCss, /\[data-style='modern'\] \.rb-ribbon,[\s\S]*?clip-path: none;/)
 })
