@@ -12,6 +12,8 @@
 //   get             -> { form, versions, counts }   (id | catalog_resource_id)
 //   save            -> { form } the draft and settings (publishing is separate)
 //   publish         -> { form } freezes the draft as the next version
+//   paper_set       -> { paper } copies a Catalog PDF in as the form's paper original (the exact measured file only)
+//   paper_clear     -> { paper } removes it; submissions go back to the redrawn layout
 //   use_starter     -> { form } replaces a starter form's draft with the starter as it ships now (not published)
 //   starters        -> { results } adds the brief's starter forms that are missing
 //   send            -> { created, sent, failed } one personal link per person
@@ -27,7 +29,7 @@ import { createMailer } from '../lib/server/email/mailer.js'
 import { appBaseUrl } from '../lib/server/appUrl.js'
 import { populationOf } from '../lib/server/demoScope.js'
 import {
-  FormError, ORG_ID, FORM_BUCKET, notEnabled, createForm, loadForm, formForItem, saveDraft, publish, installStarters, applyStarter,
+  FormError, ORG_ID, FORM_BUCKET, notEnabled, createForm, loadForm, formForItem, saveDraft, publish, installStarters, applyStarter, paperStatus, setPaperFromCatalog, clearPaper,
   sendForm, remind, voidAssignments, exportCsv, versionOf,
 } from '../lib/server/forms/engine.js'
 import { assignableCategorySlugs } from './lib/catalogCategories.js'
@@ -99,10 +101,12 @@ async function act(db, body, { profile, isDemo }) {
       const { data: rows } = await db.from('form_assignments').select('status, due_at, opened_at, submitted_at').eq('form_id', form.id).eq('is_demo', isDemo)
       const counts = { total: 0, submitted: 0, overdue: 0, opened: 0, sent: 0, closed: 0, voided: 0 }
       for (const a of rows || []) { counts.total++; counts[assignmentState(a)]++ }
-      return { form, versions: versions || [], counts }
+      return { form, versions: versions || [], counts, paper: await paperStatus(db, form) }
     }
     case 'save': needUuid(body.id); return { form: await saveDraft(db, body.id, { draft: body.draft, settings: body.settings }, profile) }
     case 'publish': needUuid(body.id); return { form: await publish(db, body.id, profile) }
+    case 'paper_set': needUuid(body.id); needUuid(body.resource_id, 'Catalog file'); return { paper: await setPaperFromCatalog(db, body.id, body.resource_id) }
+    case 'paper_clear': needUuid(body.id); return { paper: await clearPaper(db, body.id) }
     case 'use_starter': needUuid(body.id); return { form: await applyStarter(db, body.id, profile) }
     case 'starters': return { results: await installStarters(db, profile) }
     case 'send': {

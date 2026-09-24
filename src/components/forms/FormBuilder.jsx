@@ -11,6 +11,7 @@ import {
 } from '../../lib/forms/formModel'
 import FormRenderer from './FormRenderer'
 import { formStaff } from './formsApi'
+import { supabase } from '../../lib/supabase'
 
 const SAMPLE = {
   'student.full_name': 'Ava Reyes', 'student.preferred_name': 'Ava Reyes', 'student.first_name': 'Ava', 'student.last_name': 'Reyes', 'student.email': 'ava.reyes@example.edu', 'student.phone': '(310) 555-0101',
@@ -27,6 +28,9 @@ export default function FormBuilder({ formId, notify, onBack, onResponses }) {
   const [error, setError] = useState(null)
   const [preview, setPreview] = useState(false)
   const [publishing, setPublishing] = useState(false)
+  const [paper, setPaper] = useState(null)        // PAPER-ORIGINAL-1: { layout, name, onFile } for a form with a paper layout
+  const [catalogPdfs, setCatalogPdfs] = useState(null)
+  const [paperBusy, setPaperBusy] = useState(false)
   const dirty = useRef(false)
   const drag = useRef(null)
 
@@ -34,7 +38,7 @@ export default function FormBuilder({ formId, notify, onBack, onResponses }) {
     let live = true
     formStaff('get', { id: formId }).then(r => {
       if (!live) return
-      setForm(r.form); setDraft(r.form.draft); setSettings({ ...DEFAULT_SETTINGS, ...(r.form.settings || {}) })
+      setForm(r.form); setDraft(r.form.draft); setSettings({ ...DEFAULT_SETTINGS, ...(r.form.settings || {}) }); setPaper(r.paper || null)
       setSel(r.form.draft.questions[0]?.id || null)
     }).catch(e => setError(e.message))
     return () => { live = false }
@@ -81,6 +85,27 @@ export default function FormBuilder({ formId, notify, onBack, onResponses }) {
     } catch (e) { notify?.(e.message, 'err') } finally { setPublishing(false) }
   }
 
+  // PAPER-ORIGINAL-1: the Catalog's own PDFs, read once, the same list Signatures offers.
+  useEffect(() => {
+    if (!paper || paper.onFile || catalogPdfs) return
+    supabase.from('catalog_resources').select('id, title, kind, file_type_label, storage_path, resource_type, is_active')
+      .eq('resource_type', 'internal_file').order('title')
+      .then(({ data }) => setCatalogPdfs((data || []).filter(r => r.is_active !== false && (r.kind || 'file') === 'file'
+        && !/^(sig-template|form):/.test(String(r.storage_path || ''))
+        && (String(r.file_type_label || '').toUpperCase() === 'PDF' || /\.pdf$/i.test(r.storage_path || '')))))
+  }, [paper, catalogPdfs])
+  const choosePaper = async (resourceId) => {
+    if (!resourceId) return
+    setPaperBusy(true)
+    try { const r = await formStaff('paper_set', { id: formId, resource_id: resourceId }); setPaper(r.paper); notify?.(`${r.paper.name} is on file. New submissions are filed on it.`) }
+    catch (e) { notify?.(e.message, 'err') } finally { setPaperBusy(false) }
+  }
+  const removePaper = async () => {
+    setPaperBusy(true)
+    try { const r = await formStaff('paper_clear', { id: formId }); setPaper(r.paper) }
+    catch (e) { notify?.(e.message, 'err') } finally { setPaperBusy(false) }
+  }
+
   // STARTER-RESET-1: a starter form whose starter has changed offers the new one; it never swaps itself.
   const starter = form && save === 'saved' ? starterUpdateFor({ ...form, draft }) : null
   const [replacing, setReplacing] = useState(false)
@@ -120,6 +145,25 @@ export default function FormBuilder({ formId, notify, onBack, onResponses }) {
         <div className="fm-note fm-starter" role="status">
           <span>The {starter.title} starter has been updated since this draft was made{starter.slug === 'student-parking-request' ? ': it now asks Parking Services\' own questions' : ''}.</span>
           <button type="button" className="fm-btn" onClick={replaceWithStarter} disabled={replacing}>{replacing ? 'Replacing…' : 'Use the updated starter'}</button>
+        </div>
+      )}
+      {paper && (
+        <div className="fm-card fm-paper">
+          <p className="fm-h3">Paper form</p>
+          {paper.onFile ? (
+            <div className="fm-paper-row">
+              <p className="fm-hint">Submissions are filed on {paper.name}, the PDF chosen from the Catalog, with each answer typed into its box.</p>
+              <button type="button" className="fm-btn" onClick={removePaper} disabled={paperBusy}>{paperBusy ? 'Removing…' : 'Remove'}</button>
+            </div>
+          ) : (
+            <div className="fm-paper-row">
+              <label className="fm-hint" htmlFor="fm-paper-pick">Choose {paper.name} from the Catalog to file every submission on that exact PDF. Until then, ASPIRE draws a copy of it.</label>
+              <select id="fm-paper-pick" value="" disabled={paperBusy || !catalogPdfs} onChange={e => choosePaper(e.target.value)}>
+                <option value="">{paperBusy ? 'Copying…' : catalogPdfs ? 'Choose a Catalog PDF…' : 'Loading the Catalog…'}</option>
+                {(catalogPdfs || []).map(r => <option key={r.id} value={r.id}>{r.title}</option>)}
+              </select>
+            </div>
+          )}
         </div>
       )}
       {issues.length > 0 && <p className="fm-note" role="status">Before publishing: {issues[0]}{issues.length > 1 ? ` (and ${issues.length - 1} more)` : ''}</p>}

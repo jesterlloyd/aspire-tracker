@@ -20,6 +20,11 @@
 .fm-hint { margin: 0; font-size: 12.5px; color: var(--ctl-muted); }
 .fm-err { padding: 9px 12px; font-size: 13px; color: var(--ctl-red); background: var(--aspire-bad-soft); border-radius: var(--aspire-radius-control); }
 .fm-note { margin: 0; padding: 9px 12px; font-size: 13px; color: var(--ctl-amber); background: var(--ctl-amber-soft); border-radius: var(--aspire-radius-control); }
+.fm-paper { padding: 12px 16px; }
+.fm-paper .fm-h3 { margin: 0 0 4px; }
+.fm-paper-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.fm-paper-row .fm-hint { margin: 0; flex: 1 1 320px; min-width: 0; }
+.fm-paper-row select { flex: 0 1 320px; min-width: 0; max-width: 100%; }
 .fm-starter { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .fm-warn { display: block; color: var(--ctl-amber); font-size: 11.5px; }
 .fm-mono { font-family: var(--ctl-mono); font-size: 12px; color: var(--ctl-muted); }
@@ -85,7 +90,7 @@
 .fm-panel { display: grid; gap: 10px; }
 .fm-field { display: grid; gap: 5px; }
 .fm-field > label { font-size: 12.5px; font-weight: 700; color: var(--ctl-ink); }
-.fm-field input, .fm-field select, .fm-field textarea {
+.fm-field input, .fm-field select, .fm-field textarea, .fm-paper-row select {
   width: 100%; box-sizing: border-box; padding: 8px 10px; font: 13.5px var(--aspire-sans); color: var(--ctl-ink);
   background: var(--color-bg-input, var(--ctl-surface)); border: 1px solid var(--ctl-line); border-radius: var(--aspire-radius-control); }
 .fm-two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }

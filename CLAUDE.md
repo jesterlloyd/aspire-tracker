@@ -1238,6 +1238,13 @@ the Parking form follows Parking Services' own form (received 2026-09-24).
   (it is public; Owner chose "redraw their layout"). `layoutFor` picks a layout by starter key
   and only while the answered version still has the layout's core questions; anything the
   layout has no box for is listed on a second page. Every other form keeps the plain PDF.
+- **The paper original comes from the Catalog** (PAPER-ORIGINAL-1, Owner, 2026-09-24: "use the
+  exact same form and put the fields in the textbox", picked from existing files like
+  Signatures). The builder's Paper form card lists the Catalog's PDFs; `form-staff` `paper_set`
+  COPIES the chosen one to `form-files/paper/<form id>.pdf` (the Catalog's copy is untouched)
+  and accepts only the exact file the boxes were measured on (`PARKING_SPD_SHA256`). With it on
+  file, a submission is that PDF with the answers stamped in its boxes; without it, the redrawn
+  layout. A different edition of their form needs its boxes re-measured and a new hash.
 - **Tables here follow `.aspire-th`.** Its grey on `#f9fafb` measures 4.37:1 (the app-wide header),
   noted, not changed. `--aspire-row-band` is a light-mode constant, so the Responses table bands
   from the Catalog surface instead.

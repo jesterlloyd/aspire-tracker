@@ -13,6 +13,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { PGlite } from '@electric-sql/pglite'
@@ -289,6 +290,55 @@ test('the same definition compares equal whatever jsonb and the builder did to i
   const shuffled = { questions: d.questions.map(q => Object.fromEntries(Object.entries({ ...q, prefill: q.prefill ?? '' }).reverse())), description: d.description, title: ` ${d.title} ` }
   assert.ok(M.sameDefinition(d, shuffled))
   assert.ok(!M.sameDefinition(d, { ...d, questions: d.questions.slice(1) }))
+})
+
+// PAPER-ORIGINAL-1 (2026-09-24): the Parking form is filed ON Parking Services' own PDF,
+// chosen from the Catalog. Their file is not in this public repo, so a stand-in PDF plays it
+// and PAPER_FILES is pointed at the stand-in for the length of the test.
+test('the paper original is chosen from the Catalog, only the measured file is accepted, and answers are stamped on it', async () => {
+  const w = await world()
+  const paperDoc = await PDFDocument.create(); paperDoc.addPage([612, 792]).drawText('Students Parking Data (SPD)', { x: 362, y: 720 })
+  const paperBytes = Buffer.from(await paperDoc.save())
+  const otherDoc = await PDFDocument.create(); otherDoc.addPage([612, 792])
+  const other = Buffer.from(await otherDoc.save())
+  const real = E.PAPER_FILES['parking-spd'].sha256
+  E.PAPER_FILES['parking-spd'].sha256 = createHash('sha256').update(paperBytes).digest('hex')
+  try {
+    await w.db.storage.from('aspire-catalog').upload('students-parking-data.pdf', paperBytes)
+    await w.db.storage.from('aspire-catalog').upload('other.pdf', other)
+    const file = async (title, path, extra = {}) => (await w.pg.query(`INSERT INTO catalog_resources (slug, title, resource_type, storage_path, file_type_label, kind, is_active)
+      VALUES ($1, $2, 'internal_file', $3, 'PDF', $4, true) RETURNING id`, [title.toLowerCase().replace(/\W+/g, '-'), title, path, extra.kind || 'file'])).rows[0].id
+    const spd = await file('Students Parking Data', 'students-parking-data.pdf')
+    const wrong = await file('Some other PDF', 'other.pdf')
+
+    await E.installStarters(w.db, w.owner)
+    const { rows: [pk] } = await w.pg.query(`SELECT * FROM catalog_forms WHERE starter_key = 'student-parking-request'`)
+    const { rows: [sx] } = await w.pg.query(`SELECT * FROM catalog_forms WHERE starter_key = 'scrubex-request-form'`)
+    assert.deepEqual(await E.paperStatus(w.db, pk), { layout: 'parking-spd', name: 'Students Parking Data (SPD)', onFile: false })
+    assert.equal(await E.paperStatus(w.db, sx), null, 'a form with no paper layout offers no paper form')
+    await assert.rejects(E.setPaperFromCatalog(w.db, sx.id, spd), /no paper layout/)
+    await assert.rejects(E.setPaperFromCatalog(w.db, pk.id, wrong), /not the Students Parking Data \(SPD\) form the answer boxes were measured on/)
+
+    const set = await E.setPaperFromCatalog(w.db, pk.id, spd)
+    assert.equal(set.onFile, true)
+    assert.equal(set.title, 'Students Parking Data')
+    const { data: still } = await w.db.storage.from('aspire-catalog').download('students-parking-data.pdf')
+    assert.ok(still, 'the Catalog copy is left where it was')
+
+    await E.sendForm(w.db, { formId: pk.id, people: [{ name: 'Ava Reyes', email: 'ava@ucla.edu', studentId: w.student.id }] }, { appUrl, mailer: w.mailer, sender: w.owner })
+    const link = await E.resolveLink(w.db, tokenOf(w.mailer.sent.at(-1).html))
+    const done = await E.submit(w.db, { ...link, answers: { first_name: 'Ava', last_name: 'Reyes', school: 'UCLA', phone: '310-555-0100', email: 'ava@ucla.edu', department: '6 NE',
+      parking_app: 'Yes', shift: 'Days', status: 'Part-time (PT)', start: '2026-09-15', end: '2026-12-15', duration: '13 weeks', days: ['Monday'],
+      v1_make: 'Honda Civic', v1_color: 'Blue', v1_state: 'CA', v1_plate: '8ABC123', sig: { kind: 'type', text: 'Ava Reyes' } } }, { mailer: w.mailer, appUrl })
+    const filed = await PDFDocument.load(Buffer.from(done.pdf, 'base64'))
+    assert.equal(filed.getPageCount(), 1, 'stamped onto their one page, nothing redrawn beside it')
+    assert.equal(filed.getSubject(), 'Students Parking Data (SPD)')
+    const contents = filed.getPage(0).node.Contents()
+    assert.ok(contents && typeof contents.size === 'function' && contents.size() >= 2, 'the original page content is kept and the answers are added over it')
+
+    const cleared = await E.clearPaper(w.db, pk.id)
+    assert.equal(cleared.onFile, false)
+  } finally { E.PAPER_FILES['parking-spd'].sha256 = real }
 })
 
 // PARKING-PDF-1: the Parking request is filed in Parking Services' own layout.
