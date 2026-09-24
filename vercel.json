@@ -130,7 +130,7 @@
     "api/sig-staff.js":                            { "maxDuration": 60 },
     "api/cron/sig-maintenance.js":                 { "maxDuration": 300 },
     "api/form-staff.js":                           { "maxDuration": 60 },
-    "api/form-respond.js":                         { "maxDuration": 30 },
+    "api/form-respond.js":                         { "maxDuration": 30, "includeFiles": "public/Cedars-Sinai.png" },
     "api/cron/form-maintenance.js":                { "maxDuration": 300 }
   }
 }

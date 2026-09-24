@@ -1225,7 +1225,15 @@ the Parking form follows Parking Services' own form (received 2026-09-24).
   ScrubEx Request (the mockup's questions) and Student Parking Request (PARKING-FORM-1,
   2026-09-24: Parking Services' own "Students Parking Data" form, field for field; its labels are
   the CSV headers). Both publish. A never-published starter draft that still equals an earlier
-  shipped draft (`RETIRED_STARTER_DRAFTS`) is replaced on the next install; an edited one never is.
+  shipped draft (`RETIRED_STARTER_DRAFTS`) is replaced on the next install, as a new version if
+  it was published; an edited one never is.
+- **A form can file in its paper original's layout** (PARKING-PDF-1, 2026-09-24). The Parking
+  request's PDF is drawn as Parking Services' "Students Parking Data (SPD)" page
+  (`lib/server/forms/layouts/parkingSpd.js`, positions measured from their form), with the
+  organization's document logo, else the shipped Cedars-Sinai PNG. Their PDF is NOT in the repo
+  (it is public; Owner chose "redraw their layout"). `layoutFor` picks a layout by starter key
+  and only while the answered version still has the layout's core questions; anything the
+  layout has no box for is listed on a second page. Every other form keeps the plain PDF.
 - **Tables here follow `.aspire-th`.** Its grey on `#f9fafb` measures 4.37:1 (the app-wide header),
   noted, not changed. `--aspire-row-band` is a light-mode constant, so the Responses table bands
   from the Catalog surface instead.

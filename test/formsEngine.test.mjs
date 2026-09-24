@@ -104,6 +104,35 @@ test('an untouched earlier Parking draft gets Parking Services\' form; an edited
   assert.equal(f.draft.description, 'Mine.')
 })
 
+// PARKING-PDF-1: the Owner published the earlier draft before the correction; its sent
+// links keep version 1, new links get Parking Services' form as version 2.
+test('an earlier Parking form that was published unedited gets the new form as version 2', async () => {
+  const w = await world()
+  const old = M.RETIRED_STARTER_DRAFTS['student-parking-request'][0]
+  const form = await E.createForm(w.db, { title: old.title, starterKey: 'student-parking-request', definition: old }, w.owner)
+  await E.publish(w.db, form.id, w.owner)
+  const out = await E.installStarters(w.db, w.owner)
+  assert.deepEqual(out.find(r => r.key === 'student-parking-request'), { key: 'student-parking-request', id: form.id, added: false, refreshed: true, published: true })
+  const { rows } = await w.pg.query(`SELECT version, definition FROM catalog_form_versions WHERE form_id = $1 ORDER BY version`, [form.id])
+  assert.deepEqual(rows.map(r => r.version), [1, 2])
+  assert.ok(rows[0].definition.questions.some(q => q.id === 'full_name'), 'version 1 is untouched')
+  assert.ok(E.layoutFor({ starter_key: 'student-parking-request' }, rows[1].definition))
+  const again = await E.installStarters(w.db, w.owner)
+  assert.ok(!again.find(r => r.key === 'student-parking-request').refreshed, 'it happens once')
+
+  // A link sent now is answered on version 2 and filed in Parking Services' layout.
+  await E.sendForm(w.db, { formId: form.id, people: [{ name: 'Ava Reyes', email: 'ava@ucla.edu', studentId: w.student.id }] }, { appUrl, mailer: w.mailer, sender: w.owner })
+  const link = await E.resolveLink(w.db, tokenOf(w.mailer.sent.at(-1).html))
+  assert.equal(link.assignment.form_version, 2)
+  const answers = { first_name: 'Ava', last_name: 'Reyes', school: 'UCLA', phone: '310-555-0100', email: 'ava@ucla.edu', department: '6 NE', parking_app: 'No',
+    shift: 'Days', status: 'Part-time (PT)', start: '2026-09-15', end: '2026-12-15', duration: '13 weeks', days: ['Monday'],
+    v1_make: 'Honda Civic', v1_color: 'Blue', v1_state: 'CA', v1_plate: '8ABC123', sig: { kind: 'type', text: 'Ava Reyes' } }
+  const done = await E.submit(w.db, { ...link, answers }, { mailer: w.mailer, appUrl })
+  const pdf = await PDFDocument.load(Buffer.from(done.pdf, 'base64'))
+  assert.equal(pdf.getSubject(), 'Students Parking Data (SPD)')
+  assert.equal(pdf.getPageCount(), 1)
+})
+
 test('the Parking form asks every field on Parking Services\' form, and prefills what ASPIRE knows', () => {
   const parking = M.STARTER_FORMS.find(s => s.slug === 'student-parking-request')
   const labels = parking.definition.questions.map(q => q.label)
@@ -229,6 +258,32 @@ test('the PDF takes every question type, a drawn signature and characters its fo
       i: { kind: 'draw', path: 'M10 20 L40 5 L70 25 Q85 10 95 20', text: 'Zoe' } } })
   const pdf = await PDFDocument.load(bytes)
   assert.ok(pdf.getPageCount() >= 2, 'long answers flow onto more pages')
+})
+
+// PARKING-PDF-1: the Parking request is filed in Parking Services' own layout.
+test('the Parking PDF is drawn in the SPD layout, and nothing answered is dropped', async () => {
+  const { buildSubmissionPdf } = await import('../lib/server/forms/formPdf.js')
+  const parking = M.STARTER_FORMS.find(s => s.slug === 'student-parking-request')
+  const old = M.RETIRED_STARTER_DRAFTS['student-parking-request'][0]
+  assert.equal(E.layoutFor({ starter_key: 'student-parking-request' }, parking.definition), 'parking-spd')
+  assert.equal(E.layoutFor({ starter_key: 'student-parking-request' }, old), null, 'a version answered on the old questions keeps the plain PDF')
+  assert.equal(E.layoutFor({ starter_key: 'scrubex-request-form' }, parking.definition), null)
+  assert.equal(E.layoutFor({ starter_key: null }, parking.definition), null)
+
+  const answers = { first_name: 'Ava', last_name: 'Reyes', school: 'UCLA', parking_app: 'Yes', days: ['Monday', 'Friday'], start: '2026-09-15',
+    v1_make: 'A very long make and model name that cannot possibly fit its box', v1_plate: '9G0S24', sig: { kind: 'type', text: 'Ava Reyes' } }
+  const meta = { submissionId: 'abc', version: 2, submittedAt: '2026-09-24T09:08:00Z' }
+  const one = await PDFDocument.load(await buildSubmissionPdf({ definition: parking.definition, answers, who: { name: 'Ava' }, meta, layout: 'parking-spd' }))
+  assert.equal(one.getPageCount(), 1, 'the SPD form is one page, as theirs is')
+  assert.equal(one.getSubject(), 'Students Parking Data (SPD)')
+  assert.deepEqual(one.getPage(0).getSize(), { width: 612, height: 792 })
+
+  const withExtra = { ...parking.definition, questions: [...parking.definition.questions, { id: 'added', type: 'short', label: 'Emergency contact', help: '', required: false }] }
+  const two = await PDFDocument.load(await buildSubmissionPdf({ definition: withExtra, answers: { ...answers, added: 'Mom' }, who: { name: 'Ava' }, meta, layout: 'parking-spd',
+    logo: readFileSync(join(root, 'public/Cedars-Sinai.png')) }))
+  assert.equal(two.getPageCount(), 2, 'a question the layout has no box for is listed on a second page')
+  const drawn = await PDFDocument.load(await buildSubmissionPdf({ definition: parking.definition, answers: { ...answers, sig: { kind: 'draw', path: 'M10 20 L40 5 L70 25' } }, who: {}, meta, layout: 'parking-spd', logo: Buffer.from('not an image') }))
+  assert.equal(drawn.getPageCount(), 1, 'a drawn signature and an unreadable logo still file one page')
 })
 
 // The Owner's checks file is run here, so its SQL parses and its PASS values are real.
