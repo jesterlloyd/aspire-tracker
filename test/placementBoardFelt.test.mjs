@@ -294,6 +294,14 @@ test('MODERN 1: the placement workflow becomes two clean panels without changing
   assert.ok(!TAB().includes('data-style='), 'the board keeps one component tree for both styles')
 })
 
+test('CLASSIC DENSITY: unit boards keep their materials with a tighter vertical rhythm', () => {
+  const css = CSS()
+  assert.match(css, /\[data-style="classic"\] \.pb-unit-hdr \{[\s\S]*?padding: 12px 14px;/)
+  assert.match(css, /\[data-style="classic"\] \.pb-unit-body \{[\s\S]*?min-height: 150px;[\s\S]*?padding: 18px 12px 14px;/)
+  assert.match(css, /\[data-style="classic"\] \.pb-open-slot \{ min-height: 44px; \}/)
+  assert.match(css, /\[data-style="classic"\] \.pb-pinned-note \{ padding: 16px 14px 12px; \}/)
+})
+
 test('MATERIAL 2: white numbers on every rank colour meet WCAG AA (4.5:1)', () => {
   const brand = read('src/styles/aspireBrand.css')
   const lin = c => { c /= 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4 }

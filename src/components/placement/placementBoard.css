@@ -360,6 +360,21 @@
   letter-spacing: 0.12em; text-transform: uppercase;
 }
 
+/* Classic keeps its tactile materials, but uses the same denser information rhythm
+   as Modern so more units fit without making the notes or controls feel cramped. */
+[data-style="classic"] .pb-unit-hdr {
+  gap: 3px;
+  padding: 12px 14px;
+}
+[data-style="classic"] .pb-unit-capacity { min-height: 22px; }
+[data-style="classic"] .pb-unit-body {
+  min-height: 150px;
+  gap: 12px;
+  padding: 18px 12px 14px;
+}
+[data-style="classic"] .pb-pinned-note { padding: 16px 14px 12px; }
+[data-style="classic"] .pb-open-slot { min-height: 44px; }
+
 /* The drag badge: a pin-sized green (+) that follows the cursor while a dragged
    note is over a board with an open slot. Hidden otherwise, and never a drop target. */
 /* What the board draws under the cursor during a drag: the student's name, and the
