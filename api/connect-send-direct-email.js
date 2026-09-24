@@ -214,7 +214,11 @@ async function _handler(req, res, startMs) {
   // client can never inject a signature and preview always matches what will actually be sent).
   const senderSig = resolveSenderSignature(profile);
   const organization = await getOrganizationSettings(supabaseAdmin).catch(() => null);
-  if (organization) organization.document_logo_url = organizationAssetUrl(supabaseAdmin, organization.document_logo_path);
+  if (organization) {
+    organization.header_logo_url = organizationAssetUrl(supabaseAdmin, organization.header_logo_path);
+    organization.document_logo_url = organizationAssetUrl(supabaseAdmin, organization.document_logo_path);
+    organization.footer_logo_url = organizationAssetUrl(supabaseAdmin, organization.footer_logo_path);
+  }
 
   // ── 3. Parse and validate body ────────────────────────────────────────────────
   let body;

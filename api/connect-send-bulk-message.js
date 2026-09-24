@@ -212,7 +212,11 @@ async function _handler(req, res) {
   }
   const senderSig = resolveSenderSignature(profile);
   const organization = await getOrganizationSettings(supabaseAdmin).catch(() => null);
-  if (organization) organization.document_logo_url = organizationAssetUrl(supabaseAdmin, organization.document_logo_path);
+  if (organization) {
+    organization.header_logo_url = organizationAssetUrl(supabaseAdmin, organization.header_logo_path);
+    organization.document_logo_url = organizationAssetUrl(supabaseAdmin, organization.document_logo_path);
+    organization.footer_logo_url = organizationAssetUrl(supabaseAdmin, organization.footer_logo_path);
+  }
   senderSig.organization = organization;
   // RICH-COMPOSE-1: 'html' bodies are accepted ONLY from the Owner (authoritative server gate; the
   // client feature flag is UX-only). Non-owners and any other value remain text-only.
