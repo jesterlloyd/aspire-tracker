@@ -1,3 +1,4 @@
+/* global process */
 // api/connect-send-direct-email.js
 //
 // Owner/admin-authenticated endpoint for sending a direct one-to-one email
@@ -51,6 +52,7 @@ import { normalizeEmailForLookup } from '../src/lib/emailUtils.js';
 import { verifyPlacementSend } from './lib/placementSendGuard.js';
 import { JESTER_SIGNATURE, KRYSTAL_SIGNATURE } from '../src/lib/notifications/templates/signatures.js';
 import { INACTIVE_MESSAGE } from './lib/activeAccount.js';
+import { getOrganizationSettings, organizationAssetUrl } from '../lib/server/organizationSettings.js';
 
 // Templates a send may declare by key. The marker never changes the body; it
 // records WHICH template this was. Empty since RESIDENCY-REFLECTION-1 retired
@@ -211,6 +213,8 @@ async function _handler(req, res, startMs) {
   // Resolve sender signature server-side (re-fetched here every request - preview AND send - so a
   // client can never inject a signature and preview always matches what will actually be sent).
   const senderSig = resolveSenderSignature(profile);
+  const organization = await getOrganizationSettings(supabaseAdmin).catch(() => null);
+  if (organization) organization.document_logo_url = organizationAssetUrl(supabaseAdmin, organization.document_logo_path);
 
   // ── 3. Parse and validate body ────────────────────────────────────────────────
   let body;
@@ -413,6 +417,7 @@ async function _handler(req, res, startMs) {
     bodyFormat:       resolvedBodyFormat,
     includeSignature: resolvedIncludeSignature,
     signature:        senderSig.signature,
+    organization,
   });
 
   // ── 5b. PREVIEW: return exact HTML + resolved recipient/CC/signature. No send, no log. ──

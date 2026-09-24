@@ -14,6 +14,23 @@ import { createMailer } from '../../../lib/server/email/mailer.js';
 // to the renderer that produced it. Bump when a template's shape changes.
 const TEMPLATE_NOTIFICATION_VERSION = 1;
 
+async function loadOrganization(db) {
+  try {
+    const { data } = await db.from('organization_settings').select('display_name, general_email, address_line_1, address_line_2, city, state_province, postal_code, document_logo_path').order('created_at').limit(1).maybeSingle()
+    if (!data) return null
+    const url = data.document_logo_path ? db.storage.from('organization-branding').getPublicUrl(data.document_logo_path).data.publicUrl : null
+    return { ...data, document_logo_url: url }
+  } catch { return null }
+}
+
+function applyOrganizationBranding(html, organization) {
+  if (!organization) return html
+  const email = organization.general_email || 'aspire@cshs.org'
+  const name = organization.display_name || 'Cedars-Sinai'
+  const address = [organization.address_line_1, organization.address_line_2, organization.city, organization.state_province, organization.postal_code].filter(Boolean).join(', ')
+  return String(html || '').replaceAll('jesterlloyd.bautista@cshs.org', email).replaceAll('JesterLloyd.Bautista@cshs.org', email).replaceAll('Email Jester at', 'Email us at').replaceAll('email Jester directly at', 'email us at').replaceAll('Cedars-Sinai Medical Center &bull; 8700 Beverly Blvd, Los Angeles, CA 90048', `${name}${address ? ` &bull; ${address}` : ''}`).replaceAll('https://aspire-program.com/cs-logo-large.png', organization.document_logo_url || 'https://aspire-program.com/cs-logo-large.png').replaceAll('https://aspire-program.com/cs-logo-white-mark.png', organization.document_logo_url || 'https://aspire-program.com/cs-logo-white-mark.png')
+}
+
 const FROM     = 'ASPIRE at Cedars-Sinai <noreply@aspire-program.com>';
 const REPLY_TO = 'JesterLloyd.Bautista@cshs.org';
 
@@ -34,7 +51,9 @@ function getDb() {
 }
 
 function sanitizeContext(ctx) {
-  const { resume_url, headshot_url, ...rest } = ctx || {};
+  const rest = { ...(ctx || {}) };
+  delete rest.resume_url;
+  delete rest.headshot_url;
   return rest;
 }
 
@@ -60,6 +79,7 @@ export async function sendNotification(type, context = {}) {
 
   const resend = getResend();
   const db     = getDb();
+  const organization = await loadOrganization(db);
   const results = [];
 
   for (const recipient of recipients) {
@@ -71,7 +91,8 @@ export async function sendNotification(type, context = {}) {
 
     let subject, html;
     try {
-      ({ subject, html } = tpl(context, recipient));
+      ({ subject, html } = tpl({ ...context, organization }, recipient));
+      html = applyOrganizationBranding(html, organization || {});
     } catch (err) {
       console.error(`[notifications] template render failed for ${type}/${recipient.audience}:`, err);
       continue;

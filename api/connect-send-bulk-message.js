@@ -1,3 +1,4 @@
+/* global process */
 // api/connect-send-bulk-message.js
 //
 // CONNECT-BULK-MESSAGE - bulk manual message endpoint.
@@ -47,6 +48,7 @@ import { archiveSentMessage } from './lib/messageArchive.js';
 import { resolveAttachments } from './lib/outreachAttachments.js';
 import { validateBulkRecipients } from './lib/bulkRecipientAllowlist.js';
 import { INACTIVE_MESSAGE } from './lib/activeAccount.js';
+import { getOrganizationSettings, organizationAssetUrl } from '../lib/server/organizationSettings.js';
 import { recordCatalogSend, isCatalogResourceId } from './lib/catalogSendLog.js';
 import { demoScopeFromRequest } from '../lib/server/demoScope.js';
 
@@ -209,6 +211,9 @@ async function _handler(req, res) {
     return res.status(403).json({ success: false, error: 'Forbidden' });
   }
   const senderSig = resolveSenderSignature(profile);
+  const organization = await getOrganizationSettings(supabaseAdmin).catch(() => null);
+  if (organization) organization.document_logo_url = organizationAssetUrl(supabaseAdmin, organization.document_logo_path);
+  senderSig.organization = organization;
   // RICH-COMPOSE-1: 'html' bodies are accepted ONLY from the Owner (authoritative server gate; the
   // client feature flag is UX-only). Non-owners and any other value remain text-only.
   const callerIsOwner = profile?.is_owner === true || profile?.role === 'owner';
@@ -275,6 +280,7 @@ async function _handler(req, res) {
       bodyFormat:       resolvedBodyFormat,
       includeSignature,
       signature:        senderSig.signature,
+      organization,
     });
 
     // ── 8. Return preview - NO send, NO notification_log, NO message_archive ──
@@ -424,6 +430,7 @@ async function runSendMode(res, body, senderSig, profile, resolvedBodyFormat, is
         bodyFormat:       resolvedBodyFormat,
         includeSignature,
         signature:        senderSig.signature,
+        organization: senderSig.organization,
       });
 
       // S7c. Send via Resend (pace + single 429 retry). Per-recipient failure never aborts the batch.
