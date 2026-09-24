@@ -6,8 +6,23 @@
 @import '../../styles/aspireMaterials.css';
 
 /* ── Page frame ────────────────────────────────────────────────────────────── */
+.rotation-workspace {
+  display: flex; flex-direction: column;
+  height: calc(100vh - 124px); min-height: 0;
+}
+.rotation-view-picker {
+  position: relative; z-index: 8;
+  flex-shrink: 0;
+  padding: 0 20px 8px;
+  background: var(--color-bg-page, var(--pearl, #F7F4F0));
+}
+.rotation-matrix-view {
+  flex: 1; min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
 .matching-tab.pb-tab {
-  gap: 0;
+  gap: 0; height: auto; min-height: 100%; overflow: visible;
   padding: 0;
   --pb-ring: var(--aspire-navy);
   --pb-page-ink: var(--color-text-secondary, #4A5560);
@@ -17,7 +32,7 @@
 
 /* The KPI band is the shared .snap card; the board follows it and carries the gap. */
 .pb-board {
-  flex: 1; min-height: 0;
+  min-height: calc(100vh - 180px);
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
   grid-template-rows: minmax(0, 1fr);
@@ -372,6 +387,15 @@
 .pb-empty-note { align-items: center; text-align: center; padding: 22px 18px 18px; }
 .pb-empty-title { font-size: 15px; font-weight: 700; color: var(--aspire-paper-ink); }
 .pb-empty-text { margin: 0; font-size: 13px; }
+.pb-empty-status-icon {
+  position: absolute; top: -14px; left: 50%; z-index: 2;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px;
+  border: 2px solid #FFFFFF; border-radius: 50%;
+  background: var(--color-status-success, #0F7A4D); color: #FFFFFF;
+  box-shadow: 0 3px 9px rgba(15, 122, 77, 0.24);
+  transform: translateX(-50%);
+}
 /* INTERVIEW-BOARD-1: the Interview Board's standing note about what a pairing is. */
 .pb-footnote {
   margin: var(--aspire-gap-card) 20px 0;
@@ -392,19 +416,15 @@
    Modern keeps the same board, ordering and placement controls. It removes the
    pinboard materials and presents Students and Units as the same separate elevated
    panels used by Student Profiles. Classic remains the complete material treatment. */
-[data-style="modern"] .pb-glance {
-  overflow: visible;
-  background: transparent;
-  box-shadow: none;
-}
+[data-style="modern"] .pb-glance { overflow: hidden; }
 [data-style="modern"] .pb-glance .snap-kpis {
-  gap: var(--aspire-gap-card);
-  background: transparent;
+  gap: 1px;
+  background: var(--border-card, rgba(29, 37, 103, 0.08));
 }
 [data-style="modern"] .pb-glance .snap-kpis > div {
-  border: 1px solid var(--border-card, rgba(29, 37, 103, 0.08));
-  border-radius: var(--aspire-radius-card);
-  box-shadow: var(--aspire-shadow-card);
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 [data-style="modern"] .pb-pool {
@@ -430,10 +450,10 @@
 [data-style="modern"] .pb-pool-hdr.material-navy-flat select,
 [data-style="modern"] .pb-pool-hdr.material-navy-flat input,
 [data-style="modern"] .pb-pool-hdr.material-navy-flat button.material-inlay {
-  border-color: rgba(255, 255, 255, 0.28);
-  background: rgba(255, 255, 255, 0.12);
-  color: #FFFFFF;
-  box-shadow: none;
+  border-color: #D7DBE6;
+  background: #FFFFFF;
+  color: #1D2567;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
 }
 [data-style="modern"] .pb-pool-hdr .pb-select:focus-visible,
 [data-style="modern"] .pb-pool-hdr button:focus-visible {
@@ -560,34 +580,21 @@
   width: 28px;
   height: 28px;
   border: 1px solid var(--color-border-default, rgba(25, 25, 25, 0.14));
-  border-radius: var(--aspire-radius-control);
+  border-radius: 50%;
   background: var(--color-bg-elevated, #FFFFFF);
   color: var(--color-text-secondary, #4A5560);
   box-shadow: none;
 }
-[data-style="modern"] .pb-pin.material-pin span { display: none; }
-[data-style="modern"] .pb-pin.material-pin::after {
-  content: '\00D7';
-  font: 600 18px/1 var(--aspire-sans);
+[data-style="modern"] .pb-pin.material-pin:hover {
+  border-color: var(--color-accent-primary, #1D2567);
+  background: var(--color-accent-primary, #1D2567);
+  color: #FFFFFF;
 }
 [data-style="modern"] .pb-open-slot {
   min-height: 42px;
   border-color: var(--color-border-default, rgba(25, 25, 25, 0.14));
   background: var(--color-bg-hover, #F8FAFC);
   color: var(--color-text-secondary, #4A5560);
-}
-[data-style="modern"] .pb-dragging-list .pb-unit-drop .pb-open-slot::before {
-  content: '+';
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  margin-right: 7px;
-  border-radius: 50%;
-  background: var(--color-status-success, #0F7A4D);
-  color: #FFFFFF;
-  font: 700 16px/1 var(--aspire-sans);
 }
 [data-style="modern"] .pb-unit-drop .pb-open-slot {
   border-color: var(--color-status-success, #0F7A4D);
@@ -601,19 +608,19 @@
   color: var(--color-text-primary, #191919);
   box-shadow: 0 8px 20px rgba(29, 37, 103, 0.14);
 }
-[data-style="modern"] .pb-drag-badge.material-pin {
-  border: 0;
+[data-style="modern"] .pb-drag-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 2px solid #FFFFFF; border-radius: 50%;
   background: var(--color-status-success, #0F7A4D);
   color: #FFFFFF;
-  box-shadow: none;
+  box-shadow: 0 3px 9px rgba(15, 122, 77, 0.28);
 }
 
 /* Modern Night mode uses purpose-built dark surfaces. Light fallbacks are kept out
    because they invert the hierarchy and can leave white text on pale unit headers. */
 [data-theme="dark"][data-style="modern"] .pb-glance .snap-kpis > div {
-  border-color: #303B4B;
   background: #18212C !important;
-  box-shadow: 0 5px 16px rgba(0, 0, 0, 0.24);
+  box-shadow: none;
 }
 [data-theme="dark"][data-style="modern"] .pb-glance .snap-kpis > div > div:first-child {
   color: #F5F7FB !important;
@@ -634,9 +641,9 @@
   background: #252E78;
 }
 [data-theme="dark"][data-style="modern"] .pb-pool-hdr.material-navy-flat select {
-  border-color: rgba(255, 255, 255, 0.24);
-  background: #1C245F;
-  color: #FFFFFF;
+  border-color: #D7DBE6;
+  background: #FFFFFF;
+  color: #1D2567;
 }
 [data-theme="dark"][data-style="modern"] .pb-pool-body.material-leather-cream,
 [data-theme="dark"][data-style="modern"] .pb-pool-note.paper-note {
@@ -710,6 +717,9 @@
 
 /* ── Narrow screens: Students first, then Units ────────────────────────────── */
 @media (max-width: 900px) {
+  .rotation-workspace { height: auto; }
+  .rotation-matrix-view { overflow-y: visible; }
+  .matching-tab.pb-tab { min-height: 0; }
   .pb-board { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; }
   .pb-pool-body, .pb-units-body { overflow: visible; padding-bottom: 16px; }
   .pb-unit-grid { grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); }

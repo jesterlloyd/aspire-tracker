@@ -23,6 +23,7 @@
 // does. This module never touches data.
 
 import { useRef, useState } from 'react'
+import { Plus } from 'lucide-react'
 
 export function useBoardDrag({ hasRoom, onDropOnTarget, onDropOnList } = {}) {
   const dragRef = useRef(null)          // { kind: 'list' | 'target', id, targetId, name }
@@ -156,8 +157,8 @@ export function useBoardDrag({ hasRoom, onDropOnTarget, onDropOnList } = {}) {
   // Render once, anywhere in the board: it is position: fixed and pointer-events: none.
   const dragLayer = (
     <div ref={ghostRef} className="pb-drag-ghost" aria-hidden="true">
+      <span ref={badgeRef} className="pb-drag-badge"><Plus size={16} strokeWidth={3} /></span>
       <span ref={ghostNameRef} className="pb-drag-ghost-name" />
-      <span ref={badgeRef} className="pb-drag-badge material-pin material-rank-first">+</span>
     </div>
   )
 

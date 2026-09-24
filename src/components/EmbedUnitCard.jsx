@@ -13,7 +13,7 @@ import {
 } from '../lib/placementCommunication'
 import { writeLaunchContext, LAUNCH_KINDS } from '../lib/connect/launchContext'
 import { resolveRequiredAttachments } from '../lib/connect/catalogAttachments'
-import { Mail } from 'lucide-react'
+import { Mail, X } from 'lucide-react'
 import { BADGE_COUNT_BG, BADGE_COUNT_FG } from '../lib/badgeTokens'
 import StudentAvatar from './StudentAvatar'
 import { getUnit } from '../lib/unitCatalog'
@@ -89,7 +89,9 @@ function PinnedNote({
               : `Pull pin: unmatch ${name} from ${unit.unit_name}`}
             onClick={e => { e.stopPropagation(); onUnmatch(student) }}
           >
-            <span aria-hidden="true">{pin.glyph}</span>
+            {appearanceStyle === 'modern'
+              ? <X size={15} strokeWidth={2.6} aria-hidden="true" />
+              : <span aria-hidden="true">{pin.glyph}</span>}
           </button>
         </Tooltip>
       </span>

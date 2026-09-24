@@ -7,7 +7,7 @@ import StudentMatchingCard from './StudentMatchingCard'
 import { UNIT_DIVISION_MAP } from '../lib/constants'
 import StatusLegendPopover from './StatusLegendPopover'
 import EmptyState from './EmptyState'
-import { Users, MapPin } from 'lucide-react'
+import { Check, Users, MapPin } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import RestrictedAccessOverlay from './RestrictedAccessOverlay'
 import { canPerformMatching } from '../lib/permissions'
@@ -26,6 +26,7 @@ import { useBoardDrag } from './placement/useBoardDrag'
 import { orderUnitsForStudent, groupPoolForUnit, orderPool, RANK_WORD } from '../lib/placementBoardView'
 import { getStudentPreferredFullName } from '../lib/studentNameFormatters'
 import { TAB_TO_PATH } from '../lib/staffRoutes'
+import { useAppearance } from '../hooks/useAppearance'
 import './placement/placementBoard.css'
 
 // PLACEMENT-BOARD-FELT-1 (2026-09-17): the board is felt, leather and paper.
@@ -109,6 +110,7 @@ export default function MatchingTab({
   toast,
 }) {
   const queryClient = useQueryClient()
+  const { style: appearanceStyle } = useAppearance()
   // PLACEMENT-NOTIFICATION-CONTROL-1: correcting a recorded notification rewrites
   // what the board says about a real person, so the affordance is Owner/Admin
   // only. The endpoint enforces the same rule - this decides visibility, not
@@ -773,12 +775,20 @@ export default function MatchingTab({
                   ? (
                     <div className="pb-empty" data-testid="pool-all-placed">
                       <div className="pb-pinned pb-tilt-a">
-                        <span className="pb-pin-anchor">
-                          <span className="material-pin material-rank-first pb-pin pb-pin-static" aria-hidden="true">✓</span>
-                        </span>
+                        {appearanceStyle === 'modern'
+                          ? <span className="pb-empty-status-icon" aria-hidden="true"><Check size={18} strokeWidth={2.8} /></span>
+                          : (
+                            <span className="pb-pin-anchor">
+                              <span className="material-pin material-rank-first pb-pin pb-pin-static" aria-hidden="true">✓</span>
+                            </span>
+                          )}
                         <div className="paper-note pb-note pb-empty-note">
                           <div className="pb-empty-title">All students placed.</div>
-                          <p className="pb-empty-text material-soft">Pull a pin on any board to return a student here.</p>
+                          <p className="pb-empty-text material-soft">
+                            {appearanceStyle === 'modern'
+                              ? 'Unmatch a placement to return a student here.'
+                              : 'Pull a pin on any board to return a student here.'}
+                          </p>
                           <button type="button" className="pb-link" onClick={() => navigate(TAB_TO_PATH.profiles)}>
                             Review placements in Student Profiles
                           </button>

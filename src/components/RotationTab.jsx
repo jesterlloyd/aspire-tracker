@@ -21,10 +21,10 @@ export default function RotationTab(props) {
   const precView = location.pathname === '/rotation/preceptors/coverage' ? 'coverage' : 'directory'
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <div className="rotation-workspace">
       {/* UI canon: a section nav sits --aspire-page-top (24px) above the first card,
           and a card carries --aspire-gap-card (16px) itself - so the nav contributes 8. */}
-      <div style={{ padding: '0 20px 8px', flexShrink: 0 }}>
+      <div className="rotation-view-picker">
         {/* SEGMENTED-PICKER-1: the shared control. The ASPIRE-CHART approved rename
             stands - the visible label is honest, this is a click-to-place board and not
             a matrix - and the route is unchanged. */}
@@ -40,7 +40,7 @@ export default function RotationTab(props) {
         />
       </div>
 
-      <div style={{ display: activeSubTab === 'matrix' ? 'block' : 'none', flex: 1, minHeight: 0 }}>
+      <div className="rotation-matrix-view" style={{ display: activeSubTab === 'matrix' ? 'block' : 'none' }}>
         <MatchingTab {...props} />
       </div>
       <div style={{ display: activeSubTab === 'preceptors' ? 'flex' : 'none', flex: 1, minHeight: 0, flexDirection: 'column' }}>

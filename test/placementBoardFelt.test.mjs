@@ -191,7 +191,7 @@ test('LAYOUT 1: Students on the left (about 40%), Units on the right (about 60%)
     'the students come first in the grid')
   const css = CSS()
   assert.match(css, /\.pb-board \{[^}]*grid-template-columns: minmax\(0, 2fr\) minmax\(0, 3fr\);/)
-  assert.match(css, /@media \(max-width: 900px\) \{\s*\.pb-board \{ grid-template-columns: minmax\(0, 1fr\);/)
+  assert.match(css, /@media \(max-width: 900px\) \{[\s\S]*?\.pb-board \{ grid-template-columns: minmax\(0, 1fr\);/)
   assert.match(css, /minmax\(max\(270px, calc\(\(100% - var\(--aspire-gap-card\)\) \/ 2\)\), 1fr\)/,
     'boards are at least 270px, two across on desktop')
 })
@@ -203,6 +203,16 @@ test('LAYOUT 2: Placement at a Glance has no title row and is the shared snapsho
   assert.match(overview, /<div className="glance-kpis snap-kpis">/)
   assert.ok(!/ov-panel-title/.test(overview), 'no visible title')
   assert.equal((overview.match(/<KPICell\b/g) || []).length, 5)
+})
+
+test('LAYOUT 2B: the picker stays visible while the KPI band scrolls away and the board fills the viewport', () => {
+  const css = CSS()
+  const rotation = read('src/components/RotationTab.jsx')
+  assert.match(rotation, /className="rotation-view-picker"/)
+  assert.match(rotation, /className="rotation-matrix-view"/)
+  assert.match(css, /\.rotation-workspace \{[\s\S]*?height: calc\(100vh - 124px\);/)
+  assert.match(css, /\.rotation-matrix-view \{[\s\S]*?overflow-y: auto;/)
+  assert.match(css, /\.pb-board \{[\s\S]*?min-height: calc\(100vh - 180px\);/)
 })
 
 test('LAYOUT 3: both matching boards wear the SAME classes (INTERVIEW-BOARD-1)', () => {
@@ -270,14 +280,15 @@ test('MODERN 1: the placement workflow becomes two clean panels without changing
   assert.match(css, /\[data-style="modern"\] \.pb-pool-body\.material-leather-cream \{[\s\S]*?background-image: none;[\s\S]*?box-shadow: none;/)
   assert.match(css, /\[data-style="modern"\] \.pb-pool-note\.paper-note \{[\s\S]*?transform: none;[\s\S]*?box-shadow: none;/)
   assert.match(css, /\[data-style="modern"\] \.pb-unit-body\.material-board \{[\s\S]*?min-height: 88px;[\s\S]*?background-image: none;[\s\S]*?box-shadow: none;/)
-  assert.match(css, /\[data-style="modern"\] \.pb-pin\.material-pin::after \{[\s\S]*?content: '\\00D7';/)
+  assert.match(CARD(), /appearanceStyle === 'modern'[\s\S]*?<X size=\{15\}/)
   assert.match(css, /\[data-style="modern"\] \.pb-ribbon\.material-ribbon \{[\s\S]*?display: none;/)
   assert.match(css, /\[data-style="modern"\] \.pb-choice-pill \{[\s\S]*?display: inline-flex;/)
   assert.match(CARD(), /className=\{`material-rank-\$\{RANK_TONE\[highlightRank\]\} pb-choice-pill`\}/)
   assert.match(css, /\[data-theme="dark"\]\[data-style="modern"\] \.pb-unit-hdr\.material-board-head \{[\s\S]*?background: #273345;/)
   assert.match(css, /\[data-style="modern"\] \.pb-unit-focused:hover \{[\s\S]*?box-shadow: 0 0 0 3px/)
   assert.match(css, /\[data-style="modern"\] \.pb-unit-drop \.pb-open-slot \{[\s\S]*?var\(--color-status-success/)
-  assert.match(css, /\[data-style="modern"\] \.pb-dragging-list \.pb-unit-drop \.pb-open-slot::before \{[\s\S]*?content: '\+'/)
+  assert.ok(!css.includes('.pb-open-slot::before'), 'the add affordance follows the student name, not the slot')
+  assert.match(css, /\[data-style="modern"\] \.pb-drag-badge \{[\s\S]*?border-radius: 50%;/)
   assert.ok(!TAB().includes('data-style='), 'the board keeps one component tree for both styles')
 })
 
@@ -442,8 +453,9 @@ test('DRAG GHOST: one shared implementation draws it, badge only over a target w
   // otherwise nothing visibly moves (the Owner saw exactly that).
   assert.match(drag, /setDragImage\(dragImage, 0, 0\)/)
   assert.match(drag, /<div ref=\{ghostRef\} className="pb-drag-ghost" aria-hidden="true">/)
+  assert.match(drag, /<span ref=\{badgeRef\} className="pb-drag-badge"><Plus size=\{16\} strokeWidth=\{3\} \/><\/span>/)
   assert.match(drag, /<span ref=\{ghostNameRef\} className="pb-drag-ghost-name" \/>/)
-  assert.match(drag, /<span ref=\{badgeRef\} className="pb-drag-badge material-pin material-rank-first">\+<\/span>/)
+  assert.ok(drag.indexOf('ref={badgeRef}') < drag.indexOf('ref={ghostNameRef}'), 'the add icon sits beside and before the student name')
   assert.match(drag, /ghostNameRef\.current\.textContent = payload\.name/)
   // The badge appears only where a drop will be accepted.
   assert.match(drag, /if \(room\) showBadgeAt\(e\); else hideBadge\(\)/)
