@@ -29,7 +29,7 @@ import WorkspaceBackLink from '../ui/WorkspaceBackLink'
 import RowActionsMenu from '../shared/RowActionsMenu'
 import {
   CATALOG_FEATURES, KIND_LABEL, SORTS, audienceOf, audienceLabel, kindOf, fileBadge, fmtShortDate, fmtBytes,
-  catalogSummary, railCounts, isLongCoverTitle, isPdfFile, filterItems, sortItems, listSections, shelfOrder, viewTitle, sendButtonLabel,
+  catalogSummary, railCounts, isLongCoverTitle, isPdfFile, completionStats, filterItems, sortItems, listSections, shelfOrder, viewTitle, sendButtonLabel,
 } from '../../lib/catalog/catalogModel'
 import CatalogSendModal from './CatalogSendModal'
 import {
@@ -38,12 +38,15 @@ import {
 } from './CatalogModals'
 import { authedPost } from './catalogApi'
 import { useSignaturesFlag } from '../signatures/sigApi'
+import { useFormsStatus, formStaff } from '../forms/formsApi'
 import { lazyReload } from '../../lib/lazyReload'
 import '../../styles/selectionRail.css'
 import './catalog.css'
 
 // SIGNATURES-PHASE2: the signature screens load only for a caller the flag admits.
 const SignaturesPage = lazyReload(() => import('../signatures/SignaturesPage'), 'SignaturesPage')
+// FORMS-PHASE3: the form builder and its responses load only when opened.
+const FormsScreen = lazyReload(() => import('../forms/FormsScreen'), 'FormsScreen')
 
 const BASE_COLS = 'id, slug, title, description, category, resource_type, external_url, file_type_label, tags, audience, is_featured, is_pinned, is_active, updated_at, created_at, storage_path'
 const PHASE1_COLS = 'kind, version, version_updated_at, file_size_bytes, moved_to_record_document_id'
@@ -72,8 +75,13 @@ export default function CatalogPage({
   // catalog.signatures is decided by the SERVER (organization flag + caller role). Until it
   // answers, and whenever it says no, no signature entry point renders.
   const sigFlag = useSignaturesFlag(canManage)
-  const features = useMemo(() => ({ ...CATALOG_FEATURES, signatures: sigFlag.allowed }), [sigFlag.allowed])
+  // FORMS-PHASE3: Forms is built (CATALOG_FEATURES.forms) and switched on once the server
+  // says its tables exist; before the migration every forms entry point stays hidden.
+  const formsStatus = useFormsStatus(canManage)
+  const features = useMemo(() => ({ ...CATALOG_FEATURES, signatures: sigFlag.allowed, forms: CATALOG_FEATURES.forms && formsStatus.enabled }),
+    [sigFlag.allowed, formsStatus.enabled])
   const onSignatures = location.pathname.startsWith('/catalog/signatures')
+  const formRoute = /^\/catalog\/forms\/([^/]+)\/(edit|responses)\/?$/.exec(location.pathname)
 
   // ── Data ──
   const [allRows, setRows] = useState([])
@@ -170,7 +178,17 @@ export default function CatalogPage({
   const assignableCats = useMemo(() => cats.filter(c => !c.retired_at).map(c => ({ key: c.slug, label: c.display_name })), [cats])
   const catLabel = useCallback((slug) => cats.find(c => c.slug === slug)?.display_name || slug, [cats])
   const activeRows = useMemo(() => rows.filter(r => r.is_active !== false), [rows])
-  const statsById = useMemo(() => ({}), [])   // completion requests arrive in Phase 2
+  // One completion row per person, for forms and signature requests (form-staff tracker).
+  const [trackRows, setTrackRows] = useState([])
+  useEffect(() => {
+    if (!canManage || !(features.forms || features.signatures)) return
+    formStaff('tracker').then(r => setTrackRows(r.rows || [])).catch(() => setTrackRows([]))
+  }, [canManage, features.forms, features.signatures])
+  const statsById = useMemo(() => {
+    const by = {}
+    for (const r of trackRows) (by[r.id] ||= []).push(r)
+    return Object.fromEntries(Object.entries(by).map(([id, list]) => [id, completionStats(list)]))
+  }, [trackRows])
   const summary = useMemo(() => catalogSummary(activeRows, statsById), [activeRows, statsById])
   const counts = useMemo(() => railCounts(activeRows, statsById, assignableCats), [activeRows, statsById, assignableCats])
   const usage = useMemo(() => {
@@ -233,10 +251,21 @@ export default function CatalogPage({
   }, [say])
 
   const sigLink = useCallback((qs = '') => navigate(`/catalog/signatures${qs}`), [navigate])
+  // FORMS-PHASE3: the brief's starter forms, added once (the server skips what exists).
+  const installStarters = useCallback(async () => {
+    try {
+      const { results } = await formStaff('starters')
+      const added = results.filter(r => r.added)
+      say('ok', added.length
+        ? `Added ${added.map(r => r.key === 'scrubex-request-form' ? 'ScrubEx Request Form (published)' : 'Student Parking Request (draft: check its columns with Parking Services, then publish)').join(' and ')}.`
+        : 'The starter forms are already in the Catalog.')
+      await load()
+    } catch (e) { say('err', e.message) }
+  }, [say, load])
 
   const menuItems = useCallback((r) => {
     const ext = r.resource_type === 'external_link'
-    const sig = kindOf(r) === 'signature'
+    const sig = kindOf(r) === 'signature' || kindOf(r) === 'form'   // neither is a file to open or download
     // A removed file cannot be opened, downloaded or linked to (the server refuses an
     // inactive row), so its menu offers only Restore; a file moved to a record, nothing.
     if (r.is_active === false) {
@@ -269,6 +298,26 @@ export default function CatalogPage({
   }
   if (!canView) {
     return <div className="ctl ctl-denied">The ASPIRE Catalog is available to Owner, Admin, and Interviewer accounts.</div>
+  }
+
+  if (formRoute) {
+    return (
+      <div className={`ctl${classic ? ' ctl-classic' : ''}`}>
+        {!canManage || (formsStatus.ready && !formsStatus.enabled)
+          ? <div className="ctl-state">Forms are not available yet.</div>
+          : !formsStatus.ready ? <div className="ctl-state">Loading the form…</div>
+          : (
+            <Suspense fallback={<div className="ctl-state">Loading the form…</div>}>
+              {msg && (
+                <div className={`ctl-msg ctl-msg-${msg.tone}`} role={msg.tone === 'err' ? 'alert' : 'status'}>
+                  {msg.text}<button type="button" aria-label="Dismiss message" onClick={() => setMsg(null)}><X size={14} /></button>
+                </div>
+              )}
+              <FormsScreen formId={formRoute[1]} view={formRoute[2]} notify={notify} navigate={navigate} />
+            </Suspense>
+          )}
+      </div>
+    )
   }
 
   if (onSignatures) {
@@ -322,7 +371,7 @@ export default function CatalogPage({
         </div>
         {/* Classic carries + New on the bookcase bar (the same menu), so the header holds none. */}
         {canManage && !classic && <NewMenu open={newOpen} setOpen={setNewOpen} features={features} onUpload={() => setDialog({ type: 'upload' })}
-          onPrepare={() => sigLink('?tab=prepare')} onFromCatalog={() => sigLink('?tab=prepare&source=catalog')} onReview={() => setDialog({ type: 'personal' })} />}
+          onPrepare={() => sigLink('?tab=prepare')} onFromCatalog={() => sigLink('?tab=prepare&source=catalog')} onBuildForm={() => setDialog({ type: 'newform' })} onStarters={installStarters} onReview={() => setDialog({ type: 'personal' })} />}
       </header>
 
       {canManage && movedNotice.length > 0 && (
@@ -398,7 +447,7 @@ export default function CatalogPage({
             : classic ? (
               <Bookcase {...listProps} mode={shelfMode} setMode={setShelfMode}
                 newMenu={canManage ? <NewMenu inCase open={caseNewOpen} setOpen={setCaseNewOpen} features={features} onUpload={() => setDialog({ type: 'upload' })}
-                  onPrepare={() => sigLink('?tab=prepare')} onFromCatalog={() => sigLink('?tab=prepare&source=catalog')} onReview={() => setDialog({ type: 'personal' })} /> : null} items={visible} />
+                  onPrepare={() => sigLink('?tab=prepare')} onFromCatalog={() => sigLink('?tab=prepare&source=catalog')} onBuildForm={() => setDialog({ type: 'newform' })} onStarters={installStarters} onReview={() => setDialog({ type: 'personal' })} /> : null} items={visible} />
             ) : (
               <ItemList {...listProps} />
             )}
@@ -408,14 +457,19 @@ export default function CatalogPage({
           <div className="ctl-detail-wrap">
             <DetailPanel row={selected} catLabel={catLabel} sends={sendsById[selected.id] || []} sendsEnabled={sendsEnabled}
               canManage={canManage} onClose={() => setSelectedId('')} onSend={openSend} onAccess={accessResource}
-              menuItems={menuItems} sigAllowed={features.signatures} onSigLink={sigLink} />
+              menuItems={menuItems} sigAllowed={features.signatures} onSigLink={sigLink} formsAllowed={features.forms} onFormLink={(id, v) => navigate(`/catalog/forms/${id}/${v}`)} stats={statsById[selected.id]} />
           </div>
         )}
       </div>
 
       {dialog?.type === 'send' && contacts && (
         <CatalogSendModal item={dialog.row} ctx={sendCtx} onClose={() => setDialog(null)}
-          onSent={({ sent, log, keepOpen, signature, requests }) => {
+          onSent={({ sent, log, keepOpen, signature, requests, form, failed }) => {
+            if (form) {
+              say(failed?.length ? 'err' : 'ok', `Form sent to ${sent} ${sent === 1 ? 'person' : 'people'}.${failed?.length ? ` The mail service did not accept ${failed.length}: ${failed.slice(0, 3).join(', ')}${failed.length > 3 ? '…' : ''}.` : ''} Track them on its Responses.`)
+              formStaff('tracker').then(r => setTrackRows(r.rows || [])).catch(() => {})
+              setDialog(null); return
+            }
             if (signature) {
               say('ok', `Sent for signature: ${requests} ${requests === 1 ? 'request' : 'requests'} to ${sent} ${sent === 1 ? 'person' : 'people'}. Track them in Signature requests.`)
               setDialog(null); return
@@ -425,6 +479,10 @@ export default function CatalogPage({
             loadSends()
             if (!keepOpen) setDialog(null)
           }} />
+      )}
+      {dialog?.type === 'newform' && (
+        <NewFormDialog categories={assignableCats} onClose={() => setDialog(null)}
+          onCreated={(form) => { setDialog(null); navigate(`/catalog/forms/${form.id}/edit`) }} />
       )}
       {dialog?.type === 'send' && !contacts && <div className="modal-overlay"><div className="modal ctl-modal ctl-state" role="status">Loading recipients…</div></div>}
       {dialog?.type === 'upload' && (
@@ -470,7 +528,7 @@ function emptyTextFor(view, total, q) {
 }
 
 // ── + New ─────────────────────────────────────────────────────────────────────────
-function NewMenu({ open, setOpen, features, onUpload, onPrepare, onFromCatalog, onReview, inCase = false }) {
+function NewMenu({ open, setOpen, features, onUpload, onPrepare, onFromCatalog, onBuildForm, onStarters, onReview, inCase = false }) {
   const wrap = useRef(null)
   useEffect(() => {
     if (!open) return
@@ -491,8 +549,12 @@ function NewMenu({ open, setOpen, features, onUpload, onPrepare, onFromCatalog, 
             <span><b>Upload a file</b><small>PDF, Word, Excel or image</small></span>
           </button>
           {features.forms && (
-            <button type="button" role="menuitem"><span className="ctl-mi ctl-mi-form"><ListChecks size={16} /></span>
+            <button type="button" role="menuitem" onClick={() => pick(onBuildForm)}><span className="ctl-mi ctl-mi-form"><ListChecks size={16} /></span>
               <span><b>Build a form</b><small>Collect answers. Prefill from the student record.</small></span></button>
+          )}
+          {features.forms && (
+            <button type="button" role="menuitem" onClick={() => pick(onStarters)}><span className="ctl-mi ctl-mi-form"><ListChecks size={16} /></span>
+              <span><b>Add the starter forms</b><small>ScrubEx Request, and Student Parking Request as a draft. Adds only what is missing.</small></span></button>
           )}
           {features.signatures && (
             <button type="button" role="menuitem" onClick={() => pick(onPrepare)}><span className="ctl-mi ctl-mi-sign"><Signature size={16} /></span>
@@ -679,7 +741,7 @@ function Cover({ row, selected, onSelect, catLabel, usage }) {
 // hang one on, and a hover-only control on a cover is lost to touch and keyboard. So every
 // action a list row offers is reachable from the panel in both styles. Open and Download
 // are already buttons here, so the menu leaves them out while the item is active.
-function DetailPanel({ row, catLabel, sends, sendsEnabled, canManage, onClose, onSend, onAccess, menuItems, sigAllowed, onSigLink }) {
+function DetailPanel({ row, catLabel, sends, sendsEnabled, canManage, onClose, onSend, onAccess, menuItems, sigAllowed, onSigLink, formsAllowed, onFormLink, stats }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const panelItems = menuItems(row).filter(i => i.key !== 'open' && i.key !== 'dl')
   const k = kindOf(row)
@@ -690,6 +752,9 @@ function DetailPanel({ row, catLabel, sends, sendsEnabled, canManage, onClose, o
   // A signature document is a template: it is sent, edited and previewed in Signatures,
   // never opened as a file (its storage_path names the template, not an object).
   const tplId = k === 'signature' ? String(row.storage_path || '').replace(/^sig-template:/, '') : null
+  // A form is edited and tracked on its own screens; its storage_path names the form.
+  const formId = k === 'form' ? String(row.storage_path || '').replace(/^form:/, '') : null
+  const virtual = k === 'signature' || k === 'form'
   return (
     <aside className="ctl-detail" aria-label="Item details">
       <div className="ctl-dh">
@@ -700,13 +765,17 @@ function DetailPanel({ row, catLabel, sends, sendsEnabled, canManage, onClose, o
         <h2>{row.title}</h2>
         {row.description && <p>{row.description}</p>}
         <div className="ctl-row">
-          {canManage && !off && (k !== 'signature' || sigAllowed) && <button type="button" className="ctl-btn ctl-btn-pri ctl-btn-sm" onClick={() => onSend(row)}><SendIcon size={14} /> {sendButtonLabel(row)}</button>}
+          {canManage && !off && (k !== 'signature' || sigAllowed) && (k !== 'form' || formsAllowed) && <button type="button" className="ctl-btn ctl-btn-pri ctl-btn-sm" onClick={() => onSend(row)}><SendIcon size={14} /> {sendButtonLabel(row)}</button>}
           {k === 'signature' && sigAllowed && !off && tplId && <>
             <button type="button" className="ctl-btn ctl-btn-sm" onClick={() => onSigLink(`?tab=prepare&template=${encodeURIComponent(tplId)}&step=2`)}>Edit fields</button>
             <button type="button" className="ctl-btn ctl-btn-sm" onClick={() => onSigLink(`?tab=preview&template=${encodeURIComponent(tplId)}`)}>Preview as signer</button>
           </>}
-          {!off && k !== 'signature' && <button type="button" className="ctl-btn ctl-btn-sm" onClick={() => onAccess(row, 'open')}>{ext ? 'Open link' : 'Open'}</button>}
-          {!off && !ext && k !== 'signature' && <button type="button" className="ctl-btn ctl-btn-sm" onClick={() => onAccess(row, 'download')}>Download</button>}
+          {k === 'form' && formsAllowed && canManage && !off && formId && <>
+            <button type="button" className="ctl-btn ctl-btn-sm" onClick={() => onFormLink(formId, 'edit')}>Edit form</button>
+            <button type="button" className="ctl-btn ctl-btn-sm" onClick={() => onFormLink(formId, 'responses')}>Responses{stats?.total ? ` (${stats.done} of ${stats.total})` : ''}</button>
+          </>}
+          {!off && !virtual && <button type="button" className="ctl-btn ctl-btn-sm" onClick={() => onAccess(row, 'open')}>{ext ? 'Open link' : 'Open'}</button>}
+          {!off && !ext && !virtual && <button type="button" className="ctl-btn ctl-btn-sm" onClick={() => onAccess(row, 'download')}>Download</button>}
           {panelItems.length > 0 && (
             <span className="ctl-row-more">
               <RowActionsMenu label={`More actions for ${row.title}`} open={menuOpen}
@@ -755,5 +824,40 @@ function SendHistory({ sends, enabled, current }) {
       </div>
       <p className="ctl-hint">Sent {n} {n === 1 ? 'time' : 'times'}. Every send is logged here and on each recipient's record.</p>
     </>
+  )
+}
+
+// FORMS-PHASE3: + New > Build a form. A name and a category, then the builder opens.
+function NewFormDialog({ categories, onClose, onCreated }) {
+  const [title, setTitle] = useState('')
+  const [category, setCategory] = useState('student_onboarding')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(null)
+  const create = async (e) => {
+    e.preventDefault()
+    if (!title.trim()) { setError('Name the form.'); return }
+    setBusy(true); setError(null)
+    try { onCreated((await formStaff('create', { title: title.trim(), category })).form) }
+    catch (err) { setError(err.message); setBusy(false) }
+  }
+  return (
+    <div className="modal-overlay" onMouseDown={() => !busy && onClose()}>
+      <form className="modal ctl-modal" role="dialog" aria-modal="true" aria-labelledby="ctl-newform-title" onMouseDown={e => e.stopPropagation()} onSubmit={create}>
+        <div className="ctl-mh"><div><h2 id="ctl-newform-title">Build a form</h2><p>Name it now; you add questions in the builder.</p></div>
+          <button type="button" className="ctl-icon-btn" onClick={onClose} aria-label="Close"><X size={16} /></button></div>
+        <div className="ctl-mb">
+          <div className="ctl-field"><label htmlFor="ctl-newform-name">Form name</label>
+            <input id="ctl-newform-name" autoFocus value={title} maxLength={200} onChange={e => setTitle(e.target.value)} placeholder="For example, Uniform Request" /></div>
+          <div className="ctl-field"><label htmlFor="ctl-newform-cat">Category</label>
+            <select id="ctl-newform-cat" value={category} onChange={e => setCategory(e.target.value)}>
+              {categories.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
+            </select></div>
+          {error && <div className="ctl-err" role="alert">{error}</div>}
+        </div>
+        <div className="ctl-mf"><small>It stays a draft until you publish it.</small>
+          <span className="ctl-mf-acts"><button type="button" className="ctl-btn" onClick={onClose} disabled={busy}>Cancel</button>
+            <button type="submit" className="ctl-btn ctl-btn-pri" disabled={busy}>{busy ? 'Creating…' : 'Open the builder'}</button></span></div>
+      </form>
+    </div>
   )
 }

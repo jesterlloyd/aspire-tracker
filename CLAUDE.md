@@ -1065,7 +1065,7 @@ the Contacts address book are one cover, defined once:
 
 The ASPIRE Catalog (`/catalog`) is where staff find a resource and send it (Phase 1), collect
 a document signed (Phase 2, behind `catalog.signatures`, off until Legal and IT approve; see
-"Signatures are sealed" below) or collect a form (Phase 3). The order is the Owner's, on purpose. Reference: `docs/mockups/catalog-mockup.html` with
+"Signatures are sealed" below) or collect a form (Phase 3, see "Forms are versioned and filed" below). The order is the Owner's, on purpose. Reference: `docs/mockups/catalog-mockup.html` with
 `docs/mockups/catalog-brief.md`. Every rule lives in `src/lib/catalog/catalogModel.js`, which is
 pure and tested without a browser; the page computes nothing in JSX.
 
@@ -1170,3 +1170,53 @@ SMS), PDF uploads only (no Word conversion), tamper-evident storage with `org_id
   The disclosure v1.0 text is a DRAFT for Legal. Migration
   `20260927000000_signatures_phase2.sql` is Owner-gated; checks in
   `db/audit/signatures_phase2_checks.sql`.
+
+## Forms are versioned and filed (FORMS-PHASE3, 2026-09-24)
+
+Catalog Phase 3: build a form, send each person a personal link, file every submission as a PDF
+on the person's record. Reference: section 5 of `docs/mockups/catalog-brief.md` and the builder
+in `docs/mockups/catalog-mockup.html`. Owner decisions (2026-09-23): **a form link is the whole
+identity check** (no emailed code); **the Signature question is a simple typed or drawn
+signature printed on the PDF**, and anything legally binding goes out as a Signature template;
+the Parking CSV columns wait for Parking Services' list.
+
+- **Where things are.** Rules: `src/lib/forms/formModel.js` (pure, tested: question types,
+  prefill sources, validation, answer text, CSV, the starter forms). Server:
+  `lib/server/forms/` (`engine.js` the lifecycle, `formPdf.js`, `tokens.js`, `mail.js`).
+  Endpoints: `api/form-staff.js` (Owner/Admin), `api/form-respond.js` (public, rate-limited),
+  `api/cron/form-maintenance.js` (hourly: reminders, closing past-due links). Staff screens:
+  `src/components/forms/` at `/catalog/forms/:id/edit` and `/catalog/forms/:id/responses`.
+  The respondent's page is `/form#t=...` (`src/pages/FormPage.jsx`, light-locked, mobile first);
+  `FormRenderer` is the ONE form component, so staff "Preview" is what respondents get.
+- **Switched on by the database, not a flag.** `CATALOG_FEATURES.forms` is true; the Catalog
+  shows forms only once `/api/form-staff` `status` reports the tables exist
+  (`useFormsStatus`). Before `20260928000000_forms_phase3.sql` every entry point is hidden.
+- **A published version is frozen.** Publishing copies the draft into `catalog_form_versions`,
+  whose rows a trigger refuses to UPDATE. New links use the latest version; an assignment
+  keeps the version it was sent with, so an answer is always read against the questions its
+  respondent saw. The draft saves itself; nothing is sent until it is published.
+- **A form's Catalog row is not a file.** `storage_path` is `form:<id>`, like `sig-template:`
+  for signature templates. The open, attachment, personal-file and signature-import readers
+  refuse both prefixes; a new reader of `catalog_resources` files must too.
+- **The link.** HMAC of the assignment and a link version under `FORM_TOKEN_SECRET`, else
+  `SIG_TOKEN_SECRET`, in the `form:` namespace (it can never open a signature request); only
+  its SHA-256 is stored. A submit claims the assignment by compare-and-set before writing, so
+  a double tap files one copy. Uploads are signed URLs into `form-files/uploads/<assignment>/`,
+  and a submitted path outside that folder is dropped.
+- **Prefill reads the Student Portal's own resolver** (`buildStudentPortalSummary`): legal and
+  preferred name, phone, school, unit, rotation dates, preceptor; email is the address the
+  link went to. The respondent may correct any of it.
+- **Filing.** A submission's PDF goes to the student's (or school's) `record_documents`, source
+  `form_submission`; with no record, to `form-files/submissions/`. A PDF failure is logged and
+  never loses the answers, which are the record.
+- **One tracker for both kinds.** `form-staff` `tracker` returns one completion row per person
+  for forms AND signature requests; the Catalog's Out for completion and Overdue people read
+  it through `completionStats`. Overdue is computed from `due_at`, never stored.
+- **CSV.** One version's answers, formula-looking cells prefixed with `'` so no spreadsheet runs
+  them, UTF-8 with a BOM for Excel.
+- **Starter forms** come from + New > Add the starter forms (idempotent by `starter_key`):
+  ScrubEx Request (published, the mockup's questions) and Student Parking Request (a DRAFT with
+  typical permit columns until Parking Services confirms theirs).
+- **Tables here follow `.aspire-th`.** Its grey on `#f9fafb` measures 4.37:1 (the app-wide header),
+  noted, not changed. `--aspire-row-band` is a light-mode constant, so the Responses table bands
+  from the Catalog surface instead.

@@ -40,7 +40,9 @@ export const KIND_LABEL = Object.freeze({ file: 'File', form: 'Form', signature:
 // caller by the server's catalog.signatures flag (useSignaturesFlag), OFF by default until
 // Legal and IT approve in-app e-signature. An entry point for an unbuilt or unadmitted
 // kind is not shown: a control that does nothing is a broken promise.
-export const CATALOG_FEATURES = Object.freeze({ forms: false, signatures: false })
+// Forms were built in Phase 3 (FORMS-PHASE3, 2026-09-24); the Catalog still shows them only
+// once the server reports the Forms tables exist (useFormsStatus).
+export const CATALOG_FEATURES = Object.freeze({ forms: true, signatures: false })
 
 // The badge a file shows: the stored label for an uploaded file, LINK for an external one.
 // tone picks the badge's ink (red PDF, navy Word, green Excel), never its meaning.

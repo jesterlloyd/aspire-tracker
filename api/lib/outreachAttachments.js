@@ -275,7 +275,7 @@ export async function resolveAttachments({ db, slugs } = {}) {
       return { ok: false, status: 404, error: `Attachment is no longer available: ${row.title || slug}` };
     }
     // SIGNATURES-PHASE2: a signature template's Catalog item names its template, not a file.
-    if (row.resource_type !== 'internal_file' || !row.storage_path || row.storage_path.startsWith('sig-template:')) {
+    if (row.resource_type !== 'internal_file' || !row.storage_path || /^(sig-template|form):/.test(row.storage_path)) {
       return { ok: false, status: 400, error: `Only ASPIRE Catalog files can be attached: ${row.title || slug}` };
     }
 

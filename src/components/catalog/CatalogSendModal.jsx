@@ -13,7 +13,7 @@
 // their own link, so the same To field feeds /api/sig-staff `send` with the item's
 // template; the invitations and the audit trail are the signature engine's (sig_events).
 import { useEffect, useMemo, useState } from 'react'
-import { Paperclip, Link2, X, Send as SendIcon, ChevronDown, ChevronUp, Signature } from 'lucide-react'
+import { Paperclip, Link2, X, Send as SendIcon, ChevronDown, ChevronUp, Signature, ListChecks } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { buildPayloadRecipients } from '../../lib/connect/bulkAudience'
 import {
@@ -21,6 +21,7 @@ import {
   defaultMessage, defaultSubject, messageForSend, kindOf,
 } from '../../lib/catalog/catalogModel'
 import { sigStaff } from '../signatures/sigApi'
+import { formStaff } from '../forms/formsApi'
 import { roleSlots, slotIssues } from '../../lib/signatures/sigModel'
 import useModalFocus from './useModalFocus'
 
@@ -47,6 +48,7 @@ export default function CatalogSendModal({ item, ctx, contactsLoading, onClose, 
   const [result, setResult] = useState(null)   // shown when anything was skipped or failed
   const dialogRef = useModalFocus(onClose, { disabled: sending })
   const isSig = kindOf(item) === 'signature'
+  const isForm = kindOf(item) === 'form'
   const [tpl, setTpl] = useState(null)          // the item's signature template
   const [sigMode, setSigMode] = useState('each')  // 'each': one request per person; 'one': everyone signs one copy
   const [due, setDue] = useState('')
@@ -100,7 +102,25 @@ export default function CatalogSendModal({ item, ctx, contactsLoading, onClose, 
     } catch (e) { setError(e.message) } finally { setSending(false) }
   }
 
+  // FORMS-PHASE3: a form goes out as one personal link per person, from the form engine
+  // (not Outreach: every link differs). The To field's people are the respondents.
+  async function sendFormLinks() {
+    setError(null)
+    if (!people.length) { setError('Add at least one recipient.'); return }
+    if (!subject.trim()) { setError('Add a subject.'); return }
+    setSending(true)
+    try {
+      const out = await formStaff('send', { send: {
+        catalogResourceId: item.id, subject: subject.trim(), message, reminderRule, audienceLabel: tokens.map(t => t.label).join(', '),
+        dueAt: due ? new Date(`${due}T23:59:00`).toISOString() : null,
+        people: people.map(p => ({ name: p.name, email: p.email, studentId: p.studentId || null, contactId: p.contactId || null, schoolName: p.source === 'contact' ? (p.school || null) : null })),
+      } })
+      onSent?.({ sent: out.sent, log: [], form: true, created: out.created, failed: out.failed || [] })
+    } catch (e) { setError(e.code === 'not_published' ? 'Publish the form in its builder before sending it.' : e.message) } finally { setSending(false) }
+  }
+
   async function send() {
+    if (isForm) return sendFormLinks()
     if (isSig) return sendSignature()
     setError(null)
     if (!people.length) { setError('Add at least one recipient.'); return }
@@ -167,7 +187,7 @@ export default function CatalogSendModal({ item, ctx, contactsLoading, onClose, 
         <div className="ctl-mh">
           <div>
             <h2 id="ctl-send-title">Send {item.title}</h2>
-            <p>{isSig ? 'Each signer gets their own link. Every step is on the audit trail.' : 'Goes out through ASPIRE Connect and is logged.'}</p>
+            <p>{isSig ? 'Each signer gets their own link. Every step is on the audit trail.' : isForm ? 'Each person gets their own link, with what ASPIRE knows filled in.' : 'Goes out through ASPIRE Connect and is logged.'}</p>
           </div>
           <button type="button" className="ctl-icon-btn" onClick={() => !sending && onClose()} aria-label="Close"><X size={16} /></button>
         </div>
@@ -230,11 +250,27 @@ export default function CatalogSendModal({ item, ctx, contactsLoading, onClose, 
             </div>
 
             <div className="ctl-sendas">
-              {isSig ? <Signature size={18} /> : isLink ? <Link2 size={18} /> : <Paperclip size={18} />}
+              {isSig ? <Signature size={18} /> : isForm ? <ListChecks size={18} /> : isLink ? <Link2 size={18} /> : <Paperclip size={18} />}
               <span><b>Sends as: {sendAs.title}.</b> {isSig ? (sigMode === 'each'
                 ? `One request per person, ${people.length} in all. ${slots.length ? `Then ${slots.map(s => s.name.trim() || s.label).join(', ')} ${slots.length === 1 ? 'signs' : 'sign'} each one.` : ''}`
                 : 'Everyone signs one copy, in order.') : sendAs.line}</span>
             </div>
+            {isForm && (
+              <div className="ctl-sigopts">
+                <div className="ctl-field">
+                  <label htmlFor="ctl-form-due">Due date (optional)</label>
+                  <input id="ctl-form-due" type="date" value={due} onChange={e => setDue(e.target.value)} />
+                </div>
+                <div className="ctl-field">
+                  <label htmlFor="ctl-form-rem">Reminders</label>
+                  <select id="ctl-form-rem" value={reminderRule} onChange={e => setReminderRule(e.target.value)}>
+                    <option value="every_3_days">Every 3 days until done</option>
+                    <option value="once_before_due">Once, 2 days before due</option>
+                    <option value="off">Off</option>
+                  </select>
+                </div>
+              </div>
+            )}
             {isSig && (
               <div className="ctl-sigopts">
                 <div className="ctl-field">
@@ -271,14 +307,14 @@ export default function CatalogSendModal({ item, ctx, contactsLoading, onClose, 
             <div className="ctl-field">
               <label htmlFor="ctl-send-msg">Message</label>
               <textarea id="ctl-send-msg" value={message} onChange={e => setMessage(e.target.value)} />
-              <p className="ctl-hint">{'{first name}'} is replaced with each person's first name.{isSig ? ' The signing link is added below your message.' : ' Your email signature is added.'}</p>
+              <p className="ctl-hint">{'{first name}'} is replaced with each person's first name.{isSig ? ' The signing link is added below your message.' : isForm ? ' The form link is added below your message.' : ' Your email signature is added.'}</p>
             </div>
             {error && <div className="ctl-err" role="alert">{error}</div>}
           </div>
         )}
 
         <div className="ctl-mf">
-          <small>{isSig ? 'Tracked in Signatures, with a sealed copy for everyone once all sign.' : "Logged on this item and on each recipient's record."}</small>
+          <small>{isSig ? 'Tracked in Signatures, with a sealed copy for everyone once all sign.' : isForm ? "Tracked on the form's Responses; each answer is filed to the person's record." : "Logged on this item and on each recipient's record."}</small>
           <span className="ctl-mf-acts">
             {result ? (
               <button type="button" className="ctl-btn ctl-btn-pri" onClick={onClose}>Done</button>

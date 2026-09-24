@@ -68,7 +68,7 @@ export default function PrepareWizard({ initial, draftId: initialDraftId, startS
     supabase.from('catalog_resources').select('id, title, kind, file_type_label, storage_path, resource_type, is_active')
       .eq('resource_type', 'internal_file').order('title')
       .then(({ data }) => setCatalogPdfs((data || []).filter(r => r.is_active !== false && (r.kind || 'file') === 'file'
-        && !String(r.storage_path || '').startsWith('sig-template:')
+        && !/^(sig-template|form):/.test(String(r.storage_path || ''))
         && (String(r.file_type_label || '').toUpperCase() === 'PDF' || /\.pdf$/i.test(r.storage_path || '')))))
   }, [d.source, catalogPdfs])
 

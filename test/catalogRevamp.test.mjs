@@ -53,8 +53,10 @@ test('a row from before the migration is a file; badges name the real format', (
   assert.equal(fileBadge({ resource_type: 'external_link' }).label, 'LINK')
 })
 
-test('forms ship in Phase 2 and signatures stay behind a flag that is off', () => {
-  assert.equal(CATALOG_FEATURES.forms, false)
+test('forms are built (Phase 3) and signatures stay behind the server flag', () => {
+  // Forms show only once the server reports its tables (useFormsStatus); signatures only
+  // when catalog.signatures admits the caller (useSignaturesFlag). Neither is a client switch.
+  assert.equal(CATALOG_FEATURES.forms, true)
   assert.equal(CATALOG_FEATURES.signatures, false)
 })
 
@@ -291,7 +293,7 @@ test('the tiles and the three side panels are gone; the page reads the model', (
   assert.match(page, /className="rr-nav ctl-rail"/)
   assert.match(page, /aria-current=\{isCur\(k, v\) \? 'true' : undefined\}/)
   // Signatures: the build default is read, then the server's catalog.signatures flag decides.
-  assert.match(page, /const features = useMemo\(\(\) => \(\{ \.\.\.CATALOG_FEATURES, signatures: sigFlag\.allowed \}\)/)
+  assert.match(page, /const features = useMemo\(\(\) => \(\{ \.\.\.CATALOG_FEATURES, signatures: sigFlag\.allowed, forms: CATALOG_FEATURES\.forms && formsStatus\.enabled \}\)/)
   assert.match(page, /\{features\.signatures && railRow/)
   assert.match(page, /\{features\.forms && \(/)
   assert.match(page, /const canManage = isOwner \|\| isAdmin /)

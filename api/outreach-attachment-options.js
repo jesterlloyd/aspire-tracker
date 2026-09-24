@@ -118,6 +118,7 @@ export default async function handler(req, res) {
     .eq('resource_type', 'internal_file')
     // SIGNATURES-PHASE2: a signature template's Catalog item is not a file to attach.
     .not('storage_path', 'like', 'sig-template:%')
+    .not('storage_path', 'like', 'form:%')   // FORMS-PHASE3: forms are not files
     .order('title');
 
   if (error) return res.status(500).json({ error: 'Could not load the ASPIRE Catalog.' });

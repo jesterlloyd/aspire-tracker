@@ -176,6 +176,9 @@ test('a send site either builds its client through the mailer, or is handed one'
     // SIGNATURES-PHASE2: handed createMailer() by api/sig-signer.js, api/sig-staff.js and
     // api/cron/sig-maintenance.js (asserted below).
     join('lib', 'server', 'signatures', 'engine.js'),
+    // FORMS-PHASE3: handed createMailer() by api/form-staff.js, api/form-respond.js and
+    // api/cron/form-maintenance.js (asserted below).
+    join('lib', 'server', 'forms', 'engine.js'),
   ])
 
   const unaccounted = []
@@ -231,6 +234,23 @@ test('the signature engine is only ever handed a mailer built by createMailer', 
     for (const file of walk(join(root, base))) {
       const rel = relative(root, file)
       if (/signatures\/engine\.js['"]/.test(readFileSync(file, 'utf8'))) importers.push(rel)
+    }
+  }
+  assert.deepEqual(importers.sort(), callers.map(c => join(...c.split('/'))).sort())
+})
+
+test('the forms engine is only ever handed a mailer built by createMailer', () => {
+  const callers = ['api/form-staff.js', 'api/form-respond.js', 'api/cron/form-maintenance.js']
+  for (const rel of callers) {
+    const src = readFileSync(join(root, rel), 'utf8')
+    assert.match(src, /import \{ createMailer \} from '[./]+lib\/server\/email\/mailer\.js'/, `${rel} imports createMailer`)
+    assert.match(src, /mailer: createMailer\(\)/, `${rel} passes createMailer()`)
+    assert.doesNotMatch(src, /new Resend\(/)
+  }
+  const importers = []
+  for (const base of ['api', 'lib']) {
+    for (const file of walk(join(root, base))) {
+      if (/forms\/engine\.js['"]/.test(readFileSync(file, 'utf8'))) importers.push(relative(root, file))
     }
   }
   assert.deepEqual(importers.sort(), callers.map(c => join(...c.split('/'))).sort())

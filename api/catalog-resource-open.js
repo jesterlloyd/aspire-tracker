@@ -109,7 +109,7 @@ export default async function handler(req, res) {
   if (!row || row.is_active !== true) {
     return res.status(404).json({ error: 'Not found' });
   }
-  if (row.resource_type !== 'internal_file' || !row.storage_path || row.storage_path.startsWith('sig-template:')) {
+  if (row.resource_type !== 'internal_file' || !row.storage_path || /^(sig-template|form):/.test(row.storage_path)) {
     return res.status(400).json({ error: 'Resource is not an internal file' });
   }
 

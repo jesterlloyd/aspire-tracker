@@ -15,7 +15,7 @@ function normalize(v) {
   return v
 }
 
-function builder(pg, table) {
+function builder(pg, table, arrayCols) {
   const st = { op: 'select', cols: '*', where: [], params: [], order: [], limit: null, rows: null, patch: null, onConflict: null, returning: null, single: null }
   const p = (v) => { st.params.push(v); return `$${st.params.length}` }
   const api = {
@@ -42,20 +42,24 @@ function builder(pg, table) {
     then(res, rej) { return run().then(res, rej) },
   }
   const cols = (c) => (!c || c === '*') ? '*' : c.split(',').map(s => ident(s.trim())).join(', ')
+  // A text[] column takes a Postgres array literal; everything else that is an object is jsonb.
+  const pgArray = (xs) => `{${xs.map(x => x == null ? 'NULL' : `"${String(x).replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`).join(',')}}`
+  const valFor = (k, v) => (Array.isArray(v) && arrayCols.has(k)) ? pgArray(v) : val(v)
   const val = (v) => (v !== null && typeof v === 'object' && !(v instanceof Date)) ? JSON.stringify(v) : v
   async function run() {
     try {
+      await arrayCols.ready
       const whereSql = st.where.length ? ` WHERE ${st.where.map(f => f()).join(' AND ')}` : ''
       let sql
       if (st.op === 'select') {
         sql = `SELECT ${cols(st.cols)} FROM ${ident(table)}${whereSql}${st.order.length ? ` ORDER BY ${st.order.join(', ')}` : ''}${st.limit ? ` LIMIT ${st.limit}` : ''}`
       } else if (st.op === 'insert' || st.op === 'upsert') {
         const keys = [...new Set(st.rows.flatMap(r => Object.keys(r)))]
-        const values = st.rows.map(r => `(${keys.map(k => p(val(r[k] ?? null))).join(', ')})`).join(', ')
+        const values = st.rows.map(r => `(${keys.map(k => p(valFor(k, r[k] ?? null))).join(', ')})`).join(', ')
         const conflict = st.op === 'upsert' ? ` ON CONFLICT (${st.onConflict.split(',').map(ident).join(', ')}) DO UPDATE SET ${keys.map(k => `${ident(k)} = EXCLUDED.${ident(k)}`).join(', ')}` : ''
         sql = `INSERT INTO ${ident(table)} (${keys.map(ident).join(', ')}) VALUES ${values}${conflict} RETURNING ${cols(st.returning || '*')}`
       } else if (st.op === 'update') {
-        const sets = Object.entries(st.patch).map(([k, v]) => `${ident(k)} = ${p(val(v))}`).join(', ')
+        const sets = Object.entries(st.patch).map(([k, v]) => `${ident(k)} = ${p(valFor(k, v))}`).join(', ')
         sql = `UPDATE ${ident(table)} SET ${sets}${whereSql} RETURNING ${cols(st.returning || '*')}`
       } else {
         sql = `DELETE FROM ${ident(table)}${whereSql} RETURNING *`
@@ -72,11 +76,25 @@ function builder(pg, table) {
   return api
 }
 
+// Which columns of a table are Postgres arrays, read once per table.
+const arrayCache = new WeakMap()
+function arrayColumns(pg, table) {
+  if (!arrayCache.has(pg)) arrayCache.set(pg, new Map())
+  const perDb = arrayCache.get(pg)
+  if (!perDb.has(table)) {
+    const set = new Set()
+    set.ready = pg.query(`SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = $1 AND data_type = 'ARRAY'`, [table])
+      .then(({ rows }) => { for (const r of rows) set.add(r.column_name) })
+    perDb.set(table, set)
+  }
+  return perDb.get(table)
+}
+
 export function pgliteRest(pg) {
   const buckets = new Map()
   const bucket = (name) => { if (!buckets.has(name)) buckets.set(name, new Map()); return buckets.get(name) }
   return {
-    from: (t) => builder(pg, t),
+    from: (t) => builder(pg, t, arrayColumns(pg, t)),
     storage: {
       from: (name) => ({
         async upload(path, bytes, { upsert = false } = {}) {
@@ -88,6 +106,7 @@ export function pgliteRest(pg) {
           const x = bucket(name).get(path)
           return x ? { data: new Blob([x]), error: null } : { data: null, error: { message: 'Object not found' } }
         },
+        async createSignedUploadUrl(path) { return { data: { path, token: `upload-${path}` }, error: null } },
         async createSignedUrl(path) { return bucket(name).has(path) ? { data: { signedUrl: `memory://${name}/${path}` }, error: null } : { data: null, error: { message: 'not found' } } },
         async remove(paths) { for (const p of paths) bucket(name).delete(p); return { error: null } },
       }),

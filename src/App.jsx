@@ -28,6 +28,7 @@ const PostRotationEvaluationPage = lazyReload(() => import('./pages/PostRotation
 const NgrpTransitionFormPage     = lazyReload(() => import('./pages/NgrpTransitionFormPage'), 'NgrpTransitionFormPage')
 const NgrpReflectionPage         = lazyReload(() => import('./pages/NgrpReflectionPage'), 'NgrpReflectionPage')
 const SignPage                   = lazyReload(() => import('./pages/SignPage'), 'SignPage')
+const FormPage                   = lazyReload(() => import('./pages/FormPage'), 'FormPage')
 const UnitFormPage               = lazyReload(() => import('./components/UnitFormPage'), 'UnitFormPage')
 const SchoolFormPage             = lazyReload(() => import('./components/SchoolFormPage'), 'SchoolFormPage')
 const StudentIntakeFormPage      = lazyReload(() => import('./components/StudentIntakeFormPage'), 'StudentIntakeFormPage')
@@ -201,6 +202,8 @@ export default function App() {
       {/* SIGNATURES-PHASE2: the public signing page (link + one-time code). Always light,
           always the plain Modern flow; the server refuses every call while catalog.signatures is off. */}
       <Route path="/sign/*" element={<div data-theme-lock="light"><SignPage /></div>} />
+      {/* FORMS-PHASE3: a Catalog form's personal link. Public, light-locked, link-only. */}
+      <Route path="/form/*" element={<div data-theme-lock="light"><FormPage /></div>} />
       {/* RECOVERY-PASSWORD-SCREEN-1: public password-recovery landing (Supabase reset link target).
           Must precede the /* wildcard so it renders outside AuthedShell even with a recovery session. */}
       <Route path="/auth/reset-password"   element={<div data-theme-lock="light"><ResetPasswordPage /></div>} />

@@ -58,7 +58,7 @@ test('a Catalog PDF can start a template: picked in the wizard or from its ⋯ m
   // It copies from the Catalog bucket and never writes back to it.
   assert.match(api, /db\.storage\.from\(CATALOG_BUCKET\)\.download\(r\.storage_path\)/)
   assert.doesNotMatch(api, /from\(CATALOG_BUCKET\)\.(upload|remove|move)/)
-  assert.match(api, /\/\^sig-template:\/\.test\(r\.storage_path\)/)
+  assert.match(api, /\/\^\(sig-template\|form\):\/\.test\(r\.storage_path\)/)   // FORMS-PHASE3: a form is not a file either
   const w = read('src/components/signatures/PrepareWizard.jsx')
   assert.match(w, /<b>Choose from the Catalog<\/b>/)
   const page = read('src/components/catalog/CatalogPage.jsx')

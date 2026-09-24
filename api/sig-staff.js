@@ -147,7 +147,7 @@ async function act(db, body, { profile, ctx, isDemo }) {
       // made from it (Owner, 2026-09-23). The Catalog's copy is never changed or moved.
       if (!UUID.test(body.resource_id || '')) throw new EngineError('invalid', 'Choose a Catalog file.')
       const { data: r } = await db.from('catalog_resources').select('id, title, storage_path, resource_type, kind, is_active').eq('id', body.resource_id).maybeSingle()
-      if (!r || r.is_active === false || r.resource_type !== 'internal_file' || (r.kind && r.kind !== 'file') || !r.storage_path || /^sig-template:/.test(r.storage_path)) {
+      if (!r || r.is_active === false || r.resource_type !== 'internal_file' || (r.kind && r.kind !== 'file') || !r.storage_path || /^(sig-template|form):/.test(r.storage_path)) {
         throw new EngineError('not_found', 'That Catalog file is not available.', 404)
       }
       const { data: blob, error } = await db.storage.from(CATALOG_BUCKET).download(r.storage_path)
