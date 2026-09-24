@@ -33,6 +33,8 @@ export default function FormBuilder({ formId, notify, onBack, onResponses }) {
   const [paperBusy, setPaperBusy] = useState(false)
   const dirty = useRef(false)
   const drag = useRef(null)
+  const [over, setOver] = useState(null)          // the card a dragged question would land on
+  const [dragging, setDragging] = useState(null)  // the card being dragged
 
   useEffect(() => {
     let live = true
@@ -192,10 +194,18 @@ export default function FormBuilder({ formId, notify, onBack, onResponses }) {
             {!draft.questions.length && <p className="fm-empty">No questions yet. Add one from the left.</p>}
             <ol className="fm-qs">
               {draft.questions.map((x, i) => (
-                <li key={x.id} className={`fm-q${x.id === sel ? ' fm-q-sel' : ''}${x.type === 'section' ? ' fm-q-section' : ''}`} draggable
-                  onDragStart={(e) => { drag.current = i; e.dataTransfer.effectAllowed = 'move' }}
-                  onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move' }}
-                  onDrop={(e) => { e.preventDefault(); if (drag.current != null && drag.current !== i) change(d => ({ ...d, questions: moveQuestion(d.questions, drag.current, i) })); drag.current = null }}>
+                <li key={x.id} className={`fm-q${x.id === sel ? ' fm-q-sel' : ''}${x.type === 'section' ? ' fm-q-section' : ''}${over === i && dragging != null && dragging !== i ? (dragging < i ? ' fm-q-drop-after' : ' fm-q-drop-before') : ''}${dragging === i ? ' fm-q-dragging' : ''}`} draggable
+                  onDragStart={(e) => { drag.current = i; setDragging(i); e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', x.id) } catch { /* Firefox needs data to start a drag */ } }}
+                  onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (over !== i) setOver(i) }}
+                  onDragEnd={() => { drag.current = null; setOver(null); setDragging(null) }}
+                  onDrop={(e) => {
+                    e.preventDefault()
+                    // FORM-DRAG-1: read the picked-up index NOW. The state updater runs later, after
+                    // drag.current is cleared below, which is why every drop used to move nothing.
+                    const from = drag.current
+                    drag.current = null; setOver(null); setDragging(null)
+                    if (from != null && from !== i) change(d => ({ ...d, questions: moveQuestion(d.questions, from, i) }))
+                  }}>
                   <button type="button" className="fm-qbtn" aria-pressed={x.id === sel} onClick={() => { setSel(x.id); setTab('question') }}>
                     <span className="fm-grip" aria-hidden="true">⋮⋮</span>
                     <span className="fm-qmain">
