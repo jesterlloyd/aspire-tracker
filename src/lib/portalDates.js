@@ -47,11 +47,14 @@ export function formatDateRange(start, end) {
   return TBC
 }
 
-// Placement rotation window for the portal: prefer the cohort start/end range;
-// fall back to a meaningful free-text term_dates string; else "To be confirmed".
-export function placementWindow(cohort, termDates) {
-  const range = formatDateRange(cohort?.start_date, cohort?.end_date)
-  if (range !== TBC) return range
+// Placement rotation window for the portal: prefer the student's canonical
+// school-and-cohort rotation row. Cohort dates and the legacy term_dates text
+// remain fallbacks for older student records that do not have that link yet.
+export function placementWindow(rotation, cohort, termDates) {
+  const rotationRange = formatDateRange(rotation?.start, rotation?.end)
+  if (rotationRange !== TBC) return rotationRange
+  const cohortRange = formatDateRange(cohort?.start_date, cohort?.end_date)
+  if (cohortRange !== TBC) return cohortRange
   const t = String(termDates || '').trim()
   if (t && !/invalid/i.test(t)) return t
   return TBC
