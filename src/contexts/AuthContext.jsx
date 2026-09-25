@@ -271,3 +271,7 @@ export function AuthProvider({ children }) {
 }
 
 export const useAuth = () => useContext(AuthContext);
+
+// HOME-1: exported so a render test can supply a signed-in profile without Supabase.
+// Components read it through useAuth(); nothing else should import it.
+export { AuthContext };

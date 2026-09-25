@@ -46,6 +46,7 @@ export default function HomeBanner({ classic, fullName, userKey, items, calendar
   useEffect(() => {
     if (!classic) return undefined
     let tries = 0
+    let timer = null
     const tick = () => {
       const el = sceneRef.current?.querySelector('skyline-card')
       const sr = el?.shadowRoot
@@ -60,7 +61,7 @@ export default function HomeBanner({ classic, fullName, userKey, items, calendar
       }
       if (tries++ < 40) timer = setTimeout(tick, 250)
     }
-    let timer = setTimeout(tick, 0)
+    timer = setTimeout(tick, 0)
     return () => clearTimeout(timer)
   }, [classic])
   return (

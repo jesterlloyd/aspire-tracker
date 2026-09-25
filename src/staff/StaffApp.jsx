@@ -228,10 +228,6 @@ function MainApp({ onLogout }) {
   const [acPendingFollowups, setAcPendingFollowups] = useState([])
   const [acActiveDispoIds,   setAcActiveDispoIds]   = useState([])
   const [tourRunning,      setTourRunning]      = useState(false)
-  // HOME-1: At a Glance withholds the header search, the Keith orb, the Messages dock launcher
-  // and the Feedback launcher. While the welcome tour runs they stay, because the tour has a
-  // step anchored on each and skips a step whose anchor is missing.
-  const hideHomeChrome = activeTab === 'overview' && !tourRunning
   // PORTAL-SPLIT Phase 2: the five ASPIRE tabs used to mount together at boot,
   // which is why switching between them is instant and their state survives.
   // Interviews and Evaluation are their own chunks now, so they mount on first
@@ -252,6 +248,12 @@ function MainApp({ onLogout }) {
     if (p.startsWith('/settings')) return 'settings' // WS2.1: app-level utility section
     return PATH_TO_TAB[p] || 'overview'
   })()
+  // HOME-1: At a Glance withholds the header search, the Keith orb, the Messages dock launcher
+  // and the Feedback launcher. While the welcome tour runs they stay, because the tour has a
+  // step anchored on each and skips a step whose anchor is missing.
+  // Declared AFTER activeTab on purpose: reading a const above its declaration throws
+  // (temporal dead zone) and took the whole staff app down on the first preview.
+  const hideHomeChrome = activeTab === 'overview' && !tourRunning
 
   // Adjusted during render rather than in an effect: the tab has to be mounted
   // on the SAME render that activates it. From an effect, a deep link straight

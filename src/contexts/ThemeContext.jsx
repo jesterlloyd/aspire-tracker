@@ -80,6 +80,9 @@ export function ThemeProvider({ children }) {
   )
 }
 
+// HOME-1: exported so a render test can choose Classic or Modern; components use useTheme().
+export { ThemeContext }
+
 export function useTheme() {
   return useContext(ThemeContext)
 }
