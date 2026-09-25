@@ -10,6 +10,8 @@ import { completionStats, progressLabel } from '../../lib/catalog/catalogModel'
 import { formStaff, downloadCsv } from './formsApi'
 import FormSheet from './FormSheet'
 import FormSummary from './FormSummary'
+import SegmentedPicker from '../shared/SegmentedPicker'
+import { Download } from 'lucide-react'
 
 const WORD = { submitted: 'Submitted', overdue: 'Overdue', opened: 'Opened', sent: 'Not opened', closed: 'Closed', voided: 'Withdrawn' }
 const FILTERS = [['all', 'Everyone'], ['submitted', 'Submitted'], ['overdue', 'Overdue'], ['opened', 'Opened'], ['sent', 'Not opened'], ['closed', 'Closed']]
@@ -64,20 +66,22 @@ export default function FormResponses({ formId, notify, onBack, onEdit }) {
         </div>
         <div className="fm-row">
           <button type="button" className="fm-btn" onClick={onEdit}>Edit form</button>
-          {form.settings?.exportCsv !== false && form.current_version > 0 && (
-            <button type="button" className="fm-btn" onClick={() => act(() => downloadCsv(form.id, form.current_version))} disabled={busy}>Export answers (CSV)</button>
+          {view === 'people' && (
+            <button type="button" className="fm-btn" disabled={busy || !counts.overdue}
+              onClick={() => act(() => formStaff('remind_overdue', { id: form.id }), (o) => `Reminders sent to ${o.reminded} ${o.reminded === 1 ? 'person' : 'people'}.`)}>
+              Remind all overdue{counts.overdue ? ` (${counts.overdue})` : ''}</button>
           )}
-          <button type="button" className="fm-btn fm-pri" disabled={busy || !counts.overdue}
-            onClick={() => act(() => formStaff('remind_overdue', { id: form.id }), (o) => `Reminders sent to ${o.reminded} ${o.reminded === 1 ? 'person' : 'people'}.`)}>
-            Remind all overdue{counts.overdue ? ` (${counts.overdue})` : ''}</button>
+          {form.settings?.exportCsv !== false && form.current_version > 0 && (
+            <button type="button" className="fm-btn fm-pri fm-csv" onClick={() => act(() => downloadCsv(form.id, form.current_version))} disabled={busy}
+              title="Download every answer to the current version as a CSV">
+              <Download size={16} aria-hidden="true" /> Download CSV</button>
+          )}
         </div>
       </div>
 
-      <div className="fm-tabs fs-views" role="tablist" aria-label="View">
-        <button type="button" role="tab" aria-selected={view === 'people'} onClick={() => setView('people')}>People</button>
-        <button type="button" role="tab" aria-selected={view === 'sheet'} onClick={() => setView('sheet')}>Sheet</button>
-        <button type="button" role="tab" aria-selected={view === 'summary'} onClick={() => setView('summary')}>Summary</button>
-      </div>
+      {/* RESPONSES-CANON-1 (Owner, 2026-09-24): the app's one view picker, not a local copy. */}
+      <SegmentedPicker ariaLabel="View" value={view} onChange={setView}
+        options={[{ value: 'people', label: 'People' }, { value: 'sheet', label: 'Sheet' }, { value: 'summary', label: 'Summary' }]} />
 
       {view === 'summary' ? <FormSummary formId={form.id} onSheet={() => setView('sheet')} />
         : view === 'sheet' ? <FormSheet formId={form.id} notify={notify} onOpen={openAnswer} /> : (<>

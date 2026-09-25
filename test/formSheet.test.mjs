@@ -113,7 +113,12 @@ test('the workbook escapes what XML cannot hold and never writes a formula', () 
 
 test('Responses has People and Sheet; Build a form can add a category', () => {
   const r = read('src/components/forms/FormResponses.jsx')
-  assert.match(r, />People<\/button>/); assert.match(r, />Sheet<\/button>/); assert.match(r, /<FormSheet formId=\{form\.id\}/)
+  // RESPONSES-CANON-1 (this commit): the views are the app's SegmentedPicker, not local buttons.
+  assert.match(r, /<SegmentedPicker ariaLabel="View"/)
+  assert.match(r, /label: 'People'/); assert.match(r, /label: 'Sheet'/); assert.match(r, /label: 'Summary'/)
+  assert.match(r, /<FormSheet formId=\{form\.id\}/)
+  assert.match(r, /\{view === 'people' && \(\s*<button[^>]*remind_overdue|\{view === 'people' && \(/, 'Remind all overdue belongs to People')
+  assert.match(r, /<Download size=\{16\} aria-hidden="true" \/> Download CSV/)
   assert.match(read('api/form-staff.js'), /case 'sheet_xlsx'/)
   const page = read('src/components/catalog/CatalogPage.jsx')
   assert.match(page, /\+ New category…/)
@@ -150,5 +155,5 @@ test('the Summary counts options and Other, groups short answers, and sums up nu
   assert.deepEqual([s.start.earliest, s.start.latest, s.start.answered], ['2026-09-01', '2026-10-05', 2])
   const src = read('src/components/forms/FormSummary.jsx')
   assert.match(src, /aria-label=\{say\}/, 'every bar says its count in words')
-  assert.match(read('src/components/forms/FormResponses.jsx'), />Summary<\/button>/)
+  assert.match(read('src/components/forms/FormResponses.jsx'), /value: 'summary', label: 'Summary'/)
 })
