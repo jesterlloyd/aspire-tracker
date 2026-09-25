@@ -1603,8 +1603,10 @@ img.ptl-detail-photo {
   box-shadow: var(--aspire-tooltip-shadow, 0 4px 14px rgba(0,0,0,0.45));
   transition: opacity 0.2s ease;
 }
-.ptl-team-message-launcher-wrap:hover .ptl-team-message-tooltip,
 .ptl-team-message-tooltip.is-visible { opacity: 1; }
+@media (hover: hover) and (pointer: fine) {
+  .ptl-team-message-launcher-wrap:not(.is-open):hover .ptl-team-message-tooltip { opacity: 1; }
+}
 .ptl-team-message-launcher {
   position: relative;
   width: 52px; height: 52px; min-width: 52px; min-height: 52px;

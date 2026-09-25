@@ -156,7 +156,7 @@ function naThreadIdFromPath(pathname) {
 function StaffPreviewUtilities({ portalName, section }) {
   return (
     <>
-      <MainMessagesLauncher />
+      <MainMessagesLauncher portalPreview />
       <FeedbackPanel activeTab={section} cohortName={`${portalName} preview`} isAuthenticated />
     </>
   )
