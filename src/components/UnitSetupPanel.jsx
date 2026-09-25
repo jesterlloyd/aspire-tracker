@@ -6,12 +6,13 @@
 // same way (an unchecked unit is marked not participating, never deleted).
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Search, ChevronDown, ChevronRight, Minus, Plus, X } from 'lucide-react'
+import { Search, ChevronDown, ChevronRight, Minus, Plus } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { safeWrite } from '../lib/safeWrite'
 import { SHIFT_OPTIONS, PATIENT_POPULATION_MAP, UNIT_DIVISION_MAP } from '../lib/constants'
 import { buildSetup, setupTotals, divisionTotals, visibleDivisions, clampSlots, MIN_SLOTS, MAX_SLOTS } from '../lib/unitSetupModel'
 import SegmentedPicker from './shared/SegmentedPicker'
+import DetailDrawer from './ui/DetailDrawer'
 import './unitSetup.css'
 
 export default function UnitSetupPanel({ cohortId, currentUnits, students, onSaved, onClose }) {
@@ -124,17 +125,31 @@ export default function UnitSetupPanel({ cohortId, currentUnits, students, onSav
   const totals = setupTotals(setup, students)
   const divisions = visibleDivisions(catalog, setup, { query, participatingOnly: view === 'participating' })
 
-  return (
-    <div className="fullscreen-panel-overlay" onClick={() => { if (!saving) onClose() }}>
-      <div className="fullscreen-panel us-panel" role="dialog" aria-modal="true" aria-labelledby="us-title" onClick={e => e.stopPropagation()}>
-        <div className="us-head">
-          <div>
-            <h2 id="us-title" className="us-title">Unit Setup</h2>
-            <p className="us-sub">Choose the units hosting this cohort and how many students each can take.</p>
-          </div>
-          <button type="button" className="us-close" onClick={onClose} aria-label="Close Unit Setup"><X size={18} aria-hidden="true" /></button>
-        </div>
+  const close = () => { if (!saving) onClose() }
 
+  const footer = (
+    <div className="us-foot">
+      <p className={`us-summary${totals.covered ? ' is-covered' : ' is-short'}`} role="status">
+        <b>{totals.units}</b> unit{totals.units === 1 ? '' : 's'} · <b>{totals.slots}</b> slot{totals.slots === 1 ? '' : 's'} · <b>{totals.proceeding}</b> proceeding student{totals.proceeding === 1 ? '' : 's'}
+        <span className="us-verdict">{totals.covered
+          ? (totals.spare ? `${totals.spare} spare slot${totals.spare === 1 ? '' : 's'}` : 'Every student has a slot')
+          : `${totals.short} slot${totals.short === 1 ? '' : 's'} short`}</span>
+      </p>
+      <div className="us-actions">
+        <button type="button" className="btn btn-outline-modal" onClick={onClose} disabled={saving}>Cancel</button>
+        <button type="button" className="btn btn-primary" onClick={handleSave} disabled={saving}>
+          {saving ? 'Saving…' : `Save ${totals.units} Unit${totals.units !== 1 ? 's' : ''}`}
+        </button>
+      </div>
+    </div>
+  )
+
+  // HOME-1 (Owner, 2026-09-25): the app's standard side drawer, as School and Unit responses
+  // use it, wider (860px) so each unit keeps one line. No accent edge.
+  return (
+    <DetailDrawer open title="Unit Setup" onClose={close} width={860} footer={footer}>
+      <div className="us-panel">
+        <p className="us-sub">Choose the units hosting this cohort and how many students each can take.</p>
         <div className="us-tools">
           <label className="us-search">
             <Search size={15} aria-hidden="true" />
@@ -145,7 +160,7 @@ export default function UnitSetupPanel({ cohortId, currentUnits, students, onSav
             options={[{ value: 'all', label: 'All units' }, { value: 'participating', label: `Participating only (${totals.units})` }]} />
         </div>
 
-        {error && <div className="error-msg" role="alert" style={{ margin: '0 24px 12px' }}>{error}</div>}
+        {error && <div className="error-msg" role="alert" style={{ margin: '0 0 12px' }}>{error}</div>}
 
         <div className="us-body">
           {catalogLoading ? (
@@ -212,21 +227,7 @@ export default function UnitSetupPanel({ cohortId, currentUnits, students, onSav
           })}
         </div>
 
-        <div className="us-foot">
-          <p className={`us-summary${totals.covered ? ' is-covered' : ' is-short'}`} role="status">
-            <b>{totals.units}</b> unit{totals.units === 1 ? '' : 's'} · <b>{totals.slots}</b> slot{totals.slots === 1 ? '' : 's'} · <b>{totals.proceeding}</b> proceeding student{totals.proceeding === 1 ? '' : 's'}
-            <span className="us-verdict">{totals.covered
-              ? (totals.spare ? `${totals.spare} spare slot${totals.spare === 1 ? '' : 's'}` : 'Every student has a slot')
-              : `${totals.short} slot${totals.short === 1 ? '' : 's'} short`}</span>
-          </p>
-          <div className="us-actions">
-            <button type="button" className="btn btn-outline-modal" onClick={onClose} disabled={saving}>Cancel</button>
-            <button type="button" className="btn btn-primary" onClick={handleSave} disabled={saving}>
-              {saving ? 'Saving…' : `Save ${totals.units} Unit${totals.units !== 1 ? 's' : ''}`}
-            </button>
-          </div>
-        </div>
       </div>
-    </div>
+    </DetailDrawer>
   )
 }

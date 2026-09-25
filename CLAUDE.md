@@ -753,6 +753,16 @@ tested modules in `src/lib/home/`. Nothing is computed in JSX.
   tokens, so the panel now follows dark mode. `handleSave` is unchanged: an unchecked unit is
   marked not participating, never deleted. A legacy 'Either' shift reads as No Preference
   (`ImportUnitsCSV` still writes 'Either').
+  It opens in the standard side drawer (`DetailDrawer`, as School and Unit responses do) at
+  860px, with no accent edge; service lines are sections on the drawer's white surface.
+- **The Classic desk, round 3** (Owner, 2026-09-25): paper is square and lifts on a shadow,
+  never an outline (notepad, report and loose sheets, tape, index cards, and the Placement
+  sheets inside them); the folder, corners and window keep their shape. Recent Activity's
+  tear is an inline SVG drawn BELOW the paper (a clip-path would cut the paper's shadow),
+  and every inline SVG escapes `#` as `%23` or it silently draws nothing. The window's glass
+  is a top sheen, a corner glare and two reflection bands under the greeting and launcher.
+  Today and Cohort Pulse start on one line with the rings and the drawn wire clip
+  overhanging, and the Today picker sits 12px under the double rule.
 - **The segmented picker has a dark pair**: `--seg-active-ink` and `--seg-rest-ink`, defined in
   theme.css for dark only (white on the lifted accent was 3.03:1). Classic dark restates
   `--chart-warn-*` to their light pair, because its papers stay light.

@@ -191,3 +191,35 @@ test('INK: the segmented picker and the Placement notice keep a readable pair in
   const block = home.slice(home.indexOf('[data-theme="dark"] .hm-classic {'))
   assert.match(block.slice(0, block.indexOf('}')), /--chart-warn-ink: #8B5E1A; --chart-warn-bg: #FBF3E0;/)
 })
+
+test('UNIT SETUP 5: the panel is the standard side drawer, wider, with no accent edge', () => {
+  // Owner, 2026-09-25: "remove the blue outline on the side. follow every other modal like this".
+  const panel = read('src/components/UnitSetupPanel.jsx')
+  assert.match(panel, /import DetailDrawer from '\.\/ui\/DetailDrawer'/)
+  assert.match(panel, /<DetailDrawer open title="Unit Setup" onClose=\{close\} width=\{860\} footer=\{footer\}>/)
+  assert.doesNotMatch(panel, /fullscreen-panel/)
+  const css = read('src/components/unitSetup.css')
+  assert.doesNotMatch(css, /border-left:\s*3px/, 'the blue edge is gone')
+  assert.doesNotMatch(css, /fullscreen-panel/)
+  // The pinned search stays inside the body, or the drawer scrolls sideways.
+  assert.doesNotMatch(css, /\.us-tools \{[^}]*margin: 0 -/)
+})
+
+test('CLASSIC DESK 2: square paper, shadows not outlines, a torn edge, glass, one top line', () => {
+  const css = read('src/components/home/home.css')
+  assert.match(css, /\.hm-classic \.hm-notepad, \.hm-classic \.hm-report, \.hm-classic \.hm-sheet, \.hm-classic \.hm-tape,\s*\.hm-classic \.hm-grp, \.hm-classic \.hm-caught \{ border-radius: 0; \}/)
+  assert.match(css, /\.hm-classic \.ds\[data-level="plain"\] \{\s*border: 0;\s*border-radius: 0;\s*box-shadow:/)
+  // The folder keeps its shape: it is not paper.
+  assert.match(css, /\.hm-classic \.hm-folder \{[^}]*border-radius: 0 var\(--aspire-radius-card\)/)
+  // The tear is a drawing below the paper, so the paper keeps its shadow; no clip-path.
+  assert.doesNotMatch(css, /\.hm-classic \.hm-tape \{[^}]*clip-path/)
+  assert.match(css, /\.hm-classic \.hm-tape::after \{[^}]*bottom: -13px;[^}]*repeat-x;/)
+  // An inline SVG needs its hashes escaped, or the image silently fails to draw.
+  for (const u of css.match(/url\("data:image\/svg\+xml,[^"]*"\)/g) || []) assert.doesNotMatch(u, /#/)
+  assert.match(css, /\.hm-clip \{[^}]*background: url\("data:image\/svg\+xml,/)
+  assert.match(css, /\.hm-window-glass \{[^}]*linear-gradient\(118deg/)
+  // Today and Cohort Pulse share a top; the picker clears the double rule.
+  assert.match(css, /\.hm-classic \.hm-duo > \.hm-notepad \{ margin-top: 0; \}/)
+  assert.doesNotMatch(css, /\.hm-classic \.hm-notepad \{ margin-top:/)
+  assert.match(css, /\.hm-classic \.hm-notepad \.hm-today-picker \{ margin-top: 12px; \}/)
+})

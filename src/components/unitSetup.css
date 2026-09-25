@@ -5,42 +5,27 @@
    corner reads a brand token (aspireBrand.css).
    ============================================================================ */
 
+/* The shell is DetailDrawer (src/components/ui/DetailDrawer.jsx), the drawer School and Unit
+   responses open in: white surface, plain title and close, hairline under the header, soft
+   left shadow, no accent edge. This sheet styles only what sits inside it. */
 .us-panel {
   --us-line: var(--color-border-default);
   --us-ink: var(--color-text-primary);
   --us-muted: var(--color-text-secondary);
-  --us-bg: var(--color-bg-surface);
-  --us-bg-2: var(--color-bg-page);
+  --us-bg: var(--color-bg-surface, #fff);
   --us-accent: var(--color-accent-primary);
   --us-grid: 26px minmax(0, 1fr) 118px 190px 92px;
-  background: var(--us-bg);
   color: var(--us-ink);
-  width: min(860px, 96vw);
-  border-left: 3px solid var(--us-accent);
   font-family: var(--aspire-sans);
 }
-.fullscreen-panel-overlay {
-  position: fixed; inset: 0; background: var(--color-bg-overlay, rgba(25, 25, 25, 0.55)); z-index: 600;
-  display: flex; align-items: stretch; justify-content: flex-end; backdrop-filter: blur(2px);
-}
-.fullscreen-panel {
-  height: 100vh; display: flex; flex-direction: column;
-  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.18);
-}
+.us-sub { margin: 0 0 12px; font-size: 13px; color: var(--us-muted); }
 
-.us-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 20px 24px 12px; }
-.us-title { margin: 0; font-size: 20px; font-weight: 700; color: var(--us-accent); }
-.us-sub { margin: 3px 0 0; font-size: 13px; color: var(--us-muted); }
-.us-close {
-  display: grid; place-items: center; width: 34px; height: 34px; flex: none;
-  border: 1px solid var(--us-line); border-radius: var(--aspire-radius-control);
-  background: var(--us-bg); color: var(--us-ink); cursor: pointer;
-}
-.us-close:hover { background: var(--color-bg-hover); }
-
+/* The search and the switch stay in reach while the list scrolls; the drawer body pads 18px. */
 .us-tools {
+  position: sticky; top: -18px; z-index: 2;
   display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-  padding: 0 24px 14px; border-bottom: 1px solid var(--us-line);
+  padding: 10px 0 12px;
+  background: var(--us-bg); border-bottom: 1px solid var(--us-line);
 }
 .us-search {
   flex: 1 1 260px; display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 12px;
@@ -50,25 +35,26 @@
 .us-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; color: var(--us-ink); font: 13px var(--aspire-sans); }
 .us-search:focus-within { outline: 3px solid var(--us-accent); outline-offset: 2px; }
 
-.us-body { flex: 1; overflow-y: auto; padding: 8px 24px 24px; background: var(--us-bg-2); }
+.us-body { padding-bottom: 4px; }
 .us-empty { margin: 32px 0; text-align: center; color: var(--us-muted); font-size: 14px; }
 
-.us-division { margin-top: 16px; background: var(--us-bg); border-radius: var(--aspire-radius-card); box-shadow: var(--aspire-shadow-card); overflow: hidden; }
+/* A service line is a section of the list, not a card on it. */
+.us-division { margin-top: 20px; }
 .us-division-head {
   display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
-  padding: 12px 16px 8px;
+  padding: 0 0 8px;
 }
 .us-division-head h3 { margin: 0; font-size: 14px; font-weight: 700; color: var(--us-ink); }
 .us-division-head span { font-size: 12px; color: var(--us-muted); font-variant-numeric: tabular-nums; }
 
 .us-cols, .us-line {
   display: grid; grid-template-columns: var(--us-grid); gap: 12px; align-items: center;
-  padding: 0 16px;
+  padding: 0 4px;
 }
 .us-cols { padding-bottom: 6px; border-bottom: 1px solid var(--us-line); }
 .us-cols span { font: 600 10.5px var(--aspire-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--us-muted); }
 
-.us-rows { list-style: none; margin: 0; padding: 0; }
+.us-rows { list-style: none; margin: 0; padding: 0; border-bottom: 1px solid var(--us-line); }
 .us-row { border-bottom: 1px solid var(--us-line); }
 .us-row:last-child { border-bottom: 0; }
 .us-line { min-height: 48px; padding-top: 6px; padding-bottom: 6px; }
@@ -110,7 +96,7 @@
 
 .us-detail {
   display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px;
-  padding: 4px 16px 14px 54px;
+  padding: 4px 4px 14px 42px;
 }
 .us-detail label { display: flex; flex-direction: column; gap: 4px; }
 .us-detail span { font: 600 10.5px var(--aspire-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--us-muted); }
@@ -124,8 +110,8 @@
 .us-panel :focus-visible { outline: 3px solid var(--us-accent); outline-offset: 2px; }
 
 .us-foot {
-  display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
-  padding: 14px 24px; border-top: 1px solid var(--us-line); background: var(--us-bg);
+  flex: 1; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+  font-family: var(--aspire-sans);
 }
 .us-summary { margin: 0; font-size: 13px; color: var(--us-ink); font-variant-numeric: tabular-nums; display: flex; align-items: center; gap: 4px 10px; flex-wrap: wrap; }
 .us-verdict {
@@ -136,10 +122,10 @@
 .us-actions { display: flex; gap: 10px; }
 
 @media (max-width: 720px) {
-  .us-panel { --us-grid: 24px minmax(0, 1fr) 104px; width: 100vw; }
+  .us-panel { --us-grid: 24px minmax(0, 1fr) 104px; }
   .us-cols span:nth-child(4), .us-cols span:nth-child(5) { display: none; }
   .us-line { grid-template-rows: auto auto; }
   .us-select { grid-column: 2 / 3; }
   .us-details-btn { grid-column: 3 / 4; justify-content: flex-end; }
-  .us-detail { grid-template-columns: 1fr; padding-left: 16px; }
+  .us-detail { grid-template-columns: 1fr; padding-left: 4px; }
 }
