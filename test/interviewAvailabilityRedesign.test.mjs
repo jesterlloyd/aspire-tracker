@@ -287,5 +287,6 @@ test('the allowed action list stays explicit and closed', () => {
   // RUBRIC-SCHEDULE-1 added move_booking so the interview rubric's Section 1 can move a
   // real appointment. The point of this pin is that the list is enumerated and audited,
   // so a new action is a deliberate edit here, never an accident.
-  assert.match(api, /const ALLOWED_ACTIONS = \['create_block', 'delete_block', 'delete_slot', 'cancel_booking', 'move_booking'\];/)
+  // S-04 added the five self-service actions the browser used to perform with direct writes.
+  assert.match(api, /const ALLOWED_ACTIONS = \['create_block', 'delete_block', 'delete_slot', 'cancel_booking',\s*'set_block_active', 'block_slot', 'unblock_slot', 'mark_teams_invite_sent', 'delete_student_sessions', 'move_booking'\];/)
 })

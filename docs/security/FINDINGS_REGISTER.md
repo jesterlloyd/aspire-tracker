@@ -117,10 +117,14 @@ afterward, from memory.
 - **Severity (assessed)**: High. `is_staff()` FOR ALL policies meant viewer and
   interviewer sessions could write cohorts, students, communications, and more
   from the browser.
-- **Status**: Partially closed. Code and migration complete; two parts remain.
+- **Status**: Closed (code); SQL unconfirmed. The three excluded tables are the last part.
+  Their browser writes are gone (S04-1, 2026-09-25) and the policy split for them is
+  drafted and Owner-gated; the finding closes when it is applied and its POST sections
+  pass.
 - **Closing commits**: `8494615` (migration), `da5943d` (self-service-first
   revision), `d0a38b2` (interviewer delete moved server-side, refused UI
-  controls gated).
+  controls gated), and S04-1 (2026-09-25), the commit that adds
+  `supabase/migrations/20261004000000_s04_interview_tables_write_split.sql`.
 - **Evidence**: `supabase/migrations/20260822020000_wave_e_write_policy_split.sql`
   creates `is_active_staff_writer()` and splits FOR ALL into SELECT plus
   writer policies for cohorts, communications, units, matches, interviewers,
@@ -132,25 +136,43 @@ afterward, from memory.
   to 10 (see the OWNER_SQL_GATE ledger). The interviewers catch-all policy its
   POST 1 surfaced is also confirmed dropped, so the split's writer policies are
   in effect.
-- **What remains**:
-  1. `interview_availability_blocks`, `interview_slots`, and
-     `interview_sessions` were EXCLUDED by explicit decision: interviewers
-     legitimately write them, and restricting by role without asking what a
-     role legitimately does was judged the wrong test (Owner correction,
-     2026-08-22). The browser still writes all three directly, from five
-     files (re-verified 2026-09-24): `AvailabilitySection.jsx` (block
-     insert, activate, delete; slot insert), `InterviewDayDrawer.jsx`
-     (session update; slot block and unblock), `WeekCalendar.jsx` (session
-     update and insert for Teams-invite marking),
-     `AvailabilityManagerModal.jsx` (block activate, a fifth writer added
-     since the original entry), and `src/staff/StaffApp.jsx` (session delete
-     when a student is deleted; this is the file the entry used to call
-     `App.jsx`). The precondition for splitting them, ownership-checked server
-     endpoints for block activation, slot block/unblock, and Teams-invite
-     marking, has not been built; `api/availability.js` ALLOWED_ACTIONS covers
-     five actions, create_block, delete_block, delete_slot, cancel_booking,
-     move_booking, none of which is one of those three.
-  This is now the ONLY remaining part of S-04.
+- **The last part, done in S04-1 (2026-09-25)**. `interview_availability_blocks`,
+  `interview_slots` and `interview_sessions` were excluded from the Wave E split
+  because interviewers legitimately write them from the browser, and RLS cannot say
+  "your own". Discovery found eleven browser write sites: two unreferenced legacy
+  components (`AvailabilitySection.jsx`, which inserted blocks and slots and toggled and
+  deleted blocks; `WeekCalendar.jsx`, which updated and inserted sessions), the
+  availability manager's pause/resume toggle, the day drawer's Mark sent, Block Time and
+  Unblock, and the student-delete cascade in `StaffApp`. Ownership is reachable
+  server-side for every one: a block names its interviewer (`interviewer_profile_id`,
+  since WAVE F-2) or its creator (`created_by_user_id`); a slot reaches its block through
+  `block_id`; a session reaches its slot through `slot_id`. Two shapes have no
+  interviewer owner and are admin-level only: a slot with no parent block, and a session
+  with no slot. No write was found whose ownership could not be decided.
+- **Fix, application**: `api/availability.js` gains five ownership-checked actions,
+  `set_block_active`, `block_slot`, `unblock_slot`, `mark_teams_invite_sent` and
+  `delete_student_sessions`, beside its existing five. Each allows the owning
+  interviewer (the block's `interviewer_profile_id` OR `created_by_user_id`, so a block an
+  admin made FOR an interviewer is theirs to manage) or an active Owner, Admin or
+  Co-Lead; Co-Lead joins the endpoint's admin level to match `is_active_staff_writer()`.
+  A booked slot can be neither blocked nor unblocked. `teams_invite_sent_by` and
+  `teams_invite_sent_at` come from the verified profile and are refused in the body.
+  The two legacy components are deleted (nothing rendered them); the manager, the drawer
+  and the cascade call the endpoint through `src/lib/availabilityApi.js`.
+  `test/s04InterviewerSelfService.test.mjs` sweeps `src/` and fails on any direct write
+  to the three tables, and drives every rule through the endpoint's factory.
+- **Fix, database**: `20261004000000_s04_interview_tables_write_split.sql` drops the
+  three named Wave E FOR ALL policies and creates the split (SELECT on `is_staff()`,
+  INSERT, UPDATE and DELETE on `is_active_staff_writer()`), the shape the other eight
+  tables already have; any other policy on the tables is preserved (tested). One
+  transaction, safe to re-run, inert rollback at the end. Checks in
+  `db/audit/s04_interview_tables_write_split_checks.sql`, PRE 1 to 3, the file, POST 1
+  to 4. **Apply only after S04-1 is live**: until then an interviewer's self-service
+  writes are still browser writes, which the split would silently refuse.
+- **What an interviewer keeps**: everything. Pause and resume their own blocks, block and
+  unblock their own open slots, mark their own Teams invites sent, and the existing
+  create, delete and cancel. What changes: they can no longer do any of those on another
+  interviewer's rows, which the old FOR ALL policy allowed and the UI did not offer.
 
 ## S-05. Account deactivation revoked nothing
 

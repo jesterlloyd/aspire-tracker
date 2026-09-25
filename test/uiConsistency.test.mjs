@@ -103,7 +103,8 @@ test('no table-header rule hard-codes a font size', () => {
       assert.match(fs[1], /var\(--aspire-th-size/, `${name} ${m[1].trim()} hard-codes ${fs[1]}`)
     }
   }
-  for (const f of ['src/portal/unit/UnitClinicalHours.jsx', 'src/components/ClinicalHoursPanel.jsx', 'src/components/AvailabilitySection.jsx']) {
+  // S-04 retired src/components/AvailabilitySection.jsx (unreferenced, wrote the interview tables from the browser).
+  for (const f of ['src/portal/unit/UnitClinicalHours.jsx', 'src/components/ClinicalHoursPanel.jsx']) {
     assert.doesNotMatch(read(f), /<th[^>]*fontSize:\s*10\b/, `${f} inline header hard-codes 10px`)
   }
 })

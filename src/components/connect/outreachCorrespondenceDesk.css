@@ -172,6 +172,190 @@
   font-weight: 400 !important;
 }
 
+/* Bulk send review. This is the deliberate last-send gate, so its hierarchy should
+   feel calm and decisive: what goes out, who receives it, then the confirmation. */
+.outreach-bulk-review-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(14, 18, 54, 0.58);
+  backdrop-filter: blur(4px);
+}
+.outreach-bulk-review-modal {
+  display: flex;
+  width: min(600px, 100%);
+  max-height: min(760px, 90vh);
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #dfe3ef;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 28px 80px rgba(9, 16, 62, 0.28), 0 4px 14px rgba(9, 16, 62, 0.12);
+  color: #172044;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+.outreach-bulk-review-header {
+  padding: 24px 28px 20px;
+  border-bottom: 1px solid #edf0f6;
+  background: linear-gradient(135deg, #f7f8ff 0%, #fff 74%);
+}
+.outreach-bulk-review-kicker {
+  margin-bottom: 6px;
+  color: #6c78b6;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+.outreach-bulk-review-header h2 {
+  margin: 0;
+  color: #1d2567;
+  font-size: 21px;
+  font-weight: 750;
+  letter-spacing: -.02em;
+}
+.outreach-bulk-review-subtitle {
+  margin-top: 6px;
+  color: #69728a;
+  font-size: 12px;
+  line-height: 1.55;
+}
+.outreach-bulk-review-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 20px 28px;
+}
+.outreach-bulk-review-message-card {
+  margin-bottom: 18px;
+  padding: 15px 16px;
+  border: 1px solid #e5e8f1;
+  border-radius: 12px;
+  background: #fafbfe;
+}
+.outreach-bulk-review-label,
+.outreach-bulk-review-section-label {
+  margin-bottom: 7px;
+  color: #77809a;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.outreach-bulk-review-subject {
+  margin-bottom: 9px;
+  color: #1a2142;
+  font-size: 13px;
+  font-weight: 750;
+  line-height: 1.4;
+}
+.outreach-bulk-review-message {
+  max-height: 132px;
+  overflow-y: auto;
+  color: #46506a;
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+.outreach-bulk-review-note {
+  margin-top: 9px;
+  color: #9299aa;
+  font-size: 10px;
+  line-height: 1.45;
+}
+.outreach-bulk-review-section-label { margin-bottom: 8px; }
+.outreach-bulk-review-recipient-list {
+  overflow: hidden;
+  border: 1px solid #e8ebf2;
+  border-radius: 12px;
+  background: #fff;
+}
+.outreach-bulk-review-recipient {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid #f0f2f6;
+}
+.outreach-bulk-review-recipient:last-child { border-bottom: 0; }
+.outreach-bulk-review-recipient.is-not-proceeding { background: #fff8fb; }
+.outreach-bulk-review-footer {
+  padding: 18px 28px 22px;
+  border-top: 1px solid #edf0f6;
+  background: #fff;
+}
+.outreach-bulk-review-confirm-label {
+  display: block;
+  margin-bottom: 7px;
+  color: #46506a;
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+.outreach-bulk-review-confirm-label strong {
+  color: #1d2567;
+  letter-spacing: .04em;
+}
+.outreach-bulk-review-confirm-input {
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 12px;
+  padding: 11px 13px;
+  border: 1.5px solid #dfe3ed;
+  border-radius: 9px;
+  outline: none;
+  background: #fbfcff;
+  color: #172044;
+  font: 600 13px 'Plus Jakarta Sans', sans-serif;
+  letter-spacing: .04em;
+}
+.outreach-bulk-review-confirm-input:focus {
+  border-color: #6c78b6 !important;
+  box-shadow: 0 0 0 3px rgba(108, 120, 182, .14);
+}
+.outreach-bulk-review-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.outreach-bulk-review-cancel,
+.outreach-bulk-review-send {
+  padding: 10px 17px;
+  border-radius: 9px;
+  font: 700 12px 'Plus Jakarta Sans', sans-serif;
+  cursor: pointer;
+}
+.outreach-bulk-review-cancel {
+  border: 1px solid #d8dce7;
+  background: #fff;
+  color: #4d566d;
+}
+.outreach-bulk-review-cancel:hover:not(:disabled) { background: #f7f8fb; }
+.outreach-bulk-review-send {
+  border: 1px solid #a61b13;
+  background: #b42318;
+  color: #fff;
+}
+.outreach-bulk-review-send:disabled {
+  border-color: #e4e7ed;
+  background: #e9ebf0;
+  color: #9aa1af;
+  cursor: not-allowed;
+}
+.outreach-bulk-review-send:not(:disabled):hover { background: #991b1b; }
+
+@media (max-width: 640px) {
+  .outreach-bulk-review-backdrop { padding: 10px; }
+  .outreach-bulk-review-modal { max-height: 94vh; border-radius: 14px; }
+  .outreach-bulk-review-header,
+  .outreach-bulk-review-body,
+  .outreach-bulk-review-footer { padding-right: 18px; padding-left: 18px; }
+}
+
 /* The draft and preview column reads as formal stationery. */
 .outreach-workspace-classic .outreach-correspondence-letter > .connect-panel,
 .outreach-workspace-classic .outreach-email-preview-pane > .connect-panel,
