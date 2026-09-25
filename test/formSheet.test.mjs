@@ -97,8 +97,10 @@ test('Responses reads the Sheet live and exports exactly what is shown to Excel'
   assert.ok(files['[Content_Types].xml'] && files['xl/workbook.xml'] && files['_rels/.rels'], 'a real Office package, folders kept')
   const xml = files['xl/worksheets/sheet1.xml']
   const cells = [...xml.matchAll(/<t xml:space="preserve">(.*?)<\/t>/g)].map(m => m[1])
-  assert.deepEqual(cells.slice(0, 6), ['Name', 'Email', 'School', 'Submitted', 'Version', 'Size'], 'only the columns shown')
-  assert.equal(cells[6], 'Ben Cho', 'in the order shown')
+  // FORM-SHEET-2 (this commit): School and Submitted are columns like any other, exported only
+  // when shown; Name and Email always lead. Version was dropped.
+  assert.deepEqual(cells.slice(0, 3), ['Name', 'Email', 'Size'], 'only the columns shown')
+  assert.equal(cells[3], 'Ben Cho', 'in the order shown')
   assert.ok(cells.includes('Other: XL'))
   assert.doesNotMatch(xml, /Notes|HYPERLINK/, 'a hidden column is not exported')
   assert.doesNotMatch(xml, /<f>/, 'no cell is a formula')
@@ -156,4 +158,123 @@ test('the Summary counts options and Other, groups short answers, and sums up nu
   const src = read('src/components/forms/FormSummary.jsx')
   assert.match(src, /aria-label=\{say\}/, 'every bar says its count in words')
   assert.match(read('src/components/forms/FormResponses.jsx'), /value: 'summary', label: 'Summary'/)
+})
+
+// FORM-SHEET-2 (2026-09-24, Owner: "also edit their answers"): Smartsheet-style editing. The
+// submission and its PDF never change: layouts, staff values and formats are their own rows,
+// and a correction is an append-only record laid over the answer.
+async function sheetWorld({ migrate = true } = {}) {
+  const pg = new PGlite()
+  await pg.exec(PRELUDE); await pg.exec(read('supabase/migrations/20260927000000_signatures_phase2.sql')); await pg.exec(read('supabase/migrations/20260928000000_forms_phase3.sql'))
+  if (migrate) { await pg.exec(read('supabase/migrations/20260929000000_form_sheet.sql')); await pg.exec(read('supabase/migrations/20260929000000_form_sheet.sql')) }
+  const db = pgliteRest(pg)
+  const { rows: [owner] } = await pg.query(`INSERT INTO user_profiles (role, is_owner, email, full_name) VALUES ('owner', true, 'o@cshs.org', 'Jester') RETURNING *`)
+  const form = await E.createForm(db, { title: 'Parking', definition: { title: 'Parking', questions: [
+    { id: 'plate', type: 'short', label: 'Plate', required: true }, { id: 'size', type: 'choice', label: 'Size', options: ['S', 'M'] }, { id: 'sig', type: 'signature', label: 'Sign' }] } }, owner)
+  await E.publish(db, form.id, owner)
+  const mailer = fakeMailer()
+  await E.sendForm(db, { formId: form.id, people: [{ name: 'Ava', email: 'ava@x.org', schoolName: 'CSULB' }, { name: 'Ben', email: 'ben@x.org', schoolName: 'APU' }, { name: 'Cy', email: 'cy@x.org', schoolName: 'CSULB' }] }, { appUrl: 'https://a.test', mailer, sender: owner })
+  const ids = []
+  for (let i = 0; i < 3; i++) {
+    const link = await E.resolveLink(db, mailer.sent[i].html.match(/#t=([A-Za-z0-9_-]{43})/)[1])
+    await E.submit(db, { ...link, answers: { plate: `8ABC12${i}`, size: 'S', sig: { kind: 'type', text: 'x' } } }, { mailer, appUrl: 'https://a.test' })
+    ids.push(link.assignment.id)
+  }
+  return { pg, db, owner, form, ids }
+}
+
+test('the Sheet migration applies twice, is Owner/Admin read-only, and corrections are append-only', async () => {
+  const w = await sheetWorld()
+  const { rows } = await w.pg.query(`SELECT relname, relrowsecurity FROM pg_class WHERE relname IN ('form_sheet_views','form_sheet_cells','form_answer_corrections') ORDER BY relname`)
+  assert.deepEqual(rows.map(r => [r.relname, r.relrowsecurity]), [['form_answer_corrections', true], ['form_sheet_cells', true], ['form_sheet_views', true]])
+  await E.correctAnswer(w.db, { formId: w.form.id, assignmentId: w.ids[0], questionId: 'plate', value: '8ABD120' }, w.owner)
+  await assert.rejects(w.pg.query(`UPDATE form_answer_corrections SET value = '"x"'`), /append-only/)
+  await assert.rejects(w.pg.query(`DELETE FROM form_answer_corrections`), /append-only/)
+  const checks = read('db/audit/form_sheet_checks.sql')
+  assert.match(checks, /PRE 1\./); assert.match(checks, /POST 3\./)
+  assert.match(read('docs/security/OWNER_SQL_GATE.md'), /20260929000000_form_sheet\.sql/)
+})
+
+test('a correction shows in the Sheet with who and the original, while the submission keeps what was sent', async () => {
+  const w = await sheetWorld()
+  await assert.rejects(E.correctAnswer(w.db, { formId: w.form.id, assignmentId: w.ids[0], questionId: 'size', value: 'XL' }, w.owner), /Choose one of the options/)
+  await assert.rejects(E.correctAnswer(w.db, { formId: w.form.id, assignmentId: w.ids[0], questionId: 'sig', value: 'y' }, w.owner), /cannot be corrected/)
+  await E.correctAnswer(w.db, { formId: w.form.id, assignmentId: w.ids[0], questionId: 'plate', value: ' 8ABD120 ', reason: 'Typo, confirmed by phone' }, w.owner)
+  const sheet = await E.sheetData(w.db, w.form.id)
+  assert.equal(sheet.editable, true)
+  const ava = sheet.rows.find(r => r.id === w.ids[0])
+  assert.equal(ava.cells.plate, '8ABD120')
+  assert.deepEqual({ ...ava.corrected.plate, at: undefined }, { by: 'Jester', at: undefined, original: '8ABC120', reason: 'Typo, confirmed by phone' })
+  const { rows: [sub] } = await w.pg.query(`SELECT answers FROM form_submissions WHERE assignment_id = $1`, [w.ids[0]])
+  assert.equal(sub.answers.plate, '8ABC120', 'the submission is never changed')
+  // Putting it back ends the Corrected tag; the history keeps both records.
+  await E.correctAnswer(w.db, { formId: w.form.id, assignmentId: w.ids[0], questionId: 'plate', value: '8ABC120' }, w.owner)
+  const again = (await E.sheetData(w.db, w.form.id)).rows.find(r => r.id === w.ids[0])
+  assert.equal(again.cells.plate, '8ABC120'); assert.equal(again.corrected.plate, undefined)
+  const { rows: hist } = await w.pg.query(`SELECT count(*)::int AS n FROM form_answer_corrections`)
+  assert.equal(hist[0].n, 2)
+})
+
+test('layout, staff columns, values and formats save, and a format never wipes a value', async () => {
+  const w = await sheetWorld()
+  const layout = await E.saveSheetLayout(w.db, w.form.id, { order: ['size', 'plate'], widths: { plate: 220 }, frozen: 1, groupBy: '@school',
+    staffColumns: [{ key: 's_lot001', label: 'Lot assignment', type: 'choice', options: ['P1', 'P3'] }, { key: 's_done01', label: 'Processed', type: 'check' }] }, w.owner)
+  assert.equal(layout.groupBy, '@school'); assert.equal(layout.staffColumns.length, 2)
+  await E.saveSheetCells(w.db, w.form.id, [{ assignmentId: w.ids[0], key: 's_lot001', value: 'P3' }, { assignmentId: w.ids[0], key: 'plate', value: 'HACK', format: { b: true, fill: 'yellow' } }], w.owner)
+  await E.saveSheetCells(w.db, w.form.id, [{ assignmentId: w.ids[0], key: 's_lot001', format: { fill: 'green' } }], w.owner)
+  const ava = (await E.sheetData(w.db, w.form.id)).rows.find(r => r.id === w.ids[0])
+  assert.equal(ava.cells.s_lot001, 'P3', 'formatting a staff cell keeps its value')
+  assert.deepEqual(ava.format.s_lot001, { fill: 'green' })
+  assert.equal(ava.cells.plate, '8ABC120', 'a value sent for an answer column is ignored: answers change only by correction')
+  assert.deepEqual(ava.format.plate, { b: true, fill: 'yellow' })
+  const other = await E.createForm(w.db, { title: 'Other', definition: { title: 'Other', questions: [{ id: 'a', type: 'short', label: 'A' }] } }, w.owner)
+  const r = await E.saveSheetCells(w.db, other.id, [{ assignmentId: w.ids[1], key: 'a', format: { b: true } }], w.owner)
+  assert.equal(r.saved, 0, 'a response from another form is not touched')
+})
+
+test('the export carries order, formats, groups, staff columns and a Corrections column', async () => {
+  const w = await sheetWorld()
+  await E.saveSheetLayout(w.db, w.form.id, { staffColumns: [{ key: 's_lot001', label: 'Lot assignment', type: 'text' }] }, w.owner)
+  await E.saveSheetCells(w.db, w.form.id, [{ assignmentId: w.ids[0], key: 's_lot001', value: 'P3', format: { b: true, fill: 'yellow', ink: 'red' } }], w.owner)
+  await E.correctAnswer(w.db, { formId: w.form.id, assignmentId: w.ids[0], questionId: 'plate', value: '8ABD120' }, w.owner)
+  const { bytes } = await E.sheetXlsx(w.db, w.form.id, { rowIds: w.ids, columnKeys: ['s_lot001', 'plate'], groupBy: '@school' })
+  const files = unzip(bytes)
+  const xml = files['xl/worksheets/sheet1.xml']
+  const cells = [...xml.matchAll(/<t xml:space="preserve">(.*?)<\/t>/g)].map(m => m[1])
+  assert.deepEqual(cells.slice(0, 5), ['Name', 'Email', 'Lot assignment', 'Plate', 'Corrections'])
+  assert.equal(cells[5], 'CSULB (2)', 'a group row, like Smartsheet')
+  assert.ok(cells.includes('APU (1)'))
+  assert.ok(cells.some(c => /^Plate: was &quot;8ABC120&quot; \(Jester, /.test(c)), 'the export says what changed and who')
+  assert.match(xml, /outlineLevel="1"/)
+  assert.match(files['xl/styles.xml'], /<b\/><sz val="11"\/><color rgb="FFA32A32"\/>/)
+  assert.match(files['xl/styles.xml'], /FFFFF4C2/)
+})
+
+test('before the migration the Sheet reads and exports, and says editing needs the update', async () => {
+  const w = await sheetWorld({ migrate: false })
+  const sheet = await E.sheetData(w.db, w.form.id)
+  assert.equal(sheet.editable, false); assert.equal(sheet.rows.length, 3)
+  await assert.rejects(E.saveSheetLayout(w.db, w.form.id, {}, w.owner), /database update the Owner applies/)
+  await assert.rejects(E.correctAnswer(w.db, { formId: w.form.id, assignmentId: w.ids[0], questionId: 'plate', value: 'x' }, w.owner), /database update the Owner applies/)
+  const { bytes } = await E.sheetXlsx(w.db, w.form.id, {})
+  assert.ok(unzip(bytes)['xl/worksheets/sheet1.xml'])
+})
+
+test('every Sheet ink reads on every fill and on white', () => {
+  const lum = (hex) => { const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255).map(v => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)); return 0.2126 * r + 0.7152 * g + 0.0722 * b }
+  const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05) }
+  for (const ink of [...M.SHEET_INKS.map(i => i.hex), M.SHEET_DEFAULT_INK]) {
+    for (const fill of [...M.SHEET_FILLS.map(f => f.hex), '#FFFFFF']) assert.ok(ratio(ink, fill) >= 4.5, `${ink} on ${fill}: ${ratio(ink, fill).toFixed(2)}`)
+  }
+})
+
+test('the Sheet screen has the Smartsheet toolbar and never presents a correction as the original', () => {
+  const src = read('src/components/forms/FormSheet.jsx')
+  for (const label of ['Bold', 'Italic', 'Underline', 'Text colour', 'Fill colour', 'Wrap text', 'Clear formatting']) assert.match(src, new RegExp(`aria-label="${label}"`), label)
+  assert.match(src, /Group by/); assert.match(src, /Freeze/); assert.match(src, /Column<\/button>/)
+  assert.match(src, /formStaff\('sheet_correct'/)
+  assert.match(src, /submitted answer and PDF stay as sent/, 'the editor says the submission is untouched')
+  assert.match(src, /fs-corrtag">Corrected</)
+  assert.match(src, /position: 'fixed'/, 'the editor floats so the scrolling frame never clips it')
+  assert.match(src, /Formatting, staff columns and corrections need a database update/)
 })

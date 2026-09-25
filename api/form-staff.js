@@ -15,7 +15,10 @@
 //   paper_set       -> { paper } copies a Catalog PDF in as the form's paper original (the exact measured file only)
 //   paper_clear     -> { paper } removes it; submissions go back to the redrawn layout
 //   sheet           -> { columns, rows, summary } every submission as a spreadsheet row, and the per-question Summary
-//   sheet_xlsx      -> { xlsx, fileName } that Sheet as Excel, only the rows and columns shown, in that order
+//   sheet_xlsx      -> { xlsx, fileName } that Sheet as Excel: the rows and columns shown, in order, formatted and grouped
+//   sheet_layout    -> { layout } saves column order, widths, hidden, frozen, group by and staff columns
+//   sheet_cells     -> { saved } saves staff values and cell formats (never a submitted answer)
+//   sheet_correct   -> { value } appends a correction to one submitted answer (the submission and PDF are unchanged)
 //   forward         -> { forward } sends one response's filed PDF to the form's forwardTo address again
 //   use_starter     -> { form } replaces a starter form's draft with the starter as it ships now (not published)
 //   starters        -> { results } adds the brief's starter forms that are missing
@@ -32,7 +35,7 @@ import { createMailer } from '../lib/server/email/mailer.js'
 import { appBaseUrl } from '../lib/server/appUrl.js'
 import { populationOf } from '../lib/server/demoScope.js'
 import {
-  FormError, ORG_ID, FORM_BUCKET, notEnabled, createForm, loadForm, formForItem, saveDraft, publish, installStarters, applyStarter, forwardStatus, resendForward, sheetData, sheetXlsx, paperStatus, setPaperFromCatalog, clearPaper,
+  FormError, ORG_ID, FORM_BUCKET, notEnabled, createForm, loadForm, formForItem, saveDraft, publish, installStarters, applyStarter, forwardStatus, resendForward, sheetData, sheetXlsx, saveSheetLayout, saveSheetCells, correctAnswer, paperStatus, setPaperFromCatalog, clearPaper,
   sendForm, remind, voidAssignments, exportCsv, versionOf,
 } from '../lib/server/forms/engine.js'
 import { assignableCategorySlugs } from './lib/catalogCategories.js'
@@ -142,12 +145,17 @@ async function act(db, body, { profile, isDemo }) {
       }
       return { assignment: a, answers: sub.answers, submittedAt: sub.submitted_at, filed: !!sub.record_document_id, definition: version.definition, pdfUrl }
     }
-    case 'sheet': { needUuid(body.id); const { columns, rows, summary } = await sheetData(db, body.id, { isDemo }); return { columns, rows, summary } }
+    case 'sheet': { needUuid(body.id); const { columns, rows, summary, layout, editable, staffColumns } = await sheetData(db, body.id, { isDemo }); return { columns, rows, summary, layout, editable, staffColumns } }
+    case 'sheet_layout': needUuid(body.id); return { layout: await saveSheetLayout(db, body.id, body.layout, profile) }
+    case 'sheet_cells': needUuid(body.id); return saveSheetCells(db, body.id, body.updates, profile)
+    case 'sheet_correct': needUuid(body.id); needUuid(body.assignment_id, 'response')
+      return correctAnswer(db, { formId: body.id, assignmentId: body.assignment_id, questionId: String(body.question_id || ''), value: body.value, reason: body.reason }, profile)
     case 'sheet_xlsx': {
       needUuid(body.id)
       const rowIds = Array.isArray(body.rowIds) ? body.rowIds.filter(x => UUID.test(String(x))).slice(0, 5000) : null
       const columnKeys = Array.isArray(body.columnKeys) ? body.columnKeys.map(String).slice(0, 200) : null
-      const { bytes, fileName } = await sheetXlsx(db, body.id, { rowIds, columnKeys, isDemo })
+      const groupBy = typeof body.groupBy === 'string' ? body.groupBy.slice(0, 60) : null
+      const { bytes, fileName } = await sheetXlsx(db, body.id, { rowIds, columnKeys, groupBy, isDemo })
       return { xlsx: bytes.toString('base64'), fileName }
     }
     case 'forward': needUuid(body.assignment_id, 'response'); return { forward: await resendForward(db, body.assignment_id, { mailer: createMailer() }) }

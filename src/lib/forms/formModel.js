@@ -440,7 +440,7 @@ const SHEET_SKIP = new Set(['section', 'signature'])
  * versions: [{ version, definition }]; rows: [{ id, name, email, school, submittedAt, version, answers }].
  * Returns { columns: [{ key, label, type, options?, earlier? }], rows: [{ ...row, cells: { key: text } }] }.
  */
-export function sheetFor(versions, rows) {
+export function sheetFor(versions, rows, { staffColumns = [], cells: sheetCells = [] } = {}) {
   const ordered = [...(versions || [])].sort((a, b) => b.version - a.version)
   const latest = ordered[0]?.definition?.questions || []
   const columns = []
@@ -459,12 +459,23 @@ export function sheetFor(versions, rows) {
     rows: rows.map(r => {
       const qs = byVersion.get(r.version) || new Map()
       const cells = {}
+      const cells_ = {}
       for (const c of columns) {
         const q = qs.get(c.key)
         cells[c.key] = q ? answerText(q, r.answers?.[c.key]) : ''
       }
-      return { id: r.id, name: r.name, email: r.email, school: r.school || '', submittedAt: r.submittedAt, version: r.version, cells }
+      // FORM-SHEET-2: staff values, cell formats, and which answers were corrected.
+      const format = {}
+      for (const c of sheetCells) {
+        if (c.assignment_id !== r.id) continue
+        if (c.format) format[c.column_key] = c.format
+        if (staffColumns.some(x => x.key === c.column_key)) cells_[c.column_key] = c.value ?? ''
+      }
+      for (const sc of staffColumns) if (!(sc.key in cells_)) cells_[sc.key] = ''
+      return { id: r.id, name: r.name, email: r.email, school: r.school || '', submittedAt: r.submittedAt, version: r.version,
+        cells: { ...cells, ...cells_ }, answers: r.answers || {}, format, corrected: r.corrected || {} }
     }),
+    staffColumns,
   }
 }
 
@@ -537,4 +548,97 @@ export function summaryFor(versions, rows) {
     }
   }
   return out
+}
+
+// ── Editing the Sheet (FORM-SHEET-2, Owner, 2026-09-24) ─────────────────────────────
+// Smartsheet-style: a layout (column order, widths, hidden, frozen, group by), staff columns
+// with their own values, cell formatting, and CORRECTIONS to submitted answers. A correction
+// never changes the submission or its filed PDF: it is an append-only record, and the Sheet,
+// Summary and Excel read the latest one, tagged Corrected with who, when and the original.
+
+// Fills and inks are fixed PAIRS (a literal ink beside a literal background), so a formatted
+// cell reads the same in light and dark mode. Every ink passes 4.5:1 on every fill and on
+// white; test/formSheet.test.mjs measures all of them.
+export const SHEET_FILLS = Object.freeze([
+  { key: 'yellow', label: 'Yellow', hex: '#FFF4C2' }, { key: 'orange', label: 'Orange', hex: '#FDE9D4' },
+  { key: 'red', label: 'Red', hex: '#FBE2E2' }, { key: 'purple', label: 'Purple', hex: '#EDE3FB' },
+  { key: 'blue', label: 'Blue', hex: '#DCEBFB' }, { key: 'green', label: 'Green', hex: '#DDF3E4' },
+  { key: 'gray', label: 'Gray', hex: '#ECEDEF' },
+])
+export const SHEET_INKS = Object.freeze([
+  { key: 'navy', label: 'Navy', hex: '#1D2567' }, { key: 'red', label: 'Red', hex: '#A32A32' },
+  { key: 'green', label: 'Green', hex: '#0E6B43' }, { key: 'orange', label: 'Orange', hex: '#8A4B0F' },
+  { key: 'purple', label: 'Purple', hex: '#5B3A8C' }, { key: 'gray', label: 'Gray', hex: '#4A5063' },
+])
+export const SHEET_DEFAULT_INK = '#1B2033'   // the ink on a filled cell with no ink chosen
+export const SHEET_STAFF_TYPES = Object.freeze([
+  { key: 'text', label: 'Text' }, { key: 'check', label: 'Checkbox' }, { key: 'choice', label: 'Dropdown' }, { key: 'date', label: 'Date' },
+])
+/** Answers staff may correct in the Sheet. Files and signatures are evidence, never edited. */
+export const CORRECTABLE_TYPES = Object.freeze(['short', 'paragraph', 'choice', 'dropdown', 'checkboxes', 'number', 'date'])
+
+const inList = (list, key) => list.some(x => x.key === key)
+
+/** One cell's format, cleaned: only known keys, only palette colours. Null when nothing is set. */
+export function cleanFormat(f) {
+  if (!f || typeof f !== 'object') return null
+  const out = {}
+  for (const k of ['b', 'i', 'u', 'wrap']) if (f[k] === true) out[k] = true
+  if (inList(SHEET_FILLS, f.fill)) out.fill = f.fill
+  if (inList(SHEET_INKS, f.ink)) out.ink = f.ink
+  if (['left', 'center', 'right'].includes(f.align)) out.align = f.align
+  return Object.keys(out).length ? out : null
+}
+
+const STAFF_KEY = /^s_[a-z0-9]{4,20}$/
+/** The Sheet's layout, cleaned against the columns that exist. */
+export function cleanLayout(layout, questionKeys = []) {
+  const l = layout && typeof layout === 'object' ? layout : {}
+  const staffColumns = (Array.isArray(l.staffColumns) ? l.staffColumns : []).slice(0, 30)
+    .filter(c => c && STAFF_KEY.test(c.key) && String(c.label || '').trim())
+    .map(c => ({ key: c.key, label: String(c.label).trim().slice(0, 60), type: inList(SHEET_STAFF_TYPES, c.type) ? c.type : 'text',
+      ...(c.type === 'choice' ? { options: (Array.isArray(c.options) ? c.options : []).map(o => String(o).trim().slice(0, 60)).filter(Boolean).slice(0, 30) } : {}) }))
+  const known = new Set(['@name', '@school', '@submitted', ...questionKeys, ...staffColumns.map(c => c.key)])
+  const keys = (v) => (Array.isArray(v) ? v : []).map(String).filter((k, i, a) => known.has(k) && a.indexOf(k) === i)
+  const widths = {}
+  for (const [k, w] of Object.entries(l.widths && typeof l.widths === 'object' ? l.widths : {})) {
+    const n = Math.round(Number(w))
+    if (known.has(k) && Number.isFinite(n)) widths[k] = Math.min(640, Math.max(60, n))
+  }
+  return {
+    order: keys(l.order), hidden: keys(l.hidden).filter(k => k !== '@name'), widths,
+    frozen: Math.min(3, Math.max(0, Math.round(Number(l.frozen) || 0))),
+    groupBy: known.has(l.groupBy) && l.groupBy !== '@name' ? l.groupBy : null,
+    staffColumns,
+  }
+}
+
+/** Latest correction per (response, question) laid over each row's answers. */
+export function withCorrections(rows, corrections = []) {
+  const latest = new Map()
+  for (const c of [...corrections].sort((a, b) => String(a.corrected_at).localeCompare(String(b.corrected_at)))) latest.set(`${c.assignment_id}|${c.question_id}`, c)
+  return rows.map(r => {
+    const corrected = {}
+    const answers = { ...(r.answers || {}) }
+    for (const [k, c] of latest) {
+      const [aid, qid] = k.split('|')
+      if (aid !== r.id) continue
+      const original = r.answers?.[qid]
+      if (JSON.stringify(c.value ?? null) === JSON.stringify(original ?? null)) continue   // put back: no longer corrected
+      if (c.value == null || c.value === '') delete answers[qid]; else answers[qid] = c.value
+      corrected[qid] = { by: c.corrected_by_name || '', at: c.corrected_at, original: original ?? null, reason: c.reason || '' }
+    }
+    return { ...r, answers, corrected }
+  })
+}
+
+/** Rows grouped by one column's text, in first-appearance order, like Smartsheet's group rows. */
+export function groupSheetRows(rows, key, valueOf) {
+  const groups = new Map()
+  for (const r of rows) {
+    const v = String(valueOf(r, key) || '').trim() || '(blank)'
+    if (!groups.has(v)) groups.set(v, [])
+    groups.get(v).push(r)
+  }
+  return [...groups].map(([label, list]) => ({ label, rows: list }))
 }

@@ -1294,6 +1294,26 @@ the Parking form follows Parking Services' own form (received 2026-09-24).
   is a real .xlsx of exactly the rows and columns shown, in that order, every cell an inline
   string (no formulas), frozen header and autofilter, on the signatures ZIP writer
   (`zipStored(..., { keepPaths: true })`).
+- **The Sheet is editable like Smartsheet** (FORM-SHEET-2, Owner, 2026-09-24: "also edit their
+  answers"; migration `20260929000000_form_sheet.sql`, Owner-gated). A toolbar formats the
+  selected cells (bold, italic, underline, text colour, fill, alignment, wrap, clear), groups
+  rows by any column with counts, freezes the name plus up to three columns, and adds STAFF
+  columns (text, checkbox, dropdown, date) whose values live in `form_sheet_cells`; headers
+  drag to reorder and their edges resize; the layout lives in `form_sheet_views`. Double-click
+  or Enter edits a cell. **A correction never changes the submission or its filed PDF**: it is
+  an append-only `form_answer_corrections` row (a trigger refuses UPDATE and DELETE), laid over
+  the answer by `withCorrections`, tagged Corrected with who, when, the original and an
+  optional reason; putting it back is a new correction that ends the tag. Files and signatures
+  are never correctable (`CORRECTABLE_TYPES`). Fills and inks are fixed pairs from
+  `SHEET_FILLS`/`SHEET_INKS`, every ink at least 4.5:1 on every fill (a test measures them), so
+  a formatted cell reads the same in dark mode. A bulk upsert sends every column, so a save
+  merges with the stored cell and a format can never wipe a staff value. The Excel export
+  carries the order, widths, formats, group rows (outlined, collapsible in Excel) and a
+  Corrections column naming each change. Before the migration the Sheet is view-only and says
+  so. The editor floats (`position: fixed`) so the scrolling frame never clips it.
+- **Responses' header** (RESPONSES-CANON-1): People | Sheet | Summary is the shared
+  `SegmentedPicker`; Remind all overdue shows on People only; Download CSV is the navy button
+  with the download icon, as in NE&L Portal > Contacts.
 - **Responses has a Summary** (FORM-SUMMARY-1, 2026-09-24), like Microsoft Forms, from
   `summaryFor` over the same answers: choice, checkbox and dropdown questions as horizontal
   bars (one hue, the Catalog navy; count and share at each tip in text ink; 16px bars, a

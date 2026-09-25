@@ -170,6 +170,9 @@
 .fs-frame { overflow: auto; max-height: min(70vh, 720px); position: relative; }
 .fs-table { border-collapse: separate; border-spacing: 0; font-size: 13px; color: var(--ctl-ink); min-width: 100%; }
 .fs-table td, .fs-name { padding: 8px 12px; border-top: 1px solid var(--ctl-line-2); vertical-align: top; min-width: 110px; max-width: 320px; white-space: pre-wrap; overflow-wrap: break-word; background: var(--ctl-surface); text-align: left; font-weight: 400; }
+/* FORM-SHEET-2: a spreadsheet cell is one line, cut with an ellipsis, unless Wrap is on. */
+.fs-fixed { table-layout: fixed; width: max-content; }
+.fs-fixed td, .fs-fixed .fs-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fs-table td.fs-when { white-space: nowrap; }
 .fs-table thead th { position: sticky; top: 0; z-index: 2; white-space: nowrap; }
 .fs-table .fs-sticky { position: sticky; left: 0; z-index: 1; box-shadow: 1px 0 0 var(--ctl-line-2); }
@@ -215,3 +218,56 @@
 @media (max-width: 560px) { .fsum-bar { grid-template-columns: minmax(0, 1fr) 70px; } .fsum-opt { grid-column: 1 / -1; } }
 /* RESPONSES-CANON-1: Download CSV is the app's navy download button, icon then words. */
 .fm-csv { display: inline-flex; align-items: center; gap: 7px; }
+
+/* ── Sheet editing (FORM-SHEET-2) ─────────────────────────────────────────────────────
+   The Smartsheet row: icon buttons in groups, a pressed state in the Catalog navy, two
+   selects, and the save state at the right. Cells select with a navy ring; a corrected cell
+   carries a small tag and an amber corner; the editor opens over its cell. */
+.fs { --fs-tag-r: 4px; }
+.fs-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 6px 10px; background: var(--ctl-surface); border-radius: var(--aspire-radius-control); box-shadow: var(--aspire-shadow-card); }
+.fs-tgroup { display: flex; align-items: center; gap: 2px; }
+.fs-tgroup + .fs-tgroup { padding-left: 12px; border-left: 1px solid var(--ctl-line-2); }
+.fs-tb { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 30px; border: 0; background: none; color: var(--ctl-ink); border-radius: var(--aspire-radius-control); cursor: pointer; }
+.fs-tb:hover:not(:disabled) { background: var(--ctl-surface-2); }
+.fs-tb[aria-pressed="true"], .fs-tb[aria-pressed="true"]:hover { background: var(--ctl-navy-soft); color: var(--ctl-navy); }
+.fs-tb:disabled { opacity: 0.4; cursor: not-allowed; }
+.fs-swatchbar { position: absolute; left: 8px; right: 8px; bottom: 4px; height: 3px; border-radius: var(--aspire-radius-pill); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ctl-ink) 18%, transparent); }
+.fs-tpop { position: relative; display: inline-flex; }
+.fs-palette { position: absolute; z-index: 40; top: calc(100% + 4px); left: 0; display: grid; grid-template-columns: repeat(4, 26px); gap: 6px; padding: 8px; background: var(--ctl-surface); border-radius: var(--aspire-radius-control); box-shadow: var(--aspire-shadow-card), 0 8px 24px rgba(0, 0, 0, 0.14); }
+.fs-auto { grid-column: 1 / -1; border: 0; background: var(--ctl-surface-2); color: var(--ctl-ink); font: 600 12px var(--aspire-sans); padding: 5px 8px; border-radius: var(--aspire-radius-control); cursor: pointer; text-align: left; }
+.fs-chip { width: 26px; height: 26px; border: 0; border-radius: var(--aspire-radius-control); cursor: pointer; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12); }
+.fs-chip:hover { outline: 2px solid var(--ctl-navy); outline-offset: 1px; }
+.fs-tsel { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-caption, var(--ctl-muted)); }
+.fs-tsel select { padding: 5px 8px; font: 12.5px var(--aspire-sans); color: var(--ctl-ink); background: var(--color-bg-input, var(--ctl-surface)); border: 1px solid var(--ctl-line); border-radius: var(--aspire-radius-control); max-width: 180px; }
+.fs-newcol { display: grid; gap: 8px; width: 260px; padding: 12px; left: auto; right: 0; }
+.fs-newcol input, .fs-newcol select { padding: 6px 9px; font: 13px var(--aspire-sans); color: var(--ctl-ink); background: var(--color-bg-input, var(--ctl-surface)); border: 1px solid var(--ctl-line); border-radius: var(--aspire-radius-control); }
+.fs-save { margin-left: auto; font-size: 12px; color: var(--text-caption, var(--ctl-muted)); }
+.fs-save-bad { color: var(--ctl-red, #A32A32); font-weight: 600; }
+.fs-frame:focus-visible { outline: 2px solid var(--ctl-navy); outline-offset: 2px; }
+.fs-th { position: relative; user-select: none; }
+.fs-th[draggable="true"] { cursor: grab; }
+.fs-dropok { box-shadow: inset 2px 0 0 var(--ctl-navy); }
+.fs-sortbtn { border: 0; background: none; padding: 0; font: inherit; color: inherit; letter-spacing: inherit; text-transform: inherit; cursor: pointer; max-width: calc(100% - 14px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
+.fs-colx { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); border: 0; background: none; color: var(--text-caption, var(--ctl-muted)); cursor: pointer; font-size: 14px; line-height: 1; padding: 0 2px; }
+.fs-staff { background-image: linear-gradient(var(--ctl-navy-soft), var(--ctl-navy-soft)); }
+.fs-resize { position: absolute; top: 0; right: -3px; width: 7px; height: 100%; cursor: col-resize; z-index: 5; }
+.fs-resize:hover { background: color-mix(in srgb, var(--ctl-navy) 30%, transparent); }
+.fs-cell { cursor: cell; position: relative; user-select: none; }
+.fs-name small, .fs-open { user-select: text; }
+.fs-sel { box-shadow: inset 0 0 0 2px var(--ctl-navy); }
+.fs-corrected { box-shadow: inset 3px 0 0 var(--ctl-amber, #8A4B0F); }
+.fs-corrected.fs-sel { box-shadow: inset 0 0 0 2px var(--ctl-navy), inset 5px 0 0 var(--ctl-amber, #8A4B0F); }
+.fs-corrtag { margin-left: 6px; padding: 1px 6px; font-size: 10.5px; font-weight: 700; color: #6B3B0A; background: #FDE9D4; border-radius: var(--fs-tag-r); vertical-align: 1px; }
+.fs-check { display: block; text-align: center; font-weight: 700; color: var(--ctl-green, #0E6B43); }
+.fs-editing { overflow: visible !important; z-index: 6; }
+.fs-editor { position: absolute; z-index: 60; top: -2px; left: -2px; width: 300px; box-sizing: border-box; display: grid; gap: 6px; padding: 10px; background: var(--ctl-surface); border-radius: var(--aspire-radius-control); box-shadow: 0 0 0 2px var(--ctl-navy), 0 10px 28px rgba(0, 0, 0, 0.18); white-space: normal; font-weight: 400; font-style: normal; text-decoration: none; color: var(--ctl-ink); text-align: left; }
+.fs-editor input, .fs-editor select, .fs-editor textarea { width: 100%; box-sizing: border-box; padding: 6px 8px; font: 13px var(--aspire-sans); color: var(--ctl-ink); background: var(--color-bg-input, var(--ctl-surface)); border: 1px solid var(--ctl-line); border-radius: var(--aspire-radius-control); }
+.fs-editor small { font-size: 11.5px; color: var(--text-caption, var(--ctl-muted)); line-height: 1.4; }
+.fs-edacts { display: flex; align-items: center; gap: 10px; }
+.fs-checks { display: grid; gap: 4px; max-height: 180px; overflow-y: auto; }
+.fs-checks label { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+.fs-checks input { width: auto; }
+.fs-grouprow td { padding: 0; background: var(--ctl-surface-2); border-top: 1px solid var(--ctl-line-2); overflow: visible !important; }
+.fs-groupbtn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 10px; border: 0; background: var(--ctl-surface-2); cursor: pointer; font: 13px var(--aspire-sans); color: var(--ctl-ink); position: sticky; left: 0; z-index: 2; }
+.fs-groupbtn span { font-family: var(--ctl-mono); font-size: 11.5px; color: var(--text-caption, var(--ctl-muted)); }
+.fs-help { font-size: 12px; }

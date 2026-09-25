@@ -44,7 +44,9 @@ function builder(pg, table, arrayCols) {
   const cols = (c) => (!c || c === '*') ? '*' : c.split(',').map(s => ident(s.trim())).join(', ')
   // A text[] column takes a Postgres array literal; everything else that is an object is jsonb.
   const pgArray = (xs) => `{${xs.map(x => x == null ? 'NULL' : `"${String(x).replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`).join(',')}}`
-  const valFor = (k, v) => (Array.isArray(v) && arrayCols.has(k)) ? pgArray(v) : val(v)
+  // A jsonb column takes JSON for EVERY value, a bare string included, as PostgREST sends it
+  // (FORM-SHEET-2: a corrected short answer is the JSON string "8ABD120").
+  const valFor = (k, v) => (Array.isArray(v) && arrayCols.has(k)) ? pgArray(v) : (v != null && arrayCols.jsonb?.has(k)) ? JSON.stringify(v) : val(v)
   const val = (v) => (v !== null && typeof v === 'object' && !(v instanceof Date)) ? JSON.stringify(v) : v
   async function run() {
     try {
@@ -83,8 +85,9 @@ function arrayColumns(pg, table) {
   const perDb = arrayCache.get(pg)
   if (!perDb.has(table)) {
     const set = new Set()
-    set.ready = pg.query(`SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = $1 AND data_type = 'ARRAY'`, [table])
-      .then(({ rows }) => { for (const r of rows) set.add(r.column_name) })
+    set.jsonb = new Set()
+    set.ready = pg.query(`SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'public' AND table_name = $1 AND data_type IN ('ARRAY', 'jsonb')`, [table])
+      .then(({ rows }) => { for (const r of rows) (r.data_type === 'jsonb' ? set.jsonb : set).add(r.column_name) })
     perDb.set(table, set)
   }
   return perDb.get(table)
