@@ -1311,6 +1311,19 @@ the Parking form follows Parking Services' own form (received 2026-09-24).
   carries the order, widths, formats, group rows (outlined, collapsible in Excel) and a
   Corrections column naming each change. Before the migration the Sheet is view-only and says
   so. The editor floats (`position: fixed`) so the scrolling frame never clips it.
+- **The Sheet is a grid, not a table** (FORM-SHEET-3, Owner, 2026-09-24: "the grids really look
+  like sheets"). Row numbers in a grey gutter, a hairline on every cell, a plain grey header in
+  sentence case, compact unbanded rows, a bordered frame: it deliberately does NOT wear
+  `.aspire-th` or the row band, which belong to tables. Clicking a header or a row number
+  selects the column or row; the range is tinted and only the active cell ringed. Number and
+  date formats (`$`, `%`, thousands comma, decimal places, four date styles) change how a value
+  LOOKS (`displayValue`), never what is stored; a whole column's format lives on the column
+  (`layout.colFormats`), so rows that arrive later wear it. The Σ row (`layout.summaries`: sum,
+  average, min, max, count, count filled) summarises the rows shown. A File upload answer is a
+  link that opens the file (`form-staff` `file_url`). Email is its own column (`@email`). In
+  Excel, a formatted, number or summed column goes out as real numbers with the same number
+  format, and the Σ row as real formulas (`=SUM(B2:B30)`) with their values worked out; answers
+  are never written as formulas. No new database change: it all lives in the layout row.
 - **Responses' header** (RESPONSES-CANON-1): People | Sheet | Summary is the shared
   `SegmentedPicker`; Remind all overdue shows on People only; Download CSV is the navy button
   with the download icon, as in NE&L Portal > Contacts.

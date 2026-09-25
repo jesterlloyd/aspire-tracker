@@ -99,8 +99,9 @@ test('Responses reads the Sheet live and exports exactly what is shown to Excel'
   const cells = [...xml.matchAll(/<t xml:space="preserve">(.*?)<\/t>/g)].map(m => m[1])
   // FORM-SHEET-2 (this commit): School and Submitted are columns like any other, exported only
   // when shown; Name and Email always lead. Version was dropped.
-  assert.deepEqual(cells.slice(0, 3), ['Name', 'Email', 'Size'], 'only the columns shown')
-  assert.equal(cells[3], 'Ben Cho', 'in the order shown')
+  // FORM-SHEET-3: Email is a column like the others (@email), so only Name always leads.
+  assert.deepEqual(cells.slice(0, 2), ['Name', 'Size'], 'only the columns shown')
+  assert.equal(cells[2], 'Ben Cho', 'in the order shown')
   assert.ok(cells.includes('Other: XL'))
   assert.doesNotMatch(xml, /Notes|HYPERLINK/, 'a hidden column is not exported')
   assert.doesNotMatch(xml, /<f>/, 'no cell is a formula')
@@ -241,8 +242,8 @@ test('the export carries order, formats, groups, staff columns and a Corrections
   const files = unzip(bytes)
   const xml = files['xl/worksheets/sheet1.xml']
   const cells = [...xml.matchAll(/<t xml:space="preserve">(.*?)<\/t>/g)].map(m => m[1])
-  assert.deepEqual(cells.slice(0, 5), ['Name', 'Email', 'Lot assignment', 'Plate', 'Corrections'])
-  assert.equal(cells[5], 'CSULB (2)', 'a group row, like Smartsheet')
+  assert.deepEqual(cells.slice(0, 4), ['Name', 'Lot assignment', 'Plate', 'Corrections'])
+  assert.equal(cells[4], 'CSULB (2)', 'a group row, like Smartsheet')
   assert.ok(cells.includes('APU (1)'))
   assert.ok(cells.some(c => /^Plate: was &quot;8ABC120&quot; \(Jester, /.test(c)), 'the export says what changed and who')
   assert.match(xml, /outlineLevel="1"/)
@@ -277,4 +278,43 @@ test('the Sheet screen has the Smartsheet toolbar and never presents a correctio
   assert.match(src, /fs-corrtag">Corrected</)
   assert.match(src, /position: 'fixed'/, 'the editor floats so the scrolling frame never clips it')
   assert.match(src, /Formatting, staff columns and corrections need a database update/)
+})
+
+// FORM-SHEET-3 (Owner, 2026-09-24): Smartsheet's $, %, decimals, dates and column summaries.
+test('number and date formats change the look, never the value, and summaries count what they should', () => {
+  assert.equal(M.displayValue('1250.5', { num: 'currency' }), '$1,250.50')
+  assert.equal(M.displayValue('0.256', { num: 'percent', dec: 1 }), '25.6%')
+  assert.equal(M.displayValue('1234567', { comma: true }), '1,234,567')
+  assert.equal(M.displayValue('3.14159', { dec: 2 }), '3.14')
+  assert.equal(M.displayValue('09/15/2026', { date: 'short' }), 'Sep 15, 2026')
+  assert.equal(M.displayValue('2026-09-15', { date: 'mdy' }), '09/15/2026')
+  assert.equal(M.displayValue('8ABC120', { num: 'currency' }), '8ABC120', 'a plate is not a number')
+  assert.equal(M.parseNumber('$1,250.50'), 1250.5); assert.equal(M.parseNumber('25%'), 0.25); assert.equal(M.parseNumber('abc'), null)
+  assert.equal(M.summarize(['45', '30', 'n/a', ''], 'sum'), 75)
+  assert.equal(M.summarize(['45', '30', 'n/a', ''], 'count'), 2)
+  assert.equal(M.summarize(['45', '30', 'n/a', ''], 'counta'), 3)
+  assert.equal(M.summarize(['1', '2'], 'avg'), 1.5)
+  const l = M.cleanLayout({ colFormats: { fee: { num: 'currency', dec: 9, evil: 1 } }, summaries: { fee: 'sum', '@name': 'sum', x: 'bad' } }, ['fee'])
+  assert.deepEqual(l.colFormats, { fee: { num: 'currency' } }); assert.deepEqual(l.summaries, { fee: 'sum' })
+  assert.deepEqual(M.mergeFormat({ num: 'currency', b: true }, { b: false, fill: 'yellow' }), { num: 'currency', b: false, fill: 'yellow' })
+})
+
+test('the export writes formatted numbers as numbers and the summary row as real formulas', async () => {
+  const w = await sheetWorld()
+  const form = await E.createForm(w.db, { title: 'Fees', definition: { title: 'Fees', questions: [{ id: 'fee', type: 'number', label: 'Fee' }, { id: 'up', type: 'file', label: 'Proof' }] } }, w.owner)
+  await E.publish(w.db, form.id, w.owner)
+  const mailer = fakeMailer()
+  await E.sendForm(w.db, { formId: form.id, people: [{ name: 'Ava', email: 'a@x.org' }, { name: 'Ben', email: 'b@x.org' }] }, { appUrl: 'https://a.test', mailer, sender: w.owner })
+  for (const [i, fee] of [[0, 45], [1, 30.5]]) {
+    const link = await E.resolveLink(w.db, mailer.sent[i].html.match(/#t=([A-Za-z0-9_-]{43})/)[1])
+    await E.submit(w.db, { ...link, answers: { fee } }, { mailer, appUrl: 'https://a.test' })
+  }
+  await E.saveSheetLayout(w.db, form.id, { colFormats: { fee: { num: 'currency' } }, summaries: { fee: 'sum' } }, w.owner)
+  const files = unzip((await E.sheetXlsx(w.db, form.id, { columnKeys: ['fee'] })).bytes)
+  const xml = files['xl/worksheets/sheet1.xml']
+  assert.match(xml, /<v>45<\/v>/); assert.match(xml, /<v>30\.5<\/v>/)
+  assert.match(xml, /<f>SUM\(B2:B3\)<\/f><v>75\.5<\/v>/, 'a real formula with its value worked out')
+  assert.match(files['xl/styles.xml'], /formatCode="&quot;\$&quot;#,##0\.00"/)
+  const sheet = await E.sheetData(w.db, form.id)
+  assert.ok(sheet.columns.some(c => c.key === 'up' && c.type === 'file'), 'a file question is a column, shown as a link to the file')
 })

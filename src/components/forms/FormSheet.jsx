@@ -6,28 +6,39 @@
 // for that person's full answers and PDF, and Export to Excel of exactly what is shown.
 //
 // FORM-SHEET-2 (Owner, 2026-09-24: Smartsheet's controls, "also edit their answers"): a
-// toolbar over the grid formats the selected cells (bold, italic, underline, text colour, fill,
-// alignment, wrap), groups rows by a column with counts, freezes columns, and adds staff
-// columns (Lot assignment, Processed, Notes). Column widths drag, columns reorder by dragging
-// their header, and every change saves itself. Double-click (or Enter) edits a cell: a staff
-// column's value, or a CORRECTION to a submitted answer. A correction never changes the
-// submission or its filed PDF; the cell is tagged Corrected with who, when and the original.
+// toolbar formats the selection (bold, italic, underline, text colour, fill, alignment, wrap),
+// groups rows by a column, freezes columns, and adds staff columns. Headers drag to reorder
+// and their edges resize; every change saves itself. Double-click (or Enter) edits a cell: a
+// staff column's value, or a CORRECTION to a submitted answer, which never changes the
+// submission or its filed PDF and is tagged Corrected with who, when and the original.
+//
+// FORM-SHEET-3 (Owner, 2026-09-24: "the grids really look like sheets not tables", and
+// Smartsheet's sum, $, decimals and dates): a grid with row numbers and gridlines on every
+// cell; clicking a column header or a row number selects the whole column or row; $, %, the
+// thousands comma, decimal places and date formats change how numbers and dates LOOK (a whole
+// column's format is kept on the column, so rows that arrive later wear it too); a summary row
+// under the grid sums, averages, counts, or finds the min or max of each column; an uploaded
+// file is a link that opens it.
 //
 // Unlike the DataSheet canon, this grid SCROLLS sideways inside its own frame: a spreadsheet
-// that drops columns to fit is not a spreadsheet. The header row, the name column and any
-// frozen columns stay put while it scrolls.
+// that drops columns to fit is not a spreadsheet. The header, the row numbers, the name column
+// and any frozen columns stay put while it scrolls.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AlignCenter, AlignLeft, AlignRight, Baseline, Bold, ChevronDown, ChevronRight, Eraser, Italic, PaintBucket, Plus, Underline, WrapText } from 'lucide-react'
-import { cellMatches, CORRECTABLE_TYPES, groupSheetRows, isOtherValue, otherText, otherValue, SHEET_DEFAULT_INK, SHEET_FILLS, SHEET_INKS, SHEET_STAFF_TYPES } from '../../lib/forms/formModel'
+import { AlignCenter, AlignLeft, AlignRight, ArrowDownUp, Baseline, Bold, ChevronDown, ChevronRight, Eraser, Italic, PaintBucket, Paperclip, Plus, Underline, WrapText } from 'lucide-react'
+import {
+  cellMatches, CORRECTABLE_TYPES, DATE_FORMATS, displayValue, formatNumber, groupSheetRows, isOtherValue, mergeFormat, otherText, otherValue,
+  SHEET_DEFAULT_INK, SHEET_FILLS, SHEET_INKS, SHEET_STAFF_TYPES, summarize, SUMMARY_FNS,
+} from '../../lib/forms/formModel'
 import { formStaff } from './formsApi'
 
 const BASE = [
+  { key: '@email', label: 'Email', base: true },
   { key: '@school', label: 'School', base: true },
   { key: '@submitted', label: 'Submitted', base: true },
 ]
-const W_DEFAULT = 160, W_NAME = 200
+const W_DEFAULT = 160, W_NAME = 200, W_ROWNUM = 44
 const stamp = (iso) => iso ? new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''
-const valueOf = (row, key) => key === '@name' ? row.name : key === '@school' ? row.school : key === '@submitted' ? row.submittedAt : row.cells[key]
+const valueOf = (row, key) => key === '@name' ? row.name : key === '@email' ? row.email : key === '@school' ? row.school : key === '@submitted' ? row.submittedAt : row.cells[key]
 const shown = (row, key) => key === '@submitted' ? stamp(row.submittedAt) : (valueOf(row, key) || '')
 const fillHex = Object.fromEntries(SHEET_FILLS.map(f => [f.key, f.hex]))
 const inkHex = Object.fromEntries(SHEET_INKS.map(f => [f.key, f.hex]))
@@ -56,8 +67,8 @@ export default function FormSheet({ formId, onOpen, notify }) {
   const [adding, setAdding] = useState(null)
   const [sort, setSort] = useState({ key: '@submitted', dir: 'desc' })
   const [menu, setMenu] = useState(null)              // 'columns' | 'ink' | 'fill' | 'newcol'
-  const [sel, setSel] = useState(null)                // { anchor: { r, c }, focus: { r, c } } in visible-grid indexes
-  const [editing, setEditing] = useState(null)        // { rowId, key, draft, reason }
+  const [sel, setSel] = useState(null)                // { anchor, focus, whole?: 'col' | 'row' | 'all' } in visible-grid indexes
+  const [editing, setEditing] = useState(null)        // { rowId, key, draft, reason, anchor }
   const [collapsed, setCollapsed] = useState(() => new Set())
   const [save, setSave] = useState('saved')           // saved | saving | error
   const [exporting, setExporting] = useState(false)
@@ -69,7 +80,7 @@ export default function FormSheet({ formId, onOpen, notify }) {
 
   useEffect(() => {
     let live = true
-    formStaff('sheet', { id: formId }).then(r => { if (!live) return; setData(r); setLayout(r.layout || { order: [], hidden: [], widths: {}, frozen: 0, groupBy: null, staffColumns: [] }) })
+    formStaff('sheet', { id: formId }).then(r => { if (!live) return; setData(r); setLayout({ colFormats: {}, summaries: {}, ...(r.layout || { order: [], hidden: [], widths: {}, frozen: 0, groupBy: null, staffColumns: [] }) }) })
       .catch(e => { if (live) setError(e.message) })
     return () => { live = false }
   }, [formId])
@@ -98,6 +109,8 @@ export default function FormSheet({ formId, onOpen, notify }) {
   const hidden = useMemo(() => new Set(layout?.hidden || []), [layout])
   const columns = useMemo(() => ordered.filter(c => !hidden.has(c.key)), [ordered, hidden])
   const width = (key) => layout?.widths?.[key] || (key === '@name' ? W_NAME : W_DEFAULT)
+  const fmtOf = (row, key) => mergeFormat(layout?.colFormats?.[key], row.format?.[key])
+  const textOf = (row, key) => (key === '@name' || key === '@submitted' ? shown(row, key) : displayValue(shown(row, key), fmtOf(row, key)))
 
   // ── Rows: search, filters, sort ──
   const rows = useMemo(() => {
@@ -140,11 +153,15 @@ export default function FormSheet({ formId, onOpen, notify }) {
     try { await formStaff('sheet_cells', { id: formId, updates }); setSave('saved') } catch (e) { setSave('error'); notify?.(e.message, 'err') }
   }
 
-  // ── Selection ──
+  // ── Selection: cells, a range, whole columns (header), whole rows (row number), everything (corner) ──
+  const lastRow = Math.max(0, visibleRows.length - 1), lastCol = gridCols.length - 1
   const range = useMemo(() => {
     if (!sel) return null
     return { r0: Math.min(sel.anchor.r, sel.focus.r), r1: Math.max(sel.anchor.r, sel.focus.r), c0: Math.min(sel.anchor.c, sel.focus.c), c1: Math.max(sel.anchor.c, sel.focus.c) }
   }, [sel])
+  const selectCols = (c, extend) => setSel(s => (extend && s?.whole === 'col' ? { ...s, focus: { r: lastRow, c } } : { anchor: { r: 0, c }, focus: { r: lastRow, c }, whole: 'col' }))
+  const selectRows = (r, extend) => setSel(s => (extend && s?.whole === 'row' ? { ...s, focus: { r, c: lastCol } } : { anchor: { r, c: 0 }, focus: { r, c: lastCol }, whole: 'row' }))
+  const selectAll = () => setSel({ anchor: { r: 0, c: 0 }, focus: { r: lastRow, c: lastCol }, whole: 'all' })
   const selectedCells = useMemo(() => {
     if (!range) return []
     const out = []
@@ -154,26 +171,53 @@ export default function FormSheet({ formId, onOpen, notify }) {
     }
     return out
   }, [range, visibleRows, gridCols])
+  const wholeCols = sel && (sel.whole === 'col' || sel.whole === 'all') && range ? gridCols.slice(range.c0, range.c1 + 1) : null
   const isSelected = (r, c) => !!range && r >= range.r0 && r <= range.r1 && c >= range.c0 && c <= range.c1
-  const firstFormat = selectedCells[0] ? (selectedCells[0].row.format?.[selectedCells[0].col.key] || {}) : {}
+  // Like a spreadsheet: the range is tinted and only the active cell carries the ring.
+  const isActive = (r, c) => !!sel && !sel.whole && sel.focus.r === r && sel.focus.c === c
+  const multi = !!range && (sel.whole || range.r1 > range.r0 || range.c1 > range.c0)
+  const firstFormat = wholeCols ? (layout?.colFormats?.[wholeCols[0].key] || {}) : selectedCells[0] ? (fmtOf(selectedCells[0].row, selectedCells[0].col.key) || {}) : {}
 
+  /** Apply a format patch. A whole column keeps it on the column; any other selection on its cells. */
   const applyFormat = (patch) => {
-    if (!selectedCells.length) { notify?.('Select a cell first.'); return }
+    if (!sel) { notify?.('Select a cell, a column or a row first.'); return }
+    const merge = (cur) => {
+      const next = patch === null ? {} : { ...(cur || {}), ...patch }
+      for (const k of Object.keys(next)) if (next[k] === false || next[k] == null) delete next[k]
+      return Object.keys(next).length ? next : null
+    }
+    if (wholeCols) {
+      changeLayout(l => {
+        const colFormats = { ...(l.colFormats || {}) }
+        for (const c of wholeCols) { const f = merge(colFormats[c.key]); if (f) colFormats[c.key] = f; else delete colFormats[c.key] }
+        return { ...l, colFormats }
+      })
+      if (patch === null) {
+        // Clear formatting on a column clears its cells too, as a spreadsheet does.
+        const updates = []
+        for (const row of data.rows) for (const c of wholeCols) if (row.format?.[c.key]) updates.push({ assignmentId: row.id, key: c.key, format: null })
+        const keys = new Set(wholeCols.map(c => c.key))
+        patchRows(r => ({ ...r, format: Object.fromEntries(Object.entries(r.format || {}).filter(([k]) => !keys.has(k))) }))
+        saveCells(updates)
+      }
+      return
+    }
     const updates = []
     const changed = new Map()
     for (const { row, col } of selectedCells) {
-      const cur = row.format?.[col.key] || {}
-      const next = patch === null ? {} : { ...cur, ...patch }
-      for (const k of Object.keys(next)) if (next[k] === false || next[k] == null) delete next[k]
-      const empty = !Object.keys(next).length
+      const next = merge(row.format?.[col.key])
       if (!changed.has(row.id)) changed.set(row.id, {})
-      changed.get(row.id)[col.key] = empty ? undefined : next
-      updates.push({ assignmentId: row.id, key: col.key, format: empty ? null : next })
+      changed.get(row.id)[col.key] = next || undefined
+      updates.push({ assignmentId: row.id, key: col.key, format: next })
     }
     patchRows(r => (changed.has(r.id) ? { ...r, format: Object.fromEntries(Object.entries({ ...r.format, ...changed.get(r.id) }).filter(([, v]) => v)) } : r))
     saveCells(updates)
   }
   const toggle = (k) => applyFormat({ [k]: !firstFormat[k] })
+  const setDecimals = (delta) => {
+    const base = Number.isInteger(firstFormat.dec) ? firstFormat.dec : (firstFormat.num === 'currency' ? 2 : 0)
+    applyFormat({ dec: Math.max(0, Math.min(4, base + delta)) })
+  }
 
   // ── Editing ──
   const canEdit = (col) => editable && (col.staff || (!col.base && CORRECTABLE_TYPES.includes(col.type)))
@@ -217,14 +261,16 @@ export default function FormSheet({ formId, onOpen, notify }) {
     } catch (e) { setSave('error'); notify?.(e.message, 'err') }
   }
 
-  // ── Keyboard: arrows move, Enter edits, Cmd/Ctrl+B/I/U format, Delete clears a staff value ──
+  // ── Keyboard: arrows move, Enter edits, Cmd/Ctrl+B/I/U format, Cmd/Ctrl+A selects all, Delete clears staff values ──
   const onKey = (e) => {
-    if (editing || !sel) return
+    if (editing) return
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'a') { e.preventDefault(); selectAll(); return }
+    if (!sel) return
     const move = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] }[e.key]
     if (move) {
       e.preventDefault()
-      const r = Math.max(0, Math.min(visibleRows.length - 1, sel.focus.r + move[0])), c = Math.max(0, Math.min(gridCols.length - 1, sel.focus.c + move[1]))
-      setSel(s => (e.shiftKey ? { ...s, focus: { r, c } } : { anchor: { r, c }, focus: { r, c } }))
+      const r = Math.max(0, Math.min(lastRow, sel.focus.r + move[0])), c = Math.max(0, Math.min(lastCol, sel.focus.c + move[1]))
+      setSel(s => (e.shiftKey ? { anchor: s.anchor, focus: { r, c } } : { anchor: { r, c }, focus: { r, c } }))
       return
     }
     if (e.key === 'Enter') { e.preventDefault(); const row = visibleRows[sel.focus.r], col = gridCols[sel.focus.c]; if (row && col) startEdit(row, col); return }
@@ -233,7 +279,7 @@ export default function FormSheet({ formId, onOpen, notify }) {
       const staff = selectedCells.filter(x => x.col.staff && x.row.cells[x.col.key])
       if (!staff.length) return
       e.preventDefault()
-      const ids = new Map(staff.map(x => [`${x.row.id}|${x.col.key}`, true]))
+      const ids = new Set(staff.map(x => `${x.row.id}|${x.col.key}`))
       patchRows(r => ({ ...r, cells: Object.fromEntries(Object.entries(r.cells).map(([k, v]) => [k, ids.has(`${r.id}|${k}`) ? '' : v])) }))
       saveCells(staff.map(x => ({ assignmentId: x.row.id, key: x.col.key, value: '' })))
     }
@@ -253,7 +299,7 @@ export default function FormSheet({ formId, onOpen, notify }) {
     const keys = ordered.map(c => c.key).filter(k => k !== dragCol)
     keys.splice(keys.indexOf(target), 0, dragCol)
     changeLayout(l => ({ ...l, order: keys }))
-    setDragCol(null)
+    setDragCol(null); setSel(null)
   }
   const addStaffColumn = () => {
     if (!newCol.label.trim()) return
@@ -264,6 +310,12 @@ export default function FormSheet({ formId, onOpen, notify }) {
   const removeStaffColumn = (key) => {
     if (!window.confirm('Delete this column and everything typed in it?')) return
     changeLayout(l => ({ ...l, staffColumns: l.staffColumns.filter(c => c.key !== key), order: l.order.filter(k => k !== key), hidden: l.hidden.filter(k => k !== key) }))
+    setSel(null)
+  }
+  const openFile = async (row, key) => {
+    const f = row.answers?.[key]
+    if (!f?.path) return
+    try { const r = await formStaff('file_url', { assignment_id: row.id, path: f.path }); if (r.url) window.open(r.url, '_blank', 'noopener') } catch (e) { notify?.(e.message, 'err') }
   }
 
   // ── Export ──
@@ -282,19 +334,28 @@ export default function FormSheet({ formId, onOpen, notify }) {
   if (!data || !layout) return <p className="fm-hint">Loading the answers…</p>
   if (!data.rows.length) return <div className="fm-card fs-empty"><p className="fm-hint">No one has submitted this form yet. Answers appear here as they come in.</p></div>
 
-  // Frozen columns: the name plus up to three more stay put; each one's left edge is the sum of those before it.
+  // Frozen columns: the row numbers, the name and up to three more stay put.
   const lefts = {}
-  gridCols.slice(0, 1 + (layout.frozen || 0)).reduce((x, c) => { lefts[c.key] = x; return x + width(c.key) }, 0)
+  gridCols.slice(0, 1 + (layout.frozen || 0)).reduce((x, c) => { lefts[c.key] = x; return x + width(c.key) }, W_ROWNUM)
   const stickyStyle = (key, z = 1) => (key in lefts ? { position: 'sticky', left: lefts[key], zIndex: z } : null)
   const addCol = adding ? columnOf(adding.key) : null
   const off = !editable
   const rowIndex = new Map(visibleRows.map((r, i) => [r.id, i]))
+  const summaryOf = (col) => {
+    const fn = layout.summaries?.[col.key]
+    if (!fn) return ''
+    const v = summarize(rows.map(r => valueOf(r, col.key)), fn)
+    if (v == null) return '-'
+    if (fn === 'count' || fn === 'counta') return String(v)
+    const f = layout.colFormats?.[col.key]
+    return f && (f.num || f.dec != null || f.comma) ? formatNumber(v, f) : formatNumber(v, { dec: Number.isInteger(v) ? 0 : 2, comma: true })
+  }
 
   return (
     <div className="fs">
       {!editable && <p className="fm-note" role="status">Formatting, staff columns and corrections need a database update the Owner applies (20260929000000_form_sheet.sql). Until then you can view, filter, sort and export.</p>}
 
-      {/* The Smartsheet row: formatting on the left, the grid's own tools on the right. */}
+      {/* The Smartsheet row: text formatting, number and date formats, then the grid's own tools. */}
       <div className="fs-toolbar" ref={toolRef} role="toolbar" aria-label="Sheet tools">
         <div className="fs-tgroup">
           <button type="button" className="fs-tb" aria-pressed={!!firstFormat.b} disabled={off} onClick={() => toggle('b')} title="Bold (Cmd/Ctrl+B)" aria-label="Bold"><Bold size={15} /></button>
@@ -326,6 +387,17 @@ export default function FormSheet({ formId, onOpen, notify }) {
             <button key={a} type="button" className="fs-tb" aria-pressed={firstFormat.align === a} disabled={off} onClick={() => applyFormat({ align: firstFormat.align === a ? null : a })} title={`Align ${a}`} aria-label={`Align ${a}`}><Icon size={15} /></button>
           ))}
           <button type="button" className="fs-tb" aria-pressed={!!firstFormat.wrap} disabled={off} onClick={() => toggle('wrap')} title="Wrap text" aria-label="Wrap text"><WrapText size={15} /></button>
+        </div>
+        <div className="fs-tgroup">
+          <button type="button" className="fs-tb fs-tbtext" aria-pressed={firstFormat.num === 'currency'} disabled={off} onClick={() => applyFormat({ num: firstFormat.num === 'currency' ? null : 'currency' })} title="Currency ($)" aria-label="Currency">$</button>
+          <button type="button" className="fs-tb fs-tbtext" aria-pressed={firstFormat.num === 'percent'} disabled={off} onClick={() => applyFormat({ num: firstFormat.num === 'percent' ? null : 'percent' })} title="Percent (%)" aria-label="Percent">%</button>
+          <button type="button" className="fs-tb fs-tbtext" aria-pressed={!!firstFormat.comma} disabled={off} onClick={() => toggle('comma')} title="Thousands separator (1,000)" aria-label="Thousands separator">,</button>
+          <button type="button" className="fs-tb fs-tbtext" disabled={off} onClick={() => setDecimals(-1)} title="Fewer decimal places" aria-label="Fewer decimal places">.0<sub>←</sub></button>
+          <button type="button" className="fs-tb fs-tbtext" disabled={off} onClick={() => setDecimals(1)} title="More decimal places" aria-label="More decimal places">.00<sub>→</sub></button>
+          <label className="fs-tsel fs-tsel-sm"><span className="fm-sr">Date format</span>
+            <select disabled={off} value={firstFormat.date || ''} onChange={e => applyFormat({ date: e.target.value || null })} title="Date format">
+              <option value="">Date format</option>{DATE_FORMATS.map(d => <option key={d.key} value={d.key}>{d.label}</option>)}
+            </select></label>
           <button type="button" className="fs-tb" disabled={off} onClick={() => applyFormat(null)} title="Clear formatting" aria-label="Clear formatting"><Eraser size={15} /></button>
         </div>
         <div className="fs-tgroup">
@@ -342,7 +414,7 @@ export default function FormSheet({ formId, onOpen, notify }) {
             <button type="button" className="fm-btn fm-sm" disabled={off} aria-expanded={menu === 'newcol'} onClick={() => setMenu(m => (m === 'newcol' ? null : 'newcol'))}><Plus size={14} aria-hidden="true" /> Column</button>
             {menu === 'newcol' && (
               <div className="fs-pop fs-newcol" role="group" aria-label="New staff column">
-                <p className="fm-hint">A column for your team, like Lot assignment or Processed. Students never see it.</p>
+                <p className="fm-hint">A column for your team, like Lot assignment, Fee or Processed. Students never see it.</p>
                 <input autoFocus aria-label="Column name" placeholder="Column name" value={newCol.label} maxLength={60} onChange={e => setNewCol(c => ({ ...c, label: e.target.value }))} onKeyDown={e => { if (e.key === 'Enter') addStaffColumn() }} />
                 <select aria-label="Column type" value={newCol.type} onChange={e => setNewCol(c => ({ ...c, type: e.target.value }))}>{SHEET_STAFF_TYPES.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}</select>
                 {newCol.type === 'choice' && <input aria-label="Options" placeholder="Options, separated by commas" value={newCol.options} onChange={e => setNewCol(c => ({ ...c, options: e.target.value }))} />}
@@ -362,7 +434,7 @@ export default function FormSheet({ formId, onOpen, notify }) {
           {menu === 'columns' && (
             <div className="fs-pop" role="group" aria-label="Show columns">
               {ordered.map(c => (
-                <label key={c.key} className="fs-popitem"><input type="checkbox" checked={!hidden.has(c.key)} onChange={() => changeLayout(l => ({ ...l, hidden: hidden.has(c.key) ? l.hidden.filter(k => k !== c.key) : [...l.hidden, c.key] }))} /><span>{c.label}{c.earlier ? ' (earlier version)' : ''}{c.staff ? ' · staff' : ''}</span></label>
+                <label key={c.key} className="fs-popitem"><input type="checkbox" checked={!hidden.has(c.key)} onChange={() => { setSel(null); changeLayout(l => ({ ...l, hidden: hidden.has(c.key) ? l.hidden.filter(k => k !== c.key) : [...l.hidden, c.key] })) }} /><span>{c.label}{c.earlier ? ' (earlier version)' : ''}{c.staff ? ' · staff' : ''}</span></label>
               ))}
             </div>
           )}
@@ -395,20 +467,24 @@ export default function FormSheet({ formId, onOpen, notify }) {
         </div>
       )}
 
-      <div className="fm-card fs-frame" ref={frameRef} tabIndex={0} onKeyDown={onKey} onScroll={followEditor} aria-label="Answers, one row per person. Arrow keys move, Enter edits.">
-        <table className="fs-table fs-fixed">
-          <colgroup>{gridCols.map(c => <col key={c.key} style={{ width: width(c.key) }} />)}</colgroup>
+      <div className="fs-frame" ref={frameRef} tabIndex={0} onKeyDown={onKey} onScroll={followEditor} aria-label="Answers, one row per person. Arrow keys move, Enter edits.">
+        <table className="fs-table fs-fixed fs-grid">
+          <colgroup><col style={{ width: W_ROWNUM }} />{gridCols.map(c => <col key={c.key} style={{ width: width(c.key) }} />)}</colgroup>
           <thead><tr>
-            {gridCols.map(c => {
+            <th className="fs-corner" scope="col"><button type="button" className="fs-cornerbtn" onClick={selectAll} aria-label="Select everything" title="Select everything" /></th>
+            {gridCols.map((c, ci) => {
               const active = sort.key === c.key
+              const colSel = !!range && (sel.whole === 'col' || sel.whole === 'all') && ci >= range.c0 && ci <= range.c1
               return (
-                <th key={c.key} scope="col" className={`aspire-th fs-th${c.earlier ? ' fs-earlier' : ''}${c.staff ? ' fs-staff' : ''}${dragCol && dragCol !== c.key && c.key !== '@name' ? ' fs-dropok' : ''}`}
+                <th key={c.key} scope="col" className={`fs-th${c.earlier ? ' fs-earlier' : ''}${c.staff ? ' fs-staff' : ''}${colSel ? ' fs-colsel' : ''}${dragCol && dragCol !== c.key && c.key !== '@name' ? ' fs-dropok' : ''}`}
                   style={{ ...cellStyle(null, width(c.key)), ...stickyStyle(c.key, 4) }}
                   aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                  onMouseDown={e => { if (e.target.closest('button, .fs-resize')) return; if (e.shiftKey) e.preventDefault(); frameRef.current?.focus({ preventScroll: true }); selectCols(ci, e.shiftKey) }}
                   draggable={c.key !== '@name'} onDragStart={e => { setDragCol(c.key); try { e.dataTransfer.setData('text/plain', c.key) } catch { /* Firefox needs data */ } }} onDragEnd={() => setDragCol(null)}
                   onDragOver={e => { if (dragCol) e.preventDefault() }} onDrop={e => { e.preventDefault(); dropColumn(c.key) }}>
-                  <button type="button" className="fs-sortbtn" onClick={() => setSort(s => (s.key === c.key ? { key: c.key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key: c.key, dir: 'asc' }))}
-                    aria-label={`Sort by ${c.label}`}>{c.earlier ? `${c.label} (earlier)` : c.label}{active ? (sort.dir === 'asc' ? ' ↑' : ' ↓') : ''}</button>
+                  <span className="fs-thlabel" title={c.label}>{c.earlier ? `${c.label} (earlier)` : c.label}</span>
+                  <button type="button" className={`fs-sortbtn${active ? ' fs-sortbtn-on' : ''}`} onClick={() => setSort(s => (s.key === c.key ? { key: c.key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key: c.key, dir: 'asc' }))}
+                    aria-label={`Sort by ${c.label}${active ? (sort.dir === 'asc' ? ', now ascending' : ', now descending') : ''}`} title="Sort">{active ? (sort.dir === 'asc' ? '↑' : '↓') : <ArrowDownUp size={12} />}</button>
                   {c.staff && editable && <button type="button" className="fs-colx" title="Delete this staff column" aria-label={`Delete the column ${c.label}`} onClick={() => removeStaffColumn(c.key)}>×</button>}
                   <span className="fs-resize" onMouseDown={e => startResize(e, c.key)} aria-hidden="true" />
                 </th>
@@ -416,32 +492,38 @@ export default function FormSheet({ formId, onOpen, notify }) {
             })}
           </tr></thead>
           <tbody>
-            {!rows.length && <tr><td className="fs-none" colSpan={gridCols.length}>No answers match. <button type="button" className="fm-link" onClick={() => { setFilters([]); setSearch('') }}>Show all</button></td></tr>}
+            {!rows.length && <tr><td className="fs-none" colSpan={gridCols.length + 1}>No answers match. <button type="button" className="fm-link" onClick={() => { setFilters([]); setSearch('') }}>Show all</button></td></tr>}
             {(groups || [{ label: null, rows }]).map(g => (
-              <GroupBlock key={g.label ?? '@all'} group={g} grouped={!!groups} collapsed={collapsed.has(g.label)} colSpan={gridCols.length}
+              <GroupBlock key={g.label ?? '@all'} group={g} grouped={!!groups} collapsed={collapsed.has(g.label)} colSpan={gridCols.length + 1}
                 onToggle={() => { setSel(null); setCollapsed(s => { const n = new Set(s); if (n.has(g.label)) n.delete(g.label); else n.add(g.label); return n }) }}>
                 {!collapsed.has(g.label) && g.rows.map(row => {
                   const r = rowIndex.get(row.id)
+                  const rowSel = !!range && sel.whole === 'row' && r >= range.r0 && r <= range.r1
                   return (
                     <tr key={row.id} className="fs-row">
+                      <th scope="row" className={`fs-rownum${rowSel ? ' fs-rowsel' : ''}`} style={{ position: 'sticky', left: 0, zIndex: 2 }}
+                        onMouseDown={e => { if (e.shiftKey) e.preventDefault(); frameRef.current?.focus({ preventScroll: true }); selectRows(r, e.shiftKey) }}>{r + 1}</th>
                       {gridCols.map((col, c) => {
-                        const f = row.format?.[col.key]
+                        const f = fmtOf(row, col.key)
                         const corr = row.corrected?.[col.key]
                         const isEditing = editing && editing.rowId === row.id && editing.key === col.key
+                        const file = col.type === 'file' ? row.answers?.[col.key] : null
                         const Cell = col.key === '@name' ? 'th' : 'td'
                         return (
                           <Cell key={col.key} data-cell={`${row.id}|${col.key}`} scope={col.key === '@name' ? 'row' : undefined} style={{ ...cellStyle(f, width(col.key)), ...stickyStyle(col.key) }}
-                            className={`fs-cell${col.key === '@name' ? ' fs-name' : ''}${isSelected(r, c) ? ' fs-sel' : ''}${corr ? ' fs-corrected' : ''}${col.key === '@submitted' ? ' fs-when' : ''}${isEditing ? ' fs-editing' : ''}`}
-                            onMouseDown={e => { if (isEditing) return; if (e.shiftKey) e.preventDefault(); frameRef.current?.focus({ preventScroll: true }); setSel(s => (e.shiftKey && s ? { ...s, focus: { r, c } } : { anchor: { r, c }, focus: { r, c } })) }}
+                            className={`fs-cell${col.key === '@name' ? ' fs-name' : ''}${isActive(r, c) ? ' fs-sel' : ''}${multi && isSelected(r, c) ? ' fs-inrange' : ''}${corr ? ' fs-corrected' : ''}${col.key === '@submitted' ? ' fs-when' : ''}${isEditing ? ' fs-editing' : ''}`}
+                            onMouseDown={e => { if (isEditing || e.target.closest('a, button')) return; if (e.shiftKey) e.preventDefault(); frameRef.current?.focus({ preventScroll: true }); setSel(s => (e.shiftKey && s ? { anchor: s.anchor, focus: { r, c } } : { anchor: { r, c }, focus: { r, c } })) }}
                             onDoubleClick={() => startEdit(row, col)}
                             title={corr ? `Corrected by ${corr.by || 'staff'} on ${stamp(corr.at)}. Submitted: ${corr.original == null ? '(blank)' : Array.isArray(corr.original) ? corr.original.join('; ') : corr.original}${corr.reason ? `. Why: ${corr.reason}` : ''}` : undefined}>
                             {isEditing
                               ? <Editor col={col} editing={editing} setEditing={setEditing} onSave={commitEdit} onCancel={() => { setEditing(null); frameRef.current?.focus({ preventScroll: true }) }} name={row.name} />
                               : col.key === '@name'
-                                ? <><button type="button" className="fs-open" onClick={() => onOpen?.({ id: row.id, name: row.name, email: row.email })}>{row.name || row.email}</button><small>{row.email}</small></>
-                                : col.staff && col.type === 'check'
-                                  ? <span className="fs-check" aria-label={row.cells[col.key] ? 'Checked' : 'Not checked'}>{row.cells[col.key] ? '✓' : ''}</span>
-                                  : <>{shown(row, col.key)}{corr && <span className="fs-corrtag">Corrected</span>}</>}
+                                ? <button type="button" className="fs-open" title={`Open ${row.name || row.email}'s answers and PDF`} onClick={() => onOpen?.({ id: row.id, name: row.name, email: row.email })}>{row.name || row.email}</button>
+                                : file?.path
+                                  ? <button type="button" className="fs-file" onClick={() => openFile(row, col.key)} title={`Open ${file.name || 'the file'}`}><Paperclip size={13} aria-hidden="true" />{file.name || 'File'}</button>
+                                  : col.staff && col.type === 'check'
+                                    ? <span className="fs-check" aria-label={row.cells[col.key] ? 'Checked' : 'Not checked'}>{row.cells[col.key] ? '✓' : ''}</span>
+                                    : <>{textOf(row, col.key)}{corr && <span className="fs-corrtag">Corrected</span>}</>}
                           </Cell>
                         )
                       })}
@@ -451,9 +533,27 @@ export default function FormSheet({ formId, onOpen, notify }) {
               </GroupBlock>
             ))}
           </tbody>
+          <tfoot>
+            <tr className="fs-sumrow">
+              <th scope="row" className="fs-rownum fs-sumlabel" style={{ position: 'sticky', left: 0, zIndex: 3 }} title="Summary of the rows shown">Σ</th>
+              {gridCols.map(c => (
+                <td key={c.key} style={{ ...cellStyle(null, width(c.key)), ...stickyStyle(c.key, 3) }}>
+                  {c.key === '@name'
+                    ? <span className="fs-sumhint">Summary</span>
+                    : (<span className="fs-sumcell">
+                        <select className={layout.summaries?.[c.key] ? 'fs-sumon' : undefined} aria-label={`Summary of ${c.label}`} value={layout.summaries?.[c.key] || ''} disabled={off}
+                          onChange={e => changeLayout(l => { const summaries = { ...(l.summaries || {}) }; if (e.target.value) summaries[c.key] = e.target.value; else delete summaries[c.key]; return { ...l, summaries } })}>
+                          <option value="">{layout.summaries?.[c.key] ? 'None' : '·'}</option>{SUMMARY_FNS.map(x => <option key={x.key} value={x.key}>{x.label}</option>)}
+                        </select>
+                        <b>{summaryOf(c)}</b>
+                      </span>)}
+                </td>
+              ))}
+            </tr>
+          </tfoot>
         </table>
       </div>
-      <p className="fm-hint fs-help">Click a cell to select it, Shift-click to select a range, double-click or press Enter to edit. Drag a header to move a column, drag its right edge to resize. Corrections change the Sheet and the Excel export; each person&apos;s submitted answers and filed PDF stay as they sent them.</p>
+      <p className="fm-hint fs-help">Click a cell, a column header or a row number to select it; Shift-click extends; Cmd/Ctrl+A selects everything. Double-click or Enter edits. Drag a header to move a column and its right edge to resize. The Σ row sums, averages or counts each column over the rows shown. Corrections change the Sheet and the Excel export; each person&apos;s submitted answers and filed PDF stay as they sent them.</p>
     </div>
   )
 }
@@ -495,7 +595,7 @@ function Editor({ col, editing, setEditing, onSave, onCancel, name }) {
     control = <div className="fs-checks">{opts.map(o => <label key={o}><input type="checkbox" checked={list.includes(o)} onChange={e => set(e.target.checked ? [...list, o] : list.filter(x => x !== o))} />{o}</label>)}</div>
   } else if (col.type === 'paragraph') control = <textarea autoFocus rows={4} value={editing.draft || ''} onChange={e => set(e.target.value)} onKeyDown={keys} />
   else if (col.type === 'date') control = <input autoFocus type="date" value={editing.draft || ''} onChange={e => set(e.target.value)} onKeyDown={keys} />
-  else if (col.type === 'number') control = <input autoFocus type="number" value={editing.draft ?? ''} onChange={e => set(e.target.value)} onKeyDown={keys} />
+  else if (col.type === 'number') control = <input autoFocus type="number" step="any" value={editing.draft ?? ''} onChange={e => set(e.target.value)} onKeyDown={keys} />
   else if (col.staff && col.type === 'choice') control = <select autoFocus value={editing.draft || ''} onChange={e => set(e.target.value)} onKeyDown={keys}><option value="">(blank)</option>{(col.options || []).map(o => <option key={o} value={o}>{o}</option>)}</select>
   else control = <input autoFocus value={editing.draft || ''} onChange={e => set(e.target.value)} onKeyDown={keys} />
   const a = editing.anchor

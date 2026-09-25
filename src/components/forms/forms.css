@@ -243,7 +243,7 @@
 .fs-newcol input, .fs-newcol select { padding: 6px 9px; font: 13px var(--aspire-sans); color: var(--ctl-ink); background: var(--color-bg-input, var(--ctl-surface)); border: 1px solid var(--ctl-line); border-radius: var(--aspire-radius-control); }
 .fs-save { margin-left: auto; font-size: 12px; color: var(--text-caption, var(--ctl-muted)); }
 .fs-save-bad { color: var(--ctl-red, #A32A32); font-weight: 600; }
-.fs-frame:focus-visible { outline: 2px solid var(--ctl-navy); outline-offset: 2px; }
+.fs-frame:focus, .fs-frame:focus-visible { outline: none; }   /* the active cell's ring shows where you are */
 .fs-th { position: relative; user-select: none; }
 .fs-th[draggable="true"] { cursor: grab; }
 .fs-dropok { box-shadow: inset 2px 0 0 var(--ctl-navy); }
@@ -271,3 +271,50 @@
 .fs-groupbtn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 10px; border: 0; background: var(--ctl-surface-2); cursor: pointer; font: 13px var(--aspire-sans); color: var(--ctl-ink); position: sticky; left: 0; z-index: 2; }
 .fs-groupbtn span { font-family: var(--ctl-mono); font-size: 11.5px; color: var(--text-caption, var(--ctl-muted)); }
 .fs-help { font-size: 12px; }
+
+/* ── A grid, not a table (FORM-SHEET-3, Owner, 2026-09-24: "the grids really look like
+   sheets") ────────────────────────────────────────────────────────────────────────────
+   Every cell has a hairline on its right and bottom, headers are a plain grey band in
+   sentence case, rows are numbered in a grey gutter, rows are compact and unbanded, and the
+   frame is a bordered sheet rather than a floating card. The canon's .aspire-th and row band
+   belong to tables; a spreadsheet is a different object, on purpose. */
+.fs { --fs-grid: color-mix(in srgb, var(--ctl-ink) 13%, var(--ctl-surface)); --fs-head: color-mix(in srgb, var(--ctl-ink) 5%, var(--ctl-surface)); --fs-gutter: color-mix(in srgb, var(--ctl-ink) 4%, var(--ctl-surface)); }
+.fs-frame { overflow: auto; max-height: min(70vh, 720px); position: relative; background: var(--ctl-surface); border: 1px solid var(--fs-grid); border-radius: var(--aspire-radius-control); }
+.fs-grid { border-collapse: separate; border-spacing: 0; font-size: 13px; color: var(--ctl-ink); }
+.fs-grid th, .fs-grid td, .fs-grid .fs-name { border-top: 0; border-right: 1px solid var(--fs-grid); border-bottom: 1px solid var(--fs-grid); padding: 6px 8px; line-height: 20px; height: 33px; box-sizing: border-box; background: var(--ctl-surface); vertical-align: middle; }
+.fs-grid tbody tr:nth-child(even) td, .fs-grid tbody tr:nth-child(even) .fs-name { background-color: var(--ctl-surface); background-image: none; }
+.fs-grid tbody tr:nth-child(n) .fs-inrange { background-image: linear-gradient(color-mix(in srgb, var(--ctl-navy) 12%, transparent), color-mix(in srgb, var(--ctl-navy) 12%, transparent)); }
+.fs-grid thead th { position: sticky; top: 0; z-index: 2; background: var(--fs-head); color: var(--ctl-ink); font: 600 12.5px var(--aspire-sans); text-transform: none; letter-spacing: 0; white-space: nowrap; overflow: hidden; }
+.fs-grid .fs-th { display: table-cell; padding-right: 26px; cursor: default; text-align: left; }
+.fs-thlabel { display: block; overflow: hidden; text-overflow: ellipsis; }
+.fs-colsel, .fs-grid thead .fs-colsel { background: var(--ctl-navy-soft); color: var(--ctl-navy); }
+.fs-sortbtn { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); max-width: none; display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; color: var(--text-caption, var(--ctl-muted)); opacity: 0; font-weight: 700; }
+.fs-th:hover .fs-sortbtn, .fs-sortbtn-on, .fs-sortbtn:focus-visible { opacity: 1; }
+.fs-sortbtn-on { color: var(--ctl-navy); }
+.fs-staff .fs-sortbtn { right: 22px; }
+.fs-colx { right: 6px; }
+.fs-staff { background-image: none; }
+.fs-grid thead .fs-staff { box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--ctl-navy) 45%, transparent); }
+.fs-corner { position: sticky; left: 0; top: 0; z-index: 6 !important; padding: 0 !important; width: 44px; background: var(--fs-head) !important; }
+.fs-cornerbtn { display: block; width: 100%; height: 32px; border: 0; background: none; cursor: pointer; }
+.fs-cornerbtn:hover { background: color-mix(in srgb, var(--ctl-navy) 10%, transparent); }
+.fs-rownum { width: 44px; min-width: 44px; max-width: 44px; padding: 0 6px !important; text-align: center; font: 500 11.5px var(--ctl-mono); color: var(--text-caption, var(--ctl-muted)); background: var(--fs-gutter) !important; cursor: pointer; user-select: none; }
+.fs-rownum:hover { color: var(--ctl-navy); }
+.fs-rowsel { background: var(--ctl-navy-soft) !important; color: var(--ctl-navy); font-weight: 700; }
+.fs-grid .fs-name { font-weight: 400; }
+.fs-open { font-weight: 600; }
+.fs-grid .fs-sel { box-shadow: inset 0 0 0 2px var(--ctl-navy); }
+.fs-grid .fs-inrange { background-image: linear-gradient(color-mix(in srgb, var(--ctl-navy) 12%, transparent), color-mix(in srgb, var(--ctl-navy) 12%, transparent)); }
+.fs-file { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; border: 0; background: none; padding: 0; cursor: pointer; font: 600 13px var(--aspire-sans); color: var(--ctl-navy); text-decoration: underline; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fs-grouprow td { height: 30px; padding: 0; background: var(--fs-head) !important; }
+.fs-sumrow th, .fs-sumrow td { position: sticky; bottom: 0; z-index: 2; background: var(--fs-head) !important; border-top: 1px solid color-mix(in srgb, var(--ctl-ink) 22%, var(--ctl-surface)); border-bottom: 0; }
+.fs-sumlabel { font: 700 14px var(--aspire-sans) !important; color: var(--ctl-ink) !important; cursor: default; }
+.fs-sumhint { font-size: 12px; font-weight: 600; color: var(--text-caption, var(--ctl-muted)); }
+.fs-sumcell { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.fs-sumcell select { flex: none; max-width: 76px; opacity: 0.45; padding: 1px 2px; border: 0; background: transparent; font: 11.5px var(--aspire-sans); color: var(--text-caption, var(--ctl-muted)); cursor: pointer; }
+.fs-sumcell select:hover:not(:disabled), .fs-sumcell select:focus-visible, .fs-sumrow td:hover .fs-sumcell select { opacity: 1; background: var(--ctl-surface); outline: 1px solid var(--fs-grid); }
+.fs-sumcell select.fs-sumon { opacity: 1; color: var(--ctl-navy); font-weight: 600; }
+.fs-sumcell b { font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; }
+.fs-tbtext { font: 700 13px var(--aspire-sans); }
+.fs-tbtext sub { font-size: 9px; vertical-align: -2px; }
+.fs-tsel-sm select { max-width: 124px; }

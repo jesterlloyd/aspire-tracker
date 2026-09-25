@@ -572,7 +572,7 @@ export const SHEET_INKS = Object.freeze([
 ])
 export const SHEET_DEFAULT_INK = '#1B2033'   // the ink on a filled cell with no ink chosen
 export const SHEET_STAFF_TYPES = Object.freeze([
-  { key: 'text', label: 'Text' }, { key: 'check', label: 'Checkbox' }, { key: 'choice', label: 'Dropdown' }, { key: 'date', label: 'Date' },
+  { key: 'text', label: 'Text' }, { key: 'number', label: 'Number' }, { key: 'check', label: 'Checkbox' }, { key: 'choice', label: 'Dropdown' }, { key: 'date', label: 'Date' },
 ])
 /** Answers staff may correct in the Sheet. Files and signatures are evidence, never edited. */
 export const CORRECTABLE_TYPES = Object.freeze(['short', 'paragraph', 'choice', 'dropdown', 'checkboxes', 'number', 'date'])
@@ -587,8 +587,89 @@ export function cleanFormat(f) {
   if (inList(SHEET_FILLS, f.fill)) out.fill = f.fill
   if (inList(SHEET_INKS, f.ink)) out.ink = f.ink
   if (['left', 'center', 'right'].includes(f.align)) out.align = f.align
+  // FORM-SHEET-3: number and date formats, like Smartsheet's $, %, .0 and date buttons.
+  if (NUMBER_FORMATS.some(n => n.key === f.num)) out.num = f.num
+  if (Number.isInteger(f.dec) && f.dec >= 0 && f.dec <= 4) out.dec = f.dec
+  if (f.comma === true) out.comma = true
+  if (DATE_FORMATS.some(d => d.key === f.date)) out.date = f.date
   return Object.keys(out).length ? out : null
 }
+
+// ── Number, date and summary formats (FORM-SHEET-3, Owner, 2026-09-24) ─────────────────
+// A format changes how a value LOOKS in the Sheet and in Excel, never the stored answer.
+export const NUMBER_FORMATS = Object.freeze([
+  { key: 'number', label: 'Number' }, { key: 'currency', label: 'Currency ($)' }, { key: 'percent', label: 'Percent (%)' },
+])
+export const DATE_FORMATS = Object.freeze([
+  { key: 'mdy', label: '09/24/2026', excel: 'mm/dd/yyyy' }, { key: 'iso', label: '2026-09-24', excel: 'yyyy-mm-dd' },
+  { key: 'short', label: 'Sep 24, 2026', excel: 'mmm d, yyyy' }, { key: 'long', label: 'Thursday, September 24, 2026', excel: 'dddd, mmmm d, yyyy' },
+])
+export const SUMMARY_FNS = Object.freeze([
+  { key: 'sum', label: 'Sum' }, { key: 'avg', label: 'Average' }, { key: 'min', label: 'Min' }, { key: 'max', label: 'Max' },
+  { key: 'count', label: 'Count' }, { key: 'counta', label: 'Count filled' },
+])
+
+/** A number out of display text: "$1,250.50" -> 1250.5, "25%" -> 0.25, "" or text -> null. */
+export function parseNumber(text) {
+  const t = String(text ?? '').trim()
+  if (!t) return null
+  const pct = t.endsWith('%')
+  const n = Number(t.replace(/[$,%\s]/g, ''))
+  if (!Number.isFinite(n) || !/\d/.test(t) || /[a-z]/i.test(t.replace(/e[+-]?\d+$/i, ''))) return null
+  return pct ? n / 100 : n
+}
+/** A date out of display text: "09/24/2026" or "2026-09-24" -> { y, m, d }, else null. */
+export function parseDate(text) {
+  const t = String(text ?? '').trim()
+  let m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(t)
+  if (m) return { y: +m[1], m: +m[2], d: +m[3] }
+  m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(t)
+  return m ? { y: +m[3], m: +m[1], d: +m[2] } : null
+}
+
+export function formatNumber(n, f = {}) {
+  const dec = Number.isInteger(f.dec) ? f.dec : (f.num === 'currency' ? 2 : f.num === 'percent' ? 0 : undefined)
+  const opts = { useGrouping: f.comma === true || f.num === 'currency', ...(dec != null ? { minimumFractionDigits: dec, maximumFractionDigits: dec } : { maximumFractionDigits: 6 }) }
+  if (f.num === 'currency') return new Intl.NumberFormat('en-US', { ...opts, style: 'currency', currency: 'USD' }).format(n)
+  if (f.num === 'percent') return new Intl.NumberFormat('en-US', { ...opts, style: 'percent' }).format(n)
+  return new Intl.NumberFormat('en-US', opts).format(n)
+}
+
+/** A cell's text as its format shows it. Text that is not a number or a date is left alone. */
+export function displayValue(text, f) {
+  if (!f || text == null || text === '') return text ?? ''
+  if (f.date) {
+    const d = parseDate(text)
+    if (d) {
+      const js = new Date(Date.UTC(d.y, d.m - 1, d.d, 12))
+      if (f.date === 'iso') return `${d.y}-${String(d.m).padStart(2, '0')}-${String(d.d).padStart(2, '0')}`
+      if (f.date === 'short') return js.toLocaleDateString('en-US', { timeZone: 'UTC', month: 'short', day: 'numeric', year: 'numeric' })
+      if (f.date === 'long') return js.toLocaleDateString('en-US', { timeZone: 'UTC', weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+      return `${String(d.m).padStart(2, '0')}/${String(d.d).padStart(2, '0')}/${d.y}`
+    }
+  }
+  if (f.num || Number.isInteger(f.dec) || f.comma) {
+    const n = parseNumber(text)
+    if (n != null) return formatNumber(n, f)
+  }
+  return text
+}
+
+/** A column summary over the shown rows, like Smartsheet's summary row. Null when nothing counts. */
+export function summarize(values, fn) {
+  if (fn === 'counta') return values.filter(v => String(v ?? '').trim() !== '').length
+  const nums = values.map(parseNumber).filter(n => n != null)
+  if (fn === 'count') return nums.length
+  if (!nums.length) return null
+  if (fn === 'sum') return nums.reduce((a, b) => a + b, 0)
+  if (fn === 'avg') return nums.reduce((a, b) => a + b, 0) / nums.length
+  if (fn === 'min') return Math.min(...nums)
+  if (fn === 'max') return Math.max(...nums)
+  return null
+}
+
+/** A column's format under a cell's own: the cell wins for every key it sets. */
+export const mergeFormat = (col, cell) => (col || cell ? { ...(col || {}), ...(cell || {}) } : null)
 
 const STAFF_KEY = /^s_[a-z0-9]{4,20}$/
 /** The Sheet's layout, cleaned against the columns that exist. */
@@ -598,7 +679,7 @@ export function cleanLayout(layout, questionKeys = []) {
     .filter(c => c && STAFF_KEY.test(c.key) && String(c.label || '').trim())
     .map(c => ({ key: c.key, label: String(c.label).trim().slice(0, 60), type: inList(SHEET_STAFF_TYPES, c.type) ? c.type : 'text',
       ...(c.type === 'choice' ? { options: (Array.isArray(c.options) ? c.options : []).map(o => String(o).trim().slice(0, 60)).filter(Boolean).slice(0, 30) } : {}) }))
-  const known = new Set(['@name', '@school', '@submitted', ...questionKeys, ...staffColumns.map(c => c.key)])
+  const known = new Set(['@name', '@email', '@school', '@submitted', ...questionKeys, ...staffColumns.map(c => c.key)])
   const keys = (v) => (Array.isArray(v) ? v : []).map(String).filter((k, i, a) => known.has(k) && a.indexOf(k) === i)
   const widths = {}
   for (const [k, w] of Object.entries(l.widths && typeof l.widths === 'object' ? l.widths : {})) {
@@ -610,6 +691,11 @@ export function cleanLayout(layout, questionKeys = []) {
     frozen: Math.min(3, Math.max(0, Math.round(Number(l.frozen) || 0))),
     groupBy: known.has(l.groupBy) && l.groupBy !== '@name' ? l.groupBy : null,
     staffColumns,
+    // FORM-SHEET-3: a whole column's format, and the summary shown under it.
+    colFormats: Object.fromEntries(Object.entries(l.colFormats && typeof l.colFormats === 'object' ? l.colFormats : {})
+      .filter(([k]) => known.has(k)).map(([k, f]) => [k, cleanFormat(f)]).filter(([, f]) => f)),
+    summaries: Object.fromEntries(Object.entries(l.summaries && typeof l.summaries === 'object' ? l.summaries : {})
+      .filter(([k, fn]) => known.has(k) && k !== '@name' && SUMMARY_FNS.some(x => x.key === fn))),
   }
 }
 
