@@ -48,6 +48,7 @@
 //   503 - services or divisions column not yet in the live schema (Owner SQL gate)
 
 import { createClient } from '@supabase/supabase-js';
+import { validateAvatarUrlChange } from './lib/avatarImage.js';
 import { INACTIVE_MESSAGE } from './lib/activeAccount.js';
 import {
   canonicalCategory,
@@ -244,7 +245,7 @@ async function _handler(req, res) {
   if (isUpdate) {
     const { data: existingRow, error: exErr } = await supabaseAdmin
       .from('contacts')
-      .select('id, category, role, unit_name, related_units, school_name, organization')
+      .select('id, category, role, unit_name, related_units, school_name, organization, avatar_url')
       .eq('id', body.id)
       .maybeSingle();
     if (exErr) {
@@ -255,6 +256,17 @@ async function _handler(req, res) {
       return res.status(400).json({ error: 'No contact with that id' });
     }
     existing = existingRow;
+  }
+
+  // 10b. S-16: avatar_url is only ever a file in ASPIRE's own Storage (the avatars or
+  //      contact-avatars bucket), empty to clear, or the row's UNCHANGED stored value.
+  //      The upload endpoints are the only way a new URL comes to exist.
+  if (payload.avatar_url !== undefined && payload.avatar_url !== null) {
+    const avatarCheck = validateAvatarUrlChange(payload.avatar_url, existing?.avatar_url);
+    if (!avatarCheck.ok) {
+      return res.status(400).json({ error: 'avatar_url must be a photo uploaded through ASPIRE' });
+    }
+    payload.avatar_url = avatarCheck.value;
   }
 
   // 11. Category: normalize to the canonical singular form. Legacy plural

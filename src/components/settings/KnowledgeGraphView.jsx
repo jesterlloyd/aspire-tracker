@@ -467,11 +467,11 @@ export default function KnowledgeGraphView({
             background: 'var(--aspire-tooltip-bg, rgba(9, 12, 28, 0.94))',
             color: 'var(--aspire-tooltip-fg, #ffffff)',
             border: '1px solid var(--aspire-tooltip-border, transparent)',
-            borderRadius: 10, boxShadow: 'var(--aspire-tooltip-shadow, 0 4px 14px rgba(0,0,0,0.45))', padding: '8px 11px',
-            fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 12.5, pointerEvents: 'none', maxWidth: 260,
+            borderRadius: 'var(--aspire-tooltip-radius, 8px)', boxShadow: 'var(--aspire-tooltip-shadow, 0 4px 14px rgba(0,0,0,0.45))', padding: 'var(--aspire-tooltip-padding, 6px 12px)',
+            fontFamily: 'var(--aspire-tooltip-font-family, Plus Jakarta Sans, sans-serif)', fontSize: 'var(--aspire-tooltip-font-size, 12px)', fontWeight: 'var(--aspire-tooltip-font-weight, 500)', lineHeight: 'var(--aspire-tooltip-line-height, 1.2)', pointerEvents: 'none', maxWidth: 260,
           }}>
             <div style={{ fontWeight: 700, marginBottom: 2 }}>{tooltip.node.title}</div>
-            <div style={{ color: 'rgba(255,255,255,0.72)', fontSize: 11.5 }}>
+            <div style={{ color: 'rgba(255,255,255,0.72)' }}>
               {CATEGORY_LABELS[tooltip.node.category] || tooltip.node.category}
               {' · '}{tooltip.node.state}
               {' · '}{tooltip.node.degree} connection{tooltip.node.degree === 1 ? '' : 's'}

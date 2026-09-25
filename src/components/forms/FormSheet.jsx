@@ -31,6 +31,7 @@ import {
   SHEET_DEFAULT_INK, SHEET_FILLS, SHEET_INKS, SHEET_STAFF_TYPES, summarize, SUMMARY_FNS,
 } from '../../lib/forms/formModel'
 import { formStaff } from './formsApi'
+import Tooltip from '../ui/Tooltip'
 
 const BASE = [
   { key: '@email', label: 'Email', base: true },
@@ -43,6 +44,7 @@ const valueOf = (row, key) => key === '@name' ? row.name : key === '@email' ? ro
 const shown = (row, key) => key === '@submitted' ? stamp(row.submittedAt) : (valueOf(row, key) || '')
 const fillHex = Object.fromEntries(SHEET_FILLS.map(f => [f.key, f.hex]))
 const inkHex = Object.fromEntries(SHEET_INKS.map(f => [f.key, f.hex]))
+const SheetTip = ({ label, children }) => <Tooltip label={label} placement="top">{children}</Tooltip>
 const newStaffKey = () => `s_${Math.random().toString(36).slice(2, 10)}`
 
 /** Inline style for a formatted cell. A fill carries its own dark ink, so it reads in dark mode. */
@@ -357,47 +359,49 @@ export default function FormSheet({ formId, onOpen, notify, viewRef }) {
       {/* The Smartsheet row: text formatting, number and date formats, then the grid's own tools. */}
       <div className="fs-toolbar" ref={toolRef} role="toolbar" aria-label="Sheet tools">
         <div className="fs-tgroup">
-          <button type="button" className="fs-tb" aria-pressed={!!firstFormat.b} disabled={off} onClick={() => toggle('b')} title="Bold (Cmd/Ctrl+B)" aria-label="Bold"><Bold size={15} /></button>
-          <button type="button" className="fs-tb" aria-pressed={!!firstFormat.i} disabled={off} onClick={() => toggle('i')} title="Italic (Cmd/Ctrl+I)" aria-label="Italic"><Italic size={15} /></button>
-          <button type="button" className="fs-tb" aria-pressed={!!firstFormat.u} disabled={off} onClick={() => toggle('u')} title="Underline (Cmd/Ctrl+U)" aria-label="Underline"><Underline size={15} /></button>
+          <SheetTip label="Bold (Cmd/Ctrl+B)"><button type="button" className="fs-tb" aria-pressed={!!firstFormat.b} disabled={off} onClick={() => toggle('b')} aria-label="Bold"><Bold size={15} /></button></SheetTip>
+          <SheetTip label="Italic (Cmd/Ctrl+I)"><button type="button" className="fs-tb" aria-pressed={!!firstFormat.i} disabled={off} onClick={() => toggle('i')} aria-label="Italic"><Italic size={15} /></button></SheetTip>
+          <SheetTip label="Underline (Cmd/Ctrl+U)"><button type="button" className="fs-tb" aria-pressed={!!firstFormat.u} disabled={off} onClick={() => toggle('u')} aria-label="Underline"><Underline size={15} /></button></SheetTip>
           <span className="fs-tpop">
-            <button type="button" className="fs-tb" disabled={off} aria-expanded={menu === 'ink'} onClick={() => setMenu(m => (m === 'ink' ? null : 'ink'))} title="Text colour" aria-label="Text colour">
+            <SheetTip label="Text colour"><button type="button" className="fs-tb" disabled={off} aria-expanded={menu === 'ink'} onClick={() => setMenu(m => (m === 'ink' ? null : 'ink'))} aria-label="Text colour">
               <Baseline size={15} /><i className="fs-swatchbar" style={{ background: firstFormat.ink ? inkHex[firstFormat.ink] : 'currentColor' }} /></button>
+            </SheetTip>
             {menu === 'ink' && (
               <div className="fs-palette" role="group" aria-label="Text colour">
                 <button type="button" className="fs-auto" onClick={() => { applyFormat({ ink: null }); setMenu(null) }}>Automatic</button>
-                {SHEET_INKS.map(c => <button key={c.key} type="button" className="fs-chip" title={c.label} aria-label={c.label} style={{ background: c.hex }} onClick={() => { applyFormat({ ink: c.key }); setMenu(null) }} />)}
+                {SHEET_INKS.map(c => <SheetTip key={c.key} label={c.label}><button type="button" className="fs-chip" aria-label={c.label} style={{ background: c.hex }} onClick={() => { applyFormat({ ink: c.key }); setMenu(null) }} /></SheetTip>)}
               </div>
             )}
           </span>
           <span className="fs-tpop">
-            <button type="button" className="fs-tb" disabled={off} aria-expanded={menu === 'fill'} onClick={() => setMenu(m => (m === 'fill' ? null : 'fill'))} title="Fill colour" aria-label="Fill colour">
+            <SheetTip label="Fill colour"><button type="button" className="fs-tb" disabled={off} aria-expanded={menu === 'fill'} onClick={() => setMenu(m => (m === 'fill' ? null : 'fill'))} aria-label="Fill colour">
               <PaintBucket size={15} /><i className="fs-swatchbar" style={{ background: firstFormat.fill ? fillHex[firstFormat.fill] : 'transparent' }} /></button>
+            </SheetTip>
             {menu === 'fill' && (
               <div className="fs-palette" role="group" aria-label="Fill colour">
                 <button type="button" className="fs-auto" onClick={() => { applyFormat({ fill: null }); setMenu(null) }}>No fill</button>
-                {SHEET_FILLS.map(c => <button key={c.key} type="button" className="fs-chip" title={c.label} aria-label={c.label} style={{ background: c.hex }} onClick={() => { applyFormat({ fill: c.key }); setMenu(null) }} />)}
+                {SHEET_FILLS.map(c => <SheetTip key={c.key} label={c.label}><button type="button" className="fs-chip" aria-label={c.label} style={{ background: c.hex }} onClick={() => { applyFormat({ fill: c.key }); setMenu(null) }} /></SheetTip>)}
               </div>
             )}
           </span>
         </div>
         <div className="fs-tgroup">
           {[['left', AlignLeft], ['center', AlignCenter], ['right', AlignRight]].map(([a, Icon]) => (
-            <button key={a} type="button" className="fs-tb" aria-pressed={firstFormat.align === a} disabled={off} onClick={() => applyFormat({ align: firstFormat.align === a ? null : a })} title={`Align ${a}`} aria-label={`Align ${a}`}><Icon size={15} /></button>
+            <SheetTip key={a} label={`Align ${a}`}><button type="button" className="fs-tb" aria-pressed={firstFormat.align === a} disabled={off} onClick={() => applyFormat({ align: firstFormat.align === a ? null : a })} aria-label={`Align ${a}`}><Icon size={15} /></button></SheetTip>
           ))}
-          <button type="button" className="fs-tb" aria-pressed={!!firstFormat.wrap} disabled={off} onClick={() => toggle('wrap')} title="Wrap text" aria-label="Wrap text"><WrapText size={15} /></button>
+          <SheetTip label="Wrap text"><button type="button" className="fs-tb" aria-pressed={!!firstFormat.wrap} disabled={off} onClick={() => toggle('wrap')} aria-label="Wrap text"><WrapText size={15} /></button></SheetTip>
         </div>
         <div className="fs-tgroup">
-          <button type="button" className="fs-tb fs-tbtext" aria-pressed={firstFormat.num === 'currency'} disabled={off} onClick={() => applyFormat({ num: firstFormat.num === 'currency' ? null : 'currency' })} title="Currency ($)" aria-label="Currency">$</button>
-          <button type="button" className="fs-tb fs-tbtext" aria-pressed={firstFormat.num === 'percent'} disabled={off} onClick={() => applyFormat({ num: firstFormat.num === 'percent' ? null : 'percent' })} title="Percent (%)" aria-label="Percent">%</button>
-          <button type="button" className="fs-tb fs-tbtext" aria-pressed={!!firstFormat.comma} disabled={off} onClick={() => toggle('comma')} title="Thousands separator (1,000)" aria-label="Thousands separator">,</button>
-          <button type="button" className="fs-tb fs-tbtext" disabled={off} onClick={() => setDecimals(-1)} title="Fewer decimal places" aria-label="Fewer decimal places">.0<sub>←</sub></button>
-          <button type="button" className="fs-tb fs-tbtext" disabled={off} onClick={() => setDecimals(1)} title="More decimal places" aria-label="More decimal places">.00<sub>→</sub></button>
+          <SheetTip label="Currency ($)"><button type="button" className="fs-tb fs-tbtext" aria-pressed={firstFormat.num === 'currency'} disabled={off} onClick={() => applyFormat({ num: firstFormat.num === 'currency' ? null : 'currency' })} aria-label="Currency">$</button></SheetTip>
+          <SheetTip label="Percent (%)"><button type="button" className="fs-tb fs-tbtext" aria-pressed={firstFormat.num === 'percent'} disabled={off} onClick={() => applyFormat({ num: firstFormat.num === 'percent' ? null : 'percent' })} aria-label="Percent">%</button></SheetTip>
+          <SheetTip label="Thousands separator (1,000)"><button type="button" className="fs-tb fs-tbtext" aria-pressed={!!firstFormat.comma} disabled={off} onClick={() => toggle('comma')} aria-label="Thousands separator">,</button></SheetTip>
+          <SheetTip label="Fewer decimal places"><button type="button" className="fs-tb fs-tbtext" disabled={off} onClick={() => setDecimals(-1)} aria-label="Fewer decimal places">.0<sub>←</sub></button></SheetTip>
+          <SheetTip label="More decimal places"><button type="button" className="fs-tb fs-tbtext" disabled={off} onClick={() => setDecimals(1)} aria-label="More decimal places">.00<sub>→</sub></button></SheetTip>
           <label className="fs-tsel fs-tsel-sm"><span className="fm-sr">Date format</span>
-            <select disabled={off} value={firstFormat.date || ''} onChange={e => applyFormat({ date: e.target.value || null })} title="Date format">
+            <SheetTip label="Date format"><select disabled={off} value={firstFormat.date || ''} onChange={e => applyFormat({ date: e.target.value || null })}>
               <option value="">Date format</option>{DATE_FORMATS.map(d => <option key={d.key} value={d.key}>{d.label}</option>)}
-            </select></label>
-          <button type="button" className="fs-tb" disabled={off} onClick={() => applyFormat(null)} title="Clear formatting" aria-label="Clear formatting"><Eraser size={15} /></button>
+            </select></SheetTip></label>
+          <SheetTip label="Clear formatting"><button type="button" className="fs-tb" disabled={off} onClick={() => applyFormat(null)} aria-label="Clear formatting"><Eraser size={15} /></button></SheetTip>
         </div>
         <div className="fs-tgroup">
           <label className="fs-tsel"><span>Group by</span>

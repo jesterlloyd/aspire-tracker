@@ -2,7 +2,6 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { safeWrite } from '../lib/safeWrite';
 import { getAvatarUrl } from '../lib/getAvatar';
 import { announceFloatingPanelOpen, onFloatingPanelOpen } from '../lib/floatingPanels';
 import {
@@ -51,6 +50,25 @@ export default function UserMenu() {
     if (source !== 'user-menu') setIsOpen(false);
   }), []);
 
+  // S-16: one call shape for set and remove, against the server-side writer.
+  const postMyAvatar = async (payload) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    const res = await fetch('/api/my-avatar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify(payload),
+    });
+    const body = await res.json().catch(() => ({}));
+    return { ok: res.ok, body };
+  };
+  const readFileAsBase64 = (f) => new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result).split(',')[1] || '');
+    r.onerror = () => reject(new Error('Could not read that file.'));
+    r.readAsDataURL(f);
+  });
+
   const handleAvatarUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -60,22 +78,12 @@ export default function UserMenu() {
 
     setUploading(true);
     try {
-      const ext  = file.name.split('.').pop();
-      const path = `${userProfile.auth_user_id}/avatar.${ext}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('avatars').upload(path, file, { upsert: true });
-      if (uploadError) { alert(`Upload failed: ${uploadError.message}`); return; }
-
-      const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path);
-
-      const { error: saveError } = await supabase.rpc('update_my_avatar', { p_url: publicUrl });
-      if (saveError) {
-        await safeWrite(
-          () => supabase.from('user_profiles').update({ avatar_url: publicUrl }).eq('id', userProfile.id),
-          { name: 'update avatar url' }
-        );
-      }
+      // S-16: the browser never touches Storage. /api/my-avatar validates the bytes,
+      // uploads with the service role to a path derived from the verified identity,
+      // and writes avatar_url itself.
+      const data_base64 = await readFileAsBase64(file);
+      const { ok, body } = await postMyAvatar({ content_type: file.type, data_base64 });
+      if (!ok) { alert(body.message || 'Could not update your photo. Please try again.'); return; }
       window.location.reload();
     } catch (err) {
       alert(`Error: ${err.message}`);
@@ -198,7 +206,8 @@ export default function UserMenu() {
                 {userProfile?.avatar_url && !uploading && (
                   <button
                     onClick={async () => {
-                      await supabase.rpc('update_my_avatar', { p_url: '' });
+                      const { ok, body } = await postMyAvatar({ action: 'remove' });
+                      if (!ok) { alert(body.message || 'Could not remove your photo. Please try again.'); return; }
                       window.location.reload();
                     }}
                     style={{ background:'none', border:'none', fontFamily:'Plus Jakarta Sans', fontSize:'10px', color:'#9ca3af', cursor:'pointer', padding:0, marginTop:'2px', display:'block' }}

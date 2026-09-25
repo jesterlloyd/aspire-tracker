@@ -24,6 +24,7 @@
 // session. All mutations use target.id (profile PK) resolved from the fetched record.
 
 import { createClient } from '@supabase/supabase-js';
+import { validateAvatarUrlChange } from './lib/avatarImage.js';
 import { randomUUID } from 'crypto';
 import { appUrl } from '../lib/server/appUrl.js';
 import { isActiveProfile, INACTIVE_STATUS, INACTIVE_REASON, INACTIVE_MESSAGE } from './lib/activeAccount.js';
@@ -181,7 +182,12 @@ export default async function handler(req, res) {
     if (typeof body.interviewer_color !== 'string' || body.interviewer_color.trim() === '') return res.status(400).json({ error: 'invalid_request', field: 'interviewer_color' });
     newColor = body.interviewer_color.trim();
   } else if (operation === 'update_avatar') {
-    newAvatar = typeof body.avatar_url === 'string' ? body.avatar_url : '';
+    // S-16: only a file in ASPIRE's own Storage, or '' to clear. An upload goes through
+    // api/admin-avatar-upload.js, which derives the path itself; this operation can
+    // never point a profile at an arbitrary address.
+    const avatarCheck = validateAvatarUrlChange(typeof body.avatar_url === 'string' ? body.avatar_url : '');
+    if (!avatarCheck.ok) return res.status(400).json({ error: 'invalid_request', field: 'avatar_url', message: 'A photo must be uploaded through ASPIRE.' });
+    newAvatar = avatarCheck.value;
   }
 
   // ── Gate 7: fetch target profile (includes auth_user_id for self-check) ──────

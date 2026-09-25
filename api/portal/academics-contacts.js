@@ -17,6 +17,7 @@
 // preferred_contact_method is retired.
 
 import { verifyPortalNursingAcademicCaller } from '../lib/nursingAcademicScope.js'
+import { validateAvatarUrlChange } from '../lib/avatarImage.js'
 import { fetchAllRows } from '../lib/fetchAllRows.js'
 import {
   canonicalCategory,
@@ -96,9 +97,12 @@ function parseContactPayload(body, { create = false, existing = null } = {}) {
   if (payload.notes && payload.notes.length > 2000) return { error: 'invalid_notes' }
 
   // Avatar URL: written by the portal photo-upload endpoint (or cleared by
-  // Remove Photo). Anything set must be an http(s) URL.
-  if (payload.avatar_url && !/^https?:\/\//.test(payload.avatar_url)) {
-    return { error: 'invalid_avatar_url' }
+  // Remove Photo). S-16: anything set must be a file in ASPIRE's own Storage,
+  // empty, or the row's unchanged stored value; never an arbitrary URL.
+  if (payload.avatar_url !== undefined && payload.avatar_url !== null) {
+    const avatarCheck = validateAvatarUrlChange(payload.avatar_url, existing?.avatar_url)
+    if (!avatarCheck.ok) return { error: 'invalid_avatar_url' }
+    payload.avatar_url = avatarCheck.value
   }
 
   // Category: canonical singular, legacy accepted and rewritten.
@@ -200,7 +204,7 @@ async function readContacts(db, includeInactive = false, ready = READY_ALL) {
 
 async function readContact(db, id) {
   const { data, error } = await db.from('contacts')
-    .select('id, category, role, unit_name, related_units, school_name, organization')
+    .select('id, category, role, unit_name, related_units, school_name, organization, avatar_url')
     .eq('id', id)
     .maybeSingle()
   if (error) throw error

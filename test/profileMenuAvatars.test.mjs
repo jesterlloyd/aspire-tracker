@@ -44,7 +44,10 @@ test('UserMenu links the canonical public site in a new tab, portal-style', () =
   // Existing self-photo controls are untouched.
   assert.match(userMenu, /Change Photo/)
   assert.match(userMenu, /Remove photo/)
-  assert.match(userMenu, /rpc\('update_my_avatar'/)
+  // S16-1: the self photo is written by /api/my-avatar; the browser no longer calls
+  // update_my_avatar or touches Storage.
+  assert.match(userMenu, /fetch\('\/api\/my-avatar'/)
+  assert.doesNotMatch(userMenu, /rpc\('update_my_avatar'/)
 })
 
 // ── Portal menus: unified structure ──────────────────────────────────────────

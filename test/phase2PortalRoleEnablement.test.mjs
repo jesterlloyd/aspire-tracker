@@ -130,7 +130,9 @@ test('portal role cannot escalate to staff (applied-migration posture)', async (
   await t.test('self-service avatar and Connect signature RPCs remain referenced', () => {
     const menu = readFileSync(join(here, '../src/components/UserMenu.jsx'), 'utf8')
     const sig = readFileSync(join(here, '../src/components/settings/SignaturePanel.jsx'), 'utf8')
-    assert.match(menu, /update_my_avatar/, 'avatar self-service preserved')
+    // S16-1: avatar self-service moved to /api/my-avatar (server-side upload); the RPC
+    // is no longer called from the browser and its EXECUTE is revoked by 20261001000000.
+    assert.match(menu, /\/api\/my-avatar/, 'avatar self-service preserved, through the server')
     assert.match(sig, /update_my_connect_signature/, 'Connect signature self-service preserved')
   })
 

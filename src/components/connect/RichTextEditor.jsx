@@ -22,6 +22,7 @@ import NoteModal from './blocks/NoteModal'
 import { EventBlock } from './blocks/EventBlock'
 import EventModal from './blocks/EventModal'
 import { isValidRichDoc } from '../../lib/connect/richCompose'
+import Tooltip from '../ui/Tooltip'
 
 const F = 'Plus Jakarta Sans, sans-serif'
 const NAVY = '#1D2567'
@@ -30,19 +31,20 @@ const SAFE_LINK = /^(https?:\/\/|mailto:)/i
 // Module-level toolbar button (hoisted out of the editor render so it is not recreated each render).
 function TBtn({ on, onClick, label, disabled, children }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      aria-label={label}
-      aria-pressed={!!on}
-      title={label}
-      style={{
-        minWidth: 36, height: 36, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        border: '1px solid ' + (on ? NAVY : 'rgba(29,37,103,0.14)'), borderRadius: 7, cursor: disabled ? 'not-allowed' : 'pointer',
-        background: on ? NAVY : '#fff', color: on ? '#fff' : '#4A5560', padding: 0,
-      }}
-    >{children}</button>
+    <Tooltip label={label} placement="top" disabled={disabled}>
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        aria-label={label}
+        aria-pressed={!!on}
+        style={{
+          minWidth: 36, height: 36, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          border: '1px solid ' + (on ? NAVY : 'rgba(29,37,103,0.14)'), borderRadius: 7, cursor: disabled ? 'not-allowed' : 'pointer',
+          background: on ? NAVY : '#fff', color: on ? '#fff' : '#4A5560', padding: 0,
+        }}
+      >{children}</button>
+    </Tooltip>
   )
 }
 
@@ -232,23 +234,24 @@ export default function RichTextEditor({ html = '', richDocRef = null, onChange,
       {/* Compact toolbar */}
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 4, padding: 6, border: '1.5px solid #e5e7eb', borderBottom: 'none', borderRadius: '8px 8px 0 0', background: '#faf9f7' }}>
         {/* Style dropdown: Body / Heading / Subheading (locked styles applied server-side at render) */}
-        <select
-          value={editor.isActive('heading', { level: 2 }) ? 'h2' : editor.isActive('heading', { level: 3 }) ? 'h3' : 'p'}
-          disabled={disabled}
-          onChange={e => {
-            const v = e.target.value, c = editor.chain().focus()
-            if (v === 'h2') c.setHeading({ level: 2 }).run()
-            else if (v === 'h3') c.setHeading({ level: 3 }).run()
-            else c.setParagraph().run()
-          }}
-          aria-label="Text style"
-          title="Text style"
-          style={{ height: 36, borderRadius: 7, border: '1px solid rgba(29,37,103,0.14)', background: '#fff', color: '#4A5560', fontFamily: F, fontSize: 12, fontWeight: 600, padding: '0 6px', cursor: disabled ? 'not-allowed' : 'pointer' }}
-        >
-          <option value="p">Body</option>
-          <option value="h2">Heading</option>
-          <option value="h3">Subheading</option>
-        </select>
+        <Tooltip label="Text style" placement="top" disabled={disabled}>
+          <select
+            value={editor.isActive('heading', { level: 2 }) ? 'h2' : editor.isActive('heading', { level: 3 }) ? 'h3' : 'p'}
+            disabled={disabled}
+            onChange={e => {
+              const v = e.target.value, c = editor.chain().focus()
+              if (v === 'h2') c.setHeading({ level: 2 }).run()
+              else if (v === 'h3') c.setHeading({ level: 3 }).run()
+              else c.setParagraph().run()
+            }}
+            aria-label="Text style"
+            style={{ height: 36, borderRadius: 7, border: '1px solid rgba(29,37,103,0.14)', background: '#fff', color: '#4A5560', fontFamily: F, fontSize: 12, fontWeight: 600, padding: '0 6px', cursor: disabled ? 'not-allowed' : 'pointer' }}
+          >
+            <option value="p">Body</option>
+            <option value="h2">Heading</option>
+            <option value="h3">Subheading</option>
+          </select>
+        </Tooltip>
         {sep}
         <TBtn on={editor.isActive('bold')} disabled={disabled} onClick={() => editor.chain().focus().toggleBold().run()} label="Bold"><Bold size={15} /></TBtn>
         <TBtn on={editor.isActive('italic')} disabled={disabled} onClick={() => editor.chain().focus().toggleItalic().run()} label="Italic"><Italic size={15} /></TBtn>

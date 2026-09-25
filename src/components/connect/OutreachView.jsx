@@ -3406,7 +3406,12 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
                 renderer/endpoint used to send, plus the server-resolved (school-first) recipient. */}
             {dmConfirmOpen && (
             <div className="outreach-email-preview-pane">
-            <ConnectPanel tone="preview" title="Email Preview">
+            <ConnectPanel
+              tone="preview"
+              title="Email Preview"
+              className="outreach-preview-panel"
+              bodyClassName={classicDesk ? '' : 'outreach-preview-scroll outreach-preview-expand'}
+            >
 
                 {/* Resolved recipient + source */}
                 {dmPreview.recipient && (() => {
@@ -3460,18 +3465,19 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
                   </div>
                 )}
 
-                <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+                <div className="outreach-preview-frame" style={{ background: '#fff', borderRadius: 8, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
                   {dmPreview.loading ? (
                     <div style={{ padding: '24px 14px', fontSize: 12, color: '#9ca3af', fontFamily: F, textAlign: 'center' }}>Rendering preview…</div>
                   ) : dmPreview.error ? (
                     <div style={{ padding: '16px 14px', fontSize: 12, color: '#dc2626', fontFamily: F }}>{dmPreview.error}</div>
                   ) : dmPreview.html ? (
                     <iframe
+                      className="outreach-preview-iframe outreach-preview-iframe-expand"
                       title="Preview as sent"
                       srcDoc={dmPreview.html}
                       sandbox=""
                       referrerPolicy="no-referrer"
-                      style={{ width: '100%', height: 520, border: 'none', background: '#fff', display: 'block' }}
+                      style={{ width: '100%', height: classicDesk ? 520 : '100%', border: 'none', background: '#fff', display: 'block' }}
                     />
                   ) : (
                     <div style={{ padding: '24px 14px', fontSize: 13, color: '#d1d5db', fontStyle: 'italic', fontFamily: F, textAlign: 'center' }}>
@@ -3809,8 +3815,8 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
             clipboard
             bodyClassName="outreach-recipient-file-body"
             helper={loadingStudents ? 'Loading students…' : `${students.length} students in cohort`}
-            style={{ flex: '0 0 340px', minWidth: 280, maxHeight: 'calc(100dvh - 280px)', overflowY: classicDesk ? 'visible' : 'auto' }}
-            bodyStyle={classicDesk ? { minHeight: 0, overflowY: 'auto' } : undefined}>
+            style={{ flex: '0 0 340px', minWidth: 280 }}
+            bodyStyle={{ minHeight: 0, overflowY: 'auto' }}>
 
             {/* Unified Audience Source tabs - Survey Invitation requires student recipients, so
                 Students is active/required and Contacts / Paste · Type are disabled with a note. */}
@@ -4057,7 +4063,12 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
 
             {/* Pre-generation summary */}
             {!bulkResults && (
-              <ConnectPanel tone="draft" icon="clipboardCheck" title="Bulk Student Casey-Fink Survey">
+              <ConnectPanel
+                tone="draft"
+                icon="clipboardCheck"
+                title="Bulk Student Casey-Fink Survey"
+                bodyClassName={classicDesk ? '' : 'outreach-draft-scroll'}
+              >
                 <div style={{ fontSize: 11, color: '#6b7280', fontFamily: F, lineHeight: 1.6, marginBottom: 16 }}>
                   {INSTRUMENTS.find(i => i.slug === bulkInstrument)?.label}<br />
                   {TIMEPOINTS.find(t => t.value === bulkTimepoint)?.label}
@@ -4146,7 +4157,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
 
             {/* Results */}
             {bulkResults && (
-              <div>
+              <div className="outreach-bulk-survey-results">
                 {/* Error state */}
                 {bulkResults.error && (
                   <div style={{ ...panelCard, padding: '14px 16px',

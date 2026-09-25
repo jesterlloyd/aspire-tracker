@@ -868,17 +868,15 @@ export default function BulkManualComposer({
     <div className="outreach-bulk-manual" style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'flex-start', width: '100%' }}>
 
       {/* ── Zone 1: Recipients ───────────────────────────────────────────── */}
-      {/* overflow stays auto for the long Students/Contacts lists, but is visible for Paste · Type
-          so the typeahead suggestion dropdown is never clipped by the card. */}
+      {/* The pane stays fixed to the workspace. Its body owns the audience scroll. */}
       <ConnectPanel tone="audience" title="Recipients" helper="Build one recipient list from any source."
         className="outreach-recipient-file outreach-recipient-file-bulk"
         clipboard
         bodyClassName="outreach-recipient-file-body"
         style={{
-          flex: '0 0 340px', minWidth: 280, maxHeight: 'calc(100dvh - 280px)',
-          overflowY: classicDesk ? 'visible' : (source === 'paste' ? 'visible' : 'auto'),
+          flex: '0 0 340px', minWidth: 280,
         }}
-        bodyStyle={classicDesk ? { minHeight: 0, overflowY: source === 'paste' ? 'visible' : 'auto' } : undefined}>
+        bodyStyle={{ minHeight: 0, overflowY: 'auto' }}>
 
         {/* Audience Source selector */}
         <div style={{ display: 'flex', borderBottom: '1px solid #f3f4f6', marginBottom: 10 }}>
@@ -1178,7 +1176,12 @@ export default function BulkManualComposer({
       {/* ── Zone 3: Draft / Preview / Review ─────────────────────────────── */}
       <div className="outreach-bulk-draft-column" style={{ flex: '1 1 320px', minWidth: 280 }}>
         {!previewOpen && (
-        <ConnectPanel tone="draft" title="Draft" className="outreach-draft-panel">
+        <ConnectPanel
+          tone="draft"
+          title="Draft"
+          className="outreach-draft-panel"
+          bodyClassName={classicDesk ? '' : 'outreach-draft-scroll'}
+        >
 
           <div className="outreach-address-subject" style={{ marginBottom: 12 }}>
             <label style={labelStyle}>Subject</label>
@@ -1260,7 +1263,13 @@ export default function BulkManualComposer({
         {/* The branded preview replaces the draft in the same paper column. */}
         {previewOpen && (
         <div className="outreach-email-preview-pane outreach-bulk-preview-pane">
-        <ConnectPanel tone="preview" title="Email Preview" padding={24}>
+        <ConnectPanel
+          tone="preview"
+          title="Email Preview"
+          padding={24}
+          className="outreach-preview-panel"
+          bodyClassName={classicDesk ? '' : 'outreach-preview-scroll'}
+        >
 
           {recipients.length === 0 ? (
             <div style={{ fontSize: 12, color: '#9ca3af', fontFamily: F, padding: '12px 0', textAlign: 'center' }}>
@@ -1285,13 +1294,14 @@ export default function BulkManualComposer({
               {(previewRid || isManualPreview) ? (
                 // Branded "Email Preview" - student/contact via the direct-email preview endpoint,
                 // manual/raw via the Phase 2B-1 bulk-message preview endpoint. Preview only - no send.
-                <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+                <div className="outreach-preview-frame" style={{ background: '#fff', borderRadius: 8, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
                   {preview.loading ? (
                     <div style={{ padding: '24px 14px', fontSize: 12, color: '#9ca3af', fontFamily: F, textAlign: 'center' }}>Rendering preview…</div>
                   ) : preview.error ? (
                     <div style={{ padding: '16px 14px', fontSize: 12, color: '#dc2626', fontFamily: F }}>{preview.error}</div>
                   ) : preview.html ? (
                     <iframe
+                      className="outreach-preview-iframe"
                       title="Email Preview"
                       srcDoc={preview.html}
                       sandbox=""

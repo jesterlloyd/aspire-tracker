@@ -475,13 +475,17 @@
 
 /* Modern Outreach keeps the same workflow geometry without the desk materials. */
 .outreach-workspace-modern .outreach-single-layout,
-.outreach-workspace-modern .outreach-bulk-manual {
+.outreach-workspace-modern .outreach-bulk-manual,
+.outreach-workspace-modern .outreach-bulk-survey-layout {
   align-items: stretch !important;
   flex-wrap: nowrap !important;
+  height: 100%;
+  min-height: 0;
 }
 .outreach-workspace-modern .outreach-correspondence-files,
 .outreach-workspace-modern .outreach-correspondence-letter,
-.outreach-workspace-modern .outreach-bulk-draft-column {
+.outreach-workspace-modern .outreach-bulk-draft-column,
+.outreach-workspace-modern .outreach-bulk-survey-draft-column {
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -489,7 +493,8 @@
 .outreach-workspace-modern .outreach-correspondence-letter > .outreach-draft-panel,
 .outreach-workspace-modern .outreach-correspondence-letter > .outreach-email-preview-pane,
 .outreach-workspace-modern .outreach-bulk-draft-column > .outreach-draft-panel,
-.outreach-workspace-modern .outreach-bulk-draft-column > .outreach-email-preview-pane {
+.outreach-workspace-modern .outreach-bulk-draft-column > .outreach-email-preview-pane,
+.outreach-workspace-modern .outreach-bulk-survey-draft-column > .connect-panel {
   flex: 1 1 auto;
   min-height: 0;
 }
@@ -501,18 +506,66 @@
   min-height: 0;
 }
 .outreach-workspace-modern .outreach-bulk-manual > .connect-panel,
-.outreach-workspace-modern .outreach-bulk-manual > .outreach-bulk-draft-column {
+.outreach-workspace-modern .outreach-bulk-manual > .outreach-bulk-draft-column,
+.outreach-workspace-modern .outreach-bulk-survey-layout > .connect-panel,
+.outreach-workspace-modern .outreach-bulk-survey-layout > .outreach-bulk-survey-draft-column {
   align-self: stretch;
+  height: 100%;
+  min-height: 0;
   max-height: none !important;
 }
 .outreach-workspace-modern .outreach-bulk-manual > .outreach-bulk-draft-column > .connect-panel,
-.outreach-workspace-modern .outreach-bulk-manual > .outreach-bulk-draft-column > .outreach-email-preview-pane {
+.outreach-workspace-modern .outreach-bulk-manual > .outreach-bulk-draft-column > .outreach-email-preview-pane,
+.outreach-workspace-modern .outreach-bulk-survey-layout > .outreach-bulk-survey-draft-column > .connect-panel {
   height: 100%;
   box-sizing: border-box;
+}
+.outreach-workspace-modern .outreach-bulk-manual > .connect-panel,
+.outreach-workspace-modern .outreach-bulk-survey-layout > .connect-panel,
+.outreach-workspace-modern .outreach-bulk-draft-column > .outreach-draft-panel,
+.outreach-workspace-modern .outreach-bulk-survey-draft-column > .connect-panel,
+.outreach-workspace-modern .outreach-preview-panel {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden !important;
+}
+.outreach-workspace-modern .outreach-bulk-manual .outreach-recipient-file-body,
+.outreach-workspace-modern .outreach-bulk-survey-layout .outreach-recipient-file-body,
+.outreach-workspace-modern .outreach-bulk-manual .outreach-paper-scroll,
+.outreach-workspace-modern .outreach-bulk-survey-layout .outreach-paper-scroll,
+.outreach-workspace-modern .outreach-draft-scroll,
+.outreach-workspace-modern .outreach-preview-scroll,
+.outreach-workspace-modern .outreach-bulk-survey-results {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
 }
 .outreach-workspace-modern .outreach-draft-panel {
   display: flex;
   flex-direction: column;
+}
+.outreach-workspace-modern .outreach-preview-expand {
+  display: flex;
+  flex-direction: column;
+}
+.outreach-workspace-modern .outreach-preview-expand .outreach-preview-frame {
+  flex: 1 1 520px;
+  min-height: 520px;
+}
+.outreach-workspace-modern .outreach-preview-iframe-expand {
+  height: 100%;
+  min-height: 520px;
+}
+
+@media (min-width: 841px) {
+  .outreach-workspace-modern .outreach-desk-shell[data-outreach-mode='single'],
+  .outreach-workspace-modern .outreach-desk-shell[data-outreach-mode='bulk'] {
+    box-sizing: border-box;
+    position: sticky;
+    top: var(--outreach-desk-top, 156px);
+    height: var(--outreach-desk-h, calc(100dvh - 180px));
+    min-height: 420px;
+  }
 }
 .outreach-workspace-modern .outreach-address-to,
 .outreach-workspace-modern .outreach-address-cc,
@@ -706,13 +759,17 @@
 
 @media (max-width: 840px) {
   .outreach-workspace-modern .outreach-single-layout,
-  .outreach-workspace-modern .outreach-bulk-manual { flex-direction: column; flex-wrap: wrap !important; height: auto; }
+  .outreach-workspace-modern .outreach-bulk-manual,
+  .outreach-workspace-modern .outreach-bulk-survey-layout { flex-direction: column; flex-wrap: wrap !important; height: auto; }
   .outreach-workspace-modern .outreach-correspondence-files,
   .outreach-workspace-modern .outreach-correspondence-letter,
   .outreach-workspace-modern .outreach-bulk-manual > .connect-panel,
-  .outreach-workspace-modern .outreach-bulk-manual > .outreach-bulk-draft-column { width: 100%; min-width: 0 !important; flex-basis: auto !important; }
+  .outreach-workspace-modern .outreach-bulk-manual > .outreach-bulk-draft-column,
+  .outreach-workspace-modern .outreach-bulk-survey-layout > .connect-panel,
+  .outreach-workspace-modern .outreach-bulk-survey-layout > .outreach-bulk-survey-draft-column { width: 100%; min-width: 0 !important; flex-basis: auto !important; }
   .outreach-workspace-modern .outreach-correspondence-letter > .outreach-draft-panel,
   .outreach-workspace-modern .outreach-bulk-draft-column > .outreach-draft-panel,
+  .outreach-workspace-modern .outreach-bulk-survey-draft-column > .connect-panel,
   .outreach-workspace-modern .outreach-email-preview-pane { height: auto; }
   .outreach-workspace-classic .outreach-desk-shell[data-outreach-mode='single'],
   .outreach-workspace-classic .outreach-desk-shell[data-outreach-mode='bulk'] { position: relative; top: auto; height: auto; min-height: 0; }
