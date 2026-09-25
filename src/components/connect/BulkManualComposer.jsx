@@ -1177,13 +1177,14 @@ export default function BulkManualComposer({
 
       {/* ── Zone 3: Draft / Preview / Review ─────────────────────────────── */}
       <div className="outreach-bulk-draft-column" style={{ flex: '1 1 320px', minWidth: 280 }}>
+        {!previewOpen && (
         <ConnectPanel tone="draft" title="Draft" className="outreach-draft-panel">
 
-          <div style={{ marginBottom: 12 }}>
+          <div className="outreach-address-subject" style={{ marginBottom: 12 }}>
             <label style={labelStyle}>Subject</label>
             <input className="outreach-field-control" value={subject} onChange={e => setSubject(e.target.value)} style={inputBase} />
           </div>
-          <div style={{ marginBottom: 12 }}>
+          <div className="outreach-message-body" style={{ marginBottom: 12 }}>
             <label style={labelStyle}>Message</label>
             {richEnabled ? (
               // ASPIRE-CONNECT-BULK-RICH-TEMPLATES-1: key={bulkMsgType} remounts the editor on a template
@@ -1215,7 +1216,7 @@ export default function BulkManualComposer({
                 return (
                   <button
                     className="outreach-primary-action"
-                    onClick={() => previewOpen ? setReviewOpen(true) : setPreviewOpen(true)}
+                    onClick={() => setPreviewOpen(true)}
                     disabled={!reviewReady}
                     style={{
                       padding: '9px 18px', borderRadius: 8, border: 'none',
@@ -1223,7 +1224,7 @@ export default function BulkManualComposer({
                       fontSize: 13, fontWeight: 600, fontFamily: F, cursor: reviewReady ? 'pointer' : 'not-allowed',
                     }}
                   >
-                    {previewOpen ? `Continue to final review (${recipients.length})` : `Review & send (${recipients.length})`}
+                    Review & send ({recipients.length})
                   </button>
                 )
               })()}
@@ -1231,7 +1232,7 @@ export default function BulkManualComposer({
                 {recipients.length === 0 ? 'Add recipients to continue.'
                   : !subject.trim() ? 'Add a subject to continue.'
                   : !body.trim() ? 'Add a message to continue.'
-                  : previewOpen ? 'A typed confirmation is required in the next step.' : 'Review the final email before confirming the send.'}
+                  : 'Review the final email before confirming the send.'}
               </span>
             </div>
 
@@ -1254,10 +1255,12 @@ export default function BulkManualComposer({
             First name and school merge per recipient at send. All other [placeholders] (links, deadlines, dates, unit, preceptor) are edited once here and sent as-is.
           </div>
         </ConnectPanel>
+        )}
 
-        {/* The branded preview is a deliberate review step, not permanent draft clutter. */}
+        {/* The branded preview replaces the draft in the same paper column. */}
         {previewOpen && (
-        <ConnectPanel tone="preview" title="Email Preview" padding={24} style={{ marginTop: 14 }}>
+        <div className="outreach-email-preview-pane outreach-bulk-preview-pane">
+        <ConnectPanel tone="preview" title="Email Preview" padding={24}>
 
           {recipients.length === 0 ? (
             <div style={{ fontSize: 12, color: '#9ca3af', fontFamily: F, padding: '12px 0', textAlign: 'center' }}>
@@ -1317,7 +1320,33 @@ export default function BulkManualComposer({
               </div>
             </div>
           )}
+
+          <div className="outreach-preview-actions">
+            <button
+              type="button"
+              className="outreach-preview-secondary"
+              onClick={() => setPreviewOpen(false)}
+            >
+              Back to Draft
+            </button>
+            <button
+              type="button"
+              className="outreach-primary-action"
+              onClick={() => setReviewOpen(true)}
+              disabled={recipients.length === 0 || !subject.trim() || !body.trim()}
+              style={{
+                padding: '9px 18px', borderRadius: 8, border: 'none',
+                background: recipients.length > 0 && subject.trim() && body.trim() ? NAVY : '#e5e7eb',
+                color: recipients.length > 0 && subject.trim() && body.trim() ? '#fff' : '#9ca3af',
+                fontSize: 13, fontWeight: 600, fontFamily: F,
+                cursor: recipients.length > 0 && subject.trim() && body.trim() ? 'pointer' : 'not-allowed',
+              }}
+            >
+              Continue to final review ({recipients.length})
+            </button>
+          </div>
         </ConnectPanel>
+        </div>
         )}
 
       </div>

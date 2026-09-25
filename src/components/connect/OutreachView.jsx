@@ -3149,56 +3149,12 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
             {!dmConfirmOpen && (
             <ConnectPanel tone="draft" title="Draft" className="outreach-draft-panel">
 
-              {classicDesk && (
-                <div className="outreach-address-to" style={fieldWrap}>
-                  <label style={labelStyle}>To</label>
-                  <div className="outreach-address-value">
-                    <span>{dmRecipientName || 'Choose a recipient'}</span>
-                    {resolvedToEmail && <span>&lt;{resolvedToEmail}&gt;</span>}
-                  </div>
+              <div className="outreach-address-to" style={fieldWrap}>
+                <label style={labelStyle}>To</label>
+                <div className="outreach-address-value">
+                  <span>{dmRecipientName || 'Choose a recipient'}</span>
+                  {resolvedToEmail && <span>&lt;{resolvedToEmail}&gt;</span>}
                 </div>
-              )}
-
-              {/* Subject input */}
-              {/* Subject input - enabled for any loaded recipient (contact or student) */}
-              <div className="outreach-address-subject" style={fieldWrap}>
-                <label style={labelStyle}>Subject</label>
-                <input className="outreach-field-control"
-                  type="text"
-                  value={msgSubject}
-                  onChange={e => { markDraftDirty(); setMsgSubject(e.target.value) }}
-                  placeholder="Email subject"
-                  style={inputBase}
-                  disabled={!dmHasAnyRecipient}
-                />
-              </div>
-
-              {/* Body - rich editor when the Owner has opted in (flag), else the plain-text textarea. */}
-              <div className="outreach-message-body" style={fieldWrap}>
-                <label style={labelStyle}>Message</label>
-                {richEnabled ? (
-                  <RichTextEditor
-                    html={msgBody}
-                    richDocRef={richDocRef}
-                    onChange={(html, json) => { markDraftDirty(); setMsgBody(html); richDocRef.current = json || null }}
-                    disabled={!dmHasAnyRecipient}
-                    ariaLabel="Message"
-                    minHeight={160}
-                  />
-                ) : (
-                  <textarea className="outreach-field-control"
-                    value={msgBody}
-                    onChange={e => { markDraftDirty(); setMsgBody(e.target.value) }}
-                    placeholder={
-                      dmHasAnyRecipient
-                        ? 'Compose your message…'
-                        : 'Return to Contacts or Student Profiles and click Email to compose a direct message.'
-                    }
-                    rows={8}
-                    style={{ ...inputBase, resize: 'vertical', lineHeight: 1.6, minHeight: 160 }}
-                    disabled={!dmHasAnyRecipient}
-                  />
-                )}
               </div>
 
               {/* CC field (CONNECT-COMMS-1D) - Direct Message only. Chips + free entry; the clinical
@@ -3254,6 +3210,48 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
                   <div style={{ marginTop: 5, fontSize: 11, color: '#6b7280', fontFamily: F }}>
                     Suggested from this student's clinical coordinator{coordName ? ` (${coordName})` : ''}. Remove if not needed.
                   </div>
+                )}
+              </div>
+
+              {/* Subject input */}
+              {/* Subject input - enabled for any loaded recipient (contact or student) */}
+              <div className="outreach-address-subject" style={fieldWrap}>
+                <label style={labelStyle}>Subject</label>
+                <input className="outreach-field-control"
+                  type="text"
+                  value={msgSubject}
+                  onChange={e => { markDraftDirty(); setMsgSubject(e.target.value) }}
+                  placeholder="Email subject"
+                  style={inputBase}
+                  disabled={!dmHasAnyRecipient}
+                />
+              </div>
+
+              {/* Body - rich editor when the Owner has opted in (flag), else the plain-text textarea. */}
+              <div className="outreach-message-body" style={fieldWrap}>
+                <label style={labelStyle}>Message</label>
+                {richEnabled ? (
+                  <RichTextEditor
+                    html={msgBody}
+                    richDocRef={richDocRef}
+                    onChange={(html, json) => { markDraftDirty(); setMsgBody(html); richDocRef.current = json || null }}
+                    disabled={!dmHasAnyRecipient}
+                    ariaLabel="Message"
+                    minHeight={160}
+                  />
+                ) : (
+                  <textarea className="outreach-field-control"
+                    value={msgBody}
+                    onChange={e => { markDraftDirty(); setMsgBody(e.target.value) }}
+                    placeholder={
+                      dmHasAnyRecipient
+                        ? 'Compose your message…'
+                        : 'Return to Contacts or Student Profiles and click Email to compose a direct message.'
+                    }
+                    rows={8}
+                    style={{ ...inputBase, resize: 'vertical', lineHeight: 1.6, minHeight: 160 }}
+                    disabled={!dmHasAnyRecipient}
+                  />
                 )}
               </div>
 

@@ -205,10 +205,10 @@
 .outreach-workspace-classic .outreach-draft-panel > .outreach-message-body { order: 4; }
 .outreach-workspace-classic .outreach-address-value {
   display: flex;
-  min-height: 39px;
+  min-height: 34px;
   align-items: center;
   gap: 6px;
-  padding: 8px 12px;
+  padding: 5px 10px;
   border: 1px solid var(--ocd-field-border);
   border-radius: var(--ocd-r-8);
   background: #fff;
@@ -218,6 +218,25 @@
 }
 .outreach-workspace-classic .outreach-address-value span:last-child {
   color: var(--ocd-muted);
+}
+.outreach-workspace-classic .outreach-address-to,
+.outreach-workspace-classic .outreach-address-cc,
+.outreach-workspace-classic .outreach-address-subject {
+  margin-bottom: 8px !important;
+}
+.outreach-workspace-classic .outreach-address-to > label,
+.outreach-workspace-classic .outreach-address-cc > label,
+.outreach-workspace-classic .outreach-address-subject > label,
+.outreach-workspace-classic .outreach-message-body > label {
+  margin-bottom: 3px !important;
+}
+.outreach-workspace-classic .outreach-address-subject > input {
+  min-height: 34px;
+  padding: 6px 10px !important;
+}
+.outreach-workspace-classic .outreach-cc-control {
+  min-height: 34px;
+  padding: 4px 8px !important;
 }
 .outreach-workspace-classic input,
 .outreach-workspace-classic select,
@@ -368,9 +387,24 @@
   border: 1px solid var(--ocd-field-border) !important;
   background: #fff !important;
 }
+.outreach-workspace-classic .outreach-message-body {
+  display: flex;
+  flex: 1 1 330px;
+  flex-direction: column;
+  min-height: 330px;
+  margin-bottom: 8px !important;
+}
+.outreach-workspace-classic .outreach-message-body > textarea {
+  flex: 1 1 auto;
+  min-height: 330px !important;
+}
 
 /* Existing rich text controls become the restrained typewriter carriage. */
 .outreach-workspace-classic .outreach-rich-editor {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
   overflow: hidden;
   border: 1px solid var(--ocd-field-border);
   border-radius: var(--ocd-r-8);
@@ -384,6 +418,7 @@
   box-shadow: inset 0 2px 2px rgba(255, 255, 255, 0.63), 0 2px 3px rgba(0, 0, 0, 0.13);
 }
 .outreach-workspace-classic .outreach-rich-editor-surface {
+  flex: 1 1 auto;
   border: 0 !important;
   border-radius: 0 !important;
 }
@@ -399,7 +434,9 @@
   color: #fff !important;
 }
 .outreach-workspace-classic .rte-content {
-  min-height: 285px !important;
+  box-sizing: border-box;
+  min-height: 330px !important;
+  height: 100%;
   background: #fff;
   color: var(--ocd-ink);
 }
@@ -434,6 +471,192 @@
   border-color: var(--ocd-navy) !important;
   background: #eef2fb !important;
   color: var(--ocd-navy) !important;
+}
+
+/* Modern Outreach keeps the same workflow geometry without the desk materials. */
+.outreach-workspace-modern .outreach-single-layout,
+.outreach-workspace-modern .outreach-bulk-manual {
+  align-items: stretch !important;
+  flex-wrap: nowrap !important;
+}
+.outreach-workspace-modern .outreach-correspondence-files,
+.outreach-workspace-modern .outreach-correspondence-letter,
+.outreach-workspace-modern .outreach-bulk-draft-column {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.outreach-workspace-modern .outreach-correspondence-letter > .outreach-draft-panel,
+.outreach-workspace-modern .outreach-correspondence-letter > .outreach-email-preview-pane,
+.outreach-workspace-modern .outreach-bulk-draft-column > .outreach-draft-panel,
+.outreach-workspace-modern .outreach-bulk-draft-column > .outreach-email-preview-pane {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.outreach-workspace-modern .outreach-email-preview-pane {
+  display: flex;
+}
+.outreach-workspace-modern .outreach-email-preview-pane > .connect-panel {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.outreach-workspace-modern .outreach-bulk-manual > .connect-panel,
+.outreach-workspace-modern .outreach-bulk-manual > .outreach-bulk-draft-column {
+  align-self: stretch;
+  max-height: none !important;
+}
+.outreach-workspace-modern .outreach-bulk-manual > .outreach-bulk-draft-column > .connect-panel,
+.outreach-workspace-modern .outreach-bulk-manual > .outreach-bulk-draft-column > .outreach-email-preview-pane {
+  height: 100%;
+  box-sizing: border-box;
+}
+.outreach-workspace-modern .outreach-draft-panel {
+  display: flex;
+  flex-direction: column;
+}
+.outreach-workspace-modern .outreach-address-to,
+.outreach-workspace-modern .outreach-address-cc,
+.outreach-workspace-modern .outreach-address-subject {
+  margin-bottom: 8px !important;
+}
+.outreach-workspace-modern .outreach-address-to > label,
+.outreach-workspace-modern .outreach-address-cc > label,
+.outreach-workspace-modern .outreach-address-subject > label,
+.outreach-workspace-modern .outreach-message-body > label {
+  margin-bottom: 3px !important;
+}
+.outreach-workspace-modern .outreach-address-value {
+  display: flex;
+  min-height: 34px;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: var(--aspire-radius-control, 8px);
+  background: #fff;
+  color: #191919;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 13px;
+  line-height: 1.4;
+}
+.outreach-workspace-modern .outreach-address-value span:last-child {
+  color: #6b7280;
+}
+.outreach-workspace-modern .outreach-address-subject > input {
+  min-height: 34px;
+  padding: 6px 10px !important;
+}
+.outreach-workspace-modern .outreach-cc-control {
+  min-height: 34px;
+  padding: 4px 8px !important;
+}
+.outreach-workspace-modern .outreach-message-body {
+  display: flex;
+  flex: 1 1 320px;
+  flex-direction: column;
+  min-height: 280px;
+  margin-bottom: 8px !important;
+}
+.outreach-workspace-modern .outreach-message-body > textarea {
+  flex: 1 1 auto;
+  min-height: 280px !important;
+}
+.outreach-workspace-modern .outreach-rich-editor {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+.outreach-workspace-modern .outreach-rich-editor-surface {
+  flex: 1 1 auto;
+}
+.outreach-workspace-modern .rte-content {
+  box-sizing: border-box;
+  min-height: 280px !important;
+  height: 100%;
+}
+.outreach-workspace-modern .outreach-draft-action-bar {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px 12px;
+  flex-wrap: wrap;
+  margin: 2px 0 8px;
+  padding-top: 2px;
+}
+.outreach-workspace-modern .outreach-draft-action-main {
+  display: flex;
+  flex: 1 1 560px;
+  align-items: center;
+  gap: 8px 12px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.outreach-workspace-modern .outreach-draft-action-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  margin-left: auto;
+}
+.outreach-workspace-modern .outreach-signature-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #374151;
+  cursor: pointer;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.outreach-workspace-modern .outreach-draft-status,
+.outreach-workspace-modern .outreach-action-help {
+  color: #9ca3af;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 11px;
+  line-height: 1.4;
+}
+.outreach-workspace-modern .outreach-draft-status:empty,
+.outreach-workspace-modern .outreach-draft-action-notices:empty {
+  display: none;
+}
+.outreach-workspace-modern .outreach-discard-draft {
+  padding: 5px 10px;
+  border: 1px solid #d5d8df;
+  border-radius: var(--aspire-radius-pill, 999px);
+  background: #fff;
+  color: #596273;
+  cursor: pointer;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+}
+.outreach-workspace-modern .outreach-discard-draft:hover {
+  border-color: #1d2567;
+  background: #eef2fb;
+  color: #1d2567;
+}
+
+.outreach-preview-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.outreach-preview-secondary {
+  padding: 8px 16px;
+  border: 1px solid #d5d8df;
+  border-radius: var(--aspire-radius-control, 8px);
+  background: #fff;
+  color: #4b5563;
+  cursor: pointer;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+}
+.outreach-workspace-classic .outreach-bulk-manual .connect-panel button.outreach-preview-secondary {
+  border-radius: var(--ocd-r-8) !important;
 }
 
 /* Sent History becomes one outgoing-correspondence ledger. */
@@ -482,6 +705,15 @@
 }
 
 @media (max-width: 840px) {
+  .outreach-workspace-modern .outreach-single-layout,
+  .outreach-workspace-modern .outreach-bulk-manual { flex-direction: column; flex-wrap: wrap !important; height: auto; }
+  .outreach-workspace-modern .outreach-correspondence-files,
+  .outreach-workspace-modern .outreach-correspondence-letter,
+  .outreach-workspace-modern .outreach-bulk-manual > .connect-panel,
+  .outreach-workspace-modern .outreach-bulk-manual > .outreach-bulk-draft-column { width: 100%; min-width: 0 !important; flex-basis: auto !important; }
+  .outreach-workspace-modern .outreach-correspondence-letter > .outreach-draft-panel,
+  .outreach-workspace-modern .outreach-bulk-draft-column > .outreach-draft-panel,
+  .outreach-workspace-modern .outreach-email-preview-pane { height: auto; }
   .outreach-workspace-classic .outreach-desk-shell[data-outreach-mode='single'],
   .outreach-workspace-classic .outreach-desk-shell[data-outreach-mode='bulk'] { position: relative; top: auto; height: auto; min-height: 0; }
   .outreach-workspace-classic .outreach-desk-shell { padding: 12px; border-width: 4px; overflow: visible; }

@@ -98,6 +98,45 @@ test('direct email preview replaces the draft within the same paper column', () 
   assert.match(css, /\.outreach-workspace-classic \.outreach-email-preview-pane > \.connect-panel \{[\s\S]*flex: 1 1 0;[\s\S]*overflow-y: auto;/)
 })
 
+test('direct message addressing stays compact and uses To, CC, Subject, Message order in both themes', () => {
+  const outreach = read('src/components/connect/OutreachView.jsx')
+  const css = read('src/components/connect/outreachCorrespondenceDesk.css')
+  const draft = outreach.slice(outreach.indexOf('<ConnectPanel tone="draft" title="Draft"'), outreach.indexOf('Keep draft controls together'))
+
+  const ordered = [
+    'className="outreach-address-to"',
+    'className="outreach-address-cc"',
+    'className="outreach-address-subject"',
+    'className="outreach-message-body"',
+  ].map(marker => draft.indexOf(marker))
+  assert.ok(ordered.every(index => index >= 0))
+  assert.deepEqual([...ordered].sort((a, b) => a - b), ordered)
+  assert.doesNotMatch(draft, /classicDesk &&[\s\S]{0,100}outreach-address-to/)
+  assert.match(css, /\.outreach-workspace-classic \.outreach-address-to,[\s\S]*margin-bottom: 8px !important;/)
+  assert.match(css, /\.outreach-workspace-classic \.outreach-message-body \{[\s\S]*flex: 1 1 330px;[\s\S]*min-height: 330px;/)
+  assert.match(css, /\.outreach-workspace-modern \.outreach-address-value \{[\s\S]*min-height: 34px;/)
+})
+
+test('bulk email preview replaces the draft and owns the next review action', () => {
+  const bulk = read('src/components/connect/BulkManualComposer.jsx')
+
+  assert.match(bulk, /\{!previewOpen && \(\s*<ConnectPanel tone="draft" title="Draft"/s)
+  assert.match(bulk, /\{previewOpen && \(\s*<div className="outreach-email-preview-pane outreach-bulk-preview-pane">\s*<ConnectPanel tone="preview" title="Email Preview"/s)
+  assert.match(bulk, /className="outreach-preview-secondary"[\s\S]*Back to Draft/)
+  assert.match(bulk, /className="outreach-primary-action"[\s\S]*setReviewOpen\(true\)[\s\S]*Continue to final review/)
+  assert.doesNotMatch(bulk, /title="Email Preview" padding=\{24\} style=\{\{ marginTop: 14 \}\}/)
+})
+
+test('Modern single and bulk papers align and keep draft actions in one control row', () => {
+  const css = read('src/components/connect/outreachCorrespondenceDesk.css')
+
+  assert.match(css, /\.outreach-workspace-modern \.outreach-single-layout,[\s\S]*\.outreach-workspace-modern \.outreach-bulk-manual \{[\s\S]*align-items: stretch !important;[\s\S]*flex-wrap: nowrap !important;/)
+  assert.match(css, /\.outreach-workspace-modern \.outreach-bulk-manual > \.connect-panel,[\s\S]*max-height: none !important;/)
+  assert.match(css, /\.outreach-workspace-modern \.outreach-draft-action-main \{[\s\S]*display: flex;[\s\S]*align-items: center;[\s\S]*flex-wrap: wrap;/)
+  assert.match(css, /\.outreach-workspace-modern \.outreach-draft-action-meta \{[\s\S]*margin-left: auto;/)
+  assert.match(css, /\.outreach-workspace-modern \.outreach-discard-draft \{[\s\S]*border-radius: var\(--aspire-radius-pill, 999px\);/)
+})
+
 test('bulk papers share one bottom edge and the obsolete scaffolding subtitle is gone', () => {
   const outreach = read('src/components/connect/OutreachView.jsx')
   const css = read('src/components/connect/outreachCorrespondenceDesk.css')
