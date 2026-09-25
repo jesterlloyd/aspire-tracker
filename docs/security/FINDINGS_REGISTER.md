@@ -137,12 +137,19 @@ afterward, from memory.
      `interview_sessions` were EXCLUDED by explicit decision: interviewers
      legitimately write them, and restricting by role without asking what a
      role legitimately does was judged the wrong test (Owner correction,
-     2026-08-22). The browser still writes all three directly
-     (`AvailabilitySection.jsx`, `InterviewDayDrawer.jsx`, `WeekCalendar.jsx`,
+     2026-08-22). The browser still writes all three directly, from five
+     files (re-verified 2026-09-24): `AvailabilitySection.jsx` (block
+     insert, activate, delete; slot insert), `InterviewDayDrawer.jsx`
+     (session update; slot block and unblock), `WeekCalendar.jsx` (session
+     update and insert for Teams-invite marking),
+     `AvailabilityManagerModal.jsx` (block activate, a fifth writer added
+     since the original entry), and `src/staff/StaffApp.jsx` (session delete
+     when a student is deleted; this is the file the entry used to call
      `App.jsx`). The precondition for splitting them, ownership-checked server
      endpoints for block activation, slot block/unblock, and Teams-invite
      marking, has not been built; `api/availability.js` ALLOWED_ACTIONS covers
-     only create_block, delete_block, delete_slot, cancel_booking.
+     five actions, create_block, delete_block, delete_slot, cancel_booking,
+     move_booking, none of which is one of those three.
   This is now the ONLY remaining part of S-04.
 
 ## S-05. Account deactivation revoked nothing
@@ -282,7 +289,7 @@ afterward, from memory.
 
 - **Severity (original)**: Medium.
 - **Status**: CLOSED.
-- **Closing commit**: this commit.
+- **Closing commit**: `74bc75ba` (2026-08-27).
 - **Risk (historical)**: the comparison was against the literal string
   "Bearer undefined" when the variable is unset, so a caller sending that exact
   header passed and could trigger reminder and digest sends.
@@ -358,21 +365,37 @@ afterward, from memory.
 
 ## S-18. anon USING (true) read policy on unit_leaders
 
-- **Severity (original)**: Medium. **Status**: OPEN (live state unconfirmed).
-- **Risk**: the full unit leader roster including emails readable with the publishable anon key.
-- **Verified at HEAD**: `anon_read_unit_leaders` appears in NO repository migration (dashboard-created out-of-band, same class as the interviewers catch-all closed by 20260822030000), and no migration REVOKEs anon on unit_leaders. Confirming and dropping it needs a live read plus a migration.
+- **Severity (original)**: Medium. **Status**: CLOSED, by table removal.
+- **Closing commit**: `68de62b0` (the migration, 2026-09-20) with `a92e83e3` (the
+  ledger row); the readers had already moved to Connect in `31f943c3`
+  (UNIT-LEADERS-RETIRE-1).
+- **Risk (historical)**: the full unit leader roster including emails readable with the publishable anon key.
+- **Evidence**: `supabase/migrations/20260923000000_drop_unit_leaders.sql` drops
+  `anon_read_unit_leaders` by name, then the table itself; the Owner applied it
+  on 2026-09-20 (PRE 3 listed exactly the three policies the migration names;
+  POST 1: present false, policies 0, indexes 0; see the OWNER_SQL_GATE ledger).
+  A policy on a table that no longer exists cannot be read through. Nothing
+  reads the table any more: `test/unitLeadersFromConnect.test.mjs` sweeps
+  `api/`, `lib/` and `src/` for any `from('unit_leaders')` and fails on one, so
+  the table cannot be quietly recreated and read without failing the suite.
+  Unit leadership is read from Connect contacts through
+  `src/lib/unitLeadersFromConnect.js` only.
+- **Historical note**: `anon_read_unit_leaders` was dashboard-created and
+  appeared in no repository migration, the same class as the interviewers
+  catch-all closed by 20260822030000. It was never confirmed by a live read
+  before the drop; the drop's PRE 3 was that confirmation.
 
 ## S-19. Raw provider and database error text returned on public routes
 
 - **Severity (original)**: Low. **Status**: PARTIALLY CLOSED.
 - **Risk**: internal table, constraint, and provider detail disclosed to anonymous callers.
-- **Verified at HEAD**: the S-01/S-06/S-07 and S-08 through S-11 hardening made the interview, intake, unit-form, and shift-log surfaces generic. ONE named residual remains: `api/school-form-submit.js:141` still returns `{ error: result.error }` raw from the placement upsert helper on a public route.
+- **Verified at HEAD**: the S-01/S-06/S-07 and S-08 through S-11 hardening made the interview, intake, unit-form, and shift-log surfaces generic. ONE named residual remains: `api/school-form-submit.js:149` still returns `{ error: result.error }` raw from the placement upsert helper on a public route.
 
 ## S-20. Recipient names and emails written to function logs in three crons
 
 - **Severity (original)**: Low. **Status**: OPEN.
 - **Risk**: student and coordinator PII accumulates in Vercel log retention.
-- **Verified at HEAD**: `interview-reminders.js:153`, `coordinator-weekly-digest.js:459`, and `midpoint-checkin.js:148` each log recipient email and name on every send.
+- **Verified at HEAD**: `interview-reminders.js:156`, `coordinator-weekly-digest.js:465`, and `midpoint-checkin.js:151` each log recipient email and name on every send (line numbers re-verified 2026-09-24).
 
 ## S-21. Resend webhook allows same-rank lateral writes, no replay dedup
 
@@ -450,7 +473,8 @@ afterward, from memory.
 
 - **Severity (original)**: Low. **Status**: OPEN.
 - **Risk**: documented-append-only history (e.g. preceptor_assignment_events) is silently rewritable by any service-role code path or compromised key.
-- **Verified at HEAD**: GRANT ALL to service_role, no UPDATE/DELETE-blocking trigger in any migration.
+- **Verified at HEAD**: GRANT ALL to service_role, and no UPDATE/DELETE-blocking trigger in any migration touches `preceptor_assignment_events`.
+- **Template for the fix, in-repo since 2026-09-23**: the enforcement this finding asks for now exists on two newer tables. `supabase/migrations/20260927000000_signatures_phase2.sql` puts `trg_sig_events_append_only` (BEFORE UPDATE OR DELETE) and `trg_sig_events_no_truncate` (BEFORE TRUNCATE) on `sig_events`, and `20260929000000_form_sheet.sql` puts `trg_form_answer_corrections_append_only` on `form_answer_corrections`; both refuse the statement regardless of role, so a service-role path cannot rewrite history. `test/signaturesMigration.test.mjs` proves the sig_events triggers on real Postgres (PGlite). Closing S-23 is the same trigger on `preceptor_assignment_events` and the other documented-append-only tables, Owner-gated like every migration.
 
 ## S-24. cohort_school_rotations readable by anon and any authenticated
 
@@ -468,13 +492,23 @@ afterward, from memory.
 
 - **Severity (original)**: Low. **Status**: OPEN.
 - **Risk**: commas and parentheses in a search term alter filter semantics client-side (bounded by RLS, so integrity of the query, not access).
-- **Verified at HEAD**: six template sites, including the universal search in `src/App.jsx:1095-1103` and `PreceptorAssignmentModal.jsx:40`.
+- **Verified at HEAD (re-swept 2026-09-24)**: the finding has grown from six sites to ten `.or()` template sites in `src/`. Nine interpolate a typed search term into an `ilike` filter with no escaping of `,`, `(`, `)`, `%` or `_`:
+  1. `src/staff/StaffApp.jsx:1249` (universal search, students; this is the file the entry used to call `src/App.jsx:1095`)
+  2. `src/staff/StaffApp.jsx:1251` (universal search, units)
+  3. `src/staff/StaffApp.jsx:1254` (universal search, contacts)
+  4. `src/staff/StaffApp.jsx:1257` (universal search, preceptors)
+  5. `src/components/PreceptorAssignmentModal.jsx:42`
+  6. `src/components/settings/GrantPortalAccessModal.jsx:62` (student search)
+  7. `src/components/settings/GrantPortalAccessModal.jsx:226` (email match)
+  8. `src/components/connect/ContactAutocomplete.jsx:114`
+  9. `src/lib/contactSearch.js:26`
+  The tenth, `src/staff/StaffApp.jsx:493`, interpolates a cohort id rather than a search term (`cohort_id.eq.${id},cohort_id.is.null`) and is listed for completeness, not as an exposure. All remain bounded by RLS; the risk is query integrity, not access.
 
 ## S-27. Unescaped ilike wildcards on service-role queries
 
 - **Severity (original)**: Low. **Status**: OPEN.
 - **Risk**: % and _ in caller input broaden service-role matches (the public intake and shift-log paths escape; these do not).
-- **Verified at HEAD**: `api/interview-book.js:251`, `api/messages-staff-options.js:120`, `api/keith.js:417` and `:502` pass unescaped values to ilike.
+- **Verified at HEAD (line numbers re-verified 2026-09-24)**: `api/interview-book.js:259` (interviewer name), `api/messages-staff-options.js:120`, `api/keith.js:418` and `:503` pass unescaped values to ilike. `api/interview-book.js:159` (the student email lookup) is escaped through `escapeLikePattern` and is not part of this finding.
 
 ## S-28. interview_slots lacked database-level double-booking protection
 
@@ -492,7 +526,7 @@ afterward, from memory.
 
 - **Severity (original)**: Informational. **Status**: OPEN.
 - **Risk**: configuration reconnaissance without a token.
-- **Verified at HEAD**: `api/keith.js:741` returns `hasApiKey: !!process.env.ANTHROPIC_API_KEY` on GET before any auth.
+- **Verified at HEAD (line re-verified 2026-09-24)**: `api/keith.js:750` returns `hasApiKey: !!process.env.ANTHROPIC_API_KEY` on GET before any auth.
 
 ## S-31. Activation token_hash remains in the address bar after verifyOtp
 
@@ -504,7 +538,7 @@ afterward, from memory.
 
 - **Severity (original)**: Informational. **Status**: OPEN.
 - **Risk**: two students' names and schools live in source control.
-- **Verified at HEAD**: `api/cron/clockout-reminders-resend.js:42-43`, the APPROVED_SHIFT_LOG_IDS comments. The endpoint is CRON_SECRET-gated (and fail-open per S-12); the run it existed for is long complete, so the whole file is retirable.
+- **Verified at HEAD (2026-09-24)**: `api/cron/clockout-reminders-resend.js:42-43`, the APPROVED_SHIFT_LOG_IDS comments. The endpoint is CRON_SECRET-gated; the run it existed for is long complete, so the whole file is retirable.
 
 ## S-33. Policies without ENABLE ROW LEVEL SECURITY in repo SQL
 
