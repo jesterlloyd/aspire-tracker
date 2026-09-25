@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react'
+import { callAvailability } from '../lib/availabilityApi'
 import { useQueryClient } from '@tanstack/react-query'
 import { X, Trash2, Copy, Check } from 'lucide-react'
 import Tooltip from './ui/Tooltip'
 import { supabase } from '../lib/supabase'
 import { deriveBreakMinutes } from '../lib/interviewAvailability'
-import { safeWrite } from '../lib/safeWrite'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -241,15 +241,11 @@ export default function InterviewDayDrawer({
 
   const handleMarkTeamsInviteSent = async (sessionId) => {
     setMarkingTeams(sessionId)
-    await safeWrite(
-      () => supabase.from('interview_sessions').update({
-        teams_meeting_booked:  true,
-        teams_invite_sent_at:  new Date().toISOString(),
-        teams_invite_sent_by:  userProfile?.id || null,
-      }).eq('id', sessionId),
-      { name: 'mark teams invite sent' }
-    )
+    // S-04: the endpoint checks that this is the caller's own interview (or that the caller
+    // is admin-level) and stamps teams_invite_sent_by from the verified profile.
+    const { ok, data } = await callAvailability(supabase, { action: 'mark_teams_invite_sent', session_id: sessionId })
     setMarkingTeams(null)
+    if (!ok) { showToast(data?.message || 'Could not mark the invite as sent.'); return }
     showToast('Teams invite marked as sent')
     queryClient.invalidateQueries({ queryKey: ['interview_calendar',  cohortId] })
     queryClient.invalidateQueries({ queryKey: ['interview_sessions',  cohortId] })
@@ -352,20 +348,17 @@ export default function InterviewDayDrawer({
   }
 
   const handleBlockSlot = async (slot, reason) => {
-    await safeWrite(
-      () => supabase.from('interview_slots').update({ status: 'blocked', blocked_reason: reason }).eq('id', slot.id),
-      { name: 'block interview slot' }
-    )
+    // S-04: ownership-checked on the server; a booked slot is refused there.
+    const { ok, data } = await callAvailability(supabase, { action: 'block_slot', slot_id: slot.id, reason })
     setBlockingSlot(null)
+    if (!ok) { showToast(data?.message || 'Could not block that slot.'); return }
     showToast(`Blocked: ${reason}`)
     invalidateAll()
   }
 
   const handleUnblockSlot = async (slotId) => {
-    await safeWrite(
-      () => supabase.from('interview_slots').update({ status: 'available', blocked_reason: null }).eq('id', slotId),
-      { name: 'unblock interview slot' }
-    )
+    const { ok, data } = await callAvailability(supabase, { action: 'unblock_slot', slot_id: slotId })
+    if (!ok) { showToast(data?.message || 'Could not unblock that slot.'); return }
     showToast('Slot unblocked')
     invalidateAll()
   }

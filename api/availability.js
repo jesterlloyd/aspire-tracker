@@ -27,7 +27,12 @@ import { isActiveProfile, INACTIVE_STATUS, INACTIVE_REASON, INACTIVE_MESSAGE } f
 import { toPacificDateStr } from '../shared/dateUtils.js'
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const ALLOWED_ACTIONS = ['create_block', 'delete_block', 'delete_slot', 'cancel_booking', 'move_booking'];
+// S-04 (2026-09-25) added the interviewer self-service actions the browser used to perform with
+// direct table writes: set_block_active, block_slot, unblock_slot, mark_teams_invite_sent, and the
+// student-delete cascade delete_student_sessions. Every one is ownership-checked below.
+const ALLOWED_ACTIONS = ['create_block', 'delete_block', 'delete_slot', 'cancel_booking',
+  'set_block_active', 'block_slot', 'unblock_slot', 'mark_teams_invite_sent', 'delete_student_sessions', 'move_booking'];
+const MAX_BLOCK_REASON = 120;
 
 // AVAILABILITY-CALENDAR-1: breaks between interviews.
 //
@@ -78,13 +83,30 @@ async function verifyCaller(req) {
   }
 }
 
-// Owner/Admin/Interviewer may use availability (ownership enforced per-action). Default deny.
+// Owner/Admin/Co-Lead/Interviewer may use availability (ownership enforced per-action). Default deny.
 function canUseAvailability(role, isOwner) {
   if (isOwner) return true;
-  return role === 'admin' || role === 'interviewer';
+  return role === 'admin' || role === 'co-lead' || role === 'co_lead' || role === 'interviewer';
 }
 function isAdminLevel(role, isOwner) {
   return isOwner || role === 'admin';
+}
+// S-04: the five self-service actions admit an active Owner, Admin OR Co-Lead on any row,
+// matching is_active_staff_writer(), the write predicate the three interview tables move to.
+// The older actions keep their Owner/Admin level (isAdminLevel) unchanged.
+function isWriterLevel(role, isOwner) {
+  return isAdminLevel(role, isOwner) || role === 'co-lead' || role === 'co_lead';
+}
+
+// S-04: whose availability a block is. An interviewer owns a block that names them
+// (interviewer_profile_id, set since WAVE F-2) or that they created themselves
+// (created_by_user_id, the pre-F-2 attribution). A block an Owner or Admin created FOR an
+// interviewer is therefore that interviewer's to pause, resume, block and unblock, which is
+// the self-service the role exists for. Legacy blocks carrying only a name are not
+// interviewer-owned; an admin-level caller manages those.
+function ownsBlock(block, auth) {
+  if (!block) return false;
+  return block.interviewer_profile_id === auth.profileId || block.created_by_user_id === auth.profileId;
 }
 
 // WAVE F-2: confirm an active cohort entitlement for an interviewer, creating one
@@ -117,7 +139,16 @@ async function ensureCohortEntitlement(db, interviewerProfileId, cohortId, actor
   return { ok: false };
 }
 
+// The production wiring. Declared here, ahead of the factory, because two tests read the
+// entitlement helper above as "from its declaration to the default export".
 export default async function handler(req, res) {
+  return productionHandler(req, res);
+}
+
+// S-04: built by a factory so the ownership rules can be tested with the caller and the
+// database mocked.
+export function createAvailabilityHandler({ verifyCaller: verify = verifyCaller, getDb = null } = {}) {
+  return async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -126,12 +157,12 @@ export default async function handler(req, res) {
 
   const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
   const serviceKey  = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!supabaseUrl || !serviceKey) return res.status(500).json({ error: 'internal_error' });
+  if (!getDb && (!supabaseUrl || !serviceKey)) return res.status(500).json({ error: 'internal_error' });
 
   const requestId = `req_${randomUUID().slice(0, 8)}`;
 
   // Gate 1 & 2: JWT + caller profile
-  const auth = await verifyCaller(req);
+  const auth = await verify(req);
   if (!auth.authenticated) {
     console.log('[availability] auth rejected', { reason: auth.reason, request_id: requestId });
     if (auth.reason === INACTIVE_REASON) return res.status(INACTIVE_STATUS).json({ error: 'forbidden', message: INACTIVE_MESSAGE });
@@ -153,15 +184,38 @@ export default async function handler(req, res) {
     return res.status(403).json({ error: 'forbidden', message: 'You do not have permission to manage availability.' });
   }
 
-  // Gate 5: reject account-authority/state fields (this endpoint never changes them)
-  for (const f of ['is_owner', 'role', 'is_active']) {
+  // Gate 5: reject account-authority/state fields (this endpoint never changes them), and the
+  // actor stamps, which come from the verified profile and never from the body (S-04).
+  for (const f of ['is_owner', 'role', 'is_active', 'teams_invite_sent_by', 'teams_invite_sent_at', 'created_by_user_id_override']) {
     if (Object.prototype.hasOwnProperty.call(body, f)) {
       return res.status(400).json({ error: 'invalid_request', field: f, message: 'That field cannot be set through this endpoint.' });
     }
   }
 
-  const db = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
+  const db = getDb ? getDb() : createClient(supabaseUrl, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
   const adminLevel = isAdminLevel(auth.role, auth.isOwner);
+  const writerLevel = isWriterLevel(auth.role, auth.isOwner);
+
+  // S-04: resolve a slot and its parent block for the ownership rule the self-service actions
+  // share. A slot with no parent block is admin-level only, as delete_slot already treats it.
+  const slotWithBlock = async (slotId) => {
+    const { data: slot, error: slotErr } = await db
+      .from('interview_slots')
+      .select('id, block_id, is_booked, status')
+      .eq('id', slotId)
+      .maybeSingle();
+    if (slotErr) return { error: true };
+    if (!slot) return { slot: null };
+    if (!slot.block_id) return { slot, block: null };
+    const { data: block, error: blockErr } = await db
+      .from('interview_availability_blocks')
+      .select('id, created_by_user_id, interviewer_profile_id')
+      .eq('id', slot.block_id)
+      .maybeSingle();
+    if (blockErr) return { error: true };
+    return { slot, block: block || null };
+  };
+  const ownershipDenied = () => res.status(403).json({ error: 'forbidden', message: 'You can only manage your own availability.' });
 
   try {
     // ── CREATE BLOCK + GENERATE SLOTS ─────────────────────────────────────────
@@ -447,6 +501,107 @@ export default async function handler(req, res) {
 
       console.log('[availability] slot deleted', { callerRole: auth.role, slotId, blockId: slot.block_id, request_id: requestId });
       return res.status(200).json({ success: true, block_id: slot.block_id, remaining_open: remainingOpen });
+    }
+
+    // ── S-04: PAUSE OR RESUME A BLOCK ─────────────────────────────────────────
+    // The "Active" toggle in the availability manager. Pausing hides the block's open
+    // slots from the public scheduler without deleting anything.
+    if (action === 'set_block_active') {
+      const blockId = typeof body.block_id === 'string' ? body.block_id : null;
+      if (!blockId || !UUID_REGEX.test(blockId)) return res.status(400).json({ error: 'invalid_request', field: 'block_id' });
+      if (typeof body.active !== 'boolean') return res.status(400).json({ error: 'invalid_request', field: 'active' });
+      const { data: block, error: blockErr } = await db
+        .from('interview_availability_blocks')
+        .select('id, created_by_user_id, interviewer_profile_id, is_active')
+        .eq('id', blockId)
+        .maybeSingle();
+      if (blockErr) return res.status(500).json({ error: 'internal_error' });
+      if (!block) return res.status(404).json({ error: 'not_found' });
+      if (!writerLevel && !ownsBlock(block, auth)) {
+        console.log('[availability] set_block_active ownership denied', { callerRole: auth.role, blockId, request_id: requestId });
+        return ownershipDenied();
+      }
+      const { error: updErr } = await db.from('interview_availability_blocks').update({ is_active: body.active }).eq('id', blockId);
+      if (updErr) return res.status(500).json({ error: 'internal_error' });
+      console.log('[availability] block active set', { callerRole: auth.role, blockId, active: body.active, request_id: requestId });
+      return res.status(200).json({ success: true, block_id: blockId, is_active: body.active });
+    }
+
+    // ── S-04: BLOCK OR UNBLOCK ONE SLOT ───────────────────────────────────────
+    // "Block Time" on the day drawer marks an open slot as unavailable with a reason (a
+    // break, a meeting); "Unblock" reopens it. A booked slot is never touched either way:
+    // cancelling the interview is the only route out of a booking.
+    if (action === 'block_slot' || action === 'unblock_slot') {
+      const slotId = typeof body.slot_id === 'string' ? body.slot_id : null;
+      if (!slotId || !UUID_REGEX.test(slotId)) return res.status(400).json({ error: 'invalid_request', field: 'slot_id' });
+      let reason = null;
+      if (action === 'block_slot') {
+        reason = typeof body.reason === 'string' ? body.reason.trim() : '';
+        if (!reason || reason.length > MAX_BLOCK_REASON) return res.status(400).json({ error: 'invalid_request', field: 'reason' });
+      }
+      const found = await slotWithBlock(slotId);
+      if (found.error) return res.status(500).json({ error: 'internal_error' });
+      if (!found.slot) return res.status(404).json({ error: 'not_found' });
+      if (found.slot.is_booked || found.slot.status === 'booked') {
+        return res.status(409).json({ error: 'conflict', message: 'That slot is booked. Cancel the interview first.' });
+      }
+      if (!writerLevel && !ownsBlock(found.block, auth)) {
+        console.log('[availability] slot block ownership denied', { callerRole: auth.role, action, slotId, request_id: requestId });
+        return ownershipDenied();
+      }
+      const patch = action === 'block_slot'
+        ? { status: 'blocked', blocked_reason: reason }
+        : { status: 'available', blocked_reason: null };
+      const { error: updErr } = await db.from('interview_slots').update(patch).eq('id', slotId).eq('is_booked', false);
+      if (updErr) return res.status(500).json({ error: 'internal_error' });
+      console.log('[availability] slot status set', { callerRole: auth.role, action, slotId, request_id: requestId });
+      return res.status(200).json({ success: true, slot_id: slotId, status: patch.status });
+    }
+
+    // ── S-04: MARK A TEAMS INVITE SENT ────────────────────────────────────────
+    // The interviewer records that they sent the Teams invite for a booked interview. The
+    // actor stamps come from the verified profile; the body cannot name someone else.
+    if (action === 'mark_teams_invite_sent') {
+      const sessionId = typeof body.session_id === 'string' ? body.session_id : null;
+      if (!sessionId || !UUID_REGEX.test(sessionId)) return res.status(400).json({ error: 'invalid_request', field: 'session_id' });
+      const { data: sess, error: sessErr } = await db
+        .from('interview_sessions')
+        .select('id, slot_id')
+        .eq('id', sessionId)
+        .maybeSingle();
+      if (sessErr) return res.status(500).json({ error: 'internal_error' });
+      if (!sess) return res.status(404).json({ error: 'not_found' });
+      if (!writerLevel) {
+        // A session's interviewer is reached through its slot's block. A session with no
+        // slot (created outside the calendar) has no interviewer to own it: admin-level only.
+        if (!sess.slot_id) return ownershipDenied();
+        const found = await slotWithBlock(sess.slot_id);
+        if (found.error) return res.status(500).json({ error: 'internal_error' });
+        if (!found.slot || !ownsBlock(found.block, auth)) {
+          console.log('[availability] mark_teams_invite_sent ownership denied', { callerRole: auth.role, sessionId, request_id: requestId });
+          return ownershipDenied();
+        }
+      }
+      const sentAt = new Date().toISOString();
+      const { error: updErr } = await db
+        .from('interview_sessions')
+        .update({ teams_meeting_booked: true, teams_invite_sent_at: sentAt, teams_invite_sent_by: auth.profileId })
+        .eq('id', sessionId);
+      if (updErr) return res.status(500).json({ error: 'internal_error' });
+      console.log('[availability] teams invite marked sent', { callerRole: auth.role, sessionId, request_id: requestId });
+      return res.status(200).json({ success: true, session_id: sessionId, teams_invite_sent_at: sentAt });
+    }
+
+    // ── S-04: DELETE A STUDENT'S SESSIONS (the student-delete cascade) ────────
+    // Admin level only: it belongs to deleting a student, which interviewers cannot do.
+    if (action === 'delete_student_sessions') {
+      if (!writerLevel) return res.status(403).json({ error: 'forbidden', message: 'You do not have permission to delete a student.' });
+      const studentId = typeof body.student_id === 'string' ? body.student_id : null;
+      if (!studentId || !UUID_REGEX.test(studentId)) return res.status(400).json({ error: 'invalid_request', field: 'student_id' });
+      const { error: delErr, count } = await db.from('interview_sessions').delete({ count: 'exact' }).eq('student_id', studentId);
+      if (delErr) return res.status(500).json({ error: 'internal_error' });
+      console.log('[availability] student sessions deleted', { callerRole: auth.role, studentId, deleted: count || 0, request_id: requestId });
+      return res.status(200).json({ success: true, deleted: count || 0 });
     }
 
     // ── CANCEL BOOKING (reverts student) ──────────────────────────────────────
@@ -767,4 +922,7 @@ export default async function handler(req, res) {
     console.log('[availability] unexpected error', { request_id: requestId, errorCode: err?.code });
     return res.status(500).json({ error: 'internal_error' });
   }
+  };
 }
+
+const productionHandler = createAvailabilityHandler();

@@ -69,6 +69,7 @@ import {
 } from '../lib/sessionKeys'
 import { orderCyclesForSelector, resolveSelectedCycle } from '../lib/ngrp/ngrpStates'
 import { setCohortPassword } from '../lib/cohortPassword'
+import { callAvailability } from '../lib/availabilityApi'
 import { useNgrpCycles } from '../lib/ngrp/useNgrpData'
 import { TAB_TO_PATH, PORTAL_STAFF_ROLES } from '../lib/staffRoutes'
 
@@ -869,7 +870,9 @@ function MainApp({ onLogout }) {
     await safeWrite(() => supabase.from('interviews').delete().eq('student_id', id), { name: 'delete student interviews' })
     await safeWrite(() => supabase.from('interview_rubrics').delete().eq('student_id', id), { name: 'delete student rubrics' })
     await safeWrite(() => supabase.from('matches').delete().eq('student_id', id), { name: 'delete student matches' })
-    await safeWrite(() => supabase.from('interview_sessions').delete().eq('student_id', id), { name: 'delete student sessions' })
+    // S-04: interview_sessions is no longer written from the browser; the endpoint deletes the
+    // student's sessions for an admin-level caller. Best-effort, as the cascade always was.
+    await callAvailability(supabase, { action: 'delete_student_sessions', student_id: id })
     // WAVE F-2: storage cleanup runs ONLY after the database deletion, so a DB
     // failure can never orphan an active record. It is best-effort and never
     // throws; a durable orphan-retry sweep remains part of the controlled Pass 2
