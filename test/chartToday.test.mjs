@@ -14,7 +14,10 @@ const here = dirname(fileURLToPath(import.meta.url))
 const read = (p) => readFileSync(join(here, '..', p), 'utf8')
 const overview = read('src/components/OverviewTab.jsx')
 const campusStrip = read('src/components/oncampus/StaffOnCampusStrip.jsx')
-const masthead = read('src/components/TodayMasthead.jsx')
+// HOME-1: TodayMasthead.jsx is retired. Its events query moved into OverviewTab unchanged and
+// the scenery is drawn by the banner through SkylineCard.
+const masthead = overview
+const banner = read('src/components/home/HomeBanner.jsx')
 const app = read('src/staff/StaffApp.jsx')
 const css = read('src/index.css')
 // HOME-1 (2026-09-24): At a Glance is the app home. Its pieces live in src/components/home/
@@ -70,21 +73,21 @@ test('the masthead absorbs the welcome band honestly', async (t) => {
   })
 
   await t.test('events reuse the gated endpoint and query key, gated to the visible route', () => {
-    assert.match(masthead, /queryKey: \['aggregate_welcome_events', today, to\]/)
+    assert.match(masthead, /queryKey: \['aggregate_welcome_events', today, eventsTo\]/)
     assert.match(masthead, /fetch\('\/api\/aspire-events'/)
-    assert.match(masthead, /enabled: onTodayRoute !== false/)
+    assert.match(masthead, /enabled: onTodayRoute, staleTime: 60000,/)
   })
 
   await t.test('the weather scene survives as the compact masthead variant', () => {
     // MASTHEAD-PHASE-2b: the scene, the weather and the clock all live inside
     // <skyline-card>, loaded from the Masthead service; the staff card is a host.
-    assert.match(masthead, /import SkylineCard from '\.\/SkylineCard'/)
+    assert.match(banner, /import SkylineCard from '\.\.\/SkylineCard'/)
     assert.match(read('src/components/SkylineCard.jsx'), /<skyline-card[\s\S]*?mode="full"/)
   })
 
   await t.test('the events row is the shared component, fed by the shared window rule', () => {
-    assert.match(masthead, /items=\{items\}/)
-    assert.match(masthead, /mastheadItems\(events, today\)/)
+    assert.match(masthead, /items=\{mastheadChips\}/)
+    assert.match(masthead, /mastheadItems\(qEvents\.data \|\| \[\], today\)/)
   })
 })
 
@@ -175,7 +178,7 @@ test('the digest count chip is the approved red-count use only', () => {
 })
 
 test('Open Calendar is the events row\'s constant (MASTHEAD-LOCKSCREEN-1, Owner)', async (t) => {
-  const masthead = read('src/components/TodayMasthead.jsx')
+  const masthead = read('src/components/OverviewTab.jsx')
   await t.test('the pill lives in the events row and is always offered; the right column holds the weather only', () => {
     // SCENE-4b put View calendar in the Today row so a quiet day had none.
     // LOCKSCREEN-1 keeps it in the row but makes it the row's constant: the
@@ -197,4 +200,18 @@ test('the app loads the masthead as a registered host', () => {
   const svc = read('src/lib/skylineService.js')
   assert.match(svc, /\/v1\/skyline\.js\?host=\$\{SKYLINE_HOST_KEY\}/)
   assert.match(svc, /SKYLINE_HOST_KEY = import\.meta\.env\.VITE_SKYLINE_HOST_KEY \|\| 'aspire-intelligence'/)
+})
+
+// HOME-1: the four controls At a Glance withholds come back while the welcome tour runs,
+// because the tour anchors a step on each and silently skips a step whose anchor is missing.
+test('At a Glance hides the search, Keith orb, Messages and Feedback launchers, except during the tour', () => {
+  assert.match(app, /const hideHomeChrome = activeTab === 'overview' && !tourRunning/)
+  assert.match(app, /search=\{\{ hidden: hideHomeChrome, /)
+  assert.match(app, /hideLauncher=\{hideHomeChrome\}/)
+  assert.match(app, /<MainMessagesLauncher hidden=\{hideHomeChrome\} \/>/)
+  assert.match(app, /isAuthenticated=\{true\}\n\s+hidden=\{hideHomeChrome\}/)
+  const tour = read('src/lib/onboardingTours.js')
+  for (const anchor of ['global-search', 'keith-orb', 'main-messages-launcher', 'feedback-button']) {
+    assert.match(tour, new RegExp(`target: '\\[data-tour="${anchor}"\\]'`), anchor)
+  }
 })

@@ -5,12 +5,13 @@
 // own and hands back one normalized event list; src/lib/home/recentActivityModel.js
 // decides what is shown and drops the viewer's own events.
 //
-// Sources, and the actor each one records:
-//   signed      sig_requests.completed_at            (the request's signers; no profile id)
-//   form        form_submissions.submitted_at         (the assignment's name; no profile id)
+// Sources, and the actor each one records (every event carries actorProfileId and/or
+// actorEmail, so recentActivityModel can drop the viewer's own):
+//   signed      sig_requests.completed_at            (last signer: sig_request_signers.user_profile_id + email)
+//   form        form_submissions.submitted_at         (form_assignments.email, the person the link went to)
 //   resolved    conversations.resolved_at            (conversation_events.actor_profile_id)
-//   assessment  evaluation_assignments.completed_at  (respondent_name; a preceptor, never staff)
-//   outreach    notification_log bulk_message_sent   (a staff send; the metadata's sender when it names one)
+//   assessment  evaluation_assignments.completed_at  (respondent_email)
+//   outreach    notification_log bulk_message_sent   (metadata.sent_by_email, written by the bulk send)
 //
 // DEMO-DATA-2: everything is read through populationDb on a client built for THIS request,
 // so a demo session sees demo rows and every other request sees real rows. notification_log
@@ -62,7 +63,7 @@ export default async function handler(req, res) {
       if (error) throw error
       const ids = (data || []).map(r => r.id)
       const { data: signers } = ids.length
-        ? await db.from('sig_request_signers').select('request_id, name, recipient_type, signed_at').in('request_id', ids)
+        ? await db.from('sig_request_signers').select('request_id, name, email, user_profile_id, recipient_type, signed_at').in('request_id', ids)
         : { data: [] }
       const lastSigner = new Map()
       for (const s of signers || []) {
@@ -71,9 +72,11 @@ export default async function handler(req, res) {
         if (!cur || new Date(s.signed_at) > new Date(cur.signed_at)) lastSigner.set(s.request_id, s)
       }
       for (const r of data || []) {
-        const who = lastSigner.get(r.id)?.name || 'Every signer'
+        const last = lastSigner.get(r.id)
+        const who = last?.name || 'Every signer'
         events.push({
           id: `sig:${r.id}`, kind: 'signed', at: r.completed_at, actorName: who,
+          actorProfileId: last?.user_profile_id || null, actorEmail: last?.email || null,
           sentence: { pre: '', actor: who, post: ` signed ${r.title}` },
           detail: 'Sealed copy filed to the record',
           to: `/catalog/signatures?tab=requests&request=${encodeURIComponent(r.id)}`,
@@ -83,14 +86,14 @@ export default async function handler(req, res) {
 
     await tryRead('form', async () => {
       const { data, error } = await db.from('form_submissions')
-        .select('id, submitted_at, form_id, assignment_id, form_assignments!inner ( name, catalog_resource_id ), catalog_forms!inner ( title )')
+        .select('id, submitted_at, form_id, assignment_id, form_assignments!inner ( name, email, catalog_resource_id ), catalog_forms!inner ( title )')
         .eq('is_demo', isDemo).gte('submitted_at', since).order('submitted_at', { ascending: false }).limit(LIMIT)
       if (error) throw error
       for (const r of data || []) {
         const a = Array.isArray(r.form_assignments) ? r.form_assignments[0] : r.form_assignments
         const f = Array.isArray(r.catalog_forms) ? r.catalog_forms[0] : r.catalog_forms
         events.push({
-          id: `form:${r.id}`, kind: 'form', at: r.submitted_at, actorName: a?.name || 'Someone',
+          id: `form:${r.id}`, kind: 'form', at: r.submitted_at, actorName: a?.name || 'Someone', actorEmail: a?.email || null,
           sentence: { pre: '', actor: a?.name || 'Someone', post: ` submitted the ${f?.title || 'form'}` },
           detail: 'Filed to the record as a PDF',
           to: `/catalog/forms/${encodeURIComponent(r.form_id)}/responses`,
@@ -142,12 +145,18 @@ export default async function handler(req, res) {
       const byBatch = new Map()
       for (const r of rows) {
         const key = `${r.subject || ''}|${String(r.sent_at || '').slice(0, 16)}`
-        if (!byBatch.has(key)) byBatch.set(key, { subject: r.subject, at: r.sent_at, count: 0, id: r.id, sender: r.metadata?.sender_name || r.metadata?.sent_by_name || null, senderId: r.metadata?.sender_profile_id || r.metadata?.sent_by || null })
+        // The bulk send writes the sender as metadata.sent_by_email / sent_by_user_id
+        // (api/connect-send-bulk-message.js); the email is what identifies the viewer.
+        if (!byBatch.has(key)) byBatch.set(key, { subject: r.subject, at: r.sent_at, count: 0, id: r.id, senderEmail: r.metadata?.sent_by_email || null })
         byBatch.get(key).count += 1
       }
+      const senderEmails = [...new Set([...byBatch.values()].map(b => b.senderEmail).filter(Boolean))]
+      const { data: senders } = senderEmails.length ? await db.from('user_profiles').select('full_name, email').in('email', senderEmails) : { data: [] }
+      const senderName = new Map((senders || []).map(p => [String(p.email).toLowerCase(), p.full_name]))
       for (const b of byBatch.values()) {
         events.push({
-          id: `out:${b.id}`, kind: 'outreach', at: b.at, actorProfileId: b.senderId, actorName: b.sender,
+          id: `out:${b.id}`, kind: 'outreach', at: b.at, actorEmail: b.senderEmail,
+          actorName: senderName.get(String(b.senderEmail || '').toLowerCase()) || null,
           sentence: { pre: 'Outreach to ', actor: `${b.count} ${b.count === 1 ? 'person' : 'people'}`, post: ' delivered' },
           detail: b.subject || '',
           to: '/connect/outreach',
@@ -158,7 +167,7 @@ export default async function handler(req, res) {
 
   await tryRead('assessment', async () => {
     const { data, error } = await db.from('evaluation_assignments')
-      .select('id, completed_at, timepoint, respondent_type, respondent_name, student_id, evaluation_instruments!inner ( slug ), students!inner ( id, first_name, preferred_first_name, last_name, matched_unit_id, is_demo )')
+      .select('id, completed_at, timepoint, respondent_type, respondent_name, respondent_email, student_id, evaluation_instruments!inner ( slug ), students!inner ( id, first_name, preferred_first_name, last_name, matched_unit_id, is_demo )')
       .gte('completed_at', since).not('completed_at', 'is', null)
       .order('completed_at', { ascending: false }).limit(LIMIT)
     if (error) throw error
@@ -173,7 +182,7 @@ export default async function handler(req, res) {
             : inst?.slug === 'post_rotation_evaluation' ? 'feedback on ASPIRE' : 'a survey'
       const who = r.respondent_type === 'preceptor' ? (r.respondent_name || 'A preceptor') : (studentName || 'A student')
       events.push({
-        id: `eval:${r.id}`, kind: 'assessment', at: r.completed_at, actorName: who,
+        id: `eval:${r.id}`, kind: 'assessment', at: r.completed_at, actorName: who, actorEmail: r.respondent_email || null,
         sentence: { pre: '', actor: who, post: ` submitted ${what}` },
         detail: r.respondent_type === 'preceptor' && studentName ? studentName : '',
         to: '/evaluation',
@@ -182,5 +191,5 @@ export default async function handler(req, res) {
   })
 
   events.sort((a, b) => new Date(b.at) - new Date(a.at))
-  return res.status(200).json({ events: events.slice(0, 60), failed, viewer: { id: profile.id, name: profile.full_name || null } })
+  return res.status(200).json({ events: events.slice(0, 60), failed, viewer: { id: profile.id, name: profile.full_name || null, email: profile.email || null } })
 }

@@ -5,6 +5,7 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 
 import { derivePhase, pipelineCounts, PHASES, PHASE_KEYS } from '../src/lib/home/cyclePhase.js'
 import { hoursPace, BEHIND_TOLERANCE_PCT } from '../src/lib/clinicalHours.js'
@@ -12,7 +13,7 @@ import {
   messagesGroup, signaturesGroup, reviewReleaseGroup, formsDocsGroup, interviewsGroup, placementGroup,
   needsYouSummary, filterChips, nextFilter, visibleGroups, orderGroups, ageLabel, ROWS_PER_GROUP,
 } from '../src/lib/home/needsYouModel.js'
-import { onCampusGroups, scheduleRows, shiftGroupLabel, shiftGroupState, dueTodayItems, initialsOf } from '../src/lib/home/todayModel.js'
+import { onCampusGroups, scheduleRows, shiftGroupLabel, shiftGroupState, dueTodayItems, initialsOf, plannedShiftType } from '../src/lib/home/todayModel.js'
 import { hoursBar, midpointBar } from '../src/lib/home/cohortPulseModel.js'
 import { placementSummary, capacityByServiceLine, requestsBySchool } from '../src/lib/home/placementSummaryModel.js'
 import { ACTIONS, QUICK_ACTION_KEYS, allowedActions, quickActions, personRows, searchLauncher, moveSelection, greetingFor } from '../src/lib/home/launcherModel.js'
@@ -229,6 +230,14 @@ test('TODAY 1: On campus groups by shift with the canonical window times and mar
   assert.equal(initialsOf('Maya Okafor'), 'MO')
 })
 
+test('TODAY 1b: a planned shift takes its preceptor\'s shift, then the assigned preceptor\'s, then the student\'s', () => {
+  const byName = new Map([['tessa morgan', { full_name: 'Tessa Morgan', shift_type: 'Night' }], ['vari able', { full_name: 'Vari Able', shift_type: 'Variable' }]])
+  assert.equal(plannedShiftType({ plan: { preceptor_name: '  Tessa   Morgan ' }, student: { shift_assigned: 'Day' }, preceptorsByName: byName }), 'Night')
+  assert.equal(plannedShiftType({ plan: { preceptor_name: 'Vari Able' }, student: {}, preceptorsByName: byName, assignedPreceptorShift: 'Night' }), 'Night', 'Variable says nothing about today')
+  assert.equal(plannedShiftType({ plan: { preceptor_name: 'Unknown' }, student: { shift_assigned: 'Night shift' }, preceptorsByName: byName }), 'Night')
+  assert.equal(plannedShiftType({ plan: { preceptor_name: 'Unknown' }, student: {}, preceptorsByName: byName }), 'Day')
+})
+
 test('TODAY 2: the schedule merges interviews, events, holidays and due dates, in time order, and marks the item in progress', () => {
   const rows = scheduleRows({ today: TODAY, now: new Date('2026-09-24T14:10:00'),
     interviews: [
@@ -350,16 +359,38 @@ test('LAUNCHER 3: selection wraps and the greeting follows the viewer\'s clock',
 
 // ── Recent activity ──────────────────────────────────────────────────────────
 
+test('ACTIVITY 2: the viewer is matched by profile id or by email, whatever the source recorded', () => {
+  const at = new Date(NOW_MS - 3600000).toISOString()
+  const events = [
+    { id: 'sig', kind: 'signed', at, actorProfileId: 'me', actorEmail: 'someone@else.org', sentence: {} },
+    { id: 'out', kind: 'outreach', at, actorEmail: 'Jester@Example.org', sentence: {} },
+    { id: 'form', kind: 'form', at, actorEmail: 'student@school.edu', sentence: {} },
+    { id: 'eval', kind: 'assessment', at, actorEmail: null, actorName: 'A preceptor', sentence: {} },
+  ]
+  const rows = activityRows(events, { id: 'me', email: 'jester@example.org' }, NOW_MS)
+  assert.deepEqual(rows.map(r => r.id).sort(), ['eval', 'form'])
+})
+
+test('ACTIVITY 3: the endpoint records an actor for every source and reads the bulk send\'s real keys', () => {
+  const ep = readFileSync(new URL('../api/home-activity.js', import.meta.url), 'utf8')
+  assert.match(ep, /actorProfileId: last\?\.user_profile_id \|\| null, actorEmail: last\?\.email \|\| null/)
+  assert.match(ep, /actorEmail: a\?\.email \|\| null/)
+  assert.match(ep, /actorEmail: r\.respondent_email \|\| null/)
+  assert.match(ep, /senderEmail: r\.metadata\?\.sent_by_email/)
+  // The key the bulk send actually writes.
+  assert.match(readFileSync(new URL('../api/connect-send-bulk-message.js', import.meta.url), 'utf8'), /sent_by_email:\s+senderEmail/)
+})
+
 test('ACTIVITY: last 24 hours, newest first, at most eight, never the viewer\'s own', () => {
   const at = (h) => new Date(NOW_MS - h * 3600000).toISOString()
   const events = [
     { id: '1', kind: 'signed', at: at(1), actorProfileId: 'other', sentence: { actor: 'Sofia', post: ' signed' } },
     { id: '2', kind: 'form', at: at(2), actorProfileId: 'me', sentence: { actor: 'Me', post: ' submitted' } },
     { id: '3', kind: 'resolved', at: at(30), actorProfileId: 'other', sentence: { actor: 'Old', post: ' resolved' } },
-    { id: '4', kind: 'assessment', at: at(3), actorName: 'Jester Bautista', sentence: { actor: 'Jester Bautista', post: ' submitted' } },
+    { id: '4', kind: 'assessment', at: at(3), actorEmail: 'jester@example.org', sentence: { actor: 'Jester Bautista', post: ' submitted' } },
     ...Array.from({ length: 10 }, (_, i) => ({ id: `x${i}`, kind: 'outreach', at: at(4 + i / 10), actorProfileId: 'o', sentence: { actor: 'O', post: '' } })),
   ]
-  const rows = activityRows(events, { id: 'me', name: 'Jester Bautista' }, NOW_MS)
+  const rows = activityRows(events, { id: 'me', email: 'jester@example.org' }, NOW_MS)
   assert.equal(rows.length, ACTIVITY_LIMIT)
   assert.equal(rows[0].id, '1')
   assert.equal(rows.some(r => r.id === '2'), false)

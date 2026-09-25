@@ -228,6 +228,10 @@ function MainApp({ onLogout }) {
   const [acPendingFollowups, setAcPendingFollowups] = useState([])
   const [acActiveDispoIds,   setAcActiveDispoIds]   = useState([])
   const [tourRunning,      setTourRunning]      = useState(false)
+  // HOME-1: At a Glance withholds the header search, the Keith orb, the Messages dock launcher
+  // and the Feedback launcher. While the welcome tour runs they stay, because the tour has a
+  // step anchored on each and skips a step whose anchor is missing.
+  const hideHomeChrome = activeTab === 'overview' && !tourRunning
   // PORTAL-SPLIT Phase 2: the five ASPIRE tabs used to mount together at boot,
   // which is why switching between them is instant and their state survives.
   // Interviews and Evaluation are their own chunks now, so they mount on first
@@ -1382,7 +1386,7 @@ function MainApp({ onLogout }) {
         <Header
           cohort={{ cohorts, activeCohort, activeCohortId, sortedCohorts, handleCohortSwitch, canEdit, setShowManageCohort, setShowNewCohort }}
           /* HOME-1: At a Glance carries the launcher, so the header search is withheld there. */
-          search={{ hidden: activeTab === 'overview', searchAreaRef, searchInputRef, searchQuery, searchFocused, searchOpen, searchLoading, searchFlat, searchResults, searchActiveIdx, setSearchActiveIdx, setSearchOpen, setSearchFocused, handleSearchChange, handleSearchKey, handleSearchResult }}
+          search={{ hidden: hideHomeChrome, searchAreaRef, searchInputRef, searchQuery, searchFocused, searchOpen, searchLoading, searchFlat, searchResults, searchActiveIdx, setSearchActiveIdx, setSearchOpen, setSearchFocused, handleSearchChange, handleSearchKey, handleSearchResult }}
           actions={{ cohorts, navigate, activeTab, bellRef, setShowActionCenter, showActionCenter, actionBadgeCount, notificationsUnread, toast }}
           /* SCOPE-PICKER-1: `experience` is passed ONLY for profiles holding
              ngrp_access. Its absence means one experience, which the Scope pill
@@ -1705,7 +1709,7 @@ function MainApp({ onLogout }) {
         cohortId={activeCohortId}
         supabase={supabase}
         isAuthenticated={true}
-        hideLauncher={activeTab === 'overview'}
+        hideLauncher={hideHomeChrome}
       />
       {/* MESSAGES-AUTOSCROLL-1: the canonical Messages shortcut, directly above
           the Keith orb in the lower-right stack (self-gated to owner/admin).
@@ -1713,12 +1717,12 @@ function MainApp({ onLogout }) {
           Feedback launcher are withheld on At a Glance only; every other screen
           keeps all three. The header's Connect icon carries the needs-reply badge
           on every screen, unchanged. */}
-      <MainMessagesLauncher hidden={activeTab === 'overview'} />
+      <MainMessagesLauncher hidden={hideHomeChrome} />
       <FeedbackPanel
         activeTab={activeTab}
         cohortName={activeCohort?.name}
         isAuthenticated={true}
-        hidden={activeTab === 'overview'}
+        hidden={hideHomeChrome}
       />
       <ToastContainer toasts={toasts} removeToast={removeToast} />
       {/* The tour renders null unless it is running, so mounting it only while

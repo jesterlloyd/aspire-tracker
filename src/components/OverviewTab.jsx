@@ -690,6 +690,8 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
   }), [scopedSlots, qEvents.data, holidaysToday, qCat.data, interviewerNameFor, today, nowMs])
   const campus = useMemo(() => onCampusGroups({
     plans: qShifts.data?.plans || [], logs: (qShifts.data?.logs || []).filter(l => l.shift_date === today), students,
+    preceptors: qShifts.data?.preceptors || [],
+    assignedPreceptorShiftFor: (s) => resolvePreceptor(s, qShifts.data?.preceptors || [])?.shift_type || null,
     unitNameFor, preceptorNameFor, displayName, today, now: new Date(nowMs),
   }), [qShifts.data, students, unitNameFor, preceptorNameFor, today, nowMs])
   const mastheadChips = useMemo(
@@ -716,7 +718,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
   const surveys = useMemo(() => surveysSummary({ queues: qRR.data?.queues || {}, evidence: qRR.data?.evidence || null, nowMs }), [qRR.data, nowMs])
 
   // Recent activity
-  const activity = useMemo(() => activityRows(qActivity.data?.events || [], { id: userProfile?.id, name: userProfile?.full_name }, nowMs), [qActivity.data, userProfile?.id, userProfile?.full_name, nowMs])
+  const activity = useMemo(() => activityRows(qActivity.data?.events || [], { id: userProfile?.id, email: userProfile?.email || qActivity.data?.viewer?.email }, nowMs), [qActivity.data, userProfile?.id, userProfile?.email, nowMs])
 
   // The launcher
   const actions = useMemo(() => allowedActions({

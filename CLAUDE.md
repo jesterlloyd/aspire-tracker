@@ -709,11 +709,18 @@ tested modules in `src/lib/home/`. Nothing is computed in JSX.
 - **Placement is one line plus a collapsed panel**: capacity by service line is DataSheet inline
   rows, requests by school a DataSheet plain sheet, each expandable to the unit rows and the
   school's students it always had.
-- **Known gaps, on purpose**: `student_shift_plans` stores no shift type, so a planned shift
-  takes the student's assigned shift, then a same-day log, then Day. Recent activity drops the
-  viewer's own events only where the source records an actor (resolved threads by profile id,
-  outreach when the log's metadata names a sender); signatures, forms and assessments name the
-  person who acted, who is never staff. Unit leaders use their own portal, not this page.
+- **A planned shift works alongside its preceptor**: `student_shift_plans` stores the date and
+  the preceptor's name, so its type is that preceptor's `shift_type` (matched by name), then the
+  student's assigned preceptor's, then `students.shift_assigned`, then Day; Variable is skipped
+  (`plannedShiftType`). A logged shift uses its own type.
+- **Recent activity never shows the viewer's own work**: every source records an actor
+  (a signer's `user_profile_id` and email, the form link's email, the assessment's
+  `respondent_email`, the resolving profile, and the bulk send's `metadata.sent_by_email`),
+  and `isViewersOwn` matches the viewer on profile id or email.
+- **The welcome tour keeps its anchors**: while it runs, the four withheld controls come back
+  (`hideHomeChrome` in StaffApp), because the tour skips a step whose anchor is missing.
+- `TodayMasthead.jsx` is retired; the staff masthead host is `HomeBanner` (Classic). Unit
+  leaders use their own portal, not this page.
 
 ## Every table is one component (TABLE-CANON-1, 2026-09-19)
 

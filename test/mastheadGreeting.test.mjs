@@ -68,8 +68,9 @@ test('the At a Glance name and route remain canonical', async (t) => {
   })
 
   await t.test('the greeting is the visible h1, so the tab title never carries a name', () => {
-    const masthead = read('src/components/TodayMasthead.jsx')
-    assert.match(masthead, /fullName=\{userProfile\?\.full_name\}/)  // MASTHEAD-PHASE-2b: the element greets
+    // HOME-1: the banner greets, from the profile's name.
+    assert.match(read('src/components/OverviewTab.jsx'), /<HomeBanner[\s\S]*?fullName=\{userProfile\?\.full_name\}/)
+    assert.match(read('src/components/home/HomeBanner.jsx'), /greetingFor\(now, firstName\)/)
     assert.doesNotMatch(app, /full_name[\s\S]{0,80}document\.title/)
   })
 })

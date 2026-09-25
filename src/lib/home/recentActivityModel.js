@@ -19,13 +19,21 @@ const fmtTime = (iso) => new Date(iso).toLocaleTimeString('en-US', { hour: 'nume
  * @param events [{ id, kind, at, actor, actorProfileId, actorName, sentence: { pre, actor, post }, detail }]
  * @param viewer { id, name }
  */
-export function activityRows(events = [], viewer = {}, now = Date.now()) {
+// The viewer's own events are left out: every source records its actor as a profile id, an
+// email, or both (api/home-activity.js), and the viewer is matched on either,
+// case-insensitive. Pure.
+export function isViewersOwn(e, viewer = {}) {
   const me = String(viewer?.id || '')
-  const myName = String(viewer?.name || '').trim().toLowerCase()
+  const myEmail = String(viewer?.email || '').trim().toLowerCase()
+  if (me && e?.actorProfileId && String(e.actorProfileId) === me) return true
+  if (myEmail && e?.actorEmail && String(e.actorEmail).trim().toLowerCase() === myEmail) return true
+  return false
+}
+
+export function activityRows(events = [], viewer = {}, now = Date.now()) {
   return (events || [])
     .filter(e => e && e.at && now - new Date(e.at).getTime() <= ACTIVITY_WINDOW_MS)
-    .filter(e => !(me && e.actorProfileId && String(e.actorProfileId) === me))
-    .filter(e => !(myName && e.actorName && String(e.actorName).trim().toLowerCase() === myName))
+    .filter(e => !isViewersOwn(e, viewer))
     .sort((a, b) => new Date(b.at) - new Date(a.at))
     .slice(0, ACTIVITY_LIMIT)
     .map(e => ({

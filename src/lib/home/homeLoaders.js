@@ -92,7 +92,7 @@ export async function loadTodaysShifts(cohortId, today, yesterday) {
     supabase.from('student_shift_plans').select('id, student_id, shift_date, preceptor_name, cancelled_at').eq('cohort_id', cohortId).eq('shift_date', today),
     supabase.from('student_shift_logs').select('id, student_id, shift_date, shift_type, planned_shift_type, unit_name, preceptor_name, status, lifecycle_state')
       .eq('cohort_id', cohortId).in('shift_date', [yesterday, today]),
-    supabase.from('preceptors').select('id, full_name, unit_name').eq('is_active', true),
+    supabase.from('preceptors').select('id, full_name, unit_name, shift_type').eq('is_active', true),
   ])
   if (logs.error) throw logs.error
   // student_shift_plans arrived in September 2026; a project without it reads as no plans.

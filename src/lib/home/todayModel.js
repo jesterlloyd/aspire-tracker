@@ -6,10 +6,11 @@
 // canonical window times from src/lib/shiftWindows.js, the group in progress marked
 // "On shift now" and a finished group "Ended".
 //
-// SOURCES (delivery note): planned shifts live in student_shift_plans, which stores the
-// date and the preceptor only, no shift type. So a planned shift takes its type from the
-// student's assigned shift, then from a log for the same day, then Day. Logged shifts
-// are the fallback so a student appears before they log hours. Pure.
+// SOURCES: logged shifts carry their own type. Planned shifts (student_shift_plans) store
+// the date and the preceptor's NAME only, so a planned shift works alongside its preceptor:
+// it takes that preceptor's shift_type (matched by name), then the student's assigned
+// preceptor's, then the student's assigned shift, and only then Day. A preceptor recorded
+// as Variable says nothing about today, so it is skipped. Pure.
 
 import { SHIFT_WINDOWS, getShiftWindow } from '../shiftWindows.js'
 import { slotStartDate } from '../interviewsToday.js'
@@ -55,11 +56,24 @@ const normalizeShift = (v) => {
  * @param preceptorNameFor (student) => name
  * @param displayName (student) => name
  */
+const nameKey = (v) => String(v || '').trim().toLowerCase().replace(/\s+/g, ' ')
+const knownShift = (v) => { const t = normalizeShift(v); return t && t !== 'Variable' ? t : null }
+
+/** The type a planned shift is worked on, from the best evidence available. */
+export function plannedShiftType({ plan, student, preceptorsByName = new Map(), assignedPreceptorShift = null } = {}) {
+  return knownShift(preceptorsByName.get(nameKey(plan?.preceptor_name))?.shift_type)
+    || knownShift(assignedPreceptorShift)
+    || knownShift(student?.shift_assigned)
+    || 'Day'
+}
+
 export function onCampusGroups({
-  plans = [], logs = [], students = [], unitNameFor = () => '', preceptorNameFor = () => '', displayName = (s) => s?.first_name || '',
+  plans = [], logs = [], students = [], preceptors = [], unitNameFor = () => '', preceptorNameFor = () => '',
+  assignedPreceptorShiftFor = () => null, displayName = (s) => s?.first_name || '',
   today, now = new Date(),
 } = {}) {
   const byId = new Map((students || []).map(s => [s.id, s]))
+  const preceptorsByName = new Map((preceptors || []).map(p => [nameKey(p.full_name), p]))
   const seen = new Map()   // studentId -> { student, type, unit, preceptor }
   const rejected = new Set(['Rejected', 'rejected'])
   for (const l of logs || []) {
@@ -71,7 +85,7 @@ export function onCampusGroups({
   for (const p of plans || []) {
     const s = byId.get(p?.student_id)
     if (!s || p.cancelled_at || seen.has(s.id)) continue
-    const type = normalizeShift(s.shift_assigned) || 'Day'
+    const type = plannedShiftType({ plan: p, student: s, preceptorsByName, assignedPreceptorShift: assignedPreceptorShiftFor(s) })
     seen.set(s.id, { student: s, type, unit: unitNameFor(s.matched_unit_id), preceptor: p.preceptor_name || preceptorNameFor(s), source: 'plan' })
   }
   const groups = new Map()

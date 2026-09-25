@@ -599,7 +599,7 @@ test('every experience walks the masthead, on the card anchor both hosts render'
   // The anchor is on the CARD in both hosts, never on the weather trigger (which
   // only exists once weather resolves and more than one city pack is installed).
   const shared = read('../src/components/SkylineCard.jsx')
-  const today = read('../src/components/TodayMasthead.jsx')
+  const today = read('../src/components/home/HomeBanner.jsx')   // HOME-1: the staff host
   // MASTHEAD-PHASE-2b: the anchor is the host wrapper's light-DOM div, which every
   // host (staff and portal) renders through SkylineCard; nothing inside the
   // element's shadow root could be found by the tour.

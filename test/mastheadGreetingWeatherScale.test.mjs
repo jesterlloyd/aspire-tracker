@@ -31,12 +31,14 @@ test('every daypart greeting (the clipped glyphs live in "morning/evening") is p
 })
 
 test('all three surfaces use the shared .mast-greet, so the fix applies once', () => {
-  const staff = read('src/components/TodayMasthead.jsx')
+  // HOME-1: the staff host is At a Glance's banner (Classic style), fed from OverviewTab.
+  const staff = read('src/components/home/HomeBanner.jsx')
   const shared = read('src/components/SkylineCard.jsx')
   // MASTHEAD-PHASE-2b: both hosts render the one element; the greeting itself
   // (chart-route-title mast-greet) lives inside <skyline-card>, guarded in the
   // masthead repository.
-  assert.match(staff, /<SkylineCard[\s\S]*?fullName=\{userProfile\?\.full_name\}/)
+  assert.match(staff, /<SkylineCard fullName=\{fullName\}/)
+  assert.match(read('src/components/OverviewTab.jsx'), /<HomeBanner[\s\S]*?fullName=\{userProfile\?\.full_name\}/)
   assert.match(shared, /<skyline-card/)
 })
 

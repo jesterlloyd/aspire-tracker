@@ -138,7 +138,7 @@ export function shouldAutoStartTour(userProfile, experience) {
 }
 
 // ── The masthead, shared by every experience ─────────────────────────────────
-// WELCOME-TOUR-MASTHEAD-1: staff At a Glance (TodayMasthead) and all four portal
+// WELCOME-TOUR-MASTHEAD-1: staff At a Glance (HomeBanner, Classic style) and all four portal
 // homes (GreetingMasthead) render the SAME card, so they get the same step from
 // one definition rather than five near-copies that drift.
 //
