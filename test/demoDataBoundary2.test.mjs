@@ -176,8 +176,10 @@ test('every cron that builds a service client scopes it with populationDb', () =
   assert.deepEqual(offenders, [], 'Wrap the client: populationDb(createClient(...)). A cron has no demo mode.')
 })
 
-test('the two hand re-runs of crons read what the crons read', () => {
-  for (const f of ['api/admin/resend-interview-reminders.js', 'api/admin/resend-coordinator-digest.js']) {
+test('the hand re-run of the digest cron reads what the cron reads', () => {
+  // S-13 retired api/admin/resend-interview-reminders.js (no caller; a one-shot recovery
+  // for a bug fixed in May 2026), so the digest re-run is the only one left.
+  for (const f of ['api/admin/resend-coordinator-digest.js']) {
     assert.match(stripComments(read(f)), /populationDb\(createClient\(/, f)
   }
 })

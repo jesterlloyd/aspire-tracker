@@ -1,10 +1,28 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, getQueryClient } from '../lib/supabase';
 import { setStudentPhotoCacheScope, clearStudentPhotoCache } from '../lib/studentPhotoCache';
 import { normalizeStaffRole } from '../lib/permissions';
 import { clearPortalCohortHintSession } from '../lib/portalCohortHint';
-import { clearLastLocationOnSignOut } from '../lib/sessionKeys';
+import { clearLastLocationOnSignOut, LAST_AUTH_USER_KEY } from '../lib/sessionKeys';
 import { reconcileDemoModeForUser } from '../lib/demoMode';
+import { clearClientStateOnSignOut } from '../lib/signOutCleanup';
+
+// S-17: which account this BROWSER last saw, so a session that belongs to someone else
+// (another tab signed in as a different person, or the app opened on a session this
+// browser did not see start) is treated as an account switch. Never throws.
+function lastAuthenticatedUserId() {
+  try { return localStorage.getItem(LAST_AUTH_USER_KEY) || null; } catch { return null; }
+}
+
+// S-17: everything the previous person could leave behind for the next one, in one call:
+// the React Query cache and every unkeyed storage key that holds people or place. Runs
+// on every way a session ends and on every change of user. The per-user "where you
+// were" keys are cleared separately by clearLastLocationOnSignOut, which also sets the
+// fresh-arrival marker; that split is FRESH-LOGIN-HOME-1's and stays.
+function forgetPreviousUser(reason) {
+  const { removed } = clearClientStateOnSignOut({ queryClient: getQueryClient() });
+  if (removed.length) console.debug(`[auth] ${reason}: cleared ${removed.length} stored item(s)`);
+}
 
 // Roles that READ student files across every cohort, with no entitlement needed.
 // Co-Lead joined Owner/Admin here on 2026-08-05: near-Owner for student access.
@@ -100,6 +118,11 @@ export function AuthProvider({ children }) {
         }
 
         if (session?.user) {
+          // S-17: a restored session for a DIFFERENT account than this browser last
+          // saw is an account switch that happened while the app was closed (another
+          // tab, or a token restored from elsewhere). Forget the previous person first.
+          const previous = lastAuthenticatedUserId();
+          if (previous && previous !== session.user.id) forgetPreviousUser('account switch on restore');
           // FRESH-LOGIN-HOME-1: a RESTORED session sets the ref too. Without this, a
           // user who opened the app on an existing session and then signed out would
           // have no id here, and their saved tab would survive the sign-out.
@@ -122,6 +145,10 @@ export function AuthProvider({ children }) {
         if (!mounted) return;
 
         if (event === 'SIGNED_IN' && session?.user) {
+          // S-17: a sign-in as someone other than the person this tab or this browser
+          // last held is an account switch. Clear before the new user's state arrives.
+          const previous = currentUserIdRef.current || lastAuthenticatedUserId();
+          if (previous && previous !== session.user.id) forgetPreviousUser('account switch');
           currentUserIdRef.current = session.user.id;
           setUser(session.user);
           // Defer profile load so the callback returns synchronously before making
@@ -129,6 +156,9 @@ export function AuthProvider({ children }) {
           // https://supabase.com/docs/guides/troubleshooting/why-is-my-supabase-api-call-not-returning-PGzXw0
           setTimeout(() => { void loadUserProfile() }, 0)
         } else if (event === 'SIGNED_OUT') {
+          // S-17: covers an expired session as well as a deliberate sign-out; both
+          // arrive here. Idempotent with the signOut() call below.
+          forgetPreviousUser('signed out');
           clearPortalCohortHintSession();
           // FRESH-LOGIN-HOME-1: forget WHERE this user was (tab + NGRP sub-tab) and mark
           // that a sign-out happened here, so the next sign-in lands on At a Glance
@@ -157,6 +187,9 @@ export function AuthProvider({ children }) {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const signOut = useCallback(async () => {
+    // S-17: forget BEFORE the network call, so the cache and storage are already empty
+    // if the sign-out request fails or the tab closes mid-way. SIGNED_OUT repeats it.
+    forgetPreviousUser('sign out');
     clearStudentPhotoCache(); // drop every signed photo URL immediately on sign-out
     clearPortalCohortHintSession(); // show the cohort switch hint on the next portal login
     await supabase.auth.signOut();

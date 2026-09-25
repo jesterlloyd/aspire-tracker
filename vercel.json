@@ -108,7 +108,6 @@
     "api/cron/teams-invite-reminders.js": { "maxDuration": 60 },
     "api/cron/resident-reflections.js":   { "maxDuration": 60 },
     "api/cron/interview-reminders.js":             { "maxDuration": 60 },
-    "api/admin/resend-interview-reminders.js":     { "maxDuration": 60 },
     "api/cron/coordinator-weekly-digest.js":       { "maxDuration": 60 },
     "api/cron/evaluation-reminders.js":            { "maxDuration": 300 },
     "api/cron/evaluation-reminders-recovery.js":   { "maxDuration": 300 },

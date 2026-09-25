@@ -1061,8 +1061,9 @@ and the rules they follow are these.
   rows, including a request that says nothing and a cron that has no request. It mutates
   the client, so wrap a client built for this request or a module-level client whose scope
   never changes (a cron's). Never wrap a shared client with a request-dependent scope.
-- **Every cron that builds a service client wraps it**, and the two hand re-runs
-  (`api/admin/resend-*`) read what their crons read. `test/demoDataBoundary2.test.mjs`
+- **Every cron that builds a service client wraps it**, and the one hand re-run
+  (`api/admin/resend-coordinator-digest.js`; S-13 retired the interview-reminder one)
+  reads what its cron reads. `test/demoDataBoundary2.test.mjs`
   sweeps `api/cron/` and fails on a bare `createClient`; the five exempt crons (queue
   workers, a two-id correction, a per-student rpc) are listed there with the reason.
 - **The wrapper filters the ROOT table, never an embed.** A root with no `is_demo`

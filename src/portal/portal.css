@@ -21,6 +21,9 @@
   color: var(--ptl-ink);
   display: flex;
   flex-direction: column;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
 }
 
 /* Global, consistent keyboard focus (the login page has the same contract).
@@ -97,7 +100,10 @@
 .ptl-cohort-login-hint button:focus-visible { outline: 2px solid var(--nightfall, #1D2567); outline-offset: 1px; }
 @media (max-width: 760px) {
   .ptl-header-ctl-label { display: none; }
-  .ptl-header-ctl select { max-width: 44vw; font-size: 12px; padding: 5px 6px; }
+  .ptl-header-ctl select {
+    width: 100%; min-width: 0; max-width: 100%;
+    font-size: 12px; padding: 5px 6px; text-overflow: ellipsis;
+  }
 }
 
 /* ASPIRE-STUDENT-HOME: fluid desktop workspace. Mobile and tablet keep full
@@ -774,13 +780,20 @@
   .ptl-page-tabbar .ptl-main { padding-bottom: calc(84px + env(safe-area-inset-bottom)); }
   .ptl-main { padding: 18px 14px 28px; }
   .ptl-header-nightfall {
+    width: 100%; max-width: 100%; min-width: 0; gap: 8px;
     padding-left: max(14px, env(safe-area-inset-left));
     padding-right: max(14px, env(safe-area-inset-right));
   }
+  .ptl-header-brand { min-width: 0; flex-shrink: 1; gap: 8px; }
+  .ptl-header-logo-link { min-width: 0; flex-shrink: 1; }
   .ptl-header-nightfall .ptl-header-logo { height: 34px; max-width: 112px; }
   .ptl-header-nightfall .ptl-header-logo-placeholder { height: 34px; }
   .ptl-header-nightfall .ptl-header-divider { display: none; }
   .ptl-header-nightfall .ptl-header-aspire { font-size: 16px; }
+  .ptl-header-user { min-width: 0; flex: 1 1 auto; justify-content: flex-end; gap: 8px; }
+  .ptl-header-controls { min-width: 0; max-width: 100%; flex: 1 1 auto; }
+  .ptl-header-ctl { width: 100%; max-width: 100%; }
+  .ptl-menu-wrap { flex: none; }
   .ptl-header-sub { display: none; }
   .ptl-help-grid { grid-template-columns: 1fr; }
   .ptl-card { padding: 18px 16px; --ptl-card-pad-x: 16px; }
