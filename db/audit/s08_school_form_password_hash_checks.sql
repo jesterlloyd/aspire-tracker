@@ -152,7 +152,9 @@ FROM public.cohorts c
 WHERE btrim(coalesce(c.school_form_password, '')) <> '';
 
 -- ── PRE-B 2: nothing else depends on the column ──────────────────────────────
--- Expect: no rows. A row names a view, rule, trigger, index or constraint that uses
+-- Expect: no rows, OR one row with kind pg_attrdef and deptype a, which is the column's
+-- own DEFAULT expression and goes with the column (this is what production returned on
+-- 2026-09-25). Any OTHER row names a view, rule, trigger, index or constraint that uses
 -- cohorts.school_form_password; migration B's DROP COLUMN would fail or take it along.
 SELECT d.classid::regclass AS kind, d.objid, d.deptype
 FROM pg_depend d

@@ -209,11 +209,16 @@ afterward, from memory.
 - **Severity (assessed)**: Medium-high. The password gated only the screen;
   posting directly to the API skipped it entirely. The column is plaintext with
   TRIM-equality comparison in an anon-executable RPC.
-- **Status**: Closed (code); SQL unconfirmed. The server-side check has been live
-  since `0186482` (2026-08-23). The hashing, the last open part, is written: the
-  application no longer writes a plaintext password anywhere, and two Owner-gated
-  migrations move the stored values to bcrypt and drop the column. The finding closes
-  when both are applied and their POST sections pass.
+- **Status**: CLOSED. The server-side check has been live since `0186482`
+  (2026-08-23); the hashing (S08-1, `4be42047`) was applied to production by the Owner on
+  2026-09-25, both migrations in one sitting with the deploy live. Four cohorts held a
+  password (Winter 2027, now the accepting cohort, Fall 2026, Spring 2027, Summer 2026;
+  one more than the 2026-08-27 count); every one was hashed, re-verified through its hash
+  inside migration A's transaction and again in POST-A 3 and PRE-B 1, and still verifies
+  after the plaintext column was dropped (POST-B 3). The real password opened the live
+  school form and a wrong one was refused (POST-B 4). The live RPC bodies PRE-A 1 read
+  matched the recorded semantics exactly. No plaintext password remains anywhere in the
+  database, and no code path can write one.
 - **Closing commits**: `0186482` (the server-side check, 2026-08-23) and S08-1
   (2026-09-25), the commit that adds
   `supabase/migrations/20261002000000_s08_school_form_password_hash.sql` and
