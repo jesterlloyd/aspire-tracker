@@ -17,7 +17,8 @@
   --ocd-ink: #172044;
   --ocd-muted: #73798a;
   --ocd-field-border: #aeb4bf;
-  --ocd-plaque-clearance: 24px;
+  --ocd-plaque-clearance: 12px;
+  --ocd-desk-bottom-extension: 10px;
 }
 
 .outreach-mode-tabs button:hover:not(:disabled) {
@@ -44,7 +45,7 @@
   box-sizing: border-box;
   position: sticky;
   top: calc(var(--outreach-desk-top, 156px) + var(--ocd-plaque-clearance));
-  height: calc(var(--outreach-desk-h, calc(100dvh - 180px)) - var(--ocd-plaque-clearance));
+  height: calc(var(--outreach-desk-h, calc(100dvh - 180px)) - var(--ocd-plaque-clearance) + var(--ocd-desk-bottom-extension));
   min-height: 540px;
 }
 .outreach-workspace-classic .outreach-desk-shell::before,
@@ -64,7 +65,7 @@
 .outreach-desk-plaque {
   position: absolute;
   z-index: 4;
-  top: -15px;
+  top: -11px;
   left: 50%;
   translate: -50% 0;
   padding: 5px 17px;

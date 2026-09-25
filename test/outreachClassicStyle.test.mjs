@@ -79,6 +79,9 @@ test('composer desks use the measured viewport while Sent History keeps its full
   assert.match(outreach, /'--outreach-desk-h': viewportHeight \? `\$\{viewportHeight\}px` : undefined/)
   assert.match(outreach, /'--outreach-desk-top': viewportTop != null \? `\$\{viewportTop\}px` : undefined/)
   assert.match(viewport, /return \{ barRef, chartHeight, toolbarTop, chartTop \}/)
+  assert.match(css, /--ocd-plaque-clearance: 12px;/)
+  assert.match(css, /--ocd-desk-bottom-extension: 10px;/)
+  assert.match(css, /\.outreach-desk-plaque \{[\s\S]*top: -11px;/)
   assert.match(css, /\.outreach-workspace-classic \.outreach-desk-shell \{[\s\S]*border: 6px solid var\(--ocd-wood\);[\s\S]*background: var\(--ocd-leather\);/)
   assert.match(css, /\.outreach-workspace-classic \.outreach-desk-shell\[data-outreach-mode='single'\],[\s\S]*data-outreach-mode='bulk'[\s\S]*position: sticky;[\s\S]*top: calc\(var\(--outreach-desk-top[\s\S]*height: calc\(var\(--outreach-desk-h/)
   assert.match(css, /@media \(max-width: 840px\)[\s\S]*data-outreach-mode='bulk'\] \{ position: relative; top: auto; height: auto;/)
@@ -91,6 +94,9 @@ test('bulk papers share one bottom edge and the obsolete scaffolding subtitle is
 
   assert.doesNotMatch(outreach, /Bulk Operation, Phase 3A scaffolding/)
   assert.match(css, /\.outreach-workspace-classic \.outreach-bulk-manual > \.connect-panel,[\s\S]*\.outreach-bulk-survey-layout > \.connect-panel \{[\s\S]*height: 100%;[\s\S]*max-height: none !important;/)
+  const bulkSelector = outreach.slice(outreach.indexOf('const renderBulkTypeSelector'), outreach.indexOf('// Escape closes', outreach.indexOf('const renderBulkTypeSelector')))
+  assert.match(bulkSelector, /alwaysShowOther/)
+  assert.doesNotMatch(bulkSelector, /bulkOtherOpen|onToggleOther/)
 })
 
 test('the To line never reuses a previous recipient preview', () => {

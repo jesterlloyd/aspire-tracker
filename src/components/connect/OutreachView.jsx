@@ -802,10 +802,9 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
   // existing recipient/enrichment/draft pipeline is reused unchanged.
   const [pickerOpen, setPickerOpen] = useState(false)
 
-  // CONNECT-TEMPLATE-AUDIENCE-UX-2: "Other templates" disclosure toggles (UI-only; never touch drafts
-  // or send state). One for Send-to-one, one for Send-to-many.
+  // CONNECT-TEMPLATE-AUDIENCE-UX-2: Send-to-one keeps every template visible.
+  // Send-to-many also renders its complete list now that the full-height paper has room.
   const [singleOtherOpen, setSingleOtherOpen] = useState(false)
-  const [bulkOtherOpen,   setBulkOtherOpen]   = useState(false)
 
   const handlePickerSelect = useCallback((r) => {
     if (!r) return
@@ -1601,8 +1600,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
       <TemplateGroup
         primary={split.primary}
         other={split.other}
-        otherOpen={bulkOtherOpen}
-        onToggleOther={() => setBulkOtherOpen(o => !o)}
+        alwaysShowOther
         renderItem={renderItem}
       />
     )
