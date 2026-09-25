@@ -144,7 +144,9 @@ test('invariant: updateCohort aborts when the clearing write fails', () => {
   assert.match(body, /const \{ error: clearError \} = await safeWrite/)
   const clearAt = body.indexOf('clearError')
   const guardAt = body.indexOf('if (clearError)')
-  const targetWriteAt = body.indexOf("supabase.from('cohorts').update(updates)")
+  // S08-1: the payload is `row`, the updates with the school form password stripped,
+  // because the password goes to the hashing endpoint and never into the cohorts row.
+  const targetWriteAt = body.indexOf("supabase.from('cohorts').update(row)")
   assert.ok(guardAt > clearAt && guardAt > 0, 'the clear result must be checked')
   assert.ok(guardAt < targetWriteAt, 'the check must come BEFORE the flag is set on the target')
 

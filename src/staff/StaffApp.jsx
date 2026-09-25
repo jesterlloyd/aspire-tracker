@@ -68,6 +68,7 @@ import {
   lastTabKey, lastNgrpTabKey, aspireCohortKey, LAST_AUTH_USER_KEY, consumeSignedOutMarker,
 } from '../lib/sessionKeys'
 import { orderCyclesForSelector, resolveSelectedCycle } from '../lib/ngrp/ngrpStates'
+import { setCohortPassword } from '../lib/cohortPassword'
 import { useNgrpCycles } from '../lib/ngrp/useNgrpData'
 import { TAB_TO_PATH, PORTAL_STAFF_ROLES } from '../lib/staffRoutes'
 
@@ -523,20 +524,28 @@ function MainApp({ onLogout }) {
 
   // ── Cohort CRUD ──────────────────────────────────────────────
   const createCohort = async d => {
+    // S-08: the school form password never enters the cohorts row. It goes to
+    // /api/cohort-password-set, which hashes it; the browser writes no plaintext.
+    const { school_form_password: password, ...row } = d
     const { data, error } = await safeWrite(
-      () => supabase.from('cohorts').insert(d).select().single(),
+      () => supabase.from('cohorts').insert(row).select().single(),
       { name: 'create cohort' }
     )
-    if (!error && data) {
-      queryClient.setQueryData(['cohorts_all'], prev => [data, ...(prev || [])])
-      try { if (user?.id) localStorage.setItem(aspireCohortKey(user.id), data.id) } catch { /* storage unavailable */ }
-      setActiveCohortId(data.id)
-      setStudents([]); setUnits([]); setMatches([]); setInterviews([])
-      setShowNewCohort(false)
+    if (error || !data) return error || null
+    queryClient.setQueryData(['cohorts_all'], prev => [data, ...(prev || [])])
+    try { if (user?.id) localStorage.setItem(aspireCohortKey(user.id), data.id) } catch { /* storage unavailable */ }
+    setActiveCohortId(data.id)
+    setStudents([]); setUnits([]); setMatches([]); setInterviews([])
+    setShowNewCohort(false)
+    if (String(password || '').trim()) {
+      const set = await setCohortPassword(supabase, data.id, password)
+      if (!set.ok) {
+        toast.error('Password not set', `${data.name} was created, but its school form password was not saved: ${set.error} Open Manage Cohort to set it.`)
+      }
     }
-    return error || null
+    return null
   }
-  const updateCohort = async (id, updates) => {
+  const updateCohort = async (id, updates, newPassword = '') => {
     if (updates.accepting_submissions === true) {
       // Clearing the flag elsewhere must SUCCEED before we set it here. This
       // result used to be discarded, so a failed clear (an RLS refusal, a lost
@@ -555,8 +564,12 @@ function MainApp({ onLogout }) {
       queryClient.setQueryData(['cohorts_all'], prev =>
         (prev || []).map(c => c.id !== id ? { ...c, accepting_submissions: false } : c))
     }
+    // S-08: belt and braces. The modal no longer sends it, and if anything ever does,
+    // the plaintext column is not written from the browser.
+    const { school_form_password: _dropped, ...row } = updates || {}
+    void _dropped
     const { error } = await safeWrite(
-      () => supabase.from('cohorts').update(updates).eq('id', id),
+      () => supabase.from('cohorts').update(row).eq('id', id),
       { name: 'update cohort' }
     )
     if (error) {
@@ -570,7 +583,11 @@ function MainApp({ onLogout }) {
       return error
     }
     queryClient.setQueryData(['cohorts_all'], prev =>
-      (prev || []).map(c => c.id === id ? { ...c, ...updates } : c))
+      (prev || []).map(c => c.id === id ? { ...c, ...row } : c))
+    if (String(newPassword || '').trim()) {
+      const set = await setCohortPassword(supabase, id, newPassword)
+      if (!set.ok) return new Error(`The cohort was saved, but the school form password was not: ${set.error}`)
+    }
     return null
   }
   const handleCohortSwitch = id => {
