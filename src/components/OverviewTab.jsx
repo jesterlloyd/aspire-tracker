@@ -1,17 +1,16 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import Tooltip from './ui/Tooltip'
 import { useQuery } from '@tanstack/react-query'
-import { useUpdatedLabel, KPICell } from './KPIBand'
+import { useUpdatedLabel } from './KPIBand'
 import { supabase } from '../lib/supabase'
 import { getAllUnitLeaders } from '../lib/unitLeaders'
 import { unitNameKey } from '../lib/unitNameCanon'
 import { displayName } from '../lib/utils'
 import { UNIT_DIVISION_MAP, ASPIRE_STATUS_CONFIG } from '../lib/constants'
 import { DISPOSITION_TYPES, DISPOSITION_PILL_COLORS } from '../lib/dispositions'
-import { getUnit, UNIT_CATALOG, DIVISION_ORDER, getEligibleUnits } from '../lib/unitCatalog'
+import { getUnit, DIVISION_ORDER, getEligibleUnits } from '../lib/unitCatalog'
 import { computeUnitResponseMetrics } from '../lib/unitResponseMetrics'
-import { placementCoverage } from '../lib/placementCoverage'
 import { listCohortResponseTargets, createCohortResponseTargets } from '../lib/cohortResponseTargetsClient'
 import { buildCapacityOutreachRows } from '../lib/capacityOutreach'
 import { UNIT_LEADERSHIP_ROLES } from '../lib/contactCategories'
@@ -22,141 +21,59 @@ import { canonicalUnitKey } from '../lib/canonicalUnit'
 import { writeLaunchContext, readLaunchContext, clearLaunchContext, LAUNCH_KINDS } from '../lib/connect/launchContext'
 import { CAPACITY_RESPONSE_TEMPLATE_KEY, CAPACITY_REMINDER_TEMPLATE_KEY } from '../lib/connect/templateRegistry'
 import { useAuth } from '../contexts/AuthContext'
+import { useTheme } from '../contexts/ThemeContext'
 import StudentAvatar from './StudentAvatar'
-import OnCampusNow from './oncampus/OnCampusNow'
 import StatusLegendPopover from './StatusLegendPopover'
-import EmptyState from './EmptyState'
 import UnitResponseDrawer from './UnitResponseDrawer'
 import SchoolResponseDrawer from './SchoolResponseDrawer'
 import { matchSchoolResponse } from '../lib/schoolResponseDisplay'
 import { schoolGroupKey } from '../lib/schoolIdentity'
-import TodayMasthead from './TodayMasthead'
-import { selectActiveWindowRows, mergeOnCampusNow } from '../lib/onCampusNow'
-import StaffOnCampusStrip from './oncampus/StaffOnCampusStrip'
-import { scopeInterviewsForViewer, sortInterviews, buildInterviewRows } from '../lib/interviewsToday'
+import { scopeInterviewsForViewer } from '../lib/interviewsToday'
 import { buildSchoolSendPlan, buildStudentSendPlan, resolveSendResults } from '../lib/sendFormFlow'
-import { GraduationCap, MapPin, Copy } from 'lucide-react'
+import { toLocalDateStr } from '../lib/designTokens'
+import { getUsHolidaysForRange } from '../lib/usHolidays'
+import { mastheadItems, holidayItems } from '../lib/mastheadEvents'
+import { resolvePreceptor } from '../lib/preceptor'
+import { SURVEY_CATALOG } from '../lib/evaluation/surveyCatalog'
+import { useSignaturesFlag } from './signatures/sigApi'
+import { useFormsStatus } from './forms/formsApi'
+import { Copy } from 'lucide-react'
 
-// ── ASPIRE-MASTHEAD: Placement Snapshot ──────────────────────────────────────
-// One executive KPI row with one Updated clock and one number source. Open
-// slots derive from the LIVE placement count (total_slots minus matched
-// students), closing the last display consumer of the drift-prone stored
-// slots_remaining field per the one-capacity-source contract.
-// PLACEMENT-SECTION-HIERARCHY-1 (Owner-approved): the title now uses the same
-// canonical .ov-panel-title treatment as Placement Capacity / Placement
-// Requests, and the Capacity Coverage composition bar is retired - the KPI row
-// stands alone, with no replacement visualization by design.
-// KPICell and useUpdatedLabel are shared - imported from ./KPIBand
+// ── HOME-1 (2026-09-24): At a Glance is the app home ─────────────────────────
+// Two questions, in this order: what needs me (Needs you, one queue across every
+// module) and what do I want to do (the launcher: actions, people, Keith). The
+// pieces live in src/components/home/; every figure comes from src/lib/home/,
+// which is pure and tested. This file keeps the Placement machinery it always had
+// (unit responses, targets, the capacity outreach launches and their return
+// confirmations, the two drawers, Set Up Units) and hands it to the Placement
+// card at the bottom of the page.
+import HomeBanner from './home/HomeBanner'
+import NeedsYou from './home/NeedsYou'
+import TodayCard from './home/TodayCard'
+import CohortPulse from './home/CohortPulse'
+import PlacementCard from './home/PlacementCard'
+import RecentActivity from './home/RecentActivity'
+import { ApplicationsOutreach, SurveysResults } from './home/PhaseCards'
+import { derivePhase, pipelineCounts } from '../lib/home/cyclePhase'
+import {
+  messagesGroup, signaturesGroup, reviewReleaseGroup, formsDocsGroup, interviewsGroup, placementGroup,
+} from '../lib/home/needsYouModel'
+import { scheduleRows, onCampusGroups, dueTodayItems } from '../lib/home/todayModel'
+import { hoursBar, midpointBar } from '../lib/home/cohortPulseModel'
+import { placementSummary, capacityByServiceLine, requestsBySchool } from '../lib/home/placementSummaryModel'
+import { allowedActions, personRows } from '../lib/home/launcherModel'
+import { activityRows } from '../lib/home/recentActivityModel'
+import { applicationsSummary, latestOutreachOpenRate, surveysSummary } from '../lib/home/phaseCardsModel'
+import {
+  loadMessagesNeedingYou, loadSignaturesList, loadReviewQueues, loadCatalogTracker, loadTodaysInterviews,
+  loadRotationWindows, loadTodaysShifts, loadRecentActivity, loadLauncherContacts,
+} from '../lib/home/homeLoaders'
+import './home/home.css'
 
-function PlacementSnapshot({ totalSlots, placedCount, openSlots, studentsRequesting, coverage, participatingUnits, activeSchools, cohort, cohortId }) {
-  const updatedLabel = useUpdatedLabel(cohortId)
-  const placedPct = totalSlots > 0 ? Math.round((placedCount / totalSlots) * 100) : 0
+const WORKFLOWS = SURVEY_CATALOG.map(s => ({ key: s.key, label: s.label }))
+const qStatus = (q) => (q.status === 'error' ? 'error' : q.status === 'success' ? 'ready' : 'loading')
 
-  return (
-    <section className="snap" aria-label="Placement snapshot">
-      <div className="snap-head">
-        <span className="ov-panel-title">Placement Snapshot</span>
-        <span className="snap-sub">
-          {cohort?.name || 'Cohort'} · {studentsRequesting} students · {activeSchools} affiliated schools · {participatingUnits} hosting units · Updated {updatedLabel}
-        </span>
-      </div>
-      {/* KPI grid - column count lives in CSS (.glance-kpis) so it can reflow */}
-      <div className="glance-kpis snap-kpis">
-        <KPICell value={totalSlots}         label="Total Slots"      sub={`${participatingUnits} units`} />
-        <KPICell value={placedCount}        label="Slots Filled"     sub={`${placedPct}% of total capacity`} accent="sage" />
-        <KPICell value={openSlots}          label="Open Slots" />
-        <KPICell value={studentsRequesting} label="Student Requests" sub={`${activeSchools} schools`} />
-        {/* PROCEEDING-GAP-1: All Placed / Placement Gap / Fully Covered, proceeding students only */}
-        <KPICell value={coverage.value}     label={coverage.label} sub={coverage.sub} accent={coverage.accent} />
-      </div>
-    </section>
-  )
-}
-
-// ── ASPIRE-MASTHEAD: On Campus Now, promoted ─────────────────────────────────
-// The page's only real-time human signal moves directly under the attention
-// digest as a compact live strip. The photo-card grid retired from this page
-// (photos remain on profiles); the honest live-window logic, shift badges,
-// and hedged overdue wording are unchanged. Renders nothing when empty.
-// INTERVIEWS-TODAY-COMPACT-1: Interviews Today sits in the same live band as On
-// Campus Now, rendered by the SAME OnCampusNow component so both read as one
-// system. It is role-aware by CANONICAL PROFILE ID (slot -> parent availability
-// block -> interviewer_profile_id), never by display name, and it renders
-// nothing at all when the viewer has no interviews today - no empty placeholder.
-function InterviewsTodayStrip({ cohortId, onOpenInterview }) {
-  const { userProfile, isAdmin } = useAuth()
-  const localDate = new Date().toLocaleDateString('en-CA')
-
-  const { data: slots = [] } = useQuery({
-    queryKey: ['todays_interviews', cohortId, localDate],
-    queryFn: async () => {
-      const { data } = await supabase.from('interview_slots')
-        .select(`id, slot_date, slot_time, duration_minutes, block_id, interviewer_name,
-                 is_booked, booked_by_student_id,
-                 students!booked_by_student_id ( id, first_name, preferred_first_name, last_name, school, program_type, headshot_url ),
-                 interview_sessions!slot_id ( id, interview_flag )`)
-        .eq('cohort_id', cohortId).eq('slot_date', localDate).eq('is_booked', true)
-        .order('slot_time', { ascending: true })
-      return data || []
-    },
-    enabled: !!cohortId,
-  })
-
-  const { data: blocks = [] } = useQuery({
-    queryKey: ['todays_interview_blocks', cohortId, localDate],
-    queryFn: async () => {
-      const { data } = await supabase.from('interview_availability_blocks')
-        .select('id, interviewer_profile_id, interviewer_name')
-        .eq('cohort_id', cohortId).eq('block_date', localDate)
-      return data || []
-    },
-    enabled: !!cohortId,
-    staleTime: 5 * 60 * 1000,
-  })
-  const blocksById = Object.fromEntries(blocks.map(b => [b.id, b]))
-
-  const scoped = scopeInterviewsForViewer(slots, { blocksById, viewerProfileId: userProfile?.id, isAdmin })
-  const rows = buildInterviewRows(sortInterviews(scoped), {
-    avatarFor: (student) => <StudentAvatar student={student} size={34} />,
-    interviewerNameFor: (slot) => blocksById[slot.block_id]?.interviewer_name || slot.interviewer_name || '',
-    // Interview cards open the EXISTING Interview Rubric workflow. They must not
-    // inherit On Campus Now's Rotation > Activity destination: the shared
-    // renderer imposes no navigation, each caller supplies its own onClick.
-    onOpen: (slot) => {
-      const student = Array.isArray(slot.students) ? slot.students[0] : slot.students
-      const session = Array.isArray(slot.interview_sessions) ? slot.interview_sessions[0] : slot.interview_sessions
-      onOpenInterview?.({ slotId: slot.id, sessionId: session?.id, student, slot, cohortId })
-    },
-  })
-  if (rows.length === 0) return null   // no empty placeholder, by design
-
-  const sub = `${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
-    + ` · ${rows.length} interview${rows.length !== 1 ? 's' : ''}`
-  return <OnCampusNow title="Interviews Today" sub={sub} rows={rows} />
-}
-
-// ROTATION-ACTIVITY-CALENDAR-1: the row builder moved to
-// src/components/oncampus/StaffOnCampusStrip.jsx so Rotation > Activity renders the
-// IDENTICAL strip rather than a second one that could drift on badge, duration, or
-// the hedged overdue wording. Output here is unchanged: same rows, same
-// .mast-live-* classes, same text.
-function OnCampusStrip({ mergedCampusLogs, students, units, onSelectStudent, onOpenActivity }) {
-  return (
-    <StaffOnCampusStrip
-      logs={mergedCampusLogs}
-      students={students}
-      units={units}
-      onSelectStudent={onSelectStudent}
-      onViewAll={onOpenActivity}
-    />
-  )
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-
-const DIVISIONS = ['Surgical', 'Medical', 'Critical Care', 'Specialty']
-
-// ── Placement Capacity panel - division-grouped, filterable ──────────────────
+// ── Placement Capacity rows (unchanged from the ledger they came from) ────────
 
 function UnitResponseRow({ response, filledByUnit, units, primaryLeadMap, showToast, onView }) {
   const [expanded, setExpanded] = useState(false)
@@ -262,158 +179,12 @@ function UnitResponseRow({ response, filledByUnit, units, primaryLeadMap, showTo
   )
 }
 
-function PlacementCapacityPanel({
-  unitResponses, filledByUnit, units, unitGroupsOpen, toggleUnitGroup,
-  primaryLeadMap, showToast, statusFilter, onView,
-}) {
-  const showAll = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('showAll')
-
-  // Response lookup by unit name (unfiltered, for uninvited check)
-  const responseByName = {}
-  unitResponses.forEach(r => { responseByName[r.unit_name] = r })
-
-  // Apply status filter
-  const filtered = statusFilter === 'all' ? unitResponses : unitResponses.filter(r => {
-    if (statusFilter === 'hosting')     return r.capacity_status === 'hosting'
-    if (statusFilter === 'not_hosting') return r.capacity_status === 'not_hosting'
-    if (statusFilter === 'pending')     return r.capacity_status === 'pending'
-    return true
-  })
-
-  // Group by division, sort alpha within
-  const byDiv = {}
-  filtered.forEach(r => {
-    const div = getUnit(r.unit_name)?.division || 'Other'
-    if (!byDiv[div]) byDiv[div] = []
-    byDiv[div].push(r)
-  })
-  Object.values(byDiv).forEach(arr => arr.sort((a, b) => a.unit_name.localeCompare(b.unit_name)))
-
-  // Catalog names per division (for uninvited empty state)
-  const catalogByDiv = {}
-  UNIT_CATALOG.forEach(u => {
-    if (!u.defaultEligible && !showAll) return
-    if (!catalogByDiv[u.division]) catalogByDiv[u.division] = []
-    catalogByDiv[u.division].push(u.name)
-  })
-
-  const divisionsToShow = DIVISION_ORDER.filter(div => {
-    if ((byDiv[div]?.length || 0) > 0) return true
-    // Always show divisions that have catalog units when filter=all (for uninvited state)
-    return statusFilter === 'all' && (catalogByDiv[div]?.length || 0) > 0
-  })
-
-  if (unitResponses.length === 0) {
-    return <EmptyState icon={<MapPin />} heading="No unit responses yet" subtext="Unit leaders submit /unit-form to register their availability." />
-  }
-  if (filtered.length === 0 && statusFilter !== 'all') {
-    return <div style={{ padding:'28px', textAlign:'center', fontSize:13, color:'#9ca3af' }}>No units match the selected filter.</div>
-  }
-
-  return (
-    <div className="ov-groups">
-      {divisionsToShow.map(div => {
-        const divRows     = byDiv[div] || []
-        const divHosting  = divRows.filter(r => r.capacity_status === 'hosting')
-        const divSlots    = divHosting.reduce((s, r) => s + capacitySlotsFor(r, units).slots, 0)
-        const uninvited   = statusFilter === 'all'
-          ? (catalogByDiv[div] || []).filter(name => !responseByName[name]).length
-          : 0
-        // collapsed by default; opens when explicitly set true
-        const open = unitGroupsOpen[div] === true
-
-        return (
-          <div key={div} className="ov-group">
-            <button type="button" className="ov-group-row" onClick={() => toggleUnitGroup(div)} aria-expanded={!!open}>
-              <span className="ov-chevron" style={{
-                display:'inline-block', transition:'transform 0.15s ease',
-                transform: open ? 'rotate(90deg)' : 'rotate(0deg)',
-              }}>▸</span>
-              <span className="ov-group-name">{div}</span>
-              <span style={{ flex:1 }} />
-              {divSlots > 0 && (
-                <span style={{ fontSize:10.5, color:'#6b7280', marginRight:6, whiteSpace:'nowrap' }}>
-                  {divSlots} slot{divSlots !== 1 ? 's' : ''}
-                </span>
-              )}
-              <span className="ov-group-badge">
-                {divRows.length} unit{divRows.length !== 1 ? 's' : ''}
-              </span>
-            </button>
-
-            {open && (
-              <div className="ov-group-items">
-                {divRows.map(r => (
-                  <UnitResponseRow key={r.id} response={r} filledByUnit={filledByUnit}
-                    units={units} primaryLeadMap={primaryLeadMap} showToast={showToast} onView={onView} />
-                ))}
-                {uninvited > 0 && (
-                  <div style={{ padding:'5px 10px 2px', fontSize:11, color:'#b0b9c6', fontStyle:'italic' }}>
-                    {uninvited} unit{uninvited !== 1 ? 's' : ''} in this division haven't been invited yet.
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
-// CAPACITY-RESPONSE-OUTREACH-2: the Send Form actions now launch ASPIRE Connect → Outreach →
-// Send to Many (Students + Student Profile Form Invitation preselected) instead of opening a mailto
-// draft. The confirm-gated status semantics are unchanged: the 'Form Sent' confirmation now appears
-// when the Owner RETURNS to At a Glance, and only that confirmation writes status.
-
-// ── ASPIRE-CHART: attention digest ───────────────────────────────────────────
-// Today leads with what needs a human. Counts come from the SAME canonical
-// attention engine as the bell badge and the Action Center panel (App passes
-// its derived sets down), so this strip can never disagree with either. Each
-// chip opens the Action Center, where every item carries its action.
-function AttentionDigest({ attention, onOpenActionCenter }) {
-  if (!attention) return null
-  const { eager, lazy, supportUnreadCount = 0 } = attention
-  const groups = [
-    { key: 'decisions', label: 'Decisions needed', count: (eager?.selectionDecision?.length || 0) + (lazy?.dispositionFollowup?.length || 0) },
-    { key: 'support', label: 'Support requests', count: supportUnreadCount },
-    { key: 'interviews', label: 'Interview outreach', count: (eager?.schedulingLink?.length || 0) + (eager?.interviewReminder?.length || 0) },
-    { key: 'placement', label: 'Placement setup', count: (eager?.unitLeaderNotification?.length || 0) + (eager?.preceptorWelcome?.length || 0) + (eager?.noPreceptor?.length || 0) + (eager?.badgeNotCreated?.length || 0) + (eager?.orientationDue ? 1 : 0) },
-    { key: 'cslink', label: 'CS-Link access', count: eager?.csLinkNotStarted?.length || 0 },
-    { key: 'outreach', label: 'Student outreach', count: eager?.sendStudentForm?.length || 0 },
-    { key: 'rotation', label: 'Rotation follow-up', count: lazy?.noShiftLastWeek?.length || 0 },
-  ].filter(g => g.count > 0)
-
-  if (groups.length === 0) {
-    return (
-      <div className="today-digest" role="status">
-        <span className="chart-chip chart-chip-ok">All caught up · nothing needs your attention right now</span>
-      </div>
-    )
-  }
-  return (
-    <div className="today-digest">
-      <span className="today-digest-lead">Needs attention</span>
-      {groups.map(g => (
-        <button key={g.key} className="today-digest-btn" onClick={onOpenActionCenter}
-          aria-label={`${g.label}: ${g.count} open ${g.count === 1 ? 'action' : 'actions'}. Open Action Center.`}>
-          <span>{g.label}</span>
-          <span className="today-digest-count" aria-hidden="true">{g.count > 99 ? '99+' : g.count}</span>
-        </button>
-      ))}
-      <button className="today-digest-open" onClick={onOpenActionCenter}>Open Action Center →</button>
-    </div>
-  )
-}
-
-export default function OverviewTab({ students, units, onStudentUpdate, cohortId, cohort, toast, onSelectStudent, attention, onOpenActionCenter, currentUserId, onRefreshUnits }) {
+export default function OverviewTab({ students, units, onStudentUpdate, cohortId, cohort, toast, currentUserId, onRefreshUnits, onOpenStudent, matches = null, communications = [] }) {
   // UNIT-POOL-REFINEMENT-1: unit setup moved here from the Placement Board. The
   // hosting decisions this panel tracks are what decide which units participate,
   // so the form that records that decision now lives beside them - and the
   // operational board can no longer add, remove, or reconfigure hosting units.
   const [showUnitSetup, setShowUnitSetup] = useState(false)
-  const [unitGroupsOpen,   setUnitGroupsOpen]   = useState({})
-  const [schoolGroupsOpen, setSchoolGroupsOpen] = useState({})
   const [unitStatusFilter, setUnitStatusFilter] = useState('hosting')
   // UNIT-FORM-RESPONSE-VISIBILITY: the unit_cohort_responses row open in the read-only detail drawer.
   const [selectedUnitResponse, setSelectedUnitResponse] = useState(null)
@@ -435,63 +206,6 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
   // en-CA gives reliable YYYY-MM-DD in the user's local timezone
   const todayStr     = new Date().toLocaleDateString('en-CA')
   const yesterdayStr = (() => { const d = new Date(); d.setDate(d.getDate() - 1); return d.toLocaleDateString('en-CA') })()
-
-  // On Campus Now - fetches today + yesterday logs so night shifts spanning midnight are included,
-  // then filters in JS to only logs whose canonical shift window contains the current moment.
-  const {
-    data:      campusLogs = [],
-    isLoading: campusLoading,
-    error:     campusError,
-    refetch:   loadCampusLogs,
-  } = useQuery({
-    queryKey: ['on_campus_now', cohortId, todayStr],
-    queryFn:  async () => {
-      const { data, error } = await supabase
-        .from('student_shift_logs')
-        .select('*')
-        .eq('cohort_id', cohortId)
-        .in('shift_date', [yesterdayStr, todayStr])
-        .in('status', ['Auto-Accepted', 'Approved'])
-      if (error) throw error
-
-      // KEITH-ON-CAMPUS-NOW-1: shared derivation (active-window filter + per-student dedup)
-      // so Keith's server-side On Campus Now uses the exact same logic as this panel.
-      return selectActiveWindowRows(data, new Date())
-    },
-    enabled:        !!cohortId,
-    refetchInterval: onTodayRoute ? 60 * 1000 : false,
-  })
-
-  // On Campus Now - lifecycle source (S.5): students with a live in_progress
-  // check-in from the /shift-log lifecycle. Runs on the same 60s cadence as the
-  // time-window fallback above. Independent query so a failure here degrades to
-  // fallback-only (and vice versa) rather than blanking the panel.
-  const { data: campusLifecycleLogs = [] } = useQuery({
-    queryKey: ['on_campus_now_lifecycle', cohortId],
-    queryFn:  async () => {
-      const { data, error } = await supabase
-        .from('student_shift_logs')
-        // SHIFT-VIS-1: also load lifecycle_state + planned_shift_type (read-only) so open-shift
-        // cards can show the shift badge + open duration. No behavior change.
-        // ON-CAMPUS-NOW-UX-1: also load unit_name so On Campus Now cards can show the current unit.
-        .select('id, student_id, checked_in_at, lifecycle_state, planned_shift_type, unit_name')
-        .eq('cohort_id', cohortId)
-        .eq('lifecycle_state', 'in_progress')
-        .order('checked_in_at', { ascending: false })
-      if (error) throw error
-      return data || []
-    },
-    enabled:        !!cohortId,
-    refetchInterval: onTodayRoute ? 60 * 1000 : false,
-  })
-
-  // Hybrid merge: lifecycle rows take precedence (live check-ins, checked_in_at
-  // DESC), then time-window fallback rows excluding any student already shown via
-  // lifecycle - so a student appears at most once. S.6 will drop the fallback.
-  const mergedCampusLogs = useMemo(
-    () => mergeOnCampusNow(campusLifecycleLogs, campusLogs),
-    [campusLifecycleLogs, campusLogs]
-  )
 
   // Unit Response Status - query unit_cohort_responses for current cohort
   const { data: unitResponses = [], error: unitResponsesError, isLoading: unitResponsesLoading, refetch: refetchUnitResponses } = useQuery({
@@ -615,9 +329,6 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
   const openSlotsLive       = Math.max(0, netRemaining)
   // PROCEEDING-GAP-1 (Owner, 2026-09-10): Not Proceeding and Declined students never need a
   // slot, so the fifth card counts proceeding students only (src/lib/placementCoverage.js).
-  const coverage            = placementCoverage(students, totalSlots)
-  const participatingUnits  = participating.length
-  const studentsRequesting  = totalStudents
   const activeSchools       = Object.keys((() => { const m = {}; students.forEach(s => { if (s.school) m[s.school] = 1 }); return m })()).length
   const activeCount         = students.filter(s => s.status === 'Active Rotation').length
   const completedCount      = students.filter(s => s.status === 'Completed').length
@@ -645,22 +356,6 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
       filledByUnit[s.matched_unit_id] = (filledByUnit[s.matched_unit_id] || 0) + 1
   })
 
-  // ── Unit grouping ──────────────────────────────────────────
-  const unitsByDiv = {}
-  DIVISIONS.forEach(d => { unitsByDiv[d] = [] })
-  participating.forEach(u => {
-    const div = u.division || UNIT_DIVISION_MAP[u.unit_name] || 'Medical'
-    if (!unitsByDiv[div]) unitsByDiv[div] = []
-    unitsByDiv[div].push(u)
-  })
-  Object.keys(unitsByDiv).forEach(div =>
-    unitsByDiv[div].sort((a, b) => (a.unit_name || '').localeCompare(b.unit_name || ''))
-  )
-
-  const toggleUnitGroup  = div => setUnitGroupsOpen(p => ({ ...p, [div]: p[div] !== true }))
-  const expandAllUnits   = () => setUnitGroupsOpen(Object.fromEntries(DIVISION_ORDER.map(d => [d, true])))
-  const collapseAllUnits = () => setUnitGroupsOpen({})
-
   // ── School grouping ────────────────────────────────────────
   // AP-SCHOOL-CANONICALIZATION-1 defensive safeguard: group Placement Requests by the school's
   // OPERATIVE identity (alias-aware), so a stored variant like "California State University,
@@ -672,20 +367,6 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
     if (!schoolMap[key]) schoolMap[key] = []
     schoolMap[key].push(s)
   })
-  const schools = Object.keys(schoolMap).sort()
-
-  const toggleSchoolGroup  = school => setSchoolGroupsOpen(p => ({ ...p, [school]: !p[school] }))
-  const expandAllSchools   = () => setSchoolGroupsOpen(Object.fromEntries(schools.map(s => [s, true])))
-  const collapseAllSchools = () => setSchoolGroupsOpen({})
-
-  const getCoordinator = sStudents => {
-    for (let i = sStudents.length - 1; i >= 0; i--) {
-      const s = sStudents[i]
-      if (s.school_coordinator_name)
-        return { name: s.school_coordinator_name, email: s.school_coordinator_email }
-    }
-    return null
-  }
 
   // ASPIRE-CHART approved Send Form semantics: opening a draft NEVER changes
   // status. The staff member confirms the email actually went out, and only
@@ -915,6 +596,273 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
     refetchTargets()
   }
 
+  // ── HOME-1: the page's own reads, one query per source, all in parallel ──────
+  const { style } = useTheme()
+  const classic = style !== 'modern'
+  const { canInterview } = useAuth()
+  const canManage = isAdmin && userProfile?.is_active !== false
+  const sigFlag = useSignaturesFlag(canManage)
+  const formsStatus = useFormsStatus(canManage)
+  const today = todayStr
+  const eventsTo = useMemo(() => { const d = new Date(`${today}T00:00:00`); d.setDate(d.getDate() + 90); return toLocalDateStr(d) }, [today])
+  const unitNameById = useMemo(() => new Map((units || []).map(u => [u.id, u.unit_name])), [units])
+  const unitNameFor = useCallback((id) => unitNameById.get(id) || '', [unitNameById])
+  const studentsById = useMemo(() => new Map((students || []).map(s => [s.id, s])), [students])
+  const divisionOf = useCallback((u) => u?.division || getUnit(u?.unit_name)?.division || UNIT_DIVISION_MAP[u?.unit_name] || 'Other', [])
+
+  const qMessages = useQuery({ queryKey: ['home_messages'], queryFn: loadMessagesNeedingYou, enabled: canManage && onTodayRoute, refetchInterval: onTodayRoute ? 60000 : false, staleTime: 30000 })
+  const qSig = useQuery({ queryKey: ['home_signatures'], queryFn: loadSignaturesList, enabled: canManage && sigFlag.allowed && onTodayRoute, staleTime: 30000 })
+  const qRR = useQuery({ queryKey: ['home_review_queues', cohortId], queryFn: () => loadReviewQueues(cohortId), enabled: canManage && !!cohortId && onTodayRoute, staleTime: 60000 })
+  const qCat = useQuery({ queryKey: ['home_catalog_tracker'], queryFn: loadCatalogTracker, enabled: canManage && onTodayRoute, staleTime: 30000 })
+  const qIv = useQuery({ queryKey: ['home_interviews', cohortId, today], queryFn: () => loadTodaysInterviews(cohortId, today), enabled: !!cohortId && onTodayRoute, staleTime: 60000 })
+  const qRot = useQuery({ queryKey: ['home_rotations', cohortId], queryFn: () => loadRotationWindows(cohortId), enabled: !!cohortId, staleTime: 300000 })
+  const qShifts = useQuery({ queryKey: ['home_shifts', cohortId, today], queryFn: () => loadTodaysShifts(cohortId, today, yesterdayStr), enabled: !!cohortId && onTodayRoute, refetchInterval: onTodayRoute ? 60000 : false })
+  const qEvents = useQuery({
+    queryKey: ['aggregate_welcome_events', today, eventsTo],
+    queryFn: async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
+      const res = await fetch('/api/aspire-events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ action: 'list', from: today, to: eventsTo }),
+      })
+      if (!res.ok) return []
+      const json = await res.json().catch(() => ({}))
+      return json.events || []
+    },
+    enabled: onTodayRoute, staleTime: 60000,
+  })
+  const qActivity = useQuery({ queryKey: ['home_activity'], queryFn: loadRecentActivity, enabled: onTodayRoute, refetchInterval: onTodayRoute ? 120000 : false, staleTime: 60000 })
+  const qContacts = useQuery({ queryKey: ['home_contacts'], queryFn: loadLauncherContacts, enabled: onTodayRoute, staleTime: 300000 })
+
+  const rotations = useMemo(() => qRot.data || [], [qRot.data])
+  const phase = useMemo(() => derivePhase({ cohort, students, rotations, today }), [cohort, students, rotations, today])
+  const phaseNeeds = (key) => phase.order.includes(key)
+  const orderOf = (key) => 2 + phase.order.indexOf(key)
+
+  const qOutreach = useQuery({
+    queryKey: ['home_outreach_open_rate'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('notification_log').select('subject, sent_at, opened_at, status')
+        .eq('notification_type', 'bulk_message_sent').order('sent_at', { ascending: false }).limit(300)
+      if (error) throw error
+      return data || []
+    },
+    enabled: canManage && onTodayRoute && (phaseNeeds('recruit')), staleTime: 300000, retry: false,
+  })
+
+  const nowMs = Date.now()
+  const preceptorNameFor = useCallback((s) => resolvePreceptor(s, qShifts.data?.preceptors || [])?.name || '', [qShifts.data])
+
+  // Needs you: one group per source the viewer may use. A source the viewer cannot use
+  // is not listed at all (never shown disabled); the six load in parallel.
+  const scopedSlots = useMemo(() => {
+    const slots = qIv.data?.slots || []
+    return scopeInterviewsForViewer(slots, { blocksById: qIv.data?.blocksById || {}, viewerProfileId: userProfile?.id, isAdmin })
+  }, [qIv.data, userProfile?.id, isAdmin])
+  const interviewerNameFor = useCallback((slot) => qIv.data?.blocksById?.[slot.block_id]?.interviewer_name || slot.interviewer_name || '', [qIv.data])
+
+  const sources = useMemo(() => {
+    const out = []
+    if (canManage && sigFlag.ready && sigFlag.allowed) out.push({ key: 'signatures', status: qStatus(qSig), retry: qSig.refetch,
+      group: qSig.data ? signaturesGroup({ requests: qSig.data.requests, signers: qSig.data.signers, meId: qSig.data.me?.id || userProfile?.id, now: nowMs }) : null })
+    if (canManage) out.push({ key: 'messages', status: qStatus(qMessages), retry: qMessages.refetch,
+      group: qMessages.data ? messagesGroup({ conversations: qMessages.data, now: nowMs }) : null })
+    if (canManage && cohortId) out.push({ key: 'reviewRelease', status: qStatus(qRR), retry: qRR.refetch,
+      group: qRR.data ? reviewReleaseGroup({ queues: qRR.data.queues, workflows: WORKFLOWS, now: nowMs }) : null })
+    if (canManage) out.push({ key: 'formsDocs', status: qStatus(qCat), retry: qCat.refetch,
+      group: qCat.data ? formsDocsGroup({ trackerRows: qCat.data.rows, items: qCat.data.items, now: nowMs }) : null })
+    if (cohortId) out.push({ key: 'interviews', status: qStatus(qIv), retry: qIv.refetch,
+      group: qIv.data ? interviewsGroup({ slots: scopedSlots, students, communications, interviewerNameFor, displayName, now: nowMs }) : null })
+    if (cohortId) out.push({ key: 'placement', status: qStatus(qRot), retry: qRot.refetch,
+      group: qRot.data ? placementGroup({ students, units, rotations, schoolKey: schoolGroupKey, unitNameFor, displayName, today, now: nowMs }) : null })
+    return out
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canManage, sigFlag.ready, sigFlag.allowed, qSig.status, qSig.data, qMessages.status, qMessages.data, qRR.status, qRR.data, qCat.status, qCat.data, qIv.status, qIv.data, qRot.status, qRot.data, scopedSlots, students, units, communications, rotations, cohortId, today])
+
+  // Today
+  const holidaysToday = useMemo(() => getUsHolidaysForRange(today, today), [today])
+  const schedule = useMemo(() => scheduleRows({
+    interviews: scopedSlots, events: qEvents.data || [], holidays: holidaysToday,
+    dueItems: qCat.data ? dueTodayItems(qCat.data.rows, qCat.data.items, today) : [],
+    interviewerNameFor, displayName, today, now: new Date(nowMs),
+  }), [scopedSlots, qEvents.data, holidaysToday, qCat.data, interviewerNameFor, today, nowMs])
+  const campus = useMemo(() => onCampusGroups({
+    plans: qShifts.data?.plans || [], logs: (qShifts.data?.logs || []).filter(l => l.shift_date === today), students,
+    unitNameFor, preceptorNameFor, displayName, today, now: new Date(nowMs),
+  }), [qShifts.data, students, unitNameFor, preceptorNameFor, today, nowMs])
+  const mastheadChips = useMemo(
+    () => [...mastheadItems(qEvents.data || [], today), ...holidayItems(holidaysToday)],
+    [qEvents.data, today, holidaysToday],
+  )
+
+  // Cohort pulse
+  const pipeline = useMemo(() => pipelineCounts(students), [students])
+  const hours = useMemo(() => hoursBar({ students, rotations, schoolKey: schoolGroupKey, today }), [students, rotations, today])
+  const midpoint = useMemo(() => {
+    if (!qRR.data?.evidence) return null
+    const ready = (qRR.data.queues?.preceptor?.items || []).filter(i => i.state === 'ready' && i.period === 'midpoint').length
+    return midpointBar({ assignments: qRR.data.evidence.assignments, readyToRelease: ready })
+  }, [qRR.data])
+
+  // Placement
+  const summary = useMemo(() => placementSummary({ students, units, matches, divisionOf }), [students, units, matches, divisionOf])
+  const requestRows = useMemo(() => requestsBySchool({ students, schoolKey: schoolGroupKey }), [students])
+
+  // Phase cards
+  const applications = useMemo(() => applicationsSummary(students, nowMs), [students, nowMs])
+  const openRate = useMemo(() => (qOutreach.data ? latestOutreachOpenRate(qOutreach.data) : null), [qOutreach.data])
+  const surveys = useMemo(() => surveysSummary({ queues: qRR.data?.queues || {}, evidence: qRR.data?.evidence || null, nowMs }), [qRR.data, nowMs])
+
+  // Recent activity
+  const activity = useMemo(() => activityRows(qActivity.data?.events || [], { id: userProfile?.id, name: userProfile?.full_name }, nowMs), [qActivity.data, userProfile?.id, userProfile?.full_name, nowMs])
+
+  // The launcher
+  const actions = useMemo(() => allowedActions({
+    isAdmin: canManage, canInterview, canMatch: canPerformMatching(userProfile), signatures: sigFlag.allowed, forms: formsStatus.enabled, isActive: userProfile?.is_active !== false,
+  }), [canManage, canInterview, userProfile, sigFlag.allowed, formsStatus.enabled])
+  const people = useMemo(() => personRows({ students, contacts: qContacts.data || [], unitNameFor, displayName }), [students, qContacts.data, unitNameFor])
+  const go = useCallback((to) => { if (to) navigate(to) }, [navigate])
+  const openStudent = useCallback((id) => { if (onOpenStudent) onOpenStudent(id); else navigate(`/students?student=${encodeURIComponent(id)}`) }, [onOpenStudent, navigate])
+  const openPerson = useCallback((p) => {
+    if (p.kind === 'student') openStudent(p.id.replace(/^student:/, ''))
+    else go(p.to)
+  }, [openStudent, go])
+  const updatedLabel = useUpdatedLabel(cohortId)
+  const dateLabel = new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+
+  // Placement > Capacity and requests: the service-line rows, and what an expanded row shows.
+  const serviceLineRows = useMemo(() => {
+    const base = capacityByServiceLine({ units, students, divisionOf, order: DIVISION_ORDER })
+    const seen = new Set(base.map(r => r.serviceLine))
+    const extra = []
+    for (const r of capacityView) {
+      const d = getUnit(r.unit_name)?.division || 'Other'
+      if (!seen.has(d)) { seen.add(d); extra.push({ id: d, serviceLine: d, filled: 0, slots: 0, units: [] }) }
+    }
+    return [...base, ...extra]
+  }, [units, students, divisionOf, capacityView])
+  const capacityFiltered = useMemo(() => (unitStatusFilter === 'all' ? capacityView : capacityView.filter(r => r.capacity_status === unitStatusFilter)), [capacityView, unitStatusFilter])
+  const renderCapacityDetail = (row) => {
+    const rows = capacityFiltered.filter(r => (getUnit(r.unit_name)?.division || 'Other') === row.serviceLine)
+      .sort((a, b) => a.unit_name.localeCompare(b.unit_name))
+    if (!rows.length) return <div className="hm-pl-detail" style={{ color: 'var(--hm-muted)', fontSize: 12.5 }}>No units match the selected filter.</div>
+    return (
+      <div className="hm-pl-detail hm-pl-units">
+        {rows.map(r => (
+          <UnitResponseRow key={r.id} response={r} filledByUnit={filledByUnit} units={units}
+            primaryLeadMap={primaryLeadMap} showToast={showToast} onView={setSelectedUnitResponse} />
+        ))}
+      </div>
+    )
+  }
+  const renderRequestDetail = (row) => <SchoolStudents school={row.school} sStudents={row.list} />
+
+  function SchoolStudents({ school, sStudents }) {
+    const hasPending = sStudents.some(s => s.status === 'Pending Outreach')
+    return (
+      <div className="hm-pl-detail">
+        {hasPending && (
+          <div className="ov-school-actions">
+            <button className="ov-send-btn" onClick={e => { e.stopPropagation(); handleSendSchool(school, sStudents) }}>
+              Send Forms to Students
+            </button>
+          </div>
+        )}
+        {[...sStudents].sort((a, b) => {
+          const la = (a.last_name || a.name || '').toLowerCase()
+          const lb = (b.last_name || b.name || '').toLowerCase()
+          if (la !== lb) return la.localeCompare(lb)
+          return (a.first_name || '').toLowerCase().localeCompare((b.first_name || '').toLowerCase())
+        }).map(s => {
+          const ovDispType = s.status === 'Not Proceeding' ? s.active_disposition?.disposition_type : null
+          const statusCfg  = ASPIRE_STATUS_CONFIG[s.status] || { bg:'#f3f4f6', text:'#6b7280', border:'#d1d5db' }
+          const placedUnit = s.matched_unit_id ? unitNameFor(s.matched_unit_id) : null
+          const isPending  = s.status === 'Pending Outreach'
+          const req = parseFloat(s.hours_required || 0)
+          const apv = parseFloat(s.approved_hours || 0)
+          return (
+            <div key={s.id} className="ov-student-row">
+              <StudentAvatar student={s} size={32} />
+              <div className="ov-student-info" style={{ flex:1 }}>
+                <button type="button" className="ov-student-name hm-link" style={{ fontSize: 13 }} onClick={() => openStudent(s.id)}>{displayName(s)}</button>
+                {s.school_email && <span className="ov-student-contact">{s.school_email}</span>}
+              </div>
+              <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:4, flexShrink:0 }}>
+                {req > 0 && (
+                  <span style={{ fontSize:11, fontWeight:600, color: apv / req >= 1 ? '#166534' : 'var(--hm-muted)', whiteSpace:'nowrap', fontVariantNumeric:'tabular-nums' }}>
+                    {apv}/{req} hrs
+                  </span>
+                )}
+                {s.status && ovDispType ? (() => {
+                  const c = DISPOSITION_PILL_COLORS[ovDispType] || DISPOSITION_PILL_COLORS['not_selected']
+                  return <span style={{ fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:'var(--aspire-radius-pill)', background:c.bg, color:c.text, border:`1px solid ${c.border}`, whiteSpace:'nowrap' }}>{DISPOSITION_TYPES[ovDispType] || ovDispType}</span>
+                })() : s.status ? (
+                  <span style={{ fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:'var(--aspire-radius-pill)', background:statusCfg.bg, color:statusCfg.text, border:`1px solid ${statusCfg.border}`, whiteSpace:'nowrap' }}>{s.status}</span>
+                ) : null}
+                {placedUnit && <span style={{ fontSize:11, color:'#166534', whiteSpace:'nowrap' }}>Placed: {placedUnit}</span>}
+                {isPending && (
+                  <button className="ov-send-btn ov-send-btn-sm" onClick={e => { e.stopPropagation(); handleSendStudent(s) }}>Send Form</button>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
+
+  const capacityToolbar = (
+    <div className="hm-pl-toolbar">
+      {(() => {
+        const n = (s) => capacityView.filter(r => r.capacity_status === s).length
+        const chips = [
+          { key:'all', label:'All', count: capacityView.length },
+          { key:'hosting', label:'Hosting', count: n('hosting') },
+          { key:'not_hosting', label:'Not Hosting', count: n('not_hosting') },
+          { key:'pending', label:'Pending', count: n('pending') },
+        ]
+        return chips.map(c => (
+          <button key={c.key} type="button" className="hm-fchip" aria-pressed={unitStatusFilter === c.key} onClick={() => setUnitStatusFilter(c.key)}>
+            {c.label} <b>{unitResponsesLoading ? '…' : c.count}</b>
+          </button>
+        ))
+      })()}
+      <div className="hm-pl-toolbar-r">
+        {isAdmin && unitStatusFilter === 'all' && (
+          <button type="button" className="ov-send-btn" onClick={handleLaunchCapacityRequest}
+            title="Open ASPIRE Connect → Outreach → Send to Many with the capacity request preselected">
+            Send Capacity Request
+          </button>
+        )}
+        {isAdmin && unitStatusFilter === 'pending' && (
+          <button type="button" className="ov-send-btn" onClick={handleLaunchPendingReminder}
+            title="Open ASPIRE Connect → Outreach → Send to Many with the reminder preselected for pending units">
+            Send Reminder to Pending Units
+          </button>
+        )}
+        {canPerformMatching(userProfile) && (
+          <button type="button" className="ov-send-btn" data-testid="overview-set-up-units"
+            onClick={() => setShowUnitSetup(true)}
+            title="Choose which units participate this cohort and how many slots each offers">
+            ⚙ Set Up Units
+          </button>
+        )}
+      </div>
+    </div>
+  )
+  const requestsToolbar = (
+    <div className="hm-pl-toolbar">
+      <StatusLegendPopover position="bottom-left" />
+      <Tooltip label="Copy cohort summary" placement="bottom">
+        <button onClick={handleCopyCohortSummary} aria-label="Copy cohort summary"
+          style={{ background:'none', border:'none', cursor:'pointer', color:'var(--hm-muted)', padding:'4px', display:'flex', alignItems:'center' }}>
+          <Copy size={14} />
+        </button>
+      </Tooltip>
+    </div>
+  )
   return (
     <div className="overview-tab">
       {/* Toast - fixed, lives outside scroll containers */}
@@ -1030,370 +978,66 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
         </div>
       )}
 
-      {/* ════════ ASPIRE-MASTHEAD: briefing masthead, then triage, then the
-          live campus signal, then the merged snapshot. Everything orientation
-          lives in the masthead card; the page says hello exactly once. ════════ */}
-      <TodayMasthead students={students} cohort={cohort} cohortId={cohortId}
-        currentUserId={currentUserId} onTodayRoute={onTodayRoute}
-        onCampusCount={mergedCampusLogs.length} />
-      <AttentionDigest attention={attention} onOpenActionCenter={onOpenActionCenter} />
-      {/* Opens the student's Interview Rubric directly. InterviewRubricTab seeds
-          its selection from ?student= (the same param its own selectStudent
-          writes), so this lands on the identical rubric the Interviews-tab card
-          opens - not merely the Interviews tab. */}
-      <InterviewsTodayStrip
-        cohortId={cohortId}
-        onOpenInterview={({ student }) => {
-          if (student?.id) navigate(`/interviews?student=${encodeURIComponent(student.id)}`)
-          else navigate('/interviews')
-        }}
-      />
-      <OnCampusStrip
-        mergedCampusLogs={campusLoading ? [] : mergedCampusLogs}
-        students={students} units={units}
-        onSelectStudent={onSelectStudent}
-        onOpenActivity={() => navigate('/rotation/activity')}
-      />
 
-      <PlacementSnapshot
-        totalSlots={totalSlots} placedCount={placedCount} openSlots={openSlotsLive}
-        studentsRequesting={studentsRequesting} coverage={coverage}
-        participatingUnits={participatingUnits} activeSchools={activeSchools}
-        cohort={cohort} cohortId={cohortId}
-      />
-
-      {/* ════════ STICKY LEDGER HEADERS ════════
-          Slimmed by owner decision D5: the masthead, digest, and snapshot
-          scroll away; only these thin panel headers stay pinned (their
-          subtitles keep the counts in view while scrolling the ledgers). */}
-      <div className="aggregate-sticky-header">
-        {/* Frozen panel headers - two columns matching the panels below */}
-        <div className="aggregate-panel-headers">
-          {/* CAPACITY-FILTER-REMINDER-1 header (Owner-approved): the prose summary retired - the
-              four pills, directly under the title, ARE the indicators AND the filters. Counts derive
-              from capacityRows (cohort responses + synthesized pending targets), so the pills and
-              the table below always agree per cohort. The dynamic light-green action sits on the
-              right: Send Capacity Request under All, Send Reminder to Pending Units under Pending,
-              and no send action under Hosting / Not Hosting (filters only). Reminders never change
-              target or response status. The manual targets fallback stays out of the UI entirely
-              (Owner decision; historical targets are an Owner-applied SQL backfill). */}
-          <div className="aggregate-panel-hdr">
-            <div>
-              <div className="ov-panel-title">Placement Capacity</div>
-              <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginTop:7 }}>
-                {(() => {
-                  const n = (s) => capacityView.filter(r => r.capacity_status === s).length
-                  const chips = [
-                    { key:'all',         label:'All',         count: capacityView.length,        activeBg:'#1D2567', activeTxt:'#fff'    },
-                    { key:'hosting',     label:'Hosting',     count: n('hosting'),               activeBg:'#C8D5C0', activeTxt:'#2D4A2B' },
-                    { key:'not_hosting', label:'Not Hosting', count: n('not_hosting'),           activeBg:'#E8E8E8', activeTxt:'#555'    },
-                    { key:'pending',     label:'Pending',     count: n('pending'),               activeBg:'#f3f4f6', activeTxt:'#6b7280' },
-                  ]
-                  return chips.map(c => {
-                    const active = unitStatusFilter === c.key
-                    return (
-                      <button key={c.key} onClick={() => setUnitStatusFilter(c.key)}
-                        aria-pressed={active}
-                        style={{
-                          padding:'2px 9px', borderRadius:20, fontSize:10.5, fontWeight: active ? 700 : 500,
-                          border: active ? 'none' : '1px solid #e5e7eb',
-                          background: active ? c.activeBg : '#fff',
-                          color: active ? c.activeTxt : '#6b7280',
-                          cursor:'pointer', whiteSpace:'nowrap', fontFamily:'Plus Jakarta Sans,sans-serif',
-                        }}>
-                        {c.label} ({unitResponsesLoading ? '…' : c.count})
-                      </button>
-                    )
-                  })
-                })()}
-              </div>
-            </div>
-            {/* Dynamic action + Expand/Collapse, right-aligned */}
-            <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:6 }}>
-              {isAdmin && unitStatusFilter === 'all' && (
-                <button type="button" className="ov-send-btn" onClick={handleLaunchCapacityRequest}
-                  title="Open ASPIRE Connect → Outreach → Send to Many with the capacity request preselected">
-                  Send Capacity Request
-                </button>
-              )}
-              {isAdmin && unitStatusFilter === 'pending' && (
-                <button type="button" className="ov-send-btn" onClick={handleLaunchPendingReminder}
-                  title="Open ASPIRE Connect → Outreach → Send to Many with the reminder preselected for pending units">
-                  Send Reminder to Pending Units
-                </button>
-              )}
-              {/* Gated by the SAME authority the Placement Board button had
-                  (owner, admin, AND co-lead) - relocating the entry point must
-                  not quietly narrow who can use it. */}
-              {canPerformMatching(userProfile) && (
-                <button type="button" className="ov-send-btn" data-testid="overview-set-up-units"
-                  onClick={() => setShowUnitSetup(true)}
-                  title="Choose which units participate this cohort and how many slots each offers">
-                  ⚙ Set Up Units
-                </button>
-              )}
-              <div className="ov-expand-toggle">
-                <button onClick={expandAllUnits}>Expand All</button>
-                <span style={{ color:'var(--border)' }}>·</span>
-                <button onClick={collapseAllUnits}>Collapse All</button>
-              </div>
-            </div>
-          </div>
-          <div className="aggregate-panel-hdr">
-            <div>
-              <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
-                <span className="ov-panel-title">Placement Requests</span>
-                <StatusLegendPopover position="bottom-left" />
-                <Tooltip label="Copy cohort summary" placement="bottom">
-                <button onClick={handleCopyCohortSummary} aria-label="Copy cohort summary"
-                  style={{ background:'none', border:'none', cursor:'pointer', color:'#9ca3af', padding:'4px', display:'flex', alignItems:'center' }}>
-                  <Copy size={14} />
-                </button>
-                </Tooltip>
-              </div>
-              <div className="ov-panel-sub">
-                {schools.length} School{schools.length !== 1 ? 's' : ''} · {totalStudents} Students · {placedCount} Placed
-              </div>
-            </div>
-            <div className="ov-expand-toggle">
-              <button onClick={expandAllSchools}>Expand All</button>
-              <span style={{ color:'var(--border)' }}>·</span>
-              <button onClick={collapseAllSchools}>Collapse All</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ════════ SCROLLABLE CONTENT ════════ */}
-      <div className="aggregate-scrollable-content">
-
-        {/* ASPIRE-CHART honest error states: a failed query must never
-            masquerade as "nothing needs attention". */}
-        {(unitResponsesError || campusError) && (
-          <div className="today-error" role="alert">
-            <span>
-              {unitResponsesError ? 'Unit responses could not load. The Placement Capacity panel may be incomplete. ' : ''}
-              {campusError ? 'On Campus Now could not load. ' : ''}
-            </span>
-            <button onClick={() => { if (unitResponsesError) refetchUnitResponses(); if (campusError) loadCampusLogs() }}>
-              Retry
-            </button>
-          </div>
+      {/* ════════ HOME-1: the page ════════ */}
+      <div className={`hm-page${classic ? ' hm-classic' : ''}`}>
+        {classic && (
+          <>
+            <span className="hm-corner hm-corner-tl" aria-hidden="true" />
+            <span className="hm-corner hm-corner-tr" aria-hidden="true" />
+            <span className="hm-corner hm-corner-bl" aria-hidden="true" />
+            <span className="hm-corner hm-corner-br" aria-hidden="true" />
+          </>
         )}
+        <HomeBanner
+          classic={classic}
+          fullName={userProfile?.full_name}
+          userKey={currentUserId}
+          items={mastheadChips}
+          calendar={{ label: 'Open Calendar', onClick: () => navigate('/interviews') }}
+          launcher={{ actions, people, canAskKeith: userProfile?.role !== 'viewer' || userProfile?.is_owner === true, onRun: (a) => go(a?.to), onOpenPerson: openPerson }}
+        />
 
-        <div className="ov-panels-body">
+        <div className="hm-stack">
+          <NeedsYou order={0} sources={sources} onNavigate={go} updatedLabel={updatedLabel} />
 
-          {/* ── Placement Capacity panel (body only) ── */}
-          <div className="ov-panel-body">
-            {capacityView.length > 0
-              ? <PlacementCapacityPanel
-                  unitResponses={capacityView}
-                  filledByUnit={filledByUnit}
-                  units={units}
-                  unitGroupsOpen={unitGroupsOpen}
-                  toggleUnitGroup={toggleUnitGroup}
-                  primaryLeadMap={primaryLeadMap}
-                  showToast={showToast}
-                  statusFilter={unitStatusFilter}
-                  onView={setSelectedUnitResponse}
-                />
-              : <div className="ov-groups">
-                  {/* Fallback to legacy view if no unit_cohort_responses rows yet */}
-                  {DIVISIONS.map(div => {
-                    const divUnits = unitsByDiv[div] || []
-                    if (divUnits.length === 0) return null
-                    const open       = unitGroupsOpen[div]
-                    const divTotal   = divUnits.reduce((s, u) => s + (u.total_slots      || 0), 0)
-                    const divFilled  = divUnits.reduce((s, u) => s + (filledByUnit[u.id] || 0), 0)
-                    const divBadgeBg    = divFilled >= divTotal ? '#fee2e2' : '#dcfce7'
-                    const divBadgeColor = divFilled >= divTotal ? '#991b1b' : '#166534'
-                    return (
-                      <div key={div} className="ov-group">
-                        <button type="button" className="ov-group-row" onClick={() => toggleUnitGroup(div)} aria-expanded={!!open}>
-                          <span className="ov-chevron">{open ? '▾' : '▸'}</span>
-                          <span className="ov-group-name">{div}</span>
-                          <span className="ov-group-badge" style={{ background: divBadgeBg, color: divBadgeColor }}>
-                            {divFilled}/{divTotal} filled
-                          </span>
-                        </button>
-                        {open && (
-                          <div className="ov-group-items">
-                            {(unitsByDiv[div] || []).map(u => {
-                              const filled    = filledByUnit[u.id] || 0
-                              const total     = u.total_slots || 0
-                              const isFull    = total > 0 && filled >= total
-                              const slotBg    = isFull ? '#fee2e2' : '#dcfce7'
-                              const slotColor = isFull ? '#991b1b' : '#166534'
-                              return (
-                                <div key={u.id} className="ov-unit-row">
-                                  <div className="ov-unit-info">
-                                    <span className="ov-unit-name">{u.unit_name}</span>
-                                    {u.contact_person && <span className="ov-unit-contact">{u.contact_person}</span>}
-                                  </div>
-                                  <div className="ov-unit-badges">
-                                    <span style={{ background:slotBg, color:slotColor, fontSize:12, fontWeight:500, padding:'2px 8px', borderRadius:4, whiteSpace:'nowrap' }}>
-                                      {filled} of {total} filled
-                                    </span>
-                                    {u.shift_preference && <span className="ov-shift-badge">{u.shift_preference}</span>}
-                                  </div>
-                                </div>
-                              )
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
-                  {participating.length === 0 && (
-                    <EmptyState icon={<MapPin />}
-                      heading="No units configured"
-                      subtext="Unit leaders submit the /unit-form to appear here." />
-                  )}
+          <div className="hm-phase" style={{ order: 1 }} role="status">
+            Cycle phase: <b>{phase.label}</b> · sections below are ordered for this phase
+          </div>
+
+          {phaseNeeds('recruit') && (
+            <ApplicationsOutreach order={orderOf('recruit')} cohortName={cohort?.name} onNavigate={go}
+              received={applications.received} thisWeek={applications.thisWeek} missingDocs={applications.missingDocs} openRate={openRate} />
+          )}
+          {phaseNeeds('evals') && (
+            <SurveysResults order={orderOf('evals')} onNavigate={go}
+              ready={surveys.ready} needReminder={surveys.needReminder} pairs={surveys.pairs} certificates={surveys.certificates} />
+          )}
+
+          <div className="hm-duo" style={{ order: orderOf('duo') }} data-sec="duo">
+            <TodayCard dateLabel={dateLabel} schedule={schedule} scheduleLoading={qEvents.isPending && onTodayRoute}
+              campus={campus} campusLoading={qShifts.isPending && !!cohortId} studentsById={studentsById}
+              onNavigate={go} onOpenStudent={openStudent} />
+            <CohortPulse cohortName={cohort?.name} pipeline={pipeline} currentStage={phase.stage} hours={hours} midpoint={midpoint} onNavigate={go} />
+          </div>
+
+          {phaseNeeds('placement') && (
+            <PlacementCard order={orderOf('placement')} summary={summary}
+              cap={`${summary.hostingUnits} hosting unit${summary.hostingUnits === 1 ? '' : 's'} · ${requestRows.length} school${requestRows.length === 1 ? '' : 's'}`}
+              capacityRows={serviceLineRows} requestRows={requestRows}
+              capacityToolbar={capacityToolbar} requestsToolbar={requestsToolbar}
+              renderCapacityDetail={renderCapacityDetail} renderRequestDetail={renderRequestDetail}
+              onViewResponse={(school) => setResponseDrawerSchool(school)} onNavigate={go}
+              notices={unitResponsesError ? (
+                <div className="today-error" role="alert" style={{ margin: '0 20px 12px' }}>
+                  <span>Unit responses could not load. The capacity panel may be incomplete.</span>
+                  <button onClick={() => refetchUnitResponses()}>Retry</button>
                 </div>
-            }
-          </div>
+              ) : null} />
+          )}
 
-          {/* ── Placement Requests (body only) ── */}
-          <div className="ov-panel-body">
-            <div className="ov-groups">
-              {schools.map(school => {
-                const sStudents  = schoolMap[school]
-                const open       = schoolGroupsOpen[school]
-                const coord      = getCoordinator(sStudents)
-                const placed     = sStudents.filter(s => s.matched_unit_id).length
-                const hasPending = sStudents.some(s => s.status === 'Pending Outreach')
-
-                return (
-                  <div key={school} className="ov-group">
-                    {/* STAFF-SCHOOL-RESPONSE-VISIBILITY-1: the header row is a flex wrapper so the
-                        accordion toggle and View response are SEPARATE buttons (never nested);
-                        View response opens the read-only drawer without expanding the group. The
-                        toggle keeps the ORIGINAL full-row hit area - chevron, school info,
-                        coordinator line, AND both badges all expand/collapse the group. */}
-                    <div className="ov-group-row ov-school-row">
-                      <button type="button" className="ov-school-toggle" onClick={() => toggleSchoolGroup(school)} aria-expanded={!!open}>
-                        <span className="ov-chevron">{open ? '▾' : '▸'}</span>
-                        <div style={{ flex:1, minWidth:0 }}>
-                          <span className="ov-group-name">{school}</span>
-                          {coord && (coord.name || coord.email) && (
-                            <div className="ov-coord-line">
-                              {coord.name}{coord.name && coord.email ? ' | ' : ''}{coord.email}
-                            </div>
-                          )}
-                        </div>
-                        <div style={{ display:'flex', alignItems:'center', gap:6, flexShrink:0, flexWrap:'wrap', justifyContent:'flex-end' }}>
-                          {placed > 0 && (
-                            <span style={{ background:'#dcfce7', color:'#166534', fontSize:11, fontWeight:600, padding:'2px 8px', borderRadius:20 }}>
-                              {placed} placed
-                            </span>
-                          )}
-                          <span className="ov-group-badge">
-                            {sStudents.length} student{sStudents.length !== 1 ? 's' : ''}
-                          </span>
-                        </div>
-                      </button>
-                      <button type="button" className="ov-view-response-btn"
-                        onClick={e => { e.stopPropagation(); setResponseDrawerSchool(school) }}>
-                        View response
-                      </button>
-                    </div>
-
-                    {open && (
-                      <div className="ov-group-items">
-                        {/* Send Forms to Students (school-level BATCH action, Owner-renamed from
-                            "Send Form to School"): sends the Student Profile Form invitation to all
-                            Pending Outreach students in this school. Each student row keeps its own
-                            singular "Send Form" action. Shown only when at least one student is
-                            Pending Outreach. */}
-                        {hasPending && (
-                          <div className="ov-school-actions">
-                            <button className="ov-send-btn"
-                              onClick={e => { e.stopPropagation(); handleSendSchool(school, sStudents) }}>
-                              Send Forms to Students
-                            </button>
-                          </div>
-                        )}
-
-                        {[...sStudents].sort((a, b) => {
-                          const la = (a.last_name || a.name || '').toLowerCase()
-                          const lb = (b.last_name || b.name || '').toLowerCase()
-                          if (la !== lb) return la.localeCompare(lb)
-                          return (a.first_name || '').toLowerCase().localeCompare((b.first_name || '').toLowerCase())
-                        }).map(s => {
-                          const ovDispType = s.status === 'Not Proceeding' ? s.active_disposition?.disposition_type : null
-                          const statusCfg  = ASPIRE_STATUS_CONFIG[s.status] || { bg:'#f3f4f6', text:'#6b7280', border:'#d1d5db' }
-                          const placedUnit = s.matched_unit_id ? units.find(u => u.id === s.matched_unit_id)?.unit_name : null
-                          const isPending  = s.status === 'Pending Outreach'
-
-                          return (
-                            <div key={s.id} className="ov-student-row">
-                              <StudentAvatar student={s} size={32} />
-                              {/* Info */}
-                              <div className="ov-student-info" style={{ flex:1 }}>
-                                <span className="ov-student-name">{displayName(s)}</span>
-                                {s.school_email && <span className="ov-student-contact">{s.school_email}</span>}
-                                {s.phone && <span style={{ fontSize:12, color:'#9ca3af' }}>{s.phone}</span>}
-                              </div>
-                              {/* Right: ASPIRE status + hours badge + placed label + Send Form */}
-                              <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:4, flexShrink:0 }}>
-                              {/* Hours progress badge */}
-                              {(() => {
-                                const req = parseFloat(s.hours_required||0)
-                                const apv = parseFloat(s.approved_hours||0)
-                                if (!req) return null
-                                const pct = apv / req
-                                const color = pct >= 1 ? '#166534' : pct >= 0.5 ? 'var(--nightfall)' : '#6b7280'
-                                return (
-                                  <span style={{ fontSize:11, fontWeight:600, color, whiteSpace:'nowrap' }}>
-                                    {apv}/{req} hrs
-                                  </span>
-                                )
-                              })()}
-                                {s.status && ovDispType ? (
-                                  (() => {
-                                    const c = DISPOSITION_PILL_COLORS[ovDispType] || DISPOSITION_PILL_COLORS['not_selected']
-                                    return (
-                                      <span style={{ fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:20, background:c.bg, color:c.text, border:`1px solid ${c.border}`, whiteSpace:'nowrap' }}>
-                                        {DISPOSITION_TYPES[ovDispType] || ovDispType}
-                                      </span>
-                                    )
-                                  })()
-                                ) : s.status ? (
-                                  <span style={{ fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:20, background:statusCfg.bg, color:statusCfg.text, border:`1px solid ${statusCfg.border}`, whiteSpace:'nowrap' }}>
-                                    {s.status}
-                                  </span>
-                                ) : null}
-                                {placedUnit && (
-                                  <span style={{ fontSize:11, color:'#166534', whiteSpace:'nowrap' }}>
-                                    Placed: {placedUnit}
-                                  </span>
-                                )}
-                                {/* Send Form button only shown for Pending Outreach students */}
-                                {isPending && (
-                                  <button className="ov-send-btn ov-send-btn-sm"
-                                    onClick={e => { e.stopPropagation(); handleSendStudent(s) }}>
-                                    Send Form
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-              {students.length === 0 && (
-                <EmptyState icon={<GraduationCap />}
-                  heading="No student requests yet"
-                  subtext="Students will appear here after their school coordinator submits the school form." />
-              )}
-            </div>
-          </div>
-
+          <RecentActivity order={orderOf('activity')} rows={activity} onNavigate={go} />
         </div>
-
       </div>
 
       {showUnitSetup && (
