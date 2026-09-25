@@ -7,7 +7,7 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readFileSync, existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
@@ -227,12 +227,12 @@ test('CLASSIC DESK 3: Placement is one sheet, with no stack of paper under it', 
   assert.doesNotMatch(read('src/components/home/home.css'), /pagestack|pageStack/)
 })
 
-test('UNIT SETUP 6: the CSV import writes the same default shift as Unit Setup', () => {
-  // Owner, 2026-09-25: "make ImportUnitsCSV write No Preference instead of Either".
-  const imp = read('src/components/ImportUnitsCSV.jsx')
-  assert.match(imp, /import \{ DEFAULT_SHIFT \} from '\.\.\/lib\/unitSetupModel'/)
-  assert.match(imp, /shift_preference: mapping\.shift_preference \? row\[mapping\.shift_preference\] : DEFAULT_SHIFT/)
-  assert.doesNotMatch(imp, /'Either'/)
+test('UNIT SETUP 6: the unused units CSV import is gone, and Unit Setup is the one writer of the default', () => {
+  // ImportUnitsCSV lost its only mount in 6ec83040 and was deleted on 2026-09-25. The default
+  // shift it last wrote (b5a8febb) is still pinned where it lives: DEFAULT_SHIFT in
+  // unitSetupModel.js, tested above ('No Preference', and a stored 'Either' reads as it).
+  assert.equal(existsSync(join(root, 'src/components/ImportUnitsCSV.jsx')), false)
+  assert.doesNotMatch(read('src/index.css'), /\.col-mapper|\.req-star/, 'its private styles went with it')
 })
 
 test('WINDOW: the scenery shows in both styles, flush to the top, in a square window', () => {

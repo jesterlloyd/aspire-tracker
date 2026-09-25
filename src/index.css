@@ -1587,13 +1587,6 @@ body { min-height: 100vh; }
 .import-upload-zone { text-align: center; padding: 32px 16px; border: 2px dashed var(--border); border-radius: 6px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
 .import-hint { font-size: 13px; color: var(--text-secondary); text-align: center; line-height: 1.5; }
 
-.col-mapper { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
-.col-mapper-row { display: grid; grid-template-columns: 180px 1fr; align-items: center; gap: 12px; padding: 6px 10px; background: var(--sand); border-radius: 4px; }
-.col-mapper-field { font-size: 13px; font-weight: 600; color: var(--raven); }
-.req-star { color: var(--cs-red); }
-.col-mapper-select { padding: 6px 10px; border: 1px solid var(--border); border-radius: 4px; font-size: 13px; color: var(--raven); background: var(--pearl); outline: none; }
-.col-mapper-select:focus { border-color: var(--nova); }
-
 .preview-table-wrap { overflow-x: auto; margin-top: 12px; border: 1px solid var(--border-lt); border-radius: 4px; }
 .preview-table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .preview-table th { background: var(--aspire-th-bg); padding: var(--aspire-th-pad); text-align: left; font-weight: var(--aspire-th-weight); font-size: var(--aspire-th-size); color: var(--aspire-th-color); text-transform: uppercase; letter-spacing: var(--aspire-th-tracking); border-bottom: var(--aspire-row-line); }
