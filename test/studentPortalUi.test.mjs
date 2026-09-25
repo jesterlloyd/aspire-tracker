@@ -157,6 +157,14 @@ test('shell, navigation, and mobile', async (t) => {
     assert.match(css, /\.ptl-page-tabbar \.ptl-main \{ padding-bottom: calc\(84px \+ env\(safe-area-inset-bottom\)\); \}/)
   })
 
+  await t.test('mobile portal chrome cannot widen or horizontally shift the page', () => {
+    assert.match(css, /\.ptl-page \{[\s\S]*?width: 100%;[\s\S]*?max-width: 100%;[\s\S]*?overflow-x: clip;/)
+    assert.match(css, /\.ptl-header-user \{ min-width: 0; flex: 1 1 auto; justify-content: flex-end;/)
+    assert.match(css, /\.ptl-header-controls \{ min-width: 0; max-width: 100%; flex: 1 1 auto; \}/)
+    assert.match(css, /\.ptl-header-ctl select \{[\s\S]*?width: 100%; min-width: 0; max-width: 100%;/)
+    assert.doesNotMatch(css, /\.ptl-header-ctl select \{[^}]*max-width: 44vw/)
+  })
+
   await t.test('loading uses a skeleton, not bare text', () => {
     assert.match(portal, /HomeSkeleton/)
     assert.match(css, /\.ptl-skel \{/)
