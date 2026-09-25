@@ -351,12 +351,15 @@ test('SWEEP: no browser code writes school_form_password to the cohorts table, a
 test('the register and the SQL gate were updated, and no changed file carries an em dash', () => {
   const register = read('docs/security/FINDINGS_REGISTER.md')
   const s08 = register.slice(register.indexOf('## S-08.'), register.indexOf('## S-09.'))
-  assert.match(s08, /Closed \(code\); SQL unconfirmed/)
+  // 4be42047 shipped this as "Closed (code); SQL unconfirmed" with both ledger rows
+  // UNKNOWN. The Owner applied A and B on 2026-09-25 and every POST section passed, so
+  // the closing commit moved S-08 to CLOSED and both rows to APPLIED.
+  assert.match(s08, /\*\*Status\*\*: CLOSED\./)
   assert.match(s08, /20261002000000_s08_school_form_password_hash\.sql/)
   assert.match(s08, /20261003000000_s08_school_form_password_plaintext_drop\.sql/)
   const gate = read('docs/security/OWNER_SQL_GATE.md')
-  assert.match(gate, /^\| 20261002000000_s08_school_form_password_hash\.sql \|.*UNKNOWN/m)
-  assert.match(gate, /^\| 20261003000000_s08_school_form_password_plaintext_drop\.sql \|.*UNKNOWN/m)
+  assert.match(gate, /^\| 20261002000000_s08_school_form_password_hash\.sql \|.*APPLIED 2026-09-25/m)
+  assert.match(gate, /^\| 20261003000000_s08_school_form_password_plaintext_drop\.sql \|.*APPLIED 2026-09-25/m)
   const dash = new RegExp(String.fromCharCode(8212))
   for (const p of [MIGRATION_A, MIGRATION_B, AUDIT, 'api/cohort-password-set.js', 'src/lib/cohortPassword.js', 'src/components/ManageCohortModal.jsx']) {
     assert.doesNotMatch(read(p), dash, `${p}: no em dash`)
