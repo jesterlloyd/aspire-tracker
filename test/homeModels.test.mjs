@@ -11,9 +11,9 @@ import { derivePhase, pipelineCounts, PHASES, PHASE_KEYS } from '../src/lib/home
 import { hoursPace, BEHIND_TOLERANCE_PCT } from '../src/lib/clinicalHours.js'
 import {
   messagesGroup, signaturesGroup, reviewReleaseGroup, formsDocsGroup, interviewsGroup, placementGroup,
-  needsYouSummary, filterChips, nextFilter, visibleGroups, orderGroups, ageLabel, ROWS_PER_GROUP,
+  needsYouSummary, filterChips, nextFilter, visibleGroups, orderGroups, ageLabel, ROWS_PER_GROUP, rowsFor,
 } from '../src/lib/home/needsYouModel.js'
-import { onCampusGroups, scheduleRows, shiftGroupLabel, shiftGroupState, dueTodayItems, initialsOf, plannedShiftType } from '../src/lib/home/todayModel.js'
+import { onCampusGroups, scheduleRows, shiftGroupLabel, shiftGroupState, dueTodayItems, initialsOf, plannedShiftType, defaultTodayView } from '../src/lib/home/todayModel.js'
 import { hoursBar, midpointBar } from '../src/lib/home/cohortPulseModel.js'
 import { placementSummary, capacityByServiceLine, requestsBySchool } from '../src/lib/home/placementSummaryModel.js'
 import { ACTIONS, QUICK_ACTION_KEYS, allowedActions, quickActions, personRows, searchLauncher, moveSelection, greetingFor } from '../src/lib/home/launcherModel.js'
@@ -236,6 +236,21 @@ test('TODAY 1b: a planned shift takes its preceptor\'s shift, then the assigned 
   assert.equal(plannedShiftType({ plan: { preceptor_name: 'Vari Able' }, student: {}, preceptorsByName: byName, assignedPreceptorShift: 'Night' }), 'Night', 'Variable says nothing about today')
   assert.equal(plannedShiftType({ plan: { preceptor_name: 'Unknown' }, student: { shift_assigned: 'Night shift' }, preceptorsByName: byName }), 'Night')
   assert.equal(plannedShiftType({ plan: { preceptor_name: 'Unknown' }, student: {}, preceptorsByName: byName }), 'Day')
+})
+
+test('TODAY 0: Today opens on the view that has something in it', () => {
+  assert.equal(defaultTodayView(5, 9), 'schedule')
+  assert.equal(defaultTodayView(0, 1), 'campus')
+  assert.equal(defaultTodayView(0, 0), 'schedule')
+  assert.equal(defaultTodayView(2, 0), 'schedule')
+})
+
+test('NEEDS 9: a group shows more rows when fewer areas share the width', () => {
+  const g = { allRows: Array.from({ length: 10 }, (_, i) => ({ id: String(i) })), rows: [] }
+  assert.deepEqual([rowsFor(g, 1).rows.length, rowsFor(g, 1).more, rowsFor(g, 1).wide], [8, 2, true])
+  assert.deepEqual([rowsFor(g, 2).rows.length, rowsFor(g, 2).more, rowsFor(g, 2).wide], [5, 5, false])
+  assert.deepEqual([rowsFor(g, 4).rows.length, rowsFor(g, 4).more], [3, 7])
+  assert.equal(rowsFor({ allRows: [{ id: 'a' }] }, 1).wide, false, 'one row is not split into columns')
 })
 
 test('TODAY 2: the schedule merges interviews, events, holidays and due dates, in time order, and marks the item in progress', () => {

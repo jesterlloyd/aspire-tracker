@@ -111,6 +111,17 @@ export function onCampusGroups({
   return { groups: out, count: seen.size }
 }
 
+/**
+ * Which Today view opens (Owner, 2026-09-25): Schedule when it has anything; otherwise On
+ * campus today when someone is on campus; with both empty, Schedule. A choice the person
+ * makes wins over this for the rest of the visit.
+ */
+export function defaultTodayView(scheduleCount = 0, campusCount = 0) {
+  if (scheduleCount > 0) return 'schedule'
+  if (campusCount > 0) return 'campus'
+  return 'schedule'
+}
+
 // ── Schedule ────────────────────────────────────────────────────────────────────
 
 const dayOf = (iso) => {

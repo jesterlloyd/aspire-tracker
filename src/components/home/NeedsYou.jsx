@@ -9,7 +9,7 @@
 import { useState } from 'react'
 import { PenLine, MessageSquare, Send, ListChecks, CalendarDays, Kanban, Check } from 'lucide-react'
 import HomeCard, { CardLink } from './HomeCard'
-import { orderGroups, needsYouSummary, filterChips, nextFilter, visibleGroups } from '../../lib/home/needsYouModel'
+import { orderGroups, needsYouSummary, filterChips, nextFilter, visibleGroups, rowsFor } from '../../lib/home/needsYouModel'
 
 const ICON = { signatures: PenLine, messages: MessageSquare, reviewRelease: Send, formsDocs: ListChecks, interviews: CalendarDays, placement: Kanban }
 const NAMES = { signatures: 'Signatures', messages: 'Messages', reviewRelease: 'Review & Release', formsDocs: 'Forms and documents', interviews: 'Interviews', placement: 'Placement and rotation' }
@@ -61,11 +61,13 @@ export default function NeedsYou({ sources = [], onNavigate, updatedLabel = 'jus
           <p>Nothing across signatures, messages, forms, surveys, interviews or placement needs you right now.</p>
         </div>
       ) : (
-        <div className="hm-groups">
+        <div className="hm-groups" data-count={Math.min(3, shown.length + (filter === 'all' ? loading.length + failed.length : 0))}>
           {shown.map((g, gi) => {
             const I = ICON[g.key] || Check
+            const cellCount = shown.length + (filter === 'all' ? loading.length + failed.length : 0)
+            const { rows, more, wide } = rowsFor(g, cellCount)
             return (
-              <div key={g.key} className={`hm-grp hm-grp-${gi % 2 ? 'odd' : 'even'}`}>
+              <div key={g.key} className={`hm-grp hm-grp-${gi % 2 ? 'odd' : 'even'}${wide ? ' hm-grp-wide' : ''}`}>
                 <div className="hm-grp-h">
                   <span className="hm-gi" aria-hidden="true"><I size={15} /></span>
                   <div className="hm-grp-name">
@@ -75,7 +77,7 @@ export default function NeedsYou({ sources = [], onNavigate, updatedLabel = 'jus
                   <div className="hm-cnt">{g.pills.map((p, i) => <Pill key={i} tone={p.tone}>{p.text}</Pill>)}</div>
                 </div>
                 <ul className="hm-rows">
-                  {g.rows.map((r, i) => (
+                  {rows.map((r, i) => (
                     <li key={r.id} data-band={i % 4 < 2 ? 1 : 0}>
                       <button type="button" className="hm-row" title={r.title} onClick={() => onNavigate?.(r.to)}>
                         <span className="hm-row-t">{r.title}</span>
@@ -85,7 +87,9 @@ export default function NeedsYou({ sources = [], onNavigate, updatedLabel = 'jus
                     </li>
                   ))}
                 </ul>
-                <div className="hm-grp-more"><CardLink label={g.open.label} to={g.open.to} onNavigate={onNavigate} /></div>
+                <div className="hm-grp-more">
+                  <CardLink label={more > 0 ? `${g.open.label} (${more} more)` : g.open.label} to={g.open.to} onNavigate={onNavigate} />
+                </div>
               </div>
             )
           })}

@@ -67,25 +67,33 @@ export default function HomeBanner({ classic, fullName, userKey, items, calendar
   return (
     <section className={`hm-hero ${classic ? 'hm-hero-classic' : 'hm-hero-modern'}`} aria-label="Welcome">
       {classic ? (
+        // The scenery fills the window behind; the greeting and the launcher sit over it in
+        // normal flow, greeting first, so nothing overlaps at any width (the launcher used to
+        // be pinned to the bottom and covered the greeting below about 1250px).
         <div className="hm-window">
-          <div className="hm-window-glass" aria-hidden="true" />
           <div className="hm-window-scene" ref={sceneRef}>
             <SkylineCard fullName={fullName} userKey={userKey} items={items} calendar={calendar} flush />
-          </div>
-          <div className="hm-hero-local hm-greet">
-            {greetingFor(now, firstName)}
-            <small><time dateTime={now.toISOString()}>{dateTimeLine(now)}</time></small>
+            <div className="hm-window-glass" aria-hidden="true" />
+            <div className="hm-window-content">
+              <div className="hm-hero-local hm-greet">
+                {greetingFor(now, firstName)}
+                <small><time dateTime={now.toISOString()}>{dateTimeLine(now)}</time></small>
+              </div>
+              <Launcher {...launcher} />
+            </div>
           </div>
         </div>
       ) : (
-        <div className="hm-hero-top">
-          <div className="hm-greet">
-            {greetingFor(now, firstName)}
-            <small>{dateTimeLine(now)}</small>
+        <>
+          <div className="hm-hero-top">
+            <div className="hm-greet">
+              {greetingFor(now, firstName)}
+              <small>{dateTimeLine(now)}</small>
+            </div>
           </div>
-        </div>
+          <Launcher {...launcher} />
+        </>
       )}
-      <Launcher {...launcher} />
       {classic && <div className="hm-sill" aria-hidden="true" />}
     </section>
   )

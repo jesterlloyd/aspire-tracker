@@ -135,11 +135,15 @@ test('honest error states', () => {
   assert.match(overview, /Unit responses could not load/)
 })
 
-test('capacity and requests are DataSheet rows, expandable by button (HOME-1)', () => {
-  // Table canon section 8: capacity by service line is INLINE rows, requests by school a PLAIN sheet.
+test('capacity and requests are two mirrored plain sheets, expandable by button (HOME-1)', () => {
+  // Owner, 2026-09-25: the two tables mirror each other, so both are PLAIN sheets on one
+  // column shape (a name, then two figures); this departs from canon section 8 on purpose.
   const card = read('src/components/home/PlacementCard.jsx')
-  assert.match(card, /level="inline"[\s\S]*?title="Capacity by service line"/)
+  assert.match(card, /level="plain"[\s\S]*?title="Capacity by service line"/)
   assert.match(card, /level="plain"[\s\S]*?title="Requests by school"/)
+  assert.doesNotMatch(card, /level="inline"/)
+  assert.match(card, /const CAPACITY_COLUMNS = mirror\(/)
+  assert.match(card, /const REQUEST_COLUMNS = mirror\(/)
   assert.match(card, /<details className="hm-pl">/)
   assert.doesNotMatch(card, /<details className="hm-pl" open/)
 })

@@ -706,9 +706,17 @@ tested modules in `src/lib/home/`. Nothing is computed in JSX.
   because `[data-theme="dark"] .hm-page` outranks `.hm-classic`). A gradient surface also sets a
   solid `background-color` (its darker stop) so a contrast sweep reads the real ground. Swept:
   every text node, all four combinations, zero failures, lowest 5.12:1.
-- **Placement is one line plus a collapsed panel**: capacity by service line is DataSheet inline
-  rows, requests by school a DataSheet plain sheet, each expandable to the unit rows and the
-  school's students it always had.
+- **Placement is one line plus a collapsed panel** holding two MIRRORED plain sheets (Owner,
+  2026-09-25, overriding canon section 8's inline rows for capacity): the same three columns
+  (a name, two right-aligned figures), toolbar rows of one height so the heads align. A
+  school's View response opens from its expanded row, above its students.
+- **Today opens on the view with something in it** (`defaultTodayView`): Schedule, else On
+  campus today, else Schedule; the person's pick wins. The switch is the canonical
+  `SegmentedPicker`.
+- **Needs you fills its width**: `auto-fit` columns, so one or two areas span the card; a
+  group shows 8 rows in two columns when alone, 5 with one other, else 3 (`rowsFor`).
+- **The quick-action chips are a 3 x 2 grid** the width of the search field (2 columns on a
+  phone).
 - **A planned shift works alongside its preceptor**: `student_shift_plans` stores the date and
   the preceptor's name, so its type is that preceptor's `shift_type` (matched by name), then the
   student's assigned preceptor's, then `students.shift_assigned`, then Day; Variable is skipped

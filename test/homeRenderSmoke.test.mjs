@@ -61,8 +61,12 @@ test('Today, Cohort pulse, Placement, Recent activity and the phase cards render
   const { default: RecentActivity } = await load('/src/components/home/RecentActivity.jsx')
   const { ApplicationsOutreach, SurveysResults } = await load('/src/components/home/PhaseCards.jsx')
 
+  const campusOnly = render(TodayCard, { dateLabel: 'Thu, Sep 24', schedule: [], campus: { count: 1, groups: [{ key: 'Day', label: 'Day shift', state: 'live', rows: [{ id: 'x', name: 'Maya', initials: 'M', meta: '4 South', hours: '1 h' }] }] } }, 'TodayCard (campus only)')
+  assert.match(campusOnly, /aria-pressed="true"[^>]*>On campus today/, 'opens on the view that has something in it')
   const today = render(TodayCard, { dateLabel: 'Thu, Sep 24', schedule: [{ id: 'a', time: '9:00 AM', title: 'Interview · Riley', meta: 'APU', tag: 'Interview', tone: 'navy', inProgress: true, to: '/x' }], campus: { count: 0, groups: [] } }, 'TodayCard')
-  assert.match(today, /role="tablist"/)
+  // The canonical SegmentedPicker (Owner, 2026-09-25), not a bespoke tab strip.
+  assert.match(today, /role="group" aria-label="Today views"/)
+  assert.match(today, /aria-pressed="true"[^>]*>Schedule/)
   assert.match(today, /class="is-now"/)
 
   const pulse = render(CohortPulse, { cohortName: 'Fall 2026', currentStage: 3, pipeline: [{ key: 'a', label: 'Applied', count: 4 }, { key: 'b', label: 'Interviewed', count: 3 }, { key: 'c', label: 'Placed', count: 2 }, { key: 'd', label: 'Active rotation', count: 2 }, { key: 'e', label: 'Completed', count: 0 }],

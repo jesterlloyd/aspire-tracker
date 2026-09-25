@@ -51,7 +51,8 @@ const shortTime = (d) => d.toLocaleTimeString('en-US', { hour: 'numeric', minute
 
 function finish(group) {
   if (!group.rows.length && !group.count) return null
-  return { ...group, rows: sortByAge(group.rows).slice(0, ROWS_PER_GROUP), total: group.rows.length }
+  const sorted = sortByAge(group.rows)
+  return { ...group, rows: sorted.slice(0, ROWS_PER_GROUP), allRows: sorted, total: group.rows.length }
 }
 
 // ── Messages ────────────────────────────────────────────────────────────────────
@@ -369,6 +370,17 @@ export function filterChips(groups = []) {
 /** A second click on the active chip returns to All. */
 export function nextFilter(current, clicked) {
   return clicked !== 'all' && current === clicked ? 'all' : clicked
+}
+
+/**
+ * How many rows a group shows, by how much room it has (Owner, 2026-09-25: the queue looked
+ * empty with one area). One area on screen: up to 8, in two columns. Two: up to 5 each.
+ * More: the top 3, and "Open ..." for the rest.
+ */
+export function rowsFor(group, shownGroups = 1) {
+  const all = group?.allRows || group?.rows || []
+  const limit = shownGroups <= 1 ? 8 : shownGroups === 2 ? 5 : ROWS_PER_GROUP
+  return { rows: all.slice(0, limit), more: Math.max(0, all.length - limit), wide: shownGroups <= 1 && all.length > 1 }
 }
 
 export function visibleGroups(groups = [], filter = 'all') {

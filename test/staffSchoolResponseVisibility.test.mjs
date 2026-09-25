@@ -130,9 +130,10 @@ test('Placement Requests school row exposes View response as a button separate f
   // HOME-1 (2026-09-24): requests by school is a DataSheet plain sheet (table canon section 8).
   // A row's expand chevron is the sheet's own button; View response is its own button in
   // its own cell, and it stops propagation, so it never expands the row.
+  // Owner, 2026-09-25: the two Placement sheets mirror each other, so View response moved
+  // from its own column into the school's expanded row, above its students.
   const card = read('src/components/home/PlacementCard.jsx')
-  assert.match(card, /className="hm-link hm-link-sm" onClick=\{\(e\) => \{ e\.stopPropagation\(\); onViewResponse\?\.\(r\.school\) \}\}/)
-  assert.match(card, /View response/)
+  assert.match(card, /<div className="hm-pl-detail-head">\s*<button type="button" className="hm-link hm-link-sm" onClick=\{\(\) => onViewResponse\?\.\(r\.school\)\}>\s*View response/)
   const src = read('src/components/OverviewTab.jsx')
   assert.match(src, /onViewResponse=\{\(school\) => setResponseDrawerSchool\(school\)\}/)
 })

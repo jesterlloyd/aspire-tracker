@@ -2,10 +2,12 @@
 //
 // One summary line replaces the five snapshot tiles (src/lib/home/placementSummaryModel.js
 // builds every clause from data and omits one it cannot). Below it, a <details> labelled
-// "Capacity and requests", collapsed by default: capacity by service line as DataSheet
-// INLINE rows on the left, requests by school as a DataSheet PLAIN sheet on the right,
-// with the existing expand and collapse by school and the View response links (table
-// canon §8: Placement Requests is a plain sheet, Placement Capacity is inline rows).
+// "Capacity and requests", collapsed by default, holding two tables that mirror each other
+// (Owner, 2026-09-25): both DataSheet PLAIN sheets, the same three columns at the same
+// weights (a name, then two right-aligned figures), the same toolbar height above each so
+// their heads line up. This departs on purpose from table canon section 8, which drew
+// capacity as inline rows. A school's View response now opens from its expanded row, so the
+// two sheets keep the same columns.
 //
 // What sits inside an expanded row is the caller's: the unit rows of a service line
 // (with their pills, Remind and View response, exactly as before), and the students of a
@@ -17,11 +19,14 @@ import HomeCard, { CardLink } from './HomeCard'
 import DataSheet from '../shared/DataSheet'
 import { SummaryLine } from './PhaseCards'
 
-const CAPACITY_COLUMNS = [
-  { key: 'serviceLine', label: 'Service line', min: 110, grow: 2, priority: 1 },
-  { key: 'filled', label: 'Filled', min: 48, grow: 0.6, align: 'right', priority: 1, render: r => <b>{r.filled}</b> },
-  { key: 'slots', label: 'Slots', min: 48, grow: 0.6, align: 'right', priority: 1 },
+// One grid for both sheets: a name, then two figures. Mirrored columns line up.
+const mirror = (nameKey, nameLabel, aKey, aLabel, bKey, bLabel) => [
+  { key: nameKey, label: nameLabel, min: 120, grow: 2.2, priority: 1 },
+  { key: aKey, label: aLabel, min: 64, grow: 0.7, align: 'right', priority: 1, render: r => <b>{r[aKey]}</b> },
+  { key: bKey, label: bLabel, min: 64, grow: 0.7, align: 'right', priority: 1 },
 ]
+const CAPACITY_COLUMNS = mirror('serviceLine', 'Service line', 'filled', 'Filled', 'slots', 'Slots')
+const REQUEST_COLUMNS = mirror('school', 'School', 'placed', 'Placed', 'students', 'Students')
 
 export default function PlacementCard({
   summary, cap, capacityRows = [], requestRows = [], capacityToolbar = null, requestsToolbar = null,
@@ -31,19 +36,6 @@ export default function PlacementCard({
   const [openReq, setOpenReq] = useState(() => new Set())
   const toggle = (setter) => (key) => setter(prev => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n })
 
-  const requestColumns = [
-    { key: 'school', label: 'School', min: 120, grow: 2.2, priority: 1 },
-    { key: 'placed', label: 'Placed', min: 48, grow: 0.6, align: 'right', priority: 1, render: r => <b>{r.placed}</b> },
-    { key: 'students', label: 'Students', min: 56, grow: 0.6, align: 'right', priority: 1 },
-    {
-      key: 'response', label: 'Response', min: 100, grow: 0.8, priority: 2,
-      render: r => (
-        <button type="button" className="hm-link hm-link-sm" onClick={(e) => { e.stopPropagation(); onViewResponse?.(r.school) }}>
-          View response
-        </button>
-      ),
-    },
-  ]
 
   const clauses = (summary?.clauses || []).map(c => ({ key: c.key, strong: c.strong, tone: c.tone, post: c.strong != null ? c.text.replace(c.strong, '') : c.text }))
 
@@ -56,9 +48,9 @@ export default function PlacementCard({
         <summary><ChevronRight size={14} className="hm-chev" aria-hidden="true" /> Capacity and requests</summary>
         <div className="hm-pl-body">
           <div className="hm-pl-col">
-            {capacityToolbar}
+            <div className="hm-pl-bar">{capacityToolbar}</div>
             <DataSheet
-              level="inline"
+              level="plain"
               title="Capacity by service line"
               columns={CAPACITY_COLUMNS}
               rows={capacityRows}
@@ -74,18 +66,27 @@ export default function PlacementCard({
             />
           </div>
           <div className="hm-pl-col">
-            {requestsToolbar}
+            <div className="hm-pl-bar">{requestsToolbar}</div>
             <DataSheet
               level="plain"
               title="Requests by school"
-              columns={requestColumns}
+              columns={REQUEST_COLUMNS}
               rows={requestRows}
               rowKey={r => r.id}
               defaultSort={{ key: 'school', dir: 'asc' }}
               expandable={!!renderRequestDetail}
               expandedKeys={openReq}
               onToggleExpand={toggle(setOpenReq)}
-              renderExpanded={renderRequestDetail}
+              renderExpanded={(r) => (
+                <>
+                  <div className="hm-pl-detail-head">
+                    <button type="button" className="hm-link hm-link-sm" onClick={() => onViewResponse?.(r.school)}>
+                      View response
+                    </button>
+                  </div>
+                  {renderRequestDetail?.(r)}
+                </>
+              )}
               expandLabel={r => `${r.school} students`}
               emptyMessage="No student requests yet"
               aria-label="Requests by school"
