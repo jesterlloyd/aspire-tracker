@@ -59,3 +59,51 @@ export function hoursProgress(student) {
 export function hasCompletedRequiredHours(student) {
   return hoursProgress(student).complete
 }
+
+// ── HOME-1 (Owner, 2026-09-24): pace against the rotation window ─────────────
+// "Behind on hours" had no rule before the home page needed one. The Owner chose
+// option A: expected hours to date are the required hours times the fraction of
+// the school's rotation window that has elapsed, and a student is BEHIND when
+// their approved hours fall more than BEHIND_TOLERANCE_PCT of the requirement
+// below that expectation. Ahead of the window, or without a known window, no
+// judgement is made: pace is unknown, never "behind".
+//
+// One rule, read by Needs you (Placement and rotation), the Cohort pulse bar,
+// and anything else that says "on track" or "behind". Pure.
+
+/** How far below the expected pace a student may fall, as a percent of required hours. */
+export const BEHIND_TOLERANCE_PCT = 10
+
+const dayNum = (s) => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(s || ''))
+  return m ? Date.UTC(+m[1], +m[2] - 1, +m[3]) / 86400000 : NaN
+}
+
+/**
+ * @param {object} student - { hours_required, approved_hours, status }
+ * @param {{ start: string|null, end: string|null }} window - the student's school rotation window
+ * @param {string} today - local 'YYYY-MM-DD'
+ * @returns {{ known: boolean, elapsedPct: number, expectedHours: number, pace: 'complete'|'on_track'|'behind'|'unknown', pastMidpoint: boolean, deficit: number }}
+ */
+export function hoursPace(student, window = {}, today) {
+  const p = hoursProgress(student)
+  const start = dayNum(window?.start), end = dayNum(window?.end), now = dayNum(today)
+  const windowKnown = Number.isFinite(start) && Number.isFinite(end) && end > start && Number.isFinite(now)
+  if (!p.known) return { known: false, elapsedPct: 0, expectedHours: 0, pace: 'unknown', pastMidpoint: false, deficit: 0 }
+  if (p.complete) return { known: true, elapsedPct: windowKnown ? clamp01((now - start) / (end - start)) * 100 : 100, expectedHours: p.required, pace: 'complete', pastMidpoint: true, deficit: 0 }
+  if (!windowKnown || now < start) return { known: true, elapsedPct: 0, expectedHours: 0, pace: 'unknown', pastMidpoint: p.pct >= 50, deficit: 0 }
+  const elapsed = clamp01((now - start) / (end - start))
+  const expected = p.required * elapsed
+  const deficit = Math.max(0, expected - p.approved)
+  const behind = deficit > p.required * (BEHIND_TOLERANCE_PCT / 100)
+  return {
+    known: true,
+    elapsedPct: elapsed * 100,
+    expectedHours: expected,
+    pace: behind ? 'behind' : 'on_track',
+    pastMidpoint: p.pct >= 50,
+    deficit,
+  }
+}
+
+function clamp01(n) { return Math.max(0, Math.min(1, n)) }
