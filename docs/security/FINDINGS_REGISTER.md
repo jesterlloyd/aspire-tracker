@@ -323,16 +323,60 @@ afterward, from memory.
 ## S-13. Admin notification endpoint gated on a static shared token
 
 - **Severity (original)**: Medium.
-- **Status**: OPEN (one component not locatable at HEAD).
-- **Risk**: `api/send-notification.js` accepts any `type` and arbitrary
-  `context`, recipient included, against a single static
-  `ADMIN_NOTIFICATION_TOKEN`, records no actor, and returns raw `err.message`.
-  Anyone holding the token sends arbitrary program email with no attribution.
-- **Verified at HEAD**: the static-token gate, arbitrary context, and missing
-  actor are present; it does fail closed on an unset token. The
-  force-flag-bypassing-dedup component was NOT found at HEAD in this or any
-  surviving endpoint; it may have lived in a route since deleted (S-06 removed
-  four). Treat that component as unlocatable rather than fixed.
+- **Status**: CLOSED.
+- **Closing commit**: S13-1 (2026-09-25), the commit that deletes `api/send-notification.js`
+  and `api/admin/resend-interview-reminders.js`. Application code only; no SQL.
+- **Risk (historical)**: `api/send-notification.js` accepted any `type` and arbitrary
+  `context`, recipient included, against a single static `ADMIN_NOTIFICATION_TOKEN`
+  compared with `!==`, recorded no actor, and returned raw `err.message`. Anyone holding
+  the token could send arbitrary program email with no attribution.
+- **Found in discovery, at HEAD**: THREE endpoints authenticated with that token, all
+  with the same `!==` comparison: `api/send-notification.js`,
+  `api/admin/resend-interview-reminders.js` and `api/admin/resend-coordinator-digest.js`.
+  No code, cron, script or UI called any of them; the only usage was the curl examples in
+  their own headers, and Keith's knowledge text names the digest one as the recovery
+  endpoint. The token is present in the local `.env.local` (name only; the value was not
+  read or printed). **The force flag the audit described exists at HEAD and is now
+  located**: not in `send-notification.js`, where the last verification looked, but in
+  both admin endpoints. In the interview-reminder one, `force` bypassed the 48-hour
+  already-sent check; in the digest one it bypassed the already-sent check AND the
+  coordinator's `weekly_digest: false` opt-out. Recipients: `send-notification.js`
+  took them from the caller (every student-facing type reads `context.studentEmail`);
+  the interview-reminder re-run derived them from booked slots; the digest re-run
+  derived them from contacts by school, except `testMode`, which mailed a rendered
+  digest full of real students' events to whatever `testRecipientEmail` the caller
+  supplied.
+- **Decision**: retire what nothing uses; keep the one endpoint with operational value
+  on a real session. `send-notification.js` had no caller and was, by design, an
+  arbitrary-recipient sender for every template: deleted. `resend-interview-reminders.js`
+  was a one-shot recovery for the interview-reminder window bug of 2026-05-20, fixed
+  since, with no caller: deleted. `resend-coordinator-digest.js` is the digest's test and
+  backfill tool and stays.
+- **Fix, on the kept endpoint**: authentication is an ACTIVE Owner or Admin session,
+  verified server-side from the Bearer JWT through `verifyOwnerAdminCaller` (S-05's
+  deactivation check included). No token is read. The verified profile is the actor on
+  every row: `triggered_by_profile_id` and `triggered_by_name` in the metadata of the
+  test, sent and failed `notification_log` rows, and an `activity_logs` row per run
+  (`coordinator_digest_manual_run`). A test send goes only to the caller's own account
+  email, compared case-insensitively; any other address is refused with 403. `force`
+  now bypasses the already-sent check ONLY; an opted-out coordinator is never sent a
+  digest. Every response is generic (`internal_error`, `send_failed`); provider and
+  database text stays in the server log. The handler is built by a factory so it is
+  tested with the caller, database and mailer mocked and no email can leave.
+- **Regression guard**: `test/s13StaticTokenAuth.test.mjs` sweeps `api/`, `lib/` and
+  `src/` for any `===` or `!==` against a TOKEN, SECRET or KEY environment value, any
+  `x-admin-token` read, and any mention of `ADMIN_NOTIFICATION_TOKEN`; asserts the two
+  retired files are absent and unreferenced; pins `api/lib/cronAuth.js` as the one
+  constant-time credential check; and drives the digest endpoint: refused without a
+  session and before any read or send, a foreign test address refused, a test send only
+  to the caller, the actor on every row, an opt-out surviving `force`, generic failure
+  text.
+- **What an admin workflow loses**: the ability to re-send missed interview reminders by
+  hand, and to send any notification template to any address from a shell. The digest
+  test and backfill keep working from a signed-in Owner or Admin session, with a Bearer
+  token instead of the shared header; a test digest now goes to the caller's own address
+  rather than a chosen one. `ADMIN_NOTIFICATION_TOKEN` can be removed from Vercel and
+  `.env.local`; nothing reads it (an Owner action, not made here).
 
 ## S-14. Interviewer outcome writes unscoped by cohort
 

@@ -1,31 +1,39 @@
 // api/admin/resend-coordinator-digest.js
 // Manual trigger and backfill endpoint for the coordinator weekly digest.
 // Useful for:
-//   - Testing the digest before the Friday cron fires
+//   - Testing the digest before the Friday cron fires (testMode: one rendered email to
+//     the CALLER's own address, never a coordinator's)
 //   - Recovering if a Friday cron was missed or errored
 //   - Sending a digest for a custom time window
 //
-// Auth: x-admin-token header must match ADMIN_NOTIFICATION_TOKEN env var.
+// Auth (S-13): an ACTIVE Owner or Admin session, verified server-side from the Bearer
+// JWT through verifyOwnerAdminCaller. The shared static x-admin-token this endpoint used
+// to accept (ADMIN_NOTIFICATION_TOKEN, compared with !==) is gone: it named no actor,
+// could not be revoked per person, and was compared in a way that leaked timing. Every
+// send now records who triggered it, in the notification_log row's metadata and in
+// activity_logs.
 //
-// Usage:
+// Usage: POST with the signed-in staff session's Authorization: Bearer <access token>.
 //   # Default: last 7 days (same window the Friday cron would use right now)
-//   curl -X POST https://aspireintelligence.app/api/admin/resend-coordinator-digest \
-//     -H "x-admin-token: $ADMIN_NOTIFICATION_TOKEN" \
-//     -H "Content-Type: application/json" \
-//     -d '{}'
-//
+//   -d '{}'
 //   # Custom window:
-//   curl ... -d '{"window_start":"2026-05-13T00:00:00-07:00","window_end":"2026-05-20T00:00:00-07:00"}'
-//
-//   # Force re-send even if already sent for this window:
-//   curl ... -d '{"force":true}'
-//
+//   -d '{"window_start":"2026-05-13T00:00:00-07:00","window_end":"2026-05-20T00:00:00-07:00"}'
+//   # Re-send to coordinators who already received this window's digest:
+//   -d '{"force":true}'
+//     force bypasses the already-sent check ONLY. A coordinator who opted out of the
+//     weekly digest is never sent one, force or not (S-13).
 //   # Limit to specific coordinator IDs:
-//   curl ... -d '{"contact_ids":["uuid1","uuid2"]}'
+//   -d '{"contact_ids":["uuid1","uuid2"]}'
+//   # Test mode: one rendered email to yourself, simulating one coordinator:
+//   -d '{"testMode":true,"testRecipientEmail":"<your own account email>"}'
+//
+// Errors are generic: the response never carries a provider or database message.
 
 import { createClient } from '@supabase/supabase-js';
 import { populationDb, demoScopeOf, narrowByEmbed } from '../../lib/server/demoScope.js';
 import { createMailer } from '../../lib/server/email/mailer.js';
+import { verifyOwnerAdminCaller } from '../lib/portalAuth.js';
+import { normalizeEmailForLookup } from '../../src/lib/emailUtils.js';
 import { buildCoordinatorWeeklyDigestEmail, formatDateRange } from '../../src/lib/notifications/templates/coordinatorWeeklyDigest.js';
 import { archiveSentMessage } from '../lib/messageArchive.js';
 import {
@@ -45,19 +53,51 @@ function getServiceClient() {
   return populationDb(createClient(url, key));
 }
 
-export default async function handler(req, res) {
+// Best-effort audit of who triggered a run (house pattern: warn and continue on failure).
+async function emitAudit(db, actor, description, metadata) {
+  try {
+    const { error } = await db.from('activity_logs').insert({
+      user_id: actor.id,
+      user_name: actor.full_name || '',
+      user_role: actor.role || '',
+      action_type: 'coordinator_digest_manual_run',
+      entity_type: 'notification',
+      entity_id: 'coordinator_weekly_digest',
+      cohort_id: null,
+      description,
+      metadata,
+    });
+    if (error) console.warn('[resend-coordinator-digest] audit insert error', { errorCode: error.code });
+  } catch {
+    console.warn('[resend-coordinator-digest] audit insert threw');
+  }
+}
+
+export function createResendCoordinatorDigestHandler({
+  verifyCaller = verifyOwnerAdminCaller,
+  getDb = getServiceClient,
+  getMailer = createMailer,
+  clock = () => new Date(),
+} = {}) {
+  return async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin',  '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-admin-token');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Cache-Control', 'no-store');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
 
-  const adminToken = req.headers['x-admin-token'];
-  if (!process.env.ADMIN_NOTIFICATION_TOKEN || adminToken !== process.env.ADMIN_NOTIFICATION_TOKEN) {
-    return res.status(401).json({ error: 'Unauthorized' });
+  // S-13: an active Owner or Admin session is the only credential. The verified profile
+  // is the actor on every row this run writes.
+  const auth = await verifyCaller(req);
+  if (!auth.ok) {
+    const status = auth.status === 403 ? 403 : 401;
+    return res.status(status).json({ error: status === 403 ? 'Forbidden' : 'Unauthorized' });
   }
+  const actor = { id: auth.profile.id, full_name: auth.profile.full_name || '', role: auth.profile.role || '', email: auth.profile.email || '' };
+  const actorMeta = { triggered_by_profile_id: actor.id, triggered_by_name: actor.full_name };
 
-  const now = new Date();
+  const now = clock();
   const {
     window_start, window_end,
     force = false, contact_ids,
@@ -68,6 +108,12 @@ export default async function handler(req, res) {
   if (testMode && !testRecipientEmail) {
     return res.status(400).json({ error: 'testMode requires testRecipientEmail' });
   }
+  // S-13: a test send goes to the caller's OWN account address and nowhere else. The
+  // endpoint cannot be used to mail a rendered digest, with real students' events in
+  // it, to an arbitrary address.
+  if (testMode && normalizeEmailForLookup(testRecipientEmail) !== normalizeEmailForLookup(actor.email)) {
+    return res.status(403).json({ error: 'testRecipientEmail must be your own account email' });
+  }
 
   // Resolve window
   const windowEnd   = window_end   ? new Date(window_end)   : getDefaultWindowEnd(now);
@@ -76,8 +122,8 @@ export default async function handler(req, res) {
   console.log(`[resend-coordinator-digest] window: ${windowStart.toISOString()} → ${windowEnd.toISOString()} force=${force}`);
 
   try {
-    const db     = getServiceClient();
-    const resend = createMailer();
+    const db     = getDb();
+    const resend = getMailer();
 
     // 1. Events in window
     const { data: eventRows, error: eventsErr } = await db
@@ -93,7 +139,10 @@ export default async function handler(req, res) {
     // table, so the embedded student decides. Real students only, like the rest of this run.
     const events = narrowByEmbed(eventRows, demoScopeOf(db), e => e.students);
 
-    if (eventsErr) return res.status(500).json({ error: eventsErr.message });
+    if (eventsErr) {
+      console.error('[resend-coordinator-digest] events query failed:', eventsErr.message);
+      return res.status(500).json({ error: 'internal_error' });
+    }
 
     if (!events?.length) {
       return res.status(200).json({
@@ -208,7 +257,7 @@ export default async function handler(req, res) {
 
       if (testEmailErr) {
         console.error('[resend-coordinator-digest] test send failed:', testEmailErr.message);
-        return res.status(500).json({ error: testEmailErr.message });
+        return res.status(500).json({ error: 'send_failed' });
       }
 
       // Log with a distinct notification_type so the real dedup query
@@ -228,6 +277,7 @@ export default async function handler(req, res) {
           resend_email_id:   testEmailData?.id || null,
           status:            'sent',
           metadata: {
+            ...actorMeta,
             window_start:                windowStart.toISOString(),
             window_end:                  windowEnd.toISOString(),
             source:                      'admin_test',
@@ -255,7 +305,11 @@ export default async function handler(req, res) {
         });
       }
 
-      console.log(`[resend-coordinator-digest] test mode → ${testRecipientEmail} (simulated: ${sim.full_name})`);
+      await emitAudit(db, actor, `Sent a test coordinator digest to their own address, simulating ${sim.full_name}`, {
+        ...actorMeta, mode: 'test', simulated_coordinator_id: simulatedId,
+        window_start: windowStart.toISOString(), window_end: windowEnd.toISOString(),
+      });
+      console.log(`[resend-coordinator-digest] test mode sent to the caller (simulated coordinator ${simulatedId})`);
 
       return res.status(200).json({
         testMode:             true,
@@ -287,7 +341,8 @@ export default async function handler(req, res) {
         skipped.push({ coordinator: coordinator.full_name, reason: 'no_email' });
         continue;
       }
-      if (!force && coordinator.notification_preferences?.weekly_digest === false) {
+      // S-13: an opt-out is absolute. force re-sends past the already-sent check only.
+      if (coordinator.notification_preferences?.weekly_digest === false) {
         skipped.push({ coordinator: coordinator.full_name, reason: 'opted_out' });
         continue;
       }
@@ -325,6 +380,7 @@ export default async function handler(req, res) {
           resend_email_id:   emailData?.id || null,
           status:            'sent',
           metadata: {
+            ...actorMeta,
             window_start: windowStart.toISOString(), window_end: windowEnd.toISOString(),
             source: 'admin_manual', transition_count: totalItems,
           },
@@ -374,7 +430,7 @@ export default async function handler(req, res) {
             subject:           '(send failed)',
             status:            'failed',
             error_message:     err.message,
-            metadata: { window_start: windowStart.toISOString(), window_end: windowEnd.toISOString(), source: 'admin_manual' },
+            metadata: { ...actorMeta, window_start: windowStart.toISOString(), window_end: windowEnd.toISOString(), source: 'admin_manual' },
           })
           if (failLogErr) console.warn('[resend-coordinator-digest] fail-log error:', failLogErr.message)
         } catch (failLogEx) {
@@ -383,20 +439,29 @@ export default async function handler(req, res) {
       }
     }
 
+    await emitAudit(db, actor, `Ran the coordinator digest by hand: sent ${sent.length}, skipped ${skipped.length}, failed ${failed.length}`, {
+      ...actorMeta, mode: 'manual', force: force === true,
+      window_start: windowStart.toISOString(), window_end: windowEnd.toISOString(),
+      sent: sent.length, skipped: skipped.length, failed: failed.length,
+    });
     console.log(`[resend-coordinator-digest] done: sent=${sent.length} skipped=${skipped.length} failed=${failed.length}`);
     return res.status(200).json({
       success: true,
       windowStart: windowStart.toISOString(),
       windowEnd:   windowEnd.toISOString(),
       eventsFound: events.length,
-      sent, skipped, failed,
+      // Per-recipient failure detail stays in the server log; the response names who and why, not the provider text.
+      sent, skipped, failed: failed.map(f => ({ coordinator: f.coordinator, error: 'send_failed' })),
     });
 
   } catch (err) {
     console.error('[resend-coordinator-digest] unexpected error:', err);
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: 'internal_error' });
   }
+  };
 }
+
+export default createResendCoordinatorDigestHandler();
 
 function getDefaultWindowEnd(now) {
   const todayPacific = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles' }).format(now);
