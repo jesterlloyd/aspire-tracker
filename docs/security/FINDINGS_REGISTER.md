@@ -348,11 +348,15 @@ afterward, from memory.
 ## S-15. Unit Leader retains thread read access after losing unit scope
 
 - **Severity (original)**: Medium.
-- **Status**: Closed (code); SQL unconfirmed. The migration is drafted and Owner-gated;
-  the finding closes when it is applied and its POST sections pass.
-- **Closing commit**: the commit that adds
-  `supabase/migrations/20260930000000_s15_unit_leader_thread_read_scope.sql` (S15-1,
-  2026-09-24).
+- **Status**: CLOSED.
+- **Closing commit**: `42e67e67` (S15-1, 2026-09-24), which adds
+  `supabase/migrations/20260930000000_s15_unit_leader_thread_read_scope.sql`. Applied to
+  production by the Owner the same day; POST 1 to 6 of the audit file all matched their
+  expected results (POST 1: can_read now reads user_unit_scopes; POST 2: attributes and
+  grants identical to PRE 2; POST 3: 0 / 0 / 0 / 0; POST 4: student 7 / 7, unchanged;
+  POST 5: 0 disagreements; POST 6: no participant row removed). PRE 3 returned no rows:
+  no Unit Leader has been a thread participant yet, so the exposure was 0 at the time of
+  closing and the fix is preventive.
 - **Risk (historical)**: revoking a unit scope does not remove conversation membership,
   so a former Unit Leader keeps reading unit threads.
 - **Root cause, found in discovery**: `message_participant_can_read`'s unit_leader branch

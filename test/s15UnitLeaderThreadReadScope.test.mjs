@@ -307,11 +307,14 @@ test('every audit section is executable, read-only, and PII-free; PRE 3 sees the
 test('the register and the SQL gate were updated with the migration', () => {
   const register = read('docs/security/FINDINGS_REGISTER.md')
   const s15 = register.slice(register.indexOf('## S-15.'), register.indexOf('## S-16.'))
-  assert.match(s15, /Closed \(code\); SQL unconfirmed/)
+  // 42e67e67 shipped this as "Closed (code); SQL unconfirmed" with the ledger row UNKNOWN.
+  // The Owner applied the migration on 2026-09-24 and every POST section passed, so the
+  // closing commit moved S-15 to CLOSED and the ledger row to APPLIED.
+  assert.match(s15, /\*\*Status\*\*: CLOSED\./)
   assert.match(s15, /20260930000000_s15_unit_leader_thread_read_scope\.sql/)
   assert.match(s15, /s15_unit_leader_thread_read_scope_checks\.sql/)
   const gate = read('docs/security/OWNER_SQL_GATE.md')
-  assert.match(gate, /^\| 20260930000000_s15_unit_leader_thread_read_scope\.sql \|.*UNKNOWN/m)
+  assert.match(gate, /^\| 20260930000000_s15_unit_leader_thread_read_scope\.sql \|.*APPLIED 2026-09-24/m)
   for (const text of [migration, audit, s15]) {
     assert.doesNotMatch(text, new RegExp(String.fromCharCode(8212)), 'no em dash')
     assert.doesNotMatch(text, /ASPIRE Program/, 'ASPIRE, never "ASPIRE Program"')
