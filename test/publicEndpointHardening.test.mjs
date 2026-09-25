@@ -287,7 +287,8 @@ test('S-08: hashing is recorded as the next step, not silently skipped', () => {
   assert.match(audit, /DO NOT RUN ANYTHING IN THIS SECTION/)
   assert.match(audit, /pg_get_functiondef/)
   assert.match(audit, /NewCohortModal\.jsx and src\/components\/ManageCohortModal\.jsx/)
-  assert.match(schoolSubmit, /STILL OUTSTANDING: cohorts\.school_form_password is plaintext/)
+  // S08-1: the outstanding note became a pointer to the two hashing migrations.
+  assert.match(schoolSubmit, /S-08 COMPLETION \(S08-1\): the password is a bcrypt hash in cohort_form_secrets/)
 })
 
 test('S-08: the roster cap already exists and still applies', () => {

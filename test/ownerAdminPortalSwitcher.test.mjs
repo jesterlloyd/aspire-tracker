@@ -147,7 +147,7 @@ test('Student preview is selected inside the portal and remains read-only', () =
 
 test('portal-only identity actions stay suppressed while staff preview uses staff utilities', () => {
   assert.match(portalApp, /function StaffPreviewUtilities/)
-  assert.match(portalApp, /<MainMessagesLauncher \/>/)
+  assert.match(portalApp, /<MainMessagesLauncher portalPreview \/>/)
   assert.match(portalApp, /<FeedbackPanel activeTab=\{section\}/)
   assert.match(portalApp, /previewRole === 'student' \? '\/portal\/student\/messages'/)
   assert.match(portalApp, /staffPreview && key === 'messages'[\s\S]{0,120}navigate\('\/connect\/messages'\)/)

@@ -1,5 +1,6 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { MessageCircle, X } from 'lucide-react'
+import { announceFloatingPanelOpen, onFloatingPanelOpen } from '../../lib/floatingPanels'
 
 const FEEDBACK_CATEGORIES = [
   { value: 'Bug Report', emoji: '🐛' },
@@ -42,10 +43,23 @@ export default function SharedFeedbackPanel({
   const [status, setStatus] = useState('')
   const [error, setError] = useState('')
 
+  // Keep this panel in the same floating-panel contract as Messages, Keith,
+  // and the user menu. This is especially important in Owner/Admin portal
+  // preview, where the staff Messages dock and this shared feedback panel are
+  // both present.
+  useEffect(() => onFloatingPanelOpen((source) => {
+    if (source === 'feedback') return
+    setShowTooltip(false)
+    if (onOpenChange) onOpenChange(false)
+    else setUncontrolledOpen(false)
+  }), [onOpenChange])
+
   if (!isAuthenticated) return null
 
   const isOpen = open ?? uncontrolledOpen
   const setOpen = (next) => {
+    setShowTooltip(false)
+    if (next) announceFloatingPanelOpen('feedback')
     if (onOpenChange) onOpenChange(next)
     else setUncontrolledOpen(next)
   }
@@ -106,8 +120,10 @@ export default function SharedFeedbackPanel({
           onClick={() => setOpen(!isOpen)}
           aria-label="Send feedback"
           aria-expanded={isOpen}
-          onMouseEnter={() => setShowTooltip(true)}
-          onMouseLeave={() => setShowTooltip(false)}
+          onPointerEnter={(event) => {
+            if (event.pointerType === 'mouse') setShowTooltip(true)
+          }}
+          onPointerLeave={() => setShowTooltip(false)}
         >
           <MessageCircle size={22} color="#ffffff" strokeWidth={2} aria-hidden="true" />
         </button>

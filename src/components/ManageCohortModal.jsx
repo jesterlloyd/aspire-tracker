@@ -13,10 +13,29 @@ const fmtCohortDate = (d) =>
   }).format(new Date(d + 'T12:00:00Z'))
 
 export default function ManageCohortModal({ cohort, onSave, onClose }) {
-  const [form, setForm]         = useState({ ...cohort })
+  // S-08: the cohort row never carries the password (the column is a hash in a table no
+  // browser can read), so nothing is prefilled. A new password is typed here and sent to
+  // the hashing endpoint by StaffApp.updateCohort; blank keeps the current one.
+  const { school_form_password: _neverShown, ...cohortFields } = cohort || {}
+  void _neverShown
+  const [form, setForm]         = useState({ ...cohortFields })
+  const [newPassword, setNewPassword] = useState('')
   const [saving, setSaving]     = useState(false)
   const [error,  setError]      = useState(null)
   const [showPwd, setShowPwd]   = useState(false)
+
+  // Whether a password is currently set, from the same RPC the public form asks.
+  const { data: hasPassword } = useQuery({
+    queryKey: ['cohort_has_form_password', cohort?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('school_form_requires_password', { p_cohort_id: cohort.id })
+      if (error) throw error
+      return data === true
+    },
+    enabled: !!cohort?.id,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  })
 
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }))
 
@@ -51,8 +70,7 @@ export default function ManageCohortModal({ cohort, onSave, onClose }) {
       end_date:              form.end_date,
       notes:                 form.notes,
       accepting_submissions: !!form.accepting_submissions,
-      school_form_password:  form.school_form_password || '',
-    })
+    }, newPassword)
     if (err) { setError(err.message || 'Failed to save.'); setSaving(false) }
     else onClose()
   }
@@ -125,16 +143,20 @@ export default function ManageCohortModal({ cohort, onSave, onClose }) {
               <textarea className="form-textarea" rows={3} value={form.notes || ''} onChange={e => set('notes', e.target.value)} />
             </div>
 
-            {/* School Form Password */}
+            {/* School Form Password. S-08: stored as a hash; it cannot be shown back. */}
             <div className="form-field">
               <label className="form-label">School Form Password</label>
+              <div style={{ fontSize: 12, color: hasPassword ? '#065f46' : '#92400e', marginBottom: 6, fontWeight: 600 }}>
+                {hasPassword === undefined ? 'Checking…' : hasPassword ? 'A password is set. It is stored as a hash and cannot be displayed.' : 'No password is set. The school form is locked until one is.'}
+              </div>
               <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                 <input
                   className="form-input"
                   type={showPwd ? 'text' : 'password'}
-                  value={form.school_form_password || ''}
-                  onChange={e => set('school_form_password', e.target.value)}
-                  placeholder="Set a password for school coordinators"
+                  value={newPassword}
+                  onChange={e => setNewPassword(e.target.value)}
+                  placeholder={hasPassword ? 'Enter a new password to replace it' : 'Set a password for school coordinators'}
+                  autoComplete="new-password"
                   style={{ paddingRight: 40 }}
                 />
                 <button type="button" onClick={() => setShowPwd(p => !p)}
@@ -143,7 +165,7 @@ export default function ManageCohortModal({ cohort, onSave, onClose }) {
                 </button>
               </div>
               <div style={{ fontSize: 12, color: '#6b7280', marginTop: 4, lineHeight: 1.5 }}>
-                Required. Share this password with authorized school placement coordinators each cohort cycle. The form is locked for everyone until a password is set.
+                Leave blank to keep the current password. Share it with authorized school placement coordinators each cohort cycle; the form is locked for everyone until a password is set.
               </div>
             </div>
 

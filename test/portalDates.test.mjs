@@ -39,15 +39,25 @@ test('formatDateRange handles every combination', async (t) => {
   })
 })
 
-test('placementWindow prefers cohort range, then term_dates, else TBC', async (t) => {
-  await t.test('cohort range wins', () => {
-    assert.equal(placementWindow({ start_date: '2026-07-01', end_date: '2026-08-15' }, 'Summer 2026'), 'Jul 1, 2026 to Aug 15, 2026')
+test('placementWindow prefers the canonical rotation, then cohort, then term_dates', async (t) => {
+  await t.test('canonical school-and-cohort rotation wins', () => {
+    assert.equal(
+      placementWindow(
+        { start: '2026-08-24', end: '2026-10-20' },
+        { start_date: '2026-09-01', end_date: '2026-12-15' },
+        'Fall 2026',
+      ),
+      'Aug 24, 2026 to Oct 20, 2026',
+    )
+  })
+  await t.test('falls back to the cohort range when no linked rotation is available', () => {
+    assert.equal(placementWindow(null, { start_date: '2026-07-01', end_date: '2026-08-15' }, 'Summer 2026'), 'Jul 1, 2026 to Aug 15, 2026')
   })
   await t.test('falls back to a meaningful term_dates string', () => {
-    assert.equal(placementWindow({ start_date: null, end_date: null }, 'Summer 2026'), 'Summer 2026')
+    assert.equal(placementWindow(null, { start_date: null, end_date: null }, 'Summer 2026'), 'Summer 2026')
   })
   await t.test('never surfaces an "invalid" term_dates value', () => {
-    assert.equal(placementWindow({}, 'Invalid Date to Invalid Date'), TBC)
-    assert.equal(placementWindow(null, ''), TBC)
+    assert.equal(placementWindow(null, {}, 'Invalid Date to Invalid Date'), TBC)
+    assert.equal(placementWindow(null, null, ''), TBC)
   })
 })

@@ -25,12 +25,11 @@
 // The coordinator has already typed the password to reach the form, so the client
 // simply sends what it already holds. Nothing new is asked of a real submitter.
 //
-// STILL OUTSTANDING: cohorts.school_form_password is plaintext and the RPC compares
-// it with TRIM equality. Hashing it is a schema change plus a staff-UI change (both
-// cohort modals write the column directly) and is deliberately NOT bundled here.
-// See db/audit/school_form_password_hardening.sql for the plan. Moving the check
-// server-side is worth shipping on its own: it closes the bypass today, and it is a
-// prerequisite for hashing rather than a duplicate of it.
+// S-08 COMPLETION (S08-1): the password is a bcrypt hash in cohort_form_secrets, set only
+// through api/cohort-password-set.js, and the two RPCs called below are repository
+// definitions (supabase/migrations/20261002000000, then 20261003000000 drops the
+// plaintext column). This endpoint did not change: it asks the same two functions the
+// same questions, and TRIM behaviour is preserved on both sides of the hash.
 
 import { createClient } from '@supabase/supabase-js'
 import { performSchoolPlacementUpsert, isPlacementProvenanceReady, validatePlacementRequestInput } from './lib/schoolPlacementUpsert.js'

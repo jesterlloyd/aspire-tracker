@@ -87,7 +87,7 @@ test('student-facing vocabulary', async (t) => {
 test('data discipline', async (t) => {
   await t.test('record dates use the null-safe helpers (no raw Invalid Date rendering)', () => {
     assert.match(portal, /import \{ fmtDate, placementWindow, TBC \} from '\.\.\/lib\/portalDates'/)
-    assert.match(portal, /placementWindow\(student\.cohort, student\.term_dates\)/)
+    assert.match(portal, /placementWindow\(student\.rotation, student\.cohort, student\.term_dates\)/)
     // The ONLY inline toLocaleDateString is the shared masthead's date label (always today's date,
     // never a nullable record value), matching the Unit Leader Home. Record dates stay on fmtDate.
     const localeUses = portal.match(/toLocaleDateString/g) || []

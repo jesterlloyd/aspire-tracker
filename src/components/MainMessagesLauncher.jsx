@@ -41,7 +41,7 @@ const F = 'Plus Jakarta Sans, sans-serif'
 
 // HOME-1: `hidden` keeps the dock's launcher off At a Glance. An open panel stays open
 // until closed; only the idle launcher is withheld there.
-export default function MainMessagesLauncher({ hidden = false }) {
+export default function MainMessagesLauncher({ portalPreview = false, hidden = false }) {
   const { userProfile } = useAuth()
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
@@ -104,9 +104,27 @@ export default function MainMessagesLauncher({ hidden = false }) {
   // Launcher geometry: idle = directly above the 60px Keith orb (24+60+12);
   // while Keith is open = beside the orb at the bottom edge, BELOW Keith's
   // drawer (which starts at bottom:96), so nothing covers the composer.
-  const launcherPos = keithOpen
+  const launcherPos = portalPreview
+    ? { bottom: 'calc(82px + env(safe-area-inset-bottom, 0px))', right: 'max(24px, env(safe-area-inset-right, 0px))' }
+    : keithOpen
     ? { bottom: 'calc(24px + env(safe-area-inset-bottom, 0px))', right: '96px' }
     : { bottom: 'calc(96px + env(safe-area-inset-bottom, 0px))', right: '28px' }
+  const tooltipBottom = portalPreview
+    ? 'calc(146px + env(safe-area-inset-bottom, 0px))'
+    : '158px'
+  const panelGeometry = portalPreview
+    ? {
+        bottom: 'calc(146px + env(safe-area-inset-bottom, 0px))',
+        right: 'max(12px, env(safe-area-inset-right, 0px))',
+        width: 'min(420px, calc(100vw - 24px))',
+        height: 'min(620px, calc(100vh - 170px))',
+      }
+    : {
+        bottom: 'calc(96px + env(safe-area-inset-bottom, 0px))',
+        right: 24,
+        width: 'min(420px, calc(100vw - 32px))',
+        height: 'min(720px, calc(100vh - 160px))',
+      }
 
   if (hidden && !open) return null
 
@@ -114,7 +132,7 @@ export default function MainMessagesLauncher({ hidden = false }) {
     <>
       {hover && !open && !keithOpen && (
         <div style={{
-          position: 'fixed', bottom: '158px', right: '28px',
+          position: 'fixed', bottom: tooltipBottom, right: portalPreview ? 'max(24px, env(safe-area-inset-right, 0px))' : '28px',
           background: 'var(--aspire-tooltip-bg, rgba(9, 12, 28, 0.94))',
           color: 'var(--aspire-tooltip-fg, #fff)',
           border: '1px solid var(--aspire-tooltip-border, transparent)',
@@ -172,9 +190,7 @@ export default function MainMessagesLauncher({ hidden = false }) {
             role="dialog"
             aria-label="Messages"
             style={{
-              position: 'fixed', bottom: 'calc(96px + env(safe-area-inset-bottom, 0px))', right: 24,
-              width: 'min(420px, calc(100vw - 32px))',
-              height: 'min(720px, calc(100vh - 160px))',
+              position: 'fixed', ...panelGeometry,
               background: 'var(--bg-card, #fff)', borderRadius: 16,
               boxShadow: '0 18px 48px rgba(16,24,40,0.24)', zIndex: 999,
               display: 'flex', flexDirection: 'column', overflow: 'hidden',

@@ -159,7 +159,7 @@ export default function PortalUtilityLayer({
         <PortalFeedbackPanel
           open={visiblePanel === 'feedback'}
           onOpenChange={openFeedback}
-          hidden={utilitiesHidden || visiblePanel === 'messages'}
+          hidden={utilitiesHidden}
           launcherRef={feedbackRef}
           pathname={pathname}
           section={section}
@@ -167,9 +167,9 @@ export default function PortalUtilityLayer({
         />
       )}
 
-      {messagesEnabled && !utilitiesHidden && visiblePanel !== 'feedback' && (
-        <div className="ptl-team-message-launcher-wrap">
-          <div className={`ptl-team-message-tooltip${visiblePanel === 'messages' ? '' : ' is-visible-on-hover'}`}>
+      {messagesEnabled && !utilitiesHidden && (
+        <div className={`ptl-team-message-launcher-wrap${visiblePanel === 'messages' ? ' is-open' : ''}`}>
+          <div className="ptl-team-message-tooltip">
             Messages
           </div>
           <button

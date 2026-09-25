@@ -317,7 +317,7 @@ export default function StudentPortal({
   const displayName = student.preferred_first_name || student.first_name
   const fullName = [displayName, student.last_name].filter(Boolean).join(' ')
   const cohortName = student.cohort?.name || null
-  const rotationWindow = placementWindow(student.cohort, student.term_dates)
+  const rotationWindow = placementWindow(student.rotation, student.cohort, student.term_dates)
   const activeRotation = student.status === 'Active Rotation'
   const placedMoment = student.status === 'Placed'
   const completedMoment = student.status === 'Completed'

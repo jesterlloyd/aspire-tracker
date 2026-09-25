@@ -209,23 +209,73 @@ afterward, from memory.
 - **Severity (assessed)**: Medium-high. The password gated only the screen;
   posting directly to the API skipped it entirely. The column is plaintext with
   TRIM-equality comparison in an anon-executable RPC.
-- **Status**: Partially closed.
-- **Closing commit**: `0186482` (2026-08-23).
-- **Evidence**: `api/school-form-submit.js` verifies via
+- **Status**: Closed (code); SQL unconfirmed. The server-side check has been live
+  since `0186482` (2026-08-23). The hashing, the last open part, is written: the
+  application no longer writes a plaintext password anywhere, and two Owner-gated
+  migrations move the stored values to bcrypt and drop the column. The finding closes
+  when both are applied and their POST sections pass.
+- **Closing commits**: `0186482` (the server-side check, 2026-08-23) and S08-1
+  (2026-09-25), the commit that adds
+  `supabase/migrations/20261002000000_s08_school_form_password_hash.sql` and
+  `supabase/migrations/20261003000000_s08_school_form_password_plaintext_drop.sql`.
+- **Part one, the bypass (closed 2026-08-23)**: `api/school-form-submit.js` verifies via
   `school_form_requires_password` then `verify_school_form_password` BEFORE any
   write, mirroring the authenticated Academic Partner path; missing and wrong
   passwords are refused identically; a failed requirement lookup refuses rather
   than waves through; the entered password never reaches a write, log, or
-  response. The client sends the password it already holds
-  (`SchoolFormPage.jsx`), so no new friction.
-- **What remains, with reasoning**: `cohorts.school_form_password` is still
-  plaintext. Hashing was deliberately not bundled: the two password RPCs are
-  dashboard-created (their bodies are not in this repository; migration
-  20260712000006 only ALTERs them), and both cohort modals
-  (`NewCohortModal.jsx`, `ManageCohortModal.jsx`) write the column directly, so
-  hashing without changing them would break the next cohort created. The
-  six-step sequence, including the `pg_get_functiondef` read that must come
-  first, is in `db/audit/public_endpoint_hardening_checks.sql` section 4.
+  response. The client sends the password it already holds.
+- **Part two, found in discovery (2026-09-25)**: the plaintext column was READ by
+  every `select *` on cohorts (the staff app loads all cohorts that way, so every
+  staff session received every password) and by the two RPCs; it was WRITTEN by
+  `NewCohortModal` and `ManageCohortModal` through `StaffApp.createCohort` and
+  `updateCohort`, straight into the cohorts row from the browser, and the Manage
+  modal prefilled the stored value into its text input. The RPC bodies are described
+  in `db/audit/public_endpoint_hardening_checks.sql` (requires: column non-empty;
+  verify: TRIM(stored) = TRIM(entered)) but not recorded verbatim, so PRE-A 1 re-reads
+  them and STOPs on a difference. pgcrypto's `crypt` is the one password-hashing
+  primitive available to a SECURITY DEFINER function; nothing else in the repo hashes
+  a password (tokens use SHA-256 in Node). Three cohorts hold passwords: Fall 2026
+  (accepting), Summer 2026, Winter 2027.
+- **Fix, application (S08-1)**: `api/cohort-password-set.js` (Owner/Admin session,
+  S-05 check included) is the one writer; it hands the value to the service_role-only
+  RPC `set_school_form_password`, which stores `crypt(btrim(password),
+  gen_salt('bf', 10))` in a new table `cohort_form_secrets` and NULLs any plaintext for
+  that cohort. The password is never logged or echoed; an audit row records who set or
+  cleared it, without the value. Until migration A is applied the endpoint answers 503
+  (`password_hashing_not_enabled`) rather than fall back to plaintext. `StaffApp`
+  strips the password from every cohorts insert and update and calls the endpoint;
+  `ManageCohortModal` never prefills, shows whether a password is set through the same
+  RPC the public form asks, and sends only a NEW password; `NewCohortModal` is
+  unchanged. `test/s08SchoolFormPasswordHash.test.mjs` sweeps `src/` for any cohorts
+  write naming the column.
+- **Fix, database, two migrations**: A (`20261002000000`) installs pgcrypto if
+  absent, creates `cohort_form_secrets` (RLS on, no policy, so no browser role can
+  read a hash; the app's `select *` on cohorts never sees one), drops and recreates
+  both RPCs from the repository with the same signatures, SECURITY DEFINER, pinned
+  `search_path = public, pg_catalog`, and EXECUTE for anon, authenticated and
+  service_role (anon must keep it: the public form calls both before sign-in),
+  adds `set_school_form_password`, backfills a hash for every cohort with a plaintext
+  password, and PROVES inside the transaction that `verify_school_form_password`
+  accepts each cohort's own plaintext through the hash and refuses a wrong one; one
+  failure rolls the file back. B (`20261003000000`), only after A's POST passes and
+  S08-1 is live, re-proves, NULLs and drops the plaintext column, and recreates the
+  three functions without the fallback branch.
+- **No correct password is refused at any point**: TRIM is preserved on both sides
+  (the hash is over `btrim(stored)`, the entered value is `btrim`'d), the verifier
+  prefers the hash and, until B, falls back to the old TRIM-equality rule for a
+  cohort with plaintext and no hash, so a password written by the old modal code
+  between A and the deploy still works, and A's own assertion runs the new verifier
+  against every stored password before committing. Fall 2026 stays live throughout.
+- **What proves the fallback is safe to remove**: POST-A 3 (every cohort with a
+  password verifies through its hash, and a wrong password is refused), PRE-B 1
+  (plaintext rows = hashed rows = verifying rows), the sweep test (no browser
+  writer), and B's own precondition, which refuses to drop a plaintext value that has
+  no hash. Applying either file twice is a no-op (tested).
+- **Verification**: `db/audit/s08_school_form_password_hash_checks.sql`, PRE-A 1 to 4,
+  A, POST-A 1 to 5, deploy, PRE-B 1 to 2, B, POST-B 1 to 4 (POST-B 4 is the live try
+  on the school form with the real password, by hand). No section selects a password
+  or a hash as output. The test runs A and B on real Postgres with pgcrypto (PGlite)
+  against passwords generated at test time; no password value is in the repository.
 
 ## S-09. Shift-log endpoints authenticate by email alone, no throttle
 

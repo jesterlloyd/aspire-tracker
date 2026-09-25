@@ -85,7 +85,9 @@ test('opening either tool closes the other through the shared registry', () => {
 })
 
 test('the launcher relocates while Keith is open and hides while its own panel is open', () => {
-  assert.match(dock, /const launcherPos = keithOpen\n {4}\? \{ bottom: 'calc\(24px \+ env\(safe-area-inset-bottom, 0px\)\)', right: '96px' \}\n {4}: \{ bottom: 'calc\(96px \+ env\(safe-area-inset-bottom, 0px\)\)', right: '28px' \}/)
+  assert.match(dock, /const launcherPos = portalPreview/)
+  assert.match(dock, /: keithOpen\n {4}\? \{ bottom: 'calc\(24px \+ env\(safe-area-inset-bottom, 0px\)\)', right: '96px' \}\n {4}: \{ bottom: 'calc\(96px \+ env\(safe-area-inset-bottom, 0px\)\)', right: '28px' \}/)
+  assert.match(dock, /bottom: 'calc\(82px \+ env\(safe-area-inset-bottom, 0px\)\)'/)
   assert.match(dock, /\{!open && \(\n {8}<button/)
   // The tooltip never renders in the relocated (Keith-open) state either.
   assert.match(dock, /\{hover && !open && !keithOpen && \(/)
@@ -105,9 +107,12 @@ test('Escape closes the active panel and focus returns to the right launcher', (
 // ── Geometry: no overlap at desktop or narrow widths ─────────────────────────
 
 test('panel geometry mirrors the corner-drawer convention and clears Keith\'s orb', () => {
-  assert.match(dock, /bottom: 'calc\(96px \+ env\(safe-area-inset-bottom, 0px\)\)', right: 24,/)
+  assert.match(dock, /bottom: 'calc\(96px \+ env\(safe-area-inset-bottom, 0px\)\)'/)
+  assert.match(dock, /right: 24/)
   assert.match(dock, /width: 'min\(420px, calc\(100vw - 32px\)\)'/)
   assert.match(dock, /height: 'min\(720px, calc\(100vh - 160px\)\)'/)
+  assert.match(dock, /bottom: 'calc\(146px \+ env\(safe-area-inset-bottom, 0px\)\)'/)
+  assert.match(dock, /height: 'min\(620px, calc\(100vh - 170px\)\)'/)
   assert.match(dock, /role="dialog"/)
   assert.match(dock, /aria-label="Messages"/)
 })
