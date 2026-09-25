@@ -199,7 +199,12 @@
 
 /* ── The list (Modern; Classic's list view dresses the same card as paper) ────── */
 .ctl-listcard { background: var(--ctl-surface); border: 0; border-radius: var(--aspire-radius-card); box-shadow: var(--aspire-shadow-card); overflow: hidden; }
-.ctl-lh, .ctl-it { display: grid; grid-template-columns: 40px minmax(0, 1fr) 150px auto; gap: 14px; align-items: center; padding: 0 14px; }
+/* The action column is ONE width in every row (CATALOG-ALIGN-1, Owner, 2026-09-24). Each row is
+   its own grid, so an `auto` column sized to its own button: Send, Send form and Send for
+   signature each pushed Status to a different place. It fits the widest (Send for signature
+   plus the menu), and the buttons sit at its right edge. */
+.ctl-listcard { --ctl-acts-w: 216px; }
+.ctl-lh, .ctl-it { display: grid; grid-template-columns: 40px minmax(0, 1fr) 150px var(--ctl-acts-w); gap: 14px; align-items: center; padding: 0 14px; }
 .ctl-lh { font-family: var(--ctl-mono); font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ctl-faint);
   padding-block: 10px; border-bottom: 1px solid var(--ctl-line); background: var(--ctl-surface-2); }
 .ctl-sect { font-family: var(--ctl-mono); font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ctl-faint);

@@ -1112,6 +1112,9 @@ pure and tested without a browser; the page computes nothing in JSX.
   named for a student (first AND last name), and moves one only for `confirm: true` and a
   student the review offered for that file; it copies, records, hides the row, and deletes the
   Catalog copy last, after the record's copy is confirmed at the same size.
+- **The list's action column is one width** (CATALOG-ALIGN-1, Owner, 2026-09-24):
+  `--ctl-acts-w` fits Send for signature plus the menu, so Status lines up under its header in
+  every row. Each row is its own grid; an `auto` last column let each button move Status.
 - **Overdue is computed, never stored**: past due and not done (`completionStatus`).
 - **Inks**: the app's `--text-muted` measures 4.05:1 on the page; the Catalog reads
   `--text-caption`. Wood inks were measured against the lightest gradient stop behind them
@@ -1331,6 +1334,9 @@ the Parking form follows Parking Services' own form (received 2026-09-24).
   Excel, a formatted, number or summed column goes out as real numbers with the same number
   format, and the Σ row as real formulas (`=SUM(B2:B30)`) with their values worked out; answers
   are never written as formulas. No new database change: it all lives in the layout row.
+- **An empty Sheet is still a sheet** (SHEET-EMPTY-1, Owner, 2026-09-24): before anyone
+  submits, it shows the tools, the header and ten blank numbered rows, with the note above the
+  grid, so columns, formats and the Σ row can be set up before the first answer.
 - **Responses' header** (RESPONSES-CANON-1): People | Sheet | Summary is the shared
   `SegmentedPicker`; Remind all overdue shows on People only; Download CSV is the navy button
   with the download icon, as in NE&L Portal > Contacts.

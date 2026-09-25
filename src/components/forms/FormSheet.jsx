@@ -332,7 +332,10 @@ export default function FormSheet({ formId, onOpen, notify }) {
 
   if (error) return <p className="fm-err" role="alert">{error}</p>
   if (!data || !layout) return <p className="fm-hint">Loading the answers…</p>
-  if (!data.rows.length) return <div className="fm-card fs-empty"><p className="fm-hint">No one has submitted this form yet. Answers appear here as they come in.</p></div>
+  // SHEET-EMPTY-1 (Owner, 2026-09-24): before anyone submits, the Sheet is still a sheet: the
+  // header, blank numbered rows and the tools, so staff can set it up (columns, formats, Σ)
+  // before the first answer arrives.
+  const none = !data.rows.length
 
   // Frozen columns: the row numbers, the name and up to three more stay put.
   const lefts = {}
@@ -467,6 +470,7 @@ export default function FormSheet({ formId, onOpen, notify }) {
         </div>
       )}
 
+      {none && <p className="fm-hint fs-emptynote" role="status">No one has submitted this form yet. Answers appear here as they come in; you can set up columns, formats and the Σ row now.</p>}
       <div className="fs-frame" ref={frameRef} tabIndex={0} onKeyDown={onKey} onScroll={followEditor} aria-label="Answers, one row per person. Arrow keys move, Enter edits.">
         <table className="fs-table fs-fixed fs-grid">
           <colgroup><col style={{ width: W_ROWNUM }} />{gridCols.map(c => <col key={c.key} style={{ width: width(c.key) }} />)}</colgroup>
@@ -492,7 +496,13 @@ export default function FormSheet({ formId, onOpen, notify }) {
             })}
           </tr></thead>
           <tbody>
-            {!rows.length && <tr><td className="fs-none" colSpan={gridCols.length + 1}>No answers match. <button type="button" className="fm-link" onClick={() => { setFilters([]); setSearch('') }}>Show all</button></td></tr>}
+            {none && BLANK_ROWS.map(n => (
+              <tr key={`blank-${n}`} className="fs-row fs-blank" aria-hidden="true">
+                <th className="fs-rownum" style={{ position: 'sticky', left: 0, zIndex: 2 }}>{n}</th>
+                {gridCols.map(col => <td key={col.key} className="fs-cell" style={{ ...cellStyle(null, width(col.key)), ...stickyStyle(col.key) }} />)}
+              </tr>
+            ))}
+            {!none && !rows.length && <tr><td className="fs-none" colSpan={gridCols.length + 1}>No answers match. <button type="button" className="fm-link" onClick={() => { setFilters([]); setSearch('') }}>Show all</button></td></tr>}
             {(groups || [{ label: null, rows }]).map(g => (
               <GroupBlock key={g.label ?? '@all'} group={g} grouped={!!groups} collapsed={collapsed.has(g.label)} colSpan={gridCols.length + 1}
                 onToggle={() => { setSel(null); setCollapsed(s => { const n = new Set(s); if (n.has(g.label)) n.delete(g.label); else n.add(g.label); return n }) }}>
@@ -557,6 +567,9 @@ export default function FormSheet({ formId, onOpen, notify }) {
     </div>
   )
 }
+
+// The blank rows an empty Sheet shows under its header, numbered like a spreadsheet's.
+const BLANK_ROWS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
 function GroupBlock({ group, grouped, collapsed, colSpan, onToggle, children }) {
   if (!grouped) return children

@@ -179,13 +179,16 @@
 .fs-table thead .fs-sticky { z-index: 3; }
 .fs-table tbody tr:nth-child(even) td, .fs-table tbody tr:nth-child(even) .fs-name { background: color-mix(in srgb, var(--ctl-ink) 3%, var(--ctl-surface)); }
 .fs-row { cursor: pointer; }
-.fs-row:hover td, .fs-row:hover .fs-name { background: var(--ctl-navy-soft); }
+.fs-row:not(.fs-blank):hover td, .fs-row:not(.fs-blank):hover .fs-name { background: var(--ctl-navy-soft); }
+.fs-blank { cursor: default; }
+.fs-blank td, .fs-blank .fs-rownum { height: 30px; }
 .fs-name { min-width: 180px; }
 .fs-name small { display: block; font-size: 12px; color: var(--text-caption, var(--ctl-muted)); }
 .fs-open { border: 0; background: none; padding: 0; cursor: pointer; font: 600 13px var(--aspire-sans); color: var(--ctl-navy); text-align: left; }
 .fs-earlier { font-style: italic; }
 .fs-none { text-align: center; color: var(--text-caption, var(--ctl-muted)); padding: 18px; }
 .fs-empty { padding: 18px 20px; }
+.fs-emptynote { margin: 0 0 8px; }
 
 /* ── Responses > Summary (FORM-SUMMARY-1) ─────────────────────────────────────────────
    One hue (the Catalog navy) for every bar; values in text ink at the tip. Bars are 16px,
