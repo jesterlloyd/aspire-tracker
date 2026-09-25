@@ -864,6 +864,8 @@ export default function BulkManualComposer({
     >{label}</button>
   )
 
+  const reviewMessageText = richEnabled ? htmlToPlainText(body) : body
+
   return (
     <div className="outreach-bulk-manual" style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'flex-start', width: '100%' }}>
 
@@ -1363,20 +1365,15 @@ export default function BulkManualComposer({
 
       {/* ── Final Review & Send panel (the only path to a live send) ─────────── */}
       {reviewOpen && (
-        <div onClick={() => { if (!sending) setReviewOpen(false) }} style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex',
-          alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20,
-        }}>
-          <div onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" style={{
-            background: '#fff', borderRadius: 12, width: '100%', maxWidth: 560, maxHeight: '85vh',
-            display: 'flex', flexDirection: 'column', boxShadow: '0 8px 40px rgba(0,0,0,0.18)', fontFamily: F,
-          }}>
+        <div className="outreach-bulk-review-backdrop" onClick={() => { if (!sending) setReviewOpen(false) }}>
+          <div className="outreach-bulk-review-modal" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="outreach-bulk-review-title">
             {/* Header */}
-            <div style={{ padding: '18px 22px', borderBottom: '1px solid #f3f4f6' }}>
-              <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: NAVY, fontFamily: F }}>
+            <div className="outreach-bulk-review-header">
+              <div className="outreach-bulk-review-kicker">Final check</div>
+              <h2 id="outreach-bulk-review-title">
                 {sendResult ? 'Send results' : 'Review & send'}
               </h2>
-              <div style={{ fontSize: 12, color: '#6b7280', fontFamily: F, marginTop: 4 }}>
+              <div className="outreach-bulk-review-subtitle">
                 {sendResult ? (
                   <>
                     {`${sendResult.summary?.total ?? 0} recipient${(sendResult.summary?.total ?? 0) === 1 ? '' : 's'} in this batch`}
@@ -1422,7 +1419,7 @@ export default function BulkManualComposer({
             </div>
 
             {/* Body */}
-            <div style={{ padding: '12px 22px', overflowY: 'auto', flex: 1 }}>
+            <div className="outreach-bulk-review-body">
               {sendResult ? (
                 // ── RESULTS ── partial success must be visually unmistakable
                 (() => {
@@ -1468,12 +1465,11 @@ export default function BulkManualComposer({
                       Selected <strong>{recipients.length}</strong> exceeds the <strong>{MAX_RECIPIENTS}</strong>-recipient limit for a single send. Remove {recipients.length - MAX_RECIPIENTS} to continue.
                     </div>
                   )}
-                  <div style={{ marginBottom: 12, padding: '10px 12px', background: '#f9fafb', border: '1px solid #eef0f4', borderRadius: 8 }}>
-                    <div style={{ fontSize: 11, color: '#6b7280', fontFamily: F }}>Subject</div>
-                    <div style={{ fontSize: 12.5, fontWeight: 600, color: '#191919', fontFamily: F, marginBottom: 8 }}>{subject || <span style={{ color: '#9ca3af', fontWeight: 400 }}>-</span>}</div>
-                    <div style={{ fontSize: 11, color: '#6b7280', fontFamily: F }}>Message</div>
-                    <div style={{ fontSize: 12, color: '#374151', fontFamily: F, lineHeight: 1.55, whiteSpace: 'pre-wrap', maxHeight: 120, overflowY: 'auto', marginTop: 2 }}>{body}</div>
-                    <div style={{ fontSize: 10, color: '#9ca3af', fontFamily: F, marginTop: 6 }}>First name and school merge per recipient at send.</div>
+                  <div className="outreach-bulk-review-message-card">
+                    <div className="outreach-bulk-review-label">Message preview</div>
+                    <div className="outreach-bulk-review-subject">{subject || <span>-</span>}</div>
+                    <div className="outreach-bulk-review-message">{reviewMessageText}</div>
+                    <div className="outreach-bulk-review-note">First name and school merge per recipient at send.</div>
                   </div>
                   {/* BULK-EXACT-RECIPIENTS-1: Not Proceeding students never send silently - each is
                       flagged on its row AND the send stays locked until explicitly acknowledged. */}
@@ -1496,11 +1492,13 @@ export default function BulkManualComposer({
                       </label>
                     </div>
                   )}
+                  <div className="outreach-bulk-review-section-label">Recipients</div>
+                  <div className="outreach-bulk-review-recipient-list">
                   {recipients.map(r => {
                     const b = SOURCE_BADGE[r.source] || SOURCE_BADGE.manual
                     const np = r.source === 'student' && String(r.status || '') === NOT_PROCEEDING_STATUS
                     return (
-                      <div key={r.normEmail} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 6px', borderBottom: '1px solid #f9fafb', borderRadius: 6, background: np ? '#fdf2f8' : 'transparent' }}>
+                      <div key={r.normEmail} className={`outreach-bulk-review-recipient${np ? ' is-not-proceeding' : ''}`}>
                         <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: b.bg, color: b.color, border: `1px solid ${b.border}`, textTransform: 'uppercase', letterSpacing: '0.04em', flexShrink: 0 }}>{b.label}</span>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 12, fontWeight: 600, color: '#191919', fontFamily: F }}>{r.name || <span style={{ color: '#9ca3af', fontWeight: 400 }}>-</span>}</div>
@@ -1515,6 +1513,7 @@ export default function BulkManualComposer({
                       </div>
                     )
                   })}
+                  </div>
                   {invalidEntries.length > 0 && (
                     <div style={{ marginTop: 12, padding: '10px 12px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8 }}>
                       <div style={{ fontSize: 11, fontWeight: 700, color: '#dc2626', fontFamily: F, marginBottom: 4 }}>Invalid entries (not included)</div>
@@ -1526,15 +1525,15 @@ export default function BulkManualComposer({
             </div>
 
             {/* Footer */}
-            <div style={{ padding: '14px 22px', borderTop: '1px solid #f3f4f6' }}>
+            <div className="outreach-bulk-review-footer">
               {sendResult ? (
                 <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                   <button onClick={() => { setReviewOpen(false); setPreviewOpen(false) }} style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: NAVY, color: '#fff', fontSize: 13, fontWeight: 600, fontFamily: F, cursor: 'pointer' }}>Done</button>
                 </div>
               ) : (
                 <div>
-                  <label style={{ display: 'block', fontSize: 11.5, color: '#374151', fontFamily: F, marginBottom: 5 }}>
-                    Type <strong style={{ color: NAVY, letterSpacing: '0.03em' }}>{CONFIRM_PHRASE}</strong> to enable sending
+                  <label className="outreach-bulk-review-confirm-label">
+                    Type <strong>{CONFIRM_PHRASE}</strong> to confirm this send
                   </label>
                   <input
                     value={confirmText}
@@ -1542,24 +1541,21 @@ export default function BulkManualComposer({
                     disabled={sending}
                     placeholder={CONFIRM_PHRASE}
                     autoComplete="off"
-                    style={{ ...inputBase, marginBottom: 10, borderColor: confirmOk ? '#2F7D5C' : '#e5e7eb' }}
+                    className="outreach-bulk-review-confirm-input"
+                    style={{ borderColor: confirmOk ? '#2F7D5C' : undefined }}
                   />
                   {sendError && (
                     <div style={{ marginBottom: 10, padding: '8px 11px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, fontSize: 11.5, color: '#b91c1c', fontFamily: F }}>{sendError}</div>
                   )}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
-                    <button onClick={() => { if (!sending) setReviewOpen(false) }} disabled={sending} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid #d1d5db', background: '#fff', color: '#374151', fontSize: 13, fontWeight: 600, fontFamily: F, cursor: sending ? 'not-allowed' : 'pointer' }}>Cancel</button>
+                  <div className="outreach-bulk-review-actions">
+                    <button className="outreach-bulk-review-cancel" onClick={() => { if (!sending) setReviewOpen(false) }} disabled={sending}>Cancel</button>
                     <button
                       onClick={handleBulkSend}
                       disabled={!canSend}
                       title={overLimit ? `Over the ${MAX_RECIPIENTS}-recipient limit`
                         : needsNpAck ? 'Acknowledge the Not Proceeding recipients above to enable'
                         : !confirmOk ? `Type ${CONFIRM_PHRASE} to enable` : undefined}
-                      style={{
-                        padding: '8px 18px', borderRadius: 8, border: 'none',
-                        background: canSend ? '#B42318' : '#e5e7eb', color: canSend ? '#fff' : '#9ca3af',
-                        fontSize: 13, fontWeight: 700, fontFamily: F, cursor: canSend ? 'pointer' : 'not-allowed',
-                      }}
+                      className="outreach-bulk-review-send"
                     >
                       {sending ? `Sending ${recipients.length}…` : `Send to ${recipients.length}`}
                     </button>
