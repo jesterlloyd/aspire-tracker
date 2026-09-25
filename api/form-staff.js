@@ -14,7 +14,7 @@
 //   publish         -> { form } freezes the draft as the next version
 //   paper_set       -> { paper } copies a Catalog PDF in as the form's paper original (the exact measured file only)
 //   paper_clear     -> { paper } removes it; submissions go back to the redrawn layout
-//   sheet           -> { columns, rows } every submission as a spreadsheet row (Responses > Sheet)
+//   sheet           -> { columns, rows, summary } every submission as a spreadsheet row, and the per-question Summary
 //   sheet_xlsx      -> { xlsx, fileName } that Sheet as Excel, only the rows and columns shown, in that order
 //   forward         -> { forward } sends one response's filed PDF to the form's forwardTo address again
 //   use_starter     -> { form } replaces a starter form's draft with the starter as it ships now (not published)
@@ -142,7 +142,7 @@ async function act(db, body, { profile, isDemo }) {
       }
       return { assignment: a, answers: sub.answers, submittedAt: sub.submitted_at, filed: !!sub.record_document_id, definition: version.definition, pdfUrl }
     }
-    case 'sheet': { needUuid(body.id); const { columns, rows } = await sheetData(db, body.id, { isDemo }); return { columns, rows } }
+    case 'sheet': { needUuid(body.id); const { columns, rows, summary } = await sheetData(db, body.id, { isDemo }); return { columns, rows, summary } }
     case 'sheet_xlsx': {
       needUuid(body.id)
       const rowIds = Array.isArray(body.rowIds) ? body.rowIds.filter(x => UUID.test(String(x))).slice(0, 5000) : null

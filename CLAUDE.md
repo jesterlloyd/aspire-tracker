@@ -1293,7 +1293,14 @@ the Parking form follows Parking Services' own form (received 2026-09-24).
   that drops columns is not one. **Export to Excel** (`sheet_xlsx`, `lib/server/forms/xlsx.js`)
   is a real .xlsx of exactly the rows and columns shown, in that order, every cell an inline
   string (no formulas), frozen header and autofilter, on the signatures ZIP writer
-  (`zipStored(..., { keepPaths: true })`). Summary charts are the next step, not built.
+  (`zipStored(..., { keepPaths: true })`).
+- **Responses has a Summary** (FORM-SUMMARY-1, 2026-09-24), like Microsoft Forms, from
+  `summaryFor` over the same answers: choice, checkbox and dropdown questions as horizontal
+  bars (one hue, the Catalog navy; count and share at each tip in text ink; 16px bars, a
+  named `--fsum-bar-end` radius; no legend, so colour carries no meaning alone), "Other" with
+  what people wrote, short answers grouped with counts (case-insensitive), paragraphs latest
+  first, numbers and dates as tiles. Measured light, dark and Classic: text at least 6.7:1,
+  bars at least 5.6:1 on their card; no overflow at 375px.
 - **"Other" with a text box** (FORM-OTHER-1): choice, checkbox and dropdown questions can set
   `allowOther`; the answer is stored as the text `Other: <typed>` so every reader shows it as
   written. One Other per checkbox answer, 200 characters.

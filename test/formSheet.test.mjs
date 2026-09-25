@@ -120,3 +120,35 @@ test('Responses has People and Sheet; Build a form can add a category', () => {
   assert.match(page, /action: 'create', display_name: newName\.trim\(\)/)
   assert.match(page, /canAddCategory=\{isOwner\}/, 'creating a category stays Owner-only, as the endpoint enforces')
 })
+
+// FORM-SUMMARY-1 (2026-09-24): Responses > Summary, per question, like Microsoft Forms.
+test('the Summary counts options and Other, groups short answers, and sums up numbers and dates', () => {
+  const def = { questions: [
+    { id: 'h', type: 'section', label: 'Part' },
+    { id: 'size', type: 'choice', label: 'Size', options: ['S', 'M', 'L'], allowOther: true },
+    { id: 'days', type: 'checkboxes', label: 'Days', options: ['Mon', 'Tue'] },
+    { id: 'dept', type: 'short', label: 'Department' },
+    { id: 'why', type: 'paragraph', label: 'Why' },
+    { id: 'sets', type: 'number', label: 'Sets' },
+    { id: 'start', type: 'date', label: 'Start' },
+    { id: 'sig', type: 'signature', label: 'Sign' },
+  ] }
+  const rows = [
+    { name: 'Ava', submittedAt: '2026-09-20', answers: { size: 'M', days: ['Mon', 'Tue'], dept: 'Nursing Education', why: 'first', sets: 1, start: '2026-10-05' } },
+    { name: 'Ben', submittedAt: '2026-09-22', answers: { size: 'Other: Tall', days: ['Mon'], dept: 'nursing education', why: 'second', sets: 3, start: '2026-09-01' } },
+    { name: 'Cy', submittedAt: '2026-09-21', answers: { size: 'M', dept: 'ICU', sets: 2 } },
+  ]
+  const s = Object.fromEntries(M.summaryFor([{ version: 1, definition: def }], rows).map(q => [q.key, q]))
+  assert.deepEqual(Object.keys(s), ['size', 'days', 'dept', 'why', 'sets', 'start'], 'no section, no signature')
+  assert.deepEqual(s.size.options, [{ label: 'S', count: 0 }, { label: 'M', count: 2 }, { label: 'L', count: 0 }, { label: 'Other', count: 1, other: true }])
+  assert.deepEqual(s.size.otherAnswers, ['Tall'])
+  assert.equal(s.days.multi, true); assert.equal(s.days.answered, 2)
+  assert.deepEqual(s.days.options, [{ label: 'Mon', count: 2 }, { label: 'Tue', count: 1 }])
+  assert.deepEqual(s.dept.groups, [{ text: 'Nursing Education', count: 2 }, { text: 'ICU', count: 1 }], 'the same answer in any case is one group')
+  assert.deepEqual(s.why.samples.map(x => x.name), ['Ben', 'Ava'], 'latest first')
+  assert.deepEqual([s.sets.mean, s.sets.median, s.sets.min, s.sets.max], [2, 2, 1, 3])
+  assert.deepEqual([s.start.earliest, s.start.latest, s.start.answered], ['2026-09-01', '2026-10-05', 2])
+  const src = read('src/components/forms/FormSummary.jsx')
+  assert.match(src, /aria-label=\{say\}/, 'every bar says its count in words')
+  assert.match(read('src/components/forms/FormResponses.jsx'), />Summary<\/button>/)
+})

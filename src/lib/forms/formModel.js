@@ -478,3 +478,63 @@ export function cellMatches(column, cell, value) {
   }
   return text.toLowerCase().includes(String(value).toLowerCase())
 }
+
+// ── The Summary (FORM-SUMMARY-1) ────────────────────────────────────────────────────
+// Responses > Summary, like Microsoft Forms: per question, what everyone answered. Choice,
+// checkbox and dropdown questions count each option (and "Other", with what people wrote);
+// numbers get count, average, median, lowest and highest; dates the earliest and latest;
+// short answers group identical answers with a count; paragraphs show the latest answers. Questions follow the latest version, like the Sheet.
+
+const SUMMARY_TEXT_SAMPLE = 20
+const median = (xs) => { const a = [...xs].sort((x, y) => x - y); const m = a.length >> 1; return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2 }
+
+/** versions: [{ version, definition }]; rows: [{ name, submittedAt, answers }] (any order). */
+export function summaryFor(versions, rows) {
+  const ordered = [...(versions || [])].sort((a, b) => b.version - a.version)
+  const latest = ordered[0]?.definition?.questions || []
+  const recent = [...(rows || [])].sort((a, b) => String(b.submittedAt || '').localeCompare(String(a.submittedAt || '')))
+  const out = []
+  for (const q of latest) {
+    if (!takesAnswer(q) || q.type === 'signature') continue
+    const given = recent.filter(r => !isBlank(r.answers?.[q.id]))
+    const base = { key: q.id, label: q.label, type: q.type, answered: given.length, respondents: recent.length }
+    if (hasOptions(q)) {
+      const counts = new Map((q.options || []).map(o => [o, 0]))
+      const other = []
+      for (const r of given) {
+        const v = r.answers[q.id]
+        for (const x of (Array.isArray(v) ? v : [v])) {
+          if (counts.has(x)) counts.set(x, counts.get(x) + 1)
+          else if (isOtherValue(x)) other.push(otherText(x))
+          else counts.set(x, (counts.get(x) || 0) + 1)   // an option an earlier version offered
+        }
+      }
+      const options = [...counts].map(([label, count]) => ({ label, count }))
+      if (q.allowOther || other.length) options.push({ label: 'Other', count: other.length, other: true })
+      out.push({ ...base, kind: 'options', multi: q.type === 'checkboxes', options, otherAnswers: other.slice(0, 50) })
+    } else if (q.type === 'number') {
+      const xs = given.map(r => Number(r.answers[q.id])).filter(Number.isFinite)
+      out.push({ ...base, kind: 'number', ...(xs.length ? { min: Math.min(...xs), max: Math.max(...xs), mean: xs.reduce((a, b) => a + b, 0) / xs.length, median: median(xs) } : {}) })
+    } else if (q.type === 'date') {
+      const ds = given.map(r => String(r.answers[q.id])).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort()
+      out.push({ ...base, kind: 'date', ...(ds.length ? { earliest: ds[0], latest: ds[ds.length - 1] } : {}) })
+    } else if (q.type === 'file') {
+      out.push({ ...base, kind: 'file' })
+    } else if (q.type === 'short') {
+      // A short answer repeats ("Nursing Education" eight times), so identical answers are
+      // grouped, most common first, the way the choice bars count.
+      const groups = new Map()
+      for (const r of [...given].reverse()) {   // oldest first, so a group keeps the first spelling used
+        const text = answerText(q, r.answers[q.id]).trim()
+        const k = text.toLowerCase()
+        const g = groups.get(k) || { text, count: 0 }
+        g.count++; groups.set(k, g)
+      }
+      const all = [...groups.values()].sort((a, b) => b.count - a.count || a.text.localeCompare(b.text))
+      out.push({ ...base, kind: 'grouped', distinct: all.length, groups: all.slice(0, SUMMARY_TEXT_SAMPLE) })
+    } else {
+      out.push({ ...base, kind: 'text', samples: given.slice(0, SUMMARY_TEXT_SAMPLE).map(r => ({ name: r.name, text: answerText(q, r.answers[q.id]) })) })
+    }
+  }
+  return out
+}
