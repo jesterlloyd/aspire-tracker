@@ -16,6 +16,7 @@
 // Contacts are read with the table's existing RLS (no new endpoint/schema).
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { supabase } from '../../lib/supabase'
 import AttachmentPicker from './AttachmentPicker'
 import { toSlugs, toDraftAttachments, fromDraftAttachments, sendBlockedReason } from '../../lib/connect/outreachAttachments'
@@ -1393,7 +1394,7 @@ export default function BulkManualComposer({
       </div>
 
       {/* ── Final Review & Send panel (the only path to a live send) ─────────── */}
-      {reviewOpen && (
+      {reviewOpen && typeof document !== 'undefined' && createPortal(
         <div className="outreach-bulk-review-backdrop" onClick={() => { if (!sending) setReviewOpen(false) }}>
           <div className="outreach-bulk-review-modal" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="outreach-bulk-review-title">
             {/* Header */}
@@ -1593,7 +1594,8 @@ export default function BulkManualComposer({
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   )

@@ -127,6 +127,14 @@ test('bulk email preview replaces the draft and owns the next review action', ()
   assert.doesNotMatch(bulk, /title="Email Preview" padding=\{24\} style=\{\{ marginTop: 14 \}\}/)
 })
 
+test('bulk final review renders in the document layer above sticky Connect pickers', () => {
+  const bulk = read('src/components/connect/BulkManualComposer.jsx')
+
+  assert.match(bulk, /import \{ createPortal \} from 'react-dom'/)
+  assert.match(bulk, /reviewOpen && typeof document !== 'undefined' && createPortal\(/)
+  assert.match(bulk, /document\.body,\s*\)/)
+})
+
 test('Modern single and bulk papers align and keep draft actions in one control row', () => {
   const css = read('src/components/connect/outreachCorrespondenceDesk.css')
 
