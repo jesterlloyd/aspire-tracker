@@ -65,7 +65,7 @@
 .outreach-desk-plaque {
   position: absolute;
   z-index: 4;
-  top: -11px;
+  top: -5px;
   left: 50%;
   translate: -50% 0;
   padding: 5px 17px;
@@ -298,11 +298,59 @@
 .outreach-workspace-classic .outreach-bulk-manual .outreach-draft-panel {
   padding: 28px 34px 24px !important;
 }
+.outreach-workspace-classic .outreach-draft-action-bar {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px 14px;
+  flex-wrap: wrap;
+  margin: 2px 0 10px;
+}
+.outreach-workspace-classic .outreach-draft-action-main {
+  display: flex;
+  flex: 1 1 560px;
+  align-items: center;
+  gap: 8px 12px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.outreach-workspace-classic .outreach-draft-action-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  margin-left: auto;
+}
+.outreach-workspace-classic .outreach-draft-status,
+.outreach-workspace-classic .outreach-action-help {
+  color: #9ca3af;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 11px;
+}
+.outreach-workspace-classic .outreach-draft-status:empty {
+  display: none;
+}
+.outreach-workspace-classic .outreach-signature-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #374151;
+  cursor: pointer;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.outreach-workspace-classic .outreach-action-help {
+  line-height: 1.4;
+}
+.outreach-workspace-classic .outreach-draft-action-notices:empty {
+  display: none;
+}
 .outreach-workspace-classic .outreach-bulk-action-row {
-  position: sticky;
-  bottom: 0;
-  z-index: 2;
-  box-shadow: 0 -4px 10px rgba(10, 14, 29, 0.08) !important;
+  position: static;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 .outreach-workspace-classic .outreach-field-control,
 .outreach-workspace-classic .outreach-cc-control {
@@ -353,6 +401,10 @@
 .outreach-workspace-classic .outreach-template-group > button {
   border-radius: 0 !important;
 }
+.outreach-workspace-classic .outreach-bulk-manual .connect-panel .outreach-draft-action-main button[data-testid='attachment-add'],
+.outreach-workspace-classic .outreach-bulk-manual .connect-panel button.outreach-primary-action {
+  border-radius: var(--ocd-r-8) !important;
+}
 .outreach-workspace-classic .outreach-discard-draft {
   padding: 5px 10px !important;
   border: 1px solid #d5d8df !important;
@@ -363,6 +415,9 @@
   font-family: 'Plus Jakarta Sans', sans-serif;
   font-size: 11px;
   font-weight: 600;
+}
+.outreach-workspace-classic .outreach-bulk-manual .connect-panel button.outreach-discard-draft {
+  border-radius: var(--aspire-radius-pill) !important;
 }
 .outreach-workspace-classic .outreach-discard-draft:hover {
   border-color: var(--ocd-navy) !important;

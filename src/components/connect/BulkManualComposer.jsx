@@ -51,11 +51,6 @@ const F = 'Plus Jakarta Sans, sans-serif'
 const NAVY = '#1D2567'
 
 // ── Local style tokens (mirror OutreachView's design language) ──────────────────
-// Panel frame/header now come from <ConnectPanel>; panelCard remains for the white action bar.
-const panelCard = {
-  background: '#ffffff', border: '1px solid rgba(29,37,103,0.10)', borderRadius: 12,
-  padding: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)', fontFamily: F,
-}
 const inputBase = {
   width: '100%', padding: '10px 13px', border: '1.5px solid #e5e7eb', borderRadius: 8,
   fontSize: 13, fontFamily: F, color: '#191919', background: '#fff', outline: 'none', boxSizing: 'border-box',
@@ -1200,60 +1195,63 @@ export default function BulkManualComposer({
               <textarea className="outreach-field-control" value={body} onChange={e => setBody(e.target.value)} rows={14}
                 style={{ ...inputBase, resize: 'vertical', lineHeight: 1.6, minHeight: 240, fontSize: 13 }} />
             )}
-            {/* CONNECT-DRAFT-AUTOSAVE-1 parity: unobtrusive autosave status (bottom-left) + explicit
-                discard (bottom-right), mirrors the Send-to-one composer. */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 6, minHeight: 18 }}>
-              <span style={{ fontSize: 11, color: '#9ca3af', fontFamily: F, transition: 'opacity 0.2s' }}>
+          </div>
+
+          {/* Keep every draft action directly beneath the editor. */}
+          <div className="outreach-draft-action-bar outreach-bulk-action-row">
+            <div className="outreach-draft-action-main">
+              <AttachmentPicker
+                value={attachments}
+                onChange={setAttachments}
+                disabled={sending}
+                resolvedSizes={Object.fromEntries((preview.attachments || []).map(a => [a.slug, a.size_bytes]))}
+              />
+              <label className="outreach-signature-toggle">
+                <input type="checkbox" checked={includeSignature} onChange={e => setIncludeSig(e.target.checked)} style={{ accentColor: NAVY }} />
+                Include my email signature
+              </label>
+              {(() => {
+                const reviewReady = recipients.length > 0 && subject.trim() && body.trim()
+                return (
+                  <button
+                    className="outreach-primary-action"
+                    onClick={() => previewOpen ? setReviewOpen(true) : setPreviewOpen(true)}
+                    disabled={!reviewReady}
+                    style={{
+                      padding: '9px 18px', borderRadius: 8, border: 'none',
+                      background: reviewReady ? NAVY : '#e5e7eb', color: reviewReady ? '#fff' : '#9ca3af',
+                      fontSize: 13, fontWeight: 600, fontFamily: F, cursor: reviewReady ? 'pointer' : 'not-allowed',
+                    }}
+                  >
+                    {previewOpen ? `Continue to final review (${recipients.length})` : `Review & send (${recipients.length})`}
+                  </button>
+                )
+              })()}
+              <span className="outreach-action-help">
+                {recipients.length === 0 ? 'Add recipients to continue.'
+                  : !subject.trim() ? 'Add a subject to continue.'
+                  : !body.trim() ? 'Add a message to continue.'
+                  : previewOpen ? 'A typed confirmation is required in the next step.' : 'Review the final email before confirming the send.'}
+              </span>
+            </div>
+
+            <div className="outreach-draft-action-meta">
+              <span className="outreach-draft-status" role="status">
                 {draftStatus === 'saved' ? 'Draft saved'
                   : draftStatus === 'restored' ? 'Draft restored'
                   : draftStatus === 'discarded' ? 'Draft discarded'
                   : ''}
               </span>
               {(!bulkDraftIsPristine(bulkMsgType, subject, body, richEnabled) || studentSel.size > 0 || contactSel.size > 0 || picked.length > 0) && (
-                <button className="outreach-discard-draft"
-                  type="button"
-                  onClick={handleDiscardBulkDraft}
-                  style={{ marginLeft: 'auto' }}>
+                <button className="outreach-discard-draft" type="button" onClick={handleDiscardBulkDraft}>
                   Discard draft
                 </button>
               )}
             </div>
           </div>
-          {/* OUTREACH-ATTACHMENTS-1: the same files go to every recipient. */}
-          <div style={{ marginBottom: 10 }}>
-            <AttachmentPicker
-              value={attachments}
-              onChange={setAttachments}
-              disabled={sending}
-              resolvedSizes={Object.fromEntries((preview.attachments || []).map(a => [a.slug, a.size_bytes]))}
-            />
-          </div>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#374151', fontFamily: F, cursor: 'pointer', marginBottom: 6 }}>
-            <input type="checkbox" checked={includeSignature} onChange={e => setIncludeSig(e.target.checked)} style={{ accentColor: NAVY }} />
-            Include my email signature
-          </label>
+
           <div style={{ fontSize: 10, color: '#9ca3af', fontFamily: F, lineHeight: 1.5 }}>
             First name and school merge per recipient at send. All other [placeholders] (links, deadlines, dates, unit, preceptor) are edited once here and sent as-is.
-          </div>
-
-          {/* Keep the review action inside the Draft paper, aligned with the other desk papers. */}
-          <div className="outreach-bulk-action-row" style={{ ...panelCard, marginTop: 14, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            {(() => {
-              const reviewReady = recipients.length > 0 && subject.trim() && body.trim()
-              return (
-                <button onClick={() => previewOpen ? setReviewOpen(true) : setPreviewOpen(true)} disabled={!reviewReady} style={{
-                  padding: '9px 18px', borderRadius: 8, border: 'none',
-                  background: reviewReady ? NAVY : '#e5e7eb', color: reviewReady ? '#fff' : '#9ca3af',
-                  fontSize: 13, fontWeight: 600, fontFamily: F, cursor: reviewReady ? 'pointer' : 'not-allowed',
-                }}>{previewOpen ? `Continue to final review (${recipients.length})` : `Review & send (${recipients.length})`}</button>
-              )
-            })()}
-            <span style={{ fontSize: 11, color: '#9ca3af', fontFamily: F }}>
-              {recipients.length === 0 ? 'Add recipients to continue.'
-                : !subject.trim() ? 'Add a subject to continue.'
-                : !body.trim() ? 'Add a message to continue.'
-                : previewOpen ? 'A typed confirmation is required in the next step.' : 'Review the final email before confirming the send.'}
-            </span>
           </div>
         </ConnectPanel>
 

@@ -81,7 +81,7 @@ test('composer desks use the measured viewport while Sent History keeps its full
   assert.match(viewport, /return \{ barRef, chartHeight, toolbarTop, chartTop \}/)
   assert.match(css, /--ocd-plaque-clearance: 12px;/)
   assert.match(css, /--ocd-desk-bottom-extension: 10px;/)
-  assert.match(css, /\.outreach-desk-plaque \{[\s\S]*top: -11px;/)
+  assert.match(css, /\.outreach-desk-plaque \{[\s\S]*top: -5px;/)
   assert.match(css, /\.outreach-workspace-classic \.outreach-desk-shell \{[\s\S]*border: 6px solid var\(--ocd-wood\);[\s\S]*background: var\(--ocd-leather\);/)
   assert.match(css, /\.outreach-workspace-classic \.outreach-desk-shell\[data-outreach-mode='single'\],[\s\S]*data-outreach-mode='bulk'[\s\S]*position: sticky;[\s\S]*top: calc\(var\(--outreach-desk-top[\s\S]*height: calc\(var\(--outreach-desk-h/)
   assert.match(css, /@media \(max-width: 840px\)[\s\S]*data-outreach-mode='bulk'\] \{ position: relative; top: auto; height: auto;/)
@@ -97,6 +97,19 @@ test('bulk papers share one bottom edge and the obsolete scaffolding subtitle is
   const bulkSelector = outreach.slice(outreach.indexOf('const renderBulkTypeSelector'), outreach.indexOf('// Escape closes', outreach.indexOf('const renderBulkTypeSelector')))
   assert.match(bulkSelector, /alwaysShowOther/)
   assert.doesNotMatch(bulkSelector, /bulkOtherOpen|onToggleOther/)
+})
+
+test('single and bulk drafts use one compact action row beneath the editor', () => {
+  const outreach = read('src/components/connect/OutreachView.jsx')
+  const bulk = read('src/components/connect/BulkManualComposer.jsx')
+  const css = read('src/components/connect/outreachCorrespondenceDesk.css')
+
+  assert.match(outreach, /className="outreach-draft-action-bar"[\s\S]*Attach(?:mentPicker)?[\s\S]*Include my email signature[\s\S]*Send Email[\s\S]*className="outreach-draft-action-meta"[\s\S]*Draft saved[\s\S]*Discard draft/)
+  assert.match(bulk, /className="outreach-draft-action-bar outreach-bulk-action-row"[\s\S]*<AttachmentPicker[\s\S]*Include my email signature[\s\S]*className="outreach-primary-action"[\s\S]*Review & send/)
+  assert.doesNotMatch(bulk, /const panelCard =/)
+  assert.match(css, /\.outreach-workspace-classic \.outreach-bulk-action-row \{[\s\S]*position: static;[\s\S]*background: transparent !important;[\s\S]*box-shadow: none !important;/)
+  assert.match(css, /button\.outreach-primary-action \{[\s\S]*border-radius: var\(--ocd-r-8\) !important;/)
+  assert.match(css, /button\.outreach-discard-draft \{[\s\S]*border-radius: var\(--aspire-radius-pill\) !important;/)
 })
 
 test('the To line never reuses a previous recipient preview', () => {

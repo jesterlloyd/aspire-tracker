@@ -3200,23 +3200,6 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
                     disabled={!dmHasAnyRecipient}
                   />
                 )}
-                {/* CONNECT-DRAFT-AUTOSAVE-1: unobtrusive autosave status + explicit discard */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 6, minHeight: 18 }}>
-                  <span style={{ fontSize: 11, color: '#9ca3af', fontFamily: F, transition: 'opacity 0.2s' }}>
-                    {draftStatus === 'saved' ? 'Draft saved'
-                      : draftStatus === 'restored' ? 'Draft restored'
-                      : draftStatus === 'discarded' ? 'Draft discarded'
-                      : ''}
-                  </span>
-                  {dmHasAnyRecipient && (String(msgSubject).trim() || String(msgBody).trim()) && (
-                    <button className="outreach-discard-draft"
-                      type="button"
-                      onClick={handleDiscardDraft}
-                      style={{ marginLeft: 'auto' }}>
-                      Discard draft
-                    </button>
-                  )}
-                </div>
               </div>
 
               {/* CC field (CONNECT-COMMS-1D) - Direct Message only. Chips + free entry; the clinical
@@ -3275,14 +3258,88 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
                 )}
               </div>
 
-              {/* OUTREACH-ATTACHMENTS-1: attach approved Library files */}
-              <div style={{ marginBottom: 12 }}>
-                <AttachmentPicker
-                  value={dmAttachments}
-                  onChange={next => { markDraftDirty(); setDmAttachments(next) }}
-                  disabled={dmSendInFlight}
-                  resolvedSizes={Object.fromEntries((dmPreview.attachments || []).map(a => [a.slug, a.size_bytes]))}
-                />
+              {/* Keep draft controls together directly beneath the editor. */}
+              <div className="outreach-draft-action-bar">
+                <div className="outreach-draft-action-main">
+                  <AttachmentPicker
+                    value={dmAttachments}
+                    onChange={next => { markDraftDirty(); setDmAttachments(next) }}
+                    disabled={dmSendInFlight}
+                    resolvedSizes={Object.fromEntries((dmPreview.attachments || []).map(a => [a.slug, a.size_bytes]))}
+                  />
+
+                  <label className="outreach-signature-toggle">
+                    <input
+                      type="checkbox"
+                      checked={includeSignature}
+                      onChange={e => { markDraftDirty(); setIncludeSignature(e.target.checked) }}
+                      style={{ width: 14, height: 14, accentColor: '#1D2567' }}
+                    />
+                    Include my email signature
+                  </label>
+
+                  {(() => {
+                    const hasContactRecipient = !!(contactId && contactHasDisplayInfo && fromContact?.email)
+                    const studentEmail = effectiveStudent?.school_email || fetchedStudent?.school_email
+                                         || effectiveStudent?.personal_email || fetchedStudent?.personal_email
+                                         || effectiveStudent?.email
+                    const hasStudentRecipient = !!(studentId && studentEmail)
+                    const hasRecipient = hasContactRecipient || hasStudentRecipient
+                    const hasSubject   = !!msgSubject.trim()
+                    const hasBody      = !!msgBody.trim()
+                    const canSend      = hasRecipient && hasSubject && hasBody
+
+                    const disabledTip = !hasRecipient && studentId && !fromStudent?.email
+                                        ? 'Recipient has no email on file'
+                                        : !hasRecipient ? 'Select a recipient to send'
+                                        : !hasSubject   ? 'Enter a subject'
+                                        : !hasBody      ? 'Enter a message body'
+                                        : ''
+                    return canSend ? (
+                      <button
+                        className="outreach-primary-action"
+                        onClick={() => { setDmBodyExpanded(false); setDmConfirmOpen(true) }}
+                        style={{
+                          padding: '8px 18px', background: '#1D2567',
+                          border: 'none', borderRadius: 8,
+                          fontSize: 12, fontWeight: 600, fontFamily: F,
+                          color: '#fff', cursor: 'pointer', transition: 'opacity 0.12s',
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.opacity = '0.85'}
+                        onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+                      >
+                        Send Email
+                      </button>
+                    ) : (
+                      <Tooltip label={disabledTip} placement="top">
+                        <button className="outreach-primary-action" disabled style={{
+                          padding: '8px 18px', background: '#e5e7eb',
+                          border: 'none', borderRadius: 8,
+                          fontSize: 12, fontWeight: 600, fontFamily: F,
+                          color: '#9ca3af', cursor: 'not-allowed',
+                        }}>Send Email</button>
+                      </Tooltip>
+                    )
+                  })()}
+                </div>
+
+                <div className="outreach-draft-action-meta">
+                  <span className="outreach-draft-status" role="status">
+                    {draftStatus === 'saved' ? 'Draft saved'
+                      : draftStatus === 'restored' ? 'Draft restored'
+                      : draftStatus === 'discarded' ? 'Draft discarded'
+                      : ''}
+                  </span>
+                  {dmHasAnyRecipient && (String(msgSubject).trim() || String(msgBody).trim()) && (
+                    <button className="outreach-discard-draft" type="button" onClick={handleDiscardDraft}>
+                      Discard draft
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* OUTREACH-ATTACHMENTS-1: attach approved Catalog files. */}
+              <div className="outreach-draft-action-notices">
                 {/* PLACEMENT-COMMUNICATION-HANDOFF-1: a promised ASPIRE Catalog
                     document that could not be resolved is stated here, before the
                     message can go anywhere. */}
@@ -3332,70 +3389,6 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
                   </div>
                 ))}
               </div>
-
-              {/* Signature toggle */}
-              <div style={{ marginBottom: 12 }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', fontSize: 12, fontFamily: F, color: '#374151' }}>
-                  <input
-                    type="checkbox"
-                    checked={includeSignature}
-                    onChange={e => { markDraftDirty(); setIncludeSignature(e.target.checked) }}
-                    style={{ width: 14, height: 14, accentColor: '#1D2567' }}
-                  />
-                  Include my email signature
-                </label>
-              </div>
-
-              {/* Action bar */}
-              {(() => {
-                const hasContactRecipient = !!(contactId && contactHasDisplayInfo && fromContact?.email)
-                // CONNECT-COMMS-1B: gate on having ANY email; prefer school-first for consistency
-                // with the canon (authoritative resolution + which-email-used happen server-side).
-                const studentEmail = effectiveStudent?.school_email || fetchedStudent?.school_email
-                                     || effectiveStudent?.personal_email || fetchedStudent?.personal_email
-                                     || effectiveStudent?.email
-                const hasStudentRecipient = !!(studentId && studentEmail)
-                const hasRecipient = hasContactRecipient || hasStudentRecipient
-                const hasSubject   = !!msgSubject.trim()
-                const hasBody      = !!msgBody.trim()
-                const canSend      = hasRecipient && hasSubject && hasBody
-
-                const disabledTip = !hasRecipient && studentId && !fromStudent?.email
-                                    ? 'Recipient has no email on file'
-                                    : !hasRecipient ? 'Select a recipient to send'
-                                    : !hasSubject   ? 'Enter a subject'
-                                    : !hasBody      ? 'Enter a message body'
-                                    : ''
-                return (
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12 }}>
-                    {/* Drafts autosave automatically - no manual save button. */}
-                    {canSend ? (
-                      <button
-                        onClick={() => { setDmBodyExpanded(false); setDmConfirmOpen(true) }}
-                        style={{
-                          padding: '8px 18px', background: '#1D2567',
-                          border: 'none', borderRadius: 8,
-                          fontSize: 12, fontWeight: 600, fontFamily: F,
-                          color: '#fff', cursor: 'pointer', transition: 'opacity 0.12s',
-                        }}
-                        onMouseEnter={e => e.currentTarget.style.opacity = '0.85'}
-                        onMouseLeave={e => e.currentTarget.style.opacity = '1'}
-                      >
-                        Send Email
-                      </button>
-                    ) : (
-                      <Tooltip label={disabledTip} placement="top">
-                        <button disabled style={{
-                          padding: '8px 18px', background: '#e5e7eb',
-                          border: 'none', borderRadius: 8,
-                          fontSize: 12, fontWeight: 600, fontFamily: F,
-                          color: '#9ca3af', cursor: 'not-allowed',
-                        }}>Send Email</button>
-                      </Tooltip>
-                    )}
-                  </div>
-                )
-              })()}
 
               {/* Inline send status feedback */}
               {dmSendStatus && (
