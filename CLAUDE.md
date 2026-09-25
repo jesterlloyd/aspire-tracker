@@ -771,8 +771,16 @@ tested modules in `src/lib/home/`. Nothing is computed in JSX.
   scene is `width: 100%; aspect-ratio: 5 / 1` and grows to fit its content, so it carries no
   overflow clip and no min-height (a ratio box with either stops growing, or turns a minimum
   height into an 880px width on a phone); the scenery layer (`.mast-host`) clips instead.
-  The banner injects `.mast{margin-top:0!important}` into the card's shadow root with the
-  clock rule, because the service's own 16px margin pushed the scene down the window.
+  The banner injects `.mast{margin-top:0;border-radius:0;box-shadow:none}` (all `!important`)
+  into the card's shadow root with the clock rule: the service's own 16px margin pushed the
+  scene down the window, and its own rounded, shadowed face under the scenery layer's clip
+  drew a dark fringe at every corner. `.mast-host` is the ONE edge (navy fallback, radius,
+  clip); the scene itself paints nothing.
+- **A style switch never rebuilds the card** (Owner, 2026-09-25): the scene sits in one
+  wrapper in both styles (`hm-window` or `hm-frameless`), so switching changes a class. The
+  injection also re-runs for any `skyline-card` added to the scene later (a MutationObserver
+  that only reacts to an added card), because a rebuilt card came up with the service's
+  greeting over ours and the 16px gap until a reload.
 - **The weather opens the city picker**: the content layer over the scenery is
   `pointer-events: none` and only the launcher takes clicks, and in Classic the banner sits
   at `z-index: 5` above the cards after it, so the service's picker covers the page.

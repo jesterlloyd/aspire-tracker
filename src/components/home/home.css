@@ -126,10 +126,11 @@
   position: relative;
   width: 100%;
   aspect-ratio: 5 / 1;
-  background: var(--aspire-navy);
 }
 .hm-hero-modern .hm-window-scene { border-radius: var(--aspire-radius-card); box-shadow: var(--hm-shadow); }
-.hm-window-scene .mast-host { position: absolute; inset: 0; overflow: hidden; border-radius: inherit; }
+/* The scenery layer is the one edge: it carries the navy fallback, rounds, and clips. Nothing
+   under it draws a curve of its own (the service card's corner is taken back in HomeBanner). */
+.hm-window-scene .mast-host { position: absolute; inset: 0; overflow: hidden; border-radius: inherit; background: var(--aspire-navy); }
 .hm-window-scene skyline-card { display: block; width: 100%; }
 
 /* Classic: a window. Square, because a window is (Owner, 2026-09-25); the frame, the glass,

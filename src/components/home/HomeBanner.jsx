@@ -35,8 +35,12 @@ function useMinuteClock() {
 // service's greeting sits at a height that depends on the band, so drawing both halves
 // here keeps them together); the weather and the scenery stay the service's.
 // The service also gives its card a 16px top margin, which pushed the whole scene down and
-// left a strip at the top of the window (Owner, 2026-09-25: "it looks lower").
-const HIDE_SERVICE_CLOCK = '.mast-greet,.mast-date,.mast-clock{display:none!important}.mast{margin-top:0!important}'
+// left a strip at the top of the window (Owner, 2026-09-25: "it looks lower"), and its own
+// corner and shadow: the banner's scenery layer is the ONE edge that rounds and clips, because
+// three stacked anti-aliased 12px curves (the navy fallback, the clip, the card's white face)
+// left a dark fringe at every corner (Owner, 2026-09-25: "shadows in the edges").
+const HIDE_SERVICE_CLOCK = '.mast-greet,.mast-date,.mast-clock{display:none!important}'
+  + '.mast{margin-top:0!important;border-radius:0!important;box-shadow:none!important}'
 
 // The glass's reflection travels as the page scrolls: the bands slide sideways by a share of
 // how far the window has moved. Any scroll container counts (capture), and nothing moves
@@ -75,28 +79,41 @@ export default function HomeBanner({ classic, fullName, userKey, items, calendar
   const glareRef = useRef(null)
   useScrollGlare(sceneRef, glareRef, classic)
 
-  // Hide the service's date and clock once its shadow root exists. Polls briefly because
-  // the element upgrades when its script arrives, which can be after this mount.
+  // Hide the service's greeting and clock, and take back its margin and corner, once its shadow
+  // root exists. Polls briefly because the element upgrades when its script arrives, which can
+  // be after this mount. It runs again whenever a new card appears in the scene: a card built
+  // after the first (a style switch used to rebuild it) came up with the service's own greeting
+  // over ours and its 16px margin, until a reload (Owner, 2026-09-25).
   useEffect(() => {
+    const host = sceneRef.current
+    if (!host) return undefined
     let tries = 0
     let timer = null
     const tick = () => {
-      const el = sceneRef.current?.querySelector('skyline-card')
-      const sr = el?.shadowRoot
-      if (sr) {
+      let pending = false
+      for (const card of host.querySelectorAll('skyline-card')) {
+        const sr = card.shadowRoot
+        if (!sr) { pending = true; continue }
         if (!sr.querySelector('style[data-hm-clock]')) {
           const st = document.createElement('style')
           st.setAttribute('data-hm-clock', '')
           st.textContent = HIDE_SERVICE_CLOCK
           sr.appendChild(st)
         }
-        return
       }
-      if (tries++ < 40) timer = setTimeout(tick, 250)
+      if (pending && tries++ < 40) timer = setTimeout(tick, 250)
     }
-    timer = setTimeout(tick, 0)
-    return () => clearTimeout(timer)
+    const start = () => { clearTimeout(timer); tries = 0; tick() }
+    start()
+    // Only a card being added matters; the clock and the launcher change this subtree all day.
+    const isCard = (n) => n.nodeType === 1 && (n.localName === 'skyline-card' || n.querySelector?.('skyline-card'))
+    const mo = new MutationObserver((records) => {
+      if (records.some(r => [...r.addedNodes].some(isCard))) start()
+    })
+    mo.observe(host, { childList: true, subtree: true })
+    return () => { clearTimeout(timer); mo.disconnect() }
   }, [])
+
   const scene = (
     <div className="hm-window-scene" ref={sceneRef}>
       <SkylineCard fullName={fullName} userKey={userKey} items={items} calendar={calendar} flush />
@@ -117,7 +134,9 @@ export default function HomeBanner({ classic, fullName, userKey, items, calendar
 
   return (
     <section className={`hm-hero ${classic ? 'hm-hero-classic' : 'hm-hero-modern'}`} aria-label="Welcome">
-      {classic ? <div className="hm-window">{scene}</div> : scene}
+      {/* One wrapper in both styles, so switching style keeps the same card in place instead of
+          building a new one (only the wrapper's class changes). */}
+      <div className={classic ? 'hm-window' : 'hm-frameless'}>{scene}</div>
       {classic && <div className="hm-sill" aria-hidden="true" />}
     </section>
   )

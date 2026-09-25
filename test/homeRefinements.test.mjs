@@ -239,10 +239,11 @@ test('WINDOW: the scenery shows in both styles, flush to the top, in a square wi
   // Owner, 2026-09-25: "the skyline isn't showing in modern theme", "it looks lower", "the frame
   // doesn't have rounded corners, it's a window".
   const banner = read('src/components/home/HomeBanner.jsx')
-  assert.match(banner, /\{classic \? <div className="hm-window">\{scene\}<\/div> : scene\}/)
+  // One wrapper in both styles: a style switch changes a class, never rebuilds the card.
+  assert.match(banner, /<div className=\{classic \? 'hm-window' : 'hm-frameless'\}>\{scene\}<\/div>/)
   assert.match(banner, /<SkylineCard fullName=\{fullName\}/)
   assert.doesNotMatch(banner, /if \(!classic\) return undefined/, 'the service clock is hidden in both styles')
-  assert.match(banner, /\.mast\{margin-top:0!important\}/, 'the service card\'s own top margin is taken back')
+  assert.match(banner, /\.mast\{margin-top:0!important;border-radius:0!important;box-shadow:none!important\}/, 'the service card\'s own margin, corner and shadow are taken back')
   const css = read('src/components/home/home.css')
   const block = (sel) => { const i = css.indexOf(sel + ' {'); return css.slice(i, css.indexOf('}', i)) }
   assert.doesNotMatch(block('.hm-window'), /border-radius/)
@@ -250,7 +251,6 @@ test('WINDOW: the scenery shows in both styles, flush to the top, in a square wi
   // The scene grows to fit its content: a definite width, a ratio, and no clip of its own.
   assert.match(block('.hm-window-scene'), /width: 100%;\s*aspect-ratio: 5 \/ 1;/)
   assert.doesNotMatch(block('.hm-window-scene'), /overflow|min-height/)
-  assert.match(css, /\.hm-window-scene \.mast-host \{ position: absolute; inset: 0; overflow: hidden; border-radius: inherit; \}/)
 })
 
 test('WINDOW: the weather is clickable and its city picker covers the page', () => {
@@ -279,4 +279,17 @@ test('LAUNCHER: the quick actions show only while the launcher is in use', () =>
   assert.match(l, /onMouseDown=\{\(e\) => e\.preventDefault\(\)\} onClick=\{\(\) => onRun\?\.\(a\)\}/)
   assert.match(l, /if \(!query\) inputRef\.current\?\.blur\(\)/)
   assert.match(read('src/components/home/home.css'), /\.hm-chips\[hidden\] \{ display: none; \}/)
+})
+
+test('WINDOW: a card built after the first still gets the banner\'s style, and the corner is one edge', () => {
+  // Owner, 2026-09-25: switching style showed the service's greeting over ours and a gap on top,
+  // until a reload; and the rounded corners showed a dark fringe.
+  const banner = read('src/components/home/HomeBanner.jsx')
+  assert.match(banner, /for \(const card of host\.querySelectorAll\('skyline-card'\)\)/)
+  assert.match(banner, /new MutationObserver\(\(records\) => \{\s*if \(records\.some\(r => \[\.\.\.r\.addedNodes\]\.some\(isCard\)\)\) start\(\)/)
+  assert.match(banner, /mo\.observe\(host, \{ childList: true, subtree: true \}\)/)
+  const css = read('src/components/home/home.css')
+  const i = css.indexOf('.hm-window-scene {')
+  assert.doesNotMatch(css.slice(i, css.indexOf('}', i)), /background/, 'the scene draws no curve of its own')
+  assert.match(css, /\.hm-window-scene \.mast-host \{ position: absolute; inset: 0; overflow: hidden; border-radius: inherit; background: var\(--aspire-navy\); \}/)
 })
