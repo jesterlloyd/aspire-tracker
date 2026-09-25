@@ -474,9 +474,55 @@ afterward, from memory.
 
 ## S-17. Client caches survive sign-out and account switch
 
-- **Severity (original)**: Medium. **Status**: OPEN.
-- **Risk**: React Query data, drafts, and recipient lists from one account are readable in the next session on a shared machine.
-- **Verified at HEAD**: no `queryClient.clear()` exists anywhere in src/.
+- **Severity (original)**: Medium.
+- **Status**: CLOSED.
+- **Closing commit**: S17-1 (2026-09-25), the commit that adds `src/lib/signOutCleanup.js`.
+  Application code only; no SQL.
+- **Risk (historical)**: React Query data, drafts, and recipient lists from one account
+  are readable in the next session on a shared machine.
+- **Found in discovery, at HEAD**: `AuthContext.signOut` cleared the signed-photo cache
+  and the portal cohort hint; the SIGNED_OUT handler additionally cleared the leaving
+  user's tab keys (FRESH-LOGIN-HOME-1). Nothing cleared the React Query cache, so every
+  roster, thread and list the previous person opened stayed in memory until the tab
+  closed, readable by the next sign-in before their own fetches landed. Every session
+  end arrives as SIGNED_OUT (deliberate sign-out and expiry alike); S-05's deactivation
+  and revocation paths refuse on the server and show the no-access card, and never
+  ended the session client-side, so nothing ran for them either. Forty-odd storage
+  writes existed across `src/`. Most drafts were already keyed by user id (Outreach
+  direct, pointer and bulk drafts by user and cohort; rubric drafts by student and
+  interviewer profile; cohort, tab, cycle, preferences, demo choice, Keith settings).
+  Unkeyed keys that held people or place: the interviewer roster cache (names, emails),
+  the last opened contact, the Connect tab, the Outreach launch context in
+  sessionStorage (a student's or contact's id, name and email), the signed-photo
+  mirror, the portal feedback idempotency id, the tour snooze, and four legacy auth
+  flags.
+- **Decision, keyed versus deleted**: a draft already keyed by user id is kept. Its
+  readers build the key from the signed-in id, so another account cannot reach it
+  through the app, and deleting it on sign-out would lose unsent work the person is
+  entitled to find again. Everything unkeyed that holds a person or a place is deleted.
+  Device and UI preferences with no personal data are kept. The demo ARMED marker is
+  kept because `reconcileDemoModeForUser` settles it against the arriving user's own key
+  at sign-in; clearing it would run a presenter's first queries in real mode.
+- **Fix**: `src/lib/signOutCleanup.js` is the one registry of every storage key the app
+  writes, each with a class (clear, keyed, preference, mechanism, public, auth) and what
+  it holds, and one function, `clearClientStateOnSignOut`, which clears the React Query
+  cache, drops the photo cache, and removes every `clear` key from both stores. Never
+  throws; idempotent. `AuthContext` calls it before the sign-out request, on SIGNED_OUT
+  (expiry included), on a SIGNED_IN whose user differs from the one this tab or this
+  browser last held, and on a restored session for a different user than the browser
+  last saw (`aspire:lastAuthenticatedUserId`). The query client is reached through
+  `getQueryClient()` in `src/lib/supabase.js` rather than the hook, because
+  `AuthProvider` also mounts in the public-site prerender with no provider above it.
+- **Regression guard**: `test/s17SignOutCleanup.test.mjs` walks every `setItem()` in
+  `src/`, resolves the key each writes (literal, template prefix, constant, key-builder
+  function, or a wrapper's callers) and fails if the registry does not classify it; and
+  proves sign-out clears the cache and the sensitive keys, preferences survive, a switch
+  to another user leaves nothing readable as theirs, and the cleanup never throws.
+- **Behaviour a person will notice**: after signing out, Connect reopens on its first
+  tab rather than the last one, the last opened contact is not preselected, the
+  interviewer roster loads from the server instead of the cache, and a tour snoozed in
+  the previous session shows again. Unsent Outreach and rubric drafts are still there
+  for the same person on the same browser, as before.
 
 ## S-18. anon USING (true) read policy on unit_leaders
 

@@ -9,6 +9,10 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 // Populated by setQueryClient() called from main.jsx so we can invalidate after reconnect
 let _queryClient = null
 export function setQueryClient(qc) { _queryClient = qc }
+// S-17: the sign-out cleanup reads it back to clear the cache. A getter rather than the
+// useQueryClient hook, because AuthProvider also mounts in the public-site prerender,
+// where there is no QueryClientProvider above it.
+export function getQueryClient() { return _queryClient }
 
 if (!supabaseUrl) {
   throw new Error('Missing required environment variable: VITE_SUPABASE_URL')
