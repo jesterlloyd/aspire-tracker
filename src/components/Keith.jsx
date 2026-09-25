@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { greetingFor, capabilityLineFor, chipsFor, hasSeenWelcome, markWelcomeSeen } from '../lib/keithWelcome';
 import { useAuth } from '../contexts/AuthContext';
 import { announceFloatingPanelOpen, onFloatingPanelOpen, announceFloatingPanelClosed } from '../lib/floatingPanels';
+import { onAskKeith } from '../lib/keithBus';
 import { renderMarkdownLite } from '../lib/keithMarkdown';
 import { paletteSummary } from '../lib/skillSummary';
 import { findSlashToken, filterSkills, applySlashSelection } from '../lib/slashPalette';
@@ -11,7 +12,9 @@ import { findSlashToken, filterSkills, applySlashSelection } from '../lib/slashP
 const KEITH_CLIENT_TIMEOUT_MS   = 28000;
 const KEITH_PREFETCH_CEILING_MS = 5000;
 
-export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, supabase, isAuthenticated }) {
+// HOME-1: `hideLauncher` hides the orb (At a Glance has the launcher instead) while the
+// drawer stays reachable through askKeith(); the drawer's own close control still works.
+export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, supabase, isAuthenticated, hideLauncher = false }) {
   const { userProfile } = useAuth();
   const queryClient = useQueryClient();
   const [isOpen,      setIsOpen]      = useState(false);
@@ -66,6 +69,23 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
     if (el) el.setSelectionRange(want, want);
   }, [input]);
 
+  // HOME-1: a question asked from elsewhere (the home page's "Ask Keith" row) opens the
+  // drawer and sends it. handleSend is defined below, after the early returns, so the
+  // subscription reaches it through a ref that an effect refreshes after every render.
+  const askRef = useRef(null);
+  useEffect(() => {
+    // handleSend is a const declared after the early returns below. When one of them
+    // fires (no session, a Viewer) the render never reaches that declaration, so the
+    // binding is still in its temporal dead zone here; there is no Keith to ask then.
+    try { askRef.current = handleSend; } catch { askRef.current = null; }
+  });
+  useEffect(() => onAskKeith(text => {
+    announceFloatingPanelOpen('keith');
+    setIsOpen(true);
+    // Let the drawer mount and the input take focus before the message goes out.
+    setTimeout(() => askRef.current?.(text), 0);
+  }), []);
+
   if (!isAuthenticated) return null;
   // KEITH-WELCOME-1: the resolved role model gives Viewer no Keith access (the
   // server 403s before any context is assembled). The launcher now agrees
@@ -114,6 +134,7 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
   useEffect(() => onFloatingPanelOpen(source => {
     if (source !== 'keith') setIsOpen(false);
   }), []);
+
 
 
   const firstName = userProfile?.full_name?.split(' ')[0];
@@ -436,7 +457,9 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
         </div>
       )}
 
-      {/* Floating button */}
+      {/* Floating button. HOME-1: hidden on At a Glance, where the launcher's Keith row
+          opens the drawer instead; the drawer below is unchanged. */}
+      {!hideLauncher && (
       <button
         data-tour="keith-orb"
         onClick={() => {
@@ -474,6 +497,7 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
           {orb(60, isTyping)}
         </div>
       </button>
+      )}
 
       {/* Drawer */}
       {isOpen && (

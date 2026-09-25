@@ -12,10 +12,7 @@ import { RELEASE_ROUTES } from '../../lib/evaluation/releaseRouting'
 import { postReleaseAction } from '../../lib/evaluationReviewApi'
 import { ACTION_API, ACTION_STATUS_MESSAGE } from '../../lib/unitEvaluationReleaseActions'
 import { loadCohortEvidence, loadUnitLeaderQueue } from '../../lib/evaluation/reviewQueueLoaders'
-import {
-  adaptCaseyFinkPreRotation, adaptPreceptor, adaptStudentFeedback,
-  adaptCaseyFinkPostRotation, adaptAspireFeedback, adaptUnitLeaderRelease,
-} from '../../lib/evaluation/reviewQueueAdapters'
+import { buildQueues } from '../../lib/evaluation/reviewQueueBuild'
 import { countsOf, sumCounts, isToday, localToday } from '../../lib/evaluation/reviewQueueShape'
 import '../../styles/selectionRail.css'
 import './reviewReleaseClipboard.css'
@@ -115,29 +112,9 @@ export default function SurveyAutomationDashboard({ cohortId, onTrackResponses, 
   })
 
   // Every workflow's items, in the shared shape, from its own adapter over its own rows.
-  const queues = useMemo(() => {
-    const out = {}
-    const ev = evidence.data
-    if (ev) {
-      const shared = { students: ev.students, displayName: ev.displayName, nowMs: ev.detectedAtMs }
-      out.caseyFinkPreRotation = adaptCaseyFinkPreRotation({ ...shared, assignments: ev.forWorkflow.caseyFinkPreRotation })
-      out.preceptor = adaptPreceptor({ ...shared, preceptors: ev.preceptors, assignments: ev.forWorkflow.preceptor })
-      out.student = adaptStudentFeedback({ ...shared, preceptors: ev.preceptors, assignments: ev.forWorkflow.student })
-      out.caseyFinkPostRotation = adaptCaseyFinkPostRotation({
-        ...shared, assignments: ev.forWorkflow.caseyFinkPostRotation, allAssignmentsByStudent: ev.allAssignmentsByStudent,
-        certificates: ev.certificates, shiftMeta: ev.shiftMeta,
-      })
-      out.postRotation = adaptAspireFeedback({
-        ...shared, assignments: ev.forWorkflow.postRotation, allAssignmentsByStudent: ev.allAssignmentsByStudent,
-        activityByStudent: ev.activityByStudent, ledgerDown: ev.ledgerDown, shiftMeta: ev.shiftMeta,
-        supportByStudent: ev.supportByStudent, supportDown: ev.supportDown,
-      })
-    }
-    if (ulQueue.data) {
-      out.unitLeaderRelease = adaptUnitLeaderRelease({ rows: ulQueue.data.rows, nowMs: ulQueue.data.detectedAtMs })
-    }
-    return out
-  }, [evidence.data, ulQueue.data])
+  // HOME-1: the queues are built by src/lib/evaluation/reviewQueueBuild.js, which the home
+  // page's Needs you reads too, so the two can never disagree about ready and blocked.
+  const queues = useMemo(() => buildQueues(evidence.data, ulQueue.data), [evidence.data, ulQueue.data])
 
   const counts = useMemo(() => {
     const c = {}

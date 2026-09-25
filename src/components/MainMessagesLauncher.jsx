@@ -39,7 +39,9 @@ const MessagesWorkspace = lazyReload(() => import('./connect/messages/MessagesWo
 
 const F = 'Plus Jakarta Sans, sans-serif'
 
-export default function MainMessagesLauncher() {
+// HOME-1: `hidden` keeps the dock's launcher off At a Glance. An open panel stays open
+// until closed; only the idle launcher is withheld there.
+export default function MainMessagesLauncher({ hidden = false }) {
   const { userProfile } = useAuth()
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
@@ -105,6 +107,8 @@ export default function MainMessagesLauncher() {
   const launcherPos = keithOpen
     ? { bottom: 'calc(24px + env(safe-area-inset-bottom, 0px))', right: '96px' }
     : { bottom: 'calc(96px + env(safe-area-inset-bottom, 0px))', right: '28px' }
+
+  if (hidden && !open) return null
 
   return (
     <>

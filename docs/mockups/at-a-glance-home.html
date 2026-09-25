@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>At a Glance Home</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Mockup: At a Glance as the app home. Synthetic data only. */
+:root{
+  --navy:#1E2A6E; --navy-2:#2C3B8C; --navy-soft:#E8ECF8;
+  --ink:#1B2140; --muted:#61667E; --faint:#8A90A6;
+  --ground:#F4F2EE; --surface:#FFFFFF; --surface-2:#F8F7F4;
+  --line:rgba(30,42,110,.12); --line-2:rgba(30,42,110,.2);
+  --green:#0F7A4D; --green-soft:#E3F3EB;
+  --amber:#8F5A0A; --amber-soft:#FBF0DC;
+  --red:#A32A32; --red-soft:#F9E5E5;
+  --blue-soft:#E6EEFB; --plum:#6B3A7A; --plum-soft:#F2E8F5;
+  --band:rgba(15,122,77,.045);
+  --shadow:0 1px 2px rgba(24,32,63,.06), 0 6px 18px rgba(24,32,63,.06);
+  --font:'Plus Jakarta Sans', system-ui, sans-serif;
+  --mono:'JetBrains Mono', ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --navy:#8FA2F0; --navy-2:#A8B7F5; --navy-soft:#232B4A;
+    --ink:#E9EAF2; --muted:#A0A4BC; --faint:#7C8098;
+    --ground:#12141C; --surface:#1B1E2B; --surface-2:#171A25;
+    --line:rgba(159,176,245,.14); --line-2:rgba(159,176,245,.24);
+    --green:#3CCB8A; --green-soft:#16291F; --amber:#E6A544; --amber-soft:#2A2517;
+    --red:#EE7B7B; --red-soft:#321A1D; --blue-soft:#1E2540; --plum:#D29BE0; --plum-soft:#2A1F30;
+    --band:rgba(60,203,138,.055); --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 22px rgba(0,0,0,.3);
+  }
+}
+:root[data-theme="dark"]{
+  --navy:#8FA2F0; --navy-2:#A8B7F5; --navy-soft:#232B4A;
+  --ink:#E9EAF2; --muted:#A0A4BC; --faint:#7C8098;
+  --ground:#12141C; --surface:#1B1E2B; --surface-2:#171A25;
+  --line:rgba(159,176,245,.14); --line-2:rgba(159,176,245,.24);
+  --green:#3CCB8A; --green-soft:#16291F; --amber:#E6A544; --amber-soft:#2A2517;
+  --red:#EE7B7B; --red-soft:#321A1D; --blue-soft:#1E2540; --plum:#D29BE0; --plum-soft:#2A1F30;
+  --band:rgba(60,203,138,.055); --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 22px rgba(0,0,0,.3);
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--ground); color:var(--ink); font-family:var(--font); font-size:14px; line-height:1.45}
+button{font:inherit; color:inherit}
+a{color:var(--navy)}
+:focus-visible{outline:3px solid var(--navy); outline-offset:2px; border-radius:6px}
+.sr{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0)}
+
+/* Demo bar (not part of the app) */
+.demo{display:flex; flex-wrap:wrap; gap:10px 18px; align-items:center; padding:8px 20px; background:#0D0F16; color:#C9CCDA; font-size:12px}
+.demo b{color:#fff; font-weight:600}
+.seg{display:inline-flex; border:1px solid #343A50; border-radius:7px; overflow:hidden}
+.seg button{background:transparent; border:0; color:#C9CCDA; padding:4px 10px; cursor:pointer; font-size:12px}
+.seg button[aria-pressed="true"]{background:#3A4AA8; color:#fff}
+.demo .note{margin-left:auto; color:#7C8098}
+
+/* App bar */
+.appbar{background:#1B2466; color:#fff; display:flex; align-items:center; gap:18px; padding:12px 24px}
+.brand{display:flex; align-items:center; gap:14px; font-weight:700; font-size:20px}
+.brand .mark{width:30px; height:30px; border-radius:50%; border:4px solid #E23B4B; box-shadow:10px 0 0 -4px #E23B4B}
+.brand .sep{width:1px; height:26px; background:rgba(255,255,255,.25)}
+.appbar .sp{flex:1}
+.scope{border:1px solid rgba(255,255,255,.22); border-radius:999px; padding:6px 14px; font-size:13px; display:flex; gap:8px; align-items:center}
+.scope small{font-family:var(--mono); letter-spacing:.1em; opacity:.6; font-size:10.5px}
+.ib{position:relative; width:36px; height:36px; border-radius:9px; border:1px solid rgba(255,255,255,.2); background:rgba(255,255,255,.06); display:grid; place-items:center; cursor:pointer}
+.ib svg{width:17px; height:17px; stroke:#fff; fill:none; stroke-width:1.8}
+.ib .badge{position:absolute; top:-6px; right:-6px; min-width:18px; height:18px; padding:0 5px; border-radius:9px; background:#E6A544; color:#2A1C04; font:700 10.5px var(--mono); display:grid; place-items:center}
+.user{display:flex; align-items:center; gap:9px; border:1px solid rgba(255,255,255,.2); border-radius:10px; padding:4px 12px 4px 4px; font-size:13px}
+.user .av{width:28px; height:28px; border-radius:50%; background:#5A67B8; display:grid; place-items:center; font-weight:700; font-size:11px}
+.user small{display:block; opacity:.65; font-size:11px; line-height:1}
+
+.tabs{background:var(--surface); border-bottom:1px solid var(--line); display:flex; gap:6px; padding:0 24px}
+.tabs button{border:0; background:none; padding:13px 14px; color:var(--muted); font-size:15px; cursor:pointer; border-bottom:2px solid transparent}
+.tabs button[aria-current="page"]{color:var(--navy); font-weight:700; border-bottom-color:var(--navy)}
+
+main{max-width:1320px; margin:0 auto; padding:22px 24px 60px}
+
+/* Hero band */
+.hero{position:relative; border-radius:14px; overflow:visible; color:#fff; min-height:176px;
+  background:linear-gradient(180deg,#5B5AA8 0%,#9A7CB8 38%,#E3A58C 72%,#F2C69A 100%)}
+.hero .sky{position:absolute; inset:0; border-radius:14px; overflow:hidden; pointer-events:none}
+.hero .sky svg{position:absolute; bottom:0; left:0; width:100%; height:70%}
+.hero .balloon{position:absolute; width:18px; height:22px; border-radius:50% 50% 45% 45%; opacity:.9}
+.hero .balloon::after{content:""; position:absolute; left:6px; top:24px; width:6px; height:5px; background:#5A3A20; border-radius:1px}
+.hero-top{position:relative; display:flex; justify-content:space-between; align-items:flex-start; padding:18px 24px 0}
+.greet{font-size:24px; font-weight:700; text-shadow:0 1px 8px rgba(40,20,60,.45)}
+.greet small{display:block; font-size:13px; font-weight:500; opacity:.92; margin-top:2px}
+.wx{text-align:right; font-size:13px; text-shadow:0 1px 6px rgba(40,20,60,.5)}
+.wx b{font-size:20px}
+.cmdwrap{position:relative; padding:14px 24px 18px; display:flex; flex-direction:column; align-items:center}
+.cmd{position:relative; width:min(680px,100%)}
+.cmd input{width:100%; height:48px; border-radius:12px; border:1px solid rgba(255,255,255,.6); background:rgba(255,255,255,.95);
+  padding:0 70px 0 46px; font:500 15px var(--font); color:#1B2140; box-shadow:0 8px 24px rgba(40,20,60,.28)}
+.cmd input::placeholder{color:#6B7088}
+.cmd input:focus{outline:3px solid #1E2A6E; outline-offset:2px}
+.cmd .ico{position:absolute; left:15px; top:14px; width:20px; height:20px; stroke:#1E2A6E; fill:none; stroke-width:2}
+.cmd kbd{position:absolute; right:12px; top:13px; font:600 11px var(--mono); color:#61667E; background:#EEF0F6; border:1px solid #D8DCE8; border-radius:5px; padding:3px 6px}
+.chips{display:flex; flex-wrap:wrap; justify-content:center; gap:8px; margin-top:12px; width:min(820px,100%)}
+.chip{display:inline-flex; align-items:center; gap:7px; border:1px solid rgba(255,255,255,.45); background:rgba(20,16,50,.28); color:#fff;
+  border-radius:999px; padding:6px 13px; font-size:13px; font-weight:600; cursor:pointer; backdrop-filter:blur(4px)}
+.chip:hover{background:rgba(20,16,50,.45)}
+.chip svg{width:14px; height:14px; stroke:#fff; fill:none; stroke-width:2}
+
+/* Command results */
+.results{position:absolute; top:52px; left:0; right:0; z-index:20; background:var(--surface); color:var(--ink); border:1px solid var(--line-2);
+  border-radius:12px; box-shadow:0 18px 40px rgba(16,20,35,.28); padding:6px; display:none; max-height:360px; overflow:auto}
+.results.open{display:block}
+.results .grp{font:600 10px var(--mono); letter-spacing:.12em; text-transform:uppercase; color:var(--faint); padding:8px 10px 4px}
+.results [role="option"]{display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:8px; cursor:pointer}
+.results [role="option"] .t{flex:1}
+.results [role="option"] small{color:var(--muted)}
+.results [aria-selected="true"]{background:var(--navy-soft)}
+.results .kind{font:600 10px var(--mono); color:var(--muted); border:1px solid var(--line-2); border-radius:4px; padding:1px 5px}
+.results .keith .kind{color:#fff; background:#5A67B8; border-color:#5A67B8}
+
+/* Sections */
+.stack{display:flex; flex-direction:column; gap:18px; margin-top:18px}
+.card{background:var(--surface); border:1px solid var(--line); border-radius:12px; box-shadow:var(--shadow)}
+.card-h{display:flex; align-items:baseline; gap:12px; padding:16px 20px 12px}
+.card-h h2{margin:0; font-size:18px; color:var(--navy)}
+.card-h .cap{color:var(--muted); font-size:13px}
+.card-h .r{margin-left:auto; display:flex; gap:14px; align-items:center; font-size:13px}
+.link{background:none; border:0; padding:0; color:var(--navy); font-weight:600; cursor:pointer; font-size:13px}
+.link:hover{text-decoration:underline}
+
+/* Needs you */
+.needs .card-h{padding-bottom:6px}
+.filters{display:flex; flex-wrap:wrap; gap:6px; padding:0 20px 14px}
+.fchip{border:1px solid var(--line-2); background:var(--surface); border-radius:999px; padding:4px 11px; font-size:12.5px; cursor:pointer; color:var(--muted)}
+.fchip b{color:var(--ink); margin-left:3px}
+.fchip[aria-pressed="true"]{background:var(--navy); border-color:var(--navy); color:#fff}
+.fchip[aria-pressed="true"] b{color:#fff}
+:root[data-theme="dark"] .fchip[aria-pressed="true"]{color:#12141C} 
+.groups{display:grid; grid-template-columns:repeat(auto-fill,minmax(360px,1fr)); gap:1px; background:var(--line); border-top:1px solid var(--line); border-radius:0 0 12px 12px; overflow:hidden}
+.grp{background:var(--surface); padding:14px 18px 12px; display:flex; flex-direction:column}
+.grp-h{display:flex; align-items:center; gap:10px; margin-bottom:8px}
+.gi{width:28px; height:28px; border-radius:8px; display:grid; place-items:center; background:var(--navy-soft)}
+.gi svg{width:15px; height:15px; stroke:var(--navy); fill:none; stroke-width:2}
+.grp-h h3{margin:0; font-size:14.5px}
+.grp-h .sub{color:var(--muted); font-size:12px}
+.cnt{margin-left:auto; display:flex; gap:5px}
+.pill{font:700 10.5px var(--mono); border-radius:999px; padding:2px 8px; white-space:nowrap}
+.p-amber{background:var(--amber-soft); color:var(--amber)}
+.p-red{background:var(--red-soft); color:var(--red)}
+.p-green{background:var(--green-soft); color:var(--green)}
+.p-navy{background:var(--navy-soft); color:var(--navy)}
+.p-plum{background:var(--plum-soft); color:var(--plum)}
+.p-grey{background:var(--surface-2); color:var(--muted); border:1px solid var(--line)}
+.rows{list-style:none; margin:0; padding:0}
+.rows li button{width:100%; display:grid; grid-template-columns:1fr auto; gap:2px 10px; text-align:left; background:none; border:0; padding:7px 8px; margin:0 -8px; border-radius:7px; cursor:pointer}
+.rows li:nth-child(4n+1) button,.rows li:nth-child(4n+2) button{background:var(--band)}
+.rows li button:hover{background:var(--navy-soft)}
+.rows .t{font-weight:600; font-size:13.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.rows .m{grid-column:1; color:var(--muted); font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.rows .pill{grid-row:1 / span 2; grid-column:2; align-self:center}
+.grp .more{margin-top:auto; padding-top:8px}
+.caught{display:none; padding:30px 20px 34px; text-align:center}
+.caught .ok{width:44px; height:44px; border-radius:50%; background:var(--green-soft); display:grid; place-items:center; margin:0 auto 10px}
+.caught .ok svg{width:22px; height:22px; stroke:var(--green); fill:none; stroke-width:2.6}
+.caught h3{margin:0 0 4px; font-size:16px}
+.caught p{margin:0; color:var(--muted)}
+.needs.is-clear .groups,.needs.is-clear .filters{display:none}
+.needs.is-clear .caught{display:block}
+
+/* Two column row */
+.duo{display:grid; grid-template-columns:minmax(0,5fr) minmax(0,7fr); gap:18px}
+.agenda{list-style:none; margin:0; padding:0 20px 16px}
+.agenda li{display:grid; grid-template-columns:74px 1fr auto; gap:10px; align-items:center; padding:9px 0; border-top:1px solid var(--line)}
+.agenda li:first-child{border-top:0}
+.agenda time{font:600 12px var(--mono); color:var(--muted); font-variant-numeric:tabular-nums}
+.agenda .t{font-weight:600}
+.agenda .m{display:block; color:var(--muted); font-size:12px; font-weight:400}
+.agenda .now{position:relative}
+.agenda .now::before{content:""; position:absolute; left:-20px; top:0; bottom:0; width:3px; background:var(--navy); border-radius:0 3px 3px 0}
+.ttabs{display:flex; gap:4px; margin:0 20px 10px; padding:3px; background:var(--surface-2); border:1px solid var(--line); border-radius:9px; width:max-content}
+.ttabs button{border:0; background:none; padding:5px 12px; border-radius:7px; font-size:13px; font-weight:600; color:var(--muted); cursor:pointer}
+.ttabs button b{font:700 11px var(--mono); margin-left:4px}
+.ttabs button[aria-selected="true"]{background:var(--surface); color:var(--navy); box-shadow:0 1px 2px rgba(24,32,63,.12)}
+.oncampus{list-style:none; margin:0; padding:0 20px 16px}
+.oc-h{font:600 10px var(--mono); letter-spacing:.12em; text-transform:uppercase; color:var(--muted); padding:8px 0 4px; display:flex; justify-content:space-between}
+.oncampus li button{width:100%; display:grid; grid-template-columns:30px 1fr auto; gap:10px; align-items:center; text-align:left; background:none; border:0; border-top:1px solid var(--line); padding:7px 0; cursor:pointer}
+.oncampus li button:hover .nm{color:var(--navy); text-decoration:underline}
+.oncampus .av{width:28px; height:28px; border-radius:50%; background:var(--navy); color:#fff; font:700 10.5px var(--font); display:grid; place-items:center}
+:root[data-theme="dark"] .oncampus .av{color:#12141C}
+.oncampus .nm{font-weight:600}
+.oncampus .m{display:block; color:var(--muted); font-size:12px}
+.oncampus .live{display:inline-flex; align-items:center; gap:5px}
+.oncampus .live::before{content:""; width:7px; height:7px; border-radius:50%; background:var(--green)}
+.kindtag{font:600 10px var(--mono); letter-spacing:.06em; text-transform:uppercase; padding:2px 7px; border-radius:4px}
+
+.pipe{display:flex; gap:4px; padding:4px 20px 6px}
+.stage{flex:1; min-width:0; background:var(--navy-soft); color:var(--navy); padding:10px 12px 9px 18px; position:relative;
+  clip-path:polygon(0 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 0 100%, 12px 50%)}
+.stage:first-child{clip-path:polygon(0 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 0 100%); border-radius:8px 0 0 8px; padding-left:14px}
+.stage:last-child{clip-path:polygon(0 0, 100% 0, 100% 100%, 0 100%, 12px 50%); border-radius:0 8px 8px 0}
+.stage b{display:block; font-size:22px; line-height:1.1; font-variant-numeric:tabular-nums}
+.stage span{font:600 10px var(--mono); letter-spacing:.08em; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block}
+.stage.cur{background:var(--navy); color:#fff}
+:root[data-theme="dark"] .stage.cur{color:#12141C}
+.metrics{display:grid; grid-template-columns:1fr 1fr; gap:14px; padding:14px 20px 18px}
+.metric .lbl{display:flex; justify-content:space-between; font-size:13px}
+.metric .lbl b{font-variant-numeric:tabular-nums}
+.metric .sub{color:var(--muted); font-size:12px; margin-top:4px}
+.bar{height:8px; border-radius:4px; background:var(--surface-2); border:1px solid var(--line); margin-top:6px; display:flex; overflow:hidden; gap:2px}
+.bar i{display:block; height:100%}
+
+/* Placement */
+.pl-sum{display:flex; flex-wrap:wrap; align-items:center; gap:10px 20px; padding:0 20px 16px; font-size:14px}
+.pl-sum b{font-variant-numeric:tabular-nums}
+.pl-sum .dot{width:4px; height:4px; border-radius:50%; background:var(--faint)}
+details.pl{border-top:1px solid var(--line)}
+details.pl summary{list-style:none; cursor:pointer; padding:12px 20px; color:var(--navy); font-weight:600; font-size:13px; display:flex; gap:8px; align-items:center}
+details.pl summary::-webkit-details-marker{display:none}
+details.pl summary .chev{transition:transform .18s}
+details.pl[open] summary .chev{transform:rotate(90deg)}
+.pl-body{display:grid; grid-template-columns:1fr 1fr; gap:24px; padding:0 20px 18px}
+.mini-h{font:600 10.5px var(--mono); letter-spacing:.12em; text-transform:uppercase; color:var(--muted); padding-bottom:6px; border-bottom:1px solid var(--line); display:flex; justify-content:space-between}
+.irow{display:grid; grid-template-columns:1fr 70px 70px; gap:10px; padding:7px 0; font-size:13px}
+.irow:nth-child(4n+2),.irow:nth-child(4n+3){background:var(--band)}
+.irow .n{text-align:right; font-variant-numeric:tabular-nums; color:var(--muted)}
+.irow .n b{color:var(--ink)}
+
+/* Activity */
+.feed{list-style:none; margin:0; padding:0 20px 14px}
+.feed li{display:grid; grid-template-columns:30px 1fr auto; gap:10px; align-items:center; padding:8px 0; border-top:1px solid var(--line)}
+.feed li:first-child{border-top:0}
+.feed .fi{width:26px; height:26px; border-radius:50%; display:grid; place-items:center}
+.feed .fi svg{width:13px; height:13px; fill:none; stroke-width:2.2}
+.feed time{font:500 11.5px var(--mono); color:var(--faint)}
+.feed .m{color:var(--muted)}
+
+.phase-note{font:600 10.5px var(--mono); letter-spacing:.1em; text-transform:uppercase; color:var(--muted); display:flex; align-items:center; gap:8px; margin:6px 2px -6px}
+.phase-note b{color:var(--navy)}
+
+/* Toast */
+.toast{position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(20px); opacity:0; background:#1B2140; color:#fff; padding:10px 16px; border-radius:9px;
+  font-size:13px; box-shadow:0 10px 26px rgba(0,0,0,.3); transition:opacity .18s, transform .18s; pointer-events:none; z-index:50}
+.toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
+
+@media (max-width:960px){
+  .duo,.pl-body{grid-template-columns:1fr}
+  .groups{grid-template-columns:1fr}
+  .appbar .scope,.user div{display:none}
+}
+@media (max-width:640px){
+  main{padding:14px 12px 40px}
+  .hero-top{flex-direction:column; gap:8px}
+  .wx{text-align:left}
+  .pipe{flex-wrap:wrap}
+  .stage,.stage:first-child,.stage:last-child{flex:1 1 40%; clip-path:none; border-radius:8px; padding-left:12px}
+  .metrics{grid-template-columns:1fr}
+  .tabs{overflow-x:auto}
+}
+@media (prefers-reduced-motion:reduce){ *{transition:none !important} }
+</style>
+</head>
+<body>
+
+<div class="demo" role="region" aria-label="Mockup controls">
+  <span><b>Mockup controls</b></span>
+  <span>Color <span class="seg" id="themeSeg">
+    <button aria-pressed="true" data-v="system">System</button><button aria-pressed="false" data-v="light">Light</button><button aria-pressed="false" data-v="dark">Dark</button>
+  </span></span>
+  <span>Cycle phase <span class="seg" id="phaseSeg">
+    <button aria-pressed="false" data-v="recruit">Recruitment</button><button aria-pressed="false" data-v="interview">Interviewing</button><button aria-pressed="false" data-v="placement">Placement</button><button aria-pressed="true" data-v="rotation">Active rotation</button><button aria-pressed="false" data-v="eval">Evaluation</button>
+  </span></span>
+  <span>Needs you <span class="seg" id="clearSeg">
+    <button aria-pressed="true" data-v="items">Has items</button><button aria-pressed="false" data-v="clear">All caught up</button>
+  </span></span>
+  <span class="note">Synthetic data · not part of the app</span>
+</div>
+
+<header class="appbar">
+  <div class="brand"><span class="mark" aria-hidden="true"></span><span>Cedars-Sinai</span><span class="sep" aria-hidden="true"></span><span>ASPIRE Intelligence</span></div>
+  <div class="sp"></div>
+  <div class="scope"><small>SCOPE</small> Internship · Fall 2026 <span aria-hidden="true">▾</span></div>
+  <button class="ib" aria-label="Messages, 3 need your reply"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></svg><span class="badge">3</span></button>
+  <button class="ib" aria-label="Catalog"><svg viewBox="0 0 24 24"><path d="M5 4v16M10 4v16M15 5l4 14"/></svg></button>
+  <button class="ib" aria-label="Notifications"><svg viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4zM10 21h4"/></svg></button>
+  <div class="user"><span class="av">JB</span><div>Jester<small>Owner</small></div></div>
+</header>
+
+<nav class="tabs" aria-label="Main">
+  <button aria-current="page">At a Glance</button><button>Student Profiles</button><button>Interviews</button><button>Rotation</button><button>Evaluation</button><button>Connect</button><button>Catalog</button>
+</nav>
+
+<main>
+  <!-- 1. Slim hero with launcher -->
+  <section class="hero" aria-label="Welcome">
+    <div class="sky" aria-hidden="true">
+      <span class="balloon" style="left:22%; top:18%; background:linear-gradient(90deg,#C8483A,#F2B84B,#3A7FBF)"></span>
+      <span class="balloon" style="left:61%; top:12%; transform:scale(.7); background:linear-gradient(90deg,#3A7FBF,#E86A5C)"></span>
+      <span class="balloon" style="left:79%; top:30%; transform:scale(.55); background:linear-gradient(90deg,#F2B84B,#6A4FA3)"></span>
+      <span class="balloon" style="left:38%; top:34%; transform:scale(.45); background:linear-gradient(90deg,#7FB069,#E86A5C)"></span>
+      <svg viewBox="0 0 1200 120" preserveAspectRatio="none">
+        <path d="M0 120V70l40-8 25-30 18 26 30 4 22-40 20 38 60 6 30-22 40 20 70-4 26-34 14 30 90 8 40-18 60 14 30-40 22 42 80 4 50-20 60 16 40-28 30 30 70 2 44-26 16 24 40 6V120z" fill="#6E4E5E" opacity=".55"/>
+        <path d="M0 120V92l70-6 30-24 20 22 90 6 40-14 30 12 110-4 26-26 18 24 130 6 60-12 70 10 26-30 20 30 110 2 60-16 70 12 50-8 60 10V120z" fill="#4A3244" opacity=".7"/>
+      </svg>
+    </div>
+    <div class="hero-top">
+      <div class="greet">Good evening, Jester<small id="localDate">Thursday, Sep 24 · 8:46 PM</small></div>
+      <div class="wx"><b>52°</b> Partly cloudy<br>Cappadocia</div>
+    </div>
+    <div class="cmdwrap">
+      <div class="cmd">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+        <input id="cmdInput" type="text" placeholder="What do you want to do today?" autocomplete="off"
+          role="combobox" aria-expanded="false" aria-controls="cmdResults" aria-autocomplete="list" aria-label="What do you want to do today? Search actions, people, or ask Keith">
+        <kbd aria-hidden="true">⌘K</kbd>
+        <div class="results" id="cmdResults" role="listbox" aria-label="Suggestions"></div>
+      </div>
+      <div class="chips" id="quickChips" aria-label="Quick actions"></div>
+    </div>
+  </section>
+
+  <div class="stack" id="stack">
+    <!-- 2. Needs you -->
+    <section class="card needs" id="needs" aria-labelledby="needsH" style="order:0">
+      <div class="card-h">
+        <h2 id="needsH">Needs you</h2>
+        <span class="cap" id="needsCap"></span>
+        <div class="r"><span class="cap">Updated just now</span></div>
+      </div>
+      <div class="filters" id="needsFilters" aria-label="Filter by area"></div>
+      <div class="groups" id="groups"></div>
+      <div class="caught">
+        <div class="ok" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></div>
+        <h3>All caught up</h3>
+        <p>Nothing across signatures, messages, forms, surveys, interviews or placement needs you right now.</p>
+      </div>
+    </section>
+
+    <div class="phase-note" id="phaseNote" style="order:1"></div>
+
+    <!-- 3. Today + Cohort pulse -->
+    <div class="duo" id="sec-duo" data-sec="duo">
+      <section class="card" aria-labelledby="todayH">
+        <div class="card-h"><h2 id="todayH">Today</h2><span class="cap">Thu, Sep 24</span><div class="r"><button class="link" data-open="Interviews calendar">Open calendar →</button></div></div>
+        <div class="ttabs" role="tablist" aria-label="Today views">
+          <button role="tab" id="tabSched" aria-selected="true" aria-controls="agenda">Schedule <b>5</b></button>
+          <button role="tab" id="tabCampus" aria-selected="false" aria-controls="oncampus">On campus today <b>9</b></button>
+        </div>
+        <ol class="agenda" id="agenda" role="tabpanel" aria-labelledby="tabSched"></ol>
+        <div id="oncampus" role="tabpanel" aria-labelledby="tabCampus" hidden></div>
+      </section>
+      <section class="card" aria-labelledby="pulseH">
+        <div class="card-h"><h2 id="pulseH">Cohort pulse</h2><span class="cap">Internship · Fall 2026</span><div class="r"><button class="link" data-open="Student Profiles">Student Profiles →</button></div></div>
+        <div class="pipe" id="pipe"></div>
+        <div class="metrics">
+          <div class="metric">
+            <div class="lbl"><span>Clinical hours</span><b>18 of 28 past midpoint</b></div>
+            <div class="bar" role="img" aria-label="18 past midpoint, 7 on track, 3 behind"><i style="width:64%; background:var(--green)"></i><i style="width:25%; background:var(--navy-2); opacity:.45"></i><i style="width:11%; background:var(--amber)"></i></div>
+            <div class="sub">7 on track · <b style="color:var(--amber)">3 behind pace</b></div>
+          </div>
+          <div class="metric">
+            <div class="lbl"><span>Midpoint assessments</span><b>12 of 18 submitted</b></div>
+            <div class="bar" role="img" aria-label="12 submitted, 4 sent, 2 ready to release"><i style="width:67%; background:var(--green)"></i><i style="width:22%; background:var(--navy-2); opacity:.45"></i><i style="width:11%; background:var(--amber)"></i></div>
+            <div class="sub">4 awaiting preceptor · <b style="color:var(--amber)">2 ready to release</b></div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- 4. Placement, demoted -->
+    <section class="card" id="sec-placement" data-sec="placement" aria-labelledby="plH">
+      <div class="card-h"><h2 id="plH">Placement</h2><span class="cap">17 hosting units · 5 schools</span><div class="r"><button class="link" data-open="Placement Board">Placement Board →</button></div></div>
+      <div class="pl-sum">
+        <span><b>28 of 29</b> slots filled</span><span class="dot"></span>
+        <span><b style="color:var(--amber)">1</b> open slot (Medical)</span><span class="dot"></span>
+        <span>Every proceeding student placed</span><span class="dot"></span>
+        <span><b>26</b> unit leaders notified</span>
+      </div>
+      <details class="pl">
+        <summary><span class="chev" aria-hidden="true">›</span> Capacity and requests</summary>
+        <div class="pl-body">
+          <div>
+            <div class="mini-h"><span>Service line</span><span>Filled · Slots</span></div>
+            <div id="capRows"></div>
+          </div>
+          <div>
+            <div class="mini-h"><span>School</span><span>Placed · Students</span></div>
+            <div id="reqRows"></div>
+          </div>
+        </div>
+      </details>
+    </section>
+
+    <!-- 5. Recent activity -->
+    <section class="card" id="sec-activity" data-sec="activity" aria-labelledby="actH">
+      <div class="card-h"><h2 id="actH">Recent activity</h2><span class="cap">Finished without you</span></div>
+      <ul class="feed" id="feed"></ul>
+    </section>
+
+    <!-- Phase-specific lead cards -->
+    <section class="card" id="sec-recruit" data-sec="recruit" aria-labelledby="recH" hidden>
+      <div class="card-h"><h2 id="recH">Applications and outreach</h2><span class="cap">Spring 2027 cycle</span><div class="r"><button class="link" data-open="Outreach">Outreach →</button></div></div>
+      <div class="pl-sum"><span><b>64</b> applications</span><span class="dot"></span><span><b>22</b> this week</span><span class="dot"></span><span><b style="color:var(--amber)">9</b> missing documents</span><span class="dot"></span><span>Info session outreach: <b>71%</b> opened</span></div>
+    </section>
+    <section class="card" id="sec-evals" data-sec="evals" aria-labelledby="evH" hidden>
+      <div class="card-h"><h2 id="evH">Surveys and results</h2><span class="cap">End of rotation</span><div class="r"><button class="link" data-open="Review & Release">Review & Release →</button></div></div>
+      <div class="pl-sum"><span><b>6</b> ready to release</span><span class="dot"></span><span><b style="color:var(--amber)">3</b> need a reminder</span><span class="dot"></span><span>Casey-Fink matched pairs: <b>21</b></span><span class="dot"></span><span>Certificates issued: <b>14</b></span></div>
+    </section>
+  </div>
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div class="sr" id="live" aria-live="polite"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const ico = {
+  sign:'<path d="M4 18c3-6 5-6 6-3s3 3 5-1M14 20h6"/>',
+  form:'<rect x="5" y="4" width="14" height="16" rx="2"/><path d="M9 9h6M9 13h6M9 17h3"/>',
+  out:'<path d="M4 6h16v12H4z"/><path d="M4 7l8 6 8-6"/>',
+  cal:'<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/>',
+  file:'<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/>',
+  person:'<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/>',
+  msg:'<path d="M4 5h16v11H9l-5 4z"/>',
+  rel:'<path d="M5 12h14M13 6l6 6-6 6"/>',
+  board:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 4v16M3 10h5"/>',
+  clock:'<circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/>',
+  check:'<path d="M5 12l5 5 9-10"/>',
+  help:'<circle cx="12" cy="12" r="8"/><path d="M10 10a2 2 0 1 1 3 2c-1 .5-1 1-1 2M12 17h.01"/>'
+};
+const svg = k => `<svg viewBox="0 0 24 24" aria-hidden="true">${ico[k]}</svg>`;
+
+function toast(t){ const el=$('#toast'); el.textContent=t; el.classList.add('show'); clearTimeout(toast.t); toast.t=setTimeout(()=>el.classList.remove('show'),2200); }
+document.addEventListener('click', e=>{ const b=e.target.closest('[data-open]'); if(b) toast('Opens ' + b.dataset.open); });
+
+/* Quick actions and command palette */
+const ACTIONS = [
+  {k:'sign', t:'Send for signature', s:'Catalog · Signatures'},
+  {k:'form', t:'Build a form', s:'Catalog · Forms'},
+  {k:'out',  t:'Send outreach', s:'Connect · Outreach'},
+  {k:'cal',  t:'Schedule an interview', s:'Interviews'},
+  {k:'file', t:'Send a file', s:'Catalog'},
+  {k:'person', t:'Add a contact', s:'Connect · Contacts'},
+  {k:'rel',  t:'Release surveys', s:'Evaluation · Review & Release'},
+  {k:'clock',t:'Log a shift', s:'Rotation · Activity'},
+  {k:'board',t:'Open Placement Board', s:'Rotation'},
+  {k:'msg',  t:'Message a student', s:'Connect · Messages'},
+  {k:'cal',  t:'Add an event', s:'Calendar'},
+  {k:'help', t:'Reply to support messages', s:'Connect · Messages'}
+];
+const QUICK = [0,1,2,3,4,5];
+const PEOPLE = [
+  {n:'Maya Okafor', d:'Student · Cal State LA · 4 South'},
+  {n:'Daniel Reyes', d:'Student · Azusa Pacific · 6 NE'},
+  {n:'Priya Natarajan', d:'Student · Cal State Long Beach · Unplaced'},
+  {n:'Sofia Marquez', d:'Student · Mount Saint Mary\u2019s · 5 SCCT'},
+  {n:'Hannah Lee', d:'Preceptor · 4 South'},
+  {n:'Dr. Alan Brooks', d:'Academic partner · Cal State LA'},
+  {n:'Maria Santos', d:'Unit leader · 6 NE'}
+];
+$('#quickChips').innerHTML = QUICK.map(i=>`<button class="chip" data-open="${ACTIONS[i].t}">${svg(ACTIONS[i].k)}${ACTIONS[i].t}</button>`).join('');
+
+const input=$('#cmdInput'), res=$('#cmdResults');
+let opts=[], sel=0;
+function render(q){
+  q=q.trim().toLowerCase();
+  if(!q){ res.classList.remove('open'); input.setAttribute('aria-expanded','false'); opts=[]; return; }
+  const acts=ACTIONS.filter(a=>(a.t+' '+a.s).toLowerCase().includes(q)).slice(0,5);
+  const ppl=PEOPLE.filter(p=>(p.n+' '+p.d).toLowerCase().includes(q)).slice(0,3);
+  let h=''; opts=[];
+  if(acts.length){ h+='<div class="grp">Actions</div>'; acts.forEach(a=>{ opts.push('Opens '+a.t); h+=`<div role="option" id="o${opts.length-1}"><span class="t">${a.t} <small>· ${a.s}</small></span><span class="kind">ACTION</span></div>`; }); }
+  if(ppl.length){ h+='<div class="grp">People</div>'; ppl.forEach(p=>{ opts.push('Opens profile: '+p.n); h+=`<div role="option" id="o${opts.length-1}"><span class="t">${p.n} <small>· ${p.d}</small></span><span class="kind">OPEN · MESSAGE · SEND FORM</span></div>`; }); }
+  const raw=input.value.trim();
+  h+='<div class="grp">Keith</div>'; opts.push('Keith is answering: "'+raw+'"');
+  h+=`<div role="option" class="keith" id="o${opts.length-1}"><span class="t">Ask Keith: \u201c${raw.replace(/</g,'&lt;')}\u201d</span><span class="kind">KEITH</span></div>`;
+  res.innerHTML=h; sel=0; mark(); res.classList.add('open'); input.setAttribute('aria-expanded','true');
+}
+function mark(){ res.querySelectorAll('[role="option"]').forEach((o,i)=>o.setAttribute('aria-selected', i===sel)); input.setAttribute('aria-activedescendant','o'+sel); }
+function pick(i){ toast(opts[i]); input.value=''; render(''); }
+input.addEventListener('input',()=>render(input.value));
+input.addEventListener('keydown',e=>{
+  if(!opts.length) return;
+  if(e.key==='ArrowDown'){ sel=(sel+1)%opts.length; mark(); e.preventDefault(); }
+  if(e.key==='ArrowUp'){ sel=(sel-1+opts.length)%opts.length; mark(); e.preventDefault(); }
+  if(e.key==='Enter'){ pick(sel); e.preventDefault(); }
+  if(e.key==='Escape'){ input.value=''; render(''); }
+});
+res.addEventListener('mousedown',e=>{ const o=e.target.closest('[role="option"]'); if(o){ e.preventDefault(); pick(+o.id.slice(1)); } });
+input.addEventListener('blur',()=>setTimeout(()=>render(''),120));
+document.addEventListener('keydown',e=>{ if((e.metaKey||e.ctrlKey) && e.key.toLowerCase()==='k'){ e.preventDefault(); input.focus(); } });
+
+/* Needs you */
+const GROUPS = [
+  {id:'sig', k:'sign', name:'Signatures', sub:'Waiting on you', pills:[['1 your turn','p-plum']], open:'Signature requests', rows:[
+    ['Clinical Affiliation Attestation · Mount Saint Mary\u2019s','School signed Sep 23 · you countersign','Your turn','p-plum']]},
+  {id:'msg', k:'msg', name:'Messages', sub:'Support threads', pills:[['3 reply','p-amber'],['1 unassigned','p-red']], open:'Messages', rows:[
+    ['Maya Okafor · Parking permit for night shift','They wrote 2 days ago','2d','p-amber'],
+    ['Priya Natarajan · Question about placement','They wrote 9 days ago · Unassigned','9d','p-red'],
+    ['Daniel Reyes · Badge access on 6 NE','They wrote today','Today','p-amber']]},
+  {id:'rr', k:'rel', name:'Review & Release', sub:'Survey workflows', pills:[['6 ready','p-green'],['2 blocked','p-amber']], open:'Review & Release', rows:[
+    ['Preceptor\u2019s Assessment · Midpoint','4 students hit 50% of hours','4 ready','p-green'],
+    ['Student\u2019s Feedback on Unit and Preceptor','2 students at 100% of hours','2 ready','p-green'],
+    ['Post-Rotation Casey-Fink','Waiting on student feedback · 2 students','Blocked','p-amber']]},
+  {id:'cat', k:'form', name:'Forms and documents', sub:'Out for completion', pills:[['6 overdue','p-red']], open:'Catalog tracking', rows:[
+    ['CSMC Confidentiality Acknowledgment','19 of 24 signed · due Sep 26','2 overdue','p-red'],
+    ['Student Parking Request','20 of 24 done · due Sep 20','4 overdue','p-red']]},
+  {id:'int', k:'cal', name:'Interviews', sub:'Spring 2027 candidates', pills:[['3 today','p-navy'],['2 unscheduled','p-amber']], open:'Interviews', rows:[
+    ['Jordan Kim · Azusa Pacific','Today 2:00 PM · with Krystal','Today','p-navy'],
+    ['Alexis Tran · Cal State LA','Accepted invite · no slot booked','No slot','p-amber']]},
+  {id:'plc', k:'board', name:'Placement and rotation', sub:'Fall 2026', pills:[['1 open','p-amber'],['3 behind','p-amber']], open:'Placement Board', rows:[
+    ['Priya Natarajan · Cal State Long Beach','Unplaced · 1st choice 5 SCCT is full','Unplaced','p-amber'],
+    ['3 students behind on hours','4 South, 6 NE, 3 South Short Stay','Behind','p-amber']]}
+];
+let gFilter='all';
+function drawNeeds(){
+  const total = 17;
+  $('#needsCap').textContent = total + ' items across ' + GROUPS.length + ' areas';
+  $('#needsFilters').innerHTML = [`<button class="fchip" data-f="all" aria-pressed="${gFilter==='all'}">All <b>${total}</b></button>`]
+    .concat(GROUPS.map(g=>`<button class="fchip" data-f="${g.id}" aria-pressed="${gFilter===g.id}">${g.name} <b>${g.pills.map(p=>parseInt(p[0])).reduce((a,b)=>a+b,0)}</b></button>`)).join('');
+  $('#groups').innerHTML = GROUPS.filter(g=>gFilter==='all'||g.id===gFilter).map(g=>`
+    <div class="grp">
+      <div class="grp-h"><span class="gi">${svg(g.k)}</span><div><h3>${g.name}</h3><div class="sub">${g.sub}</div></div>
+        <div class="cnt">${g.pills.map(p=>`<span class="pill ${p[1]}">${p[0]}</span>`).join('')}</div></div>
+      <ul class="rows">${g.rows.map(r=>`<li><button data-open="${g.open}: ${r[0].replace(/"/g,'')}"><span class="t">${r[0]}</span><span class="m">${r[1]}</span><span class="pill ${r[3]}">${r[2]}</span></button></li>`).join('')}</ul>
+      <div class="more"><button class="link" data-open="${g.open}">Open ${g.open} →</button></div>
+    </div>`).join('');
+}
+$('#needsFilters').addEventListener('click',e=>{ const b=e.target.closest('[data-f]'); if(!b) return; gFilter = (gFilter===b.dataset.f && b.dataset.f!=='all') ? 'all' : b.dataset.f; drawNeeds(); $('#live').textContent='Showing '+(gFilter==='all'?'all areas':b.textContent); });
+drawNeeds();
+
+/* Today */
+const AGENDA = [
+  ['9:00 AM','Interview · Riley Chen','Azusa Pacific · with Jester','Interview','p-navy'],
+  ['10:30 AM','Interview · Samira Haddad','Cal State LA · with Krystal','Interview','p-navy'],
+  ['12:00 PM','ASPIRE town hall','Harvey Morse Auditorium · all students','Event','p-amber'],
+  ['2:00 PM','Interview · Jordan Kim','Azusa Pacific · with Krystal','Interview','p-navy'],
+  ['All day','Midpoint assessments due','4 preceptors','Due','p-red']
+];
+$('#agenda').innerHTML = AGENDA.map((a,i)=>`<li class="${i===3?'now':''}"><time>${a[0]}</time><span class="t">${a[1]}<span class="m">${a[2]}</span></span><span class="kindtag ${a[4]}">${a[3]}</span></li>`).join('');
+
+/* On campus today: students with a shift scheduled or logged today */
+const CAMPUS = {
+  'Day shift · 7:00 AM to 7:30 PM': [
+    ['Maya Okafor','4 South','Hannah Lee','104 of 180 h'],
+    ['Daniel Reyes','6 NE','Maria Santos','96 of 180 h'],
+    ['Sofia Marquez','5 SCCT','Kevin Park','142 of 180 h'],
+    ['Ethan Wright','3 South Short Stay','Lina Gomez','88 of 180 h'],
+    ['Grace Liu','7 West','Ana Ruiz','120 of 180 h']
+  ],
+  'Night shift · 7:00 PM to 7:30 AM': [
+    ['Noah Bennett','4 North','Tessa Morgan','110 of 180 h'],
+    ['Isabel Cruz','6 South','Ray Villanueva','74 of 180 h'],
+    ['Liam Patel','CSICU','Joy Mendoza','132 of 180 h'],
+    ['Ava Johnson','8 NE','Sam Ortiz','99 of 180 h']
+  ]
+};
+const initials = n => n.split(' ').map(w=>w[0]).join('').slice(0,2);
+$('#oncampus').innerHTML = Object.entries(CAMPUS).map(([shift,list],si)=>`
+  <ul class="oncampus" aria-label="${shift}">
+    <li class="oc-h"><span>${shift}</span><span>${si===1?'<span class="live" style="color:var(--green)">On shift now</span>':'Ended'}</span></li>
+    ${list.map(s=>`<li><button data-open="Student profile: ${s[0]}"><span class="av">${initials(s[0])}</span>
+      <span><span class="nm">${s[0]}</span><span class="m">${s[1]} · with ${s[2]}</span></span>
+      <span class="m" style="font-family:var(--mono)">${s[3]}</span></button></li>`).join('')}
+  </ul>`).join('') + '<div style="padding:0 20px 16px"><button class="link" data-open="Rotation > Activity (shift log)">Open shift log →</button></div>';
+$('.ttabs').addEventListener('click',e=>{
+  const b=e.target.closest('[role="tab"]'); if(!b) return;
+  const campus = b.id==='tabCampus';
+  $('#tabSched').setAttribute('aria-selected', !campus); $('#tabCampus').setAttribute('aria-selected', campus);
+  $('#agenda').hidden = campus; $('#oncampus').hidden = !campus;
+  $('#live').textContent = campus ? 'Showing students on campus today' : 'Showing today\u2019s schedule';
+});
+
+/* Pipeline */
+const STAGES=[['Applied',64],['Interviewed',41],['Placed',28],['Active rotation',28],['Completed',0]];
+function drawPipe(cur){ $('#pipe').innerHTML = STAGES.map((s,i)=>`<div class="stage ${i===cur?'cur':''}" ${i===cur?'aria-current="step"':''}><b>${s[1]}</b><span>${s[0]}</span></div>`).join(''); }
+
+/* Placement */
+$('#capRows').innerHTML = [['Critical Care',9,9],['Medical',6,7],['Surgical',5,5],['Women & Children',4,4],['Short Stay',4,4]]
+  .map(r=>`<div class="irow"><span>${r[0]}</span><span class="n"><b>${r[1]}</b></span><span class="n">${r[2]}</span></div>`).join('');
+$('#reqRows').innerHTML = [['Azusa Pacific University',2,2],['Cal State LA',11,12],['Cal State Long Beach',7,7],['Mount Saint Mary\u2019s',5,5],['UCLA',3,3]]
+  .map(r=>`<div class="irow"><span>${r[0]}</span><span class="n"><b>${r[1]}</b></span><span class="n">${r[2]}</span></div>`).join('');
+
+/* Activity */
+const FEED=[
+  ['check','var(--green)','var(--green-soft)','<b>Sofia Marquez</b> signed the Confidentiality Acknowledgment','Sealed copy filed to her record','7:58 PM'],
+  ['form','var(--navy)','var(--navy-soft)','<b>3 students</b> submitted the Student Parking Request','Added to the Parking Services export','6:40 PM'],
+  ['msg','var(--green)','var(--green-soft)','<b>Krystal Rodriguez</b> resolved 2 support threads','Badge access, schedule change','4:12 PM'],
+  ['rel','var(--navy)','var(--navy-soft)','<b>Hannah Lee</b> submitted a Midpoint assessment','Maya Okafor · 4 South','2:05 PM'],
+  ['out','var(--muted)','var(--surface-2)','Outreach to <b>5 partner schools</b> delivered','Spring 2027 info session · 3 opened','11:30 AM']
+];
+$('#feed').innerHTML = FEED.map(f=>`<li><span class="fi" style="background:${f[2]}"><svg viewBox="0 0 24 24" style="stroke:${f[1]}">${ico[f[0]]}</svg></span><span>${f[3]}<br><span class="m">${f[4]}</span></span><time>${f[5]}</time></li>`).join('');
+
+/* Phase-aware ordering */
+const PHASES = {
+  recruit:  {label:'Recruitment', stage:0, order:['recruit','duo','activity','placement']},
+  interview:{label:'Interviewing', stage:1, order:['duo','recruit','activity','placement']},
+  placement:{label:'Placement', stage:2, order:['placement','duo','activity']},
+  rotation: {label:'Active rotation', stage:3, order:['duo','placement','activity']},
+  eval:     {label:'Evaluation', stage:4, order:['evals','duo','activity','placement']}
+};
+function setPhase(p){
+  const cfg=PHASES[p];
+  document.querySelectorAll('[data-sec]').forEach(el=>{ const i=cfg.order.indexOf(el.dataset.sec); el.hidden = i<0; el.style.order = 2+i; });
+  $('#phaseNote').innerHTML = 'Cycle phase: <b>'+cfg.label+'</b> · sections below are ordered for this phase';
+  drawPipe(cfg.stage);
+  $('#live').textContent='Phase set to '+cfg.label;
+}
+setPhase('rotation');
+
+/* Mockup controls */
+function seg(id, fn){ $(id).addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; $(id).querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed', x===b)); fn(b.dataset.v); }); }
+seg('#themeSeg', v=>{ if(v==='system') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme',v); });
+seg('#phaseSeg', setPhase);
+seg('#clearSeg', v=>{ $('#needs').classList.toggle('is-clear', v==='clear'); });
+</script>
+</body>
+</html>

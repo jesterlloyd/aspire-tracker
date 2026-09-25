@@ -1759,7 +1759,8 @@ export default function ContactsView({ refreshKey = 0 }) {
   const { style } = useTheme()
   const isBook = contactsUsesBook(style)
 
-  const [showContactModal, setShowContactModal] = useState(false)
+  // HOME-1: /connect/contacts?new=1 (the home page's Add a contact) opens the form on arrival.
+  const [showContactModal, setShowContactModal] = useState(() => new URLSearchParams(window.location.search).get('new') === '1')
   const [editingContact,   setEditingContact]   = useState(null)
   const [deactivateTarget, setDeactivateTarget] = useState(null)  // { contact, action }
   const [deactivating,     setDeactivating]     = useState(false)

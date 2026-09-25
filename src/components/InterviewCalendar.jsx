@@ -1264,7 +1264,10 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
   const [weekStart,         setWeekStart]         = useState(() => getWeekStart(new Date()))
   const [dayDrawerDate,     setDayDrawerDate]     = useState(null)
   const [highlightedSlotId, setHighlightedSlotId] = useState(null)
-  const [eventModal,        setEventModal]        = useState(null) // ASPIRE event create/edit/detail
+  // HOME-1: /interviews?event=new (the home page's Add an event) opens a new event for today on arrival.
+  const [eventModal,        setEventModal]        = useState(() => // ASPIRE event create/edit/detail
+    (isAdmin && new URLSearchParams(window.location.search).get('event') === 'new')
+      ? { event: null, defaultDate: new Date().toLocaleDateString('en-CA') } : null)
   const [eventDayDetail,    setEventDayDetail]    = useState(null) // date string → ASPIRE day-detail modal
 
   const myName = userProfile?.full_name

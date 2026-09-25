@@ -64,7 +64,8 @@ export default function MessagesWorkspace({
 }) {
   const queryClient = useQueryClient()
   const [selectedId, setSelectedIdState] = useState(initialSelectedId)
-  const [newOpen, setNewOpen] = useState(false)
+  // HOME-1: /connect/messages?new=1 (the home page's Message a student) opens New message on arrival.
+  const [newOpen, setNewOpen] = useState(() => !docked && new URLSearchParams(window.location.search).get('new') === '1')
   // Reusable announcement region. Sends announce "Message sent."; management
   // actions announce a concise result. Message content is never announced.
   const [announcement, setAnnouncement] = useState('')

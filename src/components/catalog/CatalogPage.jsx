@@ -113,7 +113,9 @@ export default function CatalogPage({
   const [dismissed, setDismissed] = useState(readDismissed)
 
   // ── Dialogs ──
-  const [dialog, setDialog] = useState(null)   // { type, row? }
+  // HOME-1: /catalog?new=form (the home page's Build a form) opens the dialog + New opens, on arrival.
+  const [dialog, setDialog] = useState(() =>   // { type, row? }
+    (canManage && new URLSearchParams(window.location.search).get('new') === 'form') ? { type: 'newform' } : null)
   const [msg, setMsg] = useState(null)         // { tone: 'ok' | 'err', text }
 
   const say = useCallback((tone, text) => {

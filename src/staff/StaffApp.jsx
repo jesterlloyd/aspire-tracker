@@ -1381,7 +1381,8 @@ function MainApp({ onLogout }) {
         {/* ── Application header (WS2.0: extracted to components/Header) ── */}
         <Header
           cohort={{ cohorts, activeCohort, activeCohortId, sortedCohorts, handleCohortSwitch, canEdit, setShowManageCohort, setShowNewCohort }}
-          search={{ searchAreaRef, searchInputRef, searchQuery, searchFocused, searchOpen, searchLoading, searchFlat, searchResults, searchActiveIdx, setSearchActiveIdx, setSearchOpen, setSearchFocused, handleSearchChange, handleSearchKey, handleSearchResult }}
+          /* HOME-1: At a Glance carries the launcher, so the header search is withheld there. */
+          search={{ hidden: activeTab === 'overview', searchAreaRef, searchInputRef, searchQuery, searchFocused, searchOpen, searchLoading, searchFlat, searchResults, searchActiveIdx, setSearchActiveIdx, setSearchOpen, setSearchFocused, handleSearchChange, handleSearchKey, handleSearchResult }}
           actions={{ cohorts, navigate, activeTab, bellRef, setShowActionCenter, showActionCenter, actionBadgeCount, notificationsUnread, toast }}
           /* SCOPE-PICKER-1: `experience` is passed ONLY for profiles holding
              ngrp_access. Its absence means one experience, which the Scope pill
@@ -1478,6 +1479,11 @@ function MainApp({ onLogout }) {
               <OverviewTab students={students} units={units} onStudentUpdate={updateStudent} cohortId={activeCohortId} cohort={activeCohort} toast={toast}
                 onRefreshUnits={() => fetchUnits(activeCohortId)}
                 onSelectStudent={goToActivityStudent}
+                /* HOME-1: the home page opens a student's profile, reads the cohort's matches
+                   (unit leaders notified) and communications (scheduling links sent). */
+                onOpenStudent={(id) => { switchTab('profiles'); setFocusStudentId(id) }}
+                matches={matches}
+                communications={communications}
                 /* ASPIRE-CHART: Today's digest reads the SAME attention sets as
                    the bell badge, so the two can never disagree. */
                 attention={{ eager: eagerAttention, lazy: lazyAttention, supportUnreadCount }}
@@ -1699,14 +1705,20 @@ function MainApp({ onLogout }) {
         cohortId={activeCohortId}
         supabase={supabase}
         isAuthenticated={true}
+        hideLauncher={activeTab === 'overview'}
       />
       {/* MESSAGES-AUTOSCROLL-1: the canonical Messages shortcut, directly above
-          the Keith orb in the lower-right stack (self-gated to owner/admin). */}
-      <MainMessagesLauncher />
+          the Keith orb in the lower-right stack (self-gated to owner/admin).
+          HOME-1 (Owner, 2026-09-24): the orb, the Messages dock launcher and the
+          Feedback launcher are withheld on At a Glance only; every other screen
+          keeps all three. The header's Connect icon carries the needs-reply badge
+          on every screen, unchanged. */}
+      <MainMessagesLauncher hidden={activeTab === 'overview'} />
       <FeedbackPanel
         activeTab={activeTab}
         cohortName={activeCohort?.name}
         isAuthenticated={true}
+        hidden={activeTab === 'overview'}
       />
       <ToastContainer toasts={toasts} removeToast={removeToast} />
       {/* The tour renders null unless it is running, so mounting it only while

@@ -1,7 +1,8 @@
 import SharedFeedbackPanel from './shared/SharedFeedbackPanel'
 import { openOutlookCompose } from '../lib/outlookCompose'
 
-export default function FeedbackPanel({ activeTab, cohortName, isAuthenticated }) {
+// HOME-1: `hidden` keeps the launcher off At a Glance (the home page has no floating chrome).
+export default function FeedbackPanel({ activeTab, cohortName, isAuthenticated, hidden = false }) {
   const handleSend = async ({ category, message, bugFields, activeTab: tabLabel }) => {
     const bugDetail = category === 'Bug Report'
       ? `\nExpected behavior: ${bugFields.expected_behavior}\nActual behavior: ${bugFields.actual_behavior}\nReproduction steps: ${bugFields.reproduction_steps}\n`
@@ -18,6 +19,7 @@ export default function FeedbackPanel({ activeTab, cohortName, isAuthenticated }
       cohortName={cohortName}
       isAuthenticated={isAuthenticated}
       submitLabel="Send to Jester"
+      hidden={hidden}
       onSubmit={handleSend}
     />
   )

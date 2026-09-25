@@ -101,7 +101,10 @@ export default function EvaluationTab({ cohortId, cohortLabel = '' }) {
   // mutually exclusive, so isInterviewer is true only for interviewers (never owner/admin).
   const evaluationRestricted = isInterviewer && !isOwner && !isAdmin
 
-  const [activeSubTab,    setActiveSubTab]    = useState('cohort')
+  // HOME-1: a ?workflow deep link (the home page's Needs you, the Responses roster's Send
+  // again) lands on Review & Release, which is the screen that reads that parameter.
+  const [activeSubTab,    setActiveSubTab]    = useState(() =>
+    (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('workflow')) ? 'automation' : 'cohort')
   const [assignments,     setAssignments]     = useState([])
 
   // EVAL-NAV-1: 'program' and 'preceptor' are no longer reachable from the visible subnav.
