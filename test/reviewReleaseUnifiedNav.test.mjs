@@ -108,9 +108,13 @@ test('every workflow, the Unit Leader release included, renders through the one 
   assert.match(dash, /<ReviewReleaseQueue/)
   assert.match(dash, /queryKey: \['review_release_evidence', cohortId\]/)
   assert.match(dash, /queryKey: \['review_release_unit_leader'\]/)
-  assert.match(dash, /out\.unitLeaderRelease = adaptUnitLeaderRelease\(/)
+  // HOME-1 (2026-09-24): the adapter block moved into reviewQueueBuild.js so the home page's
+  // Needs you reads the same queues; the dashboard calls it and adapts nothing itself.
+  assert.match(dash, /const queues = useMemo\(\(\) => buildQueues\(evidence\.data, ulQueue\.data\), \[evidence\.data, ulQueue\.data\]\)/)
+  const build = read('src/lib/evaluation/reviewQueueBuild.js')
+  assert.match(build, /out\.unitLeaderRelease = adaptUnitLeaderRelease\(/)
   for (const adapter of ['adaptCaseyFinkPreRotation', 'adaptPreceptor', 'adaptStudentFeedback', 'adaptCaseyFinkPostRotation', 'adaptAspireFeedback']) {
-    assert.match(dash, new RegExp(`out\\.\\w+ = ${adapter}\\(`), `${adapter} feeds the queues`)
+    assert.match(build, new RegExp(`out\\.\\w+ = ${adapter}\\(`), `${adapter} feeds the queues`)
   }
   // The UL release still acts through the same RPC action path as the console did.
   assert.match(dash, /postReleaseAction\(\{ action: meta\.action, responseId: item\.responseId, decision: meta\.decision \}\)/)

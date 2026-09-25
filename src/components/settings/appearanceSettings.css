@@ -475,6 +475,8 @@
   /* The theme's own hairline, so black leather keeps its edge on a dark card. */
   box-shadow: inset 0 0 0 1px var(--color-border-strong, rgba(25, 25, 25, 0.18));
 }
+/* HOME-1: At a Glance's desk, a navy blotter with a cognac corner. */
+.apx-sw-home { background: linear-gradient(135deg, var(--aspire-leather-cognac) 0 26%, #1C2352 26% 100%); }
 .apx-sw-placementBoard { background: linear-gradient(180deg, #EFF3FB, #FBF4E6); }
 .apx-sw-studentProfiles { background: linear-gradient(180deg, var(--aspire-leather-black-lift), var(--aspire-leather-black)); }
 .apx-sw-interviewRubric,

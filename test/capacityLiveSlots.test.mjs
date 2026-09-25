@@ -26,6 +26,8 @@ test('both the row pill and the division total use the live count', () => {
   assert.doesNotMatch(overview, /r\.slots_offered \|\| 0/)
   assert.match(overview, /const slotInfo = capacitySlotsFor\(response, units\)/)
   assert.match(overview, /\{slotInfo\.slots\} slot\{slotInfo\.slots === 1 \? '' : 's'\}/)
-  assert.match(overview, /divHosting\.reduce\(\(s, r\) => s \+ capacitySlotsFor\(r, units\)\.slots, 0\)/)
+  // HOME-1 (2026-09-24): a service line's total is now the Placement card's row, which sums
+  // the units' own total_slots (Set Up Units), the same live number the pill reads.
+  assert.match(readFileSync(new URL('../src/lib/home/placementSummaryModel.js', import.meta.url), 'utf8'), /r\.slots \+= n\(u\.total_slots\)/)
   assert.match(overview, /\{slotInfo\.offered\} offered/)
 })

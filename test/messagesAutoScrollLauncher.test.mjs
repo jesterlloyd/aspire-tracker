@@ -121,8 +121,10 @@ test('the launcher sits directly above the 60px Keith orb, canonical visuals', (
   assert.match(launcher, /zIndex: 1000/)
   // Mounted in the App beside Keith; Keith's tooltip moved beside the orb so it
   // no longer floats up into the launcher's slot.
-  assert.match(app, /<MainMessagesLauncher \/>/)
-  assert.ok(app.indexOf('<MainMessagesLauncher />') > app.indexOf('<Keith'))
+  // HOME-1 (Owner, 2026-09-24): withheld on At a Glance only; every other screen keeps it.
+  assert.match(app, /<MainMessagesLauncher hidden=\{activeTab === 'overview'\} \/>/)
+  assert.ok(app.indexOf('<MainMessagesLauncher') > app.indexOf('<Keith'))
+  assert.match(launcher, /if \(hidden && !open\) return null/)
   assert.match(read('src/components/Keith.jsx'), /bottom: '38px',\n {10}right: '96px',/)
 })
 

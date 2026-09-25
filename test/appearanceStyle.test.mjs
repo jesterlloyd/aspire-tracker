@@ -368,12 +368,13 @@ test('the preview draws the chosen style, and the flag the way that style draws 
 // CATALOG-REVAMP-1 added the Catalog (Classic is its bookcase, Modern its plain list).
 test('the list is honest about every shipped Modern surface, and Automations is absent', async () => {
   assert.deepEqual(STYLE_SURFACES.map(s => s.key),
-    ['placementBoard', 'studentProfiles', 'interviewRubric', 'calendars', 'reviewRelease', 'responses', 'contacts', 'outreach', 'catalog'])
+    ['home', 'placementBoard', 'studentProfiles', 'interviewRubric', 'calendars', 'reviewRelease', 'responses', 'contacts', 'outreach', 'catalog'])
+  // HOME-1 (2026-09-24) added At a Glance (Classic is the desk, Modern the plain page).
   assert.deepEqual(STYLE_SURFACES.filter(s => s.modern).map(s => s.key),
-    ['placementBoard', 'studentProfiles', 'interviewRubric', 'calendars', 'contacts', 'outreach', 'catalog'])
+    ['home', 'placementBoard', 'studentProfiles', 'interviewRubric', 'calendars', 'contacts', 'outreach', 'catalog'])
   assert.ok(!STYLE_SURFACES.some(s => /automation/i.test(s.key + s.label)), 'no equipment panel exists to switch')
   const html = await renderPage()
-  assert.equal((html.match(/class="apx-ap"/g) || []).length, 9)
+  assert.equal((html.match(/class="apx-ap"/g) || []).length, 10)
   assert.equal((html.match(/class="apx-coming">Coming</g) || []).length, 2)
   for (const realName of ['Esther Kere', 'Tony Kim', 'Gary Mittelberg', 'Karen Mills', 'Krystal Rodriguez']) {
     assert.doesNotMatch(html, new RegExp(realName))

@@ -126,35 +126,26 @@ test('additional notes are deduplicated without discarding distinct stored value
 
 // ── Part 2: wiring, drawer content, and preservation (source assertions) ─────
 
-test('Placement Requests school row exposes View response as a button separate from the accordion toggle', () => {
+test('Placement Requests school row exposes View response as a button separate from the row\'s expand control', () => {
+  // HOME-1 (2026-09-24): requests by school is a DataSheet plain sheet (table canon section 8).
+  // A row's expand chevron is the sheet's own button; View response is its own button in
+  // its own cell, and it stops propagation, so it never expands the row.
+  const card = read('src/components/home/PlacementCard.jsx')
+  assert.match(card, /className="hm-link hm-link-sm" onClick=\{\(e\) => \{ e\.stopPropagation\(\); onViewResponse\?\.\(r\.school\) \}\}/)
+  assert.match(card, /View response/)
   const src = read('src/components/OverviewTab.jsx')
-  // Two SEPARATE controls: the toggle button and the View response button, inside a div wrapper
-  // (no nested buttons, so clicking View response cannot expand/collapse the group).
-  assert.match(src, /className="ov-group-row ov-school-row"/)
-  assert.match(src, /className="ov-school-toggle" onClick=\{\(\) => toggleSchoolGroup\(school\)\} aria-expanded/)
-  assert.match(src, /className="ov-view-response-btn"[\s\S]{0,120}setResponseDrawerSchool\(school\)/)
-  assert.match(src, /e\.stopPropagation\(\); setResponseDrawerSchool\(school\)/)
-  // The wrapper is a div, not a button-in-button.
-  assert.doesNotMatch(src, /<button[^>]*ov-group-row ov-school-row/)
+  assert.match(src, /onViewResponse=\{\(school\) => setResponseDrawerSchool\(school\)\}/)
 })
 
-test('the accordion toggle keeps the original full-row hit area (badges inside, View response outside)', () => {
+test('the school row keeps its expand and collapse, and what it opens is the school\'s students', () => {
+  const card = read('src/components/home/PlacementCard.jsx')
+  assert.match(card, /level="plain"[\s\S]*?expandable=\{!!renderRequestDetail\}/)
+  assert.match(card, /expandLabel=\{r => `\$\{r\.school\} students`\}/)
   const src = read('src/components/OverviewTab.jsx')
-  const toggleStart = src.indexOf('className="ov-school-toggle"')
-  assert.ok(toggleStart > -1, 'school toggle button exists')
-  const toggleEnd = src.indexOf('</button>', toggleStart)
-  const toggleJsx = src.slice(toggleStart, toggleEnd)
-  // School info, coordinator line, placement badge, and student-count badge all live INSIDE the
-  // toggle, so clicking any of them expands/collapses the group exactly as before this feature.
-  assert.match(toggleJsx, /ov-chevron/)
-  assert.match(toggleJsx, /ov-group-name/)
-  assert.match(toggleJsx, /ov-coord-line/)
-  assert.match(toggleJsx, /placed/)
-  assert.match(toggleJsx, /ov-group-badge/)
-  // View response is NOT inside the toggle - it is the next sibling button in the wrapper.
-  assert.doesNotMatch(toggleJsx, /ov-view-response-btn/)
-  const afterToggle = src.slice(toggleEnd, toggleEnd + 400)
-  assert.match(afterToggle, /ov-view-response-btn/)
+  assert.match(src, /const renderRequestDetail = \(row\) => <SchoolStudents school=\{row\.school\} sStudents=\{row\.list\} \/>/)
+  // The batch and single Send Form actions still open Connect and write nothing here.
+  assert.match(src, /handleSendSchool\(school, sStudents\)/)
+  assert.match(src, /handleSendStudent\(s\)/)
 })
 
 test('full-detail query uses its own key and does not collide with the date-only consumers', () => {

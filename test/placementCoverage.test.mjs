@@ -42,12 +42,13 @@ test('an unplaced cohort with room reads Fully Covered by the spare slots', () =
   assert.equal(placementCoverage([], 5).kind, 'covered')
 })
 
-test('the Snapshot reads placementCoverage and no longer counts every student against slots', () => {
+test('the Placement line counts proceeding students only, by the same exit rule', () => {
+  // HOME-1 (2026-09-24): the five tiles became one summary line. Its coverage clause
+  // ("Every proceeding student placed" / "N proceeding students not yet placed") reads the
+  // same EXITED_STATUSES as placementCoverage, so Not Proceeding and Declined never count.
+  const model = read('src/lib/home/placementSummaryModel.js')
+  assert.match(model, /import \{ EXITED_STATUSES \} from '\.\.\/placementCoverage\.js'/)
+  assert.match(model, /const proceeding = \(students \|\| \[\]\)\.filter\(s => s && !EXITED_STATUSES\.has\(s\.status\)\)/)
   const ov = read('src/components/OverviewTab.jsx')
-  assert.match(ov, /import \{ placementCoverage \} from '\.\.\/lib\/placementCoverage'/)
-  assert.match(ov, /const coverage\s+= placementCoverage\(students, totalSlots\)/)
-  assert.match(ov, /<KPICell value=\{coverage\.value\}\s+label=\{coverage\.label\} sub=\{coverage\.sub\} accent=\{coverage\.accent\} \/>/)
   assert.doesNotMatch(ov, /totalStudents - totalSlots/)
-  // Student Requests still counts everyone.
-  assert.match(ov, /const studentsRequesting\s+= totalStudents/)
 })

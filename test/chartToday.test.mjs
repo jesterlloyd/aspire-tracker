@@ -17,37 +17,44 @@ const campusStrip = read('src/components/oncampus/StaffOnCampusStrip.jsx')
 const masthead = read('src/components/TodayMasthead.jsx')
 const app = read('src/staff/StaffApp.jsx')
 const css = read('src/index.css')
+// HOME-1 (2026-09-24): At a Glance is the app home. Its pieces live in src/components/home/
+// and its page sheet is home.css; the assertions below that pinned the old masthead,
+// digest, live strip and snapshot were rewritten for the new page in the same commit.
+const homeCss = read('src/components/home/home.css')
+const needsYou = read('src/components/home/NeedsYou.jsx')
 
-test('masthead-first hierarchy', async (t) => {
-  await t.test('masthead, then digest, then live strip, then snapshot, then sticky ledgers', () => {
-    const mast = overview.indexOf('<TodayMasthead')
-    const digest = overview.indexOf('<AttentionDigest')
-    const live = overview.indexOf('<OnCampusStrip')
-    const snap = overview.indexOf('<PlacementSnapshot')
-    const sticky = overview.indexOf('aggregate-sticky-header')
-    assert.ok(mast > 0 && digest > mast && live > digest && snap > live && sticky > snap,
-      'masthead -> digest -> live strip -> snapshot -> sticky ledger headers')
+test('home page order (HOME-1)', async (t) => {
+  await t.test('banner with the launcher, then Needs you, then the phase line, then the reordered sections', () => {
+    const banner = overview.indexOf('<HomeBanner')
+    const needs = overview.indexOf('<NeedsYou')
+    const phase = overview.indexOf('Cycle phase:')
+    const duo = overview.indexOf('<TodayCard')
+    const placement = overview.indexOf('<PlacementCard')
+    const activity = overview.indexOf('<RecentActivity')
+    assert.ok(banner > 0 && needs > banner && phase > needs && duo > phase && placement > duo && activity > placement,
+      'banner -> Needs you -> phase line -> Today + Cohort pulse -> Placement -> Recent activity')
+    // Needs you is always first; the rest carry an `order` from the derived phase.
+    assert.match(overview, /<NeedsYou order=\{0\}/)
+    assert.match(overview, /orderOf\('placement'\)/)
   })
 
   await t.test('the page greets exactly once: the welcome band is retired', () => {
     assert.ok(!existsSync(join(here, '..', 'src/components/AggregateWelcome.jsx')), 'AggregateWelcome.jsx deleted')
     assert.doesNotMatch(overview, /AggregateWelcome/)
-    // The masthead heading is the route's h1 and its one Playfair Display moment.
-    assert.match(masthead, /<SkylineCard[\s\S]*?fullName=\{userProfile\?\.full_name\}/)  // MASTHEAD-PHASE-2b
+    // Classic still shows the scenery through the shared SkylineCard host.
+    assert.match(read('src/components/home/HomeBanner.jsx'), /<SkylineCard fullName=\{fullName\}/)
   })
 
-  await t.test('the digest reads the SAME attention sets as the bell badge', () => {
-    assert.match(app, /attention=\{\{ eager: eagerAttention, lazy: lazyAttention, supportUnreadCount \}\}/)
-    assert.match(overview, /function AttentionDigest\(\{ attention, onOpenActionCenter \}\)/)
-    // No second derivation inside the digest - counts come from the passed sets.
-    const digest = overview.slice(overview.indexOf('function AttentionDigest'), overview.indexOf('export default function OverviewTab'))
-    assert.doesNotMatch(digest, /deriveEagerAttention|supabase|useQuery/)
-    assert.match(digest, /All caught up/)
+  await t.test('the placement-only digest and its standalone "All caught up" line are gone', () => {
+    assert.doesNotMatch(overview, /function AttentionDigest|<AttentionDigest|today-digest/)
+    // "All caught up" is now the empty state of Needs you, shown only when every source is empty.
+    assert.match(needsYou, /const allEmpty = loading\.length === 0 && failed\.length === 0 && groups\.length === 0/)
+    assert.match(needsYou, /All caught up/)
   })
 
-  await t.test('digest chips open the Action Center and label their counts', () => {
-    assert.match(overview, /onClick=\{onOpenActionCenter\}/)
-    assert.match(overview, /open \$\{g\.count === 1 \? 'action' : 'actions'\}\. Open Action Center\./)
+  await t.test('Needs you rows open their source screen and never carry a decision', () => {
+    assert.match(needsYou, /className="hm-row" title=\{r\.title\} onClick=\{\(\) => onNavigate\?\.\(r\.to\)\}/)
+    assert.doesNotMatch(needsYou, />\s*(Release|Sign|Assign|Dismiss)\s*</)
   })
 })
 
@@ -60,7 +67,6 @@ test('the masthead absorbs the welcome band honestly', async (t) => {
     // call-site stability; the card does not print it.
     assert.doesNotMatch(masthead, /Last visit on this browser|aspire:lastVisit/)
     assert.doesNotMatch(masthead, /on campus now|className="mast-sub"/)
-    assert.match(read('src/components/OverviewTab.jsx'), /onCampusCount=\{mergedCampusLogs\.length\}/)
   })
 
   await t.test('events reuse the gated endpoint and query key, gated to the visible route', () => {
@@ -86,12 +92,11 @@ test('the masthead absorbs the welcome band honestly', async (t) => {
 // shared StaffOnCampusStrip so Rotation > Activity renders the identical strip. The
 // properties below did not change, only the file that holds them, so these assertions
 // follow the code rather than being dropped.
-test('the promoted live strip', async (t) => {
+test('the shared live strip', async (t) => {
+  // HOME-1: At a Glance no longer carries the live strip (On campus today is a tab in the
+  // Today card, which lists scheduled and logged shifts). Rotation > Activity keeps the
+  // shared strip, whose own rules are held here.
   await t.test('renders nothing when no one is on campus', () => {
-    // At a Glance still passes no emptyText, so an empty strip renders nothing at all
-    // rather than an empty-state card, and the shared component enforces that.
-    assert.match(overview, /<StaffOnCampusStrip[\s\S]{0,240}logs=\{mergedCampusLogs\}/)
-    assert.doesNotMatch(overview, /<StaffOnCampusStrip[\s\S]{0,240}emptyText/)
     assert.match(campusStrip, /if \(logs\.length === 0 && !emptyText\) return null/)
   })
   await t.test('keeps the hedged overdue wording and honest shift badges', () => {
@@ -103,18 +108,15 @@ test('the promoted live strip', async (t) => {
   })
 })
 
-test('the merged Placement Snapshot', async (t) => {
+test('Placement is one summary line (HOME-1)', async (t) => {
   await t.test('open slots derive live; the stored slots_remaining is not a display source', () => {
     assert.match(overview, /const openSlotsLive\s+= Math\.max\(0, netRemaining\)/)
-    // No code reads the stored field (comments may still name it).
     assert.doesNotMatch(overview, /u\.slots_remaining|\.slots_remaining \|\|/)
+    assert.doesNotMatch(read('src/lib/home/placementSummaryModel.js'), /slots_remaining/)
   })
-  await t.test('PLACEMENT-SECTION-HIERARCHY-1: the coverage bar is retired; the KPI row stands alone', () => {
-    // Owner decision: no composition bar and no replacement visualization under the KPI row.
-    assert.doesNotMatch(overview, /snap-bar|snap-legend|Capacity coverage|barLabel/)
-    assert.doesNotMatch(css, /\.snap-bar|\.snap-legend|\.snap-title \{/)
-    // The card title uses the canonical panel-title treatment (same as the ledger cards).
-    assert.match(overview, /className="ov-panel-title">Placement Snapshot/)
+  await t.test('the five snapshot tiles are gone; one line built from data replaces them', () => {
+    assert.doesNotMatch(overview, /function PlacementSnapshot|<PlacementSnapshot|glance-kpis snap-kpis|KPICell/)
+    assert.match(overview, /placementSummary\(\{ students, units, matches, divisionOf \}\)/)
   })
   await t.test('the retired gauge and glance band are gone', () => {
     assert.doesNotMatch(overview, /CapacityCoverageGauge|ProgramAtAGlance|annularPath/)
@@ -122,29 +124,27 @@ test('the merged Placement Snapshot', async (t) => {
 })
 
 test('honest error states', () => {
-  assert.match(overview, /error:\s*campusError/)
+  // A failed source says so with a Retry and never blocks the others.
+  assert.match(needsYou, /Couldn&rsquo;t load/)
+  assert.match(needsYou, /onClick=\{\(\) => s\.retry\?\.\(\)\}>Retry</)
   assert.match(overview, /error: unitResponsesError/)
   assert.match(overview, /className="today-error" role="alert"/)
   assert.match(overview, /Unit responses could not load/)
 })
 
-test('ledger group rows are real buttons', () => {
-  // STAFF-SCHOOL-RESPONSE-VISIBILITY-1: the Placement Requests school row became a flex wrapper
-  // (div.ov-group-row.ov-school-row) holding TWO separate buttons - the accordion toggle
-  // (.ov-school-toggle, still a real button with aria-expanded) and the read-only View response
-  // action - because a button may never nest inside another button. The two unit-ledger rows
-  // remain single full-row buttons.
-  const rows = overview.match(/className="ov-group-row"/g) || []
-  assert.equal(rows.length, 2, 'two plain group-row call sites (unit ledgers)')
-  const buttons = overview.match(/<button type="button" className="ov-group-row"/g) || []
-  assert.equal(buttons.length, 2, 'both unit ledger rows are buttons')
-  const expanded = overview.match(/className="ov-group-row" onClick=\{[^}]*\}[^>]*? aria-expanded=\{!!open\}/g) || []
-  assert.equal(expanded.length, 2, 'both carry aria-expanded')
-  // The school row keeps a real toggle button with aria-expanded inside its wrapper.
-  assert.match(overview, /className="ov-group-row ov-school-row"/)
-  assert.match(overview, /<button type="button" className="ov-school-toggle" onClick=\{\(\) => toggleSchoolGroup\(school\)\} aria-expanded=\{!!open\}/)
-  assert.match(css, /button\.ov-group-row \{[\s\S]*?text-align: left;/)
-  assert.match(css, /\.ov-school-toggle \{[^}]*text-align: left;/)
+test('capacity and requests are DataSheet rows, expandable by button (HOME-1)', () => {
+  // Table canon section 8: capacity by service line is INLINE rows, requests by school a PLAIN sheet.
+  const card = read('src/components/home/PlacementCard.jsx')
+  assert.match(card, /level="inline"[\s\S]*?title="Capacity by service line"/)
+  assert.match(card, /level="plain"[\s\S]*?title="Requests by school"/)
+  assert.match(card, /<details className="hm-pl">/)
+  assert.doesNotMatch(card, /<details className="hm-pl" open/)
+})
+
+test('the home page reflows (HOME-1)', () => {
+  assert.match(homeCss, /@media \(max-width: 960px\) \{[\s\S]*?\.hm-duo, \.hm-pl-body \{ grid-template-columns: 1fr; \}/)
+  assert.match(homeCss, /@media \(max-width: 640px\) \{[\s\S]*?--hm-frame: 8px; --hm-corner: 46px;/)
+  assert.match(homeCss, /@media \(prefers-reduced-motion: reduce\)/)
 })
 
 test('responsive reflow of the operational surfaces', async (t) => {
@@ -159,8 +159,7 @@ test('responsive reflow of the operational surfaces', async (t) => {
     assert.match(css, /@media \(max-width: 900px\) \{[\s\S]*?\.aggregate-sticky-header \{ position: static; \}/)
   })
   await t.test('the KPI grid reflows (column count lives in CSS, not inline)', () => {
-    assert.match(overview, /className="glance-kpis snap-kpis"/)
-    assert.doesNotMatch(overview, /gridTemplateColumns: 'repeat\(5, 1fr\)'/)
+    // The At a Glance tiles are gone (HOME-1); the rule stays for the Residents snapshot.
     assert.match(css, /\.glance-kpis \{ grid-template-columns: repeat\(5, 1fr\); \}/)
     assert.match(css, /@media \(max-width: 900px\) \{[\s\S]*?\.glance-kpis \{ grid-template-columns: repeat\(3, 1fr\); \}/)
   })

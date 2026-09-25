@@ -8,11 +8,12 @@
 
 import { useId, useRef, useState } from 'react'
 import HomeCard, { CardLink } from './HomeCard'
-import StudentAvatar from '../StudentAvatar'
 
 export default function TodayCard({
   dateLabel, schedule = [], scheduleLoading = false, campus = { groups: [], count: 0 }, campusLoading = false,
-  studentsById = new Map(), onNavigate, onOpenStudent, order,
+  // `avatarFor(id)` is handed in by the page (it returns the StudentAvatar, or null for
+  // initials), so this card never imports the Supabase client and renders without one.
+  avatarFor = () => null, onNavigate, onOpenStudent, order,
 }) {
   const [tab, setTab] = useState('schedule')
   const uid = useId()
@@ -31,6 +32,7 @@ export default function TodayCard({
   return (
     <HomeCard id="hm-today" title="Today" cap={dateLabel} material="notepad" order={order}
       right={<CardLink label="Open calendar" to="/interviews" onNavigate={onNavigate} />}
+      rings   /* the Calendars' two chrome rings (plannerCalendar.css .pl-rings), decorative */
     >
       <div className="hm-ttabs" role="tablist" aria-label="Today views" ref={tabsRef} onKeyDown={onTabKey}>
         <button type="button" role="tab" id={ids.schedule} aria-selected={tab === 'schedule'} aria-controls={panels.schedule} tabIndex={tab === 'schedule' ? 0 : -1} onClick={() => setTab('schedule')}>
@@ -76,9 +78,7 @@ export default function TodayCard({
             {g.rows.map(s => (
               <li key={s.id}>
                 <button type="button" className="hm-oc-row" onClick={() => onOpenStudent?.(s.id)}>
-                  {studentsById.get(s.id)?.headshot_url
-                    ? <StudentAvatar student={studentsById.get(s.id)} size={28} />
-                    : <span className="hm-av" aria-hidden="true">{s.initials}</span>}
+                  {avatarFor(s.id) || <span className="hm-av" aria-hidden="true">{s.initials}</span>}
                   <span className="hm-oc-body"><span className="hm-oc-nm">{s.name}</span><span className="hm-oc-m">{s.meta}</span></span>
                   <span className="hm-oc-hours">{s.hours}</span>
                 </button>

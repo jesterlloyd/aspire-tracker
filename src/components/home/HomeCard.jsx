@@ -16,7 +16,7 @@ export function CardLink({ label, to, onNavigate, className = '' }) {
   )
 }
 
-export default function HomeCard({ id, title, cap, right, material = '', className = '', children, order, hidden = false, headExtra = null }) {
+export default function HomeCard({ id, title, cap, right, material = '', className = '', children, order, hidden = false, headExtra = null, rings = false, clip = false }) {
   if (hidden) return null
   const hid = `${id}-h`
   return (
@@ -27,6 +27,8 @@ export default function HomeCard({ id, title, cap, right, material = '', classNa
       data-sec={id}
       style={order != null ? { order } : undefined}
     >
+      {rings && <span className="pl-rings" aria-hidden="true"><i /><i /></span>}
+      {clip && <span className="hm-clip" aria-hidden="true" />}
       <div className="hm-card-h">
         <h2 id={hid} className="hm-card-title">{title}</h2>
         {cap ? <span className="hm-card-cap">{cap}</span> : null}

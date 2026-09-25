@@ -1016,7 +1016,8 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
 
           <div className="hm-duo" style={{ order: orderOf('duo') }} data-sec="duo">
             <TodayCard dateLabel={dateLabel} schedule={schedule} scheduleLoading={qEvents.isPending && onTodayRoute}
-              campus={campus} campusLoading={qShifts.isPending && !!cohortId} studentsById={studentsById}
+              campus={campus} campusLoading={qShifts.isPending && !!cohortId}
+              avatarFor={(id) => { const st = studentsById.get(id); return st?.headshot_url ? <StudentAvatar student={st} size={28} /> : null }}
               onNavigate={go} onOpenStudent={openStudent} />
             <CohortPulse cohortName={cohort?.name} pipeline={pipeline} currentStage={phase.stage} hours={hours} midpoint={midpoint} onNavigate={go} />
           </div>

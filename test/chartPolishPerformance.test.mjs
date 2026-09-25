@@ -58,7 +58,10 @@ test('performance: hidden-tab polling pauses', () => {
   // CAPACITY-RESPONSE-OUTREACH-2 split the one-liner so `location` is shared with the Connect
   // return-confirmation effect; the polling gate is byte-equivalent (pathname === '/aggregate').
   assert.match(overview, /const location = useLocation\(\)\s*\n\s*const onTodayRoute = location\.pathname === '\/aggregate'/)
-  assert.equal((overview.match(/refetchInterval: onTodayRoute \? 60 \* 1000 : false/g) || []).length, 2)
+  // HOME-1 (2026-09-24): the home page polls three sources (Messages, today's shifts, recent
+  // activity), each gated on the visible route, and every other query is gated with `enabled`.
+  assert.equal((overview.match(/refetchInterval: onTodayRoute \? \d+ : false/g) || []).length, 3)
+  assert.doesNotMatch(overview, /refetchInterval: \d/)
   const activity = read('src/components/RotationActivity.jsx')
   assert.match(activity, /const onActivityRoute = useLocation\(\)\.pathname === '\/rotation\/activity'/)
   assert.equal((activity.match(/refetchInterval: onActivityRoute \? 60 \* 1000 : false/g) || []).length, 2)

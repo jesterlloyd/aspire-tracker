@@ -115,7 +115,8 @@ test('OverviewTab surfaces pending through the pills and table, with staff-only 
   // CAPACITY-FILTER-REMINDER-1: the prose summary and the inline pending list retired by Owner
   // decision - the four pills are the indicators AND the filters, pending targets synthesize into
   // the division-grouped table, and the dynamic action is filter-aware and staff-only.
-  assert.match(overview, /aria-pressed=\{active\}/)                          // pills are real toggles
+  // HOME-1: the pills moved into the Placement card's toolbar, still real toggles.
+  assert.match(overview, /className="hm-fchip" aria-pressed=\{unitStatusFilter === c\.key\}/)
   assert.match(overview, /isAdmin && unitStatusFilter === 'all' && \(/)      // send actions staff-only
   assert.match(overview, /isAdmin && unitStatusFilter === 'pending' && \(/)
   assert.match(overview, /Send Capacity Request/)

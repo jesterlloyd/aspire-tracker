@@ -665,6 +665,56 @@ both.
   its pattern to the new shape rather than deleting the assertion. Run it in a worktree with
   no `.env` too: a render test must not depend on the machine's Supabase settings.
 
+## At a Glance is the home (HOME-1, 2026-09-24)
+
+`/aggregate` answers two questions, in this order: what needs me (Needs you, one queue across
+every module) and what do I want to do (the launcher). Reference: `docs/mockups/at-a-glance-home.html`.
+The page is `src/components/OverviewTab.jsx` (it keeps the Placement machinery: unit responses,
+targets, the capacity launches and their return confirmations, both drawers, Set Up Units); its
+pieces are `src/components/home/`, its sheet `home.css`, and every figure comes from the pure,
+tested modules in `src/lib/home/`. Nothing is computed in JSX.
+
+- **The cycle phase is derived, never stored** (Owner, 2026-09-24): `derivePhase` in
+  `cyclePhase.js` reads cohort status, student statuses and the `cohort_school_rotations`
+  windows (the 1900-01-01 sentinel is unknown). It orders the sections with CSS `order`; Needs
+  you is always first. No phase column exists; do not add one without the Owner.
+- **"Behind on hours" is one rule** (Owner, 2026-09-24): `hoursPace` in `clinicalHours.js`.
+  Expected hours = required x the elapsed share of the school's rotation window; behind = more
+  than `BEHIND_TOLERANCE_PCT` (10) of the requirement short. No window, or before it starts, is
+  unknown, never behind. Needs you and the Cohort pulse bar both read it.
+- **A Needs you row is navigation, never a decision** (table canon section 2). Each of the six
+  sources is its own query through its own module's endpoint and gate (`homeLoaders.js`), so one
+  slow or failed source shows a skeleton or "Couldn't load ... Retry" and never blocks the rest.
+  A source the viewer cannot use is not listed (never shown disabled). An empty source is hidden;
+  "All caught up" shows only when every source loaded and every one is empty.
+- **Review & Release has one queue builder**: `src/lib/evaluation/reviewQueueBuild.js`, read by
+  the clipboard AND Needs you, so they cannot disagree about ready and blocked.
+- **On this page only**, the Keith orb, the Messages dock launcher and the Feedback launcher are
+  withheld (`hideLauncher` / `hidden`), and so is the header search, because the launcher is that
+  field in larger form (Owner, 2026-09-24). Every other screen keeps all four. The header's
+  ASPIRE Connect icon carries the needs-reply badge everywhere, unchanged. The launcher's
+  "Ask Keith" row opens Keith's own drawer through `src/lib/keithBus.js` (`askKeith`).
+- **The clock is the viewer's.** The banner draws the greeting, date and time by the viewer's
+  clock in both styles; in Classic it hides the Masthead service's own greeting and clock inside
+  the card's shadow root (`.mast-greet`, `.mast-date`, `.mast-clock`) and keeps its scenery and
+  weather. The underlying city-time bug lives in the Skyline service, not this repo.
+- **Classic is a desk, Modern turns it off.** Blotter, cognac corners, stitched edge, window
+  frame and sill, manila folder with index cards, the Calendars' `.pl-rings` on the Today
+  notepad, a paperclip, a loose sheet on `material-pagestack`, receipt tape, rubber stamps; all
+  decoration is `aria-hidden` and hidden under `:root[data-style="modern"]`. Papers keep dark
+  ink in Classic dark (the paper tokens are restated for `[data-theme="dark"] .hm-classic`,
+  because `[data-theme="dark"] .hm-page` outranks `.hm-classic`). A gradient surface also sets a
+  solid `background-color` (its darker stop) so a contrast sweep reads the real ground. Swept:
+  every text node, all four combinations, zero failures, lowest 5.12:1.
+- **Placement is one line plus a collapsed panel**: capacity by service line is DataSheet inline
+  rows, requests by school a DataSheet plain sheet, each expandable to the unit rows and the
+  school's students it always had.
+- **Known gaps, on purpose**: `student_shift_plans` stores no shift type, so a planned shift
+  takes the student's assigned shift, then a same-day log, then Day. Recent activity drops the
+  viewer's own events only where the source records an actor (resolved threads by profile id,
+  outreach when the log's metadata names a sender); signatures, forms and assessments name the
+  person who acted, who is never staff. Unit leaders use their own portal, not this page.
+
 ## Every table is one component (TABLE-CANON-1, 2026-09-19)
 
 `docs/design/table-canon-spec.md` is the standard and `docs/mockups/table-canon.html` renders

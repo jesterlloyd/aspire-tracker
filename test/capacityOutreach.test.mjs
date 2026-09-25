@@ -151,7 +151,8 @@ test('the header carries pills only: no prose summary, no pending list, dynamic 
   // Counts and the table read the SAME source: capacityRows (responses + synthesized pending
   // targets) with Set Up Units applied (HOSTING-STATUS-SETUP-1, capacityView / capacity_status).
   assert.match(overview, /const n = \(s\) => capacityView\.filter\(r => r\.capacity_status === s\)\.length/)
-  assert.match(overview, /unitResponses=\{capacityView\}/)
+  // HOME-1: the unit rows under a service line read the same filtered view.
+  assert.match(overview, /const capacityFiltered = useMemo\(\(\) => \(unitStatusFilter === 'all' \? capacityView : capacityView\.filter/)
   // Dynamic action labels; Hosting / Not Hosting expose NO send action (only two send buttons exist).
   assert.match(overview, /Send Capacity Request\s*<\/button>/)
   assert.match(overview, /Send Reminder to Pending Units\s*<\/button>/)

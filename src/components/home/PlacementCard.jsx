@@ -18,9 +18,9 @@ import DataSheet from '../shared/DataSheet'
 import { SummaryLine } from './PhaseCards'
 
 const CAPACITY_COLUMNS = [
-  { key: 'serviceLine', label: 'Service line', min: 120, grow: 2, priority: 1 },
-  { key: 'filled', label: 'Filled', min: 56, grow: 0.6, align: 'right', priority: 1, render: r => <b>{r.filled}</b> },
-  { key: 'slots', label: 'Slots', min: 56, grow: 0.6, align: 'right', priority: 1 },
+  { key: 'serviceLine', label: 'Service line', min: 110, grow: 2, priority: 1 },
+  { key: 'filled', label: 'Filled', min: 48, grow: 0.6, align: 'right', priority: 1, render: r => <b>{r.filled}</b> },
+  { key: 'slots', label: 'Slots', min: 48, grow: 0.6, align: 'right', priority: 1 },
 ]
 
 export default function PlacementCard({
@@ -32,11 +32,11 @@ export default function PlacementCard({
   const toggle = (setter) => (key) => setter(prev => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n })
 
   const requestColumns = [
-    { key: 'school', label: 'School', min: 160, grow: 2.2, priority: 1 },
-    { key: 'placed', label: 'Placed', min: 56, grow: 0.6, align: 'right', priority: 1, render: r => <b>{r.placed}</b> },
-    { key: 'students', label: 'Students', min: 64, grow: 0.6, align: 'right', priority: 1 },
+    { key: 'school', label: 'School', min: 120, grow: 2.2, priority: 1 },
+    { key: 'placed', label: 'Placed', min: 48, grow: 0.6, align: 'right', priority: 1, render: r => <b>{r.placed}</b> },
+    { key: 'students', label: 'Students', min: 56, grow: 0.6, align: 'right', priority: 1 },
     {
-      key: 'response', label: 'Response', min: 104, grow: 0.8, priority: 2, sortable: false,
+      key: 'response', label: 'Response', min: 100, grow: 0.8, priority: 2,
       render: r => (
         <button type="button" className="hm-link hm-link-sm" onClick={(e) => { e.stopPropagation(); onViewResponse?.(r.school) }}>
           View response
@@ -48,7 +48,7 @@ export default function PlacementCard({
   const clauses = (summary?.clauses || []).map(c => ({ key: c.key, strong: c.strong, tone: c.tone, post: c.strong != null ? c.text.replace(c.strong, '') : c.text }))
 
   return (
-    <HomeCard id="hm-placement" title="Placement" cap={cap} material="sheet" order={order}
+    <HomeCard id="hm-placement" title="Placement" cap={cap} material="sheet" className="material-pagestack" order={order}
       right={<CardLink label="Placement Board" to="/rotation/matrix" onNavigate={onNavigate} />}>
       {notices}
       <SummaryLine clauses={clauses} />

@@ -65,11 +65,12 @@ test('a participating unit with no row gets a display-only hosting row, so Hosti
 test('every capacity surface reads capacity_status', () => {
   assert.match(overview, /const capacityView = useMemo\(\(\) => applyUnitSetup\(capacityRows, units\), \[capacityRows, units\]\)/)
   assert.match(overview, /const status    = response\.capacity_status/)
-  assert.match(overview, /if \(statusFilter === 'hosting'\)     return r\.capacity_status === 'hosting'/)
-  assert.match(overview, /divRows\.filter\(r => r\.capacity_status === 'hosting'\)/)
+  // HOME-1 (2026-09-24): the division-grouped panel became the Placement card's service-line
+  // rows; the status filter and every unit row still read capacity_status.
+  assert.match(overview, /capacityView\.filter\(r => r\.capacity_status === unitStatusFilter\)/)
   assert.match(overview, /capacityView\.filter\(r => r\.capacity_status === 'pending'\)/)
   assert.match(overview, /count: n\('hosting'\)/)
-  assert.match(overview, /unitResponses=\{capacityView\}/)
+  assert.match(overview, /const rows = capacityFiltered\.filter\(/)
   // View response only when the leader actually submitted.
   assert.match(overview, /\{response\.submitted && \(\s*<button\s*onClick=\{\(e\) => \{ e\.stopPropagation\(\); onView\?\.\(response\) \}\}/)
 })

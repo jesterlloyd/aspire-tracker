@@ -65,16 +65,14 @@ test('OnCampusNow renders role-safe rows as buttons, with a zero-state', () => {
 })
 
 // ── staff dashboard renders the SAME shared card (main app visually unchanged) ─
-test('the staff At a Glance strip delegates to the shared card, keeping its guards', () => {
-  const ov = read('src/components/OverviewTab.jsx')
-  assert.match(ov, /import OnCampusNow from '\.\/oncampus\/OnCampusNow'/)
-  assert.match(ov, /return <OnCampusNow /)
+test('the staff strip delegates to the shared card, keeping its guards', () => {
+  // HOME-1 (2026-09-24): At a Glance no longer renders the strip (On campus today is a
+  // tab in the Today card). Rotation > Activity does, through the one shared builder.
   // ROTATION-ACTIVITY-CALENDAR-1: the campus strip's row builder moved one level down,
   // into StaffOnCampusStrip, so Rotation > Activity renders the IDENTICAL strip instead
   // of a second one that could drift. The guards did not change, so they are asserted
   // where they now live; chartToday.test.mjs reads the same file for the same reason.
   const strip = read('src/components/oncampus/StaffOnCampusStrip.jsx')
-  assert.match(ov, /import StaffOnCampusStrip from '\.\/oncampus\/StaffOnCampusStrip'/)
   assert.match(strip, /return <OnCampusNow|<OnCampusNow$/m)
   assert.match(strip, /if \(logs\.length === 0 && !emptyText\) return null/)
   assert.match(strip, /Clock-out may be overdue/)
@@ -84,7 +82,7 @@ test('the staff At a Glance strip delegates to the shared card, keeping its guar
 // Both staff surfaces must go through that one builder, or the drift it was extracted
 // to prevent comes straight back.
 test('every staff On Campus strip is the shared one', () => {
-  for (const f of ['src/components/OverviewTab.jsx', 'src/components/RotationActivity.jsx']) {
+  for (const f of ['src/components/RotationActivity.jsx']) {
     assert.match(read(f), /StaffOnCampusStrip/, f)
   }
 })

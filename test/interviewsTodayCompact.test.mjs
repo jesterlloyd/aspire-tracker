@@ -174,14 +174,11 @@ test('the header renders unconditionally again; flush only drops the inset', () 
   assert.doesNotMatch(read('src/index.css'), /mast-live-headless/)
 })
 
-test('both surfaces present the identical header pattern', () => {
-  const ov = read('src/components/OverviewTab.jsx')
-  assert.match(ov, /<OnCampusNow title="Interviews Today" sub=\{sub\} rows=\{rows\} \/>/)
-  // ROTATION-ACTIVITY-CALENDAR-1: the campus strip's rows moved into the shared
-  // StaffOnCampusStrip (so Rotation > Activity renders the identical strip), which
-  // renders the same OnCampusNow underneath with the same title and the same
-  // date-plus-count sub. The header pattern is unchanged; only its owner moved.
-  assert.match(ov, /<StaffOnCampusStrip[\s\S]{0,240}onViewAll=\{onOpenActivity\}/)
+test('the shared On Campus strip keeps its header pattern', () => {
+  // HOME-1 (2026-09-24): At a Glance no longer renders the Interviews Today and On Campus
+  // Now strips; today's interviews are rows in the Today card's Schedule tab and in Needs
+  // you, and On campus today is the card's second tab. The shared strip's header pattern
+  // is still held here for Rotation > Activity, which renders it.
   const strip = read('src/components/oncampus/StaffOnCampusStrip.jsx')
   assert.match(strip, /title = 'On Campus Now'/)
   assert.match(strip, /<OnCampusNow[\s\S]{0,200}sub=\{resolvedSub\}/)
@@ -203,22 +200,18 @@ test('ON-CAMPUS-HEADING-1: Rotation > Activity draws the shared head as its ONLY
 
 // ── Each caller owns its own navigation ──────────────────────────────────────
 
-test('At a Glance interview cards open the Interview Rubric, NOT Rotation > Activity', () => {
-  const ov = read('src/components/OverviewTab.jsx')
-  assert.match(ov, /onOpenInterview\?\.\(\{ slotId: slot\.id, sessionId: session\?\.id, student, slot, cohortId \}\)/)
-  // Opens THAT student's rubric, not just the tab: InterviewRubricTab seeds its
-  // selection from ?student=, the same param its own selectStudent writes.
-  assert.match(ov, /navigate\(`\/interviews\?student=\$\{encodeURIComponent\(student\.id\)\}`\)/)
+test('At a Glance interview rows open the Interview Rubric, NOT Rotation > Activity', () => {
+  // HOME-1: an interview row (Needs you, and the Today card's Schedule) opens THAT
+  // student's rubric: InterviewRubricTab seeds its selection from ?student=.
+  const today = read('src/lib/home/todayModel.js')
+  const needs = read('src/lib/home/needsYouModel.js')
+  assert.match(today, /to: `\/interviews\?student=\$\{encodeURIComponent\(student\.id\)\}`/)
+  assert.match(needs, /to: `\/interviews\?student=\$\{encodeURIComponent\(student\.id\)\}`/)
   assert.match(read('src/components/InterviewRubricTab.jsx'), /useState\(\(\) => searchParams\.get\('student'\) \|\| null\)/)
-  // The interview strip must not carry On Campus Now's activity destination.
-  const strip = ov.slice(ov.indexOf('function InterviewsTodayStrip'), ov.indexOf('function OnCampusStrip'))
-  assert.doesNotMatch(strip, /rotation\/activity/)
-  assert.doesNotMatch(strip, /onViewAll/)
 })
 
-test('On Campus Now still opens Rotation > Activity, unchanged', () => {
-  const ov = read('src/components/OverviewTab.jsx')
-  assert.match(ov, /onOpenActivity=\{\(\) => navigate\('\/rotation\/activity'\)\}/)
+test('On campus today opens the shift log at Rotation > Activity', () => {
+  assert.match(read('src/components/home/TodayCard.jsx'), /<CardLink label="Open shift log" to="\/rotation\/activity"/)
 })
 
 test('the shared renderer imposes no navigation of its own', () => {

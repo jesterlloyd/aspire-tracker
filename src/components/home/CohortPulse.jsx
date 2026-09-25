@@ -20,7 +20,7 @@ function Bar({ label, headline, sub, ariaLabel, segments, subAccent }) {
 
 export default function CohortPulse({ cohortName, pipeline = [], currentStage = 0, hours, midpoint, onNavigate, order }) {
   return (
-    <HomeCard id="hm-pulse" title="Cohort Pulse" cap={cohortName} material="report" order={order}
+    <HomeCard id="hm-pulse" title="Cohort Pulse" cap={cohortName} material="report" order={order} clip
       right={<CardLink label="Student Profiles" to="/students" onNavigate={onNavigate} />}
     >
       <ol className="hm-pipe" aria-label="Pipeline">
