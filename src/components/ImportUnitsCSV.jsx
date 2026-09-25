@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { safeWrite } from '../lib/safeWrite'
 import { parseCSV } from '../lib/utils'
+import { DEFAULT_SHIFT } from '../lib/unitSetupModel'
 
 const EXPECTED_FIELDS = [
   { key: 'unit_name',       label: 'Unit Name',        required: true },
@@ -64,7 +65,7 @@ export default function ImportUnitsCSV({ cohortId, onImported, onClose }) {
     unit_name:        mapping.unit_name        ? row[mapping.unit_name]        : '',
     contact_person:   mapping.contact_person   ? row[mapping.contact_person]   : '',
     total_slots:      mapping.total_slots      ? parseInt(row[mapping.total_slots]) || 1 : 1,
-    shift_preference: mapping.shift_preference ? row[mapping.shift_preference] : 'Either',
+    shift_preference: mapping.shift_preference ? row[mapping.shift_preference] : DEFAULT_SHIFT, // No Preference, the default Unit Setup writes and its dropdown offers
     preceptors:       mapping.preceptors       ? row[mapping.preceptors]       : '',
     considerations:   mapping.considerations   ? row[mapping.considerations]   : '',
   })
