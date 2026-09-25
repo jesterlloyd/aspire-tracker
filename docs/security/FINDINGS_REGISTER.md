@@ -402,9 +402,71 @@ afterward, from memory.
 
 ## S-16. Avatar uploads bypass the server; avatar_url accepted as arbitrary string
 
-- **Severity (original)**: Medium. **Status**: OPEN.
-- **Risk**: content-type and path discipline enforced nowhere, and a staff admin can point another user's avatar at any URL.
-- **Verified at HEAD**: `src/components/UserMenu.jsx` still uploads directly to the public `avatars` bucket with a client-chosen extension and stores `getPublicUrl`; `api/admin-users.js` `update_avatar` still accepts any string into `avatar_url`.
+- **Severity (original)**: Medium.
+- **Status**: Closed (code); SQL unconfirmed. The application no longer writes an avatar
+  from the browser or accepts an arbitrary `avatar_url`; the migration that removes the
+  database-side paths a browser session could still use is drafted and Owner-gated. The
+  finding closes when it is applied and its POST sections pass.
+- **Closing commit**: the commit that adds
+  `supabase/migrations/20261001000000_s16_avatar_writes_server_only.sql` (S16-1,
+  2026-09-24).
+- **Risk (historical)**: content-type and path discipline enforced nowhere, and a staff
+  admin can point another user's avatar at any URL.
+- **Found in discovery, at HEAD**: five write paths, three of them browser-side.
+  `src/components/UserMenu.jsx` uploaded to the public `avatars` bucket with the client's
+  file extension, then called `update_my_avatar` with the URL, falling back to a direct
+  `user_profiles.avatar_url` update that Wave E's column grant allowed.
+  `src/lib/contactAvatarUpload.js` (shared by Connect > Contacts and Rotation >
+  Preceptors) uploaded to `contact-avatars` the same way. Connect's contact form also had
+  a free-text "Avatar URL ... or paste directly" field. Server-side, `api/contacts-upsert.js`
+  allowlisted `avatar_url` with no validation, `api/portal/academics-contacts.js` accepted
+  any http(s) URL, and `api/admin-users.js` `update_avatar` accepted any string. Three
+  endpoints already did it right (`api/portal/my-avatar.js`, `api/admin-avatar-upload.js`,
+  `api/portal/academics-contact-avatar.js`): server-side upload, fixed extension map,
+  size cap, magic-byte sniff. `update_my_avatar` is dashboard-created; its body is not in
+  the repository. The two buckets are public-read by design (stored URLs render as
+  `<img src>`); only `contact-avatars`' write policies were in the repository.
+- **What a hostile value could do**: every render is an `<img src>` (Accounts & Access,
+  the header menu, Connect contacts and the address book, the recipient picker, contact
+  autocomplete, universal search, the preceptor directory, the four portal headers); none
+  is an `href`, an inline style or `dangerouslySetInnerHTML`. A pasted value therefore
+  cannot run script, but it can point every viewer's browser at a third-party host (a
+  tracking pixel that logs who opened which screen and when) and show whatever image that
+  host chooses under a real person's name.
+- **Fix**: one rule module, `api/lib/avatarImage.js`: the image contract from
+  `my-avatar.js` (type map, 2 MB decoded cap, sniff) and `isOwnAvatarStorageUrl`, which
+  admits only an empty value or an https public-object URL on this project's Storage
+  origin in the `avatars` or `contact-avatars` bucket, with an optional `?v=` token.
+  Two new endpoints on that module: `api/my-avatar.js` (a staff member's own photo, path
+  derived from the verified identity, portal profiles refused) and
+  `api/contact-avatar-upload.js` (Owner/Admin, the staff twin of the NE&L portal's
+  endpoint, persists `contacts.avatar_url` when a contact id is given). `UserMenu` and
+  `contactAvatarUpload.js` now post bytes to them; the paste field is gone. The three
+  value writers call `validateAvatarUrlChange`, which passes an unchanged stored value
+  (a legacy row keeps saving and rendering until its photo is replaced or cleared) and
+  refuses any new value outside own Storage. Existing avatars render unchanged: nothing
+  rewrites a stored URL.
+- **Migration** (Owner-gated, one block): revokes the `avatar_url` column UPDATE from
+  `authenticated` (the other five self-service columns keep theirs), revokes browser
+  EXECUTE on every `update_my_avatar` overload, drops the two named `contact-avatars`
+  write policies, and drops any INSERT/UPDATE/DELETE/ALL policy on `storage.objects`
+  whose expression names the `avatars` bucket, raising each name as a NOTICE. Read
+  policies stay. Server uploads run as service_role and bypass Storage RLS, so nothing
+  the application does depends on a dropped policy. Apply only after S16-1 is live.
+- **Verification**: `db/audit/s16_avatar_writes_server_only_checks.sql`, PRE 1 to 4 then
+  the migration then POST 1 to 4 (PRE 3's output is the only record of the dropped
+  avatars-bucket policy text; keep it). `test/s16AvatarUploadsServerOnly.test.mjs`
+  sweeps `src/` and fails on any browser write to an avatar bucket, any
+  `update_my_avatar` call or any browser write of `avatar_url`; tests the rule against
+  a list of hostile values; drives both endpoints through their factories; pins the three
+  value writers to the rule; and runs the migration on real Postgres (PGlite) with the
+  Wave E grant, the RPC and both buckets' policies in place, proving what goes and what
+  stays and that every audit section executes.
+- **Left as is, on purpose**: `api/lib/unitPreceptorContactSync.js` and
+  `api/portal/unit-preceptors.js` write a contact `avatar_url` from a photo the Unit
+  Leader endpoint itself uploaded with the service role; the value never comes from a
+  client. `api/portal/my-avatar.js` mirrors its own `avatars` URL into the matching
+  contact, which is why the rule admits both buckets on a contact.
 
 ## S-17. Client caches survive sign-out and account switch
 

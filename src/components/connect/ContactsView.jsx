@@ -839,11 +839,6 @@ function ContactModal({ mode, initialData, onClose, onSaved }) {
   const [errMsg,         setErrMsg]         = useState(null)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [uploadErr,      setUploadErr]      = useState(null)
-  const [showAdvanced,   setShowAdvanced]   = useState(() => {
-    // Open Advanced Details automatically if the contact has data in non-primary fields
-    if (!isEdit || !initialData) return false
-    return !!initialData.avatar_url
-  })
 
   const set = (field, value) => setFormData(prev => ({ ...prev, [field]: value }))
 
@@ -1359,27 +1354,9 @@ function ContactModal({ mode, initialData, onClose, onSaved }) {
 
           {/* ── Advanced Details (collapsible) ── */}
           <div style={{ marginBottom: 8 }}>
-            <button
-              type="button"
-              onClick={() => setShowAdvanced(v => !v)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                background: 'none', border: 'none', cursor: 'pointer',
-                fontSize: 11, fontWeight: 600, color: '#6b7280', fontFamily: F,
-                padding: '6px 0',
-              }}
-            >
-              <span style={{ display: 'inline-block', transform: showAdvanced ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s', fontSize: 10 }}>▶</span>
-              Advanced Details
-            </button>
-            {showAdvanced && (
-              <div style={{ paddingTop: 12, borderTop: '1px solid #f3f4f6', marginTop: 4 }}>
-                <div style={{ marginBottom: 16 }}>
-                  <label style={labelStyle}>Avatar URL <span style={{ fontWeight: 400, color: '#9ca3af' }}>(set by Upload Photo above, or paste directly)</span></label>
-                  <input value={formData.avatar_url || ''} onChange={e => set('avatar_url', e.target.value)} placeholder="https://…" style={inputStyle} />
-                </div>
-              </div>
-            )}
+            {/* S-16: a photo is set by Upload Photo only. The pasted Avatar URL field is
+                gone; the server refuses any avatar_url that is not a file in ASPIRE's
+                own Storage, so a free-text field could only ever fail. */}
           </div>
 
           {/* Footer */}
