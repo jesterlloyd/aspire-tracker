@@ -1,10 +1,10 @@
 // HOME-1 (2026-09-24): the slim banner with the launcher.
 //
-// Classic keeps the rotating scenery, which is the Masthead service's <skyline-card>
-// (SkylineCard.jsx), cropped to a band inside a window frame; the greeting, the clock and
-// the weather it draws are the service's own. Modern is a plain navy band with the
-// greeting, the date and the time drawn here, by the VIEWER's clock and zone. In both,
-// the launcher sits centred in the band.
+// Both styles show the rotating scenery, the Masthead service's <skyline-card>
+// (SkylineCard.jsx), at its own 5:1 shape (Owner, 2026-09-25). Classic sets it behind glass
+// in a square wooden window with a sill; Modern shows it as a plain card. In both, the
+// greeting, the date and the time are drawn here by the VIEWER's clock, the weather is the
+// service's (clicking it opens the service's city picker), and the launcher sits centred.
 //
 // The clock bug the brief names (the scenery city's time on the clock) lives inside the
 // Masthead service, not this repository. On this page the service's own date and clock
@@ -34,17 +34,50 @@ function useMinuteClock() {
 // The greeting, the date and the clock are drawn by this banner in both styles (the
 // service's greeting sits at a height that depends on the band, so drawing both halves
 // here keeps them together); the weather and the scenery stay the service's.
-const HIDE_SERVICE_CLOCK = '.mast-greet,.mast-date,.mast-clock{display:none!important}'
+// The service also gives its card a 16px top margin, which pushed the whole scene down and
+// left a strip at the top of the window (Owner, 2026-09-25: "it looks lower").
+const HIDE_SERVICE_CLOCK = '.mast-greet,.mast-date,.mast-clock{display:none!important}.mast{margin-top:0!important}'
+
+// The glass's reflection travels as the page scrolls: the bands slide sideways by a share of
+// how far the window has moved. Any scroll container counts (capture), and nothing moves
+// under reduced motion.
+const GLARE_RATE = 0.45
+const GLARE_MAX = 420
+function useScrollGlare(sceneRef, glareRef, enabled) {
+  useEffect(() => {
+    if (!enabled) return undefined
+    if (typeof window === 'undefined' || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return undefined
+    let frame = 0
+    const paint = () => {
+      frame = 0
+      const scene = sceneRef.current
+      const glare = glareRef.current
+      if (!scene || !glare) return
+      const x = Math.max(-GLARE_MAX, Math.min(GLARE_MAX, -scene.getBoundingClientRect().top * GLARE_RATE))
+      glare.style.setProperty('--hm-glare-x', `${x.toFixed(1)}px`)
+    }
+    const onScroll = () => { if (!frame) frame = requestAnimationFrame(paint) }
+    paint()
+    window.addEventListener('scroll', onScroll, { capture: true, passive: true })
+    window.addEventListener('resize', onScroll, { passive: true })
+    return () => {
+      if (frame) cancelAnimationFrame(frame)
+      window.removeEventListener('scroll', onScroll, { capture: true })
+      window.removeEventListener('resize', onScroll)
+    }
+  }, [sceneRef, glareRef, enabled])
+}
 
 export default function HomeBanner({ classic, fullName, userKey, items, calendar, launcher }) {
   const now = useMinuteClock()
   const firstName = String(fullName || '').trim().split(/\s+/)[0] || ''
   const sceneRef = useRef(null)
+  const glareRef = useRef(null)
+  useScrollGlare(sceneRef, glareRef, classic)
 
   // Hide the service's date and clock once its shadow root exists. Polls briefly because
   // the element upgrades when its script arrives, which can be after this mount.
   useEffect(() => {
-    if (!classic) return undefined
     let tries = 0
     let timer = null
     const tick = () => {
@@ -63,37 +96,28 @@ export default function HomeBanner({ classic, fullName, userKey, items, calendar
     }
     timer = setTimeout(tick, 0)
     return () => clearTimeout(timer)
-  }, [classic])
+  }, [])
+  const scene = (
+    <div className="hm-window-scene" ref={sceneRef}>
+      <SkylineCard fullName={fullName} userKey={userKey} items={items} calendar={calendar} flush />
+      {classic && (
+        <div className="hm-window-glass" aria-hidden="true"><div className="hm-window-glare" ref={glareRef} /></div>
+      )}
+      {/* The greeting and the launcher sit over the scenery in normal flow, greeting first,
+          so nothing overlaps at any width. */}
+      <div className="hm-window-content">
+        <div className="hm-hero-local hm-greet">
+          {greetingFor(now, firstName)}
+          <small><time dateTime={now.toISOString()}>{dateTimeLine(now)}</time></small>
+        </div>
+        <Launcher {...launcher} />
+      </div>
+    </div>
+  )
+
   return (
     <section className={`hm-hero ${classic ? 'hm-hero-classic' : 'hm-hero-modern'}`} aria-label="Welcome">
-      {classic ? (
-        // The scenery fills the window behind; the greeting and the launcher sit over it in
-        // normal flow, greeting first, so nothing overlaps at any width (the launcher used to
-        // be pinned to the bottom and covered the greeting below about 1250px).
-        <div className="hm-window">
-          <div className="hm-window-scene" ref={sceneRef}>
-            <SkylineCard fullName={fullName} userKey={userKey} items={items} calendar={calendar} flush />
-            <div className="hm-window-glass" aria-hidden="true" />
-            <div className="hm-window-content">
-              <div className="hm-hero-local hm-greet">
-                {greetingFor(now, firstName)}
-                <small><time dateTime={now.toISOString()}>{dateTimeLine(now)}</time></small>
-              </div>
-              <Launcher {...launcher} />
-            </div>
-          </div>
-        </div>
-      ) : (
-        <>
-          <div className="hm-hero-top">
-            <div className="hm-greet">
-              {greetingFor(now, firstName)}
-              <small>{dateTimeLine(now)}</small>
-            </div>
-          </div>
-          <Launcher {...launcher} />
-        </>
-      )}
+      {classic ? <div className="hm-window">{scene}</div> : scene}
       {classic && <div className="hm-sill" aria-hidden="true" />}
     </section>
   )

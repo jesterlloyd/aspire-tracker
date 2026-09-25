@@ -36,8 +36,6 @@
   --hm-red-soft: var(--aspire-bad-soft);
   --hm-plum: #6B3A7A;
   --hm-plum-soft: #F2E8F5;
-  --hm-wave: rgba(29, 37, 103, .16);
-  --hm-wave-on-navy: rgba(255, 255, 255, .26);
   --hm-shadow: var(--aspire-shadow-card);
   /* Shapes this page needs that the brand does not name. Read by var(), never restated. */
   --hm-r-tag: 4px;
@@ -52,8 +50,6 @@
   color: var(--hm-ink);
 }
 [data-theme="dark"] .hm-page {
-  --hm-wave: rgba(143, 162, 240, .22);
-  --hm-wave-on-navy: rgba(18, 20, 28, .22);
   --hm-navy-soft: #232B4A;
   --hm-on-navy: #12141C;
   --hm-plum: #D29BE0;
@@ -110,60 +106,56 @@
 :root[data-style="modern"] .hm-phase { color: var(--text-caption); }
 
 /* ── Banner ──────────────────────────────────────────────────────────────── */
+/* Both styles show the Masthead service's scenery (Owner, 2026-09-25: "the skyline isn't
+   showing in modern theme"). Modern draws it as a plain rounded card; Classic puts the same
+   scene behind glass in a square wooden window with a sill. */
 .hm-hero {
   position: relative;
   margin-top: var(--aspire-gap-card);
-  border-radius: var(--aspire-radius-card);
 }
-.hm-hero-modern {
-  min-height: 176px;
-  background: var(--aspire-navy);
-  color: #fff;
-  padding: 18px 24px 18px;
-  display: flex; flex-direction: column; gap: 10px;
-  box-shadow: var(--hm-shadow);
-}
-.hm-hero-top { display: flex; justify-content: space-between; align-items: flex-start; }
 .hm-greet { font-size: 24px; font-weight: 700; }
 .hm-greet small { display: block; font-size: 13px; font-weight: 500; opacity: .92; margin-top: 2px; }
 
-/* Classic: the scenery in a window. The Masthead service's card is cropped to a band
-   behind the launcher; the frame, the glare, the inner shadow and the sill are the
-   page's. Everything decorative is aria-hidden. */
+/* The scene is the card's own 5:1 shape (the service draws the scenery at 5:1 and crops
+   nothing), and grows when the greeting and the launcher need more room (a phone, or the
+   actions opening under the search). Two traps, both measured: a definite width, or a
+   minimum height feeds back through the ratio into the width (176px x 5 = 880px on a
+   phone); and no overflow clip on the scene itself, because a ratio box only grows to fit
+   its content while its overflow is visible. The scenery layer clips instead. */
+.hm-window-scene {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 5 / 1;
+  background: var(--aspire-navy);
+}
+.hm-hero-modern .hm-window-scene { border-radius: var(--aspire-radius-card); box-shadow: var(--hm-shadow); }
+.hm-window-scene .mast-host { position: absolute; inset: 0; overflow: hidden; border-radius: inherit; }
+.hm-window-scene skyline-card { display: block; width: 100%; }
+
+/* Classic: a window. Square, because a window is (Owner, 2026-09-25); the frame, the glass,
+   the inner shadow and the sill are the page's. Everything decorative is aria-hidden. */
 .hm-window {
   position: relative;
   padding: var(--hm-frame, 12px);
-  border-radius: var(--aspire-radius-card);
   background:
     var(--aspire-noise-fine),
     linear-gradient(180deg, #8A5A2E 0%, #6F4420 45%, #5A3517 100%);
   background-blend-mode: soft-light, normal;
   box-shadow: 0 2px 0 rgba(255, 255, 255, .12) inset, 0 -2px 0 rgba(0, 0, 0, .35) inset, var(--hm-shadow);
 }
-.hm-window-scene {
-  position: relative;
-  min-height: var(--hm-band-h, 176px);
-  overflow: hidden;
-  border-radius: var(--aspire-radius-sheet);
-  background: var(--aspire-navy);
-}
-.hm-window-scene .mast-host { position: absolute; inset: 0; }
-.hm-window-scene skyline-card { display: block; width: 100%; }
 .hm-window-glass {
   position: absolute;
   inset: 0;
   z-index: 2;
+  overflow: hidden;
   pointer-events: none;
-  border-radius: var(--aspire-radius-sheet);
-  /* A pane of glass (Owner, 2026-09-25: "since in classic, it's meant to be a window"): a
-     sheen along the top, a small corner glare, two reflection bands through the middle, a faint cool tint, a
-     bright top edge and an inner shade where the glass meets the frame. Every layer sits
-     UNDER the greeting and the launcher, and none is strong enough to move their contrast. */
+  /* A pane of glass: a sheen along the top, a small corner glare, a faint cool tint, a bright
+     top edge and an inner shade where the glass meets the frame. The reflection bands are
+     their own layer (.hm-window-glare) so they can travel as the page scrolls. Every layer
+     sits UNDER the greeting and the launcher. */
   background:
     linear-gradient(180deg, rgba(255, 255, 255, .10) 0%, rgba(255, 255, 255, 0) 16%),
     linear-gradient(118deg, rgba(255, 255, 255, .10) 0%, rgba(255, 255, 255, 0) 16%),
-    linear-gradient(118deg, rgba(255, 255, 255, 0) 38%, rgba(255, 255, 255, .15) 42%, rgba(255, 255, 255, .06) 47%, rgba(255, 255, 255, 0) 50%),
-    linear-gradient(118deg, rgba(255, 255, 255, 0) 53%, rgba(255, 255, 255, .09) 54.5%, rgba(255, 255, 255, 0) 56.5%),
     linear-gradient(180deg, rgba(196, 222, 255, .08), rgba(160, 190, 235, .03));
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, .16),
@@ -171,12 +163,27 @@
     inset 3px 0 6px rgba(0, 0, 0, .18),
     inset 0 0 28px rgba(0, 0, 0, .42);
 }
-/* The content over the scenery: the greeting, then the launcher, in normal flow. */
+/* The reflection (Owner, 2026-09-25: "change it so it moves as I scroll"). Twice the pane's
+   width, slid sideways by --hm-glare-x, which HomeBanner sets from the window's position as
+   the page scrolls. Under reduced motion nothing sets it, and the bands hold still. */
+.hm-window-glare {
+  position: absolute; top: 0; bottom: 0; left: -50%; width: 200%;
+  background:
+    linear-gradient(118deg, rgba(255, 255, 255, 0) 40%, rgba(255, 255, 255, .15) 42%, rgba(255, 255, 255, .06) 44.5%, rgba(255, 255, 255, 0) 46%),
+    linear-gradient(118deg, rgba(255, 255, 255, 0) 47.5%, rgba(255, 255, 255, .09) 48.2%, rgba(255, 255, 255, 0) 49.2%);
+  transform: translate3d(var(--hm-glare-x, 0px), 0, 0);
+  will-change: transform;
+}
+/* The content over the scenery: the greeting, then the launcher, in normal flow. It lets
+   clicks through to the scenery (the weather opens the service's city picker); only the
+   launcher itself takes them. */
 .hm-window-content {
   position: relative; z-index: 3;
   display: flex; flex-direction: column; gap: 8px;
   padding: 16px 24px 18px;
+  pointer-events: none;
 }
+.hm-window-content .hm-cmdwrap { pointer-events: auto; }
 .hm-hero-local { align-self: flex-start; max-width: calc(100% - 140px); color: #fff; text-shadow: 0 1px 8px rgba(40, 20, 60, .55); pointer-events: none; }
 /* The service draws the weather in the top-right corner (about 120px wide, four lines).
    The search field keeps clear of it; the chips sit below it and use the full width. */
@@ -184,14 +191,12 @@
 .hm-sill {
   height: 10px;
   margin: 0 -6px;
-  border-radius: 0 0 var(--aspire-radius-tab) var(--aspire-radius-tab);
   background: linear-gradient(180deg, #7A4B25, #4E2E13);
   box-shadow: 0 3px 6px rgba(0, 0, 0, .35);
 }
 
 /* The launcher */
 .hm-cmdwrap { display: flex; flex-direction: column; align-items: center; padding: 6px 0 0; }
-.hm-hero-modern .hm-cmdwrap { padding-bottom: 4px; }
 .hm-cmd { position: relative; width: min(680px, 100%); }
 .hm-cmd input {
   width: 100%; height: 48px;
@@ -245,6 +250,7 @@
   display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;
   margin-top: 12px; width: min(680px, 100%);
 }
+.hm-chips[hidden] { display: none; }
 .hm-chip {
   display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-width: 0; min-height: 34px;
   border: 1px solid rgba(255, 255, 255, .45); background: rgba(20, 16, 50, .34); color: #fff;
@@ -367,24 +373,6 @@
 .hm-stage b { display: block; font-size: 22px; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .hm-stage span { font: 600 10px var(--aspire-mono); letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
 .hm-stage.is-cur { background: var(--hm-navy); color: var(--hm-on-navy); }
-/* The pulse (Owner, 2026-09-25): a soft band of shade travels left to right through the arrows,
-   one after another (each arrow's delay is its index, --hm-i), so the pipeline reads as a wave.
-   The band is translucent and sits under the figures; the current stage keeps its solid fill,
-   so the cohort's status never changes while the wave passes. Each arrow's clip-path clips its
-   own band to the chevron. Off under reduced motion (below). */
-.hm-stage b, .hm-stage span { position: relative; z-index: 1; }
-.hm-stage::after {
-  content: ""; position: absolute; inset: 0; pointer-events: none;
-  background: linear-gradient(90deg, transparent 0%, var(--hm-wave) 50%, transparent 100%);
-  transform: translateX(-110%);
-  animation: hm-wave 3.6s ease-in-out infinite;
-  animation-delay: calc(var(--hm-i, 0) * 0.32s);
-}
-.hm-stage.is-cur::after { background: linear-gradient(90deg, transparent 0%, var(--hm-wave-on-navy) 50%, transparent 100%); }
-@keyframes hm-wave {
-  0% { transform: translateX(-110%); }
-  38%, 100% { transform: translateX(110%); }
-}
 .hm-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; padding: 14px 20px 18px; }
 .hm-metric-lbl { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
 .hm-metric-lbl b { font-variant-numeric: tabular-nums; }
@@ -442,7 +430,6 @@
 }
 @media (max-width: 640px) {
   .hm-page { padding: 0 12px 40px; --hm-frame: 8px; --hm-corner: 46px; }
-  .hm-hero-top { flex-direction: column; gap: 8px; }
   .hm-pipe { flex-wrap: wrap; }
   .hm-stage, .hm-stage:first-child, .hm-stage:last-child { flex: 1 1 40%; clip-path: none; border-radius: var(--aspire-radius-sheet-plain); padding-left: 12px; }
   .hm-metrics { grid-template-columns: 1fr; }
@@ -461,7 +448,6 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .hm-page *, .hm-page *::before, .hm-page *::after { transition: none !important; animation: none !important; }
-  .hm-stage::after { display: none; }
 }
 
 /* ============================================================================
@@ -513,7 +499,6 @@
 [data-theme="dark"] .hm-classic {
   --hm-blotter: #101532; --hm-blotter-deep: #0A0D22;
   --hm-navy-soft: #E8ECF8; --hm-on-navy: #FFFFFF; --hm-plum: #6B3A7A; --hm-plum-soft: #F2E8F5;
-  --hm-wave: rgba(29, 37, 103, .16); --hm-wave-on-navy: rgba(255, 255, 255, .26);
   /* The shared .today-error notice sits on the light paper here, so it keeps its light pair
      (its dark ink measured 1.52:1 on the Placement sheet). */
   --chart-warn-ink: #8B5E1A; --chart-warn-bg: #FBF3E0;
@@ -539,6 +524,9 @@
 .hm-corner-br { bottom: 0; right: 0; clip-path: polygon(100% 0, 100% 100%, 0 100%); border-bottom-right-radius: var(--aspire-radius-card); }
 .hm-classic > * { position: relative; z-index: 2; }
 .hm-classic > .hm-corner { position: absolute; z-index: 1; }
+/* The banner sits above the cards after it: the service's city picker opens from the weather
+   inside the banner and has to cover the page, not slide under the Needs you folder. */
+.hm-classic > .hm-hero { z-index: 5; }
 .hm-classic .hm-phase { color: rgba(255, 255, 255, .78); }
 .hm-classic .hm-phase b { color: #F2E7C9; }
 .hm-classic .hm-hero { margin-top: 0; }

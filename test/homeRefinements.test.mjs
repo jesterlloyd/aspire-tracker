@@ -111,18 +111,15 @@ test('BUTTONS: the three Placement actions are the canonical white pill, not the
   assert.match(pill, /\.nav-pill:active:not\(:disabled\) \{[^}]*background: var\(--color-accent-primary, #1d2567\)/)
 })
 
-test('PULSE: a wave travels left to right, arrow by arrow, and stops under reduced motion', () => {
+test('PULSE: no wave runs through the Cohort Pulse arrows', () => {
+  // Owner, 2026-09-25, reversing the day's earlier request: "the wave of light that runs through
+  // the cohort pulse, I don't think I like that. remove."
   const css = read('src/components/home/home.css')
-  assert.match(css, /\.hm-stage::after \{[\s\S]*?animation: hm-wave [\s\S]*?animation-delay: calc\(var\(--hm-i, 0\) \* 0\.32s\)/)
-  assert.match(css, /@keyframes hm-wave \{\s*0% \{ transform: translateX\(-110%\); \}/)
-  assert.match(css, /prefers-reduced-motion: reduce\)[\s\S]*?\.hm-stage::after \{ display: none; \}/)
-  // The current stage keeps its solid fill; the wave is a translucent layer under the figures.
+  assert.doesNotMatch(css, /hm-wave|\.hm-stage::after/)
+  assert.doesNotMatch(read('src/components/home/CohortPulse.jsx'), /--hm-i/)
+  // The current stage is still the one solid arrow.
   assert.match(css, /\.hm-stage\.is-cur \{ background: var\(--hm-navy\); color: var\(--hm-on-navy\); \}/)
-  assert.match(css, /\.hm-stage b, \.hm-stage span \{ position: relative; z-index: 1; \}/)
-  assert.match(read('src/components/home/CohortPulse.jsx'), /style=\{\{ '--hm-i': i \}\}/)
 })
-
-// ── Unit Setup ───────────────────────────────────────────────────────────────
 
 test('UNIT SETUP 1: a new unit\'s shift is one the dropdown offers; a legacy value reads as No Preference', () => {
   assert.ok(SHIFT_OPTIONS.includes(DEFAULT_SHIFT))
@@ -236,4 +233,50 @@ test('UNIT SETUP 6: the CSV import writes the same default shift as Unit Setup',
   assert.match(imp, /import \{ DEFAULT_SHIFT \} from '\.\.\/lib\/unitSetupModel'/)
   assert.match(imp, /shift_preference: mapping\.shift_preference \? row\[mapping\.shift_preference\] : DEFAULT_SHIFT/)
   assert.doesNotMatch(imp, /'Either'/)
+})
+
+test('WINDOW: the scenery shows in both styles, flush to the top, in a square window', () => {
+  // Owner, 2026-09-25: "the skyline isn't showing in modern theme", "it looks lower", "the frame
+  // doesn't have rounded corners, it's a window".
+  const banner = read('src/components/home/HomeBanner.jsx')
+  assert.match(banner, /\{classic \? <div className="hm-window">\{scene\}<\/div> : scene\}/)
+  assert.match(banner, /<SkylineCard fullName=\{fullName\}/)
+  assert.doesNotMatch(banner, /if \(!classic\) return undefined/, 'the service clock is hidden in both styles')
+  assert.match(banner, /\.mast\{margin-top:0!important\}/, 'the service card\'s own top margin is taken back')
+  const css = read('src/components/home/home.css')
+  const block = (sel) => { const i = css.indexOf(sel + ' {'); return css.slice(i, css.indexOf('}', i)) }
+  assert.doesNotMatch(block('.hm-window'), /border-radius/)
+  assert.doesNotMatch(block('.hm-sill'), /border-radius/)
+  // The scene grows to fit its content: a definite width, a ratio, and no clip of its own.
+  assert.match(block('.hm-window-scene'), /width: 100%;\s*aspect-ratio: 5 \/ 1;/)
+  assert.doesNotMatch(block('.hm-window-scene'), /overflow|min-height/)
+  assert.match(css, /\.hm-window-scene \.mast-host \{ position: absolute; inset: 0; overflow: hidden; border-radius: inherit; \}/)
+})
+
+test('WINDOW: the weather is clickable and its city picker covers the page', () => {
+  // Owner, 2026-09-25: "I can't change location/cities". The content layer lay over the weather.
+  const css = read('src/components/home/home.css')
+  assert.match(css, /\.hm-window-content \{[^}]*pointer-events: none;/)
+  assert.match(css, /\.hm-window-content \.hm-cmdwrap \{ pointer-events: auto; \}/)
+  assert.match(css, /\.hm-classic > \.hm-hero \{ z-index: 5; \}/)
+})
+
+test('WINDOW: the glass reflection travels as the page scrolls, and holds still under reduced motion', () => {
+  const banner = read('src/components/home/HomeBanner.jsx')
+  assert.match(banner, /function useScrollGlare\(sceneRef, glareRef, enabled\)/)
+  assert.match(banner, /prefers-reduced-motion: reduce\)'\)\.matches\) return undefined/)
+  assert.match(banner, /addEventListener\('scroll', onScroll, \{ capture: true, passive: true \}\)/)
+  assert.match(banner, /<div className="hm-window-glare" ref=\{glareRef\} \/>/)
+  assert.match(read('src/components/home/home.css'), /\.hm-window-glare \{[^}]*transform: translate3d\(var\(--hm-glare-x, 0px\), 0, 0\);/)
+})
+
+test('LAUNCHER: the quick actions show only while the launcher is in use', () => {
+  // Owner, 2026-09-25: "the tiles should only show up when I click on the search bar".
+  const l = read('src/components/home/Launcher.jsx')
+  assert.match(l, /onBlur=\{\(e\) => \{ if \(!e\.currentTarget\.contains\(e\.relatedTarget\)\) setInUse\(false\) \}\}/)
+  assert.match(l, /<div className="hm-chips" aria-label="Quick actions" hidden=\{!inUse\}>/)
+  // A click lands before anything hides: the chip keeps the field focused.
+  assert.match(l, /onMouseDown=\{\(e\) => e\.preventDefault\(\)\} onClick=\{\(\) => onRun\?\.\(a\)\}/)
+  assert.match(l, /if \(!query\) inputRef\.current\?\.blur\(\)/)
+  assert.match(read('src/components/home/home.css'), /\.hm-chips\[hidden\] \{ display: none; \}/)
 })

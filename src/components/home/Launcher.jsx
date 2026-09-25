@@ -3,7 +3,11 @@
 // An ARIA combobox (role="combobox", aria-expanded, aria-controls, aria-activedescendant)
 // over a role="listbox" of results in three groups: Actions, People, Keith. ⌘K (Ctrl+K
 // on Windows) focuses the field from anywhere on the page. Up and Down move, Enter runs,
-// Escape clears. Six quick-action chips sit under the field, in a fixed order. Every
+// Escape clears. Six quick-action chips sit under the field, in a fixed order, and show
+// only while the launcher is in use (Owner, 2026-09-25: so the scenery can be seen): from
+// the moment the field takes focus until focus leaves the launcher. A chip keeps the field
+// focused on mousedown, so a click lands before anything hides (Safari never focuses a
+// clicked button). Escape on an empty field puts the launcher away. Every
 // option comes from src/lib/home/launcherModel.js, already filtered by permission, so the
 // list never offers what the viewer cannot complete.
 
@@ -22,6 +26,7 @@ export default function Launcher({ actions = [], people = [], canAskKeith = true
   const [query, setQuery] = useState('')
   const [sel, setSel] = useState(0)
   const [open, setOpen] = useState(false)
+  const [inUse, setInUse] = useState(false)
   const inputRef = useRef(null)
   const blurTimer = useRef(null)
 
@@ -56,7 +61,7 @@ export default function Launcher({ actions = [], people = [], canAskKeith = true
   }
 
   const onKeyDown = (e) => {
-    if (e.key === 'Escape') { e.preventDefault(); clear(); return }
+    if (e.key === 'Escape') { e.preventDefault(); if (!query) inputRef.current?.blur(); clear(); return }
     if (!options.length) return
     if (e.key === 'ArrowDown') { e.preventDefault(); setOpen(true); setSel(i => moveSelection(i, 1, options.length)) }
     else if (e.key === 'ArrowUp') { e.preventDefault(); setOpen(true); setSel(i => moveSelection(i, -1, options.length)) }
@@ -66,7 +71,9 @@ export default function Launcher({ actions = [], people = [], canAskKeith = true
   const activeId = expanded && options[sel] ? `hm-opt-${options[sel].id}` : undefined
 
   return (
-    <div className="hm-cmdwrap">
+    <div className={`hm-cmdwrap${inUse ? ' is-in-use' : ''}`}
+      onFocus={() => setInUse(true)}
+      onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setInUse(false) }}>
       <div className="hm-cmd">
         <Search className="hm-cmd-ico" size={20} aria-hidden="true" />
         <input
@@ -138,11 +145,12 @@ export default function Launcher({ actions = [], people = [], canAskKeith = true
         </div>
       </div>
       {quick.length > 0 && (
-        <div className="hm-chips" aria-label="Quick actions">
+        <div className="hm-chips" aria-label="Quick actions" hidden={!inUse}>
           {quick.map(a => {
             const I = ICON[a.icon] || Send
             return (
-              <button key={a.key} type="button" className="hm-chip" onClick={() => onRun?.(a)}>
+              <button key={a.key} type="button" className="hm-chip"
+                onMouseDown={(e) => e.preventDefault()} onClick={() => onRun?.(a)}>
                 <I size={14} aria-hidden="true" /> {a.title}
               </button>
             )

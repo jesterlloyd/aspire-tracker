@@ -743,9 +743,8 @@ tested modules in `src/lib/home/`. Nothing is computed in JSX.
   `src/lib/connect/requiredPlaceholders.js`. The composer disables review and send and says
   which one is left; `/api/connect-send-bulk-message` refuses with 400 `unfilled_placeholder`
   on both paths. A password is never filled in by the app.
-- **The Cohort pulse is a wave, not a blink** (Owner, 2026-09-25): a gradient sweeps each
-  arrow left to right, 0.32s after the one before (`--hm-i`); the current stage keeps its fill
-  and gets the on-navy gradient. Reduced motion removes it.
+- **The Cohort pulse does not move** (Owner, 2026-09-25, reversing the wave the same day):
+  the current stage is the one solid arrow, and nothing travels through the others.
 - **Unit Setup is a compact table** (Owner, 2026-09-25): one line per unit grouped by service
   line (checkbox, unit, slots stepper, shift, Details), a search, All units | Participating
   only, and a pinned summary of units, slots and proceeding students with its verdict. The
@@ -766,7 +765,26 @@ tested modules in `src/lib/home/`. Nothing is computed in JSX.
 - **The segmented picker has a dark pair**: `--seg-active-ink` and `--seg-rest-ink`, defined in
   theme.css for dark only (white on the lifted accent was 3.03:1). Classic dark restates
   `--chart-warn-*` to their light pair, because its papers stay light.
-- `TodayMasthead.jsx` is retired; the staff masthead host is `HomeBanner` (Classic). Unit
+- **The scenery shows in both styles** (Owner, 2026-09-25). `HomeBanner` renders one scene
+  (the service's `<skyline-card>`, the viewer's greeting and clock, the launcher); Classic
+  wraps it in a SQUARE wooden window with glass and a sill, Modern shows it as a card. The
+  scene is `width: 100%; aspect-ratio: 5 / 1` and grows to fit its content, so it carries no
+  overflow clip and no min-height (a ratio box with either stops growing, or turns a minimum
+  height into an 880px width on a phone); the scenery layer (`.mast-host`) clips instead.
+  The banner injects `.mast{margin-top:0!important}` into the card's shadow root with the
+  clock rule, because the service's own 16px margin pushed the scene down the window.
+- **The weather opens the city picker**: the content layer over the scenery is
+  `pointer-events: none` and only the launcher takes clicks, and in Classic the banner sits
+  at `z-index: 5` above the cards after it, so the service's picker covers the page.
+- **The glass's reflection moves with scroll**: `.hm-window-glare` is twice the pane's width
+  and slides by `--hm-glare-x`, which `useScrollGlare` sets from the window's position
+  (any scroll container, rAF-throttled, off under reduced motion).
+- **The quick actions show only while the launcher is in use** (Owner, 2026-09-25): from the
+  field's focus until focus leaves the launcher, so the scenery is seen. A chip prevents
+  mousedown so the field keeps focus and the click lands (Safari never focuses a clicked
+  button); Escape on an empty field puts the launcher away. `.hm-chips[hidden]` must beat
+  the grid's own `display`.
+- `TodayMasthead.jsx` is retired; the staff masthead host is `HomeBanner` (both styles). Unit
   leaders use their own portal, not this page.
 
 ## Every table is one component (TABLE-CANON-1, 2026-09-19)
