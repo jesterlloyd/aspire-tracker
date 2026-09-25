@@ -37,12 +37,15 @@ test('the composer spacing is compact and its writing canvas is visibly white', 
 
 test('direct email preview is revealed by the draft action and owns the confirming send', () => {
   const outreach = read('src/components/connect/OutreachView.jsx')
-  assert.match(outreach, /\{dmConfirmOpen && \(\s*<div ref=\{dmPreviewRef\}>\s*<ConnectPanel tone="preview" title="Email Preview"/s)
-  assert.match(outreach, /requestAnimationFrame\(\(\) => dmPreviewRef\.current\?\.scrollIntoView/)
-  const preview = outreach.slice(outreach.indexOf('<div ref={dmPreviewRef}>'), outreach.indexOf('</ConnectPanel>', outreach.indexOf('<div ref={dmPreviewRef}>')))
+  assert.match(outreach, /\{!dmConfirmOpen && \(\s*<ConnectPanel tone="draft" title="Draft" className="outreach-draft-panel">/s)
+  assert.match(outreach, /\{dmConfirmOpen && \(\s*<div className="outreach-email-preview-pane">\s*<ConnectPanel tone="preview" title="Email Preview">/s)
+  assert.doesNotMatch(outreach, /dmPreviewRef|scrollIntoView/)
+  const previewStart = outreach.indexOf('<div className="outreach-email-preview-pane">')
+  const preview = outreach.slice(previewStart, outreach.indexOf('</ConnectPanel>', previewStart))
   assert.match(preview, /onClick=\{handleDmSend\}/)
   assert.match(preview, /'Send Email'/)
   assert.match(preview, /Back to Draft/)
+  assert.doesNotMatch(preview, /marginTop: 14/)
 })
 
 test('the supplied metaphor is restrained and uses the live editor', () => {
@@ -79,13 +82,20 @@ test('composer desks use the measured viewport while Sent History keeps its full
   assert.match(outreach, /'--outreach-desk-h': viewportHeight \? `\$\{viewportHeight\}px` : undefined/)
   assert.match(outreach, /'--outreach-desk-top': viewportTop != null \? `\$\{viewportTop\}px` : undefined/)
   assert.match(viewport, /return \{ barRef, chartHeight, toolbarTop, chartTop \}/)
-  assert.match(css, /--ocd-plaque-clearance: 12px;/)
+  assert.match(css, /--ocd-plaque-clearance: 24px;/)
   assert.match(css, /--ocd-desk-bottom-extension: 10px;/)
-  assert.match(css, /\.outreach-desk-plaque \{[\s\S]*top: -5px;/)
+  assert.match(css, /\.outreach-desk-plaque \{[\s\S]*top: -15px;[\s\S]*padding: 5px 17px;[\s\S]*font-size: 10px;/)
   assert.match(css, /\.outreach-workspace-classic \.outreach-desk-shell \{[\s\S]*border: 6px solid var\(--ocd-wood\);[\s\S]*background: var\(--ocd-leather\);/)
   assert.match(css, /\.outreach-workspace-classic \.outreach-desk-shell\[data-outreach-mode='single'\],[\s\S]*data-outreach-mode='bulk'[\s\S]*position: sticky;[\s\S]*top: calc\(var\(--outreach-desk-top[\s\S]*height: calc\(var\(--outreach-desk-h/)
   assert.match(css, /@media \(max-width: 840px\)[\s\S]*data-outreach-mode='bulk'\] \{ position: relative; top: auto; height: auto;/)
   assert.doesNotMatch(css, /\.outreach-workspace-classic \.outreach-desk-shell\[data-outreach-mode='history'\][^{]*\{[^}]*height:/s)
+})
+
+test('direct email preview replaces the draft within the same paper column', () => {
+  const css = read('src/components/connect/outreachCorrespondenceDesk.css')
+
+  assert.match(css, /\.outreach-workspace-classic \.outreach-email-preview-pane \{[\s\S]*display: flex;[\s\S]*flex: 1 1 0;[\s\S]*min-height: 0;/)
+  assert.match(css, /\.outreach-workspace-classic \.outreach-email-preview-pane > \.connect-panel \{[\s\S]*flex: 1 1 0;[\s\S]*overflow-y: auto;/)
 })
 
 test('bulk papers share one bottom edge and the obsolete scaffolding subtitle is gone', () => {

@@ -634,7 +634,6 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
   const [includeSignature,  setIncludeSignature]  = useState(true)
   const [dmConfirmOpen,     setDmConfirmOpen]      = useState(false)
   const [dmConfirmReady,    setDmConfirmReady]     = useState(false)
-  const dmPreviewRef = useRef(null)
   // The confirming controls now live in the inline Email Preview. Retain the
   // former dialog markup for one release as inert rollback context while the
   // workflow settles; it is never mounted or reachable by a user.
@@ -1014,7 +1013,6 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
     if (!dmConfirmOpen) { setDmConfirmReady(false); return }
     setDmConfirmReady(false)
     const t = setTimeout(() => setDmConfirmReady(true), 2000)
-    requestAnimationFrame(() => dmPreviewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
     return () => clearTimeout(t)
   }, [dmConfirmOpen])
 
@@ -3148,6 +3146,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
           {/* Direct Message: subject + body editor + live preview + actions */}
           {outreachMode === 'message' && (
             <>
+            {!dmConfirmOpen && (
             <ConnectPanel tone="draft" title="Draft" className="outreach-draft-panel">
 
               {classicDesk && (
@@ -3403,12 +3402,13 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
                 </div>
               )}
             </ConnectPanel>
+            )}
 
             {/* CONNECT-COMMS-1B: branded "Email Preview" - exact server-rendered HTML from the same
                 renderer/endpoint used to send, plus the server-resolved (school-first) recipient. */}
             {dmConfirmOpen && (
-            <div ref={dmPreviewRef}>
-            <ConnectPanel tone="preview" title="Email Preview" style={{ marginTop: 14 }}>
+            <div className="outreach-email-preview-pane">
+            <ConnectPanel tone="preview" title="Email Preview">
 
                 {/* Resolved recipient + source */}
                 {dmPreview.recipient && (() => {
