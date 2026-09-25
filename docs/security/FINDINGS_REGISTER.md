@@ -347,9 +347,54 @@ afterward, from memory.
 
 ## S-15. Unit Leader retains thread read access after losing unit scope
 
-- **Severity (original)**: Medium. **Status**: OPEN.
-- **Risk**: revoking a unit scope does not remove conversation membership, so a former Unit Leader keeps reading unit threads.
-- **Verified at HEAD**: no writer of `conversation_participants.removed_at` exists anywhere in api/, lib/, src/, or the migrations; the only references are a partial index and a different table's column.
+- **Severity (original)**: Medium.
+- **Status**: Closed (code); SQL unconfirmed. The migration is drafted and Owner-gated;
+  the finding closes when it is applied and its POST sections pass.
+- **Closing commit**: the commit that adds
+  `supabase/migrations/20260930000000_s15_unit_leader_thread_read_scope.sql` (S15-1,
+  2026-09-24).
+- **Risk (historical)**: revoking a unit scope does not remove conversation membership,
+  so a former Unit Leader keeps reading unit threads.
+- **Root cause, found in discovery**: `message_participant_can_read`'s unit_leader branch
+  required an unremoved participant row, an active account and an active `unit_leader`
+  role grant, and never asked `user_unit_scopes`. `message_participant_can_send` did.
+  `my_message_conversation_ids()` delegates to can_read, so list, thread, unread count,
+  archive and reactions all inherited the gap. It was a decision, not an oversight:
+  VERIFY 7c of `db/audit/unit_leader_portal_preflight_and_verification.sql` PASSED only
+  while can_read did NOT read `user_unit_scopes`, "so that history is preserved after an
+  assignment ends". The Owner reversed it on 2026-09-24: access ends when scope ends, no
+  grace period.
+- **Fix**: the unit_leader branch of can_read gains the SAME active-scope test can_send
+  applies, in the same shape: a unit-scoped row (direct_student and team_student_context
+  threads) needs an active `user_unit_scopes` row for THAT unit; a general row
+  (team_general, `scope_unit_key` NULL) needs any active unit scope through
+  `message_profile_has_active_unit_leader_portal_scope()`. Enforced in the read
+  predicate, never by writing `removed_at`: participant rows stay as history (Messages
+  Phase 1), and a scope that lapses through `expires_at` runs no code, so only a
+  predicate evaluated at read time catches it. `revoke_portal_access` is unchanged.
+  Signature, SECURITY DEFINER, STABLE, the pinned search_path and the service_role-only
+  grants are restated exactly; the student, academic_partner and nursing_academic
+  branches are the 20260828000000 bytes (a test compares them).
+- **Scope is by unit, not cohort**: `user_unit_scopes.cohort_id` is not consulted,
+  because can_send does not consult it and a unit_leader participant row cannot carry a
+  cohort (`chk_participant_role_scope`). Gating by cohort would be a second rule.
+- **What else changes**: `message_recipient_has_active_access` delegates to can_read,
+  so a staff reply no longer notifies a Unit Leader who has lost the thread's unit, and
+  the staff reply RPC refuses a delivery naming such a Unit Leader as recipient (MS409),
+  which is its existing rule for any participant who cannot read. Staff reads are
+  policy-gated on `is_active_owner_or_admin()` and do not touch can_read.
+- **Verification**: `db/audit/s15_unit_leader_thread_read_scope_checks.sql`, PRE 1 to
+  PRE 5 then the migration then POST 1 to POST 6; POST 3 proves a Unit Leader without
+  active scope for a thread's unit cannot read it and one with scope still can, POST 4
+  that the other roles' readable counts are unchanged, POST 5 that read and send agree.
+  `test/s15UnitLeaderThreadReadScope.test.mjs` runs the migration on real Postgres
+  (PGlite): revoked scope blocks, expired scope blocks the moment it lapses, active
+  scope allows, read and send agree for every Unit Leader row, student and Academic
+  Partner reads unchanged, and every audit section is executable. The old predicate is
+  shown admitting the revoked case first, so the proof is not vacuous.
+- **Superseded, on purpose**: VERIFY 7c of the 2026-07-20 audit file now reports
+  `requires_active_unit_scope = true` for can_read. That section recorded the earlier
+  decision and is left as its record; this entry is the correction.
 
 ## S-16. Avatar uploads bypass the server; avatar_url accepted as arbitrary string
 
