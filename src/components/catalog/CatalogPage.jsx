@@ -41,6 +41,7 @@ import { authedPost } from './catalogApi'
 import { useSignaturesFlag } from '../signatures/sigApi'
 import { useFormsStatus, formStaff } from '../forms/formsApi'
 import { lazyReload } from '../../lib/lazyReload'
+import CatalogPeople from './CatalogPeople'
 import '../../styles/selectionRail.css'
 import './catalog.css'
 
@@ -470,7 +471,7 @@ export default function CatalogPage({
           <div className="ctl-detail-wrap">
             <DetailPanel row={selected} catLabel={catLabel} sends={sendsById[selected.id] || []} sendsEnabled={sendsEnabled}
               canManage={canManage} onClose={() => setSelectedId('')} onSend={openSend} onAccess={accessResource}
-              menuItems={menuItems} sigAllowed={features.signatures} onSigLink={sigLink} formsAllowed={features.forms} onFormLink={(id, v) => navigate(`/catalog/forms/${id}/${v}`)} stats={statsById[selected.id]} />
+              menuItems={menuItems} sigAllowed={features.signatures} onSigLink={sigLink} formsAllowed={features.forms} onFormLink={(id, v) => navigate(`/catalog/forms/${id}/${v}`)} stats={statsById[selected.id]} notify={notify} />
           </div>
         )}
       </div>
@@ -758,7 +759,7 @@ function Cover({ row, selected, onSelect, catLabel, usage }) {
 // hang one on, and a hover-only control on a cover is lost to touch and keyboard. So every
 // action a list row offers is reachable from the panel in both styles. Open and Download
 // are already buttons here, so the menu leaves them out while the item is active.
-function DetailPanel({ row, catLabel, sends, sendsEnabled, canManage, onClose, onSend, onAccess, menuItems, sigAllowed, onSigLink, formsAllowed, onFormLink, stats }) {
+function DetailPanel({ row, catLabel, sends, sendsEnabled, canManage, onClose, onSend, onAccess, menuItems, sigAllowed, onSigLink, formsAllowed, onFormLink, stats, notify }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const panelItems = menuItems(row).filter(i => i.key !== 'open' && i.key !== 'dl')
   const k = kindOf(row)
@@ -810,6 +811,10 @@ function DetailPanel({ row, catLabel, sends, sendsEnabled, canManage, onClose, o
           {!ext && <><dt>Version</dt><dd>v{row.version || 1} · {fmtShortDate(row.version_updated_at || row.created_at || row.updated_at)}</dd></>}
           {!ext && row.file_size_bytes ? <><dt>Size</dt><dd>{fmtBytes(row.file_size_bytes)}</dd></> : null}
         </dl>
+        {canManage && virtual && formsAllowed && (
+          <CatalogPeople key={row.id} row={row} kind={k} notify={notify} sigAllowed={sigAllowed}
+            onResponses={k === 'form' ? (formId ? () => onFormLink(formId, 'responses') : null) : (sigAllowed ? () => onSigLink('?tab=requests') : null)} />
+        )}
         {canManage && <SendHistory sends={sends} enabled={sendsEnabled} current={row.version || 1} />}
       </div>
     </aside>

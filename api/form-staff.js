@@ -19,6 +19,7 @@
 //   sheet_layout    -> { layout } saves column order, widths, hidden, frozen, group by and staff columns
 //   sheet_cells     -> { saved } saves staff values and cell formats (never a submitted answer)
 //   sheet_correct   -> { value } appends a correction to one submitted answer (the submission and PDF are unchanged)
+//   people          -> { people } everyone one Catalog item went to (form links and signature requests), for its panel
 //   forward         -> { forward } sends one response's filed PDF to the form's forwardTo address again
 //   use_starter     -> { form } replaces a starter form's draft with the starter as it ships now (not published)
 //   starters        -> { results } adds the brief's starter forms that are missing
@@ -40,6 +41,7 @@ import {
 } from '../lib/server/forms/engine.js'
 import { assignableCategorySlugs } from './lib/catalogCategories.js'
 import { assignmentState } from '../src/lib/forms/formModel.js'
+import { peopleFor } from '../lib/server/forms/people.js'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const ASSIGNMENT_COLS = 'id, form_id, form_version, catalog_resource_id, batch_id, audience_label, student_id, contact_id, school_name, name, email, status, due_at, reminder_rule, sender_name, sent_at, opened_at, submitted_at, closed_at, voided_at, last_reminded_at, reminder_count, delivery_ok, created_at'
@@ -90,6 +92,7 @@ async function act(db, body, { profile, isDemo }) {
       return { enabled: !notEnabled(error) && !error }
     }
     case 'tracker': return tracker(db, isDemo)
+    case 'people': needUuid(body.catalog_resource_id, 'Catalog item'); return { people: await peopleFor(db, body.catalog_resource_id, isDemo) }
     case 'create': {
       const title = String(body.title || '').trim()
       if (!title) throw new FormError('invalid', 'Name the form.')

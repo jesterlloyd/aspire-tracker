@@ -524,3 +524,42 @@
 /* FORM-CATEGORY-1: + New category… in Build a form. */
 .ctl-newcat { display: flex; gap: 6px; margin-top: 6px; align-items: center; }
 .ctl-newcat input { flex: 1 1 auto; min-width: 0; }
+
+/* ── Who it went to (CATALOG-PEOPLE-1) ───────────────────────────────────────────
+   A form's or signature template's panel lists every person it went to. The state is a
+   word in a pill, never colour alone; the bar above says the same count in a mark. */
+.ctl-people { display: grid; gap: 10px; }
+.ctl-people-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.ctl-people-head h3 { margin: 0; font-size: 13.5px; font-weight: 700; color: var(--ctl-ink); }
+.ctl-people-head span { font-size: 12.5px; color: var(--ctl-muted); }
+.ctl-people-bar { display: flex; gap: 2px; height: 6px; background: var(--ctl-line); border-radius: var(--aspire-radius-pill); overflow: hidden; }
+.ctl-people-bar i { display: block; height: 100%; }
+.ctl-pb-done { background: var(--ctl-green); }
+.ctl-pb-over { background: var(--ctl-red); }
+.ctl-people-tools { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ctl-people-filters { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.ctl-people-filters button {
+  display: inline-flex; align-items: center; gap: 5px; cursor: pointer; padding: 3px 9px;
+  font: 600 12px/1.3 var(--aspire-sans); color: var(--ctl-muted); background: var(--ctl-surface);
+  border: 1px solid var(--ctl-line); border-radius: var(--aspire-radius-pill);
+}
+.ctl-people-filters button b { font-weight: 700; color: var(--ctl-ink); }
+.ctl-people-filters button[aria-pressed="true"] { background: var(--ctl-navy); border-color: var(--ctl-navy); color: var(--ctl-on-navy); }
+.ctl-people-filters button[aria-pressed="true"] b { color: var(--ctl-on-navy); }
+.ctl-people-list { list-style: none; margin: 0; padding: 0; max-height: 320px; overflow-y: auto;
+  border: 1px solid var(--ctl-line); border-radius: var(--aspire-radius-control); }
+.ctl-person { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "who state" "when act";
+  gap: 4px 10px; align-items: center; padding: 8px 10px; border-top: 1px solid var(--ctl-line); }
+.ctl-person:first-child, .ctl-people-none:first-child { border-top: 0; }
+.ctl-people-none { padding: 10px; font-size: 12.5px; color: var(--ctl-muted); }
+.ctl-person-who { grid-area: who; display: grid; min-width: 0; }
+.ctl-person-who b { font-size: 13px; font-weight: 600; color: var(--ctl-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ctl-person-who b small { font-weight: 500; color: var(--ctl-muted); }
+.ctl-person-who > small { font-size: 12px; color: var(--ctl-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ctl-person-when { grid-area: when; display: inline-flex; gap: 8px; font-size: 12px; color: var(--ctl-muted); }
+.ctl-person-act { grid-area: act; justify-self: end; }
+.ctl-pstate { grid-area: state; justify-self: end; padding: 2px 8px; font-size: 11.5px; font-weight: 700; white-space: nowrap;
+  border: 1px solid var(--ctl-line); border-radius: var(--aspire-radius-pill); color: var(--ctl-muted); }
+.ctl-pstate-done { color: var(--ctl-green); background: var(--aspire-ok-soft); border-color: transparent; }
+.ctl-pstate-overdue { color: var(--ctl-red); background: var(--aspire-bad-soft); border-color: transparent; }
+.ctl-pstate-opened { color: var(--ctl-amber); background: var(--ctl-amber-soft); border-color: transparent; }

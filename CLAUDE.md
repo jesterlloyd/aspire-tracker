@@ -1219,6 +1219,13 @@ the Parking form follows Parking Services' own form (received 2026-09-24).
 - **One tracker for both kinds.** `form-staff` `tracker` returns one completion row per person
   for forms AND signature requests; the Catalog's Out for completion and Overdue people read
   it through `completionStats`. Overdue is computed from `due_at`, never stored.
+- **The Catalog panel says who it went to** (CATALOG-PEOPLE-1, Owner, 2026-09-24). A form's or
+  signature template's detail panel lists every person (`CatalogPeople.jsx`, fed by
+  `form-staff` `people` through `lib/server/forms/people.js`): one row per form link (voided
+  left out) or per signature request (named by its first signer, drafts and voided left out),
+  with the `completionStatus` word in a pill, a Done / Overdue bar, filters and Remind. Remind
+  is each engine's own (`form-staff` `remind`, `sig-staff` `remind`, the latter only while the
+  signatures flag admits the caller); a closed, expired or declined link is named, never reminded.
 - **CSV.** One version's answers, formula-looking cells prefixed with `'` so no spreadsheet runs
   them, UTF-8 with a BOM for Excel.
 - **Starter forms** come from + New > Add the starter forms (idempotent by `starter_key`):
