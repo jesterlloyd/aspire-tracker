@@ -63,7 +63,11 @@ export default function MessagesWorkspace({
   docked = false, initialSelectedId = null, onSelectionChange,
 }) {
   const queryClient = useQueryClient()
-  const [selectedId, setSelectedIdState] = useState(initialSelectedId)
+  const launchParams = useMemo(() => new URLSearchParams(window.location.search), [])
+  const linkedConversationId = !docked && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(launchParams.get('conversation') || '')
+    ? launchParams.get('conversation') : null
+  const focusLinkedReply = !docked && launchParams.get('focus') === 'reply'
+  const [selectedId, setSelectedIdState] = useState(initialSelectedId || linkedConversationId)
   // HOME-1: /connect/messages?new=1 (the home page's Message a student) opens New message on arrival.
   const [newOpen, setNewOpen] = useState(() => !docked && new URLSearchParams(window.location.search).get('new') === '1')
   // Reusable announcement region. Sends announce "Message sent."; management
@@ -85,7 +89,7 @@ export default function MessagesWorkspace({
   // Mobile is list-first. Selecting a conversation opens the thread view; Back
   // returns to the list with search, filters, and pagination intact (the inbox
   // stays mounted, so its state is never torn down).
-  const [mobileView, setMobileView] = useState(initialSelectedId ? 'thread' : 'list')
+  const [mobileView, setMobileView] = useState((initialSelectedId || linkedConversationId) ? 'thread' : 'list')
   const narrow = useIsNarrow() || docked
   const setSelectedId = useCallback((id) => {
     setSelectedIdState(id)
@@ -184,6 +188,7 @@ export default function MessagesWorkspace({
           )}
           {selectedId
             ? <ThreadPanel conversationId={selectedId} api={api} announce={announce}
+                focusReply={focusLinkedReply && selectedId === linkedConversationId}
                 onGone={() => { setSelectedId(null); setMobileView('list') }}
                 onOpenStudent={onOpenStudent} />
             : <NoSelection />}
@@ -223,7 +228,7 @@ function NoSelection() {
 
 // ── Thread ──────────────────────────────────────────────────────────────────
 
-export function ThreadPanel({ conversationId, api = defaultApi, announce = () => {}, onGone = () => {}, onOpenStudent }) {
+export function ThreadPanel({ conversationId, api = defaultApi, announce = () => {}, onGone = () => {}, onOpenStudent, focusReply = false }) {
   const queryClient = useQueryClient()
   const visible = useDocumentVisible()
   const markedRef = useRef(null)
@@ -461,6 +466,7 @@ export function ThreadPanel({ conversationId, api = defaultApi, announce = () =>
         accessActive={conversation.participant_access_active !== false}
         api={api}
         announce={announce}
+        focusOnMount={focusReply}
       />
     </div>
   )

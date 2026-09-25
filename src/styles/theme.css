@@ -34,6 +34,7 @@
   --color-accent-marina:    #4F6DA8;
   --color-accent-lavender:  #B8B5D6;
   --color-accent-nova:      #9FAFF8;
+  --on-navy:                #FFFFFF;
 
   /* Status - success (sage / placed) */
   --color-status-success:    #2D4A2B;
@@ -179,6 +180,7 @@
   --color-accent-marina:    #8FA9FF;
   --color-accent-lavender:  #C7C2E8;
   --color-accent-nova:      #B8C5FF;
+  --on-navy:                #12141C;
 
   /* Status */
   --color-status-success:    #6BBF6F;

@@ -27,7 +27,7 @@ import { planUnmatch, unmatchStudentPatch } from '../lib/unmatchPlan'
 import { matchQualityFor } from '../lib/placementDisplay'
 import { matchPhrase } from '../lib/placementBoardView'
 import { getStudentPreferredFullName } from '../lib/studentNameFormatters'
-import { deriveEagerAttention, deriveLazyAttention, attentionBadgeTotal } from '../lib/attention'
+import { deriveEagerAttention, deriveLazyAttention } from '../lib/attention'
 import {
   CONFIRMED_TYPE, CORRECTED_TYPE, LEGACY_MANUAL_TYPE,
 } from '../lib/placementNotificationState'
@@ -49,6 +49,7 @@ import { writeLaunchContext, LAUNCH_KINDS } from '../lib/connect/launchContext'
 import { buildSchedulingLinkLaunch, resolveSchedulingLinkReturnPath } from '../lib/schedulingLinkFlow'
 import { useSupportRequestReads } from '../lib/support/useSupportRequestReads'
 import { useStaffNotifications } from '../hooks/useStaffNotifications'
+import { useActionCenterQueue } from '../hooks/useActionCenterQueue'
 import { unreadSupportBellCount } from '../lib/support/supportRequests'
 import { shouldAutoStartTour } from '../lib/onboardingTours'
 import Keith from '../components/Keith'
@@ -87,7 +88,7 @@ const SettingsShell        = lazyReload(() => import('../components/settings/Set
 const CatalogPage          = lazyReload(() => import('../components/catalog/CatalogPage'), 'CatalogPage')
 const InterviewRubricTab   = lazyReload(() => import('../components/InterviewRubricTab'), 'InterviewRubricTab')
 const EvaluationTab        = lazyReload(() => import('../components/EvaluationTab'), 'EvaluationTab')
-const ActionCenter         = lazyReload(() => import('../components/ActionCenter'), 'ActionCenter')
+const ActionCenter         = lazyReload(() => import('../components/ActionCenterV2'), 'ActionCenter')
 const CustomOnboardingTour = lazyReload(() => import('../components/CustomOnboardingTour'), 'CustomOnboardingTour')
 // The Residency workspace is ONE chunk, shared with the Residency Portal: both
 // go through ngrpWorkspaceLoader, so neither holds a second copy and no portal
@@ -219,9 +220,6 @@ function MainApp({ onLogout }) {
   const [reminderDeliveries,setReminderDeliveries]= useState([])
   const [reminderDeliveriesLoaded,setReminderDeliveriesLoaded]= useState(false)
   const [showActionCenter, setShowActionCenter] = useState(false)
-  // Live count reported by the open Action Center panel (includes lazy-loaded tasks).
-  // null when the panel is closed → badge falls back to the eager + lazy count below.
-  const [panelActionCount, setPanelActionCount] = useState(null)
   // Minimal raw data for the lazy attention tasks (Student Not Logged Recently,
   // Disposition Follow-up), so the CLOSED bell badge can count them too. The
   // shared engine in lib/attention.js derives the tasks from these rows.
@@ -520,14 +518,6 @@ function MainApp({ onLogout }) {
     // "not sent" until the cohort was switched or the app reloaded.
     fetchReminderDeliveries(activeCohortId)
   }
-
-  // Stable handler for the Action Center's count report. When the panel reports null
-  // (it closed), refetch the lazy data so the CLOSED badge is fresh - preventing both the
-  // open→close bounce to stale data and lingering counts after in-session resolution.
-  const handleActionCount = useCallback((n) => {
-    setPanelActionCount(n)
-    if (n === null && activeCohortId) fetchLazyActionData(activeCohortId)
-  }, [activeCohortId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Cohort CRUD ──────────────────────────────────────────────
   const createCohort = async d => {
@@ -1394,12 +1384,22 @@ function MainApp({ onLogout }) {
   const staffNotifications = useStaffNotifications({ enabled: canEdit })
   const notificationsUnread = staffNotifications.unreadCount || 0
 
-  // While the panel is open it reports its exact visible-task count (including support items); the
-  // badge uses that. When closed, fall back to the shared engine's total so all task types are
-  // reflected. Support requests are counted exactly once (never inside eager/lazy).
-  const actionBadgeCount = panelActionCount != null
-    ? panelActionCount
-    : attentionBadgeTotal({ eager: eagerAttention, lazy: lazyAttention, supportUnreadCount })
+  // ACTION-CENTER-1: the bell and the open drawer consume one live six-source queue.
+  // The source queries reuse At a Glance's React Query keys, so resolving either
+  // surface refreshes the same cached module data without coupling the two UIs.
+  const actionCenterQueue = useActionCenterQueue({
+    enabled: canEdit,
+    includeOtherCohorts: showActionCenter,
+    cohortId: activeCohortId,
+    cohorts,
+    students,
+    units,
+    communications,
+  })
+
+  // The badge reads the same normalized queue as the drawer, so it updates as
+  // source queries are invalidated after an action.
+  const actionBadgeCount = actionCenterQueue.count
 
   return (
     <div className="app">
@@ -1679,7 +1679,7 @@ function MainApp({ onLogout }) {
           <ActionCenter
             isOpen={showActionCenter}
             onClose={() => setShowActionCenter(false)}
-            anchorEl={bellRef.current}
+            anchorRef={bellRef}
             students={students}
             units={units}
             matches={matches}
@@ -1703,12 +1703,17 @@ function MainApp({ onLogout }) {
             onLogCommunication={logCommunication}
             onMatchLocalSync={syncMatchLocal}
             onStudentUpdate={updateStudent}
-            onActionCountChange={handleActionCount}
             onNavigateToProfiles={id => { setFocusStudentId(id); switchTab('profiles'); setShowActionCenter(false) }}
             onNavigateToActivityShift={goToActivityShift}
             onLaunchSchedulingLink={launchSchedulingLinkFromActionCenter}
+            onOpenOtherCohortItem={(otherCohortId, href) => {
+              handleCohortSwitch(otherCohortId)
+              navigate(href)
+              setShowActionCenter(false)
+            }}
             onNavigateNotificationDestination={destination => { navigate(destination); setShowActionCenter(false) }}
             notifications={staffNotifications}
+            queue={actionCenterQueue}
             toast={toast}
           />
         )}

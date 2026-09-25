@@ -58,7 +58,7 @@ const T = {
 
 // ── Reply composer ──────────────────────────────────────────────────────────
 
-export function ReplyComposer({ conversationId, accessActive, api = defaultApi, announce = () => {}, onSent = () => {} }) {
+export function ReplyComposer({ conversationId, accessActive, api = defaultApi, announce = () => {}, onSent = () => {}, focusOnMount = false }) {
   const queryClient = useQueryClient()
   const [body, setBody] = useState('')
   const [pending, setPending] = useState(false)
@@ -116,6 +116,7 @@ export function ReplyComposer({ conversationId, accessActive, api = defaultApi, 
         <textarea
           id="reply-body"
           className="messages-focusable"
+          autoFocus={focusOnMount}
           rows={3}
           value={body}
           disabled={!accessActive || pending}

@@ -8,6 +8,8 @@
 // queue_status, never retries, and never reads or writes a message body. The
 // existing notification_log behavior below is unchanged.
 
+/* global process, Buffer */
+
 import { createClient } from '@supabase/supabase-js';
 import { Webhook } from 'svix';
 import { shouldApplyProviderStatus } from '../../lib/server/messages/deliveryLogic.js';
@@ -42,6 +44,41 @@ async function reconcileMessageDelivery(supabase, resendEmailId, eventType) {
       .eq('id', row.id);
   } catch (err) {
     console.error('[resend-webhook] message delivery reconcile failed (non-fatal):', err?.message);
+  }
+}
+
+// ACTION-CENTER-1: delivery is an in-app fact for the staff member who sent it.
+// A bulk send shares one batch correlation across recipient rows, so the first
+// delivered webhook creates the one summary and later deliveries are idempotent.
+async function emitOutreachDelivered(supabase, logRow) {
+  if (!['direct_message_sent', 'bulk_message_sent'].includes(logRow?.notification_type)) return;
+  const senderId = logRow?.metadata?.sent_by_user_id;
+  if (!senderId) return;
+  try {
+    const { data: recipient } = await supabase.from('user_profiles')
+      .select('id,email,is_active').eq('id', senderId).maybeSingle();
+    if (!recipient || recipient.is_active === false || !String(recipient.email || '').trim()) return;
+    const batchId = logRow.notification_type === 'bulk_message_sent' ? logRow?.metadata?.batch_id : null;
+    const correlationId = batchId ? `outreach-delivered:batch:${batchId}` : `outreach-delivered:direct:${logRow.id}`;
+    const subject = batchId
+      ? `Bulk outreach delivered: ${logRow.subject || 'Untitled message'}`
+      : `Outreach delivered: ${logRow.subject || 'Untitled message'}`;
+    const { error } = await supabase.from('staff_notifications').insert({
+      correlation_id: correlationId,
+      recipient_profile_id: recipient.id,
+      recipient_email: recipient.email,
+      event_type: 'outreach_delivered',
+      actor_name: 'Delivery service',
+      actor_role: 'system',
+      subject,
+      dest_url: '/connect/outreach',
+      queue_status: 'suppressed',
+    });
+    if (error && String(error.code) !== '23505') throw error;
+  } catch (err) {
+    // Best effort: webhook reconciliation remains authoritative even if the
+    // optional in-app notification cannot be written.
+    if (String(err?.code) !== '23505') console.error('[resend-webhook] outreach notification failed (non-fatal):', err?.message);
   }
 }
 
@@ -144,7 +181,7 @@ export default async function handler(req, res) {
     // Look up the matching notification_log row by resend_email_id
     const { data: logRow, error: lookupErr } = await supabase
       .from('notification_log')
-      .select('id, status')
+      .select('id, status, notification_type, subject, metadata')
       .eq('resend_email_id', resendEmailId)
       .maybeSingle();
 
@@ -185,6 +222,8 @@ export default async function handler(req, res) {
 
       console.log(`[resend-webhook] ${type} → ${resendEmailId} updated:`, updatePayload);
     }
+
+    if (type === 'email.delivered') await emitOutreachDelivered(supabase, logRow);
 
     return res.status(200).json({ success: true, handled: true });
   } catch (err) {

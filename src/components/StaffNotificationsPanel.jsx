@@ -19,16 +19,24 @@ const EVENT_LABEL = {
   preceptor_created: 'New preceptor created',
   preceptor_match_anomaly: 'Match record needs review',
   ngrp_preceptor_feedback_requested: 'Preceptor feedback requested',
+  message_assigned: 'Thread assigned to you',
+  signed_copy_returned: 'Signed copy returned',
+  calendar_event_changed: 'Calendar event changed',
+  evaluation_window_opened: 'Evaluation window opened',
+  outreach_delivered: 'Outreach delivered',
+  followed_message_resolved: 'Followed thread resolved',
 }
 
 function labelFor(row) {
-  return EVENT_LABEL[row.event_type] || row.subject || 'Preceptor update'
+  return row.subject || EVENT_LABEL[row.event_type] || 'Team update'
 }
 
 function roleLabel(actorRole) {
   if (actorRole === 'unit_leader') return 'Unit Leader'
   if (actorRole === 'talent_acquisition') return 'Talent Acquisition'
   if (actorRole === 'owner_admin') return 'Owner/Admin'
+  if (actorRole === 'signer') return 'Signer'
+  if (actorRole === 'system') return 'System'
   return actorRole || 'Team member'
 }
 
@@ -50,11 +58,19 @@ function relTime(iso) {
 
 export default function StaffNotificationsPanel({
   items = [], unreadCount = 0, isLoading, isError, onMarkRead, onMarkAllRead,
-  onNavigateDestination,
+  onNavigateDestination, hideHeader = false,
 }) {
+  const grouped = items.reduce((out, row) => {
+    const when = new Date(row.created_at)
+    const today = new Date(); today.setHours(0, 0, 0, 0)
+    const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1)
+    const key = when >= today ? 'Today' : when >= yesterday ? 'Yesterday' : 'Earlier'
+    ;(out[key] ||= []).push(row)
+    return out
+  }, {})
   return (
     <div style={{ flex: 1, overflowY: 'auto', overscrollBehavior: 'contain', padding: '8px 0 calc(18px + env(safe-area-inset-bottom))', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
-      {unreadCount > 0 && (
+      {!hideHeader && unreadCount > 0 && (
         <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '2px 16px 6px' }}>
           <button
             onClick={onMarkAllRead}
@@ -89,11 +105,13 @@ export default function StaffNotificationsPanel({
               <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
             </svg>
           </div>
-          <span style={{ fontSize: 13, color: '#6b7280' }}>No preceptor activity yet.</span>
+          <span style={{ fontSize: 13, color: 'var(--color-text-secondary, #6b7280)' }}>No notifications yet.</span>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column' }}>
-          {items.map(row => {
+          {['Today', 'Yesterday', 'Earlier'].filter(key => grouped[key]?.length).map(key => <section key={key}>
+            <h3 style={{ margin: '8px 16px 5px', color: 'var(--color-text-secondary, #6b7280)', font: '700 10px ui-monospace, SFMono-Regular, Menlo, monospace', letterSpacing: '.09em', textTransform: 'uppercase' }}>{key}</h3>
+          {grouped[key].map(row => {
             const unread = !row.in_app_read_at
             const behavior = createStaffNotificationActivation(row, {
               onMarkRead,
@@ -123,7 +141,7 @@ export default function StaffNotificationsPanel({
                 }} />
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                    <span style={{ fontSize: 13, fontWeight: unread ? 700 : 600, color: '#1f2937' }}>
+                    <span style={{ fontSize: 13, fontWeight: unread ? 700 : 600, color: 'var(--color-text-primary, #1f2937)' }}>
                       {labelFor(row)}
                     </span>
                     {row.was_override && (
@@ -135,8 +153,8 @@ export default function StaffNotificationsPanel({
                       {relTime(row.created_at)}
                     </span>
                   </div>
-                  <div style={{ fontSize: 11.5, color: '#6b7280', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {row.actor_name || 'A team member'} ({roleLabel(row.actor_role)})
+                  <div style={{ fontSize: 11.5, color: 'var(--color-text-secondary, #6b7280)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {row.actor_name || (row.event_type === 'outreach_delivered' ? 'Delivery service' : 'A team member')} ({roleLabel(row.actor_role)})
                     {row.unit_key ? ` · ${row.unit_key}` : ''}
                     {row.assignment_role ? ` · ${row.assignment_role}` : ''}
                   </div>
@@ -152,13 +170,14 @@ export default function StaffNotificationsPanel({
                   )}
                   {behavior.destination && (
                     <div style={{ fontSize: 11, fontWeight: 600, color: '#3949ab', marginTop: 4 }}>
-                      {row.student_id ? 'Open student' : 'Open preceptor directory'}
+                      Open
                     </div>
                   )}
                 </div>
               </div>
             )
           })}
+          </section>)}
         </div>
       )}
     </div>

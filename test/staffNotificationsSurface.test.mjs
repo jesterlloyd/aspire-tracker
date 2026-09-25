@@ -16,7 +16,7 @@ const read = (p) => readFileSync(join(here, '..', p), 'utf8')
 
 const hook    = read('src/hooks/useStaffNotifications.js')
 const panel   = read('src/components/StaffNotificationsPanel.jsx')
-const actionC = read('src/components/ActionCenter.jsx')
+const actionC = read('src/components/ActionCenterV2.jsx')
 const headerA = read('src/components/Header/HeaderActions.jsx')
 const app     = read('src/staff/StaffApp.jsx')
 const nav     = read('src/lib/staffNotificationNavigation.js')
@@ -75,13 +75,13 @@ test('notification destinations are fail-closed and include the two Phase 2C int
 
 // ── Two tabs under one bell; no second model; task list stays separate ───────
 test('the Action Center has an Action Needed tab and a Notifications tab', () => {
-  assert.match(actionC, /setAcTab\('actions'\)/)
-  assert.match(actionC, /setAcTab\('notifications'\)/)
-  assert.match(actionC, /Action Needed/)
+  assert.match(actionC, /setTab\('actions'\)/)
+  assert.match(actionC, /setTab\('notifications'\)/)
+  assert.match(actionC, /Action needed/)
   assert.match(actionC, /<StaffNotificationsPanel/)
   // The task list body is gated to the actions tab, so notification events are never mixed in.
-  assert.match(actionC, /\{acTab === 'actions' && \(<>/)
-  assert.match(actionC, /\{acTab === 'notifications' && \(/)
+  assert.match(actionC, /\{tab === 'actions' && \(/)
+  assert.match(actionC, /\{tab === 'notifications' && \(/)
 })
 
 test('exactly one notification model: the surface reads staff_notifications, no new table/store', () => {
@@ -90,11 +90,12 @@ test('exactly one notification model: the surface reads staff_notifications, no 
   assert.match(hook, /staff_notifications/)
 })
 
-// ── One combined badge on one bell ───────────────────────────────────────────
-test('the bell shows ONE combined badge: task count plus notification unread', () => {
-  assert.match(headerA, /const bellBadgeCount = \(actionBadgeCount \|\| 0\) \+ \(notificationsUnread \|\| 0\)/)
-  assert.match(headerA, /\{bellBadgeCount > 0 &&/)
-  assert.match(headerA, /bellBadgeCount >= 10 \? '9\+' : bellBadgeCount/)
+// ── Action count plus notification dot on one bell ───────────────────────────
+test('the bell counts Action Needed and uses a dot for unread notifications at zero', () => {
+  assert.match(headerA, /const bellActionCount = actionBadgeCount \|\| 0/)
+  assert.match(headerA, /\{bellActionCount > 0 &&/)
+  assert.match(headerA, /bellActionCount === 0 && notificationsUnread > 0/)
+  assert.doesNotMatch(headerA, /actionBadgeCount \|\| 0\) \+ \(notificationsUnread/)
   // App hoists the hook and passes both the badge input and the panel data.
   assert.match(app, /useStaffNotifications\(\{ enabled: canEdit \}\)/)
   assert.match(app, /notificationsUnread/)

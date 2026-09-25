@@ -17,10 +17,7 @@ export default function HeaderActions({
   notificationsUnread = 0, toast,
 }) {
   const { isOwner, isAdmin, isInterviewer, userProfile } = useAuth()
-  // One bell, one badge: the derived-task count plus the durable staff-notification unread count.
-  // The two live in separate tabs of the Action Center, but the closed bell shows their combined
-  // total so nothing goes unseen while the panel is shut.
-  const bellBadgeCount = (actionBadgeCount || 0) + (notificationsUnread || 0)
+  const bellActionCount = actionBadgeCount || 0
   const canViewCatalog = isOwner || isAdmin || isInterviewer
   // ASPIRE MESSAGES: the Connect icon's unread badge follows the Messages
   // authorization gate, which is stricter than the icon's own rule. isAdmin and
@@ -147,13 +144,9 @@ export default function HeaderActions({
         <button
           ref={bellRef}
           id="keith-bell-trigger"
-          // ASPIRE-CHART: the accessible name carries the true count (the visual badge caps at 9+),
-          // mirroring the Connect icon. It now spans both Action Center tabs: open tasks plus unread
-          // staff notifications.
-          aria-label={bellBadgeCount > 0
-            ? `Action Center, ${actionBadgeCount} open action${actionBadgeCount === 1 ? '' : 's'}`
-              + (notificationsUnread > 0 ? ` and ${notificationsUnread} new notification${notificationsUnread === 1 ? '' : 's'}` : '')
-            : 'Action Center'}
+          // The accessible name carries both true counts. The visual number is
+          // Action Needed only; an unread notification becomes a dot at zero actions.
+          aria-label={`Action Center, ${bellActionCount} item${bellActionCount === 1 ? '' : 's'} need you, ${notificationsUnread} unread notification${notificationsUnread === 1 ? '' : 's'}`}
           data-tour="action-center"
           onClick={() => setShowActionCenter(p => !p)}
           style={{
@@ -182,12 +175,17 @@ export default function HeaderActions({
               display: 'block',
             }} />
           )}
-          {/* Same shared pin badge as the ASPIRE Connect icon. Combined total across both Action
-              Center tabs (tasks + unread staff notifications); still caps at 9+, not Messages 99+. */}
-          {bellBadgeCount > 0 && (
+          {/* The number is Action Needed only. Notifications use a dot when no action count is present. */}
+          {bellActionCount > 0 && (
             <span aria-hidden="true" style={pinBadgeStyle}>
-              {bellBadgeCount >= 10 ? '9+' : bellBadgeCount}
+              {bellActionCount >= 10 ? '9+' : bellActionCount}
             </span>
+          )}
+          {bellActionCount === 0 && notificationsUnread > 0 && (
+            <span aria-hidden="true" style={{
+              position: 'absolute', top: -3, right: -3, width: 8, height: 8,
+              borderRadius: '50%', background: '#DC1E34', border: '2px solid #1D2567',
+            }} />
           )}
         </button>
         </Tooltip>

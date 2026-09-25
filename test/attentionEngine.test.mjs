@@ -274,9 +274,9 @@ test('consumers share the engine - no private predicate copies remain', async (t
   const app = read('src/staff/StaffApp.jsx')
   const ac = read('src/components/ActionCenter.jsx')
 
-  await t.test('App.jsx derives the closed badge from the module', () => {
-    assert.match(app, /import \{ deriveEagerAttention, deriveLazyAttention, attentionBadgeTotal \} from '\.\.\/lib\/attention'/)
-    assert.match(app, /attentionBadgeTotal\(\{ eager: eagerAttention, lazy: lazyAttention, supportUnreadCount \}\)/)
+  await t.test('App.jsx derives the closed badge from the shared six-source queue', () => {
+    assert.match(app, /import \{ useActionCenterQueue \} from '\.\.\/hooks\/useActionCenterQueue'/)
+    assert.match(app, /const actionBadgeCount = actionCenterQueue\.count/)
     assert.doesNotMatch(app, /Keep the two in sync/)
     assert.doesNotMatch(app, /eagerActionBadgeCount|lazyActionBadgeCount/)
     assert.doesNotMatch(app, /'Pending Review'/, 'no local shift-review predicate')
@@ -310,7 +310,7 @@ test('Connect icon honors its badge (approved destination behavior)', () => {
   assert.match(ha, /\? \['contacts', 'outreach', 'broadcasts', 'messages'\]/)
   assert.match(ha, /: \['contacts', 'outreach', 'broadcasts'\]/)
   // The bell's accessible name carries the true count.
-  assert.match(ha, /Action Center, \$\{actionBadgeCount\} open action/)
+  assert.match(ha, /Action Center, \$\{bellActionCount\} item/)
 })
 
 // ── ACTION-OWNERSHIP-1: automation-owned vs human-owned work ────────────────

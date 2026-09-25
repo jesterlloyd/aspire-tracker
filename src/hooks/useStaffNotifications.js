@@ -32,6 +32,7 @@ export function useStaffNotifications({ enabled = true } = {}) {
         .from('staff_notifications')
         .select(SELECT_COLS)
         .eq('recipient_profile_id', profileId)
+        .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
         .order('created_at', { ascending: false })
         .limit(MAX_ROWS)
       if (error) throw error

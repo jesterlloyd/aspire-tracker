@@ -25,6 +25,22 @@ export function allowedStaffNotificationDestination(destUrl, studentId = null) {
   if (parsed.pathname === '/rotation/preceptors' && parsed.search === '') {
     return '/rotation/preceptors'
   }
+  if (['/interviews', '/evaluation', '/connect/outreach'].includes(parsed.pathname) && parsed.search === '') {
+    return parsed.pathname
+  }
+  if (parsed.pathname === '/connect/messages') {
+    const keys = [...parsed.searchParams.keys()]
+    const conversationId = parsed.searchParams.get('conversation')
+    if (keys.length !== 1 || keys[0] !== 'conversation' || !UUID_PATTERN.test(conversationId || '')) return null
+    return `/connect/messages?conversation=${conversationId}`
+  }
+  if (parsed.pathname === '/catalog/signatures') {
+    const keys = [...parsed.searchParams.keys()].sort()
+    const requestId = parsed.searchParams.get('request')
+    if (keys.length !== 2 || keys[0] !== 'request' || keys[1] !== 'tab'
+        || parsed.searchParams.get('tab') !== 'requests' || !UUID_PATTERN.test(requestId || '')) return null
+    return `/catalog/signatures?tab=requests&request=${requestId}`
+  }
   // A Talent Acquisition request to view preceptor feedback opens that applicant's drawer.
   if (parsed.pathname === '/ngrp/profiles') {
     const keys = [...parsed.searchParams.keys()]
