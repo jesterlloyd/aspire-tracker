@@ -700,7 +700,7 @@ tested modules in `src/lib/home/`. Nothing is computed in JSX.
   weather. The underlying city-time bug lives in the Skyline service, not this repo.
 - **Classic is a desk, Modern turns it off.** Blotter, cognac corners, stitched edge, window
   frame and sill, manila folder with index cards, the Calendars' `.pl-rings` on the Today
-  notepad, a paperclip, a loose sheet on `material-pagestack`, receipt tape, rubber stamps; all
+  notepad, a paperclip, a loose sheet (Placement, with no stack under it since 2026-09-25), receipt tape, rubber stamps; all
   decoration is `aria-hidden` and hidden under `:root[data-style="modern"]`. Papers keep dark
   ink in Classic dark (the paper tokens are restated for `[data-theme="dark"] .hm-classic`,
   because `[data-theme="dark"] .hm-page` outranks `.hm-classic`). A gradient surface also sets a

@@ -223,3 +223,9 @@ test('CLASSIC DESK 2: square paper, shadows not outlines, a torn edge, glass, on
   assert.doesNotMatch(css, /\.hm-classic \.hm-notepad \{ margin-top:/)
   assert.match(css, /\.hm-classic \.hm-notepad \.hm-today-picker \{ margin-top: 12px; \}/)
 })
+
+test('CLASSIC DESK 3: Placement is one sheet, with no stack of paper under it', () => {
+  // Owner, 2026-09-25: "remove the stack of paper in classic theme - Placement".
+  assert.doesNotMatch(read('src/components/home/PlacementCard.jsx'), /material-pagestack/)
+  assert.doesNotMatch(read('src/components/home/home.css'), /pagestack|pageStack/)
+})

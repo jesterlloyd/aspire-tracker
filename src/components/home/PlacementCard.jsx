@@ -40,7 +40,7 @@ export default function PlacementCard({
   const clauses = (summary?.clauses || []).map(c => ({ key: c.key, strong: c.strong, tone: c.tone, post: c.strong != null ? c.text.replace(c.strong, '') : c.text }))
 
   return (
-    <HomeCard id="hm-placement" title="Placement" cap={cap} material="sheet" className="material-pagestack" order={order}
+    <HomeCard id="hm-placement" title="Placement" cap={cap} material="sheet" order={order}
       right={<CardLink label="Placement Board" to="/rotation/matrix" onNavigate={onNavigate} />}>
       {notices}
       <SummaryLine clauses={clauses} />

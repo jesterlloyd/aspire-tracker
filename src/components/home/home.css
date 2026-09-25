@@ -15,7 +15,6 @@
    ============================================================================ */
 
 @import '../shared/plannerCalendar.css';
-@import '../../styles/pageStack.css';
 
 /* ── Page tokens ─────────────────────────────────────────────────────────── */
 .hm-page {
@@ -615,11 +614,7 @@
   transform: rotate(5deg);
 }
 
-/* The loose sheet over a two-page stack. The sheets sit BELOW the paper: the card isolates
-   its stacking context so a negative z-index stays inside it. */
-.hm-classic .hm-sheet.material-pagestack { --stack-paper: #F3F1EA; isolation: isolate; }
-.hm-classic .hm-sheet.material-pagestack::before,
-.hm-classic .hm-sheet.material-pagestack::after { z-index: -1; }
+/* Placement is one loose sheet with no stack under it (Owner, 2026-09-25). */
 
 /* Receipt tape torn off the roll: a dashed rule under the head, mono detail lines, and a
    ragged bottom edge (Owner, 2026-09-25: "more realistic"). The tear is a drawing BELOW the
@@ -660,9 +655,7 @@
 :root[data-style="modern"] .hm-clip,
 :root[data-style="modern"] .hm-sill,
 :root[data-style="modern"] .hm-window-glass,
-:root[data-style="modern"] .hm-page .pl-rings,
-:root[data-style="modern"] .hm-sheet.material-pagestack::before,
-:root[data-style="modern"] .hm-sheet.material-pagestack::after { display: none; }
+:root[data-style="modern"] .hm-page .pl-rings { display: none; }
 
 /* ── Phone, for the desk ─────────────────────────────────────────────────── */
 /* Placed AFTER the Classic rules on purpose: a @media block carries no specificity, so above
