@@ -312,7 +312,7 @@ function SettingsProps({ s, set }) {
       <label className="fm-tg"><span>Close after the due date</span><input type="checkbox" checked={s.closeAfterDue} onChange={e => set({ closeAfterDue: e.target.checked })} /></label>
       <div className="fm-field"><label htmlFor="fm-rem">Reminders</label>
         <select id="fm-rem" value={s.reminders} onChange={e => set({ reminders: e.target.value })}>{REMINDER_RULES.map(r => <option key={r.key} value={r.key}>{r.label}</option>)}</select></div>
-      <label className="fm-tg"><span>Export answers (CSV)</span><input type="checkbox" checked={s.exportCsv} onChange={e => set({ exportCsv: e.target.checked })} /></label>
+      <label className="fm-tg"><span>Export answers (Excel)</span><input type="checkbox" checked={s.exportCsv} onChange={e => set({ exportCsv: e.target.checked })} /></label>
       <p className="fm-hint">Settings are saved with the draft and take effect for links sent after you publish.</p>
     </div>
   )

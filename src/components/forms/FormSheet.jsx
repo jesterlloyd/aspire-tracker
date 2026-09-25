@@ -3,7 +3,8 @@
 // FORM-SHEET-1 (2026-09-24, Owner: "monitor the results from an excel like or smartsheet like
 // view"): Responses > Sheet. One row per submission, one column per question, read live from
 // the answers every time it opens: search, filters, sort, show or hide columns, click a name
-// for that person's full answers and PDF, and Export to Excel of exactly what is shown.
+// for that person's full answers and PDF. The page's Export to Excel exports exactly what
+// it shows (EXPORT-ONE-1: the Sheet hands its view up through `viewRef`).
 //
 // FORM-SHEET-2 (Owner, 2026-09-24: Smartsheet's controls, "also edit their answers"): a
 // toolbar formats the selection (bold, italic, underline, text colour, fill, alignment, wrap),
@@ -58,7 +59,7 @@ function cellStyle(f, width) {
   return st
 }
 
-export default function FormSheet({ formId, onOpen, notify }) {
+export default function FormSheet({ formId, onOpen, notify, viewRef }) {
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
   const [layout, setLayout] = useState(null)
@@ -71,7 +72,6 @@ export default function FormSheet({ formId, onOpen, notify }) {
   const [editing, setEditing] = useState(null)        // { rowId, key, draft, reason, anchor }
   const [collapsed, setCollapsed] = useState(() => new Set())
   const [save, setSave] = useState('saved')           // saved | saving | error
-  const [exporting, setExporting] = useState(false)
   const [dragCol, setDragCol] = useState(null)
   const [newCol, setNewCol] = useState({ label: '', type: 'text', options: '' })
   const frameRef = useRef(null)
@@ -318,17 +318,13 @@ export default function FormSheet({ formId, onOpen, notify }) {
     try { const r = await formStaff('file_url', { assignment_id: row.id, path: f.path }); if (r.url) window.open(r.url, '_blank', 'noopener') } catch (e) { notify?.(e.message, 'err') }
   }
 
-  // ── Export ──
-  const exportXlsx = async () => {
-    setExporting(true)
-    try {
-      const r = await formStaff('sheet_xlsx', { id: formId, rowIds: rows.map(x => x.id), columnKeys: columns.map(c => c.key), groupBy: layout?.groupBy || null })
-      const bytes = Uint8Array.from(atob(r.xlsx), ch => ch.charCodeAt(0))
-      const url = URL.createObjectURL(new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }))
-      const a = document.createElement('a'); a.href = url; a.download = r.fileName; document.body.appendChild(a); a.click(); a.remove()
-      setTimeout(() => URL.revokeObjectURL(url), 30000)
-    } catch (e) { notify?.(e.message, 'err') } finally { setExporting(false) }
-  }
+  // ── Export ── EXPORT-ONE-1: the page's one Export to Excel button asks the Sheet what it
+  // shows (the filtered, sorted rows and the visible columns in order), so it exports that.
+  useEffect(() => {
+    if (!viewRef) return undefined
+    viewRef.current = () => ({ rowIds: rows.map(x => x.id), columnKeys: columns.map(c => c.key), groupBy: layout?.groupBy || null })
+    return () => { viewRef.current = null }
+  }, [viewRef, rows, columns, layout])
 
   if (error) return <p className="fm-err" role="alert">{error}</p>
   if (!data || !layout) return <p className="fm-hint">Loading the answers…</p>
@@ -443,7 +439,6 @@ export default function FormSheet({ formId, onOpen, notify }) {
           )}
         </div>
         <span className="fs-count">{rows.length === data.rows.length ? `${rows.length} ${rows.length === 1 ? 'response' : 'responses'}` : `${rows.length} of ${data.rows.length}`}</span>
-        <button type="button" className="fm-btn fm-sm fm-pri" onClick={exportXlsx} disabled={exporting || !rows.length}>{exporting ? 'Exporting…' : 'Export to Excel'}</button>
       </div>
 
       {adding && (

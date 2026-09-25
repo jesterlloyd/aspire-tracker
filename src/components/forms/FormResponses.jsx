@@ -2,12 +2,13 @@
 //
 // FORMS-PHASE3: /catalog/forms/:id/responses, the completion tracker (brief section 5):
 // every person a form was sent to, their state (submitted, overdue, opened, sent, closed,
-// withdrawn), Remind and Remind all overdue, each answer with its filed PDF, and the CSV
-// export. Overdue is computed from the due date, never stored (assignmentState).
-import { useCallback, useEffect, useMemo, useState } from 'react'
+// withdrawn), Remind and Remind all overdue, each answer with its filed PDF, and the one
+// export, Export to Excel (EXPORT-ONE-1: it replaced Download CSV). Overdue is computed
+// from the due date, never stored (assignmentState).
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { assignmentState, takesAnswer, answerText } from '../../lib/forms/formModel'
 import { completionStats, progressLabel } from '../../lib/catalog/catalogModel'
-import { formStaff, downloadCsv } from './formsApi'
+import { formStaff, downloadSheetXlsx } from './formsApi'
 import FormSheet from './FormSheet'
 import FormSummary from './FormSummary'
 import SegmentedPicker from '../shared/SegmentedPicker'
@@ -42,6 +43,16 @@ export default function FormResponses({ formId, notify, onBack, onEdit }) {
   }
   const remindable = [...picked].filter(id => ['sent', 'opened', 'overdue'].includes(rows.find(r => r.id === id)?.state))
 
+  // EXPORT-ONE-1 (Owner, 2026-09-24): one export. On the Sheet it is what the Sheet shows;
+  // on People and Summary it is every answer in the Sheet's saved layout.
+  const sheetView = useRef(null)
+  const [exporting, setExporting] = useState(false)
+  const exportExcel = async () => {
+    setExporting(true)
+    try { await downloadSheetXlsx(form.id, view === 'sheet' && sheetView.current ? sheetView.current() : {}) }
+    catch (e) { notify?.(e.message, 'err') } finally { setExporting(false) }
+  }
+
   const act = async (fn, ok) => {
     setBusy(true)
     try { const out = await fn(); if (ok) notify?.(typeof ok === 'function' ? ok(out) : ok); setPicked(new Set()); await load() }
@@ -72,9 +83,9 @@ export default function FormResponses({ formId, notify, onBack, onEdit }) {
               Remind all overdue{counts.overdue ? ` (${counts.overdue})` : ''}</button>
           )}
           {form.settings?.exportCsv !== false && form.current_version > 0 && (
-            <button type="button" className="fm-btn fm-pri fm-csv" onClick={() => act(() => downloadCsv(form.id, form.current_version))} disabled={busy}
-              title="Download every answer to the current version as a CSV">
-              <Download size={16} aria-hidden="true" /> Download CSV</button>
+            <button type="button" className="fm-btn fm-pri fm-csv" onClick={exportExcel} disabled={exporting || !counts.submitted}
+              title={!counts.submitted ? 'Nothing to export until someone submits' : view === 'sheet' ? 'Download the rows and columns the Sheet shows, as Excel' : 'Download every answer as Excel, in the Sheet\'s saved layout'}>
+              <Download size={16} aria-hidden="true" /> {exporting ? 'Exporting…' : 'Export to Excel'}</button>
           )}
         </div>
       </div>
@@ -84,7 +95,7 @@ export default function FormResponses({ formId, notify, onBack, onEdit }) {
         options={[{ value: 'people', label: 'People' }, { value: 'sheet', label: 'Sheet' }, { value: 'summary', label: 'Summary' }]} />
 
       {view === 'summary' ? <FormSummary formId={form.id} onSheet={() => setView('sheet')} />
-        : view === 'sheet' ? <FormSheet formId={form.id} notify={notify} onOpen={openAnswer} /> : (<>
+        : view === 'sheet' ? <FormSheet formId={form.id} notify={notify} onOpen={openAnswer} viewRef={sheetView} /> : (<>
       {rows.length > 0 && (
         <div className="fm-bar" role="img" aria-label={progressLabel('form', stats)}>
           {['done', 'overdue', 'opened', 'not_opened'].map(k => <i key={k} className={`fm-bar-${k}`} style={{ width: `${stats.total ? (stats[k] / stats.total) * 100 : 0}%` }} />)}

@@ -1338,8 +1338,17 @@ the Parking form follows Parking Services' own form (received 2026-09-24).
   submits, it shows the tools, the header and ten blank numbered rows, with the note above the
   grid, so columns, formats and the Σ row can be set up before the first answer.
 - **Responses' header** (RESPONSES-CANON-1): People | Sheet | Summary is the shared
-  `SegmentedPicker`; Remind all overdue shows on People only; Download CSV is the navy button
+  `SegmentedPicker`; Remind all overdue shows on People only; the export is the navy button
   with the download icon, as in NE&L Portal > Contacts.
+- **One export: Export to Excel** (EXPORT-ONE-1, Owner, 2026-09-24). Download CSV is gone: it
+  held only the current version's answers as submitted, and the Excel export holds every
+  version, corrections, staff columns and formats. The header button exports what the Sheet
+  shows when the Sheet is open (the Sheet hands its view up through `viewRef`) and, on People
+  or Summary, every answer in the Sheet's SAVED order, hidden columns and grouping
+  (`sheetXlsx` with no `columnKeys`; a missing `groupBy` means the saved one, an explicit null
+  means none). The Sheet has no export button of its own. The builder's toggle reads "Export
+  answers (Excel)" and still keys on `settings.exportCsv`. The server's `csv` action stays and
+  nothing in the app calls it.
 - **Responses has a Summary** (FORM-SUMMARY-1, 2026-09-24), like Microsoft Forms, from
   `summaryFor` over the same answers: choice, checkbox and dropdown questions as horizontal
   bars (one hue, the Catalog navy; count and share at each tip in text ink; 16px bars, a

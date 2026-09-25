@@ -26,16 +26,16 @@ export async function formStaff(action, payload = {}) {
   return json
 }
 
-/** Downloads one version's answers as CSV. */
-export async function downloadCsv(formId, version) {
-  const res = await post('csv', { id: formId, version })
-  if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.error || 'Export failed.') }
-  const cd = res.headers.get('Content-Disposition') || ''
-  const name = /filename="([^"]+)"/.exec(cd)?.[1] || 'Form answers.csv'
-  const a = document.createElement('a')
-  a.href = URL.createObjectURL(await res.blob()); a.download = name
-  document.body.appendChild(a); a.click(); a.remove()
-  setTimeout(() => URL.revokeObjectURL(a.href), 4000)
+/**
+ * EXPORT-ONE-1 (Owner, 2026-09-24): the one export is the Sheet as Excel. With `view` it is
+ * exactly the rows and columns the Sheet shows; without it, every answer in the saved layout.
+ */
+export async function downloadSheetXlsx(formId, view = {}) {
+  const r = await formStaff('sheet_xlsx', { id: formId, ...view })
+  const bytes = Uint8Array.from(atob(r.xlsx), ch => ch.charCodeAt(0))
+  const url = URL.createObjectURL(new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }))
+  const a = document.createElement('a'); a.href = url; a.download = r.fileName; document.body.appendChild(a); a.click(); a.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 30000)
 }
 
 let statusPromise = null

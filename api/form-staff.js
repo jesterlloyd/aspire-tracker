@@ -157,7 +157,8 @@ async function act(db, body, { profile, isDemo }) {
       needUuid(body.id)
       const rowIds = Array.isArray(body.rowIds) ? body.rowIds.filter(x => UUID.test(String(x))).slice(0, 5000) : null
       const columnKeys = Array.isArray(body.columnKeys) ? body.columnKeys.map(String).slice(0, 200) : null
-      const groupBy = typeof body.groupBy === 'string' ? body.groupBy.slice(0, 60) : null
+      // No groupBy at all means "the saved grouping" (EXPORT-ONE-1); an explicit null means none.
+      const groupBy = typeof body.groupBy === 'string' ? body.groupBy.slice(0, 60) : ('groupBy' in body ? null : undefined)
       const { bytes, fileName } = await sheetXlsx(db, body.id, { rowIds, columnKeys, groupBy, isDemo })
       return { xlsx: bytes.toString('base64'), fileName }
     }

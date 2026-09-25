@@ -121,7 +121,12 @@ test('Responses has People and Sheet; Build a form can add a category', () => {
   assert.match(r, /label: 'People'/); assert.match(r, /label: 'Sheet'/); assert.match(r, /label: 'Summary'/)
   assert.match(r, /<FormSheet formId=\{form\.id\}/)
   assert.match(r, /\{view === 'people' && \(\s*<button[^>]*remind_overdue|\{view === 'people' && \(/, 'Remind all overdue belongs to People')
-  assert.match(r, /<Download size=\{16\} aria-hidden="true" \/> Download CSV/)
+  // EXPORT-ONE-1 (the commit that retired Download CSV): one export, Export to Excel, in the
+  // same navy download button; on the Sheet it exports the Sheet's view.
+  assert.match(r, /<Download size=\{16\} aria-hidden="true" \/> \{exporting \? 'Exporting…' : 'Export to Excel'\}/)
+  assert.doesNotMatch(r, /\/> Download CSV|downloadCsv\(/)
+  assert.match(r, /view === 'sheet' && sheetView\.current \? sheetView\.current\(\) : \{\}/)
+  assert.doesNotMatch(read('src/components/forms/FormSheet.jsx'), /'Exporting…'|sheet_xlsx/, 'the Sheet has no second export button')
   assert.match(read('api/form-staff.js'), /case 'sheet_xlsx'/)
   const page = read('src/components/catalog/CatalogPage.jsx')
   assert.match(page, /\+ New category…/)
@@ -249,6 +254,20 @@ test('the export carries order, formats, groups, staff columns and a Corrections
   assert.match(xml, /outlineLevel="1"/)
   assert.match(files['xl/styles.xml'], /<b\/><sz val="11"\/><color rgb="FFA32A32"\/>/)
   assert.match(files['xl/styles.xml'], /FFFFF4C2/)
+})
+
+// EXPORT-ONE-1: the header's Export to Excel on People or Summary sends no view; the export
+// then follows the Sheet's SAVED order, hidden columns and grouping.
+test('an export with no view follows the saved layout', async () => {
+  const w = await sheetWorld()
+  await E.saveSheetLayout(w.db, w.form.id, { order: ['size', 'plate'], hidden: ['@email', '@submitted'], groupBy: '@school' }, w.owner)
+  const xml = unzip((await E.sheetXlsx(w.db, w.form.id, {})).bytes)['xl/worksheets/sheet1.xml']
+  const cells = [...xml.matchAll(/<t xml:space="preserve">(.*?)<\/t>/g)].map(m => m[1])
+  assert.deepEqual(cells.slice(0, 4), ['Name', 'Size', 'Plate', 'School'])
+  assert.equal(cells[4], 'CSULB (2)', 'grouped by the saved grouping')
+  const flat = unzip((await E.sheetXlsx(w.db, w.form.id, { groupBy: null })).bytes)['xl/worksheets/sheet1.xml']
+  assert.doesNotMatch(flat, /CSULB \(2\)/, 'an explicit null means no grouping')
+  assert.match(read('api/form-staff.js'), /'groupBy' in body \? null : undefined/)
 })
 
 test('before the migration the Sheet reads and exports, and says editing needs the update', async () => {
