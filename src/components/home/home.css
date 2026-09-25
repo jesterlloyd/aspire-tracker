@@ -37,6 +37,8 @@
   --hm-red-soft: var(--aspire-bad-soft);
   --hm-plum: #6B3A7A;
   --hm-plum-soft: #F2E8F5;
+  --hm-wave: rgba(29, 37, 103, .16);
+  --hm-wave-on-navy: rgba(255, 255, 255, .26);
   --hm-shadow: var(--aspire-shadow-card);
   /* Shapes this page needs that the brand does not name. Read by var(), never restated. */
   --hm-r-tag: 4px;
@@ -51,6 +53,8 @@
   color: var(--hm-ink);
 }
 [data-theme="dark"] .hm-page {
+  --hm-wave: rgba(143, 162, 240, .22);
+  --hm-wave-on-navy: rgba(18, 20, 28, .22);
   --hm-navy-soft: #232B4A;
   --hm-on-navy: #12141C;
   --hm-plum: #D29BE0;
@@ -351,6 +355,24 @@
 .hm-stage b { display: block; font-size: 22px; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .hm-stage span { font: 600 10px var(--aspire-mono); letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
 .hm-stage.is-cur { background: var(--hm-navy); color: var(--hm-on-navy); }
+/* The pulse (Owner, 2026-09-25): a soft band of shade travels left to right through the arrows,
+   one after another (each arrow's delay is its index, --hm-i), so the pipeline reads as a wave.
+   The band is translucent and sits under the figures; the current stage keeps its solid fill,
+   so the cohort's status never changes while the wave passes. Each arrow's clip-path clips its
+   own band to the chevron. Off under reduced motion (below). */
+.hm-stage b, .hm-stage span { position: relative; z-index: 1; }
+.hm-stage::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(90deg, transparent 0%, var(--hm-wave) 50%, transparent 100%);
+  transform: translateX(-110%);
+  animation: hm-wave 3.6s ease-in-out infinite;
+  animation-delay: calc(var(--hm-i, 0) * 0.32s);
+}
+.hm-stage.is-cur::after { background: linear-gradient(90deg, transparent 0%, var(--hm-wave-on-navy) 50%, transparent 100%); }
+@keyframes hm-wave {
+  0% { transform: translateX(-110%); }
+  38%, 100% { transform: translateX(110%); }
+}
 .hm-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; padding: 14px 20px 18px; }
 .hm-metric-lbl { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
 .hm-metric-lbl b { font-variant-numeric: tabular-nums; }
@@ -427,6 +449,7 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .hm-page *, .hm-page *::before, .hm-page *::after { transition: none !important; animation: none !important; }
+  .hm-stage::after { display: none; }
 }
 
 /* ============================================================================
@@ -478,6 +501,10 @@
 [data-theme="dark"] .hm-classic {
   --hm-blotter: #101532; --hm-blotter-deep: #0A0D22;
   --hm-navy-soft: #E8ECF8; --hm-on-navy: #FFFFFF; --hm-plum: #6B3A7A; --hm-plum-soft: #F2E8F5;
+  --hm-wave: rgba(29, 37, 103, .16); --hm-wave-on-navy: rgba(255, 255, 255, .26);
+  /* The shared .today-error notice sits on the light paper here, so it keeps its light pair
+     (its dark ink measured 1.52:1 on the Placement sheet). */
+  --chart-warn-ink: #8B5E1A; --chart-warn-bg: #FBF3E0;
 }
 /* The stitched edge, inset 12px. */
 .hm-classic::before {

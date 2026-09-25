@@ -26,6 +26,9 @@ const escTxt  = (v) => String(v == null ? '' : v).replace(/&/g, '&amp;').replace
 const escAttr = (v) => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 const bH2   = (t) => `<h2>${escTxt(t)}</h2>`
 const bP    = (t) => `<p>${escTxt(t)}</p>`
+// A paragraph of runs, each escaped; a run with `b` is bold. For a lead label or a stand-in
+// the reader must notice ([Cohort Request Password]) without opening an HTML door.
+const bPRuns = (runs) => `<p>${runs.map(r => (r.b ? `<strong>${escTxt(r.t)}</strong>` : escTxt(r.t))).join('')}</p>`
 const bUL   = (items) => `<ul>${items.map(i => `<li>${escTxt(i)}</li>`).join('')}</ul>`
 // Summary and reminder bullets use a bold lead label in the rich email while
 // the plain-text alternative stays clean and readable. Only the first colon is
@@ -442,16 +445,27 @@ Thank you for being part of the ASPIRE interview team.`
 // canonical school-form link. Ships both a plain body (readable fallback) and a richBody (heading and a
 // Submission timeline Note block) hydrated by the bulk composer when rich compose is on.
 const BULK_ACADEMIC_PARTNER = (() => {
-  const subject = 'ASPIRE: Student Placement Request Form'
-  const link    = appUrl('/school-form')
+  // HOME-1 (Owner, 2026-09-25): rewritten as a request for THIS cohort's placement requests, sent
+  // from At a Glance > Placement > Email Academic Partners (and still pickable in Send to Many).
+  // Two ways in, each a real Outreach button: the Academic Partner Portal's Placement Requests
+  // page, and the public School Placement Request Form with the cohort's request password.
+  // [Cohort] resolves in the composer; [Cohort Request Password] is a stand-in the Owner types
+  // over (the app stores only a hash of it) and Send stays blocked until it is gone
+  // (src/lib/connect/requiredPlaceholders.js).
+  const subject  = 'ASPIRE: Submit Your Student Placement Requests for [Cohort]'
+  const portal   = appUrl('/portal/ap/placement-requests')
+  const form     = appUrl('/school-form')
+  const password = '[Cohort Request Password]'
   const greeting = '[Clinical Coordinator Greeting]'
   const pIntro   = 'I hope you are doing well.'
-  const pInvite  = 'We are preparing for the upcoming ASPIRE cohort at Cedars-Sinai and would like to invite your school to submit student placement requests for consideration.'
-  const pForm    = 'Please complete the ASPIRE School Placement Request Form using the link below:'
-  const pWhat    = 'This form allows us to collect requested student placements, including student names, program details, preferred units, rotation requirements, dates, and any important notes that may help us review placement feasibility.'
-  const pTimeline = 'Please submit the form by the timeline shared for your cohort, if possible, so we can review all requests alongside available unit capacity.'
-  const pDisc    = 'As a reminder, submission of a request does not guarantee placement. Placement decisions are based on unit capacity, preceptor availability, student eligibility, and program alignment.'
-  const pSave    = 'To help ensure that you receive ASPIRE communications, including future updates regarding student progress, please add ASPIRE at Cedars-Sinai (noreply@aspire-program.com) to your contacts or safe-sender list.'
+  const pInvite  = 'ASPIRE at Cedars-Sinai is now accepting student placement requests for [Cohort], and we would welcome your school\'s requests.'
+  const pWays    = 'You can submit your requests in either of two ways:'
+  const pPortal  = 'If you have an ASPIRE Academic Partner Portal account, sign in and open Placement Requests.'
+  const pForm    = `Otherwise, use the ASPIRE School Placement Request Form. It asks for this cohort's request password: ${password}`
+  const pWhat    = 'The request collects each student\'s name, program details, preferred units, rotation requirements and dates, and any notes that help us review placement feasibility.'
+  const pTimeline = 'Please submit your requests by the timeline shared for your cohort, so we can review every request alongside available unit capacity.'
+  const pDisc    = 'As a reminder, a request does not guarantee placement. Placement decisions are based on unit capacity, preceptor availability, student eligibility, and program alignment.'
+  const pSave    = 'To make sure you receive ASPIRE communications, please add ASPIRE at Cedars-Sinai (noreply@aspire-program.com) to your contacts or safe-sender list.'
   const pContact = 'For any questions, please email Jester directly at jesterlloyd.bautista@cshs.org.'
   const pClose   = 'Thank you for your continued partnership.'
 
@@ -461,9 +475,13 @@ ${pIntro}
 
 ${pInvite}
 
-${pForm}
+${pWays}
 
-${link}
+1. ${pPortal}
+${portal}
+
+2. ${pForm}
+${form}
 
 ${pWhat}
 
@@ -478,10 +496,18 @@ ${pContact}
 ${pClose}`
 
   const richBody =
-    bH2('Student placement request')
+    bH2('Student placement requests for [Cohort]')
     + bP(`${greeting} ${pIntro}`)
     + bP(pInvite)
-    + bP(`${pForm} ${link}`)
+    + bP(pWays)
+    + bPRuns([{ t: 'Academic Partner Portal.', b: true }, { t: ` ${pPortal}` }])
+    + bButton({ label: 'Open Placement Requests', url: portal })
+    + bPRuns([
+      { t: 'School Placement Request Form.', b: true },
+      { t: " Otherwise, use the public form. It asks for this cohort's request password: " },
+      { t: password, b: true },
+    ])
+    + bButton({ label: 'Open the Request Form', url: form })
     + bP(pWhat)
     + bNote({ title: 'Submission timeline', body: pTimeline })
     + bP(pDisc)

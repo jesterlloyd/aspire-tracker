@@ -25,7 +25,8 @@ export default function CohortPulse({ cohortName, pipeline = [], currentStage = 
     >
       <ol className="hm-pipe" aria-label="Pipeline">
         {pipeline.map((s, i) => (
-          <li key={s.key} className={`hm-stage${i === currentStage ? ' is-cur' : ''}`} aria-current={i === currentStage ? 'step' : undefined}>
+          <li key={s.key} className={`hm-stage${i === currentStage ? ' is-cur' : ''}`} aria-current={i === currentStage ? 'step' : undefined}
+            style={{ '--hm-i': i }}>
             <b>{s.count}</b><span>{s.label}</span>
           </li>
         ))}

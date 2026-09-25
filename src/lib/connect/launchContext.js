@@ -39,6 +39,11 @@ export const LAUNCH_KINDS = Object.freeze({
   // completed alumni. The dedicated Outreach panel sends through the
   // server-minted endpoint - no client-authored body ever exists for it.
   NGRP_TRANSITION_FORM: 'ngrp_transition_form',
+  // HOME-1 (Owner, 2026-09-25): At a Glance > Placement > Email Academic Partners. Opens Send to
+  // Many with the Academic Partner Placement Request template and EVERY active Academic Partner
+  // contact selected, most useful before any school has sent a request. It writes nothing on
+  // return: it is a reminder, not a tracked request.
+  ACADEMIC_PARTNER_REQUEST: 'academic_partner_request',
 })
 const VALID_KINDS = new Set(Object.values(LAUNCH_KINDS))
 

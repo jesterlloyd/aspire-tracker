@@ -37,7 +37,7 @@ import { resolvePreceptor } from '../lib/preceptor'
 import { SURVEY_CATALOG } from '../lib/evaluation/surveyCatalog'
 import { useSignaturesFlag } from './signatures/sigApi'
 import { useFormsStatus } from './forms/formsApi'
-import { Copy } from 'lucide-react'
+import { Copy, Settings2, Send, BellRing, Mail } from 'lucide-react'
 
 // ── HOME-1 (2026-09-24): At a Glance is the app home ─────────────────────────
 // Two questions, in this order: what needs me (Needs you, one queue across every
@@ -60,7 +60,8 @@ import {
 } from '../lib/home/needsYouModel'
 import { scheduleRows, onCampusGroups, dueTodayItems } from '../lib/home/todayModel'
 import { hoursBar, midpointBar } from '../lib/home/cohortPulseModel'
-import { placementSummary, capacityByServiceLine, requestsBySchool } from '../lib/home/placementSummaryModel'
+import { placementSummary, capacityByServiceLine, requestsBySchool, REQUEST_FILTERS, requestCounts, filterRequestRows } from '../lib/home/placementSummaryModel'
+import { NavigationPill } from './ui/NavigationPill'
 import { allowedActions, personRows } from '../lib/home/launcherModel'
 import { activityRows } from '../lib/home/recentActivityModel'
 import { applicationsSummary, latestOutreachOpenRate, surveysSummary } from '../lib/home/phaseCardsModel'
@@ -186,6 +187,8 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
   // operational board can no longer add, remove, or reconfigure hosting units.
   const [showUnitSetup, setShowUnitSetup] = useState(false)
   const [unitStatusFilter, setUnitStatusFilter] = useState('hosting')
+  // HOME-1: Requests by school's own filter, counted in students (Owner, 2026-09-25).
+  const [requestFilter, setRequestFilter] = useState('all')
   // UNIT-FORM-RESPONSE-VISIBILITY: the unit_cohort_responses row open in the read-only detail drawer.
   const [selectedUnitResponse, setSelectedUnitResponse] = useState(null)
   // STAFF-SCHOOL-RESPONSE-VISIBILITY-1: the school (group key) open in the read-only School Form
@@ -522,6 +525,8 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
     const ctx = readLaunchContext()
     if (!ctx || ctx.cohortId !== cohortId) return
     /* eslint-disable react-hooks/set-state-in-effect -- intentional one-shot open on return navigation, mirrors the composer draft-hydrate precedent */
+    // HOME-1: Email Academic Partners is a reminder with nothing to confirm; returning retires it.
+    if (ctx.kind === LAUNCH_KINDS.ACADEMIC_PARTNER_REQUEST) { clearLaunchContext(); return }
     if (ctx.kind === LAUNCH_KINDS.CAPACITY_REMINDER) {
       // A reminder is informational outreach only: no confirmation, no target write, no status
       // change. Returning simply retires the launch context.
@@ -711,6 +716,24 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
   // Placement
   const summary = useMemo(() => placementSummary({ students, units, matches, divisionOf }), [students, units, matches, divisionOf])
   const requestRows = useMemo(() => requestsBySchool({ students, schoolKey: schoolGroupKey }), [students])
+  const requestTotals = useMemo(() => requestCounts(students), [students])
+  const shownRequestRows = useMemo(() => filterRequestRows(requestRows, requestFilter), [requestRows, requestFilter])
+
+  // HOME-1 (Owner, 2026-09-25): Email Academic Partners opens Send to Many with the Academic
+  // Partner Placement Request template and every active Academic Partner contact selected
+  // (OutreachView + BulkManualComposer apply it). Most useful before any request arrives.
+  const handleEmailAcademicPartners = () => {
+    const ok = writeLaunchContext({
+      kind: LAUNCH_KINDS.ACADEMIC_PARTNER_REQUEST,
+      cohortId,
+      cohortName: cohort?.name || '',
+      source: 'at_a_glance_requests',
+      templateKey: 'academic_partner_placement',
+      returnPath: '/aggregate',
+    })
+    if (!ok) { showToast('Could not open Outreach in this browser. Open ASPIRE Connect > Outreach and choose the template.'); return }
+    navigate('/connect/outreach?launch=1')
+  }
 
   // Phase cards
   const applications = useMemo(() => applicationsSummary(students, nowMs), [students, nowMs])
@@ -833,29 +856,26 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
       })()}
       <div className="hm-pl-toolbar-r">
         {isAdmin && unitStatusFilter === 'all' && (
-          <button type="button" className="ov-send-btn" onClick={handleLaunchCapacityRequest}
-            title="Open ASPIRE Connect → Outreach → Send to Many with the capacity request preselected">
-            Send Capacity Request
-          </button>
+          <NavigationPill icon={Send} onClick={handleLaunchCapacityRequest}>Send Capacity Request</NavigationPill>
         )}
         {isAdmin && unitStatusFilter === 'pending' && (
-          <button type="button" className="ov-send-btn" onClick={handleLaunchPendingReminder}
-            title="Open ASPIRE Connect → Outreach → Send to Many with the reminder preselected for pending units">
-            Send Reminder to Pending Units
-          </button>
+          <NavigationPill icon={BellRing} onClick={handleLaunchPendingReminder}>Send Reminder to Pending Units</NavigationPill>
         )}
         {canPerformMatching(userProfile) && (
-          <button type="button" className="ov-send-btn" data-testid="overview-set-up-units"
-            onClick={() => setShowUnitSetup(true)}
-            title="Choose which units participate this cohort and how many slots each offers">
-            ⚙ Set Up Units
-          </button>
+          <NavigationPill icon={Settings2} className="hm-setup-pill" onClick={() => setShowUnitSetup(true)}>
+            <span data-testid="overview-set-up-units">Set Up Units</span>
+          </NavigationPill>
         )}
       </div>
     </div>
   )
   const requestsToolbar = (
     <div className="hm-pl-toolbar">
+      {REQUEST_FILTERS.map(f => (
+        <button key={f.key} type="button" className="hm-fchip" aria-pressed={requestFilter === f.key} onClick={() => setRequestFilter(f.key)}>
+          {f.label} <b>{requestTotals[f.key]}</b>
+        </button>
+      ))}
       <StatusLegendPopover position="bottom-left" />
       <Tooltip label="Copy cohort summary" placement="bottom">
         <button onClick={handleCopyCohortSummary} aria-label="Copy cohort summary"
@@ -863,6 +883,11 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
           <Copy size={14} />
         </button>
       </Tooltip>
+      {isAdmin && (
+        <div className="hm-pl-toolbar-r">
+          <NavigationPill icon={Mail} onClick={handleEmailAcademicPartners}>Email Academic Partners</NavigationPill>
+        </div>
+      )}
     </div>
   )
   return (
@@ -1027,7 +1052,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
           {phaseNeeds('placement') && (
             <PlacementCard order={orderOf('placement')} summary={summary}
               cap={`${summary.hostingUnits} hosting unit${summary.hostingUnits === 1 ? '' : 's'} · ${requestRows.length} school${requestRows.length === 1 ? '' : 's'}`}
-              capacityRows={serviceLineRows} requestRows={requestRows}
+              capacityRows={serviceLineRows} requestRows={shownRequestRows}
               capacityToolbar={capacityToolbar} requestsToolbar={requestsToolbar}
               renderCapacityDetail={renderCapacityDetail} renderRequestDetail={renderRequestDetail}
               onViewResponse={(school) => setResponseDrawerSchool(school)} onNavigate={go}

@@ -115,9 +115,9 @@ test('At a Glance launches the real Connect flow via a proper button (ASPIRE-DES
   assert.match(overview, /writeLaunchContext\(\{\s*\n\s*kind: LAUNCH_KINDS\.CAPACITY_REQUEST/)
   assert.match(overview, /templateKey: CAPACITY_RESPONSE_TEMPLATE_KEY/)
   assert.match(overview, /navigate\('\/connect\/outreach\?launch=1'\)/)
-  // Title Case label on the canonical light-green button (same .ov-send-btn as Send Form to School),
-  // not an underlined link-style action.
-  assert.match(overview, /className="ov-send-btn" onClick=\{handleLaunchCapacityRequest\}/)
+  // HOME-1 (Owner, 2026-09-25): the canonical white pill button (NavigationPill: white at rest,
+  // grey on hover, nightfall when pressed), not the old light-green .ov-send-btn.
+  assert.match(overview, /<NavigationPill icon=\{Send\} onClick=\{handleLaunchCapacityRequest\}>Send Capacity Request<\/NavigationPill>/)
   assert.match(overview, /Send Capacity Request/)
   // The manual targets fallback and the inline orphan diagnostic are no longer surfaced on At a
   // Glance (Owner design correction); the fallback component + staff API remain intact elsewhere.
@@ -154,10 +154,10 @@ test('the header carries pills only: no prose summary, no pending list, dynamic 
   // HOME-1: the unit rows under a service line read the same filtered view.
   assert.match(overview, /const capacityFiltered = useMemo\(\(\) => \(unitStatusFilter === 'all' \? capacityView : capacityView\.filter/)
   // Dynamic action labels; Hosting / Not Hosting expose NO send action (only two send buttons exist).
-  assert.match(overview, /Send Capacity Request\s*<\/button>/)
-  assert.match(overview, /Send Reminder to Pending Units\s*<\/button>/)
-  assert.doesNotMatch(overview, /unitStatusFilter === 'hosting' &&[\s\S]{0,200}ov-send-btn/)
-  assert.doesNotMatch(overview, /unitStatusFilter === 'not_hosting' &&[\s\S]{0,200}ov-send-btn/)
+  assert.match(overview, /Send Capacity Request<\/NavigationPill>/)
+  assert.match(overview, /Send Reminder to Pending Units<\/NavigationPill>/)
+  assert.doesNotMatch(overview, /unitStatusFilter === 'hosting' &&[\s\S]{0,200}NavigationPill/)
+  assert.doesNotMatch(overview, /unitStatusFilter === 'not_hosting' &&[\s\S]{0,200}NavigationPill/)
 })
 
 test('pending targets without a response row are synthesized into their catalog divisions', () => {

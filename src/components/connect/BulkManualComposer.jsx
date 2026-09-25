@@ -46,6 +46,7 @@ import ContactAutocomplete from './ContactAutocomplete'
 import ConnectPanel from './ConnectPanel'
 import RichTextEditor from './RichTextEditor'
 import { plainTextToHtml, htmlToPlainText } from '../../lib/connect/richCompose'
+import { unfilledPlaceholders, unfilledMessage } from '../../lib/connect/requiredPlaceholders'
 
 const F = 'Plus Jakarta Sans, sans-serif'
 const NAVY = '#1D2567'
@@ -485,6 +486,20 @@ export default function BulkManualComposer({
     if (ids.length) setContactSel(new Set(ids))
   }, [contacts, initialAudience])
 
+  // HOME-1: a launch that asks for a whole category (Email Academic Partners) selects every
+  // active contact in it with a valid email, once, when the contacts load.
+  const launchCategoryAppliedRef = useRef(false)
+  useEffect(() => {
+    const cat = initialAudience?.selectAllInCategory ? initialAudience?.contactCategory : null
+    if (launchCategoryAppliedRef.current || !cat || !Array.isArray(contacts)) return
+    launchCategoryAppliedRef.current = true
+    const ids = contacts
+      .filter(c => c && c.is_active !== false && isValidEmail(c.email) && getContactCategories(c).includes(cat))
+      .map(c => c.id)
+    /* eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot launch preselection, applied when the lazy contacts load resolves (mirrors the email preselection above) */
+    if (ids.length) setContactSel(new Set(ids))
+  }, [contacts, initialAudience])
+
   // ── Escape closes the review modal (never while a send is in flight) ─────────
   useEffect(() => {
     if (!reviewOpen) return
@@ -595,7 +610,11 @@ export default function BulkManualComposer({
   const attachmentBlock = sendBlockedReason(attachments, preview.attachments, {
     previewError: preview.error, previewLoading: preview.loading,
   })
+  // HOME-1: a stand-in the person must type over (the cohort request password) blocks both
+  // Continue to final review and Send until it is gone. The server refuses it too.
+  const unfilled = unfilledPlaceholders(subject, body)
   const canSend = (
+    unfilled.length === 0 &&
     recipients.length > 0 &&
     !overLimit &&
     subject.trim().length > 0 &&
@@ -1214,6 +1233,11 @@ export default function BulkManualComposer({
                 <input type="checkbox" checked={includeSignature} onChange={e => setIncludeSig(e.target.checked)} style={{ accentColor: NAVY }} />
                 Include my email signature
               </label>
+              {unfilled.length > 0 && (
+                <p role="status" className="outreach-unfilled" style={{ margin: '4px 0 0', padding: '8px 12px', borderRadius: 8, background: '#FBF0DC', color: '#6B4306', fontSize: 12.5, fontWeight: 600, fontFamily: F }}>
+                  {unfilledMessage(unfilled)}
+                </p>
+              )}
               {(() => {
                 const reviewReady = recipients.length > 0 && subject.trim() && body.trim()
                 return (
@@ -1331,6 +1355,11 @@ export default function BulkManualComposer({
             </div>
           )}
 
+          {unfilled.length > 0 && (
+            <p role="status" style={{ margin: '0 0 8px', padding: '8px 12px', borderRadius: 8, background: '#FBF0DC', color: '#6B4306', fontSize: 12.5, fontWeight: 600, fontFamily: F }}>
+              {unfilledMessage(unfilled)}
+            </p>
+          )}
           <div className="outreach-preview-actions">
             <button
               type="button"
@@ -1343,13 +1372,13 @@ export default function BulkManualComposer({
               type="button"
               className="outreach-primary-action"
               onClick={() => setReviewOpen(true)}
-              disabled={recipients.length === 0 || !subject.trim() || !body.trim()}
+              disabled={recipients.length === 0 || !subject.trim() || !body.trim() || unfilled.length > 0}
               style={{
                 padding: '9px 18px', borderRadius: 8, border: 'none',
-                background: recipients.length > 0 && subject.trim() && body.trim() ? NAVY : '#e5e7eb',
-                color: recipients.length > 0 && subject.trim() && body.trim() ? '#fff' : '#9ca3af',
+                background: recipients.length > 0 && subject.trim() && body.trim() && !unfilled.length ? NAVY : '#e5e7eb',
+                color: recipients.length > 0 && subject.trim() && body.trim() && !unfilled.length ? '#fff' : '#9ca3af',
                 fontSize: 13, fontWeight: 600, fontFamily: F,
-                cursor: recipients.length > 0 && subject.trim() && body.trim() ? 'pointer' : 'not-allowed',
+                cursor: recipients.length > 0 && subject.trim() && body.trim() && !unfilled.length ? 'pointer' : 'not-allowed',
               }}
             >
               Continue to final review ({recipients.length})

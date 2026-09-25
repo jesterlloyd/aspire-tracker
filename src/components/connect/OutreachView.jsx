@@ -506,6 +506,12 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
           .filter(Boolean),
       }
     }
+    // HOME-1: Email Academic Partners selects every active contact in the Academic Partner
+    // category once the contacts load (the composer applies it), rather than a list of emails
+    // fixed when the button was pressed.
+    if (launchCtx.kind === LAUNCH_KINDS.ACADEMIC_PARTNER_REQUEST) {
+      return { source: 'contacts', contactCategory: 'Academic Partner', selectAllInCategory: true }
+    }
     // student_form, school_form AND interview_scheduling_link: the recipients are the intended
     // students themselves (ASPIRE-DESIGN-CORRECTION-1, Owner-directed 2026-07-29: Send Forms to
     // Students preselects the school's Pending Outreach students under the Students audience, not a

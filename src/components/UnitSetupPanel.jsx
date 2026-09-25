@@ -1,34 +1,27 @@
+// HOME-1 (Owner, 2026-09-25): Unit Setup is a compact table. One line per unit, grouped by
+// service line: a checkbox, the unit and its patient population, a slots stepper and the shift.
+// Contact, preceptors and considerations sit behind Details. A search, a Participating only
+// switch, and a pinned summary (units, slots, proceeding students) make it one workflow:
+// choose, size, check the total, save. handleSave is UNCHANGED: the same fields, written the
+// same way (an unchecked unit is marked not participating, never deleted).
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { Search, ChevronDown, ChevronRight, Minus, Plus, X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { safeWrite } from '../lib/safeWrite'
 import { SHIFT_OPTIONS, PATIENT_POPULATION_MAP, UNIT_DIVISION_MAP } from '../lib/constants'
-
-function buildSetup(catalog, currentUnits) {
-  const setup = {}
-  for (const { unit_name, patient_population, division } of catalog) {
-    const ex = currentUnits.find(u => u.unit_name === unit_name)
-    setup[unit_name] = {
-      checked:            !!(ex && ex.is_participating !== false),
-      slots:              ex?.total_slots        ?? 1,
-      shift:              ex?.shift_preference   ?? 'Either',
-      contact:            ex?.contact_person     ?? '',
-      preceptors:         ex?.preceptors         ?? '',
-      considerations:     ex?.considerations     ?? '',
-      patient_population: ex?.patient_population ?? patient_population ?? '',
-      showConsiderations: !!(ex?.considerations),
-      existingId:         ex?.id                 ?? null,
-      division:           ex?.division ?? division ?? '',
-    }
-  }
-  return setup
-}
+import { buildSetup, setupTotals, divisionTotals, visibleDivisions, clampSlots, MIN_SLOTS, MAX_SLOTS } from '../lib/unitSetupModel'
+import SegmentedPicker from './shared/SegmentedPicker'
+import './unitSetup.css'
 
 export default function UnitSetupPanel({ cohortId, currentUnits, students, onSaved, onClose }) {
   const initialized = useRef(false)
   const [setup,  setSetup]  = useState({})
   const [saving, setSaving] = useState(false)
   const [error,  setError]  = useState(null)
+  const [query, setQuery] = useState('')
+  const [view, setView] = useState('all')          // 'all' | 'participating'
+  const [open, setOpen] = useState(() => new Set())  // units whose Details are open
 
   // Fetch canonical unit names from the units table (all cohorts, deduplicated by unit_name)
   const { data: rawCatalog = [], isLoading: catalogLoading } = useQuery({
@@ -50,23 +43,10 @@ export default function UnitSetupPanel({ cohortId, currentUnits, students, onSav
     const seen = new Map()
     for (const u of rawCatalog) {
       const prev = seen.get(u.unit_name)
-      if (!prev || (!prev.patient_population && u.patient_population)) {
-        seen.set(u.unit_name, u)
-      }
+      if (!prev || (!prev.patient_population && u.patient_population)) seen.set(u.unit_name, u)
     }
     return [...seen.values()]
   }, [rawCatalog])
-
-  // Group by division for display
-  const byDivision = useMemo(() => {
-    const map = {}
-    for (const u of catalog) {
-      const div = u.division || 'Other'
-      if (!map[div]) map[div] = []
-      map[div].push(u)
-    }
-    return Object.entries(map).sort(([a], [b]) => a.localeCompare(b))
-  }, [catalog])
 
   // Initialize setup state once when catalog first loads
   useEffect(() => {
@@ -76,9 +56,17 @@ export default function UnitSetupPanel({ cohortId, currentUnits, students, onSav
     }
   }, [catalog]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Escape closes, like every other panel.
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape' && !saving) onClose() }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose, saving])
+
   const upd = useCallback((unitName, field, value) => {
     setSetup(prev => ({ ...prev, [unitName]: { ...prev[unitName], [field]: value } }))
   }, [])
+  const toggleOpen = (name) => setOpen(prev => { const n = new Set(prev); n.has(name) ? n.delete(name) : n.add(name); return n })
 
   const handleSave = async () => {
     if (!cohortId) { setError('No active cohort.'); return }
@@ -132,99 +120,111 @@ export default function UnitSetupPanel({ cohortId, currentUnits, students, onSav
     onClose()
   }
 
-  const totalChecked = Object.values(setup).filter(v => v.checked).length
+
+  const totals = setupTotals(setup, students)
+  const divisions = visibleDivisions(catalog, setup, { query, participatingOnly: view === 'participating' })
 
   return (
-    <div className="fullscreen-panel-overlay" onClick={onClose}>
-      <div className="fullscreen-panel" onClick={e => e.stopPropagation()}>
-        <div className="fsp-header">
+    <div className="fullscreen-panel-overlay" onClick={() => { if (!saving) onClose() }}>
+      <div className="fullscreen-panel us-panel" role="dialog" aria-modal="true" aria-labelledby="us-title" onClick={e => e.stopPropagation()}>
+        <div className="us-head">
           <div>
-            <h2 className="fsp-title">Unit Setup</h2>
-            <p className="fsp-sub">{totalChecked} units selected as participating</p>
+            <h2 id="us-title" className="us-title">Unit Setup</h2>
+            <p className="us-sub">Choose the units hosting this cohort and how many students each can take.</p>
           </div>
-          <button className="modal-close fsp-close" onClick={onClose}>×</button>
+          <button type="button" className="us-close" onClick={onClose} aria-label="Close Unit Setup"><X size={18} aria-hidden="true" /></button>
         </div>
 
-        {error && <div className="error-msg" style={{ margin: '0 24px 16px' }}>{error}</div>}
+        <div className="us-tools">
+          <label className="us-search">
+            <Search size={15} aria-hidden="true" />
+            <input type="search" value={query} onChange={e => setQuery(e.target.value)}
+              placeholder="Search units, populations or service lines" aria-label="Search units" />
+          </label>
+          <SegmentedPicker ariaLabel="Which units" value={view} onChange={setView} size="sm"
+            options={[{ value: 'all', label: 'All units' }, { value: 'participating', label: `Participating only (${totals.units})` }]} />
+        </div>
 
-        <div className="fsp-body">
+        {error && <div className="error-msg" role="alert" style={{ margin: '0 24px 12px' }}>{error}</div>}
+
+        <div className="us-body">
           {catalogLoading ? (
-            <div style={{ padding: '40px 24px', textAlign: 'center', color: 'var(--color-text-muted)', fontSize: 14 }}>
-              Loading units…
-            </div>
-          ) : (
-            byDivision.map(([division, units]) => (
-              <div key={division} className="usp-division">
-                <div className="usp-division-label">{division}</div>
-                <div className="usp-unit-list">
+            <p className="us-empty">Loading units…</p>
+          ) : divisions.length === 0 ? (
+            <p className="us-empty">{view === 'participating' ? 'No units are participating yet.' : 'No units match this search.'}</p>
+          ) : divisions.map(([division, units]) => {
+            const dt = divisionTotals(units, setup)
+            return (
+              <section key={division} className="us-division" aria-label={division}>
+                <div className="us-division-head">
+                  <h3>{division}</h3>
+                  <span>{dt.participating} of {dt.total} participating · {dt.slots} slot{dt.slots === 1 ? '' : 's'}</span>
+                </div>
+                <div className="us-cols" aria-hidden="true"><span /><span>Unit</span><span>Slots</span><span>Shift</span><span /></div>
+                <ul className="us-rows">
                   {units.map(({ unit_name: unitName, patient_population: pop }) => {
                     const cfg = setup[unitName] || {}
+                    const on = !!cfg.checked
+                    const isOpen = open.has(unitName)
+                    const detailId = `us-detail-${unitName.replace(/[^a-z0-9]/gi, '-')}`
                     return (
-                      <div key={unitName} className={`usp-unit-row${cfg.checked ? ' usp-checked' : ''}`}>
-                        <label className="usp-checkbox-label">
-                          <input type="checkbox" checked={cfg.checked || false}
+                      <li key={unitName} className={`us-row${on ? ' is-on' : ''}${isOpen ? ' is-open' : ''}`}>
+                        <div className="us-line">
+                          <input type="checkbox" className="us-check" checked={on} aria-label={`${unitName} participates`}
                             onChange={e => upd(unitName, 'checked', e.target.checked)} />
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                            <span className="usp-unit-name">{unitName}</span>
-                            {pop && <span style={{ fontSize: 11, color: 'var(--text-secondary)', fontStyle: 'italic' }}>{pop}</span>}
+                          <div className="us-unit">
+                            <span className="us-name">{unitName}</span>
+                            {pop && <span className="us-pop" title={pop}>{pop}</span>}
                           </div>
-                        </label>
-
-                        {cfg.checked && (
-                          <div className="usp-unit-fields">
-                            <div className="usp-field-group">
-                              <label className="usp-field-label">Slots</label>
-                              <input className="usp-input usp-input-sm" type="text" inputMode="numeric" pattern="[0-9]*"
-                                value={cfg.slots}
-                                onChange={e => upd(unitName, 'slots', parseInt(e.target.value) || 1)} />
-                            </div>
-                            <div className="usp-field-group">
-                              <label className="usp-field-label">Shift</label>
-                              <select className="usp-select" value={cfg.shift}
-                                onChange={e => upd(unitName, 'shift', e.target.value)}>
-                                {SHIFT_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-                              </select>
-                            </div>
-                            <div className="usp-field-group usp-field-grow">
-                              <label className="usp-field-label">Contact Person</label>
-                              <input className="usp-input" value={cfg.contact}
-                                onChange={e => upd(unitName, 'contact', e.target.value)}
-                                placeholder="Name" />
-                            </div>
-                            <div className="usp-field-group usp-field-grow">
-                              <label className="usp-field-label">Preceptors</label>
-                              <input className="usp-input" value={cfg.preceptors}
-                                onChange={e => upd(unitName, 'preceptors', e.target.value)}
-                                placeholder="Names, comma-separated" />
-                            </div>
-                            <div className="usp-considerations-toggle">
-                              <button type="button" className="usp-considerations-btn"
-                                onClick={() => upd(unitName, 'showConsiderations', !cfg.showConsiderations)}>
-                                {cfg.showConsiderations ? '▾' : '▸'} Considerations
-                              </button>
-                              {cfg.showConsiderations && (
-                                <textarea className="usp-textarea" rows={2}
-                                  value={cfg.considerations}
-                                  onChange={e => upd(unitName, 'considerations', e.target.value)}
-                                  placeholder="Special requirements, scheduling notes…" />
-                              )}
-                            </div>
+                          <div className="us-stepper" aria-label={`${unitName} slots`}>
+                            <button type="button" disabled={!on || cfg.slots <= MIN_SLOTS} aria-label={`Fewer slots for ${unitName}`}
+                              onClick={() => upd(unitName, 'slots', clampSlots(cfg.slots - 1))}><Minus size={13} aria-hidden="true" /></button>
+                            <input type="text" inputMode="numeric" disabled={!on} value={cfg.slots ?? ''} aria-label={`Slots for ${unitName}`}
+                              onChange={e => upd(unitName, 'slots', clampSlots(e.target.value.replace(/\D/g, '') || MIN_SLOTS))} />
+                            <button type="button" disabled={!on || cfg.slots >= MAX_SLOTS} aria-label={`More slots for ${unitName}`}
+                              onClick={() => upd(unitName, 'slots', clampSlots(cfg.slots + 1))}><Plus size={13} aria-hidden="true" /></button>
+                          </div>
+                          <select className="us-select" disabled={!on} value={cfg.shift} aria-label={`Shift for ${unitName}`}
+                            onChange={e => upd(unitName, 'shift', e.target.value)}>
+                            {SHIFT_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                          </select>
+                          <button type="button" className="us-details-btn" disabled={!on} aria-expanded={on && isOpen} aria-controls={detailId}
+                            onClick={() => toggleOpen(unitName)}>
+                            {on && isOpen ? <ChevronDown size={14} aria-hidden="true" /> : <ChevronRight size={14} aria-hidden="true" />} Details
+                          </button>
+                        </div>
+                        {on && isOpen && (
+                          <div className="us-detail" id={detailId}>
+                            <label><span>Contact person</span>
+                              <input value={cfg.contact} onChange={e => upd(unitName, 'contact', e.target.value)} placeholder="Name" /></label>
+                            <label><span>Preceptors</span>
+                              <input value={cfg.preceptors} onChange={e => upd(unitName, 'preceptors', e.target.value)} placeholder="Names, comma-separated" /></label>
+                            <label className="us-detail-wide"><span>Considerations</span>
+                              <textarea rows={2} value={cfg.considerations} onChange={e => upd(unitName, 'considerations', e.target.value)} placeholder="Special requirements, scheduling notes…" /></label>
                           </div>
                         )}
-                      </div>
+                      </li>
                     )
                   })}
-                </div>
-              </div>
-            ))
-          )}
+                </ul>
+              </section>
+            )
+          })}
         </div>
 
-        <div className="fsp-footer">
-          <button type="button" className="btn btn-outline-modal" onClick={onClose}>Cancel</button>
-          <button type="button" className="btn btn-primary" onClick={handleSave} disabled={saving}>
-            {saving ? 'Saving…' : `Save ${totalChecked} Unit${totalChecked !== 1 ? 's' : ''}`}
-          </button>
+        <div className="us-foot">
+          <p className={`us-summary${totals.covered ? ' is-covered' : ' is-short'}`} role="status">
+            <b>{totals.units}</b> unit{totals.units === 1 ? '' : 's'} · <b>{totals.slots}</b> slot{totals.slots === 1 ? '' : 's'} · <b>{totals.proceeding}</b> proceeding student{totals.proceeding === 1 ? '' : 's'}
+            <span className="us-verdict">{totals.covered
+              ? (totals.spare ? `${totals.spare} spare slot${totals.spare === 1 ? '' : 's'}` : 'Every student has a slot')
+              : `${totals.short} slot${totals.short === 1 ? '' : 's'} short`}</span>
+          </p>
+          <div className="us-actions">
+            <button type="button" className="btn btn-outline-modal" onClick={onClose} disabled={saving}>Cancel</button>
+            <button type="button" className="btn btn-primary" onClick={handleSave} disabled={saving}>
+              {saving ? 'Saving…' : `Save ${totals.units} Unit${totals.units !== 1 ? 's' : ''}`}
+            </button>
+          </div>
         </div>
       </div>
     </div>

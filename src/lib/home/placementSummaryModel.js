@@ -79,3 +79,26 @@ export function requestsBySchool({ students = [], schoolKey = (s) => s } = {}) {
   }
   return [...rows.values()].sort((a, b) => a.school.localeCompare(b.school))
 }
+
+// ── Requests by school filters (Owner, 2026-09-25: counts are STUDENTS) ──────────────
+// All is every student request, Placed the students with a unit, and Needs outreach the
+// students still in Pending Outreach, whose student form has not gone out yet (the Owner's
+// definition: "we need to send form to them"). NB the Academic Partner Portal's own "Needs
+// Outreach" card also counts Form Sent; this one does not, on purpose.
+export const REQUEST_FILTERS = Object.freeze([
+  { key: 'all', label: 'All', test: () => true },
+  { key: 'placed', label: 'Placed', test: (s) => !!s?.matched_unit_id },
+  { key: 'needs_outreach', label: 'Needs outreach', test: (s) => s?.status === 'Pending Outreach' },
+])
+
+export function requestCounts(students = []) {
+  const list = (students || []).filter(Boolean)
+  return Object.fromEntries(REQUEST_FILTERS.map(f => [f.key, list.filter(f.test).length]))
+}
+
+/** The school rows that hold at least one student matching the filter; each row keeps its own totals. */
+export function filterRequestRows(rows = [], filter = 'all') {
+  const f = REQUEST_FILTERS.find(x => x.key === filter)
+  if (!f || filter === 'all') return rows
+  return rows.filter(r => (r.list || []).some(f.test))
+}

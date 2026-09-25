@@ -52,6 +52,7 @@ import { getOrganizationSettings, organizationAssetUrl } from '../lib/server/org
 import { recordCatalogSend, isCatalogResourceId } from './lib/catalogSendLog.js';
 import { demoScopeFromRequest } from '../lib/server/demoScope.js';
 import { prepareFormButtons, previewFormButtons, personalizeFormButtons, hasFormButtons, settleFormButtons, isDemoSend } from '../lib/server/forms/outreachButtons.js';
+import { unfilledPlaceholders, unfilledMessage } from '../src/lib/connect/requiredPlaceholders.js';
 
 // Seeded fallback signatures for the two known leads (mirrors api/connect-send-direct-email.js).
 const SIGNATURE_SEED = {
@@ -265,6 +266,9 @@ async function _handler(req, res) {
     if (!messageBody.trim()) {
       return res.status(400).json({ success: false, error: 'body is required' });
     }
+    // HOME-1: a stand-in the sender must type over (the cohort request password) never leaves.
+    const unfilledOne = unfilledPlaceholders(subject, messageBody);
+    if (unfilledOne.length) return res.status(400).json({ success: false, error: unfilledMessage(unfilledOne), code: 'unfilled_placeholder' });
     const includeSignature = body.include_signature !== false; // default true
 
     // ── 6. Merge (first name + school only; locked fallback policy) ──
@@ -357,6 +361,9 @@ async function runSendMode(res, body, senderSig, profile, resolvedBodyFormat, is
   const bodyRaw    = typeof body.body === 'string' ? body.body : '';
   if (!subjectRaw.trim()) return res.status(400).json({ success: false, error: 'subject is required and must be non-empty' });
   if (!bodyRaw.trim())    return res.status(400).json({ success: false, error: 'body is required and must be non-empty' });
+  // HOME-1: a stand-in the sender must type over (the cohort request password) never leaves.
+  const unfilledMany = unfilledPlaceholders(subjectRaw, bodyRaw);
+  if (unfilledMany.length) return res.status(400).json({ success: false, error: unfilledMessage(unfilledMany), code: 'unfilled_placeholder' });
   if (subjectRaw.trim().length > SUBJECT_MAX) return res.status(400).json({ success: false, error: `subject must not exceed ${SUBJECT_MAX} characters` });
   const maxBody = resolvedBodyFormat === 'html' ? BODY_MAX_HTML : BODY_MAX;
   if (bodyRaw.trim().length > maxBody)        return res.status(400).json({ success: false, error: `body must not exceed ${maxBody} characters` });

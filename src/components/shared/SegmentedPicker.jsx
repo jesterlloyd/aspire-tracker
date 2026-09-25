@@ -18,6 +18,9 @@
 // mark on the page. The active segment stays solid navy on every surface, because "which
 // view am I in" must not change meaning between one calendar and another.
 //
+// Dark mode reads `--seg-active-ink` and `--seg-rest-ink` from theme.css (both undefined in
+// light, so light renders exactly as before); the shipped pair measured 3.03:1 and 3.27:1.
+//
 // `aria-pressed` is on every segment, which two of the three copies were missing.
 
 export default function SegmentedPicker({
@@ -67,7 +70,7 @@ export default function SegmentedPicker({
               whiteSpace: 'nowrap',
               ...(paper ? {} : {
                 background: active ? 'var(--color-accent-primary,#1D2567)' : 'var(--bg-input,#fff)',
-                color: active ? '#fff' : 'var(--text-secondary,#4A5560)',
+                color: active ? 'var(--seg-active-ink,#fff)' : 'var(--seg-rest-ink,var(--text-secondary,#4A5560))',
               }),
               transition: 'all 0.12s',
             }}

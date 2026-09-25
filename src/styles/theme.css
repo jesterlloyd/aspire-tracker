@@ -146,6 +146,12 @@
 
 /* ── Dark mode ─────────────────────────────────────────────────── */
 :root[data-theme="dark"] {
+  /* SegmentedPicker inks (HOME-1, 2026-09-25). The picker paints the lifted accent in dark,
+     and white on #6B8EFF measured 3.03:1; its resting ink was a light-mode constant on the
+     dark input, 3.27:1. Light mode has no value here, so the picker renders what it did. */
+  --seg-active-ink: #0F1419;
+  --seg-rest-ink:   #AAB4C0;
+
   /* Surfaces */
   --color-bg-page:     #0F1419;
   --color-bg-surface:  #171D24;
@@ -404,8 +410,6 @@
 
 /* Full-screen panels (Student Profiles, Interview Room) */
 [data-theme="dark"] .profiles-full-container,
-[data-theme="dark"] .fsp-header,
-[data-theme="dark"] .fsp-body,
 [data-theme="dark"] .student-list-panel {
   background: var(--color-bg-page);
   color: var(--color-text-primary);

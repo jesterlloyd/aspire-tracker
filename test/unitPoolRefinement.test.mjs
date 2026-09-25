@@ -77,7 +77,8 @@ test('PROOF 3: legitimate unit setup remains reachable, in the hosting workflow'
     'the SAME panel, not a copy')
   // Gated by the SAME authority the board button had (canPerformMatching:
   // owner, admin, co-lead) - the relocation must not narrow who can use it.
-  assert.match(ov, /\{canPerformMatching\(userProfile\) && \(\s*<button type="button" className="ov-send-btn" data-testid="overview-set-up-units"/)
+  // HOME-1 (Owner, 2026-09-25): the canonical white pill button.
+  assert.match(ov, /\{canPerformMatching\(userProfile\) && \(\s*<NavigationPill icon=\{Settings2\}[^>]*onClick=\{\(\) => setShowUnitSetup\(true\)\}>\s*<span data-testid="overview-set-up-units">Set Up Units<\/span>/)
   assert.match(ov, /import \{ canPerformMatching \} from '\.\.\/lib\/permissions'/)
   assert.match(APP(), /<OverviewTab[\s\S]{0,400}onRefreshUnits=\{\(\) => fetchUnits\(activeCohortId\)\}/)
   // The empty state points people to the new home rather than a button that left.

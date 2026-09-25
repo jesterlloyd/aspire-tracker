@@ -272,6 +272,7 @@ function swap(src) {
     .replace(/from '\.\.\/src\/lib\/placementNotificationState\.js'/, `from ${abs('src/lib/placementNotificationState.js')}`)
     .replace(/from '\.\/lib\/placementSendGuard\.js'/, `from ${abs('api/lib/placementSendGuard.js')}`)
     .replace(/from '\.\.\/src\/lib\/recipientParse\.js'/, `from ${abs('src/lib/recipientParse.js')}`)
+    .replace(/from '\.\.\/src\/lib\/connect\/requiredPlaceholders\.js'/, `from ${abs('src/lib/connect/requiredPlaceholders.js')}`)
     .replace(/from '\.\.\/src\/lib\/htmlEscape\.js'/, `from ${abs('src/lib/htmlEscape.js')}`)
     .replace(/from '\.\.\/src\/lib\/notifications\/templates\/signatures\.js'/, `from ${abs('src/lib/notifications/templates/signatures.js')}`)
     .replace(/from '\.\/lib\/messageArchive\.js'/, `from ${abs('api/lib/messageArchive.js')}`)

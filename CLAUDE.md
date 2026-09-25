@@ -727,6 +727,35 @@ tested modules in `src/lib/home/`. Nothing is computed in JSX.
   and `isViewersOwn` matches the viewer on profile id or email.
 - **The welcome tour keeps its anchors**: while it runs, the four withheld controls come back
   (`hideHomeChrome` in StaffApp), because the tour skips a step whose anchor is missing.
+- **Placement's actions are the canonical white button** (Owner, 2026-09-25): Set Up Units,
+  Send Capacity Request and Send Reminder to Pending Units are `NavigationPill` (white at rest,
+  grey on hover, nightfall when pressed), never a bespoke navy or outline button.
+- **Requests by school filters students, not schools** (Owner, 2026-09-25): All, Placed (a
+  `matched_unit_id`) and Needs outreach (status Pending Outreach only), from `REQUEST_FILTERS`
+  in `placementSummaryModel.js`. The Academic Partner portal's "Needs Outreach" also counts
+  Form Sent; the two are different questions and stay different.
+- **Email Academic Partners opens a draft; it never sends.** The button writes the
+  `ACADEMIC_PARTNER_REQUEST` launch context, so Outreach > Send to Many opens with the Academic
+  Partner Placement Request template and every active Academic Partner contact with a valid
+  email selected. The template asks for this cohort's requests through the portal button or the
+  school form button, and carries `[Cohort Request Password]`, which the sender types over.
+- **A required placeholder blocks the send**: `REQUIRED_PLACEHOLDERS` in
+  `src/lib/connect/requiredPlaceholders.js`. The composer disables review and send and says
+  which one is left; `/api/connect-send-bulk-message` refuses with 400 `unfilled_placeholder`
+  on both paths. A password is never filled in by the app.
+- **The Cohort pulse is a wave, not a blink** (Owner, 2026-09-25): a gradient sweeps each
+  arrow left to right, 0.32s after the one before (`--hm-i`); the current stage keeps its fill
+  and gets the on-navy gradient. Reduced motion removes it.
+- **Unit Setup is a compact table** (Owner, 2026-09-25): one line per unit grouped by service
+  line (checkbox, unit, slots stepper, shift, Details), a search, All units | Participating
+  only, and a pinned summary of units, slots and proceeding students with its verdict. The
+  rules are `src/lib/unitSetupModel.js`; the sheet is `src/components/unitSetup.css`, on theme
+  tokens, so the panel now follows dark mode. `handleSave` is unchanged: an unchecked unit is
+  marked not participating, never deleted. A legacy 'Either' shift reads as No Preference
+  (`ImportUnitsCSV` still writes 'Either').
+- **The segmented picker has a dark pair**: `--seg-active-ink` and `--seg-rest-ink`, defined in
+  theme.css for dark only (white on the lifted accent was 3.03:1). Classic dark restates
+  `--chart-warn-*` to their light pair, because its papers stay light.
 - `TodayMasthead.jsx` is retired; the staff masthead host is `HomeBanner` (Classic). Unit
   leaders use their own portal, not this page.
 
