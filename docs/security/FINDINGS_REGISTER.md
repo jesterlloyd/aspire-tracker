@@ -403,13 +403,17 @@ afterward, from memory.
 ## S-16. Avatar uploads bypass the server; avatar_url accepted as arbitrary string
 
 - **Severity (original)**: Medium.
-- **Status**: Closed (code); SQL unconfirmed. The application no longer writes an avatar
-  from the browser or accepts an arbitrary `avatar_url`; the migration that removes the
-  database-side paths a browser session could still use is drafted and Owner-gated. The
-  finding closes when it is applied and its POST sections pass.
-- **Closing commit**: the commit that adds
-  `supabase/migrations/20261001000000_s16_avatar_writes_server_only.sql` (S16-1,
-  2026-09-24).
+- **Status**: CLOSED.
+- **Closing commit**: `c53a0d5d` (S16-1, 2026-09-24), which adds
+  `supabase/migrations/20261001000000_s16_avatar_writes_server_only.sql`. Applied to
+  production by the Owner on 2026-09-25 after the code was live; POST 1 to 4 all matched
+  (avatar_url no longer browser-updatable while the six other self-service columns,
+  `ui_preferences` included, kept their grant; update_my_avatar EXECUTE false for
+  authenticated and anon; only the two SELECT policies remain on the buckets; row counts
+  identical). PRE 3 found and the migration dropped three dashboard-created `avatars`
+  write policies (insert, update, delete, each scoped to the caller's own folder); their
+  expressions are recorded in the OWNER_SQL_GATE ledger row. PRE 4 found zero stored
+  avatar_url values outside own Storage, so no legacy value exists to grandfather.
 - **Risk (historical)**: content-type and path discipline enforced nowhere, and a staff
   admin can point another user's avatar at any URL.
 - **Found in discovery, at HEAD**: five write paths, three of them browser-side.

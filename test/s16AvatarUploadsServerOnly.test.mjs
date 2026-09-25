@@ -333,11 +333,14 @@ test('the audit file is read-only and PII-free, with PRE 1 to 4 and POST 1 to 4'
 test('the register and the SQL gate were updated with the migration, without an em dash', () => {
   const register = read('docs/security/FINDINGS_REGISTER.md')
   const s16 = register.slice(register.indexOf('## S-16.'), register.indexOf('## S-17.'))
-  assert.match(s16, /Closed \(code\); SQL unconfirmed/)
+  // c53a0d5d shipped this as "Closed (code); SQL unconfirmed" with the ledger row UNKNOWN.
+  // The Owner applied the migration on 2026-09-25 and every POST section passed, so the
+  // closing commit moved S-16 to CLOSED and the ledger row to APPLIED.
+  assert.match(s16, /\*\*Status\*\*: CLOSED\./)
   assert.match(s16, /20261001000000_s16_avatar_writes_server_only\.sql/)
   assert.match(s16, /s16_avatar_writes_server_only_checks\.sql/)
   const gate = read('docs/security/OWNER_SQL_GATE.md')
-  assert.match(gate, /^\| 20261001000000_s16_avatar_writes_server_only\.sql \|.*UNKNOWN/m)
+  assert.match(gate, /^\| 20261001000000_s16_avatar_writes_server_only\.sql \|.*APPLIED 2026-09-25/m)
   const dash = new RegExp(String.fromCharCode(8212))
   for (const text of [migration, audit, s16, read('api/lib/avatarImage.js'), read('api/my-avatar.js'), read('api/contact-avatar-upload.js')]) {
     assert.doesNotMatch(text, dash, 'no em dash')
