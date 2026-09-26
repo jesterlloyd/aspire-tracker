@@ -833,9 +833,50 @@ afterward, from memory.
 
 ## S-24. cohort_school_rotations readable by anon and any authenticated
 
-- **Severity (original)**: Low. **Status**: OPEN.
+- **Severity (original)**: Low. **Status**: Closed (code); SQL unconfirmed. The
+  migration is drafted and Owner-gated; the finding closes when it is applied and its
+  POST sections pass.
 - **Risk**: rotation and coordinator detail readable with the anon key.
-- **Verified at HEAD**: `cohort_school_rotations_anon_select` USING (true) in 20260522000000; Wave E2 cleanup EXPLICITLY excluded this table (noted in 20260712000005), so the exclusion was deliberate but the exposure stands.
+- **Verified at HEAD (before S24-1)**: `cohort_school_rotations_anon_select` USING (true) in 20260522000000; Wave E2 cleanup EXPLICITLY excluded this table (noted in 20260712000005), so the exclusion was deliberate but the exposure stands.
+- **Closing commit**: S24-1 (2026-09-25), the commit that adds
+  `supabase/migrations/20261007000000_s24_cohort_school_rotations_read_scope.sql`.
+- **Discovery (S24-1)**. Every reader of the table at HEAD, and the role it runs as:
+  - Browser, staff app, signed in with a staff role (`StaffApp.jsx`, `RotationActivity.jsx`,
+    `MatchingTab.jsx`, `ManageCohortModal.jsx`, `CohortBar.jsx`, `OverviewTab.jsx`,
+    `StudentSidePanel.jsx`, `StudentCoverage.jsx`, `Header/scope/InternshipCohortList.jsx`,
+    `lib/home/homeLoaders.js`): ten readers, all covered by `is_staff()`. No portal bundle
+    imports any of them.
+  - Server, service role (bypasses RLS): the school form and placement upsert, Keith,
+    community benefit, certificates, the shift-log window checks, `api/lib/schoolScope.js`
+    and every portal endpoint (`school-students`, `school-placement-requests`,
+    `unit-roster`, `unit-student-detail`, `my-rotation-activity`, `academics-calendar`).
+    Each portal endpoint already scopes what it returns by the caller's school, unit or
+    student; `auth.db` in those files is the service client, not the caller's JWT. The one
+    caller-scoped client in `api/` (`getCallerScopedDb`) calls the school-form password RPC
+    and never this table.
+  - SQL routines: `reconcile_student_completions`, `reconcile_students_after_rotation_date`
+    and `aspire_demo_inherit` are SECURITY DEFINER; `student_shift_classify` is
+    invoker-rights with EXECUTE granted to service_role only. No view reads the table.
+  - Public, logged-out pages: none. The "school-form confirmation fetch" the 2026-05 anon
+    policy anticipated was never built, so nothing needed a field-allow-listed endpoint and
+    none was added.
+  - Portal roles: none reads the table from the browser, so no portal policy is created. A
+    scoped policy would guard a read that does not exist; if a portal ever needs a direct
+    read, one policy on `my_school_scope_keys()` is the shape.
+  - Staff reads do not change: `is_staff()` admits owner, admin, co-lead, interviewer and
+    viewer, exactly the accounts the staff app signs in.
+- **Fix**: `20261007000000_s24_cohort_school_rotations_read_scope.sql` drops both USING
+  (true) policies, creates `cohort_school_rotations_staff_select` FOR SELECT TO
+  authenticated USING (`is_staff()`), and revokes the anon role's table grant so an anon
+  read is refused outright. Writes were already service-role only and are untouched. One
+  transaction, refuses to run without the table or `is_staff()`, safe to re-run, inert
+  rollback at the end. No deploy is needed before or after it: no application code changes.
+  Checks in `db/audit/s24_cohort_school_rotations_read_scope_checks.sql`: PRE 1 to 3, the
+  file, POST 1 to 3; POST 3 impersonates anon, an unauthenticated JWT, an Academic Partner
+  portal user and a staff profile inside a rolled-back DO block and proves anon is refused,
+  the portal user reads nothing and staff reads every row.
+  `test/s24CohortSchoolRotationsReadScope.test.mjs` runs the migration on PGlite with the
+  same four callers and fails if any migration creates a USING (true) policy on this table.
 
 ## S-25. Suspected legacy USING (true) policies on archived submission tables
 
