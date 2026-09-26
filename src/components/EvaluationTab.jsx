@@ -12,6 +12,7 @@ import SurveyPreviewDrawer from './evaluation/SurveyPreviewDrawer'
 import RestrictedAccessOverlay from './RestrictedAccessOverlay'
 import DataSheet, { Pill, Missing, DetailField } from './shared/DataSheet'
 import { sortRows } from './shared/dataSheetSort'
+import SegmentedPicker from './shared/SegmentedPicker'
 import { InstrumentTabs, AnalysisSheet } from './evaluation/ResponsesPacket'
 import BubbleSheet from './evaluation/BubbleSheet'
 import { completedByLabel } from '../lib/evaluationLabels'
@@ -21,6 +22,7 @@ import {
   buildPacket, buildInstrumentTabs, buildRosterRows, buildBubbleSheet,
   rosterSortValue, effectiveStatus, responseOf, timepointLabel, reissueTarget,
 } from '../lib/evaluation/responsesPacketModel'
+import './evaluation/evaluationModern.css'
 
 // RESPONSES-PACKET-1 (2026-09-19): Evaluation > Responses is a printed results packet.
 // Four instrument file tabs sit on a gridded analysis sheet (ResponsesPacket.jsx), a
@@ -354,18 +356,6 @@ export default function EvaluationTab({ cohortId, cohortLabel = '' }) {
     setDetailAssignment(null)
   }
 
-  // ── Styles ────────────────────────────────────────────────────────────────
-
-  // Sub-tab button style - mirrors RotationTab.jsx btnStyle pattern
-  const btnStyle = (key) => ({
-    height: 32, padding: '0 13px', display: 'flex', alignItems: 'center',
-    border: 'none', cursor: 'pointer', fontSize: 12,
-    fontFamily: F, fontWeight: 500,
-    background: activeSubTab === key ? 'var(--color-accent-primary,#1D2567)' : 'var(--bg-input,#fff)',
-    color: activeSubTab === key ? '#fff' : 'var(--text-secondary,#4A5560)',
-    transition: 'all 0.12s',
-  })
-
   // ── Render ────────────────────────────────────────────────────────────────
 
   const renderExpanded = (row) => {
@@ -427,7 +417,7 @@ export default function EvaluationTab({ cohortId, cohortLabel = '' }) {
   )
 
   return (
-    <div style={{ fontFamily: F, display: 'flex', flexDirection: 'column', position: 'relative' }}>
+    <div className="evaluation-workspace" style={{ fontFamily: F, display: 'flex', flexDirection: 'column', position: 'relative' }}>
 
       {/* EVALUATION-INTERVIEWER-ACCESS-UX + RESTRICTED-ACCESS-OVERLAY-UNIFORMITY-FIX: for interviewers,
           overlay the REAL Evaluation dashboard (blurred, non-interactive), identical pattern to the
@@ -441,23 +431,21 @@ export default function EvaluationTab({ cohortId, cohortLabel = '' }) {
         />
       )}
 
-      {/* Sub-tab picker - mirrors RotationTab.jsx structure and styling */}
-      <div style={{ padding: '0 20px 12px', flexShrink: 0 }}>
-        <div style={{
-          display: 'flex',
-          borderRadius: 7,
-          border: '1px solid var(--border-input,rgba(29,37,103,0.10))',
-          overflow: 'hidden',
-          width: 'fit-content',
-        }}>
-          {/* EVAL-NAV-1: visible subnav simplified to Responses + Review & Release.
-              Internal keys ('cohort','automation') are unchanged. The 'program' and
-              'preceptor' tabs are hidden (components retained, see blocks below). */}
-          <button onClick={() => setActiveSubTab('cohort')}  style={btnStyle('cohort')}>Responses</button>
-          {(isOwner || isAdmin) && (
-            <button onClick={() => { setRrArrival(null); setActiveSubTab('automation') }} style={btnStyle('automation')}>Review &amp; Release</button>
-          )}
-        </div>
+      {/* EVAL-NAV-1 + SEGMENTED-PICKER-1: the same canonical view picker used by
+          Student Profiles (Profiles | CS-Link Access) and Rotation. */}
+      <div className="evaluation-view-picker">
+        <SegmentedPicker
+          ariaLabel="Evaluation views"
+          value={activeSubTab}
+          onChange={key => {
+            if (key === 'automation') setRrArrival(null)
+            setActiveSubTab(key)
+          }}
+          options={[
+            { value: 'cohort', label: 'Responses' },
+            ...((isOwner || isAdmin) ? [{ value: 'automation', label: 'Review & Release' }] : []),
+          ]}
+        />
       </div>
 
       {/* ── Program View placeholder ────────────────────────────────────── */}
@@ -516,10 +504,10 @@ export default function EvaluationTab({ cohortId, cohortLabel = '' }) {
       {activeSubTab === 'cohort' && (
         // LAYOUT-SHELL-CONSISTENCY-1/1B: fill the shared app-main shell explicitly (width:100% +
         // min-width:0 make full-width, shrink-safe behavior independent of the parent's align-items).
-        <div style={{ width: '100%', minWidth: 0, padding: '4px 20px 24px' }}>
+        <div className="evaluation-responses" style={{ width: '100%', minWidth: 0, padding: '4px 20px 24px' }}>
 
           {/* Header - title, subtitle, and freshness cue right-aligned (mirrors OverviewTab) */}
-          <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 20, gap: 16, flexWrap: 'wrap' }}>
+          <div className="evaluation-responses-head" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 20, gap: 16, flexWrap: 'wrap' }}>
             <div>
               <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-heading, #191919)', margin: '0 0 4px', fontFamily: F }}>
                 Evaluation Results

@@ -355,7 +355,8 @@ export default function ReviewReleaseQueue({
       {/* 8. The sent tape. Owner, 2026-09-19: no Undo on it; sends are synchronous. */}
       <div className="rq-sent rq-tape">
         <div className="rq-tape-head">
-          <span>Sent from this clipboard</span>
+          <span className="rq-sent-label-classic">Sent from this clipboard</span>
+          <span className="rq-sent-label-modern">Recently sent</span>
           <button type="button" onClick={() => onTrackResponses?.(survey)}>Track responses {'→'}</button>
         </div>
         {recent.length === 0

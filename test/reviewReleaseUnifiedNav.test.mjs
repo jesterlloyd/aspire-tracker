@@ -127,9 +127,10 @@ test('every workflow, the Unit Leader release included, renders through the one 
 test('EvaluationTab renders the dashboard behind the same gate, and wires Track responses', () => {
   assert.doesNotMatch(tab, /<UnitEvaluationReleaseConsole/)
   assert.doesNotMatch(tab, /import UnitEvaluationReleaseConsole/)
-  // Top-level Evaluation tabs unchanged: Responses + Review & Release, same gate.
-  assert.match(tab, /Responses<\/button>/)
-  assert.match(tab, /Review &amp; Release<\/button>/)
+  // Top-level Evaluation views keep the same labels and gate through the canonical picker.
+  assert.match(tab, /import SegmentedPicker from '\.\/shared\/SegmentedPicker'/)
+  assert.match(tab, /\{ value: 'cohort', label: 'Responses' \}/)
+  assert.match(tab, /\{ value: 'automation', label: 'Review & Release' \}/)
   assert.match(tab, /activeSubTab === 'automation' && \(isOwner \|\| isAdmin\) && \(\s*\n\s*<SurveyAutomationDashboard/)
   // Section 4: the Sent log links to the Responses tab filtered to that workflow.
   assert.match(tab, /onTrackResponses=\{\(survey\) => \{/)
