@@ -765,8 +765,10 @@ tested modules in `src/lib/home/`. Nothing is computed in JSX.
   (dark `#1E2766 / #151C4A / #0F1438`), cognac corners `#9A6236 / #7A4A26 / #5A351A` at 78px,
   a 2px cream stitch that is `.hm-classic::after` at the corners' layer so it runs OVER the
   leather, and 44px below the desk. The glass meets the wood on a dark inner edge; a white
-  ring read as a hairline. Recent Activity sitting above Placement in Evaluation is the
-  mockup's phase order, on purpose. The window's glass
+  ring read as a hairline.
+- **Placement is always above Recent Activity** (Owner, 2026-09-25), in every phase; the
+  mockup put it last in Recruitment, Interviewing and Evaluation. `PHASES` in `cyclePhase.js`
+  holds the orders and a test checks the pair in every one. The window's glass
   is a top sheen, a corner glare and two reflection bands under the greeting and launcher.
   Today and Cohort Pulse start on one line with the rings and the drawn wire clip
   overhanging, and the Today picker sits 12px under the double rule.

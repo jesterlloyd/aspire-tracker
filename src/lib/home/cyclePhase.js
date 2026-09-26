@@ -20,12 +20,14 @@
 //
 // Pure: no React, no I/O, `today` is passed in as a local 'YYYY-MM-DD'.
 
+// Placement always sits above Recent Activity (Owner, 2026-09-25: "keep placement above recent
+// activity"), overriding the mockup's recruit, interview and eval orders, which put it last.
 export const PHASES = Object.freeze({
-  recruit: { key: 'recruit', label: 'Recruitment', stage: 0, order: ['recruit', 'duo', 'activity', 'placement'] },
-  interview: { key: 'interview', label: 'Interviewing', stage: 1, order: ['duo', 'recruit', 'activity', 'placement'] },
+  recruit: { key: 'recruit', label: 'Recruitment', stage: 0, order: ['recruit', 'duo', 'placement', 'activity'] },
+  interview: { key: 'interview', label: 'Interviewing', stage: 1, order: ['duo', 'recruit', 'placement', 'activity'] },
   placement: { key: 'placement', label: 'Placement', stage: 2, order: ['placement', 'duo', 'activity'] },
   rotation: { key: 'rotation', label: 'Active rotation', stage: 3, order: ['duo', 'placement', 'activity'] },
-  eval: { key: 'eval', label: 'Evaluation', stage: 4, order: ['evals', 'duo', 'activity', 'placement'] },
+  eval: { key: 'eval', label: 'Evaluation', stage: 4, order: ['evals', 'duo', 'placement', 'activity'] },
 })
 
 export const PHASE_KEYS = Object.freeze(Object.keys(PHASES))

@@ -28,11 +28,14 @@ const NOW_MS = NOW.getTime()
 
 test('PHASE 1: five phases, each with its order after Needs you, from the brief', () => {
   assert.deepEqual(PHASE_KEYS, ['recruit', 'interview', 'placement', 'rotation', 'eval'])
-  assert.deepEqual(PHASES.recruit.order, ['recruit', 'duo', 'activity', 'placement'])
-  assert.deepEqual(PHASES.interview.order, ['duo', 'recruit', 'activity', 'placement'])
+  // Owner, 2026-09-25: Placement is above Recent Activity in every phase (the brief put it last
+  // in recruit, interview and eval).
+  assert.deepEqual(PHASES.recruit.order, ['recruit', 'duo', 'placement', 'activity'])
+  assert.deepEqual(PHASES.interview.order, ['duo', 'recruit', 'placement', 'activity'])
   assert.deepEqual(PHASES.placement.order, ['placement', 'duo', 'activity'])
   assert.deepEqual(PHASES.rotation.order, ['duo', 'placement', 'activity'])
-  assert.deepEqual(PHASES.eval.order, ['evals', 'duo', 'activity', 'placement'])
+  assert.deepEqual(PHASES.eval.order, ['evals', 'duo', 'placement', 'activity'])
+  for (const p of Object.values(PHASES)) assert.ok(p.order.indexOf('placement') < p.order.indexOf('activity'), p.key)
 })
 
 test('PHASE 2: derived from cohort status, student statuses and the school rotation windows', () => {
