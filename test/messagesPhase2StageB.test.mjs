@@ -233,7 +233,13 @@ test('server service, worker, and webhook wiring', async (t) => {
     assert.match(webhookSrc, /provider_status:/);
     // Scope the queue_status guard to code (comments explain what is not touched).
     const webhookCode = webhookSrc.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
-    assert.doesNotMatch(webhookCode, /queue_status/, 'webhook code must never write queue_status');
+    // The guard is about MESSAGE delivery: the webhook reports provider_status, never the queue.
+    // f059b204 (ACTION-CENTER-1): the one queue_status in the webhook is on its own NEW in-app
+    // staff notification ("outreach delivered"), and it is 'suppressed': staff_notifications
+    // defaults to 'queued', which would email the sender about every delivered send.
+    const mentions = webhookCode.match(/queue_status[^,\n]*/g) || [];
+    assert.deepEqual(mentions, ["queue_status: 'suppressed'"], 'webhook code must never write queue_status');
+    assert.match(webhookCode, /from\('staff_notifications'\)\.insert\(\{[\s\S]*?queue_status: 'suppressed',[\s\S]*?\}\)/);
     // Existing notification_log behavior retained.
     assert.match(webhookSrc, /notification_log/);
     assert.match(webhookSrc, /svix-signature/);

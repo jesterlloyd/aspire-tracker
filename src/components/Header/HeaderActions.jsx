@@ -9,7 +9,7 @@ import UserMenu from '../UserMenu'
 import ColorModeButton from './ColorModeButton'
 import { useAuth } from '../../contexts/AuthContext'
 import { IDLE_UNREAD_POLL_MS, useStaffNeedsReplyCount } from '../../lib/messages/messagesPolling'
-import { pinBadgeStyle } from '../../lib/badgeTokens'
+import { pinBadgeStyle, BADGE_COUNT_BG } from '../../lib/badgeTokens'
 import { formatUnread, needsReplyLabel } from '../../lib/messages/messagesConstants'
 
 export default function HeaderActions({
@@ -184,7 +184,7 @@ export default function HeaderActions({
           {bellActionCount === 0 && notificationsUnread > 0 && (
             <span aria-hidden="true" style={{
               position: 'absolute', top: -3, right: -3, width: 8, height: 8,
-              borderRadius: '50%', background: '#DC1E34', border: '2px solid #1D2567',
+              borderRadius: 'var(--aspire-radius-pill)', background: BADGE_COUNT_BG, border: '2px solid #1D2567',
             }} />
           )}
         </button>

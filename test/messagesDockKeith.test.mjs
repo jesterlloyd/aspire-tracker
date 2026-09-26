@@ -54,8 +54,12 @@ test('first open shows the list; reopen restores the last thread and re-anchors'
   // remounted ThreadPanel re-anchors through useThreadAutoScroll.
   assert.match(dock, /const \[lastSelectedId, setLastSelectedId\] = useState\(null\)/)
   assert.match(workspace, /docked = false, initialSelectedId = null, onSelectionChange,/)
-  assert.match(workspace, /useState\(initialSelectedId\)/)
-  assert.match(workspace, /useState\(initialSelectedId \? 'thread' : 'list'\)/)
+  // f059b204 (ACTION-CENTER-1): a notification can open a conversation by link
+  // (?conversation=<uuid>), but never inside the dock, so the dock's first open and reopen
+  // still come from initialSelectedId alone.
+  assert.match(workspace, /const linkedConversationId = !docked && /)
+  assert.match(workspace, /useState\(initialSelectedId \|\| linkedConversationId\)/)
+  assert.match(workspace, /useState\(\(initialSelectedId \|\| linkedConversationId\) \? 'thread' : 'list'\)/)
   // docked forces the single-pane phone layout regardless of window width.
   assert.match(workspace, /const narrow = useIsNarrow\(\) \|\| docked/)
   // Selection changes flow back to the dock's memory.

@@ -61,6 +61,9 @@ export const DEMO_UNSCOPED_RPCS = Object.freeze([
   'clear_student_disposition',
   'complete_disposition_followup',
   'get_all_user_profiles',
+  // ACTION-CENTER-1: writes a decision on ONE support check-in the staff member picked in the
+  // queue (a shift_log_id). The id pins the population, like record_student_disposition.
+  'record_support_checkin_decision',
 ])
 
 /** Is this table inside the boundary? */

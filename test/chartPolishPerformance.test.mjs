@@ -35,7 +35,9 @@ test('Messages: the linked student is a real, wired affordance', () => {
   const ws = read('src/components/connect/messages/MessagesWorkspace.jsx')
   assert.match(ws, /onOpenStudent\(c\.related_student_id\)/)
   assert.match(ws, /Open student record →/)
-  assert.match(ws, /<ThreadPanel[\s\S]{0,220}?onOpenStudent=\{onOpenStudent\}/)
+  // f059b204 (ACTION-CENTER-1) added focusReply to ThreadPanel, which moved onOpenStudent
+  // further down the same element; the window is wider, the wiring is the same.
+  assert.match(ws, /<ThreadPanel[\s\S]{0,360}?onOpenStudent=\{onOpenStudent\}/)
   const connect = read('src/pages/Connect.jsx')
   assert.match(connect, /<MessagesWorkspace[\s\S]{0,300}refreshKey=\{refreshKey\}[\s\S]{0,300}onOpenStudent=\{onNavigateToStudent\}/)
   // Cross-route focus never writes the URL from a stale route closure.

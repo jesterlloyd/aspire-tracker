@@ -192,17 +192,15 @@ test('the Connect icon badge', async (t) => {
   await t.test('Action Center now shares the red, but its count LOGIC is unchanged', () => {
     // The standard was corrected to one color everywhere, so #930045 is gone.
     assert.doesNotMatch(headerActions, /#930045/)
-    // PHASE 2C: the bell now carries ONE combined badge across its two tabs (open tasks plus
-    // unread staff notifications). The 9+ cap and aria-hidden chip are unchanged; the count is the
-    // combined bellBadgeCount = actionBadgeCount + notificationsUnread.
-    assert.match(headerActions, /const bellBadgeCount = \(actionBadgeCount \|\| 0\) \+ \(notificationsUnread \|\| 0\)/)
-    assert.match(headerActions, /\{bellBadgeCount >= 10 \? '9\+' : bellBadgeCount\}/)
-    // ASPIRE-CHART: the accessible name is dynamic - it always starts with
-    // "Action Center" and carries the TRUE count (the visual chip caps at 9+
-    // and is aria-hidden). It now spans both tabs: open actions plus new notifications.
-    assert.match(headerActions, /aria-label=\{bellBadgeCount > 0\s*\n\s*\? `Action Center, \$\{actionBadgeCount\} open action/)
-    assert.match(headerActions, /new notification\$\{notificationsUnread === 1 \? '' : 's'\}/)
-    assert.match(headerActions, /: 'Action Center'\}/)
+    // f059b204 (ACTION-CENTER-1) replaced PHASE 2C's combined count: the bell's NUMBER is the
+    // Action Needed count only (still capped at 9+), and unread staff notifications show as a
+    // dot only when no action count is showing. Both dot and chip read the one badge red.
+    assert.match(headerActions, /const bellActionCount = actionBadgeCount \|\| 0/)
+    assert.match(headerActions, /\{bellActionCount >= 10 \? '9\+' : bellActionCount\}/)
+    assert.match(headerActions, /\{bellActionCount === 0 && notificationsUnread > 0 && \(/)
+    assert.match(headerActions, /background: BADGE_COUNT_BG/)
+    // The accessible name always starts with "Action Center" and carries BOTH true counts.
+    assert.match(headerActions, /aria-label=\{`Action Center, \$\{bellActionCount\} item\$\{bellActionCount === 1 \? '' : 's'\} need you, \$\{notificationsUnread\} unread notification/)
     // The bell badge and its open marker still render; only the color moved.
     assert.match(headerActions, /ref=\{bellRef\}/)
   })
