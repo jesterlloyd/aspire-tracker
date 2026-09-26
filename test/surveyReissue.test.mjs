@@ -285,7 +285,9 @@ test('Send again lives in the expanded detail, opens Review & Release through th
   assert.match(tab, /setRrArrival\(\{ itemId: target\.itemId \}\)/)
   assert.match(tab, /setActiveSubTab\('automation'\)/)
   assert.match(tab, /arriveAt=\{rrArrival\}/)
-  assert.match(tab, /onClick=\{\(\) => \{ setRrArrival\(null\); setActiveSubTab\('automation'\) \}\}/, 'a stale arrival never flashes twice')
+  // Repinned after 399ccc87 (modern Evaluation themes) moved the subnav onto SegmentedPicker:
+  // choosing Review & Release still clears the arrival before switching.
+  assert.match(tab, /if \(key === 'automation'\) setRrArrival\(null\)\s*\n\s*setActiveSubTab\(key\)/, 'a stale arrival never flashes twice')
   assert.match(dash, /useState\(\(\) => arriveAt\?\.itemId \|\| null\)/, 'the arrival is read once, at mount')
   assert.match(dash, /highlightItemId=\{highlightItemId \|\| \(arrived \? arrivalId : null\)\}/)
   assert.match(dash, /el\?\.scrollIntoView\(\{ block: 'center'/)
