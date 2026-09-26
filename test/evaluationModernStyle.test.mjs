@@ -37,3 +37,10 @@ test('Modern Review and Release uses neutral action language', () => {
   assert.match(modern, /\.rq-sent-label-classic \{ display: none; \}/)
   assert.match(modern, /\.rq-sent-label-modern \{ display: inline; \}/)
 })
+
+test('the analysis table control names the action it will take', () => {
+  const packet = read('src/components/evaluation/ResponsesPacket.jsx')
+  assert.match(packet, /aria-expanded=\{tableView\}/)
+  assert.match(packet, /aria-controls=\{tableId\}/)
+  assert.match(packet, /\{tableView \? 'Hide table' : 'View table'\}/)
+})

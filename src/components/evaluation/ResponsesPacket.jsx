@@ -123,10 +123,10 @@ function SubscaleRow({ s, paired, labels }) {
 
 // The same figures as a real table, with a caption a screen reader gets. Required, not
 // optional: the neutral segment sits below 3:1 against the sheet.
-export function TableView({ distribution }) {
+export function TableView({ distribution, id }) {
   const { paired, subscales, title, heads } = distribution
   return (
-    <table className="rp-tv">
+    <table className="rp-tv" id={id}>
       <caption className="sr-only">{title} as a table</caption>
       <thead>
         <tr>
@@ -185,6 +185,7 @@ export function AnalysisSheet({
 }) {
   const { instrument, rows, basis, distribution, followUp } = packet
   const hasRows = rows.length > 0
+  const tableId = `evaluation-analysis-table-${instrument.slug}`
   const emptyFinding = distribution.paired
     ? 'The pre-to-post comparison will appear after at least one student completes both a pre-rotation and a post-rotation survey.'
     : 'The distribution will appear after the first response is submitted.'
@@ -220,7 +221,7 @@ export function AnalysisSheet({
         ))}
         {showRows && <p className="rp-scale">{distribution.scaleLabel}</p>}
         {showRows && distribution.scoringNote && <p className="rp-scoring">{distribution.scoringNote}</p>}
-        {showRows && tableView && <TableView distribution={distribution} />}
+        {showRows && tableView && <TableView distribution={distribution} id={tableId} />}
 
         <div className="rp-sheetfoot">
           <div className="rp-footleft">
@@ -236,11 +237,12 @@ export function AnalysisSheet({
             <button
               type="button"
               className="ds-btn"
-              aria-pressed={tableView}
+              aria-expanded={tableView}
+              aria-controls={tableId}
               disabled={!showRows}
               onClick={() => onToggleTableView?.(!tableView)}
             >
-              Table view
+              {tableView ? 'Hide table' : 'View table'}
             </button>
           </div>
         </div>
