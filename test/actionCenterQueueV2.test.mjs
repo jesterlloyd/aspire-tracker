@@ -95,3 +95,11 @@ test('drawer and schema carry the accessibility, snooze, classification, and not
   assert.match(read('src/components/connect/messages/ThreadActions.jsx'), /autoFocus=\{focusOnMount\}/)
   assert.match(backfill, /ROLLBACK;/)
 })
+
+test('Classic Action Center uses the compact slotted clipboard clip from Outreach', () => {
+  const panel = read('src/components/ActionCenterV2.jsx')
+  const css = read('src/components/actionCenter/actionCenter.css')
+  assert.equal((panel.match(/<div className="ac2-clip" aria-hidden="true"><span \/><\/div>/g) || []).length, 2)
+  assert.match(css, /data-style="classic"\] \.ac2-clip \{[^}]*width: 76px;[^}]*height: 24px;/)
+  assert.match(css, /data-style="classic"\] \.ac2-clip > span \{[^}]*width: 25px;[^}]*height: 6px;/)
+})

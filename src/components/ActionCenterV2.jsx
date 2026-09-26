@@ -314,7 +314,7 @@ export default function ActionCenterV2({
               <p className="ac2-scope">Showing {activeCohort?.name || 'this cohort'} plus everything waiting on you personally. Oldest first.</p>
             </div>
             <div className="ac2-body">
-              <div className="ac2-clip" aria-hidden="true" />
+              <div className="ac2-clip" aria-hidden="true"><span /></div>
               {(queue.failures || []).map(failure => <div className="ac2-error" key={failure.key}><span>Couldn’t load {failure.label}.</span><button type="button" onClick={() => failure.retry?.()}>Retry</button></div>)}
               {urgent.length > 0 && <section className="ac2-section" aria-labelledby="ac2-urgent"><h3 className="ac2-section-head" id="ac2-urgent">Urgent <b>{urgent.length}</b></h3>{urgent.map(renderItem)}</section>}
               {groups.map(group => <section className="ac2-section" key={group.key} aria-labelledby={`ac2-${group.key}`}><h3 className="ac2-section-head" id={`ac2-${group.key}`}>{group.label} <b>{group.items.length}</b></h3>{group.items.map(renderItem)}</section>)}
@@ -339,7 +339,7 @@ export default function ActionCenterV2({
 
         {tab === 'notifications' && (
           <section id="ac2-panel-notifications" role="tabpanel" aria-labelledby="ac2-tab-notifications" className="ac2-body">
-            <div className="ac2-clip" aria-hidden="true" />
+            <div className="ac2-clip" aria-hidden="true"><span /></div>
             <div className="ac2-notif-head"><span>{unread} unread</span>{unread > 0 && <button type="button" className="ac2-mark-all" onClick={() => notifications.markRead?.(null)}>Mark all read</button>}</div>
             <StaffNotificationsPanel items={notifications.items || []} unreadCount={unread} isLoading={notifications.isLoading} isError={notifications.isError}
               onMarkRead={notifications.markRead} onMarkAllRead={() => notifications.markRead?.(null)} onNavigateDestination={onNavigateNotificationDestination} hideHeader />
