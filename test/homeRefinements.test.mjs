@@ -216,9 +216,12 @@ test('CLASSIC DESK 2: square paper, shadows not outlines, a torn edge, glass, on
   assert.match(css, /\.hm-classic \.ds\[data-level="plain"\] \{\s*border: 0;\s*border-radius: 0;\s*box-shadow:/)
   // The folder keeps its shape: it is not paper.
   assert.match(css, /\.hm-classic \.hm-folder \{[^}]*border-radius: 0 var\(--aspire-radius-card\)/)
-  // The tear is a drawing below the paper, so the paper keeps its shadow; no clip-path.
+  // The tear is the Catalog's torn sheet turned to the bottom edge: a mask on the paper, with
+  // the shadow on the wrapper (a mask clips the element's own shadow); no clip-path.
   assert.doesNotMatch(css, /\.hm-classic \.hm-tape \{[^}]*clip-path/)
-  assert.match(css, /\.hm-classic \.hm-tape::after \{[^}]*bottom: -13px;[^}]*repeat-x;/)
+  assert.match(css, /\.hm-classic \.hm-tape \{[^}]*box-shadow: none;[^}]*mask: url\("data:image\/svg\+xml;utf8,[^"]*polygon[^"]*"\) left bottom \/ 120px 12px repeat-x,/)
+  assert.match(css, /\.hm-classic \.hm-tape-wrap \{ filter: drop-shadow\(/)
+  assert.match(read('src/components/home/RecentActivity.jsx'), /<div className="hm-tape-wrap" style=\{order != null \? \{ order \} : undefined\}>/)
   // An inline SVG needs its hashes escaped, or the image silently fails to draw.
   for (const u of css.match(/url\("data:image\/svg\+xml,[^"]*"\)/g) || []) assert.doesNotMatch(u, /#/)
   assert.match(css, /\.hm-clip \{[^}]*background: url\("data:image\/svg\+xml,/)
@@ -300,4 +303,21 @@ test('WINDOW: a card built after the first still gets the banner\'s style, and t
   const i = css.indexOf('.hm-window-scene {')
   assert.doesNotMatch(css.slice(i, css.indexOf('}', i)), /background/, 'the scene draws no curve of its own')
   assert.match(css, /\.hm-window-scene \.mast-host \{ position: absolute; inset: 0; overflow: hidden; border-radius: inherit; background: var\(--aspire-navy\); \}/)
+})
+
+test('CLASSIC DESK 4: the desk wears the mockup\'s colours, stitching over the leather, room below', () => {
+  // Owner, 2026-09-25: "copy the colors (blue felt and leather, and stitching) of the mockup. the
+  // stitching going over the leather too", "some space in the bottom", and no white hairline
+  // between the scenery and the wood.
+  const css = read('src/components/home/home.css')
+  assert.match(css, /--hm-blotter-a: #2A3886;\s*--hm-blotter: #1E2A6E;\s*--hm-blotter-deep: #18225C;/)
+  assert.match(css, /--hm-cognac-a: #9A6236;\s*--hm-cognac-b: #7A4A26;\s*--hm-cognac-c: #5A351A;/)
+  assert.match(css, /--hm-stitch: rgba\(250, 240, 215, \.3\);/)
+  // The stitch is ::after at the corners' layer, so it paints over them and under the papers.
+  assert.match(css, /\.hm-classic::after \{[^}]*z-index: 1;[^}]*border: 2px dashed var\(--hm-stitch\);/)
+  assert.match(css, /\.hm-classic > \.hm-corner \{ position: absolute; z-index: 1; \}/)
+  assert.doesNotMatch(css, /\.hm-classic::before/)
+  assert.match(css, /margin-bottom: 44px;/)
+  const i = css.indexOf('.hm-window-glass {')
+  assert.doesNotMatch(css.slice(i, css.indexOf('}', i)), /inset 0 1px 0 rgba\(255, 255, 255|inset 0 0 0 1px rgba\(255, 255, 255/)
 })

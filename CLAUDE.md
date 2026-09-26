@@ -757,8 +757,16 @@ tested modules in `src/lib/home/`. Nothing is computed in JSX.
 - **The Classic desk, round 3** (Owner, 2026-09-25): paper is square and lifts on a shadow,
   never an outline (notepad, report and loose sheets, tape, index cards, and the Placement
   sheets inside them); the folder, corners and window keep their shape. Recent Activity's
-  tear is an inline SVG drawn BELOW the paper (a clip-path would cut the paper's shadow),
-  and every inline SVG escapes `#` as `%23` or it silently draws nothing. The window's glass
+  tear is the Catalog's torn-sheet mask (catalog.css `.ctl-detail`) turned to the bottom
+  edge, with the shadow on `.hm-tape-wrap` because a mask clips the element's own shadow;
+  the wrapper also carries the section's phase `order`. Every inline SVG in a `url()` escapes
+  `#` as `%23` or it silently draws nothing.
+- **The desk is the mockup's** (Owner, 2026-09-25): blotter `#2A3886 / #1E2A6E / #18225C`
+  (dark `#1E2766 / #151C4A / #0F1438`), cognac corners `#9A6236 / #7A4A26 / #5A351A` at 78px,
+  a 2px cream stitch that is `.hm-classic::after` at the corners' layer so it runs OVER the
+  leather, and 44px below the desk. The glass meets the wood on a dark inner edge; a white
+  ring read as a hairline. Recent Activity sitting above Placement in Evaluation is the
+  mockup's phase order, on purpose. The window's glass
   is a top sheen, a corner glare and two reflection bands under the greeting and launcher.
   Today and Cohort Pulse start on one line with the rings and the drawn wire clip
   overhanging, and the Today picker sits 12px under the double rule.

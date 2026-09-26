@@ -8,7 +8,10 @@ const ICON = { check: Check, form: ListChecks, msg: MessageSquare, rel: Send, ou
 export default function RecentActivity({ rows = [], order, onNavigate }) {
   if (!rows.length) return null
   return (
-    <HomeCard id="hm-activity" title="Recent Activity" cap="Finished without you" material="tape" order={order}>
+    // The wrapper carries the section's place in the phase order and, in Classic, the paper's
+    // shadow: the tape's torn edge is a mask, and a mask clips an element's own shadow.
+    <div className="hm-tape-wrap" style={order != null ? { order } : undefined}>
+    <HomeCard id="hm-activity" title="Recent Activity" cap="Finished without you" material="tape">
       <ul className="hm-feed">
         {rows.map(r => {
           const I = ICON[r.icon] || Check
@@ -25,5 +28,6 @@ export default function RecentActivity({ rows = [], order, onNavigate }) {
         })}
       </ul>
     </HomeCard>
+    </div>
   )
 }
