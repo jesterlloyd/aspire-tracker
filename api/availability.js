@@ -893,7 +893,14 @@ export function createAvailabilityHandler({ verifyCaller: verify = verifyCaller,
       if (sessions?.length > 0) {
         for (const sess of sessions) {
           const hasRubric = sess.cj_question_text || sess.pp_question_text || sess.ga_question_text;
-          if (!hasRubric) await db.from('interview_sessions').delete().eq('id', sess.id);
+          if (!hasRubric) {
+            await db.from('interview_sessions').delete().eq('id', sess.id);
+          } else {
+            // S28-2: the rubric stays, the booking does not. A kept session pointing at the
+            // slot it just released would hold the slot against the next student once
+            // uq_interview_sessions_one_per_slot (20261008000000) is in place.
+            await db.from('interview_sessions').update({ slot_id: null }).eq('id', sess.id);
+          }
         }
       }
 

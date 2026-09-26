@@ -939,15 +939,55 @@ afterward, from memory.
 
 ## S-28. interview_slots lacked database-level double-booking protection
 
-- **Severity (original)**: Low. **Status**: PARTIALLY CLOSED.
+- **Severity (original)**: Low. **Status**: Closed (code); SQL unconfirmed. The slot-side
+  constraint is drafted and Owner-gated; the finding closes when it is applied and its
+  POST sections pass.
 - **Risk**: concurrent bookings race the application check.
-- **Verified at HEAD**: 20260822020000 (confirmed APPLIED 2026-08-27) added `uq_interview_slots_one_booking_per_student`, so one student holding two bookings is now impossible at the database. The slot side (two students on one slot) still has no constraint and relies on the atomic conditional claim (`.eq('is_booked', false)`) plus the post-claim re-check in api/interview-book.js. Remaining: a partial unique index on slot id WHERE is_booked, if desired.
+- **Verified at HEAD (before S28-1)**: 20260822020000 (confirmed APPLIED 2026-08-27) added `uq_interview_slots_one_booking_per_student`, so one student holding two bookings is now impossible at the database. The slot side (two students on one slot) still has no constraint and relies on the atomic conditional claim (`.eq('is_booked', false)`) plus the post-claim re-check in api/interview-book.js.
+- **Closing commit**: S28-1 (2026-09-26), the commit that adds
+  `supabase/migrations/20261008000000_s28_s29_constraints_and_activity_logs.sql`.
+- **Discovery (S28-1)**: a booking is an `interview_sessions` row with a `slot_id`
+  (`api/interview-book.js` writes it; `move_booking` in `api/availability.js` carries it to
+  the new slot; `slot_id` is `ON DELETE SET NULL` to the slot). The slot row itself can only
+  name one `booked_by_student_id`, so the double booking that can exist is two sessions on
+  one slot. One legitimate path produced exactly that shape: `cancel_booking` deleted a
+  kept session only when it had no rubric, and left a rubric-bearing session pointing at
+  the slot it had just released, so the next student to book that slot got a second
+  session on it. That is the stale pointer PRE 3 lists.
+- **Fix**: S28-2, in the same commit, makes `cancel_booking` clear `slot_id` on a kept
+  session. The migration adds `uq_interview_sessions_one_per_slot`, a partial unique index
+  on `interview_sessions (slot_id) WHERE slot_id IS NOT NULL`, behind a guard that names
+  any slot two sessions already share and refuses the file. **Apply only after S28-2 is
+  live**, or a cancel followed by a rebooking of the same slot would be refused at the
+  session insert.
 
 ## S-29. evaluation_assignment_tokens has no one-active-token constraint
 
-- **Severity (original)**: Low. **Status**: OPEN.
+- **Severity (original)**: Low. **Status**: Closed (code); SQL unconfirmed. The constraint
+  is drafted and Owner-gated; the finding closes when it is applied and its POST sections
+  pass.
 - **Risk**: multiple live tokens per assignment can accumulate; revocation by token id (the house rule) mitigates but nothing enforces singularity.
-- **Verified at HEAD**: no unique index or constraint on the table in any migration.
+- **Verified at HEAD (before S29-1)**: no unique index or constraint on the table in any migration.
+- **Closing commit**: S29-1 (2026-09-26), the same commit and migration as S-28.
+- **Discovery (S29-1)**: "active" means not revoked and not used and not expired; every
+  reader agrees (the submit RPCs check `revoked_at IS NULL AND expires_at > now() AND
+  used_at IS NULL`). Expiry is time-based and cannot sit in an index predicate, so the
+  database rule is `revoked_at IS NULL AND used_at IS NULL`. Every issuing path already
+  keeps to it: `api/evaluation-create-invitation.js` revokes an assignment's other tokens
+  and rotates one survivor, `lib/server/evaluation/assignmentReissue.js` revokes them all
+  before it writes, and the two release endpoints revoke on reissue.
+- **Fix**: `uq_eval_tokens_one_active`, a partial unique index on
+  `evaluation_assignment_tokens (assignment_id) WHERE revoked_at IS NULL AND used_at IS
+  NULL`, behind a guard that names any assignment holding more than one active token and
+  refuses the file. Same migration as S-28, which also gives `activity_logs` the S-23
+  trigger pair through `public.append_only_refuse()` and revokes UPDATE, DELETE and
+  TRUNCATE on it (every writer inserts: fourteen server files, `src/lib/logActivity.js`
+  and the KT and Keith governance RPCs; no code or SQL path updates or deletes a row).
+  Checks in `db/audit/s28_s29_constraints_and_activity_logs_checks.sql`: PRE 1 to 5, the
+  file, POST 1 to 5; POST 5 tries a duplicate token, a duplicate session and an
+  activity_logs rewrite inside a rolled-back block. `test/s28s29Constraints.test.mjs`
+  runs the migration on PGlite, proves each refusal, proves the guard names violating ids
+  and applies nothing, and pins the cancel-path fix.
 
 ## S-30. Keith GET reveals hasApiKey unauthenticated
 
