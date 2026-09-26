@@ -760,14 +760,28 @@ afterward, from memory.
 
 ## S-23. Append-only event tables have no enforcement
 
-- **Severity (original)**: Low. **Status**: Closed (code); SQL unconfirmed. The
-  migration is drafted and Owner-gated; the finding closes when it is applied and its
-  POST sections pass.
+- **Severity (original)**: Low. **Status**: Closed. The migration
+  `20261006000000_s23_append_only_event_tables.sql` was APPLIED by the Owner on
+  2026-09-25 and PRE 1 to 4 and POST 1 to 5 passed (see the OWNER_SQL_GATE ledger). Every
+  documented append-only event and audit table now refuses UPDATE, DELETE and TRUNCATE by
+  trigger, whatever role issues them.
 - **Risk**: documented-append-only history (e.g. preceptor_assignment_events) is silently rewritable by any service-role code path or compromised key.
 - **Verified at HEAD (before S23-1)**: GRANT ALL to service_role, and no UPDATE/DELETE-blocking trigger in any migration touches `preceptor_assignment_events`.
 - **Template for the fix, in-repo since 2026-09-23**: the enforcement this finding asks for now exists on two newer tables. `supabase/migrations/20260927000000_signatures_phase2.sql` puts `trg_sig_events_append_only` (BEFORE UPDATE OR DELETE) and `trg_sig_events_no_truncate` (BEFORE TRUNCATE) on `sig_events`, and `20260929000000_form_sheet.sql` puts `trg_form_answer_corrections_append_only` on `form_answer_corrections`; both refuse the statement regardless of role, so a service-role path cannot rewrite history. `test/signaturesMigration.test.mjs` proves the sig_events triggers on real Postgres (PGlite). `20260725000000_unit_leader_evaluation_release_gate.sql` has the same pair, plus trimmed grants, on `evaluation_response_unit_release_events`.
-- **Closing commit**: S23-1 (2026-09-25), the commit that adds
-  `supabase/migrations/20261006000000_s23_append_only_event_tables.sql`.
+- **Closing commits**: S23-1 (0b811653, 2026-09-25), which adds
+  `supabase/migrations/20261006000000_s23_append_only_event_tables.sql`, and S23-2
+  (2026-09-25), which records the application. Results: PRE 1 all fifteen present, only
+  `form_answer_corrections`' own trigger and the Action Center's AFTER INSERT trigger on
+  `conversation_events` pre-existing; PRE 2 six tables with service_role UPDATE, DELETE
+  and TRUNCATE; PRE 3 CASCADE only on the two named keys and the corrections table, none
+  from students or cohorts; PRE 4 `program_events` cascades from both students and cohorts
+  (confirming its exclusion), `activity_logs` has SET NULL keys only and service_role still
+  holds UPDATE and DELETE on it (a safe follow-up under this template); POST 1 both
+  triggers on all fifteen; POST 2 no rows; POST 3 every table refused UPDATE, DELETE and
+  TRUNCATE (three empty tables read no-rows for the row statements), the corrections
+  table's TRUNCATE refused with its own check_violation code; POST 4 inserted 4, every
+  update and delete refused, rolled back; POST 5 identical to PRE 2 on SELECT and INSERT
+  with every write privilege false.
 - **Discovery (S23-1)**. Every table in the migrations named as an event, audit or
   history table, or documented append-only, was listed with its enforcement:
   - Enforced already (grants and triggers): `sig_events`,

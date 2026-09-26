@@ -156,7 +156,9 @@ ORDER BY 1, 2, 3;
 -- its own value), a DELETE of one existing row, and a TRUNCATE, and records the outcome.
 -- The block ends with RAISE EXCEPTION, so the transaction is rolled back and NOTHING it
 -- did survives, even in the impossible case that a statement went through. The report
--- is the error message.
+-- is the error message. A refusal is insufficient_privilege (this file's function) or
+-- check_violation (form_answer_corrections' own function from 20260929000000); the first
+-- run on 2026-09-25 classified the latter as an error and read FAIL for that one cell.
 -- Expect the message to begin "S-23 POST 3 PASS" and to list every table as
 -- update=refused delete=refused truncate=refused, except that a table with no rows yet
 -- reads update=no-rows delete=no-rows (a row trigger cannot fire on nothing).
@@ -189,20 +191,20 @@ BEGIN
       BEGIN
         EXECUTE format('UPDATE public.%I SET %I = %I WHERE ctid = (SELECT ctid FROM public.%I LIMIT 1)', t, col, col, t);
         upd := 'WENT THROUGH'; failed := true;
-      EXCEPTION WHEN insufficient_privilege THEN upd := 'refused';
+      EXCEPTION WHEN insufficient_privilege OR check_violation THEN upd := 'refused';
                WHEN OTHERS THEN upd := 'error ' || SQLSTATE; failed := true;
       END;
       BEGIN
         EXECUTE format('DELETE FROM public.%I WHERE ctid = (SELECT ctid FROM public.%I LIMIT 1)', t, t);
         del := 'WENT THROUGH'; failed := true;
-      EXCEPTION WHEN insufficient_privilege THEN del := 'refused';
+      EXCEPTION WHEN insufficient_privilege OR check_violation THEN del := 'refused';
                WHEN OTHERS THEN del := 'error ' || SQLSTATE; failed := true;
       END;
     END IF;
     BEGIN
       EXECUTE format('TRUNCATE public.%I', t);
       trunc := 'WENT THROUGH'; failed := true;
-    EXCEPTION WHEN insufficient_privilege THEN trunc := 'refused';
+    EXCEPTION WHEN insufficient_privilege OR check_violation THEN trunc := 'refused';
              WHEN OTHERS THEN trunc := 'error ' || SQLSTATE; failed := true;
     END;
     report := report || format('%s (%s rows): update=%s delete=%s truncate=%s; ', t, n, upd, del, trunc);
@@ -231,9 +233,9 @@ BEGIN
     VALUES ('cycle_created', 'system', '{"s23_post4": true}'::jsonb) RETURNING id::text INTO rid;
   inserted := inserted + 1;
   BEGIN UPDATE public.ngrp_audit_events SET actor_kind = 'system' WHERE id::text = rid; upd := 'WENT THROUGH'; failed := true;
-  EXCEPTION WHEN insufficient_privilege THEN upd := 'refused'; WHEN OTHERS THEN upd := 'error ' || SQLSTATE; failed := true; END;
+  EXCEPTION WHEN insufficient_privilege OR check_violation THEN upd := 'refused'; WHEN OTHERS THEN upd := 'error ' || SQLSTATE; failed := true; END;
   BEGIN DELETE FROM public.ngrp_audit_events WHERE id::text = rid; del := 'WENT THROUGH'; failed := true;
-  EXCEPTION WHEN insufficient_privilege THEN del := 'refused'; WHEN OTHERS THEN del := 'error ' || SQLSTATE; failed := true; END;
+  EXCEPTION WHEN insufficient_privilege OR check_violation THEN del := 'refused'; WHEN OTHERS THEN del := 'error ' || SQLSTATE; failed := true; END;
   report := report || format('ngrp_audit_events: update=%s delete=%s; ', upd, del);
 
   -- ngrp_preceptor_feedback_access_events
@@ -241,9 +243,9 @@ BEGIN
     VALUES (gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), 'viewed', 0) RETURNING id::text INTO rid;
   inserted := inserted + 1;
   BEGIN UPDATE public.ngrp_preceptor_feedback_access_events SET response_count = 0 WHERE id::text = rid; upd := 'WENT THROUGH'; failed := true;
-  EXCEPTION WHEN insufficient_privilege THEN upd := 'refused'; WHEN OTHERS THEN upd := 'error ' || SQLSTATE; failed := true; END;
+  EXCEPTION WHEN insufficient_privilege OR check_violation THEN upd := 'refused'; WHEN OTHERS THEN upd := 'error ' || SQLSTATE; failed := true; END;
   BEGIN DELETE FROM public.ngrp_preceptor_feedback_access_events WHERE id::text = rid; del := 'WENT THROUGH'; failed := true;
-  EXCEPTION WHEN insufficient_privilege THEN del := 'refused'; WHEN OTHERS THEN del := 'error ' || SQLSTATE; failed := true; END;
+  EXCEPTION WHEN insufficient_privilege OR check_violation THEN del := 'refused'; WHEN OTHERS THEN del := 'error ' || SQLSTATE; failed := true; END;
   report := report || format('ngrp_preceptor_feedback_access_events: update=%s delete=%s; ', upd, del);
 
   -- preceptor_mirror_repair_audit
@@ -251,9 +253,9 @@ BEGIN
     VALUES ('S-23 POST 4 (rolled back)', 'students', gen_random_uuid(), 's23_post4', NULL) RETURNING id::text INTO rid;
   inserted := inserted + 1;
   BEGIN UPDATE public.preceptor_mirror_repair_audit SET col = 's23_post4' WHERE id::text = rid; upd := 'WENT THROUGH'; failed := true;
-  EXCEPTION WHEN insufficient_privilege THEN upd := 'refused'; WHEN OTHERS THEN upd := 'error ' || SQLSTATE; failed := true; END;
+  EXCEPTION WHEN insufficient_privilege OR check_violation THEN upd := 'refused'; WHEN OTHERS THEN upd := 'error ' || SQLSTATE; failed := true; END;
   BEGIN DELETE FROM public.preceptor_mirror_repair_audit WHERE id::text = rid; del := 'WENT THROUGH'; failed := true;
-  EXCEPTION WHEN insufficient_privilege THEN del := 'refused'; WHEN OTHERS THEN del := 'error ' || SQLSTATE; failed := true; END;
+  EXCEPTION WHEN insufficient_privilege OR check_violation THEN del := 'refused'; WHEN OTHERS THEN del := 'error ' || SQLSTATE; failed := true; END;
   report := report || format('preceptor_mirror_repair_audit: update=%s delete=%s; ', upd, del);
 
   -- preceptor_projection_backfill_audit
@@ -261,9 +263,9 @@ BEGIN
     VALUES ('S-23 POST 4 (rolled back)', 'student', gen_random_uuid()) RETURNING id::text INTO rid;
   inserted := inserted + 1;
   BEGIN UPDATE public.preceptor_projection_backfill_audit SET scope = 'student' WHERE id::text = rid; upd := 'WENT THROUGH'; failed := true;
-  EXCEPTION WHEN insufficient_privilege THEN upd := 'refused'; WHEN OTHERS THEN upd := 'error ' || SQLSTATE; failed := true; END;
+  EXCEPTION WHEN insufficient_privilege OR check_violation THEN upd := 'refused'; WHEN OTHERS THEN upd := 'error ' || SQLSTATE; failed := true; END;
   BEGIN DELETE FROM public.preceptor_projection_backfill_audit WHERE id::text = rid; del := 'WENT THROUGH'; failed := true;
-  EXCEPTION WHEN insufficient_privilege THEN del := 'refused'; WHEN OTHERS THEN del := 'error ' || SQLSTATE; failed := true; END;
+  EXCEPTION WHEN insufficient_privilege OR check_violation THEN del := 'refused'; WHEN OTHERS THEN del := 'error ' || SQLSTATE; failed := true; END;
   report := report || format('preceptor_projection_backfill_audit: update=%s delete=%s; ', upd, del);
 
   RAISE EXCEPTION 'S-23 POST 4 % (rolled back on purpose): inserted=% %',
