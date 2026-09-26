@@ -833,13 +833,21 @@ afterward, from memory.
 
 ## S-24. cohort_school_rotations readable by anon and any authenticated
 
-- **Severity (original)**: Low. **Status**: Closed (code); SQL unconfirmed. The
-  migration is drafted and Owner-gated; the finding closes when it is applied and its
-  POST sections pass.
+- **Severity (original)**: Low. **Status**: Closed. The migration
+  `20261007000000_s24_cohort_school_rotations_read_scope.sql` was APPLIED by the Owner on
+  2026-09-26 and PRE 1 to 3 and POST 1 to 3 passed (see the OWNER_SQL_GATE ledger). The
+  table is readable by staff only; an anon read is refused and a portal session reads
+  nothing directly.
 - **Risk**: rotation and coordinator detail readable with the anon key.
 - **Verified at HEAD (before S24-1)**: `cohort_school_rotations_anon_select` USING (true) in 20260522000000; Wave E2 cleanup EXPLICITLY excluded this table (noted in 20260712000005), so the exclusion was deliberate but the exposure stands.
-- **Closing commit**: S24-1 (2026-09-25), the commit that adds
-  `supabase/migrations/20261007000000_s24_cohort_school_rotations_read_scope.sql`.
+- **Closing commits**: S24-1 (cabaec9c, 2026-09-25), which adds
+  `supabase/migrations/20261007000000_s24_cohort_school_rotations_read_scope.sql`, and S24-2
+  (2026-09-26), which records the application. Results: PRE 1 exactly the two USING (true)
+  policies; PRE 2 `is_staff` SECURITY DEFINER, RLS on, anon and authenticated SELECT
+  granted; PRE 3 14 rows, 4 staff profiles, 8 portal profiles; POST 1 the single
+  `cohort_school_rotations_staff_select` on `is_staff()`; POST 2 anon holds nothing,
+  authenticated and service_role keep SELECT, RLS on; POST 3 PASS: anon refused,
+  authenticated with no JWT 0, Academic Partner portal user 0, staff 14 of 14.
 - **Discovery (S24-1)**. Every reader of the table at HEAD, and the role it runs as:
   - Browser, staff app, signed in with a staff role (`StaffApp.jsx`, `RotationActivity.jsx`,
     `MatchingTab.jsx`, `ManageCohortModal.jsx`, `CohortBar.jsx`, `OverviewTab.jsx`,

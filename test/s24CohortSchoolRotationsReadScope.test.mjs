@@ -147,10 +147,13 @@ test('the audit file is read-only apart from one DO block that ends by rolling i
 test('the register and the SQL gate were updated, and no changed file carries an em dash', () => {
   const register = read('docs/security/FINDINGS_REGISTER.md')
   const s24 = register.slice(register.indexOf('## S-24.'), register.indexOf('## S-25.'))
-  assert.match(s24, /Closed \(code\); SQL unconfirmed/)
+  // Repinned when the Owner applied 20261007000000 on 2026-09-26 (S24-2): the finding is Closed.
+  assert.match(s24, /\*\*Status\*\*: Closed\./)
+  assert.doesNotMatch(s24, /SQL unconfirmed/)
   assert.match(s24, /20261007000000_s24_cohort_school_rotations_read_scope\.sql/)
   const gate = read('docs/security/OWNER_SQL_GATE.md')
-  assert.match(gate, /^\| 20261007000000_s24_cohort_school_rotations_read_scope\.sql \|.*UNKNOWN/m)
+  assert.match(gate, /^\| 20261007000000_s24_cohort_school_rotations_read_scope\.sql \|.*APPLIED 2026-09-26/m)
+  assert.doesNotMatch(gate, /^\| 20261007000000_s24_cohort_school_rotations_read_scope\.sql \|.*UNKNOWN/m)
   const dash = new RegExp(String.fromCharCode(8212))
   for (const p of [MIGRATION, AUDIT]) {
     assert.doesNotMatch(read(p), dash, `${p}: no em dash`)
