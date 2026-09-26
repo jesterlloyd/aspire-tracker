@@ -100,7 +100,17 @@ test('Classic Action Center uses the compact slotted clipboard clip from Outreac
   const panel = read('src/components/ActionCenterV2.jsx')
   const css = read('src/components/actionCenter/actionCenter.css')
   assert.equal((panel.match(/<div className="ac2-clip" aria-hidden="true"><span \/><\/div>/g) || []).length, 2)
-  assert.match(css, /data-style="classic"\] \.ac2-body \{[^}]*linear-gradient\(to bottom, var\(--ac-surface\) 0 26px, transparent 26px\)/)
+  assert.match(css, /data-style="classic"\] \.ac2-body \{[^}]*padding-top: 40px;[^}]*linear-gradient\(to bottom, var\(--ac-surface\) 0 18px, transparent 18px\)/)
+  assert.match(css, /data-style="classic"\] \.ac2-toolbar \{ border-bottom: 0; \}/)
   assert.match(css, /data-style="classic"\] \.ac2-clip \{[^}]*width: 76px;[^}]*height: 24px;/)
   assert.match(css, /data-style="classic"\] \.ac2-clip > span \{[^}]*width: 25px;[^}]*height: 6px;/)
+})
+
+test('Action Center close control uses a centered icon instead of a font glyph', () => {
+  const panel = read('src/components/ActionCenterV2.jsx')
+  const css = read('src/components/actionCenter/actionCenter.css')
+  assert.match(panel, /className="ac2-close"[\s\S]*className="ac2-close-icon"/)
+  assert.doesNotMatch(panel, /aria-label="Close Action Center">×<\/button>/)
+  assert.match(css, /\.ac2-close \{[^}]*width: 32px;[^}]*height: 32px;[^}]*background: rgba\(255,255,255,\.10\);/)
+  assert.match(css, /\.ac2-close-icon \{[^}]*width: 16px;[^}]*height: 16px;[^}]*stroke: currentColor;/)
 })

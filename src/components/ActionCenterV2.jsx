@@ -296,7 +296,9 @@ export default function ActionCenterV2({
         <header className="ac2-head">
           <h2 className="ac2-title" id="ac2-title">Action Center</h2>
           <span className="ac2-count" aria-label={`${items.length} action${items.length === 1 ? '' : 's'}`}>{items.length}</span>
-          <button ref={closeRef} className="ac2-close" type="button" onClick={onClose} aria-label="Close Action Center">×</button>
+          <button ref={closeRef} className="ac2-close" type="button" onClick={onClose} aria-label="Close Action Center">
+            <svg className="ac2-close-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15" /></svg>
+          </button>
         </header>
         <div className="ac2-tabs" role="tablist" aria-label="Action Center views" onKeyDown={tabKey}>
           <button id="ac2-tab-actions" className="ac2-tab" type="button" role="tab" aria-selected={tab === 'actions'} aria-controls="ac2-panel-actions" tabIndex={tab === 'actions' ? 0 : -1} onClick={() => setTab('actions')}>Action needed ({items.length})</button>
