@@ -323,10 +323,13 @@ test('the migration refuses to run without its predicates, and the audit is read
 test('the register and the SQL gate were updated, and no changed file carries an em dash', () => {
   const register = read('docs/security/FINDINGS_REGISTER.md')
   const s04 = register.slice(register.indexOf('## S-04.'), register.indexOf('## S-05.'))
-  assert.match(s04, /Closed \(code\); SQL unconfirmed/)
+  // Repinned when the Owner applied 20261004000000 on 2026-09-25 (S04-2): the finding is Closed.
+  assert.match(s04, /- \*\*Status\*\*: Closed\./)
+  assert.doesNotMatch(s04, /SQL unconfirmed/)
   assert.match(s04, /20261004000000_s04_interview_tables_write_split\.sql/)
   const gate = read('docs/security/OWNER_SQL_GATE.md')
-  assert.match(gate, /^\| 20261004000000_s04_interview_tables_write_split\.sql \|.*UNKNOWN/m)
+  assert.match(gate, /^\| 20261004000000_s04_interview_tables_write_split\.sql \|.*APPLIED 2026-09-25/m)
+  assert.doesNotMatch(gate, /^\| 20261004000000_s04_interview_tables_write_split\.sql \|.*UNKNOWN/m)
   const dash = new RegExp(String.fromCharCode(8212))
   for (const p of [MIGRATION, AUDIT, 'api/availability.js', 'src/lib/availabilityApi.js']) {
     assert.doesNotMatch(read(p), dash, `${p}: no em dash`)

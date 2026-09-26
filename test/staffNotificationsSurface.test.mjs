@@ -17,6 +17,7 @@ const read = (p) => readFileSync(join(here, '..', p), 'utf8')
 const hook    = read('src/hooks/useStaffNotifications.js')
 const panel   = read('src/components/StaffNotificationsPanel.jsx')
 const actionC = read('src/components/ActionCenterV2.jsx')
+const actionCss = read('src/components/actionCenter/actionCenter.css')
 const headerA = read('src/components/Header/HeaderActions.jsx')
 const app     = read('src/staff/StaffApp.jsx')
 const nav     = read('src/lib/staffNotificationNavigation.js')
@@ -82,6 +83,12 @@ test('the Action Center has an Action Needed tab and a Notifications tab', () =>
   // The task list body is gated to the actions tab, so notification events are never mixed in.
   assert.match(actionC, /\{tab === 'actions' && \(/)
   assert.match(actionC, /\{tab === 'notifications' && \(/)
+})
+
+test('Classic notifications use dark ink on a light paper surface', () => {
+  assert.match(panel, /className="ac2-notification-list"/)
+  assert.match(actionCss, /data-style="classic"\] \.ac2-notif-head \{ color: var\(--aspire-pressboard-ink\); \}/)
+  assert.match(actionCss, /data-style="classic"\] \.ac2-notification-list \{[^}]*--color-text-primary: #1B2140;[^}]*background: #FDFCFA;/)
 })
 
 test('exactly one notification model: the surface reads staff_notifications, no new table/store', () => {

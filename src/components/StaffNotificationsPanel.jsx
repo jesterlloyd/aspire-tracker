@@ -69,7 +69,7 @@ export default function StaffNotificationsPanel({
     return out
   }, {})
   return (
-    <div style={{ flex: 1, overflowY: 'auto', overscrollBehavior: 'contain', padding: '8px 0 calc(18px + env(safe-area-inset-bottom))', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
+    <div className="ac2-notification-list" style={{ flex: 1, overflowY: 'auto', overscrollBehavior: 'contain', padding: '8px 0 calc(18px + env(safe-area-inset-bottom))', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
       {!hideHeader && unreadCount > 0 && (
         <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '2px 16px 6px' }}>
           <button
