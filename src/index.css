@@ -821,6 +821,9 @@ body { min-height: 100vh; }
 .preceptor-dir-contact span {
   display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+[data-theme="dark"] .preceptor-dir-contact a {
+  color: var(--color-link, #B7C5FF) !important;
+}
 .preceptor-dir-assignments { display: grid; gap: 6px; min-width: 180px; }
 .preceptor-dir-assignment { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .preceptor-dir-student { font-weight: 600; color: #374151; }

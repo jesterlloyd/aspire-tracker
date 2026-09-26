@@ -157,6 +157,10 @@
   --border:      rgba(255, 255, 255, 0.16);
   --border-lt:   rgba(255, 255, 255, 0.09);
   --text-secondary: #AAB4C0;
+  --text-primary: #F2F5F8;
+  --bg-input: #202934;
+  --border-input: rgba(255, 255, 255, 0.16);
+  --color-link: #B7C5FF;
   --nova:        #8FA9FF;
   --nova-tint:   rgba(143, 169, 255, 0.18);
   --marina:      #8FA9FF;
@@ -553,8 +557,6 @@
   color: var(--color-text-primary) !important;
 }
 
-[data-theme="dark"] .connect-page [style*="color: rgb(25, 25, 25)"],
-[data-theme="dark"] .connect-page [style*="color: rgb(55, 65, 81)"],
 [data-theme="dark"] .connect-page .connect-panel-title,
 [data-theme="dark"] .connect-page .outreach-dispatch-ledger h2 {
   color: var(--color-text-primary) !important;
@@ -563,4 +565,75 @@
 [data-theme="dark"] .connect-page .connect-panel-helper,
 [data-theme="dark"] .connect-page .outreach-dispatch-ledger p {
   color: var(--color-text-secondary) !important;
+}
+
+/* Connect's classic contact profile intentionally uses a pale paper treatment in
+   light mode. In dark mode it needs a complete surface/ink pair, otherwise the
+   inherited dark page leaves nearly-white text on white cards and navy text on
+   pale cards. */
+[data-theme="dark"] .connect-page .connect-contact-profile-shell {
+  background: var(--color-bg-surface) !important;
+  border-color: var(--color-border-default) !important;
+}
+
+[data-theme="dark"] .connect-page .connect-contact-profile-hero {
+  background: linear-gradient(160deg, #23314a 0%, #1c2533 52%, #171d24 100%) !important;
+  border-bottom-color: var(--color-border-default) !important;
+}
+
+[data-theme="dark"] .connect-page .connect-contact-profile-hero h2,
+[data-theme="dark"] .connect-page .connect-contact-profile-hero strong,
+[data-theme="dark"] .connect-page .connect-contact-profile-hero > div[style*="color: rgb(55, 65, 81)"],
+[data-theme="dark"] .connect-page .connect-contact-profile-hero > div[style*="color: rgb(25, 25, 25)"] {
+  color: var(--color-text-primary) !important;
+}
+
+[data-theme="dark"] .connect-page .connect-contact-profile > div[style*="background: rgb(249, 250, 251)"],
+[data-theme="dark"] .connect-page .connect-contact-profile > div[style*="background: rgb(249, 250, 251);"] {
+  background: var(--color-bg-elevated) !important;
+  border-color: var(--color-border-default) !important;
+}
+
+[data-theme="dark"] .connect-page .connect-contact-profile [style*="color: rgb(55, 65, 81)"],
+[data-theme="dark"] .connect-page .connect-contact-profile [style*="color: rgb(25, 25, 25)"],
+[data-theme="dark"] .connect-page .connect-contact-profile [style*="color: rgb(107, 114, 128)"] {
+  color: var(--color-text-primary) !important;
+}
+
+[data-theme="dark"] .connect-page .connect-contact-profile [style*="color: rgb(156, 163, 175)"] {
+  color: var(--color-text-secondary) !important;
+}
+
+[data-theme="dark"] .connect-page .connect-contact-profile-shell a,
+[data-theme="dark"] .connect-page .outreach-dispatch-ledger a,
+[data-theme="dark"] .connect-page .preceptor-dir-contact a {
+  color: var(--color-link) !important;
+}
+
+/* Sent-history rows are audit records, not email documents. Keep the documents
+   in the preview drawer light, but give the ledger rows the same dark reading
+   order as the surrounding Connect page. */
+[data-theme="dark"] .connect-page .outreach-dispatch-ledger > div > div[style*="background: rgb(255, 255, 255)"],
+[data-theme="dark"] .connect-page .outreach-dispatch-ledger > div > div[style*="background: rgb(250, 250, 250)"],
+[data-theme="dark"] .connect-page .outreach-dispatch-ledger > div > div[style*="background: rgb(255, 255, 255);"] {
+  background: var(--color-bg-surface) !important;
+  border-color: var(--color-border-subtle) !important;
+}
+
+[data-theme="dark"] .connect-page .outreach-dispatch-ledger > div > div[style*="background: rgb(255, 255, 255)"] [style*="color: rgb(25, 25, 25)"],
+[data-theme="dark"] .connect-page .outreach-dispatch-ledger > div > div[style*="background: rgb(255, 255, 255)"] [style*="color: rgb(55, 65, 81)"],
+[data-theme="dark"] .connect-page .outreach-dispatch-ledger > div > div[style*="background: rgb(250, 250, 250)"] [style*="color: rgb(25, 25, 25)"],
+[data-theme="dark"] .connect-page .outreach-dispatch-ledger > div > div[style*="background: rgb(250, 250, 250)"] [style*="color: rgb(55, 65, 81)"] {
+  color: var(--color-text-primary) !important;
+}
+
+[data-theme="dark"] .connect-page .outreach-dispatch-ledger > div > div[style*="background: rgb(255, 255, 255)"] [style*="color: rgb(107, 114, 128)"],
+[data-theme="dark"] .connect-page .outreach-dispatch-ledger > div > div[style*="background: rgb(250, 250, 250)"] [style*="color: rgb(107, 114, 128)"] {
+  color: var(--color-text-secondary) !important;
+}
+
+[data-theme="dark"] .connect-page .outreach-dispatch-ledger > div > div[style*="background: rgb(255, 255, 255)"] > div[style*="background: rgb(252, 252, 251)"],
+[data-theme="dark"] .connect-page .outreach-dispatch-ledger > div > div[style*="background: rgb(250, 250, 250)"] > div[style*="background: rgb(252, 252, 251)"] {
+  background: var(--color-bg-elevated) !important;
+  border-color: var(--color-border-subtle) !important;
 }

@@ -43,10 +43,10 @@ const THREAD_PAGE_LIMIT = 50
 
 const T = {
   accent: 'var(--color-accent-primary,#1D2567)',
-  text: 'var(--text-primary,#0E1428)',
-  muted: 'var(--text-secondary,#4A5560)',
-  border: 'var(--border-input,rgba(29,37,103,0.10))',
-  input: 'var(--bg-input,#fff)',
+  text: 'var(--color-text-primary,#0E1428)',
+  muted: 'var(--color-text-secondary,#4A5560)',
+  border: 'var(--color-border-default,rgba(29,37,103,0.10))',
+  input: 'var(--color-bg-input,#fff)',
 }
 
 // ── Workspace ───────────────────────────────────────────────────────────────

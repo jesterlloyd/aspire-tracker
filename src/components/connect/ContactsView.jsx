@@ -286,10 +286,10 @@ function ContactProfile({ contact, navigate, onEdit, onDeactivate, onFlag, flagA
   const hasWeeklyDigest = contact.notification_preferences?.weekly_digest !== false
 
   return (
-    <div>
+    <div className="connect-contact-profile">
 
       {/* ── Profile hero ── */}
-      <div style={{
+      <div className="connect-contact-profile-hero" style={{
         padding: '28px 24px 22px',
         borderBottom: '1px solid #f0ede8',
         textAlign: 'center',
@@ -1670,7 +1670,7 @@ function ClassicContacts({ dir, actions }) {
       </div>
 
       {/* ── Zone 2: Contact Profile (center) ──────────────────────────── */}
-      <div className="c3-col c3-profile" style={{
+      <div className="c3-col c3-profile connect-contact-profile-shell" style={{
         background: '#fff',
         borderRadius: 12,
         border: '1px solid rgba(29,37,103,0.10)',
