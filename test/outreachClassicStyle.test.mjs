@@ -159,6 +159,17 @@ test('Modern composers fill the measured viewport and scroll inside fixed panes'
   assert.doesNotMatch(bulk, /maxHeight: 'calc\(100dvh - 280px\)'/)
 })
 
+test('rich message editors fill the available draft space in both themes', () => {
+  const css = read('src/components/connect/outreachCorrespondenceDesk.css')
+
+  assert.match(css, /\.outreach-workspace-modern \.outreach-rich-editor \{[\s\S]*height: 100%;[\s\S]*min-height: 0;/)
+  assert.match(css, /\.outreach-workspace-modern \.outreach-rich-editor-surface > div \{[\s\S]*flex: 1 1 auto;[\s\S]*min-height: 0;/)
+  assert.match(css, /\.outreach-workspace-modern \.rte-content \{[\s\S]*flex: 1 1 auto;[\s\S]*height: auto;[\s\S]*overflow-y: auto;/)
+  assert.match(css, /\.outreach-workspace-classic \.outreach-rich-editor \{[\s\S]*height: 100%;[\s\S]*min-height: 0;/)
+  assert.match(css, /\.outreach-workspace-classic \.outreach-rich-editor-surface > div \{[\s\S]*flex: 1 1 auto;[\s\S]*min-height: 0;/)
+  assert.match(css, /\.outreach-workspace-classic \.rte-content \{[\s\S]*flex: 1 1 auto;[\s\S]*height: auto;[\s\S]*overflow-y: auto;/)
+})
+
 test('Modern direct preview expands its email viewport instead of leaving blank paper', () => {
   const outreach = read('src/components/connect/OutreachView.jsx')
   const css = read('src/components/connect/outreachCorrespondenceDesk.css')
