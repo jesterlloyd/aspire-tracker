@@ -196,7 +196,7 @@ export default function RotationStudentTable({
   renderHours,
 }) {
   return (
-    <div style={{
+    <div className="rotation-student-table" style={{
       background: '#fff', border: '1px solid #e8e4dc', borderRadius: 14,
       overflowX: 'auto', fontFamily: F,
     }}>

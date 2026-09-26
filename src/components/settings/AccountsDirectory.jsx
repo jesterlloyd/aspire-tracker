@@ -427,7 +427,7 @@ export default function AccountsDirectory() {
     : [{ value: 'active', label: 'Active' }, { value: 'disabled', label: 'Disabled' }]
 
   return (
-    <section aria-labelledby="accounts-directory-heading">
+    <section className="accounts-directory" aria-labelledby="accounts-directory-heading">
       {toast && (
         <div role="status" style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 2600, padding: '10px 18px', borderRadius: 10, fontFamily: F, fontSize: 13, fontWeight: 600, background: toast.type === 'error' ? '#fee2e2' : '#f0fdf4', color: toast.type === 'error' ? '#991b1b' : '#166534', border: `1px solid ${toast.type === 'error' ? '#fca5a5' : '#86efac'}`, boxShadow: '0 4px 16px rgba(0,0,0,0.1)' }}>{toast.msg}</div>
       )}

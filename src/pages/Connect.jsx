@@ -131,7 +131,7 @@ export default function ConnectPage({ cohortId, onNavigateToStudent, refreshRef,
   } = useChartViewport()
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', fontFamily: F }}>
+    <div className="connect-page" style={{ display: 'flex', flexDirection: 'column', fontFamily: F }}>
 
       {/* Page header. LAYOUT-SHELL-CONSISTENCY-1: 20px horizontal inset matches the primary tabs. */}
       <div style={{ padding: '12px 20px 0', flexShrink: 0 }}>

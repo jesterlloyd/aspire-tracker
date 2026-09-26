@@ -449,7 +449,7 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
   const shownCards = sortedCards
 
   return (
-    <div style={{ padding: '4px 20px 24px', fontFamily: F }}>
+    <div className="rotation-activity-view" style={{ padding: '4px 20px 24px', fontFamily: F }}>
       {/* ── Section 1: On Campus Now ──────────────────────────────────────────
           The SAME StaffOnCampusStrip the At a Glance dashboard renders, so the two
           staff surfaces cannot disagree on badge, duration, or the hedged overdue

@@ -147,6 +147,36 @@
 
 /* ── Dark mode ─────────────────────────────────────────────────── */
 :root[data-theme="dark"] {
+  /* Legacy aliases. Several staff surfaces still consume the original palette names
+     instead of the newer semantic tokens. Keep those aliases theme-aware so older
+     tables and cards do not paint light paper on the dark application canvas. */
+  --pearl:       #171D24;
+  --sand:        #0F1419;
+  --sand-dark:   #252D37;
+  --raven:       #F2F5F8;
+  --border:      rgba(255, 255, 255, 0.16);
+  --border-lt:   rgba(255, 255, 255, 0.09);
+  --text-secondary: #AAB4C0;
+  --nova:        #8FA9FF;
+  --nova-tint:   rgba(143, 169, 255, 0.18);
+  --marina:      #8FA9FF;
+
+  /* Shared table/card tokens are declared in aspireBrand.css, which loads after this
+     file. The higher-specificity dark selector keeps them dark without changing light mode. */
+  --aspire-card: #171D24;
+  --aspire-line: rgba(255, 255, 255, 0.12);
+  --aspire-line-soft: rgba(255, 255, 255, 0.07);
+  --aspire-ink: #F2F5F8;
+  --aspire-ink-soft: #AAB4C0;
+  --aspire-th-color: #AAB4C0;
+  --aspire-th-bg: #1C232D;
+  --aspire-th-bg-inset: #1C232D;
+  --aspire-th-color-inset: #AAB4C0;
+  --aspire-row-line: 1px solid rgba(255, 255, 255, 0.10);
+  --aspire-row-hover: #252D37;
+  --aspire-row-band: #1A2028;
+  --aspire-nav-line: rgba(255, 255, 255, 0.10);
+
   /* SegmentedPicker inks (HOME-1, 2026-09-25). The picker paints the lifted accent in dark,
      and white on #6B8EFF measured 3.03:1; its resting ink was a light-mode constant on the
      dark input, 3.27:1. Light mode has no value here, so the picker renders what it did. */
@@ -460,4 +490,77 @@
   --color-text-muted:     #6B7785;
   --color-border-subtle:  rgba(25, 25, 25, 0.06);
   --color-border-default: rgba(25, 25, 25, 0.10);
+}
+
+/* ── Staff surfaces that still use local markup styles ─────────── */
+[data-theme="dark"] .preceptor-dir-table .am-row,
+[data-theme="dark"] .rotation-student-table,
+[data-theme="dark"] .rotation-student-table tr,
+[data-theme="dark"] .rotation-student-table tr[style*="background"],
+[data-theme="dark"] .rotation-student-coverage [style*="background: rgb(255, 255, 255)"],
+[data-theme="dark"] .accounts-directory > div[style*="background: rgb(255, 255, 255)"] {
+  background: var(--color-bg-surface) !important;
+}
+
+[data-theme="dark"] .rotation-student-coverage [style*="background: rgb(255, 250, 250)"],
+[data-theme="dark"] .rotation-activity-view [style*="background: rgb(251, 245, 232)"],
+[data-theme="dark"] .rotation-activity-view [style*="background: rgb(254, 243, 199)"] {
+  background: var(--color-status-warning-bg) !important;
+  border-color: var(--color-status-warning) !important;
+  color: var(--color-status-warning-fg) !important;
+}
+
+[data-theme="dark"] .preceptor-dir-table .am-td,
+[data-theme="dark"] .accounts-directory table td,
+[data-theme="dark"] .rotation-student-table td {
+  color: var(--color-text-primary) !important;
+  border-bottom-color: var(--color-border-subtle) !important;
+}
+
+[data-theme="dark"] .preceptor-dir-table .preceptor-dir-student,
+[data-theme="dark"] .preceptor-dir-table .preceptor-dir-empty,
+[data-theme="dark"] .preceptor-dir-table .preceptor-dir-context,
+[data-theme="dark"] .accounts-directory table td[style*="color"],
+[data-theme="dark"] .accounts-directory table td div[style*="color"],
+[data-theme="dark"] .rotation-student-table td div[style*="color"] {
+  color: var(--color-text-secondary) !important;
+}
+
+[data-theme="dark"] .accounts-directory input,
+[data-theme="dark"] .accounts-directory select,
+[data-theme="dark"] .rotation-activity-view select {
+  background: var(--color-bg-input) !important;
+  border-color: var(--color-border-default) !important;
+  color: var(--color-text-primary) !important;
+}
+
+[data-theme="dark"] .accounts-directory > div[style*="border: 1px solid rgb(236, 238, 242)"],
+[data-theme="dark"] .rotation-student-coverage [style*="border: 1px solid rgb(232, 228, 220)"],
+[data-theme="dark"] .rotation-activity-view [style*="border: 1px solid rgb(232, 228, 220)"] {
+  border-color: var(--color-border-default) !important;
+}
+
+/* ASPIRE Connect has several presentation-only panels whose local styles predate the
+   semantic theme layer. Restyle the app chrome and cards, while leaving email documents
+   inside their iframe previews untouched. */
+[data-theme="dark"] .connect-page .connect-panel,
+[data-theme="dark"] .connect-page .outreach-activity-register,
+[data-theme="dark"] .connect-page .outreach-preview-panel,
+[data-theme="dark"] .connect-page [style*="background: rgb(255, 255, 255)"],
+[data-theme="dark"] .connect-page [style*="background: rgb(255, 255, 255);"] {
+  background: var(--color-bg-surface) !important;
+  border-color: var(--color-border-default) !important;
+  color: var(--color-text-primary) !important;
+}
+
+[data-theme="dark"] .connect-page [style*="color: rgb(25, 25, 25)"],
+[data-theme="dark"] .connect-page [style*="color: rgb(55, 65, 81)"],
+[data-theme="dark"] .connect-page .connect-panel-title,
+[data-theme="dark"] .connect-page .outreach-dispatch-ledger h2 {
+  color: var(--color-text-primary) !important;
+}
+
+[data-theme="dark"] .connect-page .connect-panel-helper,
+[data-theme="dark"] .connect-page .outreach-dispatch-ledger p {
+  color: var(--color-text-secondary) !important;
 }

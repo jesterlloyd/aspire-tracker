@@ -140,7 +140,7 @@ export default function StudentCoverage({ students = [], units = [], cohortId, o
     })
 
   return (
-    <div style={{ padding: '4px 20px 24px', fontFamily: F, overflowY: 'auto' }}>
+    <div className="rotation-student-coverage" style={{ padding: '4px 20px 24px', fontFamily: F, overflowY: 'auto' }}>
       <div style={{ margin: '4px 2px 10px' }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: '#191919' }}>Student Coverage</div>
         <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>
