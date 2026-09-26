@@ -760,10 +760,62 @@ afterward, from memory.
 
 ## S-23. Append-only event tables have no enforcement
 
-- **Severity (original)**: Low. **Status**: OPEN.
+- **Severity (original)**: Low. **Status**: Closed (code); SQL unconfirmed. The
+  migration is drafted and Owner-gated; the finding closes when it is applied and its
+  POST sections pass.
 - **Risk**: documented-append-only history (e.g. preceptor_assignment_events) is silently rewritable by any service-role code path or compromised key.
-- **Verified at HEAD**: GRANT ALL to service_role, and no UPDATE/DELETE-blocking trigger in any migration touches `preceptor_assignment_events`.
-- **Template for the fix, in-repo since 2026-09-23**: the enforcement this finding asks for now exists on two newer tables. `supabase/migrations/20260927000000_signatures_phase2.sql` puts `trg_sig_events_append_only` (BEFORE UPDATE OR DELETE) and `trg_sig_events_no_truncate` (BEFORE TRUNCATE) on `sig_events`, and `20260929000000_form_sheet.sql` puts `trg_form_answer_corrections_append_only` on `form_answer_corrections`; both refuse the statement regardless of role, so a service-role path cannot rewrite history. `test/signaturesMigration.test.mjs` proves the sig_events triggers on real Postgres (PGlite). Closing S-23 is the same trigger on `preceptor_assignment_events` and the other documented-append-only tables, Owner-gated like every migration.
+- **Verified at HEAD (before S23-1)**: GRANT ALL to service_role, and no UPDATE/DELETE-blocking trigger in any migration touches `preceptor_assignment_events`.
+- **Template for the fix, in-repo since 2026-09-23**: the enforcement this finding asks for now exists on two newer tables. `supabase/migrations/20260927000000_signatures_phase2.sql` puts `trg_sig_events_append_only` (BEFORE UPDATE OR DELETE) and `trg_sig_events_no_truncate` (BEFORE TRUNCATE) on `sig_events`, and `20260929000000_form_sheet.sql` puts `trg_form_answer_corrections_append_only` on `form_answer_corrections`; both refuse the statement regardless of role, so a service-role path cannot rewrite history. `test/signaturesMigration.test.mjs` proves the sig_events triggers on real Postgres (PGlite). `20260725000000_unit_leader_evaluation_release_gate.sql` has the same pair, plus trimmed grants, on `evaluation_response_unit_release_events`.
+- **Closing commit**: S23-1 (2026-09-25), the commit that adds
+  `supabase/migrations/20261006000000_s23_append_only_event_tables.sql`.
+- **Discovery (S23-1)**. Every table in the migrations named as an event, audit or
+  history table, or documented append-only, was listed with its enforcement:
+  - Enforced already (grants and triggers): `sig_events`,
+    `evaluation_response_unit_release_events`. `form_answer_corrections` had the
+    UPDATE/DELETE trigger but no TRUNCATE trigger.
+  - Grants only, no trigger: `conversation_events`, `ngrp_audit_events`,
+    `ngrp_preceptor_feedback_access_events`, `portal_invitation_events`,
+    `preceptor_projection_backfill_audit`, `shift_log_reviews`, `student_shift_log_edits`,
+    `keith_requests`, `keith_skill_invocations`, `student_activity_completions`.
+  - GRANT ALL for service_role, or the default privileges, and no trigger:
+    `preceptor_assignment_events`, `cohort_unit_response_target_events`,
+    `support_checkin_events` (added 2026-09-25, after the audit),
+    `preceptor_mirror_repair_audit`, `unit_placement_request_events`.
+  - Code paths: none of the tables above is updated or deleted by any file in `api/`,
+    `lib/` or `src/`, or by any SQL routine in the migrations. Three documented-append-only
+    tables DO have legitimate rewrite paths and are left out: `program_events` (maintenance
+    UPDATE and DELETE in migrations; a delete in `StudentSidePanel.jsx`), `notification_log`
+    (delivery status updated by the Resend webhook), and `cron_runs`,
+    `evaluation_reminder_deliveries` and the community-benefit tables, which are updated by
+    design. `activity_logs` is a pre-existing table whose foreign keys the repository cannot
+    state; it is listed in PRE 4 of the checks for a follow-up rather than guessed at.
+  - Foreign keys: `unit_placement_request_events` cascades from `unit_placement_requests`
+    and `cohort_unit_response_target_events` from `cohort_unit_response_targets`; nothing
+    deletes either parent (targets are deactivated). The template does not special-case a
+    cascade: the cascaded DELETE fires the trigger and the parent delete fails, which is
+    how `form_answer_corrections` already behaves toward `catalog_forms`.
+    `student_activity_completions` cascades from `students`, which the staff app deletes,
+    so a trigger there would break student deletion; it is EXCLUDED and stays
+    grant-enforced (UPDATE and DELETE revoked from every role in 20260822000000). The
+    version, revision and submission snapshot tables (`knowledge_entry_versions`,
+    `template_versions`, `template_partial_versions`, `keith_skill_versions`,
+    `ngrp_transition_revisions`, `ngrp_reflection_submissions`) and `messages` are
+    immutable content, not event tables; they are out of this migration's scope and noted.
+- **Fix**: `20261006000000_s23_append_only_event_tables.sql` adds one shared function,
+  `public.append_only_refuse()` (ERRCODE 42501, as sig_events), and the template pair
+  `trg_<table>_append_only` (BEFORE UPDATE OR DELETE, FOR EACH ROW) and
+  `trg_<table>_no_truncate` (BEFORE TRUNCATE) to fourteen tables, adds the missing TRUNCATE
+  trigger to `form_answer_corrections` on its own function, and revokes UPDATE, DELETE and
+  TRUNCATE from PUBLIC, anon, authenticated and service_role on all fifteen (SELECT and
+  INSERT grants untouched). One transaction, refuses to run if any covered table is
+  missing, safe to re-run, inert rollback at the end. Checks in
+  `db/audit/s23_append_only_event_tables_checks.sql`: PRE 1 to 4, the file, POST 1 to 5;
+  POST 3 and POST 4 prove refusal and a successful INSERT on the live tables inside DO
+  blocks that roll themselves back. `test/s23AppendOnlyEventTables.test.mjs` runs the
+  migration on PGlite (INSERT succeeds, UPDATE, DELETE and TRUNCATE refused on every table,
+  the cascade parent refused, twice-run, refuses on a missing table) and sweeps every
+  `_events` and `_audit` table created in the migrations plus the documented ledgers,
+  failing on any without both triggers unless excused with a reason.
 
 ## S-24. cohort_school_rotations readable by anon and any authenticated
 
