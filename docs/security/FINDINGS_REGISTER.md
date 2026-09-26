@@ -117,10 +117,12 @@ afterward, from memory.
 - **Severity (assessed)**: High. `is_staff()` FOR ALL policies meant viewer and
   interviewer sessions could write cohorts, students, communications, and more
   from the browser.
-- **Status**: Closed (code); SQL unconfirmed. The three excluded tables are the last part.
-  Their browser writes are gone (S04-1, 2026-09-25) and the policy split for them is
-  drafted and Owner-gated; the finding closes when it is applied and its POST sections
-  pass.
+- **Status**: Closed. The three excluded tables were the last part: their browser
+  writes are gone (S04-1, 2026-09-25) and the policy split for them,
+  `20261004000000_s04_interview_tables_write_split.sql`, was APPLIED by the Owner on
+  2026-09-25 with S04-1 live, its POST 1 to 4 passing (see the OWNER_SQL_GATE ledger).
+  Every core table now has SELECT on `is_staff()` and writes on
+  `is_active_staff_writer()`.
 - **Closing commits**: `8494615` (migration), `da5943d` (self-service-first
   revision), `d0a38b2` (interviewer delete moved server-side, refused UI
   controls gated), and S04-1 (2026-09-25), the commit that adds
@@ -167,8 +169,13 @@ afterward, from memory.
   tables already have; any other policy on the tables is preserved (tested). One
   transaction, safe to re-run, inert rollback at the end. Checks in
   `db/audit/s04_interview_tables_write_split_checks.sql`, PRE 1 to 3, the file, POST 1
-  to 4. **Apply only after S04-1 is live**: until then an interviewer's self-service
-  writes are still browser writes, which the split would silently refuse.
+  to 4. It was applied only after S04-1 was live, because until then an interviewer's
+  self-service writes were still browser writes, which the split would have silently
+  refused. Results, 2026-09-25: PRE 1 exactly the three Wave E FOR ALL rows on
+  `is_staff()`, no other policy; PRE 2 both predicates SECURITY DEFINER with
+  `search_path=public, pg_catalog`; PRE 3 RLS on, anon has no UPDATE; POST 1 the twelve
+  split policies and no `staff_all_*` row; POST 2 no rows; POST 3 writes 9, writer_gated
+  9; POST 4 identical to PRE 3.
 - **What an interviewer keeps**: everything. Pause and resume their own blocks, block and
   unblock their own open slots, mark their own Teams invites sent, and the existing
   create, delete and cancel. What changes: they can no longer do any of those on another
