@@ -60,7 +60,7 @@ import {
 } from '../lib/home/needsYouModel'
 import { scheduleRows, onCampusGroups, dueTodayItems } from '../lib/home/todayModel'
 import { hoursBar, midpointBar } from '../lib/home/cohortPulseModel'
-import { placementSummary, capacityByServiceLine, requestsBySchool, REQUEST_FILTERS, requestCounts, filterRequestRows } from '../lib/home/placementSummaryModel'
+import { placementSummary, filteredCapacityByServiceLine, requestsBySchool, REQUEST_FILTERS, requestCounts, filterRequestRows } from '../lib/home/placementSummaryModel'
 import { NavigationPill } from './ui/NavigationPill'
 import { allowedActions, personRows } from '../lib/home/launcherModel'
 import { activityRows } from '../lib/home/recentActivityModel'
@@ -613,7 +613,15 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
   const unitNameById = useMemo(() => new Map((units || []).map(u => [u.id, u.unit_name])), [units])
   const unitNameFor = useCallback((id) => unitNameById.get(id) || '', [unitNameById])
   const studentsById = useMemo(() => new Map((students || []).map(s => [s.id, s])), [students])
-  const divisionOf = useCallback((u) => u?.division || getUnit(u?.unit_name)?.division || UNIT_DIVISION_MAP[u?.unit_name] || 'Other', [])
+  // Static catalog metadata is authoritative. Some older cohort unit rows still
+  // carry the retired Specialty label for Women & Children units.
+  const divisionOf = useCallback((u) => getUnit(u?.unit_name)?.division || u?.division || UNIT_DIVISION_MAP[u?.unit_name] || 'Other', [])
+  const capacityDivisionOf = useCallback((row) => {
+    const unit = (row?.unit_id != null && units.find(candidate => candidate.id === row.unit_id))
+      || units.find(candidate => canonicalUnitKey(candidate.unit_name) === canonicalUnitKey(row?.unit_name))
+      || row
+    return divisionOf(unit)
+  }, [units, divisionOf])
 
   const qMessages = useQuery({ queryKey: ['home_messages'], queryFn: loadMessagesNeedingYou, enabled: canManage && onTodayRoute, refetchInterval: onTodayRoute ? 60000 : false, staleTime: 30000 })
   const qSig = useQuery({ queryKey: ['home_signatures'], queryFn: loadSignaturesList, enabled: canManage && sigFlag.allowed && onTodayRoute, staleTime: 30000 })
@@ -758,19 +766,12 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
   const dateLabel = new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
 
   // Placement > Capacity and requests: the service-line rows, and what an expanded row shows.
-  const serviceLineRows = useMemo(() => {
-    const base = capacityByServiceLine({ units, students, divisionOf, order: DIVISION_ORDER })
-    const seen = new Set(base.map(r => r.serviceLine))
-    const extra = []
-    for (const r of capacityView) {
-      const d = getUnit(r.unit_name)?.division || 'Other'
-      if (!seen.has(d)) { seen.add(d); extra.push({ id: d, serviceLine: d, filled: 0, slots: 0, units: [] }) }
-    }
-    return [...base, ...extra]
-  }, [units, students, divisionOf, capacityView])
   const capacityFiltered = useMemo(() => (unitStatusFilter === 'all' ? capacityView : capacityView.filter(r => r.capacity_status === unitStatusFilter)), [capacityView, unitStatusFilter])
+  const serviceLineRows = useMemo(() => filteredCapacityByServiceLine({
+    capacityRows: capacityFiltered, units, students, divisionOf, order: DIVISION_ORDER,
+  }), [capacityFiltered, units, students, divisionOf])
   const renderCapacityDetail = (row) => {
-    const rows = capacityFiltered.filter(r => (getUnit(r.unit_name)?.division || 'Other') === row.serviceLine)
+    const rows = capacityFiltered.filter(r => capacityDivisionOf(r) === row.serviceLine)
       .sort((a, b) => a.unit_name.localeCompare(b.unit_name))
     if (!rows.length) return <div className="hm-pl-detail" style={{ color: 'var(--hm-muted)', fontSize: 12.5 }}>No units match the selected filter.</div>
     return (

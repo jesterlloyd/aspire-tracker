@@ -7,6 +7,7 @@
 // requests by school (DataSheet plain sheet). Pure.
 
 import { EXITED_STATUSES } from '../placementCoverage.js'
+import { canonicalUnitKey } from '../canonicalUnit.js'
 
 const n = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0)
 const plural = (count, one, many = `${one}s`) => `${count} ${count === 1 ? one : many}`
@@ -63,6 +64,52 @@ export function capacityByServiceLine({ units = [], students = [], divisionOf = 
     r.units.push(u)
   }
   const rank = Object.fromEntries((order || []).map((d, i) => [d, i]))
+  return [...rows.values()].sort((a, b) => (rank[a.serviceLine] ?? 99) - (rank[b.serviceLine] ?? 99) || a.serviceLine.localeCompare(b.serviceLine))
+}
+
+/**
+ * Capacity grouped from the status-filtered rows shown in At a Glance.
+ * Hosting rows contribute their live Set Up Units capacity. Pending and
+ * not-hosting rows remain visible under their service line but contribute zero.
+ */
+export function filteredCapacityByServiceLine({
+  capacityRows = [], units = [], students = [], divisionOf = (u) => u?.division || 'Other', order = [],
+} = {}) {
+  const unitsById = new Map()
+  const unitsByKey = new Map()
+  for (const unit of units || []) {
+    if (!unit) continue
+    if (unit.id != null) unitsById.set(unit.id, unit)
+    const key = canonicalUnitKey(unit.unit_name)
+    if (key && !unitsByKey.has(key)) unitsByKey.set(key, unit)
+  }
+  const filledByUnit = {}
+  for (const student of students || []) {
+    if (student?.matched_unit_id) filledByUnit[student.matched_unit_id] = (filledByUnit[student.matched_unit_id] || 0) + 1
+  }
+
+  const rows = new Map()
+  const seen = new Set()
+  for (const capacity of capacityRows || []) {
+    if (!capacity) continue
+    const unit = (capacity.unit_id != null && unitsById.get(capacity.unit_id))
+      || unitsByKey.get(canonicalUnitKey(capacity.unit_name))
+      || null
+    const identity = unit?.id != null ? `id:${unit.id}` : `name:${canonicalUnitKey(capacity.unit_name) || capacity.id}`
+    if (seen.has(identity)) continue
+    seen.add(identity)
+
+    const serviceLine = divisionOf(unit || capacity) || 'Other'
+    if (!rows.has(serviceLine)) rows.set(serviceLine, { id: serviceLine, serviceLine, filled: 0, slots: 0, units: [] })
+    const row = rows.get(serviceLine)
+    if (capacity.capacity_status === 'hosting') {
+      row.filled += filledByUnit[unit?.id ?? capacity.unit_id] || 0
+      row.slots += unit ? n(unit.total_slots) : n(capacity.slots_offered)
+    }
+    row.units.push(capacity)
+  }
+
+  const rank = Object.fromEntries((order || []).map((division, index) => [division, index]))
   return [...rows.values()].sort((a, b) => (rank[a.serviceLine] ?? 99) - (rank[b.serviceLine] ?? 99) || a.serviceLine.localeCompare(b.serviceLine))
 }
 

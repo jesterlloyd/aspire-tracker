@@ -129,7 +129,7 @@ test('OverviewTab surfaces pending through the pills and table, with staff-only 
 test('Placement Capacity defaults to hosting units and does not hide Emergency responses', () => {
   assert.match(overview, /const \[unitStatusFilter, setUnitStatusFilter\] = useState\('hosting'\)/)
   assert.doesNotMatch(overview, /div === ['"]Emergency['"] && !showAll/)
-  assert.match(overview, /getUnit\(r\.unit_name\)\?\.division \|\| ['"]Other['"]/)
+  assert.match(overview, /capacityDivisionOf\(r\) === row\.serviceLine/)
   assert.equal(getUnit('Emergency Department')?.division, 'Emergency')
   assert.ok(DIVISION_ORDER.includes('Emergency'))
 })

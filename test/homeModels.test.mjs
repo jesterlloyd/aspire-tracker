@@ -15,7 +15,8 @@ import {
 } from '../src/lib/home/needsYouModel.js'
 import { onCampusGroups, scheduleRows, shiftGroupLabel, shiftGroupState, dueTodayItems, initialsOf, plannedShiftType, defaultTodayView } from '../src/lib/home/todayModel.js'
 import { hoursBar, midpointBar } from '../src/lib/home/cohortPulseModel.js'
-import { placementSummary, capacityByServiceLine, requestsBySchool } from '../src/lib/home/placementSummaryModel.js'
+import { placementSummary, capacityByServiceLine, filteredCapacityByServiceLine, requestsBySchool } from '../src/lib/home/placementSummaryModel.js'
+import { getUnit } from '../src/lib/unitCatalog.js'
 import { ACTIONS, QUICK_ACTION_KEYS, allowedActions, quickActions, personRows, searchLauncher, moveSelection, greetingFor } from '../src/lib/home/launcherModel.js'
 import { activityRows, ACTIVITY_LIMIT } from '../src/lib/home/recentActivityModel.js'
 
@@ -326,6 +327,36 @@ test('PLACEMENT 2: capacity by service line and requests by school', () => {
   assert.deepEqual(cap.map(r => [r.serviceLine, r.filled, r.slots]), [['Critical Care', 1, 1], ['Medical', 1, 2]])
   const req = requestsBySchool({ students })
   assert.deepEqual(req.map(r => [r.school, r.placed, r.students]), [['APU', 1, 2], ['CSULA', 1, 1]])
+})
+
+test('PLACEMENT 2b: capacity uses canonical service lines and the selected status rows', () => {
+  const units = [
+    { id: 'nicu', unit_name: 'NICU', is_participating: true, total_slots: 1, division: 'Specialty' },
+    { id: 'peds', unit_name: 'Pediatrics', is_participating: true, total_slots: 1, division: 'Specialty' },
+    { id: 'picu', unit_name: 'PICU', is_participating: true, total_slots: 1, division: 'Specialty' },
+    { id: 'pacu', unit_name: 'PACU', is_participating: false, total_slots: 0, division: 'Procedural' },
+  ]
+  const students = [
+    { matched_unit_id: 'nicu' }, { matched_unit_id: 'peds' }, { matched_unit_id: 'picu' },
+  ]
+  const allRows = [
+    { id: 'r1', unit_id: 'nicu', unit_name: 'NICU', capacity_status: 'hosting' },
+    { id: 'r2', unit_id: 'peds', unit_name: 'Pediatrics', capacity_status: 'hosting' },
+    { id: 'r3', unit_id: 'picu', unit_name: 'PICU', capacity_status: 'hosting' },
+    { id: 'r4', unit_id: 'pacu', unit_name: 'PACU', capacity_status: 'pending' },
+  ]
+  const divisionOf = unit => getUnit(unit?.unit_name)?.division || unit?.division || 'Other'
+  const hosting = filteredCapacityByServiceLine({
+    capacityRows: allRows.filter(row => row.capacity_status === 'hosting'),
+    units, students, divisionOf,
+  })
+  assert.deepEqual(hosting.map(row => [row.serviceLine, row.filled, row.slots]), [['Women & Children', 3, 3]])
+
+  const pending = filteredCapacityByServiceLine({
+    capacityRows: allRows.filter(row => row.capacity_status === 'pending'),
+    units, students, divisionOf,
+  })
+  assert.deepEqual(pending.map(row => [row.serviceLine, row.filled, row.slots]), [['Procedural', 0, 0]])
 })
 
 // ── Launcher ─────────────────────────────────────────────────────────────────

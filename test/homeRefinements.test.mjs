@@ -54,6 +54,14 @@ test('REQUESTS 3: At a Glance draws the chips over Requests by school and filter
   assert.match(ov, /requestRows=\{shownRequestRows\}/)
 })
 
+test('CAPACITY FILTERS: service-line totals use the canonical division and selected status rows', () => {
+  const overview = read('src/components/OverviewTab.jsx')
+  assert.match(overview, /getUnit\(u\?\.unit_name\)\?\.division \|\| u\?\.division/)
+  assert.match(overview, /filteredCapacityByServiceLine\(\{[\s\S]{0,180}capacityRows: capacityFiltered/)
+  assert.ok(overview.indexOf('const capacityFiltered') < overview.indexOf('const serviceLineRows'))
+  assert.match(overview, /capacityFiltered\.filter\(r => capacityDivisionOf\(r\) === row\.serviceLine\)/)
+})
+
 // ── Email Academic Partners ──────────────────────────────────────────────────
 
 test('LAUNCH 1: Email Academic Partners launches Send to Many with the template and every partner', () => {
