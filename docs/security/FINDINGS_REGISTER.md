@@ -688,9 +688,32 @@ afterward, from memory.
 
 ## S-21. Resend webhook allows same-rank lateral writes, no replay dedup
 
-- **Severity (original)**: Low. **Status**: OPEN.
+- **Severity (original)**: Low. **Status**: Closed.
 - **Risk**: a replayed or reordered event of equal rank rewrites delivery status and timestamps.
-- **Verified at HEAD**: `api/webhooks/resend.js` verifies the Svix signature, but the guard is `newRank >= currentRank` (same-rank writes pass) and no svix-id is stored or checked for replay.
+- **Verified at HEAD (before S21-1)**: `api/webhooks/resend.js` verifies the Svix signature, but the guard is `newRank >= currentRank` (same-rank writes pass) and no svix-id is stored or checked for replay.
+- **Closing commit**: S21-1 (2026-09-26). Code only; no SQL.
+- **Discovery (S21-1)**: the ranking was queued 0, sent 1, delivered 2, delayed 2, opened 3,
+  clicked 4, bounced 5, complained 5, failed 5, applied with `>=`, so delayed could
+  overwrite delivered and complained could overwrite bounced; every timestamp column was
+  rewritten on every event. The webhook writes `notification_log` (status and the six
+  timestamp columns), `message_notification_deliveries.provider_status` (through
+  `shouldApplyProviderStatus`, also `>=`), and inserts one `staff_notifications` row on the
+  first delivered event of an outreach send. Svix sends `svix-id`, `svix-timestamp` and
+  `svix-signature` on every event and the signature covers the id, so the id is available
+  and trustworthy on every verified event. `notification_log.metadata` is a jsonb column
+  no other writer updates, so the applied ids live there without a new table.
+- **Fix**: `decideNotificationUpdate` is the pure rule: a terminal status (bounced,
+  complained, failed) is never overwritten; a status moves only to a strictly higher rank,
+  with delayed now BELOW delivered; a timestamp column is written once, when null. The
+  applied `svix-id`s are kept in `metadata.webhook_event_ids` (most recent 50); a known id
+  is acknowledged and changes nothing, and the update is a compare-and-set that matches no
+  row when a concurrent duplicate got there first. `shouldApplyProviderStatus` is now
+  strictly greater-than, so the Messages delivery path cannot move sideways either.
+  Signature verification is unchanged and still runs first; a forged signature is refused
+  before any read. `createResendWebhookHandler` makes the handler testable; the default
+  export is unchanged for Vercel. `test/s21ResendWebhook.test.mjs` proves the forged
+  signature, the out-of-order events, the replays (including a concurrent one) and the
+  provider-status rule.
 
 ## S-22. is_owner_or_admin() ignores is_active
 

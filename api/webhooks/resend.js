@@ -7,6 +7,18 @@
 // advances provider_status (monotonically, never downgraded) and NEVER touches
 // queue_status, never retries, and never reads or writes a message body. The
 // existing notification_log behavior below is unchanged.
+//
+// S-21 (S21-1, 2026-09-26): three rules the webhook keeps, in decideNotificationUpdate.
+//   1. A terminal status (bounced, complained, failed) is never overwritten.
+//   2. A status only moves UP the ranking; a same-rank or lower event is a no-op for the
+//      status, and delivery_delayed ranks BELOW delivered so a late "delayed" cannot
+//      overwrite a delivery.
+//   3. A timestamp column is written once, when it is null; a later event never rewrites it.
+// Replay: every event Svix delivers carries a unique svix-id header, which the signature
+// covers. The ids already applied to a row are kept in notification_log.metadata
+// (webhook_event_ids, most recent WEBHOOK_EVENT_ID_KEEP), and the update is a
+// compare-and-set that refuses a row already holding the id, so a replay, even a
+// concurrent one, is acknowledged and changes nothing. No table was added for this.
 
 /* global process, Buffer */
 
@@ -82,10 +94,16 @@ async function emitOutreachDelivered(supabase, logRow) {
   }
 }
 
-const supabase = createClient(
-  process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+let cachedDb = null;
+function defaultDb() {
+  if (!cachedDb) {
+    cachedDb = createClient(
+      process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY
+    );
+  }
+  return cachedDb;
+}
 
 // Resend event type → notification_log status + optional timestamp column to update
 const EVENT_MAP = {
@@ -98,18 +116,46 @@ const EVENT_MAP = {
   'email.delivery_delayed': { status: 'delayed' },  // no dedicated column; status only
 };
 
-// Status precedence - never downgrade. Higher rank = more authoritative.
-const STATUS_RANK = {
+// Status precedence. A status only ever moves UP; equal rank is a no-op. delayed sits
+// below delivered on purpose (S-21): Resend can report a delay before the delivery it
+// then reports, and the two may arrive in either order.
+export const STATUS_RANK = {
   queued:    0,
   sent:      1,
-  delivered: 2,
   delayed:   2,
-  opened:    3,
-  clicked:   4,
-  bounced:   5,    // terminal
-  complained:5,    // terminal
-  failed:    5,
+  delivered: 3,
+  opened:    4,
+  clicked:   5,
+  bounced:   6,    // terminal
+  complained:6,    // terminal
+  failed:    6,    // terminal
 };
+export const TERMINAL_STATUSES = new Set(['bounced', 'complained', 'failed']);
+const TIMESTAMP_COLUMNS = [...new Set(Object.values(EVENT_MAP).map(e => e.timestampCol).filter(Boolean))];
+export const WEBHOOK_EVENT_ID_KEEP = 50;
+const SVIX_ID_RE = /^[A-Za-z0-9_.-]{1,120}$/;
+
+// S-21: the pure decision. Given the row as it is and the event, return the columns to
+// write, or null when the event changes nothing. Never downgrades, never overwrites a
+// terminal status, never rewrites a timestamp that is already set.
+export function decideNotificationUpdate({ row, eventStatus, timestampCol, eventTime }) {
+  const payload = {};
+  const currentStatus = row?.status;
+  const currentRank = STATUS_RANK[currentStatus] ?? 0;
+  const newRank     = STATUS_RANK[eventStatus] ?? 0;
+  if (!TERMINAL_STATUSES.has(currentStatus) && newRank > currentRank) {
+    payload.status = eventStatus;
+  }
+  if (timestampCol && row?.[timestampCol] == null) {
+    payload[timestampCol] = eventTime;
+  }
+  return Object.keys(payload).length > 0 ? payload : null;
+}
+
+function seenEventIds(metadata) {
+  const ids = metadata && typeof metadata === 'object' ? metadata.webhook_event_ids : null;
+  return Array.isArray(ids) ? ids.filter(x => typeof x === 'string') : [];
+}
 
 export const config = {
   api: { bodyParser: false },  // raw body required for Svix signature verification
@@ -125,6 +171,16 @@ async function getRawBody(req) {
 }
 
 export default async function handler(req, res) {
+  return productionHandler(req, res);
+}
+
+export function createResendWebhookHandler({
+  getDb = defaultDb,
+  getSecret = () => process.env.RESEND_WEBHOOK_SECRET,
+  readBody = getRawBody,
+  now = () => new Date(),
+} = {}) {
+  return async function resendWebhookHandler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -132,14 +188,14 @@ export default async function handler(req, res) {
   // Read raw body before any parsing
   let rawBody;
   try {
-    rawBody = await getRawBody(req);
+    rawBody = await readBody(req);
   } catch (err) {
     console.error('[resend-webhook] failed to read body:', err);
     return res.status(400).json({ error: 'Invalid body' });
   }
 
   // Verify Svix signature
-  const webhookSecret = process.env.RESEND_WEBHOOK_SECRET;
+  const webhookSecret = getSecret();
   if (!webhookSecret) {
     console.error('[resend-webhook] RESEND_WEBHOOK_SECRET not configured');
     return res.status(500).json({ error: 'Webhook secret not configured' });
@@ -158,6 +214,10 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: 'Invalid signature' });
   }
 
+  const supabase = getDb();
+  const rawSvixId = String(req.headers['svix-id'] || '');
+  const svixId = SVIX_ID_RE.test(rawSvixId) ? rawSvixId : null;
+
   const { type, data } = event;
   const eventConfig = EVENT_MAP[type];
 
@@ -173,15 +233,12 @@ export default async function handler(req, res) {
     return res.status(200).json({ success: true, handled: false });
   }
 
-  // ASPIRE MESSAGES: reconcile the Messages delivery row (provider_status only,
-  // monotonic, best-effort). Runs independently of the notification_log path.
-  await reconcileMessageDelivery(supabase, resendEmailId, type);
-
   try {
-    // Look up the matching notification_log row by resend_email_id
+    // Look up the matching notification_log row by resend_email_id, with the timestamp
+    // columns (written once each) and the metadata that records applied event ids.
     const { data: logRow, error: lookupErr } = await supabase
       .from('notification_log')
-      .select('id, status, notification_type, subject, metadata')
+      .select(`id, status, notification_type, subject, metadata, ${TIMESTAMP_COLUMNS.join(', ')}`)
       .eq('resend_email_id', resendEmailId)
       .maybeSingle();
 
@@ -190,44 +247,69 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Database lookup failed' });
     }
 
+    // S-21 replay: an event id this row has already applied changes nothing, anywhere.
+    const seen = seenEventIds(logRow?.metadata);
+    if (svixId && logRow && seen.includes(svixId)) {
+      console.log(`[resend-webhook] ${type} replay for ${resendEmailId} acknowledged, no change`);
+      return res.status(200).json({ success: true, handled: false, reason: 'replayed' });
+    }
+
+    // ASPIRE MESSAGES: reconcile the Messages delivery row (provider_status only,
+    // monotonic, best-effort). Runs independently of the notification_log path.
+    await reconcileMessageDelivery(supabase, resendEmailId, type);
+
     if (!logRow) {
       // Email sent before webhooks were wired up, or a manual Resend dashboard send
       console.log(`[resend-webhook] no log row for resend_email_id ${resendEmailId} (${type}), acknowledged`);
       return res.status(200).json({ success: true, handled: false, reason: 'not_found' });
     }
 
-    // Build update payload - always set the timestamp, update status only if higher rank
-    const updatePayload = {};
+    const decided = decideNotificationUpdate({
+      row: logRow,
+      eventStatus: eventConfig.status,
+      timestampCol: eventConfig.timestampCol,
+      eventTime: data?.created_at || now().toISOString(),
+    });
 
-    if (eventConfig.timestampCol) {
-      updatePayload[eventConfig.timestampCol] = data?.created_at || new Date().toISOString();
-    }
-
-    const currentRank = STATUS_RANK[logRow.status] ?? 0;
-    const newRank     = STATUS_RANK[eventConfig.status] ?? 0;
-    if (newRank >= currentRank) {
-      updatePayload.status = eventConfig.status;
+    // Record the event id on the row whether or not the event moved anything, so the
+    // same id arriving again is a replay. The update is a compare-and-set on the id: a
+    // concurrent duplicate loses the race and matches no row.
+    const updatePayload = { ...(decided || {}) };
+    if (svixId) {
+      const metadata = logRow.metadata && typeof logRow.metadata === 'object' && !Array.isArray(logRow.metadata) ? logRow.metadata : {};
+      updatePayload.metadata = { ...metadata, webhook_event_ids: [...seen, svixId].slice(-WEBHOOK_EVENT_ID_KEEP) };
     }
 
     if (Object.keys(updatePayload).length > 0) {
-      const { error: updateErr } = await supabase
+      let query = supabase
         .from('notification_log')
         .update(updatePayload)
         .eq('id', logRow.id);
+      if (svixId) {
+        query = query.or(`metadata->webhook_event_ids.is.null,metadata->webhook_event_ids.not.cs.${JSON.stringify([svixId])}`);
+      }
+      const { data: updated, error: updateErr } = await query.select('id');
 
       if (updateErr) {
         console.error('[resend-webhook] update failed:', updateErr);
         return res.status(500).json({ error: 'Database update failed' });
       }
+      if (svixId && (!updated || updated.length === 0)) {
+        console.log(`[resend-webhook] ${type} concurrent replay for ${resendEmailId} acknowledged, no change`);
+        return res.status(200).json({ success: true, handled: false, reason: 'replayed' });
+      }
 
-      console.log(`[resend-webhook] ${type} → ${resendEmailId} updated:`, updatePayload);
+      console.log(`[resend-webhook] ${type} for ${resendEmailId} applied:`, decided ? Object.keys(decided) : 'no status change');
     }
 
-    if (type === 'email.delivered') await emitOutreachDelivered(supabase, logRow);
+    if (type === 'email.delivered' && decided?.status === 'delivered') await emitOutreachDelivered(supabase, logRow);
 
-    return res.status(200).json({ success: true, handled: true });
+    return res.status(200).json({ success: true, handled: true, changed: !!decided });
   } catch (err) {
     console.error('[resend-webhook] processing error:', err);
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: 'Processing failed' });
   }
+  };
 }
+
+const productionHandler = createResendWebhookHandler();
