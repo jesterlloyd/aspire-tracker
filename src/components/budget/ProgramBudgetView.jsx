@@ -27,7 +27,8 @@ import './budget.css'
 const NOT_ENABLED = 'Program Budget is not enabled yet. Its database update (20261009000000_program_budget_phase_a.sql) has not been applied.'
 
 function tabsFor(year, canEdit) {
-  if (year.state === 'not_started') return [{ value: 'summary', label: canEdit ? `Start ${year.label}` : 'Summary' }, ...(canEdit ? [{ value: 'subscriptions', label: 'Subscriptions' }] : [])]
+  // A reader sees Subscriptions before the year starts when there are proposals to look at (SUB-APPROVAL-1).
+  if (year.state === 'not_started') return [{ value: 'summary', label: canEdit ? `Start ${year.label}` : 'Summary' }, ...(canEdit || year.proposals?.count ? [{ value: 'subscriptions', label: 'Subscriptions' }] : [])]
   const t = [{ value: 'summary', label: 'Summary' }, { value: 'sheet', label: 'Sheet' }, { value: 'subscriptions', label: 'Subscriptions' }]
   if (canEdit || year.budget?.plan_saved_at) t.push({ value: 'allocations', label: 'Allocations' })
   return t

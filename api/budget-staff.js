@@ -40,6 +40,7 @@ const ACTION_SCHEMAS = Object.freeze({
   subscription_update: ['action', 'id', 'patch'],
   subscription_delete: ['action', 'id'],
   renewal_decide: ['action', 'id', 'decision'],
+  subscription_approve: ['action', 'id', 'decision'],
   post_charges: ['action'],
 })
 
@@ -96,6 +97,7 @@ export function createBudgetStaffHandler({ verifyCaller = verifyPortalCaller, ma
         case 'subscription_create': return res.status(200).json({ subscription: await E.createSubscription(db, actor, { fields: obj(body.fields), ...day }) })
         case 'subscription_update': return res.status(200).json({ subscription: await E.updateSubscription(db, actor, { id: body.id, patch: obj(body.patch), ...day }) })
         case 'subscription_delete': return res.status(200).json(await E.deleteSubscription(db, actor, { id: body.id }))
+        case 'subscription_approve': return res.status(200).json(await E.decideProposal(db, actor, { id: body.id, decision: body.decision, ...day }))
         case 'renewal_decide': return res.status(200).json(await E.decideRenewal(db, actor, { id: body.id, decision: body.decision, ...day }))
         case 'post_charges': return res.status(200).json(await E.postDueCharges(db, day))
         default: return invalid(res, 'action', 'Unknown action.')

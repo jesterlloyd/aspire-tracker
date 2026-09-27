@@ -136,3 +136,8 @@
 .bud-portal-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
 .bud-portal-head h2 { margin: 0; font-size: 20px; font-weight: 700; color: var(--text-heading); }
 
+/* SUB-APPROVAL-1: a proposal is marked in the info tone, never the warning one: it is waiting, not wrong. */
+.bud-renew .when.bud-when-proposed { color: var(--pill-info-fg, var(--text-heading)); background: var(--pill-info-bg); }
+.bud-proposal { padding: 4px; }
+.bud-proposal .bud-tile { padding: 10px 14px; }
+

@@ -19,6 +19,7 @@ export default function BudgetStart({ year, canEdit, onWrite, onPickYear }) {
     return (
       <SurfaceCard className="bud-empty">
         The {label} budget isn&apos;t published yet.{' '}
+        {year.proposals?.count > 0 && <>{year.proposals.count} {year.proposals.count === 1 ? 'subscription is' : 'subscriptions are'} proposed for approval; see Subscriptions.{' '}</>}
         {year.years.includes(year.fy - 1) && <button type="button" className="bud-link" onClick={() => onPickYear(year.fy - 1)}>View {fyShort(year.fy - 1)}</button>}
       </SurfaceCard>
     )

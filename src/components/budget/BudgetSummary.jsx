@@ -163,6 +163,9 @@ export default function BudgetSummary({ year, canEdit, onWrite }) {
     <>
       {reader && noteCard}
       {basis}
+      {year.proposals?.count > 0 && (
+        <p className="bud-hint" role="note">{year.proposals.count} {year.proposals.count === 1 ? 'subscription is' : 'subscriptions are'} awaiting approval ({usd(year.proposals.monthly)} a month) and not counted in these figures. See Subscriptions.</p>
+      )}
       <div className="bud-two">
         <SurfaceCard className="bud-card"><h2>Monthly Spend</h2><p className="bud-sub">{fyRangeText(year.fy)}, against an even monthly pace</p><MonthlyChart s={s} /></SurfaceCard>
         <SurfaceCard className="bud-card">

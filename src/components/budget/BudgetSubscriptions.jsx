@@ -10,7 +10,7 @@ import SurfaceCard from '../ui/SurfaceCard'
 import EditableSheet from '../sheet/EditableSheet'
 import { Pill } from '../shared/DataSheet'
 import {
-  usd, dateText, BILLING, PAYMENT_METHODS, nextCharge, perYear, dueByYearEnd, subscriptionStatus, isActiveSub, monthlyEquivalent,
+  usd, dateText, BILLING, PAYMENT_METHODS, nextCharge, perYear, dueByYearEnd, subscriptionStatus, isActiveSub, isApproved, monthlyEquivalent,
   paymentKey, pacificToday, fyShort, parseMoney,
 } from '../../lib/budget/budgetModel'
 
@@ -35,6 +35,7 @@ export default function BudgetSubscriptions({ year, canEdit, onWrite }) {
   const run = active.reduce((a, s) => a + monthlyEquivalent(s), 0)
   const next = active.map(s => [s, nextCharge(s, today)]).filter(x => x[1]).sort((a, b) => a[1].localeCompare(b[1]))[0]
   const due = year.summary.committed
+  const prop = year.proposals || { plans: [], count: 0 }
 
   const toRow = (s) => ({
     id: s.id, raw: s, format: {},
@@ -80,15 +81,48 @@ export default function BudgetSubscriptions({ year, canEdit, onWrite }) {
     }
   }
   const decide = (id, decision, ok) => onWrite.run('renewal_decide', { id, decision }, ok)
+  const approve = (id, decision) => onWrite.run('subscription_approve', { id, decision })
+  const fyStart = dateText(`${year.fy - 1}-07-01`)
 
   return (
     <>
       <div className="bud-basis bud-basis-4">
-        <SurfaceCard className="bud-tile"><span className="k">Active</span><b>{active.length}</b><small>{subs.length - active.length} cancelled or ending</small></SurfaceCard>
+        <SurfaceCard className="bud-tile"><span className="k">Active</span><b>{active.length}</b><small>{(() => { const ended = subs.filter(x => isApproved(x) && !isActiveSub(x, today)).length; return [ended ? `${ended} cancelled or ending` : '', prop.count ? `${prop.count} proposed` : ''].filter(Boolean).join(' · ') || 'None cancelled or ending' })()}</small></SurfaceCard>
         <SurfaceCard className="bud-tile"><span className="k">Monthly run rate</span><b>{usd(run)}</b><small>Annual plans spread by month</small></SurfaceCard>
         <SurfaceCard className="bud-tile"><span className="k">Per year</span><b>{usd(run * 12)}</b><small>{state === 'current' && year.summary.total ? `${((run * 12) / year.summary.total * 100).toFixed(1)}% of the ${fyShort(year.fy)} budget` : 'At current plans'}</small></SurfaceCard>
         <SurfaceCard className="bud-tile"><span className="k">Due by Jun 30</span><b>{usd(due)}</b><small>{next ? `Next: ${next[0].name}, ${dateText(next[1])}` : 'Nothing scheduled'}</small></SurfaceCard>
       </div>
+
+      {/* SUB-APPROVAL-1: proposals are shown with what they would cost, and count against nothing. */}
+      {prop.count > 0 && (
+        <section aria-label="Awaiting approval">
+          <p className="bud-sub"><b>Awaiting Approval</b> · Not counted against the budget until approved</p>
+          <SurfaceCard className="bud-card bud-proposal">
+            <div className="bud-basis bud-basis-4">
+              <div className="bud-tile"><span className="k">Proposed</span><b>{prop.count}</b><small>{prop.count === 1 ? 'subscription' : 'subscriptions'}</small></div>
+              <div className="bud-tile"><span className="k">A month</span><b>{usd(prop.monthly)}</b><small>{usd(prop.perYear)} a year</small></div>
+              <div className="bud-tile"><span className="k">If approved from {fyStart}</span><b>{usd(prop.fromStart)}</b><small>{usd(prop.sinceStart)} already charged, {usd(prop.toCome)} to come</small></div>
+              <div className="bud-tile"><span className="k">If approved from today</span><b>{usd(prop.fromToday)}</b><small>Through June 30</small></div>
+            </div>
+          </SurfaceCard>
+          <div className="bud-renews">
+            {prop.plans.map(p => (
+              <SurfaceCard key={p.id} className="bud-renew" role="group" aria-label={`${p.name} proposal`}>
+                <span className="when bud-when-proposed">Proposed</span>
+                <div><b>{p.name}: {usd(p.monthly)} a month</b>
+                  <small>{usd(p.sinceStart)} charged since {fyStart}; {usd(p.toCome)} more through June 30.</small></div>
+                {canEdit && (
+                  <div className="acts">
+                    <button type="button" className="bud-btn bud-btn-pri bud-btn-sm" onClick={() => approve(p.id, 'from_year_start')}>Approve from {fyStart.replace(/, \d{4}$/, '')}</button>
+                    <button type="button" className="bud-btn bud-btn-sm" onClick={() => approve(p.id, 'from_today')}>Approve from today</button>
+                    <button type="button" className="bud-btn bud-btn-sm" onClick={() => approve(p.id, 'decline')}>Decline</button>
+                  </div>
+                )}
+              </SurfaceCard>
+            ))}
+          </div>
+        </section>
+      )}
 
       {canEdit && year.renewals.length > 0 && (
         <section aria-label="Renewals to decide">

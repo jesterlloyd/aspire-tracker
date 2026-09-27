@@ -142,14 +142,25 @@ export function chargesIn(sub, from, to) {
 }
 export const nextCharge = (sub, today = pacificToday()) => chargesIn(sub, addDays(today, 1), addDays(today, 3700))[0] || null
 export const daysBetween = (a, b) => Math.round((Date.UTC(...parts(b).map((v, i) => (i === 1 ? v - 1 : v))) - Date.UTC(...parts(a).map((v, i) => (i === 1 ? v - 1 : v)))) / 86400000)
-export const isActiveSub = (sub, today = pacificToday()) => !sub.deleted_at && (!sub.end_date || sub.end_date > today)
+// SUB-APPROVAL-1 (Owner, 2026-09-27: "add it so I can present it to Margo ... but do not put it
+// against the budget yet"): a subscription is PROPOSED until the owner approves it. A proposed plan
+// is shown, with what it would cost, and counts against nothing: it posts no charge, adds nothing
+// to committed spend, and asks no renewal. Approval may start its charges from the start of the
+// year or from the day it was approved (post_from). A row without the column is approved, as
+// every subscription was before approval existed.
+export const APPROVAL = Object.freeze({ proposed: 'proposed', approved: 'approved', declined: 'declined' })
+export const isApproved = (sub) => !sub.approval_state || sub.approval_state === APPROVAL.approved
+export const isProposed = (sub) => sub.approval_state === APPROVAL.proposed
+/** The first day a subscription's charges count: its start, or later if it was approved from a later day. */
+export const countsFrom = (sub) => (sub.post_from && sub.post_from > sub.start_date ? sub.post_from : sub.start_date)
+export const isActiveSub = (sub, today = pacificToday()) => !sub.deleted_at && isApproved(sub) && (!sub.end_date || sub.end_date > today)
 /** What a plan costs a month: an annual plan spread over twelve. */
 export const monthlyEquivalent = (sub) => (sub.billing === 'annual' ? Number(sub.amount) / 12 : Number(sub.amount))
 export const perYear = (sub, today = pacificToday()) => (isActiveSub(sub, today) ? round2(monthlyEquivalent(sub) * 12) : 0)
 
 /** The renewal the owner has to decide: an annual plan renewing within 45 days, undecided. */
 export function pendingRenewal(sub, today = pacificToday()) {
-  if (sub.billing !== 'annual' || sub.end_date || sub.deleted_at || !sub.auto_renew) return null
+  if (sub.billing !== 'annual' || sub.end_date || sub.deleted_at || !sub.auto_renew || !isApproved(sub)) return null
   const n = nextCharge(sub, today)
   if (!n || daysBetween(today, n) > RENEWAL_WINDOW_DAYS) return null
   if (sub.renewal_kept_for === n) return null
@@ -157,7 +168,9 @@ export function pendingRenewal(sub, today = pacificToday()) {
 }
 /** Active (green), Renews soon (amber), Ending (amber), Cancelled (grey). */
 export function subscriptionStatus(sub, today = pacificToday()) {
+  if (sub.approval_state === APPROVAL.declined) return { label: 'Declined', tone: 'grey' }
   if (sub.end_date && sub.end_date <= today) return { label: 'Cancelled', tone: 'grey' }
+  if (isProposed(sub)) return { label: 'Proposed', tone: 'blue' }
   if (sub.end_date) return { label: 'Ending', tone: 'amber' }
   if (pendingRenewal(sub, today)) return { label: 'Renews soon', tone: 'amber' }
   return { label: 'Active', tone: 'green' }
@@ -184,8 +197,9 @@ export function committedSpend(subs, fy, state, today = pacificToday()) {
   const byMonth = {}, byCategory = {}
   let total = 0
   for (const s of subs) {
-    if (s.deleted_at) continue
-    for (const k of chargesIn(s, addDays(today, 1), r.end)) {
+    if (s.deleted_at || !isApproved(s)) continue
+    const from = addDays(today, 1) > countsFrom(s) ? addDays(today, 1) : countsFrom(s)
+    for (const k of chargesIn(s, from, r.end)) {
       const m = monthOf(k)
       byMonth[m] = round2((byMonth[m] || 0) + Number(s.amount))
       byCategory[s.category_id || ''] = round2((byCategory[s.category_id || ''] || 0) + Number(s.amount))
@@ -202,15 +216,34 @@ export const dueByYearEnd = (sub, fy, state, today = pacificToday()) => committe
  * makes posting safe to run any number of times; this only decides what to try.
  */
 export function chargesToPost(sub, startedYears, postedDates, today = pacificToday()) {
-  if (sub.deleted_at) return []
+  if (sub.deleted_at || !isApproved(sub)) return []
   const out = []
   for (const fy of startedYears) {
     const r = fiscalYearRange(fy)
     if (!r) continue
-    for (const k of chargesIn(sub, r.start, today < r.end ? today : r.end)) if (!postedDates.has(k)) out.push({ date: k, fiscal_year: fy })
+    const from = countsFrom(sub) > r.start ? countsFrom(sub) : r.start
+    for (const k of chargesIn(sub, from, today < r.end ? today : r.end)) if (!postedDates.has(k)) out.push({ date: k, fiscal_year: fy })
   }
   return out
 }
+/**
+ * What the proposals would cost, for the conversation that approves them: per plan and in total,
+ * a month and a year, what would already have charged since July 1, and what is still to come
+ * through June 30. Independent of whether the year has started, because the question is asked
+ * before it counts.
+ */
+export function proposalSummary(subs, fy, today = pacificToday()) {
+  const r = fiscalYearRange(fy)
+  const plans = subs.filter(s => !s.deleted_at && isProposed(s) && (!s.end_date || s.end_date >= r.start)).map(s => {
+    const through = today < r.end ? today : r.end
+    const sinceStart = round2(chargesIn(s, r.start, through).length * Number(s.amount))
+    const toCome = today < r.end ? round2(chargesIn(s, addDays(today, 1), r.end).length * Number(s.amount)) : 0
+    return { id: s.id, name: s.name, monthly: round2(monthlyEquivalent(s)), perYear: round2(monthlyEquivalent(s) * 12), sinceStart, toCome, fromToday: toCome, fromStart: round2(sinceStart + toCome) }
+  })
+  const add = (k) => round2(plans.reduce((a, p) => a + p[k], 0))
+  return { plans, count: plans.length, monthly: add('monthly'), perYear: add('perYear'), sinceStart: add('sinceStart'), toCome: add('toCome'), fromStart: add('fromStart'), fromToday: add('fromToday') }
+}
+
 /** The expense row a subscription charge posts. */
 export function chargeExpense(sub, date) {
   return {
