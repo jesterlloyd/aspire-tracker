@@ -1048,19 +1048,37 @@ afterward, from memory.
 
 ## D-01. react-router-dom 7.15.1 advisories
 
-- **Severity (original)**: Low. **Status**: OPEN (upgrade housekeeping). Open redirect and DoS advisories, judged not reachable by the audit. Still at ^7.15.1 in package.json.
+- **Severity (original)**: Low. **Status**: Closed.
+- **Verified at HEAD (before DEPS-1)**: `react-router-dom` 7.15.1 with `react-router` 7.15.1; five advisories on `react-router` (open redirect via backslash in Link and useNavigate, RSC error-handler XSS, constructor injection in SSR error deserialization, route-matching DoS, RSC CSRF bypass), all fixed by 7.18.2. Production runtime (the client bundle and the public-site prerender). Minor bump.
+- **Fix (DEPS-1, 2026-09-26)**: `react-router-dom` ^7.18.4 (`react-router` 7.18.4). No code change; the suite, the production build and the prerender stage all pass.
+- **Live paths touched**: every route. After deploy, click through the public site routes (home, about, the four public forms) and one portal's navigation end to end, including a browser back and a deep link with a query string.
 
 ## D-02. ws 8.20.0 via @supabase/realtime-js
 
-- **Severity (original)**: Low. **Status**: OPEN (upgrade housekeeping). Client-side only. supabase-js still at ^2.105.1.
+- **Severity (original)**: Low. **Status**: Closed.
+- **Verified at HEAD (before DEPS-1)**: `ws` 8.20.0 under `@supabase/realtime-js` 2.105.1 (declared range ^8.18.2); two advisories (uninitialized memory disclosure, fragment memory-exhaustion DoS), fixed by 8.21.0. Production runtime on the Node side only; the browser bundle uses the native WebSocket. Patch bump within the declared range.
+- **Fix (DEPS-1, 2026-09-26)**: `ws` 8.22.0 through the lockfile. `@supabase/supabase-js` stays at ^2.105.1 on purpose: the advisory needed no client bump, and the client is exercised by every test that mocks it.
+- **Live paths touched**: realtime subscriptions. After deploy, open a Messages thread, send a reply from a second account and confirm the thread updates and the unread badge on the ASPIRE Connect icon changes without a reload.
 
 ## D-03. postcss and nanoid via sanitize-html
 
-- **Severity (original)**: Low. **Status**: OPEN (upgrade housekeeping). Server runtime path. sanitize-html still present (^2.17.5).
+- **Severity (original)**: Low. **Status**: Closed.
+- **Verified at HEAD (before DEPS-1)**: `sanitize-html` 2.17.5 (two mutation-XSS bypasses, fixed by 2.17.7), `postcss` 8.5.13 (sourceMappingURL file disclosure, fixed above 8.5.22) and `nanoid` 3.3.12 (infinite-loop generators, fixed by 3.3.18). Production runtime: the server sanitizes outreach and template HTML before it is sent. All patch bumps.
+- **Fix (DEPS-1, 2026-09-26)**: `sanitize-html` ^2.17.7, `postcss` 8.5.28 and `nanoid` 3.3.19 through the lockfile.
+- **Live paths touched**: email rendering. After deploy, open Outreach, pick a template with formatting and a button, and confirm the preview and a test send to yourself render the same as before.
 
 ## D-04. vite 8.0.10, brace-expansion, @babel/core
 
-- **Severity (original)**: Informational. **Status**: OPEN (dev-only). Build-time only; vite still at ^8.0.10.
+- **Severity (original)**: Informational. **Status**: Closed.
+- **Verified at HEAD (before DEPS-1)**: dev-only, all three under devDependencies: `vite` 8.0.10 (dev-server `server.fs.deny` bypass and launch-editor hash disclosure, Windows only, fixed by 8.0.16), `brace-expansion` 5.0.5 under `eslint`'s `minimatch` (four expansion DoS advisories, fixed by 5.0.9), `@babel/core` 7.29.0 under `eslint-plugin-react-hooks` (sourceMappingURL file read, fixed by 7.29.6). Minor bump for vite, patch bumps for the other two; no major bump was needed (`@babel/core` 8.x exists but the fix is in 7.29.6).
+- **Fix (DEPS-1, 2026-09-26)**: `vite` ^8.3.1, `brace-expansion` 5.0.12 and `@babel/core` 7.29.7 through the lockfile. The Babel chain update also carried `browserslist` to 4.29.1 and `baseline-browser-mapping` to 2.11.26, which closed the two advisories the same audit had raised on them (unbounded cache growth and a crash on untrusted custom stats).
+- **Live paths touched**: none at runtime. The production build and the prerender stage ran on the new vite.
+
+## D-05. @tiptap advisories surfaced by the same audit
+
+- **Severity**: Moderate to high per npm. **Status**: OPEN (upgrade housekeeping), found 2026-09-26.
+- `@tiptap/core` 3.27.1 and its extensions (the Outreach editor): a prototype-key attribute bypass in `mergeAttributes` and a quadratic ReDoS in Markdown attribute parsing, fixed by 3.30.5. Production runtime in the browser, where the only input is the staff author's own document. Minor bump across the whole `@tiptap/*` set (`react`, `starter-kit`, `extension-link`, `extension-underline`), which must move together.
+- Not applied in DEPS-1 because it was outside its scope. After DEPS-1 it is the only advisory `npm audit` reports (26 rows, all of them this one package family).
 
 ---
 
