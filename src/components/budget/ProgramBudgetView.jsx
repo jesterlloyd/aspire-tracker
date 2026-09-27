@@ -113,7 +113,13 @@ export default function ProgramBudgetView({ source, renderBand, initialFy = null
           <span className={`bud-chip bud-chip-${year.state}`}>{year.label} · {STATE_CHIP[year.state]}</span>
           <p className="bud-sub">{[year.program, year.budget?.cost_center, year.owner_name && `Owner ${year.owner_name}`, fyRangeText(year.fy)].filter(Boolean).join(' · ')}</p>
         </div>
-        {toast && <div className={`bud-notice${toast.kind === 'err' ? ' bud-error' : ''}`} role={toast.kind === 'err' ? 'alert' : 'status'}>{toast.message}</div>}
+        {/* SHEET-LIVE-1: a toast at the foot of the window; a click puts it away. */}
+        {toast && (
+          <div className={`bud-toast${toast.kind === 'err' ? ' bud-toast-err' : ''}`} role={toast.kind === 'err' ? 'alert' : 'status'}>
+            <span>{toast.message}</span>
+            <button type="button" className="bud-toast-x" aria-label="Dismiss" onClick={() => setToast(null)}>×</button>
+          </div>
+        )}
         <SegmentedPicker ariaLabel="Program Budget views" options={tabs} value={current} onChange={setTab} />
         {current === 'summary' && (notStarted
           ? <BudgetStart year={year} canEdit={canEdit} onWrite={onWrite} onPickYear={(y) => setFy(y)} />

@@ -51,15 +51,17 @@ export default function BudgetSubscriptions({ year, canEdit, onWrite }) {
   const columns = useMemo(() => [
     { key: 'plan', label: 'Plan', type: 'text' },
     { key: 'vendor', label: 'Vendor', type: 'text' },
-    { key: 'billing', label: 'Billing', type: 'choice', options: BILLING.map(b => b.label) },
+    { key: 'billing', label: 'Billing', type: 'choice', required: true, options: BILLING.map(b => b.label) },
     { key: 'amount', label: 'Amount', type: 'number' },
-    { key: 'next', label: 'Next charge', type: 'text', compute: (r) => { const n = nextCharge(r.raw, today); return n ? dateText(n) : '' } },
-    { key: 'perYear', label: 'Per year', type: 'number', compute: (r) => perYear(r.raw, today) || null },
-    { key: 'due', label: `Due by Jun 30`, type: 'number', compute: (r) => dueByYearEnd(r.raw, year.fy, state, today) || null },
+    { key: 'next', label: 'Next charge', type: 'text', compute: (r) => { const n = nextCharge(r.raw, today); return n ? dateText(n) : '' }, note: 'Next charge is worked out from the charge date, Billing and End. Change one of those instead.' },
+    // SHEET-LIVE-1 (Owner, 2026-09-27: "it wouldn't allow me to edit (per year column)"): these are
+    // worked out, so a click says from what. A proposed or ended plan counts nothing, so it shows a dash.
+    { key: 'perYear', label: 'Per year', type: 'number', compute: (r) => perYear(r.raw, today) || null, note: 'Per year is worked out from Amount and Billing, and counts only an approved plan that is running. Change the Amount instead.' },
+    { key: 'due', label: `Due by Jun 30`, type: 'number', compute: (r) => dueByYearEnd(r.raw, year.fy, state, today) || null, note: 'Due by Jun 30 is worked out from the charges still to come this year. Change the Amount, Billing or End instead.' },
     { key: 'pay', label: 'Payment', type: 'choice', options: PAYMENT_METHODS.map(p => p.label) },
     { key: 'cat', label: 'Category', type: 'choice', options: year.categories.map(c => c.name) },
-    { key: 'auto', label: 'Auto-renew', type: 'choice', options: ['Yes', 'No'] },
-    { key: 'status', label: 'Status', type: 'text', compute: (r) => subscriptionStatus(r.raw, today).label },
+    { key: 'auto', label: 'Auto-renew', type: 'choice', required: true, options: ['Yes', 'No'] },
+    { key: 'status', label: 'Status', type: 'text', compute: (r) => subscriptionStatus(r.raw, today).label, note: 'Status follows the plan: its approval, End date and renewal decision.' },
     { key: 'anchor', label: 'A charge date', type: 'date' },
     { key: 'start', label: 'Start', type: 'date' },
     { key: 'end', label: 'End', type: 'date' },
@@ -147,7 +149,7 @@ export default function BudgetSubscriptions({ year, canEdit, onWrite }) {
       )}
 
       <p className="bud-hint">{canEdit
-        ? 'Each charge posts to the Sheet on its date as a Recorded or Paid row, marked Subscription. Usage-based amounts are estimates. Double-click a cell to edit it; set an End date to stop a plan.'
+        ? 'Each charge posts to the Sheet on its date as a Recorded or Paid row, marked Subscription. Usage-based amounts are estimates. Click a cell and type to change it; every change saves itself. Amount takes a formula, like =200/12. Set an End date to stop a plan.'
         : 'Read-only view.'}</p>
       <EditableSheet
         key={`subs-${year.fy}`}
@@ -166,6 +168,7 @@ export default function BudgetSubscriptions({ year, canEdit, onWrite }) {
         saveCells={async (updates) => { await onWrite.call('sheet_cells', { updates, sheet: 'subscriptions' }); onWrite.changed() }}
         canEditColumn={(col) => !CALCULATED.has(col.key) && !col.staff}
         canClear={(col) => ['plan', 'vendor', 'notes', 'end', 'cat', 'pay'].includes(col.key)}
+        formulas
         draftOf={(r, col) => (col.key === '@name' ? r.raw.name : r.cells[col.key])}
         commitEdit={async (row, col, editing, { patchRows }) => {
           const out = await onWrite.call('subscription_update', { id: row.id, patch: toPatch(col.key, editing.draft) })

@@ -104,6 +104,15 @@
 .bud-notice { display: flex; gap: 8px; align-items: flex-start; padding: 10px 12px; border-radius: var(--aspire-radius-control); background: var(--pill-warn-bg); color: var(--pill-warn-fg); font-size: 13px; }
 .bud-empty { padding: 28px 18px; text-align: center; color: var(--text-caption); font-size: 13.5px; }
 .bud-error { color: var(--aspire-bad); }
+/* SHEET-LIVE-1 (Owner, 2026-09-27): the page's messages are a toast at the foot of the window, so one
+   said while you work low in a sheet is seen (the old notice sat above the tabs, scrolled out of view).
+   A fixed pair of ink and ground, the same in both themes. */
+.bud-toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 90; display: flex; gap: 10px; align-items: flex-start; width: max-content; max-width: min(620px, calc(100vw - 32px)); box-sizing: border-box; padding: 11px 16px; border: 0; border-radius: var(--aspire-radius-control); background: #1D2567; color: #FFFFFF; font: 500 13.5px/1.45 var(--aspire-sans); text-align: left; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22); animation: bud-toast-in 160ms ease-out; }
+.bud-toast.bud-toast-err { background: #A32A32; }
+.bud-toast-x { flex: none; margin: -2px -4px 0 4px; padding: 0 4px; border: 0; background: none; color: inherit; font-size: 18px; line-height: 1; cursor: pointer; opacity: 0.8; }
+.bud-toast-x:hover, .bud-toast-x:focus-visible { opacity: 1; }
+@keyframes bud-toast-in { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+@media (prefers-reduced-motion: reduce) { .bud-toast { animation: none; } }
 
 /* The Sheet's own marks. */
 .bud-subtag { margin-left: 6px; padding: 1px 6px; font-size: 10.5px; font-weight: 700; color: var(--pill-info-fg, var(--text-heading)); background: var(--pill-info-bg); border-radius: var(--aspire-radius-pill); vertical-align: 1px; }

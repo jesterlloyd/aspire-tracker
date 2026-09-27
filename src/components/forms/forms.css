@@ -309,6 +309,24 @@
 .fs-open { font-weight: 600; }
 .fs-grid .fs-sel { box-shadow: inset 0 0 0 2px var(--ctl-navy); }
 .fs-grid .fs-inrange { background-image: linear-gradient(color-mix(in srgb, var(--ctl-navy) 12%, transparent), color-mix(in srgb, var(--ctl-navy) 12%, transparent)); }
+/* SHEET-LIVE-1 (Owner, 2026-09-27: "highlight AND outline all that's selected"): a range is tinted and
+   outlined around its outer edge, as Excel draws one; the active cell inside it stays untinted. Each
+   edge is its own inset shadow, switched on by the cell's place in the range (the lengths keep a unit,
+   or calc() drops the whole declaration). */
+.fs-grid .fs-inrange { box-shadow: inset 0 var(--fs-et, 0px) 0 0 var(--ctl-navy), inset calc(-1 * var(--fs-er, 0px)) 0 0 0 var(--ctl-navy), inset 0 calc(-1 * var(--fs-eb, 0px)) 0 0 var(--ctl-navy), inset var(--fs-el, 0px) 0 0 0 var(--ctl-navy); }
+.fs-grid .fs-et { --fs-et: 2px; } .fs-grid .fs-eb { --fs-eb: 2px; } .fs-grid .fs-el { --fs-el: 2px; } .fs-grid .fs-er { --fs-er: 2px; }
+.fs-grid tbody tr:nth-child(n) .fs-inrange.fs-sel { background-image: none; }
+/* SHEET-LIVE-1: the cell being typed in. The input fills the cell and carries the cell's ring. */
+.fs-grid .fs-inline-on { padding: 0; overflow: visible; z-index: 6; }
+.fs-inline-wrap { display: block; position: relative; }
+.fs-inline { display: block; width: 100%; height: 32px; box-sizing: border-box; margin: 0; padding: 5px 8px; border: 0; border-radius: 0; outline: 2px solid var(--ctl-navy); outline-offset: -2px; background: var(--color-bg-input, var(--ctl-surface)); font: inherit; line-height: 20px; color: var(--ctl-ink); text-align: inherit; }
+select.fs-inline { padding: 4px 6px; cursor: pointer; }
+.fs-inline-area { position: absolute; top: 0; left: 0; z-index: 7; width: max(100%, 280px); height: auto; min-height: 96px; resize: vertical; white-space: pre-wrap; box-shadow: 0 8px 22px rgba(0, 0, 0, 0.16); }
+.fs-inline-err { position: absolute; right: 0; top: 100%; z-index: 8; width: max-content; max-width: 300px; margin-top: 3px; padding: 5px 9px; white-space: normal; font: 500 12px/1.35 var(--aspire-sans); color: #FFFFFF; background: #A32A32; border-radius: var(--aspire-radius-control); box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18); }
+.fs-pending { color: var(--text-caption, var(--ctl-muted)); }
+/* A cell whose value came from a formula: a small corner mark, the formula in its tooltip. */
+.fs-grid .fs-hasfx::after { content: ''; position: absolute; top: 0; right: 0; width: 0; height: 0; border-style: solid; border-width: 0 7px 7px 0; border-color: transparent color-mix(in srgb, var(--ctl-navy) 70%, transparent) transparent transparent; pointer-events: none; }
+.fs-save-flash { display: inline-flex; align-items: center; gap: 4px; color: var(--ctl-green, #0E6B43); font-weight: 600; }
 .fs-file { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; border: 0; background: none; padding: 0; cursor: pointer; font: 600 13px var(--aspire-sans); color: var(--ctl-navy); text-decoration: underline; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fs-grouprow td { height: 30px; padding: 0; background: var(--fs-head) !important; }
 .fs-sumrow th, .fs-sumrow td { position: sticky; bottom: 0; z-index: 2; background: var(--fs-head) !important; border-top: 1px solid color-mix(in srgb, var(--ctl-ink) 22%, var(--ctl-surface)); border-bottom: 0; }

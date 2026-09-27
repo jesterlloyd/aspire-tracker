@@ -64,14 +64,14 @@ export default function BudgetSheet({ year, canEdit, onWrite }) {
     { key: 'order_number', label: 'Order or invoice no.', type: 'text' },
     { key: 'pay', label: 'Payment', type: 'choice', options: PAYMENT_METHODS.map(p => p.label) },
     { key: 'qty', label: 'Qty', type: 'number' },
-    { key: 'unit', label: 'Unit cost', type: 'number', compute: (r) => r.raw.unitCost },
+    { key: 'unit', label: 'Unit cost', type: 'number', compute: (r) => r.raw.unitCost, note: 'Unit cost is worked out: Spent divided by Qty. Change Spent or Qty instead.' },
     { key: 'amount', label: 'Spent ($)', type: 'number' },
     { key: 'status', label: 'Status', type: 'choice', required: true, options: STATUSES.map(s => s.label), optionsFor: (r) => statusesFor(r.raw.payment_method).map(statusLabel) },
-    { key: 'receipt', label: 'Receipt', type: 'text' },
+    { key: 'receipt', label: 'Receipt', type: 'text', note: 'The Receipt column fills in when a receipt is filed for the row.' },
     { key: 'cohort', label: 'Cohort', type: 'choice', options: year.cohorts.map(c => c.name) },
     { key: 'cost_center', label: 'Cost center', type: 'text' },
     { key: 'notes', label: 'Notes', type: 'paragraph' },
-    { key: 'month', label: 'Month', type: 'text', compute: (r) => r.cells.month },
+    { key: 'month', label: 'Month', type: 'text', compute: (r) => r.cells.month, note: 'Month follows the Date.' },
   ], [year.categories, year.cohorts])
   const ungroupable = useMemo(() => new Set(columns.map(c => c.key).filter(k => !GROUPABLE.has(k))), [columns])
 
@@ -122,6 +122,7 @@ export default function BudgetSheet({ year, canEdit, onWrite }) {
       canClear={(col) => CLEARABLE.has(col.key)}
       draftOf={draftOf} commitEdit={commitEdit}
       groupSubtotals={['amount']}
+      formulas
       onAddRow={canEdit && year.state !== 'not_started' ? async () => { const out = await onWrite.call('expense_create', { fields: { expense_date: newDate } }); onWrite.changed(); return sheetRow(out.expense, cats, cohorts) } : undefined}
       onDeleteRows={canEdit ? async (list) => { await onWrite.call('expense_delete', { ids: list.map(r => r.id) }); onWrite.changed() } : undefined}
       renderCell={(row, col, text) => {
@@ -138,7 +139,7 @@ export default function BudgetSheet({ year, canEdit, onWrite }) {
         noMatch: 'No expenses match.', frameLabel: `Expenses, ${year.label}. Arrow keys move, Enter edits.`,
         readOnlyEdit: canEdit ? `${year.label} has not started.` : 'This view is read-only.',
         newColumnHint: 'A column of your own, like Approved by or PO number. Leadership sees it read-only.',
-        help: canEdit ? 'Double-click or Enter edits a cell. Unit cost is Spent divided by Qty. Group by Category or Month for the Annual Budget Tracker view; Export to Excel writes both sheets.' : 'Read-only. Use Export to Excel to work with the figures.',
+        help: canEdit ? 'Click a cell and type to change it; Enter or Tab saves, Escape puts it back, and every change saves itself. Qty and Spent take a formula: type = then a calculation, like =[Qty]*12.50. Unit cost is Spent divided by Qty. Group by Category or Month for the Annual Budget Tracker view; Export to Excel writes both sheets.' : 'Read-only. Use Export to Excel to work with the figures.',
       }}
       notify={onWrite.notify}
     />

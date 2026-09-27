@@ -71,12 +71,29 @@
 // SHEET-DRAG-1: press and drag across cells (or down the row numbers) to select a range, as in a
 // spreadsheet; the toolbar and the menu then act on all of it. A column header still drags to move
 // the column, so a range of columns is Shift-click.
+//
+// SHEET-LIVE-1 (Owner, 2026-09-27: "couldn't it be like a real sheet where I just click the cell,
+// change the value ... just like in Microsoft Excel saved to OneDrive where it autosaves?"). A cell
+// is edited IN the cell: select it and type (the key replaces the value), or double-click, Enter or
+// F2 (the value stays). Enter saves and moves down, Tab saves and moves right, Escape puts it back,
+// and clicking away saves. A dropdown saves the moment a choice is picked. Nothing asks to be
+// confirmed; every save shows "Saved" where "All changes saved" sits, and a refused one says why
+// and puts the cell back. The floating editor with a Save button stays only where a host needs more
+// than the value (the Forms Sheet's correction and its reason) or a list of ticks.
+//   column.note              why a calculated column cannot be typed in, said when someone tries.
+//   formulas                 true lets a number cell take a formula (src/lib/sheet/sheetFormula.js):
+//                            "=" then arithmetic, SUM AVERAGE MIN MAX ROUND ABS, and [Column] for a
+//                            cell in the same row. The result is saved as the value and the formula is
+//                            kept on the cell's format as `fx`, so editing shows the formula again and a
+//                            change to a cell it reads works it out again.
+// A selection of more than one cell is tinted AND outlined around its edge, as Excel draws a range.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AlignCenter, AlignLeft, AlignRight, ArrowDownUp, Baseline, Bold, ChevronDown, ChevronRight, Eraser, Italic, PaintBucket, Plus, Trash2, Underline, WrapText } from 'lucide-react'
+import { AlignCenter, AlignLeft, AlignRight, ArrowDownUp, Baseline, Bold, Check, ChevronDown, ChevronRight, Eraser, Italic, PaintBucket, Plus, Trash2, Underline, WrapText } from 'lucide-react'
 import {
   cellMatches, DATE_FORMATS, displayValue, formatNumber, groupSheetRows, isOtherValue, mergeFormat, otherText, otherValue,
   SHEET_DEFAULT_INK, SHEET_FILLS, SHEET_INKS, SHEET_STAFF_TYPES, summarize, SUMMARY_FNS,
 } from '../../lib/sheet/sheetModel'
+import { formulaRefs, isFormula, tryFormula, FORMULA_MAX } from '../../lib/sheet/sheetFormula'
 import Tooltip from '../ui/Tooltip'
 
 const W_DEFAULT = 160, W_LEAD = 200, W_ROWNUM = 44
@@ -110,6 +127,7 @@ export default function EditableSheet({
   renderCell, cellClass, cellTitle, editorLabel, editorExtras, saveLabel,
   labels = {}, notify, viewRef,
   isLocked, groupSubtotals = NO_KEYS, onAddRow, onDeleteRows, canDeleteRow = () => true, canClear = () => false,
+  formulas = false,
 }) {
   const [data, setData] = useState(() => ({ rows: initialRows }))
   const [layout, setLayout] = useState(initialLayout)
@@ -122,6 +140,9 @@ export default function EditableSheet({
   const [editing, setEditing] = useState(null)        // { rowId, key, draft, reason, anchor }
   const [collapsed, setCollapsed] = useState(() => new Set())
   const [save, setSave] = useState('saved')           // saved | saving | error
+  const [flash, setFlash] = useState(0)               // SHEET-LIVE-1: bumps on every save, so "Saved" shows for a moment
+  const [pending, setPending] = useState(() => new Map())   // 'rowId|key' -> the text being saved, shown until it lands
+  const flashTimer = useRef(null)
   const [dragCol, setDragCol] = useState(null)
   const [newCol, setNewCol] = useState({ label: '', type: 'text', options: '' })
   const [ctx, setCtx] = useState(null)                // the right-click menu: { x, y, kind: 'cell' | 'row' | 'col', r, c }
@@ -202,17 +223,23 @@ export default function EditableSheet({
         clearTimeout(layoutTimer.current)
         setSave('saving')
         layoutTimer.current = setTimeout(async () => {
-          try { await saveLayout(next); setSave('saved') } catch (e) { setSave('error'); notify?.(e.message, 'err') }
+          try { await saveLayout(next); saved() } catch (e) { setSave('error'); notify?.(e.message, 'err') }
         }, 600)
       }
       return next
     })
   }
   const patchRows = (fn) => setData(d => ({ ...d, rows: d.rows.map(fn) }))
+  const saved = () => {
+    setSave('saved'); setFlash(n => n + 1)
+    clearTimeout(flashTimer.current)
+    flashTimer.current = setTimeout(() => setFlash(0), 1800)
+  }
+  useEffect(() => () => clearTimeout(flashTimer.current), [])
   const saveCells = async (updates) => {
     if (!editable || !updates.length) return
     setSave('saving')
-    try { await saveHostCells(updates); setSave('saved') } catch (e) { setSave('error'); notify?.(e.message, 'err') }
+    try { await saveHostCells(updates); saved() } catch (e) { setSave('error'); notify?.(e.message, 'err') }
   }
 
   // ── Selection: cells, a range, whole columns (header), whole rows (row number), everything (corner) ──
@@ -235,6 +262,8 @@ export default function EditableSheet({
   }, [range, visibleRows, gridCols])
   const wholeCols = sel && (sel.whole === 'col' || sel.whole === 'all') && range ? gridCols.slice(range.c0, range.c1 + 1) : null
   const isSelected = (r, c) => !!range && r >= range.r0 && r <= range.r1 && c >= range.c0 && c <= range.c1
+  // SHEET-LIVE-1 (Owner: "highlight AND outline all that's selected"): the range's outer edge is drawn.
+  const edgesOf = (r, c) => (!range ? '' : `${r === range.r0 ? ' fs-et' : ''}${r === range.r1 ? ' fs-eb' : ''}${c === range.c0 ? ' fs-el' : ''}${c === range.c1 ? ' fs-er' : ''}`)
   // Like a spreadsheet: the range is tinted and only the active cell carries the ring.
   const isActive = (r, c) => !!sel && !sel.whole && sel.focus.r === r && sel.focus.c === c
   const multi = !!range && (sel.whole || range.r1 > range.r0 || range.c1 > range.c0)
@@ -244,7 +273,7 @@ export default function EditableSheet({
   const applyFormat = (patch) => {
     if (!sel) { notify?.('Select a cell, a column or a row first.'); return }
     const merge = (cur) => {
-      const next = patch === null ? {} : { ...(cur || {}), ...patch }
+      const next = patch === null ? (cur?.fx ? { fx: cur.fx } : {}) : { ...(cur || {}), ...patch }   // a formula is content, not formatting
       for (const k of Object.keys(next)) if (next[k] === false || next[k] == null) delete next[k]
       return Object.keys(next).length ? next : null
     }
@@ -257,9 +286,11 @@ export default function EditableSheet({
       if (patch === null) {
         // Clear formatting on a column clears its cells too, as a spreadsheet does.
         const updates = []
-        for (const row of data.rows) for (const c of wholeCols) if (row.format?.[c.key]) updates.push({ rowId: row.id, key: c.key, format: null })
+        // A cell's formula stays: it is what the cell holds, not how it looks.
+        const keep = (f) => (f?.fx ? { fx: f.fx } : null)
+        for (const row of data.rows) for (const c of wholeCols) if (row.format?.[c.key]) updates.push({ rowId: row.id, key: c.key, format: keep(row.format[c.key]) })
         const keys = new Set(wholeCols.map(c => c.key))
-        patchRows(r => ({ ...r, format: Object.fromEntries(Object.entries(r.format || {}).filter(([k]) => !keys.has(k))) }))
+        patchRows(r => ({ ...r, format: Object.fromEntries(Object.entries(r.format || {}).map(([k, f]) => [k, keys.has(k) ? keep(f) : f]).filter(([, f]) => f)) }))
         saveCells(updates)
       }
       return
@@ -281,39 +312,129 @@ export default function EditableSheet({
     applyFormat({ dec: Math.max(0, Math.min(4, base + delta)) })
   }
 
-  // ── Editing ──
+  // ── Editing ── SHEET-LIVE-1: in the cell, saved as soon as it is left.
   const canEdit = (col) => editable && !col.compute && (col.staff || canEditColumn(col))
   const locked = (row, col) => !!isLocked?.(row, col)
+  const usesPanel = (col) => col.type === 'checkboxes' || (!col.staff && !!editorExtras)
+  const takesFormula = (col) => formulas && col.type === 'number' && !col.compute
   const commitStaff = (row, col, value) => {
     patchRows(r => (r.id === row.id ? { ...r, cells: { ...r.cells, [col.key]: value } } : r))
     saveCells([{ rowId: row.id, key: col.key, value }])
   }
-  // The editor floats above the page (position: fixed) at its cell, so the grid's scrolling
+  // The floating editor sits above the page (position: fixed) at its cell, so the grid's scrolling
   // frame never clips it; it follows the cell while the frame scrolls.
   const anchorOf = (rowId, key) => {
     const el = frameRef.current?.querySelector(`[data-cell="${rowId}|${key}"]`)
     const r = el?.getBoundingClientRect()
     return r ? { top: r.top, left: r.left, width: r.width } : null
   }
-  const startEdit = (row, col) => {
-    if (!canEdit(col)) { if (!editable && !col.base && labels.readOnlyEdit) notify?.(labels.readOnlyEdit); return }
+  const rawOf = (row, col) => (col.staff ? (row.cells[col.key] || '') : draftOf(row, col))
+  /** Open a cell. `seed` is a key typed on a selected cell: it replaces the value, as in a spreadsheet. */
+  const startEdit = (row, col, seed) => {
+    if (!canEdit(col)) {
+      if (!editable) { if (!col.base && labels.readOnlyEdit) notify?.(labels.readOnlyEdit) }
+      else if (col.note) notify?.(col.note)
+      return
+    }
     if (locked(row, col)) { if (labels.locked) notify?.(labels.locked); return }
     if (col.staff && col.type === 'check') { commitStaff(row, col, row.cells[col.key] ? '' : 'Yes'); return }
-    const raw = col.staff ? (row.cells[col.key] || '') : draftOf(row, col)
-    setEditing({ rowId: row.id, key: col.key, draft: raw ?? (col.type === 'checkboxes' ? [] : ''), reason: '', anchor: anchorOf(row.id, col.key) })
+    const fx = takesFormula(col) ? row.format?.[col.key]?.fx : null
+    const raw = fx || rawOf(row, col)
+    const typed = typeof seed === 'string' && !usesPanel(col) && !['date', 'choice', 'dropdown'].includes(col.type)
+    setEditing({ rowId: row.id, key: col.key, draft: typed ? seed : (raw ?? (col.type === 'checkboxes' ? [] : '')), original: raw ?? '', reason: '', panel: usesPanel(col), anchor: anchorOf(row.id, col.key) })
   }
-  const followEditor = () => { if (editing) setEditing(e => (e ? { ...e, anchor: anchorOf(e.rowId, e.key) } : e)) }
-  const commitEdit = async () => {
-    if (!editing) return
-    const row = data.rows.find(r => r.id === editing.rowId), col = columnOf(editing.key)
-    if (!row || !col) { setEditing(null); return }
-    if (col.staff) { commitStaff(row, col, String(editing.draft ?? '')); setEditing(null); frameRef.current?.focus({ preventScroll: true }); return }
-    setSave('saving')
+  const followEditor = () => { if (editing?.panel) setEditing(e => (e ? { ...e, anchor: anchorOf(e.rowId, e.key) } : e)) }
+  const refocus = () => frameRef.current?.focus({ preventScroll: true })
+  const moveSel = (dr, dc) => setSel(s => {
+    if (!s) return s
+    const r = Math.max(0, Math.min(lastRow, s.focus.r + dr)), c = Math.max(0, Math.min(lastCol, s.focus.c + dc))
+    return { anchor: { r, c }, focus: { r, c } }
+  })
+  const pend = (id, text) => setPending(m => { const n = new Map(m); if (text == null) n.delete(id); else n.set(id, text); return n })
+
+  /** Work a formula out against the row. `over` replaces cells the row is about to change. */
+  const formulaResult = (row, col, text, over = {}) => {
+    const byLabel = new Map(allColumns.map(c => [c.label.toLowerCase(), c]))
+    if (formulaRefs(text).some(n => n.toLowerCase() === col.label.toLowerCase())) return { error: `A formula in ${col.label} cannot read ${col.label} itself.` }
+    return tryFormula(text, (name) => {
+      const c = byLabel.get(String(name).toLowerCase())
+      if (!c) return undefined
+      return c.key in over ? over[c.key] : val(row, c.key)
+    })
+  }
+  /** Save one host cell through the host, then any formula in the same row that reads it. */
+  const saveHostValue = async (row, col, value, fx) => {
+    const id = `${row.id}|${col.key}`
+    pend(id, String(value))
     try {
-      await commitHostEdit(row, col, editing, { patchRows })
-      setSave('saved'); setEditing(null); frameRef.current?.focus({ preventScroll: true })
-    } catch (e) { setSave('error'); notify?.(e.message, 'err') }
+      await commitHostEdit(row, col, { rowId: row.id, key: col.key, draft: value, reason: '' }, { patchRows })
+      const cur = row.format?.[col.key] || null
+      if (takesFormula(col) && (cur?.fx || null) !== (fx || null)) {
+        const next = { ...(cur || {}) }
+        if (fx) next.fx = fx; else delete next.fx
+        const f = Object.keys(next).length ? next : null
+        patchRows(r => (r.id === row.id ? { ...r, format: Object.fromEntries(Object.entries({ ...r.format, [col.key]: f }).filter(([, v]) => v)) } : r))
+        await saveHostCells([{ rowId: row.id, key: col.key, format: f }])
+      }
+      await recalcRow(row, { [col.key]: Number.isFinite(Number(value)) && String(value).trim() !== '' ? Number(value) : value }, new Set([col.key]))
+      return true
+    } finally { pend(id, null) }
   }
+  // A change works out again every formula in the same row that reads the changed column (a few deep).
+  const recalcRow = async (row, over, seen) => {
+    if (!formulas || seen.size > 6) return
+    const changedLabels = new Set([...seen].map(k => colByKey.get(k)?.label?.toLowerCase()).filter(Boolean))
+    for (const c of allColumns) {
+      const fx = row.format?.[c.key]?.fx
+      if (!fx || seen.has(c.key) || !takesFormula(c)) continue
+      if (!formulaRefs(fx).some(n => changedLabels.has(n.toLowerCase()))) continue
+      const res = formulaResult(row, c, fx, over)
+      if (res.error) { notify?.(`${c.label}: ${res.error}`, 'err'); continue }
+      if (c.staff) { commitStaff(row, c, String(res.value)); continue }
+      await commitHostEdit(row, c, { rowId: row.id, key: c.key, draft: String(res.value), reason: '' }, { patchRows })
+      seen.add(c.key)
+      await recalcRow(row, { ...over, [c.key]: res.value }, seen)
+    }
+  }
+  /** Save the open cell. `move` is where the selection goes next: [rows, cols], or null to stay. */
+  // `draft` is the value to save when it cannot wait for a render (a dropdown saves as it changes).
+  const commitEdit = async (move = null, draft) => {
+    const ed = editing && draft !== undefined ? { ...editing, draft } : editing
+    if (!ed) return
+    const row = data.rows.find(r => r.id === ed.rowId), col = columnOf(ed.key)
+    if (!row || !col) { setEditing(null); return }
+    const done = () => { setEditing(null); refocus(); if (move) moveSel(move[0], move[1]) }
+    // The panel keeps the old shape: it stays open until its save lands.
+    if (ed.panel) {
+      if (col.staff) { commitStaff(row, col, String(ed.draft ?? '')); done(); return }
+      setSave('saving')
+      try { await commitHostEdit(row, col, ed, { patchRows }); saved(); done() } catch (e) { setSave('error'); notify?.(e.message, 'err') }
+      return
+    }
+    let value = typeof ed.draft === 'string' ? ed.draft : String(ed.draft ?? '')
+    let fx = null
+    if (takesFormula(col) && isFormula(value)) {
+      if (value.length > FORMULA_MAX) { setEditing(e => ({ ...e, error: 'This formula is too long.' })); return }
+      const res = formulaResult(row, col, value)
+      // The cell stays open and says why, and so does the page's notice (the cell's note can sit at the frame's edge).
+      if (res.error) { setEditing(e => ({ ...e, error: res.error })); notify?.(`${col.label}: ${res.error}`, 'err'); return }
+      fx = value.trim(); value = String(res.value)
+    }
+    const hadFx = !!row.format?.[col.key]?.fx
+    if (!fx && !hadFx && value === String(ed.original ?? '')) { done(); return }   // nothing changed
+    if (fx && fx === row.format?.[col.key]?.fx) { done(); return }
+    done()
+    if (col.staff) {
+      commitStaff(row, col, value)
+      if (takesFormula(col)) { const cur = row.format?.[col.key] || {}; const next = { ...cur }; if (fx) next.fx = fx; else delete next.fx; const f = Object.keys(next).length ? next : null; patchRows(r => (r.id === row.id ? { ...r, format: { ...r.format, [col.key]: f || undefined } } : r)); saveCells([{ rowId: row.id, key: col.key, format: f }]) }
+      await recalcRow(row, { [col.key]: value }, new Set([col.key]))
+      return
+    }
+    setSave('saving')
+    try { await saveHostValue(row, col, value, fx); saved() }
+    catch (e) { setSave('error'); notify?.(`${col.label} was not saved: ${e.message}`, 'err') }
+  }
+  const cancelEdit = () => { setEditing(null); refocus() }
 
   // ── Keyboard: arrows move, Enter edits, Cmd/Ctrl+B/I/U format, Cmd/Ctrl+A selects all, Delete clears staff values ──
   const onKey = (e) => {
@@ -329,7 +450,14 @@ export default function EditableSheet({
       setSel(s => (e.shiftKey ? { anchor: s.anchor, focus: { r, c } } : { anchor: { r, c }, focus: { r, c } }))
       return
     }
-    if (e.key === 'Enter') { e.preventDefault(); const row = visibleRows[sel.focus.r], col = gridCols[sel.focus.c]; if (row && col) startEdit(row, col); return }
+    if (e.key === 'Enter' || e.key === 'F2') { e.preventDefault(); const row = visibleRows[sel.focus.r], col = gridCols[sel.focus.c]; if (row && col) startEdit(row, col); return }
+    if (e.key === 'Tab') { e.preventDefault(); moveSel(0, e.shiftKey ? -1 : 1); return }
+    // SHEET-LIVE-1: typing on a selected cell starts editing it with that key, as in a spreadsheet.
+    if (editable && e.key.length === 1 && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      const row = visibleRows[sel.focus.r], col = gridCols[sel.focus.c]
+      if (row && col) { e.preventDefault(); startEdit(row, col, e.key) }
+      return
+    }
     if ((e.metaKey || e.ctrlKey) && ['b', 'i', 'u'].includes(e.key.toLowerCase())) { e.preventDefault(); toggle(e.key.toLowerCase()); return }
     // Delete clears what Clear contents clears: staff values always, host columns the host allows.
     if ((e.key === 'Delete' || e.key === 'Backspace') && editable) {
@@ -428,9 +556,13 @@ export default function EditableSheet({
     if (hostEdits.length) {
       setSave('saving')
       for (const h of hostEdits) {
-        try { await commitHostEdit(h.row, h.col, { rowId: h.row.id, key: h.col.key, draft: h.value, reason: '' }, { patchRows }) } catch (err) { failed++; if (failed === 1) notify?.(err.message, 'err') }
+        try {
+          let value = h.value, fx = null
+          if (takesFormula(h.col) && isFormula(value)) { const res = formulaResult(h.row, h.col, value); if (res.error) throw new Error(res.error); fx = value.trim(); value = String(res.value) }
+          await saveHostValue(h.row, h.col, value, fx)
+        } catch (err) { failed++; if (failed === 1) notify?.(err.message, 'err') }
       }
-      setSave(failed ? 'error' : 'saved')
+      if (failed) setSave('error'); else saved()
     }
     const done = staffUpdates.length + hostEdits.length - failed
     if (done || skipped) notify?.(`Pasted ${done} ${done === 1 ? 'cell' : 'cells'}${skipped ? `; ${skipped} ${skipped === 1 ? 'cell is' : 'cells are'} not editable` : ''}.`)
@@ -454,7 +586,7 @@ export default function EditableSheet({
       setSave('saving')
       let failed = 0
       for (const x of host) { try { await commitHostEdit(x.row, x.col, { rowId: x.row.id, key: x.col.key, draft: '', reason: '' }, { patchRows }) } catch (err) { failed++; if (failed === 1) notify?.(err.message, 'err') } }
-      setSave(failed ? 'error' : 'saved')
+      if (failed) setSave('error'); else saved()
     })()
     if (!staff.length && !host.length) notify?.('Nothing here can be cleared.')
   }
@@ -468,7 +600,7 @@ export default function EditableSheet({
       await onDeleteRows(list)
       const gone = new Set(list.map(r => r.id))
       setData(d => ({ ...d, rows: d.rows.filter(r => !gone.has(r.id)) }))
-      setSel(null); setSave('saved')
+      setSel(null); saved()
     } catch (e) { setSave('error'); notify?.(e.message, 'err') }
   }
   const menuItems = () => {
@@ -561,7 +693,7 @@ export default function EditableSheet({
     try {
       const row = await onAddRow()
       if (row) setData(d => ({ ...d, rows: [...d.rows, row] }))
-      setSave('saved')
+      saved()
     } catch (e) { setSave('error'); notify?.(e.message, 'err') }
   }
   const deleteRows = async () => {
@@ -573,7 +705,7 @@ export default function EditableSheet({
       await onDeleteRows(pickedRows)
       const gone = new Set(pickedRows.map(r => r.id))
       setData(d => ({ ...d, rows: d.rows.filter(r => !gone.has(r.id)) }))
-      setSel(null); setSave('saved')
+      setSel(null); saved()
     } catch (e) { setSave('error'); notify?.(e.message, 'err') }
   }
 
@@ -655,7 +787,9 @@ export default function EditableSheet({
             <button type="button" className="fm-btn fm-sm" disabled={off || !canDelete} title={canDelete ? undefined : 'Select rows by their numbers first'} onClick={deleteRows}><Trash2 size={14} aria-hidden="true" /> {pickedRows.length > 1 ? `Delete ${pickedRows.length} rows` : 'Delete row'}</button>
           )}
         </div>
-        <span className={`fs-save${save === 'error' ? ' fs-save-bad' : ''}`} aria-live="polite">{off ? 'View only' : save === 'saving' ? 'Saving…' : save === 'error' ? 'Not saved' : 'All changes saved'}</span>
+        {/* SHEET-LIVE-1: every save says so here for a moment ("Saved"), then settles on "All changes saved". */}
+        <span className={`fs-save${save === 'error' ? ' fs-save-bad' : ''}${save === 'saved' && flash ? ' fs-save-flash' : ''}`} aria-live="polite">
+          {off ? 'View only' : save === 'saving' ? 'Saving…' : save === 'error' ? 'Not saved' : flash ? <><Check size={13} aria-hidden="true" /> Saved</> : 'All changes saved'}</span>
       </div>
 
       <div className="fs-tools">
@@ -751,18 +885,24 @@ export default function EditableSheet({
                         const isLead = col.key === lead.key
                         const Cell = isLead ? 'th' : 'td'
                         const extra = [cellClass?.(row, col), col.compute ? 'fs-computed' : '', editable && locked(row, col) ? 'fs-locked' : ''].filter(Boolean).join(' ')
-                        const text = textOf(row, col.key)
-                        const own = isEditing ? undefined : renderCell?.(row, col, text)
+                        const pend = pending.get(`${row.id}|${col.key}`)
+                        const text = pend != null ? (plainKeys.has(col.key) ? pend : displayValue(pend, f)) : textOf(row, col.key)
+                        const own = isEditing || pend != null ? undefined : renderCell?.(row, col, text)
+                        const fx = formulas && f?.fx
+                        const inline = isEditing && !editing.panel
                         return (
                           <Cell key={col.key} data-cell={`${row.id}|${col.key}`} scope={isLead ? 'row' : undefined} style={{ ...cellStyle(f, width(col.key)), ...stickyStyle(col.key) }}
-                            className={`fs-cell${isLead ? ' fs-name' : ''}${isActive(r, c) ? ' fs-sel' : ''}${multi && isSelected(r, c) ? ' fs-inrange' : ''}${extra ? ` ${extra}` : ''}${isEditing ? ' fs-editing' : ''}`}
+                            className={`fs-cell${isLead ? ' fs-name' : ''}${isActive(r, c) ? ' fs-sel' : ''}${multi && isSelected(r, c) ? ` fs-inrange${edgesOf(r, c)}` : ''}${extra ? ` ${extra}` : ''}${isEditing ? ' fs-editing' : ''}${inline ? ' fs-inline-on' : ''}${fx ? ' fs-hasfx' : ''}${pend != null ? ' fs-pending' : ''}`}
                             onMouseDown={e => { if (e.button === 2 || isEditing || e.target.closest('a, button')) return; if (e.shiftKey) e.preventDefault(); frameRef.current?.focus({ preventScroll: true }); setSel(s => (e.shiftKey && s ? { anchor: s.anchor, focus: { r, c } } : { anchor: { r, c }, focus: { r, c } })); if (!e.shiftKey) startDrag('cell') }}
                             onMouseEnter={() => { if (dragRef.current?.kind === 'cell') setSel(s => (s && !s.whole ? { anchor: s.anchor, focus: { r, c } } : s)) }}
                             onContextMenu={e => { if (!isEditing) openMenu(e, 'cell', r, c) }}
                             onDoubleClick={() => startEdit(row, col)}
-                            title={cellTitle?.(row, col)}>
-                            {isEditing
-                              ? <Editor col={col} row={row} editing={editing} setEditing={setEditing} onSave={commitEdit} onCancel={() => { setEditing(null); frameRef.current?.focus({ preventScroll: true }) }}
+                            title={fx ? `${fx}${cellTitle?.(row, col) ? `\n${cellTitle(row, col)}` : ''}` : cellTitle?.(row, col)}>
+                            {inline
+                              ? <InlineEditor col={col} row={row} editing={editing} setEditing={setEditing} formula={takesFormula(col)}
+                                  onCommit={commitEdit} onCancel={cancelEdit} label={editorLabel?.(row, col) || `Edit ${col.label}`} />
+                              : isEditing
+                              ? <Editor col={col} row={row} editing={editing} setEditing={setEditing} onSave={() => commitEdit()} onCancel={cancelEdit}
                                   label={editorLabel?.(row, col) || `Edit ${col.label}`} saveLabel={saveLabel?.(col) || 'Save'}
                                   extras={col.staff ? null : editorExtras?.({ col, row, editing, setEditing })} />
                               : own !== undefined
@@ -826,6 +966,56 @@ function GroupBlock({ group, grouped, collapsed, colSpan, subtotals, onToggle, c
       </tr>
       {children}
     </>
+  )
+}
+
+/**
+ * SHEET-LIVE-1: the editor that IS the cell. Enter saves and moves down, Tab saves and moves right
+ * (Shift goes back), Escape puts the value back, and leaving the cell saves. A dropdown saves the
+ * moment a choice is picked. A formula that cannot be worked out keeps the cell open and says why.
+ */
+function InlineEditor({ col, row, editing, setEditing, formula, onCommit, onCancel, label }) {
+  const done = useRef(false)
+  const ref = useRef(null)
+  const set = (draft) => setEditing(e => ({ ...e, draft, error: null }))
+  const finish = (move, draft) => { if (done.current) return; done.current = true; onCommit(move, draft) }
+  const cancel = () => { if (done.current) return; done.current = true; onCancel() }
+  // A formula that needs fixing leaves the cell open: let the next Enter try again.
+  useEffect(() => { if (editing.error) done.current = false }, [editing.error])
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    el.focus({ preventScroll: true })
+    if (el.tagName === 'INPUT' && el.type === 'text') { const n = el.value.length; try { el.setSelectionRange(n, n) } catch { /* not a text input */ } }
+    if (el.tagName === 'SELECT' || el.type === 'date') { try { el.showPicker?.() } catch { /* needs a user gesture in some browsers */ } }
+  }, [])
+  const keys = (e) => {
+    if (e.key === 'Escape') { e.preventDefault(); cancel() }
+    else if (e.key === 'Enter' && !(col.type === 'paragraph' && e.shiftKey)) { e.preventDefault(); finish([e.shiftKey ? -1 : 1, 0]) }
+    else if (e.key === 'Tab') { e.preventDefault(); finish([0, e.shiftKey ? -1 : 1]) }
+    e.stopPropagation()
+  }
+  const blur = () => { if (!editing.error) finish(null) }
+  const options = (col.optionsFor ? col.optionsFor(row) : col.options) || []
+  const common = { ref, onKeyDown: keys, onBlur: blur, 'aria-label': label, className: 'fs-inline' }
+  let control
+  if (col.type === 'choice' || col.type === 'dropdown') {
+    const opts = options.filter(o => o !== 'Other')
+    control = (
+      <select {...common} value={editing.draft || ''} onChange={e => finish(null, e.target.value)}>
+        {!col.required && <option value="">(blank)</option>}
+        {opts.map(o => <option key={o} value={o}>{o}</option>)}
+        {editing.draft && !opts.includes(editing.draft) && <option value={editing.draft}>{editing.draft}</option>}
+      </select>
+    )
+  } else if (col.type === 'date') control = <input {...common} type="date" value={editing.draft || ''} onChange={e => set(e.target.value)} />
+  else if (col.type === 'paragraph') control = <textarea {...common} className="fs-inline fs-inline-area" rows={3} value={editing.draft || ''} onChange={e => set(e.target.value)} />
+  else control = <input {...common} type="text" inputMode={col.type === 'number' && !formula ? 'decimal' : undefined} spellCheck={col.type !== 'number'} value={editing.draft ?? ''} onChange={e => set(e.target.value)} />
+  return (
+    <span className="fs-inline-wrap" onMouseDown={e => e.stopPropagation()} onDoubleClick={e => e.stopPropagation()}>
+      {control}
+      {editing.error && <span className="fs-inline-err" role="alert">{editing.error}</span>}
+    </span>
   )
 }
 
