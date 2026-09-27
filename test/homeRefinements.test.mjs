@@ -318,6 +318,9 @@ test('CLASSIC DESK 4: the desk wears the mockup\'s colours, stitching over the l
   assert.match(css, /\.hm-classic > \.hm-corner \{ position: absolute; z-index: 1; \}/)
   assert.doesNotMatch(css, /\.hm-classic::before/)
   assert.match(css, /margin-bottom: 44px;/)
+  // The desk casts no outer shadow (Owner, 2026-09-26); only the inset shading remains.
+  assert.match(css, /box-shadow: inset 0 1px 0 rgba\(255, 255, 255, \.12\), inset 0 0 44px rgba\(0, 0, 0, \.35\);/)
+  assert.doesNotMatch(css, /0 20px 46px rgba\(16, 20, 35/)
   const i = css.indexOf('.hm-window-glass {')
   assert.doesNotMatch(css.slice(i, css.indexOf('}', i)), /inset 0 1px 0 rgba\(255, 255, 255|inset 0 0 0 1px rgba\(255, 255, 255/)
 })
