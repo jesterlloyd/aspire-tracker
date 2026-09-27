@@ -51,26 +51,30 @@ export default async function handler(req, res) {
   // ── Read-only data ──────────────────────────────────────────────────────────
   // cron_runs powers Automation Health. PostgREST returns {data,error} rather than throwing.
   try {
-    // AUTOMATION-MONITORING-1: scope to the crons the dashboard actually shows.
-    // Unfiltered, this returned the 150 newest rows across every cron, and three
-    // */10 delivery workers plus an hourly sweep write ~460 rows a day - so the
-    // window was about eight hours and any older automation read "Never run".
-    // Filtered, 150 rows spans weeks of card-relevant history.
-    const runsRes = await supabaseAdmin
-      .from('cron_runs')
-      .select('id, cron_name, started_at, finished_at, status, details, error_text')
-      .in('cron_name', MONITORED_CRON_NAMES)
-      .order('started_at', { ascending: false })
-      .limit(150);
+    // AUTOMATION-MONITORING-1: fetch the latest run independently for each card.
+    // A shared limit is incorrect here: the hourly Clock-Out automation can push
+    // a weekly Evaluation run out of the result set, making a real run display as
+    // "Never run". Each card needs exactly one newest row, regardless of cadence.
+    const runResults = await Promise.all(MONITORED_CRON_NAMES.map((cronName) => (
+      supabaseAdmin
+        .from('cron_runs')
+        .select('id, cron_name, started_at, finished_at, status, details, error_text')
+        .eq('cron_name', cronName)
+        .order('started_at', { ascending: false })
+        .limit(1)
+    )));
 
-    if (runsRes.error) {
-      console.error('[automation-runs] cron_runs query failed:', runsRes.error.message);
+    const failed = runResults.find((result) => result.error);
+    if (failed?.error) {
+      console.error('[automation-runs] cron_runs query failed:', failed.error.message);
       return res.status(500).json({ error: 'Automation monitor failed to load' });
     }
 
+    const runs = runResults.flatMap(({ data }) => data || []);
+
     return res.status(200).json({
       now: new Date().toISOString(), // server clock - UI derives "stale running" without an impure render-time Date
-      runs: runsRes.data || [],
+      runs,
     });
   } catch (e) {
     console.error('[automation-runs] unexpected failure:', e?.message);

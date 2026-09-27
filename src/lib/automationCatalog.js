@@ -3,14 +3,11 @@
 //
 // TWO DEFECTS THIS EXISTS TO FIX
 //
-// 1. /api/automation-runs read the 150 most recent cron_runs rows across EVERY
-//    cron. Three delivery workers run every 10 minutes (432 rows/day) and the
-//    clock-out sweep runs hourly, so 150 rows is roughly the last EIGHT HOURS.
-//    Any automation whose last run is older than that simply vanished from the
-//    dashboard and its card read "Never run". That is why Coordinator Weekly
-//    Digest - a Friday automation - showed Never run on a Thursday, and why
-//    every daily automation went dark each evening. The runs query now filters
-//    to the monitored cron names, so the workers can no longer crowd them out.
+// 1. /api/automation-runs previously read one shared 150-row window across
+//    monitored crons. The hourly Clock-Out automation could still push a weekly
+//    run out of that window, so a card read "Never run" even when the run existed.
+//    The read path now fetches one latest row per monitored cron, so cadence no
+//    longer affects whether a card has observable history.
 //
 // 2. Health had no notion of cadence. A successful run was "Healthy" forever,
 //    and an automation that silently stopped running looked identical to one

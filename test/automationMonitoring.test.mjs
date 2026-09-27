@@ -2,13 +2,10 @@
 // not a subset of it.
 //
 // THE PRODUCTION DEFECT
-// Coordinator Weekly Digest read "Never run" on a Thursday despite having run
-// the previous Friday. /api/automation-runs took the 150 newest cron_runs rows
-// across EVERY cron; three delivery workers run every 10 minutes and the
-// clock-out sweep hourly, so those 150 rows covered roughly the last eight
-// hours. Any automation older than that fell off the end and its card claimed
-// it had never run. Every daily automation went dark each evening for the same
-// reason. Nothing was wrong with the recording - the read was truncating.
+// Coordinator Weekly Digest read "Never run" despite having run the previous
+// Friday. /api/automation-runs took one shared 150-row window, so high-frequency
+// monitored automations could push a weekly run out of the response. Nothing was
+// wrong with the recording - the read was truncating by cadence.
 //
 // Two further problems this pins: health had no cadence, so a silently-stopped
 // automation read Healthy forever off a stale run; and the run counters were
@@ -38,8 +35,12 @@ const cardCronNames = [...cardBlock.matchAll(/cron_name: '([a-z0-9-]+)'/g)].map(
 // ── The read path: the actual root cause ────────────────────────────────────
 
 test('the runs query is scoped to monitored crons', () => {
-  assert.match(runsSrc, /\.in\('cron_name', MONITORED_CRON_NAMES\)/,
-    'unfiltered, the 10-minute workers crowd every other automation out of the window')
+  assert.match(runsSrc, /MONITORED_CRON_NAMES\.map\(\(cronName\)/,
+    'the endpoint must fetch one latest run per monitored automation')
+  assert.match(runsSrc, /\.eq\('cron_name', cronName\)/)
+  assert.match(runsSrc, /\.limit\(1\)/)
+  assert.doesNotMatch(runsSrc, /\.limit\(150\)/,
+    'a shared limit lets high-frequency automations hide weekly runs')
   assert.match(runsSrc, /from '\.\.\/src\/lib\/automationCatalog\.js'/)
 })
 
