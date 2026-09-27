@@ -28,6 +28,10 @@
 // keeps the parent selected. A drill-in names its parent in `parent` and its row's grey
 // line in `sub`; every one has its own route under the parent's.
 //
+// `fullScreen` (SETTINGS-FULLSCREEN-1, Owner 2026-09-27): the page takes the whole screen, the way
+// the Catalog's Forms and Signatures pages do: no rail, a "‹ Settings / Page" crumb on top. It stays
+// in the rail, so it is still found where it was.
+//
 // `inRail` (default true when omitted) controls rail membership; `routableSections`
 // ignores it so every drill-in is a deep link. Old paths are redirected by
 // LEGACY_SETTINGS_REDIRECTS, never dropped.
@@ -39,8 +43,8 @@ export const SETTINGS_SECTIONS = [
   { key: 'general',    label: 'General',           path: '/settings/general',    group: 'Workspace', implemented: true, visible: () => true },
   { key: 'accounts',   label: 'Accounts & Access', path: '/settings/accounts',   group: 'Administration', implemented: true, visible: r => r.isAdmin }, // WS2.2: Owner/Admin only
   { key: 'organization', label: 'Organization', path: '/settings/organization', group: 'Administration', implemented: true, visible: r => r.isOwner },
-  { key: 'communityBenefit', label: 'Community Benefit', path: '/settings/community-benefit', group: 'Administration', implemented: true, visible: r => r.isAdmin }, // NURSING-ACADEMICS-1: report + reporting inputs; Admin sees read-only, WRITES are Owner-only server-side
-  { key: 'programBudget', label: 'Program Budget', path: '/settings/budget', group: 'Administration', implemented: true, visible: r => r.isAdmin }, // PROGRAM-BUDGET (2026-09-27): Owner edits, Admin reads; api/budget-staff.js is the authority
+  { key: 'communityBenefit', label: 'Community Benefit', path: '/settings/community-benefit', group: 'Administration', implemented: true, fullScreen: true, visible: r => r.isAdmin }, // NURSING-ACADEMICS-1: report + reporting inputs; Admin sees read-only, WRITES are Owner-only server-side
+  { key: 'programBudget', label: 'Program Budget', path: '/settings/budget', group: 'Administration', implemented: true, fullScreen: true, visible: r => r.isAdmin }, // PROGRAM-BUDGET (2026-09-27): Owner edits, Admin reads; api/budget-staff.js is the authority
   { key: 'keith',      label: 'Keith',             path: '/settings/keith',      group: 'Administration', implemented: true, visible: r => r.isAdmin },
   // DEMO-MODE-1: Owner only, and grouped with Diagnostics because it is the other
   // switch that changes what every screen reports rather than changing the program

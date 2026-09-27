@@ -129,7 +129,8 @@ test('a year that has not started: the owner gets the Start form, a reader is to
 
 test('the screens are wired where the Owner decided', () => {
   const sections = read('src/components/settings/settingsSections.js')
-  assert.match(sections, /key: 'communityBenefit'[^\n]+\n\s+\{ key: 'programBudget', label: 'Program Budget', path: '\/settings\/budget', group: 'Administration', implemented: true, visible: r => r\.isAdmin \}/)
+  // SETTINGS-FULLSCREEN-1 (2026-09-27) added fullScreen: true (the page drops the rail for a Catalog-style crumb).
+  assert.match(sections, /key: 'communityBenefit'[^\n]+\n\s+\{ key: 'programBudget', label: 'Program Budget', path: '\/settings\/budget', group: 'Administration', implemented: true, fullScreen: true, visible: r => r\.isAdmin \}/)
   assert.match(read('src/components/settings/SettingsShell.jsx'), /currentKey === 'programBudget' && <ProgramBudgetPanel \/>/)
   const portal = read('src/portal/na/NursingAcademicsPortal.jsx')
   assert.match(portal, /view === 'budget' && \(budgetEnabled \?/)

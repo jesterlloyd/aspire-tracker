@@ -176,6 +176,25 @@ export default function SettingsShell({ backPath = '/aggregate', backLabel = 'At
   const shellTitle = TITLED_BY_SHELL.includes(currentKey) ? current.label : null
   const isListPage = currentKey === 'general' || currentKey === 'keith'
 
+  // SETTINGS-FULLSCREEN-1 (Owner, 2026-09-27: "it takes the entire screen, with breadcrumb button
+  // on top, similar to some pages in ASPIRE catalog"). A wide working page drops the rail and wears
+  // the Catalog's crumb; the panel is the same one the rail layout used to show.
+  if (current.fullScreen) {
+    return (
+      <div className="settings-shell settings-full">
+        <nav className="settings-fullcrumb" aria-label="Breadcrumb">
+          <button type="button" onClick={() => navigate(DEFAULT_SETTINGS_PATH)}>‹ Settings</button>
+          <span aria-hidden="true">/</span>
+          <span aria-current="page">{current.label}</span>
+        </nav>
+        <div className="settings-full-content">
+          {currentKey === 'communityBenefit' && <CommunityBenefitPanel />}
+          {currentKey === 'programBudget' && <ProgramBudgetPanel />}
+        </div>
+      </div>
+    )
+  }
+
   return (
     // SETTINGS-VISUAL-DENSITY-1B (measured): the 20px horizontal padding is the
     // canonical card-column inset every main tab applies inside .app-main.
@@ -213,8 +232,6 @@ export default function SettingsShell({ backPath = '/aggregate', backLabel = 'At
           {currentKey === 'keithKnowledge' && <KnowledgeCenterPanel />}
           {currentKey === 'keithSkills'    && <KeithSkillsPanel />}
           {currentKey === 'keithUsage'     && <KeithUsagePanel />}
-          {currentKey === 'communityBenefit' && <CommunityBenefitPanel />}
-          {currentKey === 'programBudget' && <ProgramBudgetPanel />}
           {currentKey === 'preceptorParity' && <PreceptorParityPanel />}
           {currentKey === 'demoMode' && <DemoModePanel />}
         </div>
