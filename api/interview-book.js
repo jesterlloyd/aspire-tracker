@@ -256,7 +256,7 @@ export default async function handler(req, res) {
     let interviewerEmail = null
     if (slot.interviewer_name?.trim()) {
       const { data: iv } = await db.from('user_profiles')
-        .select('email').ilike('full_name', slot.interviewer_name.trim())
+        .select('email').ilike('full_name', escapeLikePattern(slot.interviewer_name.trim()))  // S-27: an exact, case-insensitive match
         .eq('can_conduct_interviews', true).limit(1).maybeSingle()
       interviewerEmail = iv?.email?.trim() || null
     }

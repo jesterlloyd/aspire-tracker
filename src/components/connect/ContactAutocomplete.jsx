@@ -20,6 +20,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
 import { searchContacts } from '../../lib/contactSearch'
+import { sanitizeContactTerm } from '../../lib/contactSearchCore'
 import StudentAvatar from '../StudentAvatar'
 import { normalizeEmailForLookup } from '../../lib/emailUtils'
 import { isValidEmail } from '../../lib/notifications/studentRecipient'
@@ -41,9 +42,8 @@ function initials(name) {
 
 // PostgREST .or() splits on top-level commas and parentheses; ilike treats % and _ as wildcards.
 // Strip those so a free-typed term is matched literally and can never break the filter string.
-function sanitizeTerm(s) {
-  return String(s || '').replace(/[,()%_\\*]/g, ' ').replace(/\s+/g, ' ').trim()
-}
+// S-26: the one sanitizer every typed search term goes through (contactSearchCore).
+const sanitizeTerm = sanitizeContactTerm
 
 /**
  * ContactAutocomplete

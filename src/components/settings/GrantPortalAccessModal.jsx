@@ -19,6 +19,8 @@ import { supabase } from '../../lib/supabase'
 import { PORTAL_ROLE_OPTIONS, PORTAL_ROLE_LABELS } from '../../lib/portalAccessStatus'
 import { UNIT_SCOPE_OPTIONS, SCHOOL_SCOPE_OPTIONS } from '../../lib/portalScopeCatalog'
 import { useContactSearch, contactSubtitle, contactUnitValues, matchCatalogKeys, matchSchoolKeys, pickReliableStudent, inferPortalRoleFromContact, bestStudentLoginEmail } from '../../lib/contactSearch'
+import { sanitizeContactTerm } from '../../lib/contactSearchCore'
+import { escapeLikePattern } from '../../lib/emailUtils'
 import ContactSuggest from './ContactSuggest'
 import MultiScopePicker from '../shared/MultiScopePicker'
 
@@ -39,7 +41,8 @@ const studentEmailOptions = (s) => !s ? [] : [
 ].filter(Boolean)
 
 // Sanitize a free-typed term for PostgREST .or(ilike).
-const sanitize = (s) => String(s || '').replace(/[,()%_\\*]/g, ' ').replace(/\s+/g, ' ').trim()
+// S-26: the one sanitizer every typed search term goes through (contactSearchCore).
+const sanitize = sanitizeContactTerm
 
 // ── Unified identity picker: Contacts always, ASPIRE students when includeStudents.
 //    Searches by full name and every approved student email field. ──
@@ -220,7 +223,10 @@ export default function GrantPortalAccessModal({ onClose, onGranted, initial = n
     } else if (targetRole === 'student' && c.email) {
       // Reliable link = exact email match (school or personal) to EXACTLY ONE
       // student. Never by name; ambiguous/zero keeps explicit selection required.
-      const em = c.email.trim()
+      // S-26: an exact, case-insensitive email match. Wildcards are escaped and a value
+      // that could alter the filter grammar is never interpolated.
+      const em = escapeLikePattern(c.email.trim())
+      if (/[,()"]/.test(em)) return
       const { data } = await supabase.from('students')
         .select('id, first_name, last_name, preferred_first_name, school, school_email, personal_email, cohort_id, status, matched_unit_id')
         .or(`school_email.ilike.${em},personal_email.ilike.${em}`)

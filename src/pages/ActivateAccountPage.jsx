@@ -184,6 +184,9 @@ export default function ActivateAccountPage() {
         token_hash: initialTokenLink.tokenHash,
         type: initialTokenLink.type,
       })
+      // S-31: the token is consumed either way; do not leave its hash in the address
+      // bar or in browser history.
+      if (typeof window !== 'undefined') window.history.replaceState(null, '', window.location.pathname)
       if (error) { setStatus('invalid'); return }
       setStatus('form')
     } catch {

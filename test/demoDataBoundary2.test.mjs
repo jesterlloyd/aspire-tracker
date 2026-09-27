@@ -156,7 +156,6 @@ for (const [label, headers, expected] of [
 // ── 4. Crons: every sweep reads real rows ────────────────────────────────────
 // A cron that builds its own service client must scope it, or say here why it need not.
 const CRON_EXEMPT = {
-  'clockout-reminders-resend.js': 'two hardcoded shift ids; it cannot sweep',
   'messages-delivery-worker.js': 'delivers queued rows one by one; each send goes through the mailer guard',
   'portal-feedback-delivery-worker.js': 'delivers queued rows one by one; each send goes through the mailer guard',
   'staff-notification-worker.js': 'delivers queued rows one by one; each send goes through the mailer guard',
