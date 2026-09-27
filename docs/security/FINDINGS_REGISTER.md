@@ -914,9 +914,21 @@ afterward, from memory.
 
 ## S-25. Suspected legacy USING (true) policies on archived submission tables
 
-- **Severity (original)**: Low, suspected. **Status**: OPEN, unconfirmed.
+- **Severity (original)**: Low, suspected. **Status**: Closed, by absence.
 - **Risk**: if the three archived tables still exist live, their legacy authenticated policies are fully open.
-- **Verified at HEAD**: not verifiable read-only; needs one live catalog query. Nothing in the repo has touched them since the audit.
+- **Verified live (Owner, 2026-09-26)**: `unit_submissions`, `student_submissions` and
+  `student_intake_submissions` do not exist in production (`to_regclass` NULL for all
+  three), so there is nothing to narrow and no migration follows.
+- **The same catalog read, every permissive policy in `public`**: eleven rows, none of
+  them a finding. Nine are `service_role` policies (`activity_logs`, `cohort_snapshots`,
+  `contacts`, `ngrp_outcomes`, `notification_log`, `program_events` x2,
+  `unit_cohort_responses`, `user_profiles`), which are inert because the service role
+  bypasses RLS whatever the policy says. The other two are deliberate and documented:
+  `anon_select_cohorts` (Wave C, 20260712000002: the public student, school and unit
+  forms look up the accepting cohort client-side) and `anon_select_units` (Wave D,
+  20260712000003: the unit dropdowns on the student and unit forms). Both are SELECT only;
+  anon holds no write on either table. Tables with policies but RLS disabled: none.
+- **Closing commit**: S25-1 (2026-09-26), by verification.
 
 ## S-26. PostgREST .or() filter strings built from raw search input
 
@@ -1023,9 +1035,16 @@ afterward, from memory.
 
 ## S-33. Policies without ENABLE ROW LEVEL SECURITY in repo SQL
 
-- **Severity (original)**: Informational. **Status**: OPEN, not verifiable read-only.
+- **Severity (original)**: Informational. **Status**: Closed.
 - **Risk**: if RLS is not enabled live on user_profiles, activity_logs, or aspire_events, their policies are decorative.
-- **Verified at HEAD**: confirmed that no repository migration contains ENABLE ROW LEVEL SECURITY for any of the three (all three are dashboard-managed). Live state needs one catalog query (pg_class.relrowsecurity).
+- **Verified at HEAD**: no repository migration contains ENABLE ROW LEVEL SECURITY for any of the three (all three are dashboard-managed).
+- **Verified live (Owner, 2026-09-26)**: `pg_class.relrowsecurity` is true on all three
+  (`activity_logs` with 4 policies, `aspire_events` with 2, `user_profiles` with 9), so
+  every policy is in force. `aspire_events` still carries the anon SELECT table grant, but
+  its two policies are for signed-in readers and no anon policy exists, so an anon read
+  returns nothing; the grant is noted, not acted on. Nothing to enable; no migration
+  follows.
+- **Closing commit**: S33-1 (2026-09-26), by verification.
 
 ## D-01. react-router-dom 7.15.1 advisories
 
