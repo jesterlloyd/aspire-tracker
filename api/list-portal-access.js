@@ -175,6 +175,13 @@ export default async function handler(req, res) {
       .order('granted_at', { ascending: false })
       .limit(2000)
     if (gErr) { console.log('[list-portal-access] grant read failed', { errorCode: gErr.code, request_id: requestId }); return res.status(500).json({ error: 'internal_error' }) }
+    // PROGRAM-BUDGET: which Nursing Education & Leadership grants carry the Program Budgets tab.
+    // A separate read, so the directory keeps working before 20261009000000 adds the column.
+    const budgetByGrant = new Map()
+    {
+      const { data: bRows, error: bErr } = await db.from('user_role_grants').select('id, budget_access').eq('role', 'nursing_academic').limit(2000)
+      if (!bErr) for (const r of bRows || []) budgetByGrant.set(r.id, r.budget_access === 'view' ? 'view' : 'none')
+    }
 
     // Wave 2: profiles (needs the grant profileIds).
     const profileIds = [...new Set((grants || []).map(g => g.user_profile_id))]
@@ -262,6 +269,7 @@ export default async function handler(req, res) {
         email: p.email || null,
         portal_role: g.role,
         contacts_access: g.role === 'nursing_academic' && g.contacts_access === 'manage' ? 'manage' : 'view',
+        budget_access: g.role === 'nursing_academic' ? (budgetByGrant.get(g.id) || 'none') : 'none',
         status,
         starts_at: g.starts_at || null,
         expires_at: g.expires_at || null,
@@ -324,6 +332,7 @@ export default async function handler(req, res) {
         email: r.email,
         portal_role: r.portal_role,
         contacts_access: r.contacts_access,
+        budget_access: r.budget_access,
         scope: r.scope,
         invited_at: pendingInvitedAtByEmail.get((r.email || '').toLowerCase()) || null,
         expires_at: r.expires_at,

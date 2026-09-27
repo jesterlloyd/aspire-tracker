@@ -48,6 +48,10 @@ import { portalInvitationEmail } from '../lib/server/email/portalInvitation.js'
 // same way: every residency cohort is in scope by the role, so no scope payload.
 const PORTAL_ROLES = ['student', 'unit_leader', 'academic_partner', 'nursing_academic', 'talent_acquisition']
 const CONTACTS_ACCESS_LEVELS = ['view', 'manage']
+// PROGRAM-BUDGET (2026-09-27): the Program Budgets tab, a read-only capability on a
+// nursing_academic grant. Only the Owner may share the budget; a request that omits the field
+// leaves the grant's value as it is.
+const BUDGET_ACCESS_LEVELS = ['none', 'view']
 // Verified ASPIRE Resend sender (cshs.org is not a verified Resend domain, so
 // aspire@cshs.org is used as the reply-to / support address, not the from).
 const EMAIL_FROM = 'ASPIRE at Cedars-Sinai <noreply@aspire-program.com>'
@@ -226,6 +230,14 @@ export default async function handler(req, res) {
   const contactsAccess = str(body.contacts_access) || 'view'
   if (!CONTACTS_ACCESS_LEVELS.includes(contactsAccess) || (portalRole !== 'nursing_academic' && contactsAccess !== 'view')) {
     return res.status(400).json({ error: 'invalid_request', field: 'contacts_access', message: 'Contacts Editor access is only available to Nursing Education & Leadership.' })
+  }
+
+  const budgetAccess = body.budget_access == null ? null : str(body.budget_access)
+  if (budgetAccess != null && (!BUDGET_ACCESS_LEVELS.includes(budgetAccess) || (portalRole !== 'nursing_academic' && budgetAccess !== 'none'))) {
+    return res.status(400).json({ error: 'invalid_request', field: 'budget_access', message: 'Program Budgets access is only available to Nursing Education & Leadership.' })
+  }
+  if (budgetAccess != null && !auth.isOwner) {
+    return res.status(403).json({ error: 'forbidden', field: 'budget_access', message: 'Only the Owner may share the Program Budget.' })
   }
 
   // ── Gate 6: identity fields ───────────────────────────────────────────────
@@ -456,6 +468,24 @@ export default async function handler(req, res) {
         console.log('[invite-portal-user] contacts access update failed', { errorCode: accessErr.code, request_id: requestId })
         return res.status(500).json({ error: 'internal_error', message: 'Portal access was granted as view only, but the Contacts permission could not be saved.' })
       }
+      // Program Budgets: the column exists once 20261009000000 is applied. Before that, 'none'
+      // is already true and 'view' says what is missing. The column defaults to none, so a
+      // failed update cannot widen access.
+      if (budgetAccess != null) {
+        const { error: budgetErr } = await db.from('user_role_grants')
+          .update({ budget_access: budgetAccess })
+          .eq('id', grantId)
+          .eq('role', 'nursing_academic')
+        if (budgetErr && !(budgetErr.code === '42703' && budgetAccess === 'none')) {
+          console.log('[invite-portal-user] budget access update failed', { errorCode: budgetErr.code, request_id: requestId })
+          return res.status(budgetErr.code === '42703' ? 409 : 500).json({
+            error: budgetErr.code === '42703' ? 'budget_not_enabled' : 'internal_error',
+            message: budgetErr.code === '42703'
+              ? 'Portal access was saved, but Program Budgets needs its database update (20261009000000) before it can be shared.'
+              : 'Portal access was saved, but the Program Budgets permission could not be.',
+          })
+        }
+      }
     }
 
     // Send the branded ASPIRE invitation for a newly created account. The
@@ -495,6 +525,7 @@ export default async function handler(req, res) {
       provisioned: {
         role: result?.role,
         contacts_access: portalRole === 'nursing_academic' ? contactsAccess : 'view',
+        ...(budgetAccess != null ? { budget_access: portalRole === 'nursing_academic' ? budgetAccess : 'none' } : {}),
         grant_action: result?.grant?.action,
         starts_at: result?.grant?.starts_at,
         expires_at: result?.grant?.expires_at,

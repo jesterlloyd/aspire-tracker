@@ -336,7 +336,12 @@ test('ASPIRE is never written as "ASPIRE Program" in the changed files', () => {
   // (reading it would ENOENT, failing the test for the wrong reason).
   const changed = execSync('git diff --name-only --diff-filter=d 762adfb -- "*.js" "*.jsx" "*.sql"', { cwd: root, encoding: 'utf8' })
     .trim().split('\n').filter(Boolean)
+  // CLAUDE.md keeps "ASPIRE Program" where it preserves exact source wording. The FY26 import
+  // (PROGRAM-BUDGET A1, f4053bc8) copies the workbook verbatim: its filename and the item
+  // "ASPIRE Program Shirts". Nothing else is excused.
+  const SOURCE_WORDING = new Set(['db/migrations/seed_program_budget_fy26.sql'])
   for (const f of changed) {
+    if (SOURCE_WORDING.has(f)) continue
     assert.doesNotMatch(read(f), /ASPIRE Program/, `${f} uses "ASPIRE Program"`)
   }
 })
