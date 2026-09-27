@@ -1076,9 +1076,11 @@ afterward, from memory.
 
 ## D-05. @tiptap advisories surfaced by the same audit
 
-- **Severity**: Moderate to high per npm. **Status**: OPEN (upgrade housekeeping), found 2026-09-26.
-- `@tiptap/core` 3.27.1 and its extensions (the Outreach editor): a prototype-key attribute bypass in `mergeAttributes` and a quadratic ReDoS in Markdown attribute parsing, fixed by 3.30.5. Production runtime in the browser, where the only input is the staff author's own document. Minor bump across the whole `@tiptap/*` set (`react`, `starter-kit`, `extension-link`, `extension-underline`), which must move together.
-- Not applied in DEPS-1 because it was outside its scope. After DEPS-1 it is the only advisory `npm audit` reports (26 rows, all of them this one package family).
+- **Severity**: Moderate to high per npm. **Status**: Closed.
+- **Verified at HEAD (before DEPS-2)**: `@tiptap/core` 3.27.1 and its extensions (the Connect editor): a prototype-key attribute bypass in `mergeAttributes` (fixed by 3.30.4) and a quadratic ReDoS in Markdown attribute parsing (fixed by 3.30.5). Production runtime in the browser, where the only input is the staff author's own document. Minor bump.
+- **Fix (DEPS-2, 2026-09-26)**: every `@tiptap/*` package moved together to 3.31.3, sixty-six packages at one version. The four declared packages (`react`, `starter-kit`, `extension-link`, `extension-underline`) are ^3.31.3, and `@tiptap/pm` is now declared explicitly at ^3.31.3 because tiptap pins it as an exact peer and the locked 3.27.1 tree would not resolve otherwise. No major bump was needed; no source file changed. After DEPS-2, `npm audit` reports zero advisories.
+- **Live paths touched**: the Connect rich-text editor (`src/components/connect/RichTextEditor.jsx`) and its four custom content blocks (button, event, note, divider), used by Outreach's Send to One and Send to Many and by the template editor. After deploy, click through: type and format (bold, italic, underline, bulleted and numbered lists, clear formatting), add and remove a link, insert each content block and edit it in place, scroll a long draft to confirm the toolbar stays pinned, open the preview, and send a test to yourself.
+- **Closing commit**: DEPS-2 (2026-09-26).
 
 ---
 
