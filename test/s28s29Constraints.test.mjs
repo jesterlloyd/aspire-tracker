@@ -142,11 +142,14 @@ test('the register and the SQL gate were updated, and no changed file carries an
   const register = read('docs/security/FINDINGS_REGISTER.md')
   const s28 = register.slice(register.indexOf('## S-28.'), register.indexOf('## S-29.'))
   const s29 = register.slice(register.indexOf('## S-29.'), register.indexOf('## S-30.'))
-  assert.match(s28, /Closed \(code\); SQL unconfirmed/)
-  assert.match(s29, /Closed \(code\); SQL unconfirmed/)
+  // Repinned when the Owner applied 20261008000000 on 2026-09-26 (S28-3 / S29-2): both Closed.
+  assert.match(s28, /\*\*Status\*\*: Closed\./)
+  assert.match(s29, /\*\*Status\*\*: Closed\./)
+  assert.doesNotMatch(s28 + s29, /SQL unconfirmed/)
   assert.match(s28, /Apply only after S28-2 is\s+live/)
   const gate = read('docs/security/OWNER_SQL_GATE.md')
-  assert.match(gate, /^\| 20261008000000_s28_s29_constraints_and_activity_logs\.sql \|.*UNKNOWN/m)
+  assert.match(gate, /^\| 20261008000000_s28_s29_constraints_and_activity_logs\.sql \|.*APPLIED 2026-09-26/m)
+  assert.doesNotMatch(gate, /^\| 20261008000000_s28_s29_constraints_and_activity_logs\.sql \|.*UNKNOWN/m)
   const dash = new RegExp(String.fromCharCode(8212))
   for (const p of [MIGRATION, AUDIT, 'api/availability.js']) {
     assert.doesNotMatch(read(p), dash, `${p}: no em dash`)

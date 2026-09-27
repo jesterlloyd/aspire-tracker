@@ -939,13 +939,18 @@ afterward, from memory.
 
 ## S-28. interview_slots lacked database-level double-booking protection
 
-- **Severity (original)**: Low. **Status**: Closed (code); SQL unconfirmed. The slot-side
-  constraint is drafted and Owner-gated; the finding closes when it is applied and its
-  POST sections pass.
+- **Severity (original)**: Low. **Status**: Closed. The slot-side constraint
+  `uq_interview_sessions_one_per_slot` was APPLIED by the Owner on 2026-09-26 in
+  `20261008000000_s28_s29_constraints_and_activity_logs.sql`, with S28-2 live, and
+  PRE 1 to 5 and POST 1 to 5 passed (see the OWNER_SQL_GATE ledger). Both sides of a
+  booking are now unique at the database.
 - **Risk**: concurrent bookings race the application check.
 - **Verified at HEAD (before S28-1)**: 20260822020000 (confirmed APPLIED 2026-08-27) added `uq_interview_slots_one_booking_per_student`, so one student holding two bookings is now impossible at the database. The slot side (two students on one slot) still has no constraint and relies on the atomic conditional claim (`.eq('is_booked', false)`) plus the post-claim re-check in api/interview-book.js.
-- **Closing commit**: S28-1 (2026-09-26), the commit that adds
-  `supabase/migrations/20261008000000_s28_s29_constraints_and_activity_logs.sql`.
+- **Closing commits**: S28-1 (ce9068b1, 2026-09-26), which adds
+  `supabase/migrations/20261008000000_s28_s29_constraints_and_activity_logs.sql` and the
+  S28-2 cancel fix, and S28-3 (2026-09-26), which records the application. PRE 3 showed
+  no slot shared by two sessions (47 sessions with a slot, 47 distinct slots); POST 5
+  refused a second session on a booked slot.
 - **Discovery (S28-1)**: a booking is an `interview_sessions` row with a `slot_id`
   (`api/interview-book.js` writes it; `move_booking` in `api/availability.js` carries it to
   the new slot; `slot_id` is `ON DELETE SET NULL` to the slot). The slot row itself can only
@@ -963,12 +968,18 @@ afterward, from memory.
 
 ## S-29. evaluation_assignment_tokens has no one-active-token constraint
 
-- **Severity (original)**: Low. **Status**: Closed (code); SQL unconfirmed. The constraint
-  is drafted and Owner-gated; the finding closes when it is applied and its POST sections
-  pass.
+- **Severity (original)**: Low. **Status**: Closed. `uq_eval_tokens_one_active` was
+  APPLIED by the Owner on 2026-09-26 in
+  `20261008000000_s28_s29_constraints_and_activity_logs.sql` and PRE 1 to 5 and POST 1 to
+  5 passed (see the OWNER_SQL_GATE ledger). One active token per assignment is now a
+  property of the database.
 - **Risk**: multiple live tokens per assignment can accumulate; revocation by token id (the house rule) mitigates but nothing enforces singularity.
 - **Verified at HEAD (before S29-1)**: no unique index or constraint on the table in any migration.
-- **Closing commit**: S29-1 (2026-09-26), the same commit and migration as S-28.
+- **Closing commits**: S29-1 (ce9068b1, 2026-09-26), the same commit and migration as
+  S-28, and S29-2 (2026-09-26), which records the application. PRE 2 showed no assignment
+  with more than one active token (43 active tokens on 43 assignments, 248 tokens in
+  all); POST 5 refused a second active token. The same run gave `activity_logs` (602
+  rows) both S-23 triggers and removed service_role's UPDATE, DELETE and TRUNCATE.
 - **Discovery (S29-1)**: "active" means not revoked and not used and not expired; every
   reader agrees (the submit RPCs check `revoked_at IS NULL AND expires_at > now() AND
   used_at IS NULL`). Expiry is time-based and cannot sit in an index predicate, so the
