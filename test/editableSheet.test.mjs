@@ -134,3 +134,35 @@ test('the forms writer is the shared writer', () => {
   assert.equal(formsXlsx.xlsxFor, xlsxFor)
   assert.equal(formsXlsx.xlsxBook, xlsxBook)
 })
+
+// SHEET-MENU-1 (Owner, 2026-09-27: "right clicking ... actions just like in smartsheet or excel").
+// The menu is behaviour a server render cannot click, so the wiring is pinned in the source; a
+// browser harness drove it on all three sheets when it shipped.
+test('a right-click opens the sheet menu on a cell, a row number or a column header', () => {
+  const src = readFileSync(new URL('../src/components/sheet/EditableSheet.jsx', import.meta.url), 'utf8')
+  assert.match(src, /onContextMenu=\{e => openMenu\(e, 'col', 0, ci\)\}/)
+  assert.match(src, /onContextMenu=\{e => openMenu\(e, 'row', r, 0\)\}/)
+  assert.match(src, /onContextMenu=\{e => \{ if \(!isEditing\) openMenu\(e, 'cell', r, c\) \}\}/)
+  assert.match(src, /e\.key === 'ContextMenu' \|\| \(e\.shiftKey && e\.key === 'F10'\)/, 'the Menu key and Shift+F10 open it from the keyboard')
+  assert.match(src, /role="menu" aria-label="Sheet actions"/)
+  assert.match(src, /role="menuitem"/)
+  for (const label of ['Edit cell', 'Copy', 'Paste', 'Clear contents', 'Clear formatting', 'Insert row', 'Sort A to Z', 'Sort Z to A', 'Group by this column', 'Freeze through this column', 'Hide column', 'Delete column']) {
+    assert.ok(src.includes(`'${label}'`), label)
+  }
+  assert.match(src, /onPaste=\{e =>/, 'Cmd/Ctrl+V pastes a block from the native paste event')
+  assert.match(src, /if \(e\.button === 2 \|\| isEditing/, 'a right-click inside the selection keeps it')
+})
+
+test('Clear contents never touches a submitted form answer', () => {
+  const forms = readFileSync(new URL('../src/components/forms/FormSheet.jsx', import.meta.url), 'utf8')
+  assert.doesNotMatch(forms, /canClear/, 'the Forms Sheet clears its staff columns only')
+  const budget = readFileSync(new URL('../src/components/budget/BudgetSheet.jsx', import.meta.url), 'utf8')
+  assert.match(budget, /const CLEARABLE = new Set\(\['description', 'vendor', 'order_number', 'cost_center', 'notes', 'cat', 'pay', 'cohort'\]\)/, 'never a date, an amount or a status')
+})
+
+test('a row menu offers row actions only, and the menu keeps the rest of the grid', () => {
+  const html = renderToStaticMarkup(React.createElement(EditableSheet, base({ onAddRow: async () => null, onDeleteRows: async () => {} })))
+  assert.doesNotMatch(html, /fs-menu/, 'nothing is open until a right-click')
+  const src = readFileSync(new URL('../src/components/sheet/EditableSheet.jsx', import.meta.url), 'utf8')
+  assert.match(src, /if \(col && ctx\.kind !== 'row'\)/)
+})

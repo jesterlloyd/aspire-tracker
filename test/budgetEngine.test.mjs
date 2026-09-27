@@ -82,10 +82,12 @@ test('FY27 starts through the Start form, and every budget change is a history l
   const reader = await E.loadYear(db, { fy: 2027, viewer: 'reader', today: TODAY })
   assert.deepEqual(reader.allocations, [], 'leadership sees no draft plan')
   assert.equal(reader.prior, null)
-  await assert.rejects(E.setTotal(db, owner, { fy: 2026, total: 1, today: TODAY }), /closed/)
+  // A closed year's budget can still change (Owner, 2026-09-27), and the change is a history line.
+  await E.setTotal(db, owner, { fy: 2026, total: 41000, today: TODAY })
+  assert.equal((await E.loadYear(db, { fy: 2026, viewer: 'owner', today: TODAY })).history[0].message, 'Budget changed from $40,000.00 to $41,000.00.')
 })
 
-test('an expense follows its payment method, and a closed year locks its dates and amounts', async () => {
+test('an expense follows its payment method, and a closed year stays editable, with every change logged', async () => {
   const { db, owner, cohort } = await world()
   await E.startYear(db, owner, { fy: 2027, total: 40000, today: TODAY })
   const sup = await cat(db, 'Supplies & Materials')
@@ -98,10 +100,14 @@ test('an expense follows its payment method, and a closed year locks its dates a
   await assert.rejects(E.createExpense(db, owner, { fields: { expense_date: '2027-08-01', item: 'x' }, today: TODAY }), /FY28 has not started/)
 
   const fy26 = (await E.loadYear(db, { fy: 2026, viewer: 'owner', today: TODAY })).expenses[0]
-  await assert.rejects(E.updateExpense(db, owner, { id: fy26.id, patch: { amount: 1 }, today: TODAY }), /FY26 is closed/)
-  const back = await E.updateExpense(db, owner, { id: fy26.id, patch: { payment_method: 'p_card', notes: 'Backfilled' }, today: TODAY })
-  assert.deepEqual([back.paymentLabel, back.statusLabel, back.notes], ['P-card', 'Paid', 'Backfilled'], 'Payment, Status and Notes stay editable')
-  await assert.rejects(E.deleteExpenses(db, owner, { ids: [fy26.id], today: TODAY }), /FY26 is closed/)
+  // Owner, 2026-09-27: "allow me to edit it". The prompt's closed-year locks are retired.
+  const back = await E.updateExpense(db, owner, { id: fy26.id, patch: { payment_method: 'p_card', notes: 'Backfilled', amount: 12.5, expense_date: '2026-01-14' }, today: TODAY })
+  assert.deepEqual([back.paymentLabel, back.statusLabel, back.notes, back.amount, back.dateText], ['P-card', 'Paid', 'Backfilled', 12.5, 'Jan 14, 2026'])
+  const { data: fyLog } = await db.from('budget_changes').select('field, old_value, new_value').eq('entity_id', fy26.id)
+  assert.ok(fyLog.some(l => l.field === 'amount' && Number(l.old_value) === 11.71 && Number(l.new_value) === 12.5), 'the old and new amount are logged')
+  const added = await E.createExpense(db, owner, { fields: { expense_date: '2026-04-02', item: 'Late receipt', amount: 20 }, today: TODAY })
+  assert.equal(added.dateText, 'Apr 2, 2026', 'a closed year takes new rows')
+  assert.equal((await E.deleteExpenses(db, owner, { ids: [added.id] })).deleted, 1)
 
   const y = await E.loadYear(db, { fy: 2027, viewer: 'owner', today: TODAY })
   assert.deepEqual(y.summary.costPerStudent, { state: 'ok', cohortId: cohort.id, cohort: 'Fall 2026', size: 40, spend: 38.99, value: 0.97 }, 'the roster counts real, proceeding students only')

@@ -8,8 +8,8 @@
 //
 // Category, Payment, Status and Cohort edit through selects, and Status offers only what the
 // row's payment method allows. Unit cost is computed. Receipt is set by the system (Phase B).
-// A closed year locks Date, Item, Category, Description, Vendor, Order no., Qty, Spent and Cost
-// center; Payment, Status, Cohort and Notes stay editable so the owner can backfill them.
+// A closed year is as editable as a current one (Owner, 2026-09-27: "allow me to edit it"; the
+// prompt's closed-year locks are retired). Every change is logged; readers stay read-only.
 // Invariants 3, 5 and 6 hold here too: one number per column, status one word in a pill,
 // missing an en dash.
 import { useMemo } from 'react'
@@ -20,8 +20,9 @@ import { PAYMENT_METHODS, STATUSES, statusesFor, statusLabel, statusTone, paymen
 
 const LEAD = { key: '@date', label: 'Date', type: 'date' }
 const TONE = { green: 'ok', amber: 'warn', blue: 'info', grey: 'off' }
-const LOCKED_WHEN_CLOSED = new Set(['@date', 'item', 'cat', 'description', 'vendor', 'order_number', 'qty', 'amount', 'cost_center'])
 const NOT_EDITABLE = new Set(['unit', 'receipt', 'month'])
+// What Clear contents may empty: text and optional choices, never a date, an amount or a status.
+const CLEARABLE = new Set(['description', 'vendor', 'order_number', 'cost_center', 'notes', 'cat', 'pay', 'cohort'])
 const GROUPABLE = new Set(['cat', 'month', 'pay', 'status', 'cohort'])
 const DASH = <span className="bud-dash">–</span>
 const DEFAULT_LAYOUT = {
@@ -50,7 +51,6 @@ const shownOf = (row, key) => (key === '@date' ? dateText(row.raw.expense_date, 
 const searchValues = (r) => [r.raw.item, r.raw.vendor, r.raw.order_number, r.raw.notes]
 
 export default function BudgetSheet({ year, canEdit, onWrite }) {
-  const closed = year.state === 'closed'
   const cats = useMemo(() => new Map(year.categories.map(c => [c.id, c.name])), [year.categories])
   const catIds = useMemo(() => new Map(year.categories.map(c => [c.name, c.id])), [year.categories])
   const cohorts = useMemo(() => new Map(year.cohorts.map(c => [c.id, c.name])), [year.cohorts])
@@ -117,12 +117,11 @@ export default function BudgetSheet({ year, canEdit, onWrite }) {
       saveLayout={(layout) => onWrite.call('sheet_layout', { layout })}
       saveCells={(updates) => onWrite.call('sheet_cells', { updates })}
       canEditColumn={(col) => !NOT_EDITABLE.has(col.key)}
+      canClear={(col) => CLEARABLE.has(col.key)}
       draftOf={draftOf} commitEdit={commitEdit}
-      isLocked={(row, col) => closed && LOCKED_WHEN_CLOSED.has(col.key)}
       groupSubtotals={['amount']}
-      onAddRow={canEdit && year.state === 'current' ? async () => { const out = await onWrite.call('expense_create', { fields: { expense_date: newDate } }); onWrite.changed(); return sheetRow(out.expense, cats, cohorts) } : undefined}
-      onDeleteRows={canEdit && !closed ? async (list) => { await onWrite.call('expense_delete', { ids: list.map(r => r.id) }); onWrite.changed() } : undefined}
-      canDeleteRow={() => !closed}
+      onAddRow={canEdit && year.state !== 'not_started' ? async () => { const out = await onWrite.call('expense_create', { fields: { expense_date: newDate } }); onWrite.changed(); return sheetRow(out.expense, cats, cohorts) } : undefined}
+      onDeleteRows={canEdit ? async (list) => { await onWrite.call('expense_delete', { ids: list.map(r => r.id) }); onWrite.changed() } : undefined}
       renderCell={(row, col, text) => {
         if (col.key === 'item') return <>{text || DASH}{row.raw.subscription_id && <span className="bud-subtag">Subscription</span>}</>
         if (col.key === 'status') return row.raw.status ? <Pill tone={TONE[statusTone(row.raw.status)]}>{statusLabel(row.raw.status)}</Pill> : DASH
@@ -136,7 +135,6 @@ export default function BudgetSheet({ year, canEdit, onWrite }) {
         emptyNote: year.state === 'current' && canEdit ? 'No expenses yet. Add a row, or add receipts once receipt intake arrives.' : 'No expenses in this year.',
         noMatch: 'No expenses match.', frameLabel: `Expenses, ${year.label}. Arrow keys move, Enter edits.`,
         readOnlyEdit: canEdit ? `${year.label} has not started.` : 'This view is read-only.',
-        locked: `${year.label} is closed. Only Payment, Status, Cohort and Notes can change.`,
         newColumnHint: 'A column of your own, like Approved by or PO number. Leadership sees it read-only.',
         help: canEdit ? 'Double-click or Enter edits a cell. Unit cost is Spent divided by Qty. Group by Category or Month for the Annual Budget Tracker view; Export to Excel writes both sheets.' : 'Read-only. Use Export to Excel to work with the figures.',
       }}

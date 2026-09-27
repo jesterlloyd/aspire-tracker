@@ -100,7 +100,7 @@ export default function BudgetSummary({ year, canEdit, onWrite }) {
         ) : (
           <>
             <b>{usd(s.total)}</b><small>Annual, {s.label}</small>
-            {canEdit && !closed && <button type="button" className="bud-link" onClick={() => { setDraft(s.total.toLocaleString('en-US', { minimumFractionDigits: 2 })); setEditing(true) }}>Change budget</button>}
+            {canEdit && <button type="button" className="bud-link" onClick={() => { setDraft(s.total.toLocaleString('en-US', { minimumFractionDigits: 2 })); setEditing(true) }}>Change budget</button>}
           </>
         )}
       </SurfaceCard>
@@ -132,7 +132,7 @@ export default function BudgetSummary({ year, canEdit, onWrite }) {
   ]
   const catSub = withPlan
     ? (year.budget?.plan_saved_at ? `${usd(s.total - s.byCategory.reduce((a, c) => a + (c.allocated || 0), 0))} of the budget is not assigned to a category.` : 'Draft. Only you see this plan until you save it in Allocations.')
-    : `No category plan for ${s.label}${canEdit && !closed ? '. Add one in Allocations.' : '. The budget is one annual total.'}`
+    : `No category plan for ${s.label}${canEdit ? '. Add one in Allocations.' : '. The budget is one annual total.'}`
 
   const noteCard = canEdit ? (
     <SurfaceCard className="bud-card bud-note">
@@ -141,7 +141,7 @@ export default function BudgetSummary({ year, canEdit, onWrite }) {
       <textarea id="bud-note" className="bud-textarea" value={note} maxLength={2000} placeholder="Context leadership needs to read these numbers correctly"
         onChange={e => setNote(e.target.value)} onBlur={() => { if (note !== (year.budget?.owner_note || '')) onWrite.run('set_note', { fiscal_year: year.fy, note }, 'Note saved.') }} />
       <div className="bud-rec"><span>Last reconciled: <b>{year.budget?.last_reconciled_at ? stamp(year.budget.last_reconciled_at) : 'Not yet'}</b></span>
-        {!closed && <button type="button" className="bud-btn bud-btn-sm" onClick={() => onWrite.run('mark_reconciled', { fiscal_year: year.fy }, 'Marked reconciled today.')}>Mark reconciled today</button>}</div>
+        {<button type="button" className="bud-btn bud-btn-sm" onClick={() => onWrite.run('mark_reconciled', { fiscal_year: year.fy }, 'Marked reconciled today.')}>Mark reconciled today</button>}</div>
     </SurfaceCard>
   ) : (
     <SurfaceCard className="bud-card bud-note">

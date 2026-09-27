@@ -11,7 +11,7 @@ import { usd, allocationTotals, splitEvenly, parseMoney } from '../../lib/budget
 export default function BudgetAllocations({ year, canEdit, onWrite }) {
   const s = year.summary
   const closed = s.state === 'closed'
-  const editable = canEdit && !closed
+  const editable = canEdit   // a closed year's plan is editable too (Owner, 2026-09-27)
   const initial = useMemo(() => Object.fromEntries(year.allocations.map(a => [a.category_id, canEdit ? a.amount : a.saved_amount])), [year.allocations, canEdit])
   const [amounts, setAmounts] = useState(() => Object.fromEntries(Object.entries(initial).map(([k, v]) => [k, v ? v.toLocaleString('en-US') : ''])))
   const value = (id) => parseMoney(amounts[id] || '0') ?? 0
@@ -21,7 +21,7 @@ export default function BudgetAllocations({ year, canEdit, onWrite }) {
   const isDraft = canEdit && !year.budget?.plan_saved_at && Object.values(initial).some(v => v > 0)
   const changedSinceSave = canEdit && year.budget?.plan_saved_at && year.allocations.some(a => a.amount !== a.saved_amount)
 
-  if (closed && !Object.values(initial).some(v => v > 0)) {
+  if (closed && !canEdit && !Object.values(initial).some(v => v > 0)) {
     return <SurfaceCard className="bud-empty">{s.label} had no category plan. It ran on one {usd(s.total)} total.</SurfaceCard>
   }
 

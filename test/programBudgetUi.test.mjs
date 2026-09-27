@@ -78,7 +78,7 @@ test('Summary: the owner changes the budget and writes the note; a reader reads 
   assert.doesNotMatch(reader, /\$6,500\.00/, 'and never the draft')
 })
 
-test('Sheet: the owner adds and deletes rows; a reader gets a view-only sheet; a closed year keeps its locks', () => {
+test('Sheet: the owner adds and deletes rows; a reader gets a view-only sheet; a closed year is editable too', () => {
   const owner = html(C.Sheet, Y.owner, true), reader = html(C.Sheet, Y.reader, false), closed = html(C.Sheet, Y.closedOwner, true)
   assert.match(owner, /<\/svg> Row<\/button>/)
   assert.match(owner, /Delete row/)
@@ -87,9 +87,10 @@ test('Sheet: the owner adds and deletes rows; a reader gets a view-only sheet; a
   assert.match(reader, /View only/)
   assert.doesNotMatch(reader, /<\/svg> Row<\/button>|Delete row/)
   assert.match(closed, /Jan 2026/, 'an imported row shows its month')
-  assert.match(closed, /data-cell="[^"]+\|amount"[^>]*class="[^"]*fs-locked/, 'a closed year locks Spent')
-  assert.doesNotMatch(closed, /data-cell="[^"]+\|pay"[^>]*class="[^"]*fs-locked/, 'and leaves Payment editable')
-  assert.doesNotMatch(closed, /<\/svg> Row<\/button>/, 'no new rows in a closed year')
+  // Owner, 2026-09-27: a closed year is editable (the prompt's locks are retired).
+  assert.doesNotMatch(closed, /fs-locked/, 'nothing in a closed year is locked')
+  assert.match(closed, /<\/svg> Row<\/button>/, 'a closed year takes new rows')
+  assert.match(closed, /Delete row/)
 })
 
 test('Subscriptions: the owner decides renewals on slips; a reader sees the plans, not the decision', () => {
@@ -111,7 +112,8 @@ test('Allocations: the owner edits a draft and saves the plan; a reader sees onl
   assert.doesNotMatch(reader, /Save plan|<input/)
   assert.match(reader, /\$6,000\.00/)
   assert.doesNotMatch(reader, /6,500/)
-  assert.match(html(C.Alloc, Y.closedOwner, true), /FY26 had no category plan\. It ran on one \$40,000\.00 total\./)
+  assert.match(html(C.Alloc, Y.closedOwner, true), /Save plan/, 'the owner can add a plan to a closed year')
+  assert.match(html(C.Alloc, { ...Y.closedOwner, allocations: [] }, false), /FY26 had no category plan\. It ran on one \$40,000\.00 total\./)
 })
 
 test('a year that has not started: the owner gets the Start form, a reader is told it is not published', () => {

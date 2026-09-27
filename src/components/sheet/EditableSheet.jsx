@@ -59,6 +59,14 @@
 //   groupSubtotals           keys summed on every group row, beside its count.
 //   onAddRow()               resolves to the new row; the grid appends it.
 //   onDeleteRows(rows)       deletes the rows whose numbers are selected; canDeleteRow(row) may refuse one.
+//   canClear(col)            may Clear contents empty this host column (staff columns always clear).
+//
+// SHEET-MENU-1 (Owner, 2026-09-27: "right clicking ... actions just like in smartsheet or excel"):
+// a right-click (or the Menu key, or Shift+F10) opens a menu on a cell, a row number or a column
+// header: Edit, Copy, Paste (a block pasted from Excel lands across the cells), Clear, the text
+// formats, Insert and Delete row where the host allows rows, and Sort, Filter by this value, Group
+// by, Freeze through, Hide and Delete column. Cmd/Ctrl+C and Cmd/Ctrl+V do the same from the keyboard.
+// Every edit goes through the same path as a double-click edit, so a host's rules still decide.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AlignCenter, AlignLeft, AlignRight, ArrowDownUp, Baseline, Bold, ChevronDown, ChevronRight, Eraser, Italic, PaintBucket, Plus, Trash2, Underline, WrapText } from 'lucide-react'
 import {
@@ -97,7 +105,7 @@ export default function EditableSheet({
   canEditColumn = () => false, draftOf = () => '', commitEdit: commitHostEdit,
   renderCell, cellClass, cellTitle, editorLabel, editorExtras, saveLabel,
   labels = {}, notify, viewRef,
-  isLocked, groupSubtotals = NO_KEYS, onAddRow, onDeleteRows, canDeleteRow = () => true,
+  isLocked, groupSubtotals = NO_KEYS, onAddRow, onDeleteRows, canDeleteRow = () => true, canClear = () => false,
 }) {
   const [data, setData] = useState(() => ({ rows: initialRows }))
   const [layout, setLayout] = useState(initialLayout)
@@ -112,6 +120,7 @@ export default function EditableSheet({
   const [save, setSave] = useState('saved')           // saved | saving | error
   const [dragCol, setDragCol] = useState(null)
   const [newCol, setNewCol] = useState({ label: '', type: 'text', options: '' })
+  const [ctx, setCtx] = useState(null)                // the right-click menu: { x, y, kind: 'cell' | 'row' | 'col', r, c }
   const frameRef = useRef(null)
   const toolRef = useRef(null)
   const layoutTimer = useRef(null)
@@ -295,9 +304,11 @@ export default function EditableSheet({
 
   // ── Keyboard: arrows move, Enter edits, Cmd/Ctrl+B/I/U format, Cmd/Ctrl+A selects all, Delete clears staff values ──
   const onKey = (e) => {
-    if (editing) return
+    if (editing || ctx) return
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'a') { e.preventDefault(); selectAll(); return }
     if (!sel) return
+    if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) { e.preventDefault(); openMenuFromKeys(); return }
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'c') { e.preventDefault(); copySelection(); return }
     const move = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] }[e.key]
     if (move) {
       e.preventDefault()
@@ -307,13 +318,12 @@ export default function EditableSheet({
     }
     if (e.key === 'Enter') { e.preventDefault(); const row = visibleRows[sel.focus.r], col = gridCols[sel.focus.c]; if (row && col) startEdit(row, col); return }
     if ((e.metaKey || e.ctrlKey) && ['b', 'i', 'u'].includes(e.key.toLowerCase())) { e.preventDefault(); toggle(e.key.toLowerCase()); return }
+    // Delete clears what Clear contents clears: staff values always, host columns the host allows.
     if ((e.key === 'Delete' || e.key === 'Backspace') && editable) {
-      const staff = selectedCells.filter(x => x.col.staff && x.row.cells[x.col.key] && !locked(x.row, x.col))
-      if (!staff.length) return
+      const cl = clearable()
+      if (!cl.staff.length && !cl.host.length) return
       e.preventDefault()
-      const ids = new Set(staff.map(x => `${x.row.id}|${x.col.key}`))
-      patchRows(r => ({ ...r, cells: Object.fromEntries(Object.entries(r.cells).map(([k, v]) => [k, ids.has(`${r.id}|${k}`) ? '' : v])) }))
-      saveCells(staff.map(x => ({ rowId: x.row.id, key: x.col.key, value: '' })))
+      clearSelection()
     }
   }
 
@@ -343,6 +353,153 @@ export default function EditableSheet({
     if (!window.confirm('Delete this column and everything typed in it?')) return
     changeLayout(l => ({ ...l, staffColumns: l.staffColumns.filter(c => c.key !== key), order: l.order.filter(k => k !== key), hidden: l.hidden.filter(k => k !== key) }))
     setSel(null)
+  }
+
+  // ── The right-click menu (SHEET-MENU-1) ──
+  const cellEditable = (row, col) => !!row && !!col && canEdit(col) && !locked(row, col)
+  const inRange = (r, c) => !!range && r >= range.r0 && r <= range.r1 && c >= range.c0 && c <= range.c1
+  const openMenu = (e, kind, r, c) => {
+    e.preventDefault()
+    if (editing) return
+    frameRef.current?.focus({ preventScroll: true })
+    // Like a spreadsheet: a right-click inside the selection keeps it; outside, it selects what was clicked.
+    if (kind === 'cell' && !inRange(r, c)) setSel({ anchor: { r, c }, focus: { r, c } })
+    if (kind === 'row' && !(sel?.whole === 'row' && inRange(r, 0))) selectRows(r, false)
+    if (kind === 'col' && !((sel?.whole === 'col' || sel?.whole === 'all') && inRange(0, c))) selectCols(c, false)
+    setCtx({ x: e.clientX, y: e.clientY, kind, r, c })
+  }
+  const openMenuFromKeys = () => {
+    if (!sel) return
+    const row = visibleRows[sel.focus.r], col = gridCols[sel.focus.c]
+    const el = row && col && frameRef.current?.querySelector(`[data-cell="${row.id}|${col.key}"]`)
+    const b = el?.getBoundingClientRect()
+    if (b) setCtx({ x: b.left + 12, y: b.bottom - 4, kind: 'cell', r: sel.focus.r, c: sel.focus.c })
+  }
+  const closeMenu = () => { setCtx(null); frameRef.current?.focus({ preventScroll: true }) }
+  const blockText = () => {
+    if (!range) return ''
+    const lines = []
+    for (let r = range.r0; r <= range.r1; r++) {
+      const row = visibleRows[r]
+      if (!row) continue
+      const cells = []
+      for (let c = range.c0; c <= range.c1; c++) { const col = gridCols[c]; cells.push(col ? String(textOf(row, col.key) ?? '').replace(/[\t\n]/g, ' ') : '') }
+      lines.push(cells.join('\t'))
+    }
+    return lines.join('\n')
+  }
+  const copySelection = async () => {
+    const text = blockText()
+    try { await navigator.clipboard.writeText(text); notify?.(range && (range.r1 > range.r0 || range.c1 > range.c0) ? 'Copied the selected cells.' : 'Copied.') }
+    catch { notify?.('Copy needs clipboard permission in this browser.', 'err') }
+  }
+  /** Paste a block (tab and newline separated, as Excel and Sheets copy it) from the active cell. */
+  const pasteBlock = async (text) => {
+    if (!sel || !editable) return
+    const lines = String(text || '').replace(/\r/g, '').replace(/\n$/, '').split('\n').map(l => l.split('\t'))
+    const staffUpdates = [], hostEdits = []
+    let skipped = 0
+    lines.forEach((cells, i) => cells.forEach((value, j) => {
+      const row = visibleRows[sel.focus.r + i], col = gridCols[sel.focus.c + j]
+      if (!row || !col) return
+      if (!cellEditable(row, col) || (col.staff && col.type === 'check')) { skipped++; return }
+      if (col.staff) staffUpdates.push({ row, col, value })
+      else hostEdits.push({ row, col, value })
+    }))
+    if (staffUpdates.length) {
+      const byKey = new Map(staffUpdates.map(u => [`${u.row.id}|${u.col.key}`, u.value]))
+      patchRows(r => ({ ...r, cells: Object.fromEntries(Object.entries({ ...r.cells, ...Object.fromEntries(staffUpdates.filter(u => u.row.id === r.id).map(u => [u.col.key, u.value])) })) }))
+      saveCells(staffUpdates.map(u => ({ rowId: u.row.id, key: u.col.key, value: byKey.get(`${u.row.id}|${u.col.key}`) })))
+    }
+    let failed = 0
+    if (hostEdits.length) {
+      setSave('saving')
+      for (const h of hostEdits) {
+        try { await commitHostEdit(h.row, h.col, { rowId: h.row.id, key: h.col.key, draft: h.value, reason: '' }, { patchRows }) } catch (err) { failed++; if (failed === 1) notify?.(err.message, 'err') }
+      }
+      setSave(failed ? 'error' : 'saved')
+    }
+    const done = staffUpdates.length + hostEdits.length - failed
+    if (done || skipped) notify?.(`Pasted ${done} ${done === 1 ? 'cell' : 'cells'}${skipped ? `; ${skipped} ${skipped === 1 ? 'cell is' : 'cells are'} not editable` : ''}.`)
+  }
+  const pasteFromClipboard = async () => {
+    try { await pasteBlock(await navigator.clipboard.readText()) }
+    catch { notify?.('Paste needs clipboard permission in this browser. Cmd/Ctrl+V works on the grid.', 'err') }
+  }
+  const clearable = () => ({
+    staff: selectedCells.filter(x => x.col.staff && x.row.cells[x.col.key] && !locked(x.row, x.col)),
+    host: selectedCells.filter(x => !x.col.staff && canClear(x.col) && cellEditable(x.row, x.col) && String(x.row.cells[x.col.key] ?? '') !== ''),
+  })
+  const clearSelection = () => {
+    const { staff, host } = clearable()
+    if (staff.length) {
+      const ids = new Set(staff.map(x => `${x.row.id}|${x.col.key}`))
+      patchRows(r => ({ ...r, cells: Object.fromEntries(Object.entries(r.cells).map(([k, v]) => [k, ids.has(`${r.id}|${k}`) ? '' : v])) }))
+      saveCells(staff.map(x => ({ rowId: x.row.id, key: x.col.key, value: '' })))
+    }
+    if (host.length) (async () => {
+      setSave('saving')
+      let failed = 0
+      for (const x of host) { try { await commitHostEdit(x.row, x.col, { rowId: x.row.id, key: x.col.key, draft: '', reason: '' }, { patchRows }) } catch (err) { failed++; if (failed === 1) notify?.(err.message, 'err') } }
+      setSave(failed ? 'error' : 'saved')
+    })()
+    if (!staff.length && !host.length) notify?.('Nothing here can be cleared.')
+  }
+  const menuRows = () => (range ? visibleRows.slice(range.r0, range.r1 + 1) : [])
+  const deleteMenuRows = async () => {
+    const list = menuRows().filter(r => canDeleteRow(r))
+    if (!list.length) { notify?.('These rows cannot be deleted.'); return }
+    if (!window.confirm(list.length === 1 ? 'Delete this row?' : `Delete these ${list.length} rows?`)) return
+    setSave('saving')
+    try {
+      await onDeleteRows(list)
+      const gone = new Set(list.map(r => r.id))
+      setData(d => ({ ...d, rows: d.rows.filter(r => !gone.has(r.id)) }))
+      setSel(null); setSave('saved')
+    } catch (e) { setSave('error'); notify?.(e.message, 'err') }
+  }
+  const menuItems = () => {
+    if (!ctx) return []
+    const col = gridCols[ctx.c], row = visibleRows[ctx.r]
+    const items = []
+    const add = (label, run, { disabled = false, hint, danger } = {}) => items.push({ label, run, disabled, hint, danger })
+    const sep = () => { if (items.length && items[items.length - 1] !== 'sep') items.push('sep') }
+    if (ctx.kind === 'cell') {
+      add('Edit cell', () => startEdit(row, col), { disabled: !cellEditable(row, col), hint: 'Enter' })
+      add('Copy', copySelection, { hint: '⌘C' })
+      add('Paste', pasteFromClipboard, { disabled: !editable, hint: '⌘V' })
+      const cl = clearable()
+      add('Clear contents', clearSelection, { disabled: !editable || !(cl.staff.length + cl.host.length), hint: 'Delete' })
+      sep()
+      add('Bold', () => toggle('b'), { disabled: off, hint: '⌘B' })
+      add('Italic', () => toggle('i'), { disabled: off, hint: '⌘I' })
+      add('Underline', () => toggle('u'), { disabled: off, hint: '⌘U' })
+      add('Clear formatting', () => applyFormat(null), { disabled: off })
+    }
+    if (ctx.kind === 'row') add('Copy row', copySelection, { hint: '⌘C' })
+    if (ctx.kind !== 'col' && (onAddRow || onDeleteRows)) {
+      sep()
+      if (onAddRow) add('Insert row', addRow, { disabled: off })
+      if (onDeleteRows) { const n = menuRows().length; add(n > 1 ? `Delete ${n} rows` : 'Delete row', deleteMenuRows, { disabled: off || !n, danger: true }) }
+    }
+    if (col && ctx.kind !== 'row') {
+      sep()
+      add('Sort A to Z', () => setSort({ key: col.key, dir: 'asc' }))
+      add('Sort Z to A', () => setSort({ key: col.key, dir: 'desc' }))
+      if (ctx.kind === 'cell' && row && !ungroupable.has(col.key)) {
+        const v = String(shownOf(row, col.key) ?? '').trim()
+        add(v ? `Filter by "${v.length > 24 ? `${v.slice(0, 24)}…` : v}"` : 'Filter by this value', () => { setFilters(f => [...f, { key: col.key, value: v }]); setSel(null) }, { disabled: !v })
+      }
+      if (!ungroupable.has(col.key) && col.key !== lead.key) {
+        const grouped = layout.groupBy === col.key
+        add(grouped ? 'Remove grouping' : 'Group by this column', () => { setCollapsed(new Set()); setSel(null); changeLayout(l => ({ ...l, groupBy: grouped ? null : col.key })) })
+      }
+      if (ctx.c <= 3) add(ctx.c === 0 ? `Freeze ${lead.label} only` : 'Freeze through this column', () => changeLayout(l => ({ ...l, frozen: ctx.c })))
+      if (col.key !== lead.key) add('Hide column', () => { setSel(null); changeLayout(l => ({ ...l, hidden: [...new Set([...(l.hidden || []), col.key])] })) })
+      if (col.staff && editable) add('Delete column', () => removeStaffColumn(col.key), { danger: true })
+    }
+    while (items[items.length - 1] === 'sep') items.pop()
+    return items
   }
 
   // ── Export ── EXPORT-ONE-1: the host's one Export to Excel button asks the grid what it
@@ -529,7 +686,8 @@ export default function EditableSheet({
       )}
 
       {none && labels.emptyNote && <p className="fm-hint fs-emptynote" role="status">{labels.emptyNote}</p>}
-      <div className="fs-frame" ref={frameRef} tabIndex={0} onKeyDown={onKey} onScroll={followEditor} aria-label={labels.frameLabel}>
+      <div className="fs-frame" ref={frameRef} tabIndex={0} onKeyDown={onKey} onScroll={() => { followEditor(); if (ctx) setCtx(null) }} aria-label={labels.frameLabel}
+        onPaste={e => { if (editing || !editable || !sel) return; e.preventDefault(); pasteBlock(e.clipboardData?.getData('text/plain') || '') }}>
         <table className="fs-table fs-fixed fs-grid">
           <colgroup><col style={{ width: W_ROWNUM }} />{gridCols.map(c => <col key={c.key} style={{ width: width(c.key) }} />)}</colgroup>
           <thead><tr>
@@ -541,7 +699,8 @@ export default function EditableSheet({
                 <th key={c.key} scope="col" className={`fs-th${c.earlier ? ' fs-earlier' : ''}${c.staff ? ' fs-staff' : ''}${colSel ? ' fs-colsel' : ''}${dragCol && dragCol !== c.key && c.key !== lead.key ? ' fs-dropok' : ''}`}
                   style={{ ...cellStyle(null, width(c.key)), ...stickyStyle(c.key, 4) }}
                   aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                  onMouseDown={e => { if (e.target.closest('button, .fs-resize')) return; if (e.shiftKey) e.preventDefault(); frameRef.current?.focus({ preventScroll: true }); selectCols(ci, e.shiftKey) }}
+                  onMouseDown={e => { if (e.button === 2 || e.target.closest('button, .fs-resize')) return; if (e.shiftKey) e.preventDefault(); frameRef.current?.focus({ preventScroll: true }); selectCols(ci, e.shiftKey) }}
+                  onContextMenu={e => openMenu(e, 'col', 0, ci)}
                   draggable={c.key !== lead.key} onDragStart={e => { setDragCol(c.key); try { e.dataTransfer.setData('text/plain', c.key) } catch { /* Firefox needs data */ } }} onDragEnd={() => setDragCol(null)}
                   onDragOver={e => { if (dragCol) e.preventDefault() }} onDrop={e => { e.preventDefault(); dropColumn(c.key) }}>
                   <span className="fs-thlabel" title={c.label}>{c.earlier ? `${c.label} (earlier)` : c.label}</span>
@@ -570,7 +729,8 @@ export default function EditableSheet({
                   return (
                     <tr key={row.id} className="fs-row">
                       <th scope="row" className={`fs-rownum${rowSel ? ' fs-rowsel' : ''}`} style={{ position: 'sticky', left: 0, zIndex: 2 }}
-                        onMouseDown={e => { if (e.shiftKey) e.preventDefault(); frameRef.current?.focus({ preventScroll: true }); selectRows(r, e.shiftKey) }}>{r + 1}</th>
+                        onMouseDown={e => { if (e.button === 2) return; if (e.shiftKey) e.preventDefault(); frameRef.current?.focus({ preventScroll: true }); selectRows(r, e.shiftKey) }}
+                        onContextMenu={e => openMenu(e, 'row', r, 0)}>{r + 1}</th>
                       {gridCols.map((col, c) => {
                         const f = fmtOf(row, col.key)
                         const isEditing = editing && editing.rowId === row.id && editing.key === col.key
@@ -582,7 +742,8 @@ export default function EditableSheet({
                         return (
                           <Cell key={col.key} data-cell={`${row.id}|${col.key}`} scope={isLead ? 'row' : undefined} style={{ ...cellStyle(f, width(col.key)), ...stickyStyle(col.key) }}
                             className={`fs-cell${isLead ? ' fs-name' : ''}${isActive(r, c) ? ' fs-sel' : ''}${multi && isSelected(r, c) ? ' fs-inrange' : ''}${extra ? ` ${extra}` : ''}${isEditing ? ' fs-editing' : ''}`}
-                            onMouseDown={e => { if (isEditing || e.target.closest('a, button')) return; if (e.shiftKey) e.preventDefault(); frameRef.current?.focus({ preventScroll: true }); setSel(s => (e.shiftKey && s ? { anchor: s.anchor, focus: { r, c } } : { anchor: { r, c }, focus: { r, c } })) }}
+                            onMouseDown={e => { if (e.button === 2 || isEditing || e.target.closest('a, button')) return; if (e.shiftKey) e.preventDefault(); frameRef.current?.focus({ preventScroll: true }); setSel(s => (e.shiftKey && s ? { anchor: s.anchor, focus: { r, c } } : { anchor: { r, c }, focus: { r, c } })) }}
+                            onContextMenu={e => { if (!isEditing) openMenu(e, 'cell', r, c) }}
                             onDoubleClick={() => startEdit(row, col)}
                             title={cellTitle?.(row, col)}>
                             {isEditing
@@ -623,6 +784,10 @@ export default function EditableSheet({
           </tfoot>
         </table>
       </div>
+      {/* The items are built here so each carries this render's state; their handlers read the
+          frame ref only when an item is chosen, never while rendering. */}
+      {/* eslint-disable-next-line react-hooks/refs */}
+      {ctx && <SheetMenu x={ctx.x} y={ctx.y} items={menuItems()} onClose={closeMenu} />}
       {labels.help && <p className="fm-hint fs-help">{labels.help}</p>}
     </div>
   )
@@ -681,6 +846,46 @@ function Editor({ col, row, editing, setEditing, onSave, onCancel, label, saveLa
       {control}
       {typeof extras === 'function' ? extras(keys) : extras}
       <span className="fs-edacts"><button type="button" className="fm-btn fm-sm fm-pri" onClick={onSave}>{saveLabel}</button><button type="button" className="fm-link" onClick={onCancel}>Cancel</button></span>
+    </div>
+  )
+}
+
+/** The right-click menu: a real menu (role, arrow keys, Escape), placed at the pointer inside the window. */
+function SheetMenu({ x, y, items, onClose }) {
+  const ref = useRef(null)
+  const [pos, setPos] = useState({ left: x, top: y })
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return undefined
+    const b = el.getBoundingClientRect()
+    setPos({ left: Math.max(8, Math.min(x, window.innerWidth - b.width - 8)), top: Math.max(8, Math.min(y, window.innerHeight - b.height - 8)) })
+    el.querySelector('[role="menuitem"]:not([aria-disabled="true"])')?.focus()
+    const away = (e) => { if (!el.contains(e.target)) onClose() }
+    const gone = () => onClose()
+    document.addEventListener('mousedown', away)
+    window.addEventListener('resize', gone)
+    window.addEventListener('blur', gone)
+    return () => { document.removeEventListener('mousedown', away); window.removeEventListener('resize', gone); window.removeEventListener('blur', gone) }
+  }, [x, y, onClose])
+  const keys = (e) => {
+    const list = [...ref.current.querySelectorAll('[role="menuitem"]:not([aria-disabled="true"])')]
+    const at = list.indexOf(document.activeElement)
+    if (e.key === 'Escape' || e.key === 'Tab') { e.preventDefault(); onClose() }
+    else if (e.key === 'ArrowDown') { e.preventDefault(); list[(at + 1) % list.length]?.focus() }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); list[(at - 1 + list.length) % list.length]?.focus() }
+    else if (e.key === 'Home') { e.preventDefault(); list[0]?.focus() }
+    else if (e.key === 'End') { e.preventDefault(); list[list.length - 1]?.focus() }
+  }
+  return (
+    <div ref={ref} className="fs-menu" role="menu" aria-label="Sheet actions" style={{ position: 'fixed', ...pos }} onKeyDown={keys} onContextMenu={e => e.preventDefault()}>
+      {items.map((it, i) => (it === 'sep'
+        ? <div key={`sep-${i}`} className="fs-menu-sep" role="separator" />
+        : (
+          <button key={it.label} type="button" role="menuitem" className={`fs-menu-item${it.danger ? ' fs-menu-danger' : ''}`} aria-disabled={it.disabled || undefined} tabIndex={-1}
+            onClick={() => { if (it.disabled) return; onClose(); it.run() }}>
+            <span>{it.label}</span>{it.hint && <kbd>{it.hint}</kbd>}
+          </button>
+        )))}
     </div>
   )
 }

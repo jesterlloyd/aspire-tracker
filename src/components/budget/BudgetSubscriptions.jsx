@@ -128,6 +128,7 @@ export default function BudgetSubscriptions({ year, canEdit, onWrite }) {
         saveLayout={(layout) => onWrite.call('sheet_layout', { layout, sheet: 'subscriptions' })}
         saveCells={async () => {}}   // a subscription row keeps no per-cell formatting; column formats live in the layout
         canEditColumn={(col) => !CALCULATED.has(col.key) && !col.staff}
+        canClear={(col) => ['plan', 'vendor', 'notes', 'end', 'cat', 'pay'].includes(col.key)}
         draftOf={(r, col) => (col.key === '@name' ? r.raw.name : r.cells[col.key])}
         commitEdit={async (row, col, editing, { patchRows }) => {
           const out = await onWrite.call('subscription_update', { id: row.id, patch: toPatch(col.key, editing.draft) })
