@@ -18,6 +18,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
 import Toggle from '../ui/Toggle'
 import AutomationEmailPreviewDrawer from './AutomationEmailPreviewDrawer'
+import './automationView.css'
 import { getPreviewFixture } from '../../lib/notifications/previewFixtures'
 import { automationById, isRunStale } from '../../lib/automationCatalog'
 
@@ -215,7 +216,7 @@ function AutomationCard({ card, run, health, ctrl, onPreview, canPreview }) {
   const strong = { color: '#374151', fontWeight: 600 }
 
   return (
-    <div style={{ flex: '1 1 300px', minWidth: 0, maxWidth: 480, background: '#fff', border: '1px solid #e8e4dc', borderRadius: 14, padding: '16px 18px', fontFamily: F }}>
+    <div style={{ minWidth: 0, background: '#fff', border: '1px solid #e8e4dc', borderRadius: 14, padding: '16px 18px', fontFamily: F }}>
       {/* Header: title + health badge */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
         <div style={{ minWidth: 0 }}>
@@ -538,7 +539,7 @@ export default function AutomationView({ active = true, cohortId, toast, refresh
       )}
 
       {/* Unified grid - one card per automation, in canonical order. */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+      <div className="automation-card-grid">
         {AUTOMATION_CARDS.map(card => (
           <AutomationCard
             key={card.id}
