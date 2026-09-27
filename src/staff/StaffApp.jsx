@@ -18,6 +18,7 @@ import { useState, useEffect, useCallback, useRef, Suspense } from 'react'
 import { lazyReload } from '../lib/lazyReload'
 import { ngrpPart } from '../lib/ngrpWorkspaceLoader'
 import { Navigate, useNavigate, useLocation } from 'react-router-dom'
+import { useScrollTopOnRoute } from '../hooks/useScrollTopOnRoute'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { updatePreceptorAssignment, updateContact, updateProfile, updateRequirements, updateCslink, updateNgrp, updateBadge, updateNotes, updateStudentAvailability, updateUnitPreferences, updateStatus, updateInterviewOutcome } from '../lib/studentProxy'
@@ -239,6 +240,8 @@ function MainApp({ onLogout }) {
 
   const navigate  = useNavigate()
   const location  = useLocation()
+  // SCROLL-TOP-1: a new page starts at the top (not on Back/Forward, not on a query change).
+  useScrollTopOnRoute()
   const activeTab = (() => {
     const p = location.pathname
     if (p.startsWith('/rotation')) return 'rotation'
