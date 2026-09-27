@@ -64,14 +64,15 @@
   --fore-w: var(--sc-stack-w);
 }
 
-/* Five rings down the spine. Decorative: the binder is a picture of a binder, and a
-   screen reader is told nothing about them. */
+/* Five gilt fasteners down the spine. They use the same shared hardware as Classic
+   Evaluation. Decorative: the binder is a picture of a binder, and a screen reader is
+   told nothing about them. */
 .sc-rings {
   position: absolute;
   left: 8px;
   top: 26px;
   bottom: 26px;
-  width: 16px;
+  width: var(--aspire-fastener-size);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -79,11 +80,11 @@
 }
 .sc-ring {
   display: block;
-  height: 16px;
+  height: var(--aspire-fastener-size);
   border-radius: 50%;
-  border: 2px solid var(--aspire-binder-ring);
-  background: linear-gradient(180deg, var(--aspire-binder-ring-face), var(--aspire-binder-ring) 45%, var(--aspire-binder-ring-base));
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  border: var(--aspire-fastener-border);
+  background: var(--aspire-fastener-gilt);
+  box-shadow: var(--aspire-fastener-shadow);
 }
 
 /* ── The paper ─────────────────────────────────────────────────────────────── */
@@ -664,8 +665,7 @@
     --sc-stack-w: 5px;
     padding: var(--sc-board-pad) calc(var(--sc-board-pad) + var(--sc-stack-w)) var(--sc-board-pad) 22px;
   }
-  .sc-rings { left: 5px; top: 18px; bottom: 18px; width: 12px; }
-  .sc-ring { height: 12px; }
+  .sc-rings { left: 5px; top: 18px; bottom: 18px; }
   .sc-main { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
   .sc-index {
     grid-row: 1;

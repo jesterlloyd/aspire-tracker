@@ -566,12 +566,12 @@
   position: absolute;
   z-index: 4;
   left: 5px;
-  width: 12px;
-  height: 12px;
-  border: 1px solid var(--aspire-gilt-deep);
+  width: var(--aspire-fastener-size);
+  height: var(--aspire-fastener-size);
+  border: var(--aspire-fastener-border);
   border-radius: 50%;
-  background: radial-gradient(circle at 34% 28%, #fff7cc 0 10%, #e5ca61 24%, var(--aspire-gilt) 58%, var(--aspire-gilt-deep) 100%);
-  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.62), 0 1px 2px rgba(5, 10, 43, 0.48);
+  background: var(--aspire-fastener-gilt);
+  box-shadow: var(--aspire-fastener-shadow);
   pointer-events: none;
 }
 
