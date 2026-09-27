@@ -99,11 +99,15 @@ test('drawer and schema carry the accessibility, snooze, classification, and not
 test('Classic Action Center uses the compact slotted clipboard clip from Outreach', () => {
   const panel = read('src/components/ActionCenterV2.jsx')
   const css = read('src/components/actionCenter/actionCenter.css')
-  assert.equal((panel.match(/<div className="ac2-clip" aria-hidden="true"><span \/><\/div>/g) || []).length, 2)
+  // CLIP-1 (2026-09-26): the clip's look moved to the shared .material-clipboard-clip; this
+  // sheet only places it.
+  assert.equal((panel.match(/<div className="ac2-clip material-clipboard-clip" aria-hidden="true"><span \/><\/div>/g) || []).length, 2)
   assert.match(css, /data-style="classic"\] \.ac2-body \{[^}]*padding-top: 40px;[^}]*linear-gradient\(to bottom, var\(--ac-surface\) 0 18px, transparent 18px\)/)
   assert.match(css, /data-style="classic"\] \.ac2-toolbar \{ border-bottom: 0; \}/)
-  assert.match(css, /data-style="classic"\] \.ac2-clip \{[^}]*width: 76px;[^}]*height: 24px;/)
-  assert.match(css, /data-style="classic"\] \.ac2-clip > span \{[^}]*width: 25px;[^}]*height: 6px;/)
+  assert.match(css, /data-style="classic"\] \.ac2-clip \{[^}]*display: block;/)
+  const mat = read('src/styles/aspireMaterials.css')
+  assert.match(mat, /\.material-clipboard-clip \{[^}]*width: 76px; height: 24px;/)
+  assert.match(mat, /\.material-clipboard-clip > span \{[^}]*width: 25px; height: 6px;/)
 })
 
 test('Action Center close control uses a centered icon instead of a font glyph', () => {

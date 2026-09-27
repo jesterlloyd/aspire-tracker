@@ -62,7 +62,8 @@ test('Classic recipient files use a stable clipboard clip outside source-switche
   const bulk = read('src/components/connect/BulkManualComposer.jsx')
   const css = read('src/components/connect/outreachCorrespondenceDesk.css')
 
-  assert.match(panel, /clipboard && <span className="outreach-clipboard-clip" aria-hidden="true">/)
+  // CLIP-1 (2026-09-26): the look is the shared .material-clipboard-clip.
+  assert.match(panel, /clipboard && <span className="outreach-clipboard-clip material-clipboard-clip" aria-hidden="true">/)
   assert.match(outreach, /title="Recipient Card"[\s\S]*className="outreach-recipient-file outreach-recipient-file-single"[\s\S]*clipboard[\s\S]*bodyClassName="outreach-recipient-file-body"/)
   assert.match(bulk, /className="outreach-recipient-file outreach-recipient-file-bulk"[\s\S]*clipboard[\s\S]*bodyClassName="outreach-recipient-file-body"/)
   assert.match(css, /\.outreach-workspace-classic \.outreach-recipient-file \{[\s\S]*overflow: visible !important;/)

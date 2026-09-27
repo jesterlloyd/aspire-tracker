@@ -15,6 +15,7 @@
    ============================================================================ */
 
 @import '../shared/plannerCalendar.css';
+@import '../../styles/aspireMaterials.css';
 
 /* ── Page tokens ─────────────────────────────────────────────────────────── */
 .hm-page {
@@ -607,13 +608,12 @@
 
 /* The report sheet with a paperclip in the header gap. */
 .hm-classic .hm-report { padding-top: 4px; }
-/* A drawn wire clip (Owner, 2026-09-25: "improve the paperclip design"): two nested loops
-   of one wire, a metal gradient across it, a thin highlight and a cast shadow. */
-.hm-clip {
-  position: absolute; top: -18px; right: 168px; width: 22px; height: 62px; z-index: 5; pointer-events: none;
-  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='62' viewBox='-1 -1 22 62'%3E%3Cdefs%3E%3ClinearGradient id='m' x1='0' y1='0' x2='1' y2='0'%3E%3Cstop offset='0' stop-color='%237D8594'/%3E%3Cstop offset='.35' stop-color='%23F4F6F9'/%3E%3Cstop offset='.6' stop-color='%23AEB5C1'/%3E%3Cstop offset='1' stop-color='%236E7686'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M7.5 21 V46.5 A3.25 3.25 0 0 0 14 46.5 V9.5 A5.5 5.5 0 0 0 3 9.5 V50 A7 7 0 0 0 17 50 V17' fill='none' stroke='rgba(0,0,0,.28)' stroke-width='2.2' stroke-linecap='round' transform='translate(1.1 1.6)'/%3E%3Cpath d='M7.5 21 V46.5 A3.25 3.25 0 0 0 14 46.5 V9.5 A5.5 5.5 0 0 0 3 9.5 V50 A7 7 0 0 0 17 50 V17' fill='none' stroke='url(%23m)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M7.5 21 V46.5 A3.25 3.25 0 0 0 14 46.5 V9.5 A5.5 5.5 0 0 0 3 9.5 V50 A7 7 0 0 0 17 50 V17' fill='none' stroke='rgba(255,255,255,.55)' stroke-width='.6' stroke-linecap='round' transform='translate(-.4 -.3)'/%3E%3C/svg%3E") center / contain no-repeat;
-  transform: rotate(5deg);
-}
+/* The clipboard clip (Owner, 2026-09-26): the same spring clip as Action Center and Outreach >
+   Recipients (.material-clipboard-clip), centred on the sheet's top edge. It holds Cohort Pulse
+   and Placement; Today keeps the Calendars' planner rings, which are the one binding all six
+   calendars share. */
+.hm-clip { position: absolute; top: -12px; left: 50%; translate: -50% 0; z-index: 5; display: block; }
+
 
 /* Placement is one loose sheet with no stack under it (Owner, 2026-09-25). */
 

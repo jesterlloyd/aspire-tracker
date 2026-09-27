@@ -809,6 +809,12 @@ tested modules in `src/lib/home/`. Nothing is computed in JSX.
 - **Rotation > Activity is labelled Shift Log** (Owner, 2026-09-25) in the Rotation picker,
   the launcher and the Action Center button; the route stays `/rotation/activity`, and the
   calendar inside keeps the portals' shared title, Rotation Activity.
+- **The clipboard clip is one material** (CLIP-1, Owner, 2026-09-26): `.material-clipboard-clip`
+  in `aspireMaterials.css` is the small spring clip Action Center and Outreach > Recipients
+  wore as two copies; each host only places it (and sets `display`, so Modern can hide it).
+  At a Glance clips Cohort Pulse and Placement with it; Today keeps the Calendars' planner
+  rings. Review & Release's 190px pressboard clamp is a different object. The Classic desk
+  casts no outer shadow.
 - `TodayMasthead.jsx` is retired; the staff masthead host is `HomeBanner` (both styles). Unit
   leaders use their own portal, not this page.
 

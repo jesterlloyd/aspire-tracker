@@ -217,3 +217,26 @@
     var(--aspire-book-spine-edge) 78%,
     rgba(26, 12, 3, 0) 100%);
 }
+
+/* The clipboard clip (CLIP-1, Owner, 2026-09-26): the small spring clip that holds a sheet to a
+   clipboard. One look, used by Action Center, ASPIRE Connect > Outreach > Recipients and At a
+   Glance's Cohort Pulse and Placement. The HOST places it (position, offsets, display) and
+   decides when it shows; this rule is only what it is made of, so it sets no display (Action
+   Center hides its clip in Modern with display: none, and a display here would fight that by
+   load order). Markup: <span class="material-clipboard-clip" aria-hidden="true"><span /></span>.
+   Review & Release's 190px clamp across a whole pressboard is a different object. */
+.material-clipboard-clip {
+  width: 76px; height: 24px;
+  border: 1px solid #737780;
+  border-radius: var(--aspire-radius-sheet-plain) var(--aspire-radius-sheet-plain) var(--aspire-radius-sheet) var(--aspire-radius-sheet);
+  background: linear-gradient(180deg, #EEF0F3 0%, #C7CBD2 45%, #A9AEB7 100%);
+  box-shadow: inset 0 2px 2px rgba(255, 255, 255, .8), 0 3px 5px rgba(0, 0, 0, .28);
+  pointer-events: none;
+}
+.material-clipboard-clip > span {
+  position: absolute; top: 6px; left: 50%; width: 25px; height: 6px; translate: -50% 0;
+  border: 1px solid #898D95;
+  border-radius: var(--aspire-radius-sheet);
+  background: #E2E5E9;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, .14);
+}

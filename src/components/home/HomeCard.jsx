@@ -28,7 +28,7 @@ export default function HomeCard({ id, title, cap, right, material = '', classNa
       style={order != null ? { order } : undefined}
     >
       {rings && <span className="pl-rings" aria-hidden="true"><i /><i /></span>}
-      {clip && <span className="hm-clip" aria-hidden="true" />}
+      {clip && <span className="hm-clip material-clipboard-clip" aria-hidden="true"><span /></span>}
       <div className="hm-card-h">
         <h2 id={hid} className="hm-card-title">{title}</h2>
         {cap ? <span className="hm-card-cap">{cap}</span> : null}

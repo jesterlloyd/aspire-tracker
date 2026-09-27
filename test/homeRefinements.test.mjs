@@ -224,7 +224,13 @@ test('CLASSIC DESK 2: square paper, shadows not outlines, a torn edge, glass, on
   assert.match(read('src/components/home/RecentActivity.jsx'), /<div className="hm-tape-wrap" style=\{order != null \? \{ order \} : undefined\}>/)
   // An inline SVG needs its hashes escaped, or the image silently fails to draw.
   for (const u of css.match(/url\("data:image\/svg\+xml,[^"]*"\)/g) || []) assert.doesNotMatch(u, /#/)
-  assert.match(css, /\.hm-clip \{[^}]*background: url\("data:image\/svg\+xml,/)
+  // CLIP-1 (Owner, 2026-09-26): the paperclip became the shared clipboard clip, on Cohort
+  // Pulse and Placement; Today keeps the planner rings.
+  assert.match(css, /\.hm-clip \{ position: absolute; top: -12px; left: 50%; translate: -50% 0; z-index: 5; display: block; \}/)
+  assert.match(read('src/components/home/HomeCard.jsx'), /<span className="hm-clip material-clipboard-clip" aria-hidden="true"><span \/><\/span>/)
+  assert.match(read('src/components/home/CohortPulse.jsx'), /material="report" order=\{order\} clip/)
+  assert.match(read('src/components/home/PlacementCard.jsx'), /material="sheet" order=\{order\} clip/)
+  assert.match(read('src/components/home/TodayCard.jsx'), /\n\s*rings\s/)
   assert.match(css, /\.hm-window-glass \{[^}]*linear-gradient\(118deg/)
   // Today and Cohort Pulse share a top; the picker clears the double rule.
   assert.match(css, /\.hm-classic \.hm-duo > \.hm-notepad \{ margin-top: 0; \}/)

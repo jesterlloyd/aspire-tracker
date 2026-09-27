@@ -59,7 +59,7 @@ export default function ConnectPanel({ tone = 'audience', title, helper, icon, p
       boxSizing: 'border-box',
       ...style,
     }}>
-      {clipboard && <span className="outreach-clipboard-clip" aria-hidden="true"><span /></span>}
+      {clipboard && <span className="outreach-clipboard-clip material-clipboard-clip" aria-hidden="true"><span /></span>}
       {(title || helper) && (
         <div className="connect-panel-head" style={{ marginBottom: 12 }}>
           <div className="connect-panel-title-row" style={{ display: 'flex', alignItems: 'center', gap: 9 }}>

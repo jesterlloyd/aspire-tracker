@@ -1,4 +1,6 @@
 /* UI canon: this sheet's own corner radii, named once (the ratchet counts literals). */
+@import '../../styles/aspireMaterials.css';
+
 :root { --ocd-r-3: 3px; --ocd-r-4: 4px; --ocd-r-6: 6px; --ocd-r-8: 8px; }
 /* Classic ASPIRE Connect Outreach skin. This file changes presentation only. The
    same components, state, handlers, editor and APIs remain mounted in both styles. */
@@ -103,32 +105,14 @@
   letter-spacing: 0.11em;
   text-transform: uppercase;
 }
+/* The clip's look is .material-clipboard-clip (aspireMaterials.css); this places it. */
 .outreach-workspace-classic .outreach-clipboard-clip {
   position: absolute;
   z-index: 8;
   top: -12px;
   left: 50%;
   display: block;
-  width: 76px;
-  height: 24px;
   translate: -50% 0;
-  border: 1px solid #737780;
-  border-radius: var(--ocd-r-6) var(--ocd-r-6) var(--ocd-r-3) var(--ocd-r-3);
-  background: linear-gradient(180deg, #eef0f3 0%, #c7cbd2 45%, #a9aeb7 100%);
-  box-shadow: inset 0 2px 2px rgba(255, 255, 255, 0.8), 0 3px 5px rgba(0, 0, 0, 0.28);
-  pointer-events: none;
-}
-.outreach-workspace-classic .outreach-clipboard-clip > span {
-  position: absolute;
-  top: 6px;
-  left: 50%;
-  width: 25px;
-  height: 6px;
-  translate: -50% 0;
-  border: 1px solid #898d95;
-  border-radius: var(--ocd-r-4);
-  background: #e2e5e9;
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.14);
 }
 .outreach-workspace-classic .outreach-recipient-file {
   overflow: visible !important;
