@@ -1,0 +1,138 @@
+/* src/components/budget/budget.css
+   PROGRAM-BUDGET (A3, 2026-09-27): Settings > Program Budget and the Nursing Education &
+   Leadership portal's Program Budgets tab, one view. Reference: docs/mockups/program-budget.html.
+   Structure comes from the canon tokens (src/styles/aspireBrand.css); ink and surfaces from
+   theme.css, so the page follows the theme. Cards are SurfaceCard; tables are DataSheet (plain)
+   and the Editable sheet (forms.css). No literal radii. */
+
+.bud { display: flex; flex-direction: column; gap: var(--aspire-gap-card); min-width: 0; }
+/* The Editable sheet (forms.css) reads the Catalog's --ctl-* tokens from its host. The budget is
+   its second host, so it names the ones the sheet uses, with the Catalog's values: a theme-aware
+   token each, and the two fixed pairs redefined for dark below, beside their surfaces. */
+.bud {
+  --ctl-surface: var(--color-bg-surface); --ctl-surface-2: var(--color-bg-hover); --ctl-ink: var(--text-heading);
+  --ctl-muted: var(--text-caption); --ctl-faint: var(--text-caption); --ctl-line: var(--color-border-default);
+  --ctl-line-2: var(--color-border-subtle); --ctl-navy: var(--color-accent-primary); --ctl-navy-bar: var(--aspire-navy);
+  --ctl-navy-soft: #EDF1FA; --ctl-on-navy: #FFFFFF; --ctl-green: var(--aspire-ok); --ctl-amber: var(--aspire-warn);
+  --ctl-amber-soft: var(--aspire-warn-soft); --ctl-red: var(--aspire-bad); --ctl-mono: var(--aspire-mono);
+}
+[data-theme="dark"] .bud { --ctl-navy-soft: #1E2540; --ctl-on-navy: #0E111C; }
+.bud-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.bud-sub { margin: 0; font-size: 13px; color: var(--text-caption); }
+.bud-chip { display: inline-flex; align-items: center; height: 24px; padding: 0 10px; border-radius: var(--aspire-radius-pill); font-size: 12px; font-weight: 600; }
+.bud-chip-current { background: var(--pill-ok-bg); color: var(--pill-ok-fg); }
+.bud-chip-closed { background: var(--color-bg-hover); color: var(--text-heading); }
+.bud-chip-not_started { background: var(--pill-warn-bg); color: var(--pill-warn-fg); }
+.bud-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.bud-actions label { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-caption); }
+.bud-actions select, .bud-input, .bud-textarea {
+  height: 34px; padding: 0 10px; border: 1px solid var(--border-input); border-radius: var(--aspire-radius-control);
+  background: var(--color-bg-input, var(--color-bg-surface)); color: var(--text-heading); font: inherit; font-size: 13px;
+}
+.bud-textarea { height: auto; min-height: 96px; padding: 8px 10px; width: 100%; resize: vertical; box-sizing: border-box; }
+.bud-btn {
+  display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 14px; border-radius: var(--aspire-radius-control);
+  border: 1px solid var(--border-input); background: var(--color-bg-surface); color: var(--text-heading);
+  font: inherit; font-size: 13px; font-weight: 600; line-height: 1; cursor: pointer;
+}
+.bud-btn:hover:not(:disabled) { background: var(--color-bg-hover); }
+.bud-btn:disabled { opacity: .55; cursor: not-allowed; }
+.bud-btn-pri { background: var(--color-accent-primary); border-color: var(--color-accent-primary); color: var(--color-text-inverse, #fff); }
+.bud-btn-pri:hover:not(:disabled) { background: var(--color-accent-hover, var(--color-accent-primary)); }
+.bud-btn-sm { height: 28px; padding: 0 10px; font-size: 12.5px; }
+.bud-link { align-self: flex-start; border: 0; background: none; padding: 0; color: var(--color-accent-primary); font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+
+.bud-card { padding: 16px 18px; min-width: 0; }
+.bud-card h2 { margin: 0; font-size: 15px; font-weight: 700; color: var(--text-heading); }
+.bud-card > .bud-sub { margin: 2px 0 12px; }
+.bud-two { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: var(--aspire-gap-card); }
+@media (max-width: 1100px) { .bud-two { grid-template-columns: minmax(0, 1fr); } }
+
+/* The basis line: five tiles, one number each. */
+.bud-basis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--aspire-gap-card); }
+.bud-basis-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 1100px) { .bud-basis, .bud-basis-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.bud-tile { padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.bud-tile .k { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-caption); }
+.bud-tile b { font-size: 22px; font-weight: 700; color: var(--text-heading); font-variant-numeric: tabular-nums; }
+.bud-tile small { font-size: 12.5px; color: var(--text-caption); }
+.bud-meter { position: relative; height: 8px; margin-top: 6px; border-radius: var(--aspire-radius-pill); background: var(--color-bg-hover); overflow: visible; }
+.bud-meter > i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: var(--aspire-radius-pill); background: var(--color-accent-primary); }
+.bud-meter > i.over { background: var(--aspire-bad); }
+.bud-meter > u { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--text-heading); }
+.bud-inline-meter { display: grid; grid-template-columns: minmax(40px, 1fr) 48px; gap: 8px; align-items: center; }
+.bud-inline-meter .bud-meter { margin-top: 0; height: 6px; }
+
+/* Monthly spend. Bars in the accent (one series, so no legend box is needed for it; the
+   legend names the three marks because they are different kinds of mark). */
+.bud-chart { width: 100%; height: auto; display: block; }
+.bud-chart .gl { stroke: var(--border-divider, var(--color-border-subtle)); stroke-width: 1; }
+.bud-chart text { font-size: 11px; fill: var(--text-caption); font-variant-numeric: tabular-nums; }
+.bud-chart .bar { fill: var(--color-accent-primary); }
+.bud-chart .proj { fill: none; stroke: var(--color-accent-primary); stroke-width: 1.5; stroke-dasharray: 4 3; }
+.bud-chart .pace { stroke: var(--text-heading); stroke-width: 1.5; stroke-dasharray: 6 4; }
+.bud-chart .val { fill: var(--text-heading); font-weight: 600; }
+.bud-chart .fut { opacity: .45; }
+.bud-legend { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 8px; font-size: 12px; color: var(--text-caption); }
+.bud-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.bud-legend i { display: inline-block; width: 14px; height: 10px; border-radius: var(--aspire-radius-pill); background: var(--color-accent-primary); }
+.bud-legend i.pj { background: none; border: 1.5px dashed var(--color-accent-primary); }
+.bud-legend i.p { height: 0; border-top: 1.5px dashed var(--text-heading); border-radius: 0; }
+
+/* Budget history and the owner note. */
+.bud-hist { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.bud-hist li { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 10px; font-size: 13px; color: var(--text-heading); }
+.bud-hist .when { color: var(--text-caption); font-variant-numeric: tabular-nums; }
+.bud-hist small { display: block; color: var(--text-caption); }
+.bud-note blockquote { margin: 0; padding: 10px 12px; border-left: 3px solid var(--color-accent-primary); background: var(--color-bg-hover); color: var(--text-heading); font-size: 13.5px; white-space: pre-wrap; }
+.bud-rec { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 10px; font-size: 12.5px; color: var(--text-caption); flex-wrap: wrap; }
+
+/* The Start form. */
+.bud-setup { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: var(--aspire-gap-card); align-items: start; }
+@media (max-width: 960px) { .bud-setup { grid-template-columns: minmax(0, 1fr); } }
+.bud-fld { display: grid; gap: 6px; margin-top: 14px; }
+.bud-fld > label, .bud-fld > .lab { font-size: 12.5px; font-weight: 600; color: var(--text-heading); }
+.bud-fld small, .bud-hint { font-size: 12px; color: var(--text-caption); }
+.bud-opt { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; color: var(--text-heading); }
+.bud-opt small { display: block; font-weight: 400; color: var(--text-caption); }
+.bud-money { display: inline-flex; align-items: center; gap: 4px; }
+.bud-money > span { color: var(--text-caption); }
+.bud-row2 { display: flex; justify-content: space-between; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--border-divider, var(--color-border-subtle)); font-size: 13px; color: var(--text-caption); }
+.bud-row2 b { color: var(--text-heading); font-variant-numeric: tabular-nums; text-align: right; }
+
+/* Notices. */
+.bud-notice { display: flex; gap: 8px; align-items: flex-start; padding: 10px 12px; border-radius: var(--aspire-radius-control); background: var(--pill-warn-bg); color: var(--pill-warn-fg); font-size: 13px; }
+.bud-empty { padding: 28px 18px; text-align: center; color: var(--text-caption); font-size: 13.5px; }
+.bud-error { color: var(--aspire-bad); }
+
+/* The Sheet's own marks. */
+.bud-subtag { margin-left: 6px; padding: 1px 6px; font-size: 10.5px; font-weight: 700; color: var(--pill-info-fg, var(--text-heading)); background: var(--pill-info-bg); border-radius: var(--aspire-radius-pill); vertical-align: 1px; }
+.bud-rc { display: inline-flex; align-items: center; gap: 4px; color: var(--pill-ok-fg); font-weight: 600; }
+.bud-dash { color: var(--text-caption); }
+
+/* Renewals to decide: slips, not table rows (table canon section 2). */
+.bud-renews { display: grid; gap: 10px; }
+.bud-renew { display: grid; grid-template-columns: 92px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 12px 14px; }
+.bud-renew .when { font-size: 12px; font-weight: 700; color: var(--pill-warn-fg); background: var(--pill-warn-bg); border-radius: var(--aspire-radius-pill); padding: 3px 8px; text-align: center; }
+.bud-renew b { font-size: 13.5px; color: var(--text-heading); }
+.bud-renew small { display: block; font-size: 12px; color: var(--text-caption); }
+.bud-renew .acts { display: flex; gap: 6px; flex-wrap: wrap; }
+@media (max-width: 760px) { .bud-renew { grid-template-columns: minmax(0, 1fr); } }
+
+/* Allocations. */
+.bud-alloc { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: var(--aspire-gap-card); align-items: start; }
+@media (max-width: 960px) { .bud-alloc { grid-template-columns: minmax(0, 1fr); } }
+.bud-alloc-input { width: 120px; text-align: right; font-variant-numeric: tabular-nums; }
+.bud-k { display: block; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-caption); }
+.bud-bal .big { font-size: 26px; font-weight: 700; color: var(--text-heading); font-variant-numeric: tabular-nums; }
+.bud-bal .big.over { color: var(--aspire-bad); }
+.bud-stack { display: flex; gap: 2px; height: 10px; margin: 10px 0 6px; border-radius: var(--aspire-radius-pill); overflow: hidden; background: var(--color-bg-hover); }
+.bud-stack i { display: block; height: 100%; background: var(--color-accent-primary); }
+
+.bud-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* The portal's band (Settings uses SettingsPageHeader). */
+.bud-portal { display: flex; flex-direction: column; gap: var(--aspire-gap-card); padding-top: var(--aspire-page-top); }
+.bud-portal-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.bud-portal-head h2 { margin: 0; font-size: 20px; font-weight: 700; color: var(--text-heading); }
+

@@ -26,7 +26,7 @@ import { useEffect, Fragment } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   Settings, Users, HandCoins, Sparkles, Presentation, Scale, BadgeInfo, Monitor, PenLine, Info, Building2,
-  FileText, BarChart3, ChevronRight,
+  FileText, BarChart3, ChevronRight, Wallet,
 } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import {
@@ -44,6 +44,7 @@ import KeithUsagePanel from './KeithUsagePanel'
 import PreceptorParityPanel from './PreceptorParityPanel'
 import DemoModePanel from './DemoModePanel'
 import CommunityBenefitPanel from './CommunityBenefitPanel'
+import ProgramBudgetPanel from './ProgramBudgetPanel'
 import OrganizationPanel from './OrganizationPanel'
 import SurfaceCard from '../ui/SurfaceCard'
 import WorkspaceBackLink from '../ui/WorkspaceBackLink'
@@ -55,7 +56,7 @@ import './settingsShell.css'
 // The icons Settings already used, monochrome and without a tile: the rail's from the
 // old rail, the rows' from the old General and Keith lists.
 const SECTION_ICONS = {
-  general: Settings, accounts: Users, organization: Building2, communityBenefit: HandCoins, keith: Sparkles,
+  general: Settings, accounts: Users, organization: Building2, communityBenefit: HandCoins, programBudget: Wallet, keith: Sparkles,
   demoMode: Presentation, preceptorParity: Scale,
   about: BadgeInfo, appearance: Monitor, signature: PenLine, tours: Info,
   keithKnowledge: FileText, keithSkills: Sparkles, keithUsage: BarChart3,
@@ -213,6 +214,7 @@ export default function SettingsShell({ backPath = '/aggregate', backLabel = 'At
           {currentKey === 'keithSkills'    && <KeithSkillsPanel />}
           {currentKey === 'keithUsage'     && <KeithUsagePanel />}
           {currentKey === 'communityBenefit' && <CommunityBenefitPanel />}
+          {currentKey === 'programBudget' && <ProgramBudgetPanel />}
           {currentKey === 'preceptorParity' && <PreceptorParityPanel />}
           {currentKey === 'demoMode' && <DemoModePanel />}
         </div>

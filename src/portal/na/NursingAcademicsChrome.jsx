@@ -25,13 +25,16 @@ const SECTIONS = [
 // NA-PORTAL-UTILITIES-1: Messages joins the row only when the server capability
 // reports it enabled (fail-closed before the Owner SQL gate).
 const MESSAGES_SECTION = { key: 'messages', label: NAV_LABELS.messages, Icon: NAV_ICONS.messages }
+// PROGRAM-BUDGET (2026-09-27): Program Budgets joins the row only for a grant the Owner shared
+// the budget with (the server's budget_access), read-only.
+const BUDGET_SECTION = { key: 'budget', label: NAV_LABELS.programBudgets, Icon: NAV_ICONS.programBudgets }
 
 /**
  * Section navigation. Real route changes are handled by the caller
  * (PortalApp), so back, forward, and refresh behave like the rest of the app.
  */
-export function NursingAcademicsNav({ view, onNavigate, messagesEnabled = false, unread = 0 }) {
-  const sections = messagesEnabled ? [...SECTIONS, MESSAGES_SECTION] : SECTIONS
+export function NursingAcademicsNav({ view, onNavigate, messagesEnabled = false, budgetEnabled = false, unread = 0 }) {
+  const sections = [...SECTIONS, ...(budgetEnabled ? [BUDGET_SECTION] : []), ...(messagesEnabled ? [MESSAGES_SECTION] : [])]
   return (
     <nav className="ptl-nav" aria-label="Nursing Education and Leadership Portal sections">
       {sections.map(({ key, label, Icon }) => (

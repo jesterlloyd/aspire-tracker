@@ -23,6 +23,7 @@ import { sanitizeContactTerm } from '../../lib/contactSearchCore'
 import { escapeLikePattern } from '../../lib/emailUtils'
 import ContactSuggest from './ContactSuggest'
 import MultiScopePicker from '../shared/MultiScopePicker'
+import { useAuth } from '../../contexts/AuthContext'
 
 const F = 'Plus Jakarta Sans, sans-serif'
 const field = { width: '100%', padding: '10px 12px', border: '1px solid #e5e7eb', borderRadius: 8, fontFamily: F, fontSize: 13, outline: 'none', boxSizing: 'border-box' }
@@ -164,6 +165,10 @@ export default function GrantPortalAccessModal({ onClose, onGranted, initial = n
   const [unitKeys, setUnitKeys] = useState(initial?.scope?.units?.map(u => u.unit_key) || [])
   const [schoolKeys, setSchoolKeys] = useState(initial?.scope?.schools?.map(s => s.school_key) || [])
   const [contactsAccess, setContactsAccess] = useState(initial?.contacts_access === 'manage' ? 'manage' : 'view')
+  // PROGRAM-BUDGET (2026-09-27): only the Owner shares the Program Budget with a grant; the server
+  // refuses anyone else, so the switch is not shown to them and the field is never sent.
+  const { isOwner } = useAuth()
+  const [budgetAccess, setBudgetAccess] = useState(initial?.budget_access === 'view' ? 'view' : 'none')
   const [cohortId, setCohortId] = useState('')
   const [cohorts, setCohorts] = useState([])
   const [loading, setLoading] = useState(false)
@@ -294,6 +299,7 @@ export default function GrantPortalAccessModal({ onClose, onGranted, initial = n
     if (role === 'unit_leader') { base.unit_keys = unitKeys; if (cohortId) base.cohort_id = cohortId }
     if (role === 'academic_partner') { base.school_keys = schoolKeys; if (cohortId) base.cohort_id = cohortId }
     if (role === 'nursing_academic') base.contacts_access = contactsAccess
+    if (role === 'nursing_academic' && isOwner) base.budget_access = budgetAccess
     return base
   }
 
@@ -335,7 +341,7 @@ export default function GrantPortalAccessModal({ onClose, onGranted, initial = n
   const scopeSummary =
     role === 'student' ? (student ? `${studentName(student)}${student.school ? ` · ${student.school}` : ''}` : 'No student selected') :
     role === 'unit_leader' ? (unitKeys.join(', ') || 'No units selected') :
-    role === 'nursing_academic' ? (contactsAccess === 'manage' ? 'ASPIRE-wide · Contacts Editor' : 'ASPIRE-wide (view only)') :
+    role === 'nursing_academic' ? `${contactsAccess === 'manage' ? 'ASPIRE-wide · Contacts Editor' : 'ASPIRE-wide (view only)'}${isOwner && budgetAccess === 'view' ? ' · Program Budgets' : ''}` :
     role === 'talent_acquisition' ? 'All residency cohorts' :
     (schoolKeys.join(', ') || 'No schools selected')
 
@@ -440,6 +446,14 @@ export default function GrantPortalAccessModal({ onClose, onGranted, initial = n
                   <p style={{ margin: '6px 0 0', fontSize: 11.5, color: '#6b7280', lineHeight: 1.45 }}>
                     Contacts Editors may add, edit, deactivate, and reactivate contacts. They cannot permanently delete contacts or edit any other portal data.
                   </p>
+                  {isOwner && (
+                    <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginTop: 12, fontSize: 13, color: 'var(--text-heading)' }}>
+                      <input type="checkbox" checked={budgetAccess === 'view'} onChange={e => setBudgetAccess(e.target.checked ? 'view' : 'none')} style={{ marginTop: 2 }} />
+                      <span>Share the Program Budget (read-only)
+                        <span style={{ display: 'block', fontSize: 11.5, color: 'var(--text-caption)', lineHeight: 1.45 }}>Adds a Program Budgets tab with the Summary, Sheet and Subscriptions, and the category plan once you save it. Never receipts or drafts.</span>
+                      </span>
+                    </label>
+                  )}
                 </div>
               )}
               {(role === 'unit_leader' || role === 'academic_partner') && (

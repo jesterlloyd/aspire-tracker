@@ -31,7 +31,7 @@
 //   initialRows      [{ id, cells: { key: text }, format: { key: format } }], plus anything the
 //                    host's own callbacks read. The grid owns them from here (remount to reload).
 //   initialLayout    { order, hidden, widths, frozen, groupBy, staffColumns, colFormats, summaries }
-//   lead             { key, label }: the first, always-frozen column (the Forms Sheet's Name).
+//   lead             { key, label, type? }: the first, always-frozen column (the Forms Sheet's Name).
 //   columns          [{ key, label, type, options?, base?, earlier? }] after the lead; staff
 //                    columns are added from the layout.
 //   editable         false makes the whole grid view-only.
@@ -54,6 +54,7 @@
 // passes none (the Forms Sheet) gets the grid exactly as it was.
 //   column.compute(row)      a computed column (Unit cost = Spent / Qty): read-only, sorts, sums.
 //   column.optionsFor(row)   a dropdown whose options depend on the row (Status follows Payment).
+//   column.required          a dropdown with no (blank) choice (Status is always one of its options).
 //   isLocked(row, col)       a cell that may not be edited (a closed year's Date, Item, Spent...).
 //   groupSubtotals           keys summed on every group row, beside its count.
 //   onAddRow()               resolves to the new row; the grid appends it.
@@ -169,7 +170,7 @@ export default function EditableSheet({
   }, [data, search, filters, sort, allColumns, searchValues, val])
   const groups = useMemo(() => (layout?.groupBy ? groupSheetRows(rows, layout.groupBy, (r, k) => shown(r, k)) : null), [rows, layout, shown])
   const visibleRows = useMemo(() => (groups ? groups.flatMap(g => (collapsed.has(g.label) ? [] : g.rows)) : rows), [groups, rows, collapsed])
-  const gridCols = useMemo(() => [{ key: lead.key, label: lead.label, base: true }, ...columns], [lead, columns])
+  const gridCols = useMemo(() => [{ base: true, ...lead }, ...columns], [lead, columns])   // a host may give its lead a type (the budget's Date)
 
   // ── Saving ──
   const changeLayout = (fn) => {
@@ -660,7 +661,7 @@ function Editor({ col, row, editing, setEditing, onSave, onCancel, label, saveLa
     const isOther = isOtherValue(editing.draft)
     control = (<>
       <select autoFocus value={isOther ? '__other' : (editing.draft || '')} onChange={e => set(e.target.value === '__other' ? otherValue('') : e.target.value)} onKeyDown={keys}>
-        <option value="">(blank)</option>{opts.map(o => <option key={o} value={o}>{o}</option>)}{hasOther && <option value="__other">Other…</option>}
+        {!col.required && <option value="">(blank)</option>}{opts.map(o => <option key={o} value={o}>{o}</option>)}{hasOther && <option value="__other">Other…</option>}
       </select>
       {isOther && <input value={otherText(editing.draft)} placeholder="Other" onChange={e => set(otherValue(e.target.value))} onKeyDown={keys} />}
     </>)

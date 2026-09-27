@@ -14,6 +14,7 @@ import {
   MessageSquare,
   UserCheck,
   Users,
+  Wallet,
 } from 'lucide-react'
 
 // One vocabulary for top-level destinations across the staff app and portals.
@@ -37,6 +38,7 @@ export const NAV_LABELS = Object.freeze({
   capacity: 'Capacity',
   communityBenefit: 'Community Benefit',
   contacts: 'Contacts',
+  programBudgets: 'Program Budgets',
 })
 
 export const NAV_ICONS = Object.freeze({
@@ -58,4 +60,5 @@ export const NAV_ICONS = Object.freeze({
   capacity: CalendarRange,
   communityBenefit: HandCoins,
   contacts: ContactRound,
+  programBudgets: Wallet,
 })

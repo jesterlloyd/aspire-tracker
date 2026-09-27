@@ -40,6 +40,7 @@ export const SETTINGS_SECTIONS = [
   { key: 'accounts',   label: 'Accounts & Access', path: '/settings/accounts',   group: 'Administration', implemented: true, visible: r => r.isAdmin }, // WS2.2: Owner/Admin only
   { key: 'organization', label: 'Organization', path: '/settings/organization', group: 'Administration', implemented: true, visible: r => r.isOwner },
   { key: 'communityBenefit', label: 'Community Benefit', path: '/settings/community-benefit', group: 'Administration', implemented: true, visible: r => r.isAdmin }, // NURSING-ACADEMICS-1: report + reporting inputs; Admin sees read-only, WRITES are Owner-only server-side
+  { key: 'programBudget', label: 'Program Budget', path: '/settings/budget', group: 'Administration', implemented: true, visible: r => r.isAdmin }, // PROGRAM-BUDGET (2026-09-27): Owner edits, Admin reads; api/budget-staff.js is the authority
   { key: 'keith',      label: 'Keith',             path: '/settings/keith',      group: 'Administration', implemented: true, visible: r => r.isAdmin },
   // DEMO-MODE-1: Owner only, and grouped with Diagnostics because it is the other
   // switch that changes what every screen reports rather than changing the program

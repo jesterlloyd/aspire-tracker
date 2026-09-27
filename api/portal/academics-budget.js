@@ -43,6 +43,11 @@ export function createAcademicsBudgetHandler({ verifyCaller = verifyPortalNursin
       if (!ok) return res.status(403).json({ error: 'budget_access_required' })
     }
 
+    // The portal asks once whether to show the tab at all.
+    if (req.query?.probe === '1') {
+      try { return res.status(200).json(await E.status(db)) } catch { return res.status(500).json({ error: 'internal_error' }) }
+    }
+
     const raw = req.query?.fiscal_year
     const fy = raw == null || raw === '' ? E.currentFiscalYear() : Number(raw)
     if (!Number.isInteger(fy) || fy < 2020 || fy > 2100) return res.status(400).json({ error: 'invalid_fiscal_year' })

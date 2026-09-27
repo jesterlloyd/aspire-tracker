@@ -34,7 +34,7 @@ const ACTION_SCHEMAS = Object.freeze({
   expense_update: ['action', 'id', 'patch'],
   expense_delete: ['action', 'ids'],
   sheet_cells: ['action', 'updates'],
-  sheet_layout: ['action', 'layout'],
+  sheet_layout: ['action', 'layout', 'sheet'],
   allocations_save: ['action', 'fiscal_year', 'amounts', 'publish'],
   subscription_create: ['action', 'fields'],
   subscription_update: ['action', 'id', 'patch'],
@@ -91,7 +91,7 @@ export function createBudgetStaffHandler({ verifyCaller = verifyPortalCaller, ma
         case 'expense_update': return res.status(200).json({ expense: await E.updateExpense(db, actor, { id: body.id, patch: obj(body.patch), ...day }) })
         case 'expense_delete': return res.status(200).json(await E.deleteExpenses(db, actor, { ids: (Array.isArray(body.ids) ? body.ids : []).filter(x => UUID.test(String(x))).slice(0, 500), ...day }))
         case 'sheet_cells': return res.status(200).json(await E.saveSheetCells(db, { updates: (Array.isArray(body.updates) ? body.updates : []).filter(u => u && UUID.test(String(u.rowId)) && typeof u.key === 'string').slice(0, 2000) }))
-        case 'sheet_layout': return res.status(200).json(await E.saveSheetLayout(db, actor, { layout: obj(body.layout) }))
+        case 'sheet_layout': return res.status(200).json(await E.saveSheetLayout(db, actor, { layout: obj(body.layout), sheet: body.sheet === 'subscriptions' ? 'subscriptions' : 'expenses' }))
         case 'allocations_save': return res.status(200).json(await E.saveAllocations(db, actor, { fy, amounts: obj(body.amounts), publish: body.publish === true, ...day }))
         case 'subscription_create': return res.status(200).json({ subscription: await E.createSubscription(db, actor, { fields: obj(body.fields), ...day }) })
         case 'subscription_update': return res.status(200).json({ subscription: await E.updateSubscription(db, actor, { id: body.id, patch: obj(body.patch), ...day }) })

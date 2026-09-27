@@ -37,9 +37,10 @@ const section = (k) => SETTINGS_SECTIONS.find(s => s.key === k)
 
 // 1d79fa60 (organization settings branding) added Organization, Owner only, under Administration.
 test('the rail is the brief\'s six destinations plus Organization, in order, for the Owner', () => {
-  assert.deepEqual(railKeys(OWNER), ['general', 'accounts', 'organization', 'communityBenefit', 'keith', 'demoMode', 'preceptorParity'])
+  // PROGRAM-BUDGET A3 (2026-09-27) added Program Budget after Community Benefit (Owner decision: /settings/budget).
+  assert.deepEqual(railKeys(OWNER), ['general', 'accounts', 'organization', 'communityBenefit', 'programBudget', 'keith', 'demoMode', 'preceptorParity'])
   assert.deepEqual(visibleSections(OWNER).map(s => s.label),
-    ['General', 'Accounts & Access', 'Organization', 'Community Benefit', 'Keith', 'Demo Mode', 'Preceptor Parity'])
+    ['General', 'Accounts & Access', 'Organization', 'Community Benefit', 'Program Budget', 'Keith', 'Demo Mode', 'Preceptor Parity'])
 })
 
 test('groups are Workspace, Administration, Diagnostics, contiguous', () => {
@@ -61,10 +62,11 @@ test('Appearance, Email Signature, Tours & Help and About left the rail for Gene
 })
 
 test('every role keeps the gates it had', () => {
-  assert.deepEqual(railKeys(ADMIN), ['general', 'accounts', 'communityBenefit', 'keith'])
+  // PROGRAM-BUDGET A3 (2026-09-27) added Program Budget after Community Benefit (Owner decision: /settings/budget).
+  assert.deepEqual(railKeys(ADMIN), ['general', 'accounts', 'communityBenefit', 'programBudget', 'keith'])
   assert.deepEqual(railKeys(STAFF), ['general'])
   const s = section
-  for (const k of ['accounts', 'communityBenefit', 'keith', 'keithKnowledge', 'keithSkills', 'keithUsage']) {
+  for (const k of ['accounts', 'communityBenefit', 'programBudget', 'keith', 'keithKnowledge', 'keithSkills', 'keithUsage']) {
     assert.equal(s(k).visible({ isAdmin: true }), true, k)
     assert.equal(s(k).visible({ isAdmin: false }), false, k)
   }
@@ -97,7 +99,8 @@ test('the rail IS the Review & Release selection canon, reused, not restyled', (
 })
 
 test('the icons are the ones Settings already used, monochrome, with no tile', () => {
-  assert.match(shell, /general: Settings, accounts: Users, organization: Building2, communityBenefit: HandCoins, keith: Sparkles,\s*demoMode: Presentation, preceptorParity: Scale,/)
+  // PROGRAM-BUDGET A3 (2026-09-27) added Program Budget after Community Benefit (Owner decision: /settings/budget).
+  assert.match(shell, /general: Settings, accounts: Users, organization: Building2, communityBenefit: HandCoins, programBudget: Wallet, keith: Sparkles,\s*demoMode: Presentation, preceptorParity: Scale,/)
   assert.match(shell, /about: BadgeInfo, appearance: Monitor, signature: PenLine, tours: Info,/)
   assert.match(shell, /keithKnowledge: FileText, keithSkills: Sparkles, keithUsage: BarChart3,/)
   assert.match(shellCss, /\.settings-rail-ic \{ flex: none; color: var\(--color-accent-primary, #1D2567\); \}/)

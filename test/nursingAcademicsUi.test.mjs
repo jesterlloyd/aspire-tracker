@@ -23,7 +23,8 @@ const app = read('src/portal/PortalApp.jsx')
 // ── Routing and shell ────────────────────────────────────────────────────────
 
 test('the route namespace is /portal/academics with three sections, At a Glance default', () => {
-  assert.match(app, /const NA_SECTIONS = new Set\(\['calendar', 'community-benefit', 'contacts', 'messages'\]\)/)
+  // PROGRAM-BUDGET A3 (2026-09-27) added the 'budget' section (the Program Budgets tab, capability-gated).
+  assert.match(app, /const NA_SECTIONS = new Set\(\['calendar', 'community-benefit', 'contacts', 'messages', 'budget'\]\)/)
   assert.match(app, /\/portal\\\/academics\\\//)
   assert.match(app, /navigate\(`\/portal\/academics\/\$\{key\}`\)/)
   assert.match(app, /return 'calendar'/)
