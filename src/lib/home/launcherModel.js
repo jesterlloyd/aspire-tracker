@@ -18,7 +18,7 @@ export const ACTIONS = Object.freeze([
   { key: 'file', title: 'Send a file', where: 'Catalog', to: '/catalog?send=1', need: 'manage', icon: 'file' },
   { key: 'contact', title: 'Add a contact', where: 'Connect · Contacts', to: '/connect/contacts?new=1', need: 'manage', icon: 'person' },
   { key: 'release', title: 'Release surveys', where: 'Evaluation · Review & Release', to: '/evaluation?workflow=caseyFinkPreRotation', need: 'manage', icon: 'rel' },
-  { key: 'shift', title: 'Log a shift', where: 'Rotation · Activity', to: '/rotation/activity', need: 'any', icon: 'clock' },
+  { key: 'shift', title: 'Log a shift', where: 'Rotation · Shift Log', to: '/rotation/activity', need: 'any', icon: 'clock' },
   { key: 'board', title: 'Open Placement Board', where: 'Rotation', to: '/rotation/matrix', need: 'any', icon: 'board' },
   { key: 'message', title: 'Message a student', where: 'Connect · Messages', to: '/connect/messages?new=1', need: 'manage', icon: 'msg' },
   { key: 'event', title: 'Add an event', where: 'Calendar', to: '/interviews?event=new', need: 'manage', icon: 'cal' },

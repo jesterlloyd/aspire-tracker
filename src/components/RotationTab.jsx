@@ -35,7 +35,9 @@ export default function RotationTab(props) {
           options={[
             { value: 'matrix', label: 'Placement Board' },
             { value: 'preceptors', label: 'Preceptors' },
-            ...(canEdit ? [{ value: 'activity', label: 'Activity' }] : []),
+            // SHIFT-LOG-NAME-1 (Owner, 2026-09-25): the view is the log of shifts students
+            // recorded, the name the Student Portal already uses. The route stays /rotation/activity.
+            ...(canEdit ? [{ value: 'activity', label: 'Shift Log' }] : []),
           ]}
         />
       </div>

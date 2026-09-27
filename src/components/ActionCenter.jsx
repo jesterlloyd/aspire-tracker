@@ -177,7 +177,7 @@ function getActionLabel(item) {
   if (item.isOrientation) return null
   if (item.actionType === 'support_request') return 'Open Details'
   if (item.actionType === 'selection_decision') return 'Open Interview Review'
-  if (item.actionType === 'no_shift_last_week') return 'View Rotation Activity'
+  if (item.actionType === 'no_shift_last_week') return 'View Shift Log'
   if (item.navigateToUnitPool) return 'Open Placement Board'
   if (item.navigateToProfile && !item.canMarkDone) return 'Open Profile'
   if (item.markDoneType === 'update_field') return 'Mark Complete'

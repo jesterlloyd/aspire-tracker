@@ -802,6 +802,13 @@ tested modules in `src/lib/home/`. Nothing is computed in JSX.
   mousedown so the field keeps focus and the click lands (Safari never focuses a clicked
   button); Escape on an empty field puts the launcher away. `.hm-chips[hidden]` must beat
   the grid's own `display`.
+- **A new staff page starts at the top** (SCROLL-TOP-1, 2026-09-25): `useScrollTopOnRoute` in
+  StaffApp scrolls the window up on a PATH change, never on the first load, Back/Forward or a
+  query-only change. React Router keeps scroll by default, and Rotation's fixed-height
+  workspace inherited At a Glance's offset (top under the header, blank page below).
+- **Rotation > Activity is labelled Shift Log** (Owner, 2026-09-25) in the Rotation picker,
+  the launcher and the Action Center button; the route stays `/rotation/activity`, and the
+  calendar inside keeps the portals' shared title, Rotation Activity.
 - `TodayMasthead.jsx` is retired; the staff masthead host is `HomeBanner` (both styles). Unit
   leaders use their own portal, not this page.
 

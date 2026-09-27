@@ -630,7 +630,7 @@ test('weekly: the card and navigation follow the canon', () => {
   const panel = read('src/components/ActionCenter.jsx')
   assert.match(panel, /title:'No Shift Logged Last Week'/)
   assert.ok(!/Student Not Logged Recently/.test(panel), 'the vague title is retired')
-  assert.match(panel, /actionType === 'no_shift_last_week'\) return 'View Rotation Activity'/)
+  assert.match(panel, /actionType === 'no_shift_last_week'\) return 'View Shift Log'/) // SHIFT-LOG-NAME-1 renamed the destination
   assert.match(panel, /onNavigateToActivityStudent\?\.\(item\.studentId\)/)
   const app = read('src/staff/StaffApp.jsx')
   assert.match(app, /onNavigateToActivityStudent=\{id => \{ goToActivityStudent\(id\); setShowActionCenter\(false\) \}\}/)
