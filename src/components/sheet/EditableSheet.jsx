@@ -47,10 +47,19 @@
 //   cellClass(row, col), cellTitle(row, col)
 //   editorLabel(row, col), editorExtras({ col, row, editing, setEditing, keys }), saveLabel(col)
 //   labels           { notice, searchPlaceholder, searchLabel, count(shown, total), emptyNote,
-//                      noMatch, frameLabel, help, readOnlyEdit, newColumnHint }
+//                      noMatch, frameLabel, help, readOnlyEdit, newColumnHint, locked }
 //   notify, viewRef
+//
+// BUDGET-SHEET-0b (2026-09-27), for Program Budget's ledger. Every one is opt-in; a host that
+// passes none (the Forms Sheet) gets the grid exactly as it was.
+//   column.compute(row)      a computed column (Unit cost = Spent / Qty): read-only, sorts, sums.
+//   column.optionsFor(row)   a dropdown whose options depend on the row (Status follows Payment).
+//   isLocked(row, col)       a cell that may not be edited (a closed year's Date, Item, Spent...).
+//   groupSubtotals           keys summed on every group row, beside its count.
+//   onAddRow()               resolves to the new row; the grid appends it.
+//   onDeleteRows(rows)       deletes the rows whose numbers are selected; canDeleteRow(row) may refuse one.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AlignCenter, AlignLeft, AlignRight, ArrowDownUp, Baseline, Bold, ChevronDown, ChevronRight, Eraser, Italic, PaintBucket, Plus, Underline, WrapText } from 'lucide-react'
+import { AlignCenter, AlignLeft, AlignRight, ArrowDownUp, Baseline, Bold, ChevronDown, ChevronRight, Eraser, Italic, PaintBucket, Plus, Trash2, Underline, WrapText } from 'lucide-react'
 import {
   cellMatches, DATE_FORMATS, displayValue, formatNumber, groupSheetRows, isOtherValue, mergeFormat, otherText, otherValue,
   SHEET_DEFAULT_INK, SHEET_FILLS, SHEET_INKS, SHEET_STAFF_TYPES, summarize, SUMMARY_FNS,
@@ -63,6 +72,7 @@ const inkHex = Object.fromEntries(SHEET_INKS.map(f => [f.key, f.hex]))
 const SheetTip = ({ label, children }) => <Tooltip label={label} placement="top">{children}</Tooltip>
 const newStaffKey = () => `s_${Math.random().toString(36).slice(2, 10)}`
 const NONE = new Set()
+const NO_KEYS = []
 
 /** Inline style for a formatted cell. A fill carries its own dark ink, so it reads in dark mode. */
 function cellStyle(f, width) {
@@ -86,6 +96,7 @@ export default function EditableSheet({
   canEditColumn = () => false, draftOf = () => '', commitEdit: commitHostEdit,
   renderCell, cellClass, cellTitle, editorLabel, editorExtras, saveLabel,
   labels = {}, notify, viewRef,
+  isLocked, groupSubtotals = NO_KEYS, onAddRow, onDeleteRows, canDeleteRow = () => true,
 }) {
   const [data, setData] = useState(() => ({ rows: initialRows }))
   const [layout, setLayout] = useState(initialLayout)
@@ -116,6 +127,15 @@ export default function EditableSheet({
   const staffColumns = useMemo(() => layout?.staffColumns || [], [layout])
   const allColumns = useMemo(() => [...hostColumns, ...staffColumns.map(c => ({ ...c, staff: true }))], [hostColumns, staffColumns])
   const columnOf = useCallback((key) => allColumns.find(c => c.key === key), [allColumns])
+  // A computed column answers for itself; every other value is the host's.
+  const colByKey = useMemo(() => new Map(allColumns.map(c => [c.key, c])), [allColumns])
+  const val = useCallback((row, key) => { const c = colByKey.get(key); return c?.compute ? c.compute(row) : valueOf(row, key) }, [colByKey, valueOf])
+  const shown = useCallback((row, key) => {
+    const c = colByKey.get(key)
+    if (!c?.compute) return shownOf(row, key)
+    const v = c.compute(row)
+    return v == null ? '' : String(v)
+  }, [colByKey, shownOf])
 
   // Order: the saved order first, then any column not in it, in its natural place.
   const ordered = useMemo(() => {
@@ -128,24 +148,26 @@ export default function EditableSheet({
   const columns = useMemo(() => ordered.filter(c => !hidden.has(c.key)), [ordered, hidden])
   const width = (key) => layout?.widths?.[key] || (key === lead.key ? W_LEAD : W_DEFAULT)
   const fmtOf = (row, key) => mergeFormat(layout?.colFormats?.[key], row.format?.[key])
-  const textOf = (row, key) => (plainKeys.has(key) ? shownOf(row, key) : displayValue(shownOf(row, key), fmtOf(row, key)))
+  const textOf = (row, key) => (plainKeys.has(key) ? shown(row, key) : displayValue(shown(row, key), fmtOf(row, key)))
 
   // ── Rows: search, filters, sort ──
   const rows = useMemo(() => {
     const needle = search.trim().toLowerCase()
     const out = data.rows.filter(r => {
       if (needle && ![...searchValues(r), ...Object.values(r.cells)].some(v => String(v || '').toLowerCase().includes(needle))) return false
-      return filters.every(f => cellMatches(allColumns.find(c => c.key === f.key), valueOf(r, f.key), f.value))
+      return filters.every(f => cellMatches(allColumns.find(c => c.key === f.key), val(r, f.key), f.value))
     })
     const sign = sort.dir === 'asc' ? 1 : -1
     return out.sort((a, b) => {
-      const x = valueOf(a, sort.key) || '', y = valueOf(b, sort.key) || ''
-      if (!x && y) return 1
-      if (x && !y) return -1
+      const x = val(a, sort.key) ?? '', y = val(b, sort.key) ?? ''
+      const bx = x === '', by = y === ''   // blank sorts last either way; a computed 0 is not blank
+      if (bx && !by) return 1
+      if (!bx && by) return -1
+      if (typeof x === 'number' && typeof y === 'number') return (x - y) * sign   // a real number sorts as one
       return String(x).localeCompare(String(y), undefined, { numeric: true, sensitivity: 'base' }) * sign
     })
-  }, [data, search, filters, sort, allColumns, searchValues, valueOf])
-  const groups = useMemo(() => (layout?.groupBy ? groupSheetRows(rows, layout.groupBy, (r, k) => shownOf(r, k)) : null), [rows, layout, shownOf])
+  }, [data, search, filters, sort, allColumns, searchValues, val])
+  const groups = useMemo(() => (layout?.groupBy ? groupSheetRows(rows, layout.groupBy, (r, k) => shown(r, k)) : null), [rows, layout, shown])
   const visibleRows = useMemo(() => (groups ? groups.flatMap(g => (collapsed.has(g.label) ? [] : g.rows)) : rows), [groups, rows, collapsed])
   const gridCols = useMemo(() => [{ key: lead.key, label: lead.label, base: true }, ...columns], [lead, columns])
 
@@ -237,7 +259,8 @@ export default function EditableSheet({
   }
 
   // ── Editing ──
-  const canEdit = (col) => editable && (col.staff || canEditColumn(col))
+  const canEdit = (col) => editable && !col.compute && (col.staff || canEditColumn(col))
+  const locked = (row, col) => !!isLocked?.(row, col)
   const commitStaff = (row, col, value) => {
     patchRows(r => (r.id === row.id ? { ...r, cells: { ...r.cells, [col.key]: value } } : r))
     saveCells([{ rowId: row.id, key: col.key, value }])
@@ -251,6 +274,7 @@ export default function EditableSheet({
   }
   const startEdit = (row, col) => {
     if (!canEdit(col)) { if (!editable && !col.base && labels.readOnlyEdit) notify?.(labels.readOnlyEdit); return }
+    if (locked(row, col)) { if (labels.locked) notify?.(labels.locked); return }
     if (col.staff && col.type === 'check') { commitStaff(row, col, row.cells[col.key] ? '' : 'Yes'); return }
     const raw = col.staff ? (row.cells[col.key] || '') : draftOf(row, col)
     setEditing({ rowId: row.id, key: col.key, draft: raw ?? (col.type === 'checkboxes' ? [] : ''), reason: '', anchor: anchorOf(row.id, col.key) })
@@ -283,7 +307,7 @@ export default function EditableSheet({
     if (e.key === 'Enter') { e.preventDefault(); const row = visibleRows[sel.focus.r], col = gridCols[sel.focus.c]; if (row && col) startEdit(row, col); return }
     if ((e.metaKey || e.ctrlKey) && ['b', 'i', 'u'].includes(e.key.toLowerCase())) { e.preventDefault(); toggle(e.key.toLowerCase()); return }
     if ((e.key === 'Delete' || e.key === 'Backspace') && editable) {
-      const staff = selectedCells.filter(x => x.col.staff && x.row.cells[x.col.key])
+      const staff = selectedCells.filter(x => x.col.staff && x.row.cells[x.col.key] && !locked(x.row, x.col))
       if (!staff.length) return
       e.preventDefault()
       const ids = new Set(staff.map(x => `${x.row.id}|${x.col.key}`))
@@ -340,14 +364,46 @@ export default function EditableSheet({
   const addCol = adding ? columnOf(adding.key) : null
   const off = !editable
   const rowIndex = new Map(visibleRows.map((r, i) => [r.id, i]))
+  const numberText = (key, v) => {
+    const f = layout.colFormats?.[key]
+    return f && (f.num || f.dec != null || f.comma) ? formatNumber(v, f) : formatNumber(v, { dec: Number.isInteger(v) ? 0 : 2, comma: true })
+  }
   const summaryOf = (col) => {
     const fn = layout.summaries?.[col.key]
     if (!fn) return ''
-    const v = summarize(rows.map(r => valueOf(r, col.key)), fn)
+    const v = summarize(rows.map(r => val(r, col.key)), fn)
     if (v == null) return '-'
     if (fn === 'count' || fn === 'counta') return String(v)
-    const f = layout.colFormats?.[col.key]
-    return f && (f.num || f.dec != null || f.comma) ? formatNumber(v, f) : formatNumber(v, { dec: Number.isInteger(v) ? 0 : 2, comma: true })
+    return numberText(col.key, v)
+  }
+  // BUDGET-SHEET-0b: a group row's subtotals, in the column's own number format.
+  const subtotalsOf = (group) => groupSubtotals.filter(k => colByKey.has(k)).map(k => {
+    const v = summarize(group.rows.map(r => val(r, k)), 'sum')
+    return { key: k, label: colByKey.get(k).label, text: v == null ? '\u2013' : numberText(k, v) }
+  })
+  // BUDGET-SHEET-0b: rows the host lets the owner add and delete. Delete acts on whole rows,
+  // selected by their numbers, so a stray cell selection never removes anything.
+  const pickedRows = sel?.whole === 'row' && range ? visibleRows.slice(range.r0, range.r1 + 1) : []
+  const canDelete = pickedRows.length > 0 && pickedRows.every(r => canDeleteRow(r))
+  const addRow = async () => {
+    setSave('saving')
+    try {
+      const row = await onAddRow()
+      if (row) setData(d => ({ ...d, rows: [...d.rows, row] }))
+      setSave('saved')
+    } catch (e) { setSave('error'); notify?.(e.message, 'err') }
+  }
+  const deleteRows = async () => {
+    if (!canDelete) return
+    const n = pickedRows.length
+    if (!window.confirm(n === 1 ? 'Delete this row?' : `Delete these ${n} rows?`)) return
+    setSave('saving')
+    try {
+      await onDeleteRows(pickedRows)
+      const gone = new Set(pickedRows.map(r => r.id))
+      setData(d => ({ ...d, rows: d.rows.filter(r => !gone.has(r.id)) }))
+      setSel(null); setSave('saved')
+    } catch (e) { setSave('error'); notify?.(e.message, 'err') }
   }
 
   return (
@@ -423,6 +479,10 @@ export default function EditableSheet({
               </div>
             )}
           </span>
+          {onAddRow && <button type="button" className="fm-btn fm-sm" disabled={off} onClick={addRow}><Plus size={14} aria-hidden="true" /> Row</button>}
+          {onDeleteRows && (
+            <button type="button" className="fm-btn fm-sm" disabled={off || !canDelete} title={canDelete ? undefined : 'Select rows by their numbers first'} onClick={deleteRows}><Trash2 size={14} aria-hidden="true" /> {pickedRows.length > 1 ? `Delete ${pickedRows.length} rows` : 'Delete row'}</button>
+          )}
         </div>
         <span className={`fs-save${save === 'error' ? ' fs-save-bad' : ''}`} aria-live="polite">{off ? 'View only' : save === 'saving' ? 'Saving…' : save === 'error' ? 'Not saved' : 'All changes saved'}</span>
       </div>
@@ -501,7 +561,7 @@ export default function EditableSheet({
             ))}
             {!none && !rows.length && <tr><td className="fs-none" colSpan={gridCols.length + 1}>{labels.noMatch} <button type="button" className="fm-link" onClick={() => { setFilters([]); setSearch('') }}>Show all</button></td></tr>}
             {(groups || [{ label: null, rows }]).map(g => (
-              <GroupBlock key={g.label ?? '@all'} group={g} grouped={!!groups} collapsed={collapsed.has(g.label)} colSpan={gridCols.length + 1}
+              <GroupBlock key={g.label ?? '@all'} group={g} grouped={!!groups} collapsed={collapsed.has(g.label)} colSpan={gridCols.length + 1} subtotals={groups ? subtotalsOf(g) : NO_KEYS}
                 onToggle={() => { setSel(null); setCollapsed(s => { const n = new Set(s); if (n.has(g.label)) n.delete(g.label); else n.add(g.label); return n }) }}>
                 {!collapsed.has(g.label) && g.rows.map(row => {
                   const r = rowIndex.get(row.id)
@@ -515,7 +575,7 @@ export default function EditableSheet({
                         const isEditing = editing && editing.rowId === row.id && editing.key === col.key
                         const isLead = col.key === lead.key
                         const Cell = isLead ? 'th' : 'td'
-                        const extra = cellClass?.(row, col)
+                        const extra = [cellClass?.(row, col), col.compute ? 'fs-computed' : '', editable && locked(row, col) ? 'fs-locked' : ''].filter(Boolean).join(' ')
                         const text = textOf(row, col.key)
                         const own = isEditing ? undefined : renderCell?.(row, col, text)
                         return (
@@ -525,7 +585,7 @@ export default function EditableSheet({
                             onDoubleClick={() => startEdit(row, col)}
                             title={cellTitle?.(row, col)}>
                             {isEditing
-                              ? <Editor col={col} editing={editing} setEditing={setEditing} onSave={commitEdit} onCancel={() => { setEditing(null); frameRef.current?.focus({ preventScroll: true }) }}
+                              ? <Editor col={col} row={row} editing={editing} setEditing={setEditing} onSave={commitEdit} onCancel={() => { setEditing(null); frameRef.current?.focus({ preventScroll: true }) }}
                                   label={editorLabel?.(row, col) || `Edit ${col.label}`} saveLabel={saveLabel?.(col) || 'Save'}
                                   extras={col.staff ? null : editorExtras?.({ col, row, editing, setEditing })} />
                               : own !== undefined
@@ -570,7 +630,7 @@ export default function EditableSheet({
 // The blank rows an empty Sheet shows under its header, numbered like a spreadsheet's.
 const BLANK_ROWS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
-function GroupBlock({ group, grouped, collapsed, colSpan, onToggle, children }) {
+function GroupBlock({ group, grouped, collapsed, colSpan, subtotals, onToggle, children }) {
   if (!grouped) return children
   return (
     <>
@@ -579,6 +639,7 @@ function GroupBlock({ group, grouped, collapsed, colSpan, onToggle, children }) 
           <button type="button" className="fs-groupbtn" aria-expanded={!collapsed} onClick={onToggle}>
             {collapsed ? <ChevronRight size={14} aria-hidden="true" /> : <ChevronDown size={14} aria-hidden="true" />}
             <b>{group.label}</b><span>{group.rows.length}</span>
+            {subtotals.map(t => <span key={t.key} className="fs-groupsum">{t.label} <b>{t.text}</b></span>)}
           </button>
         </td>
       </tr>
@@ -588,11 +649,12 @@ function GroupBlock({ group, grouped, collapsed, colSpan, onToggle, children }) 
 }
 
 /** The in-cell editor: a staff value, or whatever edit the host allows for its own column. */
-function Editor({ col, editing, setEditing, onSave, onCancel, label, saveLabel, extras }) {
+function Editor({ col, row, editing, setEditing, onSave, onCancel, label, saveLabel, extras }) {
   const set = (draft) => setEditing(e => ({ ...e, draft }))
   const keys = (e) => { if (e.key === 'Escape') { e.preventDefault(); onCancel() } if (e.key === 'Enter' && !e.shiftKey && col.type !== 'paragraph') { e.preventDefault(); onSave() } }
-  const hasOther = (col.options || []).includes('Other')
-  const opts = (col.options || []).filter(o => o !== 'Other')
+  const options = (col.optionsFor ? col.optionsFor(row) : col.options) || []
+  const hasOther = options.includes('Other')
+  const opts = options.filter(o => o !== 'Other')
   let control
   if (!col.staff && (col.type === 'choice' || col.type === 'dropdown')) {
     const isOther = isOtherValue(editing.draft)
@@ -608,7 +670,7 @@ function Editor({ col, editing, setEditing, onSave, onCancel, label, saveLabel, 
   } else if (col.type === 'paragraph') control = <textarea autoFocus rows={4} value={editing.draft || ''} onChange={e => set(e.target.value)} onKeyDown={keys} />
   else if (col.type === 'date') control = <input autoFocus type="date" value={editing.draft || ''} onChange={e => set(e.target.value)} onKeyDown={keys} />
   else if (col.type === 'number') control = <input autoFocus type="number" step="any" value={editing.draft ?? ''} onChange={e => set(e.target.value)} onKeyDown={keys} />
-  else if (col.staff && col.type === 'choice') control = <select autoFocus value={editing.draft || ''} onChange={e => set(e.target.value)} onKeyDown={keys}><option value="">(blank)</option>{(col.options || []).map(o => <option key={o} value={o}>{o}</option>)}</select>
+  else if (col.staff && col.type === 'choice') control = <select autoFocus value={editing.draft || ''} onChange={e => set(e.target.value)} onKeyDown={keys}><option value="">(blank)</option>{options.map(o => <option key={o} value={o}>{o}</option>)}</select>
   else control = <input autoFocus value={editing.draft || ''} onChange={e => set(e.target.value)} onKeyDown={keys} />
   const a = editing.anchor
   const box = a ? { position: 'fixed', top: Math.max(8, a.top - 2), left: Math.max(8, Math.min(a.left - 2, window.innerWidth - 316)) } : null
