@@ -19,6 +19,7 @@ import { Buffer } from 'node:buffer'
 import { verifyPortalCaller, getServiceDb } from './lib/portalAuth.js'
 import { can } from '../lib/server/access.js'
 import * as E from '../lib/server/budget/engine.js'
+import * as R from '../lib/server/budget/receipts.js'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const READS = new Set(['status', 'load', 'export', 'renewals'])
@@ -43,12 +44,30 @@ const ACTION_SCHEMAS = Object.freeze({
   subscription_approve: ['action', 'id', 'decision'],
   post_charges: ['action'],
   renewals: ['action'],
+  // PROGRAM-BUDGET Phase B: receipts. None is in READS, so every one is Owner-only (budget_admin):
+  // nobody but the Owner sees receipt files, the review queue or the rules (decision 5).
+  receipts_status: ['action'],
+  receipts_intake: ['action'],
+  receipts_queue: ['action'],
+  receipt_upload: ['action', 'file_name', 'content_type', 'size'],
+  receipt_discard: ['action', 'id'],
+  receipt_read: ['action', 'id'],
+  receipt_draft: ['action', 'id', 'draft'],
+  receipt_accept: ['action', 'id', 'draft', 'attach_to'],
+  receipt_snooze: ['action', 'id', 'days'],
+  receipt_reject: ['action', 'id'],
+  receipt_undo: ['action', 'id'],
+  receipt_file: ['action', 'id', 'download'],
+  expense_receipt: ['action', 'expense_id'],
+  policy_rule_save: ['action', 'key', 'patch'],
+  budget_settings_save: ['action', 'pcard_last4'],
 })
 
 const invalid = (res, field, message) => res.status(400).json({ error: 'invalid_request', field, message })
 const obj = (v) => (v && typeof v === 'object' && !Array.isArray(v) ? v : {})
 
-export function createBudgetStaffHandler({ verifyCaller = verifyPortalCaller, makeDb = getServiceDb, today } = {}) {
+// `complete` is Keith's model call for receipt_read; a test passes a stub, production the real one.
+export function createBudgetStaffHandler({ verifyCaller = verifyPortalCaller, makeDb = getServiceDb, today, complete } = {}) {
   return async function handler(req, res) {
     res.setHeader('Cache-Control', 'no-store, private')
     if (req.method === 'OPTIONS') return res.status(200).end()
@@ -104,6 +123,24 @@ export function createBudgetStaffHandler({ verifyCaller = verifyPortalCaller, ma
         // the Action Center asks for every source it may show and an Admin simply has nothing here).
         case 'renewals': return res.status(200).json({ renewals: viewer === 'owner' ? await E.listRenewals(db, day) : [] })
         case 'post_charges': return res.status(200).json(await E.postDueCharges(db, day))
+        case 'receipts_status': return res.status(200).json(await R.receiptsStatus(db))
+        case 'receipts_intake': return res.status(200).json(await R.intake(db, day))
+        case 'receipts_queue': return res.status(200).json({ receipts: await R.reviewQueue(db, day), concur: await E.concurQueue(db, day) })
+        case 'receipt_upload': return res.status(200).json(await R.startUpload(db, actor, { fileName: body.file_name, contentType: body.content_type, size: body.size }))
+        case 'receipt_discard': return res.status(200).json(await R.discardUpload(db, actor, { id: body.id }))
+        case 'receipt_read': return res.status(200).json(await R.readReceipt(db, actor, { id: body.id, ...(complete ? { complete } : {}), ...day }))
+        case 'receipt_draft': return res.status(200).json(await R.saveDraft(db, actor, { id: body.id, draft: obj(body.draft) }))
+        case 'receipt_accept': {
+          if (body.attach_to != null && !UUID.test(String(body.attach_to))) return invalid(res, 'attach_to', 'Choose the row to attach to.')
+          return res.status(200).json(await R.acceptReceipt(db, actor, { id: body.id, draft: obj(body.draft), attachTo: body.attach_to || null, ...day }))
+        }
+        case 'receipt_snooze': return res.status(200).json(await R.snoozeReceipt(db, actor, { id: body.id, days: body.days, ...day }))
+        case 'receipt_reject': return res.status(200).json(await R.rejectReceipt(db, actor, { id: body.id }))
+        case 'receipt_undo': return res.status(200).json(await R.undoReceipt(db, actor, { id: body.id }))
+        case 'receipt_file': return res.status(200).json(await R.fileUrl(db, { id: body.id, download: body.download === true }))
+        case 'expense_receipt': return res.status(200).json(await R.expenseReceiptUrl(db, { expenseId: body.expense_id }))
+        case 'policy_rule_save': return res.status(200).json(await R.saveRule(db, actor, { key: body.key, patch: obj(body.patch) }))
+        case 'budget_settings_save': return res.status(200).json(await R.saveSettings(db, actor, { pcard_last4: body.pcard_last4 }))
         default: return invalid(res, 'action', 'Unknown action.')
       }
     } catch (err) {

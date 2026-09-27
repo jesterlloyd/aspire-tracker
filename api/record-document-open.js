@@ -6,7 +6,8 @@
 // private object and returns a short-lived signed URL that is used at once and never
 // stored, the same contract as /api/catalog-resource-open.
 //
-// POST { id, mode: 'open' | 'download' } -> { signedUrl, expiresIn }. Owner/Admin only.
+// POST { id, mode: 'open' | 'download' } -> { signedUrl, expiresIn }. Owner/Admin only, and a
+// Program Budget receipt (subject 'budget_receipt') the Owner only.
 
 import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js'
 import { verifyOwnerAdmin } from './lib/catalogAuth.js'
@@ -27,9 +28,12 @@ export default async function handler(req, res) {
   const mode = req.body?.mode === 'download' ? 'download' : 'open'
 
   const { data: doc, error } = await supabaseAdmin
-    .from('record_documents').select('storage_path, file_name').eq('id', id).maybeSingle()
+    .from('record_documents').select('storage_path, file_name, subject_type').eq('id', id).maybeSingle()
   if (error) return res.status(500).json({ error: 'Lookup failed' })
   if (!doc?.storage_path) return res.status(404).json({ error: 'Not found' })
+  // PROGRAM-BUDGET B1 (Owner, 2026-09-27): a budget receipt is the Owner's alone. An Admin is told
+  // it does not exist, as for any id it cannot see.
+  if (doc.subject_type === 'budget_receipt' && auth.isOwner !== true) return res.status(404).json({ error: 'Not found' })
 
   const { data: signed, error: signErr } = await supabaseAdmin.storage
     .from(BUCKET)
