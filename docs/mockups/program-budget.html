@@ -328,6 +328,17 @@ table.sheet{border-collapse:separate;border-spacing:0;font-size:13px;min-width:1
 .slipmeta label{font-size:12px;font-weight:700;display:block;margin-bottom:4px}
 .slipmeta select{padding:7px 9px;border-radius:8px;border:1px solid var(--line);background:var(--surface);font-size:13px;width:100%}
 .btn[disabled]{opacity:.5;cursor:not-allowed}
+.chart .proj{fill:none;stroke:var(--navy);stroke-width:1.5;stroke-dasharray:3 2}
+.legend i.pj{background:none;border:1.5px dashed var(--navy)}
+.subbasis{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+@media (max-width:760px){.subbasis{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+.renew{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--amber);border-radius:10px;box-shadow:var(--shadow);padding:14px 16px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.renew b{font-family:var(--display);font-size:15px;display:block}
+.renew small{color:var(--muted);font-size:12.5px;display:block}
+.renew .when{font-family:var(--mono);font-size:11px;color:var(--amber);background:var(--amber-soft);border-radius:5px;padding:3px 8px;white-space:nowrap}
+.renew .acts{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+.renews{display:grid;gap:10px;margin-bottom:16px}
+.subtag{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--teal);background:var(--teal-soft);border-radius:4px;padding:1px 5px;margin-left:6px}
 </style>
 
 <header class="topbar">
@@ -384,6 +395,7 @@ table.sheet{border-collapse:separate;border-spacing:0;font-size:13px;min-width:1
       <div class="tabs" role="tablist" aria-label="Budget views">
         <button role="tab" id="t-summary" aria-selected="true" aria-controls="panel">Summary</button>
         <button role="tab" id="t-sheet" aria-selected="false" aria-controls="panel">Sheet</button>
+        <button role="tab" id="t-subs" aria-selected="false" aria-controls="panel">Subscriptions</button>
         <button role="tab" id="t-rcpt" aria-selected="false" aria-controls="panel">Receipts<span class="tc" id="rcCount"></span></button>
         <button role="tab" id="t-alloc" aria-selected="false" aria-controls="panel">Allocations</button>
       </div>
@@ -505,7 +517,9 @@ function chart(y){
   const curIdx=y.closed?12:FYM.indexOf('Sep');
   let svg=`<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Monthly spend against an even pace of ${usd(pace)} per month">`;
   for(let v=0;v<=max;v+=step)svg+=`<line class="gl" x1="${L}" x2="${W-Rr}" y1="${yy(v)}" y2="${yy(v)}"/><text x="${L-8}" y="${yy(v)+3.5}" text-anchor="end">${v?'$'+(v/1000)+'k':'$0'}</text>`;
-  monthly.forEach((v,i)=>{const x=L+i*cw,bw=cw*.56,bx=x+(cw-bw)/2,fut=i>curIdx;
+  const proj=projByMonth(S.fy);
+  monthly.forEach((v,i)=>{const x=L+i*cw,bw=cw*.56,bx=x+(cw-bw)/2,fut=i>curIdx;const pv=proj[FYM[i]]||0;
+    if(pv>0&&i>=curIdx)svg+=`<rect class="proj" x="${bx}" y="${yy(v+pv)}" width="${bw}" height="${Math.max(2,yy(0)-yy(pv))}" rx="2"><title>${FYM[i]}: ${usd(pv)} in scheduled subscription charges</title></rect>`;
     if(v>0)svg+=`<rect class="bar" x="${bx}" y="${yy(v)}" width="${bw}" height="${Math.max(2,yy(0)-yy(v))}" rx="2"><title>${FYM[i]}: ${usd(v)}</title></rect><text class="val" x="${x+cw/2}" y="${yy(v)-6}" text-anchor="middle">${usd0(v)}</text>`;
     else if(!fut)svg+=`<text x="${x+cw/2}" y="${yy(0)-6}" text-anchor="middle">–</text>`;
     svg+=`<text x="${x+cw/2}" y="${H-10}" text-anchor="middle" ${fut?'opacity=".45"':''}>${FYM[i]}</text>`});
@@ -546,7 +560,7 @@ function summary(){
   <div class="basis">
     ${budgetTile}
     <div class="bt"><span class="k">Spent</span><b>${usd(sp)}</b><small>${y.rows.length} expenses · ${y.rows.filter(r=>r.receipt).length} with receipts</small></div>
-    <div class="bt"><span class="k">Remaining</span><b>${usd(rem)}</b><small>${y.closed?'Unspent at year end':'Available through Jun 30'}</small></div>
+    <div class="bt"><span class="k">Remaining</span><b>${usd(rem)}</b><small>${y.closed?'Unspent at year end':`${usd(rem-committed(S.fy))} after ${usd(committed(S.fy))} in subscriptions due`}</small></div>
     <div class="bt"><span class="k">Used</span><b>${pct.toFixed(1)}%</b><small>Year elapsed ${elapsed.toFixed(0)}%</small><div class="bar" aria-hidden="true"><i style="width:${Math.max(pct?1:0,Math.min(100,pct))}%"></i><u style="left:calc(${elapsed}% - 2px)"></u></div></div>
     <div class="bt"><span class="k">Cost per student</span>${cps?(cps.n?`<b>${usd(cps.amt/cps.n)}</b><small>${esc(cps.c)} · ${usd(cps.amt)} ÷ ${cps.n} students</small>`:`<b>–</b><small>${esc(cps.c)} · ${usd(cps.amt)} tagged · roster size pending</small>`):'<b>–</b><small>Tag expenses to a cohort to see this</small>'}</div>
   </div>
@@ -555,7 +569,7 @@ function summary(){
       <h2>Monthly spend</h2>
       <p class="sub">${esc(y.range)}, against an even monthly pace</p>
       <div class="chartwrap">${chart(y)}</div>
-      <div class="legend"><span><i></i>Spent in month</span><span><i class="p"></i>Even pace (${usd(y.total/12)} per month)</span></div>
+      <div class="legend"><span><i></i>Spent in month</span>${y.closed?'':'<span><i class="pj"></i>Scheduled subscriptions</span>'}<span><i class="p"></i>Even pace (${usd(y.total/12)} per month)</span></div>
       ${S.fy==='FY26'?`<p class="foot">March 2026 holds ${usd(1519.8)}, 94% of the year's spend, most of it the Spring 2026 welcome kit.</p>`:''}
     </div>
     <div class="card">
@@ -583,6 +597,7 @@ function cell(r,c){const v=val(r,c.k);
   if(c.k==='qty')return v===''||v==null?DASH:(+v).toLocaleString('en-US');
   if(c.k==='status')return v?`<span class="pill ${TONE[v]||'x'}">${esc(v)}</span>`:DASH;
   if(c.k==='receipt')return v?`<span class="rc" title="${owner()?esc(v):'Receipt on file'}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg>On file</span>`:DASH;
+  if(c.k==='item'&&r.subId)return esc(v)+'<span class="subtag">Subscription</span>';
   if(c.k==='cat')return v?`<span class="catc" aria-hidden="true"></span>${esc(v)}`:DASH;
   return v?esc(v):DASH}
 function visibleRows(){const y=Y(),q=S.q.trim().toLowerCase();
@@ -687,6 +702,77 @@ function addFiles(files){[...files].forEach(f=>{const sl={id:'u'+(++uid),file:f.
   if(f.type.startsWith('image/')){const fr=new FileReader();fr.onload=()=>{sl.img=fr.result;if(S.tab==='rcpt')render()};fr.readAsDataURL(f)}});
   S.tab='rcpt';render();toast(files.length+(files.length===1?' file':' files')+' added to Receipts.')}
 
+/* ---------- SUBSCRIPTIONS ---------- */
+const MN=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const iso=(y,m,d)=>y*10000+m*100+d;
+const fmtK=k=>`${MN[Math.floor(k/100)%100-1]} ${k%100}, ${Math.floor(k/10000)}`;
+const addP=(k,per,n)=>{let y=Math.floor(k/10000),m=Math.floor(k/100)%100+(per==='Y'?12*n:n),d=k%100;y+=Math.floor((m-1)/12);m=((m-1)%12+12)%12+1;const dim=new Date(Date.UTC(y,m,0)).getUTCDate();return iso(y,m,Math.min(d,dim))};
+const PER={M:'Monthly',Y:'Annual',U:'Usage-based'};
+let sid=0;
+const sub=o=>Object.assign({id:'b'+(++sid),auto:true,end:null,pay:'P-card',cat:'Technology & Software',notes:'',kept:false},o);
+S.subs=[
+  sub({name:'Survey platform',plan:'Team plan, 2 seats',vendor:'Survey vendor',per:'Y',amt:600,anchor:20261015,start:20231015,notes:'Casey-Fink and feedback surveys'}),
+  sub({name:'Design tool',plan:'Pro',vendor:'Design vendor',per:'M',amt:15,anchor:20261003,start:20250103,cat:'Marketing',notes:'Flyers and welcome kit art'}),
+  sub({name:'Video meetings',plan:'Pro',vendor:'Meetings vendor',per:'M',amt:15.99,anchor:20261009,start:20240109,pay:'Personal (Concur)',notes:'Virtual interviews'}),
+  sub({name:'Keith model usage',plan:'Pay as you go',vendor:'Model provider',per:'U',amt:120,anchor:20261001,start:20260101,notes:'Estimate from Keith > Usage & Cost'}),
+  sub({name:'Domain and hosting',plan:'aspireintelligence.app',vendor:'Hosting vendor',per:'Y',amt:240,anchor:20270301,start:20250301}),
+  sub({name:'Scheduling tool',plan:'Standard',vendor:'Scheduling vendor',per:'M',amt:12,anchor:20260720,start:20250120,end:20260831,notes:'Replaced by the Interviews calendar'})
+];
+function chargesIn(b,from,to){const out=[],step=b.per==='Y'?'Y':'M';let i=0;
+  while(addP(b.anchor,step,i)>=from)i--;
+  for(let n=0;n<400;n++,i++){const k=addP(b.anchor,step,i);if(k>to)break;if(k>=from&&k>=b.start&&(!b.end||k<=b.end))out.push(k)}
+  return out}
+const kDate=k=>Date.UTC(Math.floor(k/10000),Math.floor(k/100)%100-1,k%100);
+const daysTo=k=>Math.round((kDate(k)-kDate(TODAYK))/864e5);
+const nextCharge=b=>{const c=chargesIn(b,TODAYK+1,TODAYK+20000);return c[0]||null};
+const monthlyEq=b=>b.per==='Y'?b.amt/12:b.amt;
+const activeSub=b=>!b.end||b.end>TODAYK;
+const FYEND={FY26:20260630,FY27:20270630},FYSTART={FY26:20250701,FY27:20260701};
+function committed(fy){if(S.years[fy].closed)return 0;return S.subs.reduce((a,b)=>a+chargesIn(b,TODAYK+1,FYEND[fy]).length*b.amt,0)}
+function projByMonth(fy){const o={};if(S.years[fy].closed)return o;S.subs.forEach(b=>chargesIn(b,TODAYK+1,FYEND[fy]).forEach(k=>{const m=MN[Math.floor(k/100)%100-1];o[m]=(o[m]||0)+b.amt}));return o}
+function subStatus(b){if(b.end&&b.end<=TODAYK)return['Cancelled','x'];if(b.end)return['Ending','a'];const n=nextCharge(b);if(b.per==='Y'&&n&&daysTo(n)<=45&&!b.kept)return['Renews soon','a'];return['Active','g']}
+function postSubCharges(fy){const y=S.years[fy];let c=0;S.subs.forEach(b=>chargesIn(b,FYSTART[fy],TODAYK).forEach(k=>{y.rows.push(row({k,d:fmtK(k),m:MN[Math.floor(k/100)%100-1],item:b.name,cat:b.cat,desc:b.plan+' subscription',vendor:b.vendor,qty:1,amt:b.amt,pay:b.pay,status:defStatus(b.pay),notes:'Sample subscription charge',subId:b.id}));c++}));return c}
+const SCOLS=[{k:'name',lab:'Service',w:190,fz:1},{k:'plan',lab:'Plan',w:180},{k:'vendor',lab:'Vendor',w:150},{k:'per',lab:'Billing',w:120},{k:'amt',lab:'Amount',w:110,n:1},{k:'next',lab:'Next charge',w:130,calc:1},{k:'annual',lab:'Per year',w:116,n:1,calc:1},{k:'fy',lab:'Due by Jun 30',w:130,n:1,calc:1},{k:'pay',lab:'Payment',w:160},{k:'cat',lab:'Category',w:180},{k:'auto',lab:'Auto-renew',w:108},{k:'status',lab:'Status',w:124,calc:1},{k:'notes',lab:'Notes',w:240}];
+function scell(b,c){switch(c.k){
+  case 'per':return PER[b.per];case 'amt':return usd(b.amt)+(b.per==='U'?' <span class="dash">est.</span>':'');
+  case 'next':{const n=nextCharge(b);return n?fmtK(n):DASH}
+  case 'annual':return activeSub(b)?usd(monthlyEq(b)*12):DASH;
+  case 'fy':{const v=S.years.FY27.closed?0:chargesIn(b,TODAYK+1,FYEND.FY27).length*b.amt;return v?usd(v):DASH}
+  case 'auto':return b.auto?'Yes':'No';
+  case 'status':{const [t,tn]=subStatus(b);return `<span class="pill ${tn}">${t}</span>`}
+  default:return b[c.k]?esc(b[c.k]):DASH}}
+function subs(){
+  const ro=!owner(),act=S.subs.filter(activeSub),run=act.reduce((a,b)=>a+monthlyEq(b),0),com=committed('FY27');
+  const nx=act.map(b=>[b,nextCharge(b)]).filter(x=>x[1]).sort((a,b)=>a[1]-b[1])[0];
+  const soon=ro?[]:S.subs.filter(b=>subStatus(b)[0]==='Renews soon');
+  const rn=soon.map(b=>{const n=nextCharge(b),days=daysTo(n);return `<div class="renew" role="group" aria-label="${esc(b.name)} renewal"><span class="when">In ${days} days</span><div><b>${esc(b.name)} renews ${fmtK(n)} for ${usd(b.amt)}</b><small>${esc(b.plan)} · ${esc(b.pay)} · auto-renew ${b.auto?'on':'off'}. Decide before the charge posts.</small></div><div class="acts"><button class="btn pri sm" data-keep="${b.id}">Keep</button><button class="btn sm" data-cancelsub="${b.id}">Cancel at renewal</button><button class="btn sm" data-snz="${b.id}">Remind me in 7 days</button></div></div>`}).join('');
+  const fz=true;
+  const th=SCOLS.map(c=>`<th scope="col" style="--w:${c.w}px" class="${c.fz?'fz':''}">${c.lab}</th>`).join('');
+  const body=S.subs.map((b,i)=>`<tr><td class="rn">${i+1}</td>${SCOLS.map(c=>`<td style="--w:${c.w}px" class="${[c.n?'n':'',c.fz?'fz':'',c.calc?'lock':''].join(' ')}" data-scell="${b.id}:${c.k}" tabindex="-1">${scell(b,c)}</td>`).join('')}</tr>`).join('')
+    +(ro?'':`<tr class="blank"><td class="rn">${S.subs.length+1}</td>${SCOLS.map(c=>`<td style="--w:${c.w}px" class="${c.fz?'fz':''}">${c.k==='name'?'<button class="btn sm" id="addSub" style="border-style:dashed">+ Add subscription</button>':''}</td>`).join('')}</tr>`);
+  const tot=SCOLS.map(c=>{let v='';if(c.k==='name')v='<span class="sv"><span>Summary</span><span class="mono" style="font-weight:400;color:var(--faint);font-size:11px">'+act.length+' active</span></span>';if(c.k==='annual')v=usd(run*12);if(c.k==='fy')v=usd(com);return`<td style="--w:${c.w}px" class="${c.n?'n':''} ${c.fz?'fz':''}">${v}</td>`}).join('');
+  return `<div class="basis subbasis">
+    <div class="bt"><span class="k">Active</span><b>${act.length}</b><small>${S.subs.length-act.length} cancelled or ending</small></div>
+    <div class="bt"><span class="k">Monthly run rate</span><b>${usd(run)}</b><small>Annual plans spread by month</small></div>
+    <div class="bt"><span class="k">Per year</span><b>${usd(run*12)}</b><small>${S.years.FY27.started?(run*12/S.years.FY27.total*100).toFixed(1)+'% of the FY27 budget':'At current plans'}</small></div>
+    <div class="bt"><span class="k">Due by Jun 30</span><b>${usd(com)}</b><small>${nx?'Next: '+esc(nx[0].name)+', '+fmtK(nx[1]):'Nothing scheduled'}</small></div>
+  </div>
+  ${rn?`<div class="qhead"><h2>Renewals to decide</h2><span>Annual plans renewing in the next 45 days · also in the Action Center</span></div><div class="renews">${rn}</div>`:''}
+  <div class="qhead"><h2>All subscriptions</h2><span><span class="pill s">Sample subscriptions</span></span></div>
+  <p class="hint">${ro?'Read-only view.':'Each charge posts to the Sheet on its date as a Recorded or Paid row, marked Subscription, and waits for its receipt. Keith matches incoming receipts to the charge. Usage-based amounts are estimates until the invoice arrives. Double-click a cell to edit it.'}</p>
+  <div class="gridwrap"><table class="sheet" aria-label="Subscriptions"><thead><tr><th class="rn" scope="col"><span class="sr">Row</span></th>${th}</tr></thead><tbody>${body}</tbody><tfoot><tr><td class="rn">Σ</td>${tot}</tr></tfoot></table></div>`;
+}
+function editSub(key){const [id,k]=key.split(':');const b=S.subs.find(x=>x.id===id);const c=SCOLS.find(x=>x.k===k);if(!b||!c)return;
+  if(c.calc){toast(k==='status'?'Status follows the dates. Use Cancel at renewal, or set an end date in Notes.':'This column is calculated.');return}
+  const td=document.querySelector(`[data-scell="${key}"]`);td.classList.add('ed');let ctl;
+  const opts={per:[['M','Monthly'],['Y','Annual'],['U','Usage-based']],pay:PAYS.map(p=>[p,p]),cat:CATS.map(x=>[x,x]),auto:[['1','Yes'],['0','No']]}[k];
+  if(opts){ctl=document.createElement('select');opts.forEach(([v,l])=>{const o=document.createElement('option');o.value=v;o.textContent=l;if(String(k==='auto'?(b.auto?'1':'0'):b[k])===v)o.selected=true;ctl.appendChild(o)})}
+  else{ctl=document.createElement('input');ctl.value=b[k]??''}
+  ctl.setAttribute('aria-label',c.lab);td.innerHTML='';td.appendChild(ctl);ctl.focus();let done=false;
+  const commit=save=>{if(done)return;done=true;if(save){let v=ctl.value;if(k==='amt'){v=money(v);if(v!=null)b.amt=v}else if(k==='auto')b.auto=v==='1';else b[k]=v;toast('Saved.')}render()};
+  ctl.addEventListener('keydown',ev=>{if(ev.key==='Enter'){ev.preventDefault();commit(true)}else if(ev.key==='Escape')commit(false)});
+  ctl.addEventListener('blur',()=>commit(true));if(ctl.tagName==='SELECT')ctl.addEventListener('change',()=>commit(true))}
+
 /* ---------- ALLOCATIONS ---------- */
 function alloc(){const y=Y();if(!y.started)return setup();
   const ro=!owner()||y.closed,a=allocSum(y),left=y.total-a;
@@ -720,9 +806,9 @@ function render(focusSel){
   $('#psub').textContent=`ASPIRE Program · Cost center: ${y.cc} · Owner: Jester Bautista · ${y.range}`;
   $('#fySel').value=S.fy;
   const n=S.slips.length;$('#rcCount').textContent=n||'';$('#rcCount').hidden=!n;
-  ['summary','sheet','alloc','rcpt'].forEach(t=>$('#t-'+t).setAttribute('aria-selected',S.tab===t));
+  ['summary','sheet','subs','alloc','rcpt'].forEach(t=>$('#t-'+t).setAttribute('aria-selected',S.tab===t));
   $('#panel').setAttribute('aria-labelledby','t-'+S.tab);
-  $('#panel').innerHTML=S.tab==='summary'?summary():S.tab==='sheet'?sheet():S.tab==='rcpt'?receipts():alloc();
+  $('#panel').innerHTML=S.tab==='summary'?summary():S.tab==='sheet'?sheet():S.tab==='rcpt'?receipts():S.tab==='subs'?subs():alloc();
   const g=$('#grp');if(g)g.value=S.groupBy;const f=$('#frz');if(f)f.value=S.freeze;
   if(focusSel){const el=document.querySelector(`[data-cell="${S.sel}"]`);if(el)el.focus()}
 }
@@ -750,7 +836,7 @@ panel.addEventListener('click',e=>{
   if(t.id==='startFY'){const v=money($('#suTotal').value);if(!v||v<=0){toast('Enter an annual budget greater than $0.');$('#suTotal').focus();return}
     const f=S.years.FY27;f.total=v;f.cc=$('#suCc').value.trim()||'Nursing Education';f.started=true;S.years.FY26.closed=true;
     if(S.setup.plan==='even'){const each=Math.floor(v/CATS.length);CATS.forEach(c=>f.alloc[c]=each)}
-    f.hist.push([TODAY,`FY27 started with a budget of ${usd(v)}`,'Jester Bautista']);S.tab='summary';render();toast(`FY27 started with ${usd(v)}. You can change the budget from the Budget tile.`);return}
+    f.hist.push([TODAY,`FY27 started with a budget of ${usd(v)}`,'Jester Bautista']);const pc=postSubCharges('FY27');S.tab='summary';render();toast(`FY27 started with ${usd(v)}. ${pc} subscription charges from Jul 1 to today were posted to the Sheet.`);return}
   if(t.id==='bEditBtn'){S.editBudget=true;render();$('#bEdit').focus();$('#bEdit').select();return}
   if(t.id==='bCancel'){S.editBudget=false;render();return}
   if(t.id==='bSave'){const v=money($('#bEdit').value);if(!v||v<=0){toast('Enter a budget greater than $0.');return}
@@ -761,6 +847,10 @@ panel.addEventListener('click',e=>{
   if(t.id==='addRow'){const r=row({k:TODAYK,d:TODAY,m:'Sep',item:'',cat:'Supplies & Materials',desc:'',vendor:'',qty:'',amt:'',status:'Recorded'});y.rows.push(r);S.sel=r.id+':item';render();startEdit(S.sel);return}
   if(['addCol','addFilter','colsBtn'].includes(t.id)){toast({addCol:'Mockup: adds a custom column, for example Event.',addFilter:'Mockup: filter by category, month, payment, status or cohort.',colsBtn:'Mockup: show, hide and reorder columns.'}[t.id]);return}
   const fm=t.closest('[data-fm]');if(fm){if(!S.sel){toast('Select a cell first.');return}const cls=fm.dataset.fm,cur=(S.fmt[S.sel]||'').split(' ').filter(Boolean);let nx;if(cls.startsWith('al-')){nx=cur.filter(x=>!x.startsWith('al-'));if(cls!=='al-l')nx.push(cls)}else nx=cur.includes(cls)?cur.filter(x=>x!==cls):[...cur,cls];S.fmt[S.sel]=nx.join(' ');markSaving();render(true);return}
+  const kp=t.closest('[data-keep]');if(kp){const b=S.subs.find(x=>x.id===kp.dataset.keep);b.kept=true;render();toast(`Kept. ${b.name} renews ${fmtK(nextCharge(b))}, and Keith will match the receipt.`);return}
+  const cx=t.closest('[data-cancelsub]');if(cx){const b=S.subs.find(x=>x.id===cx.dataset.cancelsub);const n=nextCharge(b);b.end=n-1;b.auto=false;render();toast(`${b.name} ends before ${fmtK(n)}. ${usd(b.amt)} removed from what's due. Cancel it with the vendor too.`);return}
+  const sn=t.closest('[data-snz]');if(sn){const b=S.subs.find(x=>x.id===sn.dataset.snz);b.kept=true;render();toast('Hidden for 7 days. It returns on Oct 4 if still undecided.');return}
+  if(t.id==='addSub'){const b=sub({name:'New subscription',plan:'',vendor:'',per:'M',amt:0,anchor:addP(TODAYK,'M',1),start:TODAYK});S.subs.push(b);render();editSub(b.id+':name');return}
   if(t.id==='dropPick'){$('#rcptFile').click();return}
   const gf=t.closest('[data-gofy]');if(gf){S.fy=gf.dataset.gofy;S.tab='summary';render();return}
   const ac=t.closest('[data-accept]');if(ac&&!ac.disabled){const sl=S.slips.find(x=>x.id===ac.dataset.accept);const ty=S.years[fyOf(sl.k)];const fn=fileName(sl);
@@ -774,7 +864,7 @@ panel.addEventListener('click',e=>{
   if(t.id==='evenAlloc'){const each=Math.floor(y.total/CATS.length);CATS.forEach(c=>y.alloc[c]=each);y.allocSaved=false;render();say('Split evenly');return}
   const td=t.closest('td[data-cell]');if(td&&!td.classList.contains('ed')){S.sel=td.dataset.cell;panel.querySelectorAll('td.sel').forEach(x=>{x.classList.remove('sel');x.tabIndex=-1});td.classList.add('sel');td.tabIndex=0;td.focus()}
 });
-panel.addEventListener('dblclick',e=>{const td=e.target.closest('td[data-cell]');if(td&&owner())startEdit(td.dataset.cell)});
+panel.addEventListener('dblclick',e=>{const sc=e.target.closest('td[data-scell]');if(sc&&owner()){editSub(sc.dataset.scell);return}const td=e.target.closest('td[data-cell]');if(td&&owner())startEdit(td.dataset.cell)});
 panel.addEventListener('keydown',e=>{
   if(e.target.id==='bEdit'&&e.key==='Enter'){$('#bSave').click();return}
   const td=e.target.closest('td[data-cell]');if(!td||td.classList.contains('ed'))return;
