@@ -29,7 +29,7 @@ import { knownDate } from './cyclePhase.js'
 export const ROWS_PER_GROUP = 3
 const DAY = 86400000
 
-export const GROUP_ORDER = Object.freeze(['signatures', 'messages', 'reviewRelease', 'formsDocs', 'interviews', 'placement'])
+export const GROUP_ORDER = Object.freeze(['signatures', 'messages', 'reviewRelease', 'formsDocs', 'interviews', 'placement', 'budget'])
 
 /** "Today", "2d", "9d": how long a row has been waiting. */
 export function ageLabel(iso, now = Date.now()) {
@@ -53,6 +53,33 @@ function finish(group) {
   if (!group.rows.length && !group.count) return null
   const sorted = sortByAge(group.rows)
   return { ...group, rows: sorted.slice(0, ROWS_PER_GROUP), allRows: sorted, total: group.rows.length }
+}
+
+// ── Program Budget (AC-RENEW-1) ─────────────────────────────────────────────────
+
+const usd = (n) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number(n) || 0)
+const ymdText = (ymd) => (ymd ? new Date(`${ymd}T12:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '')
+
+/**
+ * Annual subscriptions renewing within 45 days that the Owner has not decided (prompt A9). The row
+ * is navigation: Keep and Cancel at renewal stay on Program Budget > Subscriptions. The sooner the
+ * renewal, the higher the row (ageMs grows as the day nears), so the next charge leads.
+ * @param renewals rows from /api/budget-staff `renewals`
+ */
+export function budgetGroup({ renewals = [] } = {}) {
+  const rows = (renewals || []).map(r => ({
+    id: `renew:${r.id}`,
+    title: `${r.name} · ${usd(r.amount)}`,
+    meta: [`Renews ${ymdText(r.date)}`, r.days === 0 ? 'today' : `in ${plural(r.days, 'day')}`, r.paymentLabel].filter(Boolean).join(' · '),
+    pill: { text: r.days === 0 ? 'Renews today' : `In ${plural(r.days, 'day')}`, tone: r.days <= 7 ? 'red' : 'amber' },
+    ageMs: Math.max(0, 46 - n(r.days)) * DAY,
+    to: '/settings/budget?tab=subscriptions',
+  }))
+  return finish({
+    key: 'budget', name: 'Program Budget', sub: 'Renewals to decide',
+    pills: rows.length ? [{ text: `${rows.length} to renew`, tone: 'amber' }] : [], rows,
+    open: { label: 'Open Program Budget', to: '/settings/budget?tab=subscriptions' }, count: rows.length,
+  })
 }
 
 // ── Messages ────────────────────────────────────────────────────────────────────

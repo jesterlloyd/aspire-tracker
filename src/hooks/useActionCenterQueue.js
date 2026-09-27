@@ -7,10 +7,10 @@ import { scopeInterviewsForViewer } from '../lib/interviewsToday'
 import { schoolGroupKey } from '../lib/schoolIdentity'
 import {
   loadMessagesNeedingYou, loadSignaturesList, loadReviewQueues, loadCatalogTracker,
-  loadTodaysInterviews, loadRotationWindows,
+  loadTodaysInterviews, loadRotationWindows, loadBudgetRenewals,
 } from '../lib/home/homeLoaders'
 import {
-  messagesGroup, signaturesGroup, reviewReleaseGroup, formsDocsGroup, interviewsGroup, placementGroup,
+  messagesGroup, signaturesGroup, reviewReleaseGroup, formsDocsGroup, interviewsGroup, placementGroup, budgetGroup,
 } from '../lib/home/needsYouModel'
 import { supabase } from '../lib/supabase'
 import {
@@ -42,6 +42,8 @@ export function useActionCenterQueue({ enabled = true, includeOtherCohorts = fal
   const qCat = useQuery({ queryKey: ['home_catalog_tracker'], queryFn: loadCatalogTracker, enabled: enabled && canManage, staleTime: 30000 })
   const qIv = useQuery({ queryKey: ['home_interviews', cohortId, today], queryFn: () => loadTodaysInterviews(cohortId, today), enabled: enabled && !!cohortId, staleTime: 60000 })
   const qRot = useQuery({ queryKey: ['home_rotations', cohortId], queryFn: () => loadRotationWindows(cohortId), enabled: enabled && !!cohortId, staleTime: 300000 })
+  // AC-RENEW-1: the Owner's annual renewals to decide. Nobody else is asked (the endpoint would give them none).
+  const qBudget = useQuery({ queryKey: ['home_budget_renewals'], queryFn: loadBudgetRenewals, enabled: enabled && !!isOwner, staleTime: 300000 })
   const qSnooze = useQuery({
     queryKey: ['action_snoozes', userProfile?.id],
     queryFn: async () => {
@@ -121,8 +123,9 @@ export function useActionCenterQueue({ enabled = true, includeOtherCohorts = fal
       students, units, rotations: qRot.data, schoolKey: schoolGroupKey,
       unitNameFor: id => unitById.get(id) || '', displayName: firstNameFirst, today, now,
     }))
+    if (qBudget.data) out.push(budgetGroup({ renewals: qBudget.data }))
     return out.filter(Boolean)
-  }, [qSig.data, qMessages.data, qRR.data, qCat.data, qIv.data, qRot.data, scopedSlots, personalConversations, students, communications, units, unitById, userProfile?.id, sigFlag.allowed, today, now])
+  }, [qSig.data, qMessages.data, qRR.data, qCat.data, qIv.data, qRot.data, qBudget.data, scopedSlots, personalConversations, students, communications, units, unitById, userProfile?.id, sigFlag.allowed, today, now])
 
   const support = useMemo(() => normalizeSupportQueue({
     logs: qSupport.data?.logs || [], events: qSupport.data?.events || [], students, now,
@@ -166,6 +169,7 @@ export function useActionCenterQueue({ enabled = true, includeOtherCohorts = fal
     ...(canManage && cohortId ? [queryState(qRR, 'review-release', 'Review & Release'), queryState(qCat, 'forms', 'Forms and documents')] : []),
     ...(cohortId ? [queryState(qIv, 'interviews', 'Interviews'), queryState(qRot, 'placement', 'Placement and rotation')] : []),
     ...(canManage && cohortId ? [queryState(qSupport, 'support', 'Support check-ins')] : []),
+    ...(isOwner ? [queryState(qBudget, 'budget', 'Program Budget')] : []),
   ]
 
   const invalidate = useCallback(() => {
@@ -176,6 +180,7 @@ export function useActionCenterQueue({ enabled = true, includeOtherCohorts = fal
     queryClient.invalidateQueries({ queryKey: ['home_interviews', cohortId, today] })
     queryClient.invalidateQueries({ queryKey: ['home_rotations', cohortId] })
     queryClient.invalidateQueries({ queryKey: ['action_support_checkins', cohortId] })
+    queryClient.invalidateQueries({ queryKey: ['home_budget_renewals'] })
   }, [queryClient, cohortId, today])
 
   return {

@@ -56,7 +56,7 @@ import RecentActivity from './home/RecentActivity'
 import { ApplicationsOutreach, SurveysResults } from './home/PhaseCards'
 import { derivePhase, pipelineCounts } from '../lib/home/cyclePhase'
 import {
-  messagesGroup, signaturesGroup, reviewReleaseGroup, formsDocsGroup, interviewsGroup, placementGroup,
+  messagesGroup, signaturesGroup, reviewReleaseGroup, formsDocsGroup, interviewsGroup, placementGroup, budgetGroup,
 } from '../lib/home/needsYouModel'
 import { scheduleRows, onCampusGroups, dueTodayItems } from '../lib/home/todayModel'
 import { hoursBar, midpointBar } from '../lib/home/cohortPulseModel'
@@ -67,7 +67,7 @@ import { activityRows } from '../lib/home/recentActivityModel'
 import { applicationsSummary, latestOutreachOpenRate, surveysSummary } from '../lib/home/phaseCardsModel'
 import {
   loadMessagesNeedingYou, loadSignaturesList, loadReviewQueues, loadCatalogTracker, loadTodaysInterviews,
-  loadRotationWindows, loadTodaysShifts, loadRecentActivity, loadLauncherContacts,
+  loadRotationWindows, loadTodaysShifts, loadRecentActivity, loadLauncherContacts, loadBudgetRenewals,
 } from '../lib/home/homeLoaders'
 import './home/home.css'
 
@@ -604,7 +604,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
   // ── HOME-1: the page's own reads, one query per source, all in parallel ──────
   const { style } = useTheme()
   const classic = style !== 'modern'
-  const { canInterview } = useAuth()
+  const { canInterview, isOwner } = useAuth()
   const canManage = isAdmin && userProfile?.is_active !== false
   const sigFlag = useSignaturesFlag(canManage)
   const formsStatus = useFormsStatus(canManage)
@@ -629,6 +629,8 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
   const qCat = useQuery({ queryKey: ['home_catalog_tracker'], queryFn: loadCatalogTracker, enabled: canManage && onTodayRoute, staleTime: 30000 })
   const qIv = useQuery({ queryKey: ['home_interviews', cohortId, today], queryFn: () => loadTodaysInterviews(cohortId, today), enabled: !!cohortId && onTodayRoute, staleTime: 60000 })
   const qRot = useQuery({ queryKey: ['home_rotations', cohortId], queryFn: () => loadRotationWindows(cohortId), enabled: !!cohortId, staleTime: 300000 })
+  // AC-RENEW-1: the Owner's annual renewals to decide, the same source the Action Center reads.
+  const qBudget = useQuery({ queryKey: ['home_budget_renewals'], queryFn: loadBudgetRenewals, enabled: !!isOwner, staleTime: 300000 })
   const qShifts = useQuery({ queryKey: ['home_shifts', cohortId, today], queryFn: () => loadTodaysShifts(cohortId, today, yesterdayStr), enabled: !!cohortId && onTodayRoute, refetchInterval: onTodayRoute ? 60000 : false })
   const qEvents = useQuery({
     queryKey: ['aggregate_welcome_events', today, eventsTo],
@@ -690,9 +692,11 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
       group: qIv.data ? interviewsGroup({ slots: scopedSlots, students, communications, interviewerNameFor, displayName, now: nowMs }) : null })
     if (cohortId) out.push({ key: 'placement', status: qStatus(qRot), retry: qRot.refetch,
       group: qRot.data ? placementGroup({ students, units, rotations, schoolKey: schoolGroupKey, unitNameFor, displayName, today, now: nowMs }) : null })
+    if (isOwner) out.push({ key: 'budget', status: qStatus(qBudget), retry: qBudget.refetch,
+      group: qBudget.data ? budgetGroup({ renewals: qBudget.data }) : null })
     return out
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canManage, sigFlag.ready, sigFlag.allowed, qSig.status, qSig.data, qMessages.status, qMessages.data, qRR.status, qRR.data, qCat.status, qCat.data, qIv.status, qIv.data, qRot.status, qRot.data, scopedSlots, students, units, communications, rotations, cohortId, today])
+  }, [canManage, sigFlag.ready, sigFlag.allowed, qSig.status, qSig.data, qMessages.status, qMessages.data, qRR.status, qRR.data, qCat.status, qCat.data, qIv.status, qIv.data, qRot.status, qRot.data, isOwner, qBudget.status, qBudget.data, scopedSlots, students, units, communications, rotations, cohortId, today])
 
   // Today
   const holidaysToday = useMemo(() => getUsHolidaysForRange(today, today), [today])

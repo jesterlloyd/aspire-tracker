@@ -38,7 +38,8 @@ export default function ProgramBudgetView({ source, renderBand, initialFy = null
   const [fy, setFy] = useState(() => initialFy ?? currentFiscalYear())   // the Pacific fiscal year, as the server defaults
   const [year, setYear] = useState(null)
   const [error, setError] = useState(null)
-  const [tab, setTab] = useState('summary')
+  // AC-RENEW-1: the Action Center's Open lands on the tab it names (?tab=subscriptions).
+  const [tab, setTab] = useState(() => { try { return new URLSearchParams(window.location.search).get('tab') || 'summary' } catch { return 'summary' } })
   const [toast, setToast] = useState(null)
   const [exporting, setExporting] = useState(false)
   const reloadTimer = useRef(null)

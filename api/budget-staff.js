@@ -21,7 +21,7 @@ import { can } from '../lib/server/access.js'
 import * as E from '../lib/server/budget/engine.js'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const READS = new Set(['status', 'load', 'export'])
+const READS = new Set(['status', 'load', 'export', 'renewals'])
 const ACTION_SCHEMAS = Object.freeze({
   status: ['action'],
   load: ['action', 'fiscal_year'],
@@ -42,6 +42,7 @@ const ACTION_SCHEMAS = Object.freeze({
   renewal_decide: ['action', 'id', 'decision'],
   subscription_approve: ['action', 'id', 'decision'],
   post_charges: ['action'],
+  renewals: ['action'],
 })
 
 const invalid = (res, field, message) => res.status(400).json({ error: 'invalid_request', field, message })
@@ -99,6 +100,9 @@ export function createBudgetStaffHandler({ verifyCaller = verifyPortalCaller, ma
         case 'subscription_delete': return res.status(200).json(await E.deleteSubscription(db, actor, { id: body.id }))
         case 'subscription_approve': return res.status(200).json(await E.decideProposal(db, actor, { id: body.id, decision: body.decision, ...day }))
         case 'renewal_decide': return res.status(200).json(await E.decideRenewal(db, actor, { id: body.id, decision: body.decision, ...day }))
+        // AC-RENEW-1: the renewals are the Owner's to decide, so anyone else is given none (not refused:
+        // the Action Center asks for every source it may show and an Admin simply has nothing here).
+        case 'renewals': return res.status(200).json({ renewals: viewer === 'owner' ? await E.listRenewals(db, day) : [] })
         case 'post_charges': return res.status(200).json(await E.postDueCharges(db, day))
         default: return invalid(res, 'action', 'Unknown action.')
       }

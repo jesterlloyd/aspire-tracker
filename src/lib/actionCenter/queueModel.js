@@ -7,6 +7,7 @@ export const ACTION_CENTER_GROUPS = Object.freeze([
   { key: 'forms', label: 'Forms and documents', icon: 'F' },
   { key: 'interviews', label: 'Interviews', icon: 'I' },
   { key: 'placement', label: 'Placement and rotation', icon: 'P' },
+  { key: 'budget', label: 'Program Budget', icon: 'B' },   // AC-RENEW-1: the Owner's renewals to decide
 ])
 
 export const ACTION_CENTER_GROUP_ORDER = Object.freeze(
@@ -39,7 +40,8 @@ function homeGroupKey(key) {
 
 function stateText(row) {
   const text = row?.pill?.text || ''
-  return /^(Your turn|Blocked|No slot|Unplaced)$/i.test(text) || /^\d+ ready$/i.test(text) ? text : null
+  // A renewal says when it falls due, not how long it has waited (AC-RENEW-1).
+  return /^(Your turn|Blocked|No slot|Unplaced|Renews today)$/i.test(text) || /^\d+ ready$/i.test(text) || /^In \d+ days?$/i.test(text) ? text : null
 }
 
 function actionsFor({ group, row, conversation, student }) {
@@ -74,6 +76,11 @@ function actionsFor({ group, row, conversation, student }) {
       ? [{ key: 'booking', label: 'Send booking link', primary: true, student }, { key: 'snooze', label: 'Snooze' }]
       : [{ key: 'open', label: 'Open', primary: true }]
   }
+  // AC-RENEW-1: a renewal is decided on the Subscriptions tab (Keep, Cancel at renewal), never here.
+  if (group === 'budget') return [
+    { key: 'open', label: 'Open', primary: true },
+    { key: 'snooze', label: 'Snooze' },
+  ]
   return [{ key: 'open', label: 'Open', primary: true }]
 }
 
@@ -88,12 +95,13 @@ export function normalizeHomeQueue({ groups = [], conversations = [], students =
       const entityId = rawId.replace(/^[^:]+:/, '')
       const conversation = group === 'messages' ? conversationById.get(entityId) : null
       const student = group === 'interviews' && rawId.startsWith('iv-open:') ? studentById.get(entityId) : null
-      const personal = group === 'messages' || group === 'signatures'
+      const personal = group === 'messages' || group === 'signatures' || group === 'budget'
       const chip = group === 'signatures' ? 'Sign'
         : group === 'messages' ? 'Reply'
           : group === 'review-release' ? 'Release'
             : group === 'forms' ? 'Overdue'
-              : group === 'interviews' ? 'Schedule' : 'Placement'
+              : group === 'interviews' ? 'Schedule'
+                : group === 'budget' ? 'Renew' : 'Placement'
       const tag = conversation?.assigned_staff_profile_id ? 'reply'
         : group === 'messages' ? 'unassigned'
           : String(row.pill?.text || '').toLowerCase()
@@ -186,6 +194,6 @@ export function groupQueue(items = []) {
 }
 
 export function chipCounts(items = []) {
-  const order = ['Sign', 'Reply', 'Release', 'Overdue', 'Schedule', 'Placement']
+  const order = ['Sign', 'Reply', 'Release', 'Overdue', 'Schedule', 'Placement', 'Renew']
   return order.map(chip => ({ chip, count: items.filter(item => item.chip === chip).length })).filter(x => x.count)
 }

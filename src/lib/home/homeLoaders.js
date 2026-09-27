@@ -14,6 +14,7 @@
 //   Placement       props (students, units) +      the cohort RLS
 //                   cohort_school_rotations
 //   Activity        /api/home-activity             active staff; Owner/Admin sources gated there
+//   Program Budget  /api/budget-staff renewals     the Owner only (AC-RENEW-1); anyone else gets none
 //
 // A caller who cannot use a source does not call it (`enabled: false`), so nothing here
 // asks for what the viewer cannot complete.
@@ -24,6 +25,7 @@ import { sigStaff } from '../../components/signatures/sigApi'
 import { formStaff } from '../../components/forms/formsApi'
 import { loadCohortEvidence, loadUnitLeaderQueue } from '../evaluation/reviewQueueLoaders'
 import { buildQueues } from '../evaluation/reviewQueueBuild'
+import { budgetStaff } from '../../components/budget/budgetApi'
 
 async function token() {
   const { data: { session } } = await supabase.auth.getSession()
@@ -56,6 +58,12 @@ export async function loadReviewQueues(cohortId) {
 }
 
 const CATALOG_COLS = 'id, slug, title, kind, is_active, storage_path'
+
+/** AC-RENEW-1: annual renewals to decide. Before the budget tables exist there are simply none. */
+export async function loadBudgetRenewals() {
+  try { return (await budgetStaff('renewals'))?.renewals || [] }
+  catch (e) { if (e.code === 'not_enabled') return []; throw e }
+}
 
 export async function loadCatalogTracker() {
   const [tracker, items] = await Promise.all([
