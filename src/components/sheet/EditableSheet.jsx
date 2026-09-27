@@ -67,6 +67,10 @@
 // formats, Insert and Delete row where the host allows rows, and Sort, Filter by this value, Group
 // by, Freeze through, Hide and Delete column. Cmd/Ctrl+C and Cmd/Ctrl+V do the same from the keyboard.
 // Every edit goes through the same path as a double-click edit, so a host's rules still decide.
+//
+// SHEET-DRAG-1: press and drag across cells (or down the row numbers) to select a range, as in a
+// spreadsheet; the toolbar and the menu then act on all of it. A column header still drags to move
+// the column, so a range of columns is Shift-click.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AlignCenter, AlignLeft, AlignRight, ArrowDownUp, Baseline, Bold, ChevronDown, ChevronRight, Eraser, Italic, PaintBucket, Plus, Trash2, Underline, WrapText } from 'lucide-react'
 import {
@@ -124,6 +128,15 @@ export default function EditableSheet({
   const frameRef = useRef(null)
   const toolRef = useRef(null)
   const layoutTimer = useRef(null)
+  // SHEET-DRAG-1 (Owner, 2026-09-27: "I should be able to drag to highlight multiple cells"): a press
+  // on a cell or a row number starts a range; moving over others extends it; letting go ends it.
+  const dragRef = useRef(null)
+  useEffect(() => {
+    const end = () => { if (dragRef.current) { dragRef.current = null; frameRef.current?.classList.remove('fs-dragging') } }
+    document.addEventListener('mouseup', end)
+    return () => document.removeEventListener('mouseup', end)
+  }, [])
+  const startDrag = (kind) => { dragRef.current = { kind }; frameRef.current?.classList.add('fs-dragging') }
 
   // Menus close on a click elsewhere or Escape.
   useEffect(() => {
@@ -729,7 +742,8 @@ export default function EditableSheet({
                   return (
                     <tr key={row.id} className="fs-row">
                       <th scope="row" className={`fs-rownum${rowSel ? ' fs-rowsel' : ''}`} style={{ position: 'sticky', left: 0, zIndex: 2 }}
-                        onMouseDown={e => { if (e.button === 2) return; if (e.shiftKey) e.preventDefault(); frameRef.current?.focus({ preventScroll: true }); selectRows(r, e.shiftKey) }}
+                        onMouseDown={e => { if (e.button === 2) return; e.preventDefault(); frameRef.current?.focus({ preventScroll: true }); selectRows(r, e.shiftKey); startDrag('row') }}
+                        onMouseEnter={() => { if (dragRef.current?.kind === 'row') selectRows(r, true) }}
                         onContextMenu={e => openMenu(e, 'row', r, 0)}>{r + 1}</th>
                       {gridCols.map((col, c) => {
                         const f = fmtOf(row, col.key)
@@ -742,7 +756,8 @@ export default function EditableSheet({
                         return (
                           <Cell key={col.key} data-cell={`${row.id}|${col.key}`} scope={isLead ? 'row' : undefined} style={{ ...cellStyle(f, width(col.key)), ...stickyStyle(col.key) }}
                             className={`fs-cell${isLead ? ' fs-name' : ''}${isActive(r, c) ? ' fs-sel' : ''}${multi && isSelected(r, c) ? ' fs-inrange' : ''}${extra ? ` ${extra}` : ''}${isEditing ? ' fs-editing' : ''}`}
-                            onMouseDown={e => { if (e.button === 2 || isEditing || e.target.closest('a, button')) return; if (e.shiftKey) e.preventDefault(); frameRef.current?.focus({ preventScroll: true }); setSel(s => (e.shiftKey && s ? { anchor: s.anchor, focus: { r, c } } : { anchor: { r, c }, focus: { r, c } })) }}
+                            onMouseDown={e => { if (e.button === 2 || isEditing || e.target.closest('a, button')) return; if (e.shiftKey) e.preventDefault(); frameRef.current?.focus({ preventScroll: true }); setSel(s => (e.shiftKey && s ? { anchor: s.anchor, focus: { r, c } } : { anchor: { r, c }, focus: { r, c } })); if (!e.shiftKey) startDrag('cell') }}
+                            onMouseEnter={() => { if (dragRef.current?.kind === 'cell') setSel(s => (s && !s.whole ? { anchor: s.anchor, focus: { r, c } } : s)) }}
                             onContextMenu={e => { if (!isEditing) openMenu(e, 'cell', r, c) }}
                             onDoubleClick={() => startEdit(row, col)}
                             title={cellTitle?.(row, col)}>

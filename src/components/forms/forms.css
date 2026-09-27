@@ -339,3 +339,6 @@
 .fs-menu-danger:not([aria-disabled="true"]) { color: var(--ctl-red); }
 .fs-menu-sep { height: 1px; margin: 5px 4px; background: var(--ctl-line-2); }
 
+/* SHEET-DRAG-1: no text highlight while a range is being dragged. */
+.fs-frame.fs-dragging, .fs-frame.fs-dragging * { user-select: none; -webkit-user-select: none; cursor: cell; }
+

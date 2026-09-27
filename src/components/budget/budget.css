@@ -141,3 +141,21 @@
 .bud-proposal { padding: 4px; }
 .bud-proposal .bud-tile { padding: 10px 14px; }
 
+/* SUB-APPROVAL-2: the proposals as one compact list; the numbers line up in their columns. */
+.bud-proplist { padding: 10px 16px 12px; }
+.bud-proplist { --bud-act-w: 104px; }
+.bud-proplist.bud-proplist-ro { --bud-act-w: 0px; }
+/* Every row is its own grid, so the action column is one fixed width or the totals drift. */
+.bud-prop-head, .bud-prop-row { display: grid; grid-template-columns: minmax(0, 1.6fr) repeat(3, minmax(84px, .7fr)) var(--bud-act-w); gap: 12px; align-items: center; }
+.bud-prop-head { padding: 4px 0 8px; border-bottom: 1px solid var(--border-divider, var(--color-border-subtle)); font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-caption); }
+.bud-prop-head span:nth-child(n+2):nth-child(-n+4) { text-align: right; }
+.bud-prop-rows { list-style: none; margin: 0; padding: 0; }
+.bud-prop-row { padding: 8px 0; border-bottom: 1px solid var(--border-divider, var(--color-border-subtle)); font-size: 13.5px; color: var(--text-heading); }
+.bud-prop-row .nm { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bud-prop-row .n { text-align: right; font-variant-numeric: tabular-nums; }
+.bud-prop-total { border-bottom: 0; font-weight: 700; }
+.bud-prop-total .nm { font-weight: 700; }
+.bud-approve { position: relative; justify-self: end; }
+.bud-approve-menu { position: absolute; right: 0; top: calc(100% + 4px); }
+@media (max-width: 760px) { .bud-prop-head, .bud-prop-row { grid-template-columns: minmax(0, 1fr) auto var(--bud-act-w); } .bud-prop-head span:nth-child(3), .bud-prop-head span:nth-child(4), .bud-prop-row .n:nth-child(3), .bud-prop-row .n:nth-child(4) { display: none; } }
+

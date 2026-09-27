@@ -5,7 +5,7 @@
 // row: table canon section 2), and every subscription on an Editable sheet. Next charge, Per
 // year, Due by Jun 30 and Status are calculated from the row, by src/lib/budget/budgetModel.js,
 // so an edit shows its effect at once.
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import SurfaceCard from '../ui/SurfaceCard'
 import EditableSheet from '../sheet/EditableSheet'
 import { Pill } from '../shared/DataSheet'
@@ -38,12 +38,13 @@ export default function BudgetSubscriptions({ year, canEdit, onWrite }) {
   const prop = year.proposals || { plans: [], count: 0 }
 
   const toRow = (s) => ({
-    id: s.id, raw: s, format: {},
+    id: s.id, raw: s, format: s.cell_formats || {},
     cells: {
       plan: s.plan || '', vendor: s.vendor || '', billing: billingLabel(s.billing), amount: s.amount == null ? '' : String(s.amount),
       anchor: s.anchor_date || '', start: s.start_date || '', end: s.end_date || '',
       pay: PAYMENT_METHODS.find(p => p.key === s.payment_method)?.label || '', cat: cats.get(s.category_id) || '',
       auto: s.auto_renew ? 'Yes' : 'No', notes: s.notes || '',
+      ...(s.staff_values || {}),
     },
   })
   const rows = useMemo(() => subs.map(toRow), [subs]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -96,31 +97,32 @@ export default function BudgetSubscriptions({ year, canEdit, onWrite }) {
       {/* SUB-APPROVAL-1: proposals are shown with what they would cost, and count against nothing. */}
       {prop.count > 0 && (
         <section aria-label="Awaiting approval">
-          <p className="bud-sub"><b>Awaiting Approval</b> · Not counted against the budget until approved</p>
-          <SurfaceCard className="bud-card bud-proposal">
-            <div className="bud-basis bud-basis-4">
-              <div className="bud-tile"><span className="k">Proposed</span><b>{prop.count}</b><small>{prop.count === 1 ? 'subscription' : 'subscriptions'}</small></div>
-              <div className="bud-tile"><span className="k">A month</span><b>{usd(prop.monthly)}</b><small>{usd(prop.perYear)} a year</small></div>
-              <div className="bud-tile"><span className="k">If approved from {fyStart}</span><b>{usd(prop.fromStart)}</b><small>{usd(prop.sinceStart)} already charged, {usd(prop.toCome)} to come</small></div>
-              <div className="bud-tile"><span className="k">If approved from today</span><b>{usd(prop.fromToday)}</b><small>Through June 30</small></div>
+          <p className="bud-sub"><b>Awaiting Approval</b> · {prop.count} proposed · {usd(prop.monthly)} a month · Not counted against the budget until approved</p>
+          {/* SUB-APPROVAL-2 (Owner, 2026-09-27): one compact list, a row per proposal, one Approve menu each. */}
+          <SurfaceCard className={`bud-card bud-proplist${canEdit ? '' : ' bud-proplist-ro'}`}>
+            <div className="bud-prop-head" aria-hidden="true">
+              <span>Subscription</span><span>A month</span><span>Since {fyStart.replace(/, \d{4}$/, '')}</span><span>To come</span>{canEdit && <span />}
             </div>
+            <ul className="bud-prop-rows">
+              {prop.plans.map(p => (
+                <li key={p.id} className="bud-prop-row">
+                  <span className="nm">{p.name}</span>
+                  <span className="n" aria-label={`${usd(p.monthly)} a month`}>{usd(p.monthly)}</span>
+                  <span className="n" aria-label={`${usd(p.sinceStart)} since ${fyStart}`}>{usd(p.sinceStart)}</span>
+                  <span className="n" aria-label={`${usd(p.toCome)} to come through June 30`}>{usd(p.toCome)}</span>
+                  {canEdit && <ApproveMenu name={p.name} fyStart={fyStart.replace(/, \d{4}$/, '')} onChoose={(decision) => approve(p.id, decision)} />}
+                </li>
+              ))}
+            </ul>
+            <div className="bud-prop-row bud-prop-total">
+              <span className="nm">{prop.count} proposed</span>
+              <span className="n">{usd(prop.monthly)}</span>
+              <span className="n">{usd(prop.sinceStart)}</span>
+              <span className="n">{usd(prop.toCome)}</span>
+              {canEdit && <span />}
+            </div>
+            <p className="bud-hint">If approved from {fyStart}: {usd(prop.fromStart)} this year. From today: {usd(prop.fromToday)} through June 30.</p>
           </SurfaceCard>
-          <div className="bud-renews">
-            {prop.plans.map(p => (
-              <SurfaceCard key={p.id} className="bud-renew" role="group" aria-label={`${p.name} proposal`}>
-                <span className="when bud-when-proposed">Proposed</span>
-                <div><b>{p.name}: {usd(p.monthly)} a month</b>
-                  <small>{usd(p.sinceStart)} charged since {fyStart}; {usd(p.toCome)} more through June 30.</small></div>
-                {canEdit && (
-                  <div className="acts">
-                    <button type="button" className="bud-btn bud-btn-pri bud-btn-sm" onClick={() => approve(p.id, 'from_year_start')}>Approve from {fyStart.replace(/, \d{4}$/, '')}</button>
-                    <button type="button" className="bud-btn bud-btn-sm" onClick={() => approve(p.id, 'from_today')}>Approve from today</button>
-                    <button type="button" className="bud-btn bud-btn-sm" onClick={() => approve(p.id, 'decline')}>Decline</button>
-                  </div>
-                )}
-              </SurfaceCard>
-            ))}
-          </div>
         </section>
       )}
 
@@ -159,8 +161,9 @@ export default function BudgetSubscriptions({ year, canEdit, onWrite }) {
         searchValues={(r) => [r.raw.name, r.raw.vendor, r.raw.notes]}
         ungroupable={new Set(['amount', 'next', 'perYear', 'due', 'anchor', 'start', 'end', 'notes', 'plan'])}
         defaultSort={{ key: '@name', dir: 'asc' }} defaultFilterKey="billing"
-        saveLayout={(layout) => onWrite.call('sheet_layout', { layout, sheet: 'subscriptions' })}
-        saveCells={async () => {}}   // a subscription row keeps no per-cell formatting; column formats live in the layout
+        // SUB-CELLS-1: a cell's format and a + Column value live on the row; a save refreshes the year.
+        saveLayout={async (layout) => { await onWrite.call('sheet_layout', { layout, sheet: 'subscriptions' }); onWrite.changed() }}
+        saveCells={async (updates) => { await onWrite.call('sheet_cells', { updates, sheet: 'subscriptions' }); onWrite.changed() }}
         canEditColumn={(col) => !CALCULATED.has(col.key) && !col.staff}
         canClear={(col) => ['plan', 'vendor', 'notes', 'end', 'cat', 'pay'].includes(col.key)}
         draftOf={(r, col) => (col.key === '@name' ? r.raw.name : r.cells[col.key])}
@@ -195,3 +198,32 @@ function normalize(s) {
   return { ...s, amount: s.amount == null ? null : Number(s.amount), anchor_date: d10(s.anchor_date), start_date: d10(s.start_date), end_date: d10(s.end_date),
     renewal_kept_for: d10(s.renewal_kept_for), renewal_remind_after: d10(s.renewal_remind_after) }
 }
+
+/** One proposal's decision, behind a small menu so the list stays a list. */
+function ApproveMenu({ name, fyStart, onChoose }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+  useEffect(() => {
+    if (!open) return undefined
+    const away = (e) => { if (!ref.current?.contains(e.target)) setOpen(false) }
+    const esc = (e) => { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('mousedown', away); document.addEventListener('keydown', esc)
+    ref.current?.querySelector('[role="menuitem"]')?.focus()
+    return () => { document.removeEventListener('mousedown', away); document.removeEventListener('keydown', esc) }
+  }, [open])
+  const pick = (d) => { setOpen(false); onChoose(d) }
+  return (
+    <span className="bud-approve" ref={ref}>
+      <button type="button" className="bud-btn bud-btn-sm" aria-haspopup="menu" aria-expanded={open} aria-label={`Approve ${name}`} onClick={() => setOpen(o => !o)}>Approve ▾</button>
+      {open && (
+        <div className="fs-menu bud-approve-menu" role="menu" aria-label={`Decide ${name}`}>
+          <button type="button" role="menuitem" className="fs-menu-item" onClick={() => pick('from_year_start')}>Approve from {fyStart}</button>
+          <button type="button" role="menuitem" className="fs-menu-item" onClick={() => pick('from_today')}>Approve from today</button>
+          <div className="fs-menu-sep" role="separator" />
+          <button type="button" role="menuitem" className="fs-menu-item fs-menu-danger" onClick={() => pick('decline')}>Decline</button>
+        </div>
+      )}
+    </span>
+  )
+}
+

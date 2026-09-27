@@ -103,13 +103,35 @@ test('the Owner’s subscriptions arrive proposed, cost what the document says, 
   assert.equal(y.subscriptions.find(s => s.name === 'Resend').status, 'Declined')
 })
 
-test('the screen shows proposals to every viewer and the decision to the owner only', () => {
+test('the screen lists proposals compactly for every viewer, with one Approve menu per row for the owner', () => {
+  // SUB-APPROVAL-2 (Owner, 2026-09-27): one compact list replaced the four slips.
   const subs = read('src/components/budget/BudgetSubscriptions.jsx')
-  assert.match(subs, /Awaiting Approval<\/b> · Not counted against the budget until approved/)
-  assert.match(subs, /\{canEdit && \(\s*<div className="acts">[\s\S]{0,200}approve\(p\.id, 'from_year_start'\)/, 'the decision is the owner\u2019s')
-  assert.match(subs, /approve\(p\.id, 'from_today'\)/)
-  assert.match(subs, /approve\(p\.id, 'decline'\)/)
+  assert.match(subs, /Awaiting Approval<\/b> · \{prop\.count\} proposed · \{usd\(prop\.monthly\)\} a month · Not counted against the budget until approved/)
+  assert.match(subs, /\{canEdit && <ApproveMenu name=\{p\.name\}/, 'the decision is the owner\u2019s')
+  for (const d of ['from_year_start', 'from_today', 'decline']) assert.match(subs, new RegExp(`pick\\('${d}'\\)`), d)
+  assert.match(subs, /role="menu" aria-label=\{`Decide \$\{name\}`\}/)
+  assert.doesNotMatch(subs, /bud-when-proposed/, 'no slips')
   assert.match(read('src/components/budget/BudgetSummary.jsx'), /awaiting approval \(\{usd\(year\.proposals\.monthly\)\} a month\) and not counted in these figures/)
   assert.match(read('api/budget-staff.js'), /subscription_approve: \['action', 'id', 'decision'\]/)
   assert.match(read('src/components/budget/ProgramBudgetView.jsx'), /canEdit \|\| year\.proposals\?\.count \? \[\{ value: 'subscriptions'/, 'leadership can see proposals before the year starts')
+})
+
+// SUB-CELLS-1 (Owner, 2026-09-27: "why are my changes in the sheet not sticking?").
+test('a subscription keeps its cells\u2019 formats once 20261011000000 is applied, and says why before it', async () => {
+  const { pg, db, owner } = await world()
+  const s = await E.createSubscription(db, owner, { fields: { name: 'Vercel Pro', billing: 'monthly', amount: 20, anchor_date: '2026-09-01', start_date: '2026-06-01' }, today: TODAY })
+  await assert.rejects(E.saveSheetCells(db, { sheet: 'subscriptions', updates: [{ rowId: s.id, key: 'anchor', format: { date: 'short' } }] }), /20261011000000_budget_subscription_cells/)
+  const sql = runnable(read('supabase/migrations/20261011000000_budget_subscription_cells.sql'))
+  await pg.exec(sql); await pg.exec(sql)
+  await E.saveSheetCells(db, { sheet: 'subscriptions', updates: [{ rowId: s.id, key: 'anchor', format: { date: 'short' } }, { rowId: s.id, key: 'start', format: { date: 'short' } }] })
+  await E.saveSheetCells(db, { sheet: 'subscriptions', updates: [{ rowId: s.id, key: 's_owner001', value: 'Jester' }] })
+  const y = await E.loadYear(db, { fy: 2027, viewer: 'owner', today: TODAY })
+  const v = y.subscriptions.find(x => x.id === s.id)
+  assert.deepEqual(v.cell_formats, { anchor: { date: 'short' }, start: { date: 'short' } }, 'a later save merges, never wipes')
+  assert.deepEqual(v.staff_values, { s_owner001: 'Jester' })
+  // The Sheet's own rows keep theirs too.
+  await E.startYear(db, owner, { fy: 2027, total: 40000, today: TODAY })
+  const e = await E.createExpense(db, owner, { fields: { expense_date: '2026-09-03', item: 'Paper', amount: 5 }, today: TODAY })
+  await E.saveSheetCells(db, { updates: [{ rowId: e.id, key: '@date', format: { date: 'long' } }] })
+  assert.deepEqual((await E.loadYear(db, { fy: 2027, viewer: 'owner', today: TODAY })).expenses.find(x => x.id === e.id).cell_formats, { '@date': { date: 'long' } })
 })

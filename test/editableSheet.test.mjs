@@ -166,3 +166,15 @@ test('a row menu offers row actions only, and the menu keeps the rest of the gri
   const src = readFileSync(new URL('../src/components/sheet/EditableSheet.jsx', import.meta.url), 'utf8')
   assert.match(src, /if \(col && ctx\.kind !== 'row'\)/)
 })
+
+// SHEET-DRAG-1 (Owner, 2026-09-27: "drag to highlight multiple cells").
+test('a press and drag across cells or row numbers selects the range', () => {
+  const src = readFileSync(new URL('../src/components/sheet/EditableSheet.jsx', import.meta.url), 'utf8')
+  assert.match(src, /onMouseEnter=\{\(\) => \{ if \(dragRef\.current\?\.kind === 'cell'\) setSel/)
+  assert.match(src, /onMouseEnter=\{\(\) => \{ if \(dragRef\.current\?\.kind === 'row'\) selectRows\(r, true\) \}\}/)
+  assert.match(src, /document\.addEventListener\('mouseup', end\)/, 'letting go anywhere ends the drag')
+  const css = readFileSync(new URL('../src/components/forms/forms.css', import.meta.url), 'utf8')
+  assert.match(css, /\.fs-frame\.fs-dragging, \.fs-frame\.fs-dragging \* \{ user-select: none;/)
+  assert.match(readFileSync(new URL('../src/components/budget/BudgetSubscriptions.jsx', import.meta.url), 'utf8'), /saveCells=\{async \(updates\) => \{ await onWrite\.call\('sheet_cells', \{ updates, sheet: 'subscriptions' \}\); onWrite\.changed\(\) \}\}/, 'the Subscriptions sheet saves its cells')
+})
+

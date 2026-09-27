@@ -114,8 +114,10 @@ export default function BudgetSheet({ year, canEdit, onWrite }) {
       editable={editable}
       valueOf={valueOf} shownOf={shownOf} searchValues={searchValues} ungroupable={ungroupable}
       defaultSort={{ key: '@date', dir: 'asc' }} defaultFilterKey="cat"
-      saveLayout={(layout) => onWrite.call('sheet_layout', { layout })}
-      saveCells={(updates) => onWrite.call('sheet_cells', { updates })}
+      // A saved format or layout refreshes the page's copy of the year, so leaving the tab and coming
+      // back shows it (SUB-CELLS-1: the owner's formats seemed not to stick).
+      saveLayout={async (layout) => { await onWrite.call('sheet_layout', { layout }); onWrite.changed() }}
+      saveCells={async (updates) => { await onWrite.call('sheet_cells', { updates }); onWrite.changed() }}
       canEditColumn={(col) => !NOT_EDITABLE.has(col.key)}
       canClear={(col) => CLEARABLE.has(col.key)}
       draftOf={draftOf} commitEdit={commitEdit}
