@@ -111,13 +111,14 @@ test('before the update, a zero quantity is refused with a sentence that names i
     (e) => e.code === 'needs_update' && e.status === 409 && /20261012000000_budget_expense_zero_quantity\.sql/.test(e.message))
 })
 
-test('the migration only loosens the check, and the SQL gate lists it as unapplied', () => {
+test('the migration only loosens the check, and the SQL gate records it as applied', () => {
   const sql = read('supabase/migrations/20261012000000_budget_expense_zero_quantity.sql')
   assert.match(sql, /OWNER-GATED/)
   assert.match(sql, /DROP CONSTRAINT IF EXISTS chk_budget_expenses_quantity/)
   assert.match(sql, /CHECK \(quantity >= 0\)/)
   assert.doesNotMatch(sql.replace(/--.*$/gm, ''), /DELETE|UPDATE public|DROP TABLE|DROP COLUMN/i)
-  assert.match(read('docs/security/OWNER_SQL_GATE.md'), /\| 20261012000000_budget_expense_zero_quantity\.sql \| SHEET-LIVE-1[^|]*\| \*\*UNAPPLIED\.\*\*/)
+  // Applied by the Owner on 2026-09-27 (the ledger row moved from UNAPPLIED in the same change).
+  assert.match(read('docs/security/OWNER_SQL_GATE.md'), /\| 20261012000000_budget_expense_zero_quantity\.sql \| SHEET-LIVE-1[^|]*\| \*\*APPLIED 2026-09-27 by the Owner\.\*\*/)
 })
 
 // ── The grid (source and a server render) ───────────────────────────────────────
