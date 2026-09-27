@@ -17,7 +17,9 @@ test('the Catalog list gives its action column one width, so Status lines up', (
 })
 
 test('an empty Sheet renders the grid, not a card', () => {
-  const src = read('src/components/forms/FormSheet.jsx')
+  // BUDGET-SHEET-0a (2026-09-27) moved the grid into src/components/sheet/EditableSheet.jsx and left
+  // FormSheet.jsx as its forms adapter, so the Sheet's source is both files. Assertions unchanged.
+  const src = read('src/components/forms/FormSheet.jsx') + read('src/components/sheet/EditableSheet.jsx')
   assert.doesNotMatch(src, /if \(!data\.rows\.length\) return/)
   assert.match(src, /const none = !data\.rows\.length/)
   assert.match(src, /none && BLANK_ROWS\.map/)

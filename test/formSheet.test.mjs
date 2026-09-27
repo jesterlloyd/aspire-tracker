@@ -289,7 +289,9 @@ test('every Sheet ink reads on every fill and on white', () => {
 })
 
 test('the Sheet screen has the Smartsheet toolbar and never presents a correction as the original', () => {
-  const src = read('src/components/forms/FormSheet.jsx')
+  // BUDGET-SHEET-0a (2026-09-27) moved the grid into src/components/sheet/EditableSheet.jsx and left
+  // FormSheet.jsx as its forms adapter, so the Sheet's source is both files. Assertions unchanged.
+  const src = read('src/components/forms/FormSheet.jsx') + read('src/components/sheet/EditableSheet.jsx')
   for (const label of ['Bold', 'Italic', 'Underline', 'Text colour', 'Fill colour', 'Wrap text', 'Clear formatting']) assert.match(src, new RegExp(`aria-label="${label}"`), label)
   assert.match(src, /Group by/); assert.match(src, /Freeze/); assert.match(src, /Column<\/button>/)
   assert.match(src, /formStaff\('sheet_correct'/)
