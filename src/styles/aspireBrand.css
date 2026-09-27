@@ -194,6 +194,11 @@
   --aspire-gilt: #C9A227;
   --aspire-gilt-deep: #8F7318;
   --aspire-gilt-hairline: rgba(201, 162, 39, 0.32);
+  /* The round gilt fastener is shared by Classic Evaluation and Student Profiles. */
+  --aspire-fastener-size: 12px;
+  --aspire-fastener-border: 1px solid var(--aspire-gilt-deep);
+  --aspire-fastener-gilt: radial-gradient(circle at 34% 28%, #fff7cc 0 10%, #e5ca61 24%, var(--aspire-gilt) 58%, var(--aspire-gilt-deep) 100%);
+  --aspire-fastener-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.62), 0 1px 2px rgba(5, 10, 43, 0.48);
   /* The die-cut index tab's own corner: it is a tab, not a card or a control, and the
      shape is part of what makes it read as one. A token so the ratchet stays honest. */
   --aspire-radius-tab: 3px;

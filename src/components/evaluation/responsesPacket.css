@@ -22,6 +22,11 @@
   min-width: 0;
 }
 
+.rp-tab-label-short,
+.rp-completion,
+.rp-classic-comparison,
+.rp-highlight-label { display: none; }
+
 /* ── The folder: a manila frame whose top band carries the instrument tabs ── */
 /* Owner, 2026-09-20: a plain frame, not a stack of paper. The tabs are file-folder tabs
    attached to the band's top edge; the selected one joins the band (same surface, no
@@ -536,4 +541,383 @@
     transition: none !important;
     animation: none !important;
   }
+}
+
+/* ── Classic: indexed evaluation booklet ───────────────────────────────── */
+/* The Classic theme uses the instruments as the booklet's right-edge index. The selected
+   tab changes the completion summary, analysis and roster through the existing packet state.
+   Modern keeps its horizontal instrument navigation in evaluationModern.css. */
+:root[data-style="classic"] .evaluation-workspace .rp-folder {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 62px;
+  grid-template-rows: auto;
+  align-items: stretch;
+  padding: 14px 0 14px 24px;
+  border-color: color-mix(in srgb, var(--color-accent-primary) 70%, #0d133d);
+  border-radius: var(--aspire-radius-card);
+  background: color-mix(in srgb, var(--color-accent-primary) 92%, #0d133d);
+  box-shadow: 0 2px 4px rgba(24, 32, 63, 0.14), 0 14px 34px rgba(24, 32, 63, 0.16);
+}
+
+/* Two Calendar-gold fasteners hold the report stock to the wider booklet spine. */
+:root[data-style="classic"] .evaluation-workspace .rp-folder::before,
+:root[data-style="classic"] .evaluation-workspace .rp-folder::after {
+  content: "";
+  position: absolute;
+  z-index: 4;
+  left: 5px;
+  width: var(--aspire-fastener-size);
+  height: var(--aspire-fastener-size);
+  border: var(--aspire-fastener-border);
+  border-radius: 50%;
+  background: var(--aspire-fastener-gilt);
+  box-shadow: var(--aspire-fastener-shadow);
+  pointer-events: none;
+}
+
+:root[data-style="classic"] .evaluation-workspace .rp-folder::before { top: 24px; }
+:root[data-style="classic"] .evaluation-workspace .rp-folder::after { bottom: 24px; }
+
+:root[data-theme="dark"][data-style="classic"] .evaluation-workspace .rp-folder {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.34), 0 14px 34px rgba(0, 0, 0, 0.42);
+}
+
+:root[data-style="classic"] .evaluation-workspace .rp-sheet {
+  z-index: 2;
+  grid-column: 1;
+  grid-row: 1;
+  margin: 0;
+  border-radius: 0;
+  background-color: var(--paper);
+  background-image: none;
+  box-shadow: -3px 0 7px rgba(5, 10, 43, 0.16);
+}
+
+:root[data-style="classic"] .evaluation-workspace .rp-tabs {
+  z-index: 1;
+  grid-column: 2;
+  grid-row: 1;
+  display: flex;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: 5px;
+  min-width: 0;
+  padding: 24px 0;
+  margin: 0;
+}
+
+:root[data-style="classic"] .evaluation-workspace .rp-tab {
+  top: 0;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 88px;
+}
+
+:root[data-style="classic"] .evaluation-workspace .rp-tab-main {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  padding: 9px 12px 34px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-left: 0;
+  border-radius: 0 var(--aspire-radius-tab) var(--aspire-radius-tab) 0;
+  background: color-mix(in srgb, var(--color-accent-primary) 82%, white 18%);
+  color: rgba(255, 255, 255, 0.82);
+  text-align: center;
+}
+
+:root[data-style="classic"] .evaluation-workspace .rp-tab-main:hover {
+  background: color-mix(in srgb, var(--color-accent-primary) 72%, white 28%);
+  color: #fff;
+}
+
+:root[data-style="classic"] .evaluation-workspace .rp-tab-main b {
+  display: grid;
+  width: 100%;
+  place-items: center;
+  color: currentColor;
+  font-family: var(--aspire-mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+}
+
+:root[data-style="classic"] .evaluation-workspace .rp-tab-label-full,
+:root[data-style="classic"] .evaluation-workspace .rp-tab-main .rp-n,
+:root[data-style="classic"] .evaluation-workspace .rp-tab-main .rp-meter { display: none; }
+:root[data-style="classic"] .evaluation-workspace .rp-tab-label-short { display: inline; }
+
+:root[data-style="classic"] .evaluation-workspace .rp-tab[data-selected="true"] {
+  z-index: 3;
+  margin-left: -5px;
+}
+
+:root[data-style="classic"] .evaluation-workspace .rp-tab[data-selected="true"] .rp-tab-main {
+  margin: 0;
+  padding-bottom: 34px;
+  border-color: var(--rule);
+  background: var(--paper);
+  color: var(--color-accent-primary);
+  box-shadow: 5px 3px 9px rgba(10, 14, 54, 0.22);
+}
+
+:root[data-style="classic"] .evaluation-workspace .rp-tab-preview {
+  top: auto;
+  right: 50%;
+  bottom: 5px;
+  width: 28px;
+  height: 28px;
+  transform: translateX(50%);
+  color: rgba(255, 255, 255, 0.76);
+}
+
+:root[data-style="classic"] .evaluation-workspace .rp-tab-preview:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+:root[data-style="classic"] .evaluation-workspace .rp-tab[data-selected="true"] .rp-tab-preview {
+  color: var(--color-accent-primary);
+}
+
+:root[data-style="classic"] .evaluation-workspace .rp-tab[data-selected="true"] .rp-tab-preview:hover {
+  background: var(--band);
+  color: var(--paper-ink);
+}
+
+:root[data-style="classic"] .evaluation-workspace .rp-sheethead {
+  border-bottom-color: var(--color-accent-primary);
+}
+
+:root[data-style="classic"] .evaluation-workspace .rp-spec:first-child .rp-v {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+:root[data-style="classic"] .evaluation-workspace .rp-completion {
+  display: block;
+  padding: 16px 0 18px;
+  border-bottom: 1px solid var(--rule);
+}
+
+:root[data-style="classic"] .evaluation-workspace .rp-completion-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
+:root[data-style="classic"] .evaluation-workspace .rp-completion-head > div {
+  display: grid;
+  gap: 2px;
+}
+
+:root[data-style="classic"] .evaluation-workspace .rp-completion-head .rp-k {
+  font-family: var(--aspire-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--paper-muted);
+}
+
+:root[data-style="classic"] .evaluation-workspace .rp-completion-head strong {
+  color: var(--paper-ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+:root[data-style="classic"] .evaluation-workspace .rp-completion-head > b {
+  color: var(--color-accent-primary);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 21px;
+  font-weight: 600;
+}
+
+:root[data-style="classic"] .evaluation-workspace .rp-completion-meter {
+  display: block;
+  overflow: hidden;
+  width: 100%;
+  height: 9px;
+  border-radius: var(--aspire-radius-pill);
+  background: var(--rule);
+}
+
+:root[data-style="classic"] .evaluation-workspace .rp-completion-meter i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--up);
+  transition: width 180ms ease;
+}
+
+:root[data-style="classic"] .evaluation-workspace .rp-completion > small {
+  display: block;
+  margin-top: 6px;
+  color: var(--paper-muted);
+  font-size: 11px;
+}
+
+/* Completion belongs above the analysis in Classic. Keep only the basis values that add
+   new information below it. */
+:root[data-style="classic"] .evaluation-workspace .rp-b[data-basis-key="assigned"],
+:root[data-style="classic"] .evaluation-workspace .rp-b[data-basis-key="completed"],
+:root[data-style="classic"] .evaluation-workspace .rp-b[data-basis-key="awaiting"] { display: none; }
+
+:root[data-style="classic"] .evaluation-workspace .rp-basis:empty { display: none; }
+
+/* Paired results use a pre-to-post dumbbell in Classic. Modern retains the existing
+   direction distribution, and single-timepoint instruments keep their band chart. */
+:root[data-style="classic"] .evaluation-workspace .rp-sub[data-paired="1"] {
+  grid-template-columns: 190px minmax(260px, 1fr) 86px;
+}
+
+:root[data-style="classic"] .evaluation-workspace .rp-classic-comparison {
+  display: block;
+  min-width: 0;
+}
+
+:root[data-style="classic"] .evaluation-workspace .rp-highlight-label { display: inline; }
+
+:root[data-style="classic"] .evaluation-workspace .rp-legacy-distribution { display: none; }
+
+:root[data-style="classic"] .evaluation-workspace .rp-comparison-track {
+  position: relative;
+  height: 28px;
+  margin: 0 8px;
+  background:
+    linear-gradient(90deg,
+      transparent 0 calc(33.333% - .5px), var(--rule) calc(33.333% - .5px) calc(33.333% + .5px),
+      transparent calc(33.333% + .5px) calc(66.666% - .5px), var(--rule) calc(66.666% - .5px) calc(66.666% + .5px),
+      transparent calc(66.666% + .5px));
+}
+
+:root[data-style="classic"] .evaluation-workspace .rp-comparison-track::before {
+  content: "";
+  position: absolute;
+  top: 13px;
+  right: 0;
+  left: 0;
+  height: 1px;
+  background: var(--rule);
+}
+
+:root[data-style="classic"] .evaluation-workspace .rp-comparison-connector {
+  position: absolute;
+  z-index: 1;
+  top: 11px;
+  height: 5px;
+  border-radius: var(--aspire-radius-pill);
+  background: color-mix(in srgb, var(--up) 34%, transparent);
+}
+
+:root[data-style="classic"] .evaluation-workspace .rp-comparison-dot {
+  position: absolute;
+  z-index: 2;
+  top: 6px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  transform: translateX(-50%);
+}
+
+:root[data-style="classic"] .evaluation-workspace .rp-comparison-dot-pre {
+  border: 3px solid var(--same);
+  background: var(--paper);
+}
+
+:root[data-style="classic"] .evaluation-workspace .rp-comparison-dot-post {
+  border: 3px solid var(--paper);
+  background: var(--up);
+  box-shadow: 0 0 0 2px var(--up);
+}
+
+:root[data-style="classic"] .evaluation-workspace .rp-comparison-values {
+  position: relative;
+  height: 14px;
+  margin-top: 2px;
+  color: var(--paper-muted);
+  font-family: var(--aspire-mono);
+  font-size: 9.5px;
+}
+
+:root[data-style="classic"] .evaluation-workspace .rp-comparison-values span {
+  position: absolute;
+  white-space: nowrap;
+}
+
+:root[data-style="classic"] .evaluation-workspace .rp-comparison-value-pre { transform: translateX(calc(-100% - 5px)); }
+:root[data-style="classic"] .evaluation-workspace .rp-comparison-value-post { transform: translateX(5px); }
+
+:root[data-style="classic"] .evaluation-workspace .rp-classic-comparison .rp-counts {
+  margin-top: 6px;
+  gap: 11px;
+  font-size: 10.5px;
+}
+
+:root[data-style="classic"] .evaluation-workspace .rp-classic-comparison .rp-counts b {
+  color: var(--paper-ink);
+  font-weight: 600;
+}
+
+:root[data-style="classic"] .evaluation-workspace .rp-means-values,
+:root[data-style="classic"] .evaluation-workspace .rp-net { display: none; }
+
+:root[data-style="classic"] .evaluation-workspace .rp-sub[data-highlight="1"] {
+  margin-inline: -10px;
+  padding-inline: 10px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--up) 9%, transparent), transparent 72%);
+  box-shadow: inset 3px 0 var(--up);
+}
+
+@media (max-width: 880px) {
+  :root[data-style="classic"] .evaluation-workspace .rp-sub[data-paired="1"] {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 680px) {
+  :root[data-style="classic"] .evaluation-workspace .rp-folder {
+    display: flex;
+    flex-direction: column;
+    padding: 9px;
+  }
+
+  :root[data-style="classic"] .evaluation-workspace .rp-tabs {
+    order: 0;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 4px;
+    width: 100%;
+    padding: 0 0 7px;
+  }
+
+  :root[data-style="classic"] .evaluation-workspace .rp-sheet { order: 1; }
+  :root[data-style="classic"] .evaluation-workspace .rp-tab { min-height: 44px; }
+
+  :root[data-style="classic"] .evaluation-workspace .rp-tab-main {
+    min-height: 44px;
+    padding: 7px 5px;
+    border: 0;
+    border-radius: var(--aspire-radius-tab);
+  }
+
+  :root[data-style="classic"] .evaluation-workspace .rp-tab-main b {
+    font-size: 8.5px;
+    line-height: 1.15;
+    writing-mode: horizontal-tb;
+    transform: none;
+  }
+
+  :root[data-style="classic"] .evaluation-workspace .rp-tab[data-selected="true"] { margin-left: 0; }
+  :root[data-style="classic"] .evaluation-workspace .rp-tab[data-selected="true"] .rp-tab-main { padding-bottom: 7px; }
+  :root[data-style="classic"] .evaluation-workspace .rp-tab-preview { display: none; }
 }

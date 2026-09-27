@@ -1,10 +1,11 @@
 // src/components/evaluation/ResponsesPacket.jsx
 //
-// RESPONSES-PACKET-1 (2026-09-19): Evaluation > Responses as a printed results packet.
-// Two pieces live here: the instrument file tabs and the gridded analysis sheet. The
-// roster below them is the shared DataSheet, and the bubble sheet a row opens into is
-// BubbleSheet.jsx. Every number these components print comes from
-// src/lib/evaluation/responsesPacketModel.js; nothing is computed in JSX.
+// RESPONSES-PACKET-1 (2026-09-19): Evaluation > Responses as a results packet.
+// The Modern theme uses horizontal instrument navigation. The Classic theme presents the
+// same controls as a booklet's right-edge index and replaces graph paper with report stock.
+// The roster below is the shared DataSheet, and the bubble sheet a row opens into is
+// BubbleSheet.jsx. Source values come from src/lib/evaluation/responsesPacketModel.js;
+// this component derives only display percentages and chart positions.
 //
 // The sheet states what the numbers rest on before it states the finding: the specimen
 // block names the instrument, its timepoints and the cohort; the basis line gives the
@@ -24,22 +25,50 @@ const signedInt = v => (v == null ? '–' : `${v >= 0 ? '+' : ''}${v}`)
 
 // ── Instrument tabs ───────────────────────────────────────────────────────────
 
-// A tab is the sheet's own paper (Owner, 2026-09-20): the selected one is paper-coloured
-// and joins the sheet's top edge with no seam, so pressing it means "I am looking at this
-// paper". The others sit behind in the folder's manila. The square-arrow at a tab's top
-// right opens a sample of that instrument, the same control Review & Release uses.
+const CLASSIC_TAB_LABELS = Object.freeze({
+  casey_fink_readiness_2024: 'Casey-Fink',
+  preceptor_progress: 'Preceptor',
+  student_preceptor_eval: 'Unit + P',
+  post_rotation_evaluation: 'ASPIRE',
+})
+
+function handleTabKeyDown(event, slug, tabs, onSelect) {
+  const index = tabs.findIndex(tab => tab.slug === slug)
+  if (index < 0) return
+  let next = null
+  if (event.key === 'Home') next = 0
+  if (event.key === 'End') next = tabs.length - 1
+  if (event.key === 'ArrowRight' || event.key === 'ArrowDown') next = (index + 1) % tabs.length
+  if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') next = (index - 1 + tabs.length) % tabs.length
+  if (next == null) return
+  event.preventDefault()
+  onSelect(tabs[next].slug)
+  event.currentTarget.closest('[role="group"]')
+    ?.querySelector(`[data-instrument-tab="${tabs[next].slug}"]`)
+    ?.focus()
+}
+
+// The same tab state powers two presentations. Modern keeps the horizontal instrument
+// selector. Classic uses short labels on the booklet's right edge. The square-arrow opens
+// the same read-only sample Review & Release uses.
 export function InstrumentTabs({ tabs, selected, onSelect, onPreview }) {
   return (
-    <div className="rp-tabs" role="group" aria-label="Instrument">
+    <div className="rp-tabs" role="group" aria-label="Evaluation instruments">
       {tabs.map(tab => (
         <div key={tab.slug} className="rp-tab" data-selected={tab.slug === selected}>
           <button
             type="button"
             className="rp-tab-main"
+            data-instrument-tab={tab.slug}
+            aria-label={tab.name}
             aria-pressed={tab.slug === selected}
             onClick={() => onSelect(tab.slug)}
+            onKeyDown={event => handleTabKeyDown(event, tab.slug, tabs, onSelect)}
           >
-            <b>{tab.name}</b>
+            <b>
+              <span className="rp-tab-label-full">{tab.name}</span>
+              <span className="rp-tab-label-short">{CLASSIC_TAB_LABELS[tab.slug] || tab.name}</span>
+            </b>
             <span className="rp-n">{tab.completed} of {tab.assigned} · {tab.pct}%</span>
             <span className="rp-meter" aria-hidden="true"><i style={{ width: `${tab.pct}%` }} /></span>
           </button>
@@ -82,15 +111,52 @@ function Segment({ kind, count, total, label }) {
   )
 }
 
-function SubscaleRow({ s, paired, labels }) {
+function ComparisonPlot({ s, scaleMax, labels }) {
+  const position = value => {
+    if (value == null || !Number.isFinite(value) || scaleMax <= 1) return 0
+    return Math.max(0, Math.min(100, ((value - 1) / (scaleMax - 1)) * 100))
+  }
+  const pre = position(s.preMean)
+  const post = position(s.postMean)
+  const left = Math.min(pre, post)
+  const width = Math.abs(post - pre)
+  return (
+    <div
+      className="rp-classic-comparison"
+      role="img"
+      aria-label={`${s.label}: ${fmt2(s.preMean)} before, ${fmt2(s.postMean)} after, ${signed(s.delta)} change. ${s.up} ${labels.up}, ${s.same} ${labels.same}, ${s.down} ${labels.down}.`}
+    >
+      <div className="rp-comparison-track" aria-hidden="true">
+        <i className="rp-comparison-connector" style={{ left: `${left}%`, width: `${width}%` }} />
+        <i className="rp-comparison-dot rp-comparison-dot-pre" style={{ left: `${pre}%` }} />
+        <i className="rp-comparison-dot rp-comparison-dot-post" style={{ left: `${post}%` }} />
+      </div>
+      <div className="rp-comparison-values" aria-hidden="true">
+        <span className="rp-comparison-value-pre" style={{ left: `${pre}%` }}>{fmt2(s.preMean)}</span>
+        <span className="rp-comparison-value-post" style={{ left: `${post}%` }}>{fmt2(s.postMean)}</span>
+      </div>
+      <div className="rp-counts" aria-hidden="true">
+        <span><b>{s.up}</b> higher</span>
+        <span><b>{s.same}</b> same</span>
+        <span><b>{s.down}</b> lower</span>
+      </div>
+    </div>
+  )
+}
+
+function SubscaleRow({ s, paired, labels, scaleMax, highlight = false }) {
   const hasBar = s.total > 0
   return (
-    <div className="rp-sub">
+    <div className="rp-sub" data-paired={paired ? 1 : 0} data-highlight={highlight ? 1 : 0}>
       <div className="rp-name">
         {s.label}
-        <small>{s.itemCount}-item {s.itemCount === 1 ? 'rating' : 'subscale'}</small>
+        <small>
+          {s.itemCount}-item {s.itemCount === 1 ? 'rating' : 'subscale'}
+          {highlight && <span className="rp-highlight-label"> · largest change</span>}
+        </small>
       </div>
-      <div className="rp-barwrap">
+      {paired && <ComparisonPlot s={s} scaleMax={scaleMax} labels={labels} />}
+      <div className={`rp-barwrap${paired ? ' rp-legacy-distribution' : ''}`}>
         <div className={`rp-bar${hasBar ? '' : ' rp-bar-empty'}`} role="group" aria-label={`${s.label} distribution`}>
           {hasBar && (
             <>
@@ -110,7 +176,7 @@ function SubscaleRow({ s, paired, labels }) {
       <div className="rp-means">
         {paired ? (
           <>
-            <b>{fmt2(s.preMean)}</b> → <b>{fmt2(s.postMean)}</b>
+            <span className="rp-means-values"><b>{fmt2(s.preMean)}</b> → <b>{fmt2(s.postMean)}</b></span>
             <span className="rp-delta">{signed(s.delta)}</span>
           </>
         ) : (
@@ -190,9 +256,21 @@ export function AnalysisSheet({
     ? 'The pre-to-post comparison will appear after at least one student completes both a pre-rotation and a post-rotation survey.'
     : 'The distribution will appear after the first response is submitted.'
   const showRows = hasRows && distribution.total > 0
+  const basisByKey = Object.fromEntries(basis.map(entry => [entry.key, entry.value]))
+  const assigned = basisByKey.assigned || 0
+  const completed = basisByKey.completed || 0
+  const remaining = Math.max(0, assigned - completed)
+  const completionPct = assigned > 0 ? Math.round((completed / assigned) * 100) : 0
+  const largestDelta = distribution.paired
+    ? Math.max(...distribution.subscales.map(s => Number.isFinite(s.delta) ? Math.abs(s.delta) : -Infinity))
+    : null
 
   return (
-      <section className="rp-sheet" aria-label={`${instrument.name} analysis sheet`}>
+      <section
+        className="rp-sheet"
+        id="evaluation-analysis-panel"
+        aria-label={`${instrument.name} analysis sheet`}
+      >
         <div className="rp-sheethead">
           <div className="rp-specimen">
             <div className="rp-spec"><span className="rp-k">Instrument</span><span className="rp-v">{instrument.name}</span></div>
@@ -202,9 +280,31 @@ export function AnalysisSheet({
           <div className="rp-stamp">RUN {RUN_DATE()}<br />ASPIRE INTELLIGENCE</div>
         </div>
 
+        <div className="rp-completion" aria-label="Instrument completion">
+          <div className="rp-completion-head">
+            <div>
+              <span className="rp-k">Completion</span>
+              <strong>{assigned > 0 ? `${completed} of ${assigned} completed` : 'No assignments'}</strong>
+            </div>
+            <b>{assigned > 0 ? `${completionPct}%` : '–'}</b>
+          </div>
+          <span
+            className="rp-completion-meter"
+            role="progressbar"
+            aria-label={assigned > 0 ? `${completed} of ${assigned} completed` : 'No assignments'}
+            aria-valuemin={0}
+            aria-valuemax={assigned || 1}
+            aria-valuenow={completed}
+            aria-valuetext={assigned > 0 ? `${completionPct}% complete` : 'No assignments'}
+          >
+            <i style={{ width: `${completionPct}%` }} />
+          </span>
+          <small>{assigned > 0 ? `${remaining} not completed` : 'No responses to analyze in this cohort'}</small>
+        </div>
+
         <div className="rp-basis" aria-label="Basis">
           {basis.map(b => (
-            <div key={b.key} className={`rp-b${b.tone ? ` rp-b-${b.tone}` : ''}`}>
+            <div key={b.key} className={`rp-b${b.tone ? ` rp-b-${b.tone}` : ''}`} data-basis-key={b.key}>
               <b>{b.value}</b>
               <span>{b.label}</span>
             </div>
@@ -217,7 +317,14 @@ export function AnalysisSheet({
         {!hasRows && <p className="rp-empty">No assignments for this instrument in this cohort yet.</p>}
         {hasRows && !showRows && <p className="rp-empty">{emptyFinding}</p>}
         {showRows && distribution.subscales.map(s => (
-          <SubscaleRow key={s.key} s={s} paired={distribution.paired} labels={distribution.labels} />
+          <SubscaleRow
+            key={s.key}
+            s={s}
+            paired={distribution.paired}
+            labels={distribution.labels}
+            scaleMax={instrument.scaleMax}
+            highlight={distribution.paired && Number.isFinite(s.delta) && Math.abs(s.delta) === largestDelta}
+          />
         ))}
         {showRows && <p className="rp-scale">{distribution.scaleLabel}</p>}
         {showRows && distribution.scoringNote && <p className="rp-scoring">{distribution.scoringNote}</p>}

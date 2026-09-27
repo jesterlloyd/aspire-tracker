@@ -24,9 +24,10 @@ import {
 } from '../lib/evaluation/responsesPacketModel'
 import './evaluation/evaluationModern.css'
 
-// RESPONSES-PACKET-1 (2026-09-19): Evaluation > Responses is a printed results packet.
-// Four instrument file tabs sit on a gridded analysis sheet (ResponsesPacket.jsx), a
-// continuous-feed roster lists individual responses (the shared DataSheet, the first build
+// RESPONSES-PACKET-1 (2026-09-19): Evaluation > Responses is a results packet.
+// Modern keeps horizontal instrument navigation. Classic uses a right-edge booklet index
+// with the selected instrument's completion and analysis on the page. A continuous-feed
+// roster lists individual responses (the shared DataSheet, the first build
 // of the table canon), and each row opens into a bubble sheet of that person's answers
 // (BubbleSheet.jsx). Every number comes from src/lib/evaluation/responsesPacketModel.js.
 //
@@ -539,8 +540,8 @@ export default function EvaluationTab({ cohortId, cohortLabel = '' }) {
 
           {!loading && !error && (
             <div className="rp-packet">
-              {/* The folder: a manila frame around the sheet whose top edge carries the four
-                  instrument tabs. The selected tab joins the frame; nothing overlaps the page. */}
+              {/* One packet state, two presentations: Modern keeps horizontal navigation;
+                  Classic places the four instruments on the booklet's right edge. */}
               <div className="rp-folder">
                 <InstrumentTabs tabs={instrumentTabs} selected={activeInstrumentFilter} onSelect={selectInstrument} onPreview={previewInstrument} />
                 <AnalysisSheet

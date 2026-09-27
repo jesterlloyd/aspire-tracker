@@ -18,6 +18,7 @@ const read = (p) => readFileSync(join(root, p), 'utf8')
 
 const panel = read('src/components/StudentSidePanel.jsx')
 const css = read('src/components/student/studentChart.css')
+const brand = read('src/styles/aspireBrand.css')
 
 test('Modern appearance removes the binder chrome and uses the Contacts-style surface', () => {
   assert.match(css, /\[data-style="modern"\] div\.sc-binder:is\(\*\) \{[\s\S]*?padding: 0;[\s\S]*?border-radius: var\(--aspire-radius-card\);/)
@@ -46,6 +47,8 @@ test('BINDER 1: the binder is black leather with five rings, and the rings are d
   assert.match(panel, /className="sc-binder material-leather-black material-forestack material-forestack-right"/)
   assert.equal((panel.match(/className="sc-ring"/g) || []).length, 5)
   assert.match(panel, /className="sc-rings" aria-hidden="true"/)
+  assert.match(brand, /--aspire-fastener-size: 12px;[\s\S]*?--aspire-fastener-gilt: radial-gradient/)
+  assert.match(css, /\.sc-ring \{[\s\S]*?height: var\(--aspire-fastener-size\);[\s\S]*?border: var\(--aspire-fastener-border\);[\s\S]*?background: var\(--aspire-fastener-gilt\);[\s\S]*?box-shadow: var\(--aspire-fastener-shadow\);/)
 })
 
 test('BINDER 2: the leather is a material, defined once, beside the two books\' cognac', () => {
