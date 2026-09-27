@@ -270,7 +270,7 @@ export default function PortalApp() {
   const apMessagesEnabled = isAcademicPartner && apMessagingCapable
   const naMessagesEnabled = isNursingAcademic && naMessagingCapable
   const naFeedbackEnabled = isNursingAcademic && naFeedbackCapable
-  // PROGRAM-BUDGET (2026-09-27): the Program Budgets tab shows only when the server says this
+  // PROGRAM-BUDGET (2026-09-27): the Program Budget tab shows only when the server says this
   // grant carries budget_access (or the viewer is Owner/Admin previewing). Fail-closed.
   const [naBudgetEnabled, setNaBudgetEnabled] = useState(false)
   useEffect(() => {

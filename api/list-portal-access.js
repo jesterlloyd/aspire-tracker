@@ -175,7 +175,7 @@ export default async function handler(req, res) {
       .order('granted_at', { ascending: false })
       .limit(2000)
     if (gErr) { console.log('[list-portal-access] grant read failed', { errorCode: gErr.code, request_id: requestId }); return res.status(500).json({ error: 'internal_error' }) }
-    // PROGRAM-BUDGET: which Nursing Education & Leadership grants carry the Program Budgets tab.
+    // PROGRAM-BUDGET: which Nursing Education & Leadership grants carry the Program Budget tab.
     // A separate read, so the directory keeps working before 20261009000000 adds the column.
     const budgetByGrant = new Map()
     {

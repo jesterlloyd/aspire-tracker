@@ -132,7 +132,7 @@ test('the NA portal mounts capability-gated Messages: nav tab, route space, work
   assert.match(app, /const naFeedbackEnabled = isNursingAcademic && naFeedbackCapable/)
   assert.match(app, /\/portal\/academics\/messages/)
   const chrome = read('src/portal/na/NursingAcademicsChrome.jsx')
-  // PROGRAM-BUDGET A3 (2026-09-27): Program Budgets joins before Messages, each on its own server capability.
+  // PROGRAM-BUDGET A3 (2026-09-27): Program Budget joins before Messages, each on its own server capability.
   assert.match(chrome, /\.\.\.\(budgetEnabled \? \[BUDGET_SECTION\] : \[\]\), \.\.\.\(messagesEnabled \? \[MESSAGES_SECTION\] : \[\]\)/)
   assert.match(chrome, /ptl-nav-badge/)
   const portal = read('src/portal/na/NursingAcademicsPortal.jsx')

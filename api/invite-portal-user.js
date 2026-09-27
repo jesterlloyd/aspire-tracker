@@ -48,7 +48,7 @@ import { portalInvitationEmail } from '../lib/server/email/portalInvitation.js'
 // same way: every residency cohort is in scope by the role, so no scope payload.
 const PORTAL_ROLES = ['student', 'unit_leader', 'academic_partner', 'nursing_academic', 'talent_acquisition']
 const CONTACTS_ACCESS_LEVELS = ['view', 'manage']
-// PROGRAM-BUDGET (2026-09-27): the Program Budgets tab, a read-only capability on a
+// PROGRAM-BUDGET (2026-09-27): the Program Budget tab, a read-only capability on a
 // nursing_academic grant. Only the Owner may share the budget; a request that omits the field
 // leaves the grant's value as it is.
 const BUDGET_ACCESS_LEVELS = ['none', 'view']
@@ -234,7 +234,7 @@ export default async function handler(req, res) {
 
   const budgetAccess = body.budget_access == null ? null : str(body.budget_access)
   if (budgetAccess != null && (!BUDGET_ACCESS_LEVELS.includes(budgetAccess) || (portalRole !== 'nursing_academic' && budgetAccess !== 'none'))) {
-    return res.status(400).json({ error: 'invalid_request', field: 'budget_access', message: 'Program Budgets access is only available to Nursing Education & Leadership.' })
+    return res.status(400).json({ error: 'invalid_request', field: 'budget_access', message: 'Program Budget access is only available to Nursing Education & Leadership.' })
   }
   if (budgetAccess != null && !auth.isOwner) {
     return res.status(403).json({ error: 'forbidden', field: 'budget_access', message: 'Only the Owner may share the Program Budget.' })
@@ -468,7 +468,7 @@ export default async function handler(req, res) {
         console.log('[invite-portal-user] contacts access update failed', { errorCode: accessErr.code, request_id: requestId })
         return res.status(500).json({ error: 'internal_error', message: 'Portal access was granted as view only, but the Contacts permission could not be saved.' })
       }
-      // Program Budgets: the column exists once 20261009000000 is applied. Before that, 'none'
+      // Program Budget: the column exists once 20261009000000 is applied. Before that, 'none'
       // is already true and 'view' says what is missing. The column defaults to none, so a
       // failed update cannot widen access.
       if (budgetAccess != null) {
@@ -481,8 +481,8 @@ export default async function handler(req, res) {
           return res.status(budgetErr.code === '42703' ? 409 : 500).json({
             error: budgetErr.code === '42703' ? 'budget_not_enabled' : 'internal_error',
             message: budgetErr.code === '42703'
-              ? 'Portal access was saved, but Program Budgets needs its database update (20261009000000) before it can be shared.'
-              : 'Portal access was saved, but the Program Budgets permission could not be.',
+              ? 'Portal access was saved, but Program Budget needs its database update (20261009000000) before it can be shared.'
+              : 'Portal access was saved, but the Program Budget permission could not be.',
           })
         }
       }

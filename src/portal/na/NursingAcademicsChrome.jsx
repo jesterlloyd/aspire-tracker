@@ -25,7 +25,7 @@ const SECTIONS = [
 // NA-PORTAL-UTILITIES-1: Messages joins the row only when the server capability
 // reports it enabled (fail-closed before the Owner SQL gate).
 const MESSAGES_SECTION = { key: 'messages', label: NAV_LABELS.messages, Icon: NAV_ICONS.messages }
-// PROGRAM-BUDGET (2026-09-27): Program Budgets joins the row only for a grant the Owner shared
+// PROGRAM-BUDGET (2026-09-27): Program Budget joins the row only for a grant the Owner shared
 // the budget with (the server's budget_access), read-only.
 const BUDGET_SECTION = { key: 'budget', label: NAV_LABELS.programBudgets, Icon: NAV_ICONS.programBudgets }
 

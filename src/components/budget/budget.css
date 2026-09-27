@@ -1,6 +1,6 @@
 /* src/components/budget/budget.css
    PROGRAM-BUDGET (A3, 2026-09-27): Settings > Program Budget and the Nursing Education &
-   Leadership portal's Program Budgets tab, one view. Reference: docs/mockups/program-budget.html.
+   Leadership portal's Program Budget tab, one view. Reference: docs/mockups/program-budget.html.
    Structure comes from the canon tokens (src/styles/aspireBrand.css); ink and surfaces from
    theme.css, so the page follows the theme. Cards are SurfaceCard; tables are DataSheet (plain)
    and the Editable sheet (forms.css). No literal radii. */

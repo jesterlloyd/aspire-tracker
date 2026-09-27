@@ -38,7 +38,7 @@ export const NAV_LABELS = Object.freeze({
   capacity: 'Capacity',
   communityBenefit: 'Community Benefit',
   contacts: 'Contacts',
-  programBudgets: 'Program Budgets',
+  programBudgets: 'Program Budget',   // singular (Owner, 2026-09-27): one budget today, ASPIRE's
 })
 
 export const NAV_ICONS = Object.freeze({

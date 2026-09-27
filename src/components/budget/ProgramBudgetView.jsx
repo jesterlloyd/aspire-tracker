@@ -2,7 +2,7 @@
 //
 // PROGRAM-BUDGET A3/A5 (2026-09-27): the Program Budget, one view in two places, the way
 // Community Benefit is: Settings > Program Budget (source STAFF_SOURCE: the Owner edits, an
-// Admin reads) and the Nursing Education & Leadership portal's Program Budgets tab (source
+// Admin reads) and the Nursing Education & Leadership portal's Program Budget tab (source
 // PORTAL_SOURCE: read-only, no write path). What a viewer may see is decided by the server
 // (lib/server/budget/engine.js builds the reader payload without the owner-only fields); this
 // file only lays it out. Reference: docs/mockups/program-budget.html.

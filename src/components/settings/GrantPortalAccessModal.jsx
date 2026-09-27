@@ -341,7 +341,7 @@ export default function GrantPortalAccessModal({ onClose, onGranted, initial = n
   const scopeSummary =
     role === 'student' ? (student ? `${studentName(student)}${student.school ? ` · ${student.school}` : ''}` : 'No student selected') :
     role === 'unit_leader' ? (unitKeys.join(', ') || 'No units selected') :
-    role === 'nursing_academic' ? `${contactsAccess === 'manage' ? 'ASPIRE-wide · Contacts Editor' : 'ASPIRE-wide (view only)'}${isOwner && budgetAccess === 'view' ? ' · Program Budgets' : ''}` :
+    role === 'nursing_academic' ? `${contactsAccess === 'manage' ? 'ASPIRE-wide · Contacts Editor' : 'ASPIRE-wide (view only)'}${isOwner && budgetAccess === 'view' ? ' · Program Budget' : ''}` :
     role === 'talent_acquisition' ? 'All residency cohorts' :
     (schoolKeys.join(', ') || 'No schools selected')
 
@@ -450,7 +450,7 @@ export default function GrantPortalAccessModal({ onClose, onGranted, initial = n
                     <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginTop: 12, fontSize: 13, color: 'var(--text-heading)' }}>
                       <input type="checkbox" checked={budgetAccess === 'view'} onChange={e => setBudgetAccess(e.target.checked ? 'view' : 'none')} style={{ marginTop: 2 }} />
                       <span>Share the Program Budget (read-only)
-                        <span style={{ display: 'block', fontSize: 11.5, color: 'var(--text-caption)', lineHeight: 1.45 }}>Adds a Program Budgets tab with the Summary, Sheet and Subscriptions, and the category plan once you save it. Never receipts or drafts.</span>
+                        <span style={{ display: 'block', fontSize: 11.5, color: 'var(--text-caption)', lineHeight: 1.45 }}>Adds a Program Budget tab with the Summary, Sheet and Subscriptions, and the category plan once you save it. Never receipts or drafts.</span>
                       </span>
                     </label>
                   )}

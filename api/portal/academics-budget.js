@@ -1,6 +1,6 @@
 // api/portal/academics-budget.js
 //
-// PROGRAM-BUDGET Phase A (BUDGET-A2, 2026-09-27): the Program Budgets tab in the Nursing
+// PROGRAM-BUDGET Phase A (BUDGET-A2, 2026-09-27): the Program Budget tab in the Nursing
 // Education & Leadership portal. GET only, and read-only by construction: this file exposes no
 // write path and never will.
 //
@@ -18,7 +18,7 @@ import { verifyPortalNursingAcademicCaller } from '../lib/nursingAcademicScope.j
 import { getServiceDb } from '../lib/portalAuth.js'
 import * as E from '../../lib/server/budget/engine.js'
 
-/** Does this grant carry the Program Budgets tab? A missing column means not yet. */
+/** Does this grant carry the Program Budget tab? A missing column means not yet. */
 export async function grantHasBudget(db, grantId) {
   const { data, error } = await db.from('user_role_grants').select('budget_access').eq('id', grantId).maybeSingle()
   if (error) { if (E.notEnabled(error)) return false; throw error }
