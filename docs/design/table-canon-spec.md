@@ -18,6 +18,16 @@ Three questions, in order. Stop at the first yes.
 
 Tractor holes cost 76px of horizontal width and they announce a standing record. Spend them only where both conditions hold. If every table has holes, the holes stop meaning anything.
 
+### Editable sheet: the one exception
+
+A grid you type into is not a `DataSheet`. It is the **Catalog Sheet** (Catalog > Forms > Responses > Sheet): gridlines, row numbers, a formatting toolbar, Group by, Freeze, + Column, a Σ row and cell editing. It exists for records the owner keeps by hand, where spreadsheet habits matter more than reading comfort.
+
+- Use it only when the owner enters or corrects values cell by cell. Reading, sorting and exporting alone do not qualify. Those tables are `DataSheet`.
+- Do not convert an Editable sheet to a `DataSheet`, and do not add tractor holes or paired banding to it.
+- Invariants 3 (one number, one column), 5 (status is one word in a pill) and 6 (missing is an en dash) still apply inside it.
+
+Current Editable sheets: Forms responses (Catalog), Program Budget expenses.
+
 Current assignments:
 
 - **Full sheet:** Evaluation Responses roster, Interviews Focus Table View, hours logs, audit trails, export previews.
@@ -110,6 +120,8 @@ Every table in the app, with its level. Build `DataSheet` during step 1, then co
 | 6 | Placement Requests | At a Glance | **Plain sheet** | Grouped by school inside a card. Keep the expand and collapse. |
 | 7 | Student Profiles hours, documents, evaluations | Student Profiles | **Plain sheet** | Inside the chart binder. No holes, no crease. Do not touch the binder itself. |
 | 8 | Placement Capacity | At a Glance | **Inline rows** | Five service lines inside a card. Banding only, no sheet chrome. |
+| 9 | Program Budget, By category | Settings > Administration > Program Budget | **Plain sheet** | Inside a card on Summary. Build it with the component, not as a conversion. |
+| 10 | Program Budget, expenses | Program Budget > Sheet | **Editable sheet** | Reuses the Catalog Sheet. Not a `DataSheet`. |
 
 ### Not a table: Interview Recommendations
 

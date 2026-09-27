@@ -1,0 +1,822 @@
+<title>Program Budget</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Instrument+Sans:wght@500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+:root{
+  --ground:#F3F2EE; --surface:#FFFFFF; --surface-2:#F8F8F5; --ink:#18203F; --muted:#5A6079; --faint:#868BA2; --line:#E3E4EC; --line-2:#EDEDF2;
+  --navy:#1E2A6E; --navy-bar:#1E2A6E; --navy-soft:#EDF1FA; --on-navy:#FFFFFF; --top:#1E2A6E;
+  --green:#0F7A4D; --green-soft:#E1F3EA; --amber:#8F5A0A; --amber-soft:#FBEFD9; --red:#A32A32; --red-soft:#FBEAEC;
+  --teal:#0E6E78; --teal-soft:#E2F2F3; --slate:#56607A; --slate-soft:#EEF0F4;
+  --band:rgba(15,122,77,.045); --grid:#E6E7EE; --sel:#1E2A6E; --pace:#8F5A0A;
+  --display:"Instrument Sans",system-ui,sans-serif; --body:"Atkinson Hyperlegible",system-ui,sans-serif; --mono:"JetBrains Mono",ui-monospace,monospace;
+  --shadow:0 1px 2px rgba(24,32,63,.06),0 8px 24px rgba(24,32,63,.08);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  color-scheme:dark;
+  --ground:#0E111C; --surface:#171B29; --surface-2:#131725; --ink:#E9EAF2; --muted:#A0A5BE; --faint:#7B819B; --line:#2B3046; --line-2:#232839;
+  --navy:#9FB0F5; --navy-bar:#2A3780; --navy-soft:#1E2540; --on-navy:#0E111C; --top:#151C45;
+  --green:#3CCB8A; --green-soft:#15372A; --amber:#E6A544; --amber-soft:#3A2C14; --red:#F08A92; --red-soft:#3A1B1F;
+  --teal:#6FD0D9; --teal-soft:#15333A; --slate:#B3BAD0; --slate-soft:#232838;
+  --band:rgba(60,203,138,.055); --grid:#2A2F43; --sel:#9FB0F5; --pace:#E6A544;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 28px rgba(0,0,0,.35);
+}}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --ground:#0E111C; --surface:#171B29; --surface-2:#131725; --ink:#E9EAF2; --muted:#A0A5BE; --faint:#7B819B; --line:#2B3046; --line-2:#232839;
+  --navy:#9FB0F5; --navy-bar:#2A3780; --navy-soft:#1E2540; --on-navy:#0E111C; --top:#151C45;
+  --green:#3CCB8A; --green-soft:#15372A; --amber:#E6A544; --amber-soft:#3A2C14; --red:#F08A92; --red-soft:#3A1B1F;
+  --teal:#6FD0D9; --teal-soft:#15333A; --slate:#B3BAD0; --slate-soft:#232838;
+  --band:rgba(60,203,138,.055); --grid:#2A2F43; --sel:#9FB0F5; --pace:#E6A544;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 28px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{background:var(--ground)}
+body{color:var(--ink);font-family:var(--body);font-size:14px;line-height:1.5;margin:0}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--navy);outline-offset:2px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.num{font-variant-numeric:tabular-nums}
+.mono{font-family:var(--mono)}
+.dash{color:var(--faint)}
+
+/* top bar */
+.topbar{background:var(--top);color:#fff;padding-inline:20px;padding-block:11px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.brand{display:flex;gap:12px;align-items:center}
+.brand b{font-family:var(--display);font-size:19px;letter-spacing:-.005em}
+.brand .portal{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;border:1px solid rgba(255,255,255,.3);border-radius:6px;padding:3px 8px;opacity:.9}
+.tbr{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.scope{font-size:12.5px;border:1px solid rgba(255,255,255,.25);border-radius:10px;padding:6px 12px;display:flex;gap:8px;align-items:center}
+.scope .k{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;opacity:.7}
+.scope i{width:7px;height:7px;border-radius:50%;background:#3CCB8A;display:inline-block}
+.viewas{display:flex;gap:8px;align-items:center;font-size:12px}
+.viewas .lab{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;opacity:.75}
+.sw2{display:inline-flex;border:1px solid rgba(255,255,255,.25);border-radius:9px;padding:2px;gap:2px}
+.sw2 button{border:none;background:none;color:rgba(255,255,255,.8);border-radius:7px;padding:5px 10px;font-size:12.5px}
+.sw2 button[aria-pressed="true"]{background:#fff;color:#1E2A6E;font-weight:700}
+.tbtn{width:34px;height:34px;border-radius:9px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.08);color:#fff;display:grid;place-items:center}
+.tbtn svg{width:16px;height:16px}
+.who{display:flex;gap:8px;align-items:center;border:1px solid rgba(255,255,255,.25);border-radius:10px;padding:4px 10px 4px 4px;font-size:12.5px;line-height:1.15}
+.who .av{width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,.18);display:grid;place-items:center;font-family:var(--mono);font-size:10.5px;font-weight:600}
+.who small{display:block;opacity:.7;font-size:11px}
+.mockflag{font-family:var(--mono);font-size:10.5px;color:#1E2A6E;background:#FBEFD9;padding:3px 8px;border-radius:5px}
+
+main{max-width:1440px;margin:0 auto;padding-inline:20px;padding-block:18px 80px}
+
+/* settings shell */
+.settings{display:grid;grid-template-columns:240px minmax(0,1fr);gap:20px;align-items:start}
+.settings.solo{grid-template-columns:minmax(0,1fr)}
+@media (max-width:860px){.settings{grid-template-columns:1fr}}
+.rail{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 10px;display:grid;position:sticky;top:12px}
+@media (max-width:860px){.rail{position:static}}
+.rg{display:grid;gap:2px;padding-bottom:10px}
+.rg+.rg{border-top:1px solid var(--line);padding-top:12px}
+.rg .gl{font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint);padding:0 12px 8px}
+.ri{display:flex;gap:10px;align-items:center;width:100%;text-align:left;background:none;border:none;border-radius:10px;padding:8px 12px;font-size:13.5px;color:var(--ink);text-decoration:none}
+.ri:hover{background:var(--surface-2)}
+.ri svg{width:16px;height:16px;flex:none;color:var(--navy)}
+.ri[aria-current="page"]{background:var(--navy-bar);color:#fff;font-weight:700}
+.ri[aria-current="page"] svg{color:#fff}
+.ri .new{margin-left:auto;font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--teal);background:var(--teal-soft);border-radius:4px;padding:1px 5px}
+.ri[aria-current="page"] .new{background:rgba(255,255,255,.18);color:#fff}
+
+/* page header */
+.crumb{font-size:13px;color:var(--faint);display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-bottom:4px}
+.crumb a{color:var(--navy);font-weight:700;text-decoration:none}
+.phead{display:flex;justify-content:space-between;align-items:flex-end;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+.phead h1{font-family:var(--display);font-size:28px;margin:0;letter-spacing:-.01em;display:flex;gap:10px;align-items:center;flex-wrap:wrap;text-wrap:balance}
+.eyebrow{font-family:var(--mono);font-size:10.5px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--amber);background:var(--amber-soft);border-radius:5px;padding:3px 8px}
+.eyebrow.closed{color:var(--slate);background:var(--slate-soft)}
+.phead p{margin:3px 0 0;color:var(--muted);font-size:13.5px}
+.hacts{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.fy{padding:8px 10px;border-radius:9px;border:1px solid var(--line);background:var(--surface);font-size:13px}
+.btn{display:inline-flex;align-items:center;gap:7px;border-radius:9px;padding:8px 14px;font-size:13.5px;font-weight:700;border:1px solid var(--line);background:var(--surface);white-space:nowrap}
+.btn:hover{border-color:var(--faint)}
+.btn.pri{background:var(--navy);border-color:var(--navy);color:var(--on-navy)}
+.btn svg{width:15px;height:15px}
+.btn.sm{padding:6px 11px;font-size:12.5px}
+
+.ro{display:flex;gap:10px;align-items:center;background:var(--teal-soft);color:var(--teal);border-radius:10px;padding:9px 13px;font-size:13px;margin-bottom:14px}
+.ro svg{width:16px;height:16px;flex:none}
+
+.tabs{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface);margin-bottom:14px}
+.tabs button{border:none;background:none;padding:8px 16px;font-size:13.5px;color:var(--muted)}
+.tabs button+button{border-left:1px solid var(--line)}
+.tabs button[aria-selected="true"]{background:var(--navy-bar);color:#fff;font-weight:700}
+
+/* summary */
+.basis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));background:var(--surface);border:1px solid var(--line);border-radius:14px;margin-bottom:14px}
+@media (max-width:760px){.basis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.bt{padding:14px 18px;display:grid;gap:3px;align-content:start}
+.bt+.bt{border-left:1px solid var(--line-2)}
+@media (max-width:760px){.bt:nth-child(3){border-left:none}.bt:nth-child(n+3){border-top:1px solid var(--line-2)}}
+.bt .k{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
+.bt b{font-family:var(--display);font-size:26px;line-height:1.15;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.bt small{color:var(--muted);font-size:12.5px}
+.bt .bar{height:6px;border-radius:3px;background:var(--line);overflow:hidden;margin-top:6px;position:relative}
+.bt .bar i{position:absolute;left:0;top:0;bottom:0;background:var(--green);border-radius:3px}
+.bt .bar u{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--ink);opacity:.55}
+
+.two{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr);gap:14px;align-items:start}
+@media (max-width:1240px){.two{grid-template-columns:1fr}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
+.card h2{font-family:var(--display);font-size:16px;margin:0}
+.card .sub{color:var(--muted);font-size:12.5px;margin:2px 0 10px}
+.chartwrap{overflow-x:auto}
+.chart{width:100%;min-width:520px;height:auto;display:block}
+.chart text{font-family:var(--mono);font-size:10.5px;fill:var(--faint)}
+.chart .val{fill:var(--ink);font-weight:600}
+.chart .gl{stroke:var(--line-2);stroke-width:1}
+.chart .bar{fill:var(--navy)}
+.chart .bar.sel{fill:var(--teal)}
+.chart .pace{stroke:var(--pace);stroke-width:1.5;stroke-dasharray:5 4;fill:none}
+.chart .pl{fill:var(--pace)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:8px}
+.legend span{display:inline-flex;gap:6px;align-items:center}
+.legend i{width:10px;height:10px;border-radius:2px;background:var(--navy);display:inline-block}
+.legend i.p{height:0;border-top:2px dashed var(--pace);border-radius:0;width:14px}
+.foot{font-size:12.5px;color:var(--muted);margin:10px 0 0}
+
+/* plain DataSheet (canon) */
+.ds{border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.ds .hr,.ds .row{display:grid;grid-template-columns:var(--cols);gap:10px;align-items:center;padding:0 12px}
+.ds .hr{border-bottom:1.5px solid var(--ink);background:var(--surface)}
+.ds .hr button{background:none;border:none;padding:8px 0;font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);text-align:left;display:flex;gap:4px;align-items:center;white-space:nowrap}
+.ds .hr button.r{justify-content:flex-end;text-align:right}
+.ds .hr button[aria-sort="ascending"],.ds .hr button[aria-sort="descending"]{color:var(--ink)}
+.ds .row{padding-block:8px;font-size:13px}
+.ds .rbody .row:nth-child(4n+1),.ds .rbody .row:nth-child(4n+2){background:var(--band)}
+.ds .r{text-align:right;font-variant-numeric:tabular-nums}
+.ds .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ds .tot{border-top:1px solid var(--line);font-weight:700;background:var(--surface-2)}
+.meter{height:6px;border-radius:3px;background:var(--line);overflow:hidden}
+.meter i{display:block;height:100%;background:var(--green)}
+.meter i.over{background:var(--red)}
+.pill{display:inline-flex;align-items:center;font-size:11.5px;font-weight:700;border-radius:99px;padding:2px 9px;white-space:nowrap}
+.pill.g{background:var(--green-soft);color:var(--green)}
+.pill.a{background:var(--amber-soft);color:var(--amber)}
+.pill.b{background:var(--navy-soft);color:var(--navy)}
+.pill.x{background:var(--slate-soft);color:var(--slate)}
+.pill.s{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;padding:1px 6px;border-radius:4px;background:var(--amber-soft);color:var(--amber)}
+
+/* sheet (Catalog > Forms > Responses > Sheet) */
+.tbar{display:flex;gap:4px;align-items:center;flex-wrap:wrap;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:6px 10px;margin-bottom:10px}
+.tbar .ib{width:34px;height:32px;border:none;background:none;border-radius:7px;display:grid;place-items:center;font-weight:700;font-size:14px}
+.tbar .ib:hover{background:var(--surface-2)}
+.tbar .ib[aria-pressed="true"]{background:var(--navy-soft);color:var(--navy)}
+.tbar .ib svg{width:17px;height:17px}
+.tbar .sep{width:1px;height:22px;background:var(--line);margin:0 6px}
+.tbar select{padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--surface);font-size:13px}
+.tbar .lab{font-size:13px;color:var(--muted);margin-left:4px}
+.tbar .saved{margin-left:auto;font-size:12.5px;color:var(--muted)}
+.srow{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.srow input{flex:1;min-width:220px;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--surface)}
+.srow .cnt{font-size:13px;color:var(--muted)}
+.hint{font-size:13px;color:var(--muted);margin:0 0 10px}
+.gridwrap{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:auto;max-height:620px}
+table.sheet{border-collapse:separate;border-spacing:0;font-size:13px;min-width:100%}
+.sheet th,.sheet td{border-right:1px solid var(--grid);border-bottom:1px solid var(--grid);padding:0 10px;height:38px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:var(--w);min-width:var(--w);width:var(--w);background:var(--surface)}
+.sheet thead th{position:sticky;top:0;z-index:3;background:var(--surface-2);font-weight:700;text-align:left;font-size:13.5px}
+.sheet thead th button{all:unset;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:6px;width:100%}
+.sheet thead th button:focus-visible{outline:2px solid var(--navy);outline-offset:2px}
+.sheet thead th .arr{color:var(--navy);font-size:12px}
+.sheet .rn{--w:48px;text-align:center;color:var(--muted);font-family:var(--mono);font-size:11.5px;background:var(--surface-2);position:sticky;left:0;z-index:2}
+.sheet thead .rn{z-index:4}
+.sheet .fz{position:sticky;left:48px;z-index:2;box-shadow:2px 0 0 var(--grid)}
+.sheet thead .fz{z-index:4}
+.sheet td.n{text-align:right;font-variant-numeric:tabular-nums}
+.sheet td.sel{outline:2px solid var(--sel);outline-offset:-2px;background:var(--navy-soft)}
+.sheet td.ed{outline:2px solid var(--sel);outline-offset:-2px;background:var(--surface);text-overflow:clip}
+.sheet td.ed input,.sheet td.ed select{width:100%;border:none;background:none;outline:none;padding:0;font-size:13px}
+.sheet td.b{font-weight:700}.sheet td.i{font-style:italic}.sheet td.u{text-decoration:underline}
+.sheet td.al-c{text-align:center}.sheet td.al-r{text-align:right}
+.sheet tr.blank td:not(.rn){color:var(--faint)}
+.sheet tr.grp td{background:var(--surface-2);font-weight:700;height:34px}
+.sheet tr.grp td .gc{font-family:var(--mono);font-size:11px;color:var(--faint);font-weight:400;margin-left:8px}
+.sheet tfoot td{position:sticky;bottom:0;z-index:2;background:var(--surface-2);border-top:1.5px solid var(--line);font-weight:700}
+.sheet tfoot td.rn{z-index:4}
+.sheet tfoot td.fz{z-index:4}
+.sheet tfoot select{border:none;background:none;font-size:11px;color:var(--faint);font-family:var(--mono);padding:0}
+.sheet tfoot .sv{display:flex;justify-content:space-between;gap:6px;align-items:center}
+.sheet .catc{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:7px;background:var(--navy);opacity:.55}
+.help{font-size:12.5px;color:var(--muted);margin:10px 0 0;max-width:110ch}
+.statkey{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12.5px;color:var(--muted);margin-top:8px}
+
+/* allocations */
+.abox{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:14px;align-items:start}
+@media (max-width:1000px){.abox{grid-template-columns:1fr}}
+.sample{display:flex;gap:10px;align-items:flex-start;background:var(--amber-soft);color:var(--amber);border-radius:10px;padding:10px 13px;font-size:13px;margin-bottom:12px}
+.sample svg{width:17px;height:17px;flex:none;margin-top:1px}
+.money{display:flex;align-items:center;justify-content:flex-end;border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:0 8px;height:32px}
+.money span{color:var(--faint);font-size:13px}
+.money input{border:none;background:none;width:100%;text-align:right;font-variant-numeric:tabular-nums;outline:none;padding:0 0 0 4px}
+.money:focus-within{outline:3px solid var(--navy);outline-offset:1px}
+.side{display:grid;gap:12px;position:sticky;top:12px}
+@media (max-width:1000px){.side{position:static}}
+.bal{display:grid;gap:6px}
+.bal .row2{display:flex;justify-content:space-between;font-size:13px}
+.bal .row2 b{font-variant-numeric:tabular-nums}
+.bal .big{font-family:var(--display);font-size:28px;font-variant-numeric:tabular-nums;line-height:1.1}
+.bal .big.over{color:var(--red)}
+.bal .big.ok{color:var(--green)}
+.stack{display:flex;height:10px;border-radius:5px;overflow:hidden;background:var(--line)}
+.stack i{display:block;height:100%;background:var(--navy)}
+.stack i:nth-child(2n){opacity:.7}
+.stack i:nth-child(3n){opacity:.5}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap}
+
+.tabs .tc{font-family:var(--mono);font-size:10.5px;background:var(--amber);color:#fff;border-radius:99px;padding:1px 7px;margin-left:6px;font-weight:600}
+.tabs button[aria-selected="true"] .tc{background:#fff;color:var(--navy-bar)}
+.drop{border:1.5px dashed var(--line);border-radius:14px;background:var(--surface);padding:18px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+.drop.over{border-color:var(--navy);background:var(--navy-soft)}
+.drop svg{width:28px;height:28px;color:var(--navy);flex:none}
+.drop b{font-family:var(--display);font-size:15px;display:block}
+.drop small{color:var(--muted);font-size:12.5px;display:block}
+.drop .path{font-family:var(--mono);font-size:11.5px;color:var(--teal);background:var(--teal-soft);border-radius:6px;padding:3px 8px;margin-left:auto}
+.qhead{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin:0 0 10px}
+.qhead h2{font-family:var(--display);font-size:16px;margin:0}
+.qhead span{font-size:12.5px;color:var(--muted)}
+.slips{display:grid;gap:14px}
+.slip{background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);display:grid;grid-template-columns:260px minmax(0,1fr);overflow:hidden}
+@media (max-width:900px){.slip{grid-template-columns:1fr}}
+.slip .rcpt-side{background:var(--surface-2);border-right:1px solid var(--line);padding:16px;display:grid;justify-items:center;align-content:start;gap:8px}
+@media (max-width:900px){.slip .rcpt-side{border-right:none;border-bottom:1px solid var(--line)}}
+.rcpt{width:100%;max-width:220px;background:#FFFEFA;color:#2A2A2A;font-family:var(--mono);font-size:10.5px;line-height:1.45;padding:14px 12px 18px;box-shadow:0 1px 2px rgba(0,0,0,.12),0 6px 14px rgba(0,0,0,.08);
+  -webkit-mask:linear-gradient(#000,#000) top/100% calc(100% - 8px) no-repeat,radial-gradient(circle at 5px 8px,transparent 4px,#000 4.5px) bottom/10px 8px repeat-x;
+  mask:linear-gradient(#000,#000) top/100% calc(100% - 8px) no-repeat,radial-gradient(circle at 5px 8px,transparent 4px,#000 4.5px) bottom/10px 8px repeat-x}
+.rcpt .c{text-align:center}
+.rcpt .hd{font-weight:600;font-size:12px;letter-spacing:.06em}
+.rcpt hr{border:none;border-top:1px dashed #9A9A9A;margin:7px 0}
+.rcpt .l{display:flex;justify-content:space-between;gap:8px}
+.rcpt .l span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rcpt .hl{background:rgba(230,165,68,.35);outline:1.5px solid #C98A1E;border-radius:2px}
+.rcpt .faded{opacity:.35;filter:blur(.4px)}
+.rcpt .tot{font-weight:600;font-size:11.5px}
+.rcpt img{width:100%;border-radius:2px}
+.fname{font-family:var(--mono);font-size:10.5px;color:var(--faint);text-align:center;word-break:break-all}
+.slip .prop{padding:16px 18px;display:grid;gap:12px;align-content:start}
+.slip .ph{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:flex-start}
+.slip .ph b{font-family:var(--display);font-size:16px;display:block}
+.slip .ph small{color:var(--muted);font-size:12.5px}
+.slip .by{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);display:flex;gap:6px;align-items:center}
+.slip .by svg{width:13px;height:13px;color:var(--navy)}
+.lines{display:grid;gap:8px}
+.ln{display:grid;grid-template-columns:minmax(140px,1.3fr) minmax(170px,1fr) 56px 96px;gap:8px;align-items:center}
+@media (max-width:640px){.ln{grid-template-columns:1fr 1fr}}
+.ln input,.ln select,.bp input{padding:7px 9px;border-radius:8px;border:1px solid var(--line);background:var(--surface);font-size:13px;width:100%;min-width:0}
+.ln input.n{text-align:right;font-variant-numeric:tabular-nums}
+.ln .why{grid-column:1/-1;font-size:12px;color:var(--muted);display:flex;gap:8px;align-items:center;margin-top:-3px}
+.lnh{display:grid;grid-template-columns:minmax(140px,1.3fr) minmax(170px,1fr) 56px 96px;gap:8px;font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+.lnh span:nth-child(n+3){text-align:right}
+@media (max-width:640px){.lnh{display:none}}
+.checks{display:grid;gap:6px;margin:0;padding:0;list-style:none}
+.checks li{display:flex;gap:9px;align-items:flex-start;font-size:12.5px;border-radius:8px;padding:7px 10px}
+.checks li svg{width:15px;height:15px;flex:none;margin-top:2px}
+.checks li.warn{background:var(--amber-soft);color:var(--amber)}
+.checks li.info{background:var(--navy-soft);color:var(--navy)}
+.checks li.ok{background:var(--green-soft);color:var(--green)}
+.checks li b{font-weight:700}
+.bp{display:grid;gap:4px}
+.bp label{font-size:12.5px;font-weight:700}
+.fileto{font-size:12.5px;color:var(--muted);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.fileto code{font-family:var(--mono);font-size:11px;color:var(--teal);background:var(--teal-soft);border-radius:5px;padding:2px 6px;word-break:break-all}
+.sacts{display:flex;gap:8px;flex-wrap:wrap;align-items:center;border-top:1px solid var(--line-2);padding-top:12px}
+.sacts .btn.rej{color:var(--red);margin-left:auto}
+.empty{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:28px;text-align:center;color:var(--muted)}
+.rc{display:inline-flex;gap:5px;align-items:center;font-size:12px;color:var(--green);font-weight:700}
+.rc svg{width:13px;height:13px}
+.reading{display:flex;gap:10px;align-items:center;color:var(--muted);font-size:13px}
+.spin{width:16px;height:16px;border:2px solid var(--line);border-top-color:var(--navy);border-radius:50%}
+@media (prefers-reduced-motion:no-preference){.spin{animation:sp 1s linear infinite}@keyframes sp{to{transform:rotate(360deg)}}}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));translate:-50% 0;background:var(--ink);color:var(--surface);border-radius:10px;padding:10px 16px;font-size:13px;box-shadow:var(--shadow);z-index:90;max-width:calc(100% - 32px)}
+@media (prefers-reduced-motion:no-preference){.toast{animation:up .18s ease-out}@keyframes up{from{opacity:0;translate:-50% 8px}}}
+.basis{grid-template-columns:repeat(5,minmax(0,1fr))}
+@media (max-width:1180px){.basis{grid-template-columns:repeat(3,minmax(0,1fr))}.bt:nth-child(4){border-left:none}.bt:nth-child(n+4){border-top:1px solid var(--line-2)}}
+@media (max-width:760px){.basis{grid-template-columns:repeat(2,minmax(0,1fr))}.bt{border-left:none!important;border-top:1px solid var(--line-2)}.bt:nth-child(-n+2){border-top:none}.bt:nth-child(2n){border-left:1px solid var(--line-2)!important}}
+.bt .edit{background:none;border:none;color:var(--navy);font-size:12px;font-weight:700;padding:0;text-decoration:underline;text-underline-offset:3px;justify-self:start}
+.bt .money{max-width:170px;height:36px}
+.bt .money input{font-family:var(--display);font-size:20px}
+.bt .brow{display:flex;gap:6px;margin-top:6px}
+.eyebrow.cur{color:var(--teal);background:var(--teal-soft)}
+.note textarea{width:100%;min-height:78px;resize:vertical;padding:9px 11px;border-radius:9px;border:1px solid var(--line);background:var(--surface);font:inherit;font-size:13.5px}
+.note .rec{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px;font-size:13px;color:var(--muted)}
+.note .rec b{color:var(--ink)}
+.note blockquote{margin:0;padding:10px 12px;border-left:3px solid var(--navy);background:var(--surface-2);border-radius:0 8px 8px 0;font-size:13.5px}
+.hist{list-style:none;margin:0;padding:0;display:grid}
+.hist li{display:grid;grid-template-columns:96px 1fr;gap:10px;padding:8px 0;border-top:1px solid var(--line-2);font-size:13px}
+.hist li:first-child{border-top:none}
+.hist .when{font-family:var(--mono);font-size:11px;color:var(--faint);padding-top:2px}
+.hist small{display:block;color:var(--muted);font-size:12px}
+.setup{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:14px;align-items:start}
+@media (max-width:1000px){.setup{grid-template-columns:1fr}}
+.setup .card h2{font-size:18px}
+.fgrid{display:grid;gap:14px;margin-top:12px}
+.fld{display:grid;gap:5px}
+.fld>label,.fld>.lab{font-size:12.5px;font-weight:700}
+.fld input[type=text]{padding:9px 11px;border-radius:9px;border:1px solid var(--line);background:var(--surface);width:100%}
+.fld .money{justify-content:flex-start;max-width:240px;height:40px}
+.fld .money input{text-align:left;font-size:16px}
+.opt{display:flex;gap:9px;align-items:flex-start;font-size:13.5px;padding:6px 0}
+.opt input{margin-top:3px}
+.opt small{display:block;color:var(--muted);font-size:12.5px}
+.prior{display:grid;gap:8px}
+.prior .row2{display:flex;justify-content:space-between;font-size:13px;border-top:1px solid var(--line-2);padding-top:8px}
+.prior .row2 b{font-variant-numeric:tabular-nums}
+.sheet td.lock{color:var(--muted)}
+.slipmeta{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:640px){.slipmeta{grid-template-columns:1fr}}
+.slipmeta label{font-size:12px;font-weight:700;display:block;margin-bottom:4px}
+.slipmeta select{padding:7px 9px;border-radius:8px;border:1px solid var(--line);background:var(--surface);font-size:13px;width:100%}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+</style>
+
+<header class="topbar">
+  <div class="brand"><b>ASPIRE Intelligence</b><span class="portal" id="portal" hidden>Nursing Education &amp; Leadership Portal</span><span class="mockflag">Mockup</span></div>
+  <div class="tbr">
+    <div class="scope"><i></i><span class="k">SCOPE</span><span>Internship · Fall 2026</span></div>
+    <div class="viewas"><span class="lab">Viewing as</span>
+      <div class="sw2" role="group" aria-label="Viewing as">
+        <button id="vOwner" aria-pressed="true">Owner</button>
+        <button id="vLead" aria-pressed="false">Leadership</button>
+      </div>
+    </div>
+    <button class="tbtn" id="themeBtn" aria-label="Color mode: System"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+    <div class="who"><span class="av" id="whoAv">JB</span><span><span id="whoName">Jester</span><small id="whoRole">Owner</small></span></div>
+  </div>
+</header>
+
+<main>
+  <div class="settings" id="shell">
+    <nav class="rail" id="rail" aria-label="Settings">
+      <div class="rg"><div class="gl">Workspace</div>
+        <a class="ri" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg>General</a>
+      </div>
+      <div class="rg"><div class="gl">Administration</div>
+        <a class="ri" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z"/></svg>Accounts &amp; Access</a>
+        <a class="ri" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21.2l8.8-8.8a5.5 5.5 0 0 0 0-7.8z"/></svg>Community Benefit</a>
+        <a class="ri" href="#" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 4v16"/></svg>Program Budget<span class="new">New</span></a>
+        <a class="ri" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l2.5 5.5L20 11l-5.5 2.5L12 19l-2.5-5.5L4 11l5.5-2.5z"/></svg>Keith</a>
+      </div>
+      <div class="rg"><div class="gl">Diagnostics</div>
+        <a class="ri" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>Demo Mode</a>
+        <a class="ri" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18M5 7h14M5 7l-3 6a3 3 0 0 0 6 0zM19 7l-3 6a3 3 0 0 0 6 0z"/></svg>Preceptor Parity</a>
+      </div>
+    </nav>
+
+    <section aria-labelledby="ptitle">
+      <div class="crumb" id="crumb"></div>
+      <div class="phead">
+        <div>
+          <h1 id="ptitle">Program Budget <span class="eyebrow" id="fyState"></span></h1>
+          <p id="psub"></p>
+        </div>
+        <div class="hacts">
+          <label class="sr" for="fySel">Fiscal year</label>
+          <select class="fy" id="fySel"><option value="FY27">FY27</option><option value="FY26">FY26</option></select>
+          <button class="btn" id="rcptBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 7h6M9 11h6M9 15h4"/></svg>Add receipts</button>
+          <input type="file" id="rcptFile" accept="image/*,application/pdf,.eml" multiple hidden>
+          <button class="btn" id="importBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Import .xlsx</button>
+          <button class="btn pri" id="exportBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 15V3M7 8l5-5 5 5M5 21h14"/></svg>Export to Excel</button>
+        </div>
+      </div>
+      <div class="ro" id="roNote" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><span>Read-only. Shared from ASPIRE Intelligence by Jester Bautista. Use Export to Excel to work with the figures.</span></div>
+
+      <div class="tabs" role="tablist" aria-label="Budget views">
+        <button role="tab" id="t-summary" aria-selected="true" aria-controls="panel">Summary</button>
+        <button role="tab" id="t-sheet" aria-selected="false" aria-controls="panel">Sheet</button>
+        <button role="tab" id="t-rcpt" aria-selected="false" aria-controls="panel">Receipts<span class="tc" id="rcCount"></span></button>
+        <button role="tab" id="t-alloc" aria-selected="false" aria-controls="panel">Allocations</button>
+      </div>
+      <div id="panel" role="tabpanel"></div>
+      <div class="sr" aria-live="polite" id="live"></div>
+    </section>
+  </div>
+</main>
+
+<script>
+const TODAY='Sep 27, 2026', TODAYK=20260927;
+const CATS=['Supplies & Materials','Technology & Software','Printing & Copying','Guest Speaker Fees','Room Reservations','Meals & Catering','Conferences','Travel & Lodging','Accreditation','Salaries','Training','Moving & Storage','Marketing','Miscellaneous'];
+const FYM=['Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar','Apr','May','Jun'];
+const MON={Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12};
+const PAYS=['P-card','Personal (Concur)','PO or invoice'];
+const TONE={Recorded:'b',Submitted:'a',Paid:'g',Reimbursed:'g',Void:'x'};
+const statusesFor=p=>p==='P-card'?['Paid','Void']:p==='Personal (Concur)'?['Recorded','Submitted','Reimbursed','Void']:p==='PO or invoice'?['Recorded','Paid','Void']:['Recorded','Void'];
+const defStatus=p=>p==='P-card'?'Paid':'Recorded';
+const COHORTS={'Spring 2026':40,'Summer 2026':null,'Fall 2026':null};
+let uid=0;
+const row=o=>Object.assign({id:++uid,pay:'',status:'',receipt:'',cohort:'',cc:'Nursing Education',notes:'',inv:''},o);
+const r26=(m,item,cat,desc,vendor,inv,qty,amt,cohort)=>row({k:20260000+MON[m]*100,d:m+' 2026',m,item,cat,desc,vendor,inv,qty,amt,cohort:cohort||''});
+function parseD(s){const m=s.match(/(\w{3})\s+(\d{1,2}),\s*(\d{4})/);return m?{k:+m[3]*10000+MON[m[1]]*100+(+m[2]),m:m[1],d:s}:null}
+const fyOf=k=>k>=20260701?'FY27':'FY26';
+
+const S={
+  mode:'owner',fy:'FY27',tab:'summary',
+  years:{
+    FY26:{y0:2025,range:'Jul 1, 2025 to Jun 30, 2026',closed:true,started:true,total:40000,cc:'Nursing Education',allocSaved:false,alloc:{},
+      note:'This is all ASPIRE spend for FY26. No ASPIRE costs went through other budgets.',reconciled:'',
+      hist:[['Jul 1, 2025','Budget set to $40,000.00','From the FY26 workbook']],
+      rows:[
+        r26('Jan','Cardstock for Student Badges','Supplies & Materials','Heavy cardstock used to print student identification badges for ASPIRE participants','Walmart','',1,11.71),
+        r26('Jan','Self-Laminating Pouches','Supplies & Materials','Laminating pouches used to protect student badges','Amazon','114-2621881-4457026',1,30.27),
+        r26('Jan','Self-Laminating Pouches','Supplies & Materials','Laminating pouches used to protect student badges','Amazon','113-4985467-8610640',3,33.52),
+        r26('Feb','Self-Laminating Pouches','Supplies & Materials','Laminating pouches used to protect student badges','Amazon','113-2454901-2790626',3,25.14),
+        r26('Mar','Printer Ink','Printing & Copying','Replacement ink cartridges for orientation materials and badges','Amazon','',1,67.5),
+        r26('Mar','Badge Holders & Lanyards','Supplies & Materials','ID badge holders for student nurses during rotations','Amazon','',3,72.3),
+        r26('Mar','Welcome Packet Notebooks','Supplies & Materials','Journaling notebooks for reflection during clinical rotation','Amazon','',40,350,'Spring 2026'),
+        r26('Mar','Program Pens','Supplies & Materials','Pens included in welcome packet','Amazon','',100,30,'Spring 2026'),
+        r26('Mar','Tote Bags','Supplies & Materials','ASPIRE welcome tote bags for participants','Amazon','',40,400,'Spring 2026'),
+        r26('Mar','ASPIRE Program Shirts','Supplies & Materials','Orientation shirts with ASPIRE logo','Amazon','',40,600,'Spring 2026')
+      ]},
+    FY27:{y0:2026,range:'Jul 1, 2026 to Jun 30, 2027',closed:false,started:false,total:40000,cc:'Nursing Education',allocSaved:false,alloc:{},note:'',reconciled:'',hist:[],rows:[]}
+  },
+  slips:[
+    {id:'s1',file:'IMG_4471.jpg',kind:'dup',vendor:'Amazon',order:'113-2454901-2790626',date:'Feb 2026',k:20260200,total:25.14,pay:'',cohort:'',
+     lines:[{item:'Self-Laminating Pouches',cat:'Supplies & Materials',qty:3,amt:25.14,c:'High',why:'Same order number, amount and month as an FY26 row.'}],
+     rc:[['Amazon.com','hd c'],['Order #113-2454901-2790626','c'],['Feb 2026','c'],['---'],['Self-Laminating Pouches|$22.96'],['Qty 3'],['---'],['Subtotal|$22.96'],['Tax|$2.18'],['Order total|$25.14','tot'],['Ship to: ████████','c']]},
+    {id:'s2',file:'Amazon_order_112-7730158.pdf',kind:'split',vendor:'Amazon',order:'112-7730158-4402217',date:'Sep 3, 2026',total:58.57,pay:'P-card',payWhy:'Card ending 4417 matches your P-card.',cohort:'Fall 2026',
+     lines:[{item:'Copy Paper, 5-Ream Case',cat:'Printing & Copying',qty:1,amt:42.69,c:'High',why:'Paper for printed orientation packets. Includes $3.70 of the tax, split by line.'},
+            {item:'Name Badge Labels, 2 Packs',cat:'Supplies & Materials',qty:2,amt:15.88,c:'High',why:'Badge supplies match earlier Supplies & Materials rows. Includes $1.38 of the tax.'}],
+     rc:[['Amazon.com','hd c'],['Order #112-7730158-4402217','c'],['Sep 3, 2026','c'],['---'],['Copy Paper 5-Ream Case|$38.99'],['Name Badge Labels x2|$14.50'],['---'],['Subtotal|$53.49'],['Tax 9.5%|$5.08'],['Order total|$58.57','tot'],['Visa ending 4417','c'],['Ship to: ████████','c']]},
+    {id:'s3',file:'catering_receipt.jpg',kind:'policy',vendor:'Beverly Grove Catering',order:'INV-20614',date:'Sep 12, 2026',total:496.33,pay:'Personal (Concur)',payWhy:'Card ending 0932 is not your P-card, so this is a personal purchase to reimburse.',cohort:'',
+     lines:[{item:'Preceptor Appreciation Lunch',cat:'Meals & Catering',qty:30,amt:496.33,c:'High',why:'Boxed lunches, delivery and tax on a catering invoice.'}],
+     rc:[['BEVERLY GROVE CATERING','hd c'],['Invoice INV-20614','c'],['Sep 1_, 2026','c faded hl'],['---'],['Boxed Lunch x30|$435.00'],['Delivery|$20.00'],['Tax|$41.33'],['---'],['Total|$496.33','tot'],['Card ending 0932','c']]}
+  ],
+  filed:0,editBudget:false,
+  groupBy:'none',freeze:'item',q:'',sort:{key:'date',dir:1},
+  sigma:{qty:'sum',unit:'avg',amt:'sum'},
+  sel:null,fmt:{},catSort:{key:'s',dir:-1},saved:'All changes saved',
+  setup:{total:'40,000',cc:'Nursing Education',plan:'none'}
+};
+S.slips.forEach(s=>{if(!s.k){const p=parseD(s.date);s.k=p.k}});
+
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const usd=n=>(+n||0).toLocaleString('en-US',{style:'currency',currency:'USD'});
+const usd0=n=>(+n||0).toLocaleString('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0});
+const money=v=>{const n=+String(v).replace(/[$,\s]/g,'');return isNaN(n)?null:n};
+const DASH='<span class="dash">–</span>';
+const owner=()=>S.mode==='owner';
+const Y=()=>S.years[S.fy];
+const sumAmt=rs=>rs.reduce((a,r)=>a+(+r.amt||0),0);
+const catSpent=(y,c)=>sumAmt(y.rows.filter(r=>r.cat===c));
+const allocSum=y=>CATS.reduce((a,c)=>a+(+y.alloc[c]||0),0);
+const hasAlloc=y=>allocSum(y)>0;
+function toast(msg){document.querySelectorAll('.toast').forEach(t=>t.remove());const t=document.createElement('div');t.className='toast';t.setAttribute('role','status');t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),3800)}
+function say(m){$('#live').textContent=m}
+const ICO={warn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18h.01"/></svg>',info:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7h.01"/></svg>',ok:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg>'};
+
+/* ---------- SETUP ---------- */
+function setup(){
+  const p=S.years.FY26,psp=sumAmt(p.rows);
+  if(!owner())return `<div class="empty">The FY27 budget isn't published yet. <button class="btn sm" id="goFY26" style="margin-left:8px">View FY26</button></div>`;
+  return `<div class="setup">
+    <div class="card">
+      <h2>Start FY27</h2>
+      <p class="sub">July 1, 2026 to June 30, 2027. FY26 closes and stays available as history.</p>
+      <div class="fgrid">
+        <div class="fld"><label for="suTotal">Annual budget</label><span class="money"><span>$</span><input id="suTotal" inputmode="decimal" value="${esc(S.setup.total)}"></span><small class="hint">You can change this at any time. Each change is logged with the date and the old and new amounts.</small></div>
+        <div class="fld"><label for="suCc">Cost center</label><input type="text" id="suCc" value="${esc(S.setup.cc)}"></div>
+        <div class="fld"><span class="lab">Categories</span><label class="opt"><input type="checkbox" checked disabled><span>Use the same 14 categories as FY26<small>Edit the list later in the Sheet's Category column settings.</small></span></label></div>
+        <div class="fld" role="radiogroup" aria-label="Category plan"><span class="lab">Category plan</span>
+          <label class="opt"><input type="radio" name="plan" value="none" ${S.setup.plan==='none'?'checked':''}><span>Start with no category plan<small>Add allocations in the Allocations tab when you're ready.</small></span></label>
+          <label class="opt"><input type="radio" name="plan" value="even" ${S.setup.plan==='even'?'checked':''}><span>Split the budget evenly as a draft<small>A starting point to edit. Leadership doesn't see it until you save.</small></span></label>
+        </div>
+        <div class="btnrow"><button class="btn pri" id="startFY">Start FY27</button></div>
+      </div>
+    </div>
+    <div class="card prior">
+      <h2>FY26 result</h2>
+      <p class="sub" style="margin:0">Closed Jun 30, 2026</p>
+      <div class="row2"><span>Budget</span><b>${usd(p.total)}</b></div>
+      <div class="row2"><span>Spent</span><b>${usd(psp)}</b></div>
+      <div class="row2"><span>Used</span><b>${(psp/p.total*100).toFixed(1)}%</b></div>
+      <div class="row2"><span>Largest category</span><b>Supplies &amp; Materials</b></div>
+      <div class="row2"><span>Spring 2026 welcome kit</span><b>${usd(1380)} · ${usd(34.5)} per student</b></div>
+      <p class="hint" style="margin-top:4px">${S.slips.filter(s=>fyOf(s.k)==='FY27').length} receipts dated in FY27 are waiting in Receipts. They post once FY27 starts.</p>
+    </div>
+  </div>`;
+}
+
+/* ---------- SUMMARY ---------- */
+function chart(y){
+  const monthly=FYM.map(m=>sumAmt(y.rows.filter(r=>r.m===m))), pace=y.total/12;
+  const hi=Math.max(pace,...monthly), max=Math.ceil(hi*1.1/1000)*1000, step=max<=6000?1000:2000;
+  const W=720,H=250,L=58,Rr=14,T=16,B=30,cw=(W-L-Rr)/12,yy=v=>T+(H-T-B)*(1-v/max);
+  const curIdx=y.closed?12:FYM.indexOf('Sep');
+  let svg=`<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Monthly spend against an even pace of ${usd(pace)} per month">`;
+  for(let v=0;v<=max;v+=step)svg+=`<line class="gl" x1="${L}" x2="${W-Rr}" y1="${yy(v)}" y2="${yy(v)}"/><text x="${L-8}" y="${yy(v)+3.5}" text-anchor="end">${v?'$'+(v/1000)+'k':'$0'}</text>`;
+  monthly.forEach((v,i)=>{const x=L+i*cw,bw=cw*.56,bx=x+(cw-bw)/2,fut=i>curIdx;
+    if(v>0)svg+=`<rect class="bar" x="${bx}" y="${yy(v)}" width="${bw}" height="${Math.max(2,yy(0)-yy(v))}" rx="2"><title>${FYM[i]}: ${usd(v)}</title></rect><text class="val" x="${x+cw/2}" y="${yy(v)-6}" text-anchor="middle">${usd0(v)}</text>`;
+    else if(!fut)svg+=`<text x="${x+cw/2}" y="${yy(0)-6}" text-anchor="middle">–</text>`;
+    svg+=`<text x="${x+cw/2}" y="${H-10}" text-anchor="middle" ${fut?'opacity=".45"':''}>${FYM[i]}</text>`});
+  svg+=`<line class="pace" x1="${L}" x2="${W-Rr}" y1="${yy(pace)}" y2="${yy(pace)}"/><text class="pl" x="${W-Rr}" y="${yy(pace)-6}" text-anchor="end">Pace ${usd0(pace)}/mo</text></svg>`;
+  return svg;
+}
+function costPerStudent(y){
+  const by={};y.rows.forEach(r=>{if(r.cohort)by[r.cohort]=(by[r.cohort]||0)+(+r.amt||0)});
+  const ks=Object.keys(by);if(!ks.length)return null;
+  const c=ks.sort((a,b)=>by[b]-by[a])[0];return{c,amt:by[c],n:COHORTS[c],count:y.rows.filter(r=>r.cohort===c).length};
+}
+function summary(){
+  const y=Y();if(!y.started)return setup();
+  const sp=sumAmt(y.rows),rem=y.total-sp,pct=y.total?sp/y.total*100:0;
+  const elapsed=y.closed?100:(88/365*100);
+  const cps=costPerStudent(y);
+  const budgetTile=S.editBudget&&owner()?`<div class="bt"><label class="k" for="bEdit">Budget</label><span class="money"><span>$</span><input id="bEdit" inputmode="decimal" value="${y.total.toLocaleString('en-US')}"></span><div class="brow"><button class="btn sm pri" id="bSave">Save</button><button class="btn sm" id="bCancel">Cancel</button></div></div>`
+    :`<div class="bt"><span class="k">Budget</span><b>${usd(y.total)}</b><small>Annual, ${S.fy}</small>${owner()&&!y.closed?'<button class="edit" id="bEditBtn">Change budget</button>':''}</div>`;
+  const showA=y.allocSaved||(owner()&&hasAlloc(y));
+  const rows=CATS.map(c=>{const a=+y.alloc[c]||0,s=catSpent(y,c);return{c,a,s,rem:a-s,used:a?s/a*100:null,share:sp?s/sp*100:0}});
+  const k=S.catSort.key,d=S.catSort.dir;
+  rows.sort((p,q)=>{const A=k==='c'?p.c:(p[k]??-1),B=k==='c'?q.c:(q[k]??-1);return(A>B?1:A<B?-1:0)*d});
+  const cols=showA?[['c','Category',''],['a','Allocated','r'],['s','Spent','r'],['rem','Remaining','r'],['used','Used','r']]:[['c','Category',''],['s','Spent','r'],['share','Share of spend','r']];
+  const hdr=cols.map(([key,lab,cl])=>{const act=k===key,dir=act?(d===1?'ascending':'descending'):'none';return`<button class="${cl}" data-csort="${key}" aria-sort="${dir}" aria-label="Sort by ${lab}${act?', '+dir:''}">${lab}${act?(d===1?' ↑':' ↓'):''}</button>`}).join('');
+  const meter=(v,over)=>`<span style="display:grid;grid-template-columns:1fr 46px;gap:8px;align-items:center"><span class="meter"><i class="${over?'over':''}" style="width:${Math.min(100,v)}%"></i></span>${v.toFixed(1)}%</span>`;
+  const body=rows.map(r=>showA?`<div class="row"><span class="nm" title="${esc(r.c)}">${esc(r.c)}</span><span class="r">${r.a?usd(r.a):DASH}</span><span class="r">${r.s?usd(r.s):DASH}</span><span class="r">${r.a?usd(r.rem):DASH}</span><span class="r">${r.used==null?DASH:meter(r.used,r.used>100)}</span></div>`
+    :`<div class="row"><span class="nm" title="${esc(r.c)}">${esc(r.c)}</span><span class="r">${r.s?usd(r.s):DASH}</span><span class="r">${r.s?meter(r.share):DASH}</span></div>`).join('');
+  const aSum=allocSum(y);
+  const tot=showA?`<div class="row tot"><span>Total</span><span class="r">${usd(aSum)}</span><span class="r">${usd(sp)}</span><span class="r">${usd(aSum-sp)}</span><span class="r">${aSum?(sp/aSum*100).toFixed(1)+'%':'–'}</span></div>`:`<div class="row tot"><span>Total</span><span class="r">${usd(sp)}</span><span class="r">${sp?'100.0%':'–'}</span></div>`;
+  const catSub=showA?(y.allocSaved?`${usd(y.total-aSum)} of the budget is not assigned to a category.`:'<span class="pill a">Draft</span> Only you see this plan until you save it in Allocations.')
+    :`No category plan for ${S.fy}${owner()&&!y.closed?'. Add one in Allocations.':'. The budget is one annual total.'}`;
+  const noteCard=owner()?`<div class="card note"><h2>Owner note</h2><p class="sub">Leadership sees this above the figures.</p><label class="sr" for="noteTxt">Owner note</label><textarea id="noteTxt" placeholder="Context leadership needs to read these numbers correctly">${esc(y.note)}</textarea>
+      <div class="rec"><span>Last reconciled: <b>${y.reconciled||'Not yet'}</b></span><button class="btn sm" id="recBtn">Mark reconciled today</button></div></div>`
+    :`<div class="card note"><h2>From the program owner</h2><p class="sub">Last reconciled: ${y.reconciled||'not yet'}</p>${y.note?`<blockquote>${esc(y.note)}</blockquote>`:'<p class="hint">No note.</p>'}</div>`;
+  const hist=`<div class="card"><h2>Budget history</h2><p class="sub">Every change to the annual amount and the category plan</p><ul class="hist">${y.hist.slice().reverse().map(h=>`<li><span class="when">${esc(h[0])}</span><span>${esc(h[1])}<small>${esc(h[2])}</small></span></li>`).join('')||'<li><span class="when">–</span><span>No changes yet</span></li>'}</ul></div>`;
+  return `
+  ${owner()?'':`<div style="margin-bottom:14px">${noteCard}</div>`}
+  <div class="basis">
+    ${budgetTile}
+    <div class="bt"><span class="k">Spent</span><b>${usd(sp)}</b><small>${y.rows.length} expenses · ${y.rows.filter(r=>r.receipt).length} with receipts</small></div>
+    <div class="bt"><span class="k">Remaining</span><b>${usd(rem)}</b><small>${y.closed?'Unspent at year end':'Available through Jun 30'}</small></div>
+    <div class="bt"><span class="k">Used</span><b>${pct.toFixed(1)}%</b><small>Year elapsed ${elapsed.toFixed(0)}%</small><div class="bar" aria-hidden="true"><i style="width:${Math.max(pct?1:0,Math.min(100,pct))}%"></i><u style="left:calc(${elapsed}% - 2px)"></u></div></div>
+    <div class="bt"><span class="k">Cost per student</span>${cps?(cps.n?`<b>${usd(cps.amt/cps.n)}</b><small>${esc(cps.c)} · ${usd(cps.amt)} ÷ ${cps.n} students</small>`:`<b>–</b><small>${esc(cps.c)} · ${usd(cps.amt)} tagged · roster size pending</small>`):'<b>–</b><small>Tag expenses to a cohort to see this</small>'}</div>
+  </div>
+  <div class="two">
+    <div class="card">
+      <h2>Monthly spend</h2>
+      <p class="sub">${esc(y.range)}, against an even monthly pace</p>
+      <div class="chartwrap">${chart(y)}</div>
+      <div class="legend"><span><i></i>Spent in month</span><span><i class="p"></i>Even pace (${usd(y.total/12)} per month)</span></div>
+      ${S.fy==='FY26'?`<p class="foot">March 2026 holds ${usd(1519.8)}, 94% of the year's spend, most of it the Spring 2026 welcome kit.</p>`:''}
+    </div>
+    <div class="card">
+      <h2>By category</h2>
+      <p class="sub">${catSub}</p>
+      <div class="ds" style="--cols:${showA?'minmax(150px,1.5fr) 92px 86px 92px 124px':'minmax(150px,1.5fr) 100px 160px'}">
+        <div class="hr">${hdr}</div><div class="rbody">${body}</div>${tot}
+      </div>
+    </div>
+  </div>
+  <div class="two" style="margin-top:14px">${owner()?noteCard:''}${hist}</div>`;
+}
+
+/* ---------- SHEET ---------- */
+const COLS=[
+  {k:'date',lab:'Date',w:116,lock:1},{k:'item',lab:'Item',w:230,fz:1,lock:1},{k:'cat',lab:'Category',w:190,lock:1},{k:'desc',lab:'Brief description',w:300,lock:1},
+  {k:'vendor',lab:'Vendor',w:120,lock:1},{k:'inv',lab:'Order or invoice no.',w:180,lock:1},{k:'pay',lab:'Payment',w:170},
+  {k:'qty',lab:'Qty',w:112,n:1,lock:1},{k:'unit',lab:'Unit cost',w:136,n:1,calc:1},{k:'amt',lab:'Spent ($)',w:146,n:1,lock:1},
+  {k:'status',lab:'Status',w:130},{k:'receipt',lab:'Receipt',w:110,sys:1},{k:'cohort',lab:'Cohort',w:130},{k:'cc',lab:'Cost center',w:150,lock:1},{k:'notes',lab:'Notes',w:200}
+];
+function val(r,k){if(k==='date')return r.d;if(k==='unit')return r.qty?r.amt/r.qty:null;return r[k]}
+function cell(r,c){const v=val(r,c.k);
+  if(c.k==='amt')return v===''||v==null?DASH:usd(v);
+  if(c.k==='unit')return v==null?DASH:usd(v);
+  if(c.k==='qty')return v===''||v==null?DASH:(+v).toLocaleString('en-US');
+  if(c.k==='status')return v?`<span class="pill ${TONE[v]||'x'}">${esc(v)}</span>`:DASH;
+  if(c.k==='receipt')return v?`<span class="rc" title="${owner()?esc(v):'Receipt on file'}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg>On file</span>`:DASH;
+  if(c.k==='cat')return v?`<span class="catc" aria-hidden="true"></span>${esc(v)}`:DASH;
+  return v?esc(v):DASH}
+function visibleRows(){const y=Y(),q=S.q.trim().toLowerCase();
+  let rs=y.rows.filter(r=>!q||[r.item,r.cat,r.desc,r.vendor,r.inv,r.notes,r.d,r.pay,r.cohort].join(' ').toLowerCase().includes(q));
+  const {key,dir}=S.sort;
+  rs.sort((a,b)=>{let A,B;if(key==='date'){A=a.k;B=b.k}else{A=val(a,key);B=val(b,key)}A=A??'';B=B??'';if(typeof A==='string'){A=A.toLowerCase();B=String(B).toLowerCase()}return(A>B?1:A<B?-1:a.id-b.id)*dir});
+  return rs}
+function agg(rs,k,mode){const vs=rs.map(r=>val(r,k)).filter(v=>v!==''&&v!=null).map(Number);
+  if(mode==='count')return vs.length;if(!vs.length)return null;
+  if(mode==='sum')return vs.reduce((a,b)=>a+b,0);if(mode==='avg')return vs.reduce((a,b)=>a+b,0)/vs.length;
+  if(mode==='min')return Math.min(...vs);if(mode==='max')return Math.max(...vs)}
+function sheet(){
+  const y=Y();if(!y.started)return setup();
+  const rs=visibleRows(),ro=!owner(),fz=S.freeze==='item';
+  const th=COLS.map(c=>{const act=S.sort.key===c.k,dir=act?(S.sort.dir===1?'ascending':'descending'):'none';return`<th scope="col" style="--w:${c.w}px" class="${fz&&c.fz?'fz':''}" aria-sort="${dir}"><button data-sort="${c.k}" aria-label="Sort by ${c.lab}${act?', '+dir:''}"><span>${c.lab}</span>${act?`<span class="arr">${S.sort.dir===1?'↑':'↓'}</span>`:''}</button></th>`}).join('');
+  let n=0;
+  const rowHtml=r=>{n++;return`<tr><td class="rn">${n}</td>${COLS.map(c=>{const key=r.id+':'+c.k;const lk=y.closed&&c.lock;return`<td style="--w:${c.w}px" class="${[c.n?'n':'',fz&&c.fz?'fz':'',S.sel===key?'sel':'',lk?'lock':'',S.fmt[key]||''].join(' ')}" data-cell="${key}" tabindex="${S.sel===key?0:-1}" ${c.k==='desc'?`title="${esc(r.desc)}"`:''}>${cell(r,c)}</td>`}).join('')}</tr>`};
+  let body='';
+  if(S.groupBy==='none')body=rs.map(rowHtml).join('');
+  else{const gk={cat:r=>r.cat,month:r=>r.d.replace(/\s\d{1,2},/,''),status:r=>r.status||'No status',pay:r=>r.pay||'Payment not recorded',cohort:r=>r.cohort||'No cohort'}[S.groupBy];
+    const order=[],map={};rs.forEach(r=>{const g=gk(r);if(!map[g]){map[g]=[];order.push(g)}map[g].push(r)});
+    order.forEach(g=>{body+=`<tr class="grp"><td class="rn"></td><td colspan="${COLS.length}">${esc(g)}<span class="gc">${map[g].length} ${map[g].length===1?'expense':'expenses'} · ${usd(sumAmt(map[g]))}</span></td></tr>`+map[g].map(rowHtml).join('')})}
+  if(!rs.length&&!S.q)body+=`<tr><td class="rn"></td><td colspan="${COLS.length}" style="color:var(--muted)">No expenses in ${S.fy} yet. Add one below or accept a receipt in Receipts.</td></tr>`;
+  if(!ro&&!y.closed){for(let i=0;i<2;i++){n++;body+=`<tr class="blank"><td class="rn">${n}</td>${COLS.map(c=>`<td style="--w:${c.w}px" class="${c.n?'n':''} ${fz&&c.fz?'fz':''}">${i===0&&c.k==='item'?'<button class="btn sm" id="addRow" style="border-style:dashed">+ Add expense</button>':''}</td>`).join('')}</tr>`}}
+  const sel=(k,opts)=>`<label class="sr" for="sg-${k}">Summary type</label><select id="sg-${k}" data-sigma="${k}">${opts.map(o=>`<option value="${o}" ${S.sigma[k]===o?'selected':''}>${{sum:'Sum',avg:'Avg',count:'Count',min:'Min',max:'Max'}[o]}</option>`).join('')}</select>`;
+  const foot=COLS.map(c=>{let inner='';
+    if(c.k==='item')inner=`<span class="sv"><span>Summary</span><span class="mono" style="font-weight:400;color:var(--faint);font-size:11px">${rs.length} rows</span></span>`;
+    else if(c.k in S.sigma){const v=agg(rs,c.k,S.sigma[c.k]);const shown=v==null?'–':(S.sigma[c.k]==='count'?v:(c.k==='qty'?(+v.toFixed(2)).toLocaleString('en-US'):usd(v)));inner=`<span class="sv">${sel(c.k,['sum','avg','count','min','max'])}<span class="num">${shown}</span></span>`}
+    return`<td style="--w:${c.w}px" class="${c.n?'n':''} ${fz&&c.fz?'fz':''}">${inner}</td>`}).join('');
+  const tb=ro?'':`<div class="tbar" role="toolbar" aria-label="Formatting">
+    <button class="ib" data-fm="b" aria-label="Bold">B</button><button class="ib" data-fm="i" aria-label="Italic"><i>I</i></button><button class="ib" data-fm="u" aria-label="Underline"><u>U</u></button><span class="sep"></span>
+    <button class="ib" data-fm="al-l" aria-label="Align left"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h10M4 18h14"/></svg></button><button class="ib" data-fm="al-c" aria-label="Align center"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M7 12h10M5 18h14"/></svg></button><button class="ib" data-fm="al-r" aria-label="Align right"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M10 12h10M6 18h14"/></svg></button><span class="sep"></span>
+    <button class="ib" aria-label="Currency format" aria-pressed="true">$</button><button class="ib" aria-label="Percent format">%</button><button class="ib" aria-label="Thousands separator">,</button>
+    <label class="sr" for="dateFmt">Date format</label><select id="dateFmt"><option>Mon D, YYYY</option><option>MM/DD/YYYY</option><option>Fiscal month</option></select><span class="sep"></span>
+    <span class="lab">Group by</span><label class="sr" for="grp">Group by</label><select id="grp"><option value="none">None</option><option value="cat">Category</option><option value="month">Month</option><option value="pay">Payment</option><option value="status">Status</option><option value="cohort">Cohort</option></select>
+    <span class="lab">Freeze</span><label class="sr" for="frz">Freeze</label><select id="frz"><option value="item">Item</option><option value="none">None</option></select>
+    <button class="btn sm" id="addCol">+ Column</button><span class="saved" id="saved">${S.saved}</span></div>`;
+  const hint=ro?'Read-only view. Sort and search work; editing is off. Receipt files are visible to the owner only.'
+    :y.closed?'FY26 is closed. Dates, items, amounts and categories are locked. You can still fill in Payment, Status, Cohort and Notes, and attach receipts from Receipts. The workbook recorded the month only, so imported rows show month and year.'
+    :'Click a cell to select it. Double-click or press Enter to edit, Escape to cancel. Payment sets the status options: a P-card purchase is Paid; a personal purchase moves from Recorded to Submitted to Reimbursed.';
+  return `${tb}
+  <div class="srow"><label class="sr" for="q">Search expenses</label><input id="q" type="search" placeholder="Search items, vendors, order numbers and cohorts" value="${esc(S.q)}">
+    ${ro?'':'<button class="btn sm" id="addFilter">Add a filter</button><button class="btn sm" id="colsBtn">Columns</button>'}<span class="cnt">${rs.length} ${rs.length===1?'expense':'expenses'}</span></div>
+  <p class="hint">${hint}</p>
+  <div class="gridwrap"><table class="sheet" aria-label="${S.fy} expenses"><thead><tr><th class="rn" scope="col"><span class="sr">Row</span></th>${th}</tr></thead><tbody>${body}</tbody><tfoot><tr><td class="rn">Σ</td>${foot}</tr></tfoot></table></div>
+  <div class="statkey"><span>Status:</span><span class="pill b">Recorded</span><span class="pill a">Submitted</span><span class="pill g">Paid</span><span class="pill g">Reimbursed</span><span class="pill x">Void</span></div>`;
+}
+
+/* ---------- RECEIPTS ---------- */
+const slug=s=>s.replace(/[^A-Za-z0-9]+/g,'').slice(0,18);
+const pad=n=>String(n).padStart(2,'0');
+function fileName(sl){const k=sl.k,y=Math.floor(k/10000),m=Math.floor(k/100)%100,d=k%100;return `${fyOf(k)}_${y}-${pad(m)}${d?'-'+pad(d):''}_${slug(sl.vendor)}_${sl.order.split('-').slice(0,2).join('-')}_$${sl.total.toFixed(2)}.${/pdf$/i.test(sl.file)?'pdf':'jpg'}`}
+function dupRow(sl){const all=S.years.FY26.rows.concat(S.years.FY27.rows);return all.find(r=>r.inv&&r.inv===sl.order)||all.find(r=>r.vendor===sl.vendor&&Math.abs(r.amt-sl.total)<.005&&Math.abs(r.k-sl.k)<=7)}
+function rowLabel(r){const fy=S.years.FY26.rows.includes(r)?'FY26':'FY27';return `${fy} row ${S.years[fy].rows.indexOf(r)+1}`}
+function checks(sl){const out=[],tfy=fyOf(sl.k),ty=S.years[tfy];
+  if(sl.kind==='dup'){const r=dupRow(sl);out.push(['warn',`<b>Matches ${rowLabel(r)}</b> (${esc(r.item)}, ${usd(r.amt)}, ${esc(r.d)}) by order number. Attach this receipt to that row instead of adding a new one.`])}
+  else out.push(['ok','No duplicate. Keith checked order numbers, and the same vendor and amount within 7 days.']);
+  if(!ty.started)out.push(['warn',`<b>${tfy} hasn't started.</b> Start ${tfy} to post this receipt.`]);
+  if(sl.lines.length>1)out.push(['info',`<b>Split into ${sl.lines.length} rows</b> because the items fall in different categories. Tax is divided in proportion to each line.`]);
+  if(sl.kind!=='dup'&&ty.started){const by={};sl.lines.forEach(l=>by[l.cat]=(by[l.cat]||0)+(+l.amt||0));
+    Object.entries(by).forEach(([c,v])=>{const a=+ty.alloc[c]||0,after=catSpent(ty,c)+v;out.push([a&&after>a?'warn':'info',a?`<b>${esc(c)}</b> goes to ${usd(after)} of ${usd(a)} allocated (${(after/a*100).toFixed(1)}%).`:`<b>${esc(c)}</b> has no ${tfy} allocation. Spend still counts against the ${usd(ty.total)} budget.`])})}
+  if(sl.payWhy)out.push(['info',`<b>Payment:</b> ${esc(sl.payWhy)} ${sl.pay==='Personal (Concur)'?'Status starts at Recorded. Mark it Submitted when you file it in Concur.':'Status is set to Paid.'}`]);
+  if(sl.rc&&sl.rc.some(x=>/Ship to/.test(x[0])))out.push(['ok','Shipping address is blurred on the filed copy.']);
+  if(sl.kind==='policy'){out.push(['warn','<b>Date partly unreadable.</b> Keith read "Sep 1_, 2026" and chose Sep 12 from the invoice number sequence. Confirm the day.']);out.push(['warn','<b>Reimbursement policy:</b> business meals need a business purpose and an attendee list. Add both before you accept.'])}
+  return out.map(([t,h])=>`<li class="${t}">${ICO[t]}<span>${h}</span></li>`).join('')}
+function receiptPaper(sl){
+  if(sl.img)return `<div class="rcpt"><img src="${sl.img}" alt="Uploaded receipt ${esc(sl.file)}"></div>`;
+  if(!sl.rc)return `<div class="rcpt"><div class="c">${esc(sl.file)}</div><hr><div class="c">Uploaded</div></div>`;
+  return `<div class="rcpt" aria-label="Receipt image">${sl.rc.map(([t,cl])=>t==='---'?'<hr>':t.includes('|')?`<div class="l ${cl||''}"><span>${esc(t.split('|')[0])}</span><span>${esc(t.split('|')[1])}</span></div>`:`<div class="${cl||''}">${esc(t)}</div>`).join('')}</div>`}
+function slipHtml(sl){
+  if(sl.kind==='reading')return `<article class="slip" aria-label="Reading ${esc(sl.file)}"><div class="rcpt-side">${receiptPaper(sl)}<div class="fname">${esc(sl.file)}</div></div><div class="prop"><div class="reading"><span class="spin" aria-hidden="true"></span>Keith is reading ${esc(sl.file)}…</div><p class="hint">In the build, the vendor, date, order number, line items, tax, total and payment card appear here, with a proposed category for each line. This mockup can't read files, so the sample slips show the result.</p><div class="sacts"><button class="btn sm rej" data-rej="${sl.id}">Remove</button></div></div></article>`;
+  const dup=sl.kind==='dup',ty=S.years[fyOf(sl.k)];
+  const lines=sl.lines.map((l,i)=>`<div class="ln">
+    <label class="sr" for="${sl.id}-i${i}">Item</label><input id="${sl.id}-i${i}" data-sl="${sl.id}" data-li="${i}" data-lf="item" value="${esc(l.item)}" ${dup?'disabled':''}>
+    <label class="sr" for="${sl.id}-c${i}">Category</label><select id="${sl.id}-c${i}" data-sl="${sl.id}" data-li="${i}" data-lf="cat" ${dup?'disabled':''}>${CATS.map(c=>`<option ${c===l.cat?'selected':''}>${esc(c)}</option>`).join('')}</select>
+    <label class="sr" for="${sl.id}-q${i}">Quantity</label><input class="n" id="${sl.id}-q${i}" data-sl="${sl.id}" data-li="${i}" data-lf="qty" value="${l.qty}" inputmode="decimal" ${dup?'disabled':''}>
+    <label class="sr" for="${sl.id}-a${i}">Amount</label><input class="n" id="${sl.id}-a${i}" data-sl="${sl.id}" data-li="${i}" data-lf="amt" value="${(+l.amt).toFixed(2)}" inputmode="decimal" ${dup?'disabled':''}>
+    <div class="why"><span class="pill ${l.c==='High'?'g':'a'}">${l.c} confidence</span><span>${esc(l.why)}</span></div></div>`).join('');
+  const meta=dup?'':`<div class="slipmeta"><div><label for="${sl.id}-pay">Payment</label><select id="${sl.id}-pay" data-slm="${sl.id}" data-m="pay">${PAYS.map(p=>`<option ${p===sl.pay?'selected':''}>${p}</option>`).join('')}</select></div>
+    <div><label for="${sl.id}-coh">Cohort</label><select id="${sl.id}-coh" data-slm="${sl.id}" data-m="cohort"><option value="">No cohort (program-wide)</option>${Object.keys(COHORTS).map(c=>`<option ${c===sl.cohort?'selected':''}>${c}</option>`).join('')}</select></div></div>`;
+  const blocked=!dup&&!ty.started;
+  const r=dup?dupRow(sl):null;
+  const primary=dup?`<button class="btn pri sm" data-attach="${sl.id}">Attach to ${rowLabel(r)}</button>`:`<button class="btn pri sm" data-accept="${sl.id}" ${blocked?'disabled':''}>Accept ${sl.lines.length>1?sl.lines.length+' rows':'and post'}</button>${blocked?`<button class="btn sm" data-gofy="${fyOf(sl.k)}">Start ${fyOf(sl.k)}</button>`:''}`;
+  return `<article class="slip" aria-labelledby="${sl.id}-h">
+    <div class="rcpt-side">${receiptPaper(sl)}<div class="fname">${esc(sl.file)}</div></div>
+    <div class="prop">
+      <div class="ph"><div><b id="${sl.id}-h">${esc(sl.vendor)} · ${usd(sl.total)}</b><small>${esc(sl.date)} · ${fyOf(sl.k)} · Order or invoice ${esc(sl.order)}</small></div><span class="by"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l2.5 5.5L20 11l-5.5 2.5L12 19l-2.5-5.5L4 11l5.5-2.5z"/></svg>Read by Keith</span></div>
+      <div class="lines"><div class="lnh"><span>Item</span><span>Category</span><span>Qty</span><span>Amount</span></div>${lines}</div>
+      ${meta}
+      <ul class="checks">${checks(sl)}</ul>
+      ${sl.kind==='policy'?`<div class="slipmeta"><div class="bp"><label for="${sl.id}-bp">Business purpose</label><input id="${sl.id}-bp" placeholder="Fall 2026 preceptor appreciation"></div><div class="bp"><label for="${sl.id}-att">Attendees</label><input id="${sl.id}-att" placeholder="Attach sign-in sheet or list names"></div></div>`:''}
+      <div class="fileto">Files to <code>Catalog › Budget › ${fyOf(sl.k)} › Receipts › ${esc(fileName(sl))}</code></div>
+      <div class="sacts">${primary}<button class="btn sm" data-snooze="${sl.id}">Snooze</button><button class="btn sm rej" data-rej="${sl.id}">Reject</button></div>
+    </div></article>`}
+function receipts(){const n=S.slips.filter(s=>s.kind!=='reading').length;
+  return `<div class="drop" id="drop"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 7h6M9 11h6M9 15h4"/></svg>
+    <div><b>Drop receipts here</b><small>Photos, PDFs or saved order emails. Keith reads each one, proposes rows, categories and payment method, and checks for duplicates. Nothing posts until you accept it.</small></div>
+    <button class="btn sm" id="dropPick">Choose files</button><span class="path">Catalog › Budget · ${S.filed} filed</span></div>
+  <div class="qhead"><h2>Waiting for review</h2><span>${n} ${n===1?'receipt':'receipts'} · oldest first · also listed in the Action Center · <span class="pill s">Sample receipts</span></span></div>
+  ${S.slips.length?`<div class="slips">${S.slips.map(slipHtml).join('')}</div>`:'<div class="empty">Every receipt is reviewed. New uploads appear here.</div>'}`}
+function addFiles(files){[...files].forEach(f=>{const sl={id:'u'+(++uid),file:f.name,kind:'reading',k:TODAYK};S.slips.unshift(sl);
+  if(f.type.startsWith('image/')){const fr=new FileReader();fr.onload=()=>{sl.img=fr.result;if(S.tab==='rcpt')render()};fr.readAsDataURL(f)}});
+  S.tab='rcpt';render();toast(files.length+(files.length===1?' file':' files')+' added to Receipts.')}
+
+/* ---------- ALLOCATIONS ---------- */
+function alloc(){const y=Y();if(!y.started)return setup();
+  const ro=!owner()||y.closed,a=allocSum(y),left=y.total-a;
+  if(y.closed&&!hasAlloc(y))return `<div class="sample"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg><span><b>FY26 had no category plan.</b> It ran on one ${usd(y.total)} total. Category plans start with FY27.</span></div>`;
+  const rows=CATS.map((c,i)=>{const v=+y.alloc[c]||0,s=catSpent(y,c);return`<div class="row"><span class="nm">${esc(c)}</span><span class="r">${ro?(v?usd(v):DASH):`<span class="money"><span>$</span><label class="sr" for="al-${i}">${esc(c)} allocation</label><input id="al-${i}" data-alloc="${esc(c)}" inputmode="decimal" value="${v?v.toLocaleString('en-US'):''}" placeholder="0"></span>`}</span><span class="r">${y.total?(v/y.total*100).toFixed(1):'0.0'}%</span><span class="r">${s?usd(s):DASH}</span></div>`}).join('');
+  const segs=CATS.filter(c=>+y.alloc[c]>0).map(c=>`<i style="width:${y.alloc[c]/y.total*100}%" title="${esc(c)}: ${usd(+y.alloc[c])}"></i>`).join('');
+  return `${!y.allocSaved&&hasAlloc(y)?`<div class="sample"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg><span><b>Draft.</b> Leadership doesn't see a category plan until you save it.</span></div>`:''}
+  <div class="abox">
+    <div class="card" style="padding:12px"><div class="ds" style="--cols:minmax(0,1.6fr) 150px 70px 100px">
+      <div class="hr"><button disabled>Category</button><button class="r" disabled>Allocation</button><button class="r" disabled>Share</button><button class="r" disabled>Spent</button></div>
+      <div class="rbody">${rows}</div>
+      <div class="row tot"><span>Total allocated</span><span class="r" id="aTot">${usd(a)}</span><span class="r">${y.total?(a/y.total*100).toFixed(1):'0.0'}%</span><span class="r">${usd(sumAmt(y.rows))}</span></div></div></div>
+    <div class="side">
+      <div class="card bal"><span class="mono" id="aLab" style="font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)">${left<0?'Over-allocated':'Unallocated'}</span>
+        <span class="big ${left<0?'over':left===0?'ok':''}" id="aLeft">${usd(Math.abs(left))}</span><div class="stack" aria-hidden="true">${segs}</div>
+        <div class="row2"><span>Annual budget</span><b>${usd(y.total)}</b></div><div class="row2"><span>Assigned to categories</span><b id="aTot2">${usd(a)}</b></div>
+        <p class="hint" style="margin:4px 0 0">Unallocated money stays available to any category.</p></div>
+      ${ro?'':`<div class="card" style="display:grid;gap:10px"><div class="btnrow"><button class="btn pri" id="saveAlloc" ${left<0?'disabled':''}>Save plan</button><button class="btn" id="evenAlloc">Split evenly</button></div>
+        <p class="hint" style="margin:0">Saving publishes the plan to leadership and logs it in Budget history.</p></div>`}
+    </div></div>`}
+
+/* ---------- RENDER ---------- */
+function render(focusSel){
+  const ro=!owner(),y=Y();
+  $('#shell').classList.toggle('solo',ro);$('#rail').hidden=ro;$('#portal').hidden=!ro;$('#roNote').hidden=!ro;
+  $('#importBtn').hidden=ro||y.closed;$('#rcptBtn').hidden=ro;$('#t-rcpt').hidden=ro;$('#t-alloc').hidden=ro&&!y.allocSaved;
+  if(ro&&(S.tab==='rcpt'||(S.tab==='alloc'&&!y.allocSaved)))S.tab='summary';
+  $('#whoAv').textContent=ro?'NL':'JB';$('#whoName').textContent=ro?'Nursing Leadership':'Jester';$('#whoRole').textContent=ro?'Viewer · read-only':'Owner';
+  $('#crumb').innerHTML=ro?'<a href="#">‹ Leadership Portal</a><span>/</span><span>Programs</span><span>/</span><span>ASPIRE</span>':'<a href="#">‹ Settings</a><span>/</span><span>Administration</span>';
+  const st=$('#fyState');st.textContent=S.fy+' · '+(y.closed?'Closed':y.started?'Current':'Not started');st.className='eyebrow '+(y.closed?'closed':y.started?'cur':'');
+  $('#psub').textContent=`ASPIRE Program · Cost center: ${y.cc} · Owner: Jester Bautista · ${y.range}`;
+  $('#fySel').value=S.fy;
+  const n=S.slips.length;$('#rcCount').textContent=n||'';$('#rcCount').hidden=!n;
+  ['summary','sheet','alloc','rcpt'].forEach(t=>$('#t-'+t).setAttribute('aria-selected',S.tab===t));
+  $('#panel').setAttribute('aria-labelledby','t-'+S.tab);
+  $('#panel').innerHTML=S.tab==='summary'?summary():S.tab==='sheet'?sheet():S.tab==='rcpt'?receipts():alloc();
+  const g=$('#grp');if(g)g.value=S.groupBy;const f=$('#frz');if(f)f.value=S.freeze;
+  if(focusSel){const el=document.querySelector(`[data-cell="${S.sel}"]`);if(el)el.focus()}
+}
+function setMode(m){S.mode=m;S.sel=null;S.editBudget=false;$('#vOwner').setAttribute('aria-pressed',m==='owner');$('#vLead').setAttribute('aria-pressed',m!=='owner');render();say(m==='owner'?'Viewing as owner':'Viewing as leadership, read-only')}
+$('#vOwner').onclick=()=>setMode('owner');$('#vLead').onclick=()=>setMode('lead');
+const tabIds=()=>[...document.querySelectorAll('[role=tab]')].filter(b=>!b.hidden).map(b=>b.id.slice(2));
+document.querySelectorAll('[role=tab]').forEach(b=>b.onclick=()=>{S.tab=b.id.slice(2);render()});
+document.querySelector('[role=tablist]').addEventListener('keydown',e=>{const ts=tabIds(),L=ts.length;let i=ts.indexOf(S.tab);if(e.key==='ArrowRight')i=(i+1)%L;else if(e.key==='ArrowLeft')i=(i+L-1)%L;else return;S.tab=ts[i];render();$('#t-'+S.tab).focus()});
+$('#fySel').onchange=e=>{S.fy=e.target.value;S.sel=null;S.editBudget=false;S.q='';render()};
+$('#exportBtn').onclick=()=>toast(`Mockup: downloads ${S.fy} as a two-sheet workbook, Expense Report and Annual Budget Tracker.`);
+$('#importBtn').onclick=()=>toast('Mockup: opens a column-matching step, previews the rows, then adds them to '+S.fy+'.');
+$('#rcptBtn').onclick=()=>$('#rcptFile').click();
+$('#rcptFile').onchange=e=>{if(e.target.files.length)addFiles(e.target.files);e.target.value=''};
+const themes=['system','light','dark'];let ti=0;
+$('#themeBtn').onclick=()=>{ti=(ti+1)%3;const t=themes[ti];if(t==='system')document.documentElement.removeAttribute('data-theme');else document.documentElement.setAttribute('data-theme',t);const L=t[0].toUpperCase()+t.slice(1);$('#themeBtn').setAttribute('aria-label','Color mode: '+L);toast('Color mode: '+L)};
+function markSaving(){S.saved='Saving…';const s=$('#saved');if(s)s.textContent=S.saved;clearTimeout(markSaving.t);markSaving.t=setTimeout(()=>{S.saved='All changes saved';const s2=$('#saved');if(s2)s2.textContent=S.saved},700)}
+
+const panel=$('#panel');
+panel.addEventListener('dragover',e=>{const d=e.target.closest('#drop');if(d){e.preventDefault();d.classList.add('over')}});
+panel.addEventListener('dragleave',e=>{const d=e.target.closest('#drop');if(d)d.classList.remove('over')});
+panel.addEventListener('drop',e=>{const d=e.target.closest('#drop');if(d){e.preventDefault();d.classList.remove('over');if(e.dataTransfer.files.length)addFiles(e.dataTransfer.files)}});
+panel.addEventListener('click',e=>{
+  const t=e.target,y=Y();
+  if(t.id==='goFY26'){S.fy='FY26';render();return}
+  if(t.id==='startFY'){const v=money($('#suTotal').value);if(!v||v<=0){toast('Enter an annual budget greater than $0.');$('#suTotal').focus();return}
+    const f=S.years.FY27;f.total=v;f.cc=$('#suCc').value.trim()||'Nursing Education';f.started=true;S.years.FY26.closed=true;
+    if(S.setup.plan==='even'){const each=Math.floor(v/CATS.length);CATS.forEach(c=>f.alloc[c]=each)}
+    f.hist.push([TODAY,`FY27 started with a budget of ${usd(v)}`,'Jester Bautista']);S.tab='summary';render();toast(`FY27 started with ${usd(v)}. You can change the budget from the Budget tile.`);return}
+  if(t.id==='bEditBtn'){S.editBudget=true;render();$('#bEdit').focus();$('#bEdit').select();return}
+  if(t.id==='bCancel'){S.editBudget=false;render();return}
+  if(t.id==='bSave'){const v=money($('#bEdit').value);if(!v||v<=0){toast('Enter a budget greater than $0.');return}
+    if(v!==y.total){y.hist.push([TODAY,`Budget changed from ${usd(y.total)} to ${usd(v)}`,'Jester Bautista']);y.total=v}S.editBudget=false;render();toast('Budget saved and logged.');return}
+  if(t.id==='recBtn'){y.reconciled=TODAY;render();toast('Marked reconciled on '+TODAY+'.');return}
+  const cs=t.closest('[data-csort]');if(cs){const k=cs.dataset.csort;S.catSort=S.catSort.key===k?{key:k,dir:-S.catSort.dir}:{key:k,dir:k==='c'?1:-1};render();say('Sorted by '+cs.textContent.trim());return}
+  const so=t.closest('[data-sort]');if(so){const k=so.dataset.sort;S.sort=S.sort.key===k?{key:k,dir:-S.sort.dir}:{key:k,dir:1};render();say('Sorted');return}
+  if(t.id==='addRow'){const r=row({k:TODAYK,d:TODAY,m:'Sep',item:'',cat:'Supplies & Materials',desc:'',vendor:'',qty:'',amt:'',status:'Recorded'});y.rows.push(r);S.sel=r.id+':item';render();startEdit(S.sel);return}
+  if(['addCol','addFilter','colsBtn'].includes(t.id)){toast({addCol:'Mockup: adds a custom column, for example Event.',addFilter:'Mockup: filter by category, month, payment, status or cohort.',colsBtn:'Mockup: show, hide and reorder columns.'}[t.id]);return}
+  const fm=t.closest('[data-fm]');if(fm){if(!S.sel){toast('Select a cell first.');return}const cls=fm.dataset.fm,cur=(S.fmt[S.sel]||'').split(' ').filter(Boolean);let nx;if(cls.startsWith('al-')){nx=cur.filter(x=>!x.startsWith('al-'));if(cls!=='al-l')nx.push(cls)}else nx=cur.includes(cls)?cur.filter(x=>x!==cls):[...cur,cls];S.fmt[S.sel]=nx.join(' ');markSaving();render(true);return}
+  if(t.id==='dropPick'){$('#rcptFile').click();return}
+  const gf=t.closest('[data-gofy]');if(gf){S.fy=gf.dataset.gofy;S.tab='summary';render();return}
+  const ac=t.closest('[data-accept]');if(ac&&!ac.disabled){const sl=S.slips.find(x=>x.id===ac.dataset.accept);const ty=S.years[fyOf(sl.k)];const fn=fileName(sl);
+    if(sl.kind==='policy'){const bp=$('#'+sl.id+'-bp'),at=$('#'+sl.id+'-att');if(!bp.value.trim()||!at.value.trim()){toast('Add a business purpose and attendees first. The policy requires both for meals.');(bp.value.trim()?at:bp).focus();return}}
+    sl.lines.forEach(l=>{const r=row({k:sl.k,d:sl.date,m:sl.date.slice(0,3),item:l.item,cat:l.cat,desc:l.why.split('.')[0],vendor:sl.vendor,inv:sl.order,qty:+l.qty,amt:+l.amt,pay:sl.pay,status:defStatus(sl.pay),receipt:fn,cohort:sl.cohort});if(sl.kind==='policy')r.notes=$('#'+sl.id+'-bp').value.trim();ty.rows.push(r)});
+    S.slips=S.slips.filter(x=>x!==sl);S.filed++;render();toast(`Posted ${sl.lines.length} ${sl.lines.length===1?'row':'rows'} to ${fyOf(sl.k)} and filed ${fn}.`);return}
+  const at=t.closest('[data-attach]');if(at){const sl=S.slips.find(x=>x.id===at.dataset.attach);const r=dupRow(sl);const lab=rowLabel(r);r.receipt=fileName(sl);S.slips=S.slips.filter(x=>x!==sl);S.filed++;render();toast(`Attached to ${lab} and filed ${r.receipt}. No new row added.`);return}
+  const rj=t.closest('[data-rej]');if(rj){S.slips=S.slips.filter(x=>x.id!==rj.dataset.rej);render();toast('Receipt rejected. Nothing was posted or filed.');return}
+  const sz=t.closest('[data-snooze]');if(sz){const i=S.slips.findIndex(x=>x.id===sz.dataset.snooze);const [sl]=S.slips.splice(i,1);S.slips.push(sl);render();toast('Snoozed until tomorrow 8 AM.');return}
+  if(t.id==='saveAlloc'&&!t.disabled){y.allocSaved=true;y.hist.push([TODAY,`Category plan saved: ${usd(allocSum(y))} across ${CATS.filter(c=>+y.alloc[c]>0).length} categories`,'Jester Bautista']);render();toast('Plan saved. Leadership now sees it.');return}
+  if(t.id==='evenAlloc'){const each=Math.floor(y.total/CATS.length);CATS.forEach(c=>y.alloc[c]=each);y.allocSaved=false;render();say('Split evenly');return}
+  const td=t.closest('td[data-cell]');if(td&&!td.classList.contains('ed')){S.sel=td.dataset.cell;panel.querySelectorAll('td.sel').forEach(x=>{x.classList.remove('sel');x.tabIndex=-1});td.classList.add('sel');td.tabIndex=0;td.focus()}
+});
+panel.addEventListener('dblclick',e=>{const td=e.target.closest('td[data-cell]');if(td&&owner())startEdit(td.dataset.cell)});
+panel.addEventListener('keydown',e=>{
+  if(e.target.id==='bEdit'&&e.key==='Enter'){$('#bSave').click();return}
+  const td=e.target.closest('td[data-cell]');if(!td||td.classList.contains('ed'))return;
+  const [id,k]=td.dataset.cell.split(':');
+  if(e.key==='Enter'&&owner()){e.preventDefault();startEdit(td.dataset.cell);return}
+  const mv={ArrowRight:[0,1],ArrowLeft:[0,-1],ArrowDown:[1,0],ArrowUp:[-1,0]}[e.key];if(!mv)return;e.preventDefault();
+  const rs=visibleRows();let ri=rs.findIndex(r=>r.id==id),ci=COLS.findIndex(c=>c.k===k);
+  ri=Math.max(0,Math.min(rs.length-1,ri+mv[0]));ci=Math.max(0,Math.min(COLS.length-1,ci+mv[1]));S.sel=rs[ri].id+':'+COLS[ci].k;render(true)});
+function startEdit(key){
+  const y=Y();const [id,k]=key.split(':');const c=COLS.find(x=>x.k===k);const r=y.rows.find(x=>x.id==id);if(!c||!r)return;
+  if(c.calc){toast('Unit cost is calculated from Spent ÷ Qty.');return}
+  if(c.sys){toast('Attach receipts from the Receipts tab.');return}
+  if(y.closed&&c.lock){toast('FY26 is closed. This field is locked.');return}
+  const td=document.querySelector(`[data-cell="${key}"]`);if(!td)return;
+  S.sel=key;td.classList.add('ed');let ctl;
+  const opts={cat:CATS,pay:['',...PAYS],status:statusesFor(r.pay),cohort:['',...Object.keys(COHORTS)]}[k];
+  if(opts){ctl=document.createElement('select');opts.forEach(o=>{const op=document.createElement('option');op.value=o;op.textContent=o||(k==='pay'?'Not recorded':'None');if(r[k]===o)op.selected=true;ctl.appendChild(op)})}
+  else{ctl=document.createElement('input');ctl.value=k==='date'?r.d:(r[k]??'');if(c.n)ctl.inputMode='decimal'}
+  ctl.setAttribute('aria-label',c.lab);td.innerHTML='';td.appendChild(ctl);ctl.focus();if(ctl.select)ctl.select();
+  let done=false;
+  const commit=save=>{if(done)return;done=true;if(save){let v=ctl.value;
+    if(k==='date'){const p=parseD(v);if(p&&fyOf(p.k)===S.fy){r.k=p.k;r.d=p.d;r.m=p.m}else if(v!==r.d)toast('Use a date like Sep 3, 2026, inside '+S.fy+'.')}
+    else if(c.n){v=v===''?'':money(v);if(v!==null)r[k]=v}
+    else{r[k]=v;if(k==='pay'){if(!statusesFor(v).includes(r.status))r.status=defStatus(v)}}
+    markSaving();say(c.lab+' updated')}render(true)};
+  ctl.addEventListener('keydown',ev=>{if(ev.key==='Enter'){ev.preventDefault();commit(true)}else if(ev.key==='Escape'){ev.preventDefault();commit(false)}else if(ev.key==='Tab')commit(true)});
+  ctl.addEventListener('blur',()=>commit(true));if(ctl.tagName==='SELECT')ctl.addEventListener('change',()=>commit(true))}
+panel.addEventListener('input',e=>{const t=e.target,y=Y();
+  if(t.id==='q'){S.q=t.value;const pos=t.selectionStart;render();const q=$('#q');q.focus();q.setSelectionRange(pos,pos);return}
+  if(t.id==='suTotal'){S.setup.total=t.value;return}if(t.id==='suCc'){S.setup.cc=t.value;return}
+  if(t.id==='noteTxt'){y.note=t.value;return}
+  if(t.dataset.sl&&t.dataset.lf!=='cat'){const sl=S.slips.find(x=>x.id===t.dataset.sl);const l=sl.lines[+t.dataset.li];const f=t.dataset.lf;l[f]=f==='item'?t.value:(money(t.value)||0);return}
+  if(t.dataset.alloc){const v=money(t.value);y.alloc[t.dataset.alloc]=v||0;y.allocSaved=false;const a=allocSum(y),left=y.total-a;
+    $('#aTot').textContent=usd(a);$('#aTot2').textContent=usd(a);const L=$('#aLeft');L.textContent=usd(Math.abs(left));L.className='big '+(left<0?'over':left===0?'ok':'');$('#aLab').textContent=left<0?'Over-allocated':'Unallocated';
+    const sb=$('#saveAlloc');if(sb)sb.disabled=left<0}});
+panel.addEventListener('change',e=>{const t=e.target;
+  if(t.name==='plan'){S.setup.plan=t.value;return}
+  if(t.id==='grp'){S.groupBy=t.value;markSaving();render();say('Grouped by '+t.selectedOptions[0].text)}
+  else if(t.id==='frz'){S.freeze=t.value;markSaving();render()}
+  else if(t.dataset.sigma){S.sigma[t.dataset.sigma]=t.value;render()}
+  else if(t.dataset.slm){const sl=S.slips.find(x=>x.id===t.dataset.slm);sl[t.dataset.m]=t.value;if(t.dataset.m==='pay')sl.payWhy='Set by you.';render();$('#'+t.id).focus()}
+  else if(t.dataset.sl&&t.dataset.lf==='cat'){const sl=S.slips.find(x=>x.id===t.dataset.sl);const l=sl.lines[+t.dataset.li];l.cat=t.value;l.c='High';l.why='Category set by you. Keith will suggest it for similar items next time.';render();$('#'+t.id).focus()}
+  else if(t.dataset.alloc)render()});
+render();
+</script>

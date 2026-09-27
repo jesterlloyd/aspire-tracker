@@ -650,6 +650,8 @@ both.
 
 ## Working in this repository
 
+- UI work follows `docs/design/table-canon-spec.md` for any table, and the matching mockup in
+  `docs/mockups/` for the screen being changed.
 - Another session commits to `main` concurrently in the **same working tree**. Verify the
   baseline yourself, stage files **by name**, and for changes touching many files work in
   a `git worktree` off `origin/main` so their uncommitted work is never disturbed.
