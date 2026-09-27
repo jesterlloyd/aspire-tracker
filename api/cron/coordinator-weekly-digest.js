@@ -403,7 +403,7 @@ export default async function handler(req, res) {
           transitions,
         }));
       } catch (renderErr) {
-        console.error(`[coordinator-digest] template render failed for ${coordinator.full_name}:`, renderErr.message);
+        console.error(`[coordinator-digest] template render failed for coordinator ${coordinatorId}:`, renderErr.message);
         summary.failed++;
         summary.details.push({ coordinator: coordinator.full_name, status: 'failed', reason: 'render_error', error: renderErr.message });
         continue;
@@ -452,7 +452,7 @@ export default async function handler(req, res) {
         if (emailErr) {
           sendStatus = 'failed';
           sendError  = emailErr.message || JSON.stringify(emailErr);
-          console.error(`[coordinator-digest] Resend error for ${coordinator.full_name}:`, emailErr);
+          console.error(`[coordinator-digest] Resend error for coordinator ${coordinatorId}:`, emailErr);
           // Log 6 - send failure (Resend API returned an error object)
           console.error('[coordinator-digest] send_failure:', {
             coordinator_id:  coordinatorId,
@@ -462,7 +462,7 @@ export default async function handler(req, res) {
           });
         } else {
           resendId = emailData?.id || null;
-          console.log(`[coordinator-digest] sent to ${coordinator.email} (${coordinator.full_name}), ${totalItems} items | resend: ${resendId}`);
+          console.log(`[coordinator-digest] sent to coordinator ${coordinatorId}, ${totalItems} items | resend: ${resendId}`);  // S-20: ids only
           // Log 6 - send success
           console.log('[coordinator-digest] send_success:', {
             coordinator_id:    coordinatorId,
@@ -473,7 +473,7 @@ export default async function handler(req, res) {
       } catch (sendErr) {
         sendStatus = 'failed';
         sendError  = sendErr.message;
-        console.error(`[coordinator-digest] send threw for ${coordinator.full_name}:`, sendErr.message);
+        console.error(`[coordinator-digest] send threw for coordinator ${coordinatorId}:`, sendErr.message);
         // Log 6 - send failure (exception thrown during send)
         console.error('[coordinator-digest] send_failure:', {
           coordinator_id:  coordinatorId,
@@ -508,7 +508,7 @@ export default async function handler(req, res) {
         }).select('id').single();
         notificationLogId = logRow?.id || null;
       } catch (logErr) {
-        console.error(`[coordinator-digest] log write failed for ${coordinator.full_name}:`, logErr.message);
+        console.error(`[coordinator-digest] log write failed for coordinator ${coordinatorId}:`, logErr.message);
       }
 
       // ARCHIVE-SNAPSHOT-1: snapshot THIS coordinator's digest exactly as sent.
@@ -537,7 +537,7 @@ export default async function handler(req, res) {
           templateVersion: COORDINATOR_DIGEST_TEMPLATE_VERSION,
         });
         if (archive.status !== 'archived') {
-          console.error(`[coordinator-digest] archive_not_stored for ${coordinator.full_name}:`, {
+          console.error(`[coordinator-digest] archive_not_stored for coordinator ${coordinatorId}:`, {
             status: archive.status, reason: archive.reason,
           });
         }

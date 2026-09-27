@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { toLocalDateStr } from '../../shared/dateUtils.js'
 import { safeWrite } from '../lib/safeWrite'
+import { sanitizeContactTerm } from '../lib/contactSearchCore'
 import { createPreceptorRequestIdController } from '../lib/preceptorRequestId'
 import PreceptorFormModal from './PreceptorFormModal'
 import { getStudentPreferredFullName } from '../lib/studentNameFormatters'
@@ -31,6 +32,8 @@ export default function PreceptorAssignmentModal({ isOpen, onClose, student, onA
   }, [isOpen, requestIds])
 
   const runSearch = useCallback(async (q) => {
+    // S-26: strip PostgREST filter syntax and LIKE wildcards before the term enters .or().
+    q = sanitizeContactTerm(q)
     if (!q.trim()) { setResults([]); setSearching(false); return }
     setSearching(true)
     const { data } = await supabase

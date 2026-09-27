@@ -676,15 +676,18 @@ afterward, from memory.
 
 ## S-19. Raw provider and database error text returned on public routes
 
-- **Severity (original)**: Low. **Status**: PARTIALLY CLOSED.
+- **Severity (original)**: Low. **Status**: Closed.
 - **Risk**: internal table, constraint, and provider detail disclosed to anonymous callers.
-- **Verified at HEAD**: the S-01/S-06/S-07 and S-08 through S-11 hardening made the interview, intake, unit-form, and shift-log surfaces generic. ONE named residual remains: `api/school-form-submit.js:149` still returns `{ error: result.error }` raw from the placement upsert helper on a public route.
+- **Verified at HEAD**: the S-01/S-06/S-07 and S-08 through S-11 hardening made the interview, intake, unit-form, and shift-log surfaces generic. The one named residual, `api/school-form-submit.js` returning `{ error: result.error }` from the placement upsert helper, was re-read at LOW-1 (2026-09-26): `result.error` is never provider or database text. `api/lib/schoolPlacementUpsert.js` returns only its own fixed sentences ("Failed to save rotation dates.", "Failed to load existing students for matching.", and two that name the submitted student, "Failed to add student X."), and writes the underlying error to the server log with `console.error` before returning. One of them ("There is no existing placement request for this school and cohort to add students to.") is a message the coordinator is meant to read. No code change; `test/lowSeverityCleanup.test.mjs` pins that the helper never returns `err.message`, `error.message` or a template over a database error.
+- **Closing commit**: LOW-1 (2026-09-26), by verification.
 
 ## S-20. Recipient names and emails written to function logs in three crons
 
-- **Severity (original)**: Low. **Status**: OPEN.
+- **Severity (original)**: Low. **Status**: Closed.
 - **Risk**: student and coordinator PII accumulates in Vercel log retention.
-- **Verified at HEAD**: `interview-reminders.js:156`, `coordinator-weekly-digest.js:465`, and `midpoint-checkin.js:151` each log recipient email and name on every send (line numbers re-verified 2026-09-24).
+- **Verified at HEAD (before LOW-1)**: `interview-reminders.js:156`, `coordinator-weekly-digest.js:465`, and `midpoint-checkin.js:151` each logged recipient email and name on every send; the digest also named the coordinator in five error and skip lines, and the two student crons put the email in their send-failure line.
+- **Fix (LOW-1, 2026-09-26)**: every one of those lines logs ids only: the session and student id, the student id, or the coordinator id. `test/lowSeverityCleanup.test.mjs` sweeps the three files and fails on any console line that interpolates an email, a first or last name or `full_name`.
+- **Closing commit**: LOW-1 (2026-09-26).
 
 ## S-21. Resend webhook allows same-rank lateral writes, no replay dedup
 
@@ -911,31 +914,37 @@ afterward, from memory.
 
 ## S-25. Suspected legacy USING (true) policies on archived submission tables
 
-- **Severity (original)**: Low, suspected. **Status**: OPEN, unconfirmed.
+- **Severity (original)**: Low, suspected. **Status**: Closed, by absence.
 - **Risk**: if the three archived tables still exist live, their legacy authenticated policies are fully open.
-- **Verified at HEAD**: not verifiable read-only; needs one live catalog query. Nothing in the repo has touched them since the audit.
+- **Verified live (Owner, 2026-09-26)**: `unit_submissions`, `student_submissions` and
+  `student_intake_submissions` do not exist in production (`to_regclass` NULL for all
+  three), so there is nothing to narrow and no migration follows.
+- **The same catalog read, every permissive policy in `public`**: eleven rows, none of
+  them a finding. Nine are `service_role` policies (`activity_logs`, `cohort_snapshots`,
+  `contacts`, `ngrp_outcomes`, `notification_log`, `program_events` x2,
+  `unit_cohort_responses`, `user_profiles`), which are inert because the service role
+  bypasses RLS whatever the policy says. The other two are deliberate and documented:
+  `anon_select_cohorts` (Wave C, 20260712000002: the public student, school and unit
+  forms look up the accepting cohort client-side) and `anon_select_units` (Wave D,
+  20260712000003: the unit dropdowns on the student and unit forms). Both are SELECT only;
+  anon holds no write on either table. Tables with policies but RLS disabled: none.
+- **Closing commit**: S25-1 (2026-09-26), by verification.
 
 ## S-26. PostgREST .or() filter strings built from raw search input
 
-- **Severity (original)**: Low. **Status**: OPEN.
+- **Severity (original)**: Low. **Status**: Closed.
 - **Risk**: commas and parentheses in a search term alter filter semantics client-side (bounded by RLS, so integrity of the query, not access).
-- **Verified at HEAD (re-swept 2026-09-24)**: the finding has grown from six sites to ten `.or()` template sites in `src/`. Nine interpolate a typed search term into an `ilike` filter with no escaping of `,`, `(`, `)`, `%` or `_`:
-  1. `src/staff/StaffApp.jsx:1249` (universal search, students; this is the file the entry used to call `src/App.jsx:1095`)
-  2. `src/staff/StaffApp.jsx:1251` (universal search, units)
-  3. `src/staff/StaffApp.jsx:1254` (universal search, contacts)
-  4. `src/staff/StaffApp.jsx:1257` (universal search, preceptors)
-  5. `src/components/PreceptorAssignmentModal.jsx:42`
-  6. `src/components/settings/GrantPortalAccessModal.jsx:62` (student search)
-  7. `src/components/settings/GrantPortalAccessModal.jsx:226` (email match)
-  8. `src/components/connect/ContactAutocomplete.jsx:114`
-  9. `src/lib/contactSearch.js:26`
-  The tenth, `src/staff/StaffApp.jsx:493`, interpolates a cohort id rather than a search term (`cohort_id.eq.${id},cohort_id.is.null`) and is listed for completeness, not as an exposure. All remain bounded by RLS; the risk is query integrity, not access.
+- **Verified at HEAD (re-swept 2026-09-24)**: ten `.or()` template sites in `src/`; nine interpolated a typed search term into an `ilike` filter. At LOW-1 two of the nine were already routed through the sanitizer: `src/lib/contactSearch.js` (`sanitizeContactTerm` at the top of `searchContacts`) and `src/components/connect/ContactAutocomplete.jsx` (through the same hook), and `GrantPortalAccessModal.jsx`'s student search used a local copy of the same regex.
+- **Fix (LOW-1, 2026-09-26)**: every typed term now goes through the one `sanitizeContactTerm` in `src/lib/contactSearchCore.js` before it enters a filter string: the four universal-search queries in `StaffApp.jsx` (`runSearch` sanitizes once, at the top), `PreceptorAssignmentModal.jsx`, and the two local copies of the regex in `GrantPortalAccessModal.jsx` and `ContactAutocomplete.jsx` are the shared function now. The one email lookup in `GrantPortalAccessModal.jsx` is an exact, case-insensitive match, so it escapes LIKE wildcards with `escapeLikePattern` and never interpolates a value carrying filter syntax. The tenth site interpolates a cohort id, not input. `test/lowSeverityCleanup.test.mjs` sweeps every `.or()` template in `src/` and fails if an interpolated term is not sanitized or escaped.
+- **Closing commit**: LOW-1 (2026-09-26).
 
 ## S-27. Unescaped ilike wildcards on service-role queries
 
-- **Severity (original)**: Low. **Status**: OPEN.
+- **Severity (original)**: Low. **Status**: Closed.
 - **Risk**: % and _ in caller input broaden service-role matches (the public intake and shift-log paths escape; these do not).
-- **Verified at HEAD (line numbers re-verified 2026-09-24)**: `api/interview-book.js:259` (interviewer name), `api/messages-staff-options.js:120`, `api/keith.js:418` and `:503` pass unescaped values to ilike. `api/interview-book.js:159` (the student email lookup) is escaped through `escapeLikePattern` and is not part of this finding.
+- **Verified at HEAD (before LOW-1)**: `api/interview-book.js:259` (interviewer name), `api/messages-staff-options.js:120`, `api/keith.js:418` and `:503` passed unescaped values to ilike.
+- **Fix (LOW-1, 2026-09-26)**: all four wrap the value in the existing `escapeLikePattern` from `src/lib/emailUtils.js`, as the student email lookup in the same booking file already did. `test/lowSeverityCleanup.test.mjs` pins each site.
+- **Closing commit**: LOW-1 (2026-09-26).
 
 ## S-28. interview_slots lacked database-level double-booking protection
 
@@ -1002,27 +1011,40 @@ afterward, from memory.
 
 ## S-30. Keith GET reveals hasApiKey unauthenticated
 
-- **Severity (original)**: Informational. **Status**: OPEN.
+- **Severity (original)**: Informational. **Status**: Closed.
 - **Risk**: configuration reconnaissance without a token.
-- **Verified at HEAD (line re-verified 2026-09-24)**: `api/keith.js:750` returns `hasApiKey: !!process.env.ANTHROPIC_API_KEY` on GET before any auth.
+- **Verified at HEAD (before LOW-1)**: `api/keith.js:750` returned `hasApiKey: !!process.env.ANTHROPIC_API_KEY` on GET before any auth.
+- **Fix (LOW-1, 2026-09-26)**: the field is removed; the unauthenticated GET is a liveness check that says only "Keith is alive". `test/lowSeverityCleanup.test.mjs` fails if `hasApiKey` returns.
+- **Closing commit**: LOW-1 (2026-09-26).
 
 ## S-31. Activation token_hash remains in the address bar after verifyOtp
 
-- **Severity (original)**: Informational. **Status**: OPEN.
+- **Severity (original)**: Informational. **Status**: Closed.
 - **Risk**: a consumed single-use token hash lingers in browser history.
-- **Verified at HEAD**: no `history.replaceState` in `src/pages/ActivateAccountPage.jsx`.
+- **Verified at HEAD (before LOW-1)**: no `history.replaceState` in `src/pages/ActivateAccountPage.jsx`.
+- **Fix (LOW-1, 2026-09-26)**: `handleActivate` replaces the URL with the bare pathname the moment `verifyOtp` returns, before the outcome is read, so the hash is gone whether the token was accepted or refused. The scanner-safe confirm step is unchanged: nothing is consumed and nothing is rewritten until the recipient clicks. `test/lowSeverityCleanup.test.mjs` pins the order.
+- **Closing commit**: LOW-1 (2026-09-26).
 
 ## S-32. Student PII hardcoded in a dormant cron
 
-- **Severity (original)**: Informational. **Status**: OPEN.
+- **Severity (original)**: Informational. **Status**: Closed, by file removal.
 - **Risk**: two students' names and schools live in source control.
-- **Verified at HEAD (2026-09-24)**: `api/cron/clockout-reminders-resend.js:42-43`, the APPROVED_SHIFT_LOG_IDS comments. The endpoint is CRON_SECRET-gated; the run it existed for is long complete, so the whole file is retirable.
+- **Verified at HEAD (before LOW-1)**: `api/cron/clockout-reminders-resend.js:42-43`, the APPROVED_SHIFT_LOG_IDS comments. The endpoint was CRON_SECRET-gated and not in `vercel.json`; the one-off run it existed for completed in 2026.
+- **Fix (LOW-1, 2026-09-26)**: the file is deleted. Nothing referenced it except the demo-boundary test's exemption list, which drops the entry. The names remain in git history, as every deletion does; nothing in the working tree carries them. `test/lowSeverityCleanup.test.mjs` fails if the file or a schedule for it returns.
+- **Closing commit**: LOW-1 (2026-09-26).
 
 ## S-33. Policies without ENABLE ROW LEVEL SECURITY in repo SQL
 
-- **Severity (original)**: Informational. **Status**: OPEN, not verifiable read-only.
+- **Severity (original)**: Informational. **Status**: Closed.
 - **Risk**: if RLS is not enabled live on user_profiles, activity_logs, or aspire_events, their policies are decorative.
-- **Verified at HEAD**: confirmed that no repository migration contains ENABLE ROW LEVEL SECURITY for any of the three (all three are dashboard-managed). Live state needs one catalog query (pg_class.relrowsecurity).
+- **Verified at HEAD**: no repository migration contains ENABLE ROW LEVEL SECURITY for any of the three (all three are dashboard-managed).
+- **Verified live (Owner, 2026-09-26)**: `pg_class.relrowsecurity` is true on all three
+  (`activity_logs` with 4 policies, `aspire_events` with 2, `user_profiles` with 9), so
+  every policy is in force. `aspire_events` still carries the anon SELECT table grant, but
+  its two policies are for signed-in readers and no anon policy exists, so an anon read
+  returns nothing; the grant is noted, not acted on. Nothing to enable; no migration
+  follows.
+- **Closing commit**: S33-1 (2026-09-26), by verification.
 
 ## D-01. react-router-dom 7.15.1 advisories
 

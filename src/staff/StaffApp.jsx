@@ -16,6 +16,7 @@
 
 import { useState, useEffect, useCallback, useRef, Suspense } from 'react'
 import { lazyReload } from '../lib/lazyReload'
+import { sanitizeContactTerm } from '../lib/contactSearchCore'
 import { ngrpPart } from '../lib/ngrpWorkspaceLoader'
 import { Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { useScrollTopOnRoute } from '../hooks/useScrollTopOnRoute'
@@ -1256,7 +1257,9 @@ function MainApp({ onLogout }) {
   // above Fall 2026. See lib/cohortSeason.js.
   const sortedCohorts = [...cohorts].sort(compareCohortsChrono)
 
-  const runSearch = useCallback(async q => {
+  const runSearch = useCallback(async rawQ => {
+    // S-26: a typed term never carries PostgREST filter syntax or LIKE wildcards into .or().
+    const q = sanitizeContactTerm(rawQ)
     if (!activeCohortId || q.length < 2) { setSearchResults({ students:[], units:[], placements:[], contacts:[], preceptors:[], cohorts:[], catalog:[] }); setSearchOpen(false); return }
     setSearchLoading(true); setSearchOpen(true)
     // UNIVERSAL-SEARCH-1: every query below is an EXISTING-RLS-backed client read - permissioning is

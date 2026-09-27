@@ -153,9 +153,9 @@ export default async function handler(req, res) {
           interviewDate,
           interviewTime,
         });
-        console.log(`[interview-reminders] sent to ${studentEmail} (${student.first_name} ${student.last_name}) for session ${session.id}`);
+        console.log(`[interview-reminders] sent for session ${session.id} (student ${student.id})`);  // S-20: ids only
       } catch (err) {
-        console.error(`[interview-reminders] send failed for session ${session.id} (${studentEmail}):`, err.message);
+        console.error(`[interview-reminders] send failed for session ${session.id} (student ${student.id}):`, err.message);
         skipped.push({ id: session.id, reason: 'send_failed', error: err.message });
       }
     }

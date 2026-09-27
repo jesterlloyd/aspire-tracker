@@ -24,6 +24,7 @@
 
 import { verifyStaffCaller, getServiceDb } from './lib/messagesAuth.js';
 import { methodGuard, logApiError } from './lib/messagesApi.js';
+import { escapeLikePattern } from '../src/lib/emailUtils.js';
 
 const ASSIGNEE_LIMIT = 50;    // the Owner/Admin list is intentionally small
 const PARTICIPANT_LIMIT = 20; // capped picker results
@@ -117,7 +118,7 @@ async function listParticipants(db, req, res) {
     .from('user_profiles')
     .select('id, full_name, is_active')
     .in('id', linkedProfileIds);
-  if (q.length >= MIN_SEARCH) profileQuery = profileQuery.ilike('full_name', `%${q}%`);
+  if (q.length >= MIN_SEARCH) profileQuery = profileQuery.ilike('full_name', `%${escapeLikePattern(q)}%`);  // S-27
   const { data: profiles, error: pErr } = await profileQuery.limit(PARTICIPANT_LIMIT);
   if (pErr) {
     logApiError('messages-staff-options', 'profile_read_failed', pErr);

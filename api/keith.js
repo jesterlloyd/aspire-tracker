@@ -7,6 +7,7 @@
 import { buildSystemPrompt, GOVERNED_KNOWLEDGE_MARKER, getRecentCommunications, getUnitResponseStats, getUnitResponses, getUnitLeadersForKeith } from '../src/lib/keithKnowledge.js';
 import { retrieveGovernedKnowledge } from '../lib/server/keith/knowledgeRetrieval.js';
 import { appUrl } from '../lib/server/appUrl.js';
+import { escapeLikePattern } from '../src/lib/emailUtils.js';
 import { computeStatusCounts, STATUS_DEFINITIONS } from '../src/lib/derivations/cohortStatus.js';
 import { summarizeCsLink } from '../src/lib/derivations/csLink.js';
 import { selectActiveWindowRows, mergeOnCampusNow, openShiftUnit, openShiftPreceptor } from '../src/lib/onCampusNow.js';
@@ -415,7 +416,7 @@ async function executeToolCall(toolName, input, userRole, supabase, activeCohort
           .eq('cohort_id', activeCohortId)
           .order('last_name', { ascending: true });
         if (input.status)       query = query.eq('status', input.status);
-        if (input.program_type) query = query.ilike('program_type', `%${input.program_type}%`);
+        if (input.program_type) query = query.ilike('program_type', `%${escapeLikePattern(input.program_type)}%`);  // S-27
         if (input.min_gpa)      query = query.gte('cumulative_gpa', input.min_gpa);
         // School filtering is ALIAS-AWARE and applied in JS (not a DB ilike): abbreviations like
         // "APU" are initialisms, not substrings of "Azusa Pacific University", so a substring ilike
@@ -500,7 +501,7 @@ async function executeToolCall(toolName, input, userRole, supabase, activeCohort
         const { data: unitRows } = await supabase
           .from('units')
           .select('id, unit_name, division, total_slots, slots_remaining, contact_person, contact_email, is_participating, patient_population')
-          .ilike('unit_name', `%${input.unit_name}%`)
+          .ilike('unit_name', `%${escapeLikePattern(input.unit_name)}%`)  // S-27
           .eq('cohort_id', activeCohortId)
           .limit(1);
         const unit = unitRows?.[0];
@@ -745,10 +746,8 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   if (req.method === 'GET') {
-    return res.status(200).json({
-      status: 'Keith is alive',
-      hasApiKey: !!process.env.ANTHROPIC_API_KEY,
-    });
+    // S-30: a liveness check says nothing about configuration to an unauthenticated caller.
+    return res.status(200).json({ status: 'Keith is alive' });
   }
 
   if (req.method !== 'POST') {

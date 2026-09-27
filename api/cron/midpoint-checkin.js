@@ -148,9 +148,9 @@ export default async function handler(req, res) {
         });
 
         fired.push({ studentId: student.id, studentEmail, cohortName: cohortNameMap[student.cohort_id] });
-        console.log(`[midpoint-checkin] sent to ${studentEmail} (${student.first_name} ${student.last_name})`);
+        console.log(`[midpoint-checkin] sent for student ${student.id}`);  // S-20: ids only
       } catch (err) {
-        console.error(`[midpoint-checkin] send failed for student ${student.id} (${studentEmail}):`, err.message);
+        console.error(`[midpoint-checkin] send failed for student ${student.id}:`, err.message);
         skipped.push({ id: student.id, reason: 'send_failed', error: err.message });
       }
     }
