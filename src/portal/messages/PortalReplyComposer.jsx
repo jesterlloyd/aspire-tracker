@@ -13,13 +13,14 @@ import {
   MESSAGE_MAX_BODY_CHARS, normalizeBody, validateBodyValue,
 } from '../../lib/messages/messagesConstants'
 import {
-  PORTAL_CLOSED_NOTICE, PORTAL_SEND_CONFIRMATION,
+  PORTAL_CLOSED_NOTICE, PORTAL_SEND_CONFIRMATION, PORTAL_SAFETY_NOTICE,
   mapPortalMessagesError, mapPortalConflict, portalConflictIsAccessLost,
 } from '../../lib/messages/portalMessagesConstants'
 
 export default function PortalReplyComposer({
   conversationId,
   closed,
+  showNotice = false,
   onSent,
   announce,
   api = { replyToPortalConversation },
@@ -80,7 +81,9 @@ export default function PortalReplyComposer({
         <p className="ptl-compose-note ptl-msg-closed-note">{PORTAL_CLOSED_NOTICE}</p>
       )}
 
-      <label className="ptl-label" htmlFor="ptl-reply-body">Reply</label>
+      {/* MESSAGES-REFINE-2: the label is for assistive technology; the field
+          says what it is. */}
+      <label className="ptl-label sr-only" htmlFor="ptl-reply-body">Reply</label>
       <div className="ptl-msg-compose-row">
         <textarea
           id="ptl-reply-body"
@@ -90,15 +93,24 @@ export default function PortalReplyComposer({
           maxLength={MESSAGE_MAX_BODY_CHARS}
           onChange={(e) => setBody(e.target.value)}
           disabled={accessLost}
+          placeholder="Write a message"
           aria-describedby="ptl-reply-help"
         />
         <button type="submit" className="ptl-msg-send-circle" disabled={disabled} aria-label="Send message">
           <Send size={16} aria-hidden="true" />
         </button>
       </div>
-      <div className="ptl-small" id="ptl-reply-help">
+      {/* The count shows once it matters (the last 500 characters); assistive
+          technology always has it. */}
+      <div
+        className={`ptl-small${normalized.length > MESSAGE_MAX_BODY_CHARS - 500 ? '' : ' sr-only'}`}
+        id="ptl-reply-help"
+      >
         {`${normalized.length} of ${MESSAGE_MAX_BODY_CHARS} characters`}
       </div>
+      {/* MESSAGES-REFINE-2: the safety notice sits where you write, not above
+          the whole workspace. Opt-in: the Team Messages panel shows its own. */}
+      {showNotice && <p className="ptl-msg-compose-notice">{PORTAL_SAFETY_NOTICE}</p>}
 
       {err && <p className="ptl-form-error" role="alert">{err}</p>}
 

@@ -67,6 +67,8 @@ export default function PortalMessagesThread({
   const pages = useMemo(() => data?.pages || [], [data])
   const newestPage = pages[0] || null
   const conversation = newestPage?.conversation || null
+  // MESSAGES-RECEIPTS-1: the receipt on the caller's own latest message.
+  const receipt = newestPage?.receipt || null
 
   // Pages arrive newest-first; each page is chronological within itself. Older
   // pages are PREPENDED so the merged thread stays chronological, with no
@@ -195,15 +197,15 @@ export default function PortalMessagesThread({
         {showBack && (
           <BackButton label="Back to messages" onClick={onBack} className="ptl-msg-back" />
         )}
+        {/* MESSAGES-REFINE-2: the subject is the header. An open thread needs no
+            status chip and the category is staff filing, so neither is shown;
+            a closed thread still says so. */}
         <h3 className="ptl-msg-thread-subject">{conversation?.subject}</h3>
-        <div className="ptl-msg-thread-meta">
-          <span className={`ptl-chip ${closed ? 'ptl-chip-soft' : 'ptl-chip-ok'}`}>
-            {portalStatusLabel(conversation?.status)}
-          </span>
-          {conversation?.category && (
-            <span className="ptl-msg-row-cat">{conversation.category}</span>
-          )}
-        </div>
+        {closed && (
+          <div className="ptl-msg-thread-meta">
+            <span className="ptl-chip ptl-chip-soft">{portalStatusLabel(conversation?.status)}</span>
+          </div>
+        )}
       </div>
 
       {/* MESSAGES-AUTOSCROLL-1: the wrapper anchors the floating "New messages"
@@ -233,6 +235,7 @@ export default function PortalMessagesThread({
             reactionSetVersion={reactionSetVersion}
             onSetReaction={setReaction}
             reactionsDisabled={busyReactionIds.has(m.id)}
+            receipt={receipt?.message_id === m.id ? receipt.state : null}
           />
         ))}
         {reactionError && <p className="ptl-form-error" role="alert">{reactionError}</p>}

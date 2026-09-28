@@ -18,7 +18,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
-import { RotateCw, MessageSquare, AlertCircle, Plus } from 'lucide-react'
+import { RotateCw, MessageSquare, AlertCircle, Plus, ChevronLeft } from 'lucide-react'
 import BackButton from '../../BackButton'
 import MessageBubble from '../../shared/MessageBubble'
 import MessagesInbox from './MessagesInbox'
@@ -177,13 +177,17 @@ export default function MessagesWorkspace({
 
       {showThread && (
         <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-          {narrow && (
+          {/* MESSAGES-REFINE-2: on a narrow screen and in the drawer the thread
+              carries its own back arrow in a compact header. */}
+          {narrow && !selectedId && (
             <div style={{ padding: '8px 14px 0' }}>
               <BackButton label="Back to messages" onClick={backToList} />
             </div>
           )}
           {selectedId
             ? <ThreadPanel conversationId={selectedId} api={api} announce={announce}
+                compact={narrow}
+                onBack={narrow ? backToList : undefined}
                 focusReply={focusLinkedReply && selectedId === linkedConversationId}
                 onGone={() => { setSelectedId(null); setMobileView('list') }}
                 onOpenStudent={onOpenStudent} />
@@ -224,7 +228,10 @@ function NoSelection() {
 
 // ── Thread ──────────────────────────────────────────────────────────────────
 
-export function ThreadPanel({ conversationId, api = defaultApi, announce = () => {}, onGone = () => {}, onOpenStudent, focusReply = false }) {
+export function ThreadPanel({
+  conversationId, api = defaultApi, announce = () => {}, onGone = () => {}, onOpenStudent, focusReply = false,
+  compact = false, onBack,
+}) {
   const queryClient = useQueryClient()
   const visible = useDocumentVisible()
   const markedRef = useRef(null)
@@ -270,6 +277,8 @@ export function ThreadPanel({ conversationId, api = defaultApi, announce = () =>
     [pages],
   )
   const conversation = pages[0]?.conversation || null
+  // MESSAGES-RECEIPTS-1: the newest page carries the one receipt in the thread.
+  const receipt = pages[0]?.receipt || null
   const loadError = isError ? mapMessagesError(error?.status) : null
 
   // MESSAGES-AUTOSCROLL-1: shared bottom-anchor management. `ready` flips once
@@ -381,29 +390,35 @@ export function ThreadPanel({ conversationId, api = defaultApi, announce = () =>
       })
   }, [api, conversationId, newestAt, isLoading, isError, queryClient])
 
+  const backRow = onBack ? (
+    <div style={{ padding: '8px 14px 0' }}>
+      <BackButton label="Back to messages" onClick={onBack} />
+    </div>
+  ) : null
+
   if (isLoading) {
     return (
-      <div style={centered}>
+      <>{backRow}<div style={centered}>
         <span role="status" style={{ fontSize: 13, color: T.muted, fontFamily: F }}>
           Loading conversation
         </span>
-      </div>
+      </div></>
     )
   }
 
   if (loadError) {
     return (
-      <div style={{ ...centered, color: T.muted }}>
+      <>{backRow}<div style={{ ...centered, color: T.muted }}>
         <AlertCircle size={18} aria-hidden="true" />
         <p style={{ margin: '8px 0 10px', fontSize: 13, fontFamily: F }}>{loadError}</p>
         <button type="button" onClick={() => refetch()} style={primaryBtn}>
           <RotateCw size={13} aria-hidden="true" /> Retry
         </button>
-      </div>
+      </div></>
     )
   }
 
-  if (!conversation) return <NoSelection />
+  if (!conversation) return <>{backRow}<NoSelection /></>
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
@@ -414,6 +429,8 @@ export function ThreadPanel({ conversationId, api = defaultApi, announce = () =>
         api={api}
         announce={announce}
         onOpenStudent={onOpenStudent}
+        compact={compact}
+        onBack={onBack}
       />
 
       {/* MESSAGES-AUTOSCROLL-1: the relative wrapper hosts the floating "New
@@ -452,6 +469,7 @@ export function ThreadPanel({ conversationId, api = defaultApi, announce = () =>
               onSetReaction={setReaction}
               reactionsDisabled={busyReactionIds.has(m.id)}
               viewerId={viewer?.id || null}
+              receipt={receipt?.message_id === m.id ? receipt.state : null}
             />
           ))}
         </ol>
@@ -480,14 +498,53 @@ export function ThreadPanel({ conversationId, api = defaultApi, announce = () =>
         api={api}
         announce={announce}
         focusOnMount={focusReply}
+        compact={compact}
       />
     </div>
   )
 }
 
-function ThreadHeader({ conversation: c, latestMessage, viewer, api, announce, onOpenStudent }) {
+function ThreadHeader({ conversation: c, latestMessage, viewer, api, announce, onOpenStudent, compact = false, onBack }) {
   const accessActive = c.participant_access_active !== false
   const banner = threadBanner(c, latestMessage, viewer)
+  if (compact) {
+    // MESSAGES-REFINE-2: the drawer and phone header. Two lines and a status
+    // line: back, who, and the two actions; then what it is about. The access
+    // badge shows only when access is gone, because that is the case that
+    // changes what you can do.
+    return (
+      <header className="messages-thread-head--compact">
+        <div className="messages-thread-head__row">
+          {onBack && (
+            <button type="button" className="messages-icon-btn messages-focusable" onClick={onBack} aria-label="Back to messages" title="Back to messages">
+              <ChevronLeft size={18} aria-hidden="true" />
+            </button>
+          )}
+          <span className="messages-thread-head__name">{c.participant_name || 'Portal participant'}</span>
+          <ThreadManagementControls conversation={c} api={api} announce={announce} compact />
+        </div>
+        <div className="messages-thread-head__row messages-thread-head__sub">
+          <span className="messages-thread-head__subject" title={c.subject || ''}>{c.subject}</span>
+          {!accessActive && (
+            <span style={{ ...badge, borderStyle: 'dashed', flexShrink: 0 }}>{participantAccessLabel(false)}</span>
+          )}
+          {c.related_student_id && onOpenStudent && (
+            <button
+              type="button"
+              className="messages-focusable"
+              onClick={() => onOpenStudent(c.related_student_id)}
+              style={{ ...studentLink, marginLeft: 0, flexShrink: 0 }}
+            >
+              Student record →
+            </button>
+          )}
+        </div>
+        <div className={`messages-status-line messages-status-line--${banner.kind}`} role="status">
+          {banner.short || banner.label}
+        </div>
+      </header>
+    )
+  }
   return (
     <header style={{ padding: '12px 16px', borderBottom: `1px solid ${T.border}` }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -524,7 +581,7 @@ function ThreadHeader({ conversation: c, latestMessage, viewer, api, announce, o
 
 function MessageRow({
   message: m, previous, reactionsEnabled, reactionSetVersion,
-  onSetReaction, reactionsDisabled, viewerId,
+  onSetReaction, reactionsDisabled, viewerId, receipt,
 }) {
   const showDate = !previous || !sameDay(previous.created_at, m.created_at)
   return (
@@ -540,6 +597,7 @@ function MessageRow({
       onSetReaction={onSetReaction}
       reactionsDisabled={reactionsDisabled}
       viewerId={viewerId}
+      receipt={receipt}
     />
   )
 }

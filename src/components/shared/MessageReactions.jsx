@@ -12,7 +12,7 @@
 // notification, an unread change, or an archive change. It only ever calls
 // onSetReaction(messageId, keyOrNull); everything else is the caller's.
 
-import { useCallback, useEffect, useLayoutEffect, useRef } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
   reactionByKey, reactionsForVersion, reactionSentences, reactionBadgeContent,
@@ -40,10 +40,22 @@ export function ReactionBadge({ message, viewerId, side }) {
 
 // The bar of six. Opens above the bubble, flips below when there is no room,
 // and always stays inside the viewport.
+//
+// MESSAGES-REFINE-2: each emoji names itself in a tooltip while it is pointed
+// at, keyboard-focused, or under a sliding finger. When the bar was opened by a
+// long press, the press can keep going: slide across the emoji (the tooltip
+// follows) and let go on one to pick it, as iMessage does. Letting go anywhere
+// else leaves the bar open.
 export function ReactionBar({
   message, anchorRef, onClose, onSetReaction, onAnnounce, disabled = false, reactionSetVersion = 1,
+  pressActive = false,
 }) {
   const barRef = useRef(null)
+  const [tip, setTip] = useState(null) // { key, label, left }
+  const showTip = useCallback((button) => {
+    if (!button || !barRef.current?.contains(button)) { setTip(null); return }
+    setTip({ key: button.dataset.key, label: button.dataset.label, left: button.offsetLeft + button.offsetWidth / 2 })
+  }, [])
   const definitions = reactionsForVersion(reactionSetVersion)
   const mineKey = (Array.isArray(message?.reactions) ? message.reactions : []).find((r) => r?.mine)?.key || null
 
@@ -120,13 +132,44 @@ export function ReactionBar({
   }
 
   // Picking the current reaction removes it; any other replaces it.
-  const pick = (key) => {
+  const pick = useCallback((key) => {
     if (disabled) return
     const next = key === mineKey ? null : key
     onSetReaction?.(message?.id, next)
     onAnnounce?.(next ? `Reacted ${reactionByKey(key)?.label || ''}`.trim() : 'Removed reaction')
     onClose(true)
-  }
+  }, [disabled, mineKey, message?.id, onSetReaction, onAnnounce, onClose])
+
+  // The long press that opened the bar is still down: follow it across the
+  // emoji, and pick the one it is released on. Runs once per press: after the
+  // release, an ordinary click is the only way to pick (never both).
+  const pickRef = useRef(pick)
+  const showTipRef = useRef(showTip)
+  useEffect(() => { pickRef.current = pick; showTipRef.current = showTip })
+  useEffect(() => {
+    if (!pressActive) return undefined
+    const optionAt = (e) => document.elementFromPoint(e.clientX, e.clientY)?.closest?.('.msg-reaction-option')
+    const inBar = (el) => (el && barRef.current?.contains(el) ? el : null)
+    const onMove = (e) => { showTipRef.current(inBar(optionAt(e))) }
+    // A finger that slides after a long press would otherwise scroll the thread.
+    const noScroll = (e) => { if (e.cancelable) e.preventDefault() }
+    const stop = () => {
+      document.removeEventListener('pointermove', onMove, true)
+      document.removeEventListener('pointerup', finish, true)
+      document.removeEventListener('pointercancel', stop, true)
+      document.removeEventListener('touchmove', noScroll, { capture: true })
+    }
+    function finish(e) {
+      stop()
+      const el = inBar(optionAt(e))
+      if (el && !el.disabled) pickRef.current(el.dataset.key)
+    }
+    document.addEventListener('pointermove', onMove, true)
+    document.addEventListener('pointerup', finish, true)
+    document.addEventListener('pointercancel', stop, true)
+    document.addEventListener('touchmove', noScroll, { capture: true, passive: false })
+    return stop
+  }, [pressActive])
 
   return createPortal(
     <div
@@ -137,7 +180,11 @@ export function ReactionBar({
       aria-orientation="horizontal"
       style={{ position: 'fixed', top: -9999, left: -9999 }}
       onKeyDown={onKeyDown}
+      onPointerLeave={(e) => { if (e.pointerType === 'mouse') setTip(null) }}
     >
+      {tip && (
+        <span className="msg-reaction-tip" aria-hidden="true" style={{ left: tip.left }}>{tip.label}</span>
+      )}
       {definitions.map((def) => {
         const on = def.key === mineKey
         return (
@@ -147,10 +194,13 @@ export function ReactionBar({
             className="msg-reaction-option"
             aria-pressed={on}
             aria-label={on ? `${def.label}, selected. Select again to remove` : def.label}
-            title={def.label}
+            data-key={def.key}
+            data-label={def.label}
             disabled={disabled}
             tabIndex={-1}
             onClick={() => pick(def.key)}
+            onPointerEnter={(e) => { if (e.pointerType === 'mouse') showTip(e.currentTarget) }}
+            onFocus={(e) => { if (e.currentTarget.matches(':focus-visible')) showTip(e.currentTarget) }}
           >
             <span aria-hidden="true" className="msg-reaction-option-glyph">{def.glyph}</span>
           </button>

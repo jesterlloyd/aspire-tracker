@@ -95,7 +95,8 @@ test('six reactions retain one selection, replacement, and cancellation semantic
   assert.deepEqual(MESSAGE_REACTIONS.map((item) => item.glyph), ['👍', '👀', '✅', '🙏', '🙂', '🎉'])
   assert.deepEqual(LEGACY_MESSAGE_REACTIONS.map((item) => item.key), ['acknowledge', 'thanks', 'celebrate'])
   assert.match(reactions, /const next = key === mineKey \? null : key/)
-  assert.match(reactions, /title=\{def\.label\}/)
+  // MESSAGES-REFINE-2: the label is the shown tooltip (data-label), not a native title.
+  assert.match(reactions, /data-label=\{def\.label\}/)
   assert.doesNotMatch(reactions, /msg-reaction-option-label/)
   const replaced = applyOptimisticReaction([{ key: 'warm', count: 1, mine: true }], 'done')
   assert.deepEqual(replaced, [{ key: 'done', count: 1, mine: true }])

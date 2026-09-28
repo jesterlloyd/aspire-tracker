@@ -985,6 +985,8 @@
   border-radius: 10px; font-size: 12.5px; line-height: 1.45;
 }
 .ptl-msg-workspace-guidance { margin-top: 12px; margin-bottom: -2px; }
+/* MESSAGES-REFINE-2: the safety notice as one quiet line under the reply box. */
+.ptl-msg-compose-notice { margin: 0; font-size: 12px; line-height: 1.45; color: #4b5563; }
 /* Declared after the base: an equal-specificity rule inside an earlier media
    block would lose the cascade. 16px also avoids Safari's zoom-on-focus, which
    fires for any font under 16px and shifts the whole composer. */

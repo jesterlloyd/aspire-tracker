@@ -55,7 +55,7 @@ const T = {
 
 // ── Reply composer ──────────────────────────────────────────────────────────
 
-export function ReplyComposer({ conversationId, accessActive, api = defaultApi, announce = () => {}, onSent = () => {}, focusOnMount = false }) {
+export function ReplyComposer({ conversationId, accessActive, api = defaultApi, announce = () => {}, onSent = () => {}, focusOnMount = false, compact = false }) {
   const queryClient = useQueryClient()
   const { userProfile } = useAuth() || {}
   const replyingAs = userProfile?.full_name || ''
@@ -111,9 +111,9 @@ export function ReplyComposer({ conversationId, accessActive, api = defaultApi, 
       )}
 
       <form onSubmit={send}>
-        <div className="messages-composer-hint">
+        <div className={`messages-composer-hint${compact ? ' messages-composer-hint--compact' : ''}`}>
           {replyingAs && <span>Replying as <b>{replyingAs}</b></span>}
-          <span>Press and hold a student&apos;s message to react.</span>
+          <span>{compact ? 'Hold a message to react.' : <>Press and hold a student&apos;s message to react.</>}</span>
         </div>
         <label htmlFor="reply-body" style={srOnly}>Reply to this conversation</label>
         <textarea
@@ -172,7 +172,7 @@ export function ReplyComposer({ conversationId, accessActive, api = defaultApi, 
 
 // ── Thread actions ──────────────────────────────────────────────────────────
 
-export function ThreadManagementControls({ conversation, api = defaultApi, announce = () => {} }) {
+export function ThreadManagementControls({ conversation, api = defaultApi, announce = () => {}, compact = false }) {
   const queryClient = useQueryClient()
   const [busy, setBusy] = useState(null)
   const [error, setError] = useState(null)
@@ -199,16 +199,20 @@ export function ThreadManagementControls({ conversation, api = defaultApi, annou
   }
 
   return (
-    <div className="messages-thread-actions">
+    <div className={`messages-thread-actions${compact ? ' messages-thread-actions--compact' : ''}`}>
+      {/* MESSAGES-REFINE-2: in the compact header Follow up is its flag alone;
+          its name is still its accessible name and its tooltip. */}
       <button
         type="button"
-        className={`messages-action-btn messages-focusable${flagged ? ' messages-action-btn--flag-on' : ''}`}
+        className={`messages-action-btn messages-focusable${flagged ? ' messages-action-btn--flag-on' : ''}${compact ? ' messages-action-btn--icon' : ''}`}
         disabled={busy === 'flag'}
         aria-pressed={flagged}
+        aria-label={compact ? (flagged ? 'Following up' : 'Follow up') : undefined}
+        title={compact ? (flagged ? 'Following up' : 'Follow up') : undefined}
         onClick={() => run('flag', { flagged: !flagged }, flagged ? 'Follow up cleared.' : 'Marked for follow up.')}
       >
         <Flag size={14} fill={flagged ? 'currentColor' : 'none'} aria-hidden="true" />
-        {flagged ? 'Following up' : 'Follow up'}
+        {!compact && (flagged ? 'Following up' : 'Follow up')}
       </button>
       <button
         type="button"

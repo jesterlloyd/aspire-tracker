@@ -13,6 +13,8 @@ const srOnly = {
   overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap', border: 0,
 }
 
+const RECEIPT_LABEL = { sent: 'Sent', delivered: 'Delivered', read: 'Read' }
+
 function authorName(message, fromStaff) {
   return message?.author_label || message?.author_name || (fromStaff ? 'ASPIRE Team' : 'Portal participant')
 }
@@ -37,6 +39,9 @@ export default function MessageBubble({
   reactionSetVersion = 1,
   // Staff threads name reactors; the viewer's own reads "You".
   viewerId = null,
+  // MESSAGES-RECEIPTS-1: 'sent' | 'delivered' | 'read' on the latest message
+  // when it is the viewer side's own; null everywhere else.
+  receipt = null,
 }) {
   const direction = messageBubbleDirection(message, perspective)
   const fromStaff = messageAuthorRole(message) === 'staff'
@@ -52,7 +57,7 @@ export default function MessageBubble({
   // Staff react to participant messages, participants to staff messages, and
   // nobody to their own.
   const canReact = reactionsEnabled && !neutral && canReactTo(message, perspective)
-  const { open, close, bubbleRef, pressing, triggerProps } = useReactionTrigger({ enabled: canReact })
+  const { open, close, bubbleRef, pressing, pressActive, triggerProps } = useReactionTrigger({ enabled: canReact })
   const [announcement, setAnnouncement] = useState('')
   const reactLabel = canReact
     ? `Message from ${displayName}, sent ${fullTime}: ${message?.body || ''}. Press Enter to react.`
@@ -114,9 +119,15 @@ export default function MessageBubble({
             onAnnounce={setAnnouncement}
             disabled={reactionsDisabled}
             reactionSetVersion={reactionSetVersion}
+            pressActive={pressActive}
           />
         )}
         {canReact && <span className="msg-reaction-live" role="status" aria-live="polite">{announcement}</span>}
+        {receipt && RECEIPT_LABEL[receipt] && (
+          <div className={`msg-receipt msg-receipt-${direction}`}>
+            <span style={srOnly}>Message status: </span>{RECEIPT_LABEL[receipt]}
+          </div>
+        )}
       </Container>
     </>
   )

@@ -266,11 +266,22 @@ body { min-height: 100vh; }
   list-style: none;
   display: flex;
   flex-direction: row;
+  flex-wrap: wrap; /* MESSAGES-RECEIPTS-1: the receipt takes its own line under the bubble */
   width: 100%;
   padding: 4px 8px;
   border: 0;
   background: transparent;
 }
+/* MESSAGES-RECEIPTS-1: Sent, Delivered or Read under the latest own message. */
+.msg-receipt {
+  flex-basis: 100%;
+  margin-top: 3px;
+  padding: 0 6px;
+  font: 600 11px/1.3 'Plus Jakarta Sans', sans-serif;
+  color: var(--text-caption, #4a5560);
+}
+.msg-receipt-outgoing { text-align: right; }
+.msg-receipt-incoming { text-align: left; }
 .msg-bubble-row-incoming { justify-content: flex-start; }
 .msg-bubble-row-outgoing { justify-content: flex-end; }
 .msg-bubble-row-neutral { justify-content: center; }
@@ -427,6 +438,25 @@ body { min-height: 100vh; }
     to { transform: none; opacity: 1; }
   }
 }
+/* MESSAGES-REFINE-2: the emoji's name while it is pointed at, keyboard-focused
+   or under a sliding finger. The app's tooltip tokens; below the bar when the
+   bar opened below the bubble, so it never leaves the viewport. */
+.msg-reaction-tip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  transform: translateX(-50%);
+  padding: var(--aspire-tooltip-padding);
+  border-radius: var(--aspire-tooltip-radius);
+  background: var(--aspire-tooltip-bg);
+  color: var(--aspire-tooltip-fg);
+  font-family: var(--aspire-tooltip-font-family);
+  font-size: var(--aspire-tooltip-font-size);
+  font-weight: var(--aspire-tooltip-font-weight);
+  line-height: var(--aspire-tooltip-line-height);
+  white-space: nowrap;
+  pointer-events: none;
+}
+.msg-reaction-bar[data-placement='down'] .msg-reaction-tip { bottom: auto; top: calc(100% + 6px); }
 .msg-reaction-option {
   display: inline-flex;
   align-items: center;
@@ -626,6 +656,73 @@ body { min-height: 100vh; }
   border-color: var(--messages-neutral-line, #d9dcea);
   color: var(--messages-neutral-ink, #3b4060);
 }
+/* MESSAGES-REFINE-2: the compact thread header (the drawer and phone widths). */
+.messages-thread-head--compact {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 12px 8px 8px;
+  border-bottom: 1px solid var(--border-input, rgba(29,37,103,0.10));
+}
+.messages-thread-head__row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.messages-thread-head__sub { padding-left: 38px; }
+.messages-thread-head__name {
+  flex: 1;
+  min-width: 0;
+  font: 700 15px/1.25 'Plus Jakarta Sans', sans-serif;
+  color: var(--text-heading, #0e1428);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.messages-thread-head__subject {
+  flex: 1;
+  min-width: 0;
+  font: 500 12.5px/1.35 'Plus Jakarta Sans', sans-serif;
+  color: var(--text-caption, #4a5560);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.messages-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--aspire-radius-control);
+  background: transparent;
+  color: var(--text-heading, #0e1428);
+  cursor: pointer;
+}
+.messages-icon-btn:hover { background: var(--messages-neutral-soft, #eef0f6); }
+.messages-thread-actions--compact { flex-wrap: nowrap; gap: 6px; flex-shrink: 0; }
+.messages-thread-actions--compact .messages-action-btn { min-height: 30px; padding: 0 10px; font-size: 12px; }
+.messages-thread-actions--compact .messages-action-btn--icon { width: 30px; padding: 0; justify-content: center; }
+/* The status as a line of text with a dot, not a box. */
+.messages-status-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: 38px;
+  font: 650 12px/1.35 'Plus Jakarta Sans', sans-serif;
+}
+.messages-status-line::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+.messages-status-line--needs { color: var(--messages-needs-ink, #9e2a20); }
+.messages-status-line--answered { color: var(--messages-ok-ink, #256b35); }
+.messages-status-line--done { color: var(--messages-neutral-ink, #3b4060); }
+.messages-composer-hint--compact { flex-wrap: nowrap; }
+.messages-composer-hint--compact > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .messages-composer-hint {
   display: flex;
   flex-wrap: wrap;

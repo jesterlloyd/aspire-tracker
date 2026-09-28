@@ -15,6 +15,9 @@ export const LONG_PRESS_SLOP_PX = 8
 // bubble spreads and whether its bar is open.
 export function useReactionTrigger({ enabled }) {
   const [open, setOpen] = useState(false)
+  // True while the long press that opened the bar is still held, so the bar
+  // can follow a slide across the emoji (MESSAGES-REFINE-2).
+  const [pressActive, setPressActive] = useState(false)
   const [pressing, setPressing] = useState(false)
   const bubbleRef = useRef(null)
   const timerRef = useRef(null)
@@ -30,10 +33,11 @@ export function useReactionTrigger({ enabled }) {
 
   const close = useCallback((returnFocus = true) => {
     setOpen(false)
+    setPressActive(false)
     if (returnFocus) bubbleRef.current?.focus()
   }, [])
 
-  if (!enabled) return { open: false, close, bubbleRef, pressing: false, triggerProps: {} }
+  if (!enabled) return { open: false, close, bubbleRef, pressing: false, pressActive: false, triggerProps: {} }
 
   const triggerProps = {
     tabIndex: 0,
@@ -50,6 +54,7 @@ export function useReactionTrigger({ enabled }) {
         setPressing(false)
         // A completed press would otherwise leave a word selected under it.
         window.getSelection?.()?.removeAllRanges?.()
+        setPressActive(true)
         setOpen(true)
       }, LONG_PRESS_MS)
     },
@@ -64,16 +69,18 @@ export function useReactionTrigger({ enabled }) {
     onContextMenu: (e) => {
       e.preventDefault()
       cancelPress()
+      setPressActive(false)
       setOpen(true)
     },
     onKeyDown: (e) => {
       if (e.target !== e.currentTarget) return
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault()
+        setPressActive(false)
         setOpen(true)
       }
     },
   }
-  return { open, close, bubbleRef, pressing, triggerProps }
+  return { open, close, bubbleRef, pressing, pressActive, triggerProps }
 }
 

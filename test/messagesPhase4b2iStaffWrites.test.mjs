@@ -191,7 +191,9 @@ test('thread actions', async (t) => {
   })
 
   await t.test('Follow up is a pressed toggle that reads Following up when on', () => {
-    assert.match(actions, /\{flagged \? 'Following up' : 'Follow up'\}/)
+    // MESSAGES-REFINE-2: in the compact header the words become the icon's name.
+    assert.match(actions, /\{!compact && \(flagged \? 'Following up' : 'Follow up'\)\}/)
+    assert.match(actions, /aria-label=\{compact \? \(flagged \? 'Following up' : 'Follow up'\) : undefined\}/)
     assert.match(actions, /aria-pressed=\{flagged\}/)
     const flagBlock = actions.slice(actions.indexOf("run('flag'") - 400, actions.indexOf("run('flag'") + 300)
     assert.doesNotMatch(flagBlock, /urgent|critical|emergency|escalat/i)

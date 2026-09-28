@@ -94,7 +94,12 @@ export function handledByName(conversation, latestMessage, viewer) {
 // so a reaction or a reply changes it without waiting for a refetch.
 export function threadBanner(conversation, latestMessage, viewer, now = new Date()) {
   if (isDone(conversation)) {
-    return { kind: 'done', label: 'Done · moved out of your list. It reopens if the student writes again.' }
+    // `short` is the compact header's one line (MESSAGES-REFINE-2).
+    return {
+      kind: 'done',
+      label: 'Done · moved out of your list. It reopens if the student writes again.',
+      short: 'Done · reopens if they write again',
+    }
   }
   if (participantWaiting(latestMessage)) {
     const days = ageInDays(latestMessage.created_at, now)

@@ -59,7 +59,12 @@ export default async function handler(req, res) {
     };
     // v4 wraps v3 and reports the six-reaction capability. Fall back to v3 and
     // then v2 so either migration/deploy order is safe.
-    let { data, error } = await db.rpc('messages_portal_get_thread_v4', rpcArgs);
+    // MESSAGES-RECEIPTS-1: v5 adds the receipt on the caller's own latest
+    // message; missing, it falls to v4 and no receipt shows.
+    let { data, error } = await db.rpc('messages_portal_get_thread_v5', rpcArgs);
+    if (error && (String(error.code) === 'PGRST202' || String(error.code) === '42883')) {
+      ;({ data, error } = await db.rpc('messages_portal_get_thread_v4', rpcArgs));
+    }
     let reactionsAvailable = true;
     if (error && (String(error.code) === 'PGRST202' || String(error.code) === '42883')) {
       ;({ data, error } = await db.rpc('messages_portal_get_thread_v3', rpcArgs));
@@ -104,6 +109,7 @@ export default async function handler(req, res) {
       has_more: data.has_more === true,
       reactions_available: reactionsAvailable,
       reaction_set_version: Number(data.reaction_set_version) || 1,
+      receipt: data.receipt ?? null,
     });
   } catch (err) {
     logApiError('portal/messages-thread', 'threw', err);

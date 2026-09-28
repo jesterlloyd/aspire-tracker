@@ -114,8 +114,13 @@ test('MessageReactions: long press, right-click and keyboard open the bar', asyn
     assert.match(messageReactions, /Math\.hypot\(e\.clientX - start\.x, e\.clientY - start\.y\) > LONG_PRESS_SLOP_PX\) cancelPress\(\)/)
     assert.match(messageReactions, /onPointerUp: cancelPress/)
     assert.match(messageReactions, /onPointerCancel: cancelPress/)
-    // Pointer events, not touch events.
-    assert.doesNotMatch(strip(messageReactions), /onTouchStart|onTouchEnd|onTouchMove|touchstart|touchend|touchmove/i)
+    // Pointer events, not touch events. MESSAGES-REFINE-2's one exception: while
+    // a long press slides across the bar, a non-passive touchmove stops the
+    // thread from scrolling under the finger. Nothing else listens for touch.
+    const code = strip(messageReactions)
+    assert.doesNotMatch(code, /onTouchStart|onTouchEnd|onTouchMove|touchstart|touchend/i)
+    assert.equal((code.match(/touchmove/g) || []).length, 2, 'one add and one remove of the slide guard')
+    assert.match(code, /addEventListener\('touchmove', noScroll, \{ capture: true, passive: false \}\)/)
   })
 
   await t.test('right-click opens the bar and suppresses the browser menu only on the bubble', () => {
@@ -352,9 +357,11 @@ test('hygiene', async (t) => {
     }
   })
 
-  await t.test('no touch or gesture handler was added anywhere', () => {
+  await t.test('no touch or gesture handler was added anywhere (bar the slide guard)', () => {
     for (const [name, src] of Object.entries(allChanged)) {
-      assert.doesNotMatch(src, /onTouchStart|onTouchMove|onTouchEnd|touchstart|touchmove|touchend|Swipe|swipe/i, `${name} must not add gesture code`)
+      // The reaction bar's touchmove guard is the pinned exception (see above).
+      const scan = name === 'messageReactions' ? src.replace(/'touchmove'/g, '') : src
+      assert.doesNotMatch(scan, /onTouchStart|onTouchMove|onTouchEnd|touchstart|touchmove|touchend|Swipe|swipe/i, `${name} must not add gesture code`)
     }
   })
 

@@ -26,7 +26,7 @@ import {
 } from '../../lib/messages/portalMessagesPolling'
 import { formatUnread, unreadLabel } from '../../lib/messages/messagesConstants'
 import {
-  PORTAL_SUBTITLE, UL_PORTAL_SUBTITLE, AP_PORTAL_SUBTITLE, NA_PORTAL_SUBTITLE, PORTAL_SAFETY_NOTICE, portalStatusIsClosed,
+  PORTAL_SUBTITLE, UL_PORTAL_SUBTITLE, AP_PORTAL_SUBTITLE, NA_PORTAL_SUBTITLE, portalStatusIsClosed,
 } from '../../lib/messages/portalMessagesConstants'
 
 const srOnly = {
@@ -226,7 +226,9 @@ export default function PortalMessagesWorkspace({
         </div>
       )}
 
-      <p className="ptl-msg-guidance ptl-msg-workspace-guidance">{PORTAL_SAFETY_NOTICE}</p>
+      {/* MESSAGES-REFINE-2: the safety notice moved under the reply box (and it
+          is already in New message), so the first thing a student sees is the
+          conversation, not a paragraph of rules. */}
 
       <div className={`ptl-msg-split${narrow ? ' ptl-msg-split-narrow' : ''}`}>
         {showList && (
@@ -260,6 +262,7 @@ export default function PortalMessagesWorkspace({
             />
             {selectedId && (
               <PortalReplyComposer
+                showNotice
                 conversationId={selectedId}
                 closed={closed}
                 onSent={handleSent}

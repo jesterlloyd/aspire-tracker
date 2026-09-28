@@ -51,7 +51,11 @@ export default async function handler(req, res) {
     // MESSAGES-SIMPLIFY-1: v5 adds the triage state (needs_reply, is_done,
     // handled_by) and, per message, who reacted. Missing, it falls to v4.
     const missing = (e) => e && (String(e.code) === 'PGRST202' || String(e.code) === '42883');
-    let { data, error } = await db.rpc('messages_staff_get_thread_v5', rpcArgs);
+    // MESSAGES-RECEIPTS-1: v6 adds the receipt on the latest staff message.
+    let { data, error } = await db.rpc('messages_staff_get_thread_v6', rpcArgs);
+    if (missing(error)) {
+      ;({ data, error } = await db.rpc('messages_staff_get_thread_v5', rpcArgs));
+    }
     let reactionsAvailable = true;
     if (missing(error)) {
       ;({ data, error } = await db.rpc('messages_staff_get_thread_v4', rpcArgs));
@@ -86,6 +90,7 @@ export default async function handler(req, res) {
       reactions_available: reactionsAvailable,
       reaction_set_version: Number(data.reaction_set_version) || 1,
       triage_version: Number(data.triage_version) || 1,
+      receipt: data.receipt ?? null,
     });
   } catch (err) {
     logApiError('messages-staff-thread', 'threw', err);
