@@ -18,7 +18,7 @@
 //
 // Pure: no React, no I/O, `now` is passed in.
 
-import { needsYourReply, isUnassigned } from '../messages/messagesTriage.js'
+import { needsReply } from '../messages/messagesTriage.js'
 import { currentTurn } from '../signatures/sigModel.js'
 import { completionStatus } from '../catalog/catalogModel.js'
 import { hoursPace } from '../clinicalHours.js'
@@ -124,33 +124,30 @@ export function budgetGroup({ renewals = [], receipts = [], concur = [], missing
 
 // ── Messages ────────────────────────────────────────────────────────────────────
 
-/** @param conversations rows from /api/messages-staff-list (view active, attention all) */
+/** @param conversations rows from /api/messages-staff-list (view needs_reply).
+ *  MESSAGES-SIMPLIFY-1: the same Needs reply rule and count as Messages itself;
+ *  there is no assignee any more, so nothing is "unassigned". */
 export function messagesGroup({ conversations = [], now = Date.now() } = {}) {
   const rows = []
-  let reply = 0, unassigned = 0
   for (const c of conversations || []) {
-    if (!c || c.status === 'resolved') continue
-    const needs = needsYourReply(c)
-    const open = isUnassigned(c)
-    if (!needs && !open) continue
-    if (needs) reply += 1
-    if (open) unassigned += 1
+    if (!c || !needsReply(c)) continue
     const ageMs = now - new Date(c.last_message_at || 0).getTime()
     const who = c.participant_name || 'Someone'
     const days = Math.floor(ageMs / DAY)
-    const wrote = days <= 0 ? 'They wrote today' : `They wrote ${plural(days, 'day')} ago`
+    const wrote = c.latest_author_role === 'staff' && c.follow_up_flagged
+      ? 'Flagged for follow-up'
+      : days <= 0 ? 'They wrote today' : `They wrote ${plural(days, 'day')} ago`
     rows.push({
       id: `msg:${c.id}`,
       title: `${who} · ${c.subject || 'No subject'}`,
-      meta: open ? `${wrote} · Unassigned` : wrote,
-      pill: { text: ageLabel(c.last_message_at, now), tone: open && !needs ? 'red' : 'amber' },
+      meta: wrote,
+      pill: { text: ageLabel(c.last_message_at, now), tone: 'amber' },
       ageMs,
       to: `/connect/messages?conversation=${encodeURIComponent(c.id)}`,
     })
   }
   const pills = []
-  if (reply) pills.push({ text: `${reply} reply`, tone: 'amber' })
-  if (unassigned) pills.push({ text: `${unassigned} unassigned`, tone: 'red' })
+  if (rows.length) pills.push({ text: `${rows.length} reply`, tone: 'amber' })
   return finish({
     key: 'messages', name: 'Messages', sub: 'Support threads', pills, rows,
     open: { label: 'Open Messages', to: '/connect/messages' }, count: rows.length,

@@ -2,23 +2,24 @@
 //
 // ASPIRE MESSAGES, PHASE 3 (STAGE B): GET the staff conversation inbox. Active
 // Owner or Admin only (never is_staff, which includes interviewer and viewer).
-// Filters, search, and cursor pagination. Assignment and related context are
-// projections and filters only; they never grant access.
+// Search and cursor pagination. Related context is a projection only; it never
+// grants access.
 //
-// MESSAGES-ARCHIVE-P1: also accepts ?view= (active default | archived | all)
-// and prefers the v3 RPC, which adds p_view and an is_archived flag per row.
-// While the migration is unapplied, PGRST202/42883 falls back to v2 (no
-// archive support) and archive_available is reported false so the client never
-// treats an unfiltered v2 page as an authoritative "active" view.
+// MESSAGES-SIMPLIFY-1: three views, ?view=needs_reply (default) | all | done,
+// from messages_staff_list_conversations_v5 (migration 20261014000000), which
+// returns needs_reply, is_done and handled_by on every row and counts for all
+// three views. The legacy values active and archived are read as all and done.
+// Until the migration is applied, PGRST202/42883 falls back to v4 (needs_reply
+// through its attention mode, all as active, done as archived) and reports
+// simplify_available=false; its counts carry no done figure.
 
 import { verifyStaffCaller, getUserScopedDb } from './lib/messagesAuth.js';
 import { methodGuard, logApiError } from './lib/messagesApi.js';
-import {
-  parseLimit, parseCursor, nextCursorFrom, isUuid, validateStatus, validateCategory,
-} from '../lib/server/messages/validation.js';
+import { parseLimit, parseCursor, nextCursorFrom } from '../lib/server/messages/validation.js';
 
-const VIEWS = ['active', 'archived', 'all'];
-const ATTENTION_MODES = ['all', 'needs_reply', 'unassigned'];
+const VIEWS = ['needs_reply', 'all', 'done'];
+const LEGACY_VIEW_NAMES = { active: 'all', archived: 'done' };
+const isMissingRpc = (error) => error && (String(error.code) === 'PGRST202' || String(error.code) === '42883');
 
 export default async function handler(req, res) {
   if (!methodGuard(req, res, ['GET'])) return;
@@ -31,57 +32,9 @@ export default async function handler(req, res) {
   const cursor = parseCursor({ cursorTs: req.query?.cursor_ts, cursorId: req.query?.cursor_id });
   if (!cursor.ok) return res.status(422).json({ error: cursor.error });
 
-  // MESSAGES-ARCHIVE-P1: view defaults to active; archived and all are the
-  // only other accepted values.
-  const view = req.query?.view === undefined ? 'active' : req.query.view;
+  const rawView = req.query?.view === undefined ? 'needs_reply' : String(req.query.view);
+  const view = LEGACY_VIEW_NAMES[rawView] || rawView;
   if (!VIEWS.includes(view)) return res.status(422).json({ error: 'invalid_view' });
-  const attention = req.query?.attention === undefined ? 'all' : req.query.attention;
-  if (!ATTENTION_MODES.includes(attention)) return res.status(422).json({ error: 'invalid_attention' });
-
-  let status = null;
-  if (req.query?.status) {
-    const v = validateStatus(req.query.status);
-    if (!v.ok) return res.status(422).json({ error: v.error });
-    status = v.value;
-  }
-  // Category: translate the safe HTTP value into an explicit v2 mode. Absent or
-  // 'all' means any; the sentinel 'uncategorized' means category IS NULL;
-  // anything else must be one approved category.
-  let categoryMode = 'any';
-  let category = null;
-  if (req.query?.category && req.query.category !== 'all') {
-    if (req.query.category === 'uncategorized') {
-      categoryMode = 'uncategorized';
-    } else {
-      const v = validateCategory(req.query.category);
-      if (!v.ok) return res.status(422).json({ error: v.error });
-      categoryMode = 'specific';
-      category = v.value;
-    }
-  }
-
-  // Assignee: translate into an explicit v2 mode. 'me' resolves ONLY to the
-  // server-verified caller profile; a client-supplied profile id is never
-  // trusted for Me. A specific id must be a uuid, and the RPC still enforces
-  // that the row actually matches, so a guessed id leaks nothing.
-  let assigneeMode = 'any';
-  let assigneeProfileId = null;
-  if (req.query?.assignee && req.query.assignee !== 'all') {
-    if (req.query.assignee === 'unassigned') {
-      assigneeMode = 'unassigned';
-    } else if (req.query.assignee === 'me') {
-      assigneeMode = 'specific';
-      assigneeProfileId = caller.profile.id;
-    } else {
-      if (!isUuid(req.query.assignee)) return res.status(422).json({ error: 'invalid_assignee' });
-      assigneeMode = 'specific';
-      assigneeProfileId = req.query.assignee;
-    }
-  }
-  let flagged = null;
-  if (req.query?.flagged === 'true') flagged = true;
-  else if (req.query?.flagged === 'false') flagged = false;
-  else if (req.query?.flagged !== undefined) return res.status(422).json({ error: 'invalid_flagged' });
 
   const search = typeof req.query?.search === 'string' && req.query.search.trim()
     ? req.query.search.trim().slice(0, 120)
@@ -90,40 +43,36 @@ export default async function handler(req, res) {
   const db = getUserScopedDb(req);
   if (!db) return res.status(401).json({ error: 'unauthenticated' });
 
-  // Phase 4B Stage A added messages_staff_list_conversations_v2 with explicit
-  // filter modes, because the original RPC treats a null assignee or category
-  // as "no filter" and cannot express IS NULL. The browser never calls this
-  // RPC directly: it reaches it only through this authenticated endpoint.
-  const rpcArgs = {
+  const base = {
     p_limit: limit.value,
     p_cursor_ts: cursor.value.ts,
     p_cursor_id: cursor.value.id,
-    p_status: status,
-    p_assignee_mode: assigneeMode,
-    p_assignee_profile_id: assigneeProfileId,
-    p_category_mode: categoryMode,
-    p_category: category,
-    p_flagged: flagged,
     p_search: search,
   };
 
   try {
-    // The refinement v4 adds sender search, latest-author direction, quick
-    // filtering, and authoritative counts. Fall back through the deployed v3
-    // path so code-first deploys retain the canonical inbox until the Owner
-    // applies the additive migration.
-    let { data, error } = await db.rpc('messages_staff_list_conversations_v4', {
-      ...rpcArgs, p_view: view, p_attention: attention,
-    });
-    let triageAvailable = true;
-    let archiveAvailable = true;
-    if (error && (String(error.code) === 'PGRST202' || String(error.code) === '42883')) {
-      triageAvailable = false;
-      if (attention !== 'all') return res.status(503).json({ error: 'triage_not_ready' });
-      ;({ data, error } = await db.rpc('messages_staff_list_conversations_v3', { ...rpcArgs, p_view: view }));
-      if (error && (String(error.code) === 'PGRST202' || String(error.code) === '42883')) {
-        archiveAvailable = false;
-        ;({ data, error } = await db.rpc('messages_staff_list_conversations_v2', rpcArgs));
+    let { data, error } = await db.rpc('messages_staff_list_conversations_v5', { ...base, p_view: view });
+    let simplifyAvailable = true;
+    if (isMissingRpc(error)) {
+      // Code-first fallback: the refinement v4 answers the same three questions
+      // with the older rule (no reactions, no shared Done).
+      simplifyAvailable = false;
+      ;({ data, error } = await db.rpc('messages_staff_list_conversations_v4', {
+        ...base,
+        p_status: null,
+        p_assignee_mode: 'any',
+        p_assignee_profile_id: null,
+        p_category_mode: 'any',
+        p_category: null,
+        p_flagged: null,
+        p_view: view === 'done' ? 'archived' : 'active',
+        p_attention: view === 'needs_reply' ? 'needs_reply' : 'all',
+      }));
+      if (!error && data?.counts) {
+        data = {
+          ...data,
+          counts: { needs_reply: data.counts.needs_reply, all: data.counts.active, done: null },
+        };
       }
     }
     if (error) {
@@ -138,9 +87,9 @@ export default async function handler(req, res) {
     return res.status(200).json({
       conversations,
       next_cursor: nextCursorFrom(conversations, limit.value, 'last_message_at'),
-      archive_available: archiveAvailable,
-      triage_available: triageAvailable,
-      counts: triageAvailable ? (data?.counts || { active: 0, needs_reply: 0, unassigned: 0 }) : null,
+      view,
+      simplify_available: simplifyAvailable,
+      counts: data?.counts || { needs_reply: 0, all: 0, done: null },
     });
   } catch (err) {
     logApiError('messages-staff-list', 'threw', err);

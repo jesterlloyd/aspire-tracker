@@ -12,6 +12,8 @@
 //            access_active } ] }  minimum search 2, capped at 20
 //   POST /api/messages-staff-start  { participant_profile_id, student_id,
 //          subject, category, body }
+//        MESSAGES-SIMPLIFY-1: staff no longer choose a category; category is
+//        always sent as null (the column stays, Messages stops writing it).
 //        201 { conversation_id, message_id, created_at, status }
 //        409 { error: 'conflict', reason }
 //
@@ -28,7 +30,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Search, X, AlertCircle, RotateCw } from 'lucide-react'
 import {
-  MESSAGE_CATEGORIES, MESSAGE_MAX_BODY_CHARS, SUBJECT_MAX_CHARS,
+  MESSAGE_MAX_BODY_CHARS, SUBJECT_MAX_CHARS,
   validateSubjectValue, validateBodyValue, mapMessagesError,
 } from '../../../lib/messages/messagesConstants'
 import { debounce } from '../../../lib/messages/inboxState'
@@ -52,7 +54,6 @@ export default function NewMessageDialog({ open, onClose, onCreated, announce = 
   const [search, setSearch] = useState('')
   const [participant, setParticipant] = useState(null)
   const [subject, setSubject] = useState('')
-  const [category, setCategory] = useState('')
   const [body, setBody] = useState('')
   const [errors, setErrors] = useState({})
   const [formError, setFormError] = useState(null)
@@ -99,7 +100,7 @@ export default function NewMessageDialog({ open, onClose, onCreated, announce = 
   const reset = useCallback(() => {
     applySearch.cancel()
     setQ(''); setSearch('')
-    setParticipant(null); setSubject(''); setCategory(''); setBody('')
+    setParticipant(null); setSubject(''); setBody('')
     setErrors({}); setFormError(null)
   }, [applySearch])
 
@@ -127,7 +128,7 @@ export default function NewMessageDialog({ open, onClose, onCreated, announce = 
         participantProfileId: participant.participant_profile_id,
         studentId: participant.student_id,
         subject: s.value,
-        category: category || null,
+        category: null,
         body: b.value,
       })
       announce('Message sent.')
@@ -254,19 +255,6 @@ export default function NewMessageDialog({ open, onClose, onCreated, announce = 
           />
           <p id="nm-subject-count" style={hint}>{subject.trim().length} of {SUBJECT_MAX_CHARS}</p>
           {errors.subject && <FieldError id="nm-subject-err">{errors.subject}</FieldError>}
-
-          {/* Category */}
-          <label htmlFor="nm-category" style={label}>Category</label>
-          <select
-            id="nm-category"
-            value={category}
-            disabled={pending}
-            onChange={(e) => setCategory(e.target.value)}
-            style={input}
-          >
-            <option value="">Uncategorized</option>
-            {MESSAGE_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-          </select>
 
           {/* Body */}
           <label htmlFor="nm-body" style={label}>Message</label>

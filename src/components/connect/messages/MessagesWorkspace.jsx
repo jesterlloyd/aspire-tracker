@@ -18,21 +18,21 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
-import { RotateCw, Flag, MessageSquare, AlertCircle, Plus } from 'lucide-react'
+import { RotateCw, MessageSquare, AlertCircle, Plus } from 'lucide-react'
 import BackButton from '../../BackButton'
 import MessageBubble from '../../shared/MessageBubble'
 import MessagesInbox from './MessagesInbox'
 import NewMessageDialog from './NewMessageDialog'
 import { ReplyComposer, ThreadManagementControls } from './ThreadActions'
 import {
-  STAFF_STATUS_LABEL,
   formatInboxTimestamp, participantAccessLabel, mapMessagesError,
 } from '../../../lib/messages/messagesConstants'
 import { appendPage } from '../../../lib/messages/inboxState'
 import { useThreadAutoScroll } from '../../../lib/messages/useThreadAutoScroll'
 // MESSAGES-LIFECYCLE-PHASE3A-REACTIONS
-import { applyOptimisticReaction } from '../../../lib/messages/reactionConstants'
-import { waitState } from '../../../lib/messages/messagesTriage'
+import { applyOptimisticReaction, applyOptimisticReactors } from '../../../lib/messages/reactionConstants'
+import { threadBanner } from '../../../lib/messages/messagesTriage'
+import { useAuth } from '../../../contexts/AuthContext'
 import {
   ACTIVE_POLL_MS, useDocumentVisible, useStaffNeedsReplyCount, useIsNarrow,
 } from '../../../lib/messages/messagesPolling'
@@ -161,19 +161,15 @@ export default function MessagesWorkspace({
                 its visually-hidden label) and the per-row badges; a third
                 visible count was redundant. */}
           </div>
-          {/* The Phase 4A inbox, reused verbatim (MESSAGES-ARCHIVE-P1 additions
-              live inside MessagesInbox itself). announce shares the workspace's
-              one live region; onSelectedRowChange moves the selection when the
-              OPEN thread is archived/unarchived out of the current view,
-              WITHOUT flipping the mobile view to 'thread' the way onSelect does. */}
+          {/* The inbox. MESSAGES-SIMPLIFY-1: a thread that leaves the open
+              view (Done, or answered out of Needs reply) stays open here; the
+              list simply no longer shows it. */}
           <div style={{ flex: 1, minHeight: 0 }}>
             <MessagesInbox
               selectedId={selectedId}
               onSelect={onSelect}
               refreshKey={refreshKey}
               api={api}
-              announce={announce}
-              onSelectedRowChange={setSelectedId}
             />
           </div>
         </div>
@@ -232,6 +228,13 @@ export function ThreadPanel({ conversationId, api = defaultApi, announce = () =>
   const queryClient = useQueryClient()
   const visible = useDocumentVisible()
   const markedRef = useRef(null)
+  const { userProfile } = useAuth() || {}
+  const viewerId = userProfile?.id || null
+  const viewerName = userProfile?.full_name || ''
+  const viewer = useMemo(
+    () => (viewerId ? { id: viewerId, full_name: viewerName } : null),
+    [viewerId, viewerName],
+  )
 
   // The query key is scoped by conversation id, so a response for a previously
   // selected conversation can never populate a newer selection. React Query also
@@ -306,14 +309,17 @@ export function ThreadPanel({ conversationId, api = defaultApi, announce = () =>
       m.id === messageId ? { ...m, reactions } : m
     ))
 
-    // Optimistic flip first; the caller sees the change immediately.
+    // Optimistic flip first; the caller sees the change immediately, and so do
+    // the badge's names and the banner (MESSAGES-SIMPLIFY-1).
     queryClient.setQueryData(threadQueryKey, (old) => (old ? {
       ...old,
       pages: old.pages.map((page) => ({
         ...page,
-        messages: applyToMessages(page.messages, applyOptimisticReaction(
-          page.messages?.find((m) => m.id === messageId)?.reactions, nextKey,
-        )),
+        messages: (page.messages || []).map((m) => (m.id === messageId ? {
+          ...m,
+          reactions: applyOptimisticReaction(m.reactions, nextKey),
+          ...(Array.isArray(m.reactors) ? { reactors: applyOptimisticReactors(m.reactors, viewer, nextKey) } : {}),
+        } : m)),
       })),
     } : old))
 
@@ -336,7 +342,12 @@ export function ThreadPanel({ conversationId, api = defaultApi, announce = () =>
       reactionBusyRef.current.delete(messageId)
       setBusyReactionIds(new Set(reactionBusyRef.current))
     }
-  }, [api, conversationId, queryClient, announce])
+    // A staff reaction can answer the thread: refresh the thread's reactor
+    // names, the list and the badge.
+    queryClient.invalidateQueries({ queryKey: threadQueryKey })
+    queryClient.invalidateQueries({ queryKey: ['messages_staff_list'] })
+    queryClient.invalidateQueries({ queryKey: ['messages_staff_unread'] })
+  }, [api, conversationId, queryClient, announce, viewer])
 
   // A conversation that became inaccessible clears the selection safely and
   // leaves the inbox intact.
@@ -399,6 +410,7 @@ export function ThreadPanel({ conversationId, api = defaultApi, announce = () =>
       <ThreadHeader
         conversation={conversation}
         latestMessage={messages[messages.length - 1]}
+        viewer={viewer}
         api={api}
         announce={announce}
         onOpenStudent={onOpenStudent}
@@ -439,6 +451,7 @@ export function ThreadPanel({ conversationId, api = defaultApi, announce = () =>
               reactionSetVersion={reactionSetVersion}
               onSetReaction={setReaction}
               reactionsDisabled={busyReactionIds.has(m.id)}
+              viewerId={viewer?.id || null}
             />
           ))}
         </ol>
@@ -472,47 +485,38 @@ export function ThreadPanel({ conversationId, api = defaultApi, announce = () =>
   )
 }
 
-function ThreadHeader({ conversation: c, latestMessage, api, announce, onOpenStudent }) {
+function ThreadHeader({ conversation: c, latestMessage, viewer, api, announce, onOpenStudent }) {
   const accessActive = c.participant_access_active !== false
-  const waiting = waitState(c, latestMessage)
+  const banner = threadBanner(c, latestMessage, viewer)
   return (
-    <header style={{ padding: '10px 16px', borderBottom: `1px solid ${T.border}` }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 14.5, fontWeight: 700, color: T.text }}>
+    <header style={{ padding: '12px 16px', borderBottom: `1px solid ${T.border}` }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 15, fontWeight: 700, color: T.text }}>
           {c.participant_name || 'Portal participant'}
         </span>
         {/* Access state carries text, never color alone. */}
         <span style={{ ...badge, borderStyle: accessActive ? 'solid' : 'dashed' }}>
           {participantAccessLabel(accessActive)}
         </span>
-      </div>
-      <p style={{ margin: '3px 0 0', fontSize: 13, color: T.text, fontWeight: 600 }}>{c.subject}</p>
-      <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 5, alignItems: 'center' }}>
-        <span style={badge}>{STAFF_STATUS_LABEL[c.status] || c.status}</span>
-        {c.category && <span style={badge}>{c.category}</span>}
-        {c.assignee_name && <span style={badge}>{c.assignee_name}</span>}
-        {c.follow_up_flagged && (
-          <span style={badge}><Flag size={10} aria-hidden="true" /> Follow up</span>
-        )}
         {/* ASPIRE-CHART: the linked student is a real affordance - it opens
-            the authorized staff student record (the same navigation the rest
-            of the app uses). Falls back to the static chip when no navigator
-            is provided (e.g. isolated mounts). */}
-        {c.related_student_id && (onOpenStudent ? (
+            the authorized staff student record. */}
+        {c.related_student_id && onOpenStudent && (
           <button
             type="button"
+            className="messages-focusable"
             onClick={() => onOpenStudent(c.related_student_id)}
-            style={{ ...badge, cursor: 'pointer', background: 'transparent' }}
+            style={studentLink}
           >
             Open student record →
           </button>
-        ) : (
-          <span style={badge}>Student linked</span>
-        ))}
+        )}
       </div>
-      <ThreadManagementControls conversation={c} api={api} announce={announce} />
-      <div className={`messages-waitbar messages-waitbar--${waiting.kind}`}>
-        {waiting.label}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 8 }}>
+        <p style={{ margin: 0, flex: '1 1 200px', minWidth: 0, fontSize: 14, color: T.text, fontWeight: 650 }}>{c.subject}</p>
+        <ThreadManagementControls conversation={c} api={api} announce={announce} />
+      </div>
+      <div className={`messages-status-banner messages-status-banner--${banner.kind}`} role="status">
+        {banner.label}
       </div>
     </header>
   )
@@ -520,7 +524,7 @@ function ThreadHeader({ conversation: c, latestMessage, api, announce, onOpenStu
 
 function MessageRow({
   message: m, previous, reactionsEnabled, reactionSetVersion,
-  onSetReaction, reactionsDisabled,
+  onSetReaction, reactionsDisabled, viewerId,
 }) {
   const showDate = !previous || !sameDay(previous.created_at, m.created_at)
   return (
@@ -535,6 +539,7 @@ function MessageRow({
       reactionSetVersion={reactionSetVersion}
       onSetReaction={onSetReaction}
       reactionsDisabled={reactionsDisabled}
+      viewerId={viewerId}
     />
   )
 }
@@ -558,6 +563,10 @@ const badge = {
   display: 'inline-flex', alignItems: 'center', gap: 3,
   padding: '1px 6px', borderRadius: 999, fontSize: 10.5, fontWeight: 600,
   border: `1px solid ${T.border}`, color: T.muted, fontFamily: F,
+}
+const studentLink = {
+  marginLeft: 'auto', padding: '2px 0', border: 0, background: 'transparent', cursor: 'pointer',
+  color: T.accent, fontSize: 12.5, fontWeight: 650, fontFamily: F, textDecoration: 'underline',
 }
 const primaryBtn = {
   display: 'inline-flex', alignItems: 'center', gap: 6, minHeight: 32,

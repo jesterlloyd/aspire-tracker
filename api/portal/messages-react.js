@@ -17,6 +17,7 @@
 import { verifyPortalMessagesCaller, getServiceDb } from '../lib/messagesAuth.js';
 import { methodGuard, readJsonBody, mapRpcError, logApiError } from '../lib/messagesApi.js';
 import { isUuid } from '../../lib/server/messages/validation.js';
+import { reactionAllowed, loadReactionTarget } from '../../lib/server/messages/reactionRules.js';
 
 // The closed reaction set. Matches the table CHECK in the Phase 3A migration;
 // the UI cannot invent keys and neither can this endpoint.
@@ -51,6 +52,17 @@ export default async function handler(req, res) {
       p_reaction_key: reaction ?? null,
     };
     const db = getServiceDb();
+    // MESSAGES-SIMPLIFY-1: participants react to staff messages only, never
+    // their own. A refusal reads exactly like an unreadable message (404), so
+    // this check cannot be used to learn anything about a message id.
+    if (args.p_reaction_key !== null) {
+      const target = await loadReactionTarget(db, messageId);
+      if (!reactionAllowed({
+        message: target, actorKind: caller.actorKind, actorProfileId: caller.profile.id, reactionKey: args.p_reaction_key,
+      })) {
+        return res.status(404).json({ error: 'not_found' });
+      }
+    }
     let { data, error } = await db.rpc('messages_set_message_reaction_v2', args);
     if (error
         && (String(error.code) === 'PGRST202' || String(error.code) === '42883')

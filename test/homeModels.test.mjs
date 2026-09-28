@@ -83,19 +83,23 @@ test('PACE 2: no window, an unknown requirement, or a rotation not yet started i
 
 // ── Needs you ────────────────────────────────────────────────────────────────
 
-test('NEEDS 1: messages count replies and unassigned, sorted oldest first, rows navigate to the thread', () => {
+// MESSAGES-SIMPLIFY-1: Needs you reads the Messages Needs reply rule; there is
+// no assignee, so nothing is counted as unassigned.
+test('NEEDS 1: messages count Needs reply threads, sorted oldest first, rows navigate to the thread', () => {
   const g = messagesGroup({ now: NOW_MS, conversations: [
-    { id: 'a', subject: 'Parking', participant_name: 'Maya', status: 'open', latest_author_role: 'student', assigned_staff_profile_id: 'x', last_message_at: '2026-09-22T10:00:00' },
-    { id: 'b', subject: 'Placement', participant_name: 'Priya', status: 'open', latest_author_role: 'student', assigned_staff_profile_id: null, last_message_at: '2026-09-15T10:00:00' },
-    { id: 'c', subject: 'Resolved', participant_name: 'Dan', status: 'resolved', latest_author_role: 'student', assigned_staff_profile_id: null, last_message_at: '2026-09-23T10:00:00' },
-    { id: 'd', subject: 'Waiting', participant_name: 'Eve', status: 'open', latest_author_role: 'staff', assigned_staff_profile_id: 'x', last_message_at: '2026-09-23T10:00:00' },
+    { id: 'a', subject: 'Parking', participant_name: 'Maya', status: 'open', needs_reply: true, latest_author_role: 'student', last_message_at: '2026-09-22T10:00:00' },
+    { id: 'b', subject: 'Placement', participant_name: 'Priya', status: 'open', needs_reply: true, latest_author_role: 'student', last_message_at: '2026-09-15T10:00:00' },
+    { id: 'c', subject: 'Resolved', participant_name: 'Dan', status: 'resolved', needs_reply: false, latest_author_role: 'student', last_message_at: '2026-09-23T10:00:00' },
+    { id: 'd', subject: 'Reacted', participant_name: 'Eve', status: 'open', needs_reply: false, latest_author_role: 'student', last_message_at: '2026-09-23T10:00:00' },
+    { id: 'e', subject: 'Flagged', participant_name: 'Fay', status: 'open', needs_reply: true, follow_up_flagged: true, latest_author_role: 'staff', last_message_at: '2026-09-21T10:00:00' },
   ] })
-  assert.deepEqual(g.pills, [{ text: '2 reply', tone: 'amber' }, { text: '1 unassigned', tone: 'red' }])
+  assert.deepEqual(g.pills, [{ text: '3 reply', tone: 'amber' }])
   assert.equal(g.rows[0].id, 'msg:b', 'oldest first')
   assert.equal(g.rows[0].pill.text, '9d')
-  assert.match(g.rows[0].meta, /Unassigned/)
-  assert.equal(g.rows[1].to, '/connect/messages?conversation=a')
-  assert.equal(g.count, 2)
+  assert.doesNotMatch(g.rows.map((r) => r.meta).join(' '), /Unassigned/)
+  assert.ok(g.rows.some((r) => r.meta === 'Flagged for follow-up'))
+  assert.ok(g.rows.some((r) => r.to === '/connect/messages?conversation=a'))
+  assert.equal(g.count, 3)
 })
 
 test('NEEDS 2: an empty source is hidden (null), so "All caught up" means every source was empty', () => {

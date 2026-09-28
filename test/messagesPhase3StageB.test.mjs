@@ -458,7 +458,9 @@ test('API handlers: security and privacy posture', async (t) => {
     // MESSAGES-ARCHIVE-P1: archive joined the allowlist (per-user visibility,
     // wired to messages_set_conversation_archived below); MESSAGES-LIFECYCLE-
     // PHASE3A-REACTIONS adds react alongside it. Every prior action is unchanged.
-    assert.match(staffSrc['messages-staff-manage'], /const ACTIONS = \['assign', 'status', 'category', 'flag', 'archive', 'react'\]/);
+    // MESSAGES-SIMPLIFY-1 adds done (Done and Reopen, composed from set_status
+    // and set_follow_up); nothing prior is removed.
+    assert.match(staffSrc['messages-staff-manage'], /const ACTIONS = \['assign', 'status', 'category', 'flag', 'archive', 'react', 'done'\]/);
     for (const rpc of [
       'messages_set_assignment', 'messages_set_status', 'messages_set_category',
       'messages_set_follow_up', 'messages_set_conversation_archived',

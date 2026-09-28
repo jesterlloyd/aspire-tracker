@@ -7,11 +7,9 @@ import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { serializeInboxQuery, queryIdentity } from '../src/lib/messages/inboxState.js'
 import {
-  DEFAULT_ATTENTION, serializeInboxQuery, queryIdentity,
-} from '../src/lib/messages/inboxState.js'
-import {
-  needsYourReply, isUnassigned, isStale, waitState,
+  needsReply, isDone, shortName, previewPrefix, rowChip, threadBanner,
 } from '../src/lib/messages/messagesTriage.js'
 import {
   MESSAGE_REACTIONS, LEGACY_MESSAGE_REACTIONS, applyOptimisticReaction,
@@ -33,64 +31,61 @@ const migration = read('supabase/migrations/20260922000000_messages_refinement_t
 const audit = read('db/audit/messages_refinement_triage_reactions_checks.sql')
 const ownerGate = read('docs/security/OWNER_SQL_GATE.md')
 
-test('derived triage rules follow the canonical definitions', () => {
+// MESSAGES-SIMPLIFY-1 (20261014000000) replaced the attention modes, the
+// Unassigned view, the wait bar and the status/assignee/category controls with
+// a computed Needs reply, two chips, a status banner, Follow up and Done. These
+// four tests pin that replacement; the ones before them pinned what it removed.
+test('Needs reply is derived: the server decides, the legacy fields stand in before the migration', () => {
+  assert.equal(needsReply({ needs_reply: true, latest_author_role: 'staff' }), true, 'the server wins')
+  assert.equal(needsReply({ needs_reply: false, latest_author_role: 'student' }), false)
+  const legacy = { status: 'open', latest_author_role: 'student' }
+  assert.equal(needsReply(legacy), true)
+  assert.equal(needsReply({ ...legacy, status: 'resolved' }), false)
+  assert.equal(needsReply({ ...legacy, is_archived: true }), false)
+  assert.equal(needsReply({ ...legacy, latest_author_role: 'staff' }), false)
+  assert.equal(needsReply({ ...legacy, latest_author_role: 'staff', follow_up_flagged: true }), true)
+  assert.equal(isDone({ status: 'resolved' }), true)
+  assert.equal(isDone({ is_done: false, status: 'resolved' }), false, 'the server wins')
+})
+
+test('rows say who wrote last and who handled the thread', () => {
+  assert.equal(shortName('Krystal Rodriguez'), 'K. Rodriguez')
+  assert.equal(shortName('Jester Lloyd Bautista'), 'J. Bautista')
+  assert.equal(previewPrefix({ latest_author_role: 'student' }, 'me'), 'They wrote · ')
+  assert.equal(previewPrefix({ latest_author_role: 'staff', latest_author_profile_id: 'me' }, 'me'), 'You replied · ')
+  assert.equal(previewPrefix({ latest_author_role: 'staff', latest_author_profile_id: 'k', latest_author_name: 'Krystal Rodriguez' }, 'me'), 'K. Rodriguez replied · ')
+  assert.deepEqual(rowChip({ needs_reply: true }), { kind: 'needs', label: 'Needs reply' })
+  assert.deepEqual(rowChip({ needs_reply: false, handled_by_name: 'Jester Lloyd Bautista' }), { kind: 'by', label: 'Replied by J. Bautista' })
+  assert.equal(serializeInboxQuery({}).query.view, 'needs_reply')
+  assert.notEqual(queryIdentity({ view: 'all' }), queryIdentity({ view: 'done' }))
+})
+
+test('the banner updates itself: waiting, flagged, answered, done', () => {
   const now = new Date('2026-09-21T12:00:00Z')
-  const portalLatest = { status: 'open', latest_author_role: 'student', assigned_staff_profile_id: null, last_message_at: '2026-09-12T12:00:00Z' }
-  assert.equal(needsYourReply(portalLatest), true)
-  assert.equal(isUnassigned(portalLatest), true)
-  assert.equal(isStale(portalLatest, now), true)
-  assert.equal(needsYourReply({ ...portalLatest, status: 'resolved' }), false)
-  assert.equal(needsYourReply({ ...portalLatest, latest_author_role: 'staff' }), false)
-  assert.equal(needsYourReply({ ...portalLatest, latest_author_role: null }), false)
-
-  assert.deepEqual(
-    waitState({ status: 'open' }, { author_role: 'student', created_at: '2026-09-20T12:00:00Z' }, now),
-    { kind: 'needs_reply', age: 1, label: 'Needs your reply · they wrote 1 day ago' },
-  )
-  assert.deepEqual(
-    waitState({ status: 'open' }, { author_role: 'staff', created_at: '2026-09-19T12:00:00Z' }, now),
-    { kind: 'waiting', age: 2, label: 'Waiting on them · 2 days since your reply' },
-  )
-  assert.equal(waitState({ status: 'resolved' }, null, now).label, '✓ Resolved · no reply needed')
+  const student = { author_role: 'student', created_at: '2026-09-18T12:00:00Z', reactions: [] }
+  assert.deepEqual(threadBanner({ status: 'open' }, student, null, now), { kind: 'needs', label: 'Needs reply · they wrote 3 days ago' })
+  const reacted = { ...student, reactions: [{ key: 'acknowledge', count: 1, mine: true }] }
+  const viewer = { id: 'me', full_name: 'Jester Lloyd Bautista' }
+  assert.deepEqual(threadBanner({ status: 'open' }, reacted, viewer, now), { kind: 'answered', label: 'Answered by Jester Lloyd Bautista · no reply needed' })
+  const staff = { author_role: 'staff', created_at: '2026-09-20T12:00:00Z' }
+  assert.deepEqual(threadBanner({ status: 'open', follow_up_flagged: true }, staff, viewer, now), { kind: 'needs', label: 'Needs reply · flagged for follow-up' })
+  assert.deepEqual(threadBanner({ status: 'open', handled_by_name: 'Krystal Rodriguez' }, staff, viewer, now), { kind: 'answered', label: 'Answered by Krystal Rodriguez · no reply needed' })
+  assert.equal(threadBanner({ status: 'resolved' }, student, viewer, now).label, 'Done · moved out of your list. It reopens if the student writes again.')
+  assert.equal(threadBanner({ status: 'open' }, { author_role: 'student', created_at: '2026-09-21T09:00:00Z' }, null, now).label, 'Needs reply · they wrote today')
 })
 
-test('attention filtering is server-backed and cursor-safe', () => {
-  assert.equal(DEFAULT_ATTENTION, 'all')
-  assert.equal(serializeInboxQuery({ attention: 'all' }).query.attention, undefined)
-  assert.equal(serializeInboxQuery({ attention: 'needs_reply' }).query.attention, 'needs_reply')
-  assert.notEqual(queryIdentity({ attention: 'all' }), queryIdentity({ attention: 'unassigned' }))
-  assert.match(staffListApi, /messages_staff_list_conversations_v4/)
-  assert.match(staffListApi, /p_attention: attention/)
-  assert.match(staffListApi, /triage_not_ready/)
-  assert.match(migration, /v_attention = 'needs_reply'/)
-  assert.match(migration, /v_attention = 'unassigned'/)
-  assert.ok(migration.indexOf('v_attention =') < migration.indexOf('LIMIT v_limit'))
-})
-
-test('staff inbox presents the refined work views without removing canonical controls', () => {
-  for (const label of ['Active', 'Needs reply', 'Unassigned']) {
-    assert.match(inbox, new RegExp(`label="${label}"`))
-  }
-  assert.match(inbox, /Search subjects and senders/)
-  assert.match(inbox, /Archived and more filters/)
-  assert.match(inbox, /All statuses/)
-  assert.match(inbox, /All assignees/)
-  assert.match(inbox, /All categories/)
-  assert.match(inbox, /All follow up/)
-  assert.match(inbox, /They wrote ·/)
-  assert.match(inbox, /You replied ·/)
-  assert.match(inbox, /messages-triage-pill--danger/)
-  assert.match(inbox, /messages-triage-pill--amber/)
-  assert.match(inbox, /Resolved means answered and it stays in the list/)
-})
-
-test('thread actions expose wait ownership, visible save feedback, and layered privacy text', () => {
+test('the inbox and the thread carry only the simplified controls', () => {
   const actions = read('src/components/connect/messages/ThreadActions.jsx')
-  assert.match(workspace, /messages-waitbar--\$\{waiting\.kind\}/)
+  for (const label of ['Needs reply', 'All']) assert.match(inbox, new RegExp(`label="${label}"`))
+  assert.doesNotMatch(inbox, /label="Active"|label="Unassigned"|Archived and more filters|All assignees|All categories|Resolved means answered/)
+  assert.match(inbox, /Search subjects and senders/)
+  assert.match(workspace, /messages-status-banner messages-status-banner--\$\{banner\.kind\}/)
   assert.match(workspace, /messages-save-toast/)
-  assert.match(actions, /Set to Unassigned\./)
-  assert.match(actions, /Assigned to \$\{option\.text/)
-  assert.match(actions, /Category set to \$\{e\.target\.value\}/)
+  assert.doesNotMatch(actions, /mg-status|mg-assignee|mg-category|<select/)
+  assert.match(actions, /'Following up' : 'Follow up'/)
+  assert.match(actions, /done \? 'Reopen' : 'Done'/)
+  assert.match(actions, /Replying as <b>\{replyingAs\}<\/b>/)
+  assert.match(actions, /Press and hold a student&apos;s message to react\./)
   assert.match(actions, /Do not include patient names, medical record numbers, or other identifying information\./)
   assert.match(actions, /Full notice/)
   assert.match(actions, /ASPIRE Messages is not monitored continuously/)
@@ -100,7 +95,7 @@ test('six reactions retain one selection, replacement, and cancellation semantic
   assert.deepEqual(MESSAGE_REACTIONS.map((item) => item.glyph), ['👍', '👀', '✅', '🙏', '🙂', '🎉'])
   assert.deepEqual(LEGACY_MESSAGE_REACTIONS.map((item) => item.key), ['acknowledge', 'thanks', 'celebrate'])
   assert.match(reactions, /const next = key === mineKey \? null : key/)
-  assert.match(reactions, /data-tooltip=\{def\.label\}/)
+  assert.match(reactions, /title=\{def\.label\}/)
   assert.doesNotMatch(reactions, /msg-reaction-option-label/)
   const replaced = applyOptimisticReaction([{ key: 'warm', count: 1, mine: true }], 'done')
   assert.deepEqual(replaced, [{ key: 'done', count: 1, mine: true }])
@@ -114,7 +109,8 @@ test('all staff badge surfaces use Needs your reply and drawer handoff keeps the
     assert.match(source, /useStaffNeedsReplyCount/)
     assert.match(source, /needsReplyLabel/)
   }
-  assert.match(staffReadApi, /messages_staff_needs_reply_count/)
+  assert.match(staffReadApi, /messages_staff_needs_reply_count_v2/)
+  assert.match(staffReadApi, /messages_staff_needs_reply_count'/)
   assert.match(polling, /needs_reply_count/)
   assert.match(launcher, /conversation=\$\{encodeURIComponent\(lastSelectedId\)\}/)
   assert.match(connect, /URLSearchParams\(location\.search\)\.get\('conversation'\)/)
@@ -125,7 +121,10 @@ test('Messages uses shared light and dark theme tokens in every host', () => {
   assert.equal((theme.match(/--messages-bubble-out:/g) || []).length, 2)
   assert.match(css, /background: var\(--messages-bubble-in/)
   assert.match(css, /background: var\(--messages-bubble-out/)
-  assert.match(css, /\[data-theme='dark'\] \.messages-status-pill--open/)
+  // MESSAGES-SIMPLIFY-1: state colours are paired tokens with a dark value each.
+  for (const token of ['--messages-needs-ink', '--messages-needs-soft', '--messages-ok-ink', '--messages-ok-soft', '--messages-neutral-ink']) {
+    assert.equal((theme.match(new RegExp(`${token}:`, 'g')) || []).length, 2, `${token} needs a light and a dark value`)
+  }
   assert.match(launcher, /var\(--color-header-bg/)
   assert.doesNotMatch(`${workspace}\n${inbox}`, /data-style=/)
 })

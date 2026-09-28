@@ -99,9 +99,9 @@ export function useActionCenterQueue({ enabled = true, includeOtherCohorts = fal
   const scopedSlots = useMemo(() => scopeInterviewsForViewer(qIv.data?.slots || [], {
     blocksById: qIv.data?.blocksById || {}, viewerProfileId: userProfile?.id, isAdmin: canManage,
   }), [qIv.data, userProfile?.id, canManage])
-  const personalConversations = useMemo(() => (qMessages.data || []).filter(conversation => (
-    !conversation.assigned_staff_profile_id || conversation.assigned_staff_profile_id === userProfile?.id
-  )), [qMessages.data, userProfile?.id])
+  // MESSAGES-SIMPLIFY-1: Needs reply is one team queue; there is no assignee to
+  // narrow it by, so this is every thread Messages lists under Needs reply.
+  const personalConversations = useMemo(() => qMessages.data || [], [qMessages.data])
   const unitById = useMemo(() => new Map(units.map(u => [u.id, u.unit_name])), [units])
 
   const groups = useMemo(() => {

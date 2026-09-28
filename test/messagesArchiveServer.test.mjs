@@ -385,28 +385,22 @@ test('no em dash anywhere in the migration or the verification doc', () => {
   assert.doesNotMatch(verificationDoc, EM_DASH)
 })
 
-// ── Staff-list endpoint: view validation, v3-first with v2 fallback ──────────
+// ── Staff-list endpoint ─────────────────────────────────────────────────────
+// MESSAGES-SIMPLIFY-1 (20261014000000) replaced active/archived/all with
+// needs_reply/all/done on the v5 RPC; archived is still accepted and read as
+// done. The v3/v2 archive-era chain is no longer called by this endpoint.
 
-test('staff-list endpoint: view query param defaults to active and rejects invalid values', () => {
-  assert.match(staffList, /const VIEWS = \['active', 'archived', 'all'\];/)
-  assert.match(staffList, /const view = req\.query\?\.view === undefined \? 'active' : req\.query\.view;/)
+test('staff-list endpoint: view defaults to needs_reply, reads archived as done, rejects the rest', () => {
+  assert.match(staffList, /const VIEWS = \['needs_reply', 'all', 'done'\];/)
+  assert.match(staffList, /const LEGACY_VIEW_NAMES = \{ active: 'all', archived: 'done' \};/)
   assert.match(staffList, /if \(!VIEWS\.includes\(view\)\) return res\.status\(422\)\.json\(\{ error: 'invalid_view' \}\);/)
 })
 
-test('staff-list endpoint: prefers v3, falls back to v2 on PGRST202/42883', () => {
-  assert.match(staffList, /db\.rpc\('messages_staff_list_conversations_v3', \{ \.\.\.rpcArgs, p_view: view \}\)/)
-  assert.match(staffList, /db\.rpc\('messages_staff_list_conversations_v2', rpcArgs\)/)
+test('staff-list endpoint: prefers v5, falls back to v4 on PGRST202/42883', () => {
+  const v5Idx = staffList.indexOf("rpc('messages_staff_list_conversations_v5'")
+  const v4Idx = staffList.indexOf("rpc('messages_staff_list_conversations_v4'", v5Idx)
+  assert.ok(v5Idx >= 0 && v4Idx > v5Idx, 'v4 fallback textually follows the v5 attempt')
   assert.match(staffList, /PGRST202.*42883|42883.*PGRST202/)
-  const v3Idx = staffList.indexOf("rpc('messages_staff_list_conversations_v3'")
-  const v2Idx = staffList.indexOf("rpc('messages_staff_list_conversations_v2'", v3Idx)
-  assert.ok(v3Idx >= 0 && v2Idx > v3Idx, 'v2 fallback textually follows the v3 attempt')
-})
-
-test('staff-list endpoint: reports archive_available and passes through row data untouched', () => {
-  assert.match(staffList, /let archiveAvailable = true;/)
-  assert.match(staffList, /archiveAvailable = false;/)
-  assert.match(staffList, /archive_available: archiveAvailable,/)
-  // Rows are forwarded as-is; is_archived needs no special handling here.
   assert.match(staffList, /const conversations = data\?\.conversations \|\| \[\];/)
 })
 
@@ -415,7 +409,8 @@ test('staff-list endpoint: reports archive_available and passes through row data
 test('staff-manage endpoint: archive is in the action allowlist', () => {
   // MESSAGES-LIFECYCLE-PHASE3A-REACTIONS added 'react' alongside 'archive'; the
   // allowlist pin is updated to match, archive's own position is unchanged.
-  assert.match(staffManage, /const ACTIONS = \['assign', 'status', 'category', 'flag', 'archive', 'react'\];/)
+  // MESSAGES-SIMPLIFY-1 added 'done' (Done and Reopen); archive stays.
+  assert.match(staffManage, /const ACTIONS = \['assign', 'status', 'category', 'flag', 'archive', 'react', 'done'\];/)
 })
 
 test('staff-manage endpoint: archive action validates the boolean and always targets staff kind', () => {

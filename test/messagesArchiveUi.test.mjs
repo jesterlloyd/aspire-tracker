@@ -34,50 +34,38 @@ const inboxStateSrc = read('src/lib/messages/inboxState.js')
 const allChanged = {
   staffInbox, staffWorkspace, staffClient, portalInbox, portalWorkspace, portalClient, inboxStateSrc,
 }
+// Files that still carry the per-person archive (the portal side and the client).
+const archiveFiles = { staffClient, portalInbox, portalWorkspace, portalClient }
 
-test('inboxState: view is a scope, not a filter', async (t) => {
-  await t.test('DEFAULT_VIEW is active and is exported separately from DEFAULT_FILTERS', () => {
-    assert.equal(DEFAULT_VIEW, 'active')
-    assert.match(inboxStateSrc, /export const DEFAULT_VIEW = 'active'/)
+// MESSAGES-SIMPLIFY-1 (20261014000000): the staff inbox no longer archives per
+// person. Done is shared (status resolved) and threads archived before that
+// build stay under View done. These replace the staff Active/Archived tests.
+test('inboxState: the view picks Needs reply, All or Done', async (t) => {
+  await t.test('DEFAULT_VIEW is needs_reply', () => {
+    assert.equal(DEFAULT_VIEW, 'needs_reply')
+    assert.match(inboxStateSrc, /export const DEFAULT_VIEW = 'needs_reply'/)
   })
 
-  await t.test('serializeInboxQuery omits view at the default and sends it only when narrowed', () => {
-    const { query: atDefault } = serializeInboxQuery({ limit: 25 })
-    assert.equal(atDefault.view, undefined)
-    const { query: archived } = serializeInboxQuery({ view: 'archived', limit: 25 })
-    assert.equal(archived.view, 'archived')
+  await t.test('serializeInboxQuery always sends the view', () => {
+    assert.equal(serializeInboxQuery({ limit: 25 }).query.view, 'needs_reply')
+    assert.equal(serializeInboxQuery({ view: 'done', limit: 25 }).query.view, 'done')
   })
 
-  await t.test('queryIdentity changes when view changes, so pagination resets like a filter change', () => {
-    const base = { filters: undefined, search: '' }
-    assert.equal(queryIdentity(base), queryIdentity({ ...base, view: 'active' }))
-    assert.notEqual(queryIdentity(base), queryIdentity({ ...base, view: 'archived' }))
+  await t.test('queryIdentity changes when view changes, so pagination resets', () => {
+    const base = { search: '' }
+    assert.equal(queryIdentity(base), queryIdentity({ ...base, view: 'needs_reply' }))
+    assert.notEqual(queryIdentity(base), queryIdentity({ ...base, view: 'done' }))
   })
 })
 
-test('staff: Active and Archived scopes', async (t) => {
-  await t.test('Active is the default quick view and Archived stays in the advanced panel until available', () => {
+test('staff: Done replaces per-person archive', async (t) => {
+  await t.test('View done toggles the Done view and back', () => {
     assert.match(staffInbox, /const \[view, setView\] = useState\(DEFAULT_VIEW\)/)
-    assert.match(staffInbox, /label="Active"/)
-    assert.match(staffInbox, /\{archiveAvailable && \(/)
-    assert.match(staffInbox, /options=\{\[\{ value: 'active', label: 'Active' \}, \{ value: 'archived', label: 'Archived' \}\]\}/)
-    assert.doesNotMatch(strip(staffInbox), /setView\('all'\)/)
+    assert.match(staffInbox, /setView\(\(current\) => \(current === 'done' \? lastOpenView : 'done'\)\)/)
   })
 
-  await t.test('archiveAvailable is derived from the server response and fails closed', () => {
-    assert.match(staffInbox, /const archiveAvailable = \(data\?\.pages \|\| \[\]\)\.some\(\(p\) => p\?\.archive_available === true\)/)
-  })
-
-  await t.test('view participates in the query so switching resets pagination', () => {
-    assert.match(staffInbox, /queryIdentity\(\{ filters, search, view, attention \}\)/)
-    assert.match(staffInbox, /\[filters, search, view, attention\]/)
-    assert.match(staffInbox, /filters, search, view, attention, cursor: pageParam, limit: PAGE_LIMIT/)
-  })
-
-  await t.test('Reset filters never touches view: it is a scope, not a filter', () => {
-    const fn = staffInbox.slice(staffInbox.indexOf('const resetFilters ='), staffInbox.indexOf('const hasFilters ='))
-    assert.match(fn, /setFilters\(DEFAULT_FILTERS\); setAttention\(DEFAULT_ATTENTION\); clearSearch\(\)/)
-    assert.doesNotMatch(fn, /setView/)
+  await t.test('the staff inbox has no archive control', () => {
+    assert.doesNotMatch(strip(staffInbox), /RowActionsMenu|setConversationArchived|Archive conversation/)
   })
 })
 
@@ -114,44 +102,6 @@ test('portal: Active | Archived picker', async (t) => {
     // Home preview hook and the docked ASPIRE Team panel sharing this query key
     // are unaffected.
     assert.match(portalInbox, /const queryKey = view === 'archived' \? \['portal_messages_list', 'archived'\] : \['portal_messages_list'\]/)
-  })
-})
-
-test('staff: kebab restructure and menu', async (t) => {
-  await t.test('the staff inbox imports the shared RowActionsMenu, not a fork', () => {
-    assert.match(staffInbox, /import RowActionsMenu from '\.\.\/\.\.\/shared\/RowActionsMenu'/)
-  })
-
-  await t.test('the row is a flex <li> wrapper: the original button plus the kebab as a sibling, no nested buttons', () => {
-    assert.match(staffInbox, /<li style=\{\{ display: 'flex', alignItems: 'stretch' \}\}>/)
-    assert.match(staffInbox, /<button\s*\n\s*type="button"\s*\n\s*onClick=\{onSelect\}/)
-    assert.match(staffInbox, /flex: 1, minWidth: 0, textAlign: 'left'/)
-    // No <button> is ever written inside another <button>'s JSX children in this
-    // file: the kebab's wrapper <div> is a SIBLING of the row button, closed
-    // before the kebab markup begins.
-    assert.match(staffInbox, /<\/button>\s*\n\s*\n\s*\{archiveAvailable && \(/)
-  })
-
-  await t.test('the kebab wrapper stops click and keydown propagation, like UnitLeaderPortal already does', () => {
-    const kebabBlock = staffInbox.slice(staffInbox.indexOf('{archiveAvailable && (', staffInbox.indexOf('export function ConversationRow')))
-    assert.match(kebabBlock, /onClick=\{\(e\) => e\.stopPropagation\(\)\}/)
-    assert.match(kebabBlock, /onKeyDown=\{\(e\) => e\.stopPropagation\(\)\}/)
-  })
-
-  await t.test('the row keeps aria-current and its 44px touch target unchanged', () => {
-    assert.match(staffInbox, /aria-current=\{selected \? 'true' : undefined\}/)
-    assert.match(staffInbox, /minHeight: 44/)
-  })
-
-  await t.test('menu items read Archive/Unarchive per row.is_archived, with an accessible label naming the subject', () => {
-    assert.match(staffInbox, /label=\{`Actions for conversation \$\{row\.subject\}`\}/)
-    assert.match(staffInbox, /row\.is_archived \? 'Unarchive conversation' : 'Archive conversation'/)
-    assert.match(staffInbox, /row\.is_archived \? 'Unarchiving' : 'Archiving'/)
-  })
-
-  await t.test('the kebab itself is hidden until archiveAvailable, matching the fail-closed contract', () => {
-    const rowFn = staffInbox.slice(staffInbox.indexOf('export function ConversationRow'))
-    assert.match(rowFn, /\{archiveAvailable && \(/)
   })
 })
 
@@ -232,23 +182,6 @@ test('client API modules expose the new functions against the right contract', a
 })
 
 test('selection handling when the OPEN thread is archived/unarchived out of view', async (t) => {
-  await t.test('staff: the next row takes over, else the previous, else the selection clears', () => {
-    const fn = staffInbox.slice(staffInbox.indexOf('const handleArchiveToggle'), staffInbox.indexOf('const handleArchiveToggle') + 1200)
-    assert.match(fn, /if \(selectedId === row\.id\) \{/)
-    assert.match(fn, /const idx = rows\.findIndex\(\(r\) => r\.id === row\.id\)/)
-    assert.match(fn, /const nextId = rows\[idx \+ 1\]\?\.id \?\? rows\[idx - 1\]\?\.id \?\? null/)
-    assert.match(fn, /onSelectedRowChange\(nextId\)/)
-  })
-
-  await t.test('staff: selection moves through onSelectedRowChange, never onSelect, so mobile never flips to the thread view', () => {
-    assert.match(staffWorkspace, /onSelectedRowChange=\{setSelectedId\}/)
-    // onSelect (the row-click path) is the ONLY thing that sets mobileView to
-    // 'thread'; onSelectedRowChange must not appear anywhere near that call.
-    const onSelectFn = staffWorkspace.slice(staffWorkspace.indexOf('const onSelect = useCallback'), staffWorkspace.indexOf('const backToList'))
-    assert.match(onSelectFn, /setMobileView\('thread'\)/)
-    assert.doesNotMatch(onSelectFn, /onSelectedRowChange/)
-  })
-
   await t.test('portal: the workspace navigates back to the list rather than guessing a next thread', () => {
     assert.match(portalWorkspace, /const handleSelectedArchived = useCallback\(\(\) => \{/)
     const fn = portalWorkspace.slice(portalWorkspace.indexOf('const handleSelectedArchived'), portalWorkspace.indexOf('const handleSent'))
@@ -258,11 +191,6 @@ test('selection handling when the OPEN thread is archived/unarchived out of view
 })
 
 test('mobile: archiving from the list never flips the view, and no gesture code was added', async (t) => {
-  await t.test('the staff archive handler never touches mobileView or setMobileView', () => {
-    const fn = staffInbox.slice(staffInbox.indexOf('const handleArchiveToggle'), staffInbox.indexOf('return (\n    <div style={{ display: \'flex\', flexDirection: \'column\''))
-    assert.doesNotMatch(fn, /mobileView|setMobileView/)
-  })
-
   await t.test('no touch or swipe handler exists in any changed file', () => {
     for (const [name, src] of Object.entries(allChanged)) {
       assert.doesNotMatch(src, /onTouchStart|onTouchMove|onTouchEnd|touchstart|touchmove|touchend|Swipe|swipe/i, `${name} must not add gesture code`)
@@ -271,12 +199,6 @@ test('mobile: archiving from the list never flips the view, and no gesture code 
 })
 
 test('unread and list refetch are wired after a successful archive on both sides', async (t) => {
-  await t.test('staff: refetch runs, then unread invalidates, through the existing mechanisms', () => {
-    const fn = staffInbox.slice(staffInbox.indexOf('const handleArchiveToggle'), staffInbox.indexOf('const handleArchiveToggle') + 1200)
-    assert.match(fn, /await refetch\(\)/)
-    assert.match(fn, /queryClient\.invalidateQueries\(\{ queryKey: \['messages_staff_unread'\] \}\)/)
-  })
-
   await t.test('portal: the inbox invalidates list and unread, and also runs the workspace refresh path', () => {
     const fn = portalInbox.slice(portalInbox.indexOf('const handleArchiveToggle'), portalInbox.indexOf('const handleArchiveToggle') + 900)
     assert.match(fn, /qc\.invalidateQueries\(\{ queryKey: \['portal_messages_list'\] \}\)/)
@@ -287,21 +209,13 @@ test('unread and list refetch are wired after a successful archive on both sides
 })
 
 test('announcements use the existing live region on both sides', async (t) => {
-  await t.test('staff: announce is threaded from the workspace shared live region into the inbox', () => {
-    assert.match(staffInbox, /announce = \(\) => \{\}/)
-    assert.match(staffWorkspace, /announce=\{announce\}/)
-    assert.match(staffInbox, /announce\(nextArchived \? 'Conversation archived' : 'Conversation unarchived'\)/)
-  })
-
   await t.test('portal: announce is threaded the same way', () => {
     assert.match(portalInbox, /announce = \(\) => \{\}/)
     assert.match(portalWorkspace, /announce=\{announce\}/)
     assert.match(portalInbox, /announce\(nextArchived \? 'Conversation archived' : 'Conversation unarchived'\)/)
   })
 
-  await t.test('an archive failure is announced too, mapped through the safe error mapper', () => {
-    const staffCatch = staffInbox.slice(staffInbox.indexOf('} catch (err) {', staffInbox.indexOf('const handleArchiveToggle')))
-    assert.match(staffCatch, /mapMessagesError\(err\?\.status\)/)
+  await t.test('a portal archive failure is announced too, mapped through the safe error mapper', () => {
     const portalCatch = portalInbox.slice(portalInbox.indexOf('} catch (err) {', portalInbox.indexOf('const handleArchiveToggle')))
     assert.match(portalCatch, /mapPortalMessagesError\(err\?\.status\) \|\| mapMessagesError\(err\?\.status\)/)
   })
@@ -314,8 +228,8 @@ test('hygiene', async (t) => {
     }
   })
 
-  await t.test('every changed source file carries the MESSAGES-ARCHIVE-P1 comment tag', () => {
-    for (const [name, src] of Object.entries(allChanged)) {
+  await t.test('every file that still archives carries the MESSAGES-ARCHIVE-P1 comment tag', () => {
+    for (const [name, src] of Object.entries(archiveFiles)) {
       assert.match(src, /MESSAGES-ARCHIVE-P1/, `${name} is missing the comment tag`)
     }
   })

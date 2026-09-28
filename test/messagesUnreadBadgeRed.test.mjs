@@ -73,7 +73,8 @@ test('every Messages unread counter is red, and none is blue', async (t) => {
   })
 
   await t.test('staff inbox row counter', () => {
-    assert.match(staffInbox, /<span style=\{\{ \.\.\.badge, background: UNREAD_BADGE_BG, color: UNREAD_BADGE_FG \}\}>/)
+    // MESSAGES-SIMPLIFY-1 renamed the row's base style to countBadge.
+    assert.match(staffInbox, /<span style=\{\{ \.\.\.countBadge, background: UNREAD_BADGE_BG, color: UNREAD_BADGE_FG \}\}>/)
     // UNREAD_BADGE_BG is the re-exported shared token, so this is the app red.
     assert.equal(UNREAD_BADGE_BG, BADGE_COUNT_BG)
   })

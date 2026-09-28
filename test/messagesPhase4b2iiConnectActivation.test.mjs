@@ -169,8 +169,11 @@ test('workspace and prior-phase behavior preserved', async (t) => {
     assert.match(workspace, /role="status" aria-live="polite"/)
   })
 
-  await t.test('the v2 RPCs remain the active server path', () => {
-    assert.match(read('../api/messages-staff-list.js'), /messages_staff_list_conversations_v2/)
+  await t.test('the server path prefers the newest RPCs and keeps the fallbacks', () => {
+    // MESSAGES-SIMPLIFY-1: the list reads v5 then v4; the thread v5 down to v2.
+    assert.match(read('../api/messages-staff-list.js'), /messages_staff_list_conversations_v5/)
+    assert.match(read('../api/messages-staff-list.js'), /messages_staff_list_conversations_v4/)
+    assert.match(read('../api/messages-staff-thread.js'), /messages_staff_get_thread_v5/)
     assert.match(read('../api/messages-staff-thread.js'), /messages_staff_get_thread_v2/)
   })
 

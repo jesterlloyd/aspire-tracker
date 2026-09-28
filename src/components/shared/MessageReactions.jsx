@@ -1,200 +1,162 @@
 // src/components/shared/MessageReactions.jsx
 //
-// MESSAGES-LIFECYCLE-PHASE3A-REACTIONS: the chips row plus "Add reaction"
-// popover rendered at the bottom of a message bubble (staff and portal share
-// this one component, the same way both surfaces already share MessageBubble).
+// MESSAGES-SIMPLIFY-1: reactions work like iMessage. Nothing shows on an idle
+// bubble; a long press (450 ms, mouse, pen or finger), a right-click, or Enter
+// or Space on the focused bubble opens a bar of six emoji above it. Reactions
+// show as one small round badge on the bubble's top outer corner: up to three
+// distinct emoji, then the total when more than one person reacted. Hover and
+// the accessible name say who reacted. Staff and every portal share this file
+// through MessageBubble.
 //
 // Reactions are quiet acknowledgements: this component never implies a
 // notification, an unread change, or an archive change. It only ever calls
-// onSetReaction(messageId, keyOrNull); everything else is the caller's
-// responsibility.
-//
-// Interaction model is deliberately the same shape as RowActionsMenu.jsx (read
-// first for this): a trigger button opens a document-body portal menu that
-// closes on Escape, closes on an outside click, returns focus to the trigger on
-// close, and supports Up/Down arrow navigation between options. It is a
-// separate implementation (not a reuse of RowActionsMenu itself) because the
-// trigger, the chip row, and the "current reaction" marking are all specific to
-// reactions and use their own msg-reaction- classes rather than
-// RowActionsMenu's shared-row-actions- classes.
-//
-// No long-press, no double-tap, no hover-only affordance: every action here is
-// a real <button> reachable by click, Enter/Space, and Tab/arrow-key focus.
+// onSetReaction(messageId, keyOrNull); everything else is the caller's.
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { SmilePlus } from 'lucide-react'
-import { reactionByKey, reactionsForVersion } from '../../lib/messages/reactionConstants'
+import {
+  reactionByKey, reactionsForVersion, reactionSentences, reactionBadgeContent,
+} from '../../lib/messages/reactionConstants'
 
-const FULL_MENU_WIDTH = 286
-const LEGACY_MENU_WIDTH = 154
-const GAP = 6
+const GAP = 10
 const EDGE = 8
 
-export default function MessageReactions({
-  message, onSetReaction, disabled = false, reactionSetVersion = 1,
+export function ReactionBadge({ message, viewerId, side }) {
+  const { glyphs, total } = reactionBadgeContent(message)
+  if (total === 0) return null
+  const label = reactionSentences(message, viewerId).join(', ')
+  return (
+    <span
+      className={`msg-reaction-badge msg-reaction-badge--${side}`}
+      role="img"
+      aria-label={label}
+      title={label}
+    >
+      {glyphs.map((g) => <span key={g} aria-hidden="true" className="msg-reaction-badge__glyph">{g}</span>)}
+      {total > 1 && <span aria-hidden="true" className="msg-reaction-badge__count">{total}</span>}
+    </span>
+  )
+}
+
+// The bar of six. Opens above the bubble, flips below when there is no room,
+// and always stays inside the viewport.
+export function ReactionBar({
+  message, anchorRef, onClose, onSetReaction, onAnnounce, disabled = false, reactionSetVersion = 1,
 }) {
-  const [open, setOpen] = useState(false)
-  const [announcement, setAnnouncement] = useState('')
-  const btnRef = useRef(null)
-  const menuRef = useRef(null)
-
-  const rawReactions = Array.isArray(message?.reactions) ? message.reactions : []
-  // Defensive: never render a key outside the server-enforced allowlist, and
-  // never render a chip with a non-positive count.
-  const chips = rawReactions.filter((r) => r && reactionByKey(r.key) && r.count > 0)
-  const mineKey = rawReactions.find((r) => r?.mine)?.key || null
+  const barRef = useRef(null)
   const definitions = reactionsForVersion(reactionSetVersion)
+  const mineKey = (Array.isArray(message?.reactions) ? message.reactions : []).find((r) => r?.mine)?.key || null
 
-  const close = useCallback(() => {
-    setOpen(false)
-    btnRef.current?.focus()
-  }, [])
-
-  const toggleMenu = useCallback(() => {
-    if (disabled) return
-    setOpen((o) => !o)
-  }, [disabled])
-
-  const placeMenu = useCallback((node) => {
-    menuRef.current = node
-    if (!node || !btnRef.current) return
-    const r = btnRef.current.getBoundingClientRect()
-    const menuWidth = definitions.length > 3 ? FULL_MENU_WIDTH : LEGACY_MENU_WIDTH
-    const left = Math.max(EDGE, Math.min(r.right - menuWidth, window.innerWidth - menuWidth - EDGE))
-    const height = node.offsetHeight || 48
-    let top = r.bottom + GAP
-    if (top + height > window.innerHeight - EDGE && r.top - GAP - height > EDGE) {
-      top = r.top - GAP - height
+  // Above the bubble, below it when there is no room, always in the viewport.
+  // Returns false when the bubble has scrolled out of view.
+  const place = useCallback(() => {
+    const bar = barRef.current
+    const anchor = anchorRef.current
+    if (!bar || !anchor) return false
+    const r = anchor.getBoundingClientRect()
+    const vw = window.innerWidth
+    const vh = window.innerHeight
+    if (r.bottom < 0 || r.top > vh) return false
+    const w = bar.offsetWidth
+    const h = bar.offsetHeight
+    let top = r.top - GAP - h
+    let placement = 'up'
+    if (top < EDGE) {
+      top = r.bottom + GAP
+      placement = 'down'
     }
-    node.style.left = `${Math.round(left)}px`
-    node.style.top = `${Math.round(top)}px`
-    node.style.width = `${menuWidth}px`
-    node.querySelector('[role="menuitemradio"]')?.focus()
-  }, [definitions.length])
+    top = Math.max(EDGE, Math.min(top, vh - h - EDGE))
+    const alignRight = anchor.classList.contains('msg-bubble-outgoing')
+    let left = alignRight ? r.right - w : r.left
+    left = Math.max(EDGE, Math.min(left, vw - w - EDGE))
+    bar.style.top = `${Math.round(top)}px`
+    bar.style.left = `${Math.round(left)}px`
+    bar.dataset.placement = placement
+    return true
+  }, [anchorRef])
+
+  useLayoutEffect(() => {
+    place()
+    const bar = barRef.current
+    const first = bar?.querySelector('[aria-pressed="true"]') || bar?.querySelector('button')
+    first?.focus()
+  }, [place])
 
   useEffect(() => {
-    if (!open) return
-    const onKey = (event) => {
-      if (event.key === 'Escape') { event.stopPropagation(); close(); return }
-      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-        event.preventDefault()
-        const nodes = [...(menuRef.current?.querySelectorAll('[role="menuitemradio"]') || [])]
-        if (nodes.length === 0) return
-        const index = nodes.indexOf(document.activeElement)
-        const next = event.key === 'ArrowDown'
-          ? (index + 1) % nodes.length
-          : (index - 1 + nodes.length) % nodes.length
-        nodes[next]?.focus()
-      }
+    const onPointerDown = (e) => {
+      if (barRef.current?.contains(e.target)) return
+      onClose(!anchorRef.current?.contains(e.target) ? false : true)
     }
-    const onPointerDown = (event) => {
-      if (menuRef.current?.contains(event.target) || btnRef.current?.contains(event.target)) return
-      close()
+    // The thread scrolls itself (new messages, polling), so a scroll follows
+    // the bubble rather than closing the bar, unless the bubble has left view.
+    const onScrollResize = () => {
+      if (!place()) onClose(false)
     }
-    const onScrollResize = (event) => {
-      if (event?.target && menuRef.current?.contains(event.target)) return
-      close()
-    }
-    document.addEventListener('keydown', onKey, true)
-    document.addEventListener('mousedown', onPointerDown, true)
+    document.addEventListener('pointerdown', onPointerDown, true)
     window.addEventListener('scroll', onScrollResize, true)
     window.addEventListener('resize', onScrollResize)
     return () => {
-      document.removeEventListener('keydown', onKey, true)
-      document.removeEventListener('mousedown', onPointerDown, true)
+      document.removeEventListener('pointerdown', onPointerDown, true)
       window.removeEventListener('scroll', onScrollResize, true)
       window.removeEventListener('resize', onScrollResize)
     }
-  }, [open, close])
+  }, [onClose, anchorRef, place])
 
-  // A key equal to the caller's current reaction always REMOVES it (sends
-  // null); any other key always REPLACES it. This is the one rule both the
-  // chip row and the popover follow, so neither can send a redundant
-  // "re-select the same key" request.
+  const onKeyDown = (e) => {
+    const buttons = [...(barRef.current?.querySelectorAll('button') || [])]
+    const i = buttons.indexOf(document.activeElement)
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onClose(true); return }
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+      e.preventDefault(); buttons[(i + 1) % buttons.length]?.focus()
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      e.preventDefault(); buttons[(i - 1 + buttons.length) % buttons.length]?.focus()
+    } else if (e.key === 'Home') {
+      e.preventDefault(); buttons[0]?.focus()
+    } else if (e.key === 'End') {
+      e.preventDefault(); buttons[buttons.length - 1]?.focus()
+    } else if (e.key === 'Tab') {
+      onClose(false)
+    }
+  }
+
+  // Picking the current reaction removes it; any other replaces it.
   const pick = (key) => {
+    if (disabled) return
     const next = key === mineKey ? null : key
     onSetReaction?.(message?.id, next)
-    const label = reactionByKey(key)?.label || 'reaction'
-    setAnnouncement(next ? `Reacted ${label}` : `Removed ${label} reaction`)
+    onAnnounce?.(next ? `Reacted ${reactionByKey(key)?.label || ''}`.trim() : 'Removed reaction')
+    onClose(true)
   }
 
-  const onChipClick = (key) => {
-    if (disabled) return
-    pick(key)
-  }
-
-  const onOptionSelect = (key) => {
-    pick(key)
-    close()
-  }
-
-  return (
-    <div className="msg-reaction-row">
-      {chips.map((r) => {
-        const def = reactionByKey(r.key)
-        if (!def) return null
-        const mine = !!r.mine
-        const accessibleName = `${def.label}, ${r.count} reaction${r.count === 1 ? '' : 's'}${mine ? ', including yours' : ''}`
+  return createPortal(
+    <div
+      ref={barRef}
+      className="msg-reaction-bar"
+      role="toolbar"
+      aria-label="Reactions"
+      aria-orientation="horizontal"
+      style={{ position: 'fixed', top: -9999, left: -9999 }}
+      onKeyDown={onKeyDown}
+    >
+      {definitions.map((def) => {
+        const on = def.key === mineKey
         return (
           <button
-            key={r.key}
+            key={def.key}
             type="button"
-            className={`msg-reaction-chip${mine ? ' msg-reaction-chip-mine' : ''}`}
-            aria-pressed={mine}
-            aria-label={accessibleName}
-            data-tooltip={def.label}
+            className="msg-reaction-option"
+            aria-pressed={on}
+            aria-label={on ? `${def.label}, selected. Select again to remove` : def.label}
+            title={def.label}
             disabled={disabled}
-            onClick={() => onChipClick(r.key)}
+            tabIndex={-1}
+            onClick={() => pick(def.key)}
           >
-            <span aria-hidden="true">{def.glyph}</span>
-            <span aria-hidden="true" className="msg-reaction-count">{r.count}</span>
+            <span aria-hidden="true" className="msg-reaction-option-glyph">{def.glyph}</span>
           </button>
         )
       })}
-
-      <button
-        ref={btnRef}
-        type="button"
-        className="msg-reaction-add"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-label="Add reaction"
-        disabled={disabled}
-        onClick={toggleMenu}
-      >
-        <SmilePlus size={14} aria-hidden="true" />
-      </button>
-
-      {open && createPortal(
-        <div
-          ref={placeMenu}
-          className="msg-reaction-menu"
-          role="menu"
-          aria-label="Add reaction"
-          style={{ position: 'fixed' }}
-        >
-          {definitions.map((def) => {
-            const checked = def.key === mineKey
-            return (
-              <button
-                key={def.key}
-                type="button"
-                role="menuitemradio"
-                aria-checked={checked}
-                aria-label={checked ? `Remove ${def.label} reaction` : `React ${def.label}`}
-                data-tooltip={def.label}
-                className={`msg-reaction-option${checked ? ' msg-reaction-option-checked' : ''}`}
-                onClick={() => onOptionSelect(def.key)}
-              >
-                <span aria-hidden="true" className="msg-reaction-option-glyph">{def.glyph}</span>
-              </button>
-            )
-          })}
-        </div>,
-        document.body,
-      )}
-      <span className="msg-reaction-live" role="status" aria-live="polite">{announcement}</span>
-    </div>
+    </div>,
+    document.body,
   )
 }

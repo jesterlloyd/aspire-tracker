@@ -26,7 +26,9 @@ test('message threads normalize to one actionable item with message count and qu
   assert.equal(items[0].meta, '2 messages · Parking permit')
   assert.equal(items[0].quote, conversation.latest_preview)
   assert.equal(items[0].entityId, '812')
-  assert.deepEqual(items[0].actions.map(a => a.key), ['assign', 'reply', 'resolve', 'snooze'])
+  // MESSAGES-SIMPLIFY-1: no assignee, so no Assign to me; Done replaces resolve.
+  assert.deepEqual(items[0].actions.map(a => a.key), ['reply', 'done', 'snooze'])
+  assert.equal(items[0].tag, 'reply')
 })
 
 test('overdue catalog work keeps its resource identity and uses the real reminder action', () => {

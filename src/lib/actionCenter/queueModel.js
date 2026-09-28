@@ -44,7 +44,7 @@ function stateText(row) {
   return /^(Your turn|Blocked|No slot|Unplaced|Renews today)$/i.test(text) || /^\d+ ready$/i.test(text) || /^In \d+ days?$/i.test(text) || /^(Due in \d+ days?|Due today|Past due|No receipt)$/i.test(text) ? text : null
 }
 
-function actionsFor({ group, row, conversation, student }) {
+function actionsFor({ group, row, student }) {
   if (group === 'signatures') return [
     { key: 'open', label: 'Sign', primary: true },
     { key: 'snooze', label: 'Snooze' },
@@ -55,12 +55,12 @@ function actionsFor({ group, row, conversation, student }) {
         ? [{ key: 'support_open', label: 'Open as request', primary: true }, { key: 'support_close', label: 'Close: no help needed' }]
         : [{ key: 'open', label: 'Reply', primary: true }, { key: 'support_close', label: 'Close: no help needed' }, { key: 'snooze', label: 'Snooze' }]
     }
-    const out = []
-    if (!conversation?.assigned_staff_profile_id) out.push({ key: 'assign', label: 'Assign to me', primary: true })
-    out.push({ key: 'reply', label: 'Reply', primary: out.length === 0 })
-    out.push({ key: 'resolve', label: 'Close: no help needed' })
-    out.push({ key: 'snooze', label: 'Snooze' })
-    return out
+    // MESSAGES-SIMPLIFY-1: no assignee; Done is the Messages page's Done.
+    return [
+      { key: 'reply', label: 'Reply', primary: true },
+      { key: 'done', label: 'Done' },
+      { key: 'snooze', label: 'Snooze' },
+    ]
   }
   if (group === 'review-release') {
     return row?.pill?.text === 'Blocked'
@@ -102,9 +102,7 @@ export function normalizeHomeQueue({ groups = [], conversations = [], students =
             : group === 'forms' ? 'Overdue'
               : group === 'interviews' ? 'Schedule'
                 : group === 'budget' ? (row.chip || 'Renew') : 'Placement'   // Program Budget: Renew, Review, Submit or Receipt
-      const tag = conversation?.assigned_staff_profile_id ? 'reply'
-        : group === 'messages' ? 'unassigned'
-          : String(row.pill?.text || '').toLowerCase()
+      const tag = group === 'messages' ? 'reply' : String(row.pill?.text || '').toLowerCase()
       const title = conversation?.participant_name || String(row.title || '').split(' · ')[0]
       const qualifier = conversation?.subject || String(row.title || '').split(' · ').slice(1).join(' · ')
       const unread = Number(conversation?.unread_count) || 1
@@ -117,7 +115,7 @@ export function normalizeHomeQueue({ groups = [], conversations = [], students =
         quote: conversation?.latest_preview || null,
         age, ageLabel: stateText(row) || agePill(age, now),
         personal, cohort: personal ? null : cohortId,
-        actions: actionsFor({ group, row, conversation, student }),
+        actions: actionsFor({ group, row, student }),
         href: row.to, urgent: false, source: row, conversation, student,
       })
     }

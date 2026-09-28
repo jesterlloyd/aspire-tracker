@@ -48,8 +48,14 @@ export default async function handler(req, res) {
     };
     // v4 wraps v3 and reports the six-reaction capability. Fall back to v3 and
     // then v2 so either migration/deploy order is safe.
-    let { data, error } = await db.rpc('messages_staff_get_thread_v4', rpcArgs);
+    // MESSAGES-SIMPLIFY-1: v5 adds the triage state (needs_reply, is_done,
+    // handled_by) and, per message, who reacted. Missing, it falls to v4.
+    const missing = (e) => e && (String(e.code) === 'PGRST202' || String(e.code) === '42883');
+    let { data, error } = await db.rpc('messages_staff_get_thread_v5', rpcArgs);
     let reactionsAvailable = true;
+    if (missing(error)) {
+      ;({ data, error } = await db.rpc('messages_staff_get_thread_v4', rpcArgs));
+    }
     if (error && (String(error.code) === 'PGRST202' || String(error.code) === '42883')) {
       ;({ data, error } = await db.rpc('messages_staff_get_thread_v3', rpcArgs));
       if (error && (String(error.code) === 'PGRST202' || String(error.code) === '42883')) {
@@ -79,6 +85,7 @@ export default async function handler(req, res) {
       has_more: data.has_more === true,
       reactions_available: reactionsAvailable,
       reaction_set_version: Number(data.reaction_set_version) || 1,
+      triage_version: Number(data.triage_version) || 1,
     });
   } catch (err) {
     logApiError('messages-staff-thread', 'threw', err);
