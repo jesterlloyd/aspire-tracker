@@ -133,6 +133,10 @@
    under it draws a curve of its own (the service card's corner is taken back in HomeBanner). */
 .hm-window-scene .mast-host { position: absolute; inset: 0; overflow: hidden; border-radius: inherit; background: var(--aspire-navy); }
 .hm-window-scene skyline-card { display: block; width: 100%; }
+/* Modern has no frame to hide the service card's anti-aliased edge. Overscan the
+   scenery by one pixel and remove the navy fallback so a fractional crop cannot
+   leave a blue/nightfall hairline around the greeting card. */
+.hm-hero-modern .hm-window-scene .mast-host { inset: -1px; background: transparent; }
 
 /* Classic: a window. Square, because a window is (Owner, 2026-09-25); the frame, the glass,
    the inner shadow and the sill are the page's. Everything decorative is aria-hidden. */

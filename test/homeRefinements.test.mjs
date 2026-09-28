@@ -309,6 +309,7 @@ test('WINDOW: a card built after the first still gets the banner\'s style, and t
   const i = css.indexOf('.hm-window-scene {')
   assert.doesNotMatch(css.slice(i, css.indexOf('}', i)), /background/, 'the scene draws no curve of its own')
   assert.match(css, /\.hm-window-scene \.mast-host \{ position: absolute; inset: 0; overflow: hidden; border-radius: inherit; background: var\(--aspire-navy\); \}/)
+  assert.match(css, /\.hm-hero-modern \.hm-window-scene \.mast-host \{ inset: -1px; background: transparent; \}/)
 })
 
 test('CLASSIC DESK 4: the desk wears the mockup\'s colours, stitching over the leather, room below', () => {

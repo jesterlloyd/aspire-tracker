@@ -68,6 +68,7 @@ test('Classic recipient files use a stable clipboard clip outside source-switche
   assert.match(bulk, /className="outreach-recipient-file outreach-recipient-file-bulk"[\s\S]*clipboard[\s\S]*bodyClassName="outreach-recipient-file-body"/)
   assert.match(css, /\.outreach-workspace-classic \.outreach-recipient-file \{[\s\S]*overflow: visible !important;/)
   assert.match(css, /\.outreach-workspace-classic \.outreach-correspondence-files > \.outreach-recipient-file \{[\s\S]*overflow: visible !important;/)
+  assert.match(css, /\.outreach-workspace-modern \.outreach-clipboard-clip \{ display: none; \}/)
   assert.match(css, /content: 'ADDRESS FILE'/)
   assert.doesNotMatch(css, /\.outreach-bulk-manual > \.connect-panel:first-child::before/)
 })
