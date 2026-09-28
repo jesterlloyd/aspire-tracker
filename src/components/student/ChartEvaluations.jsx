@@ -18,6 +18,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
+import { surveyName } from '../../lib/evaluation/surveyNames.js'
 
 /** Prefer the moment the respondent actually submitted; fall back to the assignment. */
 function rowDate(a) {
@@ -157,7 +158,7 @@ export default function ChartEvaluations({ studentId, canRead }) {
           return (
             <Row
               key={a.id}
-              name={inst?.display_name || inst?.slug || 'Evaluation'}
+              name={surveyName(inst?.slug, inst?.display_name || inst?.slug) || 'Evaluation'}
               note={a.timepoint || null}
               date={fmtDate(rowDate(a))}
               chip={statusChip(a)}

@@ -19,6 +19,7 @@ const irt = read('src/components/InterviewRubricTab.jsx')
 const matching = read('src/components/MatchingTab.jsx')
 const app = read('src/staff/StaffApp.jsx')
 const css = read('src/index.css')
+const chartEvaluations = read('src/components/student/ChartEvaluations.jsx')
 
 test('Students URL state', async (t) => {
   await t.test('initializes from the querystring and fails closed', () => {
@@ -57,6 +58,11 @@ test('Students rows are keyboard targets', () => {
   assert.match(listPanel, /tabIndex=\{0\}/)
   assert.match(listPanel, /aria-current=\{sel \? 'true' : undefined\}/)
   assert.match(listPanel, /e\.key === 'Enter' \|\| e\.key === ' '/)
+})
+
+test('Student Profiles evaluations use canonical survey names', () => {
+  assert.match(chartEvaluations, /import \{ surveyName \} from '..\/\.\.\/lib\/evaluation\/surveyNames\.js'/)
+  assert.match(chartEvaluations, /name=\{surveyName\(inst\?\.slug, inst\?\.display_name \|\| inst\?\.slug\) \|\| 'Evaluation'\}/)
 })
 
 test('Student search and school are shared; each view applies the KPI cards it shows', () => {
