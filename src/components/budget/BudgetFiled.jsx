@@ -129,12 +129,12 @@ function FiledTile({ entry, groupBy, onOpen }) {
   const status = r.rows[0]
   const meal = r.rows.some(x => x.business_purpose || x.attendees?.length)
   return (
-    <button type="button" className="bud-tile" onClick={onOpen} aria-label={`${r.vendor}, ${usd(r.total)}, ${r.date ? dateText(r.date) : 'no date'}`}>
-      <span className="bud-tile-paper"><ReceiptPaper proposal={r.proposal} size="md" /></span>
-      <span className="bud-tile-cap">
+    <button type="button" className="bud-ftile" onClick={onOpen} aria-label={`${r.vendor}, ${usd(r.total)}, ${r.date ? dateText(r.date) : 'no date'}`}>
+      <span className="bud-ftile-paper"><ReceiptPaper proposal={r.proposal} size="md" /></span>
+      <span className="bud-ftile-cap">
         <b>{r.vendor} · {usd(r.total)}</b>
         <small>{r.date ? dateText(r.date) : 'No date'}</small>
-        <span className="bud-tile-tags">
+        <span className="bud-ftile-tags">
           {groupBy !== 'category' && cats.length > 0 && <span className="bud-conf bud-conf-grey">{cats.length > 1 ? `${cats.length} categories` : cats[0]}</span>}
           {entry.part != null && <span className="bud-conf bud-conf-medium">Split · {usd(entry.part)} here</span>}
           {r.attached && <span className="bud-conf bud-conf-grey">Attached</span>}
