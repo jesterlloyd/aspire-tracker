@@ -10,8 +10,8 @@
 // (or Attach to row N), Snooze and Reject. Every rule is src/lib/budget/receiptModel.js and
 // receiptChecks.js, the same modules the server's Accept runs.
 import { useMemo, useState } from 'react'
-import { AlertTriangle, Check, Eye, Info, OctagonAlert, Plus, Sparkles, X } from 'lucide-react'
-import { receiptPaper, setLineCategory, rowsFrom, draftTotal, filedName, ATTENDEE_FIELDS } from '../../lib/budget/receiptModel'
+import { AlertTriangle, Check, ChevronRight, Eye, Info, OctagonAlert, Plus, Sparkles, X } from 'lucide-react'
+import { receiptPaper, setLineCategory, rowsFrom, draftTotal, filedName, vendorLogo, slipState, ATTENDEE_FIELDS } from '../../lib/budget/receiptModel'
 import { receiptChecks } from '../../lib/budget/receiptChecks'
 import { usd, dateText, fyShort, PAYMENT_METHODS } from '../../lib/budget/budgetModel'
 
@@ -22,18 +22,27 @@ const ATTENDEE_LABEL = { name: 'Name', title: 'Title', organization: 'Organizati
 let seq = 0
 const newId = () => `n${Date.now().toString(36)}${(seq++).toString(36)}`
 
-/** The printed receipt drawn from the reading. Decorative paper, real text (it is what Keith read). */
-export function ReceiptPaper({ proposal, reading = false, fileName }) {
+/**
+ * The printed receipt drawn from the reading. Decorative paper, real text (it is what Keith read).
+ * RECEIPT-ORGANIZER-1: the vendor's logo prints at the top when one is on file (vendorLogo), and the
+ * receipt comes in four sizes: lg on a slip, md in a Filed folder, sm tucked in a closed folder, xs
+ * on a folded slip. The small sizes are thumbnails and leave out the order number and the address.
+ */
+export function ReceiptPaper({ proposal, reading = false, fileName, size = 'lg' }) {
   if (reading || !proposal) {
     return (
-      <div className="bud-rcpt bud-rcpt-blank" aria-hidden="true">
+      <div className={`bud-rcpt bud-rcpt-${size} bud-rcpt-blank`} aria-hidden="true">
         <div className="c hd">{fileName}</div><hr /><div className="c">{reading ? 'Reading…' : 'Not read yet'}</div>
       </div>
     )
   }
-  const lines = receiptPaper(proposal)
+  const small = size === 'sm' || size === 'xs'
+  const logo = vendorLogo(proposal.vendor)
+  const lines = receiptPaper(proposal).filter(l => !(small && (l.redacted || l.sub || /^Order #/.test(l.text || '') || l.left === 'Card')))
+  const label = `Receipt as Keith read it: ${proposal.vendor}, ${usd(proposal.total)}`
   return (
-    <div className="bud-rcpt" role="img" aria-label={`Receipt as Keith read it: ${proposal.vendor}, ${usd(proposal.total)}`}>
+    <div className={`bud-rcpt bud-rcpt-${size}${logo ? ' bud-rcpt-logo' : ''}`} {...(size === 'lg' ? { role: 'img', 'aria-label': label } : { 'aria-hidden': 'true' })}>
+      {logo && <div className="bud-rcpt-mark"><img src={logo} alt="" loading="lazy" draggable="false" /></div>}
       {lines.map((l, i) => {
         if (l.rule) return <hr key={i} />
         const cls = [l.hl ? 'hl' : '', l.strong ? 'tot' : '', l.sub ? 'sub' : ''].filter(Boolean).join(' ')
@@ -42,6 +51,27 @@ export function ReceiptPaper({ proposal, reading = false, fileName }) {
         return <div key={i} className={`c ${l.head ? 'hd' : ''} ${cls}`}>{l.text}</div>
       })}
     </div>
+  )
+}
+
+/**
+ * RECEIPT-ORGANIZER-1: a slip waiting behind the open one, folded to one line (Owner, 2026-09-27: the
+ * queue grows long). A tiny receipt, what it is, and what it needs; clicking it opens it.
+ */
+export function ReceiptFold({ slip, context, onOpen }) {
+  const d = slip.draft
+  const result = receiptChecks(d, { ...context, proposal: slip.proposal || {}, duplicateFile: slip.duplicateFile })
+  const rows = rowsFrom(d)
+  const st = slipState(result, rows.length)
+  const cats = [...new Set(d.lines.map(l => l.category).filter(Boolean))]
+  const total = result.duplicate ? (slip.proposal?.total ?? draftTotal(d)) : draftTotal(d)
+  return (
+    <button type="button" className="bud-fold" onClick={() => onOpen(slip.id)} aria-label={`Open ${d.vendor || 'receipt'}, ${usd(total)}: ${st.text}`}>
+      <ReceiptPaper proposal={slip.proposal} size="xs" />
+      <span className="bud-fold-text"><b>{d.vendor || 'Vendor'} · {usd(total)}</b><small>{[d.date ? dateText(d.date) : 'No date', cats.join(', ')].filter(Boolean).join(' · ')}</small></span>
+      <span className={`bud-conf bud-conf-${st.tone === 'warn' ? 'low' : 'medium'}`}>{st.text}</span>
+      <ChevronRight size={18} aria-hidden="true" className="bud-fold-chev" />
+    </button>
   )
 }
 

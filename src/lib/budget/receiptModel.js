@@ -16,6 +16,7 @@
 //   filedName(...)                   FY27_2026-09-03_Amazon_112-7730158_$58.57.pdf (B6.3).
 
 import { fiscalYearOfDate, fyShort, usd } from './budgetModel.js'
+import { VENDOR_LOGOS } from './vendorLogos.js'
 
 export const DOCUMENT_TYPES = Object.freeze(['receipt', 'invoice', 'order_confirmation', 'card_statement', 'other'])
 export const CONFIDENCE = Object.freeze(['high', 'medium', 'low'])
@@ -206,4 +207,77 @@ export function receiptPaper(p) {
   if (p.card_last4) out.push({ left: 'Card', right: `•••• ${p.card_last4}` })
   if (p.has_shipping_address) out.push({ left: 'Ship to:', redacted: true })
   return out
+}
+
+// ── RECEIPT-ORGANIZER-1 (Owner, 2026-09-27) ─────────────────────────────────────
+
+// Names a receipt prints that are not the brand's own (a card statement's descriptor, a parent name).
+const VENDOR_ALIASES = Object.freeze({ amzn: 'amazon', 'amzn-mktp': 'amazon', 'amazon-marketplace': 'amazon', 'the-home-depot': 'home-depot', michaels: 'michaels-stores', 'costco-wholesale': 'costco', 'fedex-office': 'fedex', 'walmart-supercenter': 'walmart', 'open-ai': 'openai' })
+const vendorSlug = (v) => String(v || '').toLowerCase().normalize('NFKD')
+  .replace(/\.(com|net|org|co|io)\b/g, ' ').replace(/\b(inc|llc|ltd|corp|corporation|co|company|stores?|pbc)\b\.?/g, ' ')
+  .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+
+/**
+ * The printed logo for a vendor, or null: public/vendor-logos/<slug>.png when one is on file
+ * (src/lib/budget/vendorLogos.js, written by scripts/prepare_vendor_logos.py). Matched on the name
+ * less case, punctuation, ".com" and "Inc."; then an alias; then a logo whose name starts with it
+ * ("Michaels" finds michaels-stores); then the first word ("Amazon Business" finds amazon).
+ */
+export function vendorLogo(vendor, logos = VENDOR_LOGOS) {
+  const s = vendorSlug(vendor)
+  if (!s) return null
+  const have = new Set(logos)
+  const first = s.split('-')[0]
+  const hit = [s, VENDOR_ALIASES[s], logos.find(l => l.startsWith(`${s}-`)), VENDOR_ALIASES[first], first.length >= 3 ? first : null].find(c => c && have.has(c))
+  return hit ? `/vendor-logos/${hit}.png` : null
+}
+
+export const FILED_GROUPS = Object.freeze([
+  { key: 'month', label: 'Month' }, { key: 'category', label: 'Category' }, { key: 'vendor', label: 'Vendor' }, { key: 'status', label: 'Status' },
+])
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+const monthLabel = (ymd) => { const [y, m] = String(ymd || '').split('-').map(Number); return y && m ? `${MONTHS[m - 1]} ${y}` : 'No date' }
+
+/**
+ * Filed receipts in folders (the organizer). `receipts` are rows from the server's filed list:
+ * { id, date, vendor, total, rows: [{ category, amount, status }] }. Grouped by month (newest first),
+ * category, vendor or status (alphabetical). A receipt split across categories sits in each of its
+ * category folders with `part`, what it spent there, so every folder adds up to its own spend.
+ * `query` searches vendor, order number and every item.
+ */
+export function filedFolders(receipts = [], { groupBy = 'month', query = '' } = {}) {
+  const q = String(query || '').trim().toLowerCase()
+  const list = receipts.filter(r => !q || [r.vendor, r.order_number, ...(r.items || [])].join(' ').toLowerCase().includes(q))
+  const folders = new Map()
+  const put = (key, sort, entry) => { if (!folders.has(key)) folders.set(key, { key, sort, entries: [] }); folders.get(key).entries.push(entry) }
+  for (const r of list) {
+    if (groupBy === 'category') {
+      const by = new Map()
+      for (const row of r.rows || []) by.set(row.category || 'Uncategorized', money((by.get(row.category || 'Uncategorized') || 0) + (Number(row.amount) || 0)))
+      if (!by.size) by.set('Uncategorized', r.total)
+      for (const [cat, amt] of by) put(cat, cat, { receipt: r, part: by.size > 1 ? amt : null })
+    } else if (groupBy === 'vendor') put(r.vendor || 'Unknown vendor', String(r.vendor || '').toLowerCase(), { receipt: r, part: null })
+    else if (groupBy === 'status') { const st = r.rows?.[0]?.statusLabel || 'Not recorded'; put(st, st, { receipt: r, part: null }) }
+    else put(monthLabel(r.date), `~${9999 - Number(String(r.date || '0000').slice(0, 4))}-${String(99 - Number(String(r.date || '').slice(5, 7) || 0)).padStart(2, '0')}`, { receipt: r, part: null })
+  }
+  return [...folders.values()]
+    .map(f => ({ ...f, entries: f.entries.sort((a, b) => String(b.receipt.date).localeCompare(String(a.receipt.date))), total: money(f.entries.reduce((a, e) => a + (e.part ?? e.receipt.total), 0)) }))
+    .sort((a, b) => a.sort.localeCompare(b.sort))
+    .map(f => ({ key: f.key, count: f.entries.length, total: f.total, entries: f.entries }))
+}
+
+/** The short state a folded slip shows (To Review): what it needs, or that it is ready. */
+export function slipState(result, rowCount) {
+  if (!result) return { tone: 'info', text: 'Reading' }
+  if (result.duplicate) return { tone: 'warn', text: `Matches ${result.duplicate.expense.row_label}` }
+  const block = result.checks.find(c => c.tone === 'block')
+  if (block) {
+    if (block.key === 'rule:meals_documentation') return { tone: 'warn', text: 'Needs purpose and attendees' }
+    if (block.key === 'not_started') return { tone: 'warn', text: `Start ${block.text.match(/FY\d\d/)?.[0] || 'the year'}` }
+    if (block.key === 'category') return { tone: 'warn', text: 'Needs a category' }
+    if (block.key === 'date') return { tone: 'warn', text: 'Needs a date' }
+    return { tone: 'warn', text: 'Needs you' }
+  }
+  const warns = result.checks.filter(c => c.tone === 'warn').length
+  return { tone: warns ? 'warn' : 'info', text: `${rowCount} ${rowCount === 1 ? 'row' : 'rows'} · ${warns ? `${warns} ${warns === 1 ? 'warning' : 'warnings'}` : 'ready'}` }
 }

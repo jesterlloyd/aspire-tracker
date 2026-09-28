@@ -48,6 +48,7 @@ export default function ProgramBudgetView({ source, renderBand, initialFy = null
   const [toast, setToast] = useState(null)
   const [exporting, setExporting] = useState(false)
   const [receiptCount, setReceiptCount] = useState(0)
+  const [sheetFocus, setSheetFocus] = useState(null)   // Filed > Show in Sheet: what the Sheet opens searched for
   const [pendingFiles, setPendingFiles] = useState(null)   // files chosen from the header's Add receipts
   const addRef = useRef(null)
   const reloadTimer = useRef(null)
@@ -142,15 +143,16 @@ export default function ProgramBudgetView({ source, renderBand, initialFy = null
             <button type="button" className="bud-toast-x" aria-label="Dismiss" onClick={() => setToast(null)}>×</button>
           </div>
         )}
-        <SegmentedPicker ariaLabel="Program Budget views" options={tabs} value={current} onChange={setTab} />
+        <SegmentedPicker ariaLabel="Program Budget views" options={tabs} value={current} onChange={(t) => { setSheetFocus(null); setTab(t) }} />
         {current === 'summary' && (notStarted
           ? <BudgetStart year={year} canEdit={canEdit} onWrite={onWrite} onPickYear={(y) => setFy(y)} />
           : <BudgetSummary key={year.fy} year={year} canEdit={canEdit} onWrite={onWrite} />)}
-        {current === 'sheet' && <BudgetSheet year={year} canEdit={canEdit} onWrite={onWrite} />}
+        {current === 'sheet' && <BudgetSheet year={year} canEdit={canEdit} onWrite={onWrite} focus={sheetFocus} />}
         {current === 'subscriptions' && <BudgetSubscriptions year={year} canEdit={canEdit} onWrite={onWrite} />}
         {current === 'receipts' && canEdit && (
           <BudgetReceipts year={year} onWrite={onWrite} pendingFiles={pendingFiles} onPendingTaken={() => setPendingFiles(null)} onCount={setReceiptCount}
-            onStartYear={(y) => { setTab('summary'); setFy(y) }} />
+            onStartYear={(y) => { setTab('summary'); setFy(y) }}
+            onShowInSheet={(r) => { setSheetFocus({ search: r.order_number || r.vendor, at: Date.now() }); setTab('sheet') }} />
         )}
         {current === 'allocations' && <BudgetAllocations key={`${year.fy}-${year.budget?.plan_saved_at || ''}`} year={year} canEdit={canEdit} onWrite={onWrite} />}
       </div>

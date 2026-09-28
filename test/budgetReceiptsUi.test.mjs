@@ -51,11 +51,13 @@ const slipOf = (p, over = {}) => ({ id: 'r1', status: 'review', file_name: 'IMG_
 
 test('the slip draws the receipt from the reading, with View original beside it, never the photo', () => {
   const out = html(slipOf(reading()))
-  assert.match(out, /class="bud-rcpt" role="img" aria-label="Receipt as Keith read it: Amazon, \$58\.57"/)
+  // RECEIPT-ORGANIZER-1: the paper names its size, and Amazon's logo prints at its top.
+  assert.match(out, /class="bud-rcpt bud-rcpt-lg bud-rcpt-logo" role="img" aria-label="Receipt as Keith read it: Amazon, \$58\.57"/)
   assert.match(out, /Order #112-7730158-4402217/)
   assert.match(out, /<span>Total<\/span><span>\$58\.57<\/span>/)
   assert.match(out, /class="bud-rcpt-bar" aria-label="address not shown"/)
-  assert.doesNotMatch(out, /<img/, 'the photo itself is only in View original')
+  // The only image on the slip is the printed logo (RECEIPT-ORGANIZER-1); the photo is only in View original.
+  assert.deepEqual(out.match(/<img[^>]*>/g), ['<img src="/vendor-logos/amazon.png" alt="" loading="lazy" draggable="false"/>'])
   assert.match(out, /View original/)
   assert.match(out, /IMG_4471\.jpg/)
   assert.match(out, /Read by Keith/)

@@ -51,7 +51,7 @@ const valueOf = (row, key) => (key === '@date' ? row.raw.expense_date : key in R
 const shownOf = (row, key) => (key === '@date' ? dateText(row.raw.expense_date, row.raw.date_precision) : (row.cells[key] ?? ''))
 const searchValues = (r) => [r.raw.item, r.raw.vendor, r.raw.order_number, r.raw.notes]
 
-export default function BudgetSheet({ year, canEdit, onWrite }) {
+export default function BudgetSheet({ year, canEdit, onWrite, focus = null }) {
   const [original, setOriginal] = useState(null)   // Phase B: the filed receipt, opened from its row
   const openReceipt = async (row) => {
     setOriginal({ slip: { file_name: row.raw.item || 'Receipt' }, loading: true })
@@ -114,7 +114,8 @@ export default function BudgetSheet({ year, canEdit, onWrite }) {
     <>
     {original && <ReceiptOriginal original={original} onClose={() => setOriginal(null)} />}
     <EditableSheet
-      key={year.fy}
+      key={`${year.fy}-${focus?.at || ''}`}
+      initialSearch={focus?.search || ''}   // RECEIPT-ORGANIZER-1: Filed > Show in Sheet opens the Sheet searched for the receipt
       initialRows={rows}
       initialLayout={{ ...DEFAULT_LAYOUT, ...(year.layout || {}) }}
       lead={LEAD}

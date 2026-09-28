@@ -15,16 +15,23 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ReceiptText } from 'lucide-react'
 import SurfaceCard from '../ui/SurfaceCard'
-import ReceiptSlip from './ReceiptSlip'
+import ReceiptSlip, { ReceiptFold } from './ReceiptSlip'
+import BudgetFiled from './BudgetFiled'
+import SegmentedPicker from '../shared/SegmentedPicker'
 import ReceiptOriginal from './ReceiptOriginal'
 import { budgetStaff, prepareReceiptFile, uploadReceiptFile } from './budgetApi'
 import { dateText, usd } from '../../lib/budget/budgetModel'
 
 const ACCEPT = 'image/*,application/pdf,.pdf,.eml,message/rfc822,.heic,.heif'
 const UNDO_MS = 5000
+const FOLDABLE = new Set(['review', 'snoozed'])
 const toContext = (c) => (c ? { ...c, years: new Map(Object.entries(c.years || {}).map(([k, v]) => [Number(k), v])) } : null)
 
-export default function BudgetReceipts({ year, onWrite, pendingFiles, onPendingTaken, onStartYear, onCount }) {
+export default function BudgetReceipts({ year, onWrite, pendingFiles, onPendingTaken, onStartYear, onCount, onShowInSheet }) {
+  // RECEIPT-ORGANIZER-1 (Owner, 2026-09-27): To Review is the queue, one slip open at a time and the
+  // rest folded to a line; Filed is every accepted receipt in folders (BudgetFiled).
+  const [view, setView] = useState('review')
+  const [openId, setOpenId] = useState(null)
   const [status, setStatus] = useState(null)        // { enabled, keith }
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
@@ -132,6 +139,10 @@ export default function BudgetReceipts({ year, onWrite, pendingFiles, onPendingT
   const ctx = toContext(data.context)
   const categories = ctx.categories.map(c => c.name)
   const waiting = [...local, ...data.waiting]
+  // The open slip: the one the owner opened, else the oldest read one. Slips still uploading, reading
+  // or failed stay whole (they are short and say what is happening).
+  const reviewable = waiting.filter(s => s.draft && FOLDABLE.has(s.status))
+  const openKey = reviewable.some(s => s.id === openId) ? openId : reviewable[0]?.id
 
   return (
     <div className={`bud-receipts${dragging ? ' bud-dragging' : ''}`}
@@ -152,6 +163,15 @@ export default function BudgetReceipts({ year, onWrite, pendingFiles, onPendingT
         <span className="bud-drop-count bud-path">Program Budget · {data.filedCount} filed</span>
       </SurfaceCard>
 
+      <div className="bud-viewbar">
+        <SegmentedPicker ariaLabel="Receipts view" value={view} onChange={setView}
+          options={[{ value: 'review', label: <>To Review<span className="bud-view-n">{waiting.length}</span></> }, { value: 'filed', label: <>Filed<span className="bud-view-n">{data.filedCount}</span></> }]} />
+        <span className="bud-hint">{view === 'review' ? 'One receipt open at a time; the rest wait folded, oldest first.' : 'Every accepted receipt, drawn the same way, in folders. Open a folder, then a receipt, to see what it posted.'}</span>
+      </div>
+
+      {view === 'filed'
+        ? <BudgetFiled key={`${year.fy}-${data.filedCount}`} year={year} notify={notify} onShowInSheet={onShowInSheet} />
+        : (<>
       <div className="bud-qhead">
         <h2>Waiting for Review</h2>
         <span>{waiting.length} {waiting.length === 1 ? 'receipt' : 'receipts'} · oldest first · also listed in the Action Center</span>
@@ -159,23 +179,26 @@ export default function BudgetReceipts({ year, onWrite, pendingFiles, onPendingT
       {waiting.length
         ? (
           <div className="bud-slips">
-            {waiting.map(s => (
-              <ReceiptSlip key={s.id} slip={s} context={ctx} categories={categories} cohorts={year.cohorts} busy={busy.has(s.id)}
-                onDraft={onDraft} onAccept={onAccept} onSnooze={onSnooze} onReject={onReject} onRead={onRead} onDiscard={onDiscard} onOriginal={onOriginal} onStartYear={onStartYear} />
-            ))}
+            {waiting.map(s => (s.id !== openKey && s.draft && FOLDABLE.has(s.status)
+              ? <ReceiptFold key={s.id} slip={s} context={ctx} onOpen={setOpenId} />
+              : (
+                <ReceiptSlip key={s.id} slip={s} context={ctx} categories={categories} cohorts={year.cohorts} busy={busy.has(s.id)}
+                  onDraft={onDraft} onAccept={onAccept} onSnooze={onSnooze} onReject={onReject} onRead={onRead} onDiscard={onDiscard} onOriginal={onOriginal} onStartYear={onStartYear} />
+              )))}
           </div>
         )
         : <SurfaceCard className="bud-card"><p className="bud-empty">Every receipt is reviewed. New uploads appear here.</p></SurfaceCard>}
 
-      {(data.snoozed.length > 0 || data.recent.length > 0) && (
+      {/* Accepted receipts live in Filed now (RECEIPT-ORGANIZER-1); this keeps what Filed does not. */}
+      {(data.snoozed.length > 0 || data.recent.some(s => s.status === 'rejected')) && (
         <SurfaceCard className="bud-card">
-          <h2>Snoozed and Recently Decided</h2>
+          <h2>Snoozed and Rejected</h2>
           <ul className="bud-recent">
             {data.snoozed.map(s => <li key={s.id}><span>{s.draft?.vendor || s.file_name} · {usd(s.proposal?.total)}</span><small>Snoozed until {dateText(s.snoozed_until)}</small></li>)}
-            {data.recent.map(s => (
+            {data.recent.filter(s => s.status === 'rejected').map(s => (
               <li key={s.id}>
                 <span>{s.draft?.vendor || s.file_name} · {usd(s.proposal?.total)}</span>
-                <small>{s.status === 'accepted' ? `${s.attached ? 'Attached' : `${s.expense_ids.length} ${s.expense_ids.length === 1 ? 'row' : 'rows'} posted`} · ${s.filed_name}` : 'Rejected'}</small>
+                <small>Rejected{s.decided_at ? ` ${dateText(String(s.decided_at).slice(0, 10))}` : ''}</small>
                 <span className="bud-grow" />
                 <button type="button" className="bud-linkbtn" onClick={() => onOriginal(s)}>View original</button>
               </li>
@@ -183,8 +206,9 @@ export default function BudgetReceipts({ year, onWrite, pendingFiles, onPendingT
           </ul>
         </SurfaceCard>
       )}
+        </>)}
 
-      <ReceiptRules rules={ctx.rules} pcardLast4={ctx.pcardLast4} notify={notify} onSaved={load} />
+      {view === 'review' && <ReceiptRules rules={ctx.rules} pcardLast4={ctx.pcardLast4} notify={notify} onSaved={load} />}
 
       {original && <ReceiptOriginal original={original} onClose={() => setOriginal(null)} />}
     </div>

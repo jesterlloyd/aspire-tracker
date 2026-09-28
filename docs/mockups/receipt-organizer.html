@@ -1,0 +1,461 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Receipt Organizer</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Instrument+Sans:wght@500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+:root{
+  --ground:#F3F2EE; --surface:#FFFFFF; --surface-2:#F8F8F5; --ink:#18203F; --muted:#5A6079; --faint:#6F748B; --line:#E3E4EC; --line-2:#EDEDF2;
+  --navy:#1E2A6E; --navy-bar:#1E2A6E; --navy-soft:#EDF1FA; --on-navy:#FFFFFF;
+  --green:#0F7A4D; --green-soft:#E1F3EA; --amber:#8F5A0A; --amber-soft:#FBEFD9; --red:#A32A32; --red-soft:#FBEAEC;
+  --teal:#0E6E78; --teal-soft:#E2F2F3; --slate:#56607A; --slate-soft:#EEF0F4;
+  --folder:#EAE1CA; --folder-deep:#DDD2B5; --folder-edge:rgba(90,74,34,.24); --folder-ink:#3A2E14; --folder-ink-muted:#5E5030;
+  --display:"Instrument Sans",system-ui,sans-serif; --body:"Atkinson Hyperlegible",system-ui,sans-serif; --mono:"JetBrains Mono",ui-monospace,monospace;
+  --shadow:0 1px 2px rgba(24,32,63,.06),0 8px 24px rgba(24,32,63,.08);
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --ground:#0E111C; --surface:#171B29; --surface-2:#131725; --ink:#E9EAF2; --muted:#A0A5BE; --faint:#8E93AB; --line:#2B3046; --line-2:#232839;
+  --navy:#9FB0F5; --navy-bar:#2A3780; --navy-soft:#1E2540; --on-navy:#0E111C;
+  --green:#3CCB8A; --green-soft:#15372A; --amber:#E6A544; --amber-soft:#3A2C14; --red:#F08A92; --red-soft:#3A1B1F;
+  --teal:#6FD0D9; --teal-soft:#15333A; --slate:#B3BAD0; --slate-soft:#232838;
+  --folder:#2B2619; --folder-deep:#211D13; --folder-edge:rgba(201,178,122,.24); --folder-ink:#EFE6CF; --folder-ink-muted:#C4B68F;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 28px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{background:var(--ground)}
+body{color:var(--ink);font-family:var(--body);font-size:14px;line-height:1.5;margin:0}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--navy);outline-offset:2px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* Mockup chrome */
+.mockbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 16px;background:#11152A;color:#E9EAF2;font-size:12.5px}
+.mockbar b{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;background:#F2C14E;color:#11152A;padding:2px 7px;border-radius:4px}
+.mockbar .sp{flex:1}
+.mockbar .seg{display:inline-flex;border:1px solid #3A4060;border-radius:8px;overflow:hidden}
+.mockbar .seg button{border:0;background:none;padding:4px 10px;color:#C9CCDD;font-size:12px}
+.mockbar .seg button[aria-pressed="true"]{background:#E9EAF2;color:#11152A;font-weight:700}
+
+.page{max-width:1180px;margin:0 auto;padding:22px 16px 60px}
+.head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.head h1{font-family:var(--display);font-size:26px;margin:0}
+.head small{display:block;color:var(--muted);font-size:13px}
+.chip{display:inline-flex;align-items:center;height:22px;padding:0 9px;border-radius:99px;font-size:11.5px;font-weight:700;background:var(--green-soft);color:var(--green);margin-right:8px}
+.btn{display:inline-flex;align-items:center;gap:7px;border-radius:9px;padding:8px 14px;font-size:13.5px;font-weight:700;border:1px solid var(--line);background:var(--surface);white-space:nowrap}
+.btn.pri{background:var(--navy);border-color:var(--navy);color:var(--on-navy)}
+.btn.sm{padding:6px 11px;font-size:12.5px}
+.btn.rej{color:var(--red)}
+.tabs{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface);margin-bottom:14px}
+.tabs button{border:none;background:none;padding:8px 16px;font-size:13.5px;color:var(--muted)}
+.tabs button+button{border-left:1px solid var(--line)}
+.tabs button[aria-selected="true"]{background:var(--navy-bar);color:#fff;font-weight:700}
+.tc{font-family:var(--mono);font-size:10.5px;background:#DC1E34;color:#fff;border-radius:99px;padding:1px 7px;margin-left:6px;font-weight:600}
+
+/* NEW: the view switch inside Receipts */
+.viewbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:4px 0 14px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:var(--surface)}
+.seg button{border:0;background:none;padding:6px 14px;font-size:13px;color:var(--muted)}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--navy);color:var(--on-navy);font-weight:700}
+.seg .n{font-family:var(--mono);font-size:11px;margin-left:6px;opacity:.85}
+.viewbar .note{font-size:12.5px;color:var(--muted)}
+.new{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;padding:1px 6px;border-radius:4px;background:var(--amber-soft);color:var(--amber);font-weight:600}
+
+.drop{border:1.5px dashed var(--line);border-radius:14px;background:var(--surface);padding:14px 18px;display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
+.drop svg{width:26px;height:26px;color:var(--navy);flex:none}
+.drop b{font-family:var(--display);font-size:15px;display:block}
+.drop small{color:var(--muted);font-size:12.5px}
+.drop .path{font-family:var(--mono);font-size:11.5px;color:var(--teal);background:var(--teal-soft);border-radius:6px;padding:3px 8px;margin-left:auto}
+
+/* The drawn receipt, every size */
+.rcpt{background:#FFFEFA;color:#2A2A2A;font-family:var(--mono);line-height:1.45;box-shadow:0 1px 2px rgba(0,0,0,.12),0 6px 14px rgba(0,0,0,.08)}
+.rcpt .c{text-align:center;overflow-wrap:anywhere}
+.rcpt .logo{display:flex;justify-content:center;align-items:center;margin:2px 0 6px;filter:grayscale(1) contrast(1.15);mix-blend-mode:multiply}
+.rcpt .logo img{display:block;height:24px;width:auto;max-width:78%;object-fit:contain}
+.rcpt.md .logo img{height:19px}
+.rcpt.sm .logo img{height:11px}
+.rcpt.xs .logo{margin:0 0 2px}.rcpt.xs .logo img{height:8px}
+.rcpt .logo + .hd{font-size:inherit;font-weight:400;letter-spacing:0;opacity:.75}
+.rcpt .hd{font-weight:600;letter-spacing:.06em}
+.rcpt hr{border:0;border-top:1px dashed #9A9A9A;margin:6px 0}
+.rcpt .l{display:flex;justify-content:space-between;gap:8px}
+.rcpt .l span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rcpt .tot{font-weight:700}
+.rcpt .bar{display:inline-block;width:52px;height:9px;background:#2A2A2A;align-self:center}
+.rcpt.lg{width:100%;max-width:230px;font-size:10.5px;padding:14px 12px 18px}
+.rcpt.lg .hd{font-size:12px}
+.rcpt.md{width:100%;max-width:150px;min-width:0;font-size:9px;padding:10px 9px 12px}
+.rcpt.md .hd{font-size:10px}
+.rcpt.xs{width:46px;height:58px;font-size:4px;padding:4px 4px;overflow:hidden;flex:none}
+.rcpt.xs .hd{font-size:5px}
+.rcpt.xs hr{margin:2px 0}
+
+/* To review: one open slip, the rest folded */
+.qhead{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin:0 0 10px}
+.qhead h2{font-family:var(--display);font-size:16px;margin:0}
+.qhead span{font-size:12.5px;color:var(--muted)}
+.queue{display:grid;gap:10px}
+.slip{background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);display:grid;grid-template-columns:260px minmax(0,1fr);overflow:hidden}
+@media (max-width:900px){.slip{grid-template-columns:1fr}}
+.slip .side{background:var(--surface-2);border-right:1px solid var(--line);padding:16px;display:grid;justify-items:center;align-content:start;gap:8px}
+.slip .fname{font-family:var(--mono);font-size:10.5px;color:var(--faint)}
+.slip .prop{padding:16px 18px;display:grid;gap:10px;align-content:start}
+.slip .ph{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.slip .ph b{font-family:var(--display);font-size:16px;display:block}
+.slip .ph small{color:var(--muted);font-size:12.5px}
+.by{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+.ln{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) 50px 86px;gap:8px;align-items:center}
+.ln span{padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--surface);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ln span.n{text-align:right;font-variant-numeric:tabular-nums}
+.checks{display:grid;gap:6px;margin:0;padding:0;list-style:none}
+.checks li{font-size:12.5px;border-radius:8px;padding:7px 10px}
+.checks .info{background:var(--navy-soft);color:var(--navy)}
+.checks .ok{background:var(--green-soft);color:var(--green)}
+.checks .warn{background:var(--amber-soft);color:var(--amber)}
+.sacts{display:flex;gap:8px;flex-wrap:wrap;align-items:center;border-top:1px solid var(--line-2);padding-top:12px}
+.sacts .rej{margin-left:auto}
+.fold{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:14px;align-items:center;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 16px;box-shadow:0 1px 2px rgba(24,32,63,.05)}
+.fold:hover{border-color:var(--navy)}
+.fold b{font-family:var(--display);font-size:14.5px;display:block}
+.fold small{color:var(--muted);font-size:12.5px}
+.fold .chev{color:var(--muted);font-size:18px}
+@media (max-width:640px){.fold{grid-template-columns:auto minmax(0,1fr) auto}.fold .st{grid-column:2}}
+.pill{display:inline-flex;align-items:center;font-size:11.5px;font-weight:700;border-radius:99px;padding:2px 9px;white-space:nowrap}
+.pill.g{background:var(--green-soft);color:var(--green)}
+.pill.a{background:var(--amber-soft);color:var(--amber)}
+.pill.b{background:var(--navy-soft);color:var(--navy)}
+.pill.x{background:var(--slate-soft);color:var(--slate)}
+.pill.r{background:var(--red-soft);color:var(--red)}
+
+/* Filed: the organizer */
+.tools{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+.tools label{font-size:12.5px;color:var(--muted);display:inline-flex;gap:8px;align-items:center}
+.tools input{height:34px;padding:0 12px;border:1px solid var(--line);border-radius:9px;background:var(--surface);min-width:240px;flex:1;max-width:360px}
+.tools .sum{margin-left:auto;font-size:12.5px;color:var(--muted)}
+.tools .sum b{color:var(--ink);font-variant-numeric:tabular-nums}
+.folders{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:18px 16px;align-items:start}
+.folder.open{grid-column:1/-1}
+.rcpt.sm{width:74px;height:92px;overflow:hidden;font-size:5.5px;padding:6px 5px;flex:none}
+.rcpt.sm .hd{font-size:6.5px}.rcpt.sm hr{margin:3px 0}
+/* A closed folder: three receipts tucked in, their tops showing above the folder's front. */
+.fcard{position:relative;display:block;width:100%;height:184px;border:0;padding:0;background:none;text-align:left}
+.fcard .peek{position:absolute;left:0;right:0;top:4px;display:flex;justify-content:center}
+.fcard .peek .rcpt{margin:0 -10px;transition:transform .16s ease}
+.fcard .peek .rcpt:nth-child(1){transform:rotate(-7deg) translateY(10px)}
+.fcard .peek .rcpt:nth-child(2){transform:translateY(0);z-index:1}
+.fcard .peek .rcpt:nth-child(3){transform:rotate(7deg) translateY(10px)}
+.fcard:hover .peek .rcpt:nth-child(1){transform:rotate(-10deg) translate(-4px,2px)}
+.fcard:hover .peek .rcpt:nth-child(2){transform:translateY(-8px)}
+.fcard:hover .peek .rcpt:nth-child(3){transform:rotate(10deg) translate(4px,2px)}
+@media (prefers-reduced-motion:reduce){.fcard .peek .rcpt{transition:none}}
+.fcard .front{position:absolute;left:0;right:0;bottom:0;height:98px;z-index:2;display:grid;align-content:end;gap:2px;padding:12px 14px;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}
+.fcard .front b{font-family:var(--display);font-size:15px}
+.fcard .front small{color:var(--muted);font-size:12.5px}
+.fcard .front .t{font-family:var(--display);font-weight:700;font-variant-numeric:tabular-nums}
+.fcard:hover .front{border-color:var(--navy)}
+.classic .fcard .front{background:var(--folder);border-color:var(--folder-edge);border-radius:4px 4px 10px 10px;box-shadow:0 -2px 0 var(--folder-deep) inset,0 6px 14px rgba(60,48,20,.18)}
+.classic .fcard::before{content:"";position:absolute;left:10px;bottom:92px;width:44%;height:14px;background:var(--folder-deep);border:1px solid var(--folder-edge);border-bottom:0;border-radius:8px 8px 0 0;z-index:0}
+.classic .fcard .front b,.classic .fcard .front .t{color:var(--folder-ink)}
+.classic .fcard .front small{color:var(--folder-ink-muted)}
+.classic .fcard:hover .front{border-color:var(--folder-ink-muted)}
+.folder{background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);overflow:hidden}
+.fhead{display:flex;gap:12px;align-items:center;width:100%;border:0;background:none;padding:12px 16px;text-align:left}
+.fhead .chev{width:18px;color:var(--muted);transition:transform .15s}
+.fhead[aria-expanded="false"] .chev{transform:rotate(-90deg)}
+.fhead b{font-family:var(--display);font-size:15px}
+.fhead .meta{color:var(--muted);font-size:12.5px}
+.fhead .tot{margin-left:auto;font-family:var(--display);font-weight:700;font-variant-numeric:tabular-nums}
+.fbody{padding:4px 16px 16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:14px}
+.tile{display:grid;gap:8px;align-content:start;border:0;background:none;padding:0;text-align:left;min-width:0}
+.tile .paper{min-width:0;display:grid;justify-items:center;padding:6px 4px 10px}
+.tile .rcpt{transition:transform .16s ease, box-shadow .16s ease}
+.tile:hover .rcpt,.tile:focus-visible .rcpt{transform:translateY(-4px) rotate(-.6deg);box-shadow:0 2px 4px rgba(0,0,0,.12),0 14px 26px rgba(0,0,0,.16)}
+.tile:focus-visible{outline:none}
+.tile:focus-visible .rcpt{outline:3px solid var(--navy);outline-offset:3px}
+@media (prefers-reduced-motion:reduce){.tile:hover .rcpt,.tile:focus-visible .rcpt{transform:none}}
+.tile .cap{display:grid;gap:3px}
+.tile .cap{min-width:0}
+.tile .cap b{font-size:13px;overflow-wrap:anywhere}
+.tile .cap small{color:var(--muted);font-size:12px}
+.tile .tags{display:flex;gap:4px;flex-wrap:wrap}
+
+/* Classic: the Responses manila folder */
+.classic .folder{background:var(--folder);border:1px solid var(--folder-edge);box-shadow:0 2px 6px rgba(60,48,20,.12);border-radius:0 12px 12px 12px;overflow:visible;position:relative;margin-top:22px}
+.classic .folder::before{content:"";position:absolute;left:-1px;top:-22px;height:22px;width:min(280px,60%);background:var(--folder-deep);border:1px solid var(--folder-edge);border-bottom:0;border-radius:10px 10px 0 0}
+.classic .fhead{position:relative}
+.classic .fhead b{color:var(--folder-ink);position:absolute;top:-19px;left:16px;font-size:13px;max-width:min(250px,55%);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.classic .fhead .meta{color:var(--folder-ink-muted)}
+.classic .fhead .tot{color:var(--folder-ink)}
+.classic .fhead .chev{color:var(--folder-ink-muted)}
+.classic .tile .cap b{color:var(--folder-ink)}
+.classic .tile .cap small{color:var(--folder-ink-muted)}
+
+/* The side panel */
+.scrim{position:fixed;inset:0;background:rgba(12,16,32,.45);z-index:40}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(520px,100%);background:var(--surface);z-index:41;box-shadow:-10px 0 40px rgba(0,0,0,.2);display:grid;grid-template-rows:auto minmax(0,1fr) auto}
+.dh{display:flex;gap:10px;align-items:flex-start;padding:16px 18px;border-bottom:1px solid var(--line-2)}
+.dh b{font-family:var(--display);font-size:17px;display:block}
+.dh small{color:var(--muted);font-size:12.5px}
+.dh .x{margin-left:auto;border:0;background:none;font-size:22px;line-height:1;color:var(--muted)}
+.db{overflow:auto;padding:18px;display:grid;gap:16px;align-content:start}
+.db .rwrap{display:grid;justify-items:center;background:var(--surface-2);border-radius:12px;padding:18px}
+.db h3{font-family:var(--display);font-size:13px;margin:0 0 6px;text-transform:none}
+.rows{border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.rows div{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;padding:8px 12px;font-size:13px;align-items:center}
+.rows div+div{border-top:1px solid var(--line-2)}
+.rows .rl{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.rows .amt{font-variant-numeric:tabular-nums;font-weight:700}
+.kv{display:grid;grid-template-columns:130px minmax(0,1fr);gap:6px 12px;font-size:13px}
+.kv dt{color:var(--muted)}
+.kv dd{margin:0}
+.kv code{font-family:var(--mono);font-size:11px;color:var(--teal);background:var(--teal-soft);border-radius:5px;padding:2px 6px;overflow-wrap:anywhere}
+.df{display:flex;gap:8px;flex-wrap:wrap;padding:14px 18px;border-top:1px solid var(--line-2)}
+.empty{padding:28px;text-align:center;color:var(--muted);background:var(--surface);border:1px solid var(--line);border-radius:12px}
+.callout{font-size:12.5px;color:var(--muted);border-left:3px solid var(--amber);padding:6px 10px;background:var(--surface);border-radius:0 8px 8px 0;margin:0 0 14px}
+</style>
+</head>
+<body>
+<div class="mockbar" role="region" aria-label="Mockup controls">
+  <b>Mockup</b><span>Receipt Organizer · sample receipts, your logos</span><span class="sp"></span>
+  <span>Style</span><span class="seg" id="styleSeg"><button aria-pressed="true" data-v="classic">Classic</button><button aria-pressed="false" data-v="modern">Modern</button></span>
+  <span>Theme</span><span class="seg" id="themeSeg"><button aria-pressed="true" data-v="light">Light</button><button aria-pressed="false" data-v="dark">Dark</button></span>
+</div>
+
+<main class="page classic" id="page">
+  <div class="head">
+    <div><h1>Program Budget</h1><small><span class="chip">FY27 · Current</span>ASPIRE · Nursing Education · Jul 1, 2026 to Jun 30, 2027</small></div>
+  </div>
+  <div class="tabs" role="tablist" aria-label="Program Budget views">
+    <button role="tab" aria-selected="false">Summary</button><button role="tab" aria-selected="false">Sheet</button><button role="tab" aria-selected="false">Subscriptions</button><button role="tab" aria-selected="true">Receipts<span class="tc" id="tabCount">4</span></button><button role="tab" aria-selected="false">Allocations</button>
+  </div>
+
+  <div class="drop">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 7h6M9 11h6M9 15h4"/></svg>
+    <div><b>Drop receipts here</b><small>Photos, PDFs or saved order emails. Keith reads each one. Nothing posts until you accept it.</small></div>
+    <span class="path" id="filedChip">Program Budget · 16 filed</span>
+  </div>
+
+  <div class="viewbar">
+    <span class="seg" id="viewSeg" role="group" aria-label="Receipts view"><button aria-pressed="true" data-v="review">To Review<span class="n">4</span></button><button aria-pressed="false" data-v="filed">Filed<span class="n">16</span></button></span>
+    <span class="new">New</span><span class="note" id="viewNote">One receipt open at a time; the rest wait folded, oldest first.</span>
+  </div>
+
+  <section id="reviewView" aria-label="To review"></section>
+  <section id="filedView" aria-label="Filed receipts" hidden></section>
+</main>
+
+<div id="drawerRoot"></div>
+
+<script>
+const CATS = ['Supplies & Materials','Printing & Copying','Meals & Catering','Technology & Software','Marketing']
+const usd = n => new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(n)
+const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+const dt = d => { const [y,m,dd] = d.split('-').map(Number); return `${MON[m-1]} ${dd}, ${y}` }
+const monthOf = d => { const [y,m] = d.split('-').map(Number); return `${['January','February','March','April','May','June','July','August','September','October','November','December'][m-1]} ${y}` }
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))
+
+// Sample filed receipts (FY27). Each line posted as a row; a receipt split across categories posted one row per category.
+const FILED = [
+  { id:'f1', vendor:'Amazon', order:'112-7730158-4402217', date:'2026-09-03', pay:'Personal (Concur)', status:'Recorded', lines:[['Copy Paper, 5-Ream Case',1,42.69,'Printing & Copying'],['Name Badge Labels',2,15.88,'Supplies & Materials']], rows:['FY27 row 11','FY27 row 12'] },
+  { id:'f2', vendor:'Beverly Grove Catering', order:'INV-20614', date:'2026-09-12', pay:'Personal (Concur)', status:'Submitted', lines:[['Preceptor appreciation lunch for 20',1,496.33,'Meals & Catering']], rows:['FY27 row 13'], meal:{ purpose:'Fall 2026 preceptor appreciation lunch', attendees:['Ana Cruz, RN, Cedars-Sinai, Preceptor','Mark Lee, RN, Cedars-Sinai, Preceptor','+ 18 more'] } },
+  { id:'f3', vendor:'Best Buy', order:'BBY01-8812', date:'2026-09-18', pay:'Personal (Concur)', status:'Recorded', lines:[['Printer ink, black',2,67.50,'Printing & Copying']], rows:['FY27 row 14'] },
+  { id:'f4', vendor:'Amazon', order:'113-2210044-8813322', date:'2026-08-27', pay:'Personal (Concur)', status:'Reimbursed', lines:[['Self-Laminating Pouches',3,33.52,'Supplies & Materials']], rows:['FY27 row 8'] },
+  { id:'f5', vendor:'Michaels', order:'MI-88213', date:'2026-08-20', pay:'Personal (Concur)', status:'Reimbursed', lines:[['Welcome banner',1,86.40,'Marketing'],['Table cloth, printed',1,112.00,'Marketing']], rows:['FY27 row 7'] },
+  { id:'f6', vendor:'Panera Bread', order:'CT-44102', date:'2026-08-14', pay:'Personal (Concur)', status:'Reimbursed', lines:[['Orientation breakfast',1,138.74,'Meals & Catering']], rows:['FY27 row 6'], meal:{ purpose:'Fall 2026 orientation breakfast', attendees:['12 students and 2 faculty (list on file)'] } },
+  { id:'f7', vendor:'Amazon', order:'111-9920013-2201145', date:'2026-08-06', pay:'Personal (Concur)', status:'Reimbursed', lines:[['Tote bags',40,400.00,'Supplies & Materials']], rows:['FY27 row 5'] },
+  { id:'f8', vendor:'Office Depot', order:'OD-771020', date:'2026-07-29', pay:'Personal (Concur)', status:'Reimbursed', lines:[['Binder clips',4,11.96,'Supplies & Materials'],['Presentation folders',2,18.40,'Printing & Copying']], rows:['FY27 row 3','FY27 row 4'] },
+  { id:'f9', vendor:'Resend', order:'in_1Q8x', date:'2026-07-16', pay:'Personal (Concur)', status:'Submitted', lines:[['Transactional Pro, 1 month',1,20.00,'Technology & Software']], rows:['FY27 row 2'], sub:true },
+  { id:'f10', vendor:'Amazon', order:'114-0022871-6610234', date:'2026-07-10', pay:'Personal (Concur)', status:'Reimbursed', lines:[['Welcome packet notebooks',40,350.00,'Supplies & Materials']], rows:['FY27 row 1'] },
+  { id:'f11', vendor:'Vercel', order:'inv_8812', date:'2026-09-01', pay:'Personal (Concur)', status:'Recorded', lines:[['Pro, 1 seat',1,20.00,'Technology & Software']], rows:['FY27 row 10'], sub:true },
+  { id:'f12', vendor:'Anthropic', order:'inv_3301', date:'2026-09-01', pay:'Personal (Concur)', status:'Recorded', lines:[['Claude Max 5x',1,100.00,'Technology & Software']], rows:['FY27 row 9'], sub:true },
+  { id:'f13', vendor:'Costco', order:'CW-11820', date:'2026-07-22', pay:'Personal (Concur)', status:'Reimbursed', lines:[['Bottled water, 3 cases',3,26.97,'Meals & Catering']], rows:['FY27 row 15'], meal:{ purpose:'Summer 2026 skills day', attendees:['Sign-in sheet on file'] } },
+  { id:'f15', vendor:'Supabase', order:'inv_5520', date:'2026-08-29', pay:'Personal (Concur)', status:'Submitted', lines:[['Pro plan, half share',1,17.50,'Technology & Software']], rows:['FY27 row 17'], sub:true },
+  { id:'f16', vendor:'FedEx', order:'FX-2231', date:'2026-07-18', pay:'Personal (Concur)', status:'Reimbursed', lines:[['Shipping, preceptor gifts',1,24.80,'Supplies & Materials']], rows:['FY27 row 18'] },
+  { id:'f14', vendor:'Amazon', order:'113-8810092-1120933', date:'2026-09-22', pay:'Personal (Concur)', status:'Recorded', lines:[['Lanyards',60,72.30,'Supplies & Materials']], rows:['FY27 row 16'] },
+]
+FILED.forEach(r => { r.total = Math.round(r.lines.reduce((a,l)=>a+l[2],0)*100)/100 })
+
+const REVIEW = [
+  { id:'r1', vendor:'Amazon', order:'112-5503318-7732001', date:'2026-09-24', file:'IMG_4502.jpg', lines:[['Card stock, 250 sheets',1,24.99,'Printing & Copying'],['Badge holders',50,31.20,'Supplies & Materials']], status:['b','2 rows · ready'] },
+  { id:'r2', vendor:'Beverly Grove Catering', order:'INV-20688', date:'2026-09-25', file:'lunch-0925.pdf', lines:[['Unit leader lunch',1,212.40,'Meals & Catering']], status:['a','Needs purpose and attendees'] },
+  { id:'r3', vendor:'Amazon', order:'113-2454901-2790626', date:'2026-02-10', file:'pouches.jpg', lines:[['Self-Laminating Pouches',3,25.14,'Supplies & Materials']], status:['a','Matches FY26 row 4'] },
+  { id:'r4', vendor:'Walmart', order:'WM-99812', date:'2026-09-26', file:'target.eml', lines:[['Snacks for study session',1,48.10,'Meals & Catering']], status:['a','Needs purpose and attendees'] },
+]
+REVIEW.forEach(r => { r.total = Math.round(r.lines.reduce((a,l)=>a+l[2],0)*100)/100 })
+
+// The Owner's logos (public/vendor-logos), converted to one black ink, trimmed, 96px tall.
+const LOGO = { 'Amazon':'amazon','Anthropic':'anthropic','Canva':'canva','Costco':'costco','FedEx':'fedex','Home Depot':'home-depot','Michaels':'michaels-stores','Office Depot':'office-depot','OpenAI':'openai','Resend':'resend','Supabase':'supabase','Vercel':'vercel','Walmart':'walmart','Best Buy':'best-buy','Flodesk':'flodesk' }
+function paper(r, size){
+  const lines = r.lines.map(l => `<div class="l"><span>${esc(l[0])}</span><span>${usd(l[2])}</span></div>`).join('')
+  const small = size === 'xs'
+  return `<div class="rcpt ${size}" aria-hidden="true">
+    ${LOGO[r.vendor] ? `<div class="logo"><img src="../../public/vendor-logos/${LOGO[r.vendor]}.png" alt=""></div>` : ''}
+    <div class="c hd">${esc(r.vendor)}</div>
+    ${small ? '' : `<div class="c">Order #${esc(r.order)}</div>`}
+    <div class="c">${dt(r.date)}</div><hr>${lines}<hr>
+    <div class="l tot"><span>Total</span><span>${usd(r.total)}</span></div>
+    ${small || size === 'md' ? '' : '<div class="l"><span>Ship to:</span><span class="bar"></span></div>'}
+  </div>`
+}
+
+// ── To review ──
+let openId = 'r1'
+function renderReview(){
+  const el = document.getElementById('reviewView')
+  const items = REVIEW.map(r => r.id === openId ? openSlip(r) : folded(r)).join('')
+  el.innerHTML = `<div class="qhead"><h2>Waiting for Review</h2><span>${REVIEW.length} receipts · oldest first · also listed in the Action Center</span></div>
+    <p class="callout">New: only one receipt is open at a time. The rest wait as one-line summaries; accepting one opens the next.</p>
+    <div class="queue">${items}</div>`
+  el.querySelectorAll('[data-open]').forEach(b => b.onclick = () => { openId = b.dataset.open; renderReview() })
+  el.querySelectorAll('[data-accept]').forEach(b => b.onclick = () => {
+    const i = REVIEW.findIndex(r => r.id === b.dataset.accept); REVIEW.splice(i,1); openId = REVIEW[0]?.id
+    document.getElementById('tabCount').textContent = REVIEW.length || ''
+    document.querySelector('#viewSeg [data-v="review"] .n').textContent = REVIEW.length
+    renderReview()
+  })
+}
+function folded(r){
+  const cats = [...new Set(r.lines.map(l=>l[3]))]
+  return `<button class="fold" data-open="${r.id}" aria-label="Open ${esc(r.vendor)} ${usd(r.total)}">
+    ${paper(r,'xs')}
+    <span><b>${esc(r.vendor)} · ${usd(r.total)}</b><small>${dt(r.date)} · ${cats.join(', ')}</small></span>
+    <span class="st pill ${r.status[0]}">${r.status[1]}</span><span class="chev" aria-hidden="true">›</span></button>`
+}
+function openSlip(r){
+  const rows = r.lines.map(l => `<div class="ln"><span>${esc(l[0])}</span><span>${esc(l[3])}</span><span class="n">${l[1]}</span><span class="n">${l[2].toFixed(2)}</span></div>`).join('')
+  const cats = new Set(r.lines.map(l=>l[3]))
+  return `<article class="slip" aria-label="${esc(r.vendor)} receipt">
+    <div class="side">${paper(r,'lg')}<span class="fname">${esc(r.file)}</span><button class="btn sm">View original</button></div>
+    <div class="prop">
+      <div class="ph"><div><b>${esc(r.vendor)} · ${usd(r.total)}</b><small>${dt(r.date)} · FY27 · Order or invoice ${esc(r.order)}</small></div><span class="by">Read by Keith</span></div>
+      <div style="display:grid;gap:6px">${rows}</div>
+      <ul class="checks">${cats.size>1?'<li class="info">Split into 2 rows because the items fall in different categories.</li>':''}<li class="ok">Filed privately: only you can open the original.</li></ul>
+      <div class="sacts"><button class="btn pri sm" data-accept="${r.id}">${cats.size>1?`Accept ${cats.size} rows`:'Accept and post'}</button><button class="btn sm">Snooze</button><button class="btn sm rej">Reject</button></div>
+    </div></article>`
+}
+
+// ── Filed ──
+let groupBy = 'month', q = ''
+const GROUPS = { month:'Month', category:'Category', vendor:'Vendor', payment:'Status' }
+function entries(){
+  // A split receipt is listed once per category when grouping by category, marked Split.
+  const out = []
+  for (const r of FILED) {
+    const hay = [r.vendor, r.order, ...r.lines.map(l=>l[0])].join(' ').toLowerCase()
+    if (q && !hay.includes(q.toLowerCase())) continue
+    if (groupBy === 'category') {
+      const byCat = {}
+      r.lines.forEach(l => { (byCat[l[3]] ||= []).push(l) })
+      const cats = Object.keys(byCat)
+      for (const c of cats) out.push({ r, key:c, part: cats.length>1 ? byCat[c].reduce((a,l)=>a+l[2],0) : null })
+    } else {
+      out.push({ r, key: groupBy==='month' ? monthOf(r.date) : groupBy==='vendor' ? r.vendor : r.status, part:null })
+    }
+  }
+  return out
+}
+function renderFiled(){
+  const el = document.getElementById('filedView')
+  const list = entries()
+  const groups = new Map()
+  for (const e of list) { if (!groups.has(e.key)) groups.set(e.key, []); groups.get(e.key).push(e) }
+  const sortKey = (k) => groupBy==='month' ? -Date.parse('1 ' + k) : k
+  const keys = [...groups.keys()].sort((a,b) => groupBy==='month' ? sortKey(a)-sortKey(b) : String(a).localeCompare(String(b)))
+  const total = new Set(list.map(e=>e.r.id)).size
+  const sum = [...new Set(list.map(e=>e.r))].reduce((a,r)=>a+r.total,0)
+  el.innerHTML = `
+    <div class="tools">
+      <label>Group by <span class="seg" id="groupSeg">${Object.entries(GROUPS).map(([k,v])=>`<button aria-pressed="${k===groupBy}" data-g="${k}">${v}</button>`).join('')}</span></label>
+      <input type="search" id="q" placeholder="Search vendor, item or order number" value="${esc(q)}" aria-label="Search filed receipts">
+      <span class="sum"><b>${total}</b> receipts · <b>${usd(sum)}</b> · FY27</span>
+    </div>
+    ${keys.length ? `<div class="folders">${keys.map((k,i) => folder(k, groups.get(k), i)).join('')}</div>` : '<div class="empty">No filed receipts match.</div>'}`
+  const qi = el.querySelector('#q'); qi.oninput = () => { q = qi.value; const pos = qi.selectionStart; renderFiled(); const n = document.getElementById('q'); n.focus(); n.setSelectionRange(pos,pos) }
+  el.querySelectorAll('.tile').forEach(b => b.onclick = () => openDrawer(b.dataset.id))
+}
+let folder
+
+function openDrawer(id){
+  const r = FILED.find(x => x.id === id)
+  const rows = r.lines.map((l,i) => `<div><span class="rl">${r.rows[i] || r.rows[r.rows.length-1]}</span><span>${esc(l[0])}<br><small style="color:var(--muted)">${esc(l[3])}</small></span><span class="amt">${usd(l[2])}</span></div>`).join('')
+  const fy = 'FY27'
+  const filed = `${fy}_${r.date}_${r.vendor.replace(/[^\w]+/g,'-')}_${r.order.split('-').slice(0,2).join('-')}_$${r.total.toFixed(2)}.jpg`
+  document.getElementById('drawerRoot').innerHTML = `<div class="scrim" data-close></div>
+  <aside class="drawer" role="dialog" aria-modal="true" aria-label="${esc(r.vendor)} receipt">
+    <div class="dh"><div><b>${esc(r.vendor)} · ${usd(r.total)}</b><small>${dt(r.date)} · FY27 · Order or invoice ${esc(r.order)}</small></div><button class="x" data-close aria-label="Close">×</button></div>
+    <div class="db">
+      <div class="rwrap">${paper(r,'lg')}</div>
+      <div><h3>Posted to the Sheet</h3><div class="rows">${rows}</div></div>
+      <dl class="kv"><dt>Payment</dt><dd>${r.pay}</dd><dt>Status</dt><dd><span class="pill ${r.status==='Recorded'?'a':r.status==='Reimbursed'?'g':'b'}">${r.status}</span></dd><dt>Filed as</dt><dd><code>Program Budget › ${fy} › Receipts › ${esc(filed)}</code></dd>
+      ${r.meal ? `<dt>Business purpose</dt><dd>${esc(r.meal.purpose)}</dd><dt>Attendees</dt><dd>${r.meal.attendees.map(esc).join('<br>')}</dd>` : ''}
+      <dt>Accepted</dt><dd>${dt(r.date)} by Jester Lloyd Bautista</dd></dl>
+    </div>
+    <div class="df"><button class="btn pri sm">View original</button><button class="btn sm">Show in Sheet</button><button class="btn sm">Download</button></div>
+  </aside>`
+  document.querySelectorAll('[data-close]').forEach(b => b.onclick = () => document.getElementById('drawerRoot').innerHTML = '')
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') document.getElementById('drawerRoot').innerHTML = '' })
+
+// ── Switches ──
+const seg = (id, fn) => document.querySelectorAll(`#${id} button`).forEach(b => b.onclick = () => {
+  document.querySelectorAll(`#${id} button`).forEach(x => x.setAttribute('aria-pressed', String(x === b))); fn(b.dataset.v) })
+seg('viewSeg', v => {
+  document.getElementById('reviewView').hidden = v !== 'review'
+  document.getElementById('filedView').hidden = v !== 'filed'
+  document.getElementById('viewNote').textContent = v === 'review' ? 'One receipt open at a time; the rest wait folded, oldest first.' : 'Every accepted receipt, drawn the same way, in folders. Click one to see what it posted.'
+})
+seg('styleSeg', v => document.getElementById('page').classList.toggle('classic', v === 'classic'))
+seg('themeSeg', v => document.documentElement.dataset.theme = v)
+
+// Folders: all closed until opened; changing Group by closes them all again.
+const openState = new Map()
+function folderIsOpen(k){ return openState.get(k) === true }   // every folder starts closed, and closes again when the grouping changes
+folder = function(k, items, i){
+  const isOpen = folderIsOpen(k, i)
+  items.sort((a,b)=>b.r.date.localeCompare(a.r.date))
+  const n = items.length
+  const tot = items.reduce((a,e)=>a+(e.part ?? e.r.total),0)
+  const tiles = items.map(e => {
+    const cats = [...new Set(e.r.lines.map(l=>l[3]))]
+    const tags = [
+      groupBy!=='category' ? `<span class="pill x">${esc(cats.length>1 ? `${cats.length} categories` : cats[0])}</span>` : '',
+      e.part!=null ? `<span class="pill b">Split · ${usd(e.part)} here</span>` : '',
+      e.r.meal ? '<span class="pill g">Meal · documented</span>' : '',
+      e.r.sub ? '<span class="pill x">Subscription</span>' : '',
+      groupBy!=='payment' ? `<span class="pill ${e.r.status==='Recorded'?'a':e.r.status==='Reimbursed'?'g':'b'}">${e.r.status}</span>` : '',
+    ].join('')
+    return `<button class="tile" data-id="${e.r.id}" aria-label="${esc(e.r.vendor)} ${usd(e.r.total)}, ${dt(e.r.date)}">
+      <span class="paper">${paper(e.r,'md')}</span>
+      <span class="cap"><b>${esc(e.r.vendor)} · ${usd(e.r.total)}</b><small>${dt(e.r.date)}</small><span class="tags">${tags}</span></span></button>`
+  }).join('')
+  if (!isOpen) {
+    const peek = items.slice(0,3).map(e => paper(e.r,'sm')).join('')
+    return `<section class="folder-closed"><button class="fcard" data-k="${esc(k)}" aria-expanded="false" aria-label="Open ${esc(k)}, ${n} receipts, ${usd(tot)}">
+      <span class="peek">${peek}</span>
+      <span class="front"><b>${esc(k)}</b><small>${n} ${n===1?'receipt':'receipts'}</small><span class="t">${usd(tot)}</span></span></button></section>`
+  }
+  return `<section class="folder open">
+    <button class="fhead" data-k="${esc(k)}" data-i="${i}" aria-expanded="${isOpen}">
+      <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+      <b>${esc(k)}</b><span class="meta">${n} ${n===1?'receipt':'receipts'}</span><span class="tot">${usd(tot)}</span>
+    </button>
+    ${isOpen ? `<div class="fbody">${tiles}</div>` : ''}
+  </section>`
+}
+const baseRenderFiled = renderFiled
+renderFiled = function(){
+  baseRenderFiled()
+  document.querySelectorAll('.fhead, .fcard').forEach(b => b.onclick = () => { openState.set(b.dataset.k, b.getAttribute('aria-expanded') !== 'true'); renderFiled() })
+  document.querySelectorAll('#groupSeg button').forEach(b => b.onclick = () => { groupBy = b.dataset.g; openState.clear(); renderFiled() })
+}
+
+renderReview()
+renderFiled()
+</script>
+</body>
+</html>

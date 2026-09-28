@@ -281,7 +281,7 @@
 .bud-toast-act:hover, .bud-toast-act:focus-visible { background: rgba(255, 255, 255, 0.16); }
 
 /* View original. */
-.bud-modal-back { position: fixed; inset: 0; z-index: 95; display: grid; place-items: center; padding: 24px 16px; background: rgba(12, 16, 32, 0.55); }
+.bud-modal-back { position: fixed; inset: 0; z-index: 2100; display: grid; place-items: center; padding: 24px 16px; background: rgba(12, 16, 32, 0.55); }
 .bud-modal { display: grid; grid-template-rows: auto minmax(0, 1fr); width: min(900px, 100%); height: min(88vh, 1000px); background: var(--color-bg-surface); border-radius: var(--aspire-radius-card); box-shadow: 0 24px 64px rgba(0, 0, 0, 0.35); outline: none; overflow: hidden; }
 .bud-modal-head { display: flex; gap: 8px; align-items: center; padding: 12px 14px; border-bottom: 1px solid var(--color-border-subtle); }
 .bud-modal-head b { font-size: 13.5px; color: var(--text-heading); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
@@ -290,3 +290,114 @@
 .bud-modal-body iframe { width: 100%; height: 100%; border: 0; background: #fff; }
 .bud-rc-open { border: 0; background: none; padding: 0; font: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
 .bud-linkbtn-inline { display: inline; padding: 0; font-size: 12px; vertical-align: baseline; }
+
+/* ── RECEIPT-ORGANIZER-1 (Owner, 2026-09-27): folded slips, Filed folders, logos ────────────────
+   The drawn receipt comes in four sizes; the vendor's logo, one black ink (scripts/
+   prepare_vendor_logos.py), prints at its top. Paper keeps its fixed pair in both themes. */
+.bud-rcpt-mark { display: flex; justify-content: center; margin: 2px 0 6px; }
+.bud-rcpt-mark img { display: block; height: 24px; width: auto; max-width: 78%; object-fit: contain; }
+.bud-rcpt-logo .hd { font-size: inherit; font-weight: 400; letter-spacing: 0; color: #555; }
+.bud-rcpt-md { max-width: 150px; padding: 10px 9px 12px; font-size: 9px; }
+.bud-rcpt-md .hd { font-size: 10px; }
+.bud-rcpt-md .bud-rcpt-mark img { height: 19px; }
+.bud-rcpt-sm { width: 74px; max-width: none; height: 94px; overflow: hidden; flex: none; padding: 6px 5px; font-size: 5.5px; }
+.bud-rcpt-sm .hd { font-size: 6.5px; }
+.bud-rcpt-sm .tot, .bud-rcpt-xs .tot, .bud-rcpt-md .tot { font-size: inherit; }
+.bud-rcpt-sm hr { margin: 3px 0; }
+.bud-rcpt-sm .bud-rcpt-mark { margin: 0 0 3px; }
+.bud-rcpt-sm .bud-rcpt-mark img { height: 11px; }
+.bud-rcpt-xs { width: 46px; max-width: none; height: 58px; overflow: hidden; flex: none; padding: 4px; font-size: 4px; }
+.bud-rcpt-xs .hd { font-size: 5px; }
+.bud-rcpt-xs hr { margin: 2px 0; }
+.bud-rcpt-xs .bud-rcpt-mark { margin: 0 0 2px; }
+.bud-rcpt-xs .bud-rcpt-mark img { height: 8px; }
+
+/* To Review and Filed. */
+.bud-viewbar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.bud-view-n { margin-left: 6px; font: 600 11px var(--aspire-mono); opacity: 0.85; }
+.bud-fold { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 14px; align-items: center; width: 100%; padding: 10px 16px; border: 0; border-radius: var(--aspire-radius-card); background: var(--color-bg-surface); box-shadow: var(--aspire-shadow-card); color: var(--text-heading); font: inherit; text-align: left; cursor: pointer; }
+.bud-fold:hover { box-shadow: var(--aspire-shadow-card), 0 0 0 2px var(--color-accent-primary); }
+.bud-fold-text b { display: block; font-size: 14.5px; }
+.bud-fold-text small { font-size: 12.5px; color: var(--text-caption); }
+.bud-fold-chev { color: var(--text-caption); }
+@media (max-width: 640px) { .bud-fold { grid-template-columns: auto minmax(0, 1fr) auto; } .bud-fold > .bud-conf { grid-column: 2; justify-self: start; } .bud-fold-chev { grid-row: 1; grid-column: 3; } }
+.bud-conf-grey { background: var(--color-bg-hover); color: var(--text-heading); }
+
+.bud-filed { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.bud-filed-tools { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.bud-filed-group { display: inline-flex; gap: 8px; align-items: center; font-size: 12.5px; color: var(--text-caption); }
+.bud-filed-search { display: inline-flex; align-items: center; gap: 8px; flex: 1 1 240px; max-width: 380px; height: 34px; padding: 0 10px; border: 1px solid var(--border-input); border-radius: var(--aspire-radius-control); background: var(--color-bg-input, var(--color-bg-surface)); color: var(--text-caption); }
+.bud-filed-search input { flex: 1; min-width: 0; border: 0; background: none; outline: none; font: inherit; font-size: 13px; color: var(--text-heading); }
+.bud-filed-sum { margin-left: auto; font-size: 12.5px; color: var(--text-caption); }
+.bud-filed-sum b { color: var(--text-heading); font-variant-numeric: tabular-nums; }
+.bud-folders { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 22px 16px; align-items: start; }
+
+/* A closed folder: its three newest receipts tucked in, tops showing above the folder's front.
+   Classic is the manila folder of Evaluation > Responses (--folder tokens); Modern a plain card. */
+.bud-fcard { position: relative; display: block; width: 100%; height: 188px; padding: 0; border: 0; background: none; font: inherit; text-align: left; cursor: pointer; }
+.bud-fcard-peek { position: absolute; left: 0; right: 0; top: 4px; display: flex; justify-content: center; }
+.bud-fcard-peek .bud-rcpt { margin: 0 -10px; transition: transform 0.16s ease; }
+.bud-fcard-peek .bud-rcpt:nth-child(1) { transform: rotate(-7deg) translateY(10px); }
+.bud-fcard-peek .bud-rcpt:nth-child(2) { z-index: 1; }
+.bud-fcard-peek .bud-rcpt:nth-child(3) { transform: rotate(7deg) translateY(10px); }
+.bud-fcard:hover .bud-fcard-peek .bud-rcpt:nth-child(1), .bud-fcard:focus-visible .bud-fcard-peek .bud-rcpt:nth-child(1) { transform: rotate(-10deg) translate(-4px, 2px); }
+.bud-fcard:hover .bud-fcard-peek .bud-rcpt:nth-child(2), .bud-fcard:focus-visible .bud-fcard-peek .bud-rcpt:nth-child(2) { transform: translateY(-8px); }
+.bud-fcard:hover .bud-fcard-peek .bud-rcpt:nth-child(3), .bud-fcard:focus-visible .bud-fcard-peek .bud-rcpt:nth-child(3) { transform: rotate(10deg) translate(4px, 2px); }
+@media (prefers-reduced-motion: reduce) { .bud-fcard-peek .bud-rcpt { transition: none; } }
+.bud-fcard::before { content: ""; position: absolute; left: 10px; bottom: 96px; width: 44%; height: 14px; background: var(--folder-deep); border: 1px solid var(--folder-edge); border-bottom: 0; border-radius: var(--aspire-radius-filetab) var(--aspire-radius-filetab) 0 0; }
+.bud-fcard-front { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; height: 100px; display: grid; align-content: end; gap: 2px; padding: 12px 14px; background: var(--folder); border: 1px solid var(--folder-edge); border-radius: var(--aspire-radius-control); box-shadow: inset 0 -2px 0 var(--folder-deep), 0 6px 14px rgba(60, 48, 20, 0.18); }
+.bud-fcard-front b { font-size: 15px; color: var(--folder-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bud-fcard-front small { font-size: 12.5px; color: var(--folder-ink-muted); }
+.bud-fcard-tot { font-weight: 700; color: var(--folder-ink); font-variant-numeric: tabular-nums; }
+.bud-fcard:hover .bud-fcard-front { border-color: var(--folder-ink-muted); }
+.bud-fcard:focus-visible { outline: none; }
+.bud-fcard:focus-visible .bud-fcard-front { outline: 3px solid var(--color-accent-primary); outline-offset: 2px; }
+:root[data-style="modern"] .bud-fcard::before { display: none; }
+:root[data-style="modern"] .bud-fcard-front { background: var(--color-bg-surface); border: 0; border-radius: var(--aspire-radius-card); box-shadow: var(--aspire-shadow-card); }
+:root[data-style="modern"] .bud-fcard-front b, :root[data-style="modern"] .bud-fcard-tot { color: var(--text-heading); }
+:root[data-style="modern"] .bud-fcard-front small { color: var(--text-caption); }
+:root[data-style="modern"] .bud-fcard:hover .bud-fcard-front { box-shadow: var(--aspire-shadow-card), 0 0 0 2px var(--color-accent-primary); }
+
+/* An open folder takes the whole row. */
+.bud-folder-open { grid-column: 1 / -1; position: relative; margin-top: 14px; padding: 4px 16px 18px; background: var(--folder); border: 1px solid var(--folder-edge); border-radius: 0 var(--aspire-radius-card) var(--aspire-radius-card) var(--aspire-radius-card); box-shadow: 0 2px 6px rgba(60, 48, 20, 0.12); }
+.bud-folder-head { display: flex; gap: 12px; align-items: center; width: 100%; padding: 10px 0; border: 0; background: none; font: inherit; text-align: left; cursor: pointer; color: var(--folder-ink); }
+.bud-folder-tab { position: absolute; left: -1px; top: -24px; max-width: min(300px, 60%); height: 24px; padding: 3px 14px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: var(--folder-deep); border: 1px solid var(--folder-edge); border-bottom: 0; border-radius: var(--aspire-radius-filetab) var(--aspire-radius-filetab) 0 0; font-size: 13px; font-weight: 700; color: var(--folder-ink); }
+.bud-folder-meta { font-size: 12.5px; color: var(--folder-ink-muted); }
+.bud-folder-tot { margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; }
+.bud-folder-close { font-size: 12.5px; font-weight: 600; color: var(--folder-ink-muted); text-decoration: underline; text-underline-offset: 2px; }
+:root[data-style="modern"] .bud-folder-open { margin-top: 0; background: var(--color-bg-surface); border: 0; border-radius: var(--aspire-radius-card); box-shadow: var(--aspire-shadow-card); }
+:root[data-style="modern"] .bud-folder-tab { position: static; height: auto; padding: 0; background: none; border: 0; font-size: 15px; color: var(--text-heading); }
+:root[data-style="modern"] .bud-folder-head { color: var(--text-heading); }
+:root[data-style="modern"] .bud-folder-meta, :root[data-style="modern"] .bud-folder-close { color: var(--text-caption); }
+.bud-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 16px 14px; }
+
+/* A filed receipt: no frame; the paper itself lifts on hover and on keyboard focus (Owner). */
+.bud-tile { display: grid; gap: 8px; align-content: start; min-width: 0; padding: 0; border: 0; background: none; font: inherit; text-align: left; color: inherit; cursor: pointer; }
+.bud-tile-paper { display: grid; justify-items: center; padding: 6px 4px 10px; min-width: 0; }
+.bud-tile .bud-rcpt { transition: transform 0.16s ease, box-shadow 0.16s ease; }
+.bud-tile:hover .bud-rcpt, .bud-tile:focus-visible .bud-rcpt { transform: translateY(-4px) rotate(-0.6deg); box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12), 0 14px 26px rgba(0, 0, 0, 0.16); }
+.bud-tile:focus-visible { outline: none; }
+.bud-tile:focus-visible .bud-rcpt { outline: 3px solid var(--color-accent-primary); outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) { .bud-tile:hover .bud-rcpt, .bud-tile:focus-visible .bud-rcpt { transform: none; } }
+.bud-tile-cap { display: grid; gap: 3px; min-width: 0; }
+.bud-tile-cap b { font-size: 13px; color: var(--folder-ink); overflow-wrap: anywhere; }
+.bud-tile-cap small { font-size: 12px; color: var(--folder-ink-muted); }
+:root[data-style="modern"] .bud-tile-cap b { color: var(--text-heading); }
+:root[data-style="modern"] .bud-tile-cap small { color: var(--text-caption); }
+.bud-tile-tags { display: flex; gap: 4px; flex-wrap: wrap; }
+
+/* The side panel. */
+.bud-fdetail { display: grid; gap: 16px; }
+.bud-fdetail-paper { display: grid; justify-items: center; padding: 18px; border-radius: var(--aspire-radius-card); background: var(--color-bg-hover); }
+.bud-fdetail h3 { margin: 0 0 6px; font-size: 13px; color: var(--text-heading); }
+.bud-fdetail-rows { margin: 0; padding: 0; list-style: none; border: 1px solid var(--color-border-subtle); border-radius: var(--aspire-radius-control); }
+.bud-fdetail-rows li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px 12px; font-size: 13px; color: var(--text-heading); }
+.bud-fdetail-rows li + li { border-top: 1px solid var(--color-border-subtle); }
+.bud-fdetail-rows .rl { font: 500 11px var(--aspire-mono); color: var(--text-caption); }
+.bud-fdetail-rows small { display: block; font-size: 12px; color: var(--text-caption); }
+.bud-fdetail-rows b { font-variant-numeric: tabular-nums; }
+.bud-fdetail-kv { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 6px 12px; margin: 0; font-size: 13px; color: var(--text-heading); }
+.bud-fdetail-kv dt { color: var(--text-caption); }
+.bud-fdetail-kv dd { margin: 0; min-width: 0; }
+.bud-fdetail-kv code { display: inline; overflow-wrap: anywhere; }
+.bud-att-line { display: block; }

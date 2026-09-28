@@ -49,6 +49,7 @@
 //   labels           { notice, searchPlaceholder, searchLabel, count(shown, total), emptyNote,
 //                      noMatch, frameLabel, help, readOnlyEdit, newColumnHint, locked }
 //   notify, viewRef
+//   initialSearch    what the search box holds when the grid mounts (Program Budget's Show in Sheet).
 //
 // BUDGET-SHEET-0b (2026-09-27), for Program Budget's ledger. Every one is opt-in; a host that
 // passes none (the Forms Sheet) gets the grid exactly as it was.
@@ -127,11 +128,11 @@ export default function EditableSheet({
   renderCell, cellClass, cellTitle, editorLabel, editorExtras, saveLabel,
   labels = {}, notify, viewRef,
   isLocked, groupSubtotals = NO_KEYS, onAddRow, onDeleteRows, canDeleteRow = () => true, canClear = () => false,
-  formulas = false,
+  formulas = false, initialSearch = '',
 }) {
   const [data, setData] = useState(() => ({ rows: initialRows }))
   const [layout, setLayout] = useState(initialLayout)
-  const [search, setSearch] = useState('')
+  const [search, setSearch] = useState(initialSearch)
   const [filters, setFilters] = useState([])
   const [adding, setAdding] = useState(null)
   const [sort, setSort] = useState(defaultSort)
