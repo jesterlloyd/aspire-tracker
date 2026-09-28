@@ -9,8 +9,8 @@
 // replaces the "reading" slip. Nothing posts until Accept. Accept, Snooze and Reject each say so in
 // a toast with Undo for 5 seconds, and Undo reverses it on the server.
 //
-// In Classic style the slips sit on the Review & Release pressboard (prompt B5); Modern turns the
-// board off. Below the queue: what was snoozed, what was decided recently, and the owner's rules
+// The slips are the mockup's cards on the page in both styles (Owner, 2026-09-27: "make it like the
+// mockup"; the prompt's pressboard is not used). Below the queue: what was snoozed, what was decided recently, and the owner's rules
 // and P-card setting.
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ReceiptText } from 'lucide-react'
@@ -144,12 +144,12 @@ export default function BudgetReceipts({ year, onWrite, pendingFiles, onPendingT
       <SurfaceCard className="bud-drop">
         <ReceiptText size={26} aria-hidden="true" className="bud-drop-icon" />
         <div className="bud-drop-text">
-          <b>Drop Receipts Here</b>
+          <b>Drop receipts here</b>
           <small>Photos, PDFs or saved order emails. Keith reads each one, proposes rows, categories and the payment method, and checks for duplicates and the reimbursement policy. Nothing posts until you accept it.</small>
         </div>
         <button type="button" className="bud-btn" onClick={() => inputRef.current?.click()}>Choose files</button>
         <input ref={inputRef} type="file" accept={ACCEPT} multiple hidden onChange={e => { addFiles(e.target.files); e.target.value = '' }} />
-        <span className="bud-drop-count">Program Budget · {data.filedCount} filed</span>
+        <span className="bud-drop-count bud-path">Program Budget · {data.filedCount} filed</span>
       </SurfaceCard>
 
       <div className="bud-qhead">
@@ -158,13 +158,11 @@ export default function BudgetReceipts({ year, onWrite, pendingFiles, onPendingT
       </div>
       {waiting.length
         ? (
-          <div className="bud-rboard">
-            <div className="bud-slips">
-              {waiting.map(s => (
-                <ReceiptSlip key={s.id} slip={s} context={ctx} categories={categories} cohorts={year.cohorts} busy={busy.has(s.id)}
-                  onDraft={onDraft} onAccept={onAccept} onSnooze={onSnooze} onReject={onReject} onRead={onRead} onDiscard={onDiscard} onOriginal={onOriginal} onStartYear={onStartYear} />
-              ))}
-            </div>
+          <div className="bud-slips">
+            {waiting.map(s => (
+              <ReceiptSlip key={s.id} slip={s} context={ctx} categories={categories} cohorts={year.cohorts} busy={busy.has(s.id)}
+                onDraft={onDraft} onAccept={onAccept} onSnooze={onSnooze} onReject={onReject} onRead={onRead} onDiscard={onDiscard} onOriginal={onOriginal} onStartYear={onStartYear} />
+            ))}
           </div>
         )
         : <SurfaceCard className="bud-card"><p className="bud-empty">Every receipt is reviewed. New uploads appear here.</p></SurfaceCard>}

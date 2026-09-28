@@ -62,7 +62,10 @@ test('the slip draws the receipt from the reading, with View original beside it,
   assert.match(out, /High confidence<\/span>Paper for printed orientation packets\./)
   assert.match(out, /Split into 2 rows because the items fall in different categories\./)
   assert.match(out, /Card ending 4417\. No P-card is on file, so choose the payment method\./)
-  assert.match(out, /Files to <code>Program Budget › FY27 › Receipts › FY27_2026-09-03_Amazon_112-7730158_\$58\.57\.jpg<\/code> · 2 rows/)
+  assert.match(out, /Files to <code>Program Budget › FY27 › Receipts › FY27_2026-09-03_Amazon_112-7730158_\$58\.57\.jpg<\/code>/)
+  // Date, vendor and order are Keith's reading, shown in the header; Edit opens them.
+  assert.match(out, /aria-expanded="false">Edit<\/button>/)
+  assert.doesNotMatch(out, /<span>Vendor<\/span>/)
   assert.match(out, />Accept 2 rows<\/button>/)
 })
 
@@ -72,8 +75,9 @@ test('a meal shows its purpose and attendee fields and Accept waits for them', (
   assert.match(out, /<legend>Business meal<\/legend>/)
   assert.match(out, /Business purpose/)
   for (const h of ['Name', 'Title', 'Organization', 'Business relationship']) assert.match(out, new RegExp(`<span>${h}</span>`))
-  assert.match(out, /class="bud-check bud-check-block">A business meal needs its business purpose/)
-  assert.match(out, /disabled="" title="A business meal needs[^"]*">Accept<\/button>/)
+  assert.match(out, /class="bud-check bud-check-block"><svg[^>]*lucide-octagon-alert[\s\S]*?<span>A business meal needs its business purpose/)
+  assert.match(out, /disabled="" title="A business meal needs[^"]*">Accept and post<\/button>/, 'the mockup\u2019s label')
+  assert.ok(out.indexOf('bud-checks') < out.indexOf('<legend>Business meal</legend>'), 'the meal fields follow the checks, as in the mockup')
 })
 
 test('a duplicate offers Attach to its row, and Add as a new row still waits for every block', () => {
@@ -109,10 +113,12 @@ test('the Receipts tab and Add receipts are the Owner’s only, in the prompt’
   assert.match(view, /current === 'receipts' && canEdit &&/)
   // The Sheet's receipt mark opens the original for the Owner only.
   assert.match(read('src/components/budget/BudgetSheet.jsx'), /return canEdit\n\s+\? <button type="button" className="bud-rc bud-rc-open"/)
-  // Classic puts the slips on the pressboard; Modern turns the board off.
+  // Owner, 2026-09-27 ("make it like the mockup"): the slips are cards on the page in both styles,
+  // with no pressboard (7475d14f put them on one in Classic).
   const css = read('src/components/budget/budget.css')
-  assert.match(css, /\.bud-rboard \{[^}]*var\(--aspire-pressboard-b\)/)
-  assert.match(css, /:root\[data-style="modern"\] \.bud-rboard \{ padding: 0; background: none; box-shadow: none; \}/)
+  assert.doesNotMatch(css, /\.bud-rboard|--aspire-pressboard/)
+  assert.doesNotMatch(read('src/components/budget/BudgetReceipts.jsx'), /bud-rboard/)
+  assert.match(css, /\.bud-files code \{[^}]*color: var\(--bud-teal\); background: var\(--bud-teal-soft\)/, 'the mockup\u2019s teal filing path')
 })
 
 test('the Action Center: receipts to Review, Concur to Submit, renewals to Renew, each its own chip', () => {

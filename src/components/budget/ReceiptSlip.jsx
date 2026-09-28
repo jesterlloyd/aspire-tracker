@@ -9,12 +9,14 @@
 // opens the uploaded file itself. Right: the reading, editable; the checks; where it files; Accept
 // (or Attach to row N), Snooze and Reject. Every rule is src/lib/budget/receiptModel.js and
 // receiptChecks.js, the same modules the server's Accept runs.
-import { useMemo } from 'react'
-import { Eye, Plus, Sparkles, X } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { AlertTriangle, Check, Eye, Info, OctagonAlert, Plus, Sparkles, X } from 'lucide-react'
 import { receiptPaper, setLineCategory, rowsFrom, draftTotal, filedName, ATTENDEE_FIELDS } from '../../lib/budget/receiptModel'
 import { receiptChecks } from '../../lib/budget/receiptChecks'
 import { usd, dateText, fyShort, PAYMENT_METHODS } from '../../lib/budget/budgetModel'
 
+// The mockup's check icons: a warning triangle, an info mark, a tick; a block is the stop sign.
+const CHECK_ICON = { block: OctagonAlert, warn: AlertTriangle, info: Info, ok: Check }
 const CONF = { high: 'High confidence', medium: 'Medium confidence', low: 'Low confidence' }
 const ATTENDEE_LABEL = { name: 'Name', title: 'Title', organization: 'Organization', relationship: 'Business relationship' }
 let seq = 0
@@ -45,6 +47,7 @@ export function ReceiptPaper({ proposal, reading = false, fileName }) {
 
 export default function ReceiptSlip({ slip, context, categories, cohorts, busy, onDraft, onAccept, onSnooze, onReject, onRead, onDiscard, onOriginal, onStartYear }) {
   const d = slip.draft
+  const [details, setDetails] = useState(false)   // date, vendor and order: Keith's reading, correctable on request
   const result = useMemo(() => (d ? receiptChecks(d, { ...context, proposal: slip.proposal || {}, duplicateFile: slip.duplicateFile }) : null), [d, context, slip.proposal, slip.duplicateFile])
   const heading = `${slip.file_name}`
 
@@ -94,16 +97,17 @@ export default function ReceiptSlip({ slip, context, categories, cohorts, busy, 
         <div className="bud-slip-head">
           <div>
             <b id={`slip-${slip.id}`}>{d.vendor || 'Vendor'} · {usd(total)}</b>
-            <small>{[d.date ? dateText(d.date) : 'No date', fy ? fyShort(fy) : null, d.order_number ? `Order or invoice ${d.order_number}` : null].filter(Boolean).join(' · ')}</small>
+            <small>{[d.date ? dateText(d.date) : 'No date', fy ? fyShort(fy) : null, d.order_number ? `Order or invoice ${d.order_number}` : null].filter(Boolean).join(' · ')}
+              {' '}<button type="button" className="bud-linkbtn bud-linkbtn-inline" aria-expanded={details || !d.date} onClick={() => setDetails(x => !x)}>{details || !d.date ? 'Done' : 'Edit'}</button></small>
           </div>
           <span className="bud-by"><Sparkles size={13} aria-hidden="true" />Read by Keith</span>
         </div>
 
-        <div className="bud-slip-meta">
+        {(details || !d.date) && <div className="bud-slip-meta">
           <label><span>Date</span><input type="date" className="bud-input" value={d.date || ''} onChange={e => set({ date: e.target.value })} /></label>
           <label><span>Vendor</span><input className="bud-input" value={d.vendor} maxLength={120} onChange={e => set({ vendor: e.target.value })} /></label>
           <label><span>Order or invoice no.</span><input className="bud-input" value={d.order_number} maxLength={80} onChange={e => set({ order_number: e.target.value })} /></label>
-        </div>
+        </div>}
 
         {!dup && (
           <div className="bud-lines" role="group" aria-label="Lines">
@@ -135,11 +139,14 @@ export default function ReceiptSlip({ slip, context, categories, cohorts, busy, 
               </select></label>
             <label><span>Cohort</span>
               <select className="bud-input" value={d.cohort_id || ''} onChange={e => set({ cohort_id: e.target.value || null })}>
-                <option value="">None</option>{cohorts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                <option value="">No cohort (program-wide)</option>{cohorts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select></label>
           </div>
         )}
 
+        <ul className="bud-checks" aria-label="Checks">
+          {result.checks.map(c => { const Icon = CHECK_ICON[c.tone]; return <li key={c.key} className={`bud-check bud-check-${c.tone}`}><Icon size={15} aria-hidden="true" /><span>{c.text}</span></li> })}
+        </ul>
         {/* Business meals (policy p.1, p.9-10): a purpose and every attendee, before Accept. */}
         {mealsCheck && (
           <fieldset className="bud-meal">
@@ -162,17 +169,14 @@ export default function ReceiptSlip({ slip, context, categories, cohorts, busy, 
           </fieldset>
         )}
 
-        <ul className="bud-checks" aria-label="Checks">
-          {result.checks.map(c => <li key={c.key} className={`bud-check bud-check-${c.tone}`}>{c.text}</li>)}
-        </ul>
 
-        <p className="bud-files">Files to <code>Program Budget › {fy ? fyShort(fy) : 'FY'} › Receipts › {filed}</code>{rows.length > 1 && !dup ? ` · ${rows.length} rows` : ''}</p>
+        <p className="bud-files">Files to <code>Program Budget › {fy ? fyShort(fy) : 'FY'} › Receipts › {filed}</code></p>
 
         <div className="bud-slip-acts">
           {startCheck
             ? <button type="button" className="bud-btn bud-btn-pri bud-btn-sm" onClick={() => onStartYear(startCheck.startYear)}>Start {fyShort(startCheck.startYear)}</button>
             : <button type="button" className="bud-btn bud-btn-pri bud-btn-sm" disabled={busy || !canAccept} title={canAccept ? undefined : (dup ? result.attachBlockers : result.blockers).join(' ')} onClick={() => onAccept(slip, dup ? dup.expense.id : null)}>
-                {dup ? `Attach to ${dup.expense.row_label}` : rows.length > 1 ? `Accept ${rows.length} rows` : 'Accept'}
+                {dup ? `Attach to ${dup.expense.row_label}` : rows.length > 1 ? `Accept ${rows.length} rows` : 'Accept and post'}
               </button>}
           {dup && <button type="button" className="bud-btn bud-btn-sm" disabled={busy || result.blocked} title={result.blocked ? result.blockers.join(' ') : undefined} onClick={() => onAccept(slip, null)}>Add as a new row</button>}
           <button type="button" className="bud-btn bud-btn-sm" disabled={busy} onClick={() => onSnooze(slip)}>Snooze</button>
