@@ -24,6 +24,7 @@
 
 .rp-tab-label-short,
 .rp-completion,
+.rp-comparison-wrap,
 .rp-classic-comparison,
 .rp-highlight-label { display: none; }
 
@@ -785,6 +786,11 @@
   min-width: 0;
 }
 
+:root[data-style="classic"] .evaluation-workspace .rp-comparison-wrap {
+  display: block;
+  min-width: 0;
+}
+
 :root[data-style="classic"] .evaluation-workspace .rp-highlight-label { display: inline; }
 
 :root[data-style="classic"] .evaluation-workspace .rp-legacy-distribution { display: none; }
@@ -866,6 +872,14 @@
 :root[data-style="classic"] .evaluation-workspace .rp-classic-comparison .rp-counts b {
   color: var(--paper-ink);
   font-weight: 600;
+}
+
+.rp-comparison-interpretation {
+  margin: 7px 0 0;
+  color: var(--paper-muted);
+  font-size: 11px;
+  line-height: 1.45;
+  text-shadow: 0 0 3px var(--paper), 0 0 7px var(--paper);
 }
 
 :root[data-style="classic"] .evaluation-workspace .rp-means-values,

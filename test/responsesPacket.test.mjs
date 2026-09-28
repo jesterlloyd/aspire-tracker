@@ -525,6 +525,8 @@ test('the markup carries the accessibility contract', () => {
   assert.match(rp, /tabIndex=\{0\}\s*\n\s*role="img"\s*\n\s*aria-label=\{text\}/, 'segments are focusable and speak their count')
   assert.match(rp, /data-tip=\{text\}/, 'and carry the same text as a tooltip')
   assert.match(rp, /data-narrow=\{w < 9 \? 1 : 0\}/)
+  assert.match(rp, /<Tooltip\s+label=\{Number\.isFinite\(s\.delta\)/, 'the change badge explains the delta on hover and focus')
+  assert.match(rp, /className="rp-comparison-interpretation"/, 'the comparison includes a persistent interpretation')
   assert.match(rp, /<caption className="sr-only">\{title\} as a table<\/caption>/, 'the Table view has a screen-reader caption')
   assert.match(rp, /id=\{id\}/, 'the table has a stable disclosure target')
   assert.match(rp, /aria-expanded=\{tableView\}/)

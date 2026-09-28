@@ -120,26 +120,32 @@ function ComparisonPlot({ s, scaleMax, labels }) {
   const post = position(s.postMean)
   const left = Math.min(pre, post)
   const width = Math.abs(post - pre)
+  const interpretation = Number.isFinite(s.delta) && Number.isFinite(s.preMean) && Number.isFinite(s.postMean)
+    ? `Average agreement ${s.delta >= 0 ? 'increased' : 'decreased'} ${Math.abs(s.delta).toFixed(2)} points, from ${fmt2(s.preMean)} before rotation to ${fmt2(s.postMean)} after rotation on the 1 to ${scaleMax} agreement scale. This reflects student-reported agreement with the ${s.itemCount}-item ${s.label} subscale.`
+    : null
   return (
-    <div
-      className="rp-classic-comparison"
-      role="img"
-      aria-label={`${s.label}: ${fmt2(s.preMean)} before, ${fmt2(s.postMean)} after, ${signed(s.delta)} change. ${s.up} ${labels.up}, ${s.same} ${labels.same}, ${s.down} ${labels.down}.`}
-    >
-      <div className="rp-comparison-track" aria-hidden="true">
-        <i className="rp-comparison-connector" style={{ left: `${left}%`, width: `${width}%` }} />
-        <i className="rp-comparison-dot rp-comparison-dot-pre" style={{ left: `${pre}%` }} />
-        <i className="rp-comparison-dot rp-comparison-dot-post" style={{ left: `${post}%` }} />
+    <div className="rp-comparison-wrap">
+      <div
+        className="rp-classic-comparison"
+        role="img"
+        aria-label={`${s.label}: ${fmt2(s.preMean)} before, ${fmt2(s.postMean)} after, ${signed(s.delta)} change. ${s.up} ${labels.up}, ${s.same} ${labels.same}, ${s.down} ${labels.down}.`}
+      >
+        <div className="rp-comparison-track" aria-hidden="true">
+          <i className="rp-comparison-connector" style={{ left: `${left}%`, width: `${width}%` }} />
+          <i className="rp-comparison-dot rp-comparison-dot-pre" style={{ left: `${pre}%` }} />
+          <i className="rp-comparison-dot rp-comparison-dot-post" style={{ left: `${post}%` }} />
+        </div>
+        <div className="rp-comparison-values" aria-hidden="true">
+          <span className="rp-comparison-value-pre" style={{ left: `${pre}%` }}>{fmt2(s.preMean)}</span>
+          <span className="rp-comparison-value-post" style={{ left: `${post}%` }}>{fmt2(s.postMean)}</span>
+        </div>
+        <div className="rp-counts" aria-hidden="true">
+          <span><b>{s.up}</b> higher</span>
+          <span><b>{s.same}</b> same</span>
+          <span><b>{s.down}</b> lower</span>
+        </div>
       </div>
-      <div className="rp-comparison-values" aria-hidden="true">
-        <span className="rp-comparison-value-pre" style={{ left: `${pre}%` }}>{fmt2(s.preMean)}</span>
-        <span className="rp-comparison-value-post" style={{ left: `${post}%` }}>{fmt2(s.postMean)}</span>
-      </div>
-      <div className="rp-counts" aria-hidden="true">
-        <span><b>{s.up}</b> higher</span>
-        <span><b>{s.same}</b> same</span>
-        <span><b>{s.down}</b> lower</span>
-      </div>
+      {interpretation && <p className="rp-comparison-interpretation">{interpretation}</p>}
     </div>
   )
 }
@@ -177,7 +183,12 @@ function SubscaleRow({ s, paired, labels, scaleMax, highlight = false }) {
         {paired ? (
           <>
             <span className="rp-means-values"><b>{fmt2(s.preMean)}</b> → <b>{fmt2(s.postMean)}</b></span>
-            <span className="rp-delta">{signed(s.delta)}</span>
+            <Tooltip
+              label={Number.isFinite(s.delta) ? `Average agreement: ${signed(s.delta)} points, ${fmt2(s.preMean)} before, ${fmt2(s.postMean)} after.` : 'Change is unavailable.'}
+              placement="top"
+            >
+              <span className="rp-delta" tabIndex={0}>{signed(s.delta)}</span>
+            </Tooltip>
           </>
         ) : (
           <>mean <b>{fmt2(s.mean)}</b></>
