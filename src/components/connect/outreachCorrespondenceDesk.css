@@ -114,6 +114,9 @@
   display: block;
   translate: -50% 0;
 }
+/* Clipboard clips are part of the Classic paper metaphor only. Keep the shared
+   markup for Classic, but remove the metal ornament entirely from Modern. */
+.outreach-workspace-modern .outreach-clipboard-clip { display: none; }
 .outreach-workspace-classic .outreach-recipient-file {
   overflow: visible !important;
 }
