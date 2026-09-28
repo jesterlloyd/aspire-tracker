@@ -133,7 +133,7 @@ test('the Action Center: receipts to Review, Concur to Submit, renewals to Renew
   })
   assert.equal(g.sub, 'Receipts to review, Concur to submit')
   const receipt = g.rows.find(r => r.id === 'receipt:r1')
-  assert.deepEqual([receipt.title, receipt.meta, receipt.chip, receipt.to], ['Amazon · $58.57', '2 rows proposed · Printing & Copying, Supplies & Materials', 'Review', '/settings/budget?tab=receipts'])
+  assert.deepEqual([receipt.title, receipt.meta, receipt.chip, receipt.pill, receipt.to], ['Amazon · $58.57', '2 rows proposed · Printing & Copying, Supplies & Materials', 'Review', { text: 'Review', tone: 'amber' }, '/settings/budget?tab=receipts'])
   const concur = g.rows.find(r => r.id === 'concur:e1')
   assert.equal(concur.meta, 'Personal (Concur), still Recorded · submit by Oct 2, 2026 · no receipt on file (required over $25)')
   assert.deepEqual(concur.pill, { text: 'Due in 5 days', tone: 'red' })

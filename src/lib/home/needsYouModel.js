@@ -84,6 +84,9 @@ export function budgetGroup({ renewals = [], receipts = [], concur = [], now = D
     id: `receipt:${r.id}`, chip: 'Review',
     title: `${r.vendor} · ${usd(r.total)}`,
     meta: [`${plural(r.rows || 1, 'row')} proposed`, (r.categories || []).join(', ')].filter(Boolean).join(' · '),
+    // Needs You renders every row with its own pill. Receipt rows used to omit
+    // this field, so a real receipt made the shared home queue crash on `.tone`.
+    pill: { text: 'Review', tone: 'amber' },
     ageMs: Math.max(0, now - new Date(r.created_at || now).getTime()),
     to: '/settings/budget?tab=receipts',
   }))
