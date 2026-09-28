@@ -10,6 +10,7 @@ export const VENDOR_LOGOS = Object.freeze([
   'costco',
   'fedex',
   'flodesk',
+  'grok-xai',
   'home-depot',
   'michaels-stores',
   'office-depot',

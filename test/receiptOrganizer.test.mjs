@@ -29,13 +29,15 @@ test('a vendor finds its logo by name, alias, prefix or first word, and a vendor
   const cases = {
     Amazon: 'amazon', 'Amazon.com': 'amazon', 'AMZN Mktp US': 'amazon', 'Amazon Business': 'amazon', Michaels: 'michaels-stores',
     'The Home Depot': 'home-depot', 'Costco Wholesale': 'costco', 'Anthropic, PBC': 'anthropic', 'Vercel Inc.': 'vercel', 'Best Buy': 'best-buy',
+    // Added 2026-09-27 with the Grok logo: xAI bills as xAI or X.AI Corp.
+    xAI: 'grok-xai', 'X.AI Corp': 'grok-xai', Grok: 'grok-xai', 'xAI Holdings': 'grok-xai',
   }
   for (const [vendor, slug] of Object.entries(cases)) assert.equal(M.vendorLogo(vendor), `/vendor-logos/${slug}.png`, vendor)
   for (const vendor of ['Beverly Grove Catering', 'Best Western', 'Office Supplies Co', '', null]) assert.equal(M.vendorLogo(vendor), null, String(vendor))
 })
 
 test('every listed logo is on disk as one ink, and the conversion script writes the list', () => {
-  assert.ok(VENDOR_LOGOS.length >= 15)
+  assert.ok(VENDOR_LOGOS.length >= 16)
   for (const s of VENDOR_LOGOS) assert.ok(existsSync(new URL(`../public/vendor-logos/${s}.png`, import.meta.url)), s)
   const script = read('scripts/prepare_vendor_logos.py')
   assert.match(script, /src\/lib\/budget\/vendorLogos\.js|'vendorLogos\.js'/)

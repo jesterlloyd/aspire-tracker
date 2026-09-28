@@ -212,7 +212,7 @@ export function receiptPaper(p) {
 // ── RECEIPT-ORGANIZER-1 (Owner, 2026-09-27) ─────────────────────────────────────
 
 // Names a receipt prints that are not the brand's own (a card statement's descriptor, a parent name).
-const VENDOR_ALIASES = Object.freeze({ amzn: 'amazon', 'amzn-mktp': 'amazon', 'amazon-marketplace': 'amazon', 'the-home-depot': 'home-depot', michaels: 'michaels-stores', 'costco-wholesale': 'costco', 'fedex-office': 'fedex', 'walmart-supercenter': 'walmart', 'open-ai': 'openai' })
+const VENDOR_ALIASES = Object.freeze({ amzn: 'amazon', 'amzn-mktp': 'amazon', 'amazon-marketplace': 'amazon', 'the-home-depot': 'home-depot', michaels: 'michaels-stores', 'costco-wholesale': 'costco', 'fedex-office': 'fedex', 'walmart-supercenter': 'walmart', 'open-ai': 'openai', xai: 'grok-xai', 'x-ai': 'grok-xai' })
 const vendorSlug = (v) => String(v || '').toLowerCase().normalize('NFKD')
   .replace(/\.(com|net|org|co|io)\b/g, ' ').replace(/\b(inc|llc|ltd|corp|corporation|co|company|stores?|pbc)\b\.?/g, ' ')
   .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
