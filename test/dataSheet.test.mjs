@@ -139,7 +139,14 @@ test('the analysis sheet renders the basis before the finding, with labelled, fo
   assert.match(html, /class="rp-seg rp-seg-down" style="width:50%" data-narrow="0" data-tip="1 of 2 lower post score"/)
   assert.match(html, /net \+0 of 2/)
   assert.match(html, /net \+2 of 2/, 'PR: both higher')
-  assert.match(html, /<b>3\.25<\/b> → <b>3\.25<\/b><span class="rp-delta">\+0\.00<\/span>/, 'CPS means and an outline delta chip')
+  // 5913bf4b wrapped the means in .rp-means-values and 85aa05b8 put the delta
+  // chip in a Tooltip, which gives it a focus stop and an accessible label; the
+  // pin follows both.
+  assert.match(html, /<span class="rp-means-values"><b>3\.25<\/b> → <b>3\.25<\/b><\/span><span class="rp-delta" tabindex="0" aria-label="Average agreement: \+0\.00 points, 3\.25 before, 3\.25 after\.">\+0\.00<\/span>/, 'CPS means and an outline delta chip')
+  // A change that rounds to zero says so, rather than "increased 0.00 points".
+  assert.match(html, /Average agreement did not change: 3\.25 before and after rotation on the 1 to 4 agreement scale\./)
+  assert.doesNotMatch(html, /increased 0\.00 points/)
+  assert.match(html, /Average agreement increased 0\.50 points, from 3\.13 before rotation to 3\.63 after rotation/)
   assert.match(html, /1 student submitted a baseline and no post-rotation response\./)
   assert.match(html, />See who</)
   assert.match(html, /This does not independently measure retention, objective competence, or financial savings\./)
