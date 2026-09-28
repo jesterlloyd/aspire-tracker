@@ -24,3 +24,6 @@ dist-ssr
 *.sw?
 .prerender-ssr
 .playwright-cli
+
+# The Owner's original vendor logo files; scripts/prepare_vendor_logos.py converts them into public/vendor-logos.
+vendor-logos-source/
