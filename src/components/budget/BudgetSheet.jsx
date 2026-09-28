@@ -17,6 +17,7 @@ import { Check } from 'lucide-react'
 import EditableSheet from '../sheet/EditableSheet'
 import ReceiptOriginal from './ReceiptOriginal'
 import { Pill } from '../shared/DataSheet'
+import { needsReceipt } from '../../lib/budget/receiptChecks'
 import { PAYMENT_METHODS, STATUSES, statusesFor, statusLabel, statusTone, paymentKey, statusKey, dateText, monthOf, pacificToday, fiscalYearRange } from '../../lib/budget/budgetModel'
 
 const LEAD = { key: '@date', label: 'Date', type: 'date' }
@@ -26,6 +27,7 @@ const NOT_EDITABLE = new Set(['unit', 'receipt', 'month'])
 const CLEARABLE = new Set(['description', 'vendor', 'order_number', 'cost_center', 'notes', 'cat', 'pay', 'cohort'])
 const GROUPABLE = new Set(['cat', 'month', 'pay', 'status', 'cohort'])
 const DASH = <span className="bud-dash">–</span>
+const MISSING_FILTER = [{ key: 'missing-receipt', label: 'Missing receipt', test: (r) => needsReceipt(r.raw) }]
 const DEFAULT_LAYOUT = {
   order: [], hidden: ['month'], widths: { item: 220, description: 280, cat: 180, order_number: 170 }, frozen: 1, groupBy: null, staffColumns: [],
   colFormats: { amount: { num: 'currency' }, unit: { num: 'currency' } }, summaries: { amount: 'sum', qty: 'sum' },
@@ -116,6 +118,8 @@ export default function BudgetSheet({ year, canEdit, onWrite, focus = null }) {
     <EditableSheet
       key={`${year.fy}-${focus?.at || ''}`}
       initialSearch={focus?.search || ''}   // RECEIPT-ORGANIZER-1: Filed > Show in Sheet opens the Sheet searched for the receipt
+      // MISSING-RECEIPT-1: Personal (Concur) over $25 with no receipt on file (policy p.2).
+      quickFilters={MISSING_FILTER} initialQuick={focus?.filter || null}
       initialRows={rows}
       initialLayout={{ ...DEFAULT_LAYOUT, ...(year.layout || {}) }}
       lead={LEAD}
@@ -138,7 +142,7 @@ export default function BudgetSheet({ year, canEdit, onWrite, focus = null }) {
         if (col.key === 'item') return <>{text || DASH}{row.raw.subscription_id && <span className="bud-subtag">Subscription</span>}</>
         if (col.key === 'status') return row.raw.status ? <Pill tone={TONE[statusTone(row.raw.status)]}>{statusLabel(row.raw.status)}</Pill> : DASH
         if (col.key === 'receipt') {
-          if (!row.raw.hasReceipt) return DASH
+          if (!row.raw.hasReceipt) return needsReceipt(row.raw) ? <span className="bud-rc-missing" title="A receipt is required for reimbursement over $25">Missing</span> : DASH
           // The Owner opens the filed original; everyone else learns only that one is on file (decision 5).
           return canEdit
             ? <button type="button" className="bud-rc bud-rc-open" title="View the original receipt" onClick={() => openReceipt(row)}><Check size={13} aria-hidden="true" />On file</button>

@@ -62,8 +62,8 @@ const CATALOG_COLS = 'id, slug, title, kind, is_active, storage_path'
 /** AC-RENEW-1: annual renewals to decide. Before the budget tables exist there are simply none. */
 /** Program Budget Phase B (Owner only): receipts waiting for review and Concur still to submit. */
 export async function loadBudgetReview() {
-  try { const q = await budgetStaff('receipts_queue'); return { receipts: q?.receipts || [], concur: q?.concur || [] } }
-  catch (e) { if (e.code === 'not_enabled') return { receipts: [], concur: [] }; throw e }
+  try { const q = await budgetStaff('receipts_queue'); return { receipts: q?.receipts || [], concur: q?.concur || [], missing: q?.missing || [] } }
+  catch (e) { if (e.code === 'not_enabled') return { receipts: [], concur: [], missing: [] }; throw e }
 }
 
 export async function loadBudgetRenewals() {

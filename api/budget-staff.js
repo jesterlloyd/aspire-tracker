@@ -127,7 +127,7 @@ export function createBudgetStaffHandler({ verifyCaller = verifyPortalCaller, ma
         case 'receipts_status': return res.status(200).json(await R.receiptsStatus(db))
         case 'receipts_intake': return res.status(200).json(await R.intake(db, day))
         case 'receipts_filed': return res.status(200).json({ receipts: await R.filedReceipts(db, { fy: fy ?? E.currentFiscalYear(), ...day }) })
-        case 'receipts_queue': return res.status(200).json({ receipts: await R.reviewQueue(db, day), concur: await E.concurQueue(db, day) })
+        case 'receipts_queue': return res.status(200).json({ receipts: await R.reviewQueue(db, day), concur: await E.concurQueue(db, day), missing: await E.missingReceiptQueue(db) })
         case 'receipt_upload': return res.status(200).json(await R.startUpload(db, actor, { fileName: body.file_name, contentType: body.content_type, size: body.size }))
         case 'receipt_discard': return res.status(200).json(await R.discardUpload(db, actor, { id: body.id }))
         case 'receipt_read': return res.status(200).json(await R.readReceipt(db, actor, { id: body.id, ...(complete ? { complete } : {}), ...day }))

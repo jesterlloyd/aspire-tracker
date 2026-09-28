@@ -41,7 +41,7 @@ function homeGroupKey(key) {
 function stateText(row) {
   const text = row?.pill?.text || ''
   // A renewal says when it falls due, not how long it has waited (AC-RENEW-1).
-  return /^(Your turn|Blocked|No slot|Unplaced|Renews today)$/i.test(text) || /^\d+ ready$/i.test(text) || /^In \d+ days?$/i.test(text) || /^(Due in \d+ days?|Due today|Past due)$/i.test(text) ? text : null
+  return /^(Your turn|Blocked|No slot|Unplaced|Renews today)$/i.test(text) || /^\d+ ready$/i.test(text) || /^In \d+ days?$/i.test(text) || /^(Due in \d+ days?|Due today|Past due|No receipt)$/i.test(text) ? text : null
 }
 
 function actionsFor({ group, row, conversation, student }) {
@@ -101,7 +101,7 @@ export function normalizeHomeQueue({ groups = [], conversations = [], students =
           : group === 'review-release' ? 'Release'
             : group === 'forms' ? 'Overdue'
               : group === 'interviews' ? 'Schedule'
-                : group === 'budget' ? (row.chip || 'Renew') : 'Placement'   // Program Budget: Renew, Review or Submit
+                : group === 'budget' ? (row.chip || 'Renew') : 'Placement'   // Program Budget: Renew, Review, Submit or Receipt
       const tag = conversation?.assigned_staff_profile_id ? 'reply'
         : group === 'messages' ? 'unassigned'
           : String(row.pill?.text || '').toLowerCase()
@@ -194,6 +194,6 @@ export function groupQueue(items = []) {
 }
 
 export function chipCounts(items = []) {
-  const order = ['Sign', 'Reply', 'Release', 'Overdue', 'Schedule', 'Placement', 'Review', 'Submit', 'Renew']
+  const order = ['Sign', 'Reply', 'Release', 'Overdue', 'Schedule', 'Placement', 'Review', 'Submit', 'Receipt', 'Renew']
   return order.map(chip => ({ chip, count: items.filter(item => item.chip === chip).length })).filter(x => x.count)
 }

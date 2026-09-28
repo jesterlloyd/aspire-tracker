@@ -48,7 +48,9 @@ export default function ProgramBudgetView({ source, renderBand, initialFy = null
   const [toast, setToast] = useState(null)
   const [exporting, setExporting] = useState(false)
   const [receiptCount, setReceiptCount] = useState(0)
-  const [sheetFocus, setSheetFocus] = useState(null)   // Filed > Show in Sheet: what the Sheet opens searched for
+  // Filed > Show in Sheet: what the Sheet opens searched for; the Action Center's Missing receipt link
+  // (?tab=sheet&filter=missing-receipt) opens it with that quick filter on.
+  const [sheetFocus, setSheetFocus] = useState(() => { try { const f = new URLSearchParams(window.location.search).get('filter'); return f === 'missing-receipt' ? { filter: f, at: 0 } : null } catch { return null } })
   const [pendingFiles, setPendingFiles] = useState(null)   // files chosen from the header's Add receipts
   const addRef = useRef(null)
   const reloadTimer = useRef(null)
