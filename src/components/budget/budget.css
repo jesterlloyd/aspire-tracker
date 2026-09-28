@@ -371,20 +371,21 @@
 :root[data-style="modern"] .bud-folder-meta, :root[data-style="modern"] .bud-folder-close { color: var(--text-caption); }
 .bud-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 16px 14px; }
 
-/* A filed receipt: no frame; the paper itself lifts on hover and on keyboard focus (Owner). */
-.bud-tile { display: grid; gap: 8px; align-content: start; min-width: 0; padding: 0; border: 0; background: none; font: inherit; text-align: left; color: inherit; cursor: pointer; }
-.bud-tile-paper { display: grid; justify-items: center; padding: 6px 4px 10px; min-width: 0; }
-.bud-tile .bud-rcpt { transition: transform 0.16s ease, box-shadow 0.16s ease; }
-.bud-tile:hover .bud-rcpt, .bud-tile:focus-visible .bud-rcpt { transform: translateY(-4px) rotate(-0.6deg); box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12), 0 14px 26px rgba(0, 0, 0, 0.16); }
-.bud-tile:focus-visible { outline: none; }
-.bud-tile:focus-visible .bud-rcpt { outline: 3px solid var(--color-accent-primary); outline-offset: 3px; }
-@media (prefers-reduced-motion: reduce) { .bud-tile:hover .bud-rcpt, .bud-tile:focus-visible .bud-rcpt { transform: none; } }
-.bud-tile-cap { display: grid; gap: 3px; min-width: 0; }
-.bud-tile-cap b { font-size: 13px; color: var(--folder-ink); overflow-wrap: anywhere; }
-.bud-tile-cap small { font-size: 12px; color: var(--folder-ink-muted); }
-:root[data-style="modern"] .bud-tile-cap b { color: var(--text-heading); }
-:root[data-style="modern"] .bud-tile-cap small { color: var(--text-caption); }
-.bud-tile-tags { display: flex; gap: 4px; flex-wrap: wrap; }
+/* A filed receipt (.bud-ftile; .bud-tile is the KPI card, and sharing that name once stripped the KPI
+   cards' padding): no frame; the paper itself lifts on hover and on keyboard focus (Owner). */
+.bud-ftile { display: grid; gap: 8px; align-content: start; min-width: 0; padding: 0; border: 0; background: none; font: inherit; text-align: left; color: inherit; cursor: pointer; }
+.bud-ftile-paper { display: grid; justify-items: center; padding: 6px 4px 10px; min-width: 0; }
+.bud-ftile .bud-rcpt { transition: transform 0.16s ease, box-shadow 0.16s ease; }
+.bud-ftile:hover .bud-rcpt, .bud-ftile:focus-visible .bud-rcpt { transform: translateY(-4px) rotate(-0.6deg); box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12), 0 14px 26px rgba(0, 0, 0, 0.16); }
+.bud-ftile:focus-visible { outline: none; }
+.bud-ftile:focus-visible .bud-rcpt { outline: 3px solid var(--color-accent-primary); outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) { .bud-ftile:hover .bud-rcpt, .bud-ftile:focus-visible .bud-rcpt { transform: none; } }
+.bud-ftile-cap { display: grid; gap: 3px; min-width: 0; }
+.bud-ftile-cap b { font-size: 13px; color: var(--folder-ink); overflow-wrap: anywhere; }
+.bud-ftile-cap small { font-size: 12px; color: var(--folder-ink-muted); }
+:root[data-style="modern"] .bud-ftile-cap b { color: var(--text-heading); }
+:root[data-style="modern"] .bud-ftile-cap small { color: var(--text-caption); }
+.bud-ftile-tags { display: flex; gap: 4px; flex-wrap: wrap; }
 
 /* The side panel. */
 .bud-fdetail { display: grid; gap: 16px; }

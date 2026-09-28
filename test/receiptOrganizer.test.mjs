@@ -119,8 +119,13 @@ test('every folder starts closed and closes again when the grouping changes (Own
 
 test('a filed receipt has no frame: the paper itself lifts on hover and focus', () => {
   const css = read('src/components/budget/budget.css')
-  assert.match(css, /\.bud-tile:hover \.bud-rcpt, \.bud-tile:focus-visible \.bud-rcpt \{ transform: translateY\(-4px\) rotate\(-0\.6deg\);/)
-  assert.match(css, /\.bud-tile-paper \{ display: grid; justify-items: center; padding: 6px 4px 10px; min-width: 0; \}/, 'no background or border on the holder')
+  assert.match(css, /\.bud-ftile:hover \.bud-rcpt, \.bud-ftile:focus-visible \.bud-rcpt \{ transform: translateY\(-4px\) rotate\(-0\.6deg\);/)
+  assert.match(css, /\.bud-ftile-paper \{ display: grid; justify-items: center; padding: 6px 4px 10px; min-width: 0; \}/, 'no background or border on the holder')
+  // KPI-PAD-1 (Owner, 2026-09-27: the KPI cards' contents sat on their edges): the receipt tile first
+  // shipped as .bud-tile, the KPI card's own class, and its padding: 0 won. The KPI card is the only
+  // .bud-tile rule with a padding, and the filed tile never uses that name again.
+  assert.deepEqual(css.match(/^\.bud-tile \{[^}]*\}/gm), ['.bud-tile { padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }'])
+  assert.doesNotMatch(read('src/components/budget/BudgetFiled.jsx'), /"bud-tile["-]/)
   assert.match(css, /\.bud-modal-back \{ position: fixed; inset: 0; z-index: 2100;/, 'View original opens above the side panel')
 })
 
