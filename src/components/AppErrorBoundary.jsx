@@ -6,6 +6,7 @@
 // and offers the refresh. Styling is inline on purpose: the boundary must render
 // even when a stylesheet is what failed.
 import { Component } from 'react'
+import { reloadToCurrentVersion } from '../lib/lazyReload'
 
 const F = 'Plus Jakarta Sans, sans-serif'
 
@@ -42,7 +43,7 @@ export default class AppErrorBoundary extends Component {
             This page could not be shown. That usually means the app was updated while this
             tab was open. Refreshing loads the current version; nothing you saved is affected.
           </p>
-          <button type="button" onClick={() => window.location.reload()} style={{
+          <button type="button" onClick={() => reloadToCurrentVersion(window.location)} style={{
             height: 38, padding: '0 18px', borderRadius: 'var(--aspire-radius-control, 10px)', border: 0, background: '#1D2567',
             color: '#fff', fontFamily: F, fontSize: 13.5, fontWeight: 600, cursor: 'pointer',
           }}>

@@ -9,7 +9,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
-import { shouldReloadAfterChunkFailure } from '../src/lib/lazyReload.js'
+import { freshAppUrl, shouldReloadAfterChunkFailure } from '../src/lib/lazyReload.js'
 
 const read = p => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8')
 const root = new URL('../', import.meta.url).pathname
@@ -40,6 +40,15 @@ test('a failed chunk reloads once, then gives up to the boundary', () => {
   // Storage that throws (private mode, blocked) still reloads once rather than crashing.
   const broken = { getItem() { throw new Error('blocked') }, setItem() { throw new Error('blocked') } }
   assert.equal(shouldReloadAfterChunkFailure('PortalApp', broken), true)
+})
+
+test('chunk recovery cache-busts the app shell while preserving the deep link', () => {
+  const href = 'https://aspireintelligence.app/evaluation?workflow=caseyFinkPreRotation#queue'
+  const recovered = new URL(freshAppUrl(href, 1_234_567))
+  assert.equal(recovered.pathname, '/evaluation')
+  assert.equal(recovered.searchParams.get('workflow'), 'caseyFinkPreRotation')
+  assert.equal(recovered.searchParams.get('__aspire_reload'), '1234567')
+  assert.equal(recovered.hash, '#queue')
 })
 
 test('every lazy import in src goes through lazyReload, with a stable chunk name', () => {
@@ -101,7 +110,7 @@ test('the boundary wraps the app, and the portal chunk is warmed when the profil
   assert.match(main, /<AppErrorBoundary>\s*<App \/>\s*<\/AppErrorBoundary>/)
   const boundary = read('src/components/AppErrorBoundary.jsx')
   assert.match(boundary, /static getDerivedStateFromError/)
-  assert.match(boundary, /onClick=\{\(\) => window\.location\.reload\(\)\}/)
+  assert.match(boundary, /reloadToCurrentVersion\(window\.location\)/)
   assert.doesNotMatch(boundary, /className=/, 'inline styles only: it must render when a stylesheet is what failed')
   const loader = read('src/lib/portalAppLoader.js')
   assert.match(loader, /export const loadPortalApp = \(\) => import\('\.\.\/portal\/PortalApp'\)/)

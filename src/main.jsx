@@ -10,6 +10,15 @@ import { PresenceProvider } from './contexts/PresenceContext.jsx'
 import { ThemeProvider } from './contexts/ThemeContext.jsx'
 import { setQueryClient } from './lib/supabase.js'
 
+// Remove the one-time chunk-recovery query after the fresh app shell loads.
+// The cache-busted request already happened, so the clean URL can be restored
+// without putting an implementation detail into bookmarks or later navigation.
+const startupUrl = new URL(window.location.href)
+if (startupUrl.searchParams.has('__aspire_reload')) {
+  startupUrl.searchParams.delete('__aspire_reload')
+  window.history.replaceState(null, '', startupUrl.toString())
+}
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {

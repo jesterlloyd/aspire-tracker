@@ -20,12 +20,28 @@ import { lazy } from 'react'
 
 const WINDOW_MS = 2 * 60 * 1000
 const keyFor = (name) => `aspire:chunk-reload:${name}`
+const CACHE_BUSTER = '__aspire_reload'
+
+// A normal location.reload() can reuse a cached app.html. That leaves an old
+// app shell pointing at the same missing hashed chunk, so the retry fails again.
+// Add a one-time query value to force the hosting layer to return the current
+// app shell. The entry point removes the value after the document loads.
+export function freshAppUrl(href, now = Date.now()) {
+  const url = new URL(href)
+  url.searchParams.set(CACHE_BUSTER, String(now))
+  return url.toString()
+}
+
+export function reloadToCurrentVersion(location, now = Date.now()) {
+  if (!location?.replace || !location?.href) return
+  location.replace(freshAppUrl(location.href, now))
+}
 
 // Pure decision, testable without a browser: should a failed load of `name`
 // reload the page? `storage` is Storage-like (getItem/setItem); `now` is ms.
 export function shouldReloadAfterChunkFailure(name, storage, now = Date.now()) {
-  let last = null
-  try { last = storage?.getItem(keyFor(name)) } catch { last = null }
+  let last
+  try { last = storage?.getItem(keyFor(name)) } catch { /* storage blocked */ }
   const lastAt = Number(last)
   if (Number.isFinite(lastAt) && lastAt > 0 && now - lastAt < WINDOW_MS) return false
   try { storage?.setItem(keyFor(name), String(now)) } catch { /* storage blocked: still reload once */ }
@@ -35,7 +51,7 @@ export function shouldReloadAfterChunkFailure(name, storage, now = Date.now()) {
 export function lazyReload(importer, name) {
   return lazy(() => importer().catch((error) => {
     if (typeof window !== 'undefined' && shouldReloadAfterChunkFailure(name, window.sessionStorage)) {
-      window.location.reload()
+      reloadToCurrentVersion(window.location)
       // Never resolves: the page is going away, and resolving to nothing would
       // flash an empty screen first.
       return new Promise(() => {})
