@@ -60,9 +60,21 @@ export async function loadReviewQueues(cohortId) {
 const CATALOG_COLS = 'id, slug, title, kind, is_active, storage_path'
 
 /** AC-RENEW-1: annual renewals to decide. Before the budget tables exist there are simply none. */
+/** Program Budget Phase B (Owner only): receipts waiting for review and Concur still to submit. */
+export async function loadBudgetReview() {
+  try { const q = await budgetStaff('receipts_queue'); return { receipts: q?.receipts || [], concur: q?.concur || [] } }
+  catch (e) { if (e.code === 'not_enabled') return { receipts: [], concur: [] }; throw e }
+}
+
 export async function loadBudgetRenewals() {
   try { return (await budgetStaff('renewals'))?.renewals || [] }
   catch (e) { if (e.code === 'not_enabled') return []; throw e }
+}
+
+/** Everything Program Budget asks of the Owner, one query: renewals, receipts to review, Concur to submit. */
+export async function loadBudgetQueue() {
+  const [renewals, review] = await Promise.all([loadBudgetRenewals(), loadBudgetReview()])
+  return { renewals, ...review }
 }
 
 export async function loadCatalogTracker() {

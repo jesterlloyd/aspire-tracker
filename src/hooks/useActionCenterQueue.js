@@ -7,7 +7,7 @@ import { scopeInterviewsForViewer } from '../lib/interviewsToday'
 import { schoolGroupKey } from '../lib/schoolIdentity'
 import {
   loadMessagesNeedingYou, loadSignaturesList, loadReviewQueues, loadCatalogTracker,
-  loadTodaysInterviews, loadRotationWindows, loadBudgetRenewals,
+  loadTodaysInterviews, loadRotationWindows, loadBudgetQueue,
 } from '../lib/home/homeLoaders'
 import {
   messagesGroup, signaturesGroup, reviewReleaseGroup, formsDocsGroup, interviewsGroup, placementGroup, budgetGroup,
@@ -43,7 +43,7 @@ export function useActionCenterQueue({ enabled = true, includeOtherCohorts = fal
   const qIv = useQuery({ queryKey: ['home_interviews', cohortId, today], queryFn: () => loadTodaysInterviews(cohortId, today), enabled: enabled && !!cohortId, staleTime: 60000 })
   const qRot = useQuery({ queryKey: ['home_rotations', cohortId], queryFn: () => loadRotationWindows(cohortId), enabled: enabled && !!cohortId, staleTime: 300000 })
   // AC-RENEW-1: the Owner's annual renewals to decide. Nobody else is asked (the endpoint would give them none).
-  const qBudget = useQuery({ queryKey: ['home_budget_renewals'], queryFn: loadBudgetRenewals, enabled: enabled && !!isOwner, staleTime: 300000 })
+  const qBudget = useQuery({ queryKey: ['home_budget_queue'], queryFn: loadBudgetQueue, enabled: enabled && !!isOwner, staleTime: 300000 })
   const qSnooze = useQuery({
     queryKey: ['action_snoozes', userProfile?.id],
     queryFn: async () => {
@@ -123,7 +123,7 @@ export function useActionCenterQueue({ enabled = true, includeOtherCohorts = fal
       students, units, rotations: qRot.data, schoolKey: schoolGroupKey,
       unitNameFor: id => unitById.get(id) || '', displayName: firstNameFirst, today, now,
     }))
-    if (qBudget.data) out.push(budgetGroup({ renewals: qBudget.data }))
+    if (qBudget.data) out.push(budgetGroup(qBudget.data))
     return out.filter(Boolean)
   }, [qSig.data, qMessages.data, qRR.data, qCat.data, qIv.data, qRot.data, qBudget.data, scopedSlots, personalConversations, students, communications, units, unitById, userProfile?.id, sigFlag.allowed, today, now])
 
@@ -180,7 +180,7 @@ export function useActionCenterQueue({ enabled = true, includeOtherCohorts = fal
     queryClient.invalidateQueries({ queryKey: ['home_interviews', cohortId, today] })
     queryClient.invalidateQueries({ queryKey: ['home_rotations', cohortId] })
     queryClient.invalidateQueries({ queryKey: ['action_support_checkins', cohortId] })
-    queryClient.invalidateQueries({ queryKey: ['home_budget_renewals'] })
+    queryClient.invalidateQueries({ queryKey: ['home_budget_queue'] })
   }, [queryClient, cohortId, today])
 
   return {

@@ -168,3 +168,126 @@
 .bud-approve-menu { position: absolute; right: 0; top: calc(100% + 4px); }
 @media (max-width: 760px) { .bud-prop-head, .bud-prop-row { grid-template-columns: minmax(0, 1fr) auto var(--bud-act-w); } .bud-prop-head span:nth-child(3), .bud-prop-head span:nth-child(4), .bud-prop-row .n:nth-child(3), .bud-prop-row .n:nth-child(4) { display: none; } }
 
+
+/* ── Receipts (PROGRAM-BUDGET Phase B, BUDGET-B3, 2026-09-27) ─────────────────────────────────
+   The mockup's Receipts tab (docs/mockups/program-budget.html). A slip is a card (SurfaceCard's
+   tokens: radius, shadow as the edge); the receipt on it is PAPER, square and lifted on a shadow,
+   in a fixed ink on a fixed ground, the same in both themes (a colour pair travels together). In
+   Classic the slips sit on the Review & Release pressboard; Modern turns the board off. */
+.bud-receipts { display: flex; flex-direction: column; gap: var(--aspire-gap-card); min-width: 0; }
+.bud-receipts.bud-dragging .bud-drop { outline: 2px dashed var(--color-accent-primary); outline-offset: 3px; }
+.bud-drop { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 6px 14px; align-items: center; padding: 16px 18px; border: 1px dashed var(--color-border-default); box-shadow: none; }
+.bud-drop-icon { color: var(--color-accent-primary); }
+.bud-drop-text b { display: block; font-size: 15px; color: var(--text-heading); }
+.bud-drop-text small { font-size: 12.5px; color: var(--text-caption); line-height: 1.45; }
+.bud-drop-count { grid-column: 2 / -1; justify-self: end; font: 500 11.5px var(--aspire-mono); color: var(--text-caption); }
+@media (max-width: 700px) { .bud-drop { grid-template-columns: auto minmax(0, 1fr); } .bud-drop .bud-btn { grid-column: 1 / -1; justify-self: start; } .bud-drop-count { grid-column: 1 / -1; justify-self: start; } }
+.bud-qhead { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.bud-qhead h2 { margin: 0; font-size: 16px; color: var(--text-heading); }
+.bud-qhead span { font-size: 12.5px; color: var(--text-caption); }
+
+.bud-rboard {
+  border-radius: var(--aspire-radius-card); padding: 18px;
+  background-color: var(--aspire-pressboard-b);
+  background-image: var(--aspire-noise-pressboard), linear-gradient(180deg, var(--aspire-pressboard-a), var(--aspire-pressboard-b) 58%, var(--aspire-pressboard-c));
+  background-blend-mode: soft-light, normal;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 2px 4px rgba(16, 20, 35, 0.3);
+}
+:root[data-style="modern"] .bud-rboard { padding: 0; background: none; box-shadow: none; }
+.bud-slips { display: grid; gap: 14px; }
+.bud-slip { display: grid; grid-template-columns: 260px minmax(0, 1fr); min-width: 0; overflow: hidden; background: var(--color-bg-surface); border-radius: var(--aspire-radius-card); box-shadow: var(--aspire-shadow-card); }
+@media (max-width: 900px) { .bud-slip { grid-template-columns: minmax(0, 1fr); } }
+.bud-slip-side { display: grid; justify-items: center; align-content: start; gap: 8px; padding: 16px; background: var(--color-bg-hover); border-right: 1px solid var(--color-border-subtle); }
+@media (max-width: 900px) { .bud-slip-side { border-right: 0; border-bottom: 1px solid var(--color-border-subtle); } }
+.bud-slip-fname { font: 500 11px var(--aspire-mono); color: var(--text-caption); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* The drawn receipt: the mockup's .rcpt. */
+.bud-rcpt { width: 100%; max-width: 220px; box-sizing: border-box; padding: 14px 12px 18px; background: #FFFEFA; color: #2A2A2A; font: 10.5px/1.45 var(--aspire-mono); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12), 0 6px 14px rgba(0, 0, 0, 0.08); }
+.bud-rcpt .c { text-align: center; overflow-wrap: anywhere; }
+.bud-rcpt .hd { font-weight: 600; font-size: 12px; letter-spacing: 0.06em; }
+.bud-rcpt hr { border: 0; border-top: 1px dashed #9A9A9A; margin: 7px 0; }
+.bud-rcpt .l { display: flex; justify-content: space-between; gap: 8px; }
+.bud-rcpt .l span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bud-rcpt .sub { padding-left: 6px; color: #555; text-align: left; }
+.bud-rcpt .tot { font-weight: 700; font-size: 11.5px; }
+.bud-rcpt .hl { background: rgba(230, 165, 68, 0.35); outline: 1.5px solid #C98A1E; }
+.bud-rcpt-bar { display: inline-block; width: 64px; height: 11px; background: #2A2A2A; align-self: center; }
+.bud-rcpt-blank { color: #6B6B6B; }
+
+.bud-slip-prop { display: grid; gap: 12px; align-content: start; padding: 16px 18px; min-width: 0; }
+.bud-slip-head { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; flex-wrap: wrap; }
+.bud-slip-head b { display: block; font-size: 16px; color: var(--text-heading); }
+.bud-slip-head small { font-size: 12.5px; color: var(--text-caption); }
+.bud-by { display: inline-flex; align-items: center; gap: 6px; font: 600 10.5px var(--aspire-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-caption); }
+.bud-by svg { color: var(--color-accent-primary); }
+.bud-slip-meta { display: grid; grid-template-columns: 150px minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+.bud-slip-meta-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.bud-slip-meta label, .bud-fld, .bud-rule-param { display: grid; gap: 4px; min-width: 0; }
+.bud-slip-meta label span, .bud-fld > span, .bud-rule-param span { font-size: 12px; font-weight: 700; color: var(--text-heading); }
+.bud-slip-meta .bud-input { width: 100%; box-sizing: border-box; }
+@media (max-width: 640px) { .bud-slip-meta, .bud-slip-meta-2 { grid-template-columns: minmax(0, 1fr); } }
+.bud-lines { display: grid; gap: 6px; }
+.bud-line { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1.1fr) 64px 96px 28px; gap: 8px; align-items: center; }
+.bud-line .bud-input { width: 100%; box-sizing: border-box; }
+.bud-line-head span { font: 600 10.5px var(--aspire-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-caption); }
+.bud-line-head span:nth-child(3), .bud-line-head span:nth-child(4) { text-align: right; }
+.bud-num { text-align: right; font-variant-numeric: tabular-nums; }
+.bud-line-why { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; margin: 2px 0 4px; font-size: 12px; color: var(--text-caption); }
+.bud-conf { display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: var(--aspire-radius-pill); font-size: 11.5px; font-weight: 700; white-space: nowrap; }
+.bud-conf-high { background: var(--pill-ok-bg); color: var(--pill-ok-fg); }
+.bud-conf-medium { background: var(--pill-info-bg); color: var(--pill-info-fg); }
+.bud-conf-low { background: var(--pill-warn-bg); color: var(--pill-warn-fg); }
+@media (max-width: 640px) { .bud-line { grid-template-columns: minmax(0, 1fr) 64px 90px 28px; } .bud-line select { grid-column: 1 / -1; grid-row: 2; } .bud-line-head { display: none; } }
+.bud-iconbtn { display: inline-grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: var(--aspire-radius-control); background: none; color: var(--text-caption); cursor: pointer; }
+.bud-iconbtn:hover:not(:disabled) { background: var(--color-bg-hover); color: var(--text-heading); }
+.bud-iconbtn:disabled { opacity: 0.35; cursor: default; }
+.bud-linkbtn { justify-self: start; display: inline-flex; align-items: center; gap: 4px; padding: 2px 0; border: 0; background: none; color: var(--color-accent-primary); font: 600 12.5px var(--aspire-sans); cursor: pointer; }
+.bud-linkbtn:hover { text-decoration: underline; }
+.bud-meal { display: grid; gap: 10px; margin: 0; padding: 12px; border: 1px solid var(--color-border-subtle); border-radius: var(--aspire-radius-control); }
+.bud-meal legend { padding: 0 4px; font-size: 12.5px; font-weight: 700; color: var(--text-heading); }
+.bud-att { display: grid; gap: 6px; }
+.bud-att-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)) 28px; gap: 6px; align-items: center; }
+.bud-att-row .bud-input { width: 100%; box-sizing: border-box; }
+.bud-att-head span { font-size: 11.5px; font-weight: 700; color: var(--text-caption); }
+@media (max-width: 760px) { .bud-att-row { grid-template-columns: repeat(2, minmax(0, 1fr)) 28px; } .bud-att-head { display: none; } }
+.bud-checks { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.bud-check { padding: 9px 12px; border-radius: var(--aspire-radius-control); font-size: 13px; line-height: 1.45; }
+.bud-check-block { background: var(--aspire-bad-soft); color: var(--aspire-bad); font-weight: 600; }
+.bud-check-warn { background: var(--pill-warn-bg); color: var(--pill-warn-fg); }
+.bud-check-info { background: var(--pill-info-bg); color: var(--pill-info-fg); }
+.bud-check-ok { background: var(--pill-ok-bg); color: var(--pill-ok-fg); }
+[data-theme="dark"] .bud-check-block { background: color-mix(in srgb, var(--aspire-bad) 16%, transparent); }
+.bud-files { margin: 0; font-size: 12.5px; color: var(--text-caption); }
+.bud-files code { font: 500 11.5px var(--aspire-mono); color: var(--text-heading); background: var(--color-bg-hover); padding: 2px 6px; border-radius: var(--aspire-radius-pill); overflow-wrap: anywhere; }
+.bud-slip-acts { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding-top: 12px; border-top: 1px solid var(--color-border-subtle); }
+.bud-grow { flex: 1 1 auto; }
+.bud-btn-danger { color: var(--aspire-bad); }
+.bud-reading { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 13.5px; color: var(--text-heading); }
+.bud-spin { width: 16px; height: 16px; border: 2px solid var(--color-border-default); border-top-color: var(--color-accent-primary); border-radius: var(--aspire-radius-pill); animation: bud-spin 0.8s linear infinite; }
+@keyframes bud-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .bud-spin { animation: none; } }
+.bud-recent { display: grid; gap: 0; margin: 10px 0 0; padding: 0; list-style: none; }
+.bud-recent li { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; padding: 8px 0; border-top: 1px solid var(--color-border-subtle); font-size: 13px; color: var(--text-heading); }
+.bud-recent small { font-size: 12px; color: var(--text-caption); overflow-wrap: anywhere; }
+.bud-disclose { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; width: 100%; padding: 0; border: 0; background: none; text-align: left; cursor: pointer; font: inherit; }
+.bud-disclose small { font-size: 12px; color: var(--text-caption); }
+.bud-rules { display: grid; gap: 10px; margin-top: 12px; }
+.bud-rule { display: grid; gap: 6px; padding: 12px 0; border-top: 1px solid var(--color-border-subtle); }
+.bud-rule small { font-size: 11.5px; color: var(--text-caption); }
+.bud-rule .bud-btn { justify-self: start; }
+.bud-rule-on { display: flex; gap: 8px; align-items: center; font-size: 13.5px; color: var(--text-heading); }
+.bud-rule-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: end; }
+.bud-rule-param .bud-input { width: 110px; }
+.bud-pcard .bud-input { width: 140px; }
+.bud-toast-act { flex: none; margin-left: 4px; padding: 0 10px; height: 26px; border: 1px solid rgba(255, 255, 255, 0.55); border-radius: var(--aspire-radius-control); background: none; color: inherit; font: 700 12.5px var(--aspire-sans); cursor: pointer; }
+.bud-toast-act:hover, .bud-toast-act:focus-visible { background: rgba(255, 255, 255, 0.16); }
+
+/* View original. */
+.bud-modal-back { position: fixed; inset: 0; z-index: 95; display: grid; place-items: center; padding: 24px 16px; background: rgba(12, 16, 32, 0.55); }
+.bud-modal { display: grid; grid-template-rows: auto minmax(0, 1fr); width: min(900px, 100%); height: min(88vh, 1000px); background: var(--color-bg-surface); border-radius: var(--aspire-radius-card); box-shadow: 0 24px 64px rgba(0, 0, 0, 0.35); outline: none; overflow: hidden; }
+.bud-modal-head { display: flex; gap: 8px; align-items: center; padding: 12px 14px; border-bottom: 1px solid var(--color-border-subtle); }
+.bud-modal-head b { font-size: 13.5px; color: var(--text-heading); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.bud-modal-body { display: grid; place-items: center; min-height: 0; overflow: auto; background: var(--color-bg-hover); }
+.bud-modal-body img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.bud-modal-body iframe { width: 100%; height: 100%; border: 0; background: #fff; }
+.bud-rc-open { border: 0; background: none; padding: 0; font: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }

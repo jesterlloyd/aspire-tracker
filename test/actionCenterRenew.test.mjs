@@ -29,8 +29,9 @@ test('the Program Budget group lists renewals soonest first, and hides itself wh
   assert.equal(g.key, 'budget')
   assert.equal(g.name, 'Program Budget')
   assert.deepEqual(g.rows.map(r => r.id), ['renew:b', 'renew:a'], 'the renewal five days out leads')
+  // BUDGET-B4 (2026-09-27): each budget row names its own chip (Renew, Review or Submit).
   assert.deepEqual(g.rows[1], {
-    id: 'renew:a', title: 'Survey platform · $600.00', meta: 'Renews Oct 15, 2026 · in 18 days · P-card',
+    id: 'renew:a', chip: 'Renew', title: 'Survey platform · $600.00', meta: 'Renews Oct 15, 2026 · in 18 days · P-card',
     pill: { text: 'In 18 days', tone: 'amber' }, ageMs: 28 * 86400000, to: '/settings/budget?tab=subscriptions',
   })
   assert.equal(g.rows[0].pill.tone, 'red', 'a week or less is red')
@@ -102,8 +103,10 @@ test('the endpoint gives the Owner the renewals and everyone else none', async (
 
 test('both queues ask only for the Owner, and Open lands on the Subscriptions tab', () => {
   const hook = read('src/hooks/useActionCenterQueue.js')
-  assert.match(hook, /queryKey: \['home_budget_renewals'\], queryFn: loadBudgetRenewals, enabled: enabled && !!isOwner/)
-  assert.match(hook, /if \(qBudget\.data\) out\.push\(budgetGroup\(\{ renewals: qBudget\.data \}\)\)/)
+  // BUDGET-B4 (2026-09-27) folded renewals into one Program Budget query with receipts to review and
+  // Concur to submit (loadBudgetQueue); still Owner only, still the budget group.
+  assert.match(hook, /queryKey: \['home_budget_queue'\], queryFn: loadBudgetQueue, enabled: enabled && !!isOwner/)
+  assert.match(hook, /if \(qBudget\.data\) out\.push\(budgetGroup\(qBudget\.data\)\)/)
   const home = read('src/components/OverviewTab.jsx')
   assert.match(home, /if \(isOwner\) out\.push\(\{ key: 'budget', status: qStatus\(qBudget\)/)
   assert.match(read('src/lib/home/homeLoaders.js'), /if \(e\.code === 'not_enabled'\) return \[\]/, 'before the budget tables, there are simply none')

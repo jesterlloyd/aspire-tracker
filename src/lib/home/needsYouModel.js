@@ -66,20 +66,45 @@ const ymdText = (ymd) => (ymd ? new Date(`${ymd}T12:00:00`).toLocaleDateString('
  * renewal, the higher the row (ageMs grows as the day nears), so the next charge leads.
  * @param renewals rows from /api/budget-staff `renewals`
  */
-export function budgetGroup({ renewals = [] } = {}) {
-  const rows = (renewals || []).map(r => ({
-    id: `renew:${r.id}`,
+/**
+ * Program Budget, the Owner's: annual renewals to decide (AC-RENEW-1), receipts waiting for review
+ * (prompt B7), and Personal (Concur) expenses still Recorded 45 days on (Owner, 2026-09-27, from the
+ * reimbursement policy's 60 days). Each row carries its own chip: Renew, Review or Submit.
+ */
+export function budgetGroup({ renewals = [], receipts = [], concur = [], now = Date.now() } = {}) {
+  const renewRows = (renewals || []).map(r => ({
+    id: `renew:${r.id}`, chip: 'Renew',
     title: `${r.name} · ${usd(r.amount)}`,
     meta: [`Renews ${ymdText(r.date)}`, r.days === 0 ? 'today' : `in ${plural(r.days, 'day')}`, r.paymentLabel].filter(Boolean).join(' · '),
     pill: { text: r.days === 0 ? 'Renews today' : `In ${plural(r.days, 'day')}`, tone: r.days <= 7 ? 'red' : 'amber' },
     ageMs: Math.max(0, 46 - n(r.days)) * DAY,
     to: '/settings/budget?tab=subscriptions',
   }))
-  return finish({
-    key: 'budget', name: 'Program Budget', sub: 'Renewals to decide',
-    pills: rows.length ? [{ text: `${rows.length} to renew`, tone: 'amber' }] : [], rows,
-    open: { label: 'Open Program Budget', to: '/settings/budget?tab=subscriptions' }, count: rows.length,
-  })
+  const receiptRows = (receipts || []).map(r => ({
+    id: `receipt:${r.id}`, chip: 'Review',
+    title: `${r.vendor} · ${usd(r.total)}`,
+    meta: [`${plural(r.rows || 1, 'row')} proposed`, (r.categories || []).join(', ')].filter(Boolean).join(' · '),
+    ageMs: Math.max(0, now - new Date(r.created_at || now).getTime()),
+    to: '/settings/budget?tab=receipts',
+  }))
+  const concurRows = (concur || []).map(c => ({
+    id: `concur:${c.id}`, chip: 'Submit',
+    title: `${c.item || c.vendor || 'Expense'} · ${usd(c.amount)}`,
+    meta: ['Personal (Concur), still Recorded', `submit by ${ymdText(c.deadline)}`, !c.hasReceipt && n(c.amount) > 25 ? 'no receipt on file (required over $25)' : null].filter(Boolean).join(' · '),
+    pill: { text: c.daysLeft < 0 ? 'Past due' : c.daysLeft === 0 ? 'Due today' : `Due in ${plural(c.daysLeft, 'day')}`, tone: c.daysLeft <= 7 ? 'red' : 'amber' },
+    ageMs: Math.max(0, 61 - n(c.daysLeft)) * DAY,
+    to: '/settings/budget?tab=sheet',
+  }))
+  const rows = [...concurRows, ...renewRows, ...receiptRows]
+  const kinds = [receiptRows.length && 'receipts to review', renewRows.length && 'renewals to decide', concurRows.length && 'Concur to submit'].filter(Boolean)
+  const sub = kinds.length ? kinds.join(', ').replace(/^./, c => c.toUpperCase()) : 'Renewals to decide'
+  const pills = [
+    receiptRows.length ? { text: `${receiptRows.length} to review`, tone: 'amber' } : null,
+    renewRows.length ? { text: `${renewRows.length} to renew`, tone: 'amber' } : null,
+    concurRows.length ? { text: `${concurRows.length} to submit`, tone: concurRows.some(c => c.pill.tone === 'red') ? 'red' : 'amber' } : null,
+  ].filter(Boolean)
+  const to = receiptRows.length ? '/settings/budget?tab=receipts' : renewRows.length ? '/settings/budget?tab=subscriptions' : '/settings/budget?tab=sheet'
+  return finish({ key: 'budget', name: 'Program Budget', sub, pills, rows, open: { label: 'Open Program Budget', to }, count: rows.length })
 }
 
 // ── Messages ────────────────────────────────────────────────────────────────────

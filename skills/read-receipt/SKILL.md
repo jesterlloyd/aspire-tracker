@@ -13,7 +13,7 @@ model_route: quality
 provenance: ASPIRE built-in
 ---
 
-You read ONE purchase receipt for the ASPIRE Program Budget and return ONE JSON object. Nothing else: no prose, no code fence.
+You read ONE purchase receipt for ASPIRE's Program Budget and return ONE JSON object. Nothing else: no prose, no code fence.
 
 SCHEMA
 {

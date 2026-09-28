@@ -12,9 +12,10 @@
 // prompt's closed-year locks are retired). Every change is logged; readers stay read-only.
 // Invariants 3, 5 and 6 hold here too: one number per column, status one word in a pill,
 // missing an en dash.
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Check } from 'lucide-react'
 import EditableSheet from '../sheet/EditableSheet'
+import ReceiptOriginal from './ReceiptOriginal'
 import { Pill } from '../shared/DataSheet'
 import { PAYMENT_METHODS, STATUSES, statusesFor, statusLabel, statusTone, paymentKey, statusKey, dateText, monthOf, pacificToday, fiscalYearRange } from '../../lib/budget/budgetModel'
 
@@ -51,6 +52,11 @@ const shownOf = (row, key) => (key === '@date' ? dateText(row.raw.expense_date, 
 const searchValues = (r) => [r.raw.item, r.raw.vendor, r.raw.order_number, r.raw.notes]
 
 export default function BudgetSheet({ year, canEdit, onWrite }) {
+  const [original, setOriginal] = useState(null)   // Phase B: the filed receipt, opened from its row
+  const openReceipt = async (row) => {
+    setOriginal({ slip: { file_name: row.raw.item || 'Receipt' }, loading: true })
+    try { setOriginal({ slip: { file_name: row.raw.item || 'Receipt' }, ...(await onWrite.call('expense_receipt', { expense_id: row.id })) }) } catch (e) { setOriginal(null); onWrite.notify(e.message, 'err') }
+  }
   const cats = useMemo(() => new Map(year.categories.map(c => [c.id, c.name])), [year.categories])
   const catIds = useMemo(() => new Map(year.categories.map(c => [c.name, c.id])), [year.categories])
   const cohorts = useMemo(() => new Map(year.cohorts.map(c => [c.id, c.name])), [year.cohorts])
@@ -105,6 +111,8 @@ export default function BudgetSheet({ year, canEdit, onWrite }) {
   const newDate = today >= range.start && today <= range.end ? today : range.start
 
   return (
+    <>
+    {original && <ReceiptOriginal original={original} onClose={() => setOriginal(null)} />}
     <EditableSheet
       key={year.fy}
       initialRows={rows}
@@ -128,7 +136,13 @@ export default function BudgetSheet({ year, canEdit, onWrite }) {
       renderCell={(row, col, text) => {
         if (col.key === 'item') return <>{text || DASH}{row.raw.subscription_id && <span className="bud-subtag">Subscription</span>}</>
         if (col.key === 'status') return row.raw.status ? <Pill tone={TONE[statusTone(row.raw.status)]}>{statusLabel(row.raw.status)}</Pill> : DASH
-        if (col.key === 'receipt') return row.raw.hasReceipt ? <span className="bud-rc" title={canEdit ? 'Receipt on file' : 'Receipt on file (the file is not shared)'}><Check size={13} aria-hidden="true" />On file</span> : DASH
+        if (col.key === 'receipt') {
+          if (!row.raw.hasReceipt) return DASH
+          // The Owner opens the filed original; everyone else learns only that one is on file (decision 5).
+          return canEdit
+            ? <button type="button" className="bud-rc bud-rc-open" title="View the original receipt" onClick={() => openReceipt(row)}><Check size={13} aria-hidden="true" />On file</button>
+            : <span className="bud-rc" title="Receipt on file (the file is not shared)"><Check size={13} aria-hidden="true" />On file</span>
+        }
         if (col.staff) return undefined
         return text === '' || text == null ? DASH : undefined
       }}
@@ -143,5 +157,6 @@ export default function BudgetSheet({ year, canEdit, onWrite }) {
       }}
       notify={onWrite.notify}
     />
+    </>
   )
 }

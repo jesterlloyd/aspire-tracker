@@ -12,24 +12,29 @@
 // plan is saved. A year that has not started shows the Start form (the owner) or "isn't
 // published yet" (a reader) in place of Summary, Sheet and Allocations.
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Download } from 'lucide-react'
+import { Download, ReceiptText } from 'lucide-react'
 import SegmentedPicker from '../shared/SegmentedPicker'
 import BudgetSummary from './BudgetSummary'
 import BudgetSheet from './BudgetSheet'
 import BudgetSubscriptions from './BudgetSubscriptions'
 import BudgetAllocations from './BudgetAllocations'
+import BudgetReceipts from './BudgetReceipts'
+import { inlineBadgeStyle } from '../../lib/badgeTokens'
 import BudgetStart from './BudgetStart'
-import { saveXlsx } from './budgetApi'
+import { saveXlsx, budgetStaff } from './budgetApi'
 import { fyShort, fyRangeText, STATE_CHIP, currentFiscalYear } from '../../lib/budget/budgetModel'
 import '../forms/forms.css'
 import './budget.css'
 
 const NOT_ENABLED = 'Program Budget is not enabled yet. Its database update (20261009000000_program_budget_phase_a.sql) has not been applied.'
 
-function tabsFor(year, canEdit) {
+// Tab order (prompt, decision 10): Summary, Sheet, Subscriptions, Receipts, Allocations. Receipts is
+// the Owner's alone (decision 5).
+function tabsFor(year, canEdit, receiptCount = 0) {
   // A reader sees Subscriptions before the year starts when there are proposals to look at (SUB-APPROVAL-1).
   if (year.state === 'not_started') return [{ value: 'summary', label: canEdit ? `Start ${year.label}` : 'Summary' }, ...(canEdit || year.proposals?.count ? [{ value: 'subscriptions', label: 'Subscriptions' }] : [])]
   const t = [{ value: 'summary', label: 'Summary' }, { value: 'sheet', label: 'Sheet' }, { value: 'subscriptions', label: 'Subscriptions' }]
+  if (canEdit) t.push({ value: 'receipts', label: receiptCount ? <>Receipts<span style={{ ...inlineBadgeStyle, marginLeft: 6 }} aria-label={`${receiptCount} waiting`}>{receiptCount}</span></> : 'Receipts' })
   if (canEdit || year.budget?.plan_saved_at) t.push({ value: 'allocations', label: 'Allocations' })
   return t
 }
@@ -42,13 +47,17 @@ export default function ProgramBudgetView({ source, renderBand, initialFy = null
   const [tab, setTab] = useState(() => { try { return new URLSearchParams(window.location.search).get('tab') || 'summary' } catch { return 'summary' } })
   const [toast, setToast] = useState(null)
   const [exporting, setExporting] = useState(false)
+  const [receiptCount, setReceiptCount] = useState(0)
+  const [pendingFiles, setPendingFiles] = useState(null)   // files chosen from the header's Add receipts
+  const addRef = useRef(null)
   const reloadTimer = useRef(null)
   const toastTimer = useRef(null)
 
-  const notify = useCallback((message, kind = 'ok') => {
+  // A toast may carry one action (Receipts: Undo for 5 seconds, prompt B6).
+  const notify = useCallback((message, kind = 'ok', action = null) => {
     clearTimeout(toastTimer.current)
-    setToast({ message, kind })
-    toastTimer.current = setTimeout(() => setToast(null), kind === 'err' ? 8000 : 4000)
+    setToast({ message, kind, action })
+    toastTimer.current = setTimeout(() => setToast(null), action?.ms || (kind === 'err' ? 8000 : 4000))
   }, [])
   const load = useCallback(async (which) => {
     try {
@@ -65,6 +74,13 @@ export default function ProgramBudgetView({ source, renderBand, initialFy = null
   useEffect(() => () => { clearTimeout(reloadTimer.current); clearTimeout(toastTimer.current) }, [])
 
   const canEdit = !!year?.can_edit && !!source.write
+  // The Receipts tab's count, before the tab is opened: receipts waiting for review.
+  useEffect(() => {
+    if (!canEdit) return undefined
+    let live = true
+    budgetStaff('receipts_queue').then(q => { if (live) setReceiptCount(q.receipts?.length || 0) }).catch(() => {})
+    return () => { live = false }
+  }, [canEdit])
   // Writes go through the one staff endpoint. `run` reports and reloads; `call` is for the
   // sheets, which keep their own rows and only ask the rest of the page to catch up.
   const onWrite = {
@@ -93,6 +109,11 @@ export default function ProgramBudgetView({ source, renderBand, initialFy = null
         <select id="bud-fy" value={year.fy} onChange={e => { setTab('summary'); setFy(Number(e.target.value)) }}>
           {year.years.map(y => <option key={y} value={y}>{fyShort(y)}</option>)}
         </select></label>
+      {canEdit && (<>
+        <button type="button" className="bud-btn" onClick={() => addRef.current?.click()}><ReceiptText size={15} aria-hidden="true" />Add receipts</button>
+        <input ref={addRef} type="file" accept="image/*,application/pdf,.pdf,.eml,message/rfc822,.heic,.heif" multiple hidden
+          onChange={e => { const f = [...e.target.files]; e.target.value = ''; if (f.length) { setPendingFiles(f); setTab('receipts') } }} />
+      </>)}
       {year.state !== 'not_started' && <button type="button" className="bud-btn bud-btn-pri" onClick={exportXlsx} disabled={exporting}><Download size={15} aria-hidden="true" />{exporting ? 'Preparing…' : 'Export to Excel'}</button>}
     </div>
   )
@@ -101,7 +122,7 @@ export default function ProgramBudgetView({ source, renderBand, initialFy = null
   if (error) return <>{band}<div className="bud-empty bud-error" role="alert">{error}</div></>
   if (!year) return <>{band}<div className="bud-empty">Loading the budget…</div></>
 
-  const tabs = tabsFor(year, canEdit)
+  const tabs = tabsFor(year, canEdit, receiptCount)
   const current = tabs.some(t => t.value === tab) ? tab : 'summary'
   const notStarted = year.state === 'not_started'
 
@@ -117,6 +138,7 @@ export default function ProgramBudgetView({ source, renderBand, initialFy = null
         {toast && (
           <div className={`bud-toast${toast.kind === 'err' ? ' bud-toast-err' : ''}`} role={toast.kind === 'err' ? 'alert' : 'status'}>
             <span>{toast.message}</span>
+            {toast.action && <button type="button" className="bud-toast-act" onClick={() => { const run = toast.action.run; setToast(null); run() }}>{toast.action.label}</button>}
             <button type="button" className="bud-toast-x" aria-label="Dismiss" onClick={() => setToast(null)}>×</button>
           </div>
         )}
@@ -126,6 +148,10 @@ export default function ProgramBudgetView({ source, renderBand, initialFy = null
           : <BudgetSummary key={year.fy} year={year} canEdit={canEdit} onWrite={onWrite} />)}
         {current === 'sheet' && <BudgetSheet year={year} canEdit={canEdit} onWrite={onWrite} />}
         {current === 'subscriptions' && <BudgetSubscriptions year={year} canEdit={canEdit} onWrite={onWrite} />}
+        {current === 'receipts' && canEdit && (
+          <BudgetReceipts year={year} onWrite={onWrite} pendingFiles={pendingFiles} onPendingTaken={() => setPendingFiles(null)} onCount={setReceiptCount}
+            onStartYear={(y) => { setTab('summary'); setFy(y) }} />
+        )}
         {current === 'allocations' && <BudgetAllocations key={`${year.fy}-${year.budget?.plan_saved_at || ''}`} year={year} canEdit={canEdit} onWrite={onWrite} />}
       </div>
     </>

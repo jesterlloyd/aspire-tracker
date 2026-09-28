@@ -52,3 +52,40 @@ export function saveXlsx({ fileName, xlsx }) {
   const a = document.createElement('a'); a.href = url; a.download = fileName; document.body.appendChild(a); a.click(); a.remove()
   setTimeout(() => URL.revokeObjectURL(url), 30000)
 }
+
+// ── Receipts (PROGRAM-BUDGET Phase B) ───────────────────────────────────────────
+
+export const RECEIPT_BUCKET = 'record-documents'
+const IMAGE_KEEP_BYTES = 4 * 1024 * 1024   // under the model's 5 MB image limit with room to spare
+const IMAGE_MAX_SIDE = 2400
+
+/**
+ * A file as the receipt Keith will read. PDFs and saved emails go as they are; a photo too large
+ * for Keith, or in a format it does not read (HEIC from an iPhone, when the browser can open it),
+ * is redrawn here as a JPEG. No library: the browser's own decoder and a canvas.
+ */
+export async function prepareReceiptFile(file) {
+  const name = file.name || 'receipt'
+  if (/\.eml$/i.test(name) || file.type === 'message/rfc822') return new File([file], name, { type: 'message/rfc822' })
+  if (file.type === 'application/pdf' || /\.pdf$/i.test(name)) return new File([file], name, { type: 'application/pdf' })
+  const ok = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)
+  if (ok && file.size <= IMAGE_KEEP_BYTES) return file
+  if (!file.type.startsWith('image/') && !/\.(heic|heif)$/i.test(name)) throw new Error(`${name} is not a photo, a PDF or a saved order email.`)
+  let bitmap
+  try { bitmap = await createImageBitmap(file) } catch {
+    throw new Error(`${name} could not be opened in this browser. Save it as a JPEG or PDF and add it again.`)
+  }
+  const scale = Math.min(1, IMAGE_MAX_SIDE / Math.max(bitmap.width, bitmap.height))
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.round(bitmap.width * scale); canvas.height = Math.round(bitmap.height * scale)
+  canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height)
+  const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.85))
+  if (!blob) throw new Error(`${name} could not be prepared. Save it as a JPEG or PDF and add it again.`)
+  return new File([blob], name.replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' })
+}
+
+/** Upload the bytes to the signed URL the server issued for this receipt. */
+export async function uploadReceiptFile(upload, file) {
+  const { error } = await supabase.storage.from(RECEIPT_BUCKET).uploadToSignedUrl(upload.path, upload.token, file, { contentType: file.type })
+  if (error) throw new Error('The receipt could not be uploaded. Try again.')
+}

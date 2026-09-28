@@ -56,7 +56,7 @@ export function findDuplicate(draft, expenses = []) {
  *   proposal      Keith's reading (document_type, tip, subtotal, card_last4, adds_up)
  *   duplicateFile the accepted receipt with the same file, if any
  *   today         YYYY-MM-DD
- * Returns { checks, duplicate, fy, fyStarted, blocked, blockers }.
+ * Returns { checks, duplicate, fy, fyStarted, blocked, blockers, attachBlocked, attachBlockers }.
  */
 export function receiptChecks(draft, ctx = {}) {
   const { expenses = [], years = new Map(), rules = [], pcardLast4 = '', proposal = {}, duplicateFile = null, today } = ctx
@@ -166,9 +166,15 @@ export function receiptChecks(draft, ctx = {}) {
   policy(ruleOf('gifts'), flagged('gift', 'gift_card'))
   policy(ruleOf('card_statement'), proposal.document_type === 'card_statement')
 
-  // An attach (duplicate) posts nothing new, so only the checks about the file itself stop it.
-  const blockers = checks.filter(c => c.tone === 'block' && (!duplicate || ['date'].includes(c.key)))
-  return { checks, duplicate, fy, fyStarted, blocked: blockers.length > 0, blockers: blockers.map(b => b.text) }
+  // Posting new rows waits for every block. Attaching to the duplicate's row posts nothing new, so
+  // only the date stops it (the meals documentation then lives on the row it attaches to).
+  const blockers = checks.filter(c => c.tone === 'block')
+  const attachBlockers = blockers.filter(c => c.key === 'date')
+  return {
+    checks, duplicate, fy, fyStarted,
+    blocked: blockers.length > 0, blockers: blockers.map(b => b.text),
+    attachBlocked: attachBlockers.length > 0, attachBlockers: attachBlockers.map(b => b.text),
+  }
 }
 
 /**
