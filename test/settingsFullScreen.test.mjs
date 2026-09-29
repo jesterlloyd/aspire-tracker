@@ -19,7 +19,7 @@ process.env.VITE_SUPABASE_ANON_KEY ||= 'test-anon-key'
 
 let vite, Shell, AuthContext
 before(async () => {
-  vite = await createServer({ server: { middlewareMode: true }, appType: 'custom', logLevel: 'error' })
+  vite = await createServer({ server: { middlewareMode: true, hmr: false, ws: false }, appType: 'custom', logLevel: 'error' })
   Shell = (await vite.ssrLoadModule('/src/components/settings/SettingsShell.jsx')).default
   AuthContext = (await vite.ssrLoadModule('/src/contexts/AuthContext.jsx')).AuthContext
 })

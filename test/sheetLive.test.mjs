@@ -171,7 +171,7 @@ test('both budget sheets take formulas; the Forms Sheet does not', () => {
 
 let vite, EditableSheet
 before(async () => {
-  vite = await createServer({ server: { middlewareMode: true }, appType: 'custom', logLevel: 'error' })
+  vite = await createServer({ server: { middlewareMode: true, hmr: false, ws: false }, appType: 'custom', logLevel: 'error' })
   EditableSheet = (await vite.ssrLoadModule('/src/components/sheet/EditableSheet.jsx')).default
 })
 after(async () => { await vite?.close() })

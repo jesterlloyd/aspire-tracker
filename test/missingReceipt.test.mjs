@@ -79,7 +79,7 @@ test('the Action Center lists them as Receipt, and not twice beside the Concur r
 
 let vite, Sheet
 before(async () => {
-  vite = await createServer({ server: { middlewareMode: true }, appType: 'custom', logLevel: 'error' })
+  vite = await createServer({ server: { middlewareMode: true, hmr: false, ws: false }, appType: 'custom', logLevel: 'error' })
   Sheet = (await vite.ssrLoadModule('/src/components/sheet/EditableSheet.jsx')).default
 })
 after(async () => { await vite?.close() })

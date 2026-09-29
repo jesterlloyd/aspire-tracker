@@ -24,7 +24,7 @@ const TODAY = '2026-09-27'
 
 let vite, C, Y
 before(async () => {
-  vite = await createServer({ server: { middlewareMode: true }, appType: 'custom', logLevel: 'error' })
+  vite = await createServer({ server: { middlewareMode: true, hmr: false, ws: false }, appType: 'custom', logLevel: 'error' })
   const load = async (p) => (await vite.ssrLoadModule(p)).default
   C = {
     Summary: await load('/src/components/budget/BudgetSummary.jsx'), Sheet: await load('/src/components/budget/BudgetSheet.jsx'),

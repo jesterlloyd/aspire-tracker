@@ -131,7 +131,7 @@ test('a filed receipt has no frame: the paper itself lifts on hover and focus', 
 
 let vite, P
 before(async () => {
-  vite = await createServer({ server: { middlewareMode: true }, appType: 'custom', logLevel: 'error' })
+  vite = await createServer({ server: { middlewareMode: true, hmr: false, ws: false }, appType: 'custom', logLevel: 'error' })
   P = await vite.ssrLoadModule('/src/components/budget/ReceiptSlip.jsx')
 })
 after(async () => { await vite?.close() })

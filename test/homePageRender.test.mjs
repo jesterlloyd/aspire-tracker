@@ -22,7 +22,7 @@ process.env.VITE_SUPABASE_ANON_KEY ||= 'test-anon-key'
 
 let vite
 before(async () => {
-  vite = await createServer({ server: { middlewareMode: true }, appType: 'custom', logLevel: 'error' })
+  vite = await createServer({ server: { middlewareMode: true, hmr: false, ws: false }, appType: 'custom', logLevel: 'error' })
 })
 after(async () => { await vite?.close() })
 

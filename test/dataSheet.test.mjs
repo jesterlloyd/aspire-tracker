@@ -15,7 +15,7 @@ import { buildPacket, buildRosterRows, buildBubbleSheet } from '../src/lib/evalu
 
 let vite
 before(async () => {
-  vite = await createServer({ server: { middlewareMode: true }, appType: 'custom', logLevel: 'error' })
+  vite = await createServer({ server: { middlewareMode: true, hmr: false, ws: false }, appType: 'custom', logLevel: 'error' })
 })
 after(async () => { await vite?.close() })
 const load = (path) => vite.ssrLoadModule(path)

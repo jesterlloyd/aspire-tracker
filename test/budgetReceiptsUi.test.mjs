@@ -24,7 +24,7 @@ const CATS = ['Supplies & Materials', 'Printing & Copying', 'Meals & Catering', 
 
 let vite, Slip
 before(async () => {
-  vite = await createServer({ server: { middlewareMode: true }, appType: 'custom', logLevel: 'error' })
+  vite = await createServer({ server: { middlewareMode: true, hmr: false, ws: false }, appType: 'custom', logLevel: 'error' })
   Slip = (await vite.ssrLoadModule('/src/components/budget/ReceiptSlip.jsx')).default
 })
 after(async () => { await vite?.close() })
