@@ -321,8 +321,11 @@ export function chargeExpense(sub, date) {
 }
 
 // ── Expenses ─────────────────────────────────────────────────────────────────────
-/** Void rows are not spend. A deleted row is gone. */
-export const counts = (e) => !e.deleted_at && e.status !== 'void'
+/**
+ * Void rows are not spend. A deleted row is gone. An Expected row (BUDGET-V2 item 12, a subscription
+ * charge still to come) counts toward committed, never toward Spent.
+ */
+export const counts = (e) => !e.deleted_at && e.status !== 'void' && e.state !== 'expected'
 export const unitCost = (e) => (Number(e.quantity) > 0 ? round2(Number(e.amount) / Number(e.quantity)) : null)
 
 // ── Summary (A6) ─────────────────────────────────────────────────────────────────

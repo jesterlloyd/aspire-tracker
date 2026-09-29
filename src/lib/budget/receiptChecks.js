@@ -94,6 +94,12 @@ export function receiptChecks(draft, ctx = {}) {
 
   // B4.2 Fiscal year not started.
   if (fy && !fyStarted) add('not_started', 'block', `${fyShort(fy)} hasn’t started. Start ${fyShort(fy)} to post this receipt.`, { startYear: fy })
+  // BUDGET-V2 item 11: a closed month never changes on its own. Reopen it first.
+  const month = String(draft.date || '').slice(0, 7)
+  if (month && (year?.closedMonths || []).includes(month)) {
+    const name = new Date(`${month}-15T12:00:00Z`).toLocaleString('en-US', { month: 'long', timeZone: 'UTC' })
+    add('closed_month', 'block', `This receipt belongs to ${name}, which is closed. Reopen ${name} to post or attach it.`, { reopen: { fy, month } })
+  }
 
   // B4.3 Split.
   if (rows.length > 1) add('split', 'info', `Split into ${rows.length} rows because the items fall in different categories.`)
@@ -180,7 +186,7 @@ export function receiptChecks(draft, ctx = {}) {
   // Posting new rows waits for every block. Attaching to the duplicate's row posts nothing new, so
   // only the date stops it (the meals documentation then lives on the row it attaches to).
   const blockers = checks.filter(c => c.tone === 'block')
-  const attachBlockers = blockers.filter(c => c.key === 'date')
+  const attachBlockers = blockers.filter(c => c.key === 'date' || c.key === 'closed_month')
   return {
     checks, duplicate, subMatch, fy, fyStarted,
     blocked: blockers.length > 0, blockers: blockers.map(b => b.text),
@@ -198,7 +204,7 @@ export function concurDue(expenses = [], rule, today) {
   const after = Number(rule.params?.remind_after_days) || 45
   const deadlineDays = Number(rule.params?.deadline_days) || 60
   return expenses
-    .filter(e => !e.deleted_at && e.payment_method === 'personal_concur' && e.status === 'recorded' && e.date_precision !== 'month' && e.expense_date)
+    .filter(e => !e.deleted_at && e.state !== 'expected' && e.payment_method === 'personal_concur' && e.status === 'recorded' && e.date_precision !== 'month' && e.expense_date)
     .map(e => ({ expense: e, age: daysBetween(e.expense_date, today), deadline: addDays(e.expense_date, deadlineDays) }))
     .filter(x => x.age >= after)
     .map(x => ({ ...x, daysLeft: daysBetween(today, x.deadline) }))
@@ -214,6 +220,6 @@ export function concurDue(expenses = [], rule, today) {
  */
 export const RECEIPT_REQUIRED_OVER = 25
 const AWAITING = new Set(['recorded', 'submitted'])
-export const needsReceipt = (e, over = RECEIPT_REQUIRED_OVER) => !!e && !e.deleted_at
+export const needsReceipt = (e, over = RECEIPT_REQUIRED_OVER) => !!e && !e.deleted_at && e.state !== 'expected'
   && e.payment_method === 'personal_concur' && AWAITING.has(e.status)
   && Number(e.amount) > over && !(e.receipt_file_id || e.hasReceipt)

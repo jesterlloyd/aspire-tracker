@@ -129,6 +129,10 @@ export default function BudgetReceipts({ year, onWrite, pendingFiles, onPendingT
     mark(slip.id, true)
     try { await budgetStaff('receipt_unhold', { id: slip.id }); notify('Back in To Review.'); load() } catch (e) { notify(e.message, 'err') } finally { mark(slip.id, false) }
   }
+  // BUDGET-V2 item 11: a receipt in a closed month asks for the month to be reopened first.
+  const onReopen = async ({ fy, month }) => {
+    try { const out = await budgetStaff('month_reopen', { fiscal_year: fy, month }); notify(out.message); onWrite.changed(); load() } catch (e) { notify(e.message, 'err') }
+  }
   // BUDGET-V2 item 5: remember a card (or forget it); the server sets every open receipt on it.
   const onRemember = async (last4, method, remember) => {
     try { const out = await budgetStaff('card_remember', { last4, method, remember }); notify(out.message); load() } catch (e) { notify(e.message, 'err') }
@@ -210,7 +214,7 @@ export default function BudgetReceipts({ year, onWrite, pendingFiles, onPendingT
               ? <ReceiptFold key={s.id} slip={s} context={ctx} onOpen={setOpenId} />
               : (
                 <ReceiptSlip key={s.id} slip={s} context={ctx} categories={categories} cohorts={year.cohorts} busy={busy.has(s.id)} openSlips={openSlips}
-                  onHold={onHold} onRemember={ctx.cardsEnabled ? onRemember : null}
+                  onHold={onHold} onRemember={ctx.cardsEnabled ? onRemember : null} onReopen={onReopen}
                   onDraft={onDraft} onAccept={onAccept} onSnooze={onSnooze} onReject={onReject} onRead={onRead} onDiscard={onDiscard} onOriginal={onOriginal} onStartYear={onStartYear} />
               )))}
           </div>

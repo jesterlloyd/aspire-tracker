@@ -46,6 +46,9 @@
 //   renderCell(row, col, text)   a host's own cell content, or undefined for the grid's.
 //   cellClass(row, col), cellTitle(row, col)
 //   countsInTotals(row)  false keeps a row out of the Σ row and group subtotals (a Void expense).
+//   tail             { label, rows } shown read-only below the sheet, under their own heading, and never
+//                    in the Σ row, a selection, a group or a sort (Program Budget's Expected charges).
+//                    Hidden while a search or filter is on.
 //   editorLabel(row, col), editorExtras({ col, row, editing, setEditing, keys }), saveLabel(col)
 //   labels           { notice, searchPlaceholder, searchLabel, count(shown, total), emptyNote,
 //                      noMatch, frameLabel, help, readOnlyEdit, newColumnHint, locked }
@@ -132,7 +135,7 @@ export default function EditableSheet({
   renderCell, cellClass, cellTitle, editorLabel, editorExtras, saveLabel,
   labels = {}, notify, viewRef,
   isLocked, groupSubtotals = NO_KEYS, onAddRow, onDeleteRows, canDeleteRow = () => true, canClear = () => false,
-  formulas = false, initialSearch = '', quickFilters = NO_KEYS, initialQuick = null, countsInTotals = null,
+  formulas = false, initialSearch = '', quickFilters = NO_KEYS, initialQuick = null, countsInTotals = null, tail = null,
 }) {
   const [data, setData] = useState(() => ({ rows: initialRows }))
   const [layout, setLayout] = useState(initialLayout)
@@ -344,7 +347,7 @@ export default function EditableSheet({
       else if (col.note) notify?.(col.note)
       return
     }
-    if (locked(row, col)) { if (labels.locked) notify?.(labels.locked); return }
+    if (locked(row, col)) { const msg = typeof labels.locked === 'function' ? labels.locked(row, col) : labels.locked; if (msg) notify?.(msg); return }
     if (col.staff && col.type === 'check') { commitStaff(row, col, row.cells[col.key] ? '' : 'Yes'); return }
     const fx = takesFormula(col) ? row.format?.[col.key]?.fx : null
     const raw = fx || rawOf(row, col)
@@ -935,6 +938,28 @@ export default function EditableSheet({
               </GroupBlock>
             ))}
           </tbody>
+          {tail?.rows?.length > 0 && !search.trim() && !filters.length && !quick && (
+            <tbody className="fs-tail">
+              <tr className="fs-tailhead"><th scope="rowgroup" colSpan={gridCols.length + 1}><span style={{ position: 'sticky', left: 12 }}>{tail.label}</span></th></tr>
+              {tail.rows.map(row => (
+                <tr key={row.id} className="fs-row fs-tailrow">
+                  <th scope="row" className="fs-rownum" style={{ position: 'sticky', left: 0, zIndex: 2 }} aria-label="Not counted" />
+                  {gridCols.map(col => {
+                    const isLead = col.key === lead.key
+                    const Cell = isLead ? 'th' : 'td'
+                    const text = textOf(row, col.key)
+                    const own = renderCell?.(row, col, text)
+                    return (
+                      <Cell key={col.key} scope={isLead ? 'row' : undefined} className={`fs-cell${isLead ? ' fs-name' : ''}${cellClass?.(row, col) ? ` ${cellClass(row, col)}` : ''}`}
+                        style={{ ...cellStyle(fmtOf(row, col.key), width(col.key)), ...stickyStyle(col.key) }}>
+                        {own !== undefined ? own : text}
+                      </Cell>
+                    )
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          )}
           <tfoot>
             <tr className="fs-sumrow">
               <th scope="row" className="fs-rownum fs-sumlabel" style={{ position: 'sticky', left: 0, zIndex: 3 }} title="Summary of the rows shown">Σ</th>

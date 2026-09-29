@@ -78,9 +78,10 @@ export function ReceiptFold({ slip, context, onOpen }) {
 
 const shortDate = (ymd) => dateText(ymd).replace(/, \d{4}$/, '')
 
-export default function ReceiptSlip({ slip, context, categories, cohorts, busy, openSlips = [], onDraft, onAccept, onSnooze, onReject, onRead, onDiscard, onOriginal, onStartYear, onHold, onRemember }) {
+export default function ReceiptSlip({ slip, context, categories, cohorts, busy, openSlips = [], onDraft, onAccept, onSnooze, onReject, onRead, onDiscard, onOriginal, onStartYear, onHold, onRemember, onReopen }) {
   const d = slip.draft
-  const [details, setDetails] = useState(false)   // date, vendor and order: Keith's reading, correctable on request
+  const [details, setDetails] = useState(false)
+  const [choice, setChoice] = useState(null)       // BUDGET-V2 item 11: 'attach' | 'add'; null is Keith's pick   // date, vendor and order: Keith's reading, correctable on request
   const result = useMemo(() => (d ? receiptChecks(d, { ...context, proposal: slip.proposal || {}, duplicateFile: slip.duplicateFile }) : null), [d, context, slip.proposal, slip.duplicateFile])
   const heading = `${slip.file_name}`
 
@@ -117,11 +118,24 @@ export default function ReceiptSlip({ slip, context, categories, cohorts, busy, 
   const total = dup ? (slip.proposal?.total ?? draftTotal(d)) : draftTotal(d)
   const filed = filedName({ date: d.date, vendor: d.vendor, order_number: d.order_number, total, contentType: slip.content_type })
   const startCheck = result.checks.find(c => c.startYear)
-  const canAccept = dup ? !result.attachBlocked : !result.blocked
   // BUDGET-V2 item 1: a subscription charge attaches or holds; a new row is the owner's explicit choice.
   const m = result.subMatch
   const charge = m && m.kind !== 'uncounted' ? m : null
   const chargeLabel = charge ? `Attach to ${shortDate(charge.charge_date)} charge` : ''
+  // BUDGET-V2 item 11: Match or add? Attach to a charge that already exists (a subscription charge, or
+  // a row this receipt duplicates), or add it as a new one-time expense. Keith picks the likely one.
+  const attachable = !!charge || !!dup
+  const pickAttach = (choice || (attachable ? 'attach' : 'add')) === 'attach' && attachable
+  const addTotal = draftTotal(d)
+  const monthName = d.date ? new Date(`${d.date}T12:00:00Z`).toLocaleString('en-US', { month: 'long', timeZone: 'UTC' }) : ''
+  const attachNote = charge
+    ? charge.kind === 'hold' ? `The ${charge.subscription.name} charge on ${shortDate(charge.charge_date)} (${usd(charge.amount)}). ${charge.subscription.name} is awaiting approval, so it holds until you approve it.`
+      : charge.kind === 'filed' ? `The ${charge.subscription.name} charge on ${shortDate(charge.charge_date)} already has its receipt.`
+        : `The ${charge.subscription.name} charge on ${shortDate(charge.charge_date)} (${usd(charge.amount)}). Spent does not change.`
+    : dup ? `${dup.expense.row_label}: ${dup.expense.item || 'no item'}, ${usd(dup.expense.amount)}. Spent does not change.`
+      : `Keith found no charge for ${usd(addTotal)} near ${d.date ? shortDate(d.date) : 'this date'}.`
+  const addNote = result.fyStarted ? `Adds ${usd(addTotal)} to Spent in ${monthName}${rows.length > 1 ? `, as ${rows.length} rows` : ''}.` : 'Its fiscal year has to start first.'
+  const reopen = result.checks.find(c => c.reopen)?.reopen || null
   // BUDGET-V2 item 5: remember this card as the method chosen, for every open receipt on it.
   const card = slip.proposal?.card_last4 || ''
   const remembered = (context.rememberedCards || []).find(c => c.last4 === card)
@@ -150,7 +164,7 @@ export default function ReceiptSlip({ slip, context, categories, cohorts, busy, 
           <label><span>Order or invoice no.</span><input className="bud-input" value={d.order_number} maxLength={80} onChange={e => set({ order_number: e.target.value })} /></label>
         </div>}
 
-        {!dup && (
+        {!(pickAttach && dup && !charge) && (
           <div className="bud-lines" role="group" aria-label="Lines">
             <div className="bud-line bud-line-head" aria-hidden="true"><span>Item</span><span>Category</span><span>Qty</span><span>Amount</span><span /></div>
             {d.lines.map((l, i) => (
@@ -172,7 +186,7 @@ export default function ReceiptSlip({ slip, context, categories, cohorts, busy, 
           </div>
         )}
 
-        {!dup && (
+        {!(pickAttach && dup && !charge) && (
           <div className="bud-slip-meta bud-slip-meta-2">
             <label><span>Payment</span>
               <select className="bud-input" value={d.payment_method || ''} onChange={e => set({ payment_method: e.target.value || null })}>
@@ -220,23 +234,36 @@ export default function ReceiptSlip({ slip, context, categories, cohorts, busy, 
 
         <p className="bud-files">Files to <code>Program Budget › {fy ? fyShort(fy) : 'FY'} › Receipts › {filed}</code></p>
 
+        <fieldset className="bud-match">
+          <legend className="bud-sr">Match or add?</legend>
+          <p aria-hidden="true">Match or add?</p>
+          <div className="bud-match-opts">
+            <label className="bud-opt">
+              <input type="radio" name={`ma-${slip.id}`} checked={pickAttach} disabled={!attachable || charge?.kind === 'filed'} onChange={() => setChoice('attach')} />
+              <span><b>Attach to an existing charge</b><small>{attachNote}</small></span>
+            </label>
+            <label className="bud-opt">
+              <input type="radio" name={`ma-${slip.id}`} checked={!pickAttach} onChange={() => setChoice('add')} />
+              <span><b>Add as a new one-time expense</b><small>{addNote}</small></span>
+            </label>
+          </div>
+        </fieldset>
+
         <div className="bud-slip-acts">
           {startCheck
             ? <button type="button" className="bud-btn bud-btn-pri bud-btn-sm" onClick={() => onStartYear(startCheck.startYear)}>Start {fyShort(startCheck.startYear)}</button>
-            : charge ? (<>
-              {charge.kind === 'hold' && <button type="button" className="bud-btn bud-btn-pri bud-btn-sm" disabled={busy} onClick={() => onHold(slip)}>Hold until {charge.subscription.name} is approved</button>}
-              {charge.kind !== 'filed' && (
-                <button type="button" className={`bud-btn bud-btn-sm${charge.kind === 'attach' ? ' bud-btn-pri' : ''}`} disabled={busy || charge.kind !== 'attach' || result.attachBlocked}
-                  title={charge.kind === 'hold' ? `Available after you approve ${charge.subscription.name}` : result.attachBlocked ? result.attachBlockers.join(' ') : undefined}
-                  onClick={() => onAccept(slip, null, { attachCharge: true })}>{chargeLabel}</button>
-              )}
-              <button type="button" className="bud-btn bud-btn-txt bud-btn-sm" disabled={busy || result.blocked} title={result.blocked ? result.blockers.join(' ') : undefined}
-                onClick={() => onAccept(slip, null, { asOneTime: true })}>Post as one-time instead</button>
-            </>)
-            : <button type="button" className="bud-btn bud-btn-pri bud-btn-sm" disabled={busy || !canAccept} title={canAccept ? undefined : (dup ? result.attachBlockers : result.blockers).join(' ')} onClick={() => onAccept(slip, dup ? dup.expense.id : null)}>
-                {dup ? `Attach to ${dup.expense.row_label}` : rows.length > 1 ? `Accept ${rows.length} rows` : 'Accept and post'}
-              </button>}
-          {dup && <button type="button" className="bud-btn bud-btn-sm" disabled={busy || result.blocked} title={result.blocked ? result.blockers.join(' ') : undefined} onClick={() => onAccept(slip, null)}>Add as a new row</button>}
+            : reopen && onReopen
+              ? <button type="button" className="bud-btn bud-btn-pri bud-btn-sm" disabled={busy} onClick={() => onReopen(reopen)}>Reopen {monthName}</button>
+              : pickAttach && charge?.kind === 'hold'
+                ? <button type="button" className="bud-btn bud-btn-pri bud-btn-sm" disabled={busy} onClick={() => onHold(slip)}>Hold until {charge.subscription.name} is approved</button>
+                : pickAttach && charge
+                  ? <button type="button" className="bud-btn bud-btn-pri bud-btn-sm" disabled={busy || result.attachBlocked} title={result.attachBlocked ? result.attachBlockers.join(' ') : undefined}
+                      onClick={() => onAccept(slip, null, { attachCharge: true })}>{chargeLabel}</button>
+                  : pickAttach && dup
+                    ? <button type="button" className="bud-btn bud-btn-pri bud-btn-sm" disabled={busy || result.attachBlocked} title={result.attachBlocked ? result.attachBlockers.join(' ') : undefined}
+                        onClick={() => onAccept(slip, dup.expense.id)}>Attach to {dup.expense.row_label}</button>
+                    : <button type="button" className="bud-btn bud-btn-pri bud-btn-sm" disabled={busy || result.blocked} title={result.blocked ? result.blockers.join(' ') : undefined}
+                        onClick={() => onAccept(slip, null, { asOneTime: !!charge })}>{rows.length > 1 ? `Add ${rows.length} rows` : 'Add expense'}</button>}
           <button type="button" className="bud-btn bud-btn-sm" disabled={busy} onClick={() => onSnooze(slip)}>Snooze</button>
           <span className="bud-grow" />
           <button type="button" className="bud-btn bud-btn-sm bud-btn-danger" disabled={busy} onClick={() => onReject(slip)}>Reject</button>

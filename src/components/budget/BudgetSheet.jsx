@@ -23,12 +23,20 @@ import { PAYMENT_METHODS, STATUSES, statusesFor, statusLabel, statusTone, paymen
 
 const LEAD = { key: '@date', label: 'Date', type: 'date' }
 const TONE = { green: 'ok', amber: 'warn', blue: 'info', grey: 'off' }
-const NOT_EDITABLE = new Set(['unit', 'receipt', 'month'])
+const NOT_EDITABLE = new Set(['unit', 'receipt', 'month', 'state'])
 // What Clear contents may empty: text and optional choices, never a date, an amount or a status.
 const CLEARABLE = new Set(['description', 'vendor', 'order_number', 'cost_center', 'notes', 'cat', 'pay', 'cohort'])
-const GROUPABLE = new Set(['cat', 'month', 'pay', 'status', 'cohort'])
+const GROUPABLE = new Set(['cat', 'month', 'pay', 'status', 'cohort', 'concur'])
 const DASH = <span className="bud-dash">–</span>
-const MISSING_FILTER = [{ key: 'missing-receipt', label: 'Missing receipt', test: (r) => needsReceipt(r.raw) }]
+// BUDGET-V2 item 12: a posted row with no receipt reads Missing (an imported FY26 row, dated only
+// to the month, never does). Over $25 on Personal (Concur) it is also a reimbursement requirement.
+const missingReceipt = (e) => !e.hasReceipt && e.state !== 'expected' && e.date_precision !== 'month' && e.status !== 'void'
+const MISSING_FILTER = [{ key: 'missing-receipt', label: 'Missing receipt', test: (r) => missingReceipt(r.raw) }]
+// BUDGET-V2 item 12: the Concur column, for personal purchases only. It is the row's Status in Concur's words.
+const CONCUR = [['recorded', 'Not submitted'], ['submitted', 'Submitted'], ['reimbursed', 'Reimbursed']]
+const concurOf = (e) => (e.payment_method === 'personal_concur' ? (CONCUR.find(([k]) => k === e.status)?.[1] || '') : '')
+const concurKey = (label) => CONCUR.find(([, l]) => l === label)?.[0] || null
+const CONCUR_TONE = { recorded: 'off', submitted: 'warn', reimbursed: 'ok' }
 const DEFAULT_LAYOUT = {
   order: [], hidden: ['month'], widths: { item: 220, description: 280, cat: 180, order_number: 170 }, frozen: 1, groupBy: null, staffColumns: [],
   colFormats: { amount: { num: 'currency' }, unit: { num: 'currency' } }, summaries: { amount: 'sum', qty: 'sum' },
@@ -43,6 +51,7 @@ function sheetRow(e, cats, cohorts) {
       order_number: e.order_number || '', pay: e.paymentLabel || '', qty: e.quantity == null ? '' : String(e.quantity),
       amount: e.amount == null ? '' : String(e.amount), status: e.statusLabel || '', receipt: e.hasReceipt ? 'On file' : '',
       cohort: cohorts.get(e.cohort_id) || '', cost_center: e.cost_center || '', notes: e.notes || '',
+      state: e.state === 'expected' ? 'Expected' : 'Posted', concur: concurOf(e),
       month: e.expense_date ? `${monthOf(e.expense_date)} ${e.expense_date.slice(0, 4)}` : '',
       ...(e.staff_values || {}),
     },
@@ -64,7 +73,12 @@ export default function BudgetSheet({ year, canEdit, onWrite, focus = null }) {
   const catIds = useMemo(() => new Map(year.categories.map(c => [c.name, c.id])), [year.categories])
   const cohorts = useMemo(() => new Map(year.cohorts.map(c => [c.id, c.name])), [year.cohorts])
   const cohortIds = useMemo(() => new Map(year.cohorts.map(c => [c.name, c.id])), [year.cohorts])
-  const rows = useMemo(() => year.expenses.map(e => sheetRow(e, cats, cohorts)), [year.expenses, cats, cohorts])
+  // BUDGET-V2 item 12: Expected charges sit below the sheet, not counted as spent yet.
+  const rows = useMemo(() => year.expenses.filter(e => e.state !== 'expected').map(e => sheetRow(e, cats, cohorts)), [year.expenses, cats, cohorts])
+  const expectedRows = useMemo(() => year.expenses.filter(e => e.state === 'expected').map(e => sheetRow(e, cats, cohorts)), [year.expenses, cats, cohorts])
+  // BUDGET-V2 item 13: a closed month's rows are locked until it is reopened on the Summary.
+  const closedMonths = useMemo(() => new Set((year.close?.months || []).filter(m => m.closed_at).map(m => m.key)), [year.close])
+  const inClosed = (row) => closedMonths.has(String(row.raw.expense_date || '').slice(0, 7))
   const columns = useMemo(() => [
     { key: 'item', label: 'Item', type: 'text' },
     { key: 'cat', label: 'Category', type: 'choice', options: year.categories.map(c => c.name) },
@@ -75,8 +89,10 @@ export default function BudgetSheet({ year, canEdit, onWrite, focus = null }) {
     { key: 'qty', label: 'Qty', type: 'number' },
     { key: 'unit', label: 'Unit cost', type: 'number', compute: (r) => r.raw.unitCost, note: 'Unit cost is worked out: Spent divided by Qty. Change Spent or Qty instead.' },
     { key: 'amount', label: 'Spent ($)', type: 'number' },
+    { key: 'state', label: 'State', type: 'text', compute: (r) => r.cells.state, note: 'State is Expected until the charge’s date, then Posted. Only Posted counts as spent.' },
     { key: 'status', label: 'Status', type: 'choice', required: true, options: STATUSES.map(s => s.label), optionsFor: (r) => statusesFor(r.raw.payment_method).map(statusLabel) },
     { key: 'receipt', label: 'Receipt', type: 'text', note: 'The Receipt column fills in when a receipt is filed for the row.' },
+    { key: 'concur', label: 'Concur', type: 'choice', options: CONCUR.map(([, l]) => l) },
     { key: 'cohort', label: 'Cohort', type: 'choice', options: year.cohorts.map(c => c.name) },
     { key: 'cost_center', label: 'Cost center', type: 'text' },
     { key: 'notes', label: 'Notes', type: 'paragraph' },
@@ -93,6 +109,7 @@ export default function BudgetSheet({ year, canEdit, onWrite, focus = null }) {
       case 'cat': return { category_id: v ? catIds.get(v) || null : null }
       case 'pay': return { payment_method: v ? paymentKey(v) : null }
       case 'status': return { status: v ? statusKey(v) : null }
+      case 'concur': return { status: concurKey(v) }
       case 'cohort': return { cohort_id: v ? cohortIds.get(v) || null : null }
       case 'qty': return { quantity: v }
       default: return { [col.key]: v }
@@ -138,6 +155,8 @@ export default function BudgetSheet({ year, canEdit, onWrite, focus = null }) {
       groupSubtotals={['amount']}
       // BUDGET-V2: a Void row stays visible, struck through, and counts nowhere, the Σ row included.
       countsInTotals={(r) => r.raw.status !== 'void'}
+      tail={{ label: 'Expected · not counted as spent yet', rows: expectedRows }}
+      isLocked={(row, col) => inClosed(row) || (col.key === 'concur' && row.raw.payment_method !== 'personal_concur')}
       cellClass={(r) => (r.raw.status === 'void' ? 'bud-void' : undefined)}
       formulas
       onAddRow={canEdit && year.state !== 'not_started' ? async () => { const out = await onWrite.call('expense_create', { fields: { expense_date: newDate } }); onWrite.changed(); return sheetRow(out.expense, cats, cohorts) } : undefined}
@@ -147,8 +166,17 @@ export default function BudgetSheet({ year, canEdit, onWrite, focus = null }) {
         // it had at accept. The server sends the provenance id to the Owner only.
         if (col.key === 'item') return <>{text || DASH}{row.raw.subscription_id && <span className="bud-subtag">Subscription</span>}{canEdit && row.raw.keith_provenance_id && <span className="bud-keith"><KeithMark provenanceId={row.raw.keith_provenance_id} /></span>}</>
         if (col.key === 'status') return row.raw.status ? <Pill tone={TONE[statusTone(row.raw.status)]}>{statusLabel(row.raw.status)}</Pill> : DASH
+        if (col.key === 'state') return row.raw.state === 'expected' ? <Pill tone="off">Expected</Pill> : <Pill tone="info">Posted</Pill>
+        if (col.key === 'concur') {
+          if (row.raw.state === 'expected' || row.raw.payment_method !== 'personal_concur' || !row.cells.concur) return DASH
+          return <Pill tone={CONCUR_TONE[row.raw.status] || 'off'}>{row.cells.concur}</Pill>
+        }
         if (col.key === 'receipt') {
-          if (!row.raw.hasReceipt) return needsReceipt(row.raw) ? <span className="bud-rc-missing" title="A receipt is required for reimbursement over $25">Missing</span> : DASH
+          if (row.raw.state === 'expected') return DASH
+          if (!row.raw.hasReceipt) {
+            if (needsReceipt(row.raw)) return <span className="bud-rc-missing" title="A receipt is required for reimbursement over $25">Missing</span>
+            return missingReceipt(row.raw) ? <span className="bud-rc-missing" title={row.raw.notes ? `No receipt. Note: ${row.raw.notes}` : 'No receipt on file yet. Attach one from Receipts, or add a note.'}>Missing</span> : DASH
+          }
           // The Owner opens the filed original; everyone else learns only that one is on file (decision 5).
           return canEdit
             ? <button type="button" className="bud-rc bud-rc-open" title="View the original receipt" onClick={() => openReceipt(row)}><Check size={13} aria-hidden="true" />On file</button>
@@ -163,6 +191,7 @@ export default function BudgetSheet({ year, canEdit, onWrite, focus = null }) {
         emptyNote: year.state === 'current' && canEdit ? 'No expenses yet. Add a row, or add receipts once receipt intake arrives.' : 'No expenses in this year.',
         noMatch: 'No expenses match.', frameLabel: `Expenses, ${year.label}. Arrow keys move, Enter edits.`,
         readOnlyEdit: canEdit ? `${year.label} has not started.` : 'This view is read-only.',
+        locked: (row, col) => (inClosed(row) ? 'This row’s month is closed. Reopen it on the Summary to change its rows.' : col.key === 'concur' ? 'Concur applies to Personal (Concur) purchases only.' : ''),
         newColumnHint: 'A column of your own, like Approved by or PO number. Leadership sees it read-only.',
         help: canEdit ? 'Click a cell and type to change it; Enter or Tab saves, Escape puts it back, and every change saves itself. Qty and Spent take a formula: type = then a calculation, like =[Qty]*12.50. Unit cost is Spent divided by Qty. Group by Category or Month for the Annual Budget Tracker view; Export to Excel writes both sheets.' : 'Read-only. Use Export to Excel to work with the figures.',
       }}

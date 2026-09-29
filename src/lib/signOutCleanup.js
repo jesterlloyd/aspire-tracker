@@ -73,6 +73,7 @@ export const STORAGE_KEY_REGISTRY = Object.freeze([
   { prefix: 'aspire-color-mode', store: 'local', cls: 'preference', holds: 'the device mirror of the painted color mode (index.html reads it before React)' },
   { prefix: 'aspire-style', store: 'local', cls: 'preference', holds: 'the device mirror of the painted Style' },
   { prefix: 'aspire-theme', store: 'local', cls: 'preference', holds: 'the legacy theme choice, read once for adoption' },
+  { prefix: 'aspire-budget-how-open', store: 'local', cls: 'preference', holds: 'whether Program Budget\u2019s "How the budget works each month" is open (BUDGET-V2)' },
   { prefix: 'aspire.connect.richCompose', store: 'local', cls: 'preference', holds: 'the Owner\'s per-browser rich compose opt-out' },
   { prefix: 'aspire.connect.outreach.lastMode', store: 'local', cls: 'preference', holds: 'message or survey' },
   { prefix: 'aspire.connect.outreach.mode', store: 'local', cls: 'preference', holds: 'single or bulk' },

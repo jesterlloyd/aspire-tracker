@@ -71,7 +71,16 @@ const ymdText = (ymd) => (ymd ? new Date(`${ymd}T12:00:00`).toLocaleDateString('
  * (prompt B7), and Personal (Concur) expenses still Recorded 45 days on (Owner, 2026-09-27, from the
  * reimbursement policy's 60 days). Each row carries its own chip: Renew, Review or Submit.
  */
-export function budgetGroup({ renewals = [], receipts = [], concur = [], missing = [], now = Date.now() } = {}) {
+export function budgetGroup({ renewals = [], receipts = [], concur = [], missing = [], close = null, now = Date.now() } = {}) {
+  // BUDGET-V2 item 13: from the 5th, the month that ended and is still open ("Close September").
+  const closeRows = close ? [{
+    id: `close:${close.month}`, chip: 'Close',
+    title: `Close ${close.name}`,
+    meta: ['Program Budget', `due ${ymdText(close.due)}`, close.earlier ? `${plural(close.earlier, 'earlier month')} also open` : null].filter(Boolean).join(' · '),
+    pill: { text: 'Close month', tone: 'amber' },
+    ageMs: Math.max(0, now - new Date(`${close.due}T12:00:00`).getTime()),
+    to: '/settings/budget?tab=summary',
+  }] : []
   const renewRows = (renewals || []).map(r => ({
     id: `renew:${r.id}`, chip: 'Renew',
     title: `${r.name} · ${usd(r.amount)}`,
@@ -109,16 +118,17 @@ export function budgetGroup({ renewals = [], receipts = [], concur = [], missing
     ageMs: Math.max(0, now - new Date(`${m.date || '2000-01-01'}T12:00:00`).getTime()),
     to: '/settings/budget?tab=sheet&filter=missing-receipt',
   }))
-  const rows = [...concurRows, ...renewRows, ...receiptRows, ...missingRows]
-  const kinds = [receiptRows.length && 'receipts to review', renewRows.length && 'renewals to decide', concurRows.length && 'Concur to submit', missingRows.length && 'receipts missing'].filter(Boolean)
+  const rows = [...concurRows, ...renewRows, ...receiptRows, ...missingRows, ...closeRows]
+  const kinds = [receiptRows.length && 'receipts to review', renewRows.length && 'renewals to decide', concurRows.length && 'Concur to submit', missingRows.length && 'receipts missing', closeRows.length && 'a month to close'].filter(Boolean)
   const sub = kinds.length ? kinds.join(', ').replace(/^./, c => c.toUpperCase()) : 'Renewals to decide'
   const pills = [
     receiptRows.length ? { text: `${receiptRows.length} to review`, tone: 'amber' } : null,
     renewRows.length ? { text: `${renewRows.length} to renew`, tone: 'amber' } : null,
     concurRows.length ? { text: `${concurRows.length} to submit`, tone: concurRows.some(c => c.pill.tone === 'red') ? 'red' : 'amber' } : null,
     missingRows.length ? { text: `${missingRows.length} without a receipt`, tone: 'amber' } : null,
+    closeRows.length ? { text: `Close ${close.name}`, tone: 'amber' } : null,
   ].filter(Boolean)
-  const to = receiptRows.length ? '/settings/budget?tab=receipts' : renewRows.length ? '/settings/budget?tab=subscriptions' : missingRows.length && !concurRows.length ? '/settings/budget?tab=sheet&filter=missing-receipt' : '/settings/budget?tab=sheet'
+  const to = receiptRows.length ? '/settings/budget?tab=receipts' : renewRows.length ? '/settings/budget?tab=subscriptions' : missingRows.length && !concurRows.length ? '/settings/budget?tab=sheet&filter=missing-receipt' : closeRows.length && !concurRows.length && !missingRows.length ? '/settings/budget?tab=summary' : '/settings/budget?tab=sheet'
   return finish({ key: 'budget', name: 'Program Budget', sub, pills, rows, open: { label: 'Open Program Budget', to }, count: rows.length })
 }
 

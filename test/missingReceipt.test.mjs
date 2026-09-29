@@ -107,9 +107,12 @@ test('a quick filter is a chip with its count, and when on it shows only its row
 
 test('the budget Sheet wears it: Missing in the Receipt cell, the filter, and the Action Center deep link', () => {
   const sheet = read('src/components/budget/BudgetSheet.jsx')
-  assert.match(sheet, /const MISSING_FILTER = \[\{ key: 'missing-receipt', label: 'Missing receipt', test: \(r\) => needsReceipt\(r\.raw\) \}\]/)
+  // BUDGET-V2 item 12 (2026-09-29): every posted row with no receipt reads Missing, so the filter shows
+  // them all; the over-$25 Personal (Concur) rows keep their reimbursement wording in the cell.
+  assert.match(sheet, /const MISSING_FILTER = \[\{ key: 'missing-receipt', label: 'Missing receipt', test: \(r\) => missingReceipt\(r\.raw\) \}\]/)
+  assert.match(sheet, /if \(needsReceipt\(row\.raw\)\) return <span className="bud-rc-missing" title="A receipt is required for reimbursement over \$25">Missing<\/span>/)
   assert.match(sheet, /quickFilters=\{MISSING_FILTER\} initialQuick=\{focus\?\.filter \|\| null\}/)
-  assert.match(sheet, /needsReceipt\(row\.raw\) \? <span className="bud-rc-missing"[^>]*>Missing<\/span> : DASH/)
+  assert.match(sheet, /return missingReceipt\(row\.raw\) \? <span className="bud-rc-missing"[^>]*>Missing<\/span> : DASH/)
   assert.match(read('src/components/budget/ProgramBudgetView.jsx'), /get\('filter'\); return f === 'missing-receipt' \? \{ filter: f, at: 0 \} : null/)
   assert.match(read('api/budget-staff.js'), /missing: await E\.missingReceiptQueue\(db\)/)
 })

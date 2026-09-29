@@ -364,3 +364,7 @@ select.fs-inline { padding: 4px 6px; cursor: pointer; }
 /* SHEET-DRAG-1: no text highlight while a range is being dragged. */
 .fs-frame.fs-dragging, .fs-frame.fs-dragging * { user-select: none; -webkit-user-select: none; cursor: cell; }
 
+/* EditableSheet `tail` (BUDGET-V2): rows shown below the sheet under their own heading, read-only. */
+.fs-tailhead th { padding: 14px 12px 6px; text-align: left; font: 600 10.5px var(--aspire-mono, ui-monospace, monospace); letter-spacing: .1em; text-transform: uppercase; color: var(--text-caption); background: var(--ctl-surface); border-top: 1px solid var(--fs-grid); }
+.fs-tailrow .fs-cell { color: var(--text-caption); }
+.fs-tailrow .fs-rownum { color: transparent; }

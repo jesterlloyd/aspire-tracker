@@ -10,6 +10,7 @@
 import { useState } from 'react'
 import SurfaceCard from '../ui/SurfaceCard'
 import DataSheet, { Missing } from '../shared/DataSheet'
+import BudgetClose from './BudgetClose'
 import { usd, fyRangeText, parseMoney } from '../../lib/budget/budgetModel'
 
 const pct = (v) => `${(v * 100).toFixed(1)}%`
@@ -44,7 +45,7 @@ function MonthlyChart({ s }) {
             <g key={m.month}>
               {m.scheduled > 0 && (
                 <path className="proj" d={`M${bx},${y(m.spent)} V${y(m.spent + m.scheduled) + 4} q0,-4 4,-4 H${bx + bw - 4} q4,0 4,4 V${y(m.spent)}`}>
-                  <title>{m.month}: {usd(m.scheduled)} in scheduled subscription charges</title>
+                  <title>{m.month}: {usd(m.scheduled)} in expected subscription charges</title>
                 </path>
               )}
               {m.spent > 0 && (
@@ -63,7 +64,7 @@ function MonthlyChart({ s }) {
       </svg>
       <div className="bud-legend">
         <span><i />Spent in month</span>
-        {s.state === 'current' && <span><i className="pj" />Scheduled subscriptions</span>}
+        {s.state === 'current' && <span><i className="pj" />Expected charges</span>}
         <span><i className="p" />Even pace ({usd(s.evenPace)} per month)</span>
       </div>
       {/* The table view of the chart, for a screen reader. */}
@@ -73,7 +74,32 @@ function MonthlyChart({ s }) {
   )
 }
 
-export default function BudgetSummary({ year, canEdit, onWrite }) {
+/**
+ * BUDGET-V2 item 11: how the budget runs each month, in five steps and one lane. Open the first time;
+ * the owner's choice to fold it is kept in this browser.
+ */
+const HOW_KEY = 'aspire-budget-how-open'
+function HowItWorks() {
+  const [open, setOpen] = useState(() => { try { return localStorage.getItem(HOW_KEY) !== '0' } catch { return true } })
+  const steps = [
+    ['Expect', 'Approved subscriptions create the month’s charges ahead of time.', 'The app'],
+    ['Post', 'On its date, a charge counts as spent. It shows Missing until its receipt arrives.', 'The app'],
+    ['Match or add', 'Keith reads each receipt. It attaches to a charge, or becomes a new one-time expense.', 'Keith proposes, you decide'],
+    ['Submit', 'Personal purchases go to Concur. Mark them Submitted, then Reimbursed.', 'You'],
+    ['Close the month', 'Every charge has a receipt, nothing is left to review, Concur is done.', 'You, reminded on the 5th'],
+  ]
+  return (
+    <details className="bud-how" open={open} onToggle={e => { const o = e.currentTarget.open; setOpen(o); try { localStorage.setItem(HOW_KEY, o ? '1' : '0') } catch { /* private window */ } }}>
+      <summary>How the budget works each month</summary>
+      <ol className="bud-cycle">
+        {steps.map(([t, d, who], i) => <li key={t}><span className="no">Step {i + 1}</span><b>{t}</b><small>{d}</small><span className="who">{who}</span></li>)}
+      </ol>
+      <p className="bud-lane"><span>Each expense:</span> Expected → Posted → Receipt attached → Submitted to Concur → Reimbursed or Paid. <span className="bud-hint">One-time purchases start at Posted, the moment you add them.</span></p>
+    </details>
+  )
+}
+
+export default function BudgetSummary({ year, canEdit, onWrite, onGo }) {
   const s = year.summary
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
@@ -106,7 +132,7 @@ export default function BudgetSummary({ year, canEdit, onWrite }) {
       </SurfaceCard>
       <SurfaceCard className="bud-tile"><span className="k">Spent</span><b>{usd(s.spent)}</b><small>{s.expenseCount} expenses · {s.withReceipts} with receipts</small></SurfaceCard>
       <SurfaceCard className="bud-tile"><span className="k">Remaining</span><b>{usd(s.remaining)}</b>
-        <small>{closed ? 'Unspent at year end' : `${usd(s.remainingAfterCommitted)} after ${usd(s.committed)} in subscriptions due`}</small></SurfaceCard>
+        <small>{closed ? 'Unspent at year end' : `${usd(s.remainingAfterCommitted)} after ${usd(s.committed)} in expected charges`}</small></SurfaceCard>
       <SurfaceCard className="bud-tile"><span className="k">Used</span><b>{pct(s.used)}</b><small>Year elapsed {Math.round(s.elapsed * 100)}%</small>
         <span className="bud-meter" aria-hidden="true"><i className={s.used > 1 ? 'over' : undefined} style={{ width: `${Math.min(100, s.used * 100)}%` }} /><u style={{ left: `calc(${Math.min(100, s.elapsed * 100)}% - 1px)` }} /></span></SurfaceCard>
       <SurfaceCard className="bud-tile"><span className="k">Cost per student</span>
@@ -162,10 +188,12 @@ export default function BudgetSummary({ year, canEdit, onWrite }) {
   return (
     <>
       {reader && noteCard}
+      {canEdit && s.state === 'current' && <HowItWorks />}
       {basis}
       {year.proposals?.count > 0 && (
         <p className="bud-hint" role="note">{year.proposals.count} {year.proposals.count === 1 ? 'subscription is' : 'subscriptions are'} awaiting approval ({usd(year.proposals.monthly)} a month) and not counted in these figures. See Subscriptions.</p>
       )}
+      <BudgetClose year={year} canEdit={canEdit} onWrite={onWrite} onGo={onGo} />
       <div className="bud-two">
         <SurfaceCard className="bud-card"><h2>Monthly Spend</h2><p className="bud-sub">{fyRangeText(year.fy)}, against an even monthly pace</p><MonthlyChart s={s} /></SurfaceCard>
         <SurfaceCard className="bud-card">

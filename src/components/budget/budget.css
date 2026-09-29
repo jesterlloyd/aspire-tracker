@@ -428,3 +428,55 @@
 .fs-grid td.bud-void, td.bud-void { text-decoration: line-through; color: var(--text-caption); }
 /* A text button inside a check band wears the band's ink (the accent on amber measured 4.48:1 in dark). */
 .bud-check .bud-btn-txt { color: inherit; font-weight: 700; text-decoration: underline; text-underline-offset: 2px; }
+
+/* ── BUDGET-V2 Phase 2 (2026-09-29): the monthly cycle, items 11 to 13 ── */
+.bud-how { margin-top: var(--aspire-gap-card); padding: 14px 18px; border-radius: var(--aspire-radius-card); background: var(--color-bg-surface); box-shadow: var(--aspire-shadow-card); }
+.bud-how summary { cursor: pointer; font-weight: 700; font-size: 14.5px; color: var(--text-heading); }
+.bud-cycle { list-style: none; margin: 14px 0 10px; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+.bud-cycle li { display: grid; gap: 4px; align-content: start; padding: 12px; border-radius: var(--aspire-radius-control); background: var(--color-bg-page); position: relative; }
+.bud-cycle li:not(:last-child)::after { content: "→"; position: absolute; right: -11px; top: 50%; translate: 0 -50%; color: var(--text-caption); font-weight: 700; }
+.bud-cycle .no { font: 600 10.5px var(--aspire-mono, ui-monospace, monospace); letter-spacing: .1em; text-transform: uppercase; color: var(--text-caption); }
+.bud-cycle b { font-size: 14px; color: var(--text-heading); }
+.bud-cycle small { font-size: 12.5px; line-height: 1.4; color: var(--text-caption); }
+.bud-cycle .who { font-size: 11.5px; font-weight: 700; color: var(--color-accent-primary); }
+@media (max-width: 900px) { .bud-cycle { grid-template-columns: repeat(2, minmax(0, 1fr)); } .bud-cycle li::after { display: none; } }
+.bud-lane { margin: 0; font-size: 12.5px; color: var(--text-heading); }
+.bud-lane > span:first-child { font-weight: 700; margin-right: 4px; }
+
+.bud-close { margin-top: var(--aspire-gap-card); }
+.bud-close-head { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; align-items: baseline; }
+.bud-months { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0 12px; }
+.bud-mo { display: grid; gap: 2px; min-width: 110px; padding: 7px 12px; border: 1px solid var(--color-border-subtle); border-radius: var(--aspire-radius-control);
+  background: var(--color-bg-page); font: inherit; font-size: 12.5px; color: var(--text-heading); text-align: left; }
+button.bud-mo { cursor: pointer; }
+button.bud-mo:hover { background: var(--color-bg-hover); }
+.bud-mo b { font-size: 14px; }
+.bud-mo .n { font-variant-numeric: tabular-nums; color: var(--text-caption); }
+.bud-mo.cur, button.bud-mo.cur:hover { border-color: var(--color-accent-primary); box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent-primary) 18%, transparent); }
+.bud-mo.dim { opacity: .6; }
+.bud-cl { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.bud-cl li { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 9px 12px; border-radius: var(--aspire-radius-control); background: var(--color-bg-page); font-size: 13.5px; }
+.bud-cl li > span:nth-child(2) { display: grid; gap: 2px; min-width: 0; }
+.bud-cl b { font-weight: 500; color: var(--text-heading); }
+.bud-cl b.todo { font-weight: 700; }
+.bud-cl small { font-size: 12px; color: var(--text-caption); overflow-wrap: anywhere; }
+.bud-cl .ok, .bud-cl .no { display: grid; place-items: center; width: 22px; height: 22px; border-radius: var(--aspire-radius-pill); font-weight: 700; font-size: 12px; }
+.bud-cl .ok { background: var(--pill-ok-bg); color: var(--pill-ok-fg); }
+.bud-cl .no { background: var(--pill-warn-bg); color: var(--pill-warn-fg); }
+.bud-close-acts { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
+.bud-close-note { display: grid; gap: 6px; margin-top: 12px; }
+.bud-close-done { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 4px 0 8px; }
+.bud-close > .bud-hint { margin: 10px 0 0; }
+
+/* Match or add (item 11): one question on every slip, two answers. */
+.bud-match { display: grid; gap: 8px; }
+.bud-match > p { margin: 0; font-weight: 700; color: var(--text-heading); font-size: 13.5px; }
+.bud-match-opts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+@media (max-width: 640px) { .bud-match-opts { grid-template-columns: minmax(0, 1fr); } }
+.bud-opt { display: flex; gap: 9px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--color-border-subtle); border-radius: var(--aspire-radius-control); cursor: pointer; font-size: 13px; color: var(--text-heading); }
+.bud-opt:has(input:checked) { border-color: var(--color-accent-primary); box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent-primary) 18%, transparent); }
+.bud-opt:has(input:disabled) { cursor: not-allowed; opacity: .7; }
+.bud-opt input { margin: 3px 0 0; flex: none; }
+.bud-opt span { display: grid; gap: 2px; }
+.bud-opt small { font-size: 12px; color: var(--text-caption); }
+.bud-match { border: 0; padding: 0; margin: 0; min-width: 0; }

@@ -61,6 +61,10 @@ const ACTION_SCHEMAS = Object.freeze({
   receipt_unhold: ['action', 'id'],
   card_remember: ['action', 'last4', 'method', 'remember'],
   subscription_overlap: ['action', 'id', 'decision', 'end_on'],
+  // BUDGET-V2 Phase 2: close the month (Owner only; not in READS).
+  month_close: ['action', 'fiscal_year', 'month', 'note'],
+  month_reopen: ['action', 'fiscal_year', 'month'],
+  concur_mark_submitted: ['action', 'fiscal_year', 'month'],
   receipt_snooze: ['action', 'id', 'days'],
   receipt_reject: ['action', 'id'],
   receipt_undo: ['action', 'id'],
@@ -97,6 +101,8 @@ export function createBudgetStaffHandler({ verifyCaller = verifyPortalCaller, ma
     const fy = body.fiscal_year == null ? null : Number(body.fiscal_year)
     if ('fiscal_year' in body && !(Number.isInteger(fy) && fy >= 2020 && fy <= 2100)) return invalid(res, 'fiscal_year', 'Choose a fiscal year.')
     if ('id' in body && !UUID.test(String(body.id || ''))) return invalid(res, 'id', 'Missing id.')
+    if ('month' in body && !/^\d{4}-\d{2}$/.test(String(body.month || ''))) return invalid(res, 'month', 'Choose a month.')
+    if (['month_close', 'month_reopen', 'concur_mark_submitted'].includes(body.action) && fy == null) return invalid(res, 'fiscal_year', 'Choose a fiscal year.')
 
     let db
     try { db = makeDb() } catch { return res.status(500).json({ error: 'server_misconfigured' }) }
@@ -139,7 +145,10 @@ export function createBudgetStaffHandler({ verifyCaller = verifyPortalCaller, ma
         case 'receipts_status': return res.status(200).json(await R.receiptsStatus(db))
         case 'receipts_intake': return res.status(200).json(await R.intake(db, day))
         case 'receipts_filed': return res.status(200).json({ receipts: await R.filedReceipts(db, { fy: fy ?? E.currentFiscalYear(), ...day }) })
-        case 'receipts_queue': return res.status(200).json({ receipts: await R.reviewQueue(db, day), concur: await E.concurQueue(db, day), missing: await E.missingReceiptQueue(db) })
+        case 'receipts_queue': return res.status(200).json({ receipts: await R.reviewQueue(db, day), concur: await E.concurQueue(db, day), missing: await E.missingReceiptQueue(db), close: await E.closeQueue(db, day) })
+        case 'month_close': return res.status(200).json(await E.closeMonth(db, actor, { fy, month: body.month, note: typeof body.note === 'string' ? body.note : '', ...day }))
+        case 'month_reopen': return res.status(200).json(await E.reopenMonth(db, actor, { fy, month: body.month, ...day }))
+        case 'concur_mark_submitted': return res.status(200).json(await E.markConcurSubmitted(db, actor, { fy, month: body.month, ...day }))
         case 'receipt_upload': return res.status(200).json(await R.startUpload(db, actor, { fileName: body.file_name, contentType: body.content_type, size: body.size }))
         case 'receipt_discard': return res.status(200).json(await R.discardUpload(db, actor, { id: body.id }))
         case 'receipt_read': return res.status(200).json(await R.readReceipt(db, actor, { id: body.id, ...(complete ? { complete } : {}), ...day }))

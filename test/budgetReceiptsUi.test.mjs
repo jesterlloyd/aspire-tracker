@@ -70,7 +70,9 @@ test('the slip draws the receipt from the reading, with View original beside it,
   // Date, vendor and order are Keith's reading, shown in the header; Edit opens them.
   assert.match(out, /aria-expanded="false">Edit<\/button>/)
   assert.doesNotMatch(out, /<span>Vendor<\/span>/)
-  assert.match(out, />Accept 2 rows<\/button>/)
+  // BUDGET-V2 item 11 (2026-09-29): Match or add? The add choice's button reads "Add N rows".
+  assert.match(out, />Add 2 rows<\/button>/)
+  assert.match(out, /Keith found no charge for \$58\.57 near Sep 3\./, 'attach is offered, disabled, with the reason')
 })
 
 test('a meal shows its purpose and attendee fields and Accept waits for them', () => {
@@ -80,11 +82,11 @@ test('a meal shows its purpose and attendee fields and Accept waits for them', (
   assert.match(out, /Business purpose/)
   for (const h of ['Name', 'Title', 'Organization', 'Business relationship']) assert.match(out, new RegExp(`<span>${h}</span>`))
   assert.match(out, /class="bud-check bud-check-block"><svg[^>]*lucide-octagon-alert[\s\S]*?<span>A business meal needs its business purpose/)
-  assert.match(out, /disabled="" title="A business meal needs[^"]*">Accept and post<\/button>/, 'the mockup\u2019s label')
+  assert.match(out, /disabled="" title="A business meal needs[^"]*">Add expense<\/button>/, 'the v2 mockup\u2019s label (BUDGET-V2 item 11)')
   assert.ok(out.indexOf('bud-checks') < out.indexOf('<legend>Business meal</legend>'), 'the meal fields follow the checks, as in the mockup')
 })
 
-test('a duplicate offers Attach to its row, and Add as a new row still waits for every block', () => {
+test('a duplicate offers Attach to its row, and adding it as new is the other answer to Match or add', () => {
   const dup = { id: 'e4', expense_date: '2026-02-10', date_precision: 'month', vendor: 'Amazon', amount: 25.14, order_number: '112-7730158-4402217', item: 'Self-Laminating Pouches', row_label: 'FY26 row 4' }
   const out = html(slipOf(reading()), context({ expenses: [dup] }))
   assert.match(out, />Attach to FY26 row 4<\/button>/)
@@ -92,7 +94,12 @@ test('a duplicate offers Attach to its row, and Add as a new row still waits for
   assert.doesNotMatch(out, /aria-label="Lines"/, 'an attach posts no lines')
   const meal = reading({ lines: [{ item: 'Lunch', quantity: 1, amount: 53.49, category: 'Meals & Catering', confidence: 'high', reason: 'Lunch.' }] })
   const both = html(slipOf(meal), context({ expenses: [dup] }))
-  assert.match(both, /disabled="" title="A business meal needs[^"]*">Add as a new row<\/button>/)
+  // BUDGET-V2 item 11: "Add as a new row" became the second answer to Match or add?. Attaching still
+  // waits only for the date; adding still waits for every block (receiptChecks' blocked, which Accept
+  // enforces on the server).
+  assert.match(both, />Attach to FY26 row 4<\/button>/)
+  assert.doesNotMatch(both, /disabled="" [^>]*>Attach to FY26 row 4/)
+  assert.match(both, /<b>Add as a new one-time expense<\/b><small>Adds \$58\.57 to Spent in September\.<\/small>/)
 })
 
 test('a year that has not started turns Accept into Start FY', () => {

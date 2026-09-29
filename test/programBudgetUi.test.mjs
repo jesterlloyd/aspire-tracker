@@ -71,8 +71,9 @@ test('Summary: the owner changes the budget and writes the note; a reader reads 
   assert.doesNotMatch(reader, /Change budget|Mark reconciled today|<textarea/)
   assert.ok(reader.indexOf('From the Program Owner') < reader.indexOf('Budget</span>'), 'the note comes before the figures')
   assert.match(owner, /\$41\.41/)
-  assert.match(owner, /after \$600\.00 in subscriptions due/, 'Remaining names what subscriptions will still charge')
-  assert.match(owner, /Scheduled subscriptions/)
+  // BUDGET-V2 item 12 (2026-09-29): upcoming charges are Expected charges.
+  assert.match(owner, /after \$600\.00 in expected charges/, 'Remaining names what subscriptions will still charge')
+  assert.match(owner, /Expected charges/)
   assert.match(owner, /Budget History/)
   assert.match(reader, /\$6,000\.00/, 'a reader sees the saved plan')
   assert.doesNotMatch(reader, /\$6,500\.00/, 'and never the draft')
@@ -88,7 +89,10 @@ test('Sheet: the owner adds and deletes rows; a reader gets a view-only sheet; a
   assert.doesNotMatch(reader, /<\/svg> Row<\/button>|Delete row/)
   assert.match(closed, /Jan 2026/, 'an imported row shows its month')
   // Owner, 2026-09-27: a closed year is editable (the prompt's locks are retired).
-  assert.doesNotMatch(closed, /fs-locked/, 'nothing in a closed year is locked')
+  // BUDGET-V2 item 12: the only lock in a closed year is Concur on a row that is not Personal (Concur),
+  // which is locked in every year; a closed MONTH locks its rows until it is reopened (Phase 2).
+  const locked = [...closed.matchAll(/data-cell="([^"|]+)\|([^"]+)"[^>]*class="[^"]*fs-locked/g)].map(m => m[2])
+  assert.deepEqual([...new Set(locked)], locked.length ? ['concur'] : [], 'nothing in a closed year is locked but Concur on a non-personal row')
   assert.match(closed, /<\/svg> Row<\/button>/, 'a closed year takes new rows')
   assert.match(closed, /Delete row/)
 })

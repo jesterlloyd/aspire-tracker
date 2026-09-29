@@ -148,7 +148,8 @@ export default function ProgramBudgetView({ source, renderBand, initialFy = null
         <SegmentedPicker ariaLabel="Program Budget views" options={tabs} value={current} onChange={(t) => { setSheetFocus(null); setTab(t) }} />
         {current === 'summary' && (notStarted
           ? <BudgetStart year={year} canEdit={canEdit} onWrite={onWrite} onPickYear={(y) => setFy(y)} />
-          : <BudgetSummary key={year.fy} year={year} canEdit={canEdit} onWrite={onWrite} />)}
+          : <BudgetSummary key={year.fy} year={year} canEdit={canEdit} onWrite={onWrite}
+              onGo={(t, filter) => { setSheetFocus(filter ? { filter, at: Date.now() } : null); setTab(t) }} />)}
         {current === 'sheet' && <BudgetSheet year={year} canEdit={canEdit} onWrite={onWrite} focus={sheetFocus} />}
         {current === 'subscriptions' && <BudgetSubscriptions year={year} canEdit={canEdit} onWrite={onWrite} />}
         {current === 'receipts' && canEdit && (

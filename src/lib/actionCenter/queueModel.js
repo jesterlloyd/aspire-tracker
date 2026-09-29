@@ -43,7 +43,7 @@ function homeGroupKey(key) {
 function stateText(row) {
   const text = row?.pill?.text || ''
   // A renewal says when it falls due, not how long it has waited (AC-RENEW-1).
-  return /^(Your turn|Blocked|No slot|Unplaced|Renews today)$/i.test(text) || /^\d+ ready$/i.test(text) || /^In \d+ days?$/i.test(text) || /^(Due in \d+ days?|Due today|Past due|No receipt)$/i.test(text) ? text : null
+  return /^(Your turn|Blocked|No slot|Unplaced|Renews today)$/i.test(text) || /^\d+ ready$/i.test(text) || /^In \d+ days?$/i.test(text) || /^(Due in \d+ days?|Due today|Past due|No receipt|Close month)$/i.test(text) ? text : null
 }
 
 function actionsFor({ group, row, student }) {
@@ -105,7 +105,7 @@ export function normalizeHomeQueue({ groups = [], conversations = [], students =
           : group === 'review-release' ? 'Release'
             : group === 'forms' ? 'Overdue'
               : group === 'interviews' ? 'Schedule'
-                : group === 'budget' ? (row.chip || 'Renew') : 'Placement'   // Program Budget: Renew, Review, Submit or Receipt
+                : group === 'budget' ? (row.chip || 'Renew') : 'Placement'   // Program Budget: Renew, Review, Submit, Receipt or Close
       const tag = group === 'messages' ? 'reply' : String(row.pill?.text || '').toLowerCase()
       const title = conversation?.participant_name || String(row.title || '').split(' · ')[0]
       const qualifier = conversation?.subject || String(row.title || '').split(' · ').slice(1).join(' · ')
@@ -226,6 +226,6 @@ export function groupQueue(items = []) {
 }
 
 export function chipCounts(items = []) {
-  const order = ['Sign', 'Reply', 'Release', 'Overdue', 'Schedule', 'Placement', 'Review', 'Submit', 'Receipt', 'Renew']
+  const order = ['Sign', 'Reply', 'Release', 'Overdue', 'Schedule', 'Placement', 'Review', 'Submit', 'Receipt', 'Renew', 'Close']
   return order.map(chip => ({ chip, count: items.filter(item => item.chip === chip).length })).filter(x => x.count)
 }
