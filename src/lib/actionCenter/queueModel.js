@@ -1,3 +1,5 @@
+import { isKeithRule, isKeithClose, requestTypeOfRule, wouldLine, openRequestLabel, REQUEST_TYPE_LABEL } from '../keith/checkinSortModel.js'
+
 const DAY = 86_400_000
 
 export const ACTION_CENTER_GROUPS = Object.freeze([
@@ -51,6 +53,8 @@ function actionsFor({ group, row, student }) {
   ]
   if (group === 'messages') {
     if (row.id.startsWith('support:')) {
+      // KEITH-CHECKIN-1: a request Keith sorted opens as its type (relabel only, Owner 2026-09-28).
+      if (row.requestType) return [{ key: 'support_open', label: openRequestLabel(row.requestType), primary: true }, { key: 'support_close', label: 'Close: no help needed' }]
       return row.classification === 'needs_look'
         ? [{ key: 'support_open', label: 'Open as request', primary: true }, { key: 'support_close', label: 'Close: no help needed' }]
         : [{ key: 'open', label: 'Reply', primary: true }, { key: 'support_close', label: 'Close: no help needed' }, { key: 'snooze', label: 'Snooze' }]
@@ -123,7 +127,15 @@ export function normalizeHomeQueue({ groups = [], conversations = [], students =
   return sortQueue(items)
 }
 
-export function normalizeSupportQueue({ logs = [], events = [], students = [], now = Date.now() } = {}) {
+/**
+ * The support check-in replies as queue items. KEITH-CHECKIN-1: `keith` is /api/keith-checkin's
+ * queue view. With Keith ON, a reply Keith sorted is labelled from Keith's own event (Needs a look,
+ * or Request · Parking with "Open as parking request"), and a thank-you Keith closed leaves the
+ * queue for the daily line (keithDaily), never the rule-closed list. In SHADOW, every item is
+ * exactly as it was, plus a "would" line. Every item Keith touched carries its provenance id, so the
+ * Keith mark can sit beside its label.
+ */
+export function normalizeSupportQueue({ logs = [], events = [], students = [], keith = null, now = Date.now() } = {}) {
   const latest = new Map()
   for (const event of events) {
     const prior = latest.get(event.shift_log_id)
@@ -133,6 +145,9 @@ export function normalizeSupportQueue({ logs = [], events = [], students = [], n
     }
   }
   const studentById = new Map(students.map(s => [s.id, s]))
+  const logById = new Map(logs.map(l => [l.id, l]))
+  const sorts = keith?.sorts || {}
+  const shadow = keith?.mode === 'shadow'
   const open = []
   const closed = []
   for (const log of logs) {
@@ -141,10 +156,15 @@ export function normalizeSupportQueue({ logs = [], events = [], students = [], n
     const student = studentById.get(log.student_id)
     const name = firstNameFirst(student) || 'Student'
     const reply = String(log.support_needed || '').trim()
+    const rule = String(event.rule_key || '').split('#')[0]
+    const sort = sorts[log.id] || null
+    const keithEvent = isKeithRule(rule)
+    const requestType = requestTypeOfRule(rule)
     const row = {
-      id: `support:${log.id}`, classification: event.classification,
+      id: `support:${log.id}`, classification: event.classification, requestType,
       title: name, pill: { text: event.classification === 'needs_look' ? 'Needs a look' : null },
     }
+    if (event.status === 'closed_auto' && isKeithClose(rule)) continue   // the daily line lists these
     if (event.status === 'closed_auto') {
       if (now - new Date(event.created_at).getTime() <= 7 * DAY) closed.push({
         key: row.id, shiftLogId: log.id, title: name, reply, createdAt: event.created_at,
@@ -163,9 +183,23 @@ export function normalizeSupportQueue({ logs = [], events = [], students = [], n
       actions: actionsFor({ group: 'messages', row }),
       href: `/rotation/activity?student=${encodeURIComponent(log.student_id)}&shift=${encodeURIComponent(log.id)}`,
       studentId: log.student_id, shiftLogId: log.id, source: row,
+      keith: keithEvent && sort
+        ? { provenanceId: sort.provenanceId, label: requestType ? `Request · ${REQUEST_TYPE_LABEL[requestType]}` : 'Needs a look', would: false }
+        : shadow && sort && sort.mode === 'shadow' && !urgent
+          ? { provenanceId: sort.provenanceId, label: wouldLine(sort, reply), would: true }
+          : null,
     })
   }
-  return { open: sortQueue(open), closed: closed.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)) }
+  // The daily line: Keith's closes of the last 7 days, by day, each with its reply.
+  const keithDaily = (keith?.daily || []).map(d => ({
+    day: d.day, today: d.day === keith.today,
+    items: d.items.map(it => {
+      const log = logById.get(it.shiftLogId)
+      if (!log) return null
+      return { key: `support:${it.shiftLogId}`, shiftLogId: it.shiftLogId, provenanceId: it.provenanceId, title: firstNameFirst(studentById.get(log.student_id)) || 'Student', reply: String(log.support_needed || '').trim(), at: it.at }
+    }).filter(Boolean),
+  })).filter(d => d.items.length)
+  return { open: sortQueue(open), closed: closed.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)), keithDaily }
 }
 
 export function sortQueue(items = []) {

@@ -63,7 +63,8 @@ export function nextState(current, action, { prior = null } = {}) {
     case 'accept': return current === 'drafted' ? 'accepted' : current === 'edited' ? 'edited' : null
     case 'reject': return current === 'rejected' ? null : 'rejected'
     case 'undo': {
-      if (current !== 'accepted' && current !== 'rejected' && current !== 'edited') return null
+      // Undo of a revert (KEITH-CHECKIN-1: Undo after Reopen) puts Keith's action back too.
+      if (current !== 'accepted' && current !== 'rejected' && current !== 'edited' && current !== 'reverted') return null
       return prior === 'edited' ? 'edited' : 'drafted'
     }
     case 'revert': return current === 'reverted' ? null : 'reverted'
@@ -162,15 +163,17 @@ export function cardView(record, { now = new Date() } = {}) {
 /**
  * Shadow mode agreement for one skill. Each row is { keith, human }: the label Keith gave and the
  * decision the person made on the same entity. Rows with no human decision yet are not counted.
+ * `agrees(keith, human)` decides a match when a person's decisions do not map one to one onto
+ * Keith's labels (KEITH-CHECKIN-1); the default is equality.
  */
-export function computeAgreement(rows) {
+export function computeAgreement(rows, agrees = (k, h) => String(h) === String(k)) {
   const byLabel = {}
   let total = 0
   let agreed = 0
   for (const r of Array.isArray(rows) ? rows : []) {
     if (r?.keith == null || r?.human == null) continue
     const k = String(r.keith)
-    const ok = String(r.human) === k
+    const ok = agrees(k, String(r.human)) === true
     total += 1
     if (ok) agreed += 1
     byLabel[k] = byLabel[k] || { total: 0, agreed: 0 }

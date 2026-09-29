@@ -8,6 +8,10 @@ import { chipCounts, groupQueue } from '../lib/actionCenter/queueModel'
 import { formStaff } from './forms/formsApi'
 import { sigStaff } from './signatures/sigApi'
 import StaffNotificationsPanel from './StaffNotificationsPanel'
+import KeithMark from './keith/KeithMark'
+import { refreshKeithProvenance } from './keith/keithProvenanceStore'
+import { KeithDailyLine, KeithModeStrip } from './actionCenter/KeithCheckinPanel'
+import { keithCheckin } from '../lib/keith/keithCheckinApi'
 import './actionCenter/actionCenter.css'
 
 const EMPTY_ITEMS = Object.freeze([])
@@ -162,6 +166,39 @@ export default function ActionCenterV2({
     finally { setBusy(null) }
   }
 
+  // KEITH-CHECKIN-1: Reopen a reply Keith closed (its provenance is reverted: a correction for Keith),
+  // with Undo; and the Owner's auto-close switch.
+  const keithReopen = async (row) => {
+    setBusy(`${row.key}:reopen`)
+    try {
+      await keithCheckin('reopen', { shift_log_id: row.shiftLogId })
+      refreshKeithProvenance(row.provenanceId)
+      invalidate()
+      setAnnouncement(`${row.title} reopened.`)
+      toast?.success?.('Reopened', `${row.title} is back in the queue.`, {
+        duration: 5000,
+        action: { label: 'Undo', onClick: async () => {
+          try {
+            await keithCheckin('undo_reopen', { shift_log_id: row.shiftLogId })
+            refreshKeithProvenance(row.provenanceId)
+            invalidate(); setAnnouncement(`${row.title} closed again.`)
+          } catch { toast?.error?.('Undo failed', 'The reply stayed open.') }
+        } },
+      })
+    } catch { toast?.error?.('Could not reopen', 'Nothing changed. Please try again.') }
+    finally { setBusy(null) }
+  }
+  const keithSetMode = async (mode) => {
+    setBusy('keith:mode')
+    try {
+      await keithCheckin('set_mode', { mode })
+      invalidate()
+      setAnnouncement(mode === 'on' ? 'Auto-close is on.' : 'Auto-close is off. Keith keeps labeling without acting.')
+      toast?.success?.(mode === 'on' ? 'Auto-close is on' : 'Auto-close is off', mode === 'on' ? 'Keith now closes plain thank-you replies.' : 'Keith keeps labeling without acting.')
+    } catch (e) { toast?.error?.('Not changed', e?.message || 'Please try again.') }
+    finally { setBusy(null) }
+  }
+
   const sendReminder = async (item) => {
     if (!item.entityId) return
     setBusy(`${item.key}:reminder`)
@@ -254,12 +291,20 @@ export default function ActionCenterV2({
             <span className="ac2-name">
               {item.title}{item.qualifier ? ` · ${item.qualifier}` : ''}
               {item.tag === 'needs a look' && <em>Needs a look</em>}
+              {item.keith && !item.keith.would && item.source?.requestType && <em className="ac2-req">{item.keith.label}</em>}
             </span>
             {item.meta && <span className="ac2-meta">{item.meta}</span>}
             {item.quote && <span className="ac2-quote">“{item.quote}”</span>}
           </span>
           <span className={`ac2-state${item.urgent ? ' urgent' : ''}`}>{item.urgent ? 'Urgent' : item.ageLabel}</span>
         </button>
+        {/* KEITH-CHECKIN-1: the Keith mark beside Keith's label (a button, so outside the row's button). */}
+        {item.keith && (
+          <div className={`ac2-keith${item.keith.would ? ' would' : ''}`}>
+            <KeithMark provenanceId={item.keith.provenanceId} />
+            <span>{item.keith.would ? item.keith.label : `Sorted by Keith: ${item.keith.label}`}</span>
+          </div>
+        )}
         <div className="ac2-actions">
           {item.actions.map(action => (
             <button key={action.key} type="button" className={`ac2-action${action.primary ? ' primary' : ''}`}
@@ -316,6 +361,8 @@ export default function ActionCenterV2({
             </div>
             <div className="ac2-body">
               <div className="ac2-clip material-clipboard-clip" aria-hidden="true"><span /></div>
+              <KeithModeStrip keith={queue.keith} isOwner={userProfile?.is_owner === true} busy={busy} onSetMode={keithSetMode} />
+              <KeithDailyLine daily={queue.keith?.daily || []} busy={busy} onReopen={keithReopen} />
               {(queue.failures || []).map(failure => <div className="ac2-error" key={failure.key}><span>Couldn’t load {failure.label}.</span><button type="button" onClick={() => failure.retry?.()}>Retry</button></div>)}
               {urgent.length > 0 && <section className="ac2-section" aria-labelledby="ac2-urgent"><h3 className="ac2-section-head" id="ac2-urgent">Urgent <b>{urgent.length}</b></h3>{urgent.map(renderItem)}</section>}
               {groups.map(group => <section className="ac2-section" key={group.key} aria-labelledby={`ac2-${group.key}`}><h3 className="ac2-section-head" id={`ac2-${group.key}`}>{group.label} <b>{group.items.length}</b></h3>{group.items.map(renderItem)}</section>)}

@@ -10,7 +10,9 @@
 import { agreementPercent } from '../../lib/keith/provenanceModel'
 import './shadowModeCard.css'
 
-export default function ShadowModeCard({ agreement, labels = {}, status = null, note = null, actions = null, title = 'Shadow Mode' }) {
+// `lines` are extra [label, value] rows after the per-label ones; a truthy third item marks the line
+// that matters most (KEITH-CHECKIN-1: "Replies Keith would close that you kept open").
+export default function ShadowModeCard({ agreement, labels = {}, lines = [], status = null, note = null, actions = null, title = 'Shadow Mode' }) {
   const a = agreement || { total: 0, agreed: 0, rate: null, byLabel: {} }
   const pct = a.rate == null ? 0 : Math.round(a.rate * 100)
   const rows = Object.entries(a.byLabel || {})
@@ -26,9 +28,10 @@ export default function ShadowModeCard({ agreement, labels = {}, status = null, 
         <span className="ksm-hint">{a.total ? `Agreed with you on ${a.agreed} of ${a.total}` : 'Nothing to compare yet'}</span>
       </div>
       <div className="ksm-meter" role="img" aria-label={a.total ? `${pct} percent agreement` : 'No agreement figure yet'}><i style={{ width: `${pct}%` }} /></div>
-      {rows.length > 0 && (
+      {(rows.length > 0 || lines.length > 0) && (
         <dl className="ksm-rows">
           {rows.map(([k, v]) => <div key={k}><dt>{labels[k] || k}</dt><dd>{v.agreed} of {v.total} agreed</dd></div>)}
+          {lines.map(([k, v, key]) => <div key={k} className={key ? 'ksm-key' : undefined}><dt>{k}</dt><dd>{v}</dd></div>)}
         </dl>
       )}
       {(note || actions) && <div className="ksm-foot">{note && <span className="ksm-hint">{note}</span>}{actions}</div>}

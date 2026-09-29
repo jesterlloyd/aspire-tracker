@@ -14,3 +14,5 @@
 .ksm-rows dt { color: var(--text-caption); }
 .ksm-rows dd { margin: 0; font-weight: 700; color: var(--text-heading); }
 .ksm-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+.ksm-key { margin-top: 4px; padding-top: 6px; border-top: 1px solid var(--border-divider); }
+.ksm-key dt { color: var(--text-heading); font-weight: 700; }

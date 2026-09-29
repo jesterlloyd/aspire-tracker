@@ -86,15 +86,17 @@ export function KeithMarkView({ record, size = 'sm', viewer }) {
   useLayoutEffect(() => { if (open) place() }, [open, place])
   useEffect(() => {
     if (!open) return undefined
-    const onKey = (e) => { if (e.key === 'Escape') { hide(); btn.current?.focus() } }
+    // Capture phase on window, and stopped there: Escape closes this card and nothing else (a drawer
+    // that closes on Escape, such as the Action Center, must stay open). KEITH-CHECKIN-1.
+    const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); hide(); btn.current?.focus() } }
     const onDown = (e) => { if (!btn.current?.contains(e.target) && !card.current?.contains(e.target)) hide() }
     const onMove = () => place()
-    document.addEventListener('keydown', onKey)
+    window.addEventListener('keydown', onKey, true)
     document.addEventListener('pointerdown', onDown)
     window.addEventListener('scroll', onMove, true)
     window.addEventListener('resize', onMove)
     return () => {
-      document.removeEventListener('keydown', onKey)
+      window.removeEventListener('keydown', onKey, true)
       document.removeEventListener('pointerdown', onDown)
       window.removeEventListener('scroll', onMove, true)
       window.removeEventListener('resize', onMove)

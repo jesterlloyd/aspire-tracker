@@ -13,6 +13,7 @@ import {
   messagesGroup, signaturesGroup, reviewReleaseGroup, formsDocsGroup, interviewsGroup, placementGroup, budgetGroup,
 } from '../lib/home/needsYouModel'
 import { supabase } from '../lib/supabase'
+import { keithCheckin } from '../lib/keith/keithCheckinApi'
 import {
   applySnoozes, firstNameFirst, normalizeHomeQueue, normalizeSupportQueue, sortQueue,
 } from '../lib/actionCenter/queueModel'
@@ -127,9 +128,19 @@ export function useActionCenterQueue({ enabled = true, includeOtherCohorts = fal
     return out.filter(Boolean)
   }, [qSig.data, qMessages.data, qRR.data, qCat.data, qIv.data, qRot.data, qBudget.data, scopedSlots, personalConversations, students, communications, units, unitById, userProfile?.id, sigFlag.allowed, today, now])
 
+  // KEITH-CHECKIN-1: Keith's sorts, the daily line and the shadow card. A failure here leaves the
+  // support items exactly as they were; it never blocks them.
+  const qKeith = useQuery({
+    queryKey: ['action_keith_checkins', cohortId],
+    queryFn: () => keithCheckin('queue', { cohort_id: cohortId }),
+    enabled: enabled && canManage && !!cohortId,
+    staleTime: 30000,
+    retry: false,
+  })
+  const keith = qKeith.data?.available ? qKeith.data : null
   const support = useMemo(() => normalizeSupportQueue({
-    logs: qSupport.data?.logs || [], events: qSupport.data?.events || [], students, now,
-  }), [qSupport.data, students, now])
+    logs: qSupport.data?.logs || [], events: qSupport.data?.events || [], students, keith, now,
+  }), [qSupport.data, students, keith, now])
   const allItems = useMemo(() => sortQueue([
     ...normalizeHomeQueue({ groups, conversations: personalConversations, students, cohortId, now }),
     ...support.open,
@@ -180,11 +191,13 @@ export function useActionCenterQueue({ enabled = true, includeOtherCohorts = fal
     queryClient.invalidateQueries({ queryKey: ['home_interviews', cohortId, today] })
     queryClient.invalidateQueries({ queryKey: ['home_rotations', cohortId] })
     queryClient.invalidateQueries({ queryKey: ['action_support_checkins', cohortId] })
+    queryClient.invalidateQueries({ queryKey: ['action_keith_checkins', cohortId] })
     queryClient.invalidateQueries({ queryKey: ['home_budget_queue'] })
   }, [queryClient, cohortId, today])
 
   return {
     items, allItems, closedAutomatically: support.closed, otherCohorts,
+    keith: keith ? { mode: keith.mode, runMode: keith.runMode, card: keith.card, daily: support.keithDaily } : null,
     count: items.length,
     isLoading: sources.some(s => s.status === 'loading'),
     failures: sources.filter(s => s.status === 'error'),

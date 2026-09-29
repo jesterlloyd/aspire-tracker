@@ -26,6 +26,9 @@ function builder(pg, table, arrayCols) {
     delete() { st.op = 'delete'; return api },
     eq(c, v) { st.where.push(() => `${ident(c)} = ${p(v)}`); return api },
     neq(c, v) { st.where.push(() => `${ident(c)} IS DISTINCT FROM ${p(v)}`); return api },
+    gte(c, v) { st.where.push(() => `${ident(c)} >= ${p(v)}`); return api },
+    lte(c, v) { st.where.push(() => `${ident(c)} <= ${p(v)}`); return api },
+    like(c, v) { st.where.push(() => `${ident(c)} LIKE ${p(v)}`); return api },
     in(c, vs) { st.where.push(() => vs.length ? `${ident(c)} IN (${vs.map(v => p(v)).join(', ')})` : 'false'); return api },
     is(c, v) { st.where.push(() => `${ident(c)} IS ${v === null ? 'NULL' : v ? 'TRUE' : 'FALSE'}`); return api },
     not(c, op, v) {

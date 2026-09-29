@@ -97,3 +97,18 @@
   .ac2-actions { padding-left: 11px; }
   .ac2-row { grid-template-columns: 27px minmax(0,1fr) auto; }
 }
+
+/* KEITH-CHECKIN-1: Keith's lines. The mark sits beside Keith's label; a shadow "would" line is quieter. */
+.ac2-name em.ac2-req { background: var(--keith-soft); color: var(--keith); }
+.ac2-keith { display: flex; align-items: center; gap: 6px; margin: -2px 12px 6px 44px; font-size: 12px; color: var(--keith); }
+.ac2-keith.would { padding: 4px 8px; border: 1px dashed color-mix(in srgb, var(--keith) 45%, transparent); border-radius: var(--aspire-radius-control); background: var(--keith-soft); }
+.ac2-keith-strip { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; box-sizing: border-box; margin: 0 0 10px; padding: 8px 12px; border: 1px solid color-mix(in srgb, var(--keith) 25%, transparent); border-radius: var(--aspire-radius-control); background: var(--keith-soft); color: var(--keith); font: inherit; font-size: 12.5px; text-align: left; }
+.ac2-keith-toggle { cursor: pointer; }
+.ac2-keith-shadow .ksm-card { margin: 0 0 12px; }
+.ac2-daily { margin: 0 0 12px; padding: 10px 12px; border: 1px solid color-mix(in srgb, var(--keith) 25%, transparent); border-radius: var(--aspire-radius-card); background: var(--keith-soft); color: var(--text-body); display: grid; gap: 8px; }
+.ac2-daily-head { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.ac2-daily-head b { flex: 1; color: var(--text-heading); }
+.ac2-daily-date { margin: 4px 0 0; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-caption); }
+.ac2-daily-row { display: grid; grid-template-columns: auto 1fr auto; align-items: start; gap: 8px; padding: 8px 0; border-top: 1px solid var(--border-divider); font-size: 12.5px; }
+.ac2-daily-row q { color: var(--text-caption); }
+.ac2-keith-strip .ac2-action { flex: none; white-space: nowrap; }

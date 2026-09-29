@@ -22,7 +22,7 @@ process.env.VITE_SUPABASE_ANON_KEY ||= 'test-anon-key'
 
 let vite, Mark, Store, Auth
 before(async () => {
-  vite = await createServer({ server: { middlewareMode: true }, appType: 'custom', logLevel: 'error' })
+  vite = await createServer({ server: { middlewareMode: true, hmr: false, ws: false }, appType: 'custom', logLevel: 'error' })
   Mark = await vite.ssrLoadModule('/src/components/keith/KeithMark.jsx')
   Store = await vite.ssrLoadModule('/src/components/keith/keithProvenanceStore.js')
   Auth = await vite.ssrLoadModule('/src/contexts/AuthContext.jsx')
