@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { MessageSquarePen, X } from 'lucide-react'
+import { MessageSquare, Pencil, X } from 'lucide-react'
 import { announceFloatingPanelOpen, onFloatingPanelOpen } from '../../lib/floatingPanels'
 
 const FEEDBACK_CATEGORIES = [
@@ -16,6 +16,16 @@ function emptyBugFields() {
     actual_behavior: '',
     reproduction_steps: '',
   }
+}
+
+function FeedbackIcon({ size }) {
+  const pencilSize = Math.max(10, Math.round(size * 0.55))
+  return (
+    <span className="shared-feedback-icon" aria-hidden="true">
+      <MessageSquare size={size} strokeWidth={2} />
+      <Pencil className="shared-feedback-icon-pencil" size={pencilSize} strokeWidth={2.5} />
+    </span>
+  )
 }
 
 export default function SharedFeedbackPanel({
@@ -126,7 +136,7 @@ export default function SharedFeedbackPanel({
           }}
           onPointerLeave={() => setShowTooltip(false)}
         >
-          <MessageSquarePen size={22} color="#ffffff" strokeWidth={2} aria-hidden="true" />
+          <FeedbackIcon size={22} />
         </button>
       )}
 
@@ -141,7 +151,7 @@ export default function SharedFeedbackPanel({
             aria-describedby="shared-feedback-desc"
           >
             <div className="shared-feedback-head">
-              <MessageSquarePen size={20} color="#ffffff" strokeWidth={2} aria-hidden="true" />
+              <FeedbackIcon size={20} />
               <div>
                 <h2 id="shared-feedback-title">Send Feedback</h2>
                 <p id="shared-feedback-desc">Report a bug, suggest a feature, or ask a question.</p>

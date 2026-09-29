@@ -3532,6 +3532,20 @@ button.ir-wl-th { background: transparent; border: 0; text-align: left; cursor: 
   transform: scale(0.95);
   box-shadow: 0 0 0 2px rgba(147, 0, 69, 0.5), 0 0 20px rgba(147, 0, 69, 0.4);
 }
+.shared-feedback-icon {
+  position: relative;
+  display: inline-flex;
+  width: 22px;
+  height: 22px;
+  color: #ffffff;
+}
+.shared-feedback-icon-pencil {
+  position: absolute;
+  right: -3px;
+  bottom: -2px;
+  fill: #930045;
+  color: #ffffff;
+}
 .shared-feedback-launcher:focus-visible,
 .shared-feedback-close:focus-visible,
 .shared-feedback-category:focus-visible,
