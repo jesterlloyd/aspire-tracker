@@ -65,3 +65,11 @@
 /* index.css paints every select for dark ([data-theme="dark"] select, one class and one element); the
    portal's selects sit on its light card, so this rule carries one class more. */
 .ct-portal .ct-move { background: #ffffff; color: var(--ptl-ink, #232842); border-color: var(--ptl-line, #e3ded4); }
+
+/* THEMES-FOLD-1: an accepted theme is one line; the run line says how far the review has got. */
+.ct-folded { gap: 6px; padding-block: 10px; }
+.ct-accepted { display: inline-flex; align-items: center; padding: 5px 12px; border-radius: var(--aspire-radius-control); background: var(--aspire-ok-soft); color: var(--aspire-ok); font-size: 12.5px; font-weight: 700; }
+.ct-progress { display: flex; align-items: center; gap: 8px; margin-top: 4px; font-size: 12px; font-weight: 600; color: var(--text-caption); }
+.ct-progress .ct-meter { flex: 0 0 120px; height: 6px; }
+.ct-progress-done { color: var(--aspire-ok); }
+.ct-progress-done .ct-meter i { background: var(--aspire-ok); }

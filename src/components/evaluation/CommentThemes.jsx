@@ -46,7 +46,22 @@ function MoveSelect({ comment, themes, currentId, onMove, busy }) {
   )
 }
 
-function OwnerCard({ theme, total, themes, busy, onRename, onMerge, onAccept, onMove, onOpenResponse }) {
+// An accepted theme folds to one line: what is still open is what still needs a look (THEMES-FOLD-1).
+function FoldedCard({ theme, total, onShow }) {
+  return (
+    <article className="ct-card ct-folded" aria-label={`${theme.name}, accepted`}>
+      <div className="ct-card-head">
+        <KeithMark provenanceId={theme.provenanceId} />
+        <h4 className="ct-name">{theme.name}</h4>
+        <span className="ct-grow" />
+        <button type="button" className="ct-link" aria-expanded="false" onClick={onShow}>Show</button>
+      </div>
+      <Bar n={theme.count} total={total} />
+    </article>
+  )
+}
+
+function OwnerCard({ theme, total, themes, busy, onRename, onMerge, onAccept, onMove, onOpenResponse, onHide }) {
   const [renaming, setRenaming] = useState(false)
   const [name, setName] = useState(theme.name)
   return (
@@ -61,6 +76,7 @@ function OwnerCard({ theme, total, themes, busy, onRename, onMerge, onAccept, on
             <button type="button" className="ct-btn" onClick={() => { setName(theme.name); setRenaming(false) }}>Cancel</button>
           </form>
         ) : <h4 className="ct-name">{theme.name}</h4>}
+        {onHide && <><span className="ct-grow" /><button type="button" className="ct-link" aria-expanded="true" onClick={onHide}>Hide</button></>}
       </div>
       <Bar n={theme.count} total={total} />
       {theme.reason && <p className="ct-reason">{theme.reason}</p>}
@@ -82,9 +98,9 @@ function OwnerCard({ theme, total, themes, busy, onRename, onMerge, onAccept, on
           <option value="">Merge into…</option>
           {themes.filter(t => t.id !== theme.id).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
         </select>
-        <button type="button" className="ct-btn ct-btn-pri" disabled={busy || theme.state !== 'drafted'} onClick={() => onAccept(theme)}>
-          {theme.state === 'drafted' ? 'Accept' : theme.state === 'accepted' ? 'Accepted' : 'Edited'}
-        </button>
+        {theme.state === 'accepted'
+          ? <span className="ct-accepted">Accepted</span>
+          : <button type="button" className="ct-btn ct-btn-pri" disabled={busy} onClick={() => onAccept(theme)}>{theme.state === 'edited' ? 'Accept with changes' : 'Accept'}</button>}
       </div>
     </article>
   )
@@ -127,6 +143,9 @@ export default function CommentThemes({ cohortId, instrument, instrumentName, on
   // Keyed by instrument and timepoint, so switching either closes Other and any pending confirmation.
   const [otherOpenFor, setOtherOpenFor] = useState(null)
   const [confirmFor, setConfirmFor] = useState(null)
+  // Accepted themes a person has opened again. Keyed by theme id, which is unique to one version.
+  const [shown, setShown] = useState(() => new Set())
+  const toggleShown = (id, on) => setShown(prev => { const next = new Set(prev); if (on) next.add(id); else next.delete(id); return next })
   const enabled = !!cohortId && qualifies(instrument)
 
   const { data: tps } = useQuery({
@@ -169,6 +188,7 @@ export default function CommentThemes({ cohortId, instrument, instrumentName, on
     const a = document.createElement('a'); a.href = url; a.download = r.fileName; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url)
   })
   const themes = view?.themes || []
+  const reviewed = themes.filter(t => t.state === 'accepted').length
   const touch = (t) => refreshKeithProvenance(t?.provenanceId)
 
   return (
@@ -213,7 +233,14 @@ export default function CommentThemes({ cohortId, instrument, instrumentName, on
             {view.version ? (
               <>
                 <KeithMark provenanceId={view.version.provenanceId} />
-                <span><b>Keith read {view.total} comments and found {themes.length} {themes.length === 1 ? 'theme' : 'themes'}.</b> <span className="ct-muted">{when(view.version.createdAt)} · version {view.version.version}{view.version.newComments ? ` · ${view.version.newComments} new ${view.version.newComments === 1 ? 'comment' : 'comments'} since` : ''}</span></span>
+                <span><b>Keith read {view.total} comments and found {themes.length} {themes.length === 1 ? 'theme' : 'themes'}.</b> <span className="ct-muted">{when(view.version.createdAt)} · version {view.version.version}{view.version.newComments ? ` · ${view.version.newComments} new ${view.version.newComments === 1 ? 'comment' : 'comments'} since` : ''}</span>
+                  {themes.length > 0 && (
+                    <span className={`ct-progress${reviewed === themes.length ? ' ct-progress-done' : ''}`}>
+                      <span className="ct-meter" aria-hidden="true"><i style={{ width: `${Math.round((reviewed / themes.length) * 100)}%` }} /></span>
+                      {reviewed === themes.length ? 'All themes reviewed' : `${reviewed} of ${themes.length} themes reviewed`}
+                    </span>
+                  )}
+                </span>
               </>
             ) : (
               <span><b>Keith has not read these comments yet.</b> <span className="ct-muted">{view.liveComments} {view.liveComments === 1 ? 'comment' : 'comments'} {tpLabel(tp) ? `at ${tpLabel(tp)}` : ''}</span></span>
@@ -229,11 +256,14 @@ export default function CommentThemes({ cohortId, instrument, instrumentName, on
               <button type="button" className="ct-btn" onClick={() => setConfirmFor(null)}>Keep this version</button>
             </div>
           )}
-          {themes.map(t => (
+          {themes.map(t => (t.state === 'accepted' && !shown.has(t.id)) ? (
+            <FoldedCard key={t.id} theme={t} total={view.total} onShow={() => toggleShown(t.id, true)} />
+          ) : (
             <OwnerCard key={t.id} theme={t} total={view.total} themes={themes} busy={busy} onOpenResponse={onOpenResponse}
+              onHide={t.state === 'accepted' ? () => toggleShown(t.id, false) : null}
               onRename={(th, name) => act(() => commentThemes('rename', { theme_id: th.id, name }), () => touch(th))}
               onMerge={(th, into) => act(() => commentThemes('merge', { theme_id: th.id, into_id: into }), () => { touch(th); touch(themes.find(x => x.id === into)) })}
-              onAccept={(th) => act(() => commentThemes('accept', { theme_id: th.id }), () => touch(th))}
+              onAccept={(th) => act(() => commentThemes('accept', { theme_id: th.id }), () => { touch(th); toggleShown(th.id, false) })}
               onMove={(cid, to) => act(() => commentThemes('move', { version_id: view.version.id, comment_id: cid, to_theme_id: to }), () => { touch(t); touch(themes.find(x => x.id === to)) })} />
           ))}
           {view.version && view.other?.length > 0 && (

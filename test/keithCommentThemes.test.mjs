@@ -243,7 +243,11 @@ test('Rename, Merge, Move and Accept each move the Keith mark; an edited version
   assert.equal(await state(sched.provenanceId), 'accepted')
   await T.rename(w.db, w.owner, { themeId: pre.id, name: 'Preceptor consistency' })
   assert.equal(await state(pre.provenanceId), 'edited')
-  assert.equal((await T.accept(w.db, w.owner, { themeId: pre.id })).state, 'edited', 'accepted with changes stays Edited')
+  // THEMES-FOLD-1 (2026-09-29) changed this: Accept is the sign-off whether or not the theme was edited,
+  // so the theme reads 'accepted' (it folds and counts as reviewed); the Keith mark still says Edited.
+  assert.equal((await T.accept(w.db, w.owner, { themeId: pre.id })).state, 'accepted', 'accepted with changes is accepted')
+  assert.equal(await state(pre.provenanceId), 'edited', 'the mark still says a person changed Keith’s work')
+  assert.equal((await T.accept(w.db, w.owner, { themeId: pre.id })).unchanged, true, 'a second accept writes nothing')
   // Move a Scheduling comment to Other, then into Preceptor support.
   const cid = sched.commentIds[0]
   await T.move(w.db, w.admin, { versionId: view.version.id, commentId: cid, toThemeId: null })
@@ -251,6 +255,8 @@ test('Rename, Merge, Move and Accept each move the Keith mark; an edited version
   assert.deepEqual(view.other.map(o => o.id), [cid])
   await T.move(w.db, w.admin, { versionId: view.version.id, commentId: cid, toThemeId: pre.id })
   await assert.rejects(T.move(w.db, w.admin, { versionId: view.version.id, commentId: 'c99', toThemeId: pre.id }), /not in these themes/)
+  let states = Object.fromEntries((await T.themesView(w.db, { ...KEY(w) })).themes.map(t => [t.id, t.state]))
+  assert.equal(states[pre.id], 'edited', 'a comment moved into an accepted theme reopens it for review')
   // Merge Scheduling into Preceptor consistency.
   await T.merge(w.db, w.owner, { themeId: sched.id, intoId: pre.id })
   view = await T.themesView(w.db, { ...KEY(w) })
