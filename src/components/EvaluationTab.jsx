@@ -520,12 +520,12 @@ export default function EvaluationTab({ cohortId, cohortLabel = '' }) {
               <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-heading, #191919)', margin: '0 0 4px', fontFamily: F }}>
                 Evaluation Results
               </h2>
-              <p style={{ fontSize: 13, color: 'var(--text-muted, #6B7785)', margin: 0, fontFamily: F }}>
+              <p style={{ fontSize: 13, color: 'var(--text-caption, #4A5560)', margin: 0, fontFamily: F }}>
                 One packet per instrument. The analysis sheet states what the numbers rest on before it states the finding.
               </p>
             </div>
             {syncDisplay && (
-              <div style={{ fontSize: 11.5, color: 'var(--text-muted, #98A2B3)', whiteSpace: 'nowrap', fontFamily: F, flexShrink: 0, paddingBottom: 2 }}>
+              <div style={{ fontSize: 11.5, color: 'var(--text-caption, #4A5560)', whiteSpace: 'nowrap', fontFamily: F, flexShrink: 0, paddingBottom: 2 }}>
                 {syncDisplay}
               </div>
             )}

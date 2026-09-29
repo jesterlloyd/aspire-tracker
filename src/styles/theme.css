@@ -147,6 +147,7 @@
   --aspire-paper-muted:  #61667E;
   --aspire-rule:         rgba(30, 42, 110, 0.12);
   /* Status inks and their soft tints (the KPI card family, named once). */
+  --kpi-ink:             #1D2567;   /* a KPI figure on a card (DARK-SWEEP-1) */
   --aspire-ok:           #0F7A4D;
   --aspire-ok-soft:      #E1F3EA;
   --aspire-warn:         #8F5A0A;
@@ -325,6 +326,7 @@
   --aspire-paper-ink:    #E9EAF2;
   --aspire-paper-muted:  #A0A4BC;
   --aspire-rule:         rgba(159, 176, 245, 0.14);
+  --kpi-ink:             #E9EAF2;
   --aspire-ok:           #3CCB8A;
   --aspire-ok-soft:      #15372A;
   --aspire-warn:         #E6A544;

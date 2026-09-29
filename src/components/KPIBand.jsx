@@ -34,11 +34,14 @@ export function useUpdatedLabel(cohortId) {
   return label
 }
 
+// DARK-SWEEP-1 (2026-09-29): the cell's surface is --bg-card, which follows the theme, so its inks
+// must too. They were fixed light-mode colours (navy numbers read 1.22:1 in dark, the grey sub-line
+// 2.58:1 on white, and the amber number about 2.9:1 on white). Each now reads a theme token.
 export function KPICell({ value, label, sub, accent, compact }) {
   const valueColor =
-    accent === 'sage'    ? colors.sage :
-    accent === 'warning' ? colors.dawn :
-                           colors.ink2
+    accent === 'sage'    ? `var(--aspire-ok, ${colors.sage})` :
+    accent === 'warning' ? `var(--aspire-warn, ${colors.dawn})` :
+                           `var(--kpi-ink, ${colors.ink2})`
   const pad    = compact ? '10px 16px' : '20px 22px'
   const numStyle = compact
     ? { ...styles.bigNumber, fontSize: '24px', lineHeight: 1.1 }
@@ -48,10 +51,10 @@ export function KPICell({ value, label, sub, accent, compact }) {
       <div style={{ ...numStyle, color: valueColor }}>
         {value ?? 0}
       </div>
-      <div style={{ ...styles.eyebrow, marginTop: compact ? 4 : 8 }}>
+      <div style={{ ...styles.eyebrow, color: `var(--text-caption, ${styles.eyebrow.color})`, marginTop: compact ? 4 : 8 }}>
         {label}
       </div>
-      {sub && <div style={{ fontSize: t.sizes.small, color: colors.ink4, marginTop: 2 }}>{sub}</div>}
+      {sub && <div style={{ fontSize: t.sizes.small, color: `var(--text-caption, ${colors.ink4})`, marginTop: 2 }}>{sub}</div>}
     </div>
   )
 }

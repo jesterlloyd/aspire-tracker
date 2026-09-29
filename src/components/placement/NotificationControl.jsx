@@ -138,7 +138,7 @@ export default function NotificationControl({
               aria-label={`Correct this ${labels.noun} notification`}
               onClick={e => { e.stopPropagation(); setReason(''); setReasonError(''); setDialog('correct') }}
               style={{ background: 'none', border: 'none', padding: '0 2px', cursor: 'pointer',
-                fontFamily: F, fontSize: 13, lineHeight: 1, color: '#9ca3af', flexShrink: 0 }}>
+                fontFamily: F, fontSize: 13, lineHeight: 1, color: 'var(--aspire-paper-ink-soft, #5E6480)', flexShrink: 0 }}>
               ⋯
             </button>
           </Tooltip>

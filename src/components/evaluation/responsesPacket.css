@@ -440,6 +440,8 @@
   font: inherit;
   cursor: pointer;
 }
+/* DARK-SWEEP-1: the accent blue on the dark amber tint read 4.48:1; lift it where the tint darkens. */
+[data-theme="dark"] .rp-followup button { color: #A9BEFF; }
 .rp-acts { display: flex; gap: 8px; flex-wrap: wrap; }
 
 /* ── The roster below the sheet ─────────────────────────────────────────── */
