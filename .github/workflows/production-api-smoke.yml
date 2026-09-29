@@ -11,6 +11,22 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      - name: Probe the Outreach email runtime imports
+        env:
+          PROBE: https://aspireintelligence.app/api/connect-email-runtime-probe
+        run: |
+          set -euo pipefail
+          status="$(curl --silent --show-error \
+            --output probe.json \
+            --dump-header probe-headers.txt \
+            --write-out '%{http_code}' \
+            "$PROBE")"
+
+          echo "Probe HTTP status: $status"
+          sed -n '1,80p' probe-headers.txt
+          sed -n '1,160p' probe.json
+          test "$status" = "200"
+
       - name: Verify the Outreach email function starts
         env:
           ENDPOINT: https://aspireintelligence.app/api/connect-send-direct-email
