@@ -327,7 +327,7 @@ test('a live run claims, sends, and records the outcome', async () => {
   assert.equal(fake.__sends().length, 1)
   const claim = fake.__ops().find(o => o.table === 'rpc:claim_evaluation_reminders')
   assert.ok(claim, 'the atomic claim is what authorizes the send')
-  assert.deepEqual(claim.payload.p_candidates, [{ assignment_id: 'a-1', reminder_number: 1 }])
+  assert.deepEqual(claim.payload.p_candidates, [{ assignment_id: 'a-1', reminder_number: 1, invitation_sent_at: daysAgo(7) }])
   assert.match(claim.payload.p_worker, /^evaluation-reminders:/)
 })
 

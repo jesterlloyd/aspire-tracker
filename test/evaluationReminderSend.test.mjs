@@ -212,6 +212,42 @@ test('the token is DERIVED and stable per epoch, so a retry can reproduce it', (
   assert.notEqual(a, deriveReminderToken('a-2', 1, 0))
 })
 
+test('reissued invitations have distinct tokens and provider keys, while each cycle retries identically', () => {
+  const oldToken = deriveReminderToken('a-1', 1, 0)
+  const first = deriveReminderToken('a-1', 1, 0, 'cycle-one')
+  const second = deriveReminderToken('a-1', 1, 0, 'cycle-two')
+  assert.notEqual(first, oldToken)
+  assert.notEqual(first, second)
+  assert.equal(first, deriveReminderToken('a-1', 1, 0, 'cycle-one'))
+  assert.notEqual(reminderIdempotencyKey('a-1', 1, 0, 'cycle-one'), reminderIdempotencyKey('a-1', 1, 0, 'cycle-two'))
+  assert.equal(reminderIdempotencyKey('a-1', 1, 0), 'evalrem:a-1:1:0', 'legacy provider keys remain byte-identical')
+})
+
+test('prior-cycle work never sends or activates tokens for a reissued invitation', async () => {
+  for (const evidence of [{}, { sent_at: daysAgo(2), first_attempted_at: daysAgo(2) }]) {
+    const w = makeWorld()
+    const r = await run(w, { ledgerRow: ledgerRow({ invitation_sent_at: daysAgo(35), ...evidence }) })
+    assert.equal(r.reason, 'invitation_reissued')
+    assert.equal(r.outcome, evidence.sent_at ? 'needs_reconciliation' : 'suppressed')
+    assert.equal(w.sends.length, 0)
+    assert.deepEqual(w.revokedIds(), [])
+    assert.equal(w.opsOn('evaluation_assignment_tokens', 'insert').length, 0)
+  }
+})
+
+test('cycle-aware activation recovery uses the originally emailed token and never sends again', async () => {
+  const w = makeWorld({ activationFailsOnce: true })
+  const current = ledgerRow({ token_version: 2, invitation_sent_at: assignment().sent_at })
+  assert.equal((await run(w, { ledgerRow: current })).outcome, 'cleanup_pending')
+  const token = rawTokenFromHtml(w.sends[0].payload.html)
+  assert.equal(token, deriveReminderToken('a-1', 1, 0, current.id))
+  assert.equal(w.sends[0].options.idempotencyKey, reminderIdempotencyKey('a-1', 1, 0, current.id))
+  const recovery = { ...current, ...w.ledgerPatch().at(-1) }
+  assert.equal((await run(w, { ledgerRow: recovery })).outcome, 'cleanup_completed')
+  assert.equal(w.sends.length, 1)
+  assert.equal(w.opsOn('evaluation_assignment_tokens', 'insert').length, 1)
+})
+
 test('an already-present derived token row is reused, never duplicated', async () => {
   const w = makeWorld({ existingTokenForHash: { id: 'tok-existing' } })
   await run(w)

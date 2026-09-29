@@ -1,5 +1,31 @@
 # Evaluation reminder token activation rollout
 
+## Follow-up: reissued invitation cycles
+
+Apply `supabase/migrations/20261021000000_evaluation_reminder_invitation_cycles.sql`
+after the activation migration and before deploying the cycle-aware sender.
+This preserves existing ledger IDs, timestamps, provider IDs and token versions.
+It binds proven current-invitation work to the invitation date and leaves older
+history separate. New cycles use distinct ledger rows, tokens and provider keys.
+Do not delete old reminders or reset their sent status.
+
+Verify after applying:
+
+```sql
+select
+  exists (select 1 from pg_constraint where conrelid = 'public.evaluation_reminder_deliveries'::regclass
+          and conname = 'uq_erd_invitation_reminder') as cycle_uniqueness_ready,
+  to_regprocedure('public.prepare_evaluation_reminder_token(uuid,text,timestamp with time zone,smallint)') is not null as cycle_sender_ready,
+  to_regclass('public.uq_eval_tokens_one_active') is not null as token_uniqueness_preserved;
+```
+
+Deploy after all three are true. Then rerun the weekly job once and inspect its
+counts. Use `db/audit/evaluation_reminder_current_round.sql` to inspect each
+currently due round; selecting the highest reminder number alone can hide a
+new reminder 1 behind a historical reminder 3. No live sends occur in either SQL file.
+
+## Original token activation rollout
+
 The production `uq_eval_tokens_one_active` index rejects the reminder sender's
 second active token. Keep the index. The repaired sender stages an inactive token,
 records provider acceptance, then switches links atomically. Failed activation

@@ -230,6 +230,7 @@ export async function runEvaluationReminders(req, res, { sweep = false } = {}) {
         p_worker: `${cronName}:${runId || 'unknown'}`,
         p_candidates: offered.map((c) => ({
           assignment_id: c.assignment_id, reminder_number: c.reminder_number,
+          invitation_sent_at: assignmentsById.get(c.assignment_id)?.sent_at,
         })),
         p_limit: MAX_SENDS_PER_RUN,
         p_stale_seconds: CLAIM_STALE_SECONDS,
