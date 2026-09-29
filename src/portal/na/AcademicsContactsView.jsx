@@ -333,11 +333,11 @@ function ContactEditorModal({ contact, saving, error, onClose, onSave }) {
     </>
   )
   return (
-    <div className="ptl-na-contact-modal-backdrop" role="presentation" onMouseDown={event => event.target === event.currentTarget && !saving && onClose()}>
+    <div className="ptl-na-contact-modal-backdrop" role="presentation">
       <form className="ptl-na-contact-modal" role="dialog" aria-modal="true" aria-labelledby="na-contact-editor-title" onSubmit={submit}>
         <div className="ptl-na-contact-modal-header">
           <div><h3 id="na-contact-editor-title">{contact ? 'Edit contact' : 'Add contact'}</h3><p>Contact directory fields only</p></div>
-          <button type="button" onClick={onClose} disabled={saving} aria-label="Close"><X size={18} /></button>
+          <button type="button" onClick={onClose} disabled={saving} aria-label="Close contact editor"><X size={18} /></button>
         </div>
         <div className="ptl-na-contact-form-body">
           {/* ── Photo ── */}
@@ -466,7 +466,6 @@ function ContactEditorModal({ contact, saving, error, onClose, onSave }) {
         </div>
         {error && <p className="ptl-na-contact-form-error" role="alert">{error}</p>}
         <div className="ptl-na-contact-modal-actions">
-          <button type="button" className="ptl-na-contact-editor-secondary" onClick={onClose} disabled={saving}>Cancel</button>
           <button type="submit" className="ptl-na-contact-editor-primary" disabled={!valid || saving}>{saving ? 'Saving…' : (contact ? 'Save changes' : 'Add contact')}</button>
         </div>
       </form>

@@ -1011,7 +1011,6 @@ function ContactModal({ mode, initialData, onClose, onSaved }) {
 
   return (
     <div
-      onClick={onClose}
       style={{
         position: 'fixed', inset: 0, zIndex: 1000,
         background: 'rgba(0,0,0,0.45)',
@@ -1033,7 +1032,7 @@ function ContactModal({ mode, initialData, onClose, onSaved }) {
           <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: NAVY, fontFamily: F }}>
             {isEdit ? 'Edit Contact' : 'Add Contact'}
           </h2>
-          <button onClick={onClose} style={{
+          <button type="button" onClick={onClose} aria-label="Close contact editor" style={{
             background: 'none', border: 'none', cursor: 'pointer',
             fontSize: 20, color: '#9ca3af', lineHeight: 1, padding: '2px 6px',
           }}>×</button>
@@ -1365,14 +1364,6 @@ function ContactModal({ mode, initialData, onClose, onSaved }) {
             paddingTop: 20, marginTop: 8,
             borderTop: '1px solid #f3f4f6',
           }}>
-            <button type="button" onClick={onClose} style={{
-              padding: '8px 18px', borderRadius: 8,
-              border: '1px solid #e5e7eb', background: '#fff',
-              fontSize: 12, fontWeight: 600, fontFamily: F,
-              color: '#374151', cursor: 'pointer',
-            }}>
-              Cancel
-            </button>
             <button
               type="submit"
               disabled={!canSave}
