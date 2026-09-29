@@ -19,6 +19,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
+import { runInNewContext } from 'node:vm'
 import {
   AUTOMATION_CATALOG, MONITORED_CRON_NAMES, automationById, isRunStale, isNeverRunOverdue,
 } from '../src/lib/automationCatalog.js'
@@ -27,6 +28,17 @@ const here = dirname(fileURLToPath(import.meta.url))
 const read = (p) => readFileSync(join(here, '..', p), 'utf8')
 const viewSrc = read('src/components/connect/AutomationView.jsx')
 const runsSrc = read('api/automation-runs.js')
+test('failed sends and pending activation never display Healthy, while paused remains authoritative', () => {
+  const source = viewSrc.slice(viewSrc.indexOf('function resolveHealth('), viewSrc.indexOf('\nfunction chipsFromDetails'))
+  const resolve = runInNewContext(`${source}; resolveHealth`, {
+    ALARM_KEYS: new Set(['failed_count', 'error_count']), SENT_KEYS: ['sent_count', 'fired_count'], isRunStale,
+  })
+  for (const details of [{ sent_count: 0, failed_count: 12 }, { sent_count: 0, cleanup_pending_count: 1 }]) {
+    assert.equal(resolve({ status: 'success', details }, '2026-09-29', false).label, 'Needs attention')
+    assert.equal(resolve({ status: 'success', details }, '2026-09-29', true).label, 'Paused')
+  }
+  assert.equal(resolve({ status: 'success', details: { sent_count: 0, failed_count: 0 } }, '2026-09-29', false).label, 'Healthy')
+})
 
 const cardBlock = viewSrc.slice(viewSrc.indexOf('const AUTOMATION_CARDS'), viewSrc.indexOf('\n]', viewSrc.indexOf('const AUTOMATION_CARDS')))
 const cardIds = [...cardBlock.matchAll(/\{ id: '([a-z0-9_]+)'/g)].map(m => m[1])

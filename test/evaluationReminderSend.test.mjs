@@ -17,12 +17,22 @@ process.env.SUPABASE_URL ||= 'https://example.supabase.co'
 process.env.SUPABASE_SERVICE_ROLE_KEY ||= 'test-key-not-a-secret'
 
 const {
-  sendOneReminder, sendClaimedReminders, reminderIdempotencyKey, sanitizeReason,
+  sendOneReminder, sendClaimedReminders, reminderIdempotencyKey, sanitizeReason, tokenFailureDiagnostic,
   deriveReminderToken, retireSupersededTokens, classifyProviderError, PROVIDER_OUTCOME,
   REMINDER_NOTIFICATION_TYPE, TOKEN_GRACE_DAYS,
 } = await import('../lib/server/evaluation/reminderSend.js')
 
 const NOW = new Date('2026-08-15T17:00:00.000Z')
+test('token diagnostics identify the active-token conflict without exposing database values', () => {
+  const diagnostic = tokenFailureDiagnostic({
+    code: '23505', message: 'duplicate key violates uq_eval_tokens_one_active',
+    details: 'secret-token-hash private@example.com', hint: 'sensitive link',
+  }, 'insert')
+  assert.deepEqual(diagnostic, { operation: 'insert', code: '23505', constraint: 'uq_eval_tokens_one_active' })
+  assert.deepEqual(tokenFailureDiagnostic(new Error('secret'), 'insert'), {
+    operation: 'insert', code: 'unknown', constraint: null,
+  })
+})
 const daysAgo = (n) => new Date(NOW.getTime() - n * 86400000).toISOString()
 const daysAhead = (n) => new Date(NOW.getTime() + n * 86400000).toISOString()
 
@@ -51,10 +61,33 @@ function makeWorld({
   priorTokens = [{ id: 'tok-old', token_hash: 'hash-old' }],
   tokenInsertFails = false, sendFails = false, sendError = null,
   existingTokenForHash = null,       // simulates "this derived token row already exists"
-  revokeFails = false, ledgerUpdateFails = false, failFrom = null, existingLogId = null,
+  revokeFails = false, activationFailsOnce = false, ledgerUpdateFails = false, failFrom = null, existingLogId = null,
 } = {}) {
   const ops = []
   const db = {
+    async rpc(name, args) {
+      if (name === 'prepare_evaluation_reminder_token') {
+        if (tokenInsertFails) return { data: null, error: { code: '23505' } }
+        if (existingTokenForHash) return { data: { ...existingTokenForHash, created: false }, error: null }
+        ops.push({ table: 'evaluation_assignment_tokens', kind: 'insert', payload: {
+          assignment_id: 'a-1', token_hash: args.p_token_hash,
+          token_hash_prefix: args.p_token_hash.slice(0, 8), expires_at: args.p_expires_at,
+          revoked_at: NOW.toISOString(), reminder_pending: true,
+        }, filters: [] })
+        return { data: { id: 'tok-new', created: true }, error: null }
+      }
+      if (name === 'activate_evaluation_reminder_token') {
+        if (activationFailsOnce) {
+          activationFailsOnce = false
+          return { data: false, error: { code: 'XX000' } }
+        }
+        if (revokeFails) return { data: false, error: { code: '23505' } }
+        const ids = priorTokens.filter(t => t.token_hash !== args.p_token_hash).map(t => t.id)
+        ops.push({ table: 'evaluation_assignment_tokens', kind: 'update', payload: { revoked_at: NOW.toISOString() }, filters: [['id', ids]] })
+        return { data: true, error: null }
+      }
+      throw new Error(`Unexpected RPC ${name}`)
+    },
     from(table) {
       const op = { table, kind: null, payload: null, filters: [] }
       const has = (f) => op.filters.some(([k]) => k === f)
@@ -160,6 +193,8 @@ test('the reminder stores a DERIVED token whose expiry clears the assignment win
   await run(w)
   const insert = w.opsOn('evaluation_assignment_tokens', 'insert')[0].payload
   assert.equal(insert.assignment_id, 'a-1')
+  assert.ok(insert.revoked_at, 'the staged token does not compete with the existing active link')
+  assert.equal(insert.reminder_pending, true)
   assert.ok(insert.token_hash && insert.token_hash.length === 64, 'an HMAC hash is stored')
   assert.ok(insert.token_hash_prefix && insert.token_hash_prefix.length === 8)
   assert.ok(!('token' in insert) && !('raw' in insert), 'the raw token is never a column')
@@ -393,7 +428,8 @@ test('CRASH AFTER ACCEPTANCE: the retry is byte-identical under the same key', a
   // Attempt 1: provider accepts, then the ledger update is refused.
   const first = makeWorld({ ledgerUpdateFails: true })
   const r1 = await run(first)
-  assert.equal(r1.outcome, 'sent')
+  assert.equal(r1.outcome, 'deferred')
+  assert.deepEqual(first.revokedIds(), [], 'old link remains valid while acceptance cannot be recorded')
   assert.equal(first.sends.length, 1)
   const tokenA = rawTokenFromHtml(first.sends[0].payload.html)
   const keyA = first.sends[0].options.idempotencyKey
@@ -438,7 +474,7 @@ test('CRASH RECOVERY: token A is never revoked, and no second token is created',
 test('a failed ledger write after delivery does NOT record a provider failure', async () => {
   const w = makeWorld({ ledgerUpdateFails: true })
   const r = await run(w)
-  assert.equal(r.outcome, 'sent')
+  assert.equal(r.outcome, 'deferred')
   const statuses = w.ledgerPatch().map(p => p.status)
   assert.ok(!statuses.includes('failed'), 'no false failure is ever attributed to the provider')
 })
@@ -615,6 +651,21 @@ test('a cleanup_pending row is finished WITHOUT re-sending', async () => {
   assert.equal(patch.reason, null)
 })
 
+test('acceptance followed by activation failure recovers the same token with no additional provider call', async () => {
+  const w = makeWorld({ activationFailsOnce: true })
+  assert.equal((await run(w)).outcome, 'cleanup_pending')
+  const deliveredHtml = w.sends[0].payload.html
+  const deliveredToken = rawTokenFromHtml(deliveredHtml)
+  assert.deepEqual(w.revokedIds(), [], 'activation failure preserves the old link')
+  const acceptedRow = { ...ledgerRow(), ...w.ledgerPatch().at(-1) }
+  assert.ok(acceptedRow.sent_at)
+  assert.equal((await run(w, { ledgerRow: acceptedRow })).outcome, 'cleanup_completed')
+  assert.equal(w.sends.length, 1, 'recorded acceptance is never sent again')
+  assert.equal(w.opsOn('evaluation_assignment_tokens', 'insert').length, 1, 'no replacement token minted')
+  assert.equal(deliveredToken, deriveReminderToken('a-1', 1, 0))
+  assert.equal(w.sends[0].payload.html, deliveredHtml)
+})
+
 test('cleanup that fails again stays cleanup_pending and is retried later', async () => {
   const w = makeWorld({ revokeFails: true })
   const r = await run(w, { ledgerRow: ledgerRow({ sent_at: daysAgo(0), notification_log_id: 'log-1' }) })
@@ -627,7 +678,7 @@ test('retirement recomputes the survivor, so it is safe to run any number of tim
   const derivedHash = (await import('../lib/server/evaluation/tokens.js')).hashToken(deriveReminderToken('a-1', 1, 0))
   const w = makeWorld({ priorTokens: [{ id: 'tok-A', token_hash: derivedHash }, { id: 'tok-old', token_hash: 'hash-old' }] })
   for (let i = 0; i < 3; i++) {
-    assert.equal(await retireSupersededTokens(w.db, 'a-1', derivedHash), true)
+    assert.equal(await retireSupersededTokens(w.db, 'led-1', derivedHash), true)
   }
   const revoked = w.revokedIds()
   assert.ok(revoked.every(id => id === 'tok-old'), 'only ever the superseded token, however often it runs')

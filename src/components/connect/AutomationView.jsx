@@ -125,6 +125,12 @@ function resolveHealth(run, nowIso, paused, cadence) {
     return { tone: 'running', label: 'Running', caption: 'In progress…' }
   }
   if (status === 'error') return { tone: 'error', label: 'Error', caption: null }
+  if ([...ALARM_KEYS].some(key => typeof details?.[key] === 'number' && details[key] > 0)) {
+    return { tone: 'error', label: 'Needs attention', caption: 'The last run reported failures. Review its metrics before retrying.' }
+  }
+  if (['cleanup_pending_count', 'needs_reconciliation_count', 'ambiguous_count'].some(key => details?.[key] > 0)) {
+    return { tone: 'warn', label: 'Needs attention', caption: 'Delivery or survey-link activation still needs to be resolved.' }
+  }
   // AUTOMATION-MONITORING-1: a successful run does not stay reassuring forever.
   // An automation that silently stopped executing used to read Healthy
   // indefinitely off a weeks-old run. Each automation carries its own freshness

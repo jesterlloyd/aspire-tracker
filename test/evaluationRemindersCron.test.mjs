@@ -126,6 +126,8 @@ writeFileSync(join(dir, 'fake.mjs'), `
       rpc: async (fn, args) => {
         trap('rpc', fn);
         ops.push({ table: 'rpc:' + fn, kind: 'rpc', payload: args });
+        if (fn === 'prepare_evaluation_reminder_token') return { data: { id: 'tok-new', created: true }, error: null };
+        if (fn === 'activate_evaluation_reminder_token') return { data: true, error: null };
         if (state.claimError) return { data: null, error: state.claimError };
         if (state.claimReturns) return { data: state.claimReturns, error: null };
         // Default: claim everything offered.
