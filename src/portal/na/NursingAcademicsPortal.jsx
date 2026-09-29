@@ -24,12 +24,13 @@ import { PORTAL_SOURCE } from '../../components/budget/budgetApi'
 import AcademicsCalendarView from './AcademicsCalendarView'
 import CommunityBenefitView from './CommunityBenefitView'
 import AcademicsContactsView from './AcademicsContactsView'
+import AcademicsEvaluationView from './AcademicsEvaluationView'
 
 // NA-PORTAL-UTILITIES-1: Messages reuses the SAME canonical PortalMessagesWorkspace the other
 // portals use (variant='nursing_academic'). Enablement is the SERVER capability passed as
 // messagesEnabled (env flag AND applied DB migration), never a client constant; until the server
 // reports enabled, a pasted /portal/academics/messages link shows an honest prepared state.
-export default function NursingAcademicsPortal({ view = 'calendar', messagesEnabled = false, budgetEnabled = false, threadId, onSelectThread, onBackToList }) {
+export default function NursingAcademicsPortal({ view = 'calendar', messagesEnabled = false, budgetEnabled = false, themesEnabled = false, threadId, onSelectThread, onBackToList }) {
   const { userProfile, user } = useAuth()
   // EVENT-AUDIENCE-2: flagged events ticked for Nursing Education & Leadership.
   const mastheadItems = useMastheadFeed('nursing_academic')
@@ -71,6 +72,11 @@ export default function NursingAcademicsPortal({ view = 'calendar', messagesEnab
       <div style={{ display: view === 'contacts' ? 'block' : 'none' }}>
         <AcademicsContactsView active={view === 'contacts'} />
       </div>
+      {/* KEITH-THEMES-1: the Leadership view of Keith's comment themes, for a grant with
+          evaluation_themes_access. Mounted only while open. */}
+      {view === 'evaluation' && (themesEnabled
+        ? <AcademicsEvaluationView active />
+        : <EmptyState title="Evaluation" detail="Evaluation themes have not been shared with your account." />)}
       {/* PROGRAM-BUDGET (2026-09-27): read-only, for a grant with budget_access. Mounted only
           while open, so nothing is fetched for a grant that never opens it. */}
       {view === 'budget' && (budgetEnabled ? (

@@ -83,6 +83,7 @@ import './portal.css'
 import { demoScopeParam } from '../lib/demoMode'
 import { isFullMessagesPath } from '../lib/messages/messagesRoutes'
 import { budgetPortal } from '../components/budget/budgetApi'
+import { fetchAcademicsEvaluationThemes } from './na/nursingAcademicsApi'
 
 // PORTAL-SPLIT Phase 3: what a portal shows while its own chunk arrives. The
 // same card the Shift Log tab already uses, so a portal opening for the first
@@ -139,7 +140,7 @@ function apThreadIdFromPath(pathname) {
 // section) resolves to the Academic Calendar, the default.
 // NA-PORTAL-UTILITIES-1: Messages owns a thread sub-route
 // (/portal/academics/messages/:threadId), mirroring the AP space.
-const NA_SECTIONS = new Set(['calendar', 'community-benefit', 'contacts', 'messages', 'budget'])
+const NA_SECTIONS = new Set(['calendar', 'community-benefit', 'contacts', 'messages', 'budget', 'evaluation'])
 function naViewFromPath(pathname) {
   if (/^\/portal\/academics\/messages(\/|$)/.test(pathname)) return 'messages'
   const m = /^\/portal\/academics\/([^/]+)\/?$/.exec(pathname)
@@ -279,6 +280,15 @@ export default function PortalApp() {
     if (!isNursingAcademic) return undefined
     let live = true
     budgetPortal({ probe: '1' }).then(r => { if (live) setNaBudgetEnabled(!!r?.enabled) }).catch(() => { if (live) setNaBudgetEnabled(false) })
+    return () => { live = false }
+  }, [isNursingAcademic])
+  // KEITH-THEMES-1 (2026-09-29): the Evaluation tab shows only when the server says this grant carries
+  // evaluation_themes_access (or the viewer is Owner/Admin previewing). Fail-closed, like the budget.
+  const [naThemesEnabled, setNaThemesEnabled] = useState(false)
+  useEffect(() => {
+    if (!isNursingAcademic) return undefined
+    let live = true
+    fetchAcademicsEvaluationThemes({ probe: '1' }).then(r => { if (live) setNaThemesEnabled(!!(r.ok && r.data?.enabled)) })
     return () => { live = false }
   }, [isNursingAcademic])
   // WELCOME-TOUR-PORTALS-1: the Welcome Tour experience for the resolved portal role, derived
@@ -766,7 +776,7 @@ export default function PortalApp() {
         portalSwitcher={staffMenu.portalSwitcher}
         roleLabel={staffMenu.roleLabel}
         portalUserActionsEnabled={!staffPreview}
-        nav={<NursingAcademicsNav view={naView} onNavigate={goNaSection} messagesEnabled={staffPreview || naMessagesEnabled} budgetEnabled={naBudgetEnabled} unread={unread} />}
+        nav={<NursingAcademicsNav view={naView} onNavigate={goNaSection} messagesEnabled={staffPreview || naMessagesEnabled} budgetEnabled={naBudgetEnabled} themesEnabled={naThemesEnabled} unread={unread} />}
         utilityLayer={(
           staffPreview ? (
             <StaffPreviewUtilities portalName="Nursing Education & Leadership Portal" section={naView} />
@@ -784,7 +794,7 @@ export default function PortalApp() {
         )}>
         <Suspense fallback={<PortalLoading label="Loading your portal" />}>
           <NursingAcademicsPortal view={naView}
-            messagesEnabled={naMessagesEnabled} budgetEnabled={naBudgetEnabled}
+            messagesEnabled={naMessagesEnabled} budgetEnabled={naBudgetEnabled} themesEnabled={naThemesEnabled}
             threadId={naThreadId} onSelectThread={openNaThread} onBackToList={naBackToList} />
         </Suspense>
         {!staffPreview && photoDialog}

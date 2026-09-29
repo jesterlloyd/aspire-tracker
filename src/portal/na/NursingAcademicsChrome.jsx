@@ -28,13 +28,15 @@ const MESSAGES_SECTION = { key: 'messages', label: NAV_LABELS.messages, Icon: NA
 // PROGRAM-BUDGET (2026-09-27): Program Budget joins the row only for a grant the Owner shared
 // the budget with (the server's budget_access), read-only.
 const BUDGET_SECTION = { key: 'budget', label: NAV_LABELS.programBudgets, Icon: NAV_ICONS.programBudgets }
+// KEITH-THEMES-1: Evaluation joins the row only for a grant the Owner gave evaluation_themes_access.
+const EVALUATION_SECTION = { key: 'evaluation', label: NAV_LABELS.evaluation, Icon: NAV_ICONS.evaluation }
 
 /**
  * Section navigation. Real route changes are handled by the caller
  * (PortalApp), so back, forward, and refresh behave like the rest of the app.
  */
-export function NursingAcademicsNav({ view, onNavigate, messagesEnabled = false, budgetEnabled = false, unread = 0 }) {
-  const sections = [...SECTIONS, ...(budgetEnabled ? [BUDGET_SECTION] : []), ...(messagesEnabled ? [MESSAGES_SECTION] : [])]
+export function NursingAcademicsNav({ view, onNavigate, messagesEnabled = false, budgetEnabled = false, themesEnabled = false, unread = 0 }) {
+  const sections = [...SECTIONS, ...(themesEnabled ? [EVALUATION_SECTION] : []), ...(budgetEnabled ? [BUDGET_SECTION] : []), ...(messagesEnabled ? [MESSAGES_SECTION] : [])]
   return (
     <nav className="ptl-nav" aria-label="Nursing Education and Leadership Portal sections">
       {sections.map(({ key, label, Icon }) => (

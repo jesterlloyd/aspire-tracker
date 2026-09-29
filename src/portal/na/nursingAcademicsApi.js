@@ -94,3 +94,11 @@ export async function fetchBenefitExportCsv(fiscalYear) {
     return { ok: false, status: 0, csv: null, error: 'network_error' }
   }
 }
+
+// KEITH-THEMES-1: the Evaluation page. With no query it lists what has been shared; with a cohort,
+// an instrument and a timepoint it returns the de-identified themes. A grant without
+// evaluation_themes_access answers 403.
+export function fetchAcademicsEvaluationThemes(query = {}, opts) {
+  const qs = new URLSearchParams(Object.entries(query).filter(([, v]) => v != null && v !== '')).toString()
+  return apiFetch(`/api/portal/academics-evaluation-themes${qs ? `?${qs}` : ''}`, opts)
+}

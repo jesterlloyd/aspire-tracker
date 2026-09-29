@@ -52,6 +52,8 @@ const CONTACTS_ACCESS_LEVELS = ['view', 'manage']
 // nursing_academic grant. Only the Owner may share the budget; a request that omits the field
 // leaves the grant's value as it is.
 const BUDGET_ACCESS_LEVELS = ['none', 'view']
+// KEITH-THEMES-1: the Evaluation tab (Keith's de-identified comment themes). Same shape as the budget.
+const THEMES_ACCESS_LEVELS = ['none', 'view']
 // Verified ASPIRE Resend sender (cshs.org is not a verified Resend domain, so
 // aspire@cshs.org is used as the reply-to / support address, not the from).
 const EMAIL_FROM = 'ASPIRE at Cedars-Sinai <noreply@aspire-program.com>'
@@ -238,6 +240,13 @@ export default async function handler(req, res) {
   }
   if (budgetAccess != null && !auth.isOwner) {
     return res.status(403).json({ error: 'forbidden', field: 'budget_access', message: 'Only the Owner may share the Program Budget.' })
+  }
+  const themesAccess = body.evaluation_themes_access == null ? null : str(body.evaluation_themes_access)
+  if (themesAccess != null && (!THEMES_ACCESS_LEVELS.includes(themesAccess) || (portalRole !== 'nursing_academic' && themesAccess !== 'none'))) {
+    return res.status(400).json({ error: 'invalid_request', field: 'evaluation_themes_access', message: 'Evaluation themes are only available to Nursing Education & Leadership.' })
+  }
+  if (themesAccess != null && !auth.isOwner) {
+    return res.status(403).json({ error: 'forbidden', field: 'evaluation_themes_access', message: 'Only the Owner may share evaluation themes.' })
   }
 
   // ── Gate 6: identity fields ───────────────────────────────────────────────
@@ -486,6 +495,23 @@ export default async function handler(req, res) {
           })
         }
       }
+      // KEITH-THEMES-1: the column exists once 20261019000000 is applied; it defaults to none, so a
+      // failed update cannot widen access.
+      if (themesAccess != null) {
+        const { error: themesErr } = await db.from('user_role_grants')
+          .update({ evaluation_themes_access: themesAccess })
+          .eq('id', grantId)
+          .eq('role', 'nursing_academic')
+        if (themesErr && !(themesErr.code === '42703' && themesAccess === 'none')) {
+          console.log('[invite-portal-user] evaluation themes access update failed', { errorCode: themesErr.code, request_id: requestId })
+          return res.status(themesErr.code === '42703' ? 409 : 500).json({
+            error: themesErr.code === '42703' ? 'themes_not_enabled' : 'internal_error',
+            message: themesErr.code === '42703'
+              ? 'Portal access was saved, but Evaluation themes need their database update (20261019000000) before they can be shared.'
+              : 'Portal access was saved, but the Evaluation permission could not be.',
+          })
+        }
+      }
     }
 
     // Send the branded ASPIRE invitation for a newly created account. The
@@ -526,6 +552,7 @@ export default async function handler(req, res) {
         role: result?.role,
         contacts_access: portalRole === 'nursing_academic' ? contactsAccess : 'view',
         ...(budgetAccess != null ? { budget_access: portalRole === 'nursing_academic' ? budgetAccess : 'none' } : {}),
+        ...(themesAccess != null ? { evaluation_themes_access: portalRole === 'nursing_academic' ? themesAccess : 'none' } : {}),
         grant_action: result?.grant?.action,
         starts_at: result?.grant?.starts_at,
         expires_at: result?.grant?.expires_at,

@@ -1,0 +1,67 @@
+/* src/components/evaluation/commentThemes.css: the Comments section (KEITH-THEMES-1). Canon corners and
+   gaps, theme inks: the section sits on the page, which follows the theme. */
+.ct-section { display: grid; gap: 12px; margin-top: var(--aspire-gap-card); padding: 16px 18px; border-radius: var(--aspire-radius-card); background: var(--bg-card); color: var(--text-body); box-shadow: var(--aspire-shadow-card); }
+.ct-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.ct-head h3 { margin: 0; font-size: 16px; font-weight: 700; color: var(--text-heading); }
+.ct-grow { flex: 1; }
+.ct-mode { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0; padding: 8px 12px; border-radius: var(--aspire-radius-control); background: var(--keith-soft); color: var(--keith); font-size: 12.5px; }
+.ct-run { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; }
+.ct-confirm { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 12px; border-radius: var(--aspire-radius-control); background: var(--aspire-warn-soft); color: var(--text-body); font-size: 12.5px; }
+.ct-card { display: grid; gap: 8px; padding: 12px 14px; border: 1px solid var(--border-divider); border-radius: var(--aspire-radius-card); background: var(--bg-card); }
+.ct-other { border-style: dashed; }
+.ct-card-head { display: flex; align-items: center; gap: 8px; }
+.ct-name { margin: 0; font-size: 14px; font-weight: 700; color: var(--text-heading); }
+.ct-bar { display: flex; align-items: center; gap: 10px; }
+.ct-meter { flex: 1; max-width: 360px; height: 8px; overflow: hidden; border-radius: var(--aspire-radius-pill); background: var(--keith-soft); }
+.ct-meter i { display: block; height: 100%; background: var(--keith); }
+.ct-bar-n { font-size: 12px; font-weight: 700; color: var(--text-heading); white-space: nowrap; }
+.ct-reason { margin: 0; font-size: 12.5px; color: var(--text-caption); }
+.ct-quotes { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.ct-quotes li { display: grid; gap: 4px; padding-left: 10px; border-left: 3px solid color-mix(in srgb, var(--keith) 45%, transparent); font-size: 13px; }
+.ct-quotes q { color: var(--text-body); }
+.ct-quote-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.ct-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.ct-btn { padding: 5px 12px; border: 1px solid var(--border-strong); border-radius: var(--aspire-radius-control); background: var(--bg-card); color: var(--text-heading); font-family: inherit; font-size: 12.5px; font-weight: 600; line-height: 1.2; cursor: pointer; }
+.ct-btn-pri { border-color: var(--color-accent-primary); background: var(--color-accent-primary); color: var(--color-text-inverse); }
+.ct-btn:disabled { opacity: 0.55; cursor: default; }
+.ct-link { padding: 0; border: 0; background: none; color: var(--color-accent-primary); font-family: inherit; font-size: 12.5px; font-weight: 600; text-decoration: underline; cursor: pointer; }
+[data-theme="dark"] .ct-link { color: var(--keith); }
+[data-theme="dark"] .ct-btn-pri { border-color: var(--keith); background: var(--keith); color: #0E111C; }
+.ct-move { padding: 3px 6px; border: 1px solid var(--border-input); border-radius: var(--aspire-radius-control); background: var(--bg-input); color: var(--text-body); font-family: inherit; font-size: 12px; }
+.ct-rename { display: flex; flex-wrap: wrap; gap: 6px; }
+.ct-rename input { min-width: 220px; padding: 4px 8px; border: 1px solid var(--border-input); border-radius: var(--aspire-radius-control); background: var(--bg-input); color: var(--text-body); font-family: inherit; font-size: 13px; }
+.ct-muted { margin: 0; font-size: 12px; color: var(--text-caption); }
+.ct-empty { margin: 0; font-size: 13px; color: var(--text-caption); }
+.ct-lead { display: grid; gap: 10px; }
+.ct-floor { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text-caption); }
+.ct-floor input { width: 56px; margin: 0 6px; padding: 3px 6px; border: 1px solid var(--border-input); border-radius: var(--aspire-radius-control); background: var(--bg-input); color: var(--text-body); font-family: inherit; }
+.ct-note { margin: 0; font-size: 12.5px; color: var(--text-caption); }
+.ct-note:empty { display: none; }
+.ct-note-error { color: var(--aspire-bad); font-weight: 600; }
+
+/* The NE&L portal's Evaluation page: the same cards inside the portal's one card. The portal's card is
+   a fixed light surface (--ptl-card), so the inks these classes read are pinned to its light pair here;
+   a theme-aware ink on a fixed white card is white on white in dark mode. */
+.ct-portal {
+  --text-heading: var(--ptl-ink, #232842);
+  --text-body: var(--ptl-ink, #232842);
+  --text-caption: var(--ptl-ink-soft, #6b7280);
+  --bg-card: var(--ptl-card, #ffffff);
+  --bg-input: #ffffff;
+  --border-divider: var(--ptl-line, #e3ded4);
+  --border-input: var(--ptl-line, #e3ded4);
+  --keith: #5B4FD0;
+  --keith-soft: #EEECFB;
+  color: var(--text-body);
+  color-scheme: light;             /* native selects draw light on the light card */
+}
+/* One shrinkable column: a grid column sizes to its widest item, and a long survey name in a select
+   pushed the card past a phone's width. */
+.ct-portal-card { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; min-width: 0; }
+.ct-portal-card .ct-portal-title { margin: 0; }
+.ct-filters { display: flex; flex-wrap: wrap; gap: 8px 16px; }
+.ct-filters label { display: flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; font-size: 12.5px; color: var(--text-caption); }
+.ct-filters select { min-width: 0; max-width: 100%; }
+/* index.css paints every select for dark ([data-theme="dark"] select, one class and one element); the
+   portal's selects sit on its light card, so this rule carries one class more. */
+.ct-portal .ct-move { background: #ffffff; color: var(--ptl-ink, #232842); border-color: var(--ptl-line, #e3ded4); }

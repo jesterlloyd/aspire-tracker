@@ -172,6 +172,7 @@ export default function AccountDetailsDrawer({ kind, record, returnFocusRef, onC
                     <dt style={dt}>Access scope</dt><dd style={dd}>ASPIRE-wide</dd>
                     <dt style={dt}>Contacts</dt><dd style={dd}>{record.contacts_access === 'manage' ? 'Contacts Editor' : 'View only'}</dd>
                     <dt style={dt}>Program Budget</dt><dd style={dd}>{record.budget_access === 'view' ? 'Shared (read-only)' : 'Not shared'}</dd>
+                    <dt style={dt}>Evaluation themes</dt><dd style={dd}>{record.evaluation_themes_access === 'view' ? 'Shared (read-only)' : 'Not shared'}</dd>
                   </>
                 )}
                 {record.portal_role === 'talent_acquisition' && (

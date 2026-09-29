@@ -15,6 +15,7 @@ import { sortRows } from './shared/dataSheetSort'
 import SegmentedPicker from './shared/SegmentedPicker'
 import { InstrumentTabs, AnalysisSheet } from './evaluation/ResponsesPacket'
 import BubbleSheet from './evaluation/BubbleSheet'
+import CommentThemes from './evaluation/CommentThemes'
 import { completedByLabel } from '../lib/evaluationLabels'
 import { SURVEY_WORKFLOWS } from '../lib/evaluation/surveyCatalog'
 import {
@@ -347,6 +348,12 @@ export default function EvaluationTab({ cohortId, cohortLabel = '' }) {
     }
   }, [contentCache])
 
+  // KEITH-THEMES-1: a theme's quote opens the response it came from.
+  function openResponseById(assignmentId) {
+    const a = assignments.find(x => x.id === assignmentId)
+    if (a) handleViewResponse(a)
+  }
+
   function handleViewResponse(assignment) {
     setDetailAssignment(assignment)
     const slug = assignment.evaluation_instruments?.slug
@@ -552,6 +559,17 @@ export default function EvaluationTab({ cohortId, cohortLabel = '' }) {
                   onFollowUp={handleFollowUp}
                 />
               </div>
+
+              {/* KEITH-THEMES-1: Keith's themes across this instrument's comments, Owner and Admin only. */}
+              {(isOwner || isAdmin) && (
+                <CommentThemes
+                  key={activeInstrumentFilter}
+                  cohortId={cohortId}
+                  instrument={activeInstrumentFilter}
+                  instrumentName={packet.instrument.name}
+                  onOpenResponse={openResponseById}
+                />
+              )}
 
               <div ref={rosterRef} className="rp-roster">
                 <DataSheet

@@ -182,6 +182,13 @@ export default async function handler(req, res) {
       const { data: bRows, error: bErr } = await db.from('user_role_grants').select('id, budget_access').eq('role', 'nursing_academic').limit(2000)
       if (!bErr) for (const r of bRows || []) budgetByGrant.set(r.id, r.budget_access === 'view' ? 'view' : 'none')
     }
+    // KEITH-THEMES-1: which grants carry the Evaluation tab. Its own read, so a missing column
+    // (before 20261019000000) reads as 'none' and never costs the budget column above.
+    const themesByGrant = new Map()
+    {
+      const { data: tRows, error: tErr } = await db.from('user_role_grants').select('id, evaluation_themes_access').eq('role', 'nursing_academic').limit(2000)
+      if (!tErr) for (const r of tRows || []) themesByGrant.set(r.id, r.evaluation_themes_access === 'view' ? 'view' : 'none')
+    }
 
     // Wave 2: profiles (needs the grant profileIds).
     const profileIds = [...new Set((grants || []).map(g => g.user_profile_id))]
@@ -270,6 +277,7 @@ export default async function handler(req, res) {
         portal_role: g.role,
         contacts_access: g.role === 'nursing_academic' && g.contacts_access === 'manage' ? 'manage' : 'view',
         budget_access: g.role === 'nursing_academic' ? (budgetByGrant.get(g.id) || 'none') : 'none',
+        evaluation_themes_access: g.role === 'nursing_academic' ? (themesByGrant.get(g.id) || 'none') : 'none',
         status,
         starts_at: g.starts_at || null,
         expires_at: g.expires_at || null,
@@ -333,6 +341,7 @@ export default async function handler(req, res) {
         portal_role: r.portal_role,
         contacts_access: r.contacts_access,
         budget_access: r.budget_access,
+        evaluation_themes_access: r.evaluation_themes_access,
         scope: r.scope,
         invited_at: pendingInvitedAtByEmail.get((r.email || '').toLowerCase()) || null,
         expires_at: r.expires_at,
