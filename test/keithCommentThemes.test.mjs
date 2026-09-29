@@ -114,6 +114,8 @@ const PRELUDE = `
   DO $$ BEGIN CREATE ROLE anon; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
   DO $$ BEGIN CREATE ROLE authenticated; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
   DO $$ BEGIN CREATE ROLE service_role; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+  -- As on Supabase: the service role is granted everything on new tables, so a missing REVOKE shows.
+  ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO service_role;
   CREATE OR REPLACE FUNCTION public.append_only_refuse() RETURNS trigger LANGUAGE plpgsql AS $f$ BEGIN RAISE EXCEPTION '% is append-only', TG_TABLE_NAME USING ERRCODE = '42501'; END $f$;
   CREATE TABLE public.organizations (id uuid PRIMARY KEY);
   INSERT INTO public.organizations VALUES ('a5f1e000-0000-4000-8000-000000000001');
@@ -194,6 +196,8 @@ test('the migration: three tables locked to the service role, versions append-on
   assert.deepEqual(skill, { status: 'draft', enabled: false, run_mode: 'shadow', model_route: 'quality', surface: 'evaluation_responses' })
   assert.equal((await pg.query(`SELECT privacy_floor FROM evaluation_theme_settings`)).rows[0].privacy_floor, 3)
   await assert.rejects(pg.query(`UPDATE evaluation_theme_settings SET privacy_floor = 0`))
+  const privs = (await pg.query(`SELECT c.relname, has_table_privilege('service_role', c.oid, 'DELETE') AS del FROM pg_class c WHERE c.relname IN ('comment_theme_versions', 'comment_themes', 'evaluation_theme_settings') ORDER BY 1`)).rows
+  assert.deepEqual(privs.map(r => r.del), [false, false, false], 'the service role deletes nothing in these tables')
   await pg.query(`INSERT INTO comment_theme_versions (cohort_id, instrument_slug, timepoint, version, source, mode) VALUES ($1, 'x', 'y', 1, 'manual', 'shadow')`, [cohort.id])
   await assert.rejects(pg.query(`UPDATE comment_theme_versions SET comment_count = 9`), /append-only/)
   await assert.rejects(pg.query(`DELETE FROM comment_theme_versions`), /append-only/)

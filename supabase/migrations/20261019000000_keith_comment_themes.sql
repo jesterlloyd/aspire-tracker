@@ -106,6 +106,9 @@ END
 $rls$;
 REVOKE UPDATE, DELETE, TRUNCATE ON public.comment_theme_versions FROM service_role;
 REVOKE DELETE, TRUNCATE ON public.comment_themes FROM service_role;
+-- Added 2026-09-29 after the first apply: the settings row is updated, never deleted. The Owner ran this
+-- statement on its own; keeping it here makes a re-run match POST 1.
+REVOKE DELETE, TRUNCATE ON public.evaluation_theme_settings FROM service_role;
 GRANT SELECT, INSERT ON public.comment_theme_versions TO service_role;
 GRANT SELECT, INSERT, UPDATE ON public.comment_themes TO service_role;
 GRANT SELECT, INSERT, UPDATE ON public.evaluation_theme_settings TO service_role;
