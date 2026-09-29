@@ -1308,7 +1308,12 @@ export default function StudentSidePanel({
                         { state: { fromStudent: {
                             id:    data.id,
                             name:  `${data.first_name || ''} ${data.last_name || ''}`.trim(),
-                            email: data.personal_email || data.school_email || null,
+                            // CONNECT-COMMS-1B: active ASPIRE correspondence is school-first.
+                            // Keep both sources available so Outreach can apply the shared
+                            // resolver and show a warning when personal email is only a fallback.
+                            email:          data.school_email || data.personal_email || null,
+                            school_email:   data.school_email || null,
+                            personal_email: data.personal_email || null,
                             school: data.school || null,
                           }
                         }}

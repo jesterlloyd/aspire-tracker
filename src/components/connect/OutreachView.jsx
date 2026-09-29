@@ -598,7 +598,10 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
   // ── effectiveStudent / studentHasDisplayInfo ─────────────────────────────────
   // Declared HERE before effects that reference them to avoid TDZ in production builds.
   const effectiveStudent      = fromStudent || (fetchedStudent?.id === studentId ? fetchedStudent : null)
-  const studentHasDisplayInfo = !!(effectiveStudent?.name || effectiveStudent?.email ||
+  // A route handoff may contain a name and one generic email for display, but that
+  // is not enough to resolve an active student's canonical correspondence address.
+  // Require the explicit source fields so picker/legacy handoffs fetch the full row.
+  const studentHasDisplayInfo = !!((effectiveStudent?.school_email || effectiveStudent?.personal_email) ||
     (fetchedStudent && fetchedStudent.id === studentId))
 
   const { user, isOwner } = useAuth()
@@ -2308,10 +2311,18 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
           setDmPreview({ recipientKey: previewRecipientKey, html: data.html || '', recipient: data.recipient || null, cc: Array.isArray(data.cc) ? data.cc : [], signature: data.signature || null, attachments: Array.isArray(data.attachments) ? data.attachments : [], loading: false, error: null })
         } else {
           // Never leave a previous run's attachment list behind on failure.
-          setDmPreview(p => ({ ...p, attachments: [], loading: false, error: data?.error || 'Preview unavailable.' }))
+          const detail = typeof data?.error === 'string' && data.error.trim()
+            ? data.error.trim()
+            : `Preview request failed (HTTP ${res.status}).`
+          setDmPreview(p => ({ ...p, attachments: [], loading: false, error: detail }))
         }
-      } catch {
-        if (!cancelled) setDmPreview(p => ({ ...p, attachments: [], loading: false, error: 'Preview unavailable.' }))
+      } catch (error) {
+        if (!cancelled) {
+          const detail = error instanceof TypeError
+            ? 'Preview request could not reach the server. Check your connection and try again.'
+            : 'Preview request failed. Please try again.'
+          setDmPreview(p => ({ ...p, attachments: [], loading: false, error: detail }))
+        }
       }
     }, 450)
     return () => { cancelled = true; clearTimeout(timer) }
