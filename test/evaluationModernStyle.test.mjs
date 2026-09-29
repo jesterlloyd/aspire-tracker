@@ -31,6 +31,9 @@ test('Modern Evaluation removes the Classic materials without changing Classic s
   assert.match(modern, /\.ds-holes \{ display: none; \}/)
   assert.match(modern, /\.rq-board \{[\s\S]*?background: var\(--color-bg-surface\);[\s\S]*?background-image: none;/)
   assert.match(modern, /\.rp-sheet \{[\s\S]*?background-image: none;/)
+  assert.match(modern, /\.rp-tab-main,[\s\S]*?background: color-mix\(in srgb, var\(--color-bg-surface\) 92%, var\(--color-text-secondary\) 8%\);[\s\S]*?box-shadow: inset 0 -10px 16px/)
+  assert.match(modern, /\.rp-tab\[data-selected="true"\] \.rp-tab-main \{[\s\S]*?background: var\(--color-bg-surface\);[\s\S]*?box-shadow: 0 1px 0 var\(--color-bg-surface\);/)
+  assert.match(modern, /\.rp-tab-main b \{[\s\S]*?color: var\(--color-text-secondary\);[\s\S]*?\.rp-tab\[data-selected="true"\] \.rp-tab-main b \{[\s\S]*?color: var\(--color-text-primary\);/)
   assert.doesNotMatch(modern, /Program Evidence/i)
 })
 
