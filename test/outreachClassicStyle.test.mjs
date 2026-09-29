@@ -199,7 +199,9 @@ test('single and bulk drafts use one compact action row beneath the editor', () 
   const bulk = read('src/components/connect/BulkManualComposer.jsx')
   const css = read('src/components/connect/outreachCorrespondenceDesk.css')
 
-  assert.match(outreach, /className="outreach-draft-action-bar"[\s\S]*Attach(?:mentPicker)?[\s\S]*Include my email signature[\s\S]*Send Email[\s\S]*className="outreach-draft-action-meta"[\s\S]*Draft saved[\s\S]*Discard draft/)
+  // 5abc66fd (Fix Outreach email preview flow) relabelled the primary action "Preview Email":
+  // it opens the preview and confirm step, it does not send. The row's layout is unchanged.
+  assert.match(outreach, /className="outreach-draft-action-bar"[\s\S]*Attach(?:mentPicker)?[\s\S]*Include my email signature[\s\S]*Preview Email[\s\S]*className="outreach-draft-action-meta"[\s\S]*Draft saved[\s\S]*Discard draft/)
   assert.match(bulk, /className="outreach-draft-action-bar outreach-bulk-action-row"[\s\S]*<AttachmentPicker[\s\S]*Include my email signature[\s\S]*className="outreach-primary-action"[\s\S]*Review & send/)
   assert.doesNotMatch(bulk, /const panelCard =/)
   assert.match(css, /\.outreach-workspace-classic \.outreach-bulk-action-row \{[\s\S]*position: static;[\s\S]*background: transparent !important;[\s\S]*box-shadow: none !important;/)
