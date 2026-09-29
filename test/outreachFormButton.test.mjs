@@ -60,6 +60,14 @@ test('buttons are found, previewed without a link, and a plain button is left al
   assert.equal(B.hasFormButtons('<p>none</p>'), false)
 })
 
+test('ordinary Outreach preview does not statically load the full Forms engine', () => {
+  const bridge = read('lib/server/forms/outreachButtons.js')
+  assert.doesNotMatch(bridge, /^import .*from ['"]\.\/engine\.js['"]/m)
+  assert.match(bridge, /const loadEngine = \(\) => import\('\.\/engine\.js'\)/)
+  assert.match(bridge, /if \(!ids\.length\) return new Map\(\)/)
+  assert.match(bridge, /if \(!created\?\.length\) return/)
+})
+
 test('each recipient gets their own link; a second send reuses it; a failed email withdraws a new one', async () => {
   const w = await world()
   const html = button(w.form.id, ' data-due="2026-10-01"')
