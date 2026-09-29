@@ -136,6 +136,9 @@ export default function BudgetSheet({ year, canEdit, onWrite, focus = null }) {
       canClear={(col) => CLEARABLE.has(col.key)}
       draftOf={draftOf} commitEdit={commitEdit}
       groupSubtotals={['amount']}
+      // BUDGET-V2: a Void row stays visible, struck through, and counts nowhere, the Σ row included.
+      countsInTotals={(r) => r.raw.status !== 'void'}
+      cellClass={(r) => (r.raw.status === 'void' ? 'bud-void' : undefined)}
       formulas
       onAddRow={canEdit && year.state !== 'not_started' ? async () => { const out = await onWrite.call('expense_create', { fields: { expense_date: newDate } }); onWrite.changed(); return sheetRow(out.expense, cats, cohorts) } : undefined}
       onDeleteRows={canEdit ? async (list) => { await onWrite.call('expense_delete', { ids: list.map(r => r.id) }); onWrite.changed() } : undefined}

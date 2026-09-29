@@ -166,14 +166,78 @@ export function pendingRenewal(sub, today = pacificToday()) {
   if (sub.renewal_kept_for === n) return null
   return { date: n, days: daysBetween(today, n) }
 }
-/** Active (green), Renews soon (amber), Ending (amber), Cancelled (grey). */
-export function subscriptionStatus(sub, today = pacificToday()) {
-  if (sub.approval_state === APPROVAL.declined) return { label: 'Declined', tone: 'grey' }
-  if (sub.end_date && sub.end_date <= today) return { label: 'Cancelled', tone: 'grey' }
-  if (isProposed(sub)) return { label: 'Proposed', tone: 'blue' }
-  if (sub.end_date) return { label: 'Ending', tone: 'amber' }
-  if (pendingRenewal(sub, today)) return { label: 'Renews soon', tone: 'amber' }
-  return { label: 'Active', tone: 'green' }
+/**
+ * BUDGET-V2 Phase 1 (item 3): a plan the app cannot place on a schedule. No charge date or start,
+ * no amount on a fixed-price plan, or an annual plan that neither renews nor ends (it has no next
+ * charge and no end, so nothing says whether it still runs).
+ */
+export function needsDecision(sub) {
+  if (!sub || sub.deleted_at || sub.approval_state === APPROVAL.declined) return false
+  if (!sub.anchor_date || !sub.start_date) return true
+  if (sub.billing !== 'usage' && !(Number(sub.amount) > 0)) return true
+  if (sub.billing === 'annual' && !sub.end_date && sub.auto_renew === false) return true
+  return false
+}
+/**
+ * One status per row (BUDGET-V2 item 3): Awaiting approval, Active, Renews soon, Ending, Ended,
+ * Declined, or Needs a decision. `overlapping` marks a row the overlap check still asks about.
+ * A plan whose End has passed is Ended whether or not it was ever approved: Claude Pro ended
+ * May 31, 2026, before FY27, and is on file for the history.
+ */
+export function subscriptionStatus(sub, today = pacificToday(), { overlapping = false } = {}) {
+  if (sub.approval_state === APPROVAL.declined) return { key: 'declined', label: 'Declined', tone: 'grey' }
+  if (sub.end_date && sub.end_date <= today) return { key: 'ended', label: 'Ended', tone: 'grey' }
+  if (overlapping || needsDecision(sub)) return { key: 'decide', label: 'Needs a decision', tone: 'amber' }
+  if (isProposed(sub)) return { key: 'proposed', label: 'Awaiting approval', tone: 'amber' }
+  if (sub.end_date) return { key: 'ending', label: 'Ending', tone: 'amber' }
+  if (pendingRenewal(sub, today)) return { key: 'renews', label: 'Renews soon', tone: 'amber' }
+  return { key: 'active', label: 'Active', tone: 'green' }
+}
+
+// ── Vendors (BUDGET-V2 items 1 and 3) ───────────────────────────────────────────
+const VENDOR_SUFFIX = /\b(inc|llc|ltd|pte|pbc|corp|corporation|co|company|limited|gmbh|plc)\b/g
+/** "Anthropic, PBC" and "Anthropic" are one vendor; so are "Supabase Pte. Ltd." and "supabase". */
+export const vendorKey = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').replace(VENDOR_SUFFIX, ' ').replace(/\s+/g, ' ').trim()
+export function sameVendor(a, b) {
+  const x = vendorKey(a), y = vendorKey(b)
+  return !!x && !!y && (x === y || x.includes(y) || y.includes(x))
+}
+
+/**
+ * BUDGET-V2 item 3: two plans from the same vendor running at the same time (Claude Pro annual and
+ * Claude Max monthly, when one replaced the other). Returns one question per pair: the plan that
+ * started first is the one to end, the day before the other began. A pair the owner kept
+ * (`overlap_kept` on either row), a declined or deleted plan, and plans that never share a day
+ * are not asked about.
+ */
+export function subscriptionOverlaps(subs = []) {
+  const live = subs.filter(s => !s.deleted_at && s.approval_state !== APPROVAL.declined && s.start_date)
+  const out = []
+  for (let i = 0; i < live.length; i++) {
+    for (let j = i + 1; j < live.length; j++) {
+      const [a, b] = [live[i], live[j]].sort((x, y) => x.start_date.localeCompare(y.start_date) || String(x.name).localeCompare(String(y.name)))
+      if (a.overlap_kept || b.overlap_kept) continue
+      if (!sameVendor(a.vendor || a.name, b.vendor || b.name)) continue
+      const aEnd = a.end_date || '9999-12-31', bEnd = b.end_date || '9999-12-31'
+      if (a.start_date > bEnd || b.start_date > aEnd) continue
+      const endOn = b.start_date > a.start_date ? addDays(b.start_date, -1) : a.start_date
+      out.push({ end: a, keep: b, endOn })
+    }
+  }
+  return out
+}
+/** The plans the overlap check would end: each Needs a decision until the owner answers. */
+export const overlappingIds = (subs) => new Set(subscriptionOverlaps(subs).map(o => o.end.id))
+
+/**
+ * What a proposed plan would cost if approved, for the grey italic figures (BUDGET-V2 item 3): a
+ * year at its plan, and what is still to come through June 30. Null for anything but a proposal.
+ */
+export function ifApproved(sub, fy, today = pacificToday()) {
+  if (!isProposed(sub) || sub.deleted_at || (sub.end_date && sub.end_date <= today)) return null
+  const r = fiscalYearRange(fy)
+  const toCome = r && today < r.end ? round2(chargesIn(sub, addDays(today, 1), r.end).length * Number(sub.amount)) : 0
+  return { perYear: round2(monthlyEquivalent(sub) * 12), due: toCome }
 }
 /** Renewals to decide, soonest first, less any the owner asked to be reminded of later. */
 export function renewalsToDecide(subs, today = pacificToday()) {
@@ -234,7 +298,9 @@ export function chargesToPost(sub, startedYears, postedDates, today = pacificTod
  */
 export function proposalSummary(subs, fy, today = pacificToday()) {
   const r = fiscalYearRange(fy)
-  const plans = subs.filter(s => !s.deleted_at && isProposed(s) && (!s.end_date || s.end_date >= r.start)).map(s => {
+  // BUDGET-V2 item 3: a plan that needs a decision is not offered for approval until it is decided.
+  const undecided = overlappingIds(subs)
+  const plans = subs.filter(s => !s.deleted_at && isProposed(s) && (!s.end_date || s.end_date >= r.start) && !needsDecision(s) && !undecided.has(s.id)).map(s => {
     const through = today < r.end ? today : r.end
     const sinceStart = round2(chargesIn(s, r.start, through).length * Number(s.amount))
     const toCome = today < r.end ? round2(chargesIn(s, addDays(today, 1), r.end).length * Number(s.amount)) : 0

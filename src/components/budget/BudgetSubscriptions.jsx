@@ -10,8 +10,8 @@ import SurfaceCard from '../ui/SurfaceCard'
 import EditableSheet from '../sheet/EditableSheet'
 import { Pill } from '../shared/DataSheet'
 import {
-  usd, dateText, BILLING, PAYMENT_METHODS, nextCharge, perYear, dueByYearEnd, subscriptionStatus, isActiveSub, isApproved, monthlyEquivalent,
-  paymentKey, pacificToday, fyShort, parseMoney,
+  usd, dateText, BILLING, PAYMENT_METHODS, nextCharge, perYear, dueByYearEnd, subscriptionStatus, isActiveSub, monthlyEquivalent,
+  paymentKey, pacificToday, fyShort, parseMoney, overlappingIds, ifApproved,
 } from '../../lib/budget/budgetModel'
 
 const LEAD = { key: '@name', label: 'Service', type: 'text' }
@@ -36,6 +36,35 @@ export default function BudgetSubscriptions({ year, canEdit, onWrite }) {
   const next = active.map(s => [s, nextCharge(s, today)]).filter(x => x[1]).sort((a, b) => a[1].localeCompare(b[1]))[0]
   const due = year.summary.committed
   const prop = year.proposals || { plans: [], count: 0 }
+  // BUDGET-V2 item 3: one status per row, the overlap check, and what approval would add.
+  const overlapping = useMemo(() => overlappingIds(subs), [subs])
+  const statusOf = (s) => subscriptionStatus(s, today, { overlapping: overlapping.has(s.id) })
+  const counts = subs.reduce((m, s) => { const k = statusOf(s).key; m[k] = (m[k] || 0) + 1; return m }, {})
+  const activeLine = [
+    counts.proposed ? `${counts.proposed} awaiting approval` : '',
+    counts.decide ? `${counts.decide} ${counts.decide === 1 ? 'needs' : 'need'} a decision` : '',
+    counts.ending ? `${counts.ending} ending` : '',
+    counts.ended ? `${counts.ended} ended` : '',
+    counts.declined ? `${counts.declined} declined` : '',
+  ].filter(Boolean).join(' · ') || 'None awaiting approval'
+  const overlaps = year.overlaps || []
+  const overlapNow = overlaps[0] || null
+  const [overlapDone, setOverlapDone] = useState(null)   // { id, decision, message } for the Undo line
+  const decideOverlap = async (o, decision) => {
+    const out = await onWrite.call('subscription_overlap', { id: o.end.id, decision, ...(decision === 'end' ? { end_on: o.endOn } : {}) })
+    const was = subs.find(x => x.id === o.end.id) || {}
+    setOverlapDone({ id: o.end.id, decision, message: out.message, prior: { end_date: was.end_date || null, auto_renew: was.auto_renew !== false } }); onWrite.changed()
+  }
+  const undoOverlap = async () => {
+    const d = overlapDone
+    setOverlapDone(null)
+    // Keep both is undone by asking again; Mark ended by putting back the End and Auto-renew it had.
+    if (d.decision === 'keep') await onWrite.call('subscription_overlap', { id: d.id, decision: 'reopen' })
+    else await onWrite.call('subscription_update', { id: d.id, patch: { end_date: d.prior.end_date, auto_renew: d.prior.auto_renew } })
+    onWrite.changed()
+  }
+  const decisionKey = subs.filter(x => x.approval_state !== 'approved' || x.overlap_kept).map(x => `${x.id}:${x.approval_state}:${x.overlap_kept ? 1 : 0}`).join(',') + `|${[...overlapping].join(',')}`
+  const pct = (n) => (year.summary.total ? ` (${(n / year.summary.total * 100).toFixed(1)}% of budget)` : '')
 
   const toRow = (s) => ({
     id: s.id, raw: s, format: s.cell_formats || {},
@@ -61,12 +90,12 @@ export default function BudgetSubscriptions({ year, canEdit, onWrite }) {
     { key: 'pay', label: 'Payment', type: 'choice', options: PAYMENT_METHODS.map(p => p.label) },
     { key: 'cat', label: 'Category', type: 'choice', options: year.categories.map(c => c.name) },
     { key: 'auto', label: 'Auto-renew', type: 'choice', required: true, options: ['Yes', 'No'] },
-    { key: 'status', label: 'Status', type: 'text', compute: (r) => subscriptionStatus(r.raw, today).label, note: 'Status follows the plan: its approval, End date and renewal decision.' },
+    { key: 'status', label: 'Status', type: 'text', compute: (r) => subscriptionStatus(r.raw, today, { overlapping: overlapping.has(r.raw.id) }).label, note: 'Status follows the plan: its approval, End date and renewal decision.' },
     { key: 'anchor', label: 'A charge date', type: 'date' },
     { key: 'start', label: 'Start', type: 'date' },
     { key: 'end', label: 'End', type: 'date' },
     { key: 'notes', label: 'Notes', type: 'paragraph' },
-  ], [year.categories, year.fy, state, today])
+  ], [year.categories, year.fy, state, today, overlapping])
 
   const toPatch = (key, draft) => {
     const v = typeof draft === 'string' ? draft.trim() : draft
@@ -90,16 +119,20 @@ export default function BudgetSubscriptions({ year, canEdit, onWrite }) {
   return (
     <>
       <div className="bud-basis bud-basis-4">
-        <SurfaceCard className="bud-tile"><span className="k">Active</span><b>{active.length}</b><small>{(() => { const ended = subs.filter(x => isApproved(x) && !isActiveSub(x, today)).length; return [ended ? `${ended} cancelled or ending` : '', prop.count ? `${prop.count} proposed` : ''].filter(Boolean).join(' · ') || 'None cancelled or ending' })()}</small></SurfaceCard>
-        <SurfaceCard className="bud-tile"><span className="k">Monthly run rate</span><b>{usd(run)}</b><small>Annual plans spread by month</small></SurfaceCard>
-        <SurfaceCard className="bud-tile"><span className="k">Per year</span><b>{usd(run * 12)}</b><small>{state === 'current' && year.summary.total ? `${((run * 12) / year.summary.total * 100).toFixed(1)}% of the ${fyShort(year.fy)} budget` : 'At current plans'}</small></SurfaceCard>
-        <SurfaceCard className="bud-tile"><span className="k">Due by Jun 30</span><b>{usd(due)}</b><small>{next ? `Next: ${next[0].name}, ${dateText(next[1])}` : 'Nothing scheduled'}</small></SurfaceCard>
+        <SurfaceCard className="bud-tile"><span className="k">Active</span><b>{active.length}</b><small>{activeLine}</small></SurfaceCard>
+        <SurfaceCard className="bud-tile"><span className="k">Monthly run rate</span><b>{usd(run)}</b>{prop.count ? <span className="bud-if">{usd(run + prop.monthly)} if approved</span> : <small>Annual plans spread by month</small>}</SurfaceCard>
+        <SurfaceCard className="bud-tile"><span className="k">Per year</span><b>{usd(run * 12)}</b>{prop.count
+          ? <span className="bud-if">{usd(run * 12 + prop.perYear)} if approved{pct(run * 12 + prop.perYear)}</span>
+          : <small>{state === 'current' && year.summary.total ? `${((run * 12) / year.summary.total * 100).toFixed(1)}% of the ${fyShort(year.fy)} budget` : 'At current plans'}</small>}</SurfaceCard>
+        <SurfaceCard className="bud-tile"><span className="k">Due by Jun 30</span><b>{usd(due)}</b>{prop.count
+          ? <span className="bud-if">{usd(due + prop.toCome)} if approved</span>
+          : <small>{next ? `Next: ${next[0].name}, ${dateText(next[1])}` : 'Nothing scheduled'}</small>}</SurfaceCard>
       </div>
 
       {/* SUB-APPROVAL-1: proposals are shown with what they would cost, and count against nothing. */}
       {prop.count > 0 && (
         <section aria-label="Awaiting approval">
-          <p className="bud-sub"><b>Awaiting Approval</b> · {prop.count} proposed · {usd(prop.monthly)} a month · Not counted against the budget until approved</p>
+          <p className="bud-sub"><b>Awaiting Approval</b> · {prop.count} {prop.count === 1 ? 'subscription' : 'subscriptions'} · {usd(prop.monthly)} a month · Not counted against the budget until approved</p>
           {/* SUB-APPROVAL-2 (Owner, 2026-09-27): one compact list, a row per proposal, one Approve menu each. */}
           <SurfaceCard className={`bud-card bud-proplist${canEdit ? '' : ' bud-proplist-ro'}`}>
             <div className="bud-prop-head" aria-hidden="true">
@@ -117,7 +150,7 @@ export default function BudgetSubscriptions({ year, canEdit, onWrite }) {
               ))}
             </ul>
             <div className="bud-prop-row bud-prop-total">
-              <span className="nm">{prop.count} proposed</span>
+              <span className="nm">{prop.count} awaiting approval</span>
               <span className="n">{usd(prop.monthly)}</span>
               <span className="n">{usd(prop.sinceStart)}</span>
               <span className="n">{usd(prop.toCome)}</span>
@@ -148,11 +181,29 @@ export default function BudgetSubscriptions({ year, canEdit, onWrite }) {
         </section>
       )}
 
+      {canEdit && overlapNow && !overlapDone && (
+        <div className="bud-check bud-check-warn bud-overlap" role="group" aria-label="Overlapping plans">
+          <span><b>{overlapNow.end.name} and {overlapNow.keep.name} overlap.</b> Both are from the same vendor and run at the same time. If {overlapNow.keep.name} replaced {overlapNow.end.name}, mark {overlapNow.end.name} ended so it is not counted as a subscription.</span>
+          <span className="bud-overlap-acts">
+            <button type="button" className="bud-btn bud-btn-sm" onClick={() => decideOverlap(overlapNow, 'end').catch(e => onWrite.notify(e.message, 'err'))}>Mark {overlapNow.end.name} ended {dateText(overlapNow.endOn).replace(/, \d{4}$/, '')}</button>
+            <button type="button" className="bud-btn bud-btn-txt bud-btn-sm" onClick={() => decideOverlap(overlapNow, 'keep').catch(e => onWrite.notify(e.message, 'err'))}>Keep both</button>
+          </span>
+        </div>
+      )}
+      {overlapDone && (
+        <div className="bud-check bud-check-ok bud-overlap" role="status">
+          <span>{overlapDone.message}</span>
+          <span className="bud-overlap-acts"><button type="button" className="bud-btn bud-btn-txt bud-btn-sm" onClick={() => undoOverlap().catch(e => onWrite.notify(e.message, 'err'))}>Undo</button></span>
+        </div>
+      )}
+
       <p className="bud-hint">{canEdit
-        ? 'Each charge posts to the Sheet on its date as a Recorded or Paid row, marked Subscription. Usage-based amounts are estimates. Click a cell and type to change it; every change saves itself. Amount takes a formula, like =200/12. Set an End date to stop a plan.'
+        ? 'Amounts in grey italics count only after approval. Each charge posts to the Sheet on its date as a Recorded or Paid row, marked Subscription. Usage-based amounts are estimates. Click a cell and type to change it; every change saves itself. Amount takes a formula, like =200/12. Set an End date to stop a plan.'
         : 'Read-only view.'}</p>
       <EditableSheet
-        key={`subs-${year.fy}`}
+        // The sheet keeps its own rows. A decision made outside it (Approve, the overlap check) changes
+        // statuses it cannot see, so those redraw it; its own cell edits do not.
+        key={`subs-${year.fy}-${decisionKey}`}
         initialRows={rows}
         initialLayout={{ ...DEFAULT_LAYOUT, ...(year.subscriptionsLayout || {}) }}
         lead={LEAD}
@@ -178,7 +229,13 @@ export default function BudgetSubscriptions({ year, canEdit, onWrite }) {
         onAddRow={canEdit ? async () => { const out = await onWrite.call('subscription_create', { fields: { name: 'New subscription' } }); onWrite.changed(); return toRow(normalize(out.subscription)) } : undefined}
         onDeleteRows={canEdit ? async (list) => { for (const r of list) await onWrite.call('subscription_delete', { id: r.id }); onWrite.changed() } : undefined}
         renderCell={(row, col, text) => {
-          if (col.key === 'status') { const st = subscriptionStatus(row.raw, today); return <Pill tone={TONE[st.tone]}>{st.label}</Pill> }
+          if (col.key === 'status') { const st = statusOf(row.raw); return <Pill tone={TONE[st.tone]}>{st.label}</Pill> }
+          // BUDGET-V2 item 3: a proposal shows what it would cost, in grey italics, never a dash. The
+          // column's sum counts only what is approved, because the figure is the computed value.
+          if (col.key === 'perYear' || col.key === 'due') {
+            const ia = ifApproved(row.raw, year.fy, today)
+            if (ia) return <span className="bud-ifv" title="Counts only after approval">{usd(col.key === 'perYear' ? ia.perYear : ia.due)}</span>
+          }
           if (col.key === 'amount' && row.raw.billing === 'usage' && text) return <>{text} <span className="bud-dash">est.</span></>
           return text === '' || text == null ? DASH : undefined
         }}

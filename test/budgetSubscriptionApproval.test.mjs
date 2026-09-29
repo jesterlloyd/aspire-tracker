@@ -25,7 +25,8 @@ test('a proposed plan counts against nothing: no charge, no commitment, no renew
   assert.deepEqual(M.chargesToPost(max, [2027], new Set(), TODAY), [])
   assert.equal(M.committedSpend([max], 2027, 'current', TODAY).total, 0)
   assert.equal(M.isActiveSub(max, TODAY), false, 'not in Active or the run rate')
-  assert.equal(M.subscriptionStatus(max, TODAY).label, 'Proposed')
+  // BUDGET-V2 item 3 (2026-09-29) renamed Proposed to Awaiting approval, the mockup's word.
+  assert.equal(M.subscriptionStatus(max, TODAY).label, 'Awaiting approval')
   assert.equal(M.subscriptionStatus({ ...max, approval_state: 'declined' }, TODAY).label, 'Declined')
   const annual = { ...max, billing: 'annual', anchor_date: '2026-10-15', start_date: '2023-10-15' }
   assert.equal(M.pendingRenewal(annual, TODAY), null, 'a proposal is not asked to renew')
@@ -86,7 +87,8 @@ test('the Owner’s subscriptions arrive proposed, cost what the document says, 
   let y = await E.loadYear(db, { fy: 2027, viewer: 'owner', today: TODAY })
   assert.equal(y.expenses.length, 0, 'starting the year posts no proposed charge')
   assert.deepEqual([y.summary.spent, y.summary.committed], [0, 0], 'nothing against the budget')
-  assert.deepEqual(y.subscriptions.map(s => s.status), ['Proposed', 'Proposed', 'Proposed', 'Proposed', 'Cancelled'])
+  // BUDGET-V2 item 3: Awaiting approval, and a plan whose End has passed is Ended.
+  assert.deepEqual(y.subscriptions.map(s => s.status), ['Awaiting approval', 'Awaiting approval', 'Awaiting approval', 'Awaiting approval', 'Ended'])
 
   const id = (n) => y.subscriptions.find(s => s.name === n).id
   const a = await E.decideProposal(db, owner, { id: id('Claude Max'), decision: 'from_year_start', today: TODAY })
@@ -106,7 +108,8 @@ test('the Owner’s subscriptions arrive proposed, cost what the document says, 
 test('the screen lists proposals compactly for every viewer, with one Approve menu per row for the owner', () => {
   // SUB-APPROVAL-2 (Owner, 2026-09-27): one compact list replaced the four slips.
   const subs = read('src/components/budget/BudgetSubscriptions.jsx')
-  assert.match(subs, /Awaiting Approval<\/b> · \{prop\.count\} proposed · \{usd\(prop\.monthly\)\} a month · Not counted against the budget until approved/)
+  // BUDGET-V2 item 3: the line counts subscriptions awaiting approval, no longer "proposed".
+  assert.match(subs, /Awaiting Approval<\/b> · \{prop\.count\} \{prop\.count === 1 \? 'subscription' : 'subscriptions'\} · \{usd\(prop\.monthly\)\} a month · Not counted against the budget until approved/)
   assert.match(subs, /\{canEdit && <ApproveMenu name=\{p\.name\}/, 'the decision is the owner\u2019s')
   for (const d of ['from_year_start', 'from_today', 'decline']) assert.match(subs, new RegExp(`pick\\('${d}'\\)`), d)
   assert.match(subs, /role="menu" aria-label=\{`Decide \$\{name\}`\}/)

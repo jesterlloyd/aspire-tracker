@@ -12,9 +12,9 @@
 import { useMemo, useState } from 'react'
 import { AlertTriangle, Check, ChevronRight, Eye, Info, OctagonAlert, Plus, X } from 'lucide-react'
 import KeithMark from '../keith/KeithMark'
-import { receiptPaper, setLineCategory, rowsFrom, draftTotal, filedName, vendorLogo, slipState, ATTENDEE_FIELDS } from '../../lib/budget/receiptModel'
+import { receiptPaper, setLineCategory, rowsFrom, draftTotal, filedName, vendorLogo, slipState, receiptsOnCard, ATTENDEE_FIELDS } from '../../lib/budget/receiptModel'
 import { receiptChecks } from '../../lib/budget/receiptChecks'
-import { usd, dateText, fyShort, PAYMENT_METHODS } from '../../lib/budget/budgetModel'
+import { usd, dateText, fyShort, PAYMENT_METHODS, paymentLabel } from '../../lib/budget/budgetModel'
 
 // The mockup's check icons: a warning triangle, an info mark, a tick; a block is the stop sign.
 const CHECK_ICON = { block: OctagonAlert, warn: AlertTriangle, info: Info, ok: Check }
@@ -76,7 +76,9 @@ export function ReceiptFold({ slip, context, onOpen }) {
   )
 }
 
-export default function ReceiptSlip({ slip, context, categories, cohorts, busy, onDraft, onAccept, onSnooze, onReject, onRead, onDiscard, onOriginal, onStartYear }) {
+const shortDate = (ymd) => dateText(ymd).replace(/, \d{4}$/, '')
+
+export default function ReceiptSlip({ slip, context, categories, cohorts, busy, openSlips = [], onDraft, onAccept, onSnooze, onReject, onRead, onDiscard, onOriginal, onStartYear, onHold, onRemember }) {
   const d = slip.draft
   const [details, setDetails] = useState(false)   // date, vendor and order: Keith's reading, correctable on request
   const result = useMemo(() => (d ? receiptChecks(d, { ...context, proposal: slip.proposal || {}, duplicateFile: slip.duplicateFile }) : null), [d, context, slip.proposal, slip.duplicateFile])
@@ -116,6 +118,14 @@ export default function ReceiptSlip({ slip, context, categories, cohorts, busy, 
   const filed = filedName({ date: d.date, vendor: d.vendor, order_number: d.order_number, total, contentType: slip.content_type })
   const startCheck = result.checks.find(c => c.startYear)
   const canAccept = dup ? !result.attachBlocked : !result.blocked
+  // BUDGET-V2 item 1: a subscription charge attaches or holds; a new row is the owner's explicit choice.
+  const m = result.subMatch
+  const charge = m && m.kind !== 'uncounted' ? m : null
+  const chargeLabel = charge ? `Attach to ${shortDate(charge.charge_date)} charge` : ''
+  // BUDGET-V2 item 5: remember this card as the method chosen, for every open receipt on it.
+  const card = slip.proposal?.card_last4 || ''
+  const remembered = (context.rememberedCards || []).find(c => c.last4 === card)
+  const others = card && d.payment_method ? receiptsOnCard(openSlips, card, d.payment_method, slip.id).length : 0
 
   return (
     <article className="bud-slip" aria-labelledby={`slip-${slip.id}`}>
@@ -172,6 +182,13 @@ export default function ReceiptSlip({ slip, context, categories, cohorts, busy, 
               <select className="bud-input" value={d.cohort_id || ''} onChange={e => set({ cohort_id: e.target.value || null })}>
                 <option value="">No cohort (program-wide)</option>{cohorts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select></label>
+            {card && d.payment_method && onRemember && (
+              <label className="bud-remember">
+                <input type="checkbox" checked={remembered?.method === d.payment_method} disabled={busy}
+                  onChange={e => onRemember(card, d.payment_method, e.target.checked)} />
+                <span>Remember card ending {card} as {paymentLabel(d.payment_method)}. {others ? `Applies to ${others} other ${others === 1 ? 'receipt' : 'receipts'}.` : 'Applies to receipts you add later.'}</span>
+              </label>
+            )}
           </div>
         )}
 
@@ -206,6 +223,16 @@ export default function ReceiptSlip({ slip, context, categories, cohorts, busy, 
         <div className="bud-slip-acts">
           {startCheck
             ? <button type="button" className="bud-btn bud-btn-pri bud-btn-sm" onClick={() => onStartYear(startCheck.startYear)}>Start {fyShort(startCheck.startYear)}</button>
+            : charge ? (<>
+              {charge.kind === 'hold' && <button type="button" className="bud-btn bud-btn-pri bud-btn-sm" disabled={busy} onClick={() => onHold(slip)}>Hold until {charge.subscription.name} is approved</button>}
+              {charge.kind !== 'filed' && (
+                <button type="button" className={`bud-btn bud-btn-sm${charge.kind === 'attach' ? ' bud-btn-pri' : ''}`} disabled={busy || charge.kind !== 'attach' || result.attachBlocked}
+                  title={charge.kind === 'hold' ? `Available after you approve ${charge.subscription.name}` : result.attachBlocked ? result.attachBlockers.join(' ') : undefined}
+                  onClick={() => onAccept(slip, null, { attachCharge: true })}>{chargeLabel}</button>
+              )}
+              <button type="button" className="bud-btn bud-btn-txt bud-btn-sm" disabled={busy || result.blocked} title={result.blocked ? result.blockers.join(' ') : undefined}
+                onClick={() => onAccept(slip, null, { asOneTime: true })}>Post as one-time instead</button>
+            </>)
             : <button type="button" className="bud-btn bud-btn-pri bud-btn-sm" disabled={busy || !canAccept} title={canAccept ? undefined : (dup ? result.attachBlockers : result.blockers).join(' ')} onClick={() => onAccept(slip, dup ? dup.expense.id : null)}>
                 {dup ? `Attach to ${dup.expense.row_label}` : rows.length > 1 ? `Accept ${rows.length} rows` : 'Accept and post'}
               </button>}

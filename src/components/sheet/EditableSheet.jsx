@@ -45,6 +45,7 @@
 //   draftOf(row, col), commitEdit(row, col, editing, { patchRows })   a host column's edit.
 //   renderCell(row, col, text)   a host's own cell content, or undefined for the grid's.
 //   cellClass(row, col), cellTitle(row, col)
+//   countsInTotals(row)  false keeps a row out of the Σ row and group subtotals (a Void expense).
 //   editorLabel(row, col), editorExtras({ col, row, editing, setEditing, keys }), saveLabel(col)
 //   labels           { notice, searchPlaceholder, searchLabel, count(shown, total), emptyNote,
 //                      noMatch, frameLabel, help, readOnlyEdit, newColumnHint, locked }
@@ -131,7 +132,7 @@ export default function EditableSheet({
   renderCell, cellClass, cellTitle, editorLabel, editorExtras, saveLabel,
   labels = {}, notify, viewRef,
   isLocked, groupSubtotals = NO_KEYS, onAddRow, onDeleteRows, canDeleteRow = () => true, canClear = () => false,
-  formulas = false, initialSearch = '', quickFilters = NO_KEYS, initialQuick = null,
+  formulas = false, initialSearch = '', quickFilters = NO_KEYS, initialQuick = null, countsInTotals = null,
 }) {
   const [data, setData] = useState(() => ({ rows: initialRows }))
   const [layout, setLayout] = useState(initialLayout)
@@ -681,14 +682,14 @@ export default function EditableSheet({
   const summaryOf = (col) => {
     const fn = layout.summaries?.[col.key]
     if (!fn) return ''
-    const v = summarize(rows.map(r => val(r, col.key)), fn)
+    const v = summarize((countsInTotals ? rows.filter(countsInTotals) : rows).map(r => val(r, col.key)), fn)
     if (v == null) return '-'
     if (fn === 'count' || fn === 'counta') return String(v)
     return numberText(col.key, v)
   }
   // BUDGET-SHEET-0b: a group row's subtotals, in the column's own number format.
   const subtotalsOf = (group) => groupSubtotals.filter(k => colByKey.has(k)).map(k => {
-    const v = summarize(group.rows.map(r => val(r, k)), 'sum')
+    const v = summarize((countsInTotals ? group.rows.filter(countsInTotals) : group.rows).map(r => val(r, k)), 'sum')
     return { key: k, label: colByKey.get(k).label, text: v == null ? '\u2013' : numberText(k, v) }
   })
   // BUDGET-SHEET-0b: rows the host lets the owner add and delete. Delete acts on whole rows,

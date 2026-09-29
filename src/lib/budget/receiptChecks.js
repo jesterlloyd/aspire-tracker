@@ -15,6 +15,7 @@
 import { fiscalYearOfDate, fyShort, usd, dateText, daysBetween, currentFiscalYear } from './budgetModel.js'
 import { addDays } from '../rotationCalendarDates.js'
 import { paymentFromCard, rowsFrom, draftTotal } from './receiptModel.js'
+import { matchSubscriptionCharge, matchText, GUARDED } from './chargeMatch.js'
 
 export const DUPLICATE_WINDOW_DAYS = 7
 const lc = (s) => String(s || '').trim().toLowerCase()
@@ -53,13 +54,15 @@ export function findDuplicate(draft, expenses = []) {
  *                 plan: { [category]: n } | null }
  *   rules         budget_policy_rules rows
  *   pcardLast4    '' when none is on file
+ *   rememberedCards [{ last4, method }] the owner asked to remember (BUDGET-V2 item 5)
+ *   subscriptions every subscription row, for the charge match (BUDGET-V2 item 1)
  *   proposal      Keith's reading (document_type, tip, subtotal, card_last4, adds_up)
  *   duplicateFile the accepted receipt with the same file, if any
  *   today         YYYY-MM-DD
- * Returns { checks, duplicate, fy, fyStarted, blocked, blockers, attachBlocked, attachBlockers }.
+ * Returns { checks, duplicate, subMatch, fy, fyStarted, blocked, blockers, attachBlocked, attachBlockers }.
  */
 export function receiptChecks(draft, ctx = {}) {
-  const { expenses = [], years = new Map(), rules = [], pcardLast4 = '', proposal = {}, duplicateFile = null, today } = ctx
+  const { expenses = [], years = new Map(), rules = [], pcardLast4 = '', rememberedCards = [], subscriptions = [], proposal = {}, duplicateFile = null, today } = ctx
   const checks = []
   const add = (key, tone, text, extra = {}) => checks.push({ key, tone, text, ...extra })
   const method = draft.payment_method || null
@@ -73,8 +76,16 @@ export function receiptChecks(draft, ctx = {}) {
   if (draft.lines.some(l => !l.category)) add('category', 'block', 'Choose a category for every line.')
   if (!draft.lines.length) add('lines', 'block', 'Add at least one line.')
 
+  // BUDGET-V2 item 1: a subscription charge first. A receipt for a charge is that charge, and a row
+  // the charge already posted is that charge's row, not a duplicate to attach to by row number.
+  const subMatch = matchSubscriptionCharge(draft, subscriptions, expenses)
+  if (subMatch) add('sub_match', subMatch.kind === 'uncounted' ? 'info' : 'warn', matchText(subMatch), { subMatch })
+  const guarded = !!subMatch && GUARDED.has(subMatch.kind)
+
   // B4.1 Duplicate.
-  const duplicate = findDuplicate(draft, expenses)
+  let duplicate = findDuplicate(draft, expenses)
+  if (duplicate && subMatch?.expense && duplicate.expense.id === subMatch.expense.id) duplicate = null
+  if (duplicate && guarded) duplicate = null
   if (duplicate) {
     const e = duplicate.expense
     add('duplicate', 'warn', `Matches ${e.row_label} (${e.item || 'no item'}, ${usd(e.amount)}, ${dateText(e.expense_date, e.date_precision)}) by ${duplicate.by}. Attach this receipt to that row instead of adding a new one.`, { attachTo: e.id })
@@ -92,7 +103,7 @@ export function receiptChecks(draft, ctx = {}) {
   else if (proposal.total && cents(draftTotal(draft)) !== cents(proposal.total) && !duplicate) add('total', 'warn', `The lines add up to ${usd(draftTotal(draft))}; the receipt says ${usd(proposal.total)}.`)
 
   // B4.4 Budget impact, per category.
-  if (fyStarted && !duplicate) {
+  if (fyStarted && !duplicate && !guarded) {
     const plan = year.plan && Object.keys(year.plan).length ? year.plan : null
     for (const r of rows.filter(x => x.category)) {
       const now = (year.spent?.[r.category] || 0) + r.amount
@@ -108,7 +119,7 @@ export function receiptChecks(draft, ctx = {}) {
 
   // B4.5 Payment.
   if (!duplicate) {
-    const pay = paymentFromCard(proposal.card_last4, pcardLast4)
+    const pay = paymentFromCard(proposal.card_last4, pcardLast4, rememberedCards)
     if (method === pay.method || !method) add('payment', pay.tone, pay.text)
     if (method === 'personal_concur' && pay.method !== 'personal_concur') add('payment_concur', 'info', 'Personal (Concur) starts as Recorded. Mark it Submitted when you file it in Concur.')
   }
@@ -171,7 +182,7 @@ export function receiptChecks(draft, ctx = {}) {
   const blockers = checks.filter(c => c.tone === 'block')
   const attachBlockers = blockers.filter(c => c.key === 'date')
   return {
-    checks, duplicate, fy, fyStarted,
+    checks, duplicate, subMatch, fy, fyStarted,
     blocked: blockers.length > 0, blockers: blockers.map(b => b.text),
     attachBlocked: attachBlockers.length > 0, attachBlockers: attachBlockers.map(b => b.text),
   }

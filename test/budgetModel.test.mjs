@@ -81,7 +81,8 @@ test('an annual plan renewing within 45 days is a decision until kept, cancelled
   assert.deepEqual(cancel, { end_date: '2026-10-14', auto_renew: false })
   const cancelled = { ...survey, ...cancel }
   assert.equal(M.subscriptionStatus(cancelled, TODAY).label, 'Ending')
-  assert.equal(M.subscriptionStatus(cancelled, '2026-10-14').label, 'Cancelled')
+  // BUDGET-V2 item 3 (2026-09-29): a plan past its End is Ended, whatever ended it.
+  assert.equal(M.subscriptionStatus(cancelled, '2026-10-14').label, 'Ended')
   assert.equal(M.committedSpend([cancelled], 2027, 'current', TODAY).total, 0, 'a cancelled renewal is no longer committed')
 })
 

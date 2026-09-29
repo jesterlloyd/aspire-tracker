@@ -54,7 +54,13 @@ const ACTION_SCHEMAS = Object.freeze({
   receipt_discard: ['action', 'id'],
   receipt_read: ['action', 'id'],
   receipt_draft: ['action', 'id', 'draft'],
-  receipt_accept: ['action', 'id', 'draft', 'attach_to'],
+  receipt_accept: ['action', 'id', 'draft', 'attach_to', 'attach_charge', 'as_one_time'],
+  // BUDGET-V2 Phase 1: hold for a subscription, remember a card, answer the overlap check.
+  receipt_hold: ['action', 'id', 'draft'],
+  receipts_hold_all: ['action'],
+  receipt_unhold: ['action', 'id'],
+  card_remember: ['action', 'last4', 'method', 'remember'],
+  subscription_overlap: ['action', 'id', 'decision', 'end_on'],
   receipt_snooze: ['action', 'id', 'days'],
   receipt_reject: ['action', 'id'],
   receipt_undo: ['action', 'id'],
@@ -118,7 +124,13 @@ export function createBudgetStaffHandler({ verifyCaller = verifyPortalCaller, ma
         case 'subscription_create': return res.status(200).json({ subscription: await E.createSubscription(db, actor, { fields: obj(body.fields), ...day }) })
         case 'subscription_update': return res.status(200).json({ subscription: await E.updateSubscription(db, actor, { id: body.id, patch: obj(body.patch), ...day }) })
         case 'subscription_delete': return res.status(200).json(await E.deleteSubscription(db, actor, { id: body.id }))
-        case 'subscription_approve': return res.status(200).json(await E.decideProposal(db, actor, { id: body.id, decision: body.decision, ...day }))
+        case 'subscription_approve': {
+          // BUDGET-V2 item 1: the plan's held receipts attach to their charges (or go back to review).
+          const out = await E.decideProposal(db, actor, { id: body.id, decision: body.decision, ...day })
+          const rel = await R.releaseHeld(db, actor, { subscriptionId: body.id, ...day })
+          const extra = [rel.attached ? `${rel.attached} held ${rel.attached === 1 ? 'receipt' : 'receipts'} attached to ${rel.attached === 1 ? 'its charge' : 'their charges'}.` : '', rel.returned ? `${rel.returned} held ${rel.returned === 1 ? 'receipt is' : 'receipts are'} back in To Review.` : ''].filter(Boolean).join(' ')
+          return res.status(200).json({ ...out, released: rel, message: [out.message, extra].filter(Boolean).join(' ') })
+        }
         case 'renewal_decide': return res.status(200).json(await E.decideRenewal(db, actor, { id: body.id, decision: body.decision, ...day }))
         // AC-RENEW-1: the renewals are the Owner's to decide, so anyone else is given none (not refused:
         // the Action Center asks for every source it may show and an Admin simply has nothing here).
@@ -134,8 +146,13 @@ export function createBudgetStaffHandler({ verifyCaller = verifyPortalCaller, ma
         case 'receipt_draft': return res.status(200).json(await R.saveDraft(db, actor, { id: body.id, draft: obj(body.draft) }))
         case 'receipt_accept': {
           if (body.attach_to != null && !UUID.test(String(body.attach_to))) return invalid(res, 'attach_to', 'Choose the row to attach to.')
-          return res.status(200).json(await R.acceptReceipt(db, actor, { id: body.id, draft: obj(body.draft), attachTo: body.attach_to || null, ...day }))
+          return res.status(200).json(await R.acceptReceipt(db, actor, { id: body.id, draft: obj(body.draft), attachTo: body.attach_to || null, attachCharge: body.attach_charge === true, asOneTime: body.as_one_time === true, ...day }))
         }
+        case 'receipt_hold': return res.status(200).json(await R.holdReceipt(db, actor, { id: body.id, draft: body.draft ? obj(body.draft) : null, ...day }))
+        case 'receipt_unhold': return res.status(200).json(await R.unholdReceipt(db, actor, { id: body.id }))
+        case 'receipts_hold_all': return res.status(200).json(await R.holdAll(db, actor, day))
+        case 'card_remember': return res.status(200).json(await R.rememberCard(db, actor, { last4: body.last4, method: body.method, remember: body.remember !== false }))
+        case 'subscription_overlap': return res.status(200).json(await E.decideOverlap(db, actor, { id: body.id, decision: body.decision, end_on: body.end_on || null, ...day }))
         case 'receipt_snooze': return res.status(200).json(await R.snoozeReceipt(db, actor, { id: body.id, days: body.days, ...day }))
         case 'receipt_reject': return res.status(200).json(await R.rejectReceipt(db, actor, { id: body.id }))
         case 'receipt_undo': return res.status(200).json(await R.undoReceipt(db, actor, { id: body.id }))

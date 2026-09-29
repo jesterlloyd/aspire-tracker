@@ -21,6 +21,7 @@ import SegmentedPicker from '../shared/SegmentedPicker'
 import ReceiptOriginal from './ReceiptOriginal'
 import { budgetStaff, prepareReceiptFile, uploadReceiptFile } from './budgetApi'
 import { dateText, usd } from '../../lib/budget/budgetModel'
+import { receiptChecks } from '../../lib/budget/receiptChecks'
 import { refreshKeithProvenance } from '../keith/keithProvenanceStore'
 
 const ACCEPT = 'image/*,application/pdf,.pdf,.eml,message/rfc822,.heic,.heif'
@@ -114,10 +115,23 @@ export default function BudgetReceipts({ year, onWrite, pendingFiles, onPendingT
       load()
     } catch (e) { notify(e.message, 'err') } finally { mark(slip.id, false) }
   }
-  const onAccept = (slip, attachTo) => {
-    const n = attachTo ? 0 : new Set(slip.draft.lines.map(l => l.category)).size
-    return decide(slip, 'receipt_accept', { draft: slip.draft, attach_to: attachTo || null },
-      attachTo ? `Receipt attached to its row and filed.` : `${n} ${n === 1 ? 'row' : 'rows'} posted and the receipt filed.`)
+  const onAccept = (slip, attachTo, { attachCharge = false, asOneTime = false } = {}) => {
+    const n = attachTo || attachCharge ? 0 : new Set(slip.draft.lines.map(l => l.category)).size
+    return decide(slip, 'receipt_accept', { draft: slip.draft, attach_to: attachTo || null, ...(attachCharge ? { attach_charge: true } : {}), ...(asOneTime ? { as_one_time: true } : {}) },
+      attachCharge ? 'Receipt attached to its subscription charge and filed. Spent did not change.' : attachTo ? `Receipt attached to its row and filed.` : `${n} ${n === 1 ? 'row' : 'rows'} posted and the receipt filed.`)
+  }
+  // BUDGET-V2 item 1: hold a receipt for a subscription awaiting approval, one or all at once.
+  const onHold = (slip) => decide(slip, 'receipt_hold', { draft: slip.draft }, 'Held. It attaches to its charge when you approve the subscription.')
+  const onHoldAll = async () => {
+    try { const out = await budgetStaff('receipts_hold_all'); notify(out.message); onWrite.changed(); load() } catch (e) { notify(e.message, 'err') }
+  }
+  const onUnhold = async (slip) => {
+    mark(slip.id, true)
+    try { await budgetStaff('receipt_unhold', { id: slip.id }); notify('Back in To Review.'); load() } catch (e) { notify(e.message, 'err') } finally { mark(slip.id, false) }
+  }
+  // BUDGET-V2 item 5: remember a card (or forget it); the server sets every open receipt on it.
+  const onRemember = async (last4, method, remember) => {
+    try { const out = await budgetStaff('card_remember', { last4, method, remember }); notify(out.message); load() } catch (e) { notify(e.message, 'err') }
   }
   const onSnooze = (slip) => decide(slip, 'receipt_snooze', {}, 'Snoozed for 7 days.')
   const onReject = (slip) => decide(slip, 'receipt_reject', {}, 'Receipt rejected. Nothing was posted.')
@@ -146,6 +160,10 @@ export default function BudgetReceipts({ year, onWrite, pendingFiles, onPendingT
   // or failed stay whole (they are short and say what is happening).
   const reviewable = waiting.filter(s => s.draft && FOLDABLE.has(s.status))
   const openKey = reviewable.some(s => s.id === openId) ? openId : reviewable[0]?.id
+  const held = data.held || []
+  const openSlips = [...data.waiting, ...data.snoozed, ...held]
+  const holdable = reviewable.filter(s => receiptChecks(s.draft, { ...ctx, proposal: s.proposal || {} }).subMatch?.kind === 'hold')
+  const subName = new Map((ctx.subscriptions || []).map(x => [x.id, x.name]))
 
   return (
     <div className={`bud-receipts${dragging ? ' bud-dragging' : ''}`}
@@ -179,18 +197,42 @@ export default function BudgetReceipts({ year, onWrite, pendingFiles, onPendingT
         <h2>Waiting for Review</h2>
         <span>{waiting.length} {waiting.length === 1 ? 'receipt' : 'receipts'} · oldest first · also listed in the Action Center</span>
       </div>
+      {holdable.length > 0 && (
+        <SurfaceCard className="bud-batch" role="group" aria-label="Receipts for subscriptions awaiting approval">
+          <span><b>{holdable.length} {holdable.length === 1 ? 'receipt matches a subscription that is' : 'receipts match subscriptions that are'} awaiting approval.</b> Hold {holdable.length === 1 ? 'it' : 'them together'} now. When you approve a subscription, its receipts attach to their charges in one step.</span>
+          <button type="button" className="bud-btn bud-btn-pri bud-btn-sm" onClick={onHoldAll}>Hold all {holdable.length}</button>
+        </SurfaceCard>
+      )}
       {waiting.length
         ? (
           <div className="bud-slips">
             {waiting.map(s => (s.id !== openKey && s.draft && FOLDABLE.has(s.status)
               ? <ReceiptFold key={s.id} slip={s} context={ctx} onOpen={setOpenId} />
               : (
-                <ReceiptSlip key={s.id} slip={s} context={ctx} categories={categories} cohorts={year.cohorts} busy={busy.has(s.id)}
+                <ReceiptSlip key={s.id} slip={s} context={ctx} categories={categories} cohorts={year.cohorts} busy={busy.has(s.id)} openSlips={openSlips}
+                  onHold={onHold} onRemember={ctx.cardsEnabled ? onRemember : null}
                   onDraft={onDraft} onAccept={onAccept} onSnooze={onSnooze} onReject={onReject} onRead={onRead} onDiscard={onDiscard} onOriginal={onOriginal} onStartYear={onStartYear} />
               )))}
           </div>
         )
         : <SurfaceCard className="bud-card"><p className="bud-empty">Every receipt is reviewed. New uploads appear here.</p></SurfaceCard>}
+
+      {held.length > 0 && (
+        <SurfaceCard className="bud-card">
+          <h2>Held for Approval</h2>
+          <ul className="bud-recent">
+            {held.map(s => (
+              <li key={s.id}>
+                <span className="bud-held-name">{s.draft?.vendor || s.file_name} · {usd(s.proposal?.total)}</span>
+                <small>{s.held_charge_date ? `${dateText(s.held_charge_date)} charge · ` : ''}Held until {subName.get(s.held_subscription_id) || 'its subscription'} is approved</small>
+                <span className="bud-grow" />
+                <button type="button" className="bud-linkbtn" onClick={() => onOriginal(s)}>View original</button>
+                <button type="button" className="bud-linkbtn" disabled={busy.has(s.id)} onClick={() => onUnhold(s)}>Back to review</button>
+              </li>
+            ))}
+          </ul>
+        </SurfaceCard>
+      )}
 
       {/* Accepted receipts live in Filed now (RECEIPT-ORGANIZER-1); this keeps what Filed does not. */}
       {(data.snoozed.length > 0 || data.recent.some(s => s.status === 'rejected')) && (

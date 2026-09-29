@@ -15,7 +15,7 @@
 //                                    original opens the file itself). An address is never drawn.
 //   filedName(...)                   FY27_2026-09-03_Amazon_112-7730158_$58.57.pdf (B6.3).
 
-import { fiscalYearOfDate, fyShort, usd } from './budgetModel.js'
+import { fiscalYearOfDate, fyShort, usd, paymentLabel } from './budgetModel.js'
 import { VENDOR_LOGOS } from './vendorLogos.js'
 
 export const DOCUMENT_TYPES = Object.freeze(['receipt', 'invoice', 'order_confirmation', 'card_statement', 'other'])
@@ -110,22 +110,35 @@ export function spreadExtras(amounts, extra) {
 }
 
 /** The payment method from the card (B3). `pcardLast4` is the owner's, or empty when none is on file. */
-export function paymentFromCard(cardLast4, pcardLast4) {
+export function paymentFromCard(cardLast4, pcardLast4, remembered = []) {
   if (!cardLast4) return { method: null, tone: 'info', text: 'No card number on the receipt. Choose the payment method.' }
+  if (pcardLast4 && cardLast4 === pcardLast4) return { method: 'p_card', tone: 'ok', text: `Card ending ${cardLast4} is your P-card: P-card, Paid.` }
+  // BUDGET-V2 item 5: a card the owner asked to remember reads as they said, on every receipt.
+  const known = (remembered || []).find(c => c?.last4 === cardLast4)
+  if (known) return { method: known.method, tone: 'ok', text: `Card ending ${cardLast4} is remembered as ${paymentLabel(known.method)}.`, remembered: true }
   if (!pcardLast4) return { method: null, tone: 'info', text: `Card ending ${cardLast4}. No P-card is on file, so choose the payment method.` }
-  if (cardLast4 === pcardLast4) return { method: 'p_card', tone: 'ok', text: `Card ending ${cardLast4} is your P-card: P-card, Paid.` }
   return { method: 'personal_concur', tone: 'info', text: `Card ending ${cardLast4} is not your P-card, so this is a personal purchase: Personal (Concur), Recorded. Mark it Submitted when you file it in Concur.` }
+}
+
+/**
+ * BUDGET-V2 item 5: the other open receipts a remembered card would set, and so the count the
+ * checkbox names ("Applies to 14 other receipts"). Open means waiting, snoozed or held; a receipt
+ * already set to that method is not counted.
+ */
+export function receiptsOnCard(slips = [], last4, method, exceptId = null) {
+  if (!last4) return []
+  return slips.filter(s => s.id !== exceptId && s.draft && s.proposal?.card_last4 === last4 && s.draft.payment_method !== method)
 }
 
 let lineSeq = 0
 const lineId = () => `l${Date.now().toString(36)}${(lineSeq++).toString(36)}`
 
 /** The slip's starting state. The owner edits this; Accept posts it. */
-export function draftFrom(proposal, { pcardLast4 = '' } = {}) {
+export function draftFrom(proposal, { pcardLast4 = '', rememberedCards = [] } = {}) {
   const p = proposal
   const extra = money((p.tax || 0) + (p.shipping || 0) + (p.tip || 0))
   const spread = spreadExtras(p.lines.map(l => l.amount), extra)
-  const pay = paymentFromCard(p.card_last4, pcardLast4)
+  const pay = paymentFromCard(p.card_last4, pcardLast4, rememberedCards)
   return {
     vendor: p.vendor, order_number: p.order_number, date: p.date, total: p.total,
     lines: p.lines.map((l, i) => ({ id: lineId(), item: l.item, category: l.category, quantity: l.quantity, amount: spread[i], base: l.amount, confidence: l.confidence, reason: l.reason, flags: l.flags, set_by_owner: false })),
@@ -270,6 +283,9 @@ export function filedFolders(receipts = [], { groupBy = 'month', query = '' } = 
 export function slipState(result, rowCount) {
   if (!result) return { tone: 'info', text: 'Reading' }
   if (result.duplicate) return { tone: 'warn', text: `Matches ${result.duplicate.expense.row_label}` }
+  // BUDGET-V2 item 1: a subscription charge says whose, and what it waits for.
+  const m = result.subMatch
+  if (m && m.kind !== 'uncounted') return { tone: 'warn', text: m.kind === 'hold' ? `Matches ${m.subscription.name} · awaiting approval` : m.kind === 'filed' ? `${m.subscription.name} charge has its receipt` : `Matches ${m.subscription.name}` }
   const block = result.checks.find(c => c.tone === 'block')
   if (block) {
     if (block.key === 'rule:meals_documentation') return { tone: 'warn', text: 'Needs purpose and attendees' }

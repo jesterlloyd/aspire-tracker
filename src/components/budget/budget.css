@@ -403,3 +403,28 @@
 .bud-fdetail-kv dd { margin: 0; min-width: 0; }
 .bud-fdetail-kv code { display: inline; overflow-wrap: anywhere; }
 .bud-att-line { display: block; }
+
+/* ── BUDGET-V2 Phase 1 (2026-09-29): docs/mockups/program-budget-v2.html items 1, 3, 5 ── */
+.bud-btn-txt { border-color: transparent; background: none; color: var(--color-accent-primary); padding-inline: 6px; }
+.bud-btn-txt:hover:not(:disabled) { background: var(--color-bg-hover); }
+/* Remember a card: one line under Payment and Cohort, across both. */
+.bud-remember { grid-column: 1 / -1; display: flex; gap: 8px; align-items: flex-start; padding: 7px 10px; border-radius: var(--aspire-radius-control);
+  background: var(--pill-info-bg); color: var(--pill-info-fg); font-size: 12.5px; line-height: 1.45; cursor: pointer; }
+.bud-remember input { margin: 2px 0 0; flex: none; }
+/* The group bar above the queue: the receipts that wait for a subscription's approval. */
+.bud-batch { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 10px 14px; margin-bottom: 12px; font-size: 13.5px; color: var(--text-heading);
+  }
+/* The card's shadow is its edge; the amber rule rides on it (a SurfaceCard's own shadow otherwise wins). */
+.bud-receipts .bud-batch { box-shadow: inset 4px 0 0 var(--pill-warn-fg), var(--aspire-shadow-card); }
+.bud-batch > span { flex: 1 1 320px; }
+/* "If approved": a figure that counts only after approval. Grey italic in a table, amber on a tile. */
+.bud-ifv { color: var(--text-caption); font-style: italic; font-variant-numeric: tabular-nums; }
+.bud-tile .bud-if { font-size: 12.5px; color: var(--pill-warn-fg); }
+.bud-held-name { font-weight: 600; }
+.bud-overlap { align-items: center; flex-wrap: wrap; margin: 0 0 12px; }
+.bud-overlap > span:first-child { flex: 1 1 320px; }
+.bud-overlap-acts { display: flex; gap: 6px; flex-wrap: wrap; }
+/* A Void row: visible, struck through, counted nowhere. */
+.fs-grid td.bud-void, td.bud-void { text-decoration: line-through; color: var(--text-caption); }
+/* A text button inside a check band wears the band's ink (the accent on amber measured 4.48:1 in dark). */
+.bud-check .bud-btn-txt { color: inherit; font-weight: 700; text-decoration: underline; text-underline-offset: 2px; }
