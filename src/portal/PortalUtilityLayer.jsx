@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { MessageCircle } from 'lucide-react'
 import PortalFeedbackPanel from './PortalFeedbackPanel'
 import PortalTeamMessagesPanel from './PortalTeamMessagesPanel'
+import { isFullMessagesPath } from '../lib/messages/messagesRoutes'
 
 const NOTICE_DAYS = 30
 const NOTICE_COPY = 'This portal is optimized for desktop use. For the best experience, open it on a laptop or larger screen.'
@@ -80,7 +81,7 @@ function sectionFromPath(pathname) {
   return match[1].replace(/-/g, ' ')
 }
 
-export default function PortalUtilityLayer({
+function PortalUtilityLayerContent({
   enabled = false,
   portalRole,
   portalType,
@@ -102,7 +103,7 @@ export default function PortalUtilityLayer({
   const messagesRef = useRef(null)
   const narrow = useNarrowViewport()
   const suppressed = useUtilitySuppression(Boolean(activePanel))
-  const onMessagesRoute = pathname.startsWith('/portal/messages')
+  const onMessagesRoute = isFullMessagesPath(pathname)
   const noticeKey = profileId ? storageKey(profileId, portalRole) : null
   const storedDismissed = Boolean(noticeKey && storedDismissedKey === noticeKey) || isDismissed(profileId, portalRole)
   const sessionDismissed = Boolean(noticeKey && sessionDismissedKey === noticeKey)
@@ -144,7 +145,7 @@ export default function PortalUtilityLayer({
   if (!enabled || (!isUnitLeaderPortal && !isStudentPortal && !isAcademicPartnerPortal && !isNursingAcademicPortal)) return null
 
   const utilitiesHidden = suppressed
-  const visiblePanel = suppressed ? null : activePanel
+  const visiblePanel = suppressed || onMessagesRoute ? null : activePanel
 
   return (
     <>
@@ -167,7 +168,7 @@ export default function PortalUtilityLayer({
         />
       )}
 
-      {messagesEnabled && !utilitiesHidden && (
+      {messagesEnabled && !utilitiesHidden && !onMessagesRoute && (
         <div className={`ptl-team-message-launcher-wrap${visiblePanel === 'messages' ? ' is-open' : ''}`}>
           <div className="ptl-team-message-tooltip">
             Messages
@@ -202,4 +203,8 @@ export default function PortalUtilityLayer({
       )}
     </>
   )
+}
+
+export default function PortalUtilityLayer(props) {
+  return <PortalUtilityLayerContent key={props.pathname} {...props} />
 }

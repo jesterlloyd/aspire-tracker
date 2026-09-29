@@ -81,6 +81,7 @@ import '../styles/aspireBrand.css'
 import '../styles/aspireTable.css'
 import './portal.css'
 import { demoScopeParam } from '../lib/demoMode'
+import { isFullMessagesPath } from '../lib/messages/messagesRoutes'
 import { budgetPortal } from '../components/budget/budgetApi'
 
 // PORTAL-SPLIT Phase 3: what a portal shows while its own chunk arrives. The
@@ -155,9 +156,10 @@ function naThreadIdFromPath(pathname) {
 // state; the shared launcher opens the real staff inbox. Neither action
 // impersonates a portal user.
 function StaffPreviewUtilities({ portalName, section }) {
+  const location = useLocation()
   return (
     <>
-      <MainMessagesLauncher portalPreview />
+      {!isFullMessagesPath(location.pathname) && <MainMessagesLauncher portalPreview />}
       <FeedbackPanel activeTab={section} cohortName={`${portalName} preview`} isAuthenticated />
     </>
   )
@@ -318,10 +320,7 @@ export default function PortalApp() {
     if (isStudent) setHeadshotVersion(v => v + 1)
     else refreshUserProfile?.()
   }, [isStudent, refreshUserProfile])
-  const onMessagesRoute = location.pathname.startsWith('/portal/messages')
-    || location.pathname.startsWith('/portal/student/messages')
-    || location.pathname.startsWith('/portal/ap/messages')
-    || location.pathname.startsWith('/portal/academics/messages')
+  const onMessagesRoute = isFullMessagesPath(location.pathname)
   const unread = usePortalUnreadCount({
     enabled: !staffPreview && (isStudent || isUnitLeader || apMessagesEnabled || naMessagesEnabled),
     intervalMs: onMessagesRoute ? PORTAL_ACTIVE_POLL_MS : PORTAL_IDLE_UNREAD_POLL_MS,

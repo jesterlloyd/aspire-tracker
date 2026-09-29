@@ -56,6 +56,7 @@ import { unreadSupportBellCount } from '../lib/support/supportRequests'
 import { shouldAutoStartTour } from '../lib/onboardingTours'
 import Keith from '../components/Keith'
 import MainMessagesLauncher from '../components/MainMessagesLauncher'
+import { isFullMessagesPath } from '../lib/messages/messagesRoutes'
 import FeedbackPanel from '../components/FeedbackPanel'
 import { logEvent, eventExists } from '../lib/logEvent'
 import { useToast } from '../hooks/useToast'
@@ -1750,7 +1751,7 @@ function MainApp({ onLogout }) {
           Feedback launcher are withheld on At a Glance only; every other screen
           keeps all three. The header's Connect icon carries the needs-reply badge
           on every screen, unchanged. */}
-      <MainMessagesLauncher hidden={hideHomeChrome} />
+      {!isFullMessagesPath(location.pathname) && <MainMessagesLauncher hidden={hideHomeChrome} />}
       <FeedbackPanel
         activeTab={activeTab}
         cohortName={activeCohort?.name}
