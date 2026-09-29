@@ -111,6 +111,7 @@ function LeadershipView({ view }) {
   return (
     <div className="ct-lead">
       {!view.published && <p className="ct-muted">Preview: this is exactly what leadership will see once you share. They see nothing yet.</p>}
+      {view.themes.length === 0 && <p className="ct-empty">No themes have been accepted yet. Leadership sees a theme once you accept it in the Owner view.</p>}
       {view.themes.map(t => (
         <article key={t.name} className="ct-card">
           <div className="ct-card-head"><h4 className="ct-name">{t.name}</h4></div>

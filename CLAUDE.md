@@ -667,7 +667,7 @@ both.
   verification queries go in `db/audit/`, numbered, one section at a time.
 - Do not push without explicit approval.
 - Leave the untracked `" 2."` / `" 3."` duplicate files alone.
-- **`npm test` is green (7,077 of 7,077, TEST-GREEN-1, 2026-09-24); keep it that way.** Run it
+- **`npm test` is green (7,536 of 7,536 on 2026-09-29; TEST-GREEN-1 set the rule on 2026-09-24); keep it that way.** Run it
   before every push and judge it by its EXIT CODE, not by eyeballing the summary. A push that
   turns it red is not a push: fix the code, or, when the change was deliberate, update the test
   in the same commit with a comment naming the commit that changed the behaviour. A test that

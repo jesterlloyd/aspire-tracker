@@ -165,9 +165,13 @@ export function deidentify(text, names) {
  * The leadership cut of one version. `themes` are live rows ({ id, name, comment_ids, example_ids,
  * reason, state }); `commentsById` maps an opaque id to its comment (with consent). Returns
  * { total, themes: [{ name, count, share, quotes: [text], quotesWithheld }], other: { count,
- * folded: [names…], note }, note }.
+ * folded: [names…], pending, note }, note }.
+ *
+ * REVIEWED-THEMES-1 (Owner, 2026-09-29): only a theme a person has ACCEPTED reaches leadership. Pass
+ * the accepted themes as `themes`; the comments in themes still awaiting review are counted in
+ * Other (never quoted, never named) and `pending` says how many, so the totals still add up.
  */
-export function leadershipCut({ themes, commentsById, total, floor = DEFAULT_PRIVACY_FLOOR, names }) {
+export function leadershipCut({ themes, commentsById, total, floor = DEFAULT_PRIVACY_FLOOR, names, pending = 0 }) {
   const shown = []
   let otherCount = 0
   const folded = []
@@ -187,13 +191,17 @@ export function leadershipCut({ themes, commentsById, total, floor = DEFAULT_PRI
   }
   const unthemed = total - themes.reduce((a, t) => a + t.comment_ids.length, 0)
   otherCount += Math.max(0, unthemed)
+  const notes = []
+  if (folded.length) notes.push(`Themes with fewer than ${floor} comments are folded into Other so no comment can be traced to a person.`)
+  if (pending > 0) notes.push(`${pending} ${pending === 1 ? 'comment is' : 'comments are'} in themes the ASPIRE team has not reviewed yet.`)
   return {
     total,
     themes: shown,
     other: {
       count: otherCount,
       folded,
-      note: folded.length ? `Themes with fewer than ${floor} comments are folded into Other so no comment can be traced to a person.` : '',
+      pending,
+      note: notes.join(' '),
     },
     note: 'Quotes appear only where the student agreed to share anonymized comments, with names removed.',
   }
