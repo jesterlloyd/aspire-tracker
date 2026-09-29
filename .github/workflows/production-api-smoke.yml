@@ -1,0 +1,39 @@
+name: Production API smoke
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  outreach-endpoint-startup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify the Outreach email function starts
+        env:
+          ENDPOINT: https://aspireintelligence.app/api/connect-send-direct-email
+        run: |
+          set -euo pipefail
+          status="$(curl --silent --show-error \
+            --output response.json \
+            --dump-header response-headers.txt \
+            --write-out '%{http_code}' \
+            --request POST \
+            --header 'Content-Type: application/json' \
+            --data '{"preview":true}' \
+            "$ENDPOINT")"
+
+          echo "HTTP status: $status"
+          echo "Response headers:"
+          sed -n '1,80p' response-headers.txt
+          echo "Response body:"
+          sed -n '1,120p' response.json
+
+          test "$status" = "401"
+          node --input-type=module --eval '
+            import { readFileSync } from "node:fs";
+            const body = JSON.parse(readFileSync("response.json", "utf8"));
+            if (body?.error !== "Unauthorized") process.exit(1);
+          '
