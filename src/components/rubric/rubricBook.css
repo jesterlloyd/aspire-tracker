@@ -867,18 +867,63 @@
   border-color: var(--aspire-page-rule);
 }
 [data-theme='dark'] .rb-shell .rb-readonly { background: #FAFBFD; color: var(--aspire-paper-ink); }
-[data-theme='dark'] .rb-shell .rb-choice,
-[data-theme='dark'] .rb-shell .rb-score,
-[data-theme='dark'] .rb-shell .rb-rec,
-[data-theme='dark'] .rb-shell .rb-disclosure,
-[data-theme='dark'] .rb-shell .rb-btn {
-  background: var(--aspire-page);
+
+/* RUBRIC-DARK-INK-2 (2026-09-29): an ink and its surface are one decision, made per style.
+   Measured in a real render of the screen, every text node and form value, both pages:
+   before this, dark Classic failed 62 + 22 and dark Modern 97 + 12.
+   The old dark rule that painted every answer, score, disclosure and button white is gone:
+   no app rule reaches a button, and it out-ranked their own selected states (a chosen answer
+   lost its tint), while its ink followed the theme and read 1.2:1. RUBRIC-DARK-INK-1 found
+   this on 2026-09-21 and was never shipped; it pinned one ink, and the book reads four. */
+
+/* Classic: paper is paper, white in both themes, so every ink that lands on it is pinned to
+   its light value (theme.css and aspireBrand.css hold them; a test keeps them equal). The
+   toolbar sits on the app's own background and keeps the theme's inks, except Unlock to
+   Edit, a white-faced .rb-btn. */
+:root[data-theme='dark']:not([data-style='modern']) .rb-spread,
+:root[data-theme='dark']:not([data-style='modern']) .rb-toolbar .rb-btn {
+  --aspire-paper-ink: #1B2140;
+  --aspire-paper-ink-soft: #5E6480;
+  --aspire-ink: #232842;
+  --aspire-ink-soft: #6b7280;
+  --aspire-th-color-inset: #4b5675;
+}
+
+/* Modern: the paper material is off and the pages follow the theme, as the Student Chart's do,
+   so the inks and fills the book reads are redefined for the dark page inside the spread.
+   Navy is an ink here (titles, the composite) and a fill in only three places (the primary
+   button, the chosen answer's border, a preference's rule), all of which read well lifted. */
+:root[data-theme='dark'][data-style='modern'] .rb-spread {
+  --aspire-page: var(--color-bg-elevated);
+  --aspire-page-rule: #2B3346;
+  --aspire-paper-ink: #E9EAF2;
+  --aspire-paper-ink-soft: #A8AEC6;
+  --aspire-ink: #E9EAF2;
+  --aspire-ink-soft: #A8AEC6;
+  --aspire-th-color-inset: #A8AEC6;
+  --aspire-navy: #A9BEFF;
+  --aspire-navy-deep: #C3CCFB;
+  --aspire-navy-tint: rgba(169, 190, 255, 0.14);
+  --aspire-on-navy: #0E111C;
   color: var(--aspire-paper-ink);
 }
-[data-theme='dark'] .rb-shell .rb-btn-primary {
-  background: var(--aspire-navy);
-  color: var(--aspire-on-navy);
+:root[data-theme='dark'][data-style='modern'] .rb-shell .rb-input,
+:root[data-theme='dark'][data-style='modern'] .rb-shell .rb-textarea,
+:root[data-theme='dark'][data-style='modern'] .rb-shell select.rb-input,
+:root[data-theme='dark'][data-style='modern'] .rb-shell input.rb-input {
+  background: var(--color-bg-input, #202934);
+  color: var(--aspire-paper-ink);
+  border-color: var(--aspire-page-rule);
+  color-scheme: dark;
 }
+:root[data-theme='dark'][data-style='modern'] .rb-shell .rb-readonly { background: var(--aspire-navy-tint); }
+/* The light hover fills are literals in the base rules; on a dark page they flash white. */
+:root[data-theme='dark'][data-style='modern'] .rb-choice:hover,
+:root[data-theme='dark'][data-style='modern'] .rb-score:hover,
+:root[data-theme='dark'][data-style='modern'] .rb-rec:hover,
+:root[data-theme='dark'][data-style='modern'] .rb-spread .rb-btn:hover { background: var(--aspire-navy-tint); }
+:root[data-theme='dark'][data-style='modern'] .rb-head { background-color: #222B3A; }
+:root[data-theme='dark'][data-style='modern'] .rb-page-left .rb-id { background: linear-gradient(160deg, #1F2B3C 0%, #1D2531 50%, var(--color-bg-elevated) 100%); }
 
 /* ── Modern appearance ──────────────────────────────────────────────────────
    Modern preserves the two-pane interview workflow but removes the physical book.

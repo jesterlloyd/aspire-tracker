@@ -158,6 +158,14 @@ nothing about the book lives in `index.css`.
 - **The scale reads Limited, Developing, Adequate, Strong, Highly Aligned.** Only the
   words changed: the stored value is still the number, so the 12/15 and 8/15 thresholds,
   the averages, the score flag and every report are untouched.
+- **Dark mode decides ink per style** (RUBRIC-DARK-INK-2, 2026-09-29). Classic's pages are white
+  paper in both themes, so every ink on them (`--aspire-paper-ink`, `-soft`, `--aspire-ink`,
+  `-soft`, `--aspire-th-color-inset`) is pinned to its light value on `.rb-spread`; a test holds
+  the pins equal to theme.css and aspireBrand.css. Modern's pages follow the theme, so the same
+  tokens (and navy, which is an ink here) are redefined for the dark page, and its fields are dark.
+  Measured on the real screen before shipping: 0 failing text nodes or form values in all four
+  style and theme combinations, both pages, editing and read-only (it was 62 + 22 and 97 + 12).
+  No dark rule may name the book's answers, scores or buttons: it out-ranks their selected state.
 - What a redesign may not quietly drop, and what the tests hold: the 30-second auto-save,
   the browser draft and its restore notice, Section 1 moving the real booking, and one
   rubric row per interviewer created on the first meaningful edit.

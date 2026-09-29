@@ -504,8 +504,29 @@ test('CANON 4: the book does not follow the theme, controls included', () => {
   // white page fills with black fields in dark mode.
   assert.match(bookCss, /\[data-theme='dark'\] \.rb-shell \.rb-input/)
   assert.match(bookCss, /\[data-theme='dark'\] \.rb-shell \.rb-textarea/)
-  assert.match(bookCss, /\[data-theme='dark'\] \.rb-shell \.rb-choice/)
+  // RUBRIC-DARK-INK-2 (2026-09-29) removed the dark rule that named the answers, scores and
+  // buttons: no app rule reaches a button, and it out-ranked their selected states.
+  assert.doesNotMatch(bookCss, /\[data-theme='dark'\] \.rb-shell \.rb-choice/)
   assert.match(indexCss, /\[data-theme="dark"\] select,/)   // the rule being out-ranked
+})
+
+test('RUBRIC-DARK-INK-2: each style decides its ink with its surface in dark mode', () => {
+  // Classic's paper is white in both themes, so every ink it reads is pinned to its light
+  // value; the pins must equal the light values where they are defined.
+  const theme = read('src/styles/theme.css')
+  const brand = read('src/styles/aspireBrand.css')
+  const lightOf = (src, name) => src.match(new RegExp(`${name}:\\s*(#[0-9A-Fa-f]{6})`))[1].toLowerCase()
+  const classic = bookCss.match(/:root\[data-theme='dark'\]:not\(\[data-style='modern'\]\) \.rb-spread,[^{]*\{([^}]*)\}/)
+  assert.ok(classic, 'the Classic dark pin exists and covers the spread')
+  const pin = (name) => classic[1].match(new RegExp(`${name}:\\s*(#[0-9A-Fa-f]{6})`))[1].toLowerCase()
+  assert.equal(pin('--aspire-paper-ink'), lightOf(theme, '--aspire-paper-ink'))
+  for (const t of ['--aspire-paper-ink-soft', '--aspire-ink', '--aspire-ink-soft', '--aspire-th-color-inset']) assert.equal(pin(t), lightOf(brand, t), t)
+  // Modern's pages follow the theme, so its dark inks are light and its fields dark.
+  const modern = bookCss.match(/:root\[data-theme='dark'\]\[data-style='modern'\] \.rb-spread \{([^}]*)\}/)
+  assert.ok(modern, 'the Modern dark block exists')
+  assert.match(modern[1], /--aspire-page: var\(--color-bg-elevated\)/)
+  assert.match(modern[1], /--aspire-paper-ink: #E9EAF2/)
+  assert.match(bookCss, /:root\[data-theme='dark'\]\[data-style='modern'\] \.rb-shell \.rb-input,[\s\S]*?background: var\(--color-bg-input/)
 })
 
 // ── 9. The Owner's refinements, 2026-09-17 ──────────────────────────────────
