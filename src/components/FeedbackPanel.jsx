@@ -3,12 +3,9 @@ import { openOutlookCompose } from '../lib/outlookCompose'
 
 // HOME-1: `hidden` keeps the launcher off At a Glance (the home page has no floating chrome).
 export default function FeedbackPanel({ activeTab, cohortName, isAuthenticated, hidden = false }) {
-  const handleSend = async ({ category, message, bugFields, activeTab: tabLabel }) => {
-    const bugDetail = category === 'Bug Report'
-      ? `\nExpected behavior: ${bugFields.expected_behavior}\nActual behavior: ${bugFields.actual_behavior}\nReproduction steps: ${bugFields.reproduction_steps}\n`
-      : ''
+  const handleSend = async ({ category, message, activeTab: tabLabel }) => {
     const subject = `[${category}] ASPIRE Intelligence - ${tabLabel}`
-    const body = `Category: ${category}\nReported from: ${tabLabel} · ${cohortName || 'Unknown cohort'}${bugDetail}\n\n${message}\n\n---\nSent via ASPIRE Intelligence feedback panel`
+    const body = `Category: ${category}\nReported from: ${tabLabel} · ${cohortName || 'Unknown cohort'}\n\n${message}\n\n---\nSent via ASPIRE Intelligence feedback panel`
 
     openOutlookCompose({ to: 'JesterLloyd.Bautista@cshs.org', subject, body })
   }
@@ -18,7 +15,8 @@ export default function FeedbackPanel({ activeTab, cohortName, isAuthenticated, 
       activeTab={activeTab}
       cohortName={cohortName}
       isAuthenticated={isAuthenticated}
-      submitLabel="Send to Jester"
+      submitLabel="Send Feedback"
+      showBugDetails={false}
       hidden={hidden}
       onSubmit={handleSend}
     />

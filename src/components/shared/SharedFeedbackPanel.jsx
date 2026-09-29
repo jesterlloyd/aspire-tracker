@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { MessageCircle, X } from 'lucide-react'
+import { MessageSquarePen, X } from 'lucide-react'
 import { announceFloatingPanelOpen, onFloatingPanelOpen } from '../../lib/floatingPanels'
 
 const FEEDBACK_CATEGORIES = [
@@ -27,7 +27,8 @@ export default function SharedFeedbackPanel({
   onOpenChange,
   hidden = false,
   side = 'left',
-  submitLabel = 'Send to Jester',
+  submitLabel = 'Send Feedback',
+  showBugDetails = true,
   contextNote,
   onSubmit,
 }) {
@@ -67,7 +68,7 @@ export default function SharedFeedbackPanel({
     ? activeTab.charAt(0).toUpperCase() + activeTab.slice(1).replace(/-/g, ' ')
     : 'Unknown tab'
   const note = contextNote || `Will include: ${activeTab ? `${activeTab} tab` : 'current tab'} · ${cohortName || 'current cohort'}`
-  const bugSelected = category === 'Bug Report'
+  const bugSelected = showBugDetails && category === 'Bug Report'
   const bugComplete = !bugSelected
     || (bugFields.expected_behavior.trim() && bugFields.actual_behavior.trim() && bugFields.reproduction_steps.trim())
   const canSend = Boolean(category && message.trim() && bugComplete && !submitting)
@@ -125,7 +126,7 @@ export default function SharedFeedbackPanel({
           }}
           onPointerLeave={() => setShowTooltip(false)}
         >
-          <MessageCircle size={22} color="#ffffff" strokeWidth={2} aria-hidden="true" />
+          <MessageSquarePen size={22} color="#ffffff" strokeWidth={2} aria-hidden="true" />
         </button>
       )}
 
@@ -140,7 +141,7 @@ export default function SharedFeedbackPanel({
             aria-describedby="shared-feedback-desc"
           >
             <div className="shared-feedback-head">
-              <MessageCircle size={20} color="#ffffff" strokeWidth={2} aria-hidden="true" />
+              <MessageSquarePen size={20} color="#ffffff" strokeWidth={2} aria-hidden="true" />
               <div>
                 <h2 id="shared-feedback-title">Send Feedback</h2>
                 <p id="shared-feedback-desc">Report a bug, suggest a feature, or ask a question.</p>
