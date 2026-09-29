@@ -11,25 +11,36 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Probe the Outreach email runtime imports
+      - name: Verify the Send to One email function starts
         env:
-          PROBE: https://aspireintelligence.app/api/connect-email-runtime-probe
+          ENDPOINT: https://aspireintelligence.app/api/connect-send-direct-email
         run: |
           set -euo pipefail
           status="$(curl --silent --show-error \
-            --output probe.json \
-            --dump-header probe-headers.txt \
+            --output response.json \
+            --dump-header response-headers.txt \
             --write-out '%{http_code}' \
-            "$PROBE")"
+            --request POST \
+            --header 'Content-Type: application/json' \
+            --data '{"preview":true}' \
+            "$ENDPOINT")"
 
-          echo "Probe HTTP status: $status"
-          sed -n '1,80p' probe-headers.txt
-          sed -n '1,160p' probe.json
-          test "$status" = "200"
+          echo "HTTP status: $status"
+          echo "Response headers:"
+          sed -n '1,80p' response-headers.txt
+          echo "Response body:"
+          sed -n '1,120p' response.json
 
-      - name: Verify the Outreach email function starts
+          test "$status" = "401"
+          node --input-type=module --eval '
+            import { readFileSync } from "node:fs";
+            const body = JSON.parse(readFileSync("response.json", "utf8"));
+            if (body?.error !== "Unauthorized") process.exit(1);
+          '
+
+      - name: Verify the Send to Many email function starts
         env:
-          ENDPOINT: https://aspireintelligence.app/api/connect-send-direct-email
+          ENDPOINT: https://aspireintelligence.app/api/connect-send-bulk-message
         run: |
           set -euo pipefail
           status="$(curl --silent --show-error \
