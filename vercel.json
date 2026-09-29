@@ -37,6 +37,10 @@
       "schedule": "15 * * * *"
     },
     {
+      "path": "/api/cron/keith-placement-shadow",
+      "schedule": "35 * * * *"
+    },
+    {
       "path": "/api/cron/keith-checkin-sort",
       "schedule": "*/10 * * * *"
     },

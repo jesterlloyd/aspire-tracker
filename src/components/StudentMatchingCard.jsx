@@ -38,6 +38,7 @@ import { unitOpenSlots } from '../lib/placementDisplay'
 import { getAvailabilityReadiness } from '../lib/availability'
 import { getStudentPreferredFullName } from '../lib/studentNameFormatters'
 import { preferenceRankOf, RANK_TONE } from '../lib/placementBoardView'
+import { KeithGlyph } from './keith/KeithMark'
 
 /** Open slots for a unit name, or null when the unit is not in the pool. */
 function getOpenCount(unitName, units, matches) {
@@ -60,6 +61,9 @@ export default function StudentMatchingCard({
   isFading, isFadingIn, isDimmed = false, isPending = false, isDragging = false,
   units, matches, focusedUnit, rotation,
   onDragStart, onDragEnd,
+  // KEITH-PLACEMENT-1: the unit Keith suggests for this student, if any. The note is itself a
+  // button, so the mark here is the static glyph; the interactive mark is on the slip.
+  keithSuggestedUnit = null,
 }) {
   const name = getStudentPreferredFullName(student)
   const interactive = !isReadOnly && !isPending
@@ -151,6 +155,11 @@ export default function StudentMatchingCard({
               </span>
             )}
           </div>
+          {keithSuggestedUnit && (
+            <div className="pb-note-keith" data-testid="pool-keith-suggestion">
+              <KeithGlyph state="drafted" /> Suggested for {keithSuggestedUnit}
+            </div>
+          )}
         </div>
 
         {prefs.length > 0 && (

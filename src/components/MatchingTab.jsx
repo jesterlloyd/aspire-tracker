@@ -27,6 +27,9 @@ import { orderUnitsForStudent, groupPoolForUnit, orderPool, RANK_WORD } from '..
 import { getStudentPreferredFullName } from '../lib/studentNameFormatters'
 import { TAB_TO_PATH } from '../lib/staffRoutes'
 import { useAppearance } from '../hooks/useAppearance'
+import KeithPlacementBar from './placement/KeithPlacementBar'
+import { keithPlacement, assignPrimaryPreceptor } from '../lib/placement/keithPlacementApi'
+import { refreshKeithProvenance } from './keith/keithProvenanceStore'
 import './placement/placementBoard.css'
 
 // PLACEMENT-BOARD-FELT-1 (2026-09-17): the board is felt, leather and paper.
@@ -567,6 +570,114 @@ export default function MatchingTab({
 
   const handleSlotClick = unit => requestPlacement(selectedStudent, unit)
 
+  // ── KEITH-PLACEMENT-1: Keith's suggestions ─────────────────────────────────
+  // ON: dashed slips on the unit boards, re-checked on the server against the live board. SHADOW:
+  // nothing on the boards, only the comparison above them. Accept places through the board's own
+  // path (onMatch), then sets the suggested preceptor through the audited endpoint, with a 10-second
+  // Undo that takes the placement back through the same unmatch the pin uses.
+  const { data: keith = null, refetch: refetchKeith } = useQuery({
+    queryKey: ['keith_placement', cohortId],
+    queryFn: () => keithPlacement('board', { cohort_id: cohortId }),
+    enabled: !!cohortId && canMatch,
+    staleTime: 30_000,
+    retry: false,
+  })
+  const [keithBusy, setKeithBusy] = useState(null)
+  const keithOn = keith?.available && keith.mode === 'on'
+  const suggestionsByUnit = useMemo(() => {
+    const m = new Map()
+    if (!keithOn) return m
+    for (const sg of keith.suggestions || []) {
+      if (!m.has(sg.unitId)) m.set(sg.unitId, [])
+      m.get(sg.unitId).push(sg)
+    }
+    return m
+  }, [keith, keithOn])
+  const suggestedUnitOf = useMemo(() => new Map((keithOn ? keith.suggestions || [] : []).map(sg => [sg.studentId, sg.unitName])), [keith, keithOn])
+
+  const acceptSuggestion = async (sg) => {
+    if (!canMatch || keithBusy) return
+    setKeithBusy(sg.id)
+    await flushPending()
+    const live = latest.current
+    const student = live.students.find(x => x.id === sg.studentId)
+    const unit = live.units.find(u => u.id === sg.unitId)
+    if (!student || !unit) { setKeithBusy(null); return }
+    try {
+      await keithPlacement('accept', { suggestion_id: sg.id })       // every rule, again, on the server
+    } catch (e) {
+      live.toast?.error?.('Not placed', e.message || 'The suggestion could not be accepted.')
+      refetchKeith(); setKeithBusy(null); return
+    }
+    try {
+      setPinningStudentIds(prev => new Set([...prev, student.id]))
+      await live.onMatch(student, unit, { placementException: false })
+      const { data: placed } = await supabase.from('matches').select('id').eq('student_id', student.id).eq('unit_id', unit.id).limit(1)
+      if (!placed?.length) throw new Error('The placement did not save.')
+      await assignPrimaryPreceptor(student.id, sg.preceptorId)
+      onPreceptorAssigned?.(student.id, { id: sg.preceptorId, full_name: sg.preceptorName })
+    } catch (e) {
+      await keithPlacement('undo_accept', { suggestion_id: sg.id }).catch(() => {})
+      live.toast?.error?.('Not placed', e.message || 'Nothing was changed.')
+      refetchKeith(); setKeithBusy(null); return
+    } finally {
+      setTimeout(() => setPinningStudentIds(prev => { const n = new Set(prev); n.delete(student.id); return n }), 800)
+    }
+    refreshKeithProvenance(sg.provenanceId)
+    await refetchKeith()
+    setKeithBusy(null)
+    const name = getStudentPreferredFullName(student)
+    announce(`${name} placed on ${unit.unit_name} as Keith suggested. Undo is available for ${UNDO_WINDOW_MS / 1000} seconds.`)
+    live.toast?.success?.(`${name} pinned to ${unit.unit_name}`, `Preceptor: ${sg.preceptorName || 'assigned'}. The mark now shows Accepted.`, {
+      duration: UNDO_WINDOW_MS,
+      action: { label: 'Undo', onClick: async () => {
+        try {
+          await latest.current.onUnmatch(student, unit)
+          await keithPlacement('undo_accept', { suggestion_id: sg.id })
+          refreshKeithProvenance(sg.provenanceId)
+          refetchKeith()
+          announce(`Undone. ${name} is back in Students.`)
+        } catch { latest.current.toast?.error?.('Undo failed', 'Pull the pin to take the placement back.') }
+      } },
+    })
+  }
+
+  const rejectSuggestion = async (sg) => {
+    if (!canMatch || keithBusy) return
+    setKeithBusy(sg.id)
+    try {
+      await keithPlacement('reject', { suggestion_id: sg.id })
+      refreshKeithProvenance(sg.provenanceId)
+      await refetchKeith()
+      announce(`Suggestion rejected. Keith will not suggest ${sg.studentName} for ${sg.unitName} again this cohort.`)
+      toast?.info?.('Suggestion rejected', `Keith will not suggest ${sg.studentName} for ${sg.unitName} again this cohort.`)
+    } catch (e) { toast?.error?.('Not rejected', e.message || 'Please try again.') }
+    finally { setKeithBusy(null) }
+  }
+
+  const suggestAll = async () => {
+    setKeithBusy('all')
+    try {
+      const r = await keithPlacement('suggest_all', { cohort_id: cohortId })
+      await refetchKeith()
+      const n = r?.suggested || 0
+      toast?.success?.(n ? `${n} ${n === 1 ? 'suggestion' : 'suggestions'} ready` : 'No suggestions', n
+        ? `${r.conflicts?.length || 0} ${r.conflicts?.length === 1 ? 'conflict was' : 'conflicts were'} resolved by score, then preference rank, then application date.`
+        : 'No unplaced student has a unit that passes every rule.')
+    } catch (e) { toast?.error?.('Suggestions not run', e.message || 'Please try again.') }
+    finally { setKeithBusy(null) }
+  }
+
+  const setKeithMode = async (mode) => {
+    setKeithBusy('mode')
+    try {
+      await keithPlacement('set_mode', { mode })
+      await refetchKeith()
+      toast?.success?.(mode === 'on' ? 'Suggestions are on' : 'Suggestions are off', mode === 'on' ? 'Use Suggest for all unplaced to see them.' : 'Keith keeps computing them quietly for the comparison.')
+    } catch (e) { toast?.error?.('Not changed', e.message || 'Please try again.') }
+    finally { setKeithBusy(null) }
+  }
+
   const handleBoardActivate = unit => {
     if (selectedStudent) { handleSlotClick(unit); return }
     handleUnitFocus(unit)
@@ -698,6 +809,7 @@ export default function MatchingTab({
         rotation={rotationById[s.cohort_school_rotation_id]}
         onDragStart={canMatch ? ((e, student) => startListDrag(e, { id: student.id, name: getStudentPreferredFullName(student) })) : undefined}
         onDragEnd={endDrag}
+        keithSuggestedUnit={suggestedUnitOf.get(s.id) || null}
       />
     </div>
   )
@@ -722,6 +834,9 @@ export default function MatchingTab({
         slotsRemaining={slotsRemaining}
         poolSchools={poolSchools}
       />
+
+      <KeithPlacementBar keith={keith} cohortName={cohort?.name} canRun={canMatch} isOwner={userProfile?.is_owner === true}
+        busy={!!keithBusy} onSuggestAll={suggestAll} onSetMode={setKeithMode} />
 
       {/* What follows the cursor during a drag: the student's name, plus the green
           (+) once the board underneath has an open slot (useBoardDrag). */}
@@ -893,6 +1008,12 @@ export default function MatchingTab({
                       onUpdateMatch={onUpdateMatch}
                       isHighlighted={highlightUnitId === unit.id}
                       isFocusedUnit={focusedUnit?.id === unit.id}
+                      keithSuggestions={suggestionsByUnit.get(unit.id) || null}
+                      keithAccepted={keith?.accepted || null}
+                      keithBusyId={keithBusy}
+                      canActOnSuggestions={canMatch}
+                      onAcceptSuggestion={acceptSuggestion}
+                      onRejectSuggestion={rejectSuggestion}
                     />
                   ))}
                 </div>

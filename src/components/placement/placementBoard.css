@@ -752,3 +752,52 @@
     transition: none !important;
   }
 }
+
+/* ── KEITH-PLACEMENT-1: Keith's suggestion slip, inside an open slot ─────────────
+   A dashed slip on the board's own pale material, so it reads the same in both themes (a material
+   is theme-independent). Keith's violet names Keith; the paper note inside is the board's paper. */
+.pb-sugg {
+  --pb-keith: #5B4FD0;
+  display: grid; gap: 8px; padding: 10px;
+  border: 2px dashed rgba(91, 79, 208, 0.55);
+  border-radius: var(--aspire-radius-control);
+  background: rgba(255, 255, 255, 0.72);
+  color: #18203F;
+}
+.pb-sugg-head { display: flex; align-items: center; gap: 7px; font: 700 10px var(--aspire-mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--pb-keith); }
+.pb-sugg-note { transform: none; }
+.pb-sugg-meta { font-size: 12px; color: #4A5560; }
+.pb-sugg-rank { margin-top: 2px; font-size: 12px; font-weight: 700; color: #1D2567; }
+.pb-sugg-reason { margin: 0; font-size: 12.5px; line-height: 1.45; color: #18203F; }
+.pb-sugg-rules { display: flex; flex-wrap: wrap; gap: 5px; }
+.pb-sugg-rules span { padding: 1px 6px; border: 1px solid rgba(29, 37, 103, 0.35); border-radius: var(--aspire-radius-pill); font: 600 10px var(--aspire-mono); color: #1D2567; background: #FFFFFF; }
+.pb-sugg-acts { display: flex; flex-wrap: wrap; gap: 6px; }
+.pb-sugg-btn { padding: 5px 12px; border: 1px solid rgba(24, 32, 63, 0.3); border-radius: var(--aspire-radius-control); background: #FFFFFF; color: #18203F; font-family: inherit; font-size: 12.5px; font-weight: 600; line-height: 1.2; cursor: pointer; }
+.pb-sugg-btn:hover:not(:disabled) { background: #F1F4FB; }
+.pb-sugg-pri { background: #1D2567; border-color: #1D2567; color: #FFFFFF; }
+.pb-sugg-pri:hover:not(:disabled) { background: #2A3886; }
+.pb-sugg-btn:disabled { opacity: 0.55; cursor: default; }
+.pb-sugg-btn:focus-visible { outline: 3px solid #1D2567; outline-offset: 2px; }
+.pb-sugg-alts { display: grid; gap: 8px; padding-top: 8px; border-top: 1px dashed rgba(91, 79, 208, 0.45); }
+.pb-sugg-alt { display: grid; gap: 6px; }
+.pb-sugg-alt-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 13px; }
+/* In the Students column: "Suggested for [Unit]" with the mark. */
+.pb-note-keith { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 12px; font-weight: 600; color: #5B4FD0; }
+/* The shadow and "on" bar above the board. */
+.pb-keith-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: var(--aspire-gap-card) 20px 0; padding: 10px 14px; border-radius: var(--aspire-radius-card); background: var(--bg-card); color: var(--text-body); box-shadow: var(--aspire-shadow-card); font-size: 13px; }
+.pb-keith-bar .pb-keith-sp { margin-left: auto; display: flex; flex-wrap: wrap; gap: 8px; }
+.pb-keith-cmp { display: grid; gap: 4px; margin: 10px 0 0; width: 100%; }
+.pb-keith-cmp > div { display: grid; grid-template-columns: 1fr auto; gap: 10px; padding: 6px 0; border-top: 1px solid var(--border-divider); }
+.pb-keith-cmp dt { color: var(--text-caption); }
+.pb-keith-cmp dd { margin: 0; font-weight: 700; color: var(--text-heading); }
+.pb-keith-dis { margin: 6px 0 0; padding-left: 18px; font-size: 12.5px; color: var(--text-caption); }
+/* The board's notes follow the theme in both styles (measured: a note is dark in dark mode), so the
+   slip's inks and surface follow it too, as one decision: an ink and the surface behind it are made
+   in the same place. The buttons keep their fixed pairs. */
+.pb-tab .pb-sugg { --pb-keith: var(--keith); background: var(--bg-card); color: var(--text-body); border-color: color-mix(in srgb, var(--keith) 55%, transparent); }
+.pb-tab .pb-sugg-meta { color: var(--text-caption); }
+.pb-tab .pb-sugg-rank { color: var(--text-heading); }
+.pb-tab .pb-sugg-reason { color: var(--text-body); }
+.pb-tab .pb-sugg-rules span { color: var(--text-heading); background: var(--bg-card); border-color: var(--border-strong); }
+.pb-tab .pb-sugg-alts { border-top-color: color-mix(in srgb, var(--keith) 45%, transparent); }
+.pb-tab .pb-note-keith { color: var(--keith); }

@@ -24,6 +24,8 @@ import NotificationControl from './placement/NotificationControl'
 import { NOTIFICATION_TARGETS, notificationStateFor } from '../lib/placementNotificationState'
 import { getStudentPreferredFullName } from '../lib/studentNameFormatters'
 import { useAppearance } from '../hooks/useAppearance'
+import KeithMark from './keith/KeithMark'
+import SuggestionSlip from './placement/SuggestionSlip'
 
 // PLACEMENT-BOARD-FELT-1 (2026-09-17): a unit is a board. Stitched navy leather
 // on top (name, chips, capacity, unit-leader status), blue felt below, where
@@ -53,6 +55,7 @@ function PinnedNote({
   unitLeaderNotifyState, preceptorNotifyState, unitLeaderName, canCorrect,
   onConfirmNotified, onCorrectNotified,
   tilt, isPulling, isPinningIn, isDragging, canDrag, onDragStart, onDragEnd,
+  keithProvenanceId = null,
 }) {
   const { style: appearanceStyle } = useAppearance()
   const qCfg       = MATCH_RANK_CONFIG[matchRankOf(student, match)]
@@ -108,7 +111,8 @@ function PinnedNote({
         <div className="pb-note-id">
           <StudentAvatar student={student} size={40} />
           <div className="pb-note-id-text">
-            <div className="pb-note-name">{name}</div>
+            {/* KEITH-PLACEMENT-1: a placement Keith suggested and a person accepted keeps the mark. */}
+            <div className="pb-note-name">{name}{keithProvenanceId && <> <KeithMark provenanceId={keithProvenanceId} /></>}</div>
             {student.school && <div className="pb-note-school material-soft">{student.school}</div>}
           </div>
         </div>
@@ -239,6 +243,10 @@ export default function EmbedUnitCard({
   // A pinned note dragged back to Students asks THIS card to unmatch it, exactly
   // as its own pin does. { studentId, unitId }
   pullRequest = null, onPullRequestConsumed = null,
+  // KEITH-PLACEMENT-1: Keith's suggestion slips for this unit (each fills an open slot), the accepted
+  // suggestions' provenance by student, and the slip's two decisions.
+  keithSuggestions = null, keithAccepted = null, keithBusyId = null, canActOnSuggestions = false,
+  onAcceptSuggestion = null, onRejectSuggestion = null,
   // PLACEMENT-COMMUNICATION-HANDOFF-1 canonical inputs. All optional: without
   // them the card still renders, the notice simply reports the values it could
   // not resolve instead of inventing them.
@@ -277,6 +285,7 @@ export default function EmbedUnitCard({
 
   const filledCount = matchedStudents.length
   const emptyCount  = Math.max(0, unit.total_slots - filledCount)
+  const slips = (keithSuggestions || []).slice(0, emptyCount)
   const isFull      = emptyCount === 0
 
   // PLACEMENT-BOARD-FELT-1 (Owner, 2026-09-17): there is no confirmation dialog on
@@ -683,6 +692,7 @@ export default function EmbedUnitCard({
             return (
               <PinnedNote
                 key={student.id}
+                keithProvenanceId={keithAccepted?.[student.id] || null}
                 student={student}
                 match={match}
                 unit={unit}
@@ -717,7 +727,11 @@ export default function EmbedUnitCard({
               />
             )
           })}
-          {Array.from({ length: emptyCount }).map((_, i) => <OpenSlot key={i} />)}
+          {slips.map(sg => (
+            <SuggestionSlip key={sg.id} suggestion={sg} busy={keithBusyId === sg.id} canAct={canActOnSuggestions}
+              onAccept={onAcceptSuggestion} onReject={onRejectSuggestion} />
+          ))}
+          {Array.from({ length: emptyCount - slips.length }).map((_, i) => <OpenSlot key={i} />)}
         </div>
       </section>
 
