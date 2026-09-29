@@ -5,6 +5,7 @@ import test from 'node:test'
 const read = rel => readFileSync(new URL(`../${rel}`, import.meta.url), 'utf8')
 const sidePanel = read('src/components/StudentSidePanel.jsx')
 const outreach = read('src/components/connect/OutreachView.jsx')
+const bulkComposer = read('src/components/connect/BulkManualComposer.jsx')
 
 test('student profile Email handoff preserves school-first recipient sources', () => {
   assert.match(sidePanel, /email:\s+data\.school_email \|\| data\.personal_email \|\| null/)
@@ -22,4 +23,12 @@ test('legacy student route state fetches explicit email sources before resolving
 test('preview failures expose an actionable status instead of a generic unavailable message', () => {
   assert.match(outreach, /Preview request failed \(HTTP \$\{res\.status\}\)/)
   assert.match(outreach, /Preview request could not reach the server/)
+  assert.match(bulkComposer, /Preview request failed \(HTTP \$\{res\.status\}\)/)
+  assert.match(bulkComposer, /Preview request could not reach the server/)
+})
+
+test('draft actions are named for the preview they open, while final review keeps the send action', () => {
+  assert.match(outreach, /Preview Email/)
+  assert.match(bulkComposer, /Preview Email \(\{recipients\.length\}\)/)
+  assert.match(outreach, /\{dmSendInFlight \? 'Sending…' : 'Send Email'\}/)
 })

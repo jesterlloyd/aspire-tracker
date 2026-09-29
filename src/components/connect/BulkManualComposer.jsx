@@ -864,8 +864,20 @@ export default function BulkManualComposer({
         const data = await res.json().catch(() => null)
         if (cancelled) return
         if (res.ok && data?.success) setPreview({ html: data.html || '', attachments: Array.isArray(data.attachments) ? data.attachments : [], loading: false, error: null })
-        else setPreview({ html: '', attachments: [], loading: false, error: data?.error || 'Preview unavailable.' })
-      } catch { if (!cancelled) setPreview({ html: '', attachments: [], loading: false, error: 'Preview unavailable.' }) }
+        else {
+          const detail = typeof data?.error === 'string' && data.error.trim()
+            ? data.error.trim()
+            : `Preview request failed (HTTP ${res.status}).`
+          setPreview({ html: '', attachments: [], loading: false, error: detail })
+        }
+      } catch (error) {
+        if (!cancelled) {
+          const detail = error instanceof TypeError
+            ? 'Preview request could not reach the server. Check your connection and try again.'
+            : 'Preview request failed. Please try again.'
+          setPreview({ html: '', attachments: [], loading: false, error: detail })
+        }
+      }
     }, 450)
     return () => { cancelled = true; clearTimeout(timer) }
   }, [previewRid, isManualPreview, previewRecipient, previewSubject, previewBody, subject, body, includeSignature, bulkMsgType, richEnabled, attachments])
@@ -1254,7 +1266,7 @@ export default function BulkManualComposer({
                       fontSize: 13, fontWeight: 600, fontFamily: F, cursor: reviewReady ? 'pointer' : 'not-allowed',
                     }}
                   >
-                    Review & send ({recipients.length})
+                    Preview Email ({recipients.length})
                   </button>
                 )
               })()}

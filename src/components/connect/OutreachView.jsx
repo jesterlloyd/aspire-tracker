@@ -3322,7 +3322,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
                         onMouseEnter={e => e.currentTarget.style.opacity = '0.85'}
                         onMouseLeave={e => e.currentTarget.style.opacity = '1'}
                       >
-                        Send Email
+                        Preview Email
                       </button>
                     ) : (
                       <Tooltip label={disabledTip} placement="top">
@@ -3331,7 +3331,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
                           border: 'none', borderRadius: 8,
                           fontSize: 12, fontWeight: 600, fontFamily: F,
                           color: '#9ca3af', cursor: 'not-allowed',
-                        }}>Send Email</button>
+                        }}>Preview Email</button>
                       </Tooltip>
                     )
                   })()}
