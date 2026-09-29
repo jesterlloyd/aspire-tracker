@@ -37,9 +37,14 @@
     "react-dom": "^19.2.5",
     "react-router-dom": "^7.18.4",
     "resend": "^6.12.3",
-    "sanitize-html": "^2.17.7",
+    "sanitize-html": "2.17.7",
     "svix": "^1.93.0",
     "unpdf": "^1.8.0"
+  },
+  "overrides": {
+    "sanitize-html": {
+      "htmlparser2": "10.1.0"
+    }
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",
