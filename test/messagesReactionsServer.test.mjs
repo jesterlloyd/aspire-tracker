@@ -220,7 +220,8 @@ test('portal thread endpoint: reports reactions_available, false only on fallbac
 // ── Staff-manage endpoint: react action, allowlist, 503 readiness ────────────
 
 test('staff-manage endpoint: react is in the action allowlist', () => {
-  assert.match(staffManage, /const ACTIONS = \['assign', 'status', 'category', 'flag', 'archive', 'react'\];/)
+  // MESSAGES-SIMPLIFY-1 added 'done' after react; the pin follows.
+  assert.match(staffManage, /const ACTIONS = \['assign', 'status', 'category', 'flag', 'archive', 'react', 'done'\];/)
 })
 
 test('staff-manage endpoint: react targets message_id, not conversation_id', () => {
@@ -235,6 +236,16 @@ test('staff-manage endpoint: react always passes the literal staff actor kind, n
   assert.match(reactBranch, /p_reaction_key: reaction \?\? null,/)
 })
 
+test('staff-manage endpoint: staff may react only to participant messages (MESSAGES-SIMPLIFY-1)', () => {
+  assert.match(staffManage, /reactionAllowed\(\{ message: target, actorKind: 'staff', actorProfileId: caller\.profile\.id, reactionKey: reaction \}\)/)
+  assert.match(staffManage, /res\.status\(422\)\.json\(\{ error: 'reaction_not_allowed' \}\)/)
+})
+
+test('portal react endpoint: participants may react only to staff messages, refused as 404 (MESSAGES-SIMPLIFY-1)', () => {
+  assert.match(portalReact, /message: target, actorKind: caller\.actorKind, actorProfileId: caller\.profile\.id/)
+  assert.match(portalReact, /return res\.status\(404\)\.json\(\{ error: 'not_found' \}\);/)
+})
+
 test('staff-manage endpoint: rejects an invalid reaction with 422 invalid_reaction', () => {
   assert.match(staffManage, /const REACTION_KEYS = \['acknowledge', 'on_it', 'done', 'thanks', 'warm', 'celebrate'\];/)
   assert.match(staffManage, /const LEGACY_REACTION_KEYS = \['acknowledge', 'thanks', 'celebrate'\];/)
@@ -247,7 +258,8 @@ test('staff-manage endpoint: 503 reactions_not_ready on PGRST202/42883 for the r
 })
 
 test('staff-manage endpoint: archive action untouched by the react addition', () => {
-  assert.match(staffManage, /const ACTIONS = \['assign', 'status', 'category', 'flag', 'archive', 'react'\];/)
+  // MESSAGES-SIMPLIFY-1 added 'done' after react; the pin follows.
+  assert.match(staffManage, /const ACTIONS = \['assign', 'status', 'category', 'flag', 'archive', 'react', 'done'\];/)
   assert.match(staffManage, /action === 'archive' && \(String\(error\.code\) === 'PGRST202' \|\| String\(error\.code\) === '42883'\)/)
   assert.match(staffManage, /res\.status\(503\)\.json\(\{ error: 'archive_not_ready' \}\)/)
 })

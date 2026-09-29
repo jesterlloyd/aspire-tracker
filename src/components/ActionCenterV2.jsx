@@ -210,20 +210,19 @@ export default function ActionCenterV2({
     if (action === 'reply') { navigate(withQuery(item.href, 'focus', 'reply')); return }
     setBusy(`${item.key}:${action}`)
     try {
-      if (action === 'assign') {
-        await manageStaffConversation({ action: 'assign', conversation_id: id, assignee_profile_id: userProfile.id })
-        setAnnouncement(`${item.title} assigned to you.`)
-      } else if (action === 'resolve') {
-        await manageStaffConversation({ action: 'status', conversation_id: id, status: 'resolved' })
+      // MESSAGES-SIMPLIFY-1: Done is the Messages page's Done (resolves and
+      // clears the follow-up flag); Undo is its Reopen.
+      if (action === 'done') {
+        await manageStaffConversation({ action: 'done', conversation_id: id, done: true })
         selectNextFocus(item.key)
-        setAnnouncement(`${item.title} closed: no help needed.`)
-        toast?.success?.('Closed: no help needed', item.title, {
+        setAnnouncement(`${item.title} marked done.`)
+        toast?.success?.('Marked done', item.title, {
           duration: 5000,
           action: { label: 'Undo', onClick: async () => {
             try {
-              await manageStaffConversation({ action: 'status', conversation_id: id, status: 'open' })
+              await manageStaffConversation({ action: 'done', conversation_id: id, done: false })
               invalidate(); setAnnouncement(`${item.title} reopened.`)
-            } catch { toast?.error?.('Undo failed', 'The thread stayed closed.') }
+            } catch { toast?.error?.('Undo failed', 'The thread stayed done.') }
           } },
         })
       }
@@ -234,7 +233,7 @@ export default function ActionCenterV2({
 
   const runAction = (item, action) => {
     if (action.key === 'snooze') { setSnoozing(current => current === item.key ? null : item.key); return }
-    if (action.key === 'assign' || action.key === 'reply' || action.key === 'resolve') { messageAction(item, action.key); return }
+    if (action.key === 'reply' || action.key === 'done') { messageAction(item, action.key); return }
     if (action.key === 'support_open') { supportDecision(item, 'open_request'); return }
     if (action.key === 'support_close') { supportDecision(item, 'close_no_help'); return }
     if (action.key === 'reminder') { sendReminder(item); return }

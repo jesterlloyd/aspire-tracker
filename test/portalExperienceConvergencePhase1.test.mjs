@@ -83,9 +83,13 @@ test('docked Messages uses Keith-derived subtle controls and compact composer', 
 })
 
 test('portal full workspace guidance and composer placement are not repeated between input and send', () => {
-  assert.match(portalWorkspace, /ptl-msg-workspace-guidance/)
-  assert.match(portalWorkspace, /PORTAL_SAFETY_NOTICE/)
-  assert.doesNotMatch(portalReply, /PORTAL_SAFETY_NOTICE|ptl-msg-safety|ptl-reply-safety/)
+  // MESSAGES-REFINE-2: the notice moved under the reply box, after the
+  // text box and Send, never between them; the workspace no longer repeats it.
+  assert.doesNotMatch(portalWorkspace, /\{PORTAL_SAFETY_NOTICE\}/)
+  assert.match(portalWorkspace, /<PortalReplyComposer\s*\n\s*showNotice/)
+  const row = portalReply.slice(portalReply.indexOf('ptl-msg-compose-row'), portalReply.indexOf('ptl-msg-send-circle'))
+  assert.doesNotMatch(row, /PORTAL_SAFETY_NOTICE/)
+  assert.ok(portalReply.indexOf('ptl-msg-compose-notice') > portalReply.indexOf('ptl-msg-send-circle'))
   assert.match(portalReply, /ptl-msg-compose-row/)
   assert.match(portalReply, /ptl-msg-send-circle/)
   assert.match(portalReply, /aria-label="Send message"/)

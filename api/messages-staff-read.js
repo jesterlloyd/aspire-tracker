@@ -30,9 +30,16 @@ export default async function handler(req, res) {
         return res.status(unreadResult.error.code === 'MS403' ? 403 : 500)
           .json({ error: unreadResult.error.code === 'MS403' ? 'forbidden' : 'internal_error' });
       }
-      const attentionResult = await db.rpc('messages_staff_needs_reply_count');
-      const unavailable = attentionResult.error
-        && (String(attentionResult.error.code) === 'PGRST202' || String(attentionResult.error.code) === '42883');
+      // MESSAGES-SIMPLIFY-1: v2 counts exactly the Needs reply view (reactions,
+      // follow-up and shared Done included). The original count answers until
+      // migration 20261014000000 is applied.
+      const missing = (error) => error
+        && (String(error.code) === 'PGRST202' || String(error.code) === '42883');
+      let attentionResult = await db.rpc('messages_staff_needs_reply_count_v2');
+      if (missing(attentionResult.error)) {
+        attentionResult = await db.rpc('messages_staff_needs_reply_count');
+      }
+      const unavailable = missing(attentionResult.error);
       if (attentionResult.error && !unavailable) {
         logApiError('messages-staff-read', 'attention_rpc_failed', attentionResult.error);
         return res.status(attentionResult.error.code === 'MS403' ? 403 : 500)

@@ -985,6 +985,8 @@
   border-radius: 10px; font-size: 12.5px; line-height: 1.45;
 }
 .ptl-msg-workspace-guidance { margin-top: 12px; margin-bottom: -2px; }
+/* MESSAGES-REFINE-2: the safety notice as one quiet line under the reply box. */
+.ptl-msg-compose-notice { margin: 0; font-size: 12px; line-height: 1.45; color: #4b5563; }
 /* Declared after the base: an equal-specificity rule inside an earlier media
    block would lose the cascade. 16px also avoids Safari's zoom-on-focus, which
    fires for any font under 16px and shifts the whole composer. */
@@ -1741,16 +1743,6 @@ img.ptl-detail-photo {
   .ptl-team-message-icon { display: none; }
   .ptl-team-message-new { padding: 0 10px; }
   .msg-bubble { max-width: 86%; }
-}
-
-/* MESSAGES-LIFECYCLE-PHASE3A-REACTIONS: the base chip, add-reaction, and
-   popover styling lives once in src/index.css alongside the rest of
-   .msg-bubble*, which both the portal and staff surfaces already share. This
-   is the portal-only addition: a 44px minimum touch target on narrow portal
-   layouts, matching how .ptl-msg-loadearlier and other portal controls reach
-   44px on mobile. */
-@media (max-width: 760px) {
-  .msg-reaction-chip, .msg-reaction-add { min-height: 44px; min-width: 44px; }
 }
 
 /* UL-POLISH P0: participant context line on Unit Leader inbox cards. */

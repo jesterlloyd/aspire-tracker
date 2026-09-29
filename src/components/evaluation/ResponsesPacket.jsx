@@ -120,8 +120,13 @@ function ComparisonPlot({ s, scaleMax, labels }) {
   const post = position(s.postMean)
   const left = Math.min(pre, post)
   const width = Math.abs(post - pre)
+  // A change that rounds to 0.00 is no change: "increased 0.00 points" said the
+  // opposite of the chart beside it.
+  const unchanged = Number.isFinite(s.delta) && Math.abs(s.delta) < 0.005
   const interpretation = Number.isFinite(s.delta) && Number.isFinite(s.preMean) && Number.isFinite(s.postMean)
-    ? `Average agreement ${s.delta >= 0 ? 'increased' : 'decreased'} ${Math.abs(s.delta).toFixed(2)} points, from ${fmt2(s.preMean)} before rotation to ${fmt2(s.postMean)} after rotation on the 1 to ${scaleMax} agreement scale. This reflects student-reported agreement with the ${s.itemCount}-item ${s.label} subscale.`
+    ? `${unchanged
+      ? `Average agreement did not change: ${fmt2(s.preMean)} before and after rotation`
+      : `Average agreement ${s.delta > 0 ? 'increased' : 'decreased'} ${Math.abs(s.delta).toFixed(2)} points, from ${fmt2(s.preMean)} before rotation to ${fmt2(s.postMean)} after rotation`} on the 1 to ${scaleMax} agreement scale. This reflects student-reported agreement with the ${s.itemCount}-item ${s.label} subscale.`
     : null
   return (
     <div className="rp-comparison-wrap">

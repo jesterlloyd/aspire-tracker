@@ -17,7 +17,7 @@ import {
   participantAccessLabel, mapMessagesError,
 } from '../src/lib/messages/messagesConstants.js'
 import {
-  DEFAULT_FILTERS, filtersAreDefault, serializeInboxQuery, clampLimit,
+  DEFAULT_VIEW, INBOX_VIEWS, serializeInboxQuery, clampLimit,
   appendPage, normalizeCursor, queryIdentity, debounce,
 } from '../src/lib/messages/inboxState.js'
 
@@ -28,6 +28,7 @@ const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '
 const optionsApi = read('../api/messages-staff-options.js')
 const client = read('../src/lib/messages/messagesApiClient.js')
 const inbox = read('../src/components/connect/messages/MessagesInbox.jsx')
+const css = read('../src/index.css')
 const connect = read('../src/pages/Connect.jsx')
 
 test('shared constants and formatting', async (t) => {
@@ -78,41 +79,25 @@ test('shared constants and formatting', async (t) => {
 })
 
 test('inbox state utilities', async (t) => {
-  await t.test('default filters send no narrowing parameters', () => {
-    assert.equal(filtersAreDefault(DEFAULT_FILTERS), true)
-    const { query } = serializeInboxQuery({ filters: DEFAULT_FILTERS, search: '', limit: 25 })
-    assert.deepEqual(query, { limit: '25' })
+  // MESSAGES-SIMPLIFY-1 replaced the four filters with three views; these pin
+  // the view serialization that took their place.
+  await t.test('the default view is Needs reply and is always sent', () => {
+    assert.equal(DEFAULT_VIEW, 'needs_reply')
+    assert.deepEqual([...INBOX_VIEWS], ['needs_reply', 'all', 'done'])
+    const { query } = serializeInboxQuery({ search: '', limit: 25 })
+    assert.deepEqual(query, { limit: '25', view: 'needs_reply' })
   })
 
-  await t.test('filters serialize to the deployed query parameters', () => {
-    const { query } = serializeInboxQuery({
-      filters: { status: 'waiting', assignee: 'me', category: 'Scheduling', flagged: 'flagged' },
-      search: '  Placement  ', limit: 25,
-    })
-    assert.equal(query.status, 'waiting')
-    assert.equal(query.assignee, 'me', 'Me is a sentinel resolved by the server, never a client id')
-    assert.equal(query.category, 'Scheduling')
-    assert.equal(query.flagged, 'true')
+  await t.test('views and search serialize to the deployed query parameters', () => {
+    const { query } = serializeInboxQuery({ view: 'done', search: '  Placement  ', limit: 25 })
+    assert.equal(query.view, 'done')
     assert.equal(query.search, 'Placement', 'search is trimmed')
   })
 
-  await t.test('not_flagged serializes to false', () => {
-    const { query } = serializeInboxQuery({ filters: { ...DEFAULT_FILTERS, flagged: 'not_flagged' } })
-    assert.equal(query.flagged, 'false')
-  })
-
-  await t.test('unassigned and uncategorized are sent as real server filters (v2 modes)', () => {
-    // Stage A added the v2 RPC filter modes, so these are now genuine
-    // server-side IS NULL filters, never client-filtered from a partial page.
-    const a = serializeInboxQuery({ filters: { ...DEFAULT_FILTERS, assignee: 'unassigned' } })
-    assert.equal(a.query.assignee, 'unassigned')
-    const c = serializeInboxQuery({ filters: { ...DEFAULT_FILTERS, category: 'uncategorized' } })
-    assert.equal(c.query.category, 'uncategorized')
-  })
-
-  await t.test('a client profile id is never used to resolve Me', () => {
-    const { query } = serializeInboxQuery({ filters: { ...DEFAULT_FILTERS, assignee: 'me' } })
-    assert.equal(query.assignee, 'me', 'the server resolves Me from the verified caller')
+  await t.test('an unknown view falls back to Needs reply, and no filter parameter exists', () => {
+    const { query } = serializeInboxQuery({ view: 'archived', filters: { assignee: 'me' } })
+    assert.equal(query.view, 'needs_reply')
+    for (const k of ['assignee', 'category', 'status', 'flagged', 'attention']) assert.equal(query[k], undefined)
   })
 
   await t.test('limits are capped at 100 and default to 25', () => {
@@ -150,11 +135,11 @@ test('inbox state utilities', async (t) => {
     assert.deepEqual(appendPage([], [{ id: null }, { id: 'z' }]).map((r) => r.id), ['z'])
   })
 
-  await t.test('query identity changes when search or any filter changes', () => {
-    const base = { filters: DEFAULT_FILTERS, search: '' }
+  await t.test('query identity changes when search or the view changes', () => {
+    const base = { view: 'needs_reply', search: '' }
     assert.equal(queryIdentity(base), queryIdentity({ ...base }))
     assert.notEqual(queryIdentity(base), queryIdentity({ ...base, search: 'x' }))
-    assert.notEqual(queryIdentity(base), queryIdentity({ filters: { ...DEFAULT_FILTERS, status: 'open' }, search: '' }))
+    assert.notEqual(queryIdentity(base), queryIdentity({ ...base, view: 'all' }))
     // Whitespace-only search is identical to empty.
     assert.equal(queryIdentity(base), queryIdentity({ ...base, search: '   ' }))
   })
@@ -294,10 +279,11 @@ test('staff inbox component', async (t) => {
   })
 
   await t.test('unread remains signalled by weight, a badge, and accessible text', () => {
-    assert.match(inbox, /fontWeight: isUnread \? 700 : 500/)
+    assert.match(inbox, /fontWeight: isUnread \? 750 : 650/)
     assert.match(inbox, /formatUnread\(unread\)/)
     assert.match(inbox, /<span style=\{srOnly\}>\{unreadLabel\(unread\)\}<\/span>/)
-    assert.match(inbox, /<span style=\{srOnly\}>Needs your reply<\/span>/)
+    // MESSAGES-SIMPLIFY-1: Needs reply is a visible chip, so it is never colour alone.
+    assert.match(inbox, /chip\.label/)
   })
 
   await t.test('the selected row is programmatically identifiable', () => {
@@ -308,23 +294,23 @@ test('staff inbox component', async (t) => {
     assert.match(inbox, /SEARCH_DEBOUNCE_MS = 300/)
     assert.ok(300 >= 250 && 300 <= 400, 'debounce within the approved range')
     assert.match(inbox, /debounce\(\(v\) => setSearch\(v\), SEARCH_DEBOUNCE_MS\)/)
-    assert.match(inbox, /const clearSearch =/)
+    // type="search" carries the browser's own clear control.
+    assert.match(inbox, /type="search"/)
     assert.match(inbox, /<label htmlFor="msg-search" style=\{srOnly\}>/)
   })
 
-  await t.test('filters are labeled, keyboard usable, and resettable', () => {
-    for (const id of ['msg-f-status', 'msg-f-assignee', 'msg-f-category', 'msg-f-flagged']) {
-      assert.ok(inbox.includes(id), `missing filter ${id}`)
-    }
-    assert.match(inbox, /<label htmlFor=\{id\} style=\{srOnly\}>\{label\}<\/label>/)
-    assert.match(inbox, /Reset filters/)
-    // Native selects keep keyboard operation and accessible naming.
-    assert.match(inbox, /<select id=\{id\}/)
+  // MESSAGES-SIMPLIFY-1: two chips and a View done link replaced the filters.
+  await t.test('the chips and View done are pressed toggles', () => {
+    assert.match(inbox, /label="Needs reply"/)
+    assert.match(inbox, /label="All"/)
+    assert.match(inbox, /aria-pressed=\{pressed\}/)
+    assert.match(inbox, /aria-pressed=\{view === 'done'\}/)
+    assert.match(inbox, /'Back to open conversations'/)
+    assert.match(inbox, /`View done \(\$\{doneCount\}\)`/)
   })
 
-  await t.test('assignee options come from the narrow lookup, not a directory', () => {
-    assert.match(inbox, /api\.listAssigneeOptions\(\{ signal \}\)/)
-    assert.doesNotMatch(strip(inbox), /get_all_user_profiles|admin-users|list-portal-access/)
+  await t.test('the inbox reads no staff directory', () => {
+    assert.doesNotMatch(strip(inbox), /listAssigneeOptions|get_all_user_profiles|admin-users|list-portal-access/)
   })
 
   await t.test('pagination is cursor based with Load more and no duplicates', () => {
@@ -348,8 +334,8 @@ test('staff inbox component', async (t) => {
     // MESSAGES-ARCHIVE-P1: identity also folds in `view` (Active/Archived), so
     // switching the scope picker resets pagination the same way a filter change
     // does. The queryKey line above is untouched: view travels inside identity.
-    assert.match(inbox, /queryIdentity\(\{ filters, search, view, attention \}\)/)
-    assert.match(inbox, /\[filters, search, view, attention\]/)
+    assert.match(inbox, /queryIdentity\(\{ search, view \}\)/)
+    assert.match(inbox, /\[search, view\]/)
     // The soft-refresh key refetches without clearing filters or search.
     assert.match(inbox, /refreshKey/)
   })
@@ -368,28 +354,31 @@ test('staff inbox component', async (t) => {
     assert.match(inbox, /Retry/)
     assert.match(inbox, /onClick=\{\(\) => refetch\(\)\}/)
     assert.match(inbox, /isError \? mapMessagesError\(error\?\.status\) : null/)
-    assert.match(inbox, /'No conversations match your search\.'/)
-    assert.match(inbox, /'No conversations match these filters\.'/)
-    assert.match(inbox, /'No ASPIRE Messages yet\.'/)
+    assert.match(inbox, /"No conversations match your search\."/)
+    assert.match(inbox, /title="All caught up"/)
+    for (const note of ['No one is waiting on a reply.', 'No open conversations right now.', 'Nothing has been moved to Done yet.']) {
+      assert.ok(inbox.includes(note), `missing empty note: ${note}`)
+    }
   })
 
   await t.test('rows show the approved operational fields', () => {
     assert.match(inbox, /row\.participant_name/)
     assert.match(inbox, /row\.subject/)
     assert.match(inbox, /row\.latest_preview/)
-    assert.match(inbox, /STAFF_STATUS_LABEL\[row\.status\]/)
-    assert.match(inbox, /row\.category/)
-    assert.match(inbox, /row\.assignee_name/)
+    // MESSAGES-SIMPLIFY-1: no status, category, assignee or age pill.
+    assert.doesNotMatch(inbox, /STAFF_STATUS_LABEL|row\.category|row\.assignee_name/)
+    assert.match(inbox, /previewPrefix\(row, viewerId\)/)
+    assert.match(inbox, /rowChip\(row\)/)
     assert.match(inbox, /row\.follow_up_flagged/)
     assert.match(inbox, /participantAccessLabel\(false\)/)
     assert.match(inbox, /formatInboxTimestamp\(row\.last_message_at\)/)
     // Truncated content carries an accessible title.
-    assert.match(inbox, /title=\{row\.participant_name \|\| 'Portal participant'\}/)
+    assert.match(inbox, /title=\{name\}/)
     assert.match(inbox, /title=\{formatFullTimestamp\(row\.last_message_at\)\}/)
   })
 
   await t.test('touch targets are usable and no read pointer is written in Phase 4A', () => {
-    assert.match(inbox, /minHeight: 44/)
+    assert.match(css, /\.messages-row \{[^}]*min-height: 44px/)
     assert.doesNotMatch(strip(inbox), /markStaffRead|mark-read/, 'Phase 4A must not update read state')
     assert.doesNotMatch(strip(inbox), /setInterval|refetchInterval/, 'Phase 4A adds no polling')
   })

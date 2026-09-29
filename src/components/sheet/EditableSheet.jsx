@@ -50,6 +50,9 @@
 //                      noMatch, frameLabel, help, readOnlyEdit, newColumnHint, locked }
 //   notify, viewRef
 //   initialSearch    what the search box holds when the grid mounts (Program Budget's Show in Sheet).
+//   quickFilters     [{ key, label, test(row) }]: one-click filters the host names (MISSING-RECEIPT-1:
+//                    Program Budget's Missing receipt). A chip with its count, shown while any row passes.
+//   initialQuick     the quick filter that is on when the grid mounts.
 //
 // BUDGET-SHEET-0b (2026-09-27), for Program Budget's ledger. Every one is opt-in; a host that
 // passes none (the Forms Sheet) gets the grid exactly as it was.
@@ -128,11 +131,12 @@ export default function EditableSheet({
   renderCell, cellClass, cellTitle, editorLabel, editorExtras, saveLabel,
   labels = {}, notify, viewRef,
   isLocked, groupSubtotals = NO_KEYS, onAddRow, onDeleteRows, canDeleteRow = () => true, canClear = () => false,
-  formulas = false, initialSearch = '',
+  formulas = false, initialSearch = '', quickFilters = NO_KEYS, initialQuick = null,
 }) {
   const [data, setData] = useState(() => ({ rows: initialRows }))
   const [layout, setLayout] = useState(initialLayout)
   const [search, setSearch] = useState(initialSearch)
+  const [quick, setQuick] = useState(initialQuick)
   const [filters, setFilters] = useState([])
   const [adding, setAdding] = useState(null)
   const [sort, setSort] = useState(defaultSort)
@@ -198,7 +202,9 @@ export default function EditableSheet({
   // ── Rows: search, filters, sort ──
   const rows = useMemo(() => {
     const needle = search.trim().toLowerCase()
+    const q = quick ? quickFilters.find(f => f.key === quick) : null
     const out = data.rows.filter(r => {
+      if (q && !q.test(r)) return false
       if (needle && ![...searchValues(r), ...Object.values(r.cells)].some(v => String(v || '').toLowerCase().includes(needle))) return false
       return filters.every(f => cellMatches(allColumns.find(c => c.key === f.key), val(r, f.key), f.value))
     })
@@ -211,7 +217,7 @@ export default function EditableSheet({
       if (typeof x === 'number' && typeof y === 'number') return (x - y) * sign   // a real number sorts as one
       return String(x).localeCompare(String(y), undefined, { numeric: true, sensitivity: 'base' }) * sign
     })
-  }, [data, search, filters, sort, allColumns, searchValues, val])
+  }, [data, search, filters, sort, allColumns, searchValues, val, quick, quickFilters])
   const groups = useMemo(() => (layout?.groupBy ? groupSheetRows(rows, layout.groupBy, (r, k) => shown(r, k)) : null), [rows, layout, shown])
   const visibleRows = useMemo(() => (groups ? groups.flatMap(g => (collapsed.has(g.label) ? [] : g.rows)) : rows), [groups, rows, collapsed])
   const gridCols = useMemo(() => [{ base: true, ...lead }, ...columns], [lead, columns])   // a host may give its lead a type (the budget's Date)
@@ -796,6 +802,14 @@ export default function EditableSheet({
       <div className="fs-tools">
         <input className="fs-search" type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder={labels.searchPlaceholder} aria-label={labels.searchLabel} />
         <button type="button" className="fm-btn fm-sm" onClick={() => setAdding({ key: defaultFilterKey, value: '' })}>Add a filter</button>
+        {quickFilters.map(f => {
+          const n = data.rows.filter(f.test).length
+          if (!n && quick !== f.key) return null
+          return (
+            <button key={f.key} type="button" className={`fm-btn fm-sm fs-quick${quick === f.key ? ' fs-quick-on' : ''}`} aria-pressed={quick === f.key}
+              onClick={() => { setQuick(q => (q === f.key ? null : f.key)); setSel(null) }}>{f.label}<span className="fs-quick-n">{n}</span></button>
+          )
+        })}
         <div className="fs-colmenu">
           <button type="button" className="fm-btn fm-sm" aria-expanded={menu === 'columns'} onClick={() => setMenu(m => (m === 'columns' ? null : 'columns'))}>Columns{hidden.size ? ` (${hidden.size} hidden)` : ''}</button>
           {menu === 'columns' && (

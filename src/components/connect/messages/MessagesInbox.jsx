@@ -1,11 +1,13 @@
 // src/components/connect/messages/MessagesInbox.jsx
 //
 // ASPIRE MESSAGES, PHASE 4A: the staff conversation inbox.
+// MOUNTED IN PRODUCTION in Connect > Messages and in the docked Messages drawer.
 //
-// MOUNTED IN PRODUCTION: Phase 4B integrated this into ASPIRE Connect as the
-// Messages sub-tab once the thread workspace, composer, and management controls
-// exist. Until then Connect.jsx, VALID_TABS, and the /connect redirect are
-// untouched, so no incomplete Messages feature is reachable.
+// MESSAGES-SIMPLIFY-1: staff see one thing at a glance, which threads need a
+// reply. Two chips (Needs reply, the default, and All), one View done link,
+// search, and rows that say who wrote last and who handled the thread. There is
+// no status, assignee, category, or archive control here any more; the rules
+// live in src/lib/messages/messagesTriage.js and on the server.
 //
 // Props:
 //   selectedId          currently selected conversation id (externally managed)
@@ -13,32 +15,22 @@
 //   refreshKey          increments to force a reload (Connect soft-refresh)
 //   api                 injected for tests; defaults to the real client
 //
-// The Me filter needs no profile id here: it is sent as a sentinel and resolved
-// by the server from the verified caller, so a client-supplied id is never
-// trusted.
-//
-// Search is SUBJECT ONLY, because that is what the applied server RPC supports.
-// The label and placeholder say so rather than implying that message bodies or
-// participant names are searched.
-//
 // Privacy: previews render as PLAIN TEXT only. There is no dangerouslySetInnerHTML,
 // no Markdown, and no HTML parsing. Staff email is never displayed.
 
 import { useEffect, useMemo, useState } from 'react'
-import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Search, RotateCw, Flag, Inbox, AlertCircle, SlidersHorizontal } from 'lucide-react'
+import { useInfiniteQuery } from '@tanstack/react-query'
+import { Search, RotateCw, Flag, Inbox, AlertCircle, Archive } from 'lucide-react'
 import {
-  MESSAGE_CATEGORIES, STAFF_STATUSES, STAFF_STATUS_LABEL,
   UNREAD_BADGE_BG, UNREAD_BADGE_FG,
   formatUnread, unreadLabel, formatInboxTimestamp, formatFullTimestamp,
   participantAccessLabel, mapMessagesError,
 } from '../../../lib/messages/messagesConstants'
 import {
-  DEFAULT_FILTERS, DEFAULT_VIEW, DEFAULT_ATTENTION, filtersAreDefault, serializeInboxQuery, appendPage,
-  queryIdentity, debounce,
+  DEFAULT_VIEW, serializeInboxQuery, appendPage, queryIdentity, debounce,
 } from '../../../lib/messages/inboxState'
-import { ageInDays, isStale, isUnassigned, needsYourReply } from '../../../lib/messages/messagesTriage'
-import RowActionsMenu from '../../shared/RowActionsMenu'
+import { needsReply, previewPrefix, rowChip } from '../../../lib/messages/messagesTriage'
+import { useAuth } from '../../../contexts/AuthContext'
 import * as defaultApi from '../../../lib/messages/messagesApiClient'
 
 const F = 'Plus Jakarta Sans, sans-serif'
@@ -47,11 +39,16 @@ const SEARCH_DEBOUNCE_MS = 300
 
 const T = {
   accent: 'var(--color-accent-primary,#1D2567)',
-  text: 'var(--text-primary,#0E1428)',
-  muted: 'var(--text-secondary,#4A5560)',
+  text: 'var(--text-heading,#0E1428)',
+  muted: 'var(--text-caption,#4A5560)',
   border: 'var(--border-input,rgba(29,37,103,0.10))',
   input: 'var(--bg-input,#fff)',
-  danger: '#B3282D',
+}
+
+const EMPTY_NOTE = {
+  needs_reply: 'No one is waiting on a reply.',
+  all: 'No open conversations right now.',
+  done: 'Nothing has been moved to Done yet.',
 }
 
 export default function MessagesInbox({
@@ -59,55 +56,29 @@ export default function MessagesInbox({
   onSelect = () => {},
   refreshKey = 0,
   api = defaultApi,
-  // MESSAGES-ARCHIVE-P1: announce (the workspace's shared live region) and
-  // onSelectedRowChange (fired only when the currently OPEN conversation is
-  // archived/unarchived out of view, so the parent can move the selection
-  // without also flipping the mobile view to 'thread').
-  announce = () => {},
-  onSelectedRowChange = () => {},
 }) {
-  const queryClient = useQueryClient()
+  const { userProfile } = useAuth() || {}
+  const viewerId = userProfile?.id || null
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
-  const [filters, setFilters] = useState(DEFAULT_FILTERS)
-  // MESSAGES-ARCHIVE-P1: the list scope. NOT part of filters and NOT reset by
-  // Reset filters (see inboxState's DEFAULT_VIEW comment) - it is which list you
-  // are looking at, not a narrowing predicate over one list.
   const [view, setView] = useState(DEFAULT_VIEW)
-  const [attention, setAttention] = useState(DEFAULT_ATTENTION)
-  const [advancedOpen, setAdvancedOpen] = useState(false)
-  const [openMenuId, setOpenMenuId] = useState(null)
-  const [busyRowId, setBusyRowId] = useState(null)
-  const [archiveError, setArchiveError] = useState(null)
+  // The chip to return to when View done is closed.
+  const [lastOpenView, setLastOpenView] = useState(DEFAULT_VIEW)
 
-  // Identity of the current server query. A change gives the list a new query
-  // key, so pagination restarts and pages from different queries can never
-  // interleave. View participates too, so switching Active/Archived also
-  // resets pagination, exactly like a filter change.
-  const identity = useMemo(
-    () => queryIdentity({ filters, search, view, attention }),
-    [filters, search, view, attention],
-  )
+  const identity = useMemo(() => queryIdentity({ search, view }), [search, view])
 
   // Debounced search: never one request per keystroke.
   const applySearch = useMemo(() => debounce((v) => setSearch(v), SEARCH_DEBOUNCE_MS), [])
   useEffect(() => () => applySearch.cancel(), [applySearch])
   const onSearchChange = (e) => { const v = e.target.value; setSearchInput(v); applySearch(v) }
-  const clearSearch = () => { applySearch.cancel(); setSearchInput(''); setSearch('') }
 
-  // Cursor pagination via React Query, the app's existing convention. It owns
-  // request cancellation, stale-response handling, and the loading flags, so the
-  // component keeps no manual request state. refreshKey participates in the key
-  // so the Connect soft-refresh refetches without clearing filters or search.
   const {
     data, isLoading, isError, error, fetchNextPage, hasNextPage, isFetchingNextPage, refetch,
   } = useInfiniteQuery({
     queryKey: ['messages_staff_list', identity, refreshKey],
     initialPageParam: null,
     queryFn: ({ pageParam, signal }) => {
-      const { query } = serializeInboxQuery({
-        filters, search, view, attention, cursor: pageParam, limit: PAGE_LIMIT,
-      })
+      const { query } = serializeInboxQuery({ search, view, cursor: pageParam, limit: PAGE_LIMIT })
       return api.listStaffConversations(query, { signal })
     },
     getNextPageParam: (lastPage) => lastPage?.next_cursor ?? undefined,
@@ -121,112 +92,37 @@ export default function MessagesInbox({
     [data],
   )
   const loadError = isError ? mapMessagesError(error?.status) : null
-
-  // MESSAGES-ARCHIVE-P1: fail closed. Until a page confirms the migration is
-  // applied, every archive affordance (the picker and every row's kebab) stays
-  // hidden, so there is no dead control that would only 503.
-  const archiveAvailable = (data?.pages || []).some((p) => p?.archive_available === true)
-  const triageAvailable = (data?.pages || []).some((p) => p?.triage_available === true)
   const counts = data?.pages?.[0]?.counts || {}
 
-  // Assignee options: active Owner/Admin only, from the narrow lookup. Cached
-  // across filter changes; a failure degrades to no options rather than blocking
-  // the inbox.
-  const { data: assigneeData } = useQuery({
-    queryKey: ['messages_assignee_options'],
-    queryFn: ({ signal }) => api.listAssigneeOptions({ signal }),
-    staleTime: 5 * 60 * 1000,
-    retry: 1,
-  })
-  const assignees = assigneeData?.options || []
-
-  const setFilter = (key, value) => setFilters((f) => ({ ...f, [key]: value }))
-  // MESSAGES-ARCHIVE-P1: Reset filters narrows within the current view; it never
-  // switches Active back from Archived, so view is deliberately untouched here.
-  const resetFilters = () => { setFilters(DEFAULT_FILTERS); setAttention(DEFAULT_ATTENTION); clearSearch() }
-
-  const hasFilters = !filtersAreDefault(filters)
-  const showReset = hasFilters || !!search || attention !== DEFAULT_ATTENTION
-
-  const setQuickView = (next) => {
-    setView('active')
-    setAttention((current) => (current === next ? DEFAULT_ATTENTION : next))
-  }
-
-  // MESSAGES-ARCHIVE-P1: archive or unarchive one row. Selection handling: if the
-  // row being toggled is the OPEN conversation, moving it out of the current view
-  // (archiving in Active, unarchiving in Archived - the only actions ever
-  // offered) must not leave a dangling selection, so the next row takes over,
-  // else the previous one, else the selection clears to the empty state. This
-  // only touches selection through onSelectedRowChange, never onSelect, so the
-  // mobile view never flips to 'thread' as a side effect of archiving from the
-  // list.
-  const handleArchiveToggle = async (row) => {
-    if (busyRowId) return
-    const nextArchived = !row.is_archived
-    setBusyRowId(row.id)
-    setArchiveError(null)
-    try {
-      await api.setConversationArchived(row.id, nextArchived)
-      if (selectedId === row.id) {
-        const idx = rows.findIndex((r) => r.id === row.id)
-        const nextId = rows[idx + 1]?.id ?? rows[idx - 1]?.id ?? null
-        onSelectedRowChange(nextId)
-      }
-      await refetch()
-      queryClient.invalidateQueries({ queryKey: ['messages_staff_unread'] })
-      announce(nextArchived ? 'Conversation archived' : 'Conversation unarchived')
-    } catch (err) {
-      const message = mapMessagesError(err?.status)
-      setArchiveError(message)
-      announce(message)
-    } finally {
-      setBusyRowId(null)
-      setOpenMenuId(null)
-    }
-  }
+  const chooseView = (next) => { setView(next); setLastOpenView(next) }
+  const toggleDone = () => setView((current) => (current === 'done' ? lastOpenView : 'done'))
+  const doneCount = counts.done
+  const doneLabel = view === 'done'
+    ? 'Back to open conversations'
+    : (Number.isFinite(doneCount) ? `View done (${doneCount})` : 'View done')
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, fontFamily: F }}>
 
-      {triageAvailable && (
-        <div className="messages-quick-filters" aria-label="Conversation views">
-          <QuickFilter
-            label="Active"
-            count={counts.active}
-            pressed={view === 'active' && attention === DEFAULT_ATTENTION}
-            onClick={() => { setView('active'); setAttention(DEFAULT_ATTENTION) }}
-          />
-          <QuickFilter
-            label="Needs reply"
-            count={counts.needs_reply}
-            pressed={view === 'active' && attention === 'needs_reply'}
-            tone="amber"
-            onClick={() => setQuickView('needs_reply')}
-          />
-          <QuickFilter
-            label="Unassigned"
-            count={counts.unassigned}
-            pressed={view === 'active' && attention === 'unassigned'}
-            tone="amber"
-            onClick={() => setQuickView('unassigned')}
-          />
-        </div>
-      )}
-
-      {archiveError && (
-        <div style={{ paddingBottom: 8 }}>
-          <span role="alert" style={{ fontSize: 11.5, color: T.danger, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-            <AlertCircle size={12} aria-hidden="true" /> {archiveError}
-          </span>
-        </div>
-      )}
+      <div className="messages-quick-filters" role="group" aria-label="Filter messages">
+        <QuickFilter
+          label="Needs reply"
+          count={counts.needs_reply}
+          urgent
+          pressed={view === 'needs_reply'}
+          onClick={() => chooseView('needs_reply')}
+        />
+        <QuickFilter
+          label="All"
+          count={counts.all}
+          pressed={view === 'all'}
+          onClick={() => chooseView('all')}
+        />
+      </div>
 
       {/* Search */}
-      <div style={{ padding: '0 0 10px' }}>
-        <label htmlFor="msg-search" style={srOnly}>
-          {triageAvailable ? 'Search conversations by subject or sender' : 'Search conversations by subject'}
-        </label>
+      <div style={{ padding: '0 0 8px' }}>
+        <label htmlFor="msg-search" style={srOnly}>Search conversations by subject or sender</label>
         <div style={{ position: 'relative' }}>
           <Search size={14} aria-hidden="true" style={{ position: 'absolute', left: 10, top: 10, color: T.muted }} />
           <input
@@ -234,68 +130,27 @@ export default function MessagesInbox({
             type="search"
             value={searchInput}
             onChange={onSearchChange}
-            placeholder={triageAvailable ? 'Search subjects and senders' : 'Search subjects'}
+            placeholder="Search subjects and senders"
             className="messages-focusable"
             style={{
               width: '100%', height: 34, padding: '0 10px 0 30px', boxSizing: 'border-box',
-              border: `1px solid ${T.border}`, borderRadius: 7, fontSize: 13,
+              border: `1px solid ${T.border}`, borderRadius: 'var(--aspire-radius-control)', fontSize: 13,
               fontFamily: F, color: T.text, background: T.input,
             }}
           />
         </div>
       </div>
 
-      <div style={{ paddingBottom: 10 }}>
+      <div style={{ paddingBottom: 8 }}>
         <button
           type="button"
-          className="messages-focusable"
-          aria-expanded={advancedOpen}
-          onClick={() => setAdvancedOpen((open) => !open)}
-          style={advancedButton}
+          className="messages-view-done messages-focusable"
+          aria-pressed={view === 'done'}
+          onClick={toggleDone}
         >
-          <SlidersHorizontal size={13} aria-hidden="true" />
-          {advancedOpen ? 'Hide archived and more filters' : 'Archived and more filters'}
+          <Archive size={13} aria-hidden="true" />
+          {doneLabel}
         </button>
-        {advancedOpen && (
-          <div className="messages-advanced-filters">
-            {archiveAvailable && (
-              <FilterSelect
-                id="msg-f-view"
-                label="Inbox view"
-                value={view}
-                onChange={(value) => { setView(value); if (value === 'archived') setAttention(DEFAULT_ATTENTION) }}
-                options={[{ value: 'active', label: 'Active' }, { value: 'archived', label: 'Archived' }]}
-              />
-            )}
-            <FilterSelect id="msg-f-status" label="Status" value={filters.status} onChange={(v) => setFilter('status', v)}
-              options={[{ value: 'all', label: 'All statuses' },
-                ...STAFF_STATUSES.map((s) => ({ value: s, label: STAFF_STATUS_LABEL[s] }))]} />
-            <FilterSelect id="msg-f-assignee" label="Assignee" value={filters.assignee} onChange={(v) => setFilter('assignee', v)}
-              options={[{ value: 'all', label: 'All assignees' },
-                { value: 'unassigned', label: 'Unassigned' },
-                { value: 'me', label: 'Me' },
-                ...assignees.filter((a) => !a.is_current_user).map((a) => ({ value: a.profile_id, label: a.display_name }))]} />
-            <FilterSelect id="msg-f-category" label="Category" value={filters.category} onChange={(v) => setFilter('category', v)}
-              options={[{ value: 'all', label: 'All categories' },
-                { value: 'uncategorized', label: 'Uncategorized' },
-                ...MESSAGE_CATEGORIES.map((c) => ({ value: c, label: c }))]} />
-            <FilterSelect id="msg-f-flagged" label="Follow up" value={filters.flagged} onChange={(v) => setFilter('flagged', v)}
-              options={[{ value: 'all', label: 'All follow up' },
-                { value: 'flagged', label: 'Flagged' },
-                { value: 'not_flagged', label: 'Not flagged' }]} />
-            {showReset && (
-              <button type="button" className="messages-focusable" onClick={resetFilters} style={linkBtn}>
-                Reset filters
-              </button>
-            )}
-          </div>
-        )}
-        {triageAvailable && (
-          <p style={{ margin: '6px 2px 0', color: T.muted, fontSize: 10.5, lineHeight: 1.45 }}>
-            Resolved means answered and it stays in the list. Archived means filed away and hidden.
-            {' '}A thread can be resolved without being archived.
-          </p>
-        )}
       </div>
 
       {/* List */}
@@ -311,10 +166,13 @@ export default function MessagesInbox({
         )}
 
         {!isLoading && !loadError && rows.length === 0 && (
-          <EmptyBlock
-            icon={<Inbox size={18} aria-hidden="true" />}
-            title={emptyTitle({ search, hasFilters: hasFilters || attention !== DEFAULT_ATTENTION, view })}
-          />
+          search
+            ? <EmptyBlock icon={<Inbox size={18} aria-hidden="true" />} title="No conversations match your search." />
+            : (
+              <EmptyBlock icon={<Inbox size={18} aria-hidden="true" />} title="All caught up">
+                <p style={{ margin: 0, fontSize: 12.5, color: T.muted }}>{EMPTY_NOTE[view]}</p>
+              </EmptyBlock>
+            )
         )}
 
         {!isLoading && !loadError && rows.length > 0 && (
@@ -323,14 +181,9 @@ export default function MessagesInbox({
               <ConversationRow
                 key={row.id}
                 row={row}
+                viewerId={viewerId}
                 selected={row.id === selectedId}
                 onSelect={() => onSelect(row.id, row)}
-                archiveAvailable={archiveAvailable}
-                busy={busyRowId === row.id}
-                menuOpen={openMenuId === row.id}
-                onToggleMenu={() => setOpenMenuId((id) => (id === row.id ? null : row.id))}
-                onCloseMenu={() => setOpenMenuId(null)}
-                onArchiveToggle={handleArchiveToggle}
               />
             ))}
           </ul>
@@ -353,175 +206,88 @@ export default function MessagesInbox({
   )
 }
 
-function emptyTitle({ search, hasFilters, view }) {
-  if (search) return 'No conversations match your search.'
-  if (hasFilters) return 'No conversations match these filters.'
-  if (view === 'archived') return 'No archived conversations.'
-  return 'No ASPIRE Messages yet.'
-}
-
-// One conversation row. Priority: participant identity, subject, latest
-// activity, unread, then operational status.
-//
-// MESSAGES-ARCHIVE-P1: the row is a flex wrapper around the original row
-// button (unchanged, still first in the DOM, still the sole thing aria-current
-// describes) plus the shared RowActionsMenu kebab as a sibling, exactly the
-// pattern src/portal/UnitLeaderPortal.jsx already uses for StudentActionsMenu:
-// a button cannot nest inside a button, so the kebab lives beside it, and its
-// wrapper stops click and keydown propagation so opening the menu never also
-// activates the row.
-export function ConversationRow({
-  row, selected, onSelect,
-  archiveAvailable = false, busy = false, menuOpen = false,
-  onToggleMenu = () => {}, onCloseMenu = () => {}, onArchiveToggle = () => {},
-}) {
+// One conversation row: who and when, the subject, who wrote last, and one chip
+// (Needs reply, or who handled it).
+export function ConversationRow({ row, viewerId = null, selected, onSelect }) {
   const unread = Number(row.unread_count) || 0
   const isUnread = unread > 0
   const accessActive = row.participant_access_active !== false
   const stamp = formatInboxTimestamp(row.last_message_at)
-  const needsReply = needsYourReply(row)
-  const unassigned = isUnassigned(row)
-  const stale = isStale(row)
-  const age = ageInDays(row.last_message_at)
-  const direction = row.latest_author_role === 'staff' ? 'You replied · ' : 'They wrote · '
+  const needs = needsReply(row)
+  const chip = rowChip(row)
+  const name = row.participant_name || 'Portal participant'
 
   return (
-    <li style={{ display: 'flex', alignItems: 'stretch' }}>
+    <li>
       <button
         type="button"
         onClick={onSelect}
         aria-current={selected ? 'true' : undefined}
-        style={{
-          flex: 1, minWidth: 0, textAlign: 'left', cursor: 'pointer',
-          display: 'block', padding: '10px 12px', minHeight: 44,
-          border: 'none', borderLeft: `3px solid ${selected ? T.accent : 'transparent'}`,
-          borderBottom: `1px solid ${T.border}`,
-          background: selected ? 'rgba(29,37,103,0.05)' : 'transparent',
-          fontFamily: F,
-        }}
+        className="messages-row messages-focusable"
       >
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-          <span style={{
-            flex: 1, minWidth: 0, fontSize: 13.5, color: T.text,
-            fontWeight: isUnread ? 700 : 500,
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          }} title={row.participant_name || 'Portal participant'}>
-            {row.participant_name || 'Portal participant'}
+        <span className="messages-row__top">
+          {needs && <span aria-hidden="true" className="messages-row__dot" />}
+          <span className="messages-row__name" style={{ fontWeight: isUnread ? 750 : 650 }} title={name}>
+            {name}
           </span>
-          <span style={{ fontSize: 11.5, color: T.muted, flexShrink: 0 }} title={formatFullTimestamp(row.last_message_at)}>
-            {stamp}
-          </span>
-        </div>
-
-        <div style={{
-          marginTop: 2, fontSize: 12.5, color: T.text,
-          fontWeight: isUnread ? 600 : 400,
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-        }} title={row.subject || ''}>
-          {row.subject}
-        </div>
-
-        {/* Preview is plain text. No HTML is ever interpreted. */}
-        {row.latest_preview && (
-          <div style={{
-            marginTop: 2, fontSize: 12, color: T.muted,
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          }} title={row.latest_preview}>
-            <strong className={needsReply ? 'messages-preview-direction--attention' : 'messages-preview-direction--quiet'}>
-              {direction}
-            </strong>{row.latest_preview}
-          </div>
-        )}
-
-        <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 5, alignItems: 'center' }}>
-          {needsReply && (
-            <>
-              <span aria-hidden="true" style={attentionDot} />
-              <span style={srOnly}>Needs your reply</span>
-            </>
+          {row.follow_up_flagged && (
+            <span className="messages-row__flag" role="img" aria-label="Flagged for follow-up">
+              <Flag size={13} fill="currentColor" aria-hidden="true" />
+            </span>
           )}
           {isUnread && (
-            <span style={{ ...badge, background: UNREAD_BADGE_BG, color: UNREAD_BADGE_FG }}>
+            <span style={{ ...countBadge, background: UNREAD_BADGE_BG, color: UNREAD_BADGE_FG }}>
               <span aria-hidden="true">{formatUnread(unread)}</span>
               <span style={srOnly}>{unreadLabel(unread)}</span>
             </span>
           )}
-          <span className={`messages-status-pill messages-status-pill--${row.status}`}>
-            {STAFF_STATUS_LABEL[row.status] || row.status}
-          </span>
-          {row.category && <span style={badge}>{row.category}</span>}
-          {unassigned
-            ? <span className="messages-triage-pill messages-triage-pill--danger">Unassigned</span>
-            : row.assignee_name && <span style={badge}>{row.assignee_name}</span>}
-          {stale && (
-            <span className="messages-triage-pill messages-triage-pill--amber">
-              {age}d
-            </span>
-          )}
-          {row.follow_up_flagged && (
-            <span style={badge}>
-              <Flag size={10} aria-hidden="true" /> Follow up
-            </span>
-          )}
-          {!accessActive && (
-            <span style={{ ...badge, borderStyle: 'dashed' }}>{participantAccessLabel(false)}</span>
-          )}
-        </div>
-      </button>
+          <span className="messages-row__day" title={formatFullTimestamp(row.last_message_at)}>{stamp}</span>
+        </span>
 
-      {archiveAvailable && (
-        <div
-          onClick={(e) => e.stopPropagation()}
-          onKeyDown={(e) => e.stopPropagation()}
-          style={{
-            display: 'flex', alignItems: 'center', flexShrink: 0, padding: '0 6px',
-            borderBottom: `1px solid ${T.border}`,
-          }}
-        >
-          <RowActionsMenu
-            label={`Actions for conversation ${row.subject}`}
-            open={menuOpen}
-            onToggle={onToggleMenu}
-            onClose={onCloseMenu}
-            items={[
-              {
-                key: 'archive',
-                label: busy
-                  ? (row.is_archived ? 'Unarchiving' : 'Archiving')
-                  : (row.is_archived ? 'Unarchive conversation' : 'Archive conversation'),
-                disabled: busy,
-                onSelect: () => onArchiveToggle(row),
-              },
-            ]}
-          />
-        </div>
-      )}
+        <span className="messages-row__subject" style={{ fontWeight: isUnread ? 600 : 500 }} title={row.subject || ''}>
+          {row.subject}
+        </span>
+
+        {/* Preview is plain text. No HTML is ever interpreted. */}
+        {row.latest_preview && (
+          <span className="messages-row__preview" title={row.latest_preview}>
+            {previewPrefix(row, viewerId)}{row.latest_preview}
+          </span>
+        )}
+
+        {(chip || !accessActive) && (
+          <span className="messages-row__chips">
+            {chip && <span className={`messages-row-chip messages-row-chip--${chip.kind}`}>{chip.label}</span>}
+            {!accessActive && (
+              <span className="messages-row-chip messages-row-chip--by" style={{ borderStyle: 'dashed' }}>
+                {participantAccessLabel(false)}
+              </span>
+            )}
+          </span>
+        )}
+      </button>
     </li>
   )
 }
 
-function FilterSelect({ id, label, value, onChange, options }) {
-  return (
-    <span style={{ display: 'inline-flex', alignItems: 'center' }}>
-      <label htmlFor={id} style={srOnly}>{label}</label>
-      <select id={id} className="messages-focusable" value={value} onChange={(e) => onChange(e.target.value)} style={selectStyle}>
-        {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-      </select>
-    </span>
-  )
-}
-
-function QuickFilter({ label, count, pressed, onClick, tone = 'default' }) {
+function QuickFilter({ label, count, pressed, onClick, urgent = false }) {
+  const n = Number(count) || 0
   return (
     <button
       type="button"
       aria-pressed={pressed}
       onClick={onClick}
-      className={`messages-quick-filter messages-quick-filter--${tone} messages-focusable`}
+      className="messages-quick-filter messages-focusable"
     >
       <span>{label}</span>
-      <span aria-hidden="true" className="messages-quick-filter__count">{Number(count) || 0}</span>
-      <span style={srOnly}>{Number(count) || 0} conversations</span>
+      <span
+        aria-hidden="true"
+        className={`messages-quick-filter__count${urgent && n > 0 ? ' messages-quick-filter__count--hot' : ''}`}
+        style={urgent && n > 0 ? { background: UNREAD_BADGE_BG, color: UNREAD_BADGE_FG } : undefined}
+      >
+        {n}
+      </span>
+      <span style={srOnly}>{n} {n === 1 ? 'conversation' : 'conversations'}</span>
     </button>
   )
 }
@@ -544,7 +310,7 @@ function EmptyBlock({ icon, title, children }) {
   return (
     <div style={{ padding: '36px 20px', textAlign: 'center', color: T.muted }}>
       <div style={{ marginBottom: 8, display: 'flex', justifyContent: 'center' }}>{icon}</div>
-      <p style={{ margin: '0 0 10px', fontSize: 13, fontFamily: F }}>{title}</p>
+      <p style={{ margin: '0 0 6px', fontSize: 13.5, fontWeight: 650, color: T.text, fontFamily: F }}>{title}</p>
       {children}
     </div>
   )
@@ -554,32 +320,17 @@ const srOnly = {
   position: 'absolute', width: 1, height: 1, padding: 0, margin: -1,
   overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap', border: 0,
 }
-const attentionDot = { width: 8, height: 8, borderRadius: '50%', background: '#F59E0B', flexShrink: 0 }
-const badge = {
-  display: 'inline-flex', alignItems: 'center', gap: 3,
-  padding: '1px 6px', borderRadius: 999, fontSize: 10.5, fontWeight: 600,
-  border: `1px solid ${T.border}`, color: T.muted, fontFamily: F,
-}
-const selectStyle = {
-  height: 28, padding: '0 6px', borderRadius: 6, fontSize: 12, fontFamily: F,
-  border: `1px solid ${T.border}`, background: T.input, color: T.text, cursor: 'pointer',
-}
-const linkBtn = {
-  background: 'none', border: 'none', padding: '4px 6px', minHeight: 28,
-  fontSize: 12, color: T.accent, cursor: 'pointer', textDecoration: 'underline', fontFamily: F,
-}
-const advancedButton = {
-  display: 'inline-flex', alignItems: 'center', gap: 5, minHeight: 30,
-  padding: '0 4px', border: 0, background: 'transparent', color: T.muted,
-  cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: F,
+const countBadge = {
+  display: 'inline-flex', alignItems: 'center', flexShrink: 0,
+  padding: '1px 6px', borderRadius: 'var(--aspire-radius-pill)', fontSize: 10.5, fontWeight: 700, fontFamily: F,
 }
 const primaryBtn = {
   display: 'inline-flex', alignItems: 'center', gap: 6, minHeight: 32,
-  padding: '0 12px', borderRadius: 7, border: 'none', cursor: 'pointer',
+  padding: '0 12px', borderRadius: 'var(--aspire-radius-control)', border: 'none', cursor: 'pointer',
   background: T.accent, color: '#fff', fontSize: 12.5, fontWeight: 600, fontFamily: F,
 }
 const secondaryBtn = {
-  minHeight: 32, padding: '0 14px', borderRadius: 7, cursor: 'pointer',
+  minHeight: 32, padding: '0 14px', borderRadius: 'var(--aspire-radius-control)', cursor: 'pointer',
   border: `1px solid ${T.border}`, background: T.input, color: T.text,
   fontSize: 12.5, fontWeight: 600, fontFamily: F,
 }

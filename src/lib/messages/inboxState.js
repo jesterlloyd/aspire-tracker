@@ -1,66 +1,22 @@
 // src/lib/messages/inboxState.js
 //
-// ASPIRE MESSAGES, PHASE 4A: pure inbox state helpers. Filter serialization,
+// ASPIRE MESSAGES, PHASE 4A: pure inbox state helpers. View serialization,
 // duplicate-safe page appending, and cursor handling for the Phase 3 staff list
 // endpoint. No I/O, no React, no storage.
 
-// The inbox filter shape. 'all' means the filter is not sent to the server.
-export const DEFAULT_FILTERS = Object.freeze({
-  status: 'all',
-  assignee: 'all',   // 'all' | 'unassigned' | 'me' | <profile uuid>
-  category: 'all',   // 'all' | 'uncategorized' | <approved category>
-  flagged: 'all',    // 'all' | 'flagged' | 'not_flagged'
-});
+// MESSAGES-SIMPLIFY-1: the inbox has three views and no filters. Needs reply
+// is the default; All is every thread that is not Done; Done is reached from
+// the View done link. Search narrows whichever view is open.
+export const INBOX_VIEWS = Object.freeze(['needs_reply', 'all', 'done']);
+export const DEFAULT_VIEW = 'needs_reply';
 
-// MESSAGES-ARCHIVE-P1: the inbox list SCOPE, not a filter. 'active' | 'archived'.
-// (The server also accepts 'all', but the client picker is deliberately binary
-// and never offers it - see the workspace components.) This is kept separate
-// from DEFAULT_FILTERS on purpose: "Reset filters" narrows within the scope you
-// are looking at, it never yanks you out of the Archived view back to Active,
-// so view is excluded from filtersAreDefault and from the reset handler. It
-// still participates in queryIdentity below, so switching it starts a fresh
-// cursor chain exactly like a filter change does.
-export const DEFAULT_VIEW = 'active';
-export const DEFAULT_ATTENTION = 'all';
-
-export function filtersAreDefault(filters) {
-  return DEFAULT_FILTERS.status === filters.status
-    && DEFAULT_FILTERS.assignee === filters.assignee
-    && DEFAULT_FILTERS.category === filters.category
-    && DEFAULT_FILTERS.flagged === filters.flagged;
-}
-
-// Serialize filters, search, and cursor into the exact query the staff list
-// endpoint accepts. Only narrowing values are included, so 'all' is simply
-// omitted.
-//
-// Phase 4B Stage A: the endpoint now translates these HTTP values into the
-// explicit v2 RPC filter modes, so 'unassigned' and 'uncategorized' are real
-// server-side filters (assigned_staff_profile_id IS NULL and category IS NULL).
-// They are passed through as sentinels rather than resolved here. Nothing is
-// ever client-filtered from a partial page.
-//
-// 'me' is passed through as the sentinel string, NOT as a profile id: the server
-// resolves Me from the verified caller, so a client-supplied id is never trusted.
-//
-// MESSAGES-ARCHIVE-P1: `view` is a separate scope parameter, not a filter (see
-// DEFAULT_VIEW above). It is omitted when it is the default 'active', the same
-// "narrowing values only" convention every filter below already follows.
+// Serialize the view, search, and cursor into the exact query the staff list
+// endpoint accepts. The view is always sent, so the server never has to guess.
 export function serializeInboxQuery({
-  filters = DEFAULT_FILTERS, search = '', view = DEFAULT_VIEW,
-  attention = DEFAULT_ATTENTION, cursor = null, limit = 25,
+  search = '', view = DEFAULT_VIEW, cursor = null, limit = 25,
 } = {}) {
   const query = { limit: String(clampLimit(limit)) };
-
-  if (view && view !== DEFAULT_VIEW) query.view = view;
-  if (attention && attention !== DEFAULT_ATTENTION) query.attention = attention;
-
-  if (filters.status !== 'all') query.status = filters.status;
-  if (filters.assignee !== 'all') query.assignee = filters.assignee;
-  if (filters.category !== 'all') query.category = filters.category;
-
-  if (filters.flagged === 'flagged') query.flagged = 'true';
-  else if (filters.flagged === 'not_flagged') query.flagged = 'false';
+  query.view = INBOX_VIEWS.includes(view) ? view : DEFAULT_VIEW;
 
   const trimmed = String(search || '').trim();
   if (trimmed) query.search = trimmed;
@@ -108,17 +64,10 @@ export function normalizeCursor(cursor) {
   return { cursor_ts: d.toISOString(), cursor_id: String(id) };
 }
 
-// A filter or search change must reset pagination, so pages never interleave
-// across different server queries. MESSAGES-ARCHIVE-P1: `view` is folded in
-// here too, so switching Active/Archived also starts a fresh cursor chain, even
-// though it is not itself a "filter" (see DEFAULT_VIEW).
-export function queryIdentity({
-  filters = DEFAULT_FILTERS, search = '', view = DEFAULT_VIEW, attention = DEFAULT_ATTENTION,
-} = {}) {
-  return JSON.stringify([
-    filters.status, filters.assignee, filters.category, filters.flagged,
-    String(search || '').trim(), view, attention,
-  ]);
+// A view or search change must reset pagination, so pages never interleave
+// across different server queries.
+export function queryIdentity({ search = '', view = DEFAULT_VIEW } = {}) {
+  return JSON.stringify([view, String(search || '').trim()]);
 }
 
 // Small debounce used by the search input. Returns a cancelable function so a

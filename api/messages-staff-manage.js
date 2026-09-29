@@ -14,6 +14,10 @@
 //   archive  -> messages_set_conversation_archived (MESSAGES-ARCHIVE-P1; archive
 //                                         or unarchive for the calling staff
 //                                         profile ONLY)
+//   done     -> MESSAGES-SIMPLIFY-1: Done or Reopen, composed from the RPCs
+//               above. Done resolves the thread and clears its follow-up flag;
+//               Reopen sets it open and clears the caller's own archive. Done is
+//               shared by the whole team because status is.
 //   react    -> messages_set_message_reaction (MESSAGES-LIFECYCLE-PHASE3A-
 //                                         REACTIONS; set, replace, or remove
 //                                         the calling staff profile's OWN
@@ -31,8 +35,59 @@
 import { verifyStaffCaller, getServiceDb } from './lib/messagesAuth.js';
 import { methodGuard, readJsonBody, mapRpcError, logApiError } from './lib/messagesApi.js';
 import { isUuid, validateStatus, validateCategory } from '../lib/server/messages/validation.js';
+import { reactionAllowed, loadReactionTarget } from '../lib/server/messages/reactionRules.js';
 
-const ACTIONS = ['assign', 'status', 'category', 'flag', 'archive', 'react'];
+const ACTIONS = ['assign', 'status', 'category', 'flag', 'archive', 'react', 'done'];
+const isMissingRpc = (error) => error && (String(error.code) === 'PGRST202' || String(error.code) === '42883');
+
+// MESSAGES-SIMPLIFY-1: Done and Reopen. Each step is an existing, evented RPC,
+// and each is skipped when it would change nothing, so a repeat is harmless.
+async function setDone(db, actorId, conversationId, done) {
+  const { data: conv, error: readError } = await db
+    .from('conversations')
+    .select('id, status, follow_up_flagged')
+    .eq('id', conversationId)
+    .maybeSingle();
+  if (readError) return { error: readError };
+  if (!conv) return { error: { code: 'MS404' } };
+
+  if (done) {
+    if (conv.status !== 'resolved') {
+      const { error } = await db.rpc('messages_set_status', {
+        p_actor_profile_id: actorId, p_conversation_id: conversationId, p_status: 'resolved',
+      });
+      if (error) return { error };
+    }
+    if (conv.follow_up_flagged) {
+      const { error } = await db.rpc('messages_set_follow_up', {
+        p_actor_profile_id: actorId, p_conversation_id: conversationId, p_flagged: false,
+      });
+      if (error) return { error };
+    }
+    return { data: { conversation_id: conversationId, done: true, status: 'resolved', follow_up_flagged: false } };
+  }
+
+  if (conv.status === 'resolved') {
+    const { error } = await db.rpc('messages_set_status', {
+      p_actor_profile_id: actorId, p_conversation_id: conversationId, p_status: 'open',
+    });
+    if (error) return { error };
+  }
+  // A thread this person archived before shared Done existed is Done for them
+  // too; Reopen brings it back. Absent archive support is not an error.
+  const { error: archiveError } = await db.rpc('messages_set_conversation_archived', {
+    p_actor_profile_id: actorId, p_actor_kind: 'staff', p_conversation_id: conversationId, p_archived: false,
+  });
+  if (archiveError && !isMissingRpc(archiveError)) return { error: archiveError };
+  return {
+    data: {
+      conversation_id: conversationId,
+      done: false,
+      status: conv.status === 'resolved' ? 'open' : conv.status,
+      follow_up_flagged: conv.follow_up_flagged,
+    },
+  };
+}
 // The closed reaction set. Matches the table CHECK in the Phase 3A migration;
 // the UI cannot invent keys and neither can this endpoint.
 const LEGACY_REACTION_KEYS = ['acknowledge', 'thanks', 'celebrate'];
@@ -58,6 +113,22 @@ export default async function handler(req, res) {
   const db = getServiceDb();
   let rpc;
   let args;
+
+  if (action === 'done') {
+    if (typeof parsed.body.done !== 'boolean') return res.status(422).json({ error: 'invalid_done' });
+    try {
+      const { data, error } = await setDone(db, caller.profile.id, conversationId, parsed.body.done);
+      if (error) {
+        const mapped = mapRpcError(error);
+        logApiError('messages-staff-manage', mapped.error, error);
+        return res.status(mapped.status).json({ error: mapped.error });
+      }
+      return res.status(200).json({ action, ...data });
+    } catch (err) {
+      logApiError('messages-staff-manage', 'threw', err);
+      return res.status(500).json({ error: 'internal_error' });
+    }
+  }
 
   if (action === 'assign') {
     const assignee = parsed.body.assignee_profile_id;
@@ -104,6 +175,19 @@ export default async function handler(req, res) {
     const reaction = parsed.body.reaction;
     if (reaction !== null && reaction !== undefined && !REACTION_KEYS.includes(reaction)) {
       return res.status(422).json({ error: 'invalid_reaction' });
+    }
+    // MESSAGES-SIMPLIFY-1: staff react to participant messages only.
+    if (reaction !== null && reaction !== undefined) {
+      try {
+        const target = await loadReactionTarget(db, messageId);
+        if (!target) return res.status(404).json({ error: 'not_found' });
+        if (!reactionAllowed({ message: target, actorKind: 'staff', actorProfileId: caller.profile.id, reactionKey: reaction })) {
+          return res.status(422).json({ error: 'reaction_not_allowed' });
+        }
+      } catch (err) {
+        logApiError('messages-staff-manage', 'reaction_target_failed', err);
+        return res.status(500).json({ error: 'internal_error' });
+      }
     }
     rpc = 'messages_set_message_reaction_v2';
     args = {

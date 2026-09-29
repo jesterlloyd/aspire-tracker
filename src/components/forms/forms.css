@@ -326,6 +326,10 @@ select.fs-inline { padding: 4px 6px; cursor: pointer; }
 .fs-pending { color: var(--text-caption, var(--ctl-muted)); }
 /* A cell whose value came from a formula: a small corner mark, the formula in its tooltip. */
 .fs-grid .fs-hasfx::after { content: ''; position: absolute; top: 0; right: 0; width: 0; height: 0; border-style: solid; border-width: 0 7px 7px 0; border-color: transparent color-mix(in srgb, var(--ctl-navy) 70%, transparent) transparent transparent; pointer-events: none; }
+.fs-quick { gap: 6px; }
+.fs-quick-n { font: 600 11px var(--aspire-mono, monospace); padding: 0 6px; border-radius: var(--aspire-radius-pill); background: var(--pill-warn-bg, #FBEFD9); color: var(--pill-warn-fg, #8F5A0A); }
+.fs-quick-on { background: var(--ctl-navy); border-color: var(--ctl-navy); color: var(--ctl-on-navy); }
+.fs-quick-on .fs-quick-n { background: rgba(255, 255, 255, 0.22); color: inherit; }
 .fs-save-flash { display: inline-flex; align-items: center; gap: 4px; color: var(--ctl-green, #0E6B43); font-weight: 600; }
 .fs-file { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; border: 0; background: none; padding: 0; cursor: pointer; font: 600 13px var(--aspire-sans); color: var(--ctl-navy); text-decoration: underline; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fs-grouprow td { height: 30px; padding: 0; background: var(--fs-head) !important; }

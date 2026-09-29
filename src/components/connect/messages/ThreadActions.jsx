@@ -1,40 +1,37 @@
 // src/components/connect/messages/ThreadActions.jsx
 //
-// ASPIRE MESSAGES, PHASE 4B2B-I: the staff reply composer and the assignment,
-// status, category, and follow-up controls.
+// ASPIRE MESSAGES, PHASE 4B2B-I: the staff reply composer and the thread
+// actions. MOUNTED IN PRODUCTION inside Connect > Messages and the drawer.
 //
-// MOUNTED IN PRODUCTION inside Connect > Messages (stale 'dormant' header
-// corrected by ASPIRE-CHART).
+// MESSAGES-SIMPLIFY-1: the thread has two actions, Follow up and Done (Reopen
+// on a Done thread). The Status, Assignee and Category selects are gone; the
+// columns stay in the database and Messages no longer writes them. Every reply
+// and reaction is attributed to the signed-in user, which the composer states.
 //
 // Contracts (inspected, not invented):
 //   POST /api/messages-staff-reply  { conversation_id, body }
 //        201 { message_id, created_at, reopened }
 //        409 { error: 'conflict', reason: 'no_active_participant' }
 //   POST /api/messages-staff-manage { action, conversation_id, ... }
-//        actions: assign | status | category | flag
-//        assign   -> { assignee_profile_id: uuid | null }
-//        status   -> { status: 'open' | 'waiting' | 'resolved' }
-//        category -> { category: approved | null }
-//        flag     -> { flagged: boolean }
+//        flag -> { flagged: boolean }
+//        done -> { done: boolean }   Done resolves and clears the flag;
+//                                    Reopen sets it open.
 //        200 { action, ...data }
-//   GET  /api/messages-staff-options?kind=assignees
-//        -> { options: [{ profile_id, display_name, role, is_current_user }] }
 //
-// None of these actions sends an email: assignment, status (including
-// resolution), category, and follow-up are all silent by backend design. The
-// browser never sends notification-routing fields.
+// None of these actions sends an email.
 //
 // Privacy: the reply draft lives in component memory only. It is never written
 // to localStorage, sessionStorage, IndexedDB, or analytics, and background
 // polling never clears it.
 
 import { useState } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Flag, AlertCircle } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
+import { Flag, AlertCircle, Check, RotateCcw } from 'lucide-react'
 import {
-  MESSAGE_CATEGORIES, STAFF_STATUSES, STAFF_STATUS_LABEL,
   MESSAGE_MAX_BODY_CHARS, validateBodyValue, mapMessagesError,
 } from '../../../lib/messages/messagesConstants'
+import { isDone } from '../../../lib/messages/messagesTriage'
+import { useAuth } from '../../../contexts/AuthContext'
 import * as defaultApi from '../../../lib/messages/messagesApiClient'
 
 const F = 'Plus Jakarta Sans, sans-serif'
@@ -58,8 +55,10 @@ const T = {
 
 // ── Reply composer ──────────────────────────────────────────────────────────
 
-export function ReplyComposer({ conversationId, accessActive, api = defaultApi, announce = () => {}, onSent = () => {}, focusOnMount = false }) {
+export function ReplyComposer({ conversationId, accessActive, api = defaultApi, announce = () => {}, onSent = () => {}, focusOnMount = false, compact = false }) {
   const queryClient = useQueryClient()
+  const { userProfile } = useAuth() || {}
+  const replyingAs = userProfile?.full_name || ''
   const [body, setBody] = useState('')
   const [pending, setPending] = useState(false)
   const [error, setError] = useState(null)
@@ -112,6 +111,10 @@ export function ReplyComposer({ conversationId, accessActive, api = defaultApi, 
       )}
 
       <form onSubmit={send}>
+        <div className={`messages-composer-hint${compact ? ' messages-composer-hint--compact' : ''}`}>
+          {replyingAs && <span>Replying as <b>{replyingAs}</b></span>}
+          <span>{compact ? 'Hold a message to react.' : <>Press and hold a student&apos;s message to react.</>}</span>
+        </div>
         <label htmlFor="reply-body" style={srOnly}>Reply to this conversation</label>
         <textarea
           id="reply-body"
@@ -167,39 +170,27 @@ export function ReplyComposer({ conversationId, accessActive, api = defaultApi, 
   )
 }
 
-// ── Management controls ─────────────────────────────────────────────────────
+// ── Thread actions ──────────────────────────────────────────────────────────
 
-export function ThreadManagementControls({ conversation, api = defaultApi, announce = () => {} }) {
+export function ThreadManagementControls({ conversation, api = defaultApi, announce = () => {}, compact = false }) {
   const queryClient = useQueryClient()
-  // One action-specific pending state, so a slow assignment never blocks status.
   const [busy, setBusy] = useState(null)
   const [error, setError] = useState(null)
   const id = conversation?.id
-
-  // Eligible assignees: active Owner/Admin only, from the narrow lookup. Never a
-  // directory, and inactive or non-admin staff can never appear.
-  const { data: assigneeData } = useQuery({
-    queryKey: ['messages_assignee_options'],
-    queryFn: ({ signal }) => api.listAssigneeOptions({ signal }),
-    staleTime: 5 * 60 * 1000,
-    retry: 1,
-  })
-  const assignees = assigneeData?.options || []
+  const flagged = conversation?.follow_up_flagged === true
+  const done = isDone(conversation)
 
   const run = async (action, payload, successMessage) => {
-    // Duplicate-request guard per action.
     if (busy) return
     setBusy(action)
     setError(null)
     try {
       await api.manageStaffConversation({ action, conversation_id: id, ...payload })
-      // Invalidate only the relevant keys; search, filters, pagination, the
-      // selected conversation, and the mobile view are all untouched.
       queryClient.invalidateQueries({ queryKey: ['messages_staff_thread', id] })
       queryClient.invalidateQueries({ queryKey: ['messages_staff_list'] })
+      queryClient.invalidateQueries({ queryKey: ['messages_staff_unread'] })
       announce(successMessage)
     } catch (err) {
-      // No optimistic value was written, so the server state simply stands.
       setError(mapMessagesError(err?.status))
       queryClient.invalidateQueries({ queryKey: ['messages_staff_thread', id] })
     } finally {
@@ -207,77 +198,31 @@ export function ThreadManagementControls({ conversation, api = defaultApi, annou
     }
   }
 
-  const flagged = conversation?.follow_up_flagged === true
-
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginTop: 8 }}>
-      <Control id="mg-status" label="Status" busy={busy === 'status'}>
-        <select
-          id="mg-status"
-          className="messages-focusable"
-          value={conversation?.status || 'open'}
-          disabled={busy === 'status'}
-          onChange={(e) => run('status', { status: e.target.value }, `Status set to ${STAFF_STATUS_LABEL[e.target.value]}.`)}
-          style={select}
-        >
-          {STAFF_STATUSES.map((s) => <option key={s} value={s}>{STAFF_STATUS_LABEL[s]}</option>)}
-        </select>
-      </Control>
-
-      <Control id="mg-assignee" label="Assignee" busy={busy === 'assign'}>
-        <select
-          id="mg-assignee"
-          className="messages-focusable"
-          value={conversation?.assigned_staff_profile_id || ''}
-          disabled={busy === 'assign'}
-          onChange={(e) => {
-            const option = e.target.options[e.target.selectedIndex]
-            run('assign', { assignee_profile_id: e.target.value || null },
-              e.target.value ? `Assigned to ${option.text.replace(' (me)', '')}.` : 'Set to Unassigned.')
-          }}
-          style={{ ...select, ...(!conversation?.assigned_staff_profile_id ? unassignedSelect : null) }}
-        >
-          <option value="">Unassigned</option>
-          {assignees.map((a) => (
-            <option key={a.profile_id} value={a.profile_id}>
-              {a.is_current_user ? `${a.display_name} (me)` : a.display_name}
-            </option>
-          ))}
-        </select>
-      </Control>
-
-      <Control id="mg-category" label="Category" busy={busy === 'category'}>
-        <select
-          id="mg-category"
-          className="messages-focusable"
-          value={conversation?.category || ''}
-          disabled={busy === 'category'}
-          onChange={(e) => run('category', { category: e.target.value || null },
-            e.target.value ? `Category set to ${e.target.value}.` : 'Category cleared.')}
-          style={select}
-        >
-          <option value="">Uncategorized</option>
-          {MESSAGE_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-        </select>
-      </Control>
-
+    <div className={`messages-thread-actions${compact ? ' messages-thread-actions--compact' : ''}`}>
+      {/* MESSAGES-REFINE-2: in the compact header Follow up is its flag alone;
+          its name is still its accessible name and its tooltip. */}
       <button
         type="button"
-        className="messages-focusable"
+        className={`messages-action-btn messages-focusable${flagged ? ' messages-action-btn--flag-on' : ''}${compact ? ' messages-action-btn--icon' : ''}`}
         disabled={busy === 'flag'}
         aria-pressed={flagged}
+        aria-label={compact ? (flagged ? 'Following up' : 'Follow up') : undefined}
+        title={compact ? (flagged ? 'Following up' : 'Follow up') : undefined}
         onClick={() => run('flag', { flagged: !flagged }, flagged ? 'Follow up cleared.' : 'Marked for follow up.')}
-        style={{
-          ...toggleBtn,
-          background: flagged ? '#F59E0B' : T.input,
-          borderColor: flagged ? '#D97706' : T.border,
-          color: flagged ? '#241600' : T.text,
-        }}
       >
-        <Flag size={11} aria-hidden="true" />
-        Follow up{flagged ? ': on' : ''}
+        <Flag size={14} fill={flagged ? 'currentColor' : 'none'} aria-hidden="true" />
+        {!compact && (flagged ? 'Following up' : 'Follow up')}
       </button>
-
+      <button
+        type="button"
+        className="messages-action-btn messages-action-btn--primary messages-focusable"
+        disabled={busy === 'done'}
+        onClick={() => run('done', { done: !done }, done ? 'Reopened.' : 'Marked done.')}
+      >
+        {done ? <RotateCcw size={14} aria-hidden="true" /> : <Check size={14} aria-hidden="true" />}
+        {done ? 'Reopen' : 'Done'}
+      </button>
       {error && (
         <span role="alert" style={{ fontSize: 11.5, color: T.danger, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
           <AlertCircle size={12} aria-hidden="true" /> {error}
@@ -287,32 +232,9 @@ export function ThreadManagementControls({ conversation, api = defaultApi, annou
   )
 }
 
-function Control({ id, label, busy, children }) {
-  return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-      <label htmlFor={id} style={srOnly}>{label}</label>
-      {children}
-      {busy && <span style={{ fontSize: 10.5, color: T.muted }} role="status">Saving</span>}
-    </span>
-  )
-}
-
 const srOnly = {
   position: 'absolute', width: 1, height: 1, padding: 0, margin: -1,
   overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap', border: 0,
-}
-const select = {
-  minHeight: 30, padding: '0 6px', borderRadius: 6, fontSize: 12, fontFamily: F,
-  border: `1px solid ${T.border}`, background: T.input, color: T.text, cursor: 'pointer',
-  maxWidth: 190,
-}
-const unassignedSelect = {
-  border: '1.5px solid #B3282D', color: '#B3282D', fontWeight: 700,
-}
-const toggleBtn = {
-  display: 'inline-flex', alignItems: 'center', gap: 4, minHeight: 30,
-  padding: '0 10px', borderRadius: 999, cursor: 'pointer',
-  border: `1px solid ${T.border}`, fontSize: 11.5, fontWeight: 600, fontFamily: F,
 }
 const primaryBtn = {
   minHeight: 34, padding: '0 14px', borderRadius: 7, border: 'none', cursor: 'pointer',

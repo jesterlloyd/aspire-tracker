@@ -22,70 +22,44 @@ const inbox = read('../src/components/connect/messages/MessagesInbox.jsx')
 const connect = read('../src/pages/Connect.jsx')
 const app = read('../src/App.jsx')
 
-test('staff-list API uses the applied v2 RPC', async (t) => {
-  await t.test('calls messages_staff_list_conversations_v2, not the Phase 3 function', () => {
-    assert.match(api, /db\.rpc\('messages_staff_list_conversations_v2'/)
+// MESSAGES-SIMPLIFY-1 (20261014000000) replaced the status, assignee and
+// category filter modes with three views. These tests pin that contract; the
+// filter-mode assertions they replace described controls that no longer exist.
+test('staff-list API: three views on the v5 RPC, v4 as the code-first fallback', async (t) => {
+  await t.test('calls messages_staff_list_conversations_v5 first, then v4 when it is missing', () => {
+    assert.match(api, /db\.rpc\('messages_staff_list_conversations_v5', \{ \.\.\.base, p_view: view \}\)/)
+    assert.match(api, /db\.rpc\('messages_staff_list_conversations_v4'/)
     assert.doesNotMatch(apiCode, /db\.rpc\('messages_staff_list_conversations'/)
   })
 
-  await t.test('passes the explicit mode parameters', () => {
-    for (const p of ['p_assignee_mode', 'p_assignee_profile_id', 'p_category_mode',
-      'p_category', 'p_status', 'p_flagged', 'p_search', 'p_limit', 'p_cursor_ts', 'p_cursor_id']) {
-      assert.ok(api.includes(p), `missing RPC parameter ${p}`)
-    }
-    // The old ambiguous single assignee parameter is gone.
-    assert.doesNotMatch(apiCode, /p_assignee:/)
+  await t.test('accepts needs_reply, all and done, and reads active/archived as all/done', () => {
+    assert.match(api, /const VIEWS = \['needs_reply', 'all', 'done'\]/)
+    assert.match(api, /const LEGACY_VIEW_NAMES = \{ active: 'all', archived: 'done' \}/)
+    assert.match(api, /invalid_view/)
+  })
+
+  await t.test('the fallback maps each view onto v4 without any narrowing filter', () => {
+    assert.match(api, /p_assignee_mode: 'any'/)
+    assert.match(api, /p_category_mode: 'any'/)
+    assert.match(api, /p_view: view === 'done' \? 'archived' : 'active'/)
+    assert.match(api, /p_attention: view === 'needs_reply' \? 'needs_reply' : 'all'/)
   })
 
   await t.test('still requires an active Owner or Admin and never uses is_staff', () => {
     assert.match(api, /verifyStaffCaller\(req\)/)
     assert.doesNotMatch(apiCode, /is_staff/)
   })
-})
 
-test('assignee filter modes', async (t) => {
-  await t.test('all maps to any', () => {
-    assert.match(api, /let assigneeMode = 'any'/)
-    assert.match(api, /req\.query\?\.assignee && req\.query\.assignee !== 'all'/)
-  })
-
-  await t.test('unassigned maps to the unassigned mode', () => {
-    assert.match(api, /req\.query\.assignee === 'unassigned'\) \{\s*\n\s*assigneeMode = 'unassigned'/)
-  })
-
-  await t.test('me maps to specific plus the SERVER-VERIFIED caller profile', () => {
-    assert.match(api, /req\.query\.assignee === 'me'\) \{\s*\n\s*assigneeMode = 'specific';\s*\n\s*assigneeProfileId = caller\.profile\.id/)
-    // A client-supplied id must never resolve Me.
-    assert.doesNotMatch(apiCode, /assigneeProfileId = req\.query\.assignee;\s*\n\s*\}\s*else if.*'me'/s)
-  })
-
-  await t.test('a selected assignee maps to specific with a validated uuid', () => {
-    assert.match(api, /if \(!isUuid\(req\.query\.assignee\)\) return res\.status\(422\)\.json\(\{ error: 'invalid_assignee' \}\)/)
-    assert.match(api, /assigneeMode = 'specific';\s*\n\s*assigneeProfileId = req\.query\.assignee/)
-  })
-})
-
-test('category filter modes', async (t) => {
-  await t.test('all maps to any', () => {
-    assert.match(api, /let categoryMode = 'any'/)
-    assert.match(api, /req\.query\?\.category && req\.query\.category !== 'all'/)
-  })
-
-  await t.test('uncategorized maps to the uncategorized mode', () => {
-    assert.match(api, /req\.query\.category === 'uncategorized'\) \{\s*\n\s*categoryMode = 'uncategorized'/)
-  })
-
-  await t.test('an approved category maps to specific and is validated', () => {
-    assert.match(api, /const v = validateCategory\(req\.query\.category\)/)
-    assert.match(api, /if \(!v\.ok\) return res\.status\(422\)\.json\(\{ error: v\.error \}\)/)
-    assert.match(api, /categoryMode = 'specific';\s*\n\s*category = v\.value/)
+  await t.test('no request can set a status, assignee, category or follow-up filter', () => {
+    for (const q of ['req.query?.assignee', 'req.query?.category', 'req.query?.status', 'req.query?.flagged', 'req.query?.attention']) {
+      assert.ok(!apiCode.includes(q), `the list endpoint still reads ${q}`)
+    }
   })
 })
 
 test('validation, errors, and pagination', async (t) => {
-  await t.test('malformed filters are rejected with 422', () => {
-    assert.match(api, /invalid_assignee/)
-    assert.match(api, /invalid_flagged/)
+  await t.test('a malformed view, limit or cursor is rejected with 422', () => {
+    assert.match(api, /invalid_view/)
     assert.match(api, /invalid_limit|limit\.error/)
     assert.match(api, /cursor\.error/)
   })
@@ -104,9 +78,11 @@ test('validation, errors, and pagination', async (t) => {
     assert.doesNotMatch(apiCode, /offset/i)
   })
 
-  await t.test('the response contract is unchanged for existing callers', () => {
+  await t.test('the response carries the rows, the cursor, the view and the three counts', () => {
     assert.match(api, /conversations,\s*\n\s*next_cursor:/)
     assert.match(api, /data\?\.conversations \|\| \[\]/)
+    assert.match(api, /simplify_available: simplifyAvailable/)
+    assert.match(api, /counts: \{ needs_reply: data\.counts\.needs_reply, all: data\.counts\.active, done: null \}/)
   })
 })
 
@@ -117,17 +93,15 @@ test('the browser never reaches the RPC directly', async (t) => {
     assert.doesNotMatch(strip(client), /messages_staff_list_conversations/)
   })
 
-  await t.test('the inbox sends sentinels, not a resolved profile id, for Me', () => {
-    assert.match(inboxState, /if \(filters\.assignee !== 'all'\) query\.assignee = filters\.assignee/)
-    assert.match(inboxState, /if \(filters\.category !== 'all'\) query\.category = filters\.category/)
-    // No client-only filtering remains: both are real server filters now.
+  await t.test('the inbox sends only a view, search and cursor', () => {
+    assert.match(inboxState, /query\.view = INBOX_VIEWS\.includes\(view\) \? view : DEFAULT_VIEW/)
+    assert.doesNotMatch(strip(inboxState), /query\.(assignee|category|status|flagged)/)
     assert.doesNotMatch(strip(inboxState), /clientOnly/)
   })
 
-  await t.test('the inbox offers Unassigned and Uncategorized now that v2 supports them', () => {
-    assert.match(inbox, /\{ value: 'unassigned', label: 'Unassigned' \}/)
-    assert.match(inbox, /\{ value: 'uncategorized', label: 'Uncategorized' \}/)
-    assert.match(inbox, /\{ value: 'me', label: 'Me' \}/)
+  await t.test('the inbox offers no assignee, category or status control', () => {
+    assert.doesNotMatch(inbox, /'unassigned'|'uncategorized'|label: 'Me'/)
+    assert.doesNotMatch(inbox, /<select/)
   })
 })
 

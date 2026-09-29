@@ -19,14 +19,20 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
-import { MESSAGE_REACTIONS, LEGACY_MESSAGE_REACTIONS, reactionByKey, applyOptimisticReaction } from '../src/lib/messages/reactionConstants.js'
+import {
+  MESSAGE_REACTIONS, LEGACY_MESSAGE_REACTIONS, reactionByKey, applyOptimisticReaction,
+  applyOptimisticReactors, reactionSentences, reactionBadgeContent,
+} from '../src/lib/messages/reactionConstants.js'
+import { canReactTo } from '../src/lib/messages/messagesTriage.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const read = (p) => readFileSync(join(here, '..', p), 'utf8')
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '')
 
 const reactionConstantsSrc = read('src/lib/messages/reactionConstants.js')
-const messageReactions = read('src/components/shared/MessageReactions.jsx')
+// MESSAGES-SIMPLIFY-1: the trigger hook lives beside the component (fast
+// refresh wants component files to export components only); read as one.
+const messageReactions = read('src/components/shared/MessageReactions.jsx') + '\n' + read('src/components/shared/useReactionTrigger.js')
 const messageBubble = read('src/components/shared/MessageBubble.jsx')
 const staffWorkspace = read('src/components/connect/messages/MessagesWorkspace.jsx')
 const portalThread = read('src/portal/messages/PortalMessagesThread.jsx')
@@ -96,60 +102,106 @@ test('applyOptimisticReaction: local merge matches the one-reaction-per-caller r
   })
 })
 
-test('MessageReactions: accessible chip and add-reaction affordances', async (t) => {
-  await t.test('chips are real buttons using aria-pressed, never color alone', () => {
-    assert.match(messageReactions, /aria-pressed=\{mine\}/)
-    assert.match(messageReactions, /className=\{`msg-reaction-chip\$\{mine \? ' msg-reaction-chip-mine' : ''\}`\}/)
-  })
-
-  await t.test('chip accessible name matches the approved pattern, singular and plural', () => {
-    assert.match(messageReactions, /\$\{def\.label\}, \$\{r\.count\} reaction\$\{r\.count === 1 \? '' : 's'\}\$\{mine \? ', including yours' : ''\}/)
-  })
-
-  await t.test('the trigger has the exact accessible name "Add reaction" and opens a real menu', () => {
-    assert.match(messageReactions, /aria-label="Add reaction"/)
-    assert.match(messageReactions, /aria-haspopup="menu"/)
-    assert.match(messageReactions, /role="menu"/)
-  })
-
-  await t.test('menu options show emoji only while labels remain available to hover, focus, and assistive technology', () => {
-    assert.match(messageReactions, /msg-reaction-option-glyph/)
-    assert.doesNotMatch(messageReactions, /msg-reaction-option-label/)
-    assert.match(messageReactions, /data-tooltip=\{def\.label\}/)
-    assert.match(messageReactions, /aria-label=\{checked \? `Remove /)
-    assert.match(messageReactions, /reaction` : `React /)
-  })
-
-  await t.test('the current reaction is marked in the menu via aria-checked, and selecting it removes it', () => {
-    assert.match(messageReactions, /role="menuitemradio"/)
-    assert.match(messageReactions, /aria-checked=\{checked\}/)
-    assert.match(messageReactions, /const next = key === mineKey \? null : key/)
-  })
-
-  await t.test('every rendered reaction key is defensively checked against the allowlist', () => {
-    assert.match(messageReactions, /reactionByKey\(r\.key\)/)
-    assert.match(messageReactions, /r && reactionByKey\(r\.key\) && r\.count > 0/)
-  })
-
-  await t.test('the popover follows the RowActionsMenu interaction shape: portal, Escape, outside click, focus return, arrow keys', () => {
-    assert.match(messageReactions, /createPortal\(/)
-    assert.match(messageReactions, /document\.body/)
-    assert.match(messageReactions, /event\.key === 'Escape'/)
-    assert.match(messageReactions, /document\.addEventListener\('mousedown', onPointerDown, true\)/)
-    assert.match(messageReactions, /btnRef\.current\?\.focus\(\)/)
-    assert.match(messageReactions, /ArrowDown.*ArrowUp|ArrowUp.*ArrowDown/s)
-  })
-
-  await t.test('no long-press, no double-tap, no hover-only affordance', () => {
+// MESSAGES-SIMPLIFY-1 (20261014000000): reactions are iMessage style. The
+// always-visible add button and the chips under the bubble are gone; a long
+// press, a right-click or Enter opens a bar, and a corner badge shows what was
+// picked. These replace the chip-and-menu assertions.
+test('MessageReactions: long press, right-click and keyboard open the bar', async (t) => {
+  await t.test('a 450 ms press opens it; moving more than 8 px or releasing early cancels it', () => {
+    assert.match(messageReactions, /export const LONG_PRESS_MS = 450/)
+    assert.match(messageReactions, /export const LONG_PRESS_SLOP_PX = 8/)
+    assert.match(messageReactions, /onPointerDown:/)
+    assert.match(messageReactions, /Math\.hypot\(e\.clientX - start\.x, e\.clientY - start\.y\) > LONG_PRESS_SLOP_PX\) cancelPress\(\)/)
+    assert.match(messageReactions, /onPointerUp: cancelPress/)
+    assert.match(messageReactions, /onPointerCancel: cancelPress/)
+    // Pointer events, not touch events. MESSAGES-REFINE-2's one exception: while
+    // a long press slides across the bar, a non-passive touchmove stops the
+    // thread from scrolling under the finger. Nothing else listens for touch.
     const code = strip(messageReactions)
-    assert.doesNotMatch(code, /onDoubleClick/)
-    assert.doesNotMatch(code, /long[\s\S]{0,20}press/i)
-    assert.doesNotMatch(code, /onTouchStart|onTouchEnd|onTouchMove|touchstart|touchend|touchmove/i)
-    assert.doesNotMatch(code, /:hover\s*\{[^}]*display:\s*(none|block)/i)
+    assert.doesNotMatch(code, /onTouchStart|onTouchEnd|onTouchMove|touchstart|touchend/i)
+    assert.equal((code.match(/touchmove/g) || []).length, 2, 'one add and one remove of the slide guard')
+    assert.match(code, /addEventListener\('touchmove', noScroll, \{ capture: true, passive: false \}\)/)
   })
 
-  await t.test('disabled propagates to both the chips and the trigger while a request is in flight', () => {
-    assert.match(messageReactions, /disabled=\{disabled\}/)
+  await t.test('right-click opens the bar and suppresses the browser menu only on the bubble', () => {
+    assert.match(messageReactions, /onContextMenu: \(e\) => \{\s*\n\s*e\.preventDefault\(\)/)
+    assert.doesNotMatch(strip(messageReactions), /document\.addEventListener\('contextmenu'/)
+  })
+
+  await t.test('the bubble is focusable; Enter or Space opens the bar', () => {
+    assert.match(messageReactions, /tabIndex: 0/)
+    assert.match(messageReactions, /e\.key === 'Enter' \|\| e\.key === ' '/)
+  })
+
+  await t.test('the bar is a toolbar: arrows move, Escape closes and returns focus to the bubble', () => {
+    assert.match(messageReactions, /role="toolbar"/)
+    assert.match(messageReactions, /aria-label="Reactions"/)
+    assert.match(messageReactions, /e\.key === 'ArrowRight'/)
+    assert.match(messageReactions, /e\.key === 'ArrowLeft'/)
+    assert.match(messageReactions, /e\.key === 'Escape'\) \{ e\.preventDefault\(\); e\.stopPropagation\(\); onClose\(true\)/)
+    assert.match(messageReactions, /if \(returnFocus\) bubbleRef\.current\?\.focus\(\)/)
+  })
+
+  await t.test('an outside click closes it; it opens above, flips below, and stays in the viewport', () => {
+    assert.match(messageReactions, /document\.addEventListener\('pointerdown', onPointerDown, true\)/)
+    assert.match(messageReactions, /let top = r\.top - GAP - h/)
+    assert.match(messageReactions, /if \(top < EDGE\) \{\s*\n\s*top = r\.bottom \+ GAP/)
+    assert.match(messageReactions, /Math\.max\(EDGE, Math\.min\(left, vw - w - EDGE\)\)/)
+  })
+
+  await t.test('the current reaction is aria-pressed, and picking it again removes it', () => {
+    assert.match(messageReactions, /aria-pressed=\{on\}/)
+    assert.match(messageReactions, /const next = key === mineKey \? null : key/)
+    assert.match(messageReactions, /'Removed reaction'/)
+    assert.match(messageReactions, /`Reacted \$\{reactionByKey\(key\)\?\.label/)
+  })
+
+  await t.test('no always-visible add button and no chips remain', () => {
+    assert.doesNotMatch(messageReactions, /msg-reaction-add|msg-reaction-chip|SmilePlus|Add reaction/)
+  })
+})
+
+test('the corner badge', async (t) => {
+  await t.test('shows up to three distinct emoji, most used first, and the total when above one', () => {
+    const one = reactionBadgeContent({ reactions: [{ key: 'acknowledge', count: 1, mine: true }] })
+    assert.deepEqual(one, { glyphs: ['👍'], total: 1 })
+    const many = reactionBadgeContent({ reactions: [
+      { key: 'thanks', count: 1 }, { key: 'acknowledge', count: 3 }, { key: 'warm', count: 1 }, { key: 'celebrate', count: 2 },
+    ] })
+    assert.deepEqual(many.glyphs, ['👍', '🎉', '🙏'])
+    assert.equal(many.total, 7)
+    assert.match(messageReactions, /\{total > 1 && <span aria-hidden="true" className="msg-reaction-badge__count">\{total\}<\/span>\}/)
+  })
+
+  await t.test('says who reacted: You, a first name, or Reacted when the portal hides names', () => {
+    const staffView = { reactors: [
+      { key: 'acknowledge', profile_id: 'me', name: 'Jester Lloyd Bautista', is_staff: true },
+      { key: 'thanks', profile_id: 'k', name: 'Krystal Rodriguez', is_staff: true },
+    ] }
+    assert.deepEqual(reactionSentences(staffView, 'me'), ['You reacted Got it', 'Krystal reacted Thanks'])
+    const portalView = { reactions: [{ key: 'acknowledge', count: 2, mine: true }] }
+    assert.deepEqual(reactionSentences(portalView), ['You reacted Got it', 'Reacted Got it'])
+  })
+
+  await t.test('the badge shows emoji only and carries the names in its label and hover title', () => {
+    assert.match(messageReactions, /role="img"\s*\n\s*aria-label=\{label\}\s*\n\s*title=\{label\}/)
+  })
+
+  await t.test('the optimistic reactor list follows the same one-per-person rule', () => {
+    const viewer = { id: 'me', full_name: 'Jester Lloyd Bautista' }
+    const before = [{ key: 'thanks', profile_id: 'me', name: 'Jester Lloyd Bautista', is_staff: true }]
+    assert.deepEqual(applyOptimisticReactors(before, viewer, 'acknowledge').map((r) => r.key), ['acknowledge'])
+    assert.deepEqual(applyOptimisticReactors(before, viewer, null), [])
+  })
+})
+
+test('who may react', async (t) => {
+  await t.test('staff react to participant messages, participants to staff messages, nobody to their own', () => {
+    assert.equal(canReactTo({ author_role: 'student' }, 'staff'), true)
+    assert.equal(canReactTo({ author_role: 'staff' }, 'staff'), false)
+    assert.equal(canReactTo({ author_type: 'staff' }, 'portal'), true)
+    assert.equal(canReactTo({ author_type: 'me' }, 'portal'), false)
+    assert.equal(canReactTo({ author_role: 'system' }, 'staff'), false)
   })
 })
 
@@ -158,24 +210,38 @@ test('MessageBubble: reactions render only behind the opt-in prop', async (t) =>
     assert.match(messageBubble, /reactionsEnabled = false,/)
   })
 
-  await t.test('MessageReactions is imported and gated on reactionsEnabled', () => {
-    assert.match(messageBubble, /import MessageReactions from '\.\/MessageReactions'/)
-    assert.match(messageBubble, /\{reactionsEnabled && \(/)
-    const gate = messageBubble.slice(messageBubble.indexOf('{reactionsEnabled && ('), messageBubble.indexOf('{reactionsEnabled && (') + 200)
-    assert.match(gate, /<MessageReactions/)
+  await t.test('the badge, bar and trigger come from MessageReactions and are gated', () => {
+    assert.match(messageBubble, /import \{ ReactionBadge, ReactionBar \} from '\.\/MessageReactions'/)
+    assert.match(messageBubble, /import \{ useReactionTrigger \} from '\.\/useReactionTrigger'/)
+    assert.match(messageBubble, /const canReact = reactionsEnabled && !neutral && canReactTo\(message, perspective\)/)
+    assert.match(messageBubble, /useReactionTrigger\(\{ enabled: canReact \}\)/)
+    assert.match(messageBubble, /\{reactionsEnabled && \(\s*\n\s*<ReactionBadge/)
   })
 
-  await t.test('reactions render after the body div, inside the bubble div, and the pinned body line is untouched', () => {
+  await t.test('the badge sits on the top outer corner: right for incoming, left for outgoing', () => {
+    assert.match(messageBubble, /side=\{outgoing \? 'left' : 'right'\}/)
+    assert.match(globalCss, /\.msg-reaction-badge--right \{ right: -12px;/)
+    assert.match(globalCss, /\.msg-reaction-badge--left \{ left: -12px; \}/)
+    assert.match(globalCss, /\.msg-reaction-badge \{\s*\n\s*position: absolute;\s*\n\s*top: -12px;/)
+  })
+
+  await t.test("a reactable bubble's accessible name has the sender, the text and the hint", () => {
+    assert.match(messageBubble, /`Message from \$\{displayName\}, sent \$\{fullTime\}: \$\{message\?\.body \|\| ''\}\. Press Enter to react\.`/)
+  })
+
+  await t.test('the pinned body line is untouched, and the badge renders after it', () => {
     assert.match(messageBubble, /<div className=\{`msg-bubble-body \$\{bodyClassName\}`\}>\{message\?\.body\}<\/div>/)
-    const bodyIdx = messageBubble.indexOf('msg-bubble-body')
-    const reactionsIdx = messageBubble.indexOf('{reactionsEnabled && (')
-    assert.ok(reactionsIdx > bodyIdx, 'reactions must be rendered after the body div')
+    assert.ok(messageBubble.indexOf('<ReactionBadge') > messageBubble.indexOf('msg-bubble-body'))
   })
 
-  await t.test('onSetReaction and reactionsDisabled are threaded through, both optional', () => {
+  await t.test('onSetReaction, reactionsDisabled and the version reach the bar', () => {
     assert.match(messageBubble, /onSetReaction,/)
     assert.match(messageBubble, /reactionsDisabled = false,/)
-    assert.match(messageBubble, /onSetReaction=\{onSetReaction\}[\s\S]{0,100}disabled=\{reactionsDisabled\}[\s\S]{0,100}reactionSetVersion=\{reactionSetVersion\}/)
+    assert.match(messageBubble, /onSetReaction=\{onSetReaction\}[\s\S]{0,120}disabled=\{reactionsDisabled\}[\s\S]{0,100}reactionSetVersion=\{reactionSetVersion\}/)
+  })
+
+  await t.test('changes are announced in a polite live region', () => {
+    assert.match(messageBubble, /<span className="msg-reaction-live" role="status" aria-live="polite">\{announcement\}<\/span>/)
   })
 })
 
@@ -190,14 +256,14 @@ test('staff workspace: wires setMessageReaction and reactions_available', async 
   })
 
   await t.test('a duplicate request for the same message is prevented while one is in flight', () => {
-    const fn = staffWorkspace.slice(staffWorkspace.indexOf('const setReaction = useCallback'), staffWorkspace.indexOf('const setReaction = useCallback') + 2200)
+    const fn = staffWorkspace.slice(staffWorkspace.indexOf('const setReaction = useCallback'), staffWorkspace.indexOf('const setReaction = useCallback') + 3400)
     assert.match(fn, /reactionBusyRef\.current\.has\(messageId\)\) return/)
     assert.match(fn, /reactionBusyRef\.current\.add\(messageId\)/)
     assert.match(fn, /reactionBusyRef\.current\.delete\(messageId\)/)
   })
 
   await t.test('optimistic update writes to the exact thread query key, then reconciles or reverts', () => {
-    const fn = staffWorkspace.slice(staffWorkspace.indexOf('const setReaction = useCallback'), staffWorkspace.indexOf('const setReaction = useCallback') + 2200)
+    const fn = staffWorkspace.slice(staffWorkspace.indexOf('const setReaction = useCallback'), staffWorkspace.indexOf('const setReaction = useCallback') + 3400)
     assert.match(fn, /const threadQueryKey = \['messages_staff_thread', conversationId\]/)
     assert.match(fn, /applyOptimisticReaction\(/)
     assert.match(fn, /queryClient\.setQueryData\(threadQueryKey, previous\)/)
@@ -249,33 +315,33 @@ test('portal thread: wires portalSetMessageReaction and reactions_available', as
   })
 })
 
-test('CSS: msg-reaction- classes exist in both stylesheets that style the bubbles', async (t) => {
-  await t.test('src/index.css defines the base chip, add-reaction, and popover rules', () => {
-    assert.match(globalCss, /\.msg-reaction-row \{/)
-    assert.match(globalCss, /\.msg-reaction-chip \{/)
-    assert.match(globalCss, /\.msg-reaction-chip-mine \{/)
-    assert.match(globalCss, /\.msg-reaction-add \{/)
-    assert.match(globalCss, /\.msg-reaction-menu \{/)
+test('CSS: the badge and bar live once in src/index.css', async (t) => {
+  await t.test('src/index.css defines the badge, the bar and its options', () => {
+    assert.match(globalCss, /\.msg-reaction-badge \{/)
+    assert.match(globalCss, /\.msg-reaction-bar \{/)
     assert.match(globalCss, /\.msg-reaction-option \{/)
+    assert.match(globalCss, /\.msg-reaction-option\[aria-pressed='true'\] \{ background: var\(--messages-reaction-picked/)
   })
 
-  await t.test('the caller-owned chip is the only filled/accent variant, and uses the shared accent token', () => {
-    const block = globalCss.slice(globalCss.indexOf('.msg-reaction-chip-mine {'), globalCss.indexOf('.msg-reaction-chip-mine {') + 200)
-    assert.match(block, /var\(--color-accent-primary, #1D2567\)/)
-  })
-
-  await t.test('a focus-visible ring is defined for every new interactive element', () => {
-    assert.match(globalCss, /\.msg-reaction-chip:focus-visible \{/)
-    assert.match(globalCss, /\.msg-reaction-add:focus-visible \{/)
+  await t.test('every option is a 44px target with a visible focus ring, and the bubble has one too', () => {
+    const block = globalCss.slice(globalCss.indexOf('.msg-reaction-option {'), globalCss.indexOf('.msg-reaction-option {') + 300)
+    assert.match(block, /width: 44px;/)
+    assert.match(block, /height: 44px;/)
     assert.match(globalCss, /\.msg-reaction-option:focus-visible \{/)
+    assert.match(globalCss, /\.msg-bubble-reactable:focus-visible \{/)
   })
 
-  await t.test('a 44px minimum touch target is defined for narrow layouts', () => {
-    assert.match(globalCss, /@media \(max-width: 760px\) \{[\s\S]*\.msg-reaction-chip, \.msg-reaction-add \{ min-height: 44px; min-width: 44px; \}/)
+  await t.test('the pop animation runs only without a reduced-motion preference', () => {
+    assert.match(globalCss, /@media \(prefers-reduced-motion: no-preference\) \{\s*\n\s*\.msg-reaction-bar \{ animation:/)
   })
 
-  await t.test('src/portal/portal.css also carries msg-reaction- rules for the portal mobile layout', () => {
-    assert.match(portalCss, /\.msg-reaction-chip, \.msg-reaction-add \{ min-height: 44px; min-width: 44px; \}/)
+  await t.test('the iOS callout and selection are suppressed during the press only', () => {
+    assert.match(globalCss, /\.msg-bubble-pressing,\s*\n\.msg-bubble-pressing \* \{[^}]*-webkit-touch-callout: none;[^}]*user-select: none;/)
+  })
+
+  await t.test('the retired chip rules are gone from both stylesheets', () => {
+    assert.doesNotMatch(globalCss, /\.msg-reaction-chip|\.msg-reaction-add/)
+    assert.doesNotMatch(portalCss, /\.msg-reaction-chip|\.msg-reaction-add/)
   })
 
   await t.test('no new rule disturbs the pinned legacy .ptl-msg-item slice', () => {
@@ -291,9 +357,11 @@ test('hygiene', async (t) => {
     }
   })
 
-  await t.test('no touch or gesture handler was added anywhere', () => {
+  await t.test('no touch or gesture handler was added anywhere (bar the slide guard)', () => {
     for (const [name, src] of Object.entries(allChanged)) {
-      assert.doesNotMatch(src, /onTouchStart|onTouchMove|onTouchEnd|touchstart|touchmove|touchend|Swipe|swipe/i, `${name} must not add gesture code`)
+      // The reaction bar's touchmove guard is the pinned exception (see above).
+      const scan = name === 'messageReactions' ? src.replace(/'touchmove'/g, '') : src
+      assert.doesNotMatch(scan, /onTouchStart|onTouchMove|onTouchEnd|touchstart|touchmove|touchend|Swipe|swipe/i, `${name} must not add gesture code`)
     }
   })
 

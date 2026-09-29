@@ -55,7 +55,8 @@ test('endpoint: v2 RPC integration', async (t) => {
 
   await t.test('the staff thread endpoint and RPC are unchanged', () => {
     assert.match(staffThread, /messages_staff_get_thread_v2/)
-    assert.match(read('../api/messages-staff-list.js'), /messages_staff_list_conversations_v2/)
+    // MESSAGES-SIMPLIFY-1 moved the staff list to v5 with a v4 fallback.
+    assert.match(read('../api/messages-staff-list.js'), /messages_staff_list_conversations_v5/)
   })
 
   await t.test('no parallel portal thread endpoint was created', () => {

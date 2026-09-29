@@ -9,7 +9,8 @@
 // actorEmail, so recentActivityModel can drop the viewer's own):
 //   signed      sig_requests.completed_at            (last signer: sig_request_signers.user_profile_id + email)
 //   form        form_submissions.submitted_at         (form_assignments.email, the person the link went to)
-//   resolved    conversations.resolved_at            (conversation_events.actor_profile_id)
+//   resolved    conversations.resolved_at            (conversation_events.actor_profile_id;
+//                                                    lib/server/homeDoneThreads.js)
 //   assessment  evaluation_assignments.completed_at  (respondent_email)
 //   outreach    notification_log bulk_message_sent   (metadata.sent_by_email, written by the bulk send)
 //
@@ -23,6 +24,7 @@ import { createClient } from '@supabase/supabase-js'
 import process from 'node:process'
 import { verifyStaffCaller } from './lib/messagesAuth.js'
 import { populationDb, populationOf, narrowSendLog } from '../lib/server/demoScope.js'
+import { readDoneThreads } from '../lib/server/homeDoneThreads.js'
 
 const WINDOW_MS = 24 * 3600000
 const LIMIT = 40
@@ -102,36 +104,7 @@ export default async function handler(req, res) {
     })
 
     await tryRead('resolved', async () => {
-      const { data: raw, error } = await db.from('conversations')
-        .select('id, subject, participant_name, resolved_at, student_id')
-        .eq('status', 'resolved').gte('resolved_at', since).order('resolved_at', { ascending: false }).limit(LIMIT)
-      if (error) throw error
-      // conversations has no is_demo: a thread belongs to its student's population. The
-      // students read goes through the scoped client, so an id it does not return is the
-      // other population's. A thread naming no student is real.
-      const sids = [...new Set((raw || []).map(r => r.student_id).filter(Boolean))]
-      const { data: inPop } = sids.length ? await db.from('students').select('id').in('id', sids) : { data: [] }
-      const pop = new Set((inPop || []).map(s => s.id))
-      const data = (raw || []).filter(r => (r.student_id ? pop.has(r.student_id) : !isDemo))
-      const ids = data.map(r => r.id)
-      const { data: evs } = ids.length
-        ? await db.from('conversation_events').select('conversation_id, actor_profile_id, created_at').in('conversation_id', ids).eq('event_type', 'resolved').order('created_at', { ascending: false })
-        : { data: [] }
-      const actorFor = new Map()
-      for (const e of evs || []) if (!actorFor.has(e.conversation_id)) actorFor.set(e.conversation_id, e.actor_profile_id)
-      const actorIds = [...new Set([...actorFor.values()].filter(Boolean))]
-      const { data: profiles } = actorIds.length ? await db.from('user_profiles').select('id, full_name').in('id', actorIds) : { data: [] }
-      const nameOf = new Map((profiles || []).map(p => [p.id, p.full_name]))
-      for (const r of data) {
-        const pid = actorFor.get(r.id) || null
-        const who = nameOf.get(pid) || 'A teammate'
-        events.push({
-          id: `conv:${r.id}`, kind: 'resolved', at: r.resolved_at, actorProfileId: pid, actorName: who,
-          sentence: { pre: '', actor: who, post: ` resolved ${r.participant_name ? `${r.participant_name}'s` : 'a'} support thread` },
-          detail: r.subject || '',
-          to: `/connect/messages?conversation=${encodeURIComponent(r.id)}`,
-        })
-      }
+      events.push(...await readDoneThreads(db, { since, isDemo, limit: LIMIT }))
     })
 
     await tryRead('outreach', async () => {

@@ -29,6 +29,8 @@ export const LEGACY_MESSAGE_REACTIONS = MESSAGE_REACTIONS.filter((r) => (
   r.key === 'acknowledge' || r.key === 'thanks' || r.key === 'celebrate'
 ));
 
+import { firstName } from './messagesTriage.js';
+
 const BY_KEY = new Map(MESSAGE_REACTIONS.map((r) => [r.key, r]));
 
 export function reactionByKey(key) {
@@ -60,4 +62,55 @@ export function applyOptimisticReaction(reactions, nextKey) {
     return withoutMine.map((r) => (r.key === nextKey ? { ...r, count: r.count + 1, mine: true } : r));
   }
   return [...withoutMine, { key: nextKey, count: 1, mine: true }];
+}
+
+// MESSAGES-SIMPLIFY-1: the staff thread also names who reacted (thread v5's
+// reactors). Apply the viewer's change to that list the same way, so the badge's
+// names and the banner update before the refetch lands.
+export function applyOptimisticReactors(reactors, viewer, nextKey) {
+  const list = Array.isArray(reactors) ? reactors : [];
+  if (!viewer?.id) return list;
+  const others = list.filter((r) => r?.profile_id !== viewer.id);
+  if (!nextKey) return others;
+  return [...others, { key: nextKey, profile_id: viewer.id, name: viewer.full_name || '', is_staff: true }];
+}
+
+// MESSAGES-SIMPLIFY-1: the corner badge (see src/components/shared/MessageReactions.jsx).
+// Who reacted, as short sentences: "You reacted Got it", "Krystal reacted
+// Thanks". Staff threads carry reactor identities; portal threads carry only
+// counts and the viewer's own flag, so others read "Reacted Got it".
+export function reactionSentences(message, viewerId = null) {
+  const reactors = Array.isArray(message?.reactors) ? message.reactors : null;
+  if (reactors && reactors.length) {
+    return reactors
+      .filter((r) => reactionByKey(r?.key))
+      .map((r) => {
+        const who = viewerId && r.profile_id === viewerId ? 'You' : (firstName(r.name) || 'Someone');
+        return `${who} reacted ${reactionByKey(r.key).label}`;
+      });
+  }
+  const list = (Array.isArray(message?.reactions) ? message.reactions : [])
+    .filter((r) => r && reactionByKey(r.key) && r.count > 0);
+  const out = [];
+  for (const r of list) {
+    const label = reactionByKey(r.key).label;
+    if (r.mine) out.push(`You reacted ${label}`);
+    const others = r.count - (r.mine ? 1 : 0);
+    if (others === 1) out.push(`Reacted ${label}`);
+    else if (others > 1) out.push(`${others} people reacted ${label}`);
+  }
+  return out;
+}
+
+// The badge's content: up to three distinct glyphs, most-used first, and the total.
+export function reactionBadgeContent(message) {
+  const list = (Array.isArray(message?.reactions) ? message.reactions : [])
+    .filter((r) => r && reactionByKey(r.key) && r.count > 0);
+  const total = list.reduce((n, r) => n + r.count, 0);
+  const glyphs = list
+    .slice()
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 3)
+    .map((r) => reactionByKey(r.key).glyph);
+  return { glyphs, total };
 }

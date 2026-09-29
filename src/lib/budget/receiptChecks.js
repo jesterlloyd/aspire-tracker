@@ -193,3 +193,16 @@ export function concurDue(expenses = [], rule, today) {
     .map(x => ({ ...x, daysLeft: daysBetween(today, x.deadline) }))
     .sort((a, b) => a.deadline.localeCompare(b.deadline))
 }
+
+/**
+ * MISSING-RECEIPT-1 (Owner, 2026-09-27; Business Expense Reimbursement Policy p.2: "Amounts greater
+ * than $25 require a receipt for reimbursement"). A Personal (Concur) expense over $25, still Recorded
+ * or Submitted, with no receipt on file. Reimbursement only, like the policy's other reimbursement
+ * rules (Owner, 2026-09-27). Reads either expense shape: the server row (receipt_file_id) or the
+ * Sheet's (hasReceipt).
+ */
+export const RECEIPT_REQUIRED_OVER = 25
+const AWAITING = new Set(['recorded', 'submitted'])
+export const needsReceipt = (e, over = RECEIPT_REQUIRED_OVER) => !!e && !e.deleted_at
+  && e.payment_method === 'personal_concur' && AWAITING.has(e.status)
+  && Number(e.amount) > over && !(e.receipt_file_id || e.hasReceipt)

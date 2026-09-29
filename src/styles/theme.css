@@ -80,6 +80,24 @@
   --messages-bubble-out:      #1D2567;
   --messages-bubble-out-ink:  #FFFFFF;
   --messages-soft-surface:    #F7F8FB;
+  /* MESSAGES-SIMPLIFY-1: Needs reply (red), Answered (green), neutral state
+     chips, the selected row, and the reaction badge and bar. Each ink is paired
+     with its own fill, in both themes. */
+  --messages-needs-ink:       #9E2A20;
+  --messages-needs-soft:      #FDECEA;
+  --messages-needs-line:      #F3C2BD;
+  --messages-needs-dot:       #C2362B;
+  --messages-ok-ink:          #256B35;
+  --messages-ok-soft:         #EAF5EC;
+  --messages-ok-line:         #BFE0C6;
+  --messages-neutral-ink:     #3B4060;
+  --messages-neutral-soft:    #EEF0F6;
+  --messages-neutral-line:    #D9DCEA;
+  --messages-row-selected:    #EBE8E2;
+  --messages-reaction-bg:     #FFFFFF;
+  --messages-reaction-in-bg:  #EEF1FB;
+  --messages-reaction-ring:   #F1EFEB;
+  --messages-reaction-picked: #DFE5FB;
 
   /* ── Sheet family: printed-paper surfaces (RESPONSES-PACKET-1, table canon) ──
      One paper for every DataSheet and results packet, and it is the SAME slate
@@ -256,6 +274,21 @@
   --messages-bubble-out:      #283A8A;
   --messages-bubble-out-ink:  #FFFFFF;
   --messages-soft-surface:    #1C232D;
+  --messages-needs-ink:       #FFC7CA;
+  --messages-needs-soft:      #4B2227;
+  --messages-needs-line:      #77343B;
+  --messages-needs-dot:       #F08A92;
+  --messages-ok-ink:          #BCE7C9;
+  --messages-ok-soft:         #173D2A;
+  --messages-ok-line:         #286243;
+  --messages-neutral-ink:     #D6DCE6;
+  --messages-neutral-soft:    #232A34;
+  --messages-neutral-line:    #3A4452;
+  --messages-row-selected:    #222B3A;
+  --messages-reaction-bg:     #2A3240;
+  --messages-reaction-in-bg:  #26305A;
+  --messages-reaction-ring:   #161B23;
+  --messages-reaction-picked: #34407A;
 
   /* Sheet family, dark: the same slate paper as the clipboard. */
   --paper:        var(--aspire-paper);

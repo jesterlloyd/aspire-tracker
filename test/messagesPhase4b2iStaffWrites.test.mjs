@@ -75,7 +75,9 @@ test('New message workflow', async (t) => {
   })
 
   await t.test('sends exactly the five approved fields and no routing fields', () => {
-    assert.match(dialog, /api\.startStaffConversation\(\{\s*participantProfileId: participant\.participant_profile_id,\s*studentId: participant\.student_id,\s*subject: s\.value,\s*category: category \|\| null,\s*body: b\.value,\s*\}\)/)
+    assert.match(dialog, /api\.startStaffConversation\(\{\s*participantProfileId: participant\.participant_profile_id,\s*studentId: participant\.student_id,\s*subject: s\.value,\s*category: null,\s*body: b\.value,\s*\}\)/)
+    // MESSAGES-SIMPLIFY-1: staff no longer pick a category; it is always null.
+    assert.doesNotMatch(dialog, /nm-category/)
     for (const f of ['p_delivery', 'recipient_email', 'recipient_kind', 'event_type',
       'idempotency_key', 'snapshot_sender_name', 'cta_path']) {
       assert.ok(!strip(dialog).includes(f), `must not send ${f}`)
@@ -106,7 +108,7 @@ test('New message workflow', async (t) => {
     assert.match(dialog, /aria-modal="true"/)
     assert.match(dialog, /aria-labelledby="nm-title"/)
     assert.match(dialog, /e\.key === 'Escape' && !pending/)
-    for (const id of ['nm-search', 'nm-subject', 'nm-category', 'nm-body']) {
+    for (const id of ['nm-search', 'nm-subject', 'nm-body']) {
       assert.ok(dialog.includes(`htmlFor="${id}"`), `missing label for ${id}`)
     }
     assert.match(dialog, /aria-label="Close new message"/)
@@ -172,64 +174,53 @@ test('reply composer', async (t) => {
   })
 })
 
-test('management controls', async (t) => {
-  await t.test('use the real manage contract for all four actions', () => {
+// MESSAGES-SIMPLIFY-1 (20261014000000): the Status, Assignee and Category
+// selects are gone. The thread has Follow up and Done (Reopen on a Done
+// thread); these replace the four-control assertions.
+test('thread actions', async (t) => {
+  await t.test('use the real manage contract for Follow up and Done', () => {
     assert.match(actions, /api\.manageStaffConversation\(\{ action, conversation_id: id, \.\.\.payload \}\)/)
-    assert.match(actions, /run\('status', \{ status: e\.target\.value \}/)
-    assert.match(actions, /run\('assign', \{ assignee_profile_id: e\.target\.value \|\| null \}/)
-    assert.match(actions, /run\('category', \{ category: e\.target\.value \|\| null \}/)
     assert.match(actions, /run\('flag', \{ flagged: !flagged \}/)
+    assert.match(actions, /run\('done', \{ done: !done \}/)
+    assert.doesNotMatch(actions, /run\('status'|run\('assign'|run\('category'/)
   })
 
-  await t.test('assignee options come from the narrow lookup, never a directory', () => {
-    assert.match(actions, /api\.listAssigneeOptions\(\{ signal \}\)/)
-    assert.match(actions, /a\.is_current_user \? `\$\{a\.display_name\} \(me\)`/, 'assign to self is available')
-    assert.match(actions, /<option value="">Unassigned<\/option>/, 'assignment can be cleared')
-    assert.doesNotMatch(strip(actions), /get_all_user_profiles|admin-users|list-portal-access/)
+  await t.test('no staff directory lookup and no select remains', () => {
+    assert.doesNotMatch(strip(actions), /listAssigneeOptions|get_all_user_profiles|admin-users|list-portal-access/)
+    assert.doesNotMatch(actions, /<select/)
   })
 
-  await t.test('status offers exactly open, waiting, resolved', () => {
-    assert.match(actions, /STAFF_STATUSES\.map\(\(s\) => <option key=\{s\} value=\{s\}>\{STAFF_STATUS_LABEL\[s\]\}<\/option>\)/)
-  })
-
-  await t.test('category offers Uncategorized (null) plus the approved values', () => {
-    assert.match(actions, /<option value="">Uncategorized<\/option>/)
-    assert.match(actions, /MESSAGE_CATEGORIES\.map/)
-  })
-
-  await t.test('follow up is labeled correctly and is a toggle', () => {
-    assert.match(actions, /Follow up\{flagged \? ': on' : ''\}/)
+  await t.test('Follow up is a pressed toggle that reads Following up when on', () => {
+    // MESSAGES-REFINE-2: in the compact header the words become the icon's name.
+    assert.match(actions, /\{!compact && \(flagged \? 'Following up' : 'Follow up'\)\}/)
+    assert.match(actions, /aria-label=\{compact \? \(flagged \? 'Following up' : 'Follow up'\) : undefined\}/)
     assert.match(actions, /aria-pressed=\{flagged\}/)
-    // Scope the alarming-terminology guard to the follow-up control itself. The
-    // approved safety notice legitimately contains the word "urgent", and
-    // role="alert" is the correct ARIA role for an error.
     const flagBlock = actions.slice(actions.indexOf("run('flag'") - 400, actions.indexOf("run('flag'") + 300)
     assert.doesNotMatch(flagBlock, /urgent|critical|emergency|escalat/i)
   })
 
-  await t.test('duplicate management requests are prevented per action', () => {
-    assert.match(actions, /if \(busy\) return/)
-    assert.match(actions, /setBusy\(action\)/)
-    assert.match(actions, /disabled=\{busy === 'status'\}/)
-    assert.match(actions, /disabled=\{busy === 'assign'\}/)
+  await t.test('Done reads Reopen on a Done thread, and keeps the toasts', () => {
+    assert.match(actions, /\{done \? 'Reopen' : 'Done'\}/)
+    assert.match(actions, /done \? 'Reopened\.' : 'Marked done\.'/)
+    assert.match(actions, /flagged \? 'Follow up cleared\.' : 'Marked for follow up\.'/)
   })
 
-  await t.test('no management action sends an email or a notification request', () => {
+  await t.test('duplicate requests are prevented', () => {
+    assert.match(actions, /if \(busy\) return/)
+    assert.match(actions, /setBusy\(action\)/)
+    assert.match(actions, /disabled=\{busy === 'flag'\}/)
+    assert.match(actions, /disabled=\{busy === 'done'\}/)
+  })
+
+  await t.test('no action sends an email or a notification request', () => {
     assert.doesNotMatch(strip(actions), /Resend|notification|sendEmail/i)
   })
 
-  await t.test('failure preserves authoritative state, success invalidates narrowly', () => {
+  await t.test('failure preserves authoritative state, success refreshes thread, list and badge', () => {
     assert.match(actions, /setError\(mapMessagesError\(err\?\.status\)\)/)
-    // No optimistic local value is written, so the server state simply stands.
     assert.doesNotMatch(actions, /setConversation\(/)
     assert.match(actions, /invalidateQueries\(\{ queryKey: \['messages_staff_thread', id\] \}\)/)
-  })
-
-  await t.test('controls are labeled for assistive technology', () => {
-    for (const id of ['mg-status', 'mg-assignee', 'mg-category']) {
-      assert.ok(actions.includes(`htmlFor={id}`) || actions.includes(`id="${id}"`), `missing control ${id}`)
-    }
-    assert.match(actions, /<label htmlFor=\{id\} style=\{srOnly\}>\{label\}<\/label>/)
+    assert.match(actions, /invalidateQueries\(\{ queryKey: \['messages_staff_unread'\] \}\)/)
   })
 })
 

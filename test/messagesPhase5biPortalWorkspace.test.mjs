@@ -409,8 +409,10 @@ test('reply', async (t) => {
       'ASPIRE Messages is not monitored continuously. Do not include patient names, '
       + 'medical record numbers, or other identifying information. For urgent '
       + 'patient-care or safety concerns, follow your unit\'s established escalation process.')
-    assert.match(read('../src/portal/messages/PortalMessagesWorkspace.jsx'), /\{PORTAL_SAFETY_NOTICE\}/)
-    assert.doesNotMatch(reply, /PORTAL_SAFETY_NOTICE/)
+    // MESSAGES-REFINE-2 moved the notice from above the workspace to under the
+    // reply box (opt-in, so the Team Messages panel keeps its own).
+    assert.doesNotMatch(read('../src/portal/messages/PortalMessagesWorkspace.jsx'), /\{PORTAL_SAFETY_NOTICE\}/)
+    assert.match(reply, /\{showNotice && <p className="ptl-msg-compose-notice">\{PORTAL_SAFETY_NOTICE\}<\/p>\}/)
     assert.match(newMsg, /\{PORTAL_SAFETY_NOTICE\}/)
   })
 
@@ -784,7 +786,8 @@ test('dormancy and regression', async (t) => {
     assert.match(connect, /<ContactsView refreshKey=\{refreshKey\} \/>/)
     assert.match(connect, /<OutreachView[^>]*cohortId=\{cohortId\}/)
     assert.match(connect, /<AutomationView active=\{activeSubTab === 'broadcasts'\}/)
-    assert.match(read('../api/messages-staff-list.js'), /messages_staff_list_conversations_v2/)
+    // MESSAGES-SIMPLIFY-1 moved the staff list to v5 with a v4 fallback.
+    assert.match(read('../api/messages-staff-list.js'), /messages_staff_list_conversations_v5/)
     assert.match(read('../api/messages-staff-thread.js'), /messages_staff_get_thread_v2/)
   })
 
