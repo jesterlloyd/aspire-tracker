@@ -161,6 +161,12 @@
   --aspire-tape:           #EFE9DA;
   --aspire-tape-ink:       #3A3323;
   --aspire-tape-muted:     #675E44; /* the mockup's #7A7052 measured 4.06:1 on the tape */
+  /* KEITH-FOUNDATION-1: Keith's own hue, for the mark's card and related surfaces (the orb image
+     looks the same in both themes). The launcher's white ring is light-mode only. */
+  --keith:                 #5B4FD0;
+  --keith-hi:              #B9B0FF;
+  --keith-soft:            #EEECFB;
+  --keith-launcher-ring:   0 0 0 2px rgba(255, 255, 255, 0.7);
 }
 
 /* ── Dark mode ─────────────────────────────────────────────────── */
@@ -332,6 +338,10 @@
   --aspire-tape:           #26231B;
   --aspire-tape-ink:       #EDE4CF;
   --aspire-tape-muted:     #A89C7E;
+  --keith:                 #A89EFF;
+  --keith-hi:              #D9D3FF;
+  --keith-soft:            #25224A;
+  --keith-launcher-ring:   0 0 0 0 transparent;
 }
 
 /* ── Semantic aliases (never rename; only values change per theme) */

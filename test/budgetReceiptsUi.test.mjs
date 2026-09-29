@@ -60,7 +60,9 @@ test('the slip draws the receipt from the reading, with View original beside it,
   assert.deepEqual(out.match(/<img[^>]*>/g), ['<img src="/vendor-logos/amazon.png" alt="" loading="lazy" draggable="false"/>'])
   assert.match(out, /View original/)
   assert.match(out, /IMG_4471\.jpg/)
-  assert.match(out, /Read by Keith/)
+  // KEITH-FOUNDATION-1 replaced the "Read by Keith" label with the Keith mark, which reads its state
+  // from provenance and draws nothing without a staff viewer and a record (test/keithMark.test.mjs).
+  assert.doesNotMatch(out, /Read by Keith/)
   assert.match(out, /High confidence<\/span>Paper for printed orientation packets\./)
   assert.match(out, /Split into 2 rows because the items fall in different categories\./)
   assert.match(out, /Card ending 4417\. No P-card is on file, so choose the payment method\./)

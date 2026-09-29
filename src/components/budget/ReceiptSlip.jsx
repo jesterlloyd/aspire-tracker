@@ -10,7 +10,8 @@
 // (or Attach to row N), Snooze and Reject. Every rule is src/lib/budget/receiptModel.js and
 // receiptChecks.js, the same modules the server's Accept runs.
 import { useMemo, useState } from 'react'
-import { AlertTriangle, Check, ChevronRight, Eye, Info, OctagonAlert, Plus, Sparkles, X } from 'lucide-react'
+import { AlertTriangle, Check, ChevronRight, Eye, Info, OctagonAlert, Plus, X } from 'lucide-react'
+import KeithMark from '../keith/KeithMark'
 import { receiptPaper, setLineCategory, rowsFrom, draftTotal, filedName, vendorLogo, slipState, ATTENDEE_FIELDS } from '../../lib/budget/receiptModel'
 import { receiptChecks } from '../../lib/budget/receiptChecks'
 import { usd, dateText, fyShort, PAYMENT_METHODS } from '../../lib/budget/budgetModel'
@@ -130,7 +131,7 @@ export default function ReceiptSlip({ slip, context, categories, cohorts, busy, 
             <small>{[d.date ? dateText(d.date) : 'No date', fy ? fyShort(fy) : null, d.order_number ? `Order or invoice ${d.order_number}` : null].filter(Boolean).join(' · ')}
               {' '}<button type="button" className="bud-linkbtn bud-linkbtn-inline" aria-expanded={details || !d.date} onClick={() => setDetails(x => !x)}>{details || !d.date ? 'Done' : 'Edit'}</button></small>
           </div>
-          <span className="bud-by"><Sparkles size={13} aria-hidden="true" />Read by Keith</span>
+          <KeithMark provenanceId={slip.keith_provenance_id} />
         </div>
 
         {(details || !d.date) && <div className="bud-slip-meta">

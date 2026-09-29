@@ -1,0 +1,129 @@
+/* src/components/keith/keithMark.css
+ *
+ * KEITH-FOUNDATION-1: the Keith mark and its hover card. Sizes from the build prompt:
+ *   sm  an 18px orb in a 22px hit area, a 10px badge
+ *   lg  a 48px orb in a 52px hit area, a 20px badge
+ * The orb is an image and looks the same in both themes; the badges are drawn (SVG) with a white
+ * ring and a soft shadow so they stay sharp at 10px. The card reads the theme's surface and ink and
+ * Keith's own tokens (--keith, --keith-soft) from theme.css. Corners are the canon's.
+ */
+
+.km {
+  --km-hit: 22px;
+  --km-orb: 18px;
+  --km-badge: 10px;
+  --km-ring: 1.5px;
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: var(--km-hit);
+  height: var(--km-hit);
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  vertical-align: -5px;
+  cursor: pointer;
+}
+.km-lg {
+  --km-hit: 52px;
+  --km-orb: 48px;
+  --km-badge: 20px;
+  --km-ring: 2.5px;
+  vertical-align: middle;
+}
+.km-glyph { cursor: default; }
+.km:focus-visible {
+  outline: 3px solid var(--color-accent-primary);
+  outline-offset: 2px;
+}
+[data-theme="dark"] .km:focus-visible { outline-color: var(--keith); }
+
+.km-orb {
+  display: block;
+  width: var(--km-orb);
+  height: var(--km-orb);
+  border-radius: 50%;
+  box-shadow: 0 0 5px rgba(90, 110, 255, 0.45);
+  pointer-events: none;
+  user-select: none;
+}
+
+.km-badge {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  box-sizing: border-box;
+  width: var(--km-badge);
+  height: var(--km-badge);
+  padding: calc((var(--km-badge) - 2 * var(--km-ring)) * 0.08);
+  border: var(--km-ring) solid #FFFFFF;
+  border-radius: 50%;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+}
+.km-lg .km-badge { right: -3px; bottom: -3px; }
+
+/* ── The card ─────────────────────────────────────────────────────────────── */
+
+.km-card {
+  position: fixed;
+  z-index: 1200;
+  box-sizing: border-box;
+  max-width: calc(100vw - 24px);
+  padding: 12px 14px;
+  border: 1px solid var(--border-divider);
+  border-radius: var(--aspire-radius-card);
+  background: var(--bg-card-elevated);
+  color: var(--text-body);
+  box-shadow: 0 1px 2px rgba(24, 32, 63, 0.06), 0 8px 24px rgba(24, 32, 63, 0.14);
+  font-size: 13px;
+  line-height: 1.5;
+  text-align: left;
+}
+[data-theme="dark"] .km-card { box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 28px rgba(0, 0, 0, 0.45); }
+
+.km-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-heading);
+}
+
+.km-card-rows {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 3px 10px;
+  margin: 8px 0 0;
+}
+.km-card-rows > div { display: contents; }
+.km-card-rows dt {
+  padding-top: 2px;
+  font-family: var(--aspire-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-caption);
+}
+.km-card-rows dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+
+.km-card-why {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: var(--aspire-radius-control);
+  background: var(--keith-soft);
+  color: var(--text-body);
+  font-size: 12.5px;
+  white-space: pre-line;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.km-card-foot {
+  margin-top: 8px;
+  font-size: 11.5px;
+  color: var(--text-caption);
+}

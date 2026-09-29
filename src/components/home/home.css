@@ -248,6 +248,8 @@
 .hm-results [aria-selected="true"] { background: var(--hm-navy-soft); }
 .hm-opt-kind { font: 600 10px var(--aspire-mono); color: var(--hm-muted); border: 1px solid var(--hm-line); border-radius: var(--hm-r-tag); padding: 1px 5px; text-transform: uppercase; }
 .hm-opt-kind-keith { color: #fff; background: #5A67B8; border-color: #5A67B8; }
+/* KEITH-FOUNDATION-1: the K beside "Ask Keith", in the navy the home page's links use. */
+.hm-opt-keith-ic { color: var(--hm-navy); }
 .hm-opt-actions { display: flex; gap: 4px; }
 .hm-opt-sec { font: 600 11px var(--aspire-sans); color: var(--hm-navy); background: none; border: 1px solid var(--hm-line); border-radius: var(--aspire-radius-pill); padding: 2px 8px; cursor: pointer; }
 .hm-opt-sec:hover { background: var(--hm-navy-soft); }

@@ -100,7 +100,8 @@ test('the rail IS the Review & Release selection canon, reused, not restyled', (
 
 test('the icons are the ones Settings already used, monochrome, with no tile', () => {
   // PROGRAM-BUDGET A3 (2026-09-27) added Program Budget after Community Benefit (Owner decision: /settings/budget).
-  assert.match(shell, /general: Settings, accounts: Users, organization: Building2, communityBenefit: HandCoins, programBudget: Wallet, keith: Sparkles,\s*demoMode: Presentation, preceptorParity: Scale,/)
+  // KEITH-FOUNDATION-1 gave Keith's row Keith's own K (KeithIcon, a mask in the icon colour, still monochrome).
+  assert.match(shell, /general: Settings, accounts: Users, organization: Building2, communityBenefit: HandCoins, programBudget: Wallet, keith: KeithIcon,\s*demoMode: Presentation, preceptorParity: Scale,/)
   assert.match(shell, /about: BadgeInfo, appearance: Monitor, signature: PenLine, tours: Info,/)
   assert.match(shell, /keithKnowledge: FileText, keithSkills: Sparkles, keithUsage: BarChart3,/)
   assert.match(shellCss, /\.settings-rail-ic \{ flex: none; color: var\(--color-accent-primary, #1D2567\); \}/)
@@ -123,7 +124,8 @@ test('General lists About, Appearance, Email Signature, Tours & Help, with the a
   // SETTINGS-BAND-1: the list page's one subtitle line lives in the header band, which
   // is the same height on every page, so it no longer pushes the list down.
   assert.match(shell, /general: 'Settings that are yours alone\. They follow you to any device\.'/)
-  assert.match(shell, /<SettingsPageHeader id=\{headingId\} title=\{section\.label\} subtitle=\{LIST_PAGE_COPY\[section\.key\]\} \/>/)
+  // KEITH-FOUNDATION-1: Keith's list page carries the Keith lockup on its title line; every other list keeps its label.
+  assert.match(shell, /<SettingsPageHeader id=\{headingId\} title=\{section\.key === 'keith' \? <KeithLockup \/> : section\.label\} subtitle=\{LIST_PAGE_COPY\[section\.key\]\} \/>/)
 })
 
 test('a list row is a real button with an icon, a title, a line and a chevron', () => {

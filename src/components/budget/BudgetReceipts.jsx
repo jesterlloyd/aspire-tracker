@@ -21,6 +21,7 @@ import SegmentedPicker from '../shared/SegmentedPicker'
 import ReceiptOriginal from './ReceiptOriginal'
 import { budgetStaff, prepareReceiptFile, uploadReceiptFile } from './budgetApi'
 import { dateText, usd } from '../../lib/budget/budgetModel'
+import { refreshKeithProvenance } from '../keith/keithProvenanceStore'
 
 const ACCEPT = 'image/*,application/pdf,.pdf,.eml,message/rfc822,.heic,.heif'
 const UNDO_MS = 5000
@@ -96,7 +97,8 @@ export default function BudgetReceipts({ year, onWrite, pendingFiles, onPendingT
     replaceSlip({ ...slip, draft })
     const t = draftTimers.current
     clearTimeout(t.get(slip.id))
-    t.set(slip.id, setTimeout(() => { budgetStaff('receipt_draft', { id: slip.id, draft }).catch(e => notify(e.message, 'err')) }, 700))
+    // KEITH-FOUNDATION-1: a save that changed Keith's reading moves the Keith mark to Edited.
+    t.set(slip.id, setTimeout(() => { budgetStaff('receipt_draft', { id: slip.id, draft }).then(out => { if (out?.keith_state) refreshKeithProvenance(slip.keith_provenance_id) }).catch(e => notify(e.message, 'err')) }, 700))
   }
 
   // ── Decisions, each with Undo ──
@@ -106,7 +108,8 @@ export default function BudgetReceipts({ year, onWrite, pendingFiles, onPendingT
     try {
       await budgetStaff(action, { id: slip.id, ...payload })
       setData(d => (d ? { ...d, waiting: d.waiting.filter(x => x.id !== slip.id) } : d))
-      notify(message, 'ok', { label: 'Undo', ms: UNDO_MS, run: async () => { try { await budgetStaff('receipt_undo', { id: slip.id }); notify('Undone.'); onWrite.changed(); load() } catch (e) { notify(e.message, 'err') } } })
+      refreshKeithProvenance(slip.keith_provenance_id)
+      notify(message, 'ok', { label: 'Undo', ms: UNDO_MS, run: async () => { try { await budgetStaff('receipt_undo', { id: slip.id }); refreshKeithProvenance(slip.keith_provenance_id); notify('Undone.'); onWrite.changed(); load() } catch (e) { notify(e.message, 'err') } } })
       onWrite.changed()
       load()
     } catch (e) { notify(e.message, 'err') } finally { mark(slip.id, false) }

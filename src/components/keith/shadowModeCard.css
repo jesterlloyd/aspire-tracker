@@ -1,0 +1,16 @@
+/* src/components/keith/shadowModeCard.css: the Shadow Mode card (KEITH-FOUNDATION-1). Canon corners, theme inks. */
+.ksm-card { padding: 14px 16px; border: 1px solid var(--border-divider); border-radius: var(--aspire-radius-card); background: var(--bg-card); color: var(--text-body); }
+.ksm-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.ksm-head h3 { margin: 0; font-size: 15px; font-weight: 700; color: var(--text-heading); }
+.ksm-pill { padding: 2px 9px; border-radius: var(--aspire-radius-pill); background: var(--keith-soft); color: var(--keith); font-size: 11.5px; font-weight: 700; }
+.ksm-sub { margin: 4px 0 0; font-size: 12.5px; color: var(--text-caption); }
+.ksm-figure { display: flex; align-items: baseline; gap: 10px; margin-top: 12px; }
+.ksm-big { font-size: 28px; font-weight: 800; color: var(--text-heading); }
+.ksm-hint { font-size: 12.5px; color: var(--text-caption); }
+.ksm-meter { height: 6px; margin-top: 6px; border-radius: var(--aspire-radius-pill); background: var(--keith-soft); overflow: hidden; }
+.ksm-meter i { display: block; height: 100%; background: var(--keith); }
+.ksm-rows { display: grid; gap: 4px; margin: 12px 0 0; }
+.ksm-rows > div { display: flex; justify-content: space-between; gap: 12px; font-size: 12.5px; }
+.ksm-rows dt { color: var(--text-caption); }
+.ksm-rows dd { margin: 0; font-weight: 700; color: var(--text-heading); }
+.ksm-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 12px; }

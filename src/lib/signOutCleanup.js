@@ -66,6 +66,7 @@ export const STORAGE_KEY_REGISTRY = Object.freeze([
   { prefix: 'aspire:demoMode:', store: 'local', cls: 'keyed', holds: 'this user\'s own demo mode choice' },
   { prefix: 'aspire.portal.desktopNotice.v1:', store: 'local', cls: 'keyed', holds: 'that this portal user dismissed the desktop notice' },
   { prefix: 'keith-model-', store: 'local', cls: 'keyed', holds: 'the Keith model this profile picked' },
+  { prefix: 'keith-orb-intro', store: 'session', cls: 'preference', holds: 'that the Keith launcher orb has played its once-per-session intro (KEITH-FOUNDATION-1)' },
   { prefix: 'keith-welcomed-', store: 'local', cls: 'keyed', holds: 'that this profile has seen Keith\'s welcome line' },
 
   // ── preference: no personal data ─────────────────────────────────────────────

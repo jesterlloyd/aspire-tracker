@@ -8,6 +8,7 @@ import { onAskKeith } from '../lib/keithBus';
 import { renderMarkdownLite } from '../lib/keithMarkdown';
 import { paletteSummary } from '../lib/skillSummary';
 import { findSlashToken, filterSkills, applySlashSelection } from '../lib/slashPalette';
+import KeithOrbVideo from './keith/KeithOrbVideo';
 
 const KEITH_CLIENT_TIMEOUT_MS   = 28000;
 const KEITH_PREFETCH_CEILING_MS = 5000;
@@ -85,6 +86,18 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
     // Let the drawer mount and the input take focus before the message goes out.
     setTimeout(() => askRef.current?.(text), 0);
   }), []);
+
+  // KEITH-FOUNDATION-1: the launcher orb plays once when the app first loads in a session, then once
+  // on each hover or keyboard focus. Above the early returns to keep hook order unconditional.
+  const [orbReplay, setOrbReplay] = useState(0);
+  const replayOrb = () => setOrbReplay(n => n + 1);
+  useEffect(() => {
+    let seen = false;
+    try { seen = sessionStorage.getItem('keith-orb-intro') === '1'; sessionStorage.setItem('keith-orb-intro', '1'); } catch { /* private mode */ }
+    if (seen) return undefined;
+    const t = setTimeout(() => setOrbReplay(n => n + 1), 600);
+    return () => clearTimeout(t);
+  }, []);
 
   if (!isAuthenticated) return null;
   // KEITH-WELCOME-1: the resolved role model gives Viewer no Keith access (the
@@ -410,19 +423,11 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  // KEITH-ORB-1: one orb, two contexts. Layered luminous depth: a deep-navy
-  // lens base, a slowly drifting internal light field, a breathing core, and a
-  // static glass highlight. Idle motion is a 7s breathe + 16s drift - felt,
-  // not watched. While Keith is thinking the same layers quicken and brighten;
-  // no particles, no constant pulsing, and prefers-reduced-motion freezes
-  // every layer via the stylesheet below.
-  const orb = (size, thinking) => (
-    <div className={`keith-orb${thinking ? ' thinking' : ''}`} style={{ width: size, height: size }} aria-hidden="true">
-      <div className="keith-orb-drift" />
-      <div className="keith-orb-core" />
-      <div className="keith-orb-lens" />
-    </div>
-  );
+  // KEITH-FOUNDATION-1: the animated orb (KeithOrbVideo) replaced the CSS lens (KEITH-ORB-1). It
+  // plays once on the first load of a session and once on hover or focus, loops while Keith is
+  // working (isTyping: from the send until the reply has finished), and otherwise rests on its poster.
+  // The header orb loops at the same time. Reduced motion shows the poster only.
+  const orb = (size, thinking, replay = 0) => <KeithOrbVideo size={size} working={thinking} replay={replay} />;
 
   const formatText = (text) => {
     return text.split('\n').map((line, i) => (
@@ -484,18 +489,19 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
           transition: 'transform 0.2s ease',
           transform: isOpen ? 'scale(0.95)' : 'scale(1)',
         }}
-        onMouseEnter={e => { setShowTooltip(true); if (!isOpen) e.currentTarget.style.transform = 'scale(1.08)'; }}
+        onMouseEnter={e => { setShowTooltip(true); replayOrb(); if (!isOpen) e.currentTarget.style.transform = 'scale(1.08)'; }}
+        onFocus={replayOrb}
         onMouseLeave={e => { setShowTooltip(false); if (!isOpen) e.currentTarget.style.transform = isOpen ? 'scale(0.95)' : 'scale(1)'; }}
       >
-        {/* Orb - thinking state mirrors an in-flight reply. */}
-        <div style={{
+        {/* Orb - loops while a reply is in flight. The ring is a token: white in light mode, none in dark. */}
+        <div className="keith-launcher-orb" style={{
           width: '60px', height: '60px', borderRadius: '50%',
           boxShadow: isOpen
             ? '0 0 0 2px rgba(139,92,246,0.55), 0 0 22px rgba(99,102,241,0.55), 0 6px 20px rgba(0,0,0,0.35)'
-            : '0 0 0 1.5px rgba(99,102,241,0.35), 0 0 12px rgba(99,102,241,0.28), 0 4px 18px rgba(0,0,0,0.45)',
+            : '0 6px 18px rgba(20,24,80,0.45), var(--keith-launcher-ring)',
           transition: 'box-shadow 0.3s ease',
         }}>
-          {orb(60, isTyping)}
+          {orb(60, isTyping, orbReplay)}
         </div>
       </button>
       )}
@@ -544,13 +550,15 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
               gap: '12px',
               flexShrink: 0,
             }}>
-              {/* Header orb - same lens, thinking while a reply is in flight. */}
+              {/* Header orb - loops with the launcher while a reply is in flight. */}
               <div style={{ flexShrink: 0, borderRadius: '50%', boxShadow: '0 0 0 1px rgba(99,102,241,0.45), 0 0 8px rgba(99,102,241,0.28)' }}>
                 {orb(36, isTyping)}
               </div>
-              <div>
-                <div style={{ fontFamily: 'Plus Jakarta Sans', fontWeight: 700, fontSize: '16px', color: '#ffffff' }}>Keith</div>
-                <div style={{ fontFamily: 'Plus Jakarta Sans', fontWeight: 400, fontSize: '12px', color: 'rgba(255,255,255,0.65)' }}>ASPIRE Assistant</div>
+              {/* KEITH-FOUNDATION-1: the Keith AI wordmark (public/brand/keith-lockup.png), set as text in
+                  white because the header is navy in both themes and the artwork's ink is navy. */}
+              <div className="keith-wordmark" aria-label="Keith AI">
+                <span className="keith-wordmark-name" aria-hidden="true">Keith</span>
+                <span className="keith-wordmark-ai" aria-hidden="true">AI</span>
               </div>
               <Tooltip label="New conversation" placement="bottom">
               <button
@@ -943,50 +951,18 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
         </>
       )}
 
-      {/* Orb system + panel animation. Reduced motion freezes every layer. */}
+      {/* Launcher orb, wordmark and panel animation. */}
       <style>{`
-        .keith-orb {
-          position: relative; overflow: hidden; border-radius: 50%;
-          background: radial-gradient(circle at 32% 30%, #241566 0%, #0d0836 55%, #060318 100%);
+        .keith-orb-video {
+          position: relative; display: block; overflow: hidden; border-radius: 50%;
+          background: #070918;
         }
-        /* Internal light field: violet and cyan lobes drifting slowly. */
-        .keith-orb-drift {
-          position: absolute; inset: -35%;
-          background:
-            radial-gradient(circle at 68% 30%, rgba(167,139,250,0.75) 0%, transparent 42%),
-            radial-gradient(circle at 28% 72%, rgba(56,189,248,0.65) 0%, transparent 44%),
-            radial-gradient(circle at 55% 60%, rgba(99,102,241,0.5) 0%, transparent 50%);
-          filter: blur(4px);
-          animation: keithDrift 16s linear infinite;
+        .keith-orb-video video, .keith-orb-video img {
+          display: block; width: 100%; height: 100%; object-fit: cover; transform: scale(1.04);
         }
-        /* Breathing core. */
-        .keith-orb-core {
-          position: absolute; top: 50%; left: 50%; width: 34%; height: 34%;
-          transform: translate(-50%, -50%);
-          border-radius: 50%;
-          background: radial-gradient(circle, rgba(255,255,255,0.95) 0%, rgba(186,230,253,0.55) 45%, transparent 75%);
-          animation: keithBreathe 7s ease-in-out infinite;
-        }
-        /* Static glass: top-left highlight + inner rim depth. No animation. */
-        .keith-orb-lens {
-          position: absolute; inset: 0; border-radius: 50%;
-          background:
-            radial-gradient(ellipse 55% 38% at 32% 22%, rgba(255,255,255,0.28) 0%, transparent 70%),
-            radial-gradient(circle at 50% 50%, transparent 62%, rgba(6,3,24,0.55) 100%);
-          box-shadow: inset 0 1px 2px rgba(255,255,255,0.18), inset 0 -3px 8px rgba(6,3,24,0.6);
-          pointer-events: none;
-        }
-        /* Thinking: the same layers, quicker and brighter - state, not decor. */
-        .keith-orb.thinking .keith-orb-drift { animation-duration: 3.2s; filter: blur(3px); opacity: 1; }
-        .keith-orb.thinking .keith-orb-core { animation-duration: 1.6s; }
-        @keyframes keithDrift {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-        @keyframes keithBreathe {
-          0%, 100% { opacity: 0.62; transform: translate(-50%, -50%) scale(0.94); }
-          50% { opacity: 0.92; transform: translate(-50%, -50%) scale(1.06); }
-        }
+        .keith-wordmark { display: flex; flex-direction: column; line-height: 1; gap: 3px; }
+        .keith-wordmark-name { font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800; font-size: 19px; letter-spacing: -0.01em; color: #FFFFFF; }
+        .keith-wordmark-ai { font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; font-size: 11px; letter-spacing: 0.06em; color: rgba(255,255,255,0.78); }
         @keyframes keithSlideIn {
           from { opacity: 0; transform: translateY(12px) scale(0.97); }
           to { opacity: 1; transform: translateY(0) scale(1); }
@@ -994,13 +970,6 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
         @keyframes keithDot {
           0%, 60%, 100% { opacity: 0.3; transform: scale(0.8); }
           30% { opacity: 1; transform: scale(1); }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .keith-orb-drift, .keith-orb-core,
-          .keith-orb.thinking .keith-orb-drift, .keith-orb.thinking .keith-orb-core {
-            animation: none;
-          }
-          .keith-orb-core { opacity: 0.8; }
         }
       `}</style>
     </>

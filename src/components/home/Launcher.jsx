@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import { searchLauncher, moveSelection, quickActions } from '../../lib/home/launcherModel'
 import { askKeith } from '../../lib/keithBus'
+import { KeithIcon } from '../keith/KeithBrand'
 
 const ICON = { sign: PenLine, form: ListChecks, out: Mail, cal: CalendarDays, file: FileText, person: UserPlus, rel: Send, clock: Clock, board: Kanban, msg: MessageSquare, help: HelpCircle }
 
@@ -136,6 +137,7 @@ export default function Launcher({ actions = [], people = [], canAskKeith = true
                 <div className="hm-results-grp" role="presentation">Keith</div>
                 <div id={`hm-opt-${o.id}`} role="option" aria-selected={sel === i} className="hm-opt-keith"
                   onMouseDown={(e) => { e.preventDefault(); run(o) }} onMouseEnter={() => setSel(i)}>
+                  <KeithIcon size={16} className="hm-opt-keith-ic" />
                   <span className="hm-opt-t">{o.title}</span>
                   <span className="hm-opt-kind hm-opt-kind-keith">Keith</span>
                 </div>

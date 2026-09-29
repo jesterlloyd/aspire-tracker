@@ -19,6 +19,7 @@ import {
   normalizeExternalPackage, composeInstructionBody, splitInstructionBody,
   isValidReferenceName, MAX_REFERENCES, extractTriggerHints,
 } from '../lib/server/keith/skillPackage.js'
+import { setSkillMode, KeithSkillError } from '../lib/server/keith/runKeithSkill.js'
 
 const INVOCATION_WINDOW_DAYS = 30
 
@@ -38,13 +39,26 @@ const ACTION_SCHEMAS = {
   change_skill_state:  ['skill_id', 'target_state'],
   set_skill_enabled:   ['skill_id', 'enabled'],
   restore_skill_version: ['skill_id', 'version_number', 'change_note'],
+  // KEITH-FOUNDATION-1: Shadow or On. Off stays set_skill_enabled.
+  set_skill_mode:      ['skill_id', 'mode'],
 }
 
 // Lifecycle + the kill switch are Owner-only. An Admin may author a draft; only
 // an Owner may make one live or take one down.
 const OWNER_ONLY_ACTIONS = new Set([
-  'activate_skill', 'change_skill_state', 'set_skill_enabled', 'restore_skill_version',
+  'activate_skill', 'change_skill_state', 'set_skill_enabled', 'restore_skill_version', 'set_skill_mode',
 ])
+
+// KEITH-FOUNDATION-1: each skill's run_mode, read on its own so a database without the column (before
+// 20261016000000_keith_foundation.sql) still lists every skill; they all read as 'on' there.
+async function withRunModes(db, rows) {
+  const list = Array.isArray(rows) ? rows : [rows].filter(Boolean)
+  if (!list.length) return rows
+  const { data, error } = await db.from('keith_skills').select('id, run_mode').in('id', list.map(s => s.id))
+  const modes = new Map(error ? [] : (data || []).map(r => [r.id, r.run_mode]))
+  const add = (s) => ({ ...s, run_mode: modes.get(s.id) || 'on', run_mode_available: !error })
+  return Array.isArray(rows) ? list.map(add) : add(rows)
+}
 
 const CAPS = { display_name: 120, description: 500, slug: 80, instruction_body: 50000, change_note: 2000 }
 const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
@@ -249,7 +263,7 @@ export default async function handler(req, res) {
         if (error) return res.status(500).json({ error: 'internal_error' })
         const stats = await invocationStats(db, (data || []).map(s => s.id))
         return res.status(200).json({
-          skills: (data || []).map(s => ({ ...s, stats: stats.get(s.id) })),
+          skills: await withRunModes(db, (data || []).map(s => ({ ...s, stats: stats.get(s.id) }))),
         })
       }
 
@@ -263,7 +277,7 @@ export default async function handler(req, res) {
         if (error) return res.status(500).json({ error: 'internal_error' })
         if (!data) return res.status(404).json({ error: 'not_found' })
         const stats = await invocationStats(db, [data.id])
-        return res.status(200).json({ skill: { ...data, stats: stats.get(data.id) } })
+        return res.status(200).json({ skill: await withRunModes(db, { ...data, stats: stats.get(data.id) }) })
       }
 
       case 'create_skill_draft': {
@@ -529,6 +543,29 @@ export default async function handler(req, res) {
         } catch { /* audit is best-effort; the state change already succeeded */ }
 
         return res.status(200).json({ ok: true, enabled: body.enabled })
+      }
+
+      case 'set_skill_mode': {
+        if (!body.skill_id) return res.status(400).json({ error: 'skill_id_required' })
+        if (!['shadow', 'on'].includes(body.mode)) return res.status(400).json({ error: 'invalid_mode' })
+        const { data: current, error: readErr } = await db.from('keith_skills').select('id, slug').eq('id', body.skill_id).maybeSingle()
+        if (readErr) return res.status(500).json({ error: 'internal_error' })
+        if (!current) return res.status(404).json({ error: 'not_found' })
+        try {
+          const result = await setSkillMode(db, current.slug, body.mode, { id: auth.profileId, is_owner: auth.isOwner })
+          try {
+            await db.from('activity_logs').insert({
+              user_id: auth.profileId, user_name: auth.userName, user_role: auth.role,
+              action_type: 'keith_skill_mode', entity_type: 'keith_skill', entity_id: String(body.skill_id),
+              description: `Set Keith skill ${current.slug} to ${body.mode === 'on' ? 'On' : 'Shadow'}`,
+              metadata: { slug: current.slug, from: result.from, to: result.to, agreement: result.agreement },
+            })
+          } catch { /* audit is best-effort; keith_skill_mode_changes already holds the change */ }
+          return res.status(200).json({ ok: true, ...result })
+        } catch (e) {
+          if (e instanceof KeithSkillError) return res.status(e.status).json({ error: e.reason, message: e.message })
+          throw e
+        }
       }
 
       case 'restore_skill_version': {

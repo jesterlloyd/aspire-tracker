@@ -10,8 +10,10 @@
 // There is no authoring here: no create/edit form, no version diff, no test runner,
 // no import/export. instruction_body is displayed read-only. The backend
 // (api/keith-skills-admin) authorizes every action regardless of this gating.
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
+import ShadowModeCard from '../keith/ShadowModeCard'
+import { agreementPercent } from '../../lib/keith/provenanceModel'
 import DetailDrawer from '../ui/DetailDrawer'
 import Button from '../ui/Button'
 import StateBadge from './StateBadge'
@@ -131,6 +133,33 @@ export default function KeithSkillDrawer({ open, skill, isOwner = false, onClose
     ? { key: 'disable', label: 'Disable', kind: 'enabled', enabled: false, variant: 'destructive', consequence: 'Keith stops invoking this skill immediately. The skill stays Active and can be re-enabled at any time.' }
     : { key: 'enable', label: 'Enable', kind: 'enabled', enabled: true, variant: 'primary', consequence: 'Keith can invoke this skill again immediately.' }
 
+  // KEITH-FOUNDATION-1: Shadow or On, Owner-only, once the foundation migration adds run_mode. Off is
+  // the kill switch above. Switching logs the agreement figure at that moment (keith_skill_mode_changes).
+  const modeAvailable = skill?.run_mode_available === true
+  const runMode = skill?.run_mode === 'shadow' ? 'shadow' : 'on'
+  const modeAction = runMode === 'shadow'
+    ? { key: 'mode-on', label: 'Turn On', kind: 'mode', mode: 'on', variant: 'primary', consequence: 'Keith’s output starts being used. The agreement figure below is recorded with the change.' }
+    : { key: 'mode-shadow', label: 'Set to Shadow', kind: 'mode', mode: 'shadow', variant: 'secondary', consequence: 'Keith keeps running and recording its output, but the feature takes no action on it.' }
+  const [agreement, setAgreement] = useState({ forSlug: null, value: null })
+  useEffect(() => {
+    if (!open || !skill?.slug || runMode !== 'shadow') return undefined
+    let live = true
+    ;(async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        const res = await fetch('/api/keith-provenance', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}) },
+          body: JSON.stringify({ action: 'agreement', skill: skill.slug }),
+        })
+        const json = res.ok ? await res.json() : null
+        if (live) setAgreement({ forSlug: skill.slug, value: json?.agreement || null })
+      } catch { /* the card says nothing to compare */ }
+    })()
+    return () => { live = false }
+  }, [open, skill?.slug, runMode])
+  const shadowAgreement = agreement.forSlug === skill?.slug ? agreement.value : null
+
   // Surface a failure on the pending confirmation only (never a raw backend code).
   function fail(message, isConflict = false) {
     setPending(p => ({ ...p, error: message, conflict: isConflict }))
@@ -143,6 +172,8 @@ export default function KeithSkillDrawer({ open, skill, isOwner = false, onClose
       let payload
       if (confirm.kind === 'enabled') {
         payload = { action: 'set_skill_enabled', skill_id: skill.id, enabled: confirm.enabled }
+      } else if (confirm.kind === 'mode') {
+        payload = { action: 'set_skill_mode', skill_id: skill.id, mode: confirm.mode }
       } else if (confirm.key === 'activate') {
         payload = { action: 'activate_skill', skill_id: skill.id, ...(note.trim() !== '' ? { change_note: note } : {}) }
       } else {
@@ -352,6 +383,12 @@ export default function KeithSkillDrawer({ open, skill, isOwner = false, onClose
           Last invoked {fmtDateTime(stats.last_invoked_at)}
         </div>
 
+        {modeAvailable && runMode === 'shadow' && (
+          <div style={{ marginTop: 18 }}>
+            <ShadowModeCard agreement={shadowAgreement} status="Shadow" />
+          </div>
+        )}
+
         {/* Owner-only controls: the runtime kill switch and the lifecycle, both behind
             a confirmation step. Admins see the record above and nothing here. */}
         {isOwner && (
@@ -361,7 +398,12 @@ export default function KeithSkillDrawer({ open, skill, isOwner = false, onClose
                 <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--color-text-primary, #191919)', marginBottom: 6 }}>{confirm.label} this skill?</div>
                 <div style={{ fontSize: 12.5, color: 'var(--color-text-secondary, #6b7280)', marginBottom: 10, wordBreak: 'break-word' }}>{skill?.display_name || skill?.slug}</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
-                  {confirm.kind === 'enabled' ? (
+                  {confirm.kind === 'mode' ? (
+                    <span style={{ fontSize: 12.5, fontWeight: 600 }}>
+                      {runMode === 'shadow' ? 'Shadow' : 'On'} → {confirm.mode === 'shadow' ? 'Shadow' : 'On'}
+                      {runMode === 'shadow' && <span style={{ fontWeight: 400, color: 'var(--color-text-secondary, #6b7280)' }}> · agreement now {agreementPercent(shadowAgreement)}{shadowAgreement?.total ? ` (${shadowAgreement.agreed} of ${shadowAgreement.total})` : ''}</span>}
+                    </span>
+                  ) : confirm.kind === 'enabled' ? (
                     <>
                       <StatusBadge value={enabled ? 'yes' : 'no'} colorMap={RUNTIME_STYLES} />
                       <span style={{ color: 'var(--color-text-secondary, #9ca3af)' }}>→</span>
@@ -422,6 +464,18 @@ export default function KeithSkillDrawer({ open, skill, isOwner = false, onClose
                         : 'This skill is Active but disabled, so Keith is not invoking it. Enable it to put it back in service.'}
                     </div>
                     <Button variant={enableAction.variant} onClick={() => startConfirm(enableAction)}>{enableAction.label}</Button>
+                  </div>
+                )}
+
+                {isActive && modeAvailable && (
+                  <div style={{ marginBottom: 18 }}>
+                    <div style={sectionLabel}>Mode</div>
+                    <div style={{ fontSize: 12.5, color: 'var(--color-text-secondary, #6b7280)', marginBottom: 10 }}>
+                      {runMode === 'shadow'
+                        ? 'Shadow. Keith runs and its output is recorded, but nothing acts on it. Turning it On is logged with the agreement figure.'
+                        : 'On. Keith’s output is used where this skill runs.'}
+                    </div>
+                    <Button variant={modeAction.variant} onClick={() => startConfirm(modeAction)}>{modeAction.label}</Button>
                   </div>
                 )}
 

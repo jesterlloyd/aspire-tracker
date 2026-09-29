@@ -49,6 +49,7 @@ import OrganizationPanel from './OrganizationPanel'
 import SurfaceCard from '../ui/SurfaceCard'
 import WorkspaceBackLink from '../ui/WorkspaceBackLink'
 import SettingsPageHeader from './SettingsPageHeader'
+import { KeithIcon, KeithLockup } from '../keith/KeithBrand'
 import BackButton from '../BackButton'
 import '../../styles/selectionRail.css'
 import './settingsShell.css'
@@ -56,7 +57,7 @@ import './settingsShell.css'
 // The icons Settings already used, monochrome and without a tile: the rail's from the
 // old rail, the rows' from the old General and Keith lists.
 const SECTION_ICONS = {
-  general: Settings, accounts: Users, organization: Building2, communityBenefit: HandCoins, programBudget: Wallet, keith: Sparkles,
+  general: Settings, accounts: Users, organization: Building2, communityBenefit: HandCoins, programBudget: Wallet, keith: KeithIcon,
   demoMode: Presentation, preceptorParity: Scale,
   about: BadgeInfo, appearance: Monitor, signature: PenLine, tours: Info,
   keithKnowledge: FileText, keithSkills: Sparkles, keithUsage: BarChart3,
@@ -110,7 +111,8 @@ function SettingsListPage({ section, rows, navigate }) {
   const headingId = `settings-${section.key}-heading`
   return (
     <section aria-labelledby={headingId}>
-      <SettingsPageHeader id={headingId} title={section.label} subtitle={LIST_PAGE_COPY[section.key]} />
+      {/* KEITH-FOUNDATION-1: Keith's list page carries Keith's own lockup on its title line. */}
+      <SettingsPageHeader id={headingId} title={section.key === 'keith' ? <KeithLockup /> : section.label} subtitle={LIST_PAGE_COPY[section.key]} />
       <SurfaceCard as="ul" className="settings-list" padding={0} aria-label={section.label}>
         {rows.map(row => {
           const Icon = SECTION_ICONS[row.key]

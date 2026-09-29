@@ -16,6 +16,7 @@ import { useMemo, useState } from 'react'
 import { Check } from 'lucide-react'
 import EditableSheet from '../sheet/EditableSheet'
 import ReceiptOriginal from './ReceiptOriginal'
+import KeithMark from '../keith/KeithMark'
 import { Pill } from '../shared/DataSheet'
 import { needsReceipt } from '../../lib/budget/receiptChecks'
 import { PAYMENT_METHODS, STATUSES, statusesFor, statusLabel, statusTone, paymentKey, statusKey, dateText, monthOf, pacificToday, fiscalYearRange } from '../../lib/budget/budgetModel'
@@ -104,7 +105,7 @@ export default function BudgetSheet({ year, canEdit, onWrite, focus = null }) {
         : row.cells[col.key])
   const commitEdit = async (row, col, editing, { patchRows }) => {
     const out = await onWrite.call('expense_update', { id: row.id, patch: toPatch(col, editing.draft) })
-    const next = sheetRow(out.expense, cats, cohorts)
+    const next = sheetRow({ ...out.expense, keith_provenance_id: row.raw.keith_provenance_id }, cats, cohorts)
     patchRows(x => (x.id === row.id ? { ...next, format: x.format } : x))
     onWrite.changed()
   }
@@ -139,7 +140,9 @@ export default function BudgetSheet({ year, canEdit, onWrite, focus = null }) {
       onAddRow={canEdit && year.state !== 'not_started' ? async () => { const out = await onWrite.call('expense_create', { fields: { expense_date: newDate } }); onWrite.changed(); return sheetRow(out.expense, cats, cohorts) } : undefined}
       onDeleteRows={canEdit ? async (list) => { await onWrite.call('expense_delete', { ids: list.map(r => r.id) }); onWrite.changed() } : undefined}
       renderCell={(row, col, text) => {
-        if (col.key === 'item') return <>{text || DASH}{row.raw.subscription_id && <span className="bud-subtag">Subscription</span>}</>
+        // KEITH-FOUNDATION-1: a row a receipt created carries the Keith mark after its item, in the state
+        // it had at accept. The server sends the provenance id to the Owner only.
+        if (col.key === 'item') return <>{text || DASH}{row.raw.subscription_id && <span className="bud-subtag">Subscription</span>}{canEdit && row.raw.keith_provenance_id && <span className="bud-keith"><KeithMark provenanceId={row.raw.keith_provenance_id} /></span>}</>
         if (col.key === 'status') return row.raw.status ? <Pill tone={TONE[statusTone(row.raw.status)]}>{statusLabel(row.raw.status)}</Pill> : DASH
         if (col.key === 'receipt') {
           if (!row.raw.hasReceipt) return needsReceipt(row.raw) ? <span className="bud-rc-missing" title="A receipt is required for reimbursement over $25">Missing</span> : DASH

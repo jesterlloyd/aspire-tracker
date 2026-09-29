@@ -332,20 +332,18 @@ test('the launcher agrees with the resolved role model: no orb for Viewer', () =
   assert.match(keithUi, /userProfile\?\.role === 'viewer' && userProfile\?\.is_owner !== true\) return null/)
 })
 
-test('the orb is layered, state-bearing, and respects reduced motion', () => {
-  // Layered lens system, not the old flat swirl.
-  for (const cls of ['keith-orb-drift', 'keith-orb-core', 'keith-orb-lens']) {
-    assert.match(keithUi, new RegExp(cls))
-  }
+// KEITH-FOUNDATION-1 replaced KEITH-ORB-1's CSS lens with the animated orb (KeithOrbVideo). The rules
+// this test held move with it: the orb is state-bearing (it loops while a reply is in flight, in the
+// launcher and the header alike) and reduced motion stills it.
+test('the orb is state-bearing, and respects reduced motion', () => {
+  assert.match(keithUi, /import KeithOrbVideo from '\.\/keith\/KeithOrbVideo'/)
+  assert.doesNotMatch(keithUi, /keith-orb-drift|keith-orb-core|keith-orb-lens/, 'the CSS lens is retired')
   assert.doesNotMatch(keithUi, /keithSpin|keithGlow|keithPulse/, 'the prototype swirl is retired')
-  // Thinking state quickens the same layers - state, not decoration.
-  assert.match(keithUi, /\.keith-orb\.thinking \.keith-orb-drift \{ animation-duration: 3\.2s/)
-  assert.match(keithUi, /orb\(60, isTyping\)/)
+  assert.match(keithUi, /orb\(60, isTyping, orbReplay\)/)
   assert.match(keithUi, /orb\(36, isTyping\)/)
-  // Reduced motion freezes every animated layer.
-  assert.match(keithUi, /@media \(prefers-reduced-motion: reduce\)/)
-  const rm = keithUi.slice(keithUi.indexOf('prefers-reduced-motion'))
-  assert.match(rm, /animation: none/)
+  const video = readFileSync(new URL('../src/components/keith/KeithOrbVideo.jsx', import.meta.url), 'utf8')
+  assert.match(video, /prefers-reduced-motion: reduce/)
+  assert.match(video, /still \|\| !visible\s*\n?\s*\? <img src=\{ORB_ANIM\.poster\}/, 'reduced motion renders the poster, never the video')
 })
 
 test('the panel adapts below 440px viewports', () => {
