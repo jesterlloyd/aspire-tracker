@@ -77,6 +77,50 @@ export const statusLabel = (key) => STATUSES.find(s => s.key === key)?.label || 
 export const statusKey = (label) => STATUSES.find(s => s.label === label || s.key === label)?.key || null
 export const statusTone = (key) => STATUSES.find(s => s.key === key)?.tone || 'grey'
 /** The statuses a payment method allows, in path order. */
+// ── Stage (BUDGET-FIXES-1 release 2, Owner 2026-09-30) ─────────────────────────────
+/**
+ * One word for where an expense is, read from what is stored (never stored itself): Expected, Posted,
+ * Receipt attached, Submitted to Concur, Reimbursed or Paid, or Void. It replaces the Sheet's State,
+ * Status and Concur columns, which said the same thing three ways ("Recorded" is Posted or Receipt
+ * attached, by the receipt). A P-card is paid at purchase but reads Posted until its receipt is on
+ * file (Owner). A row marked Submitted with no receipt reads Submitted to Concur; the Receipt column
+ * still says Missing beside it (Owner).
+ */
+export const STAGES = Object.freeze([
+  { key: 'expected', label: 'Expected', tone: 'grey' },
+  { key: 'posted', label: 'Posted', tone: 'blue' },
+  { key: 'receipt', label: 'Receipt attached', tone: 'blue' },
+  { key: 'submitted', label: 'Submitted to Concur', tone: 'amber' },
+  { key: 'settled', label: 'Reimbursed or Paid', tone: 'green' },
+  { key: 'void', label: 'Void', tone: 'grey' },
+])
+const stageBy = new Map(STAGES.map(s => [s.key, s]))
+const hasReceiptOf = (e) => (e?.hasReceipt != null ? !!e.hasReceipt : !!e?.receipt_file_id)
+export function stageOf(e) {
+  if (e?.status === 'void') return 'void'
+  if (e?.state === 'expected') return 'expected'
+  if (e?.payment_method === 'p_card') return hasReceiptOf(e) ? 'settled' : 'posted'
+  if (e?.status === 'paid' || e?.status === 'reimbursed') return 'settled'
+  if (e?.status === 'submitted') return 'submitted'
+  return hasReceiptOf(e) ? 'receipt' : 'posted'
+}
+export const stageLabel = (key) => stageBy.get(key)?.label || ''
+export const stageTone = (key) => stageBy.get(key)?.tone || 'grey'
+/**
+ * What the Stage cell offers a row, and the status each choice saves. Expected, Posted and Receipt
+ * attached are not chosen: they follow the charge's date and the receipt. So the first choice is the
+ * row as it stands before it goes further, and it saves the method's starting status.
+ */
+export function stageChoices(e) {
+  const method = e?.payment_method || 'none'
+  const start = { ...e, status: defaultStatus(method), state: 'posted' }
+  const out = [{ label: stageLabel(stageOf(start)), status: defaultStatus(method) }]
+  if (method === 'personal_concur') out.push({ label: stageLabel('submitted'), status: 'submitted' }, { label: stageLabel('settled'), status: 'reimbursed' })
+  if (method === 'po_invoice') out.push({ label: stageLabel('settled'), status: 'paid' })
+  out.push({ label: stageLabel('void'), status: 'void' })
+  return out.filter((c, i, a) => a.findIndex(x => x.label === c.label) === i)
+}
+
 export const statusesFor = (method) => STATUS_PATHS[method || 'none'] || STATUS_PATHS.none
 /** A new row's status: Paid on a P-card, Recorded otherwise. */
 export const defaultStatus = (method) => (method === 'p_card' ? 'paid' : 'recorded')

@@ -257,7 +257,7 @@ export default function BudgetSubscriptions({ year, canEdit, onWrite }) {
       )}
 
       <p className="bud-hint">{canEdit
-        ? 'Amounts in grey italics count only after approval. Each charge posts to the Sheet on its date as a Recorded or Paid row, marked Subscription. Usage-based amounts are estimates. Click a cell and type to change it; every change saves itself. Amount takes a formula, like =200/12. Set an End date to stop a plan.'
+        ? 'Amounts in grey italics count only after approval. Each charge is Expected until its date, then Posted on the Sheet, marked Subscription. Usage-based amounts are estimates. Click a cell and type to change it; every change saves itself. Amount takes a formula, like =200/12. Set an End date to stop a plan.'
         : 'Read-only view.'}</p>
       <EditableSheet
         // The sheet keeps its own rows. A decision made outside it (Approve, the overlap check) changes

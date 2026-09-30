@@ -25,7 +25,8 @@ import { budgetStaff } from './budgetApi'
 import { filedFolders, FILED_GROUPS } from '../../lib/budget/receiptModel'
 import { usd, dateText, fyShort, fiscalYearOfDate } from '../../lib/budget/budgetModel'
 
-const STATUS_TONE = { recorded: 'low', submitted: 'medium', reimbursed: 'high', paid: 'high', void: 'medium' }
+// BUDGET-FIXES-1 release 2: a filed row shows its Stage, the Sheet's one word for where it is.
+const STAGE_TONE = { expected: 'grey', posted: 'low', receipt: 'low', submitted: 'medium', settled: 'high', void: 'medium' }
 const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`
 
 export default function BudgetFiled({ year, receipts: given, notify, onShowInSheet }) {
@@ -143,7 +144,7 @@ function FiledTile({ entry, groupBy, onOpen }) {
           {entry.part != null && <span className="bud-conf bud-conf-medium">Split · {usd(entry.part)} here</span>}
           {r.attached && <span className="bud-conf bud-conf-grey">Attached</span>}
           {meal && <span className="bud-conf bud-conf-high">Meal · documented</span>}
-          {groupBy !== 'status' && status && <span className={`bud-conf bud-conf-${STATUS_TONE[status.status] || 'grey'}`}>{status.statusLabel}</span>}
+          {groupBy !== 'status' && status && <span className={`bud-conf bud-conf-${STAGE_TONE[status.stage] || 'grey'}`}>{status.stageLabel}</span>}
         </span>
       </span>
     </button>
@@ -172,7 +173,7 @@ function FiledDetail({ receipt: r }) {
       </div>
       <dl className="bud-fdetail-kv">
         <dt>Payment</dt><dd>{r.rows[0]?.payment || 'Not recorded'}</dd>
-        <dt>Status</dt><dd>{r.rows[0] ? <span className={`bud-conf bud-conf-${STATUS_TONE[r.rows[0].status] || 'grey'}`}>{r.rows[0].statusLabel}</span> : 'None'}</dd>
+        <dt>Stage</dt><dd>{r.rows[0] ? <span className={`bud-conf bud-conf-${STAGE_TONE[r.rows[0].stage] || 'grey'}`}>{r.rows[0].stageLabel}</span> : 'None'}</dd>
         <dt>Filed as</dt><dd><code className="bud-path">Program Budget › {fy} › Receipts › {r.filed_name}</code></dd>
         {meal && (<>
           <dt>Business purpose</dt><dd>{meal.business_purpose || 'Not recorded'}</dd>

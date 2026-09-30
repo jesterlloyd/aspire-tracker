@@ -117,7 +117,7 @@ export function paymentFromCard(cardLast4, pcardLast4, remembered = []) {
   const known = (remembered || []).find(c => c?.last4 === cardLast4)
   if (known) return { method: known.method, tone: 'ok', text: `Card ending ${cardLast4} is remembered as ${paymentLabel(known.method)}.`, remembered: true }
   if (!pcardLast4) return { method: null, tone: 'info', text: `Card ending ${cardLast4}. No P-card is on file, so choose the payment method.` }
-  return { method: 'personal_concur', tone: 'info', text: `Card ending ${cardLast4} is not your P-card, so this is a personal purchase: Personal (Concur), Recorded. Mark it Submitted when you file it in Concur.` }
+  return { method: 'personal_concur', tone: 'info', text: `Card ending ${cardLast4} is not your P-card, so this is a personal purchase: Personal (Concur). Mark it Submitted to Concur when you file it there.` }
 }
 
 /**
@@ -257,7 +257,7 @@ export function vendorLogo(vendor, logos = VENDOR_LOGOS) {
 }
 
 export const FILED_GROUPS = Object.freeze([
-  { key: 'month', label: 'Month' }, { key: 'category', label: 'Category' }, { key: 'vendor', label: 'Vendor' }, { key: 'status', label: 'Status' },
+  { key: 'month', label: 'Month' }, { key: 'category', label: 'Category' }, { key: 'vendor', label: 'Vendor' }, { key: 'status', label: 'Stage' },
 ])
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 const monthLabel = (ymd) => { const [y, m] = String(ymd || '').split('-').map(Number); return y && m ? `${MONTHS[m - 1]} ${y}` : 'No date' }
@@ -281,7 +281,7 @@ export function filedFolders(receipts = [], { groupBy = 'month', query = '' } = 
       if (!by.size) by.set('Uncategorized', r.total)
       for (const [cat, amt] of by) put(cat, cat, { receipt: r, part: by.size > 1 ? amt : null })
     } else if (groupBy === 'vendor') put(r.vendor || 'Unknown vendor', String(r.vendor || '').toLowerCase(), { receipt: r, part: null })
-    else if (groupBy === 'status') { const st = r.rows?.[0]?.statusLabel || 'Not recorded'; put(st, st, { receipt: r, part: null }) }
+    else if (groupBy === 'status') { const st = r.rows?.[0]?.stageLabel || 'Not recorded'; put(st, st, { receipt: r, part: null }) }
     else put(monthLabel(r.date), `~${9999 - Number(String(r.date || '0000').slice(0, 4))}-${String(99 - Number(String(r.date || '').slice(5, 7) || 0)).padStart(2, '0')}`, { receipt: r, part: null })
   }
   return [...folders.values()]

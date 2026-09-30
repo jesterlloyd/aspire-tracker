@@ -95,7 +95,7 @@ export default function BudgetClose({ year, canEdit, onWrite, onGo }) {
                 <span className={i.ok ? 'ok' : 'no'} aria-hidden="true">{i.ok ? '✓' : '!'}</span>
                 <span><b className={i.ok ? undefined : 'todo'}>{i.title}</b><small>{i.detail}</small></span>
                 <span>
-                  {!i.ok && i.key === 'concur' && <button type="button" className="bud-btn bud-btn-sm" disabled={busy} onClick={() => run('concur_mark_submitted', { month: selected.key })}>Mark all Submitted</button>}
+                  {!i.ok && i.key === 'concur' && <button type="button" className="bud-btn bud-btn-sm" disabled={busy} onClick={() => run('concur_mark_submitted', { month: selected.key })}>Mark all Submitted to Concur</button>}
                   {!i.ok && i.key === 'review' && onGo && <button type="button" className="bud-btn bud-btn-sm" onClick={() => onGo('receipts')}>Review</button>}
                   {!i.ok && i.key === 'receipts' && onGo && <button type="button" className="bud-btn bud-btn-sm" onClick={() => onGo('sheet', 'missing-receipt')}>Show in Sheet</button>}
                 </span>

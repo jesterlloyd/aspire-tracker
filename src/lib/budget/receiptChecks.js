@@ -127,7 +127,7 @@ export function receiptChecks(draft, ctx = {}) {
   if (!duplicate) {
     const pay = paymentFromCard(proposal.card_last4, pcardLast4, rememberedCards)
     if (method === pay.method || !method) add('payment', pay.tone, pay.text)
-    if (method === 'personal_concur' && pay.method !== 'personal_concur') add('payment_concur', 'info', 'Personal (Concur) starts as Recorded. Mark it Submitted when you file it in Concur.')
+    if (method === 'personal_concur' && pay.method !== 'personal_concur') add('payment_concur', 'info', 'Personal (Concur): mark it Submitted to Concur when you file it there.')
   }
 
   // B4.6 Privacy (Owner, 2026-09-27: no blurring; the original is the Owner's alone).

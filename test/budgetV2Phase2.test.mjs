@@ -229,12 +229,13 @@ test('the API names each new action, Owner-only, and the queue carries the close
   assert.match(read('src/lib/home/homeLoaders.js'), /close: q\?\.close \|\| null/)
 })
 
-test('the Sheet shows State and Concur, Missing, closed-month locks, and Expected rows below it', () => {
+test('the Sheet shows Stage, Missing, closed-month locks, and Expected rows below it', () => {
   const sheet = read('src/components/budget/BudgetSheet.jsx')
   assert.match(sheet, /tail=\{\{ label: 'Expected · not counted as spent yet', rows: expectedRows \}\}/)
-  assert.match(sheet, /\{ key: 'state', label: 'State'/)
-  assert.match(sheet, /\{ key: 'concur', label: 'Concur', type: 'choice'/)
-  assert.match(sheet, /isLocked=\{\(row, col\) => inClosed\(row\) \|\| \(col\.key === 'concur' && row\.raw\.payment_method !== 'personal_concur'\)\}/)
+  // BUDGET-FIXES-1 release 2 changed this: one Stage column replaced State, Status and Concur.
+  assert.match(sheet, /\{ key: 'stage', label: 'Stage', type: 'choice'/)
+  assert.doesNotMatch(sheet, /key: '(state|concur|status)', label:/)
+  assert.match(sheet, /isLocked=\{\(row, col\) => inClosed\(row\) \|\| \(col\.key === 'stage' && row\.raw\.state === 'expected'\)\}/)
   const es = read('src/components/sheet/EditableSheet.jsx')
   assert.match(es, /tail\?\.rows\?\.length > 0 && !search\.trim\(\) && !filters\.length && !quick/)
   assert.match(read('src/components/budget/BudgetSummary.jsx'), /<BudgetClose year=\{year\} canEdit=\{canEdit\} onWrite=\{onWrite\} onGo=\{onGo\} \/>/)

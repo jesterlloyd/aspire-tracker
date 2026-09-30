@@ -73,7 +73,8 @@ test('the draft proposes one row per category, and a single-category receipt is 
 test('the payment method comes from the card only when a P-card is on file', () => {
   assert.deepEqual(M.paymentFromCard('4417', ''), { method: null, tone: 'info', text: 'Card ending 4417. No P-card is on file, so choose the payment method.' })
   assert.equal(M.paymentFromCard('4417', '4417').method, 'p_card')
-  assert.match(M.paymentFromCard('4417', '0932').text, /Personal \(Concur\), Recorded\. Mark it Submitted when you file it in Concur\./)
+  // BUDGET-FIXES-1 release 2 changed this: the stage names, not "Recorded".
+  assert.match(M.paymentFromCard('4417', '0932').text, /Personal \(Concur\)\. Mark it Submitted to Concur when you file it there\./)
   assert.equal(M.paymentFromCard('', '0932').method, null)
 })
 

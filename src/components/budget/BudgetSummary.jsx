@@ -88,7 +88,7 @@ function HowItWorks() {
     ['Expect', 'Approved subscriptions create the month’s charges ahead of time.', 'The app'],
     ['Post', 'On its date, a charge counts as spent. It shows Missing until its receipt arrives.', 'The app'],
     ['Match or add', 'Keith reads each receipt. It attaches to a charge, or becomes a new one-time expense.', 'Keith proposes, you decide'],
-    ['Submit', 'Personal purchases go to Concur. Mark them Submitted, then Reimbursed.', 'You'],
+    ['Submit', 'Personal purchases go to Concur. Mark them Submitted to Concur, then Reimbursed or Paid.', 'You'],
     ['Close the month', 'Every charge has a receipt, nothing is left to review, Concur is done.', 'You, reminded on the 5th'],
   ]
   return (
