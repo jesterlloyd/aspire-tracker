@@ -37,9 +37,9 @@ async function world({ fixes = true } = {}) {
   await E.decideProposal(db, owner, { id: supa, decision: 'from_year_start', today: TODAY })
   return { pg, db, owner, supa }
 }
-async function receipt(db, owner, { date, total, name }) {
+async function receipt(db, owner, { date, total, name, lines = null }) {
   const reading = { vendor: 'Supabase Pte. Ltd.', order_number: '', date, card_last4: '2002', subtotal: total, tax: 0, shipping: 0, tip: 0, total, has_shipping_address: false, unreadable_fields: [],
-    lines: [{ item: 'Supabase Pro plan', quantity: 1, amount: total, category: 'Technology & Software', confidence: 'high', reason: 'Software.' }] }
+    lines: lines || [{ item: 'Supabase Pro plan', quantity: 1, amount: total, category: 'Technology & Software', confidence: 'high', reason: 'Software.' }] }
   const { receipt: rec, upload } = await R.startUpload(db, owner, { fileName: name, contentType: 'application/pdf', size: 3 })
   await db.storage.from(R.RECEIPT_BUCKET).upload(upload.path, Buffer.from('pdf'))
   return (await R.readReceipt(db, owner, { id: rec.id, complete: async () => ({ ok: true, text: JSON.stringify(reading), model: 'm', usage: {} }), today: TODAY })).receipt
@@ -163,4 +163,23 @@ test('Subscriptions: no Sum on Amount, and the Platform line says it is program 
   // Found in the browser: the year's view dropped the column, and the pinned cell overflowed 160px.
   assert.match(read('lib/server/budget/engine.js'), /amount_pinned: s\.amount_pinned === true,/)
   assert.match(src, /const PINNED_AMOUNT_W = 240/)
+})
+
+test('the row takes the total printed on the receipt, not its lines: a credit line is stored as $0', async () => {
+  // Production, 2026-09-29: the July Supabase invoice's lines added to $55.14 against a $28.52 total.
+  const { pg, db, owner, supa } = await world({ fixes: false })
+  const line = (item, amount) => ({ item, quantity: 1, amount, category: 'Technology & Software', confidence: 'high', reason: 'Software.' })
+  const jul = await receipt(db, owner, { date: '2026-07-29', total: 28.52, name: 'jul.pdf', lines: [line('Pro plan', 25), line('Compute', 30.14), line('Compute credit', -26.62)] })
+  assert.equal(jul.draft.lines.reduce((a, l) => a + l.amount, 0), 55.14, 'the credit line reads as $0')
+  await R.acceptReceipt(db, owner, { id: jul.id, draft: jul.draft, attachCharge: true, today: TODAY })
+  assert.equal((await rows(pg, supa))[0].a, 28.52)
+  // And the migration's correction reads the same total.
+  await pg.exec(`UPDATE budget_expenses SET amount = 17.50 WHERE subscription_id = '${supa}'; UPDATE budget_subscriptions SET amount = 17.50 WHERE id = '${supa}';`)
+  await pg.exec(FIXES)
+  assert.equal((await rows(pg, supa))[0].a, 28.52)
+  assert.equal(await subAmount(pg, supa), 28.52)
+})
+
+test('the migration has no temporary tables (the SQL editor dropped them between statements)', () => {
+  assert.doesNotMatch(FIXES, /TEMP TABLE/i)
 })

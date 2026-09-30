@@ -155,6 +155,17 @@ export function setLineCategory(draft, id, category) {
 }
 
 export const draftTotal = (draft) => money((draft?.lines || []).reduce((a, l) => a + (Number(l.amount) || 0), 0))
+/**
+ * BUDGET-FIXES-1: what the receipt says it cost, for a charge that takes its receipt's amount. The
+ * total printed on the receipt, then Keith's reading of it, then the lines. The lines alone can
+ * overstate it: a credit line is stored as $0 (the July Supabase invoice added to $55.14 against a
+ * $28.52 total).
+ */
+export function statedTotal(draft, proposal) {
+  if (Number(draft?.total) > 0) return money(draft.total)
+  if (Number(proposal?.total) > 0) return money(proposal.total)
+  return draftTotal(draft)
+}
 
 /** Clean attendees: every row that has a name, each field trimmed. */
 export function cleanAttendees(list) {

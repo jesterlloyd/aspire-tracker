@@ -6,7 +6,11 @@
 -- new estimate, then FY27 Spent now and after.
 WITH rows AS (
   SELECT s.name, COALESCE(e.charge_date, e.expense_date) AS charge_on, e.amount AS now_amount,
-         ROUND((SELECT SUM((l->>'amount')::numeric) FROM jsonb_array_elements(COALESCE(br.draft->'lines', '[]'::jsonb)) l), 2) AS receipt_total,
+         ROUND(CASE
+           WHEN jsonb_typeof(br.draft->'total') = 'number' AND (br.draft->>'total')::numeric > 0 THEN (br.draft->>'total')::numeric
+           WHEN jsonb_typeof(br.proposal->'total') = 'number' AND (br.proposal->>'total')::numeric > 0 THEN (br.proposal->>'total')::numeric
+           ELSE (SELECT SUM((l->>'amount')::numeric) FROM jsonb_array_elements(COALESCE(br.draft->'lines', '[]'::jsonb)) l)
+         END, 2) AS receipt_total,
          e.budget_id
   FROM public.budget_receipts br
   JOIN public.budget_expenses e ON e.receipt_file_id = br.record_document_id
