@@ -71,7 +71,8 @@ test('the screens: one Add receipts, the year line in the band, Filed when empty
   assert.match(line, /set_cost_center/)
   assert.match(line, /Also update this year’s rows that show the old one/)
   // BUDGET-FIXES-1 changed this: Filed opens when the SELECTED year has filed receipts (item 1.4).
-  assert.match(read('src/components/budget/BudgetReceipts.jsx'), /if \(!firstLoad\.current\) \{ firstLoad\.current = true; if \(!d\.waiting\.length && filedIn\(d, fy\)\) setView\('filed'\) \}/)
+  // BUDGET-CONCUR-1 changed it again: not when the tab opened to read new files (the Sheet's Upload).
+  assert.match(read('src/components/budget/BudgetReceipts.jsx'), /if \(!firstLoad\.current\) \{ firstLoad\.current = true; if \(!d\.waiting\.length && filedIn\(d, fy\) && !withFiles\.current\) setView\('filed'\) \}/)
   const sum = read('src/components/budget/BudgetSummary.jsx')
   // BUDGET-FIXES-1 item 2.1 changed this: How this works is a link beside the tabs, remembered per person.
   assert.match(read('src/components/budget/BudgetHowItWorks.jsx'), /useUserPreference\(BUDGET_HOW_IT_WORKS\)/)

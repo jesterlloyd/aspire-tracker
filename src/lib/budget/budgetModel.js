@@ -121,6 +121,18 @@ export function stageChoices(e) {
   return out.filter((c, i, a) => a.findIndex(x => x.label === c.label) === i)
 }
 
+/**
+ * BUDGET-CONCUR-1: where a receipt's Personal (Concur) rows are in Concur: 'open' (not submitted),
+ * 'submitted', 'reimbursed', or null when none of its rows go to Concur.
+ */
+export function concurStateOf(rows = []) {
+  const own = rows.filter(r => r.payment_method === 'personal_concur' && r.status !== 'void')
+  if (!own.length) return null
+  if (own.every(r => r.status === 'reimbursed')) return 'reimbursed'
+  if (own.every(r => r.status === 'submitted' || r.status === 'reimbursed')) return 'submitted'
+  return 'open'
+}
+
 export const statusesFor = (method) => STATUS_PATHS[method || 'none'] || STATUS_PATHS.none
 /** A new row's status: Paid on a P-card, Recorded otherwise. */
 export const defaultStatus = (method) => (method === 'p_card' ? 'paid' : 'recorded')

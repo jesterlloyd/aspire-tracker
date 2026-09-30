@@ -94,7 +94,8 @@ test('Sheet: the owner adds and deletes rows; a reader gets a view-only sheet; a
   // BUDGET-V2 item 12: the only lock in a closed year is Concur on a row that is not Personal (Concur),
   // which is locked in every year; a closed MONTH locks its rows until it is reopened (Phase 2).
   const locked = [...closed.matchAll(/data-cell="([^"|]+)\|([^"]+)"[^>]*class="[^"]*fs-locked/g)].map(m => m[2])
-  assert.deepEqual([...new Set(locked)], locked.length ? ['concur'] : [], 'nothing in a closed year is locked but Concur on a non-personal row')
+  // BUDGET-CONCUR-1 changed this: the Concur column is now the Submitted to Concur checkbox, keyed concur_done.
+  assert.deepEqual([...new Set(locked)], locked.length ? ['concur_done'] : [], 'nothing in a closed year is locked but Concur on a non-personal row')
   assert.match(closed, /<\/svg> Row<\/button>/, 'a closed year takes new rows')
   assert.match(closed, /Delete row/)
 })

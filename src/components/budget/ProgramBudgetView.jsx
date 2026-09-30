@@ -170,7 +170,8 @@ export default function ProgramBudgetView({ source, renderBand, initialFy = null
           : <BudgetSummary key={year.fy} year={year} canEdit={canEdit} onWrite={onWrite} source={source} receiptQueue={canEdit ? receiptQueue : []}
               onGo={(t, filter) => { setSheetFocus(filter ? { filter, at: Date.now() } : null); setTab(t) }}
               onOpenYear={(y) => { setTab('plan'); setFy(y) }} />)}
-        {current === 'sheet' && <BudgetSheet year={year} canEdit={canEdit} onWrite={onWrite} focus={sheetFocus} receiptCount={receiptCount} onGo={(t) => { setSheetFocus(null); setTab(t) }} />}
+        {current === 'sheet' && <BudgetSheet year={year} canEdit={canEdit} onWrite={onWrite} focus={sheetFocus} receiptCount={receiptCount} onGo={(t) => { setSheetFocus(null); setTab(t) }}
+          onUpload={canEdit ? (files) => { setPendingFiles(files); setTab('receipts') } : undefined} />}
         {current === 'subscriptions' && <BudgetSubscriptions year={year} canEdit={canEdit} onWrite={onWrite} />}
         {current === 'receipts' && canEdit && (
           <BudgetReceipts year={year} onWrite={onWrite} pendingFiles={pendingFiles} onPendingTaken={() => setPendingFiles(null)} onCount={setReceiptCount}

@@ -12,10 +12,10 @@
 // prompt's closed-year locks are retired). Every change is logged; readers stay read-only.
 // Invariants 3, 5 and 6 hold here too: one number per column, status one word in a pill,
 // missing an en dash.
-import { useMemo, useState } from 'react'
-import { Check } from 'lucide-react'
+import { useMemo, useRef, useState } from 'react'
+import { Check, Upload } from 'lucide-react'
 import EditableSheet from '../sheet/EditableSheet'
-import { BUDGET_TOOLS, withStage } from './budgetSheetTools'
+import { BUDGET_TOOLS, withStage, withConcurColumn } from './budgetSheetTools'
 import ReceiptOriginal from './ReceiptOriginal'
 import KeithMark from '../keith/KeithMark'
 import { Pill } from '../shared/DataSheet'
@@ -35,6 +35,12 @@ const DASH = <span className="bud-dash">–</span>
 // BUDGET-V2 item 12: a posted row with no receipt reads Missing (an imported FY26 row, dated only
 // to the month, never does). Over $25 on Personal (Concur) it is also a reimbursement requirement.
 const missingReceipt = (e) => !e.hasReceipt && e.state !== 'expected' && e.date_precision !== 'month' && e.status !== 'void'
+// BUDGET-CONCUR-1 (Owner, 2026-09-30): the Submitted to Concur checkbox is the row's Stage, not a column
+// of its own. Ticked means Submitted to Concur or later; ticking sets Submitted, unticking puts it back.
+// Only a Personal (Concur) purchase that has posted has one, and a Reimbursed row keeps its tick (its
+// Stage takes it back). Keyed concur_done: 'concur' was the retired Concur column, which withStage drops.
+const concurDone = (e) => ['submitted', 'reimbursed'].includes(e.status)
+const concurApplies = (e) => e.payment_method === 'personal_concur' && e.state !== 'expected' && e.status !== 'void'
 const MISSING_FILTER = [{ key: 'missing-receipt', label: 'Missing receipt', test: (r) => missingReceipt(r.raw) }]
 const DEFAULT_LAYOUT = {
   order: [], hidden: ['month'], widths: { item: 220, description: 280, cat: 180, order_number: 170 }, frozen: 1, groupBy: null, staffColumns: [],
@@ -50,7 +56,7 @@ function sheetRow(e, cats, cohorts) {
       order_number: e.order_number || '', pay: e.paymentLabel || '', qty: e.quantity == null ? '' : String(e.quantity),
       amount: e.amount == null ? '' : String(e.amount), stage: stageLabel(stageOf(e)), receipt: e.hasReceipt ? 'On file' : '',
       cohort: cohorts.get(e.cohort_id) || '', cost_center: e.cost_center || '', notes: e.notes || '',
-      tag: e.tag === 'platform' ? 'Platform' : '',
+      tag: e.tag === 'platform' ? 'Platform' : '', concur_done: concurDone(e) ? 'Yes' : '',
       month: e.expense_date ? `${monthOf(e.expense_date)} ${e.expense_date.slice(0, 4)}` : '',
       ...(e.staff_values || {}),
     },
@@ -62,7 +68,8 @@ const valueOf = (row, key) => (key === '@date' ? row.raw.expense_date : key in R
 const shownOf = (row, key) => (key === '@date' ? dateText(row.raw.expense_date, row.raw.date_precision) : (row.cells[key] ?? ''))
 const searchValues = (r) => [r.raw.item, r.raw.vendor, r.raw.order_number, r.raw.notes]
 
-export default function BudgetSheet({ year, canEdit, onWrite, focus = null, receiptCount = 0, onGo = null }) {
+export default function BudgetSheet({ year, canEdit, onWrite, focus = null, receiptCount = 0, onGo = null, onUpload = null }) {
+  const uploadRef = useRef(null)
   const [original, setOriginal] = useState(null)   // Phase B: the filed receipt, opened from its row
   const openReceipt = async (row) => {
     setOriginal({ slip: { file_name: row.raw.item || 'Receipt' }, loading: true })
@@ -97,7 +104,8 @@ export default function BudgetSheet({ year, canEdit, onWrite, focus = null, rece
     { key: 'amount', label: 'Spent ($)', type: 'number' },
     { key: 'stage', label: 'Stage', type: 'choice', required: true, options: STAGES.map(x => x.label), optionsFor: (r) => stageChoices(r.raw).map(c => c.label),
       note: 'Stage follows the row: Expected until the charge’s date, Posted, then Receipt attached once a receipt is filed. Choose Submitted to Concur, Reimbursed or Paid, or Void as it moves on. Only Posted and later count as spent.' },
-    { key: 'receipt', label: 'Receipt', type: 'text', note: 'The Receipt column fills in when a receipt is filed for the row.' },
+    { key: 'receipt', label: 'Receipt', type: 'text', note: 'The Receipt column fills in when a receipt is filed for the row. Upload sends one to Receipts to be read.' },
+    { key: 'concur_done', label: 'Submitted to Concur', type: 'check', note: 'Tick it when you submit the purchase in Concur. It is the Stage: ticked is Submitted to Concur.' },
     ...(year.tagsEnabled ? [{ key: 'tag', label: 'Tag', type: 'choice', options: ['Platform'] }] : []),
     { key: 'cohort', label: 'Cohort', type: 'choice', options: year.cohorts.map(c => c.name) },
     { key: 'cost_center', label: 'Cost center', type: 'text' },
@@ -116,6 +124,7 @@ export default function BudgetSheet({ year, canEdit, onWrite, focus = null, rece
       case 'cat': return { category_id: v ? catIds.get(v) || null : null }
       case 'pay': return { payment_method: v ? paymentKey(v) : null }
       case 'stage': return { status: stageChoices(row.raw).find(c => c.label === v)?.status ?? null }
+      case 'concur_done': return { status: v ? 'submitted' : 'recorded' }
       case 'tag': return { tag: v === 'Platform' ? 'platform' : null }
       case 'cohort': return { cohort_id: v ? cohortIds.get(v) || null : null }
       case 'qty': return { quantity: v }
@@ -140,13 +149,16 @@ export default function BudgetSheet({ year, canEdit, onWrite, focus = null, rece
     <>
     {original && <ReceiptOriginal original={original} onClose={() => setOriginal(null)} />}
     {fix && <PlanFix fix={fix} year={year} maps={planMaps} onWrite={onWrite} onClose={() => setFix(null)} />}
+    {/* BUDGET-CONCUR-1: the Receipt cell's Upload; the files go to Receipts > To Review. */}
+    {onUpload && <input ref={uploadRef} type="file" accept="image/*,application/pdf,.pdf,.eml,message/rfc822,.heic,.heif" multiple hidden
+      onChange={e => { const f = [...e.target.files]; e.target.value = ''; if (f.length) onUpload(f) }} />}
     <EditableSheet
       key={`${year.fy}-${focus?.at || ''}-${rows.length ? 'rows' : 'empty'}`}
       initialSearch={focus?.search || ''}   // RECEIPT-ORGANIZER-1: Filed > Show in Sheet opens the Sheet searched for the receipt
       // MISSING-RECEIPT-1: Personal (Concur) over $25 with no receipt on file (policy p.2).
       quickFilters={MISSING_FILTER} initialQuick={focus?.filter || null}
       initialRows={rows}
-      initialLayout={withStage({ ...DEFAULT_LAYOUT, ...(year.layout || {}) })}
+      initialLayout={withConcurColumn(withStage({ ...DEFAULT_LAYOUT, ...(year.layout || {}) }))}
       lead={LEAD}
       columns={columns}
       editable={editable}
@@ -172,7 +184,7 @@ export default function BudgetSheet({ year, canEdit, onWrite, focus = null, rece
         </span>}
       </>}
       tail={{ label: 'Expected · not counted as spent yet', rows: expectedRows }}
-      isLocked={(row, col) => inClosed(row) || (col.key === 'stage' && row.raw.state === 'expected')}
+      isLocked={(row, col) => inClosed(row) || (col.key === 'stage' && row.raw.state === 'expected') || (col.key === 'concur_done' && (!concurApplies(row.raw) || row.raw.status === 'reimbursed'))}
       cellClass={(r) => (r.raw.status === 'void' ? 'bud-void' : undefined)}
       formulas
       onAddRow={canEdit && year.state !== 'not_started' ? async () => { const out = await onWrite.call('expense_create', { fields: { expense_date: newDate } }); onWrite.changed(); return sheetRow(out.expense, cats, cohorts) } : undefined}
@@ -192,11 +204,14 @@ export default function BudgetSheet({ year, canEdit, onWrite, focus = null, rece
             : <Pill tone="warn">{st.text}</Pill>
         }
         if (col.key === 'tag') return row.raw.tag === 'platform' ? <span className="bud-tag">Platform</span> : DASH
+        if (col.key === 'concur_done') return concurApplies(row.raw) ? undefined : DASH
         if (col.key === 'receipt') {
           if (row.raw.state === 'expected') return DASH
           if (!row.raw.hasReceipt) {
-            if (needsReceipt(row.raw)) return <span className="bud-rc-missing" title="A receipt is required for reimbursement over $25">Missing</span>
-            return missingReceipt(row.raw) ? <span className="bud-rc-missing" title={row.raw.notes ? `No receipt. Note: ${row.raw.notes}` : 'No receipt on file yet. Attach one from Receipts, or add a note.'}>Missing</span> : DASH
+            // BUDGET-CONCUR-1: Upload sends the file to Receipts > To Review, where Keith reads and matches it.
+            const up = onUpload && canEdit ? <button type="button" className="bud-rc-up" onMouseDown={e => e.stopPropagation()} onDoubleClick={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); uploadRef.current?.click() }}><Upload size={12} aria-hidden="true" />Upload</button> : null
+            if (needsReceipt(row.raw)) return <span className="bud-rc-cell"><span className="bud-rc-missing" title="A receipt is required for reimbursement over $25">Missing</span>{up}</span>
+            return missingReceipt(row.raw) ? <span className="bud-rc-cell"><span className="bud-rc-missing" title={row.raw.notes ? `No receipt. Note: ${row.raw.notes}` : 'No receipt on file yet. Upload one, or add a note.'}>Missing</span>{up}</span> : (up || DASH)
           }
           // The Owner opens the filed original; everyone else learns only that one is on file (decision 5).
           return canEdit
@@ -212,7 +227,8 @@ export default function BudgetSheet({ year, canEdit, onWrite, focus = null, rece
         emptyNote: 'No expenses in this year.',
         noMatch: 'No expenses match.', frameLabel: `Expenses, ${year.label}. Arrow keys move, Enter edits.`,
         readOnlyEdit: canEdit ? `${year.label} has not started.` : 'This view is read-only.',
-        locked: (row, col) => (inClosed(row) ? 'This row’s month is closed. Reopen it on the Summary to change its rows.' : col.key === 'stage' ? 'An Expected charge becomes Posted on its date.' : ''),
+        locked: (row, col) => (inClosed(row) ? 'This row’s month is closed. Reopen it on the Summary to change its rows.' : col.key === 'stage' ? 'An Expected charge becomes Posted on its date.'
+          : col.key === 'concur_done' ? (row.raw.status === 'reimbursed' ? 'Reimbursed. Change its Stage to take that back.' : 'Only a Personal (Concur) purchase that has posted goes to Concur.') : ''),
         newColumnHint: 'A column of your own, like Approved by or PO number. Leadership sees it read-only.',
         help: canEdit ? 'Click a cell and type to change it; Enter or Tab saves, Escape puts it back, and every change saves itself. Qty and Spent take a formula: type = then a calculation, like =[Qty]*12.50. Unit cost is Spent divided by Qty. Group by Category or Month for the Annual Budget Tracker view; Export to Excel writes both sheets.' : 'Read-only. Use Export to Excel to work with the figures.',
       }}

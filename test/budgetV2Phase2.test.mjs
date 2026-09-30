@@ -248,7 +248,8 @@ test('the Sheet shows Stage, Missing, closed-month locks, and Expected rows belo
   // BUDGET-FIXES-1 release 2 changed this: one Stage column replaced State, Status and Concur.
   assert.match(sheet, /\{ key: 'stage', label: 'Stage', type: 'choice'/)
   assert.doesNotMatch(sheet, /key: '(state|concur|status)', label:/)
-  assert.match(sheet, /isLocked=\{\(row, col\) => inClosed\(row\) \|\| \(col\.key === 'stage' && row\.raw\.state === 'expected'\)\}/)
+  // BUDGET-CONCUR-1 changed this: the Submitted to Concur checkbox is locked where it does not apply.
+  assert.match(sheet, /isLocked=\{\(row, col\) => inClosed\(row\) \|\| \(col\.key === 'stage' && row\.raw\.state === 'expected'\) \|\| \(col\.key === 'concur_done'/)
   const es = read('src/components/sheet/EditableSheet.jsx')
   assert.match(es, /tail\?\.rows\?\.length > 0 && !search\.trim\(\) && !filters\.length && !quick/)
   assert.match(read('src/components/budget/BudgetSummary.jsx'), /<BudgetClose year=\{year\} canEdit=\{canEdit\} onWrite=\{onWrite\} onGo=\{onGo\} \/>/)

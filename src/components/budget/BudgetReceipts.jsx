@@ -41,6 +41,9 @@ export default function BudgetReceipts({ year, onWrite, pendingFiles, onPendingT
   // RECEIPT-ORGANIZER-1 (Owner, 2026-09-27): To Review is the queue, one slip open at a time and the
   // rest folded to a line; Filed is every accepted receipt in folders (BudgetFiled).
   const [view, setView] = useState('review')
+  // BUDGET-CONCUR-1: arriving with files (the Sheet's Upload, the header's Add receipts) opens To Review,
+  // where they are read, even when nothing else is waiting.
+  const withFiles = useRef(!!pendingFiles?.length)
   const [openId, setOpenId] = useState(null)
   const [status, setStatus] = useState(null)        // { enabled, keith }
   const [data, setData] = useState(null)
@@ -66,7 +69,7 @@ export default function BudgetReceipts({ year, onWrite, pendingFiles, onPendingT
       setData(d); setFiled(out.filed); setError(null)
       // BUDGET-POLISH-1 (Owner, 2026-09-29): with nothing to review, the tab opens on Filed. Only on the
       // first load, so reviewing the last receipt never moves the page from under you.
-      if (!firstLoad.current) { firstLoad.current = true; if (!d.waiting.length && filedIn(d, fy)) setView('filed') }
+      if (!firstLoad.current) { firstLoad.current = true; if (!d.waiting.length && filedIn(d, fy) && !withFiles.current) setView('filed') }
       onCount?.(d.waiting.length)
     }
     try {
@@ -216,7 +219,7 @@ export default function BudgetReceipts({ year, onWrite, pendingFiles, onPendingT
       </div>
 
       {view === 'filed'
-        ? <BudgetFiled key={year.fy} year={year} receipts={filed} notify={notify} onShowInSheet={onShowInSheet} />
+        ? <BudgetFiled key={year.fy} year={year} receipts={filed} notify={notify} onShowInSheet={onShowInSheet} onChanged={() => { load(); onWrite.changed() }} />
         : (<>
       <div className="bud-qhead">
         <h2>Waiting for Review</h2>

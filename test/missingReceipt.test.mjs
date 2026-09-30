@@ -110,9 +110,10 @@ test('the budget Sheet wears it: Missing in the Receipt cell, the filter, and th
   // BUDGET-V2 item 12 (2026-09-29): every posted row with no receipt reads Missing, so the filter shows
   // them all; the over-$25 Personal (Concur) rows keep their reimbursement wording in the cell.
   assert.match(sheet, /const MISSING_FILTER = \[\{ key: 'missing-receipt', label: 'Missing receipt', test: \(r\) => missingReceipt\(r\.raw\) \}\]/)
-  assert.match(sheet, /if \(needsReceipt\(row\.raw\)\) return <span className="bud-rc-missing" title="A receipt is required for reimbursement over \$25">Missing<\/span>/)
+  // BUDGET-CONCUR-1 changed this: Missing sits beside the Upload link, in one cell.
+  assert.match(sheet, /if \(needsReceipt\(row\.raw\)\) return <span className="bud-rc-cell"><span className="bud-rc-missing" title="A receipt is required for reimbursement over \$25">Missing<\/span>\{up\}<\/span>/)
   assert.match(sheet, /quickFilters=\{MISSING_FILTER\} initialQuick=\{focus\?\.filter \|\| null\}/)
-  assert.match(sheet, /return missingReceipt\(row\.raw\) \? <span className="bud-rc-missing"[^>]*>Missing<\/span> : DASH/)
+  assert.match(sheet, /return missingReceipt\(row\.raw\) \? <span className="bud-rc-cell"><span className="bud-rc-missing"[^>]*>Missing<\/span>\{up\}<\/span> : \(up \|\| DASH\)/)
   assert.match(read('src/components/budget/ProgramBudgetView.jsx'), /get\('filter'\); return f === 'missing-receipt' \? \{ filter: f, at: 0 \} : null/)
   // BUDGET-LOAD-SPEED-1 changed this: the queue's reads go out together, missing among them.
   assert.match(read('api/budget-staff.js'), /E\.missingReceiptQueue\(db\)/)

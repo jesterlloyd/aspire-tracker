@@ -29,7 +29,8 @@ test('the Owner’s two rules: P-card waits for its receipt; Submitted with no r
   assert.equal(label({ payment_method: 'p_card', status: 'paid' }), 'Posted')
   assert.equal(label({ payment_method: 'p_card', status: 'paid', hasReceipt: true }), 'Reimbursed or Paid')
   assert.equal(label({ status: 'submitted' }), 'Submitted to Concur')
-  assert.match(read('src/components/budget/BudgetSheet.jsx'), /if \(needsReceipt\(row\.raw\)\) return <span className="bud-rc-missing"/, 'Missing still shows beside it')
+  // BUDGET-CONCUR-1 changed this: Missing now sits in a cell with the Upload link.
+  assert.match(read('src/components/budget/BudgetSheet.jsx'), /if \(needsReceipt\(row\.raw\)\) return <span className="bud-rc-cell"><span className="bud-rc-missing"/, 'Missing still shows beside it')
 })
 
 test('production today: 27 Receipt attached and 2 Posted, 29 before and after', () => {
@@ -60,7 +61,8 @@ test('a layout saved with State, Status and Concur keeps its place, width, hidin
 
 test('Stage is the word everywhere the Sheet’s statuses were named', () => {
   const sheet = read('src/components/budget/BudgetSheet.jsx')
-  assert.match(sheet, /initialLayout=\{withStage\(/)
+  // BUDGET-CONCUR-1 changed this: the saved layout also gets the Submitted to Concur column after Receipt.
+  assert.match(sheet, /initialLayout=\{withConcurColumn\(withStage\(/)
   assert.match(sheet, /case 'stage': return \{ status: stageChoices\(row\.raw\)\.find\(c => c\.label === v\)\?\.status \?\? null \}/)
   assert.match(read('lib/server/budget/engine.js'), /'Spent \(\$\)', 'Stage', 'Receipt',/, 'the Excel export')
   assert.match(read('src/components/budget/BudgetFiled.jsx'), /<dt>Stage<\/dt>/)

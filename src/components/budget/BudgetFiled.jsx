@@ -18,6 +18,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Search } from 'lucide-react'
 import SurfaceCard from '../ui/SurfaceCard'
 import DetailDrawer from '../ui/DetailDrawer'
+import ReceiptConcur from './ReceiptConcur'
 import SegmentedPicker from '../shared/SegmentedPicker'
 import { ReceiptPaper } from './ReceiptSlip'
 import ReceiptOriginal from './ReceiptOriginal'
@@ -29,7 +30,7 @@ import { usd, dateText, fyShort, fiscalYearOfDate } from '../../lib/budget/budge
 const STAGE_TONE = { expected: 'grey', posted: 'low', receipt: 'low', submitted: 'medium', settled: 'high', void: 'medium' }
 const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`
 
-export default function BudgetFiled({ year, receipts: given, notify, onShowInSheet }) {
+export default function BudgetFiled({ year, receipts: given, notify, onShowInSheet, onChanged = () => {} }) {
   // RECEIPTS-SPEED-1: the Receipts tab reads Filed with its intake and hands it down; a caller that
   // does not still gets it read here.
   const [fetched, setReceipts] = useState(null)
@@ -40,6 +41,8 @@ export default function BudgetFiled({ year, receipts: given, notify, onShowInShe
   const [open, setOpen] = useState(() => new Set())   // folder keys the owner opened; none by default
   const [panel, setPanel] = useState(null)             // the receipt in the side panel
   const [original, setOriginal] = useState(null)
+  // The open receipt, fresh from the list after a change (BUDGET-CONCUR-1 marks and drafts reload it).
+  const panelReceipt = panel ? (receipts || []).find(x => x.id === panel.id) || panel : null
 
   useEffect(() => {
     if (given !== undefined) return undefined
@@ -112,14 +115,15 @@ export default function BudgetFiled({ year, receipts: given, notify, onShowInShe
         )
         : <SurfaceCard className="bud-card"><p className="bud-empty">No filed receipts match.</p></SurfaceCard>}
 
-      {panel && (
-        <DetailDrawer open title={`${panel.vendor} · ${usd(panel.total)}`} onClose={() => setPanel(null)} width={520}
+      {panelReceipt && (
+        <DetailDrawer open title={`${panelReceipt.vendor} · ${usd(panelReceipt.total)}`} onClose={() => setPanel(null)} width={520}
           footer={(<>
-            <button type="button" className="bud-btn bud-btn-sm" onClick={() => viewOriginal(panel, true)}>Download</button>
-            <button type="button" className="bud-btn bud-btn-sm" disabled={!panel.rows.length} onClick={() => { const r = panel; setPanel(null); onShowInSheet(r) }}>Show in Sheet</button>
-            <button type="button" className="bud-btn bud-btn-pri bud-btn-sm" onClick={() => viewOriginal(panel)}>View original</button>
+            <button type="button" className="bud-btn bud-btn-sm" onClick={() => viewOriginal(panelReceipt, true)}>Download</button>
+            <button type="button" className="bud-btn bud-btn-sm" disabled={!panelReceipt.rows.length} onClick={() => { const r = panelReceipt; setPanel(null); onShowInSheet(r) }}>Show in Sheet</button>
+            <button type="button" className="bud-btn bud-btn-pri bud-btn-sm" onClick={() => viewOriginal(panelReceipt)}>View original</button>
           </>)}>
-          <FiledDetail receipt={panel} />
+          <FiledDetail receipt={panelReceipt} />
+          <ReceiptConcur receipt={panelReceipt} notify={notify} onChanged={onChanged} />
         </DetailDrawer>
       )}
       {original && <ReceiptOriginal original={original} onClose={() => setOriginal(null)} />}

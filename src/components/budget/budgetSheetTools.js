@@ -23,3 +23,12 @@ export function withStage(layout) {
   if (layout.widths?.status && !layout.widths.stage) next.widths = { ...layout.widths, stage: Math.max(layout.widths.status, 170) }
   return next
 }
+
+// BUDGET-CONCUR-1: a saved layout gets the Submitted to Concur checkbox right after Receipt, not at the
+// far end where a column missing from the saved order would land.
+export function withConcurColumn(layout) {
+  const order = layout.order || []
+  if (!order.length || order.includes('concur_done')) return layout
+  const at = order.indexOf('receipt')
+  return { ...layout, order: at < 0 ? [...order, 'concur_done'] : [...order.slice(0, at + 1), 'concur_done', ...order.slice(at + 1)] }
+}

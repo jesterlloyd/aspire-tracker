@@ -67,6 +67,7 @@
 // passes none (the Forms Sheet) gets the grid exactly as it was.
 //   column.compute(row)      a computed column (Unit cost = Spent / Qty): read-only, sorts, sums.
 //   column.optionsFor(row)   a dropdown whose options depend on the row (Status follows Payment).
+//   column.type 'check'      a host checkbox: a click toggles it and saves through commitEdit ('Yes' or '').
 //   column.required          a dropdown with no (blank) choice (Status is always one of its options).
 //   isLocked(row, col)       a cell that may not be edited (a closed year's Date, Item, Spent...).
 //   groupSubtotals           keys summed on every group row, beside its count.
@@ -356,6 +357,8 @@ export default function EditableSheet({
     }
     if (locked(row, col)) { const msg = typeof labels.locked === 'function' ? labels.locked(row, col) : labels.locked; if (msg) notify?.(msg); return }
     if (col.staff && col.type === 'check') { commitStaff(row, col, row.cells[col.key] ? '' : 'Yes'); return }
+    // BUDGET-CONCUR-1: a host column can be a checkbox too; a click saves through the host at once.
+    if (!col.staff && col.type === 'check') { saveHostValue(row, col, row.cells[col.key] ? '' : 'Yes').catch(e => notify?.(e.message, 'err')); return }
     const fx = takesFormula(col) ? row.format?.[col.key]?.fx : null
     const raw = fx || rawOf(row, col)
     const typed = typeof seed === 'string' && !usesPanel(col) && !['date', 'choice', 'dropdown'].includes(col.type)
@@ -939,7 +942,11 @@ export default function EditableSheet({
                                 ? own
                                 : col.staff && col.type === 'check'
                                   ? <span className="fs-check" aria-label={row.cells[col.key] ? 'Checked' : 'Not checked'}>{row.cells[col.key] ? '✓' : ''}</span>
-                                  : text}
+                                  : !col.staff && col.type === 'check'
+                                    ? <button type="button" role="checkbox" aria-checked={!!row.cells[col.key]} aria-label={`${col.label}: ${row.cells[col.key] ? 'checked' : 'not checked'}`}
+                                        className={`fs-hostcheck${row.cells[col.key] ? ' on' : ''}`} disabled={!cellEditable(row, col)}
+                                        onMouseDown={e => e.stopPropagation()} onDoubleClick={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); startEdit(row, col) }}>{row.cells[col.key] ? '✓' : ''}</button>
+                                    : text}
                           </Cell>
                         )
                       })}

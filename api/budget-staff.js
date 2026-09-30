@@ -20,6 +20,7 @@ import { verifyPortalCaller, getServiceDb } from './lib/portalAuth.js'
 import { can } from '../lib/server/access.js'
 import * as E from '../lib/server/budget/engine.js'
 import * as R from '../lib/server/budget/receipts.js'
+import * as C from '../lib/server/budget/concur.js'
 import * as P from '../lib/server/budget/plan.js'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -57,6 +58,7 @@ const ACTION_SCHEMAS = Object.freeze({
   receipt_upload: ['action', 'file_name', 'content_type', 'size'],
   receipt_discard: ['action', 'id'],
   receipt_read: ['action', 'id'],
+  receipt_concur_prepare: ['action', 'id'],
   receipt_draft: ['action', 'id', 'draft'],
   receipt_accept: ['action', 'id', 'draft', 'attach_to', 'attach_charge', 'as_one_time', 'move_from'],
   receipt_amend: ['action', 'id', 'draft', 'reason'],
@@ -172,6 +174,7 @@ export function createBudgetStaffHandler({ verifyCaller = verifyPortalCaller, ma
         case 'concur_mark_submitted': return res.status(200).json(await E.markConcurSubmitted(db, actor, { fy, month: body.month, ...day }))
         case 'receipt_upload': return res.status(200).json(await R.startUpload(db, actor, { fileName: body.file_name, contentType: body.content_type, size: body.size }))
         case 'receipt_discard': return res.status(200).json(await R.discardUpload(db, actor, { id: body.id }))
+        case 'receipt_concur_prepare': return res.status(200).json(await C.prepareConcur(db, actor, { id: body.id, ...(complete ? { complete } : {}) }))
         case 'receipt_read': return res.status(200).json(await R.readReceipt(db, actor, { id: body.id, ...(complete ? { complete } : {}), ...day }))
         case 'receipt_draft': return res.status(200).json(await R.saveDraft(db, actor, { id: body.id, draft: obj(body.draft) }))
         case 'receipt_accept': {
