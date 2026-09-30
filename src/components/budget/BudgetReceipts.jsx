@@ -20,13 +20,21 @@ import BudgetFiled from './BudgetFiled'
 import SegmentedPicker from '../shared/SegmentedPicker'
 import ReceiptOriginal from './ReceiptOriginal'
 import { budgetStaff, cachedReceipts, openReceipts, prepareReceiptFile, uploadReceiptFile } from './budgetApi'
-import { dateText, usd } from '../../lib/budget/budgetModel'
+import { dateText, fyShort, usd } from '../../lib/budget/budgetModel'
 import { receiptChecks } from '../../lib/budget/receiptChecks'
 import { refreshKeithProvenance } from '../keith/keithProvenanceStore'
 
 const ACCEPT = 'image/*,application/pdf,.pdf,.eml,message/rfc822,.heic,.heif'
 const UNDO_MS = 5000
 const FOLDABLE = new Set(['review', 'snoozed'])
+// BUDGET-FIXES-1 item 1.4 (Owner, 2026-09-29): one receipt count, the selected year's. Other years are
+// named in a quiet line; a receipt with no date is counted in no year and says so.
+const filedIn = (d, fy) => (d.filedByYear ? d.filedByYear[String(fy)] || 0 : d.filedCount)
+function otherYears(d, fy) {
+  return Object.entries(d.filedByYear || {}).filter(([k, n]) => k !== String(fy) && n)
+    .sort(([a], [b]) => (a === 'none' ? 1 : b === 'none' ? -1 : Number(b) - Number(a)))
+    .map(([k, n]) => (k === 'none' ? `${n} with no date` : `${n} more in ${fyShort(Number(k))}`)).join(' · ')
+}
 const toContext = (c) => (c ? { ...c, years: new Map(Object.entries(c.years || {}).map(([k, v]) => [Number(k), v])) } : null)
 
 export default function BudgetReceipts({ year, onWrite, pendingFiles, onPendingTaken, onStartYear, onCount, onShowInSheet }) {
@@ -58,7 +66,7 @@ export default function BudgetReceipts({ year, onWrite, pendingFiles, onPendingT
       setData(d); setFiled(out.filed); setError(null)
       // BUDGET-POLISH-1 (Owner, 2026-09-29): with nothing to review, the tab opens on Filed. Only on the
       // first load, so reviewing the last receipt never moves the page from under you.
-      if (!firstLoad.current) { firstLoad.current = true; if (!d.waiting.length && d.filedCount) setView('filed') }
+      if (!firstLoad.current) { firstLoad.current = true; if (!d.waiting.length && filedIn(d, fy)) setView('filed') }
       onCount?.(d.waiting.length)
     }
     try {
@@ -197,12 +205,13 @@ export default function BudgetReceipts({ year, onWrite, pendingFiles, onPendingT
         </div>
         <button type="button" className="bud-btn" onClick={() => inputRef.current?.click()}>Choose files</button>
         <input ref={inputRef} type="file" accept={ACCEPT} multiple hidden onChange={e => { addFiles(e.target.files); e.target.value = '' }} />
-        <span className="bud-drop-count bud-path">Program Budget · {data.filedCount} filed</span>
+        <span className="bud-drop-count bud-path">Program Budget · {filedIn(data, fy)} filed in {fyShort(fy)}</span>
+        {otherYears(data, fy) && <span className="bud-drop-more">{otherYears(data, fy)}</span>}
       </SurfaceCard>
 
       <div className="bud-viewbar">
         <SegmentedPicker ariaLabel="Receipts view" value={view} onChange={setView}
-          options={[{ value: 'review', label: <>To Review<span className="bud-view-n">{waiting.length}</span></> }, { value: 'filed', label: <>Filed<span className="bud-view-n">{data.filedCount}</span></> }]} />
+          options={[{ value: 'review', label: <>To Review<span className="bud-view-n">{waiting.length}</span></> }, { value: 'filed', label: <>Filed<span className="bud-view-n">{filedIn(data, fy)}</span></> }]} />
         <span className="bud-hint">{view === 'review' ? 'One receipt open at a time; the rest wait folded, oldest first.' : 'Every accepted receipt, drawn the same way, in folders. Open a folder, then a receipt, to see what it posted.'}</span>
       </div>
 

@@ -42,6 +42,7 @@ const ACTION_SCHEMAS = Object.freeze({
   subscription_create: ['action', 'fields'],
   subscription_update: ['action', 'id', 'patch'],
   subscription_delete: ['action', 'id'],
+  subscription_use_average: ['action', 'id'],
   renewal_decide: ['action', 'id', 'decision'],
   subscription_approve: ['action', 'id', 'decision', 'into_closed'],
   post_charges: ['action'],
@@ -143,6 +144,7 @@ export function createBudgetStaffHandler({ verifyCaller = verifyPortalCaller, ma
         case 'allocations_save': return res.status(200).json(await E.saveAllocations(db, actor, { fy, amounts: obj(body.amounts), publish: body.publish === true, ...day }))
         case 'subscription_create': return res.status(200).json({ subscription: await E.createSubscription(db, actor, { fields: obj(body.fields), ...day }) })
         case 'subscription_update': return res.status(200).json({ subscription: await E.updateSubscription(db, actor, { id: body.id, patch: obj(body.patch), ...day }) })
+        case 'subscription_use_average': return res.status(200).json(await E.applyUsageAverage(db, actor, { id: body.id, ...day }))
         case 'subscription_delete': return res.status(200).json(await E.deleteSubscription(db, actor, { id: body.id }))
         case 'subscription_approve': {
           // BUDGET-V2 item 1: the plan's held receipts attach to their charges (or go back to review).

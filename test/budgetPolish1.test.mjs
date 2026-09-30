@@ -69,7 +69,8 @@ test('the screens: one Add receipts, the year line in the band, Filed when empty
   const line = read('src/components/budget/BudgetYearLine.jsx')
   assert.match(line, /set_cost_center/)
   assert.match(line, /Also update this year’s rows that show the old one/)
-  assert.match(read('src/components/budget/BudgetReceipts.jsx'), /if \(!firstLoad\.current\) \{ firstLoad\.current = true; if \(!d\.waiting\.length && d\.filedCount\) setView\('filed'\) \}/)
+  // BUDGET-FIXES-1 changed this: Filed opens when the SELECTED year has filed receipts (item 1.4).
+  assert.match(read('src/components/budget/BudgetReceipts.jsx'), /if \(!firstLoad\.current\) \{ firstLoad\.current = true; if \(!d\.waiting\.length && filedIn\(d, fy\)\) setView\('filed'\) \}/)
   const sum = read('src/components/budget/BudgetSummary.jsx')
   assert.match(sum, /localStorage\.getItem\(HOW_KEY\) === '1'/)
   assert.match(sum, /Show all \$\{s\.byCategory\.length\}/)

@@ -39,6 +39,8 @@
 //   plainKeys        keys whose text never takes a number or date format.
 //   searchValues(row)  the host's own fields the search reads, beside every cell.
 //   ungroupable      keys offered neither as a group nor as a filter.
+//   unsummable       keys with no Σ: a column whose values do not add up (a price that is monthly on
+//                    one row and annual on the next). A saved summary on one is ignored.
 //   defaultSort, defaultFilterKey
 //   saveLayout(layout), saveCells(updates)   updates are [{ rowId, key, value } | { rowId, key, format }].
 //   canEditColumn(col)   may a host (non-staff) column be edited?
@@ -131,7 +133,7 @@ function cellStyle(f, width) {
 
 export default function EditableSheet({
   initialRows, initialLayout, lead, columns: hostColumns, editable = false,
-  valueOf, shownOf, plainKeys = NONE, searchValues = () => [], ungroupable = NONE,
+  valueOf, shownOf, plainKeys = NONE, searchValues = () => [], ungroupable = NONE, unsummable = NONE,
   defaultSort, defaultFilterKey,
   saveLayout, saveCells: saveHostCells,
   canEditColumn = () => false, draftOf = () => '', commitEdit: commitHostEdit,
@@ -976,7 +978,7 @@ export default function EditableSheet({
                 <td key={c.key} style={{ ...cellStyle(null, width(c.key)), ...stickyStyle(c.key, 3) }}>
                   {c.key === lead.key
                     ? <span className="fs-sumhint">Summary</span>
-                    : (<span className="fs-sumcell">
+                    : unsummable.has(c.key) ? null : (<span className="fs-sumcell">
                         <select className={layout.summaries?.[c.key] ? 'fs-sumon' : undefined} aria-label={`Summary of ${c.label}`} value={layout.summaries?.[c.key] || ''} disabled={off}
                           onChange={e => changeLayout(l => { const summaries = { ...(l.summaries || {}) }; if (e.target.value) summaries[c.key] = e.target.value; else delete summaries[c.key]; return { ...l, summaries } })}>
                           <option value="">{layout.summaries?.[c.key] ? 'None' : '·'}</option>{SUMMARY_FNS.map(x => <option key={x.key} value={x.key}>{x.label}</option>)}

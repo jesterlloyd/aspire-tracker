@@ -102,7 +102,8 @@ test('two plans from one vendor are told apart by amount, and a usage plan match
   const s = C.matchSubscriptionCharge(draft('Supabase', '2026-07-29', 26.45), [supa])
   assert.equal(s.kind, 'hold')
   assert.equal(s.usage, true)
-  assert.match(C.matchText({ ...s, kind: 'attach' }), /usage-based, so the row keeps its estimate/)
+  // BUDGET-FIXES-1 changed this: attaching now makes a usage-based row the receipt's total (item 1.1).
+  assert.match(C.matchText({ ...s, kind: 'attach' }), /usage-based, so the row takes this receipt’s total in place of its estimate/)
 })
 
 test('the slip’s checks carry the match, and a matched receipt is not new spend', () => {

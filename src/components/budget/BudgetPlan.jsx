@@ -18,7 +18,7 @@ import { ChevronRight, Download, Plus, X } from 'lucide-react'
 import SurfaceCard from '../ui/SurfaceCard'
 import { Pill } from '../shared/DataSheet'
 import { usd, fyShort, parseMoney, currentFiscalYear } from '../../lib/budget/budgetModel'
-import { itemAmount, planTotals, statusLine, PLATFORM, moveLimit } from '../../lib/budget/planModel'
+import { itemAmount, planTotals, statusLine, PLATFORM, moveLimit, unallocated } from '../../lib/budget/planModel'
 import { savePdf } from './budgetApi'
 
 // A timestamp, as the day it was where the reader is (never the UTC day).
@@ -101,6 +101,15 @@ export default function BudgetPlan({ year, canEdit, onWrite, source, onOpenYear 
   const prevSentBack = p.versions.find(v => v.version === cur.version - 1 && v.status === 'sent_back')
   const pending = (p.amendments || []).filter(a => a.status === 'pending')
   const catName = new Map(cats.map(c => [c.id, c.name]))
+  // BUDGET-FIXES-1 item 1.3: the category totals against this year's budget.
+  const planned = cur.status === 'approved' ? cur.approvedTotal : (draft ? totals.total : cur.total)
+  const left = unallocated(year.summary?.total, planned)
+  const leftLine = (cls) => (
+    <div className={`${cls}${left.kind === 'over' ? ' bud-unalloc-over' : ''}`} role="note">
+      <span>{left.kind === 'over' ? 'Over budget' : 'Unallocated'}</span>
+      <b>{left.kind === 'over' ? left.text.replace('Over budget by ', 'by ') : left.text}</b>
+    </div>
+  )
 
   return (
     <div className="bud-plan">
@@ -211,6 +220,7 @@ export default function BudgetPlan({ year, canEdit, onWrite, source, onOpenYear 
               </details>
             )
           })}
+          {leftLine('bud-unalloc')}
           {draft && unused.length > 0 && (
             <label className="bud-fld bud-addcat"><span>Add items to another category</span>
               <select className="bud-input" value="" onChange={e => { if (e.target.value) addItem(e.target.value) }}>
@@ -242,6 +252,8 @@ export default function BudgetPlan({ year, canEdit, onWrite, source, onOpenYear 
         <SurfaceCard className="bud-card">
           <div className="bud-side-row"><span>{cur.status === 'approved' ? 'Approved total' : 'Request total'}</span><b>{usd(cur.status === 'approved' ? cur.approvedTotal : (draft ? totals.total : cur.total))}</b></div>
           {cur.status === 'approved' && <div className="bud-side-row"><span>Requested</span><b>{usd(cur.total)}</b></div>}
+          <div className="bud-side-row"><span>{fyShort(fy)} budget</span><b>{year.summary?.total > 0 ? usd(year.summary.total) : 'Not set'}</b></div>
+          {leftLine('bud-side-row bud-unalloc-side')}
           <div className="bud-side-row"><span>{fyShort(fy - 1)} budget</span><b>{p.priorBudget == null ? 'Not set' : usd(p.priorBudget)}</b></div>
           <div className="bud-side-row"><span>{labels.prior1}</span><b>{usd(p.priorActual)}</b></div>
           <div className="bud-side-row"><span>Platform share</span><b>{usd(totals.platform)} <small>{Math.round(totals.platformShare * 100)}%</small></b></div>

@@ -111,6 +111,19 @@ export function rowPlanStatus(expenses = [], plan = null, { pending = new Set() 
 }
 
 /** The plan's one-line status: "Draft · v2", "Submitted to Margo · v1", "Approved · v1". */
+/**
+ * BUDGET-FIXES-1 item 1.3 (Owner, 2026-09-29): the plan adds up to the budget. What is left after the
+ * category totals is Unallocated; more than the budget is Over budget. No budget set, nothing to say.
+ */
+export function unallocated(budget, planned) {
+  const b = Number(budget)
+  if (!(b > 0)) return { kind: 'no_budget', amount: 0, text: 'Budget not set' }
+  const left = round2(b - (Number(planned) || 0))
+  if (left < 0) return { kind: 'over', amount: -left, text: `Over budget by ${usdText(-left)}` }
+  return { kind: 'left', amount: left, text: usdText(left) }
+}
+const usdText = (n) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n)
+
 export const statusLine = (plan) => (plan ? `${STATUS_TEXT[plan.status] || plan.status} · v${plan.version}` : '')
 
 /** Which tabs a year shows (BUDGET-V2 item 15). A reader sees Plan once a plan is not a draft. */

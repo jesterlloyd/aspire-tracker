@@ -75,7 +75,8 @@ export function matchText(m) {
   const name = m.subscription.name
   const head = `Matches the ${name} subscription charge on ${shortDate(m.charge_date)} (${usd(m.amount)}${m.usage ? ', estimated' : ''}).`
   const twice = 'Posting it as a new row would count this charge twice.'
-  const usage = m.usage ? ` ${name} is usage-based, so the row keeps its estimate; correct the amount in the Sheet if it differs.` : ''
+  // BUDGET-FIXES-1 item 1.1: attaching makes a usage-based row the receipt's total.
+  const usage = m.usage ? ` ${name} is usage-based, so the row takes this receipt’s total in place of its estimate.` : ''
   if (m.kind === 'hold') return `${head} ${twice} ${name} is awaiting approval, so hold this receipt until you approve it.`
   if (m.kind === 'attach') return `${head} ${twice} Attach it to that charge.${usage}`
   if (m.kind === 'filed') return `${head} That charge already has its receipt, so this may be a second copy.`

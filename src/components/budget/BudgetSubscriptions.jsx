@@ -23,6 +23,21 @@ const DEFAULT_LAYOUT = {
   order: [], hidden: [], widths: { '@name': 190, plan: 170, notes: 240 }, frozen: 0, groupBy: null, staffColumns: [],
   colFormats: { amount: { num: 'currency' }, perYear: { num: 'currency' }, due: { num: 'currency' } }, summaries: { perYear: 'sum', due: 'sum' },
 }
+// BUDGET-FIXES-1 item 1.5 (Owner, 2026-09-29): Amount mixes monthly and annual prices, so it has no
+// Σ; Per year and Due by Jun 30 keep theirs. A layout saved with a Sum on Amount loses it here.
+const UNSUMMABLE = new Set(['amount'])
+function withoutAmountSum(layout) {
+  if (!layout.summaries?.amount) return layout
+  const summaries = { ...layout.summaries }
+  delete summaries.amount
+  return { ...layout, summaries }
+}
+// A pinned Amount carries "set by you" and Use average; the column is wide enough to show both.
+const PINNED_AMOUNT_W = 240
+function fitPinned(layout, pinned) {
+  if (!pinned || (layout.widths?.amount || 0) >= PINNED_AMOUNT_W) return layout
+  return { ...layout, widths: { ...(layout.widths || {}), amount: PINNED_AMOUNT_W } }
+}
 const billingLabel = (k) => BILLING.find(b => b.key === k)?.label || ''
 const billingKey = (l) => BILLING.find(b => b.label === l)?.key || 'monthly'
 
@@ -64,7 +79,13 @@ export default function BudgetSubscriptions({ year, canEdit, onWrite }) {
     else await onWrite.call('subscription_update', { id: d.id, patch: { end_date: d.prior.end_date, auto_renew: d.prior.auto_renew } })
     onWrite.changed()
   }
+  // BUDGET-FIXES-1 item 1.2: Use average hands a pinned Amount back to the receipts, on the server.
+  const takeAverage = async (sub) => {
+    try { const out = await onWrite.call('subscription_use_average', { id: sub.id }); onWrite.notify(out.message); onWrite.changed() } catch (e) { onWrite.notify(e.message, 'err') }
+  }
+  // A usage-based plan's estimate moves when a receipt arrives or Use average runs, outside the sheet.
   const decisionKey = subs.filter(x => x.approval_state !== 'approved' || x.overlap_kept).map(x => `${x.id}:${x.approval_state}:${x.overlap_kept ? 1 : 0}`).join(',') + `|${[...overlapping].join(',')}`
+    + `|${subs.filter(x => x.billing === 'usage').map(x => `${x.id}:${x.amount}:${x.amount_pinned ? 1 : 0}`).join(',')}`
   const plat = platformCost(subs, today)
   const pct = (n) => (year.summary.total ? ` (${(n / year.summary.total * 100).toFixed(1)}% of budget)` : '')
 
@@ -207,14 +228,14 @@ export default function BudgetSubscriptions({ year, canEdit, onWrite }) {
         </section>
       )}
 
-      {/* BUDGET-V2 item 4: the platform's cost, apart from program spend. */}
+      {/* BUDGET-V2 item 4: the platform's cost, shown on its own. BUDGET-FIXES-1 item 1.6: it is program spend. */}
       {plat.count > 0 && (
         <SurfaceCard className="bud-card bud-platform">
           <div className="bud-platform-head"><span className="bud-tag">Platform</span><h2>ASPIRE Intelligence Platform Cost</h2></div>
           <p className="bud-sub">The services that build and run the app: {plat.names.join(', ')}.{' '}
             {plat.active ? <><b>{usd(plat.monthly)} a month</b>, <b>{usd(plat.perYear)} a year</b> now. </> : null}
             {plat.waiting ? <><b>{usd(plat.ifApprovedMonthly)} a month</b> if approved, <b>{usd(plat.ifApprovedPerYear)} a year</b>. </> : null}
-            Reported separately from program spend.</p>
+            Counted in program spend. Shown here on its own so it can be reported separately.</p>
           {plat.waiting > 0 && <div className="bud-check bud-check-info"><span><b>Confirm before approving:</b> whether ASPIRE reimburses platform subscriptions, and whether Technology Ventures needs to know. Approvals stay open until you decide.</span></div>}
         </SurfaceCard>
       )}
@@ -243,7 +264,7 @@ export default function BudgetSubscriptions({ year, canEdit, onWrite }) {
         // statuses it cannot see, so those redraw it; its own cell edits do not.
         key={`subs-${year.fy}-${decisionKey}`}
         initialRows={rows}
-        initialLayout={{ ...DEFAULT_LAYOUT, ...(year.subscriptionsLayout || {}) }}
+        initialLayout={fitPinned(withoutAmountSum({ ...DEFAULT_LAYOUT, ...(year.subscriptionsLayout || {}) }), subs.some(x => x.billing === 'usage' && x.amount_pinned))}
         lead={LEAD}
         columns={columns}
         editable={canEdit}
@@ -251,6 +272,7 @@ export default function BudgetSubscriptions({ year, canEdit, onWrite }) {
         shownOf={(r, k) => (k === '@name' ? r.raw.name : (r.cells[k] ?? ''))}
         searchValues={(r) => [r.raw.name, r.raw.vendor, r.raw.notes]}
         ungroupable={new Set(['amount', 'next', 'perYear', 'due', 'anchor', 'start', 'end', 'notes', 'plan'])}
+        unsummable={UNSUMMABLE}
         defaultSort={{ key: '@name', dir: 'asc' }} defaultFilterKey="billing"
         // SUB-CELLS-1: a cell's format and a + Column value live on the row; a save refreshes the year.
         saveLayout={async (layout) => { await onWrite.call('sheet_layout', { layout, sheet: 'subscriptions' }); onWrite.changed() }}
@@ -276,7 +298,15 @@ export default function BudgetSubscriptions({ year, canEdit, onWrite }) {
             const ia = ifApproved(row.raw, year.fy, today)
             if (ia) return <span className="bud-ifv" title="Counts only after approval">{usd(col.key === 'perYear' ? ia.perYear : ia.due)}</span>
           }
-          if (col.key === 'amount' && row.raw.billing === 'usage' && text) return <>{text} <span className="bud-dash">est.</span></>
+          // BUDGET-FIXES-1 item 1.2: a usage-based Amount is the average of its last three receipts, an
+          // estimate; one the owner typed is theirs until Use average hands it back.
+          if (col.key === 'amount' && row.raw.billing === 'usage' && text) return (
+            <span className="bud-est">{text} <span className="bud-dash">est.</span>
+              {row.raw.amount_pinned && <> <span className="bud-dash">· set by you</span>
+                {canEdit && <> <button type="button" className="bud-link bud-est-avg" onMouseDown={e => e.stopPropagation()}
+                  onClick={e => { e.stopPropagation(); takeAverage(row.raw) }}>Use average</button></>}</>}
+            </span>
+          )
           if (col.key === 'tag') return row.raw.tag === 'platform' ? <span className="bud-tag">Platform</span> : DASH
           return text === '' || text == null ? DASH : undefined
         }}

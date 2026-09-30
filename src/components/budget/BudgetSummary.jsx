@@ -211,7 +211,7 @@ export default function BudgetSummary({ year, canEdit, onWrite, onGo, source, on
   )
   const history = (
     <SurfaceCard className="bud-card">
-      <h2>Budget History</h2><p className="bud-sub">Every change to the annual amount and the category plan</p>
+      <h2>Budget History</h2><p className="bud-sub">Every change to the annual amount, the category plan and the estimates</p>
       <ul className="bud-hist">
         {year.history.length ? year.history.map((h, i) => <li key={i}><span className="when">{stamp(h.created_at)}</span><span>{h.message}{h.actor_name && <small>{h.actor_name}</small>}</span></li>)
           : <li><span className="when">–</span><span>No changes yet</span></li>}
