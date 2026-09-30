@@ -19,7 +19,7 @@ import ReceiptSlip, { ReceiptFold } from './ReceiptSlip'
 import BudgetFiled from './BudgetFiled'
 import SegmentedPicker from '../shared/SegmentedPicker'
 import ReceiptOriginal from './ReceiptOriginal'
-import { budgetStaff, prepareReceiptFile, uploadReceiptFile } from './budgetApi'
+import { budgetStaff, cachedReceipts, openReceipts, prepareReceiptFile, uploadReceiptFile } from './budgetApi'
 import { dateText, usd } from '../../lib/budget/budgetModel'
 import { receiptChecks } from '../../lib/budget/receiptChecks'
 import { refreshKeithProvenance } from '../keith/keithProvenanceStore'
@@ -36,6 +36,7 @@ export default function BudgetReceipts({ year, onWrite, pendingFiles, onPendingT
   const [openId, setOpenId] = useState(null)
   const [status, setStatus] = useState(null)        // { enabled, keith }
   const [data, setData] = useState(null)
+  const [filed, setFiled] = useState(null)          // this year's Filed, read with the intake
   const [error, setError] = useState(null)
   const [busy, setBusy] = useState(() => new Set())
   const [local, setLocal] = useState([])             // slips the browser is still uploading
@@ -46,19 +47,25 @@ export default function BudgetReceipts({ year, onWrite, pendingFiles, onPendingT
   const draftTimers = useRef(new Map())
   const notify = onWrite.notify
 
+  const fy = year.fy
   const load = useCallback(async () => {
-    try {
-      const st = await budgetStaff('receipts_status')
-      setStatus(st)
-      if (!st.enabled) return
-      const d = await budgetStaff('receipts_intake')
-      setData(d); setError(null)
+    // RECEIPTS-SPEED-1: one request for status, intake and Filed. The last answer paints first when
+    // the owner comes back to the tab, then the fresh one replaces it.
+    const apply = (out) => {
+      setStatus(out.status)
+      if (!out.status.enabled) return
+      const d = out.intake
+      setData(d); setFiled(out.filed); setError(null)
       // BUDGET-POLISH-1 (Owner, 2026-09-29): with nothing to review, the tab opens on Filed. Only on the
       // first load, so reviewing the last receipt never moves the page from under you.
       if (!firstLoad.current) { firstLoad.current = true; if (!d.waiting.length && d.filedCount) setView('filed') }
       onCount?.(d.waiting.length)
+    }
+    try {
+      if (!firstLoad.current) { const seen = await cachedReceipts(fy); if (seen) apply(seen) }
+      apply(await openReceipts(fy))
     } catch (e) { setError(e.message) }
-  }, [onCount])
+  }, [onCount, fy])
   useEffect(() => { Promise.resolve().then(load) }, [load])   // load sets state only after its reads
   useEffect(() => { const t = draftTimers.current; return () => { for (const x of t.values()) clearTimeout(x) } }, [])
 
@@ -200,7 +207,7 @@ export default function BudgetReceipts({ year, onWrite, pendingFiles, onPendingT
       </div>
 
       {view === 'filed'
-        ? <BudgetFiled key={`${year.fy}-${data.filedCount}`} year={year} notify={notify} onShowInSheet={onShowInSheet} />
+        ? <BudgetFiled key={year.fy} year={year} receipts={filed} notify={notify} onShowInSheet={onShowInSheet} />
         : (<>
       <div className="bud-qhead">
         <h2>Waiting for Review</h2>

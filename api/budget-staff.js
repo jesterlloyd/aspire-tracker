@@ -50,6 +50,7 @@ const ACTION_SCHEMAS = Object.freeze({
   // nobody but the Owner sees receipt files, the review queue or the rules (decision 5).
   receipts_status: ['action'],
   receipts_intake: ['action'],
+  receipts_open: ['action', 'fiscal_year'],
   receipts_queue: ['action'],
   receipts_filed: ['action', 'fiscal_year'],
   receipt_upload: ['action', 'file_name', 'content_type', 'size'],
@@ -157,6 +158,7 @@ export function createBudgetStaffHandler({ verifyCaller = verifyPortalCaller, ma
         case 'post_charges': return res.status(200).json(await E.postDueCharges(db, day))
         case 'receipts_status': return res.status(200).json(await R.receiptsStatus(db))
         case 'receipts_intake': return res.status(200).json(await R.intake(db, day))
+        case 'receipts_open': return res.status(200).json(await R.openReceipts(db, { fy: fy ?? E.currentFiscalYear(), ...day }))
         case 'receipts_filed': return res.status(200).json({ receipts: await R.filedReceipts(db, { fy: fy ?? E.currentFiscalYear(), ...day }) })
         case 'receipts_queue': return res.status(200).json({ receipts: await R.reviewQueue(db, day), concur: await E.concurQueue(db, day), missing: await E.missingReceiptQueue(db), close: await E.closeQueue(db, day) })
         case 'month_close': return res.status(200).json(await E.closeMonth(db, actor, { fy, month: body.month, note: typeof body.note === 'string' ? body.note : '', ...day }))

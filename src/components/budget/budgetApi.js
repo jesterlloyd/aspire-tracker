@@ -26,6 +26,26 @@ export async function budgetStaff(action, payload = {}) {
   return read(res)
 }
 
+/**
+ * RECEIPTS-SPEED-1 (Owner, 2026-09-29: "30+ seconds ... and again when I go back"): the Receipts tab
+ * opens on one request, and its last answer is kept for the person who asked, so coming back to the
+ * tab paints at once and refreshes behind the page. Kept in memory only; a reload starts fresh.
+ */
+let lastReceipts = null   // { user, fy, data }
+async function sessionUser() {
+  const { data: { session } } = await supabase.auth.getSession()
+  return session?.user?.id || null
+}
+export async function cachedReceipts(fy) {
+  const user = await sessionUser()
+  return lastReceipts && user && lastReceipts.user === user && lastReceipts.fy === fy ? lastReceipts.data : null
+}
+export async function openReceipts(fy) {
+  const data = await budgetStaff('receipts_open', { fiscal_year: fy })
+  lastReceipts = { user: await sessionUser(), fy, data }
+  return data
+}
+
 /** The portal: GET only. */
 export async function budgetPortal(query = {}) {
   const qs = new URLSearchParams(Object.entries(query).filter(([, v]) => v != null && v !== '').map(([k, v]) => [k, String(v)])).toString()

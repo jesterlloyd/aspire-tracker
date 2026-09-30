@@ -28,8 +28,11 @@ import { usd, dateText, fyShort, fiscalYearOfDate } from '../../lib/budget/budge
 const STATUS_TONE = { recorded: 'low', submitted: 'medium', reimbursed: 'high', paid: 'high', void: 'medium' }
 const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`
 
-export default function BudgetFiled({ year, notify, onShowInSheet }) {
-  const [receipts, setReceipts] = useState(null)
+export default function BudgetFiled({ year, receipts: given, notify, onShowInSheet }) {
+  // RECEIPTS-SPEED-1: the Receipts tab reads Filed with its intake and hands it down; a caller that
+  // does not still gets it read here.
+  const [fetched, setReceipts] = useState(null)
+  const receipts = given ?? fetched
   const [error, setError] = useState(null)
   const [groupBy, setGroupBy] = useState('month')
   const [query, setQuery] = useState('')
@@ -38,12 +41,13 @@ export default function BudgetFiled({ year, notify, onShowInSheet }) {
   const [original, setOriginal] = useState(null)
 
   useEffect(() => {
+    if (given !== undefined) return undefined
     let live = true
     budgetStaff('receipts_filed', { fiscal_year: year.fy })
       .then(out => { if (live) { setReceipts(out.receipts || []); setError(null) } })
       .catch(e => { if (live) setError(e.message) })
     return () => { live = false }
-  }, [year.fy])
+  }, [year.fy, given])
 
   const folders = useMemo(() => filedFolders(receipts || [], { groupBy, query }), [receipts, groupBy, query])
   const shown = useMemo(() => [...new Map(folders.flatMap(f => f.entries.map(e => [e.receipt.id, e.receipt]))).values()], [folders])
