@@ -27,7 +27,8 @@ const renewals = [
 test('the Program Budget group lists renewals soonest first, and hides itself when there are none', () => {
   const g = Y.budgetGroup({ renewals })
   assert.equal(g.key, 'budget')
-  assert.equal(g.name, 'Program Budget')
+  // BUDGET-TRACKER-1 changed this (Owner, 2026-09-30): Program Budget is now labelled Budget Tracker.
+  assert.equal(g.name, 'Budget Tracker')
   assert.deepEqual(g.rows.map(r => r.id), ['renew:b', 'renew:a'], 'the renewal five days out leads')
   // BUDGET-B4 (2026-09-27): each budget row names its own chip (Renew, Review or Submit).
   assert.deepEqual(g.rows[1], {
@@ -47,7 +48,8 @@ test('in the Action Center it is a Renew item: personal, Open and Snooze, and it
   assert.equal(it.ageLabel, 'In 18 days', 'not how long it has waited')
   assert.equal(it.href, '/settings/budget?tab=subscriptions')
   assert.deepEqual(Q.chipCounts(items), [{ chip: 'Renew', count: 2 }])
-  assert.ok(Q.ACTION_CENTER_GROUPS.some(g => g.key === 'budget' && g.label === 'Program Budget'))
+  // BUDGET-TRACKER-1 changed this (Owner, 2026-09-30): Program Budget is now labelled Budget Tracker.
+  assert.ok(Q.ACTION_CENTER_GROUPS.some(g => g.key === 'budget' && g.label === 'Budget Tracker'))
 })
 
 async function world() {

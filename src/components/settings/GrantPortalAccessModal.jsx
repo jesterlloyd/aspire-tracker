@@ -343,7 +343,7 @@ export default function GrantPortalAccessModal({ onClose, onGranted, initial = n
   const scopeSummary =
     role === 'student' ? (student ? `${studentName(student)}${student.school ? ` · ${student.school}` : ''}` : 'No student selected') :
     role === 'unit_leader' ? (unitKeys.join(', ') || 'No units selected') :
-    role === 'nursing_academic' ? `${contactsAccess === 'manage' ? 'ASPIRE-wide · Contacts Editor' : 'ASPIRE-wide (view only)'}${isOwner && budgetAccess !== 'none' ? ` · Program Budget${budgetAccess === 'approve' ? ' (approves)' : ''}` : ''}${isOwner && themesAccess === 'view' ? ' · Evaluation themes' : ''}` :
+    role === 'nursing_academic' ? `${contactsAccess === 'manage' ? 'ASPIRE-wide · Contacts Editor' : 'ASPIRE-wide (view only)'}${isOwner && budgetAccess !== 'none' ? ` · Budget Tracker${budgetAccess === 'approve' ? ' (approves)' : ''}` : ''}${isOwner && themesAccess === 'view' ? ' · Evaluation themes' : ''}` :
     role === 'talent_acquisition' ? 'All residency cohorts' :
     (schoolKeys.join(', ') || 'No schools selected')
 
@@ -451,8 +451,8 @@ export default function GrantPortalAccessModal({ onClose, onGranted, initial = n
                   {isOwner && (
                     <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginTop: 12, fontSize: 13, color: 'var(--text-heading)' }}>
                       <input type="checkbox" checked={budgetAccess !== 'none'} onChange={e => setBudgetAccess(e.target.checked ? 'view' : 'none')} style={{ marginTop: 2 }} />
-                      <span>Share the Program Budget (read-only)
-                        <span style={{ display: 'block', fontSize: 11.5, color: 'var(--text-caption)', lineHeight: 1.45 }}>Adds a Program Budget tab with the Summary, Sheet and Subscriptions, and the category plan once you submit it. Never receipts or drafts.</span>
+                      <span>Share the Budget Tracker (read-only)
+                        <span style={{ display: 'block', fontSize: 11.5, color: 'var(--text-caption)', lineHeight: 1.45 }}>Adds a Budget Tracker tab with the Summary, Sheet and Subscriptions, and the category plan once you submit it. Never receipts or drafts.</span>
                       </span>
                     </label>
                   )}

@@ -111,7 +111,7 @@ export function createBudgetStaffHandler({ verifyCaller = verifyPortalCaller, ma
 
     const isRead = READS.has(body.action)
     if (!can(caller.profile, isRead ? 'budget_view' : 'budget_admin')) {
-      return res.status(403).json({ error: 'forbidden', message: isRead ? 'You do not have access to the Program Budget.' : 'Only the Owner may change the Program Budget.' })
+      return res.status(403).json({ error: 'forbidden', message: isRead ? 'You do not have access to the Budget Tracker.' : 'Only the Owner may change the Budget Tracker.' })
     }
     const viewer = can(caller.profile, 'budget_admin') ? 'owner' : 'reader'
     const fy = body.fiscal_year == null ? null : Number(body.fiscal_year)

@@ -9,7 +9,7 @@ export const ACTION_CENTER_GROUPS = Object.freeze([
   { key: 'forms', label: 'Forms and documents', icon: 'F' },
   { key: 'interviews', label: 'Interviews', icon: 'I' },
   { key: 'placement', label: 'Placement and rotation', icon: 'P' },
-  { key: 'budget', label: 'Program Budget', icon: 'B' },   // AC-RENEW-1: the Owner's renewals to decide
+  { key: 'budget', label: 'Budget Tracker', icon: 'B' },   // AC-RENEW-1: the Owner's renewals to decide
 ])
 
 export const ACTION_CENTER_GROUP_ORDER = Object.freeze(

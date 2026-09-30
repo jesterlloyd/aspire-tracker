@@ -31,6 +31,7 @@
 // cleared here too, on sign-out and on a change of user.
 
 import { clearStudentPhotoCache } from './studentPhotoCache.js'
+import { forgetRememberedYears } from './budget/lastYear.js'
 
 /**
  * Every storage key the app writes. `prefix` is matched with startsWith; an exact key
@@ -73,7 +74,7 @@ export const STORAGE_KEY_REGISTRY = Object.freeze([
   { prefix: 'aspire-color-mode', store: 'local', cls: 'preference', holds: 'the device mirror of the painted color mode (index.html reads it before React)' },
   { prefix: 'aspire-style', store: 'local', cls: 'preference', holds: 'the device mirror of the painted Style' },
   { prefix: 'aspire-theme', store: 'local', cls: 'preference', holds: 'the legacy theme choice, read once for adoption' },
-  { prefix: 'aspire-budget-how-open', store: 'local', cls: 'preference', holds: 'whether Program Budget\u2019s "How the budget works each month" is open (BUDGET-V2)' },
+  { prefix: 'aspire-budget-how-open', store: 'local', cls: 'preference', holds: 'whether Budget Tracker\u2019s "How the budget works each month" is open (BUDGET-V2)' },
   { prefix: 'aspire.connect.richCompose', store: 'local', cls: 'preference', holds: 'the Owner\'s per-browser rich compose opt-out' },
   { prefix: 'aspire.connect.outreach.lastMode', store: 'local', cls: 'preference', holds: 'message or survey' },
   { prefix: 'aspire.connect.outreach.mode', store: 'local', cls: 'preference', holds: 'single or bulk' },
@@ -146,6 +147,7 @@ export function clearClientStateOnSignOut({ queryClient = null, local = browserS
   const removed = []
   try { queryClient?.clear?.() } catch { /* a cache that cannot be cleared is empty next mount */ }
   try { clearStudentPhotoCache() } catch { /* module state only */ }
+  try { forgetRememberedYears() } catch { /* module state only: the Budget Tracker's last year (BUDGET-TRACKER-1) */ }
   if (local) removed.push(...removeClearable(local))
   if (session) removed.push(...removeClearable(session))
   return { removed, cacheCleared: Boolean(queryClient) }

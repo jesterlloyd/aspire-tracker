@@ -76,7 +76,7 @@ export function budgetGroup({ renewals = [], receipts = [], concur = [], missing
   const closeRows = close ? [{
     id: `close:${close.month}`, chip: 'Close',
     title: `Close ${close.name}`,
-    meta: ['Program Budget', `due ${ymdText(close.due)}`, close.later ? `${plural(close.later, 'later month')} also open` : null].filter(Boolean).join(' · '),
+    meta: ['Budget Tracker', `due ${ymdText(close.due)}`, close.later ? `${plural(close.later, 'later month')} also open` : null].filter(Boolean).join(' · '),
     pill: { text: 'Close month', tone: 'amber' },
     ageMs: Math.max(0, now - new Date(`${close.due}T12:00:00`).getTime()),
     to: '/settings/budget?tab=summary',
@@ -129,7 +129,7 @@ export function budgetGroup({ renewals = [], receipts = [], concur = [], missing
     closeRows.length ? { text: `Close ${close.name}`, tone: 'amber' } : null,
   ].filter(Boolean)
   const to = receiptRows.length ? '/settings/budget?tab=receipts' : renewRows.length ? '/settings/budget?tab=subscriptions' : missingRows.length && !concurRows.length ? '/settings/budget?tab=sheet&filter=missing-receipt' : closeRows.length && !concurRows.length && !missingRows.length ? '/settings/budget?tab=summary' : '/settings/budget?tab=sheet'
-  return finish({ key: 'budget', name: 'Program Budget', sub, pills, rows, open: { label: 'Open Program Budget', to }, count: rows.length })
+  return finish({ key: 'budget', name: 'Budget Tracker', sub, pills, rows, open: { label: 'Open Budget Tracker', to }, count: rows.length })
 }
 
 // ── Messages ────────────────────────────────────────────────────────────────────

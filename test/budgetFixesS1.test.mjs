@@ -146,7 +146,8 @@ test('Receipts counts the selected year, and names the others', async () => {
   const out = await R.intake(db, { today: TODAY })
   assert.deepEqual(out.filedByYear, { 2026: 1, 2027: 1 })
   const tab = read('src/components/budget/BudgetReceipts.jsx')
-  assert.match(tab, /Program Budget · \{filedIn\(data, fy\)\} filed in \{fyShort\(fy\)\}/)
+  // BUDGET-TRACKER-1 changed this (Owner, 2026-09-30): Program Budget is now labelled Budget Tracker.
+  assert.match(tab, /Budget Tracker · \{filedIn\(data, fy\)\} filed in \{fyShort\(fy\)\}/)
   assert.match(tab, /`\$\{n\} more in \$\{fyShort\(Number\(k\)\)\}`/)
   assert.match(tab, /label: <>Filed<span className="bud-view-n">\{filedIn\(data, fy\)\}<\/span><\/>/)
 })

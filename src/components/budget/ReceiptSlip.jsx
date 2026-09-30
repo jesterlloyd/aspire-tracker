@@ -246,7 +246,7 @@ export default function ReceiptSlip({ slip, context, categories, cohorts, busy, 
         )}
 
 
-        <p className="bud-files">Files to <code>Program Budget › {fy ? fyShort(fy) : 'FY'} › Receipts › {filed}</code></p>
+        <p className="bud-files">Files to <code>Budget Tracker › {fy ? fyShort(fy) : 'FY'} › Receipts › {filed}</code></p>
 
         <fieldset className="bud-match">
           <legend className="bud-sr">Match or add?</legend>

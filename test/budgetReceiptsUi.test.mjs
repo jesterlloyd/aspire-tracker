@@ -66,7 +66,8 @@ test('the slip draws the receipt from the reading, with View original beside it,
   assert.match(out, /High confidence<\/span>Paper for printed orientation packets\./)
   assert.match(out, /Split into 2 rows because the items fall in different categories\./)
   assert.match(out, /Card ending 4417\. No P-card is on file, so choose the payment method\./)
-  assert.match(out, /Files to <code>Program Budget › FY27 › Receipts › FY27_2026-09-03_Amazon_112-7730158_\$58\.57\.jpg<\/code>/)
+  // BUDGET-TRACKER-1 changed this (Owner, 2026-09-30): Program Budget is now labelled Budget Tracker.
+  assert.match(out, /Files to <code>Budget Tracker › FY27 › Receipts › FY27_2026-09-03_Amazon_112-7730158_\$58\.57\.jpg<\/code>/)
   // Date, vendor and order are Keith's reading, shown in the header; Edit opens them.
   assert.match(out, /aria-expanded="false">Edit<\/button>/)
   assert.doesNotMatch(out, /<span>Vendor<\/span>/)
@@ -125,7 +126,7 @@ test('the Receipts tab and Add receipts are the Owner’s only, in the prompt’
   assert.deepEqual(P.tabsForState('current', { owner: false, planVisible: false }), ['summary', 'sheet', 'subscriptions'], 'Receipts is the Owner\u2019s only')
   assert.match(view, /tabsForState\(year\.state, \{ owner: canEdit, planVisible \}\)/)
   // BUDGET-POLISH-1 (2026-09-29): and not on the Receipts tab, where the drop zone's Choose files does it.
-  assert.match(view, /\{canEdit && year\.state === 'current' && tab !== 'receipts' && \(<>\n\s+<button type="button" className="bud-btn" onClick=\{\(\) => addRef\.current\?\.click\(\)\}><ReceiptText/)
+  assert.match(view, /\{canEdit && \(year\.state === 'current' \|\| year\.state === 'closed'\) && tab !== 'receipts' && \(<>\n\s+<button type="button" className="bud-btn" onClick=\{\(\) => addRef\.current\?\.click\(\)\}><ReceiptText/)
   assert.match(view, /current === 'receipts' && canEdit &&/)
   // The Sheet's receipt mark opens the original for the Owner only.
   assert.match(read('src/components/budget/BudgetSheet.jsx'), /return canEdit\n\s+\? <button type="button" className="bud-rc bud-rc-open"/)

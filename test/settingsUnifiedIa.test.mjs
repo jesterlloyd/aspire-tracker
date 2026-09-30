@@ -40,7 +40,8 @@ test('the rail is the brief\'s six destinations plus Organization, in order, for
   // PROGRAM-BUDGET A3 (2026-09-27) added Program Budget after Community Benefit (Owner decision: /settings/budget).
   assert.deepEqual(railKeys(OWNER), ['general', 'accounts', 'organization', 'communityBenefit', 'programBudget', 'keith', 'demoMode', 'preceptorParity'])
   assert.deepEqual(visibleSections(OWNER).map(s => s.label),
-    ['General', 'Accounts & Access', 'Organization', 'Community Benefit', 'Program Budget', 'Keith', 'Demo Mode', 'Preceptor Parity'])
+    // BUDGET-TRACKER-1 changed this (Owner, 2026-09-30): Program Budget is now labelled Budget Tracker.
+    ['General', 'Accounts & Access', 'Organization', 'Community Benefit', 'Budget Tracker', 'Keith', 'Demo Mode', 'Preceptor Parity'])
 })
 
 test('groups are Workspace, Administration, Diagnostics, contiguous', () => {

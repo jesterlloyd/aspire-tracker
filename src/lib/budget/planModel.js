@@ -129,7 +129,9 @@ export const statusLine = (plan) => (plan ? `${STATUS_TEXT[plan.status] || plan.
 /** Which tabs a year shows (BUDGET-V2 item 15). A reader sees Plan once a plan is not a draft. */
 export function tabsForState(state, { owner = true, planVisible = true, receipts = true } = {}) {
   if (state === 'proposal') return ['plan']
-  if (state === 'closed') return ['summary', 'sheet', ...(planVisible ? ['plan'] : [])]
+  // BUDGET-TRACKER-1 (Owner, 2026-09-30): a closed year keeps its Subscriptions and Receipts, so its
+  // filed receipts and the plans that charged it stay one click away.
+  if (state === 'closed') return ['summary', 'sheet', 'subscriptions', ...(owner && receipts ? ['receipts'] : []), ...(planVisible ? ['plan'] : [])]
   if (state === 'current') return ['summary', 'sheet', 'subscriptions', ...(owner && receipts ? ['receipts'] : []), ...(planVisible ? ['plan'] : [])]
   return ['summary', 'subscriptions']
 }

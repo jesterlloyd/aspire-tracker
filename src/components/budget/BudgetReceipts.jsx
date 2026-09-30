@@ -208,7 +208,7 @@ export default function BudgetReceipts({ year, onWrite, pendingFiles, onPendingT
         </div>
         <button type="button" className="bud-btn" onClick={() => inputRef.current?.click()}>Choose files</button>
         <input ref={inputRef} type="file" accept={ACCEPT} multiple hidden onChange={e => { addFiles(e.target.files); e.target.value = '' }} />
-        <span className="bud-drop-count bud-path">Program Budget · {filedIn(data, fy)} filed in {fyShort(fy)}</span>
+        <span className="bud-drop-count bud-path">Budget Tracker · {filedIn(data, fy)} filed in {fyShort(fy)}</span>
         {otherYears(data, fy) && <span className="bud-drop-more">{otherYears(data, fy)}</span>}
       </SurfaceCard>
 

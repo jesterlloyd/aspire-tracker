@@ -34,8 +34,9 @@ test('a year before its July 1 is a Proposal, and each state shows only its tabs
   assert.equal(M.yearState({ started_at: 'x' }, 2026, TODAY), 'closed')
   assert.deepEqual(PM.tabsForState('proposal'), ['plan'])
   assert.deepEqual(PM.tabsForState('current'), ['summary', 'sheet', 'subscriptions', 'receipts', 'plan'])
-  assert.deepEqual(PM.tabsForState('closed'), ['summary', 'sheet', 'plan'])
-  assert.deepEqual(PM.tabsForState('closed', { planVisible: false }), ['summary', 'sheet'])
+  // BUDGET-TRACKER-1 changed this (Owner, 2026-09-30): a closed year keeps Subscriptions and Receipts.
+  assert.deepEqual(PM.tabsForState('closed'), ['summary', 'sheet', 'subscriptions', 'receipts', 'plan'])
+  assert.deepEqual(PM.tabsForState('closed', { planVisible: false, owner: false }), ['summary', 'sheet', 'subscriptions'])
 })
 
 test('a plan adds up by category, with its Platform share; moves and amendments change what it runs on', () => {

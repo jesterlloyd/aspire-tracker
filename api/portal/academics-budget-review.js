@@ -54,7 +54,7 @@ export function createAcademicsBudgetReviewHandler({ verifyCaller = verifyPortal
     let level
     try { level = await budgetLevel(db, auth.grant?.id) } catch { return res.status(500).json({ error: 'grant_lookup_failed' }) }
     if (level === 'none') return res.status(403).json({ error: 'budget_access_required' })
-    if (body.action !== 'plan_pdf' && level !== 'approve') return res.status(403).json({ error: 'approve_required', message: 'Approving the Program Budget needs the Approve level. Ask the program owner.' })
+    if (body.action !== 'plan_pdf' && level !== 'approve') return res.status(403).json({ error: 'approve_required', message: 'Approving the Budget Tracker needs the Approve level. Ask the program owner.' })
 
     const day = today ? { today: today() } : {}
     const actor = auth.profile

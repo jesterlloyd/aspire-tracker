@@ -32,7 +32,8 @@ const at = (path) => renderToStaticMarkup(
     React.createElement(MemoryRouter, { initialEntries: [path] },
       React.createElement(AuthContext.Provider, { value: auth }, React.createElement(Shell)))))
 
-for (const [path, label] of [['/settings/budget', 'Program Budget'], ['/settings/community-benefit', 'Community Benefit']]) {
+// BUDGET-TRACKER-1 changed this (Owner, 2026-09-30): Program Budget is now labelled Budget Tracker.
+for (const [path, label] of [['/settings/budget', 'Budget Tracker'], ['/settings/community-benefit', 'Community Benefit']]) {
   test(`${label} takes the whole screen under a Settings crumb`, () => {
     const html = at(path)
     assert.match(html, /class="settings-shell settings-full"/)

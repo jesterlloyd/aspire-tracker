@@ -236,10 +236,10 @@ export default async function handler(req, res) {
 
   const budgetAccess = body.budget_access == null ? null : str(body.budget_access)
   if (budgetAccess != null && (!BUDGET_ACCESS_LEVELS.includes(budgetAccess) || (portalRole !== 'nursing_academic' && budgetAccess !== 'none'))) {
-    return res.status(400).json({ error: 'invalid_request', field: 'budget_access', message: 'Program Budget access is only available to Nursing Education & Leadership.' })
+    return res.status(400).json({ error: 'invalid_request', field: 'budget_access', message: 'Budget Tracker access is only available to Nursing Education & Leadership.' })
   }
   if (budgetAccess != null && !auth.isOwner) {
-    return res.status(403).json({ error: 'forbidden', field: 'budget_access', message: 'Only the Owner may share the Program Budget.' })
+    return res.status(403).json({ error: 'forbidden', field: 'budget_access', message: 'Only the Owner may share the Budget Tracker.' })
   }
   const themesAccess = body.evaluation_themes_access == null ? null : str(body.evaluation_themes_access)
   if (themesAccess != null && (!THEMES_ACCESS_LEVELS.includes(themesAccess) || (portalRole !== 'nursing_academic' && themesAccess !== 'none'))) {
@@ -490,8 +490,8 @@ export default async function handler(req, res) {
           return res.status(budgetErr.code === '42703' ? 409 : 500).json({
             error: budgetErr.code === '42703' ? 'budget_not_enabled' : 'internal_error',
             message: budgetErr.code === '42703'
-              ? 'Portal access was saved, but Program Budget needs its database update (20261009000000) before it can be shared.'
-              : 'Portal access was saved, but the Program Budget permission could not be.',
+              ? 'Portal access was saved, but Budget Tracker needs its database update (20261009000000) before it can be shared.'
+              : 'Portal access was saved, but the Budget Tracker permission could not be.',
           })
         }
       }

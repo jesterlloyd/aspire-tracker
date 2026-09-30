@@ -83,13 +83,13 @@ export default function NursingAcademicsPortal({ view = 'calendar', messagesEnab
         <div className="bud-portal">
           <ProgramBudgetView source={PORTAL_SOURCE} renderBand={(actions) => (
             <header className="bud-portal-head">
-              <div><h2>Program Budget</h2><p className="bud-sub">ASPIRE, read-only. Shared from ASPIRE Intelligence by the program owner.</p></div>
+              <div><h2>Budget Tracker</h2><p className="bud-sub">ASPIRE, read-only. Shared from ASPIRE Intelligence by the program owner.</p></div>
               {actions}
             </header>
           )} />
         </div>
       ) : (
-        <EmptyState title="Program Budget" detail="The program budget has not been shared with your account." />
+        <EmptyState title="Budget Tracker" detail="The Budget Tracker has not been shared with your account." />
       ))}
       {view === 'messages' && (
         messagesEnabled ? (

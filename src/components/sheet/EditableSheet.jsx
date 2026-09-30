@@ -102,7 +102,7 @@
 //                            change to a cell it reads works it out again.
 // A selection of more than one cell is tinted AND outlined around its edge, as Excel draws a range.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AlignCenter, AlignLeft, AlignRight, ArrowDownUp, Baseline, Bold, Check, ChevronDown, ChevronRight, Eraser, Italic, PaintBucket, Plus, Trash2, Underline, WrapText } from 'lucide-react'
+import { AlignCenter, AlignLeft, AlignRight, ArrowDownUp, Baseline, Bold, Check, ChevronDown, ChevronRight, Eraser, Italic, PaintBucket, Plus, Redo2, Trash2, Underline, Undo2, WrapText } from 'lucide-react'
 import {
   cellMatches, DATE_FORMATS, displayValue, formatNumber, groupSheetRows, isOtherValue, mergeFormat, otherText, otherValue,
   SHEET_DEFAULT_INK, SHEET_FILLS, SHEET_INKS, SHEET_STAFF_TYPES, summarize, SUMMARY_FNS,
@@ -146,6 +146,29 @@ export default function EditableSheet({
 }) {
   const tl = { ...ALL_TOOLS, ...tools }
   const [data, setData] = useState(() => ({ rows: initialRows }))
+  // BUDGET-TRACKER-1 (Owner, 2026-09-30): Undo and Redo in every sheet. Each change is recorded where it
+  // is saved, as what the cell held before and after, and put back through the same save, so an undo
+  // runs every rule a typed change does (a closed month still refuses). One action on many cells (a
+  // paste, a clear, formatting a range) is one step. Adding and deleting rows are not undone here.
+  const dataRef = useRef(data)
+  useEffect(() => { dataRef.current = data }, [data])
+  const [hist, setHist] = useState({ undo: [], redo: [] })
+  const [replayingNow, setReplayingNow] = useState(false)
+  const group = useRef(null)
+  const replaying = useRef(false)
+  const HISTORY_MAX = 50
+  const record = (entry) => {
+    if (replaying.current) return
+    if (group.current) { group.current.push(entry); return }
+    setHist(h => ({ undo: [...h.undo, [entry]].slice(-HISTORY_MAX), redo: [] }))
+  }
+  const beginGroup = () => { if (!replaying.current && !group.current) { group.current = []; return true } return false }
+  const endGroup = (mine) => {
+    if (!mine) return
+    const g = group.current
+    group.current = null
+    if (g?.length) setHist(h => ({ undo: [...h.undo, g].slice(-HISTORY_MAX), redo: [] }))
+  }
   const [layout, setLayout] = useState(initialLayout)
   const [search, setSearch] = useState(initialSearch)
   const [quick, setQuick] = useState(initialQuick)
@@ -296,7 +319,15 @@ export default function EditableSheet({
       for (const k of Object.keys(next)) if (next[k] === false || next[k] == null) delete next[k]
       return Object.keys(next).length ? next : null
     }
+    const mine = beginGroup()
     if (wholeCols) {
+      const beforeLayout = layout
+      const colsFn = (l) => {
+        const colFormats = { ...(l.colFormats || {}) }
+        for (const c of wholeCols) { const f = merge(colFormats[c.key]); if (f) colFormats[c.key] = f; else delete colFormats[c.key] }
+        return { ...l, colFormats }
+      }
+      record({ kind: 'layout', before: beforeLayout, after: colsFn(beforeLayout) })
       changeLayout(l => {
         const colFormats = { ...(l.colFormats || {}) }
         for (const c of wholeCols) { const f = merge(colFormats[c.key]); if (f) colFormats[c.key] = f; else delete colFormats[c.key] }
@@ -307,11 +338,12 @@ export default function EditableSheet({
         const updates = []
         // A cell's formula stays: it is what the cell holds, not how it looks.
         const keep = (f) => (f?.fx ? { fx: f.fx } : null)
-        for (const row of data.rows) for (const c of wholeCols) if (row.format?.[c.key]) updates.push({ rowId: row.id, key: c.key, format: keep(row.format[c.key]) })
+        for (const row of data.rows) for (const c of wholeCols) if (row.format?.[c.key]) { updates.push({ rowId: row.id, key: c.key, format: keep(row.format[c.key]) }); record({ kind: 'format', rowId: row.id, key: c.key, before: row.format[c.key], after: keep(row.format[c.key]) }) }
         const keys = new Set(wholeCols.map(c => c.key))
         patchRows(r => ({ ...r, format: Object.fromEntries(Object.entries(r.format || {}).map(([k, f]) => [k, keys.has(k) ? keep(f) : f]).filter(([, f]) => f)) }))
         saveCells(updates)
       }
+      endGroup(mine)
       return
     }
     const updates = []
@@ -321,9 +353,48 @@ export default function EditableSheet({
       if (!changed.has(row.id)) changed.set(row.id, {})
       changed.get(row.id)[col.key] = next || undefined
       updates.push({ rowId: row.id, key: col.key, format: next })
+      record({ kind: 'format', rowId: row.id, key: col.key, before: row.format?.[col.key] || null, after: next })
     }
     patchRows(r => (changed.has(r.id) ? { ...r, format: Object.fromEntries(Object.entries({ ...r.format, ...changed.get(r.id) }).filter(([, v]) => v)) } : r))
     saveCells(updates)
+    endGroup(mine)
+  }
+
+  // ── Undo and Redo (BUDGET-TRACKER-1): put a step back, or forward, through the same saves ──
+  const replay = async (step, side) => {
+    replaying.current = true
+    try {
+      for (const e of (side === 'before' ? [...step].reverse() : step)) {
+        const v = e[side]
+        if (e.kind === 'layout') { changeLayout(() => v); continue }
+        const row = dataRef.current.rows.find(r => r.id === e.rowId), col = columnOf(e.key)
+        if (!row || !col) continue
+        if (e.kind === 'staff') commitStaff(row, col, v)
+        else if (e.kind === 'format') {
+          patchRows(r => (r.id === row.id ? { ...r, format: Object.fromEntries(Object.entries({ ...r.format, [col.key]: v || undefined }).filter(([, x]) => x)) } : r))
+          await saveCells([{ rowId: row.id, key: col.key, format: v || null }])
+        } else if (e.kind === 'host') { setSave('saving'); await saveHostValue(row, col, v.value, v.fx); saved() }
+      }
+      return true
+    } catch (err) { setSave('error'); notify?.(err.message, 'err'); return false } finally { replaying.current = false }
+  }
+  const undo = async () => {
+    const step = hist.undo[hist.undo.length - 1]
+    if (!step || replayingNow || editing) return
+    setReplayingNow(true)
+    const ok = await replay(step, 'before')
+    setHist(h => ({ undo: h.undo.slice(0, -1), redo: ok ? [...h.redo, step] : h.redo }))
+    setReplayingNow(false)
+    if (ok) notify?.(step.length > 1 ? `Undid ${step.length} changes.` : 'Undone.')
+  }
+  const redo = async () => {
+    const step = hist.redo[hist.redo.length - 1]
+    if (!step || replayingNow || editing) return
+    setReplayingNow(true)
+    const ok = await replay(step, 'after')
+    setHist(h => ({ redo: h.redo.slice(0, -1), undo: ok ? [...h.undo, step] : h.undo }))
+    setReplayingNow(false)
+    if (ok) notify?.(step.length > 1 ? `Redid ${step.length} changes.` : 'Redone.')
   }
   const toggle = (k) => applyFormat({ [k]: !firstFormat[k] })
   const setDecimals = (delta) => {
@@ -336,9 +407,14 @@ export default function EditableSheet({
   const locked = (row, col) => !!isLocked?.(row, col)
   const usesPanel = (col) => col.type === 'checkboxes' || (!col.staff && !!editorExtras)
   const takesFormula = (col) => formulas && col.type === 'number' && !col.compute
-  const commitStaff = (row, col, value) => {
+  // A formula's recalculated value follows its source: it is saved, but not a step of its own.
+  const saveStaffQuietly = (row, col, value) => {
     patchRows(r => (r.id === row.id ? { ...r, cells: { ...r.cells, [col.key]: value } } : r))
     saveCells([{ rowId: row.id, key: col.key, value }])
+  }
+  const commitStaff = (row, col, value) => {
+    record({ kind: 'staff', rowId: row.id, key: col.key, before: row.cells[col.key] ?? '', after: value })
+    saveStaffQuietly(row, col, value)
   }
   // The floating editor sits above the page (position: fixed) at its cell, so the grid's scrolling
   // frame never clips it; it follows the cell while the frame scrolls.
@@ -386,9 +462,11 @@ export default function EditableSheet({
   /** Save one host cell through the host, then any formula in the same row that reads it. */
   const saveHostValue = async (row, col, value, fx) => {
     const id = `${row.id}|${col.key}`
+    const before = { value: rawOf(row, col) ?? '', fx: row.format?.[col.key]?.fx || null }
     pend(id, String(value))
     try {
       await commitHostEdit(row, col, { rowId: row.id, key: col.key, draft: value, reason: '' }, { patchRows })
+      record({ kind: 'host', rowId: row.id, key: col.key, before, after: { value, fx: fx || null } })
       const cur = row.format?.[col.key] || null
       if (takesFormula(col) && (cur?.fx || null) !== (fx || null)) {
         const next = { ...(cur || {}) }
@@ -411,7 +489,7 @@ export default function EditableSheet({
       if (!formulaRefs(fx).some(n => changedLabels.has(n.toLowerCase()))) continue
       const res = formulaResult(row, c, fx, over)
       if (res.error) { notify?.(`${c.label}: ${res.error}`, 'err'); continue }
-      if (c.staff) { commitStaff(row, c, String(res.value)); continue }
+      if (c.staff) { saveStaffQuietly(row, c, String(res.value)); continue }
       await commitHostEdit(row, c, { rowId: row.id, key: c.key, draft: String(res.value), reason: '' }, { patchRows })
       seen.add(c.key)
       await recalcRow(row, { ...over, [c.key]: res.value }, seen)
@@ -429,7 +507,8 @@ export default function EditableSheet({
     if (ed.panel) {
       if (col.staff) { commitStaff(row, col, String(ed.draft ?? '')); done(); return }
       setSave('saving')
-      try { await commitHostEdit(row, col, ed, { patchRows }); saved(); done() } catch (e) { setSave('error'); notify?.(e.message, 'err') }
+      const before = { value: rawOf(row, col) ?? '', fx: null }
+      try { await commitHostEdit(row, col, ed, { patchRows }); record({ kind: 'host', rowId: row.id, key: col.key, before, after: { value: ed.draft, fx: null } }); saved(); done() } catch (e) { setSave('error'); notify?.(e.message, 'err') }
       return
     }
     let value = typeof ed.draft === 'string' ? ed.draft : String(ed.draft ?? '')
@@ -461,6 +540,8 @@ export default function EditableSheet({
   const onKey = (e) => {
     if (editing || ctx) return
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'a') { e.preventDefault(); selectAll(); return }
+    if (editable && (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); if (e.shiftKey) redo(); else undo(); return }
+    if (editable && e.ctrlKey && e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); return }
     if (!sel) return
     if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) { e.preventDefault(); openMenuFromKeys(); return }
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'c') { e.preventDefault(); copySelection(); return }
@@ -558,6 +639,10 @@ export default function EditableSheet({
   /** Paste a block (tab and newline separated, as Excel and Sheets copy it) from the active cell. */
   const pasteBlock = async (text) => {
     if (!sel || !editable) return
+    const mine = beginGroup()
+    try { await pasteCells(text) } finally { endGroup(mine) }
+  }
+  const pasteCells = async (text) => {
     const lines = String(text || '').replace(/\r/g, '').replace(/\n$/, '').split('\n').map(l => l.split('\t'))
     const staffUpdates = [], hostEdits = []
     let skipped = 0
@@ -569,6 +654,7 @@ export default function EditableSheet({
       else hostEdits.push({ row, col, value })
     }))
     if (staffUpdates.length) {
+      for (const u of staffUpdates) record({ kind: 'staff', rowId: u.row.id, key: u.col.key, before: u.row.cells[u.col.key] ?? '', after: u.value })
       const byKey = new Map(staffUpdates.map(u => [`${u.row.id}|${u.col.key}`, u.value]))
       patchRows(r => ({ ...r, cells: Object.fromEntries(Object.entries({ ...r.cells, ...Object.fromEntries(staffUpdates.filter(u => u.row.id === r.id).map(u => [u.col.key, u.value])) })) }))
       saveCells(staffUpdates.map(u => ({ rowId: u.row.id, key: u.col.key, value: byKey.get(`${u.row.id}|${u.col.key}`) })))
@@ -598,6 +684,8 @@ export default function EditableSheet({
   })
   const clearSelection = () => {
     const { staff, host } = clearable()
+    const mine = beginGroup()
+    for (const x of staff) record({ kind: 'staff', rowId: x.row.id, key: x.col.key, before: x.row.cells[x.col.key] ?? '', after: '' })
     if (staff.length) {
       const ids = new Set(staff.map(x => `${x.row.id}|${x.col.key}`))
       patchRows(r => ({ ...r, cells: Object.fromEntries(Object.entries(r.cells).map(([k, v]) => [k, ids.has(`${r.id}|${k}`) ? '' : v])) }))
@@ -606,9 +694,14 @@ export default function EditableSheet({
     if (host.length) (async () => {
       setSave('saving')
       let failed = 0
-      for (const x of host) { try { await commitHostEdit(x.row, x.col, { rowId: x.row.id, key: x.col.key, draft: '', reason: '' }, { patchRows }) } catch (err) { failed++; if (failed === 1) notify?.(err.message, 'err') } }
+      for (const x of host) {
+        const before = { value: rawOf(x.row, x.col) ?? '', fx: x.row.format?.[x.col.key]?.fx || null }
+        try { await commitHostEdit(x.row, x.col, { rowId: x.row.id, key: x.col.key, draft: '', reason: '' }, { patchRows }); record({ kind: 'host', rowId: x.row.id, key: x.col.key, before, after: { value: '', fx: null } }) } catch (err) { failed++; if (failed === 1) notify?.(err.message, 'err') }
+      }
       if (failed) setSave('error'); else saved()
+      endGroup(mine)
     })()
+    else endGroup(mine)
     if (!staff.length && !host.length) notify?.('Nothing here can be cleared.')
   }
   const menuRows = () => (range ? visibleRows.slice(range.r0, range.r1 + 1) : [])
@@ -738,6 +831,10 @@ export default function EditableSheet({
 
       {/* The Smartsheet row: text formatting, number and date formats, then the grid's own tools. */}
       <div className="fs-toolbar" ref={toolRef} role="toolbar" aria-label="Sheet tools">
+        {editable && <div className="fs-tgroup">
+          <SheetTip label="Undo (Cmd/Ctrl+Z)"><button type="button" className="fs-tb" disabled={!hist.undo.length || replayingNow} onClick={undo} aria-label="Undo"><Undo2 size={15} /></button></SheetTip>
+          <SheetTip label="Redo (Cmd/Ctrl+Shift+Z)"><button type="button" className="fs-tb" disabled={!hist.redo.length || replayingNow} onClick={redo} aria-label="Redo"><Redo2 size={15} /></button></SheetTip>
+        </div>}
         {tl.text && <div className="fs-tgroup">
           <SheetTip label="Bold (Cmd/Ctrl+B)"><button type="button" className="fs-tb" aria-pressed={!!firstFormat.b} disabled={off} onClick={() => toggle('b')} aria-label="Bold"><Bold size={15} /></button></SheetTip>
           <SheetTip label="Italic (Cmd/Ctrl+I)"><button type="button" className="fs-tb" aria-pressed={!!firstFormat.i} disabled={off} onClick={() => toggle('i')} aria-label="Italic"><Italic size={15} /></button></SheetTip>

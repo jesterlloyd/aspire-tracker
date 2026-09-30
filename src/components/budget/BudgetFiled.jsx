@@ -178,7 +178,7 @@ function FiledDetail({ receipt: r }) {
       <dl className="bud-fdetail-kv">
         <dt>Payment</dt><dd>{r.rows[0]?.payment || 'Not recorded'}</dd>
         <dt>Stage</dt><dd>{r.rows[0] ? <span className={`bud-conf bud-conf-${STAGE_TONE[r.rows[0].stage] || 'grey'}`}>{r.rows[0].stageLabel}</span> : 'None'}</dd>
-        <dt>Filed as</dt><dd><code className="bud-path">Program Budget › {fy} › Receipts › {r.filed_name}</code></dd>
+        <dt>Filed as</dt><dd><code className="bud-path">Budget Tracker › {fy} › Receipts › {r.filed_name}</code></dd>
         {meal && (<>
           <dt>Business purpose</dt><dd>{meal.business_purpose || 'Not recorded'}</dd>
           <dt>Attendees</dt><dd>{(meal.attendees || []).length ? meal.attendees.map((a, i) => <span key={i} className="bud-att-line">{[a.name, a.title, a.organization, a.relationship].filter(Boolean).join(', ')}</span>) : 'Not recorded'}</dd>

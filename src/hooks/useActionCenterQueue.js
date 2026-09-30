@@ -180,7 +180,7 @@ export function useActionCenterQueue({ enabled = true, includeOtherCohorts = fal
     ...(canManage && cohortId ? [queryState(qRR, 'review-release', 'Review & Release'), queryState(qCat, 'forms', 'Forms and documents')] : []),
     ...(cohortId ? [queryState(qIv, 'interviews', 'Interviews'), queryState(qRot, 'placement', 'Placement and rotation')] : []),
     ...(canManage && cohortId ? [queryState(qSupport, 'support', 'Support check-ins')] : []),
-    ...(isOwner ? [queryState(qBudget, 'budget', 'Program Budget')] : []),
+    ...(isOwner ? [queryState(qBudget, 'budget', 'Budget Tracker')] : []),
   ]
 
   const invalidate = useCallback(() => {

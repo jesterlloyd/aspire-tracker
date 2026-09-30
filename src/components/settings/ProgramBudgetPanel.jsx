@@ -17,7 +17,7 @@ export default function ProgramBudgetPanel() {
       renderBand={(actions, accessNote, yearLine) => (
         <SettingsPageHeader
           id="program-budget-heading"
-          title="Program Budget"
+          title="Budget Tracker"
           subtitle={yearLine || 'One budget per fiscal year: its expenses, subscriptions and category plan.'}
           accessNote={accessNote}
           actions={actions}

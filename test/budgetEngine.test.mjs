@@ -245,7 +245,8 @@ test('only the Owner shares the budget with a grant, and the directory survives 
   const invite = read('api/invite-portal-user.js')
   // BUDGET-V2 Phase 3 (2026-09-29): Margo's level, 'approve', joins 'view'.
   assert.match(invite, /const BUDGET_ACCESS_LEVELS = \['none', 'view', 'approve'\]/)
-  assert.match(invite, /if \(budgetAccess != null && !auth\.isOwner\)[\s\S]{0,120}Only the Owner may share the Program Budget/)
+  // BUDGET-TRACKER-1 changed this (Owner, 2026-09-30): Program Budget is now labelled Budget Tracker.
+  assert.match(invite, /if \(budgetAccess != null && !auth\.isOwner\)[\s\S]{0,120}Only the Owner may share the Budget Tracker/)
   assert.match(invite, /portalRole !== 'nursing_academic' && budgetAccess !== 'none'/, 'no other portal role can hold it')
   assert.match(invite, /budgetErr\.code === '42703' && budgetAccess === 'none'/, 'before the column, none is already true')
   const list = read('api/list-portal-access.js')

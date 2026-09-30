@@ -22,6 +22,7 @@ import BudgetAllocations from './BudgetAllocations'
 import BudgetPlan from './BudgetPlan'
 import BudgetYearLine from './BudgetYearLine'
 import { tabsForState } from '../../lib/budget/planModel'
+import { rememberYear, rememberedYear } from '../../lib/budget/lastYear'
 import BudgetReceipts from './BudgetReceipts'
 import BudgetStart from './BudgetStart'
 import { saveXlsx, budgetStaff } from './budgetApi'
@@ -29,7 +30,7 @@ import { fyShort, fyRangeText, STATE_CHIP, currentFiscalYear } from '../../lib/b
 import '../forms/forms.css'
 import './budget.css'
 
-const NOT_ENABLED = 'Program Budget is not enabled yet. Its database update (20261009000000_program_budget_phase_a.sql) has not been applied.'
+const NOT_ENABLED = 'Budget Tracker is not enabled yet. Its database update (20261009000000_program_budget_phase_a.sql) has not been applied.'
 
 // BUDGET-V2 item 15: the tabs follow the year's state. Proposal: Plan. Current: Summary, Sheet,
 // Subscriptions, Receipts (the Owner's alone, decision 5), Plan. Closed: Summary, Sheet, Plan. Allocations
@@ -52,7 +53,11 @@ function tabsFor(year, canEdit, receiptCount = 0) {
 // `yearLineInBand`: the host puts the year's line in its band's subtitle (Settings); the portal keeps
 // it below the band, with the program and the owner's name.
 export default function ProgramBudgetView({ source, renderBand, initialFy = null, yearLineInBand = false }) {
-  const [fy, setFy] = useState(() => initialFy ?? currentFiscalYear())   // the Pacific fiscal year, as the server defaults
+  // BUDGET-TRACKER-1: opens on the year last opened here (in memory: a hard refresh or a new sign-in
+  // starts again on the current year). A year named in the link (initialFy) wins.
+  const memoryKey = source.review ? 'portal' : 'staff'
+  const [fy, setFyState] = useState(() => initialFy ?? rememberedYear(memoryKey) ?? currentFiscalYear())
+  const setFy = useCallback((y) => { rememberYear(memoryKey, y); setFyState(y) }, [memoryKey])
   const [year, setYear] = useState(null)
   const [error, setError] = useState(null)
   // AC-RENEW-1: the Action Center's Open lands on the tab it names (?tab=subscriptions).
@@ -120,13 +125,13 @@ export default function ProgramBudgetView({ source, renderBand, initialFy = null
   }
 
   const actions = year && (
-    <div className="bud-actions" role="group" aria-label="Program Budget actions">
+    <div className="bud-actions" role="group" aria-label="Budget Tracker actions">
       <label htmlFor="bud-fy"><span>Fiscal year</span>
         <select id="bud-fy" value={year.fy} onChange={e => { setTab('summary'); setFy(Number(e.target.value)) }}>
           {year.years.map(y => <option key={y} value={y}>{fyShort(y)}{y > currentFiscalYear() ? ' · Proposal' : ''}</option>)}
         </select></label>
       {/* BUDGET-POLISH-1: on Receipts the drop zone's Choose files is the same button; the header's steps aside. */}
-      {canEdit && year.state === 'current' && tab !== 'receipts' && (<>
+      {canEdit && (year.state === 'current' || year.state === 'closed') && tab !== 'receipts' && (<>
         <button type="button" className="bud-btn" onClick={() => addRef.current?.click()}><ReceiptText size={15} aria-hidden="true" />Add receipts</button>
         <input ref={addRef} type="file" accept="image/*,application/pdf,.pdf,.eml,message/rfc822,.heic,.heif" multiple hidden
           onChange={e => { const f = [...e.target.files]; e.target.value = ''; if (f.length) { setPendingFiles(f); setTab('receipts') } }} />
@@ -163,8 +168,8 @@ export default function ProgramBudgetView({ source, renderBand, initialFy = null
         )}
         {/* BUDGET-FIXES-1 item 2.1: the owner's "How this works" sits beside the tabs in a running year. */}
         {canEdit && year.state === 'current'
-          ? <BudgetHowItWorks><SegmentedPicker ariaLabel="Program Budget views" options={tabs} value={current} onChange={(t) => { setSheetFocus(null); setTab(t) }} /></BudgetHowItWorks>
-          : <SegmentedPicker ariaLabel="Program Budget views" options={tabs} value={current} onChange={(t) => { setSheetFocus(null); setTab(t) }} />}
+          ? <BudgetHowItWorks><SegmentedPicker ariaLabel="Budget Tracker views" options={tabs} value={current} onChange={(t) => { setSheetFocus(null); setTab(t) }} /></BudgetHowItWorks>
+          : <SegmentedPicker ariaLabel="Budget Tracker views" options={tabs} value={current} onChange={(t) => { setSheetFocus(null); setTab(t) }} />}
         {current === 'summary' && (notStarted
           ? <BudgetStart year={year} canEdit={canEdit} onWrite={onWrite} onPickYear={(y) => setFy(y)} />
           : <BudgetSummary key={year.fy} year={year} canEdit={canEdit} onWrite={onWrite} source={source} receiptQueue={canEdit ? receiptQueue : []}
