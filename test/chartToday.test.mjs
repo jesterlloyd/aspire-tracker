@@ -212,8 +212,10 @@ test('At a Glance hides the search, Keith orb, Messages and Feedback launchers, 
   assert.match(app, /const hideHomeChrome = activeTab === 'overview' && !tourRunning/)
   assert.match(app, /search=\{\{ hidden: hideHomeChrome, /)
   assert.match(app, /hideLauncher=\{hideHomeChrome\}/)
-  assert.match(app, /<MainMessagesLauncher hidden=\{hideHomeChrome\} \/>/)
-  assert.match(app, /isAuthenticated=\{true\}\n\s+hidden=\{hideHomeChrome\}/)
+  // BUDGET-V2 item 10 (Owner, 2026-09-29, commit budget-v2-p4): Program Budget also hides Messages and
+  // Feedback (keithOnly); the Keith orb stays. The At a Glance rule is unchanged.
+  assert.match(app, /<MainMessagesLauncher hidden=\{hideHomeChrome \|\| keithOnly\} \/>/)
+  assert.match(app, /isAuthenticated=\{true\}\n\s+hidden=\{hideHomeChrome \|\| keithOnly\}/)
   const tour = read('src/lib/onboardingTours.js')
   for (const anchor of ['global-search', 'keith-orb', 'main-messages-launcher', 'feedback-button']) {
     assert.match(tour, new RegExp(`target: '\\[data-tour="${anchor}"\\]'`), anchor)

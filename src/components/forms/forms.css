@@ -368,3 +368,7 @@ select.fs-inline { padding: 4px 6px; cursor: pointer; }
 .fs-tailhead th { padding: 14px 12px 6px; text-align: left; font: 600 10.5px var(--aspire-mono, ui-monospace, monospace); letter-spacing: .1em; text-transform: uppercase; color: var(--text-caption); background: var(--ctl-surface); border-top: 1px solid var(--fs-grid); }
 .fs-tailrow .fs-cell { color: var(--text-caption); }
 .fs-tailrow .fs-rownum { color: transparent; }
+/* EditableSheet `emptyState` (BUDGET-V2 item 6): one message and the next action, not ten blank rows. */
+.fs-empty { display: grid; justify-items: center; gap: 8px; padding: 28px 16px; text-align: center; font-size: 13px; color: var(--text-caption); border: 1px dashed var(--fs-grid); border-radius: var(--aspire-radius-control); background: var(--ctl-surface); }
+.fs-empty b { color: var(--text-heading); font-size: 14px; }
+.fs-frame[hidden] { display: none; }

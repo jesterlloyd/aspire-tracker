@@ -9,9 +9,10 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import SurfaceCard from '../ui/SurfaceCard'
 import EditableSheet from '../sheet/EditableSheet'
 import { Pill } from '../shared/DataSheet'
+import { BUDGET_TOOLS } from './budgetSheetTools'
 import {
   usd, dateText, BILLING, PAYMENT_METHODS, nextCharge, perYear, dueByYearEnd, subscriptionStatus, isActiveSub, monthlyEquivalent,
-  paymentKey, pacificToday, fyShort, parseMoney, overlappingIds, ifApproved,
+  paymentKey, pacificToday, fyShort, parseMoney, overlappingIds, ifApproved, platformCost,
 } from '../../lib/budget/budgetModel'
 
 const LEAD = { key: '@name', label: 'Service', type: 'text' }
@@ -64,6 +65,7 @@ export default function BudgetSubscriptions({ year, canEdit, onWrite }) {
     onWrite.changed()
   }
   const decisionKey = subs.filter(x => x.approval_state !== 'approved' || x.overlap_kept).map(x => `${x.id}:${x.approval_state}:${x.overlap_kept ? 1 : 0}`).join(',') + `|${[...overlapping].join(',')}`
+  const plat = platformCost(subs, today)
   const pct = (n) => (year.summary.total ? ` (${(n / year.summary.total * 100).toFixed(1)}% of budget)` : '')
 
   const toRow = (s) => ({
@@ -72,7 +74,7 @@ export default function BudgetSubscriptions({ year, canEdit, onWrite }) {
       plan: s.plan || '', vendor: s.vendor || '', billing: billingLabel(s.billing), amount: s.amount == null ? '' : String(s.amount),
       anchor: s.anchor_date || '', start: s.start_date || '', end: s.end_date || '',
       pay: PAYMENT_METHODS.find(p => p.key === s.payment_method)?.label || '', cat: cats.get(s.category_id) || '',
-      auto: s.auto_renew ? 'Yes' : 'No', notes: s.notes || '',
+      auto: s.auto_renew ? 'Yes' : 'No', notes: s.notes || '', tag: s.tag === 'platform' ? 'Platform' : '',
       ...(s.staff_values || {}),
     },
   })
@@ -88,6 +90,7 @@ export default function BudgetSubscriptions({ year, canEdit, onWrite }) {
     { key: 'perYear', label: 'Per year', type: 'number', compute: (r) => perYear(r.raw, today) || null, note: 'Per year is worked out from Amount and Billing, and counts only an approved plan that is running. Change the Amount instead.' },
     { key: 'due', label: `Due by Jun 30`, type: 'number', compute: (r) => dueByYearEnd(r.raw, year.fy, state, today) || null, note: 'Due by Jun 30 is worked out from the charges still to come this year. Change the Amount, Billing or End instead.' },
     { key: 'pay', label: 'Payment', type: 'choice', options: PAYMENT_METHODS.map(p => p.label) },
+    ...(year.tagsEnabled ? [{ key: 'tag', label: 'Tag', type: 'choice', options: ['Platform'] }] : []),
     { key: 'cat', label: 'Category', type: 'choice', options: year.categories.map(c => c.name) },
     { key: 'auto', label: 'Auto-renew', type: 'choice', required: true, options: ['Yes', 'No'] },
     { key: 'status', label: 'Status', type: 'text', compute: (r) => subscriptionStatus(r.raw, today, { overlapping: overlapping.has(r.raw.id) }).label, note: 'Status follows the plan: its approval, End date and renewal decision.' },
@@ -95,7 +98,7 @@ export default function BudgetSubscriptions({ year, canEdit, onWrite }) {
     { key: 'start', label: 'Start', type: 'date' },
     { key: 'end', label: 'End', type: 'date' },
     { key: 'notes', label: 'Notes', type: 'paragraph' },
-  ], [year.categories, year.fy, state, today, overlapping])
+  ], [year.categories, year.fy, state, today, overlapping, year.tagsEnabled])
 
   const toPatch = (key, draft) => {
     const v = typeof draft === 'string' ? draft.trim() : draft
@@ -106,6 +109,7 @@ export default function BudgetSubscriptions({ year, canEdit, onWrite }) {
       case 'pay': return { payment_method: v ? paymentKey(v) : null }
       case 'cat': return { category_id: v ? catIds.get(v) || null : null }
       case 'auto': return { auto_renew: v === 'Yes' }
+      case 'tag': return { tag: v === 'Platform' ? 'platform' : null }
       case 'anchor': return { anchor_date: v }
       case 'start': return { start_date: v }
       case 'end': return { end_date: v || null }
@@ -203,6 +207,18 @@ export default function BudgetSubscriptions({ year, canEdit, onWrite }) {
         </section>
       )}
 
+      {/* BUDGET-V2 item 4: the platform's cost, apart from program spend. */}
+      {plat.count > 0 && (
+        <SurfaceCard className="bud-card bud-platform">
+          <div className="bud-platform-head"><span className="bud-tag">Platform</span><h2>ASPIRE Intelligence Platform Cost</h2></div>
+          <p className="bud-sub">The services that build and run the app: {plat.names.join(', ')}.{' '}
+            {plat.active ? <><b>{usd(plat.monthly)} a month</b>, <b>{usd(plat.perYear)} a year</b> now. </> : null}
+            {plat.waiting ? <><b>{usd(plat.ifApprovedMonthly)} a month</b> if approved, <b>{usd(plat.ifApprovedPerYear)} a year</b>. </> : null}
+            Reported separately from program spend.</p>
+          {plat.waiting > 0 && <div className="bud-check bud-check-info"><span><b>Confirm before approving:</b> whether ASPIRE reimburses platform subscriptions, and whether Technology Ventures needs to know. Approvals stay open until you decide.</span></div>}
+        </SurfaceCard>
+      )}
+
       {canEdit && overlapNow && !overlapDone && (
         <div className="bud-check bud-check-warn bud-overlap" role="group" aria-label="Overlapping plans">
           <span><b>{overlapNow.end.name} and {overlapNow.keep.name} overlap.</b> Both are from the same vendor and run at the same time. If {overlapNow.keep.name} replaced {overlapNow.end.name}, mark {overlapNow.end.name} ended so it is not counted as a subscription.</span>
@@ -240,7 +256,9 @@ export default function BudgetSubscriptions({ year, canEdit, onWrite }) {
         saveLayout={async (layout) => { await onWrite.call('sheet_layout', { layout, sheet: 'subscriptions' }); onWrite.changed() }}
         saveCells={async (updates) => { await onWrite.call('sheet_cells', { updates, sheet: 'subscriptions' }); onWrite.changed() }}
         canEditColumn={(col) => !CALCULATED.has(col.key) && !col.staff}
-        canClear={(col) => ['plan', 'vendor', 'notes', 'end', 'cat', 'pay'].includes(col.key)}
+        tools={BUDGET_TOOLS}
+        emptyState={<><b>No subscriptions yet</b><span>{canEdit ? 'Add a row for each recurring charge, like a software plan. Each charge then posts on its date.' : 'None are on file.'}</span></>}
+        canClear={(col) => ['plan', 'vendor', 'notes', 'end', 'cat', 'pay', 'tag'].includes(col.key)}
         formulas
         draftOf={(r, col) => (col.key === '@name' ? r.raw.name : r.cells[col.key])}
         commitEdit={async (row, col, editing, { patchRows }) => {
@@ -259,6 +277,7 @@ export default function BudgetSubscriptions({ year, canEdit, onWrite }) {
             if (ia) return <span className="bud-ifv" title="Counts only after approval">{usd(col.key === 'perYear' ? ia.perYear : ia.due)}</span>
           }
           if (col.key === 'amount' && row.raw.billing === 'usage' && text) return <>{text} <span className="bud-dash">est.</span></>
+          if (col.key === 'tag') return row.raw.tag === 'platform' ? <span className="bud-tag">Platform</span> : DASH
           return text === '' || text == null ? DASH : undefined
         }}
         labels={{

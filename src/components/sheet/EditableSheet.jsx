@@ -46,6 +46,9 @@
 //   renderCell(row, col, text)   a host's own cell content, or undefined for the grid's.
 //   cellClass(row, col), cellTitle(row, col)
 //   countsInTotals(row)  false keeps a row out of the Σ row and group subtotals (a Void expense).
+//   tools            which toolbar groups show: { text, align, clear, newColumn }, all on by default.
+//                    Program Budget keeps number and date formats only (BUDGET-V2 item 9).
+//   emptyState       what an empty sheet shows in place of its ten blank rows (a message, the next action).
 //   tail             { label, rows } shown read-only below the sheet, under their own heading, and never
 //                    in the Σ row, a selection, a group or a sort (Program Budget's Expected charges).
 //                    Hidden while a search or filter is on.
@@ -136,7 +139,9 @@ export default function EditableSheet({
   labels = {}, notify, viewRef,
   isLocked, groupSubtotals = NO_KEYS, onAddRow, onDeleteRows, canDeleteRow = () => true, canClear = () => false,
   formulas = false, initialSearch = '', quickFilters = NO_KEYS, initialQuick = null, countsInTotals = null, tail = null,
+  tools = ALL_TOOLS, emptyState = null,
 }) {
+  const tl = { ...ALL_TOOLS, ...tools }
   const [data, setData] = useState(() => ({ rows: initialRows }))
   const [layout, setLayout] = useState(initialLayout)
   const [search, setSearch] = useState(initialSearch)
@@ -469,7 +474,7 @@ export default function EditableSheet({
       if (row && col) { e.preventDefault(); startEdit(row, col, e.key) }
       return
     }
-    if ((e.metaKey || e.ctrlKey) && ['b', 'i', 'u'].includes(e.key.toLowerCase())) { e.preventDefault(); toggle(e.key.toLowerCase()); return }
+    if (tl.text && (e.metaKey || e.ctrlKey) && ['b', 'i', 'u'].includes(e.key.toLowerCase())) { e.preventDefault(); toggle(e.key.toLowerCase()); return }
     // Delete clears what Clear contents clears: staff values always, host columns the host allows.
     if ((e.key === 'Delete' || e.key === 'Backspace') && editable) {
       const cl = clearable()
@@ -626,11 +631,13 @@ export default function EditableSheet({
       add('Paste', pasteFromClipboard, { disabled: !editable, hint: '⌘V' })
       const cl = clearable()
       add('Clear contents', clearSelection, { disabled: !editable || !(cl.staff.length + cl.host.length), hint: 'Delete' })
-      sep()
-      add('Bold', () => toggle('b'), { disabled: off, hint: '⌘B' })
-      add('Italic', () => toggle('i'), { disabled: off, hint: '⌘I' })
-      add('Underline', () => toggle('u'), { disabled: off, hint: '⌘U' })
-      add('Clear formatting', () => applyFormat(null), { disabled: off })
+      if (tl.text || tl.clear) sep()
+      if (tl.text) {
+        add('Bold', () => toggle('b'), { disabled: off, hint: '⌘B' })
+        add('Italic', () => toggle('i'), { disabled: off, hint: '⌘I' })
+        add('Underline', () => toggle('u'), { disabled: off, hint: '⌘U' })
+      }
+      if (tl.clear) add('Clear formatting', () => applyFormat(null), { disabled: off })
     }
     if (ctx.kind === 'row') add('Copy row', copySelection, { hint: '⌘C' })
     if (ctx.kind !== 'col' && (onAddRow || onDeleteRows)) {
@@ -726,7 +733,7 @@ export default function EditableSheet({
 
       {/* The Smartsheet row: text formatting, number and date formats, then the grid's own tools. */}
       <div className="fs-toolbar" ref={toolRef} role="toolbar" aria-label="Sheet tools">
-        <div className="fs-tgroup">
+        {tl.text && <div className="fs-tgroup">
           <SheetTip label="Bold (Cmd/Ctrl+B)"><button type="button" className="fs-tb" aria-pressed={!!firstFormat.b} disabled={off} onClick={() => toggle('b')} aria-label="Bold"><Bold size={15} /></button></SheetTip>
           <SheetTip label="Italic (Cmd/Ctrl+I)"><button type="button" className="fs-tb" aria-pressed={!!firstFormat.i} disabled={off} onClick={() => toggle('i')} aria-label="Italic"><Italic size={15} /></button></SheetTip>
           <SheetTip label="Underline (Cmd/Ctrl+U)"><button type="button" className="fs-tb" aria-pressed={!!firstFormat.u} disabled={off} onClick={() => toggle('u')} aria-label="Underline"><Underline size={15} /></button></SheetTip>
@@ -752,13 +759,13 @@ export default function EditableSheet({
               </div>
             )}
           </span>
-        </div>
-        <div className="fs-tgroup">
+        </div>}
+        {tl.align && <div className="fs-tgroup">
           {[['left', AlignLeft], ['center', AlignCenter], ['right', AlignRight]].map(([a, Icon]) => (
             <SheetTip key={a} label={`Align ${a}`}><button type="button" className="fs-tb" aria-pressed={firstFormat.align === a} disabled={off} onClick={() => applyFormat({ align: firstFormat.align === a ? null : a })} aria-label={`Align ${a}`}><Icon size={15} /></button></SheetTip>
           ))}
           <SheetTip label="Wrap text"><button type="button" className="fs-tb" aria-pressed={!!firstFormat.wrap} disabled={off} onClick={() => toggle('wrap')} aria-label="Wrap text"><WrapText size={15} /></button></SheetTip>
-        </div>
+        </div>}
         <div className="fs-tgroup">
           <SheetTip label="Currency ($)"><button type="button" className="fs-tb fs-tbtext" aria-pressed={firstFormat.num === 'currency'} disabled={off} onClick={() => applyFormat({ num: firstFormat.num === 'currency' ? null : 'currency' })} aria-label="Currency">$</button></SheetTip>
           <SheetTip label="Percent (%)"><button type="button" className="fs-tb fs-tbtext" aria-pressed={firstFormat.num === 'percent'} disabled={off} onClick={() => applyFormat({ num: firstFormat.num === 'percent' ? null : 'percent' })} aria-label="Percent">%</button></SheetTip>
@@ -769,7 +776,7 @@ export default function EditableSheet({
             <SheetTip label="Date format"><select disabled={off} value={firstFormat.date || ''} onChange={e => applyFormat({ date: e.target.value || null })}>
               <option value="">Date format</option>{DATE_FORMATS.map(d => <option key={d.key} value={d.key}>{d.label}</option>)}
             </select></SheetTip></label>
-          <SheetTip label="Clear formatting"><button type="button" className="fs-tb" disabled={off} onClick={() => applyFormat(null)} aria-label="Clear formatting"><Eraser size={15} /></button></SheetTip>
+          {tl.clear && <SheetTip label="Clear formatting"><button type="button" className="fs-tb" disabled={off} onClick={() => applyFormat(null)} aria-label="Clear formatting"><Eraser size={15} /></button></SheetTip>}
         </div>
         <div className="fs-tgroup">
           <label className="fs-tsel"><span>Group by</span>
@@ -781,7 +788,7 @@ export default function EditableSheet({
             <select value={layout.frozen || 0} onChange={e => changeLayout(l => ({ ...l, frozen: Number(e.target.value) }))}>
               <option value={0}>{lead.label}</option><option value={1}>{lead.label} + 1</option><option value={2}>{lead.label} + 2</option><option value={3}>{lead.label} + 3</option>
             </select></label>
-          <span className="fs-tpop">
+          {tl.newColumn && <span className="fs-tpop">
             <button type="button" className="fm-btn fm-sm" disabled={off} aria-expanded={menu === 'newcol'} onClick={() => setMenu(m => (m === 'newcol' ? null : 'newcol'))}><Plus size={14} aria-hidden="true" /> Column</button>
             {menu === 'newcol' && (
               <div className="fs-pop fs-newcol" role="group" aria-label="New staff column">
@@ -792,7 +799,7 @@ export default function EditableSheet({
                 <button type="button" className="fm-btn fm-sm fm-pri" disabled={!newCol.label.trim()} onClick={addStaffColumn}>Add column</button>
               </div>
             )}
-          </span>
+          </span>}
           {onAddRow && <button type="button" className="fm-btn fm-sm" disabled={off} onClick={addRow}><Plus size={14} aria-hidden="true" /> Row</button>}
           {onDeleteRows && (
             <button type="button" className="fm-btn fm-sm" disabled={off || !canDelete} title={canDelete ? undefined : 'Select rows by their numbers first'} onClick={deleteRows}><Trash2 size={14} aria-hidden="true" /> {pickedRows.length > 1 ? `Delete ${pickedRows.length} rows` : 'Delete row'}</button>
@@ -851,8 +858,10 @@ export default function EditableSheet({
         </div>
       )}
 
-      {none && labels.emptyNote && <p className="fm-hint fs-emptynote" role="status">{labels.emptyNote}</p>}
-      <div className="fs-frame" ref={frameRef} tabIndex={0} onKeyDown={onKey} onScroll={() => { followEditor(); if (ctx) setCtx(null) }} aria-label={labels.frameLabel}
+      {none && labels.emptyNote && !emptyState && <p className="fm-hint fs-emptynote" role="status">{labels.emptyNote}</p>}
+      {/* An empty sheet says what to do next, once, in place of blank rows (BUDGET-V2 item 6). */}
+      {none && emptyState && <div className="fs-empty" role="status">{emptyState}</div>}
+      <div className="fs-frame" ref={frameRef} hidden={none && !!emptyState && !(tail?.rows?.length > 0)} tabIndex={0} onKeyDown={onKey} onScroll={() => { followEditor(); if (ctx) setCtx(null) }} aria-label={labels.frameLabel}
         onPaste={e => { if (editing || !editable || !sel) return; e.preventDefault(); pasteBlock(e.clipboardData?.getData('text/plain') || '') }}>
         <table className="fs-table fs-fixed fs-grid">
           <colgroup><col style={{ width: W_ROWNUM }} />{gridCols.map(c => <col key={c.key} style={{ width: width(c.key) }} />)}</colgroup>
@@ -879,7 +888,7 @@ export default function EditableSheet({
             })}
           </tr></thead>
           <tbody>
-            {none && BLANK_ROWS.map(n => (
+            {none && !emptyState && BLANK_ROWS.map(n => (
               <tr key={`blank-${n}`} className="fs-row fs-blank" aria-hidden="true">
                 <th className="fs-rownum" style={{ position: 'sticky', left: 0, zIndex: 2 }}>{n}</th>
                 {gridCols.map(col => <td key={col.key} className="fs-cell" style={{ ...cellStyle(null, width(col.key)), ...stickyStyle(col.key) }} />)}
@@ -991,6 +1000,7 @@ export default function EditableSheet({
 
 // The blank rows an empty Sheet shows under its header, numbered like a spreadsheet's.
 const BLANK_ROWS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+const ALL_TOOLS = Object.freeze({ text: true, align: true, clear: true, newColumn: true })
 
 function GroupBlock({ group, grouped, collapsed, colSpan, subtotals, onToggle, children }) {
   if (!grouped) return children

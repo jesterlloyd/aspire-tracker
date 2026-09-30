@@ -101,7 +101,7 @@ function HowItWorks() {
   )
 }
 
-export default function BudgetSummary({ year, canEdit, onWrite, onGo, source, onOpenYear }) {
+export default function BudgetSummary({ year, canEdit, onWrite, onGo, source, onOpenYear, receiptQueue = [] }) {
   const s = year.summary
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
@@ -116,6 +116,30 @@ export default function BudgetSummary({ year, canEdit, onWrite, onGo, source, on
   }
 
   const cps = s.costPerStudent
+  const prop = year.proposals || { count: 0 }
+  // BUDGET-V2 item 2: what is waiting outside these figures, each row with the way to it.
+  const waitingTotal = receiptQueue.reduce((a, r) => a + (Number(r.total) || 0), 0)
+  const matching = receiptQueue.filter(r => r.matchesSubscription).length
+  const platformOnly = prop.count > 0 && (year.subscriptions || []).filter(x => x.approval_state === 'proposed' && !x.end_date).every(x => x.tag === 'platform')
+  const pending = (receiptQueue.length > 0 || prop.count > 0) && s.state === 'current' ? (
+    <SurfaceCard className="bud-pend" role="region" aria-label="Not counted yet">
+      <h3>Not Counted Yet</h3>
+      {canEdit && receiptQueue.length > 0 && (
+        <div className="bud-pend-row">
+          <span><b>{receiptQueue.length} {receiptQueue.length === 1 ? 'receipt' : 'receipts'}</b> to review · <b>{usd(waitingTotal)}</b> read by Keith</span>
+          {matching > 0 && <span className="bud-hint">{matching} of them match subscription charges</span>}
+          {onGo && <button type="button" className="bud-btn bud-btn-sm" onClick={() => onGo('receipts')}>Review receipts</button>}
+        </div>
+      )}
+      {prop.count > 0 && (
+        <div className="bud-pend-row">
+          <span><b>{prop.count} {prop.count === 1 ? 'subscription' : 'subscriptions'}</b> awaiting approval · <b>{usd(prop.monthly)}</b> a month · <b>{usd(prop.sinceStart)}</b> since Jul 1 · <b>{usd(prop.toCome)}</b> to come</span>
+          {platformOnly && <span className="bud-tag">Platform</span>}
+          {onGo && <button type="button" className="bud-btn bud-btn-sm" onClick={() => onGo('subscriptions')}>Review subscriptions</button>}
+        </div>
+      )}
+    </SurfaceCard>
+  ) : null
   const basis = (
     <div className="bud-basis">
       <SurfaceCard className="bud-tile">
@@ -132,9 +156,10 @@ export default function BudgetSummary({ year, canEdit, onWrite, onGo, source, on
           </>
         )}
       </SurfaceCard>
-      <SurfaceCard className="bud-tile"><span className="k">Spent</span><b>{usd(s.spent)}</b><small>{s.expenseCount} expenses · {s.withReceipts} with receipts</small></SurfaceCard>
+      <SurfaceCard className="bud-tile"><span className="k">Spent</span><b>{usd(s.spent)}</b><small>{s.expenseCount} {s.expenseCount === 1 ? 'expense' : 'expenses'} · {s.withReceipts} with {s.withReceipts === 1 ? 'a receipt' : 'receipts'}</small></SurfaceCard>
       <SurfaceCard className="bud-tile"><span className="k">Remaining</span><b>{usd(s.remaining)}</b>
-        <small>{closed ? 'Unspent at year end' : `${usd(s.remainingAfterCommitted)} after ${usd(s.committed)} in expected charges`}</small></SurfaceCard>
+        <small>{closed ? 'Unspent at year end' : s.committed ? `${usd(s.remainingAfterCommitted)} after ${usd(s.committed)} in expected charges` : 'No charges expected yet'}</small>
+        {!closed && prop.count > 0 && <span className="bud-if-sub">{usd(s.remaining - prop.fromStart)} if all {prop.count} {prop.count === 1 ? 'subscription is' : 'subscriptions are'} approved from Jul 1</span>}</SurfaceCard>
       <SurfaceCard className="bud-tile"><span className="k">Used</span><b>{pct(s.used)}</b><small>Year elapsed {Math.round(s.elapsed * 100)}%</small>
         <span className="bud-meter" aria-hidden="true"><i className={s.used > 1 ? 'over' : undefined} style={{ width: `${Math.min(100, s.used * 100)}%` }} /><u style={{ left: `calc(${Math.min(100, s.elapsed * 100)}% - 1px)` }} /></span></SurfaceCard>
       <SurfaceCard className="bud-tile"><span className="k">Cost per student</span>
@@ -149,7 +174,7 @@ export default function BudgetSummary({ year, canEdit, onWrite, onGo, source, on
   const money = (v) => (v ? usd(v) : <Missing />)
   const columns = withPlan ? [
     { key: 'name', label: 'Category', min: 150, grow: 1.6, priority: 1, sortValue: r => r.name },
-    { key: 'allocated', label: 'Allocated', min: 90, grow: 0.7, align: 'right', priority: 1, sortValue: r => r.allocated, render: r => money(r.allocated) },
+    { key: 'allocated', label: 'Allocated', min: 90, grow: 0.7, align: 'right', priority: 1, sortValue: r => r.allocated, render: r => (r.allocated ? usd(r.allocated) : <span className="bud-dash">Not set</span>) },
     { key: 'spent', label: 'Spent', min: 90, grow: 0.7, align: 'right', priority: 1, sortValue: r => r.spent, render: r => money(r.spent) },
     { key: 'remaining', label: 'Remaining', min: 90, grow: 0.7, align: 'right', priority: 2, sortValue: r => r.remaining, render: r => (r.allocated ? usd(r.remaining) : <Missing />) },
     { key: 'used', label: 'Used', min: 120, grow: 0.9, align: 'right', priority: 2, sortValue: r => r.used, render: r => (r.used == null ? <Missing /> : <Meter value={r.used} over={r.used > 1} />) },
@@ -159,8 +184,11 @@ export default function BudgetSummary({ year, canEdit, onWrite, onGo, source, on
     { key: 'share', label: 'Share of spend', min: 140, grow: 1, align: 'right', priority: 2, sortValue: r => r.share, render: r => (r.spent ? <Meter value={r.share} /> : <Missing />) },
   ]
   const catSub = withPlan
-    ? (year.budget?.plan_saved_at ? `${usd(s.total - s.byCategory.reduce((a, c) => a + (c.allocated || 0), 0))} of the budget is not assigned to a category.` : 'Draft. Only you see this plan until you save it in Allocations.')
-    : `No category plan for ${s.label}${canEdit ? '. Add one in Allocations.' : '. The budget is one annual total.'}`
+    ? (year.budget?.plan_saved_at ? `${usd(s.total - s.byCategory.reduce((a, c) => a + (c.allocated || 0), 0))} of the budget is not assigned to a category.` : 'Draft. Only you see this plan until Margo approves it on the Plan tab.')
+    : `No category plan for ${s.label}${canEdit ? '. Draft one on the Plan tab.' : '. The budget is one annual total.'}`
+  // BUDGET-V2 item 6: an empty area says so once, with the next action; never a blank chart.
+  const noSpend = !s.byMonth.some(m => m.spent || m.scheduled)
+  const noCategorySpend = !s.byCategory.some(c => c.spent) && !withPlan
 
   const noteCard = canEdit ? (
     <SurfaceCard className="bud-card bud-note">
@@ -205,17 +233,21 @@ export default function BudgetSummary({ year, canEdit, onWrite, onGo, source, on
       {reader && noteCard}
       {canEdit && s.state === 'current' && <HowItWorks />}
       {basis}
-      {year.proposals?.count > 0 && (
-        <p className="bud-hint" role="note">{year.proposals.count} {year.proposals.count === 1 ? 'subscription is' : 'subscriptions are'} awaiting approval ({usd(year.proposals.monthly)} a month) and not counted in these figures. See Subscriptions.</p>
-      )}
+      {pending}
       <BudgetClose year={year} canEdit={canEdit} onWrite={onWrite} onGo={onGo} />
       <div className="bud-two">
-        <SurfaceCard className="bud-card"><h2>Monthly Spend</h2><p className="bud-sub">{fyRangeText(year.fy)}, against an even monthly pace</p><MonthlyChart s={s} /></SurfaceCard>
+        <SurfaceCard className="bud-card"><h2>Monthly Spend</h2><p className="bud-sub">{fyRangeText(year.fy)}{noSpend ? '' : ', against an even monthly pace'}</p>
+          {noSpend
+            ? <div className="bud-empty bud-empty-box"><b>No spending posted in {s.label} yet</b><span>Bars appear here as you accept receipts and approve subscriptions.</span></div>
+            : <MonthlyChart s={s} />}</SurfaceCard>
         <SurfaceCard className="bud-card">
           <h2>By Category</h2><p className="bud-sub">{catSub}</p>
-          <DataSheet level="plain" columns={columns} rows={s.byCategory} rowKey={r => r.id} defaultSort={{ key: 'spent', dir: 'desc' }}
+          {noCategorySpend ? (
+            <div className="bud-empty bud-empty-box"><b>No spend in any category yet</b><span>All {s.byCategory.length} categories are listed once the first expense posts.</span>
+              {canEdit && onGo && <button type="button" className="bud-btn bud-btn-sm" onClick={() => onGo('plan')}>Add a category plan</button>}</div>
+          ) : <DataSheet level="plain" columns={columns} rows={s.byCategory} rowKey={r => r.id} defaultSort={{ key: 'spent', dir: 'desc' }}
             emptyMessage="No categories" aria-label={`Spend by category, ${s.label}`}
-            footer={<div className="bud-row2"><span>Total</span><b>{usd(s.spent)}{s.uncategorised ? ` (${usd(s.uncategorised)} with no category)` : ''}</b></div>} />
+            footer={<div className="bud-row2"><span>Total</span><b>{usd(s.spent)}{s.uncategorised ? ` (${usd(s.uncategorised)} with no category)` : ''}</b></div>} />}
         </SurfaceCard>
       </div>
       <div className="bud-two">{canEdit ? noteCard : null}{history}</div>

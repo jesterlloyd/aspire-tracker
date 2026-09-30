@@ -21,7 +21,6 @@ import BudgetAllocations from './BudgetAllocations'
 import BudgetPlan from './BudgetPlan'
 import { tabsForState } from '../../lib/budget/planModel'
 import BudgetReceipts from './BudgetReceipts'
-import { inlineBadgeStyle } from '../../lib/badgeTokens'
 import BudgetStart from './BudgetStart'
 import { saveXlsx, budgetStaff } from './budgetApi'
 import { fyShort, fyRangeText, STATE_CHIP, currentFiscalYear } from '../../lib/budget/budgetModel'
@@ -41,8 +40,9 @@ function tabsFor(year, canEdit, receiptCount = 0) {
   const waiting = year.canApprove && (year.plan?.current?.status === 'submitted' || (year.plan?.amendments || []).some(a => a.status === 'pending'))
   return tabsForState(year.state, { owner: canEdit, planVisible }).map(k => ({
     value: k,
-    label: k === 'receipts' && receiptCount ? <>Receipts<span style={{ ...inlineBadgeStyle, marginLeft: 6 }} aria-label={`${receiptCount} waiting`}>{receiptCount}</span></>
-      : k === 'plan' && waiting ? <>Plan<span style={{ ...inlineBadgeStyle, marginLeft: 6 }} aria-label="Waiting for your decision">1</span></>
+    // BUDGET-V2 item 8: tab counts are amber; red is for urgent only.
+    label: k === 'receipts' && receiptCount ? <>Receipts<span className="bud-tabn" aria-label={`${receiptCount} waiting`}>{receiptCount}</span></>
+      : k === 'plan' && waiting ? <>Plan<span className="bud-tabn" aria-label="Waiting for your decision">1</span></>
         : TAB_LABEL[k],
   }))
 }
@@ -56,6 +56,7 @@ export default function ProgramBudgetView({ source, renderBand, initialFy = null
   const [toast, setToast] = useState(null)
   const [exporting, setExporting] = useState(false)
   const [receiptCount, setReceiptCount] = useState(0)
+  const [receiptQueue, setReceiptQueue] = useState([])   // BUDGET-V2 item 2: the Summary's "Not counted yet"
   // Filed > Show in Sheet: what the Sheet opens searched for; the Action Center's Missing receipt link
   // (?tab=sheet&filter=missing-receipt) opens it with that quick filter on.
   const [sheetFocus, setSheetFocus] = useState(() => { try { const f = new URLSearchParams(window.location.search).get('filter'); return f === 'missing-receipt' ? { filter: f, at: 0 } : null } catch { return null } })
@@ -89,7 +90,7 @@ export default function ProgramBudgetView({ source, renderBand, initialFy = null
   useEffect(() => {
     if (!canEdit) return undefined
     let live = true
-    budgetStaff('receipts_queue').then(q => { if (live) setReceiptCount(q.receipts?.length || 0) }).catch(() => {})
+    budgetStaff('receipts_queue').then(q => { if (live) { setReceiptCount(q.receipts?.length || 0); setReceiptQueue(q.receipts || []) } }).catch(() => {})
     return () => { live = false }
   }, [canEdit])
   // Writes go through the one staff endpoint. `run` reports and reloads; `call` is for the
@@ -156,10 +157,10 @@ export default function ProgramBudgetView({ source, renderBand, initialFy = null
         <SegmentedPicker ariaLabel="Program Budget views" options={tabs} value={current} onChange={(t) => { setSheetFocus(null); setTab(t) }} />
         {current === 'summary' && (notStarted
           ? <BudgetStart year={year} canEdit={canEdit} onWrite={onWrite} onPickYear={(y) => setFy(y)} />
-          : <BudgetSummary key={year.fy} year={year} canEdit={canEdit} onWrite={onWrite} source={source}
+          : <BudgetSummary key={year.fy} year={year} canEdit={canEdit} onWrite={onWrite} source={source} receiptQueue={canEdit ? receiptQueue : []}
               onGo={(t, filter) => { setSheetFocus(filter ? { filter, at: Date.now() } : null); setTab(t) }}
               onOpenYear={(y) => { setTab('plan'); setFy(y) }} />)}
-        {current === 'sheet' && <BudgetSheet year={year} canEdit={canEdit} onWrite={onWrite} focus={sheetFocus} />}
+        {current === 'sheet' && <BudgetSheet year={year} canEdit={canEdit} onWrite={onWrite} focus={sheetFocus} receiptCount={receiptCount} onGo={(t) => { setSheetFocus(null); setTab(t) }} />}
         {current === 'subscriptions' && <BudgetSubscriptions year={year} canEdit={canEdit} onWrite={onWrite} />}
         {current === 'receipts' && canEdit && (
           <BudgetReceipts year={year} onWrite={onWrite} pendingFiles={pendingFiles} onPendingTaken={() => setPendingFiles(null)} onCount={setReceiptCount}

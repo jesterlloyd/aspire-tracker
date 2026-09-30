@@ -415,7 +415,8 @@
 .bud-batch { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 10px 14px; margin-bottom: 12px; font-size: 13.5px; color: var(--text-heading);
   }
 /* The card's shadow is its edge; the amber rule rides on it (a SurfaceCard's own shadow otherwise wins). */
-.bud-receipts .bud-batch { box-shadow: inset 4px 0 0 var(--pill-warn-fg), var(--aspire-shadow-card); }
+/* SurfaceCard sets its shadow inline; an accent edge has to win over that, so these three say !important. */
+.bud-receipts .bud-batch { box-shadow: inset 4px 0 0 var(--pill-warn-fg), var(--aspire-shadow-card) !important; }
 .bud-batch > span { flex: 1 1 320px; }
 /* "If approved": a figure that counts only after approval. Grey italic in a table, amber on a tile. */
 .bud-ifv { color: var(--text-caption); font-style: italic; font-variant-numeric: tabular-nums; }
@@ -541,3 +542,21 @@ button.bud-mo:hover { background: var(--color-bg-hover); }
 .bud-fixwrap { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 16px; background: rgba(15, 20, 40, 0.35); }
 .bud-fix { width: min(520px, 100%); margin: 0; }
 .bud-review-row .bud-input { width: 100%; box-sizing: border-box; min-width: 0; }
+
+/* ── BUDGET-V2 Phase 4 (2026-09-29): clarity ── */
+.bud-platform { box-shadow: inset 4px 0 0 var(--pill-info-fg), var(--aspire-shadow-card) !important; }
+.bud-platform-head { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.bud-platform .bud-check { margin-top: 10px; }
+.bud-empty-acts { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 4px; }
+/* Not counted yet (item 2): what waits outside the figures, each with its way in. */
+.bud-pend { margin-top: var(--aspire-gap-card); padding: 12px 16px; box-shadow: inset 4px 0 0 var(--pill-warn-fg), var(--aspire-shadow-card) !important; }
+.bud-pend h3 { margin: 0 0 6px; font-size: 13px; font-weight: 700; color: var(--text-heading); }
+.bud-pend-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 7px 0; border-top: 1px solid var(--color-border-subtle); font-size: 13px; color: var(--text-heading); }
+.bud-pend-row:first-of-type { border-top: 0; }
+.bud-pend-row > span:first-child { flex: 1 1 280px; }
+.bud-pend-row .bud-hint { flex: 0 1 auto; }
+/* Tab counts (item 8): amber; red is for urgent only. */
+.bud-tabn { display: inline-block; min-width: 16px; margin-left: 6px; padding: 0 5px; border-radius: var(--aspire-radius-pill); background: var(--pill-warn-bg); color: var(--pill-warn-fg); font-size: 10px; font-weight: 700; line-height: 15px; text-align: center; }
+.bud-tile .bud-if-sub { font-size: 12px; color: var(--pill-warn-fg); }
+.bud-empty-box { display: grid; justify-items: center; gap: 6px; padding: 28px 16px; text-align: center; }
+.bud-empty-box b { color: var(--text-heading); }

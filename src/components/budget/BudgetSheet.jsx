@@ -15,6 +15,7 @@
 import { useMemo, useState } from 'react'
 import { Check } from 'lucide-react'
 import EditableSheet from '../sheet/EditableSheet'
+import { BUDGET_TOOLS } from './budgetSheetTools'
 import ReceiptOriginal from './ReceiptOriginal'
 import KeithMark from '../keith/KeithMark'
 import { Pill } from '../shared/DataSheet'
@@ -27,8 +28,9 @@ const LEAD = { key: '@date', label: 'Date', type: 'date' }
 const TONE = { green: 'ok', amber: 'warn', blue: 'info', grey: 'off' }
 const NOT_EDITABLE = new Set(['unit', 'receipt', 'month', 'state', 'plan'])
 // What Clear contents may empty: text and optional choices, never a date, an amount or a status.
-const CLEARABLE = new Set(['description', 'vendor', 'order_number', 'cost_center', 'notes', 'cat', 'pay', 'cohort'])
-const GROUPABLE = new Set(['cat', 'month', 'pay', 'status', 'cohort', 'concur'])
+const CLEARABLE = new Set(['description', 'vendor', 'order_number', 'cost_center', 'notes', 'cat', 'pay', 'cohort', 'tag'])
+const GROUPABLE = new Set(['cat', 'month', 'pay', 'status', 'cohort', 'concur', 'tag'])
+
 const DASH = <span className="bud-dash">–</span>
 // BUDGET-V2 item 12: a posted row with no receipt reads Missing (an imported FY26 row, dated only
 // to the month, never does). Over $25 on Personal (Concur) it is also a reimbursement requirement.
@@ -53,7 +55,7 @@ function sheetRow(e, cats, cohorts) {
       order_number: e.order_number || '', pay: e.paymentLabel || '', qty: e.quantity == null ? '' : String(e.quantity),
       amount: e.amount == null ? '' : String(e.amount), status: e.statusLabel || '', receipt: e.hasReceipt ? 'On file' : '',
       cohort: cohorts.get(e.cohort_id) || '', cost_center: e.cost_center || '', notes: e.notes || '',
-      state: e.state === 'expected' ? 'Expected' : 'Posted', concur: concurOf(e),
+      state: e.state === 'expected' ? 'Expected' : 'Posted', concur: concurOf(e), tag: e.tag === 'platform' ? 'Platform' : '',
       month: e.expense_date ? `${monthOf(e.expense_date)} ${e.expense_date.slice(0, 4)}` : '',
       ...(e.staff_values || {}),
     },
@@ -65,7 +67,7 @@ const valueOf = (row, key) => (key === '@date' ? row.raw.expense_date : key in R
 const shownOf = (row, key) => (key === '@date' ? dateText(row.raw.expense_date, row.raw.date_precision) : (row.cells[key] ?? ''))
 const searchValues = (r) => [r.raw.item, r.raw.vendor, r.raw.order_number, r.raw.notes]
 
-export default function BudgetSheet({ year, canEdit, onWrite, focus = null }) {
+export default function BudgetSheet({ year, canEdit, onWrite, focus = null, receiptCount = 0, onGo = null }) {
   const [original, setOriginal] = useState(null)   // Phase B: the filed receipt, opened from its row
   const openReceipt = async (row) => {
     setOriginal({ slip: { file_name: row.raw.item || 'Receipt' }, loading: true })
@@ -102,12 +104,13 @@ export default function BudgetSheet({ year, canEdit, onWrite, focus = null }) {
     { key: 'status', label: 'Status', type: 'choice', required: true, options: STATUSES.map(s => s.label), optionsFor: (r) => statusesFor(r.raw.payment_method).map(statusLabel) },
     { key: 'receipt', label: 'Receipt', type: 'text', note: 'The Receipt column fills in when a receipt is filed for the row.' },
     { key: 'concur', label: 'Concur', type: 'choice', options: CONCUR.map(([, l]) => l) },
+    ...(year.tagsEnabled ? [{ key: 'tag', label: 'Tag', type: 'choice', options: ['Platform'] }] : []),
     { key: 'cohort', label: 'Cohort', type: 'choice', options: year.cohorts.map(c => c.name) },
     { key: 'cost_center', label: 'Cost center', type: 'text' },
     { key: 'notes', label: 'Notes', type: 'paragraph' },
     { key: 'month', label: 'Month', type: 'text', compute: (r) => r.cells.month, note: 'Month follows the Date.' },
     ...(live ? [{ key: 'plan', label: 'Plan', type: 'text', compute: (r) => planRows.get(r.id)?.text || '', note: 'Plan compares each row with its category’s approved total. Over it, move money inside your limit or ask Margo.' }] : []),
-  ], [year.categories, year.cohorts, live, planRows])
+  ], [year.categories, year.cohorts, year.tagsEnabled, live, planRows])
   const ungroupable = useMemo(() => new Set(columns.map(c => c.key).filter(k => !GROUPABLE.has(k))), [columns])
 
   const editable = canEdit && year.state !== 'not_started'
@@ -120,6 +123,7 @@ export default function BudgetSheet({ year, canEdit, onWrite, focus = null }) {
       case 'pay': return { payment_method: v ? paymentKey(v) : null }
       case 'status': return { status: v ? statusKey(v) : null }
       case 'concur': return { status: concurKey(v) }
+      case 'tag': return { tag: v === 'Platform' ? 'platform' : null }
       case 'cohort': return { cohort_id: v ? cohortIds.get(v) || null : null }
       case 'qty': return { quantity: v }
       default: return { [col.key]: v }
@@ -145,7 +149,7 @@ export default function BudgetSheet({ year, canEdit, onWrite, focus = null }) {
     {original && <ReceiptOriginal original={original} onClose={() => setOriginal(null)} />}
     {fix && <PlanFix fix={fix} year={year} maps={planMaps} onWrite={onWrite} onClose={() => setFix(null)} />}
     <EditableSheet
-      key={`${year.fy}-${focus?.at || ''}`}
+      key={`${year.fy}-${focus?.at || ''}-${rows.length ? 'rows' : 'empty'}`}
       initialSearch={focus?.search || ''}   // RECEIPT-ORGANIZER-1: Filed > Show in Sheet opens the Sheet searched for the receipt
       // MISSING-RECEIPT-1: Personal (Concur) over $25 with no receipt on file (policy p.2).
       quickFilters={MISSING_FILTER} initialQuick={focus?.filter || null}
@@ -166,6 +170,15 @@ export default function BudgetSheet({ year, canEdit, onWrite, focus = null }) {
       groupSubtotals={['amount']}
       // BUDGET-V2: a Void row stays visible, struck through, and counts nowhere, the Σ row included.
       countsInTotals={(r) => r.raw.status !== 'void'}
+      tools={BUDGET_TOOLS}
+      emptyState={<>
+        <b>No {year.label} expenses yet</b>
+        <span>{canEdit && receiptCount ? `${receiptCount} ${receiptCount === 1 ? 'receipt is' : 'receipts are'} waiting in Receipts. Accepting one adds its row here. ` : ''}{editable ? 'You can also add a row by hand.' : ''}</span>
+        {editable && <span className="bud-empty-acts">
+          {receiptCount > 0 && onGo && <button type="button" className="bud-btn bud-btn-pri bud-btn-sm" onClick={() => onGo('receipts')}>Review receipts</button>}
+          <button type="button" className="bud-btn bud-btn-sm" onClick={async () => { try { await onWrite.call('expense_create', { fields: { expense_date: newDate } }); onWrite.changed() } catch (e) { onWrite.notify(e.message, 'err') } }}>+ Add a row</button>
+        </span>}
+      </>}
       tail={{ label: 'Expected · not counted as spent yet', rows: expectedRows }}
       isLocked={(row, col) => inClosed(row) || (col.key === 'concur' && row.raw.payment_method !== 'personal_concur')}
       cellClass={(r) => (r.raw.status === 'void' ? 'bud-void' : undefined)}
@@ -186,6 +199,7 @@ export default function BudgetSheet({ year, canEdit, onWrite, focus = null }) {
             ? <button type="button" className="bud-rc bud-rc-open bud-plan-over" onClick={() => setFix({ row, over: st.over })}>{st.text}</button>
             : <Pill tone="warn">{st.text}</Pill>
         }
+        if (col.key === 'tag') return row.raw.tag === 'platform' ? <span className="bud-tag">Platform</span> : DASH
         if (col.key === 'state') return row.raw.state === 'expected' ? <Pill tone="off">Expected</Pill> : <Pill tone="info">Posted</Pill>
         if (col.key === 'concur') {
           if (row.raw.state === 'expected' || row.raw.payment_method !== 'personal_concur' || !row.cells.concur) return DASH
@@ -208,7 +222,7 @@ export default function BudgetSheet({ year, canEdit, onWrite, focus = null }) {
       labels={{
         searchPlaceholder: 'Search items, vendors, order numbers and notes', searchLabel: 'Search the expenses',
         count: (n, total) => (n === total ? `${n} ${n === 1 ? 'expense' : 'expenses'}` : `${n} of ${total}`),
-        emptyNote: year.state === 'current' && canEdit ? 'No expenses yet. Add a row, or add receipts once receipt intake arrives.' : 'No expenses in this year.',
+        emptyNote: 'No expenses in this year.',
         noMatch: 'No expenses match.', frameLabel: `Expenses, ${year.label}. Arrow keys move, Enter edits.`,
         readOnlyEdit: canEdit ? `${year.label} has not started.` : 'This view is read-only.',
         locked: (row, col) => (inClosed(row) ? 'This row’s month is closed. Reopen it on the Summary to change its rows.' : col.key === 'concur' ? 'Concur applies to Personal (Concur) purchases only.' : ''),

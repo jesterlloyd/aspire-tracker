@@ -185,7 +185,7 @@ export default function BudgetPlan({ year, canEdit, onWrite, source, onOpenYear 
                   <span className="n" title={labels.prior2}>{usd(c.prior2)}</span>
                   <span className="n" title={labels.prior1}>{usd(c.prior1)}</span>
                   <span className="n req" title={labels.req}>{usd(requestedOf(c))}</span>
-                  {cur.status === 'approved' && <span className="n" title="Approved">{c.approved == null ? '–' : usd(c.approved)}{c.effective != null && c.effective !== c.approved ? <small> now {usd(c.effective)}</small> : null}</span>}
+                  {cur.status === 'approved' && <span className="n" title="Approved">{c.approved == null ? 'Not set' : usd(c.approved)}{c.effective != null && c.effective !== c.approved ? <small> now {usd(c.effective)}</small> : null}</span>}
                 </summary>
                 <div className="bud-pitems">
                   {own.map((i, n) => draft ? (
@@ -193,7 +193,7 @@ export default function BudgetPlan({ year, canEdit, onWrite, source, onOpenYear 
                       <input className="bud-input" aria-label={`${c.name} item ${n + 1}`} value={i.name} maxLength={200} placeholder="Item" onChange={e => setItem(i.key, { name: e.target.value })} />
                       <input className="bud-input bud-num" aria-label="Quantity" inputMode="decimal" value={i.quantity} onChange={e => setItem(i.key, { quantity: e.target.value })} />
                       <span className="x" aria-hidden="true">×</span>
-                      <input className="bud-input bud-num" aria-label="Unit cost" inputMode="decimal" value={i.unit_cost} onChange={e => setItem(i.key, { unit_cost: e.target.value })} />
+                      <input className="bud-input bud-num" aria-label="Unit cost" inputMode="decimal" placeholder="0.00" value={Number(i.unit_cost) === 0 && String(i.unit_cost) !== '0.' ? '' : i.unit_cost} onChange={e => setItem(i.key, { unit_cost: e.target.value })} />
                       <span className="eq">= {usd(itemAmount(i))}</span>
                       <label className="bud-ptag"><input type="checkbox" checked={i.tag === PLATFORM} onChange={e => setItem(i.key, { tag: e.target.checked ? PLATFORM : null })} />Platform</label>
                       <button type="button" className="bud-iconbtn" aria-label={`Remove ${i.name || 'item'}`} onClick={() => removeItem(i.key)}><X size={14} /></button>

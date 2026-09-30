@@ -61,7 +61,7 @@ export function matchSubscriptionCharge(draft, subs = [], expenses = []) {
   else kind = 'attach'
   return {
     kind, usage, charge_date: charge, amount: Number(s.amount),
-    subscription: { id: s.id, name: s.name, approval_state: s.approval_state || APPROVAL.approved, counts_from: countsFrom(s) },
+    subscription: { id: s.id, name: s.name, approval_state: s.approval_state || APPROVAL.approved, counts_from: countsFrom(s), tag: s.tag ?? null },
     expense: row ? { id: row.id, row_label: row.row_label || null } : null,
   }
 }

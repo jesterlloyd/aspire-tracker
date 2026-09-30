@@ -181,7 +181,7 @@ export default function ReceiptSlip({ slip, context, categories, cohorts, busy, 
                     {categories.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                   <input className="bud-input bud-num" aria-label={`Line ${i + 1} quantity`} inputMode="decimal" value={l.quantity} onChange={e => setLine(l.id, { quantity: e.target.value })} />
-                  <input className="bud-input bud-num" aria-label={`Line ${i + 1} amount`} inputMode="decimal" value={l.amount} onChange={e => setLine(l.id, { amount: e.target.value })} />
+                  <input className="bud-input bud-num" aria-label={`Line ${i + 1} amount`} inputMode="decimal" placeholder="0.00" value={Number(l.amount) === 0 && String(l.amount) !== '0.' ? '' : l.amount} onChange={e => setLine(l.id, { amount: e.target.value })} />
                   <button type="button" className="bud-iconbtn" aria-label={`Remove line ${i + 1}`} disabled={d.lines.length === 1} onClick={() => set({ lines: d.lines.filter(x => x.id !== l.id) })}><X size={14} /></button>
                 </div>
                 <p className="bud-line-why"><span className={`bud-conf bud-conf-${l.confidence}`}>{CONF[l.confidence]}</span>{l.reason}</p>
@@ -201,6 +201,15 @@ export default function ReceiptSlip({ slip, context, categories, cohorts, busy, 
               <select className="bud-input" value={d.cohort_id || ''} onChange={e => set({ cohort_id: e.target.value || null })}>
                 <option value="">No cohort (program-wide)</option>{cohorts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select></label>
+            {/* BUDGET-V2 item 4: the Platform tag, set from the subscription a charge belongs to. */}
+            {context.tagsEnabled && (
+              <label><span>Tag</span>
+                <select className="bud-input" value={(d.tag ?? (charge?.subscription.tag || '')) || ''} onChange={e => set({ tag: e.target.value || null })}>
+                  <option value="">None</option><option value="platform">Platform</option>
+                </select>
+                {d.tag == null && charge?.subscription.tag === 'platform' && <small className="bud-hint">Set from the {charge.subscription.name} subscription.</small>}
+              </label>
+            )}
             {card && d.payment_method && onRemember && (
               <label className="bud-remember">
                 <input type="checkbox" checked={remembered?.method === d.payment_method} disabled={busy}

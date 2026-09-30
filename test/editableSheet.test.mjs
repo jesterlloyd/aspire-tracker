@@ -157,7 +157,8 @@ test('Clear contents never touches a submitted form answer', () => {
   const forms = readFileSync(new URL('../src/components/forms/FormSheet.jsx', import.meta.url), 'utf8')
   assert.doesNotMatch(forms, /canClear/, 'the Forms Sheet clears its staff columns only')
   const budget = readFileSync(new URL('../src/components/budget/BudgetSheet.jsx', import.meta.url), 'utf8')
-  assert.match(budget, /const CLEARABLE = new Set\(\['description', 'vendor', 'order_number', 'cost_center', 'notes', 'cat', 'pay', 'cohort'\]\)/, 'never a date, an amount or a status')
+  // BUDGET-V2 item 4 (2026-09-29): Tag is an optional choice, so it clears too.
+  assert.match(budget, /const CLEARABLE = new Set\(\['description', 'vendor', 'order_number', 'cost_center', 'notes', 'cat', 'pay', 'cohort', 'tag'\]\)/, 'never a date, an amount or a status')
 })
 
 test('a row menu offers row actions only, and the menu keeps the rest of the grid', () => {

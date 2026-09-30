@@ -314,6 +314,20 @@ export function proposalSummary(subs, fy, today = pacificToday()) {
   return { plans, count: plans.length, monthly: add('monthly'), perYear: add('perYear'), sinceStart: add('sinceStart'), toCome: add('toCome'), fromStart: add('fromStart'), fromToday: add('fromToday') }
 }
 
+/**
+ * BUDGET-V2 item 4: what the platform (subscriptions tagged Platform) costs: a month and a year, at
+ * the plans that run now and, beside them, what the ones awaiting approval would add.
+ */
+export const PLATFORM_TAG = 'platform'
+export function platformCost(subs = [], today = pacificToday()) {
+  const plat = subs.filter(s => s.tag === PLATFORM_TAG && !s.deleted_at && s.approval_state !== APPROVAL.declined && !(s.end_date && s.end_date <= today))
+  const active = plat.filter(s => isActiveSub(s, today))
+  const waiting = plat.filter(s => isProposed(s))
+  const monthly = round2(active.reduce((a, s) => a + monthlyEquivalent(s), 0))
+  const ifApprovedMonthly = round2(monthly + waiting.reduce((a, s) => a + monthlyEquivalent(s), 0))
+  return { count: plat.length, active: active.length, waiting: waiting.length, monthly, perYear: round2(monthly * 12), ifApprovedMonthly, ifApprovedPerYear: round2(ifApprovedMonthly * 12), names: plat.map(s => s.name) }
+}
+
 /** The expense row a subscription charge posts. */
 export function chargeExpense(sub, date) {
   return {

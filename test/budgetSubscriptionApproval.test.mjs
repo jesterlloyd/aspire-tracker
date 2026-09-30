@@ -114,7 +114,8 @@ test('the screen lists proposals compactly for every viewer, with one Approve me
   for (const d of ['from_year_start', 'from_today', 'decline']) assert.match(subs, new RegExp(`pick\\('${d}'\\)`), d)
   assert.match(subs, /role="menu" aria-label=\{`Decide \$\{name\}`\}/)
   assert.doesNotMatch(subs, /bud-when-proposed/, 'no slips')
-  assert.match(read('src/components/budget/BudgetSummary.jsx'), /awaiting approval \(\{usd\(year\.proposals\.monthly\)\} a month\) and not counted in these figures/)
+  // BUDGET-V2 item 2 (2026-09-29): the Summary's note became the "Not counted yet" band.
+  assert.match(read('src/components/budget/BudgetSummary.jsx'), /awaiting approval · <b>\{usd\(prop\.monthly\)\}<\/b> a month · <b>\{usd\(prop\.sinceStart\)\}<\/b> since Jul 1 · <b>\{usd\(prop\.toCome\)\}<\/b> to come/)
   // BUDGET-V2 (Owner, 2026-09-29: "ask first"): approving into a closed month needs into_closed.
   assert.match(read('api/budget-staff.js'), /subscription_approve: \['action', 'id', 'decision', 'into_closed'\]/)
   assert.match(read('src/components/budget/ProgramBudgetView.jsx'), /canEdit \|\| year\.proposals\?\.count \? \[\{ value: 'subscriptions'/, 'leadership can see proposals before the year starts')

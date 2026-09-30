@@ -259,6 +259,9 @@ function MainApp({ onLogout }) {
   // Declared AFTER activeTab on purpose: reading a const above its declaration throws
   // (temporal dead zone) and took the whole staff app down on the first preview.
   const hideHomeChrome = activeTab === 'overview' && !tourRunning
+  // BUDGET-V2 item 10 (Owner, 2026-09-29: "Keith only"): on Program Budget the Messages dock and the
+  // Feedback launcher step aside; the Keith orb stays. Every other screen keeps all three.
+  const keithOnly = location.pathname.startsWith('/settings/budget') && !tourRunning
 
   // Adjusted during render rather than in an effect: the tab has to be mounted
   // on the SAME render that activates it. From an effect, a deep link straight
@@ -1751,12 +1754,12 @@ function MainApp({ onLogout }) {
           Feedback launcher are withheld on At a Glance only; every other screen
           keeps all three. The header's Connect icon carries the needs-reply badge
           on every screen, unchanged. */}
-      {!isFullMessagesPath(location.pathname) && <MainMessagesLauncher hidden={hideHomeChrome} />}
+      {!isFullMessagesPath(location.pathname) && <MainMessagesLauncher hidden={hideHomeChrome || keithOnly} />}
       <FeedbackPanel
         activeTab={activeTab}
         cohortName={activeCohort?.name}
         isAuthenticated={true}
-        hidden={hideHomeChrome}
+        hidden={hideHomeChrome || keithOnly}
       />
       <ToastContainer toasts={toasts} removeToast={removeToast} />
       {/* The tour renders null unless it is running, so mounting it only while

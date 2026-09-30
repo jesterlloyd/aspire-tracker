@@ -48,7 +48,9 @@ test('the shortcut returns outside full Messages workspaces', () => {
 })
 
 test('staff and portal launchers use the same route rule without hiding Feedback or Keith', () => {
-  assert.match(staffApp, /!isFullMessagesPath\(location\.pathname\) && <MainMessagesLauncher hidden=\{hideHomeChrome\}/)
+  // BUDGET-V2 item 10 (Owner, 2026-09-29, commit budget-v2-p4): Program Budget also hides Messages and
+  // Feedback (keithOnly); the Keith orb stays. The At a Glance rule is unchanged.
+  assert.match(staffApp, /!isFullMessagesPath\(location\.pathname\) && <MainMessagesLauncher hidden=\{hideHomeChrome \|\| keithOnly\}/)
   assert.match(portalApp, /!isFullMessagesPath\(location\.pathname\) && <MainMessagesLauncher portalPreview/)
   assert.match(utilityLayer, /const onMessagesRoute = isFullMessagesPath\(pathname\)/)
   assert.match(utilityLayer, /messagesEnabled && !utilitiesHidden && !onMessagesRoute/)
@@ -56,5 +58,5 @@ test('staff and portal launchers use the same route rule without hiding Feedback
   assert.match(utilityLayer, /feedbackEnabled && \(/)
   assert.match(portalApp, /const onMessagesRoute = isFullMessagesPath\(location\.pathname\)/)
   assert.match(staffApp, /<Keith[\s\S]*?hideLauncher=\{hideHomeChrome\}/)
-  assert.match(staffApp, /<FeedbackPanel[\s\S]*?hidden=\{hideHomeChrome\}/)
+  assert.match(staffApp, /<FeedbackPanel[\s\S]*?hidden=\{hideHomeChrome \|\| keithOnly\}/)
 })

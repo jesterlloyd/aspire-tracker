@@ -22,7 +22,10 @@ test('an empty Sheet renders the grid, not a card', () => {
   const src = read('src/components/forms/FormSheet.jsx') + read('src/components/sheet/EditableSheet.jsx')
   assert.doesNotMatch(src, /if \(!data\.rows\.length\) return/)
   assert.match(src, /const none = !data\.rows\.length/)
-  assert.match(src, /none && BLANK_ROWS\.map/)
+  // BUDGET-V2 item 6 (2026-09-29): a host may pass emptyState instead (Program Budget); Forms still
+  // gets its ten blank rows.
+  assert.match(src, /none && !emptyState && BLANK_ROWS\.map/)
+  assert.doesNotMatch(read('src/components/forms/FormSheet.jsx'), /emptyState/, 'the Forms Sheet keeps its blank rows')
   assert.match(src, /const BLANK_ROWS = \[1, 2, 3, 4, 5, 6, 7, 8, 9, 10\]/)
   assert.match(read('src/components/forms/forms.css'), /\.fs-row:not\(\.fs-blank\):hover td/)
 })
