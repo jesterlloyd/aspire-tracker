@@ -1,3 +1,4 @@
+import { resolveStudentEmail } from '../src/lib/notifications/studentEmailLifecycle.js'
 // api/evaluation-create-invitation.js
 //
 // Owner/admin-authenticated endpoint that creates a secure survey invitation
@@ -187,7 +188,7 @@ async function _handler(req, res) {
   // ── 4. Fetch student ──────────────────────────────────────────────────────
   const { data: student, error: studentErr } = await supabaseAdmin
     .from('students')
-    .select('id, first_name, preferred_first_name, last_name, school_email, personal_email, approved_hours, cohort_id')
+    .select('id, first_name, preferred_first_name, last_name, school_email, personal_email, approved_hours, cohort_id, status, rotation:cohort_school_rotation_id ( rotation_end_date ), residency_outcomes:ngrp_residency_outcomes ( hired_at, separated_at, cs_email )')
     .eq('id', studentId)
     .single();
 
@@ -469,7 +470,7 @@ async function _handler(req, res) {
   const baseUrl = emailBaseUrl(req);
   const surveyUrl = `${baseUrl}/evaluation/readiness#t=${rawToken}`;
 
-  const resolvedEmail = student.personal_email || student.school_email || null;
+  const resolvedEmail = resolveStudentEmail(student).email;
 
   // Structured log - contains only safe fields. Raw token is excluded.
   // base_url is logged so URL-base mismatches (Preview vs Production) are diagnosable.

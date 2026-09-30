@@ -1,3 +1,4 @@
+import { resolveStudentEmail } from '../notifications/studentEmailLifecycle.js'
 // src/lib/catalog/catalogModel.js
 //
 // CATALOG-REVAMP-1 (Phase 1, 2026-09-23). The ASPIRE Catalog's rules, in one pure module:
@@ -254,11 +255,8 @@ export const PRECEPTOR_CATEGORY = 'Preceptor'
 export const STAFF_CATEGORY = 'BNI Team'
 
 const studentEmail = (s) => {
-  const school = String(s?.school_email || '').trim()
-  if (school) return { email: school, emailType: 'school' }
-  const personal = String(s?.personal_email || '').trim()
-  if (personal) return { email: personal, emailType: 'personal' }
-  return null
+  const route = resolveStudentEmail(s)
+  return route.email ? { email: route.email, emailType: route.type, warning: route.warning } : null
 }
 // Students a group token reaches: not Not Proceeding, and holding an email.
 const reachableStudent = (s) => s && s.status !== NOT_PROCEEDING && !!studentEmail(s)
@@ -273,7 +271,7 @@ export function studentRecipient(s) {
   const e = studentEmail(s)
   if (!e) return null
   return {
-    source: 'student', studentId: s.id, email: e.email, emailType: e.emailType,
+    source: 'student', studentId: s.id, email: e.email, emailType: e.emailType, recipientWarning: e.warning, automaticEmail: true,
     name: getStudentPreferredFullName(s), firstName: getStudentPreferredFirstName(s),
     school: s.school || '',
   }

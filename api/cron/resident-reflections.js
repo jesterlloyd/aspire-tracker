@@ -134,7 +134,8 @@ export default async function handler(req, res) {
             recipient_name: studentById.get(period.student_id)?.name || null, recipient_role: 'Student',
             subject: result.subject, status: 'sent', resend_email_id: result.providerId, sent_at: nowIso,
             recipient_type: 'student', student_id: period.student_id,
-            metadata: { template_key: TEMPLATE_KEY, period_number: period.period_number, token_hash_prefix: result.tokenHashPrefix, cron: CRON_NAME },
+            metadata: { template_key: TEMPLATE_KEY, period_number: period.period_number, token_hash_prefix: result.tokenHashPrefix, cron: CRON_NAME,
+              recipient_source: result.recipientSource, recipient_warning: result.recipientWarning },
           })
         }
       } else if (result.outcome === 'skipped') {

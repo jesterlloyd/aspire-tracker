@@ -35,7 +35,7 @@ const DB_CONTACTS = {
   },
 }
 
-function makeDb({ alreadySentNorms = new Set() } = {}) {
+function makeDb({ alreadySentNorms = new Set(), students = DB_STUDENTS } = {}) {
   const reads = []
   const db = {
     from(table) {
@@ -53,7 +53,7 @@ function makeDb({ alreadySentNorms = new Set() } = {}) {
         single() {
           reads.push(q)
           const id = (q.filters.find(([f]) => f === 'id') || [])[1]
-          const row = q.table === 'students' ? DB_STUDENTS[id]
+          const row = q.table === 'students' ? students[id]
             : q.table === 'contacts' ? DB_CONTACTS[id] : null
           return Promise.resolve(row ? { data: row, error: null } : { data: null, error: { message: 'not found' } })
         },
@@ -71,6 +71,32 @@ const student1 = (over = {}) => ({
 const contact1 = (over = {}) => ({
   source: 'contact', contactId: 'bbbbbbbb-0000-4000-8000-000000000001',
   email: 'coordinator1@example.org', name: 'Coordinator One', ...over,
+})
+
+test('automatic hired routing validates the reviewed address and preserves explicit school choices', async () => {
+  const id = student1().studentId
+  const hired = { ...DB_STUDENTS[id], residency_outcomes: [{ hired_at: '2026-01-01', separated_at: null, cs_email: 'resident@cshs.org' }] }
+  for (const [recipient, expected] of [
+    [student1({ automaticEmail: true, email: 'resident@cshs.org' }), 'resident@cshs.org'],
+    [student1({ automaticEmail: true }), null],
+    [student1(), 'wcu1@student.example.edu'],
+  ]) {
+    const { db } = makeDb({ students: { [id]: hired } })
+    const result = await validateBulkRecipients({ db, recipients: [recipient], batchId: BATCH })
+    if (expected) assert.equal(result.cleared[0]?.rawEmail, expected)
+    else {
+      assert.equal(result.cleared.length, 0)
+      assert.equal(result.rejected[0].reason, 'email_mismatch')
+    }
+  }
+})
+
+test('automatic hired personal fallback retains its warning', async () => {
+  const id = student1().studentId
+  const { db } = makeDb({ students: { [id]: { ...DB_STUDENTS[id], residency_outcomes: [{ hired_at: '2026-01-01', separated_at: null, cs_email: null }] } } })
+  const result = await validateBulkRecipients({ db, recipients: [student1({ automaticEmail: true, email: 'wcu1@personal.example.com' })], batchId: BATCH })
+  assert.equal(result.cleared[0]?.emailSource, 'personal')
+  assert.ok(result.cleared[0]?.recipientWarning)
 })
 
 // ── The allowlist can only shrink ───────────────────────────────────────────

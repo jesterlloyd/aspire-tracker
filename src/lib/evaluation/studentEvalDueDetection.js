@@ -1,9 +1,10 @@
+import { resolveStudentEmail as resolveLifecycleEmail } from '../notifications/studentEmailLifecycle.js'
 // Pure, READ-ONLY due-detection for the Student Evaluation of Preceptor/Unit Experience
 // survey (slug: student_preceptor_eval). SR-2b-1.
 //
 // Parallel to preceptorDueDetection.js (PS-3a), which is NOT modified. Key differences:
 //   - Single post-rotation trigger: approved_hours >= hours_required (no midpoint).
-//   - The recipient is the STUDENT's own email (personal_email first, school_email fallback).
+//   - The recipient is the STUDENT's own email (the shared lifecycle rule).
 //     due_unsendable therefore means a missing STUDENT email - never a missing preceptor.
 //   - The preceptor/unit is the evaluated_target (context only); a missing target never
 //     blocks classification.
@@ -20,10 +21,6 @@
 
 import { isReissuableAssignment, reissueReason } from './assignmentReissue.js';
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-function isSafeEmail(v) {
-  return typeof v === 'string' && EMAIL_PATTERN.test(v.trim());
-}
 function num(v) {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
@@ -49,16 +46,10 @@ const STATE_REASON = {
   unknown:   'An existing survey request blocks auto-proposal',
 };
 
-// Resolve the STUDENT recipient: personal_email first, school_email fallback.
-function resolveStudentEmail(student) {
-  const personal = (student?.personal_email || '').trim();
-  const school   = (student?.school_email || '').trim();
-  const email = personal || school;
-  return {
-    email,
-    sendable: isSafeEmail(email),
-    reason: isSafeEmail(email) ? '' : 'No valid student email on file (personal or school)',
-  };
+// Resolve the STUDENT recipient: the shared lifecycle rule.
+function resolveStudentEmail(student, nowMs) {
+  const route = resolveLifecycleEmail(student, undefined, { now: nowMs })
+  return { ...route, email: route.email || '', sendable: !!route.email }
 }
 
 // Resolve the evaluated_target (preceptor/unit) for display context ONLY. Never blocks.
@@ -114,7 +105,7 @@ export function classifyStudentEvalCohort({ students = [], preceptors = [], assi
     const approved = num(s.approved_hours);
     const required = num(s.hours_required);
     const studentName = `${s.first_name || ''} ${s.last_name || ''}`.trim() || '(unnamed student)';
-    const recipient = resolveStudentEmail(s);
+    const recipient = resolveStudentEmail(s, nowMs);
     const evaluatedTarget = resolveEvaluatedTarget(s, preceptorsById);
     const existing = bySTudent.get(s.id) || null;
     const reissuable = !!existing && isReissuableAssignment(existing, nowMs);
@@ -159,6 +150,7 @@ export function classifyStudentEvalCohort({ students = [], preceptors = [], assi
       classification,
       reason,
       studentEmail: recipient.email,
+      recipientWarning: recipient.warning,
       evaluatedTarget,           // { preceptor_name, preceptor_id, unit, available }
       suppressing,
       reissue,

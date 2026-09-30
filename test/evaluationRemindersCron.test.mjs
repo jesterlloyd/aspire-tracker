@@ -359,7 +359,8 @@ test('the run reports every count the operator needs, all numeric', async () => 
 test('a recipient with no usable address is counted, and no email is attempted', async () => {
   fake.__reset({
     assignments: [dueAssignment()], instruments: [CASEY],
-    students: [{ ...STUDENT, ngrp_outcome: 'Hired' }],   // hired, and no portal account exists
+    // STUDENT-EMAIL-LIFECYCLE-1: hired with neither allowed address; school is not a fallback.
+    students: [{ ...STUDENT, personal_email: '', residency_outcomes: [{ hired_at: '2026-08-01', cs_email: null }] }],
   })
   const res = makeRes()
   await handler(req(), res)
@@ -367,7 +368,7 @@ test('a recipient with no usable address is counted, and no email is attempted',
   assert.equal(res.body.deliverable_count, 0)
   assert.equal(res.body.sent_count, 0)
   assert.equal(fake.__sends().length, 0)
-  assert.equal(res.body.recipient_reasons.missing_verified_cedars_email, 1)
+  assert.equal(res.body.recipient_reasons.missing_cedars_or_personal_email, 1)
 })
 
 test('an unregistered instrument is never reminded through this cron', async () => {

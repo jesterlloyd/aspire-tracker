@@ -1,3 +1,4 @@
+import { resolveStudentEmail } from '../../src/lib/notifications/studentEmailLifecycle.js'
 // api/lib/clockoutReminders.js
 //
 // CLOCKOUT-NUDGE-SCHEDULE-1 - shared core for the clock-out reminder run, used by BOTH the manual
@@ -104,16 +105,14 @@ export async function runClockoutReminders(supabase, { mode = 'dry-run', cronNam
     // ── 2. Overdue subset - reuse shiftStatus.js thresholds (Day 14h, others 16h). No duplication.
     const overdue = open.filter(log => isClockoutMaybeOverdue(log, nowMs));
 
-    // ── 3. Recipient resolution (read-only): school_email then personal_email
-    //      SHIFT-EMAIL-ROUTING-1: clock-out reminders are ACTIVE-SHIFT operational comms and students
-    //      log shifts under their school email, so school_email is preferred; personal_email is only a
-    //      fallback when school_email is missing/blank (the fallback is flagged + reported).
+    // Resolve current lifecycle addresses, including hired residency outcomes.
+    // Fallbacks are reported in the preview and archived send context.
     const studentIds = [...new Set(overdue.map(l => l.student_id).filter(Boolean))];
     let studentMap = {};
     if (studentIds.length) {
       const { data: students, error: stuErr } = await supabase
         .from('students')
-        .select('id, first_name, last_name, preferred_first_name, school, program_type, personal_email, school_email')
+        .select('id, first_name, last_name, preferred_first_name, school, program_type, personal_email, school_email, status, rotation:cohort_school_rotation_id ( rotation_end_date ), residency_outcomes:ngrp_residency_outcomes ( hired_at, separated_at, cs_email )')
         .in('id', studentIds);
       if (stuErr) {
         console.error(`[${cronName}] students query error:`, stuErr);
@@ -150,16 +149,14 @@ export async function runClockoutReminders(supabase, { mode = 'dry-run', cronNam
         skippedRecent.push(rowSummary(log, stu, nowMs));
         continue;
       }
-      const schoolEmail   = (stu?.school_email || '').trim();
-      const personalEmail = (stu?.personal_email || '').trim();
-      // School-first; personal_email only as fallback when school_email is missing/blank.
-      const recipient     = schoolEmail || personalEmail || '';
+      const route = resolveStudentEmail(stu, undefined, { now: nowMs });
+      const recipient = route.email;
       if (!recipient) {
         skippedNoEmail.push(rowSummary(log, stu, nowMs));
         continue;
       }
-      const fallbackUsed  = !schoolEmail && !!personalEmail;
-      const recipientType = fallbackUsed ? 'personal_email_fallback' : 'school_email';
+      const fallbackUsed = route.fallbackUsed;
+      const recipientType = `${route.type}_email${fallbackUsed ? '_fallback' : ''}`;
       const firstName     = getStudentPreferredGreetingName(stu);
 
       const row = {
@@ -167,6 +164,7 @@ export async function runClockoutReminders(supabase, { mode = 'dry-run', cronNam
         recipient,
         recipientType,
         fallbackUsed,
+        recipientWarning: route.warning,
         firstName,
         cohortId: log.cohort_id,
       };
@@ -200,6 +198,7 @@ export async function runClockoutReminders(supabase, { mode = 'dry-run', cronNam
             cohortId:     row.cohortId,
             firstName:    row.firstName,
             studentEmail: row.recipient,
+            emailRouting: { recipient_source: row.recipientType, recipient_warning: row.recipientWarning, recipient_fallback: row.fallbackUsed },
             shiftLogId:   row.shiftLogId,
           });
           const ok = Array.isArray(results) && results.some(r => r.success);
@@ -227,7 +226,8 @@ export async function runClockoutReminders(supabase, { mode = 'dry-run', cronNam
       would_send_count: wouldSend.length,
       // SHIFT-EMAIL-ROUTING-1: how many would-send rows fell back to personal_email (school_email
       // missing/blank). Counts-only - no names/emails persisted to cron_runs.
-      personal_email_fallback_count: wouldSend.filter(r => r.fallbackUsed).length,
+      personal_email_fallback_count: wouldSend.filter(r => r.recipientType === 'personal_email_fallback').length,
+      email_fallback_count: wouldSend.filter(r => r.fallbackUsed).length,
       sent_count: sentCount,
       skipped_no_email_count: skippedNoEmail.length,
       skipped_recently_reminded_count: skippedRecent.length,

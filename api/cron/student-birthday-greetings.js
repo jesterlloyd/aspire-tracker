@@ -1,3 +1,4 @@
+import { studentEmailRoutingMetadata } from '../../src/lib/notifications/studentEmailLifecycle.js'
 // api/cron/student-birthday-greetings.js
 //
 // STUDENT-BIRTHDAY-GREETING-1 - one birthday note per student per calendar year,
@@ -82,7 +83,7 @@ export default async function handler(req, res) {
     // EVERY cohort. date_of_birth is selected for the month/day match only.
     const { data: students, error: studentsErr } = await supabase
       .from('students')
-      .select('id, first_name, preferred_first_name, last_name, school_email, personal_email, cohort_id, status, date_of_birth')
+      .select('id, first_name, preferred_first_name, last_name, school_email, personal_email, cohort_id, status, date_of_birth, rotation:cohort_school_rotation_id ( rotation_end_date ), residency_outcomes:ngrp_residency_outcomes ( hired_at, separated_at, cs_email )')
       .eq('status', ACTIVE_ROTATION_STATUS);
 
     if (studentsErr) {
@@ -121,6 +122,7 @@ export default async function handler(req, res) {
           cohortId:     student.cohort_id,
           firstName:    student.first_name || 'there',
           studentEmail: student.resolvedEmail,
+          emailRouting: studentEmailRoutingMetadata(student),
         });
         sent.push(student.id);
         console.log(`[birthday-greetings] sent to student ${student.id}`);

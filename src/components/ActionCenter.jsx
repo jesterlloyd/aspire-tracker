@@ -1,3 +1,4 @@
+import { resolveStudentEmail } from '../lib/notifications/studentEmailLifecycle.js'
 import { useState, useEffect, useRef, useLayoutEffect, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
 import { safeWrite } from '../lib/safeWrite'
@@ -246,7 +247,7 @@ function outlookCompose(to, subject, body, cc = '') {
 }
 
 function buildStudentFormEmail(s) {
-  return outlookCompose(s.school_email, 'ASPIRE Student Form – Action Required',
+  return outlookCompose(resolveStudentEmail(s).email, 'ASPIRE Student Form – Action Required',
 `Dear ${s.first_name},
 
 You have been identified as a potential candidate for ASPIRE (Affiliate Students' Pathway from Internship to Residency Experience) at Cedars-Sinai Medical Center.
@@ -268,7 +269,7 @@ ${SIG}`)
 // (the Interview Scheduling template) and the "sent" record is written only on confirmed evidence.
 
 function buildInterviewReminderEmail(s) {
-  const to = s.personal_email || s.school_email
+  const to = resolveStudentEmail(s).email
   return outlookCompose(to, 'Reminder: Your ASPIRE Interview is Coming Up',
 `Dear ${s.first_name},
 
@@ -681,7 +682,7 @@ export default function ActionCenter({
       await logComm({
         type,
         student: item.student,
-        sentToEmail: item.student?.school_email || item.student?.personal_email || item.student?.preceptor_email || '',
+        sentToEmail: resolveStudentEmail(item.student).email || item.student?.preceptor_email || '',
         sentToName: item.studentName,
       })
       logCompleted({ id: item.id, title: item.title, studentName: item.studentName })
@@ -735,7 +736,7 @@ export default function ActionCenter({
     await logComm({
       type: 'unit_notification',
       student: item.student,
-      sentToEmail: item.student?.school_email || item.student?.personal_email || '',
+      sentToEmail: resolveStudentEmail(item.student).email || '',
       sentToName: item.studentName,
     })
     setActioning(null)
@@ -822,7 +823,7 @@ ${KR_SIG}`
   }
 
   const handleOpenOrientationMailto = () => {
-    const bccs = placedStudents.map(s => s.personal_email||s.school_email).filter(Boolean).join(',')
+    const bccs = placedStudents.map(s => resolveStudentEmail(s).email).filter(Boolean).join(',')
     openHref(buildOutlookComposeUrl({ bcc: bccs, subject: 'Welcome to ASPIRE – Orientation Details Inside' }))
   }
 
@@ -833,7 +834,7 @@ ${KR_SIG}`
       { name: 'mark orientation sent' }
     )
     for (const s of placedStudents) {
-      await logComm({ type: 'orientation_email', student: s, sentToEmail: s.personal_email||s.school_email, sentToName: `${s.last_name}, ${s.first_name}` })
+      await logComm({ type: 'orientation_email', student: s, sentToEmail: resolveStudentEmail(s).email, sentToName: `${s.last_name}, ${s.first_name}` })
     }
     setOriDone(true)
     logCompleted({ id: 'orientation', title: 'Orientation Email', studentName: `${placedStudents.length} placed student${placedStudents.length !== 1 ? 's' : ''}` })

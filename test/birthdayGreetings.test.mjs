@@ -274,5 +274,7 @@ test('eligibility uses the existing Active Rotation definition, not a new one', 
   const cron = read('api/cron/student-birthday-greetings.js')
   assert.match(cron, /ACTIVE_ROTATION_STATUS/)
   // No second, stricter window check was invented alongside it.
-  assert.doesNotMatch(cron, /rotation_start_date|rotation_end_date/)
+  // STUDENT-EMAIL-LIFECYCLE-1: rotation is an address input, not a birthday eligibility gate.
+  assert.doesNotMatch(cron, /\.(?:lt|lte|gt|gte)\('rotation_(?:start|end)_date'/)
+  assert.match(cron, /rotation:cohort_school_rotation_id/)
 })

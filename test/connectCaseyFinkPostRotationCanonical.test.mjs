@@ -10,8 +10,8 @@ const read = path => readFileSync(join(here, '..', path), 'utf8')
 test('Connect loads Post-Rotation eligibility from the canonical release endpoint', () => {
   const source = read('src/components/connect/OutreachView.jsx')
   assert.match(source, /POST_ROTATION_ROUTE = RELEASE_ROUTES\.caseyFinkPostRotation/)
-  assert.match(source, /postRotationStudentEmail = student => \(student\?\.personal_email \|\| ''\)\.trim\(\) \|\| \(student\?\.school_email \|\| ''\)\.trim\(\)/,
-    'Connect displays the same personal-first recipient that the server sends to')
+  // STUDENT-EMAIL-LIFECYCLE-1: preview and sender share the lifecycle resolver.
+  assert.match(source, /postRotationStudentEmail = student => resolveStudentCorrespondenceRecipient\(student\)\.email/)
   assert.match(source, /fetch\(`\$\{POST_ROTATION_ROUTE\.endpoint\}\?cohort_id=/)
   assert.match(source, /payload\.instrument_slug !== POST_ROTATION_ROUTE\.instrumentSlug/)
   assert.match(source, /payload\.timepoint !== POST_ROTATION_ROUTE\.timepoint/)

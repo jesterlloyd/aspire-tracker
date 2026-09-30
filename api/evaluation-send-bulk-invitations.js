@@ -1,3 +1,4 @@
+import { resolveStudentEmail, studentEmailRoutingMetadata } from '../src/lib/notifications/studentEmailLifecycle.js'
 // api/evaluation-send-bulk-invitations.js
 //
 // Owner/admin-authenticated endpoint for sending bulk survey invitation emails
@@ -222,6 +223,11 @@ async function _handler(req, res, startMs) {
 
   for (const item of items) {
     const { assignment_id, student_id, survey_url } = item;
+    const emailSource = item.email_source;
+    if (emailSource != null && !['school', 'personal'].includes(emailSource)) {
+      failed.push({ assignment_id, student_id, reason: 'Invalid email source' });
+      continue;
+    }
 
     try {
       // 5a. Assignment validation - read only, no mutation. Fetched FIRST so the idempotency check
@@ -281,7 +287,7 @@ async function _handler(req, res, startMs) {
       // 5c. Resolve student email server-side
       const { data: student, error: studentErr } = await supabaseAdmin
         .from('students')
-        .select('id, first_name, last_name, preferred_first_name, personal_email, school_email, school')
+        .select('id, first_name, last_name, preferred_first_name, personal_email, school_email, school, status, rotation:cohort_school_rotation_id ( rotation_end_date ), residency_outcomes:ngrp_residency_outcomes ( hired_at, separated_at, cs_email )')
         .eq('id', student_id)
         .single();
 
@@ -289,7 +295,7 @@ async function _handler(req, res, startMs) {
         failed.push({ assignment_id, student_id, reason: 'Student not found' });
         continue;
       }
-      const recipientEmail = student.personal_email || student.school_email || null;
+      const recipientEmail = resolveStudentEmail(student, undefined, { emailSource }).email;
       if (!recipientEmail) {
         failed.push({ assignment_id, student_id, reason: 'Student has no email on file' });
         continue;
@@ -357,6 +363,7 @@ async function _handler(req, res, startMs) {
           student_id,
           recipient_type:    'student',
           metadata: {
+        ...studentEmailRoutingMetadata(student, { emailSource }),
             assignment_id,
             student_id,
             instrument_id:   instrument.id,

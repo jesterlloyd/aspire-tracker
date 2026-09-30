@@ -1,3 +1,4 @@
+import { resolveStudentEmail } from '../src/lib/notifications/studentEmailLifecycle.js'
 // api/evaluation-bulk-invitations.js
 //
 // Owner/admin-authenticated endpoint that generates a secure survey invitation
@@ -193,6 +194,11 @@ async function _handler(req, res) {
   const requestedCount = studentIdsRaw.length;
   const dedupedCount   = studentIds.length;
 
+  // An explicit source selects only this student's stored address, never a supplied email.
+  const emailSource = body.email_source;
+  if (emailSource != null && !['school', 'personal'].includes(emailSource)) {
+    return res.status(400).json({ error: 'Invalid email source' });
+  }
   // timepoint
   const timepoint = body.timepoint;
   if (!timepoint || !VALID_TIMEPOINTS.has(timepoint)) {
@@ -279,7 +285,7 @@ async function _handler(req, res) {
       // Step 1: Fetch student and confirm cohort membership
       const { data: student, error: studentErr } = await supabaseAdmin
         .from('students')
-        .select('id, first_name, preferred_first_name, last_name, school_email, personal_email, approved_hours, cohort_id, status, school')
+        .select('id, first_name, preferred_first_name, last_name, school_email, personal_email, approved_hours, cohort_id, status, school, rotation:cohort_school_rotation_id ( rotation_end_date ), residency_outcomes:ngrp_residency_outcomes ( hired_at, separated_at, cs_email )')
         .eq('id', studentId)
         .single();
 
@@ -296,7 +302,7 @@ async function _handler(req, res) {
       }
 
       // Step 2: Email check - required for future delivery
-      const resolvedEmail = student.personal_email || student.school_email || null;
+      const resolvedEmail = resolveStudentEmail(student, undefined, { emailSource }).email;
       if (!resolvedEmail) {
         skippedMissingEmails.push({ studentId, studentName, school: student.school || null });
         continue;
@@ -523,6 +529,7 @@ async function _handler(req, res) {
         studentName,
         school:       student.school || null,
         email:        resolvedEmail,
+        emailSource:  emailSource || null,
         assignmentId,
         timepoint,
         expiresAt:    expiresAt.toISOString(),

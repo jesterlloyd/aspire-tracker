@@ -18,6 +18,7 @@ import StatusLegendPopover from './StatusLegendPopover'
 import { getCsLinkStatus } from '../lib/utils'
 import { summarizeCsLink } from '../lib/derivations/csLink'
 import SegmentedPicker from './shared/SegmentedPicker'
+import { copyVisibleStudentContacts } from '../lib/connect/copyStudentContacts'
 
 // ── ASPIRE-CHART: URL state (approved) ────────────────────────────────────────
 // /students?student=<id>&filter=<bucket>&cslink=<stage> is shareable and survives
@@ -334,6 +335,15 @@ export default function StudentProfilesTab({
           <div style={{ flex:1, minWidth:8 }} />
 
           {/* Action buttons */}
+          {canEdit && ['email', 'phone'].map(kind => (
+            <button key={kind} type="button" className="profiles-copy-contact"
+              disabled={!(view === 'access' ? accessStudents : displayedStudents).length ||
+                (kind === 'email' && (view === 'access' ? accessStudents : displayedStudents).some(s => s.email_context_loaded === false))}
+              title={kind === 'email' && students.some(s => s.email_context_loaded === false) ? 'Refresh to load student email routing.' : undefined}
+              onClick={() => copyVisibleStudentContacts(view === 'access' ? accessStudents : displayedStudents, kind, toast)}>
+              {kind === 'email' ? 'Copy visible emails' : 'Copy visible phone numbers'}
+            </button>
+          ))}
           {canEdit && (
             <Tooltip label="Import students from CSV" placement="bottom">
             <button onClick={() => setShowImport(true)}

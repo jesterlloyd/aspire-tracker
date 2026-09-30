@@ -1,3 +1,4 @@
+import { resolveStudentEmail as resolveLifecycleEmail } from '../notifications/studentEmailLifecycle.js'
 // Pure, READ-ONLY status detection for the PRE-rotation Casey-Fink Readiness for Practice
 // Survey (slug: casey_fink_readiness_2024, timepoint: baseline). Recipient is the STUDENT.
 // REVIEW-RELEASE-1.
@@ -41,16 +42,10 @@ export const PRE_ROTATION_PENDING_STATUSES = Object.freeze([
   'Pending Outreach', 'Form Sent', 'Form Received', 'Interview Scheduled',
 ])
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-function isSafeEmail(v) {
-  return typeof v === 'string' && EMAIL_PATTERN.test(v.trim())
-}
 
-function resolveStudentEmail(student) {
-  const personal = (student?.personal_email || '').trim()
-  const school = (student?.school_email || '').trim()
-  const email = personal || school
-  return { email, sendable: isSafeEmail(email) }
+function resolveStudentEmail(student, nowMs) {
+  const route = resolveLifecycleEmail(student, undefined, { now: nowMs })
+  return { ...route, email: route.email || '', sendable: !!route.email }
 }
 
 const STATE_PRECEDENCE = {
@@ -124,7 +119,7 @@ export function classifyCaseyFinkPreRotationCohort({
 
     if (status === 'out_of_scope') { summary.out_of_scope += 1; continue }
 
-    const recipient = resolveStudentEmail(s)
+    const recipient = resolveStudentEmail(s, nowMs)
 
     if (status === 'readiness_completed' || status === 'readiness_released') {
       summary.suppressed_existing += 1
@@ -140,7 +135,7 @@ export function classifyCaseyFinkPreRotationCohort({
       summary.not_due += 1
     }
 
-    const warnings = []
+    const warnings = recipient.warning ? [recipient.warning] : []
     if (status === 'readiness_reissue') warnings.push(`Prior survey ${state === 'revoked' ? 'was revoked' : 'expired'}`)
     if (status === 'readiness_attention') warnings.push(`Existing survey state needs review: ${state}`)
     if (!recipient.sendable && status !== 'not_eligible') warnings.push('No student email on file')
@@ -155,6 +150,7 @@ export function classifyCaseyFinkPreRotationCohort({
       status,
       reissue: status === 'readiness_reissue' ? { assignmentId: asg.id, state: reissueReason(asg) } : null,
       studentEmail: recipient.email,
+      recipientWarning: recipient.warning,
       sendable: recipient.sendable,
       warnings,
       assignment: asg,

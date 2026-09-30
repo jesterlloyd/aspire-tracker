@@ -1,3 +1,4 @@
+import { resolveStudentEmail } from '../../lib/notifications/studentEmailLifecycle.js'
 // src/components/signatures/PrepareWizard.jsx
 //
 // SIGNATURES-PHASE2: Prepare and send, four steps (brief section 4): Document, Recipients,
@@ -321,7 +322,7 @@ function Recipients({ d, set, people }) {
     const c = (people.contacts || []).find(x => x.id === h.id)
     const blank = d.recipients.findIndex(r => !r.name && !r.email)
     const rec = h.type === 'student'
-      ? { name: h.label, email: s?.school_email || s?.personal_email || '', studentId: h.id }
+      ? { name: h.label, email: resolveStudentEmail(s).email || '', studentId: h.id }
       : { name: h.label, email: c?.email || '', contactId: h.id, schoolName: c?.school_name || null }
     if (blank >= 0) upd(blank, rec); else add(rec)
     setQ('')

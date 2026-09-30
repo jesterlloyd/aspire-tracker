@@ -1,223 +1,48 @@
-// EVALUATION-REMINDERS-1: who a reminder is allowed to reach.
-//
-// Runs the REAL resolver against a substituted database and auth admin. Nothing
-// is sent; no network call is made. Every rule fails CLOSED - the assertions
-// below are as much about what is NOT sent as about what is.
-//
-// Run: node --test test/evaluationReminderRecipient.test.mjs
-
+// STUDENT-EMAIL-LIFECYCLE-1 (Owner, 2026-09-30): supersedes the no-fallback,
+// status-only and legacy Hired-label rules. Preceptor identity tests remain intact.
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
-import { dirname, join } from 'node:path'
-import {
-  resolveReminderRecipient, resolveHiredCedarsRecipient, isCedarsEmail, isVerifiedAuthUser,
-  RECIPIENT_REASONS, ACTIVE_ROTATION_STATUS, HIRED_OUTCOME, CEDARS_EMAIL_DOMAIN,
-} from '../lib/server/evaluation/reminderRecipient.js'
-
-const here = dirname(fileURLToPath(import.meta.url))
-const read = (p) => readFileSync(join(here, '..', p), 'utf8')
-
-// ── Substituted database + auth admin ───────────────────────────────────────
-/**
- * @param {object} o
- * @param {Array}  o.links     user_student_links rows (already filtered conceptually)
- * @param {object} o.profile   user_profiles row, or null
- * @param {object} o.authUser  auth user, or null
- */
-function makeDb({ links = [], profile = null, authUser = null, linkError = null, profileError = null } = {}) {
-  const queries = []
-  const db = {
-    from(table) {
-      const q = { table, filters: [] }
-      queries.push(q)
-      const api = {
-        select() { return api },
-        eq(f, v) { q.filters.push([f, v]); return api },
-        is(f, v) { q.filters.push([f, v]); return api },
-        limit() { return Promise.resolve({ data: linkError ? null : links, error: linkError }) },
-        single() { return Promise.resolve({ data: profileError ? null : profile, error: profileError }) },
-      }
-      return api
-    },
-  }
-  const authAdmin = {
-    calls: 0,
-    getUserById: async (id) => {
-      authAdmin.calls++
-      authAdmin.lastId = id
-      return { data: { user: authUser }, error: null }
-    },
-  }
-  return { db, authAdmin, queries }
-}
-
+import { resolveReminderRecipient, RECIPIENT_REASONS } from '../lib/server/evaluation/reminderRecipient.js'
+const read = p => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8')
 const student = (over = {}) => ({
-  id: 's-1', first_name: 'Ava', last_name: 'Wong',
-  school_email: 'ava.wong@school.example.edu',
-  personal_email: 'ava.personal@example.com',
-  status: 'Completed', ngrp_outcome: 'Pending', ...over,
+  id: 's-1', first_name: 'Ava', last_name: 'Wong', status: 'Completed',
+  school_email: 'ava@school.example', personal_email: 'ava@personal.example',
+  rotation: { rotation_end_date: '2026-09-01' }, ...over,
 })
-const assignment = (over = {}) => ({
-  id: 'a-1', respondent_type: 'student', respondent_email: null, respondent_name: null, ...over,
+const assignment = (over = {}) => ({ respondent_type: 'student', ...over })
+function makeDb() {
+  const queries = []
+  return { queries, db: { from(table) { queries.push({ table }); throw new Error('Unexpected lookup') } }, authAdmin: {} }
+}
+const resolve = s => resolveReminderRecipient({ assignment: assignment(), student: s, now: '2026-09-30T12:00:00Z' })
+test('reminders switch only after both completion and the rotation end date', async () => {
+  for (const status of ['Placed', 'Interviewed', 'Active Rotation']) assert.equal((await resolve(student({ status }))).route, 'school')
+  assert.equal((await resolve(student())).route, 'personal')
+  assert.equal((await resolve(student({ rotation: null }))).route, 'school')
+  assert.equal((await resolve(student({ rotation: { rotation_end_date: '2026-09-30' } }))).route, 'school')
 })
-
-// ── Student lifecycle routing ───────────────────────────────────────────────
-
-test('a student CURRENTLY ON ROTATION receives the school email', async () => {
-  const { db, authAdmin } = makeDb()
-  const r = await resolveReminderRecipient({
-    db, authAdmin, assignment: assignment(), student: student({ status: ACTIVE_ROTATION_STATUS }),
-  })
-  assert.equal(r.ok, true)
-  assert.equal(r.email, 'ava.wong@school.example.edu')
-  assert.equal(r.route, 'school')
-  assert.equal(authAdmin.calls, 0, 'no portal lookup for a non-hired student')
+test('missing or invalid preferred addresses fall back and visibly report it', async () => {
+  const school = await resolve(student({ personal_email: 'invalid' }))
+  assert.equal(school.route, 'school')
+  assert.equal(school.fallbackUsed, true)
+  assert.match(school.warning, /Personal email missing or invalid/)
+  const personal = await resolve(student({ status: 'Placed', school_email: '' }))
+  assert.equal(personal.route, 'personal')
+  assert.match(personal.warning, /School email missing or invalid/)
+  assert.equal((await resolve(student({ personal_email: '', school_email: 'bad' }))).ok, false)
+  assert.equal((await resolve(null)).reason, RECIPIENT_REASONS.STUDENT_NOT_FOUND)
 })
-
-test('a student AFTER ROTATION receives the personal email', async () => {
-  const { db, authAdmin } = makeDb()
-  for (const status of ['Completed', 'Placed', 'Interviewed']) {
-    const r = await resolveReminderRecipient({ db, authAdmin, assignment: assignment(), student: student({ status }) })
-    assert.equal(r.ok, true, status)
-    assert.equal(r.email, 'ava.personal@example.com', status)
-    assert.equal(r.route, 'personal', status)
-  }
-})
-
-test('THERE IS NO FALLBACK between the two addresses, in either direction', async () => {
-  const { db, authAdmin } = makeDb()
-  // On rotation with no school email: personal exists, and is NOT used.
-  const onRotation = await resolveReminderRecipient({
-    db, authAdmin, assignment: assignment(),
-    student: student({ status: ACTIVE_ROTATION_STATUS, school_email: '' }),
-  })
-  assert.equal(onRotation.ok, false)
-  assert.equal(onRotation.reason, RECIPIENT_REASONS.MISSING_SCHOOL_EMAIL)
-
-  // After rotation with no personal email: school exists, and is NOT used.
-  const afterRotation = await resolveReminderRecipient({
-    db, authAdmin, assignment: assignment(), student: student({ personal_email: null }),
-  })
-  assert.equal(afterRotation.ok, false)
-  assert.equal(afterRotation.reason, RECIPIENT_REASONS.MISSING_PERSONAL_EMAIL)
-})
-
-test('a malformed address is rejected rather than sent to', async () => {
-  const { db, authAdmin } = makeDb()
-  const r = await resolveReminderRecipient({
-    db, authAdmin, assignment: assignment(), student: student({ personal_email: 'not-an-email' }),
-  })
-  assert.equal(r.ok, false)
-  assert.equal(r.reason, RECIPIENT_REASONS.MISSING_PERSONAL_EMAIL)
-})
-
-test('a missing student record sends nothing', async () => {
-  const { db, authAdmin } = makeDb()
-  const r = await resolveReminderRecipient({ db, authAdmin, assignment: assignment(), student: null })
-  assert.equal(r.ok, false)
-  assert.equal(r.reason, RECIPIENT_REASONS.STUDENT_NOT_FOUND)
-})
-
-// ── Hired: Cedars-Sinai only, and it fails closed ───────────────────────────
-
-const hired = () => student({ ngrp_outcome: HIRED_OUTCOME, status: 'Completed' })
-
-test('a HIRED student receives only a verified, active, linked Cedars address', async () => {
-  const { db, authAdmin } = makeDb({
-    links: [{ user_profile_id: 'p-1' }],
-    profile: { id: 'p-1', auth_user_id: 'au-1', email: 'ava.wong@cshs.org', is_active: true },
-    authUser: { email_confirmed_at: '2026-07-01T00:00:00Z' },
-  })
-  const r = await resolveReminderRecipient({ db, authAdmin, assignment: assignment(), student: hired() })
-  assert.equal(r.ok, true)
-  assert.equal(r.email, 'ava.wong@cshs.org')
-  assert.equal(r.route, 'cedars')
-  assert.equal(authAdmin.calls, 1, 'verification is checked against auth, not assumed')
-})
-
-test('MISSING VERIFIED CEDARS EMAIL FAILS CLOSED - never a silent fallback', async () => {
-  const cases = [
-    ['no active link', { links: [], profile: null }],
-    ['ambiguous links', { links: [{ user_profile_id: 'p-1' }, { user_profile_id: 'p-2' }] }],
-    ['inactive profile', {
-      links: [{ user_profile_id: 'p-1' }],
-      profile: { id: 'p-1', auth_user_id: 'au-1', email: 'ava@cshs.org', is_active: false },
-      authUser: { email_confirmed_at: '2026-07-01T00:00:00Z' },
-    }],
-    ['non-Cedars address', {
-      links: [{ user_profile_id: 'p-1' }],
-      profile: { id: 'p-1', auth_user_id: 'au-1', email: 'ava@gmail.com', is_active: true },
-      authUser: { email_confirmed_at: '2026-07-01T00:00:00Z' },
-    }],
-    ['unverified account', {
-      links: [{ user_profile_id: 'p-1' }],
-      profile: { id: 'p-1', auth_user_id: 'au-1', email: 'ava@cshs.org', is_active: true },
-      authUser: {},
-    }],
-    ['no auth user id', {
-      links: [{ user_profile_id: 'p-1' }],
-      profile: { id: 'p-1', auth_user_id: null, email: 'ava@cshs.org', is_active: true },
-    }],
-    ['link query error', { linkError: { message: 'boom' } }],
-    ['profile query error', { links: [{ user_profile_id: 'p-1' }], profileError: { message: 'boom' } }],
-  ]
-
-  for (const [label, cfg] of cases) {
-    const { db, authAdmin } = makeDb(cfg)
-    const r = await resolveReminderRecipient({ db, authAdmin, assignment: assignment(), student: hired() })
-    assert.equal(r.ok, false, label)
-    assert.equal(r.reason, RECIPIENT_REASONS.MISSING_VERIFIED_CEDARS_EMAIL, label)
-    assert.equal(r.email, null, `${label}: no address may be returned`)
-  }
-})
-
-test('a hired student NEVER falls back to their school or personal address', async () => {
-  const { db, authAdmin } = makeDb({ links: [] })   // no portal account at all
-  const s = hired()   // both school_email and personal_email are present and valid
-  const r = await resolveReminderRecipient({ db, authAdmin, assignment: assignment(), student: s })
-  assert.equal(r.ok, false)
-  assert.notEqual(r.email, s.school_email)
-  assert.notEqual(r.email, s.personal_email)
-})
-
-test('the hired rule beats the on-rotation rule', async () => {
-  const { db, authAdmin } = makeDb({ links: [] })
-  const r = await resolveReminderRecipient({
-    db, authAdmin, assignment: assignment(),
-    student: student({ ngrp_outcome: HIRED_OUTCOME, status: ACTIVE_ROTATION_STATUS }),
-  })
-  assert.equal(r.reason, RECIPIENT_REASONS.MISSING_VERIFIED_CEDARS_EMAIL,
-    'a hired student is not routed to school just because they are on rotation')
-})
-
-test('Cedars detection is domain-exact and case/whitespace tolerant', () => {
-  assert.equal(CEDARS_EMAIL_DOMAIN, '@cshs.org')
-  assert.equal(isCedarsEmail('  Ava.Wong@CSHS.ORG '), true)
-  assert.equal(isCedarsEmail('ava@cshs.org.evil.com'), false)
-  assert.equal(isCedarsEmail('ava@notcshs.org'), false, 'suffix matching must not accept a lookalike domain')
-  assert.equal(isCedarsEmail(''), false)
-})
-
-test('verification accepts confirmation OR a prior sign-in, and nothing else', () => {
-  assert.equal(isVerifiedAuthUser({ email_confirmed_at: 'x' }), true)
-  assert.equal(isVerifiedAuthUser({ confirmed_at: 'x' }), true)
-  assert.equal(isVerifiedAuthUser({ last_sign_in_at: 'x' }), true)
-  assert.equal(isVerifiedAuthUser({ invited_at: 'x' }), false, 'invited is not accepted')
-  assert.equal(isVerifiedAuthUser({}), false)
-  assert.equal(isVerifiedAuthUser(null), false)
-})
-
-test('an auth lookup that throws fails closed', async () => {
-  const { db } = makeDb({
-    links: [{ user_profile_id: 'p-1' }],
-    profile: { id: 'p-1', auth_user_id: 'au-1', email: 'ava@cshs.org', is_active: true },
-  })
-  const throwingAdmin = { getUserById: async () => { throw new Error('auth down') } }
-  const r = await resolveHiredCedarsRecipient({ db, authAdmin: throwingAdmin, studentId: 's-1', studentName: 'Ava Wong' })
-  assert.equal(r.ok, false)
-  assert.equal(r.reason, RECIPIENT_REASONS.MISSING_VERIFIED_CEDARS_EMAIL)
+test('hired residents use their residency-record Cedars address, then personal, never school', async () => {
+  const outcome = { hired_at: '2026-09-20', separated_at: null, cs_email: 'ava@cshs.org' }
+  const s = student({ status: 'Active Rotation', residency_outcomes: [outcome] })
+  assert.equal((await resolve(s)).route, 'cedars')
+  const fallback = await resolve({ ...s, residency_outcomes: [{ ...outcome, cs_email: '' }] })
+  assert.equal(fallback.route, 'personal')
+  assert.equal(fallback.fallbackUsed, true)
+  assert.equal((await resolve({ ...s, personal_email: '', residency_outcomes: [{ ...outcome, cs_email: '' }] })).reason, RECIPIENT_REASONS.MISSING_RESIDENCY_EMAIL)
+  assert.equal((await resolve({ ...s, residency_outcomes: [{ ...outcome, separated_at: '2026-09-25' }] })).route, 'school')
+  assert.equal((await resolve(student({ status: 'Placed', ngrp_outcome: 'Hired' }))).route, 'school')
 })
 
 // ── Preceptor identity cannot drift ─────────────────────────────────────────

@@ -136,6 +136,7 @@ export function buildPayloadRecipients(recipients, { ackNotProceeding = false } 
     studentId: r.studentId,
     contactId: r.contactId,
     ...(r.source === 'student' ? { emailType: r.emailType } : {}),
+    ...(r.source === 'student' && r.automaticEmail === true ? { automaticEmail: true } : {}),
     ...(r.source === 'student'
         && String(r.status || '') === NOT_PROCEEDING_STATUS
         && ackNotProceeding === true

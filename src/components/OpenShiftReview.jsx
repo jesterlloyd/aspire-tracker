@@ -1,3 +1,4 @@
+import { resolveStudentEmail } from '../lib/notifications/studentEmailLifecycle.js'
 // CLOCKOUT-DETECT-1 - Read-only "Open Shift Review" detector (Owner/Admin only).
 //
 // Lists the FULL population of currently open shifts (lifecycle_state = 'in_progress') for the
@@ -40,7 +41,7 @@ export default function OpenShiftReview({ openLogs = [], students = [], units = 
       const overdue = isClockoutMaybeOverdue(log)
       // Read-only email classification: personal first, then school. Still drives the summary
       // chips (emailable / no email) even though Email is no longer a visible table column.
-      const email = stu ? (stu.personal_email || stu.school_email || '') : ''
+      const email = stu ? (resolveStudentEmail(stu).email || '') : ''
       const klass = !overdue ? 'ok' : (email ? 'overdue_email' : 'overdue_no_email')
 
       // KEITH-ON-CAMPUS-DETAILS-1: unit + preceptor now come from shared resolvers (src/lib/

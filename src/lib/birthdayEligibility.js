@@ -1,3 +1,4 @@
+import { resolveStudentEmail } from './notifications/studentEmailLifecycle.js'
 // STUDENT-BIRTHDAY-GREETING-1: who gets a birthday greeting, and when.
 //
 // Pure by design: the cron passes `now` and the already-fetched rows, so the
@@ -82,9 +83,7 @@ export const ACTIVE_ROTATION_STATUS = 'Active Rotation'
 
 /** A usable address, preferring the school address exactly as the other crons do. */
 export function studentEmail(student) {
-  const pick = student?.school_email || student?.personal_email || ''
-  const value = String(pick).trim()
-  return value.includes('@') ? value : null
+  return resolveStudentEmail(student).email
 }
 
 /**

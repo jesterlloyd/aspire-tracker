@@ -1,3 +1,4 @@
+import { resolveStudentEmail } from './notifications/studentEmailLifecycle.js'
 // ASPIRE-CHART: the confirm-gated Send Form workflow (approved semantics).
 //
 // Opening an email draft must NEVER change a student's status: the app
@@ -30,7 +31,7 @@ export function buildSchoolSendPlan(school, schoolStudents = []) {
     kind: 'school',
     school,
     students: pending,
-    emails: pending.map(s => s.school_email).filter(Boolean),
+    emails: pending.map(s => resolveStudentEmail(s).email).filter(Boolean),
     confirmTitle: `Mark ${pending.length} student${pending.length === 1 ? '' : 's'} as Form Sent?`,
     confirmBody: `Confirm only if the form email to ${school} was actually sent. ` +
       `Confirming changes ${pending.length === 1 ? 'this student’s' : 'these students’'} ` +
@@ -44,7 +45,7 @@ export function buildStudentSendPlan(student) {
   return {
     kind: 'student',
     students: [student],
-    emails: [student.school_email].filter(Boolean),
+    emails: [resolveStudentEmail(student).email].filter(Boolean),
     confirmTitle: 'Mark as Form Sent?',
     confirmBody: `Confirm only if the form email was actually sent. Confirming changes ` +
       `this student’s ASPIRE status from ${student.status || 'Pending Outreach'} to Form Sent. ` +

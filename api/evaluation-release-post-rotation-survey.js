@@ -1,3 +1,4 @@
+import { resolveStudentEmail, studentEmailRoutingMetadata } from '../src/lib/notifications/studentEmailLifecycle.js'
 // api/evaluation-release-post-rotation-survey.js
 //
 // Owner/Admin per-student RELEASE for Student's Feedback on ASPIRE & Certificate
@@ -6,7 +7,7 @@
 //
 // The queue is live-computed from the ASPIRE-POSTROTATION-CERT-UI-1 detector. This endpoint
 // re-runs that detector for ONE student at release time and proceeds ONLY if still
-// eligible_for_review. The recipient is the STUDENT (personal_email first, school_email fallback);
+// eligible_for_review. The recipient is the STUDENT (shared lifecycle rule);
 // there is no recipient override. Certificates are NEVER issued here: the certificate number is
 // assigned only when the student submits the evaluation (submit_post_rotation_evaluation_response).
 //
@@ -161,7 +162,7 @@ async function _handler(req, res) {
   // ── 4. Load detection inputs for THIS student and re-run the post-rotation detector. ────
   const { data: student, error: studentErr } = await supabaseAdmin
     .from('students')
-    .select('id, first_name, last_name, preferred_first_name, school, program_type, cohort_id, approved_hours, hours_required, pending_hours, personal_email, school_email')
+    .select('id, first_name, last_name, preferred_first_name, school, program_type, cohort_id, approved_hours, hours_required, pending_hours, personal_email, school_email, status, rotation:cohort_school_rotation_id ( rotation_end_date ), residency_outcomes:ngrp_residency_outcomes ( hired_at, separated_at, cs_email )')
     .eq('id', studentId)
     .single();
   if (studentErr || !student) {
@@ -322,8 +323,8 @@ async function _handler(req, res) {
     }
   }
 
-  // ── 7. Resolve recipient server-side (personal first, school fallback). ──────────
-  const studentEmail = (student.personal_email || '').trim() || (student.school_email || '').trim();
+  // ── 7. Resolve recipient server-side (shared lifecycle rule). ──────────
+  const studentEmail = resolveStudentEmail(student).email;
   const studentName  = `${student.first_name || ''} ${student.last_name || ''}`.trim() || 'the student';
   if (!studentEmail) {
     return res.status(200).json({ success: true, released: false, classification: 'no_email', reason: 'No student email on file' });
@@ -472,6 +473,7 @@ async function _handler(req, res) {
       student_id:        studentId,
       recipient_type:    'student',
       metadata: {
+        ...studentEmailRoutingMetadata(student),
         assignment_id:   assignmentId,
         student_id:      studentId,
         instrument_id:   instrument.id,

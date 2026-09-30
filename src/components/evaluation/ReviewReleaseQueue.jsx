@@ -184,7 +184,7 @@ function Card({ item, workflow, busy, locked, leaving, highlighted, onRelease, o
               {/* No preview here: the previews live on the board's head (Owner, 2026-09-19). */}
               {workflow.key === 'unitLeaderRelease'
                 ? <button type="button" className="rq-pbtn" onClick={() => onReadFeedback?.(item)}>Read the feedback</button>
-                : <span className="rq-why">{item.sendTo ? `To ${item.sendTo}` : ''}</span>}
+                : <span className="rq-why">{item.sendTo ? `To ${item.sendTo}` : ''}{item.recipientWarning && <><br />{item.recipientWarning}</>}</span>}
               <button type="button" className="rq-pbtn go" disabled={busy || locked}
                 title={locked ? 'Releases are paused until you re-run detection.' : undefined}
                 onClick={() => onRelease(item)}>
@@ -436,7 +436,7 @@ export function ReleaseConfirm({ item, workflow, releasing, onCancel, onConfirm 
             <span style={{ color: '#9ca3af', fontWeight: 600 }}>{workflow.key === 'unitLeaderRelease' ? 'Response of' : 'Student'}</span><span style={{ fontWeight: 600, color: '#191919' }}>{item.person.name}</span>
             {item.period && (<><span style={{ color: '#9ca3af', fontWeight: 600 }}>Period</span><span>{PERIOD_LABELS[item.period]}</span></>)}
             <span style={{ color: '#9ca3af', fontWeight: 600 }}>{workflow.key === 'unitLeaderRelease' ? 'Released to' : 'Recipient'}</span>
-            <span>{isPreceptor ? (item.release?.preceptorName ? `${item.release.preceptorName} (${item.release.preceptorEmail})` : item.release?.preceptorEmail) : item.sendTo || '-'}</span>
+            <span>{isPreceptor ? (item.release?.preceptorName ? `${item.release.preceptorName} (${item.release.preceptorEmail})` : item.release?.preceptorEmail) : item.sendTo || '-'}{item.recipientWarning && <><br />{item.recipientWarning}</>}</span>
             {item.hours && (<><span style={{ color: '#9ca3af', fontWeight: 600 }}>Approved / Required</span><span>{fmtHours(item.hours.approved)} / {fmtHours(item.hours.required)}</span></>)}
           </div>
           {isPreceptor && alternates.length > 0 && (

@@ -1,3 +1,4 @@
+import { resolveStudentEmail, studentEmailRoutingMetadata } from '../src/lib/notifications/studentEmailLifecycle.js'
 // api/send-midpoint-checkin.js
 // Manual trigger: owner/admin sends a midpoint check-in to a specific student
 // or previews the rendered HTML email.
@@ -66,7 +67,7 @@ export default async function handler(req, res) {
   // Fetch student
   const { data: student, error: studentErr } = await supabase
     .from('students')
-    .select('id, first_name, last_name, preferred_first_name, school_email, personal_email, cohort_id, approved_hours, hours_required, matched_unit_id')
+    .select('id, first_name, last_name, preferred_first_name, school_email, personal_email, cohort_id, approved_hours, hours_required, matched_unit_id, status, rotation:cohort_school_rotation_id ( rotation_end_date ), residency_outcomes:ngrp_residency_outcomes ( hired_at, separated_at, cs_email )')
     .eq('id', studentId)
     .single();
 
@@ -74,7 +75,7 @@ export default async function handler(req, res) {
     return res.status(404).json({ error: 'Student not found' });
   }
 
-  const studentEmail = student.school_email || student.personal_email || null;
+  const studentEmail = resolveStudentEmail(student).email;
   if (!studentEmail) {
     return res.status(422).json({ error: 'Student has no email address' });
   }
@@ -108,6 +109,7 @@ export default async function handler(req, res) {
       studentId:     student.id,
       cohortId:      cohortId || student.cohort_id,
       studentEmail,
+      emailRouting: studentEmailRoutingMetadata(student),
       triggerMode:   'manual',
       templateVersion: 'v1.0',
       ...ctx,

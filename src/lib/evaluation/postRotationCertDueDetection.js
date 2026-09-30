@@ -1,3 +1,4 @@
+import { resolveStudentEmail as resolveLifecycleEmail } from '../notifications/studentEmailLifecycle.js'
 // Pure, READ-ONLY status detection for the Student's Feedback on ASPIRE workflow (instrument
 // slug: post_rotation_evaluation). Recipient is the STUDENT. This is NON-GATING experience
 // feedback: it is fully decoupled from the Certificate of Completion (the Casey-Fink
@@ -23,10 +24,6 @@ function num(v) {
   return Number.isFinite(n) ? n : 0
 }
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-function isSafeEmail(v) {
-  return typeof v === 'string' && EMAIL_PATTERN.test(v.trim())
-}
 
 // Conservative live/terminal state of a post_rotation_evaluation assignment.
 function assignmentState(a, nowMs) {
@@ -41,11 +38,9 @@ function assignmentState(a, nowMs) {
 }
 const STATE_PRECEDENCE = { completed: 4, active: 3, expired: 2, revoked: 1, unknown: 0 }
 
-function resolveStudentEmail(student) {
-  const personal = (student?.personal_email || '').trim()
-  const school = (student?.school_email || '').trim()
-  const email = personal || school
-  return { email, sendable: isSafeEmail(email) }
+function resolveStudentEmail(student, nowMs) {
+  const route = resolveLifecycleEmail(student, undefined, { now: nowMs })
+  return { ...route, email: route.email || '', sendable: !!route.email }
 }
 
 // Classify one cohort. All inputs are already loaded; this function does no I/O.
@@ -122,7 +117,7 @@ export function classifyPostRotationCohort({
     else status = 'not_eligible' // below threshold
 
     // Recipient resolution is used for the row + the missing-email warning.
-    const recipient = resolveStudentEmail(s)
+    const recipient = resolveStudentEmail(s, nowMs)
 
     // Count every student for the card buckets.
     if (status === 'evaluation_completed' || status === 'evaluation_released') {
@@ -151,7 +146,7 @@ export function classifyPostRotationCohort({
     const meta = shiftMeta.get(s.id) || null
 
     // Non-blocking warnings.
-    const warnings = []
+    const warnings = recipient.warning ? [recipient.warning] : []
     if (status === 'evaluation_reissue') warnings.push(`Prior survey ${reissueReason(asg) === 'revoked' ? 'was revoked' : 'expired'}`)
     if (approved < required && required > 0) warnings.push('Below required hours')
     if (pending > 0) warnings.push(`Pending hours: ${Number.isInteger(pending) ? pending : pending.toFixed(2)}`)
@@ -172,6 +167,7 @@ export function classifyPostRotationCohort({
       status,
       reissue: status === 'evaluation_reissue' ? { assignmentId: asg.id, state: reissueReason(asg) } : null,
       studentEmail: recipient.email,
+      recipientWarning: recipient.warning,
       warnings,
     })
   }

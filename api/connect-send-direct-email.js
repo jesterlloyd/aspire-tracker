@@ -378,7 +378,7 @@ async function _handler(req, res, startMs) {
     // recipient_type === 'student' - SCHOOL-FIRST canon resolver
     const { data: student, error: studentErr } = await supabaseAdmin
       .from('students')
-      .select('id, first_name, preferred_first_name, last_name, personal_email, school_email, school, status, cohort_school_rotation_id, school_coordinator_email, school_coordinator_name')
+      .select('id, first_name, preferred_first_name, last_name, personal_email, school_email, school, status, cohort_school_rotation_id, school_coordinator_email, school_coordinator_name, rotation:cohort_school_rotation_id ( rotation_end_date ), residency_outcomes:ngrp_residency_outcomes ( hired_at, separated_at, cs_email )')
       .eq('id', recipientId)
       .single();
 

@@ -157,6 +157,7 @@ export function adaptCaseyFinkPreRotation({ students, assignments, displayName, 
         stamp: stamp('ok', reissue ? reissueStamp(r.reissue) : r.aspireStatus),
         chain: [before, thisNode, after],
         sendTo: r.studentEmail,
+      recipientWarning: r.recipientWarning,
         release: { reissue, warnings: r.warnings },
       })
       continue
@@ -321,6 +322,7 @@ export function adaptStudentFeedback({ students, preceptors, assignments, displa
       stamp: stamp('ok', reissue ? reissueStamp(r.reissue) : 'Hours complete'),
       chain: [before, node('this', 'this', 'Student feedback', reissue ? 'Reissue now' : 'Release now'), after],
       sendTo: r.studentEmail,
+      recipientWarning: r.recipientWarning,
       release: { reissue },
     })
   }
@@ -400,6 +402,7 @@ export function adaptCaseyFinkPostRotation({
       stamp: stamp('ok', reissue ? reissueStamp(r.reissue) : 'Prerequisite done'),
       chain: [before, node('this', 'this', 'Casey-Fink', reissue ? 'Reissue now' : 'Release now'), after],
       sendTo: r.studentEmail,
+      recipientWarning: r.recipientWarning,
       release: { reissue, warnings: r.warnings },
     })
   }
@@ -516,6 +519,7 @@ export function adaptAspireFeedback({
       stamp: stamp('ok', reissue ? reissueStamp(r.reissue) : 'Prerequisite done'),
       chain: [before, node('this', 'this', 'ASPIRE feedback', reissue ? 'Reissue now' : 'Release now'), after],
       sendTo: r.studentEmail,
+      recipientWarning: r.recipientWarning,
       release: { reissue, warnings: r.warnings },
     })
   }

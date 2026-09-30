@@ -523,6 +523,7 @@ async function runSendMode(res, body, senderSig, profile, resolvedBodyFormat, is
         recipient_email:      rawEmail,
         recipient_email_norm: normEmail,
         email_source:         emailSource,            // student only; null otherwise
+        recipient_warning:    c.recipientWarning || null,
         subject:              mergedSubject,
         source:               'connect_bulk_message',
         resend_message_id:    resendMessageId,

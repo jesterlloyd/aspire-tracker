@@ -62,7 +62,7 @@ export const CLAIM_STALE_SECONDS = 900;
 
 /** The recipient-resolution reasons that mean "we had no address we were allowed to use". */
 const MISSING_EMAIL_REASONS = new Set([
-  RECIPIENT_REASONS.MISSING_VERIFIED_CEDARS_EMAIL,
+  RECIPIENT_REASONS.MISSING_RESIDENCY_EMAIL,
   RECIPIENT_REASONS.MISSING_SCHOOL_EMAIL,
   RECIPIENT_REASONS.MISSING_PERSONAL_EMAIL,
   RECIPIENT_REASONS.MISSING_PRECEPTOR_SNAPSHOT_EMAIL,
@@ -106,7 +106,7 @@ async function loadContext(db, now) {
   if (studentIds.length) {
     const { data: students, error: sErr } = await db
       .from('students')
-      .select('id, first_name, preferred_first_name, last_name, school_email, personal_email, status, ngrp_outcome')
+      .select('id, first_name, preferred_first_name, last_name, school_email, personal_email, status, ngrp_outcome, rotation:cohort_school_rotation_id ( rotation_end_date ), residency_outcomes:ngrp_residency_outcomes ( hired_at, separated_at, cs_email )')
       .in('id', studentIds);
     if (sErr) throw new Error(`students query failed: ${sErr.message}`);
     for (const s of students || []) studentsById.set(s.id, s);
@@ -173,10 +173,11 @@ export async function runEvaluationReminders(req, res, { sweep = false } = {}) {
     const skipTally = tallyReasons(skipped);
 
     // Recipient resolution is read-only, so BOTH modes do it: the dry run needs
-    // it to report missing_verified_cedars_email honestly, and a live run needs
+    // it to report missing_cedars_or_personal_email honestly, and a live run needs
     // to know before it claims.
     const assignmentsById = new Map(assignments.map((a) => [a.id, a]));
     const recipientTally = {};
+    let fallbackCount = 0;
     const sendable = [];
     for (const c of candidates) {
       const a = assignmentsById.get(c.assignment_id);
@@ -185,14 +186,16 @@ export async function runEvaluationReminders(req, res, { sweep = false } = {}) {
         authAdmin: supabase.auth?.admin,
         assignment: a,
         student: studentsById.get(a.student_id) || null,
+        now,
       });
-      if (r.ok) sendable.push(c);
+      if (r.ok) { sendable.push(c); if (r.fallbackUsed) fallbackCount++; }
       else recipientTally[r.reason] = (recipientTally[r.reason] || 0) + 1;
     }
 
     const missingEmailCount = sumBy(recipientTally, [...MISSING_EMAIL_REASONS]);
     const baseSummary = {
       dry_run: isDryRun,
+      email_fallback_count: fallbackCount,
       automation_enabled: gate.enabled,
       scanned_count: assignments.length,
       scan_truncated: scanTruncated,
@@ -280,7 +283,7 @@ export async function runEvaluationReminders(req, res, { sweep = false } = {}) {
       if (needStudents.length > 0) {
         const { data: st, error: sErr } = await supabase
           .from('students')
-          .select('id, first_name, preferred_first_name, last_name, school_email, personal_email, status, ngrp_outcome')
+          .select('id, first_name, preferred_first_name, last_name, school_email, personal_email, status, ngrp_outcome, rotation:cohort_school_rotation_id ( rotation_end_date ), residency_outcomes:ngrp_residency_outcomes ( hired_at, separated_at, cs_email )')
           .in('id', needStudents);
         if (sErr) throw new Error(`recovery student hydration failed: ${sErr.message}`);
         for (const s of st || []) studentsById.set(s.id, s);

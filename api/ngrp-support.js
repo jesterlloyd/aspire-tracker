@@ -306,7 +306,8 @@ export default async function handler(req, res) {
           recipient_name: student.data.name || `${student.data.first_name || ''} ${student.data.last_name || ''}`.trim(),
           recipient_role: 'Student', subject: sent.subject, status: 'sent', resend_email_id: sent.providerId,
           sent_at: nowIso, recipient_type: 'student', student_id: cand.data.student_id,
-          metadata: { template_key: REFLECTION_TEMPLATE_KEY, period_number: 1, token_hash_prefix: sent.tokenHashPrefix, sent_by_user_id: actorId },
+          metadata: { template_key: REFLECTION_TEMPLATE_KEY, period_number: 1, token_hash_prefix: sent.tokenHashPrefix, sent_by_user_id: actorId,
+            recipient_source: sent.recipientSource, recipient_warning: sent.recipientWarning },
         })
       }
       const ok = sent.outcome === 'sent' || sent.outcome === 'repaired'

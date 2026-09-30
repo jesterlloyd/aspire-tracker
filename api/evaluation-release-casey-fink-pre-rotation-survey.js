@@ -1,3 +1,4 @@
+import { resolveStudentEmail, studentEmailRoutingMetadata } from '../src/lib/notifications/studentEmailLifecycle.js'
 // api/evaluation-release-casey-fink-pre-rotation-survey.js
 //
 // REVIEW-RELEASE-1. Owner/Admin per-student RELEASE for the PRE-rotation Casey-Fink
@@ -20,7 +21,7 @@
 // SECURITY INVARIANTS (unchanged from the model):
 //   - Owner/Admin only (server-verified). A deactivated account is refused first.
 //   - Body accepts ONLY { student_id, expected_instrument_slug }. Any other field is rejected.
-//   - Recipient resolved server-side (personal first, school fallback). No override.
+//   - Recipient resolved server-side (shared lifecycle rule). No override.
 //   - Refusal (not eligible / already released) sends nothing and writes nothing.
 //   - Raw token + survey URL are never persisted.
 //
@@ -103,7 +104,7 @@ function eligibilityReason(row) {
   return REFUSAL_REASON[row?.status] || null;
 }
 
-const STUDENT_COLUMNS = 'id, first_name, last_name, preferred_first_name, school, program_type, cohort_id, status, approved_hours, personal_email, school_email';
+const STUDENT_COLUMNS = 'id, first_name, last_name, preferred_first_name, school, program_type, cohort_id, status, approved_hours, personal_email, school_email, rotation:cohort_school_rotation_id ( rotation_end_date ), residency_outcomes:ngrp_residency_outcomes ( hired_at, separated_at, cs_email )';
 
 async function getCohortEligibility(req, res) {
   const cohortId = typeof req.query?.cohort_id === 'string' ? req.query.cohort_id.trim() : '';
@@ -338,8 +339,8 @@ async function _handler(req, res) {
     }
   }
 
-  // ── 7. Resolve recipient server-side (personal first, school fallback). ──────────
-  const studentEmail = (student.personal_email || '').trim() || (student.school_email || '').trim();
+  // ── 7. Resolve recipient server-side (shared lifecycle rule). ──────────
+  const studentEmail = resolveStudentEmail(student).email;
   const studentName  = `${student.first_name || ''} ${student.last_name || ''}`.trim() || 'the student';
   if (!studentEmail) {
     return res.status(200).json({ success: true, released: false, classification: 'no_email', reason: 'No student email on file' });
@@ -552,6 +553,7 @@ async function _handler(req, res) {
       student_id:        studentId,
       recipient_type:    'student',
       metadata: {
+        ...studentEmailRoutingMetadata(student),
         assignment_id:   assignmentId,
         student_id:      studentId,
         instrument_id:   instrument.id,

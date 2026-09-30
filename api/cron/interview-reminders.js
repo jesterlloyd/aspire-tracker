@@ -1,3 +1,4 @@
+import { resolveStudentEmail, studentEmailRoutingMetadata } from '../../src/lib/notifications/studentEmailLifecycle.js'
 // api/cron/interview-reminders.js
 // Runs daily at 17:00 UTC (9 AM PST / 10 AM PDT) via Vercel Cron.
 // Finds all booked interviews scheduled for TOMORROW in Pacific time and
@@ -68,7 +69,7 @@ export default async function handler(req, res) {
         cohort_id,
         slot_id,
         students:student_id (
-          id, first_name, preferred_first_name, last_name, school_email, personal_email, cohort_id
+          id, first_name, preferred_first_name, last_name, school_email, personal_email, cohort_id, status, rotation:cohort_school_rotation_id ( rotation_end_date ), residency_outcomes:ngrp_residency_outcomes ( hired_at, separated_at, cs_email )
         ),
         slots:slot_id (
           id, slot_date, slot_time, duration_minutes
@@ -123,8 +124,8 @@ export default async function handler(req, res) {
         continue;
       }
 
-      // Prefer school_email; fall back to personal_email
-      const studentEmail = student.school_email || student.personal_email || null;
+      // Shared lifecycle routing; fallback details are recorded in the notification context.
+      const studentEmail = resolveStudentEmail(student).email;
       if (!studentEmail) {
         console.warn(`[interview-reminders] no email for student ${student.id} (session ${session.id})`);
         skipped.push({ id: session.id, reason: 'no_student_email', studentId: student.id });
@@ -142,6 +143,7 @@ export default async function handler(req, res) {
           cohortId:           session.cohort_id,
           firstName:          student.first_name || 'there',
           studentEmail,
+          emailRouting: studentEmailRoutingMetadata(student),
           interviewDate,
           interviewTime,
           cohortName,
@@ -150,6 +152,7 @@ export default async function handler(req, res) {
         fired.push({
           sessionId:    session.id,
           studentEmail,
+          emailRouting: studentEmailRoutingMetadata(student),
           interviewDate,
           interviewTime,
         });

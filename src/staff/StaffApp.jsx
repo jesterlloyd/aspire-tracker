@@ -1,3 +1,4 @@
+import { withStudentEmailContext } from '../lib/studentEmailContext'
 // PORTAL-SPLIT Phase 1 (2026-09-15): the staff app, in its own chunk.
 //
 // MainApp and AuthedShell moved here verbatim from App.jsx, with the imports
@@ -211,6 +212,7 @@ function MainApp({ onLogout }) {
   const searchTimer    = useRef(null)
 
   const [students,  setStudents]  = useState([])
+  const studentLoadSequence = useRef(0)
   const [units,     setUnits]     = useState([])
   const [matches,   setMatches]   = useState([])
   const [interviews, setInterviews] = useState([])
@@ -439,10 +441,12 @@ function MainApp({ onLogout }) {
   }, [activeCohortId])
 
   const fetchStudents  = async id => {
+    const sequence = ++studentLoadSequence.current
     const { data: rows, error } = await supabase
       .from('students')
-      .select('*')
+      .select('*, rotation:cohort_school_rotation_id ( rotation_end_date )')
       .eq('cohort_id', id).order('school').order('name')
+    if (sequence !== studentLoadSequence.current) return
     if (error) { setDbError(error.message); return }
 
     const { data: dispositions } = await supabase
@@ -451,7 +455,15 @@ function MainApp({ onLogout }) {
       .eq('cohort_id', id)
 
     const byStudent = new Map((dispositions || []).map(d => [d.student_id, d]))
-    setStudents(rows.map(s => ({ ...s, active_disposition: byStudent.get(s.id) || null })))
+    try {
+      const routedRows = canEdit ? await withStudentEmailContext(rows) : rows
+      if (sequence !== studentLoadSequence.current) return
+      setStudents(routedRows.map(s => ({ ...s, active_disposition: byStudent.get(s.id) || null })))
+    } catch (err) {
+      if (sequence !== studentLoadSequence.current) return
+      setStudents(rows.map(s => ({ ...s, email_context_loaded: false, active_disposition: byStudent.get(s.id) || null })))
+      toast.error('Email routing unavailable', err.message)
+    }
   }
   const fetchUnits     = async id => {
     const { data } = await supabase.from('units').select('*').eq('cohort_id', id).order('unit_name')

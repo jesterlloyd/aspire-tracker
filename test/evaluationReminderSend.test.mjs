@@ -50,7 +50,8 @@ const assignment = (over = {}) => ({
 const student = (over = {}) => ({
   id: 's-1', first_name: 'Ava', last_name: 'Wong',
   school_email: 'ava@school.example.edu', personal_email: 'ava@personal.example.com',
-  status: 'Completed', ngrp_outcome: 'Pending', ...over,
+  // STUDENT-EMAIL-LIFECYCLE-1: Completed needs a passed canonical end date.
+  status: 'Completed', rotation: { rotation_end_date: '2026-08-01' }, ngrp_outcome: 'Pending', ...over,
 })
 const ledgerRow = (over = {}) => ({ id: 'led-1', assignment_id: 'a-1', reminder_number: 1, ...over })
 
@@ -343,9 +344,9 @@ test('a claim for the wrong reminder number is suppressed rather than sent', asy
 
 test('a recipient we are not allowed to email is suppressed, not guessed at', async () => {
   const w = makeWorld()
-  const r = await run(w, { student: student({ ngrp_outcome: 'Hired' }) })   // no portal account
+  const r = await run(w, { student: student({ personal_email: '', residency_outcomes: [{ hired_at: '2026-08-01', cs_email: null }] }) })
   assert.equal(r.outcome, 'suppressed')
-  assert.equal(r.reason, 'missing_verified_cedars_email')
+  assert.equal(r.reason, 'missing_cedars_or_personal_email')
   assert.equal(w.sends.length, 0)
   assert.equal(w.opsOn('evaluation_assignment_tokens', 'insert').length, 0)
 })
@@ -616,7 +617,7 @@ test('STUDENT CHANGES BETWEEN ATTEMPTS: no changed payload is sent under the old
   assert.equal(first.sends[0].payload.to[0], 'ava@personal.example.com')
 
   for (const [label, changed] of [
-    ['hired, now a Cedars address', student({ ngrp_outcome: 'Hired' })],
+    ['hired, now a Cedars address', student({ residency_outcomes: [{ hired_at: '2026-08-01', cs_email: 'ava@cshs.org' }] })],
     ['address changed', student({ personal_email: 'ava.new@example.com' })],
     ['name changed', student({ first_name: 'Avery' })],
     ['moved onto rotation', student({ status: 'Active Rotation' })],

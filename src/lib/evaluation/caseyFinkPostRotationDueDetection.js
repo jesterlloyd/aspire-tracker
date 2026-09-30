@@ -1,3 +1,4 @@
+import { resolveStudentEmail as resolveLifecycleEmail } from '../notifications/studentEmailLifecycle.js'
 // Pure, READ-ONLY status detection for the post-rotation Casey-Fink Readiness for Practice
 // Survey (slug: casey_fink_readiness_2024, timepoint: post_rotation). Recipient is the STUDENT.
 // This is the certificate-gating workflow: completing it unlocks the Certificate of Completion.
@@ -22,10 +23,6 @@ function num(v) {
   return Number.isFinite(n) ? n : 0
 }
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-function isSafeEmail(v) {
-  return typeof v === 'string' && EMAIL_PATTERN.test(v.trim())
-}
 
 export function caseyFinkAssignmentState(a, nowMs) {
   if (a?.revoked_at || a?.status === 'revoked') return 'revoked'
@@ -49,11 +46,9 @@ const STATE_PRECEDENCE = {
 // assignmentReissue.js, where every workflow reads it; this name is kept for its callers.
 export const isCaseyFinkReissuableAssignment = isReissuableAssignment
 
-function resolveStudentEmail(student) {
-  const personal = (student?.personal_email || '').trim()
-  const school = (student?.school_email || '').trim()
-  const email = personal || school
-  return { email, sendable: isSafeEmail(email) }
+function resolveStudentEmail(student, nowMs) {
+  const route = resolveLifecycleEmail(student, undefined, { now: nowMs })
+  return { ...route, email: route.email || '', sendable: !!route.email }
 }
 
 // Classify one cohort. All inputs are already loaded; this function does no I/O.
@@ -133,7 +128,7 @@ export function classifyCaseyFinkPostRotationCohort({
     else if (required <= 0) status = 'not_eligible_hours'
     else status = 'not_eligible'
 
-    const recipient = resolveStudentEmail(s)
+    const recipient = resolveStudentEmail(s, nowMs)
 
     if (status === 'certificate_unlocked' || status === 'readiness_completed' || status === 'readiness_released') {
       summary.suppressed_existing += 1
@@ -162,7 +157,7 @@ export function classifyCaseyFinkPostRotationCohort({
     const unit = (s.matched_unit_name || '').trim()
     const meta = shiftMeta.get(s.id) || null
 
-    const warnings = []
+    const warnings = recipient.warning ? [recipient.warning] : []
     if (blocked) {
       if (required <= 0) warnings.push('Required hours not set')
       else warnings.push(`Required hours not met (${Number.isInteger(approved) ? approved : approved.toFixed(2)} of ${Number.isInteger(required) ? required : required.toFixed(2)})`)
@@ -189,6 +184,7 @@ export function classifyCaseyFinkPostRotationCohort({
       reissue: status === 'readiness_reissue' ? { assignmentId: asg.id, state: reissueReason(asg) } : null,
       certificateNumber: cert?.certificate_number || null,
       studentEmail: recipient.email,
+      recipientWarning: recipient.warning,
       sendable: recipient.sendable,
       warnings,
       blocked,

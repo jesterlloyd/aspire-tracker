@@ -484,7 +484,7 @@ test('every students column the loader and the endpoint select is one production
   assert.ok(known.has('status') && known.has('approved_hours'), 'the guard itself sees the real columns')
   assert.ok(!known.has('aspire_status'), 'no production select names students.aspire_status')
   const loader = read('src/lib/evaluation/reviewQueueLoaders.js').match(/const STUDENT_COLUMNS = \[([\s\S]*?)\]\.join/)[1].match(/'([a-z_]+)'/g).map(x => x.slice(1, -1))
-  const endpoint = read('api/evaluation-release-casey-fink-pre-rotation-survey.js').match(/const STUDENT_COLUMNS = '([^']+)'/)[1].split(',').map(x => x.trim())
+  const endpoint = read('api/evaluation-release-casey-fink-pre-rotation-survey.js').match(/const STUDENT_COLUMNS = '([^']+)'/)[1].replace(/\w+:\w+\s*\([^)]*\)/g, '').split(',').map(x => x.trim()).filter(Boolean)
   for (const c of [...loader, ...endpoint]) assert.ok(known.has(c), `students.${c} is selected nowhere else in production code`)
 })
 

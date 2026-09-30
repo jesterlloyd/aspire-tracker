@@ -1,3 +1,4 @@
+import { resolveStudentEmail } from '../src/lib/notifications/studentEmailLifecycle.js'
 // api/ngrp-transition.js
 //
 // NGRP-RELEASE-2: the PUBLIC Transition Form endpoint. Alumni reach it from
@@ -102,7 +103,7 @@ export default async function handler(req, res) {
 
       // Prefill identity from the canonical student row (their own record).
       const stu = await supabaseAdmin.from('students')
-        .select('first_name, last_name, preferred_first_name, name, school, program_type, aspire_cohort, school_email, personal_email')
+        .select('first_name, last_name, preferred_first_name, name, school, program_type, aspire_cohort, school_email, personal_email, status, rotation:cohort_school_rotation_id ( rotation_end_date ), residency_outcomes:ngrp_residency_outcomes ( hired_at, separated_at, cs_email )')
         .eq('id', candidate.student_id).maybeSingle()
       if (stu.error || !stu.data) return res.status(500).json({ error: 'Internal error' })
 
@@ -129,7 +130,7 @@ export default async function handler(req, res) {
         school: stu.data.school || '',
         program: stu.data.program_type || '',
         aspireCohort: stu.data.aspire_cohort || '',
-        suggestedEmail: (stu.data.school_email || stu.data.personal_email || '').trim(),
+        suggestedEmail: resolveStudentEmail(stu.data).email,
         cycleName: cycle.name,
         closeAt: effectiveFormClose(cycle, assignment),
         units: activeUnitNames,

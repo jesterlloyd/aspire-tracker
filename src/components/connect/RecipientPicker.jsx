@@ -1,3 +1,4 @@
+import { resolveStudentEmail } from '../../lib/notifications/studentEmailLifecycle.js'
 // src/components/connect/RecipientPicker.jsx
 // Phase 1 - Outreach "Send to one recipient" picker.
 //
@@ -48,7 +49,7 @@ function initials(name) {
 }
 
 function studentEmail(s) {
-  return s?.personal_email || s?.school_email || null
+  return resolveStudentEmail(s).email
 }
 
 /**

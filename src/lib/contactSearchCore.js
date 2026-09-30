@@ -1,3 +1,4 @@
+import { resolveStudentEmail } from './notifications/studentEmailLifecycle.js'
 // ASPIRE-PORTAL-CONTACTS: pure, dependency-free helpers for the shared Contacts
 // search (no React, no Supabase import), so both the browser modules and the
 // Node tests import the same logic. src/lib/contactSearch.js re-exports these
@@ -142,5 +143,5 @@ export function inferPortalRoleFromContact(contact) {
 // Returns null when none is available (the caller then requires manual entry).
 export function bestStudentLoginEmail(student, contactEmail) {
   const pick = (v) => (v && String(v).trim()) ? String(v).trim() : null
-  return pick(contactEmail) || pick(student?.school_email) || pick(student?.personal_email) || null
+  return pick(contactEmail) || resolveStudentEmail(student).email || null
 }

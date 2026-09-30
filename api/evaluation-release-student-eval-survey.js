@@ -1,3 +1,4 @@
+import { resolveStudentEmail, studentEmailRoutingMetadata } from '../src/lib/notifications/studentEmailLifecycle.js'
 // api/evaluation-release-student-eval-survey.js
 //
 // SR-2b-2 - Owner/Admin per-student RELEASE for the Student Evaluation of Preceptor/Unit
@@ -6,7 +7,7 @@
 //
 // The queue is live-computed from the SR-2b-1 detector. This endpoint re-runs that detector
 // for ONE student at release time and proceeds ONLY if still due_sendable. The recipient is
-// the STUDENT (personal_email first, school_email fallback) - there is no recipient override.
+// the STUDENT (shared lifecycle rule) - there is no recipient override.
 // The preceptor/unit is the evaluated_target (context only); it is resolved for display by
 // the SR-2a token-validate endpoint from the student's record and is NEVER written to
 // respondent_preceptor_id (which stays NULL for student surveys).
@@ -163,7 +164,7 @@ async function _handler(req, res) {
   // ── 4. Load detection inputs for THIS student (read-only) and re-run SR-2b-1. ────
   const { data: student, error: studentErr } = await supabaseAdmin
     .from('students')
-    .select('id, first_name, last_name, preferred_first_name, school, program_type, cohort_id, approved_hours, hours_required, personal_email, school_email, preceptor_id, matched_preceptor')
+    .select('id, first_name, last_name, preferred_first_name, school, program_type, cohort_id, approved_hours, hours_required, personal_email, school_email, preceptor_id, matched_preceptor, status, rotation:cohort_school_rotation_id ( rotation_end_date ), residency_outcomes:ngrp_residency_outcomes ( hired_at, separated_at, cs_email )')
     .eq('id', studentId)
     .single();
   if (studentErr || !student) {
@@ -260,8 +261,8 @@ async function _handler(req, res) {
     }
   }
 
-  // ── 7. Resolve recipient server-side (personal first, school fallback). ──────────
-  const studentEmail = (student.personal_email || '').trim() || (student.school_email || '').trim();
+  // ── 7. Resolve recipient server-side (shared lifecycle rule). ──────────
+  const studentEmail = resolveStudentEmail(student).email;
   const studentName  = `${student.first_name || ''} ${student.last_name || ''}`.trim() || 'the student';
   // Detector already guaranteed a valid email for due_sendable; guard defensively.
   if (!studentEmail) {
@@ -411,6 +412,7 @@ async function _handler(req, res) {
       student_id:        studentId,
       recipient_type:    'student',
       metadata: {
+        ...studentEmailRoutingMetadata(student),
         assignment_id:   assignmentId,
         student_id:      studentId,
         instrument_id:   instrument.id,

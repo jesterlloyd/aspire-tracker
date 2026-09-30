@@ -213,7 +213,8 @@ test('the To line never reuses a previous recipient preview', () => {
   const outreach = read('src/components/connect/OutreachView.jsx')
 
   assert.match(outreach, /dmPreview\.recipientKey === draftRecipientId \? dmPreview\.recipient\?\.email : ''/)
-  assert.match(outreach, /fetchedStudent\?\.id === studentId \? fetchedStudent\.school_email : ''/)
+  // STUDENT-EMAIL-LIFECYCLE-1: retain the identity guard around the full routing context.
+  assert.match(outreach, /fetchedStudent\?\.id === studentId && fetchedStudent\.email_context_loaded \? fetchedStudent : effectiveStudent/)
   assert.match(outreach, /fetchedContact\?\.id === contactId \? fetchedContact\.email : ''/)
   assert.match(outreach, /const previewRecipientKey = `\$\{recipientType\}:\$\{rid\}`/)
   assert.match(outreach, /if \(!rid \|\| !msgBody\.trim\(\)\) \{\s*setDmPreview\(\{ recipientKey: null, html: '', recipient: null,/)

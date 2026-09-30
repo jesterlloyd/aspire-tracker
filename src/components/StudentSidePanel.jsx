@@ -1,3 +1,4 @@
+import { resolveStudentEmail } from '../lib/notifications/studentEmailLifecycle.js'
 import { useState, useRef, useCallback, useEffect, createContext, useContext } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ProfileActionButton from './ui/ProfileActionButton'
@@ -1308,17 +1309,17 @@ export default function StudentSidePanel({
                         { state: { fromStudent: {
                             id:    data.id,
                             name:  `${data.first_name || ''} ${data.last_name || ''}`.trim(),
-                            // CONNECT-COMMS-1B: active ASPIRE correspondence is school-first.
+                            // STUDENT-EMAIL-LIFECYCLE-1: use the shared automatic recipient.
                             // Keep both sources available so Outreach can apply the shared
-                            // resolver and show a warning when personal email is only a fallback.
-                            email:          data.school_email || data.personal_email || null,
+                            // resolver and report any fallback.
+                            email:          resolveStudentEmail(data).email,
                             school_email:   data.school_email || null,
                             personal_email: data.personal_email || null,
                             school: data.school || null,
                           }
                         }}
                       )}
-                      disabled={!data.personal_email && !data.school_email}
+                      disabled={!resolveStudentEmail(data).email}
                       disabledReason="No email on file"
                     />
                     <ProfileActionButton

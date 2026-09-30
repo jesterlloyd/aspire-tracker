@@ -181,6 +181,8 @@ function RowMetadata({ row }) {
     <>
       <MetaRow k="Recipient email" v={row.recipient_email} />
       <MetaRow k="Recipient type" v={row.recipient_type || 'internal/system'} />
+      <MetaRow k="Email source" v={m.email_source || m.recipient_source || m.recipient_route || ctx?.emailRouting?.recipient_source} />
+      <MetaRow k="Email routing note" v={m.recipient_warning || ctx?.emailRouting?.recipient_warning} />
       <MetaRow k="Status" v={row.status} />
       <MetaRow k="Sent at" v={formatSentAt(row.sent_at)} />
       <AttachmentsRow attachments={m.attachments} />

@@ -1,3 +1,4 @@
+import { withStudentEmailContext } from '../../lib/studentEmailContext'
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useLocation, useSearchParams, useNavigate } from 'react-router-dom'
@@ -44,7 +45,7 @@ import { SURVEY_NAMES } from '../../lib/evaluation/surveyNames.js'
 
 const F = 'Plus Jakarta Sans, sans-serif'
 const POST_ROTATION_ROUTE = RELEASE_ROUTES.caseyFinkPostRotation
-const postRotationStudentEmail = student => (student?.personal_email || '').trim() || (student?.school_email || '').trim()
+const postRotationStudentEmail = student => resolveStudentCorrespondenceRecipient(student).email || ''
 
 // Canonical default body for the editable Survey Invitation draft (Send-to-One).
 // Mirrors the fixed intro paragraph the server template falls back to when no
@@ -847,17 +848,23 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
   // ── Fetch students ────────────────────────────────────────────────────────
   useEffect(() => {
     if (!cohortId) return
+    let cancelled = false
+    setStudents([])
     setLoadingStudents(true)
     supabase
       .from('students')
-      .select('id, first_name, last_name, preferred_first_name, school, school_email, personal_email, status, approved_hours, hours_required, pending_hours, school_coordinator_email, school_coordinator_name')
+      .select('id, first_name, last_name, preferred_first_name, school, school_email, personal_email, status, approved_hours, hours_required, pending_hours, school_coordinator_email, school_coordinator_name, rotation:cohort_school_rotation_id ( rotation_end_date )')
       .eq('cohort_id', cohortId)
       .order('last_name')
       .order('first_name')
-      .then(({ data }) => {
-        setStudents(data || [])
-        setLoadingStudents(false)
+      .then(async ({ data, error }) => {
+        if (error) throw error
+        const routed = await withStudentEmailContext(data || [])
+        if (!cancelled) setStudents(routed)
       })
+      .catch(() => { if (!cancelled) toast?.error('Students unavailable', 'Student email routing could not be loaded. Refresh and try again.') })
+      .finally(() => { if (!cancelled) setLoadingStudents(false) })
+    return () => { cancelled = true }
   }, [cohortId, refreshKey]) // refreshKey triggers re-fetch on Connect refresh
 
   // Post-Rotation eligibility comes from the same guarded endpoint used to release the survey.
@@ -1076,7 +1083,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
     if (!studentId) { setFetchedStudent(null); setStudentFetchFailed(false); return }
     if (fetchedStudent?.id === studentId) return
 
-    if (studentHasDisplayInfo) {
+    if (studentHasDisplayInfo && effectiveStudent?.email_context_loaded) {
       // Display info already available from router state.
       // Lightweight headshot-only fetch so the profile card can show the student photo.
       supabase
@@ -1090,17 +1097,23 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
       return
     }
 
+    let cancelled = false
     setFetchedStudent(null)
     setStudentFetchFailed(false)
     supabase
       .from('students')
-      .select('id, first_name, last_name, preferred_first_name, personal_email, school_email, school, headshot_url, school_coordinator_email, school_coordinator_name')
+      .select('id, first_name, last_name, preferred_first_name, personal_email, school_email, school, headshot_url, school_coordinator_email, school_coordinator_name, status, rotation:cohort_school_rotation_id ( rotation_end_date )')
       .eq('id', studentId)
       .single()
-      .then(({ data }) => {
-        if (data) setFetchedStudent(data)
+      .then(async ({ data, error }) => {
+        if (error) throw error
+        const routed = data ? (await withStudentEmailContext([data]))[0] : null
+        if (cancelled) return
+        if (routed) setFetchedStudent(routed)
         else setStudentFetchFailed(true)
       })
+      .catch(() => { if (!cancelled) setStudentFetchFailed(true) })
+    return () => { cancelled = true }
   }, [studentId, studentHasDisplayInfo]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Fetch full contact record for the rich profile card ──────────────────
@@ -1286,7 +1299,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
 
   const selectedStudent  = students.find(s => s.id === selectedStudentId) || null
   // Delivery email mirrors the canonical server resolver used by the survey send
-  // (resolveStudentCorrespondenceRecipient = school-first), so the displayed address always matches
+  // (resolveStudentCorrespondenceRecipient = lifecycle-based), so the displayed address always matches
   // the address the send will actually use. No email-type pill is shown.
   const resolvedEmail    = selectedStudent
     ? (timepoint === 'post_rotation'
@@ -1873,6 +1886,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
         body: JSON.stringify({
           cohortId,
           studentIds: bulkSelectedIds,
+          email_source: bulkFilterEmail,
           timepoint:  bulkTimepoint,
           expiresAt:  bulkExpiresAt,
           notes:      bulkNotes.trim() || undefined,
@@ -1908,7 +1922,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
     } finally {
       setBulkGenerating(false)
     }
-  }, [bulkReviewReady, bulkGenerating, bulkSelectedIds, cohortId, bulkTimepoint, bulkExpiresAt, bulkNotes, isPostRotationBulk, bulkSendPhrase, students])
+  }, [bulkReviewReady, bulkGenerating, bulkSelectedIds, cohortId, bulkTimepoint, bulkExpiresAt, bulkNotes, isPostRotationBulk, bulkSendPhrase, students, bulkFilterEmail])
 
   const handleBulkCopyUrl = useCallback((assignmentId, url) => {
     navigator.clipboard.writeText(url).then(() => {
@@ -2152,16 +2166,11 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
     }
   }, [singleSendInFlight, surveyResult, surveyDraftSubject, surveyDraftBody, isPostRotationSingle, selectedStudent])
 
-  // CONNECT-COMMS-1F: the server-resolved primary To (preferred), falling back to the school-first
+  // CONNECT-COMMS-1F: the server-resolved primary To (preferred), falling back to the lifecycle-based
   // client approximation, then a contact's email. Used to drop CC==To and to exclude it from
   // autocomplete suggestions. The server still enforces this authoritatively.
   const currentRecipientEmail = recipientType === 'student'
-    ? (effectiveStudent?.school_email
-      || (fetchedStudent?.id === studentId ? fetchedStudent.school_email : '')
-      || effectiveStudent?.personal_email
-      || (fetchedStudent?.id === studentId ? fetchedStudent.personal_email : '')
-      || effectiveStudent?.email
-      || '')
+    ? (resolveStudentCorrespondenceRecipient(fetchedStudent?.id === studentId && fetchedStudent.email_context_loaded ? fetchedStudent : effectiveStudent).email || '')
     : recipientType === 'contact'
       ? (fromContact?.email || (fetchedContact?.id === contactId ? fetchedContact.email : '') || '')
       : ''
@@ -2265,7 +2274,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
   // ── CONNECT-COMMS-1B: debounced true-preview fetch ────────────────────────
   // Calls the send endpoint in preview:true mode (no send, no log) so the inline preview and the
   // confirmation modal render the EXACT branded HTML that will be sent, and show the server's
-  // school-first resolved recipient. Debounced so it does not fire per keystroke.
+  // lifecycle-based resolved recipient. Debounced so it does not fire per keystroke.
   useEffect(() => {
     if (outreachMode !== 'message' || !recipientType) {
       setDmPreview({ recipientKey: null, html: '', recipient: null, cc: [], signature: null, attachments: [], loading: false, error: null })
@@ -2332,7 +2341,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
   // The clinical coordinator's email is sourced from fetchedStudent (the navigation state in
   // fromStudent does not carry coordinator fields). We pre-fill exactly ONE removable chip when:
   // a student recipient is loaded, the coordinator email is valid, and it is not the same address
-  // we'd send To (school-first). Re-runs only when the recipient or coordinator email changes -
+  // we'd send To (lifecycle-based). Re-runs only when the recipient or coordinator email changes -
   // so manual chip edits are preserved, and a removed coordinator chip is not re-added.
   const coordEmail = (fetchedStudent?.id === studentId ? (fetchedStudent?.school_coordinator_email || '') : '').trim()
   const coordName  = (fetchedStudent?.id === studentId ? (fetchedStudent?.school_coordinator_name  || '') : '').trim()
@@ -2343,10 +2352,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
     setCcInput('')
     setCcInputError(null)
     if (recipientType === 'student' && coordEmail && isValidEmail(coordEmail)) {
-      const toApprox = (
-        effectiveStudent?.school_email || fetchedStudent?.school_email ||
-        effectiveStudent?.personal_email || fetchedStudent?.personal_email || ''
-      ).trim().toLowerCase()
+      const toApprox = (resolveStudentCorrespondenceRecipient(fetchedStudent?.id === studentId && fetchedStudent.email_context_loaded ? fetchedStudent : effectiveStudent).email || '').toLowerCase()
       if (coordEmail.toLowerCase() !== toApprox) {
         setCcList([coordEmail])
         setCcAutoSuggested(true)
@@ -2579,6 +2585,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
         assignment_id: g.assignmentId,
         student_id:    g.studentId || g.student_id,
         survey_url:    g.surveyUrl,
+        ...(g.emailSource ? { email_source: g.emailSource } : {}),
       })
       const batches = chunkArray(eligibleItems, SEND_CHUNK_SIZE)
       const acc = { sent: [], skipped: [], failed: [] }
@@ -3294,9 +3301,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
 
                   {(() => {
                     const hasContactRecipient = !!(contactId && contactHasDisplayInfo && fromContact?.email)
-                    const studentEmail = effectiveStudent?.school_email || fetchedStudent?.school_email
-                                         || effectiveStudent?.personal_email || fetchedStudent?.personal_email
-                                         || effectiveStudent?.email
+                    const studentEmail = currentRecipientEmail
                     const hasStudentRecipient = !!(studentId && studentEmail)
                     const hasRecipient = hasContactRecipient || hasStudentRecipient
                     const hasSubject   = !!msgSubject.trim()
@@ -3420,7 +3425,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
             )}
 
             {/* CONNECT-COMMS-1B: branded "Email Preview" - exact server-rendered HTML from the same
-                renderer/endpoint used to send, plus the server-resolved (school-first) recipient. */}
+                renderer/endpoint used to send, plus the server-resolved (lifecycle-based) recipient. */}
             {dmConfirmOpen && (
             <div className="outreach-email-preview-pane">
             <ConnectPanel
@@ -3779,6 +3784,9 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
                 <ConnectPanel tone="preview" title="Email Preview" style={{ marginTop: 14 }}>
                   <div style={{ fontSize: 12, color: '#374151', fontFamily: F, margin: '2px 0 10px' }}>
                     To: <strong>{resolvedEmail || '-'}</strong>
+                    {selectedStudent && resolveStudentCorrespondenceRecipient(selectedStudent).warning && (
+                      <div role="status">{resolveStudentCorrespondenceRecipient(selectedStudent).warning}</div>
+                    )}
                   </div>
                   <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
                     {surveyPreviewHtml ? (
@@ -4703,7 +4711,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
                       {s.last_name}, {s.first_name}
                     </div>
                     <div style={{ fontSize: 10, color: '#6b7280', marginTop: 1 }}>
-                      {(isPostRotationBulk ? postRotationStudentEmail(s) : (s.personal_email || s.school_email))} · {s.school} · {s.status}
+                      {(isPostRotationBulk ? postRotationStudentEmail(s) : studentEmailForSource(s, bulkFilterEmail))} · {s.school} · {s.status}
                     </div>
                   </div>
                 </div>
@@ -4821,7 +4829,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
                 style={{ background: 'none', border: 'none', cursor: dmSendInFlight ? 'not-allowed' : 'pointer', fontSize: 20, color: '#9ca3af', lineHeight: 1, padding: '2px 6px' }}>×</button>
             </div>
 
-            {/* Recipient + source - server-resolved (school-first for students). Fixes the prior
+            {/* Recipient + source - server-resolved (lifecycle-based for students). Fixes the prior
                 gap where a student recipient's email did not appear in this modal. */}
             <div style={{ padding: '10px 14px', marginBottom: 14, background: '#EEF2FB', border: '1px solid #c3cdf0', borderRadius: 8 }}>
               {(() => {

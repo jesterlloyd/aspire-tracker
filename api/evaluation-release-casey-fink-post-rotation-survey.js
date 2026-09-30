@@ -1,3 +1,4 @@
+import { resolveStudentEmail, studentEmailRoutingMetadata } from '../src/lib/notifications/studentEmailLifecycle.js'
 // api/evaluation-release-casey-fink-post-rotation-survey.js
 //
 // Owner/Admin per-student RELEASE for the Casey-Fink Readiness for Practice (Post-Rotation)
@@ -9,7 +10,7 @@
 // SECURITY INVARIANTS:
 //   - Owner/Admin only (server-verified).
 //   - Body accepts ONLY { student_id, expected_instrument_slug }. Any other field is rejected.
-//   - Recipient resolved server-side (personal first, school fallback). No override.
+//   - Recipient resolved server-side (shared lifecycle rule). No override.
 //   - Refusal (not eligible / already released) sends nothing and writes nothing.
 //   - Raw token + survey URL are never persisted.
 //   - No certificate row, certificate number, or PDF is created here.
@@ -102,7 +103,7 @@ async function getCohortEligibility(req, res) {
   const [studentResult, assignmentResult] = await Promise.all([
     supabaseAdmin
       .from('students')
-      .select('id, first_name, last_name, preferred_first_name, school, program_type, approved_hours, hours_required, pending_hours, personal_email, school_email')
+      .select('id, first_name, last_name, preferred_first_name, school, program_type, approved_hours, hours_required, pending_hours, personal_email, school_email, status, rotation:cohort_school_rotation_id ( rotation_end_date ), residency_outcomes:ngrp_residency_outcomes ( hired_at, separated_at, cs_email )')
       .eq('cohort_id', cohortId),
     supabaseAdmin
       .from('evaluation_assignments')
@@ -273,7 +274,7 @@ async function _handler(req, res) {
   // ── 4. Load the student and re-run the post-rotation Casey-Fink detector. ────────
   const { data: student, error: studentErr } = await supabaseAdmin
     .from('students')
-    .select('id, first_name, last_name, preferred_first_name, school, program_type, cohort_id, approved_hours, hours_required, pending_hours, personal_email, school_email')
+    .select('id, first_name, last_name, preferred_first_name, school, program_type, cohort_id, approved_hours, hours_required, pending_hours, personal_email, school_email, status, rotation:cohort_school_rotation_id ( rotation_end_date ), residency_outcomes:ngrp_residency_outcomes ( hired_at, separated_at, cs_email )')
     .eq('id', studentId)
     .single();
   if (studentErr || !student) {
@@ -393,8 +394,8 @@ async function _handler(req, res) {
     }
   }
 
-  // ── 7. Resolve recipient server-side (personal first, school fallback). ──────────
-  const studentEmail = (student.personal_email || '').trim() || (student.school_email || '').trim();
+  // ── 7. Resolve recipient server-side (shared lifecycle rule). ──────────
+  const studentEmail = resolveStudentEmail(student).email;
   const studentName  = `${student.first_name || ''} ${student.last_name || ''}`.trim() || 'the student';
   if (!studentEmail) {
     return res.status(200).json({ success: true, released: false, classification: 'no_email', reason: 'No student email on file' });
@@ -612,6 +613,7 @@ async function _handler(req, res) {
       student_id:        studentId,
       recipient_type:    'student',
       metadata: {
+        ...studentEmailRoutingMetadata(student),
         assignment_id:   assignmentId,
         student_id:      studentId,
         instrument_id:   instrument.id,

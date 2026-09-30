@@ -244,7 +244,7 @@ export default function CatalogSendModal({ item, ctx, contactsLoading, onClose, 
               </div>
               {showPeople && (
                 <ul className="ctl-people-review">
-                  {people.map(p => <li key={p.email}><span>{p.name || p.email}</span><small>{p.email}</small></li>)}
+                  {people.map(p => <li key={p.email}><span>{p.name || p.email}</span><small>{p.email}{p.recipientWarning && <><br />{p.recipientWarning}</>}</small></li>)}
                 </ul>
               )}
             </div>

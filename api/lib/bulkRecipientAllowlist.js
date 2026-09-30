@@ -31,6 +31,7 @@
 // negative control (removing the guard) is provable.
 
 import { isValidEmail } from '../../src/lib/notifications/studentRecipient.js';
+import { resolveStudentEmail } from '../../src/lib/notifications/studentEmailLifecycle.js';
 import { normalizeEmailForLookup } from '../../src/lib/emailUtils.js';
 
 export const NOT_PROCEEDING_STATUS = 'Not Proceeding';
@@ -75,17 +76,21 @@ export async function validateBulkRecipients({ db, recipients, batchId }) {
     let emailSource   = null;   // students only: 'school' | 'personal'
     let recipientId   = null;
     let recipientName = String(r.name || '').trim() || null;
+    let recipientWarning = null;
 
     if (source === 'student') {
       if (!isUuid(r.studentId)) { rejected.push({ ...label, reason: 'invalid_student_id' }); continue; }
       const { data: student, error: sErr } = await db
         .from('students')
-        .select('id, first_name, preferred_first_name, last_name, personal_email, school_email, status')
+        .select('id, first_name, preferred_first_name, last_name, personal_email, school_email, status' +
+          (r.automaticEmail === true ? ', rotation:cohort_school_rotation_id ( rotation_end_date ), residency_outcomes:ngrp_residency_outcomes ( hired_at, separated_at, cs_email )' : ''))
         .eq('id', r.studentId)
         .single();
       if (sErr || !student) { rejected.push({ ...label, reason: 'student_not_found' }); continue; }
-      emailSource = r.emailType === 'personal' ? 'personal' : 'school';
-      const ownedEmail = emailSource === 'personal' ? student.personal_email : student.school_email;
+      const automaticRoute = r.automaticEmail === true ? resolveStudentEmail(student) : null;
+      emailSource = automaticRoute ? automaticRoute.type : (r.emailType === 'personal' ? 'personal' : 'school');
+      recipientWarning = automaticRoute?.warning || null;
+      const ownedEmail = automaticRoute ? automaticRoute.email : (emailSource === 'personal' ? student.personal_email : student.school_email);
       if (!ownedEmail || normalizeEmailForLookup(String(ownedEmail).trim()) !== normEmail) {
         rejected.push({ ...label, reason: 'email_mismatch' }); continue;
       }
@@ -127,6 +132,7 @@ export async function validateBulkRecipients({ db, recipients, batchId }) {
     seenNorm.add(normEmail);
     cleared.push({
       index, source, rawEmail, normEmail, recipientId, recipientName, emailSource,
+      ...(recipientWarning ? { recipientWarning } : {}),
       firstName: String(r.firstName || '').trim() || null,
       school:    String(r.school || '').trim() || null,
     });

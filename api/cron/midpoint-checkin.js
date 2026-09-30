@@ -1,3 +1,4 @@
+import { resolveStudentEmail, studentEmailRoutingMetadata } from '../../src/lib/notifications/studentEmailLifecycle.js'
 // api/cron/midpoint-checkin.js
 // Runs daily at 15:00 UTC (8 AM PDT / 7 AM PST) via Vercel Cron.
 // Finds Active Rotation students who have reached ≥50% of their required hours
@@ -57,7 +58,7 @@ export default async function handler(req, res) {
     // Fetch Active Rotation students in enabled cohorts
     const { data: students, error: studentsErr } = await supabase
       .from('students')
-      .select('id, first_name, preferred_first_name, last_name, school_email, personal_email, cohort_id, approved_hours, hours_required, matched_unit_id')
+      .select('id, first_name, preferred_first_name, last_name, school_email, personal_email, cohort_id, approved_hours, hours_required, matched_unit_id, status, rotation:cohort_school_rotation_id ( rotation_end_date ), residency_outcomes:ngrp_residency_outcomes ( hired_at, separated_at, cs_email )')
       .in('cohort_id', cohortIds)
       .eq('status', 'Active Rotation');
 
@@ -115,7 +116,7 @@ export default async function handler(req, res) {
         continue;
       }
 
-      const studentEmail = student.school_email || student.personal_email || null;
+      const studentEmail = resolveStudentEmail(student).email;
       if (!studentEmail) {
         console.warn(`[midpoint-checkin] no email for student ${student.id}`);
         skipped.push({ id: student.id, reason: 'no_email' });
@@ -130,6 +131,7 @@ export default async function handler(req, res) {
           cohortId:      student.cohort_id,
           firstName:     student.first_name || 'there',
           studentEmail,
+          emailRouting: studentEmailRoutingMetadata(student),
           approvedHours: completed,
           hoursRequired: required,
           unitName,

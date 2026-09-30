@@ -3265,6 +3265,19 @@ button.ir-wl-th { background: transparent; border: 0; text-align: left; cursor: 
    ================================================================ */
 
 /* ── Student Profiles tab ───────────────────────────────────────── */
+.profiles-copy-contact {
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--border-input);
+  border-radius: var(--aspire-radius-control);
+  font: inherit;
+  font-size: 12px;
+  background: var(--bg-input);
+  color: var(--text-body);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.profiles-copy-contact:disabled { opacity: 0.5; cursor: default; }
 [data-theme="dark"] .student-profiles-tab,
 [data-theme="dark"] .profiles-full-container {
   background: var(--color-bg-page); color: var(--color-text-primary);

@@ -231,7 +231,7 @@ function resolveMidpointCheckin(context) {
   }];
 }
 
-// STUDENT-BIRTHDAY-GREETING-1: the cron resolves school_email->personal_email and passes the
+// STUDENT-BIRTHDAY-GREETING-1: the cron applies the shared student lifecycle rule and passes the
 // chosen address as context.studentEmail. One student recipient, exactly like the midpoint and
 // clockout resolvers. The context deliberately carries no date of birth.
 function resolveBirthdayGreeting(context) {
@@ -265,7 +265,7 @@ function resolveCohortAccessRetirement(context) {
   }];
 }
 
-// CLOCKOUT-NUDGE-LIVE-1: the cron resolves personal_email->school_email and passes the chosen
+// CLOCKOUT-NUDGE-LIVE-1: the cron applies the shared student lifecycle rule and passes the chosen
 // address as context.studentEmail; this returns that single student recipient.
 function resolveClockoutReminder(context) {
   if (!context.studentEmail) {

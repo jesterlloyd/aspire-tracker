@@ -1,3 +1,4 @@
+import { withStudentEmailContext } from '../studentEmailContext'
 // src/lib/evaluation/reviewQueueLoaders.js
 //
 // REVIEW-RELEASE-1: the data each workflow's queue needs, loaded the way its panel loaded
@@ -20,6 +21,7 @@ import { postNgrpSupport } from '../ngrp/useNgrpData'
 const STUDENT_COLUMNS = [
   'id', 'first_name', 'last_name', 'preferred_first_name', 'school', 'program_type',
   'matched_unit_id', 'status', 'approved_hours', 'hours_required', 'pending_hours',
+  'rotation:cohort_school_rotation_id ( rotation_end_date )',
   'personal_email', 'school_email', 'preceptor_id', 'preceptor_email', 'matched_preceptor',
 ].join(', ')
 
@@ -64,7 +66,7 @@ export async function loadCohortEvidence(cohortId) {
   if (pRes.error) throw pRes.error
 
   const unitNameById = new Map((uRes.data || []).map(u => [u.id, u.unit_name]))
-  const students = (sRes.data || []).map(s => ({
+  const students = (await withStudentEmailContext(sRes.data || [])).map(s => ({
     ...s,
     matched_unit_name: unitNameById.get(s.matched_unit_id) || '',
   }))

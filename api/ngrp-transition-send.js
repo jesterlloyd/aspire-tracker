@@ -61,7 +61,7 @@ async function resolveSelection(db, cycle, studentIds) {
   const cohortIds = (maps.data || []).map(m => m.cohort_id)
   if (!cohortIds.length) return { students: [], outOfScope: studentIds }
   const rows = await db.from('students')
-    .select('id, cohort_id, first_name, last_name, preferred_first_name, name, school, program_type, aspire_cohort, status, school_email, personal_email, headshot_url, updated_at')
+    .select('id, cohort_id, first_name, last_name, preferred_first_name, name, school, program_type, aspire_cohort, status, school_email, personal_email, headshot_url, updated_at, rotation:cohort_school_rotation_id ( rotation_end_date ), residency_outcomes:ngrp_residency_outcomes ( hired_at, separated_at, cs_email )')
     .in('id', studentIds)
     .in('cohort_id', cohortIds)
   if (rows.error) return { error: rows.error }
@@ -69,12 +69,9 @@ async function resolveSelection(db, cycle, studentIds) {
   return {
     students: (rows.data || []).map(r => ({
       ...sanitizeStudent(r),
-      // SCHOOL-FIRST WAS WRONG HERE. The Transition Form reaches an alumnus weeks or
-      // months after graduation, when a school address is often already closed. The
-      // canon in src/lib/studentBulkEmail.js routes anyone outside Active Rotation to
-      // their personal address and falls back to school only when no personal one is on
-      // file; this endpoint was the one send that contradicted it.
       email: getStudentBulkEmailRoute(r).email || null,
+      recipientWarning: getStudentBulkEmailRoute(r).warning,
+      recipientSource: getStudentBulkEmailRoute(r).emailType,
     })),
     outOfScope: studentIds.filter(id => !found.has(id)),
   }
@@ -268,6 +265,9 @@ export default async function handler(req, res) {
       batchId,
     })
     for (const w of outcome.warnings || []) results.warnings.push(w)
+    if (student.recipientWarning && ['sent', 'resent'].includes(outcome.outcome)) {
+      results.warnings.push({ student_id: student.id, warning: student.recipientWarning })
+    }
 
     if (outcome.outcome === 'skipped') {
       results.skipped.push({ student_id: student.id, reason: outcome.reason })
@@ -319,6 +319,8 @@ export default async function handler(req, res) {
         template_label: 'NGRP Transition Form Invitation',
         cycle_id: cycle.id,
         cycle_name: cycle.name,
+        recipient_warning: student.recipientWarning,
+        recipient_source: student.recipientSource,
         recipient_email_norm: String(student.email).trim().toLowerCase(),
         token_hash_prefix: outcome.tokenHashPrefix,
         resent: outcome.outcome === 'resent',

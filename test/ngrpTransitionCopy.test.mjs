@@ -179,7 +179,8 @@ test('the panel defaults to blank and only sends the field when set', () => {
 // ── The recipient ────────────────────────────────────────────────────────────
 
 test('alumni are addressed at their personal email, per the shared routing canon', () => {
-  const alum = { status: 'Completed', school_email: 'j@school.edu', personal_email: 'j@gmail.com' }
+  // STUDENT-EMAIL-LIFECYCLE-1: completion alone no longer switches the address.
+  const alum = { rotation: { rotation_end_date: '2020-01-01' }, status: 'Completed', school_email: 'j@school.edu', personal_email: 'j@gmail.com' }
   assert.equal(getStudentBulkEmailRoute(alum).email, 'j@gmail.com')
   assert.equal(getStudentBulkEmailRoute(alum).emailType, 'personal')
   // School remains the fallback when no personal address is on file.
