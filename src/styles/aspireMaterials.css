@@ -151,6 +151,50 @@
     0 8px 16px -6px rgba(24, 32, 63, 0.34);
 }
 
+/* ── The flag ribbon (all three) ───────────────────────────────────────────── */
+/* RIBBON-MOTION-1 (Owner, 2026-09-30). The ribbon sewn into the rubric, the student chart
+   and the address book is one shape, defined here; each book's own rule only places it and
+   colours it. Three heights: resting, peeking while pointed at ("you can pull this"), and
+   pulled down when flagged. HEIGHT is what moves, never a transform: scaling would stretch
+   the notch and the word, and translating would lift the top off the leather it is sewn
+   into. The top stays put and the tail slides; the word sits just above the notch and
+   rides down with it. 0.28s reads as fabric being tugged.
+   This replaces RIBBON-CALM-1 (2026-09-18), which held the ribbon still on hover because
+   growing its PADDING moved the target out from under the pointer. Growing downward from a
+   pinned top keeps the pointer on it.
+   Classic only: Modern restyles the same button as a pill (rubricBook.css and
+   studentChart.css), so none of this reaches it. `:root:not([data-style='modern'])` also
+   makes these rules outrank each book's one-class rules in either load order. */
+:root:not([data-style='modern']) .material-flag-ribbon {
+  --flag-h: var(--aspire-flag-ribbon-h);
+  box-sizing: border-box;
+  width: var(--aspire-flag-ribbon-w);
+  /* A drag lengthens it too, so the finger pulls the tail, not the whole ribbon. */
+  height: calc(var(--flag-h) + var(--flag-pull, 0px));
+  padding: 0 0 12px 0.1em;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  font: 700 10px/1.2 ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - var(--aspire-flag-ribbon-notch)), 0 100%);
+  transition: height 0.28s ease, background 0.18s ease, box-shadow 0.18s ease;
+}
+:root:not([data-style='modern']) .material-flag-ribbon[aria-pressed='false']:hover:not(:disabled) {
+  --flag-h: var(--aspire-flag-ribbon-h-peek);
+}
+/* Flagged, it hangs. Pointing at it lifts its shadow (each book's :hover) and nothing else. */
+:root:not([data-style='modern']) .material-flag-ribbon[aria-pressed='true'] {
+  --flag-h: var(--aspire-flag-ribbon-h-on);
+}
+:root:not([data-style='modern']) .material-flag-ribbon.material-flag-ribbon-dragging { transition: none; }
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-style='modern']) .material-flag-ribbon { transition: none; }
+}
+/* Modern's pill kept the old drag feedback, a slide under the finger. */
+:root[data-style='modern'] .material-flag-ribbon-dragging { transform: translateY(var(--flag-pull, 0px)); }
+
 /* ── Cognac leather, fine grain (the cover of both books) ─────────────────── */
 /* BOOK-COVER-1 (Owner, 2026-09-21: "use the same exact cover you're using in address
    book"): the Interview Rubric and the Contacts address book wear this one cover, with

@@ -552,14 +552,15 @@ test('the list header is search and Add contact, the categories, then the count 
 
 test('the canonical ribbon flags a contact: enabled once the column exists, a mark on the entry, a filter', async () => {
   const off = await renderBook({ contacts: FLAGGABLE, selected: FLAGGABLE[0], selectedId: 'c1' }, FLAG_ACTIONS)
-  assert.match(off, /<button[^>]*data-testid="flag-ribbon"[^>]*class="ab-ribbon"[^>]*aria-pressed="false"/)
+  // RIBBON-MOTION-1: the shared shape class comes first, the book's own second.
+  assert.match(off, /<button[^>]*data-testid="flag-ribbon"[^>]*class="material-flag-ribbon ab-ribbon"[^>]*aria-pressed="false"/)
   assert.doesNotMatch(off, /data-testid="flag-ribbon"[^>]*disabled=""/)
   assert.match(off, /Not flagged\. Pull the ribbon down to flag for follow-up\./)
   assert.match(off, /class="ab-flagfilter" aria-pressed="false"/)
   // Susan Hunter is flagged: her entry carries the mark and says so in words.
   assert.match(off, /Susan Hunter[\s\S]*?<span class="ab-flagmark" aria-hidden="true"><\/span><span class="sr-only">, flagged for follow-up<\/span>/)
   const on = await renderBook({ contacts: FLAGGABLE, selected: FLAGGABLE[1], selectedId: 'c2' }, FLAG_ACTIONS)
-  assert.match(on, /class="ab-ribbon ab-ribbon-on"[^>]*aria-pressed="true"/)
+  assert.match(on, /class="material-flag-ribbon ab-ribbon ab-ribbon-on"[^>]*aria-pressed="true"/)
   assert.match(on, /<b>Flagged for follow-up\.<\/b> Pull the ribbon up to clear\./)
 })
 

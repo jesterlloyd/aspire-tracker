@@ -389,8 +389,9 @@
   margin-right: 30px;
   /* Up over the leather: the ribbon is sewn into the spine, not printed on the page. */
   margin-top: calc(-1 * var(--rb-cover-pad));
-  width: 54px;
-  padding: 9px 0 14px;
+  /* Its shape (width, the three heights, the notch, where the word sits) is the shared
+     .material-flag-ribbon in aspireMaterials.css (RIBBON-MOTION-1). The type below is
+     what Modern's pill reads; Classic's shape sets its own. */
   border: 0;
   border-radius: 0;
   background: var(--aspire-ribbon-idle);
@@ -399,23 +400,17 @@
   letter-spacing: 0.12em;
   text-align: center;
   cursor: grab;
-  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 78%, 0 100%);
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.20);
   transition: background 0.14s ease, box-shadow 0.14s ease;
   touch-action: none;
   z-index: 3;
 }
-/* RIBBON-CALM-1 (Owner, 2026-09-18): a ribbon does not grow when you point at it. The
-   hover used to add 6px of padding, so the thing you were about to click moved out from
-   under the pointer. It lifts its shadow instead, which says "this is live" without
-   changing where it is. Same treatment on the student chart's ribbon. */
-
-/* Pulled, it hangs down the page, and the word travels with it: a label pinned to the
-   top of a longer ribbon reads as a ribbon that did not move. */
+/* RIBBON-MOTION-1 (Owner, 2026-09-30) replaced RIBBON-CALM-1: pointed at, the ribbon
+   peeks 8px longer; pulled, it hangs, and the word travels with the tail. Both are the
+   shared .material-flag-ribbon. The shadow still lifts on hover, below. */
 .rb-ribbon-on,
 .rb-ribbon-on:hover {
   background: var(--aspire-red-editorial);
-  padding: 26px 0 30px;
   cursor: grab;
 }
 /* Below the -on rules, for the same cascade reason as the chart's. */

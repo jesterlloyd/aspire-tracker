@@ -75,8 +75,10 @@ export default function FlagRibbon({
     <button
       type="button"
       data-testid="flag-ribbon"
-      className={`${classPrefix}${flagged ? ` ${classPrefix}-on` : ''}${pull ? ` ${classPrefix}-dragging` : ''}`}
-      style={pull ? { transform: `translateY(${pull}px)` } : undefined}
+      /* RIBBON-MOTION-1: the shared shape is `material-flag-ribbon` (aspireMaterials.css);
+         the prefix class places and colours it. A pull is a length, not a slide. */
+      className={`material-flag-ribbon ${classPrefix}${flagged ? ` ${classPrefix}-on` : ''}${pull ? ` ${classPrefix}-dragging material-flag-ribbon-dragging` : ''}`}
+      style={pull ? { '--flag-pull': `${pull}px` } : undefined}
       aria-pressed={flagged}
       disabled={disabled}
       aria-label={flagged ? labelOn : labelOff}

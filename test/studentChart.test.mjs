@@ -566,11 +566,13 @@ test('INK 6: the chart does not push its dark ink onto the materials', () => {
 
 // ── CALM: nothing moves that the reader did not move (Owner, 2026-09-18) ────
 
-test('CALM 1: neither ribbon resizes or travels on hover', () => {
+test('CALM 1: a book\'s own hover rule only lifts a shadow; the peek is the shared shape', () => {
   const chart = noComments(read('src/components/student/studentChart.css'))
   const book  = noComments(read('src/components/rubric/rubricBook.css'))
-  // The rubric's ribbon used to grow 6px on hover, so the thing you were about to click
-  // moved out from under the pointer. Both now lift a shadow and hold their position.
+  // RIBBON-CALM-1 held the ribbon still because growing its PADDING on hover moved the
+  // target out from under the pointer. RIBBON-MOTION-1 (Owner, 2026-09-30) makes it peek
+  // 8px longer instead, from a pinned top, in ONE place (.material-flag-ribbon, see
+  // rubricBook.test.mjs MOTION 1). The books' own hover rules still move nothing.
   assert.ok(!/\.rb-ribbon:hover \{[^}]*padding/.test(book), 'the rubric ribbon must not resize on hover')
   assert.ok(!/\.sc-ribbon:hover \{[^}]*(padding|translate|transform)/.test(chart))
   assert.match(book, /\.rb-ribbon:hover,[\s\S]{0,80}box-shadow/)
@@ -654,10 +656,13 @@ test('QUIET 4: Documents is a list and does not repeat the student photo', () =>
 
 // ── FLAGS: one wording, both lists ─────────────────────────────────────────
 
-test('FLAG 9: both lists show the follow-up flag, and say the same thing', () => {
-  const recs = read('src/components/InterviewRubricTab.jsx')
-  assert.match(recs, /isFollowUpFlagged\(s\)/)
-  assert.match(recs, /Flagged for follow up/)
+test('FLAG 9: the follow-up flag shows on the roster, and NOT in Interview Recommendations', () => {
+  // Owner, 2026-09-30 (RIBBON-MOTION-1), reversing 2026-09-18: shown on the recommendations
+  // row it read as the interview flag, and the rubric then said the student was not
+  // flagged. The chart's flag reaches Student Profiles and nothing else.
+  const recs = noComments(read('src/components/InterviewRubricTab.jsx'))
+  assert.doesNotMatch(recs, /isFollowUpFlagged|flagged_for_followup|Flagged for follow up|studentFollowUpFlag/)
+  assert.match(roster, /isFollowUpFlagged\(s\)/)
   assert.match(roster, /Flagged for follow up/)
   // and the roster gets the red edge the recommendations table already had
   const index = noComments(read('src/index.css'))

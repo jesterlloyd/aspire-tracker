@@ -210,16 +210,12 @@
   top: 0;
   right: 34px;
   z-index: 6;
-  /* Sized against the rubric's ribbon rather than the mockup's, so the two read as one
-     object in two places: 48px wide, 10px caps, and a flagged drop long enough to be a
-     ribbon hanging down the page rather than a tab stuck to the top. Measured idle 36px,
-     flagged 68px, against the rubric's 35 and 68. */
-  width: 48px;
-  padding: 26px 0 30px;
+  /* Its shape (width, the three heights, the notch, where the word sits) is the shared
+     .material-flag-ribbon in aspireMaterials.css (RIBBON-MOTION-1). The type below is
+     what Modern's pill reads; Classic's shape sets its own. */
   border: 0;
   background: linear-gradient(#C0392B, #96271C);
   color: #fff;
-  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 78%, 0 100%);
   box-shadow: 0 3px 6px rgba(0, 0, 0, 0.28);
   font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
   font-size: 10px;
@@ -228,15 +224,12 @@
   display: grid;
   justify-items: center;
   cursor: pointer;
-  /* Padding is NOT transitioned: the flagged/unflagged change is a real state change and
-     should land, but the ribbon must never resize under a pointer that is merely hovering. */
   transition: background 0.18s ease, box-shadow 0.18s ease;
 }
 
 /* Unpulled, the ribbon is tucked up and taupe. The idle colour is the rubric's measured
    one, not the mockup's #BEB9AF, which put white FLAG on it at 1.77:1. */
 .sc-ribbon[aria-pressed="false"] {
-  padding: 10px 0 14px;
   background: linear-gradient(var(--aspire-ribbon-idle), var(--aspire-ribbon-idle));
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.16);
 }

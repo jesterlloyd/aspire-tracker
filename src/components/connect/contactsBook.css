@@ -34,8 +34,13 @@
   --ab-stack-w: var(--aspire-book-stack-w);
   --ab-cover-pad: var(--aspire-book-board);
   --ab-cover-pad-x: calc(var(--aspire-book-board-x) + var(--ab-stack-w));
-  --ab-page: #FEFCF8;
-  --ab-page-2: #F7F3EC;
+  /* Whiter paper (Owner, 2026-09-30: "not totally white but at least different from the
+     background"). The page was #FEFCF8, 3.8 dE from the app's #F4F1EC; its tint, #F7F3EC,
+     was 1.3 dE from it, the same colour to the eye, and it is what the search field, the
+     chips, the letter tabs and the notes block wear, so the page read as the background.
+     Now 4.7 and 2.4, with a whisper of warmth left in both. */
+  --ab-page: #FFFEFC;
+  --ab-page-2: #FAF8F3;
   --ab-ink: #2A2019;
   --ab-mute: #7A6A5C;
   /* The muted ink on the open entry's tint, stepped down until it clears 4.5 there.
@@ -657,12 +662,12 @@
   top: 0;
   right: calc(var(--ab-cover-pad-x) + 34px);
   z-index: 6;
-  width: 48px;
-  padding: 26px 0 30px;
+  /* Its shape (width, the three heights, the notch, where the word sits) is the shared
+     .material-flag-ribbon in aspireMaterials.css (RIBBON-MOTION-1). The type below is
+     what Modern's pill reads; Classic's shape sets its own. */
   border: 0;
   background: linear-gradient(#C0392B, #96271C);
   color: #fff;
-  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 78%, 0 100%);
   box-shadow: 0 3px 6px rgba(0, 0, 0, 0.28);
   font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
   font-size: 10px;
@@ -674,7 +679,6 @@
   transition: background 0.18s ease, box-shadow 0.18s ease;
 }
 .ab-ribbon[aria-pressed="false"] {
-  padding: 10px 0 14px;
   background: linear-gradient(var(--aspire-ribbon-idle), var(--aspire-ribbon-idle));
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.16);
 }

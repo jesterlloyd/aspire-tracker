@@ -439,14 +439,15 @@ test('BOOK 7: the book is a bound object: a heavy fold, square pages, a stack of
 })
 
 test('RIBBON 4: pulled, the ribbon hangs lower and the word travels with it', () => {
-  const idle = bookCss.match(/\.rb-ribbon \{[\s\S]*?padding: (\d+)px 0 (\d+)px/)
-  const flagged = bookCss.match(/\.rb-ribbon-on,\n\.rb-ribbon-on:hover \{[\s\S]*?padding: (\d+)px 0 (\d+)px/)
-  assert.ok(idle && flagged, 'the ribbon lost its two states')
-  const idleLen = Number(idle[1]) + Number(idle[2])
-  const flaggedLen = Number(flagged[1]) + Number(flagged[2])
+  // RIBBON-MOTION-1: the heights are tokens shared by all three ribbons.
+  const brand = read('src/styles/aspireBrand.css')
+  const px = (name) => Number(brand.match(new RegExp(`${name}: (\\d+)px;`))[1])
+  const idleLen = px('--aspire-flag-ribbon-h'), flaggedLen = px('--aspire-flag-ribbon-h-on')
   assert.ok(flaggedLen > idleLen * 2, `flagged ${flaggedLen}px should hang well below the idle ${idleLen}px`)
-  // The label travels with it rather than staying pinned to the top.
-  assert.ok(Number(flagged[1]) > Number(idle[1]), 'the word did not move down with the ribbon')
+  // The word sits at the tail, so it rides down with it rather than staying at the top.
+  const shape = read('src/styles/aspireMaterials.css').match(/:root:not\(\[data-style='modern'\]\) \.material-flag-ribbon \{[\s\S]*?\n\}/)[0]
+  assert.match(shape, /align-items: flex-end;/)
+  assert.match(shape, /padding: 0 0 12px 0\.1em;/)
 })
 
 test('RIBBON 5: it hangs from the BOOK, so scrolling the page never carries it away', () => {
@@ -761,3 +762,69 @@ test('COVER 5: the tabs come straight off the page, with the chart\'s minimal co
   assert.doesNotMatch(active, /inset -1px 0 0|inset 0 0 0 1px/, 'the current tab is walled off from its page')
   assert.match(active, /inset 1px 0 0 var\(--aspire-page-rule\)/)
 })
+
+// ── 12. RIBBON-MOTION-1 (Owner, 2026-09-30) ──────────────────────────────────
+
+const materialsCss = read('src/styles/aspireMaterials.css')
+const shapeRule = (sel) => {
+  const i = materialsCss.indexOf(sel)
+  assert.ok(i >= 0, `missing ${sel}`)
+  return materialsCss.slice(i, materialsCss.indexOf('}', i))
+}
+
+test('MOTION 1: three heights, and HEIGHT is what moves', () => {
+  // The Owner's spec: resting 40, peeking 48 while pointed at, 92 pulled down; animate
+  // height, not a transform, so the notch and the word never stretch and the top stays
+  // sewn in; 0.28s ease; nothing moves under reduced motion.
+  const brand = read('src/styles/aspireBrand.css')
+  for (const [name, v] of [['--aspire-flag-ribbon-h', 40], ['--aspire-flag-ribbon-h-peek', 48], ['--aspire-flag-ribbon-h-on', 92]]) {
+    assert.match(brand, new RegExp(`${name}: ${v}px;`), name)
+  }
+  const base = shapeRule(":root:not([data-style='modern']) .material-flag-ribbon {")
+  assert.match(base, /height: calc\(var\(--flag-h\) \+ var\(--flag-pull, 0px\)\);/)
+  assert.match(base, /transition: height 0\.28s ease,/)
+  assert.doesNotMatch(base, /transform|scale/, 'a transform stretches the notch or lifts the top')
+  // Only an unflagged, enabled ribbon peeks: a disabled one cannot be pulled, and a
+  // flagged one holds at its length (its shadow still lifts, in each book's rule).
+  assert.match(shapeRule(":root:not([data-style='modern']) .material-flag-ribbon[aria-pressed='false']:hover:not(:disabled) {"), /--flag-h: var\(--aspire-flag-ribbon-h-peek\);/)
+  assert.match(shapeRule(":root:not([data-style='modern']) .material-flag-ribbon[aria-pressed='true'] {"), /--flag-h: var\(--aspire-flag-ribbon-h-on\);/)
+  assert.match(materialsCss, /@media \(prefers-reduced-motion: reduce\) \{\s*:root:not\(\[data-style='modern'\]\) \.material-flag-ribbon \{ transition: none; \}/)
+  assert.match(materialsCss, /\.material-flag-ribbon\.material-flag-ribbon-dragging \{ transition: none; \}/)
+})
+
+test('MOTION 2: the notch keeps its shape, and FLAGGED has room either side', () => {
+  const base = shapeRule(":root:not([data-style='modern']) .material-flag-ribbon {")
+  // A percentage notch deepens as the ribbon lengthens; a fixed one does not.
+  assert.match(base, /clip-path: polygon\(0 0, 100% 0, 100% 100%, 50% calc\(100% - var\(--aspire-flag-ribbon-notch\)\), 0 100%\);/)
+  // Measured in a browser on 2026-09-30: FLAGGED at 10px mono with 0.1em tracking is
+  // 49.2px, 5.9px clear on the left and 4.9px plus its trailing tracking on the right.
+  // It ran edge to edge at 48px (the chart and the book) and 54px (the rubric).
+  const brand = read('src/styles/aspireBrand.css')
+  assert.equal(Number(brand.match(/--aspire-flag-ribbon-w: (\d+)px;/)[1]), 60)
+  assert.match(base, /width: var\(--aspire-flag-ribbon-w\);/)
+  assert.match(base, /letter-spacing: 0\.1em;/)
+})
+
+test('MOTION 3: one shape for all three ribbons, and Modern keeps its pill', () => {
+  // The component puts the shared class first, and a pull is a length, not a slide.
+  assert.match(ribbon, /className=\{`material-flag-ribbon \$\{classPrefix\}/)
+  assert.match(ribbon, /style=\{pull \? \{ '--flag-pull': `\$\{pull\}px` \} : undefined\}/)
+  assert.doesNotMatch(ribbon, /translateY/)
+  // No book restates the shape.
+  const sheets = {
+    '.rb-ribbon {': bookCss,
+    '.sc-ribbon {': read('src/components/student/studentChart.css'),
+    '.ab-ribbon {': read('src/components/connect/contactsBook.css'),
+  }
+  for (const [sel, css] of Object.entries(sheets)) {
+    const at = css.indexOf('\n' + sel)
+    assert.ok(at >= 0, sel)
+    const rule = css.slice(at, css.indexOf('\n}', at)).replace(/\/\*[\s\S]*?\*\//g, '')
+    assert.doesNotMatch(rule, /\b(width|height|padding|clip-path):/, `${sel} restates the shared shape`)
+  }
+  // Modern restyles the same button as a pill, so the shape is Classic only, and the
+  // pill keeps the slide it always had while dragged (measured identical in 10 states).
+  assert.ok(!/(^|\n)\.material-flag-ribbon \{/.test(materialsCss), 'an unscoped shape reaches Modern')
+  assert.match(materialsCss, /:root\[data-style='modern'\] \.material-flag-ribbon-dragging \{ transform: translateY\(var\(--flag-pull, 0px\)\); \}/)
+})
+

@@ -300,11 +300,24 @@ produces invalid CSS the browser drops silently.
 
 ### Nothing moves that the reader did not move (RIBBON-CALM-1, 2026-09-18)
 
-A ribbon does not grow when you point at it, and an index tab does not travel when the
-scroll spy changes. Both shipped doing exactly that: the rubric's ribbon added 6px of
-padding on hover, so the thing you were about to click moved out from under the pointer,
-and the chart's current tab slid 6px, so the whole rail twitched the length of the record.
-Hover lifts a shadow; the current tab is named by colour and weight. Both books lift the
+An index tab does not travel when the scroll spy changes: the chart's current tab slid
+6px, so the whole rail twitched the length of the record. The current tab is named by
+colour and weight.
+
+**The ribbon peeks, from a pinned top (RIBBON-MOTION-1, Owner, 2026-09-30).** This
+replaced RIBBON-CALM-1's still ribbon, whose failure was that the rubric's hover grew its
+PADDING and moved the target out from under the pointer. All three ribbons (rubric, chart,
+address book) are one shape, `.material-flag-ribbon` in `aspireMaterials.css`, with the
+tokens `--aspire-flag-ribbon-*` in `aspireBrand.css`: 40px resting, 48px while an
+unflagged, enabled ribbon is pointed at ("you can pull this"), 92px flagged. HEIGHT
+animates (0.28s ease), never a transform: scaling stretches the notch and the word, and
+translating lifts the top off the leather it is sewn into. The notch is a fixed 10px, so it
+keeps its shape at every length; the word sits 12px up from the tail and rides down with
+it; a drag lengthens the ribbon through `--flag-pull`. A flagged ribbon holds its length
+on hover and only lifts its shadow. 60px wide so FLAGGED has about 6px either side (it ran
+edge to edge at 48 and 54). The shape is scoped to `:root:not([data-style='modern'])`:
+Modern restyles the same button as a pill and keeps its slide while dragged. Each book's
+own rule only places and colours its ribbon. Reduced motion: no transition. Both books lift the
 same scroll shadow on their top bar (`.sc-plate-lifted` and `.rb-head-lifted` are the same
 declaration, and a test asserts they stay identical).
 
@@ -329,7 +342,7 @@ Three ribbons, the same gesture, three different columns, and they must never be
 | | column | means | reaches |
 |---|---|---|---|
 | Interview rubric | `students.flagged_for_second_interview` | bring this candidate back for a second interview | Interview Recommendations, Action Center |
-| Student chart | `students.flagged_for_followup` | come back to this student | the roster row, and nothing else |
+| Student chart | `students.flagged_for_followup` | come back to this student | the roster row, and nothing else (Interview Recommendations showed it too until 2026-09-30; the Owner removed it because it read as the interview flag the rubric then denied) |
 | Contacts | `contacts.flagged_for_followup` | come back to this person | Contacts only: the book's ribbon, entry mark and Flagged only in Classic style; the three columns' Flagged tag, row mark and Flagged only in Modern (APPEARANCE-STYLE-1) |
 
 Neither carries a note: the pull is the whole interaction. One component,
@@ -1022,6 +1035,11 @@ LAYOUT before the book existed, and it is the MODERN style's Contacts now.
   gold-tinted copy was tried first and dropped). The gilt hairline is its own element
   (`.material-cover-tooling`, shared with the rubric) because the cover's pseudo-elements
   are the stack.
+- **The paper is whiter than the mockup's** (Owner, 2026-09-30): `--ab-page` `#FFFEFC` and
+  `--ab-page-2` `#FAF8F3`, from `#FEFCF8` and `#F7F3EC`. The old tint was 1.3 dE from the
+  app background, the same colour to the eye, and it is what the search field, chips,
+  letter tabs and notes block wear, so the page read as the background. Now 4.7 and 2.4 dE,
+  a whisper of warmth kept. Dark mode is unchanged. Settings' Classic preview mirrors both.
 - **Where the book leaves the mockup, on purpose.** The cover's deep drop has a negative
   spread (the pane is a scroll container). Dark mode lifts the cognac used as INK
   (`--ab-accent`), because the cover tones sit too close to the dark paper. The open

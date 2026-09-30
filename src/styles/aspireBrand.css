@@ -166,6 +166,15 @@
      unpulled state is the lightest taupe that still measures 4.5:1 against white
      (the mockup's #C9C2B4 measured 1.77). Pulled, it is the editorial red. */
   --aspire-ribbon-idle: #7B7264;
+  /* The flag ribbon's shape, one set for all three (RIBBON-MOTION-1, Owner, 2026-09-30):
+     40px resting, 48px while pointed at ("you can pull this"), 92px pulled down. Wide
+     enough that FLAGGED has room either side instead of running edge to edge, and a notch
+     of fixed depth, so it keeps its shape at every height. */
+  --aspire-flag-ribbon-w: 60px;
+  --aspire-flag-ribbon-h: 40px;
+  --aspire-flag-ribbon-h-peek: 48px;
+  --aspire-flag-ribbon-h-on: 92px;
+  --aspire-flag-ribbon-notch: 10px;
   /* The cover's corner and its boards, shared by both books (BOOK-COVER-1). A board is
      the leather that shows: 15px above and below the pages, and 16px of leather outside
      the page stack at each side, which is --aspire-book-stack-w thick. */

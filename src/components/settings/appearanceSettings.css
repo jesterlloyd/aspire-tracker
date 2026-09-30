@@ -155,7 +155,7 @@
 }
 .apx-th-pages i {
   position: relative;
-  background: #FEFCF8;
+  background: #FFFEFC;
 }
 .apx-th-pages i:first-child {
   border-right: 1px solid rgba(70, 45, 20, 0.2);
@@ -337,11 +337,11 @@
 /* Classic: the address book, cover and all. Its paper follows the theme as the real
    book's does. */
 .apx-pv-classic {
-  --apx-pv-page: #FEFCF8;
+  --apx-pv-page: #FFFEFC;   /* the book's --ab-page (RIBBON-MOTION-1 whitened it) */
   --apx-pv-ink: #2A2019;
   --apx-pv-line: rgba(110, 75, 40, 0.1);
   --apx-pv-line-strong: rgba(110, 75, 40, 0.12);
-  --apx-pv-av: #F7F3EC;
+  --apx-pv-av: #FAF8F3;
   --apx-pv-current: rgba(154, 98, 54, 0.13);
   --apx-pv-accent: var(--aspire-leather-cognac);
   --apx-pv-badge-bg: var(--aspire-leather-cognac);
