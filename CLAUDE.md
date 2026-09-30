@@ -312,7 +312,7 @@ tokens `--aspire-flag-ribbon-*` in `aspireBrand.css`: 40px resting, 48px while a
 unflagged, enabled ribbon is pointed at ("you can pull this"), 92px flagged. HEIGHT
 animates (0.28s ease), never a transform: scaling stretches the notch and the word, and
 translating lifts the top off the leather it is sewn into. The notch is a fixed 10px, so it
-keeps its shape at every length; the word sits 12px up from the tail and rides down with
+keeps its shape at every length; the word sits 17px up from the tail (12 read too low) and rides down with
 it; a drag lengthens the ribbon through `--flag-pull`. A flagged ribbon holds its length
 on hover and only lifts its shadow. 60px wide so FLAGGED has about 6px either side (it ran
 edge to edge at 48 and 54). The shape is scoped to `:root:not([data-style='modern'])`:

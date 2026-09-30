@@ -447,7 +447,7 @@ test('RIBBON 4: pulled, the ribbon hangs lower and the word travels with it', ()
   // The word sits at the tail, so it rides down with it rather than staying at the top.
   const shape = read('src/styles/aspireMaterials.css').match(/:root:not\(\[data-style='modern'\]\) \.material-flag-ribbon \{[\s\S]*?\n\}/)[0]
   assert.match(shape, /align-items: flex-end;/)
-  assert.match(shape, /padding: 0 0 12px 0\.1em;/)
+  assert.match(shape, /padding: 0 0 17px 0\.1em;/)
 })
 
 test('RIBBON 5: it hangs from the BOOK, so scrolling the page never carries it away', () => {

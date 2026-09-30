@@ -171,7 +171,8 @@
   width: var(--aspire-flag-ribbon-w);
   /* A drag lengthens it too, so the finger pulls the tail, not the whole ribbon. */
   height: calc(var(--flag-h) + var(--flag-pull, 0px));
-  padding: 0 0 12px 0.1em;
+  /* 17px: at 12 the word sat low, nearly on the notch (Owner, 2026-09-30). */
+  padding: 0 0 17px 0.1em;
   display: flex;
   justify-content: center;
   align-items: flex-end;
