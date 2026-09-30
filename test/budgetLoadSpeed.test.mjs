@@ -42,7 +42,8 @@ test('opening the Program Budget waits on a few round trips, not twenty-five', a
     const t = Date.now()
     const y = await P.withPlan(db, await E.loadYear(db, { fy, viewer, today: TODAY }), { viewer, today: TODAY })
     const ms = Date.now() - t
-    assert.ok(seen.n >= 15, `it still reads everything (${seen.n} reads)`)
+    // BUDGET-FEWER-READS-1 changed this: each table is read once (production queued 29 reads; now ~14).
+    assert.ok(seen.n <= 16, `FY${fy} ${viewer}: ${seen.n} reads; it was 29`)
     assert.ok(ms < 60 * 10, `FY${fy} ${viewer}: about ${Math.round(ms / 60)} round trips deep (${ms}ms); it was about 25`)
     assert.equal(y.plan.enabled, true)
   }

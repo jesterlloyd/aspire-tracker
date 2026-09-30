@@ -49,7 +49,8 @@ test('the reads go out together: at 60ms a query, opening Receipts waits on a fe
   const started = Date.now()
   await R.openReceipts(db, { fy: 2027, today: TODAY })
   const ms = Date.now() - started
-  assert.ok(seen.n >= 15, `it still reads everything (${seen.n} queries)`)
+  // BUDGET-FEWER-READS-1 changed this: each table once for every year (was 22 reads).
+  assert.ok(seen.n <= 16, `${seen.n} reads; it was 22`)
   assert.ok(ms < 60 * 6, `about ${Math.round(ms / 60)} round trips deep (${ms}ms); one at a time it was about forty`)
 })
 
