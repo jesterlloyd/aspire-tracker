@@ -82,7 +82,8 @@ function MonthlyChart({ s }) {
  */
 const HOW_KEY = 'aspire-budget-how-open'
 function HowItWorks() {
-  const [open, setOpen] = useState(() => { try { return localStorage.getItem(HOW_KEY) !== '0' } catch { return true } })
+  // BUDGET-POLISH-1 (Owner, 2026-09-29: "is Summary too crowded?"): folded unless the owner opened it.
+  const [open, setOpen] = useState(() => { try { return localStorage.getItem(HOW_KEY) === '1' } catch { return false } })
   const steps = [
     ['Expect', 'Approved subscriptions create the month’s charges ahead of time.', 'The app'],
     ['Post', 'On its date, a charge counts as spent. It shows Missing until its receipt arrives.', 'The app'],
@@ -106,6 +107,7 @@ export default function BudgetSummary({ year, canEdit, onWrite, onGo, source, on
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
   const [note, setNote] = useState(year.budget?.owner_note || '')
+  const [showIdle, setShowIdle] = useState(false)
   const reader = !canEdit
   const closed = s.state === 'closed'
 
@@ -189,6 +191,8 @@ export default function BudgetSummary({ year, canEdit, onWrite, onGo, source, on
   // BUDGET-V2 item 6: an empty area says so once, with the next action; never a blank chart.
   const noSpend = !s.byMonth.some(m => m.spent || m.scheduled)
   const noCategorySpend = !s.byCategory.some(c => c.spent) && !withPlan
+  // With no plan, a category with no spend says nothing; list the ones that do, and offer the rest.
+  const idle = withPlan ? [] : s.byCategory.filter(c => !c.spent)
 
   const noteCard = canEdit ? (
     <SurfaceCard className="bud-card bud-note">
@@ -245,9 +249,13 @@ export default function BudgetSummary({ year, canEdit, onWrite, onGo, source, on
           {noCategorySpend ? (
             <div className="bud-empty bud-empty-box"><b>No spend in any category yet</b><span>All {s.byCategory.length} categories are listed once the first expense posts.</span>
               {canEdit && onGo && <button type="button" className="bud-btn bud-btn-sm" onClick={() => onGo('plan')}>Add a category plan</button>}</div>
-          ) : <DataSheet level="plain" columns={columns} rows={s.byCategory} rowKey={r => r.id} defaultSort={{ key: 'spent', dir: 'desc' }}
+          ) : <DataSheet level="plain" columns={columns} rows={showIdle ? s.byCategory : s.byCategory.filter(c => !idle.includes(c))} rowKey={r => r.id} defaultSort={{ key: 'spent', dir: 'desc' }}
             emptyMessage="No categories" aria-label={`Spend by category, ${s.label}`}
             footer={<div className="bud-row2"><span>Total</span><b>{usd(s.spent)}{s.uncategorised ? ` (${usd(s.uncategorised)} with no category)` : ''}</b></div>} />}
+          {!noCategorySpend && idle.length > 0 && (
+            <p className="bud-hint bud-idle">{showIdle ? '' : `${idle.length} ${idle.length === 1 ? 'category has' : 'categories have'} no spend yet. `}
+              <button type="button" className="bud-linkbtn bud-linkbtn-inline" aria-expanded={showIdle} onClick={() => setShowIdle(v => !v)}>{showIdle ? 'Show only categories with spend' : `Show all ${s.byCategory.length}`}</button></p>
+          )}
         </SurfaceCard>
       </div>
       <div className="bud-two">{canEdit ? noteCard : null}{history}</div>

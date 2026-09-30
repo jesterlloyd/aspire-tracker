@@ -124,7 +124,8 @@ test('the Receipts tab and Add receipts are the Owner’s only, in the prompt’
   assert.deepEqual(P.tabsForState('current', { owner: true }), ['summary', 'sheet', 'subscriptions', 'receipts', 'plan'])
   assert.deepEqual(P.tabsForState('current', { owner: false, planVisible: false }), ['summary', 'sheet', 'subscriptions'], 'Receipts is the Owner\u2019s only')
   assert.match(view, /tabsForState\(year\.state, \{ owner: canEdit, planVisible \}\)/)
-  assert.match(view, /\{canEdit && year\.state === 'current' && \(<>\n\s+<button type="button" className="bud-btn" onClick=\{\(\) => addRef\.current\?\.click\(\)\}><ReceiptText/)
+  // BUDGET-POLISH-1 (2026-09-29): and not on the Receipts tab, where the drop zone's Choose files does it.
+  assert.match(view, /\{canEdit && year\.state === 'current' && tab !== 'receipts' && \(<>\n\s+<button type="button" className="bud-btn" onClick=\{\(\) => addRef\.current\?\.click\(\)\}><ReceiptText/)
   assert.match(view, /current === 'receipts' && canEdit &&/)
   // The Sheet's receipt mark opens the original for the Owner only.
   assert.match(read('src/components/budget/BudgetSheet.jsx'), /return canEdit\n\s+\? <button type="button" className="bud-rc bud-rc-open"/)

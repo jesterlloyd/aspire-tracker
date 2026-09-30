@@ -560,3 +560,16 @@ button.bud-mo:hover { background: var(--color-bg-hover); }
 .bud-tile .bud-if-sub { font-size: 12px; color: var(--pill-warn-fg); }
 .bud-empty-box { display: grid; justify-items: center; gap: 6px; padding: 28px 16px; text-align: center; }
 .bud-empty-box b { color: var(--text-heading); }
+
+/* ── BUDGET-POLISH-1 (2026-09-29): the year's line in the Settings band ── */
+.bud-yearline { display: inline-flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.bud-yearline > span + span::before { content: "·"; margin-right: 8px; color: var(--text-caption); }
+.bud-yearline > .bud-chip + span::before { content: none; }
+.bud-chip-sm { padding: 1px 8px; font-size: 11.5px; line-height: 16px; }
+.bud-cc { position: relative; }
+.bud-cc-btn { padding: 0; border: 0; background: none; font: inherit; color: inherit; cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
+.bud-cc-btn:hover { color: var(--color-accent-primary); }
+.bud-cc-pop { position: absolute; z-index: 30; top: calc(100% + 6px); left: 0; width: min(340px, 86vw); display: grid; gap: 8px; padding: 12px; border-radius: var(--aspire-radius-card); background: var(--color-bg-surface); box-shadow: 0 8px 24px rgba(15, 20, 40, 0.18); }
+.bud-cc-apply { display: flex; gap: 6px; align-items: flex-start; font-size: 12px; color: var(--text-caption); line-height: 1.4; }
+.bud-cc-apply input { margin: 2px 0 0; }
+.bud-idle { margin: 8px 0 0; }

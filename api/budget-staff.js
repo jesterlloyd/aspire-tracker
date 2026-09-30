@@ -31,6 +31,7 @@ const ACTION_SCHEMAS = Object.freeze({
   start_year: ['action', 'fiscal_year', 'total', 'cost_center', 'plan'],
   set_total: ['action', 'fiscal_year', 'total'],
   set_note: ['action', 'fiscal_year', 'note'],
+  set_cost_center: ['action', 'fiscal_year', 'cost_center', 'apply_to_rows'],
   mark_reconciled: ['action', 'fiscal_year'],
   expense_create: ['action', 'fields'],
   expense_update: ['action', 'id', 'patch'],
@@ -130,6 +131,7 @@ export function createBudgetStaffHandler({ verifyCaller = verifyPortalCaller, ma
         }
         case 'start_year': return res.status(200).json(await E.startYear(db, actor, { fy, total: body.total, cost_center: body.cost_center, plan: body.plan === 'even' ? 'even' : 'none', ...day }))
         case 'set_total': return res.status(200).json(await E.setTotal(db, actor, { fy, total: body.total, ...day }))
+        case 'set_cost_center': return res.status(200).json(await E.setCostCenter(db, actor, { fy: fy ?? E.currentFiscalYear(), cost_center: body.cost_center, applyToRows: body.apply_to_rows !== false, ...day }))
         case 'set_note': return res.status(200).json(await E.setNote(db, actor, { fy, note: body.note, ...day }))
         case 'mark_reconciled': return res.status(200).json(await E.markReconciled(db, actor, { fy, ...day }))
         case 'expense_create': return res.status(200).json({ expense: await E.createExpense(db, actor, { fields: obj(body.fields), ...day }) })

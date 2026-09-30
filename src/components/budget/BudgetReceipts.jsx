@@ -42,6 +42,7 @@ export default function BudgetReceipts({ year, onWrite, pendingFiles, onPendingT
   const [original, setOriginal] = useState(null)     // { slip, url, content_type, file_name } | { loading }
   const [dragging, setDragging] = useState(false)
   const inputRef = useRef(null)
+  const firstLoad = useRef(false)
   const draftTimers = useRef(new Map())
   const notify = onWrite.notify
 
@@ -52,6 +53,9 @@ export default function BudgetReceipts({ year, onWrite, pendingFiles, onPendingT
       if (!st.enabled) return
       const d = await budgetStaff('receipts_intake')
       setData(d); setError(null)
+      // BUDGET-POLISH-1 (Owner, 2026-09-29): with nothing to review, the tab opens on Filed. Only on the
+      // first load, so reviewing the last receipt never moves the page from under you.
+      if (!firstLoad.current) { firstLoad.current = true; if (!d.waiting.length && d.filedCount) setView('filed') }
       onCount?.(d.waiting.length)
     } catch (e) { setError(e.message) }
   }, [onCount])

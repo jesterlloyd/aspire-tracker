@@ -19,6 +19,7 @@ import BudgetSheet from './BudgetSheet'
 import BudgetSubscriptions from './BudgetSubscriptions'
 import BudgetAllocations from './BudgetAllocations'
 import BudgetPlan from './BudgetPlan'
+import BudgetYearLine from './BudgetYearLine'
 import { tabsForState } from '../../lib/budget/planModel'
 import BudgetReceipts from './BudgetReceipts'
 import BudgetStart from './BudgetStart'
@@ -47,7 +48,9 @@ function tabsFor(year, canEdit, receiptCount = 0) {
   }))
 }
 
-export default function ProgramBudgetView({ source, renderBand, initialFy = null }) {
+// `yearLineInBand`: the host puts the year's line in its band's subtitle (Settings); the portal keeps
+// it below the band, with the program and the owner's name.
+export default function ProgramBudgetView({ source, renderBand, initialFy = null, yearLineInBand = false }) {
   const [fy, setFy] = useState(() => initialFy ?? currentFiscalYear())   // the Pacific fiscal year, as the server defaults
   const [year, setYear] = useState(null)
   const [error, setError] = useState(null)
@@ -121,7 +124,8 @@ export default function ProgramBudgetView({ source, renderBand, initialFy = null
         <select id="bud-fy" value={year.fy} onChange={e => { setTab('summary'); setFy(Number(e.target.value)) }}>
           {year.years.map(y => <option key={y} value={y}>{fyShort(y)}{y > currentFiscalYear() ? ' · Proposal' : ''}</option>)}
         </select></label>
-      {canEdit && year.state === 'current' && (<>
+      {/* BUDGET-POLISH-1: on Receipts the drop zone's Choose files is the same button; the header's steps aside. */}
+      {canEdit && year.state === 'current' && tab !== 'receipts' && (<>
         <button type="button" className="bud-btn" onClick={() => addRef.current?.click()}><ReceiptText size={15} aria-hidden="true" />Add receipts</button>
         <input ref={addRef} type="file" accept="image/*,application/pdf,.pdf,.eml,message/rfc822,.heic,.heif" multiple hidden
           onChange={e => { const f = [...e.target.files]; e.target.value = ''; if (f.length) { setPendingFiles(f); setTab('receipts') } }} />
@@ -129,7 +133,7 @@ export default function ProgramBudgetView({ source, renderBand, initialFy = null
       {(year.state === 'current' || year.state === 'closed') && <button type="button" className="bud-btn bud-btn-pri" onClick={exportXlsx} disabled={exporting}><Download size={15} aria-hidden="true" />{exporting ? 'Preparing…' : 'Export to Excel'}</button>}
     </div>
   )
-  const band = renderBand(actions, year && !canEdit ? 'Read-only access' : undefined)
+  const band = renderBand(actions, year && !canEdit ? 'Read-only access' : undefined, year && yearLineInBand ? <BudgetYearLine year={year} canEdit={canEdit} onWrite={onWrite} /> : undefined)
 
   if (error) return <>{band}<div className="bud-empty bud-error" role="alert">{error}</div></>
   if (!year) return <>{band}<div className="bud-empty">Loading the budget…</div></>
@@ -142,10 +146,12 @@ export default function ProgramBudgetView({ source, renderBand, initialFy = null
     <>
       {band}
       <div className="bud">
-        <div className="bud-head">
-          <span className={`bud-chip bud-chip-${year.state}`}>{year.label} · {STATE_CHIP[year.state]}</span>
-          <p className="bud-sub">{[year.program, year.budget?.cost_center, year.owner_name && `Owner ${year.owner_name}`, fyRangeText(year.fy)].filter(Boolean).join(' · ')}</p>
-        </div>
+        {!yearLineInBand && (
+          <div className="bud-head">
+            <span className={`bud-chip bud-chip-${year.state}`}>{year.label} · {STATE_CHIP[year.state]}</span>
+            <p className="bud-sub">{[year.program, year.budget?.cost_center, year.owner_name && `Owner ${year.owner_name}`, fyRangeText(year.fy)].filter(Boolean).join(' · ')}</p>
+          </div>
+        )}
         {/* SHEET-LIVE-1: a toast at the foot of the window; a click puts it away. */}
         {toast && (
           <div className={`bud-toast${toast.kind === 'err' ? ' bud-toast-err' : ''}`} role={toast.kind === 'err' ? 'alert' : 'status'}>

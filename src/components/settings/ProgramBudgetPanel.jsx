@@ -12,11 +12,13 @@ export default function ProgramBudgetPanel() {
   return (
     <ProgramBudgetView
       source={STAFF_SOURCE}
-      renderBand={(actions, accessNote) => (
+      // BUDGET-POLISH-1 (Owner, 2026-09-29): the year's line is the subtitle, to save a line.
+      yearLineInBand
+      renderBand={(actions, accessNote, yearLine) => (
         <SettingsPageHeader
           id="program-budget-heading"
           title="Program Budget"
-          subtitle="One budget per fiscal year: its expenses, subscriptions and category plan."
+          subtitle={yearLine || 'One budget per fiscal year: its expenses, subscriptions and category plan.'}
           accessNote={accessNote}
           actions={actions}
         />
