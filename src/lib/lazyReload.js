@@ -48,6 +48,22 @@ export function shouldReloadAfterChunkFailure(name, storage, now = Date.now()) {
   return true
 }
 
+/**
+ * REFRESH-QUIET-1 (Owner, 2026-09-30: the refresh card "appears all the time"): is this the error a
+ * browser raises when a code file from an older version is gone? Chrome, Safari and Firefox word it
+ * differently; a stale file served as a web page shows up as a MIME type error. Anything else is a
+ * real fault and keeps the card.
+ */
+const STALE_CODE = [
+  /Failed to fetch dynamically imported module/i, /error loading dynamically imported module/i,
+  /Importing a module script failed/i, /ChunkLoadError/i, /Loading (CSS )?chunk \S+ failed/i,
+  /Unable to preload CSS/i, /MIME type/i, /is not a valid JavaScript/i,
+]
+export function isStaleCodeError(error) {
+  const text = `${error?.name || ''} ${error?.message || error || ''}`
+  return STALE_CODE.some(re => re.test(text))
+}
+
 export function lazyReload(importer, name) {
   return lazy(() => importer().catch((error) => {
     if (typeof window !== 'undefined' && shouldReloadAfterChunkFailure(name, window.sessionStorage)) {

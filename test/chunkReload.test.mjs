@@ -117,3 +117,18 @@ test('the boundary wraps the app, and the portal chunk is warmed when the profil
   const menu = read('src/components/UserMenu.jsx')
   assert.match(menu, /if \(isOpen\) preloadPortalApp\(\);/)
 })
+
+// REFRESH-QUIET-1 (Owner, 2026-09-30: the refresh card "appears all the time"). A new version going
+// live while the tab is open refreshes itself; only a real fault, or the same failure right after a
+// refresh, shows the card, and the card names the error.
+test('stale code refreshes quietly; a real fault still shows the card with its message', async () => {
+  const L = await import('../src/lib/lazyReload.js')
+  for (const m of ['Failed to fetch dynamically imported module: https://x/assets/ProgramBudgetView-abc.js', 'Importing a module script failed.', 'error loading dynamically imported module', "Expected a JavaScript module script but the server responded with a MIME type of \"text/html\"."]) {
+    assert.equal(L.isStaleCodeError(new TypeError(m)), true, m)
+  }
+  for (const m of ["Cannot read properties of undefined (reading 'map')", 'year is not defined']) assert.equal(L.isStaleCodeError(new TypeError(m)), false, m)
+  const b = read('src/components/AppErrorBoundary.jsx')
+  assert.match(b, /return \{ error, reloading: isStaleCodeError\(error\) \}/)
+  assert.match(b, /if \(shouldReloadAfterChunkFailure\('app-boundary', window\.sessionStorage\)\) reloadToCurrentVersion\(window\.location\)\n\s+else this\.setState\(\{ reloading: false \}\)/, 'once per window: it cannot loop')
+  assert.match(b, /String\(this\.state\.error\?\.message \|\| this\.state\.error\)\.slice\(0, 200\)/)
+})
