@@ -13,11 +13,12 @@
 
 import { createClient } from '@supabase/supabase-js'
 
-export function getServiceDb() {
+export function getServiceDb({ fetch: timedFetch } = {}) {
   const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!url || !key) throw new Error('Missing Supabase service role credentials')
-  return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } })
+  // BUDGET-TIMING-1: a caller may pass its own fetch to time each read; nobody else changes.
+  return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false }, ...(timedFetch ? { global: { fetch: timedFetch } } : {}) })
 }
 
 // A Supabase client scoped to the CALLER's JWT (PostgREST role `authenticated`), for calling
