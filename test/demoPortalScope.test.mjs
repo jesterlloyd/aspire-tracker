@@ -172,8 +172,7 @@ test('getServiceDb builds a NEW client per call, which is what makes mutation sa
   // singleton, one demo request would scope every later request in that warm container -
   // including a real Unit Leader's, who would then see an empty roster.
   const src = read('api/lib/portalAuth.js')
-  // BUDGET-TIMING-1 changed the signature: it may take an optional fetch, still a new client per call.
-  const fn = src.match(/export function getServiceDb\([^)]*\)[\s\S]*?\n}/)
+  const fn = src.match(/export function getServiceDb\(\)[\s\S]*?\n}/)
   assert.ok(fn, 'getServiceDb not found')
   assert.match(fn[0], /return createClient\(/,
     'getServiceDb must construct and return a client, not hand back a cached one')

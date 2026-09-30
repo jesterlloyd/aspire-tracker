@@ -98,23 +98,7 @@ export function createBudgetStaffHandler({ verifyCaller = verifyPortalCaller, ma
     if (req.method === 'OPTIONS') return res.status(200).end()
     if (req.method !== 'POST') { res.setHeader('Allow', 'POST'); return res.status(405).json({ error: 'method_not_allowed' }) }
 
-    // BUDGET-TIMING-1 (Owner, 2026-09-30: the Program Budget took 14s after BUDGET-LOAD-SPEED-1): one
-    // log line per request with where the time went, so the next change is measured, not guessed.
-    const t0 = Date.now()
-    const reads = []
-    const timedFetch = async (input, init) => {
-      const at = Date.now() - t0
-      const path = String(typeof input === 'string' ? input : input?.url || '').replace(/^https?:\/\/[^/]+/, '').split('?')[0]
-      try { return await fetch(input, init) } finally { reads.push({ path, at, ms: Date.now() - t0 - at }) }
-    }
-    res.once?.('finish', () => {
-      const slow = [...reads].sort((a, b) => b.ms - a.ms)[0]
-      const busy = reads.reduce((a, r) => a + r.ms, 0)
-      console.log(`budget-timing ${JSON.stringify({ action: req.body?.action || null, status: res.statusCode, total: Date.now() - t0, auth: tAuth ?? null, reads: reads.length, busy, slowest: slow ? `${slow.path} ${slow.ms}ms @${slow.at}` : null, first: reads[0] ? `${reads[0].ms}ms` : null, timeline: [...reads].sort((a, b) => a.at - b.at).slice(0, 60).map(r => `${r.path.replace('/rest/v1/', '')}@${r.at}+${r.ms}`) })}`)
-    })
-    let tAuth = null
     const caller = await verifyCaller(req)
-    tAuth = Date.now() - t0
     if (!caller.authenticated) return res.status(caller.status || 401).json({ error: caller.reason || 'unauthenticated' })
 
     const body = obj(req.body)
@@ -135,7 +119,7 @@ export function createBudgetStaffHandler({ verifyCaller = verifyPortalCaller, ma
     if (['month_close', 'month_reopen', 'concur_mark_submitted'].includes(body.action) && fy == null) return invalid(res, 'fiscal_year', 'Choose a fiscal year.')
 
     let db
-    try { db = makeDb({ fetch: timedFetch }) } catch { return res.status(500).json({ error: 'server_misconfigured' }) }
+    try { db = makeDb() } catch { return res.status(500).json({ error: 'server_misconfigured' }) }
     const day = today ? { today: today() } : {}
     const actor = caller.profile
 
