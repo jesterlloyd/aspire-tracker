@@ -36,24 +36,27 @@ export function fyMonths(fy) {
 export const dueDate = (key) => `${shift(key, 1)}-${pad(REMIND_DAY)}`
 
 /**
- * The month the card is for, or null. In the window (the 25th through the 10th) it is the window's
- * month while that month is open; otherwise, and once that month is closed, it is the latest month
- * that has ended and is still open, so the card stays while any earlier month is open.
+ * The month the card is for, or null: the OLDEST month still open that has ended or is in the window
+ * (the 25th through the 10th). Months close in order (BUDGET-FIXES-1 item 2.4, Owner 2026-09-29), so
+ * with July open the card closes July, whatever month it is now.
  */
 export function closeTarget(fy, closed = new Set(), today) {
   const months = fyMonths(fy)
   const day = Number(String(today).slice(8, 10))
   const win = day >= WINDOW_FROM_DAY ? monthKey(today) : day <= WINDOW_TO_DAY ? shift(monthKey(today), -1) : null
-  if (win && months.some(m => m.key === win) && !closed.has(win)) return win
-  const open = months.filter(m => m.end < today && !closed.has(m.key))
-  return open.length ? open[open.length - 1].key : null
+  const open = months.filter(m => !closed.has(m.key) && (m.end < today || m.key === win))
+  return open.length ? open[0].key : null
 }
 
-/** Closed, Closing (the month being closed), Not closed (ended and open), Upcoming. */
+/**
+ * Closed, Closing (the month being closed), Not closed (ended and open), In progress (this month,
+ * waiting its turn: months close in order, BUDGET-FIXES-1 item 2.4), Upcoming.
+ */
 export function monthStatus(key, { closed = new Set(), target = null, today }) {
   if (closed.has(key)) return { key: 'closed', label: 'Closed', tone: 'ok' }
   if (key === target) return { key: 'closing', label: 'Closing', tone: 'warn' }
   if (monthInfo(key).end < today) return { key: 'not_closed', label: 'Not closed', tone: 'off' }
+  if (monthInfo(key).start <= today) return { key: 'in_progress', label: 'In progress', tone: 'off' }
   return { key: 'upcoming', label: 'Upcoming', tone: 'off' }
 }
 
@@ -113,14 +116,14 @@ export function closeChecklist(key, { expenses = [], receipts = [] } = {}) {
 }
 
 /**
- * The Action Center's reminder: from the 5th of the next month, the latest month that has ended and
- * is still open ("Close September"), with how many earlier months are open too. Null when none.
+ * The Action Center's reminder: from the 5th of the next month, the OLDEST month that has ended and
+ * is still open ("Close July"), with how many later months wait behind it. Null when none.
  */
 export function closeReminder(fy, closed = new Set(), today) {
   const due = fyMonths(fy).filter(m => m.end < today && dueDate(m.key) <= today && !closed.has(m.key))
   if (!due.length) return null
-  const m = due[due.length - 1]
-  return { month: m.key, name: m.name, label: m.label, due: dueDate(m.key), earlier: due.length - 1 }
+  const m = due[0]   // the oldest: months close in order (item 2.4)
+  return { month: m.key, name: m.name, label: m.label, due: dueDate(m.key), later: due.length - 1 }
 }
 
 /** A closed month's message for a row that falls in it. */

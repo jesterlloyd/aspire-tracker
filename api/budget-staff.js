@@ -29,7 +29,7 @@ const ACTION_SCHEMAS = Object.freeze({
   load: ['action', 'fiscal_year'],
   export: ['action', 'fiscal_year'],
   start_year: ['action', 'fiscal_year', 'total', 'cost_center', 'plan'],
-  set_total: ['action', 'fiscal_year', 'total'],
+  set_total: ['action', 'fiscal_year', 'total', 'reason'],
   set_note: ['action', 'fiscal_year', 'note'],
   set_cost_center: ['action', 'fiscal_year', 'cost_center', 'apply_to_rows'],
   mark_reconciled: ['action', 'fiscal_year'],
@@ -132,7 +132,7 @@ export function createBudgetStaffHandler({ verifyCaller = verifyPortalCaller, ma
           return res.status(200).json({ fileName, xlsx: Buffer.from(bytes).toString('base64') })
         }
         case 'start_year': return res.status(200).json(await E.startYear(db, actor, { fy, total: body.total, cost_center: body.cost_center, plan: body.plan === 'even' ? 'even' : 'none', ...day }))
-        case 'set_total': return res.status(200).json(await E.setTotal(db, actor, { fy, total: body.total, ...day }))
+        case 'set_total': return res.status(200).json(await E.setTotal(db, actor, { fy, total: body.total, reason: body.reason, ...day }))
         case 'set_cost_center': return res.status(200).json(await E.setCostCenter(db, actor, { fy: fy ?? E.currentFiscalYear(), cost_center: body.cost_center, applyToRows: body.apply_to_rows !== false, ...day }))
         case 'set_note': return res.status(200).json(await E.setNote(db, actor, { fy, note: body.note, ...day }))
         case 'mark_reconciled': return res.status(200).json(await E.markReconciled(db, actor, { fy, ...day }))

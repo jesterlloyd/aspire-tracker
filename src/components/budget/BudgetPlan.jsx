@@ -27,6 +27,7 @@ const TONE = { draft: 'info', submitted: 'warn', approved: 'ok', sent_back: 'off
 let seq = 0
 /** What the server stores for an item. */
 const payload = (i) => ({ category_id: i.category_id, name: i.name, quantity: i.quantity, unit_cost: i.unit_cost, reason: i.reason, tag: i.tag, provenance_id: i.provenance_id || null })
+const blankItem = (i) => !String(i?.name || '').trim() && !(Number(i?.unit_cost) > 0)
 const key = () => `k${Date.now().toString(36)}${(seq++).toString(36)}`
 
 export default function BudgetPlan({ year, canEdit, onWrite, source, onOpenYear }) {
@@ -43,7 +44,9 @@ export default function BudgetPlan({ year, canEdit, onWrite, source, onOpenYear 
     req: `${fyShort(fy)} request`,
   }
 
-  const [items, setItems] = useState(() => (cur?.items || []).map(i => ({ ...i, key: key() })))
+  // BUDGET-FIXES-1 item 3.2: an item with no name and no cost is not a request; it is not drawn (and
+  // the next save leaves it out).
+  const [items, setItems] = useState(() => (cur?.items || []).filter(i => !blankItem(i)).map(i => ({ ...i, key: key() })))
   const [note, setNote] = useState(cur?.note || '')
   const [saving, setSaving] = useState('')
   const timer = useRef(null)
@@ -65,8 +68,12 @@ export default function BudgetPlan({ year, canEdit, onWrite, source, onOpenYear 
   const cats = cur?.categories || []
   const totals = useMemo(() => planTotals(draft ? items : (cur?.items || [])), [draft, items, cur])
   const requestedOf = (c) => (draft ? (totals.byCategory.get(c.id) || 0) : c.requested)
-  const shown = cats.filter(c => requestedOf(c) || c.prior1 || c.prior2 || c.approved || (draft && items.some(i => i.category_id === c.id)))
+  // BUDGET-FIXES-1 items 3.1 and 3.2 (Owner, 2026-09-29): a category with a request (or an item being
+  // written) is listed; the rest fold into one group, each with Add item. A prior year's column shows
+  // only when some category has spending in it.
+  const shown = cats.filter(c => requestedOf(c) || c.approved || (draft ? items : (cur?.items || [])).some(i => i.category_id === c.id))
   const unused = cats.filter(c => !shown.includes(c))
+  const showPrior2 = cats.some(c => c.prior2)
 
   // Margo's approved amounts, as she edits them.
   const [approved, setApproved] = useState(() => Object.fromEntries(cats.map(c => [c.id, c.requested ? String(c.requested) : ''])))
@@ -180,8 +187,8 @@ export default function BudgetPlan({ year, canEdit, onWrite, source, onOpenYear 
           </SurfaceCard>
         )}
 
-        <SurfaceCard className="bud-card">
-          <div className="bud-plan-cathead"><h2>Categories</h2><span className="bud-hint">{labels.prior2} · {labels.prior1} · {labels.req}{cur.status === 'approved' ? ' · approved' : ''}</span></div>
+        <SurfaceCard className={`bud-card${showPrior2 ? '' : ' bud-pcats-2'}`}>
+          <div className="bud-plan-cathead"><h2>Categories</h2><span className="bud-hint">{showPrior2 ? `${labels.prior2} · ` : ''}{labels.prior1} · {labels.req}{cur.status === 'approved' ? ' · approved' : ''}</span></div>
           {shown.length === 0 && <p className="bud-empty">No items yet. Add items to a category below.</p>}
           {shown.map(c => {
             const own = (draft ? items : cur.items).filter(i => i.category_id === c.id)
@@ -191,7 +198,7 @@ export default function BudgetPlan({ year, canEdit, onWrite, source, onOpenYear 
                 <summary>
                   <ChevronRight size={15} aria-hidden="true" className="chev" />
                   <span className="nm">{c.name}{plat && <span className="bud-tag">Platform</span>}</span>
-                  <span className="n" title={labels.prior2}>{usd(c.prior2)}</span>
+                  {showPrior2 && <span className="n" title={labels.prior2}>{usd(c.prior2)}</span>}
                   <span className="n" title={labels.prior1}>{usd(c.prior1)}</span>
                   <span className="n req" title={labels.req}>{usd(requestedOf(c))}</span>
                   {cur.status === 'approved' && <span className="n" title="Approved">{c.approved == null ? 'Not set' : usd(c.approved)}{c.effective != null && c.effective !== c.approved ? <small> now {usd(c.effective)}</small> : null}</span>}
@@ -221,11 +228,17 @@ export default function BudgetPlan({ year, canEdit, onWrite, source, onOpenYear 
             )
           })}
           {leftLine('bud-unalloc')}
-          {draft && unused.length > 0 && (
-            <label className="bud-fld bud-addcat"><span>Add items to another category</span>
-              <select className="bud-input" value="" onChange={e => { if (e.target.value) addItem(e.target.value) }}>
-                <option value="">Choose a category</option>{unused.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select></label>
+          {unused.length > 0 && (
+            <details className="bud-pempty">
+              <summary><ChevronRight size={15} aria-hidden="true" className="chev" />{unused.length} {unused.length === 1 ? 'category' : 'categories'} with no request</summary>
+              <ul>
+                {unused.map(c => (
+                  <li key={c.id}><span className="nm">{c.name}</span>
+                    {c.prior1 ? <span className="bud-hint">{labels.prior1} {usd(c.prior1)}</span> : null}
+                    {draft && <button type="button" className="bud-linkbtn" onClick={() => addItem(c.id)}><Plus size={13} aria-hidden="true" /> Add item</button>}</li>
+                ))}
+              </ul>
+            </details>
           )}
         </SurfaceCard>
 
@@ -259,7 +272,10 @@ export default function BudgetPlan({ year, canEdit, onWrite, source, onOpenYear 
           <div className="bud-side-row"><span>Platform share</span><b>{usd(totals.platform)} <small>{Math.round(totals.platformShare * 100)}%</small></b></div>
           {running && year.state === 'current' && onOpenYear && <button type="button" className="bud-linkbtn" onClick={() => onOpenYear(fy + 1)}>Open the {fyShort(fy + 1)} proposal</button>}
         </SurfaceCard>
-        {owner && running && <MoveLimit limits={p.limits} approvedTotals={cats} onWrite={onWrite} />}
+        {/* BUDGET-FIXES-1 item 3.3: the move limit follows the plan. Before Margo approves one it is a line. */}
+        {owner && (p.live
+          ? <MoveLimit limits={p.limits} approvedTotals={cats} onWrite={onWrite} />
+          : <SurfaceCard className="bud-card"><p className="bud-hint bud-limit-line">Move limit applies once Margo approves this plan.</p></SurfaceCard>)}
       </aside>
     </div>
   )
@@ -267,20 +283,37 @@ export default function BudgetPlan({ year, canEdit, onWrite, source, onOpenYear 
 
 /** The owner's move limit (item 16): a percent of the receiving category's approved total, capped. */
 function MoveLimit({ limits, approvedTotals, onWrite }) {
+  // BUDGET-FIXES-1 item 3.3: with an approved plan the two figures read as agreed; Edit changes them,
+  // and every change is logged (plan_limits).
+  const [editing, setEditing] = useState(false)
   const [pct, setPct] = useState(String(limits?.pct ?? 10))
   const [cap, setCap] = useState(String(limits?.cap ?? 500))
   const dirty = Number(pct) !== Number(limits?.pct) || Number(cap) !== Number(limits?.cap)
   const example = approvedTotals.find(c => c.approved)
+  const shown = editing ? { pct: Number(pct) || 0, cap: Number(cap) || 0 } : { pct: Number(limits?.pct ?? 10), cap: Number(limits?.cap ?? 500) }
+  const cancel = () => { setPct(String(limits?.pct ?? 10)); setCap(String(limits?.cap ?? 500)); setEditing(false) }
   return (
     <SurfaceCard className="bud-card">
-      <h2>Move Limit</h2>
+      <div className="bud-plan-cathead"><h2>Move Limit</h2>{!editing && <button type="button" className="bud-linkbtn" onClick={() => setEditing(true)}>Edit</button>}</div>
       <p className="bud-sub">What you may move into a category without asking. Agreed with Margo.</p>
-      <div className="bud-limit">
-        <label><span>Percent of the receiving category’s approved total</span><input className="bud-input bud-num" inputMode="decimal" value={pct} onChange={e => setPct(e.target.value)} /></label>
-        <label><span>Most per move, in dollars</span><input className="bud-input bud-num" inputMode="decimal" value={cap} onChange={e => setCap(e.target.value)} /></label>
-      </div>
-      {example && <p className="bud-hint">For {example.name} ({usd(example.approved)} approved) that is up to {usd(moveLimit(example.approved, { pct: Number(pct) || 0, cap: Number(cap) || 0 }))} per move.</p>}
-      {dirty && <button type="button" className="bud-btn bud-btn-sm bud-btn-pri" onClick={() => onWrite.run('plan_limits', { pct: Number(pct), cap: Number(cap) })}>Save limit</button>}
+      {editing ? (
+        <>
+          <div className="bud-limit">
+            <label><span>Percent of the receiving category’s approved total</span><input className="bud-input bud-num" inputMode="decimal" value={pct} onChange={e => setPct(e.target.value)} /></label>
+            <label><span>Most per move, in dollars</span><input className="bud-input bud-num" inputMode="decimal" value={cap} onChange={e => setCap(e.target.value)} /></label>
+          </div>
+          <div className="bud-actions">
+            <button type="button" className="bud-btn bud-btn-sm bud-btn-pri" disabled={!dirty} onClick={async () => { if (await onWrite.run('plan_limits', { pct: Number(pct), cap: Number(cap) })) setEditing(false) }}>Save limit</button>
+            <button type="button" className="bud-btn bud-btn-sm" onClick={cancel}>Cancel</button>
+          </div>
+        </>
+      ) : (
+        <dl className="bud-limit-ro">
+          <div><dt>Percent of the receiving category’s approved total</dt><dd>{shown.pct}%</dd></div>
+          <div><dt>Most per move</dt><dd>{usd(shown.cap)}</dd></div>
+        </dl>
+      )}
+      {example && <p className="bud-hint">For {example.name} ({usd(example.approved)} approved) that is up to {usd(moveLimit(example.approved, shown))} per move.</p>}
     </SurfaceCard>
   )
 }

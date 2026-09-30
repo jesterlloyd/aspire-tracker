@@ -67,7 +67,9 @@ test('Summary: the owner changes the budget and writes the note; a reader reads 
   const owner = html(C.Summary, Y.owner, true), reader = html(C.Summary, Y.reader, false)
   assert.match(owner, /Change budget/)
   assert.match(owner, /Owner Note/)
-  assert.match(owner, /Mark reconciled today/)
+  // BUDGET-FIXES-1 item 2.5 changed this: no Mark reconciled today; Last reconciled is the last closed month.
+  assert.doesNotMatch(owner, /Mark reconciled today/)
+  assert.match(owner, /Last reconciled: <b>(No month closed yet|[A-Z][a-z]+ \d{4}, closed [A-Z][a-z]{2} \d{1,2})<\/b>/)
   assert.doesNotMatch(reader, /Change budget|Mark reconciled today|<textarea/)
   assert.ok(reader.indexOf('From the Program Owner') < reader.indexOf('Budget</span>'), 'the note comes before the figures')
   assert.match(owner, /\$41\.41/)

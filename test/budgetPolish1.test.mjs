@@ -45,7 +45,8 @@ test('the cost center changes, with this year’s rows, except in a closed month
   const aug = await E.createExpense(db, owner, { fields: { expense_date: '2026-08-10', item: 'Aug', amount: 5 }, today: TODAY })
   const sep = await E.createExpense(db, owner, { fields: { expense_date: '2026-09-10', item: 'Sep', amount: 5 }, today: TODAY })
   const own = await E.createExpense(db, owner, { fields: { expense_date: '2026-09-11', item: 'Other', amount: 5, cost_center: 'Research 1234' }, today: TODAY })
-  await E.closeMonth(db, owner, { fy: 2027, month: '2026-08', note: 'Closed.', today: TODAY })
+  // BUDGET-FIXES-1 item 2.4: months close in order, so July closes before August.
+  for (const m of ['2026-07', '2026-08']) await E.closeMonth(db, owner, { fy: 2027, month: m, note: 'Closed.', today: TODAY })
   await assert.rejects(E.setCostCenter(db, owner, { fy: 2027, cost_center: '  ', today: TODAY }), /Enter the cost center/)
   const out = await E.setCostCenter(db, owner, { fy: 2027, cost_center: 'Nursing Education 8720001', today: TODAY })
   assert.equal(out.message, 'Cost center is Nursing Education 8720001. 1 row updated.')
@@ -72,7 +73,8 @@ test('the screens: one Add receipts, the year line in the band, Filed when empty
   // BUDGET-FIXES-1 changed this: Filed opens when the SELECTED year has filed receipts (item 1.4).
   assert.match(read('src/components/budget/BudgetReceipts.jsx'), /if \(!firstLoad\.current\) \{ firstLoad\.current = true; if \(!d\.waiting\.length && filedIn\(d, fy\)\) setView\('filed'\) \}/)
   const sum = read('src/components/budget/BudgetSummary.jsx')
-  assert.match(sum, /localStorage\.getItem\(HOW_KEY\) === '1'/)
+  // BUDGET-FIXES-1 item 2.1 changed this: How this works is a link beside the tabs, remembered per person.
+  assert.match(read('src/components/budget/BudgetHowItWorks.jsx'), /useUserPreference\(BUDGET_HOW_IT_WORKS\)/)
   assert.match(sum, /Show all \$\{s\.byCategory\.length\}/)
   assert.match(read('api/budget-staff.js'), /set_cost_center: \['action', 'fiscal_year', 'cost_center', 'apply_to_rows'\]/)
 })

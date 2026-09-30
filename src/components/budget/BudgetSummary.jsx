@@ -2,7 +2,8 @@
 //
 // PROGRAM-BUDGET A6: the Summary. Every figure is year.summary, computed by
 // src/lib/budget/budgetModel.js on the server; nothing is computed here but layout.
-//   1. Leadership: the owner's note and last reconciled date, above the figures.
+//   1. Leadership: the owner's note and last reconciled month, above the figures.
+//      BUDGET-FIXES-1 section 2: How this works moved beside the tabs (BudgetHowItWorks.jsx).
 //   2. The basis line: Budget, Spent, Remaining, Used, Cost per student.
 //   3. Monthly spend against an even pace, with scheduled subscription charges dashed.
 //   4. By category: a DataSheet plain sheet (table canon row 9).
@@ -76,36 +77,11 @@ function MonthlyChart({ s }) {
   )
 }
 
-/**
- * BUDGET-V2 item 11: how the budget runs each month, in five steps and one lane. Open the first time;
- * the owner's choice to fold it is kept in this browser.
- */
-const HOW_KEY = 'aspire-budget-how-open'
-function HowItWorks() {
-  // BUDGET-POLISH-1 (Owner, 2026-09-29: "is Summary too crowded?"): folded unless the owner opened it.
-  const [open, setOpen] = useState(() => { try { return localStorage.getItem(HOW_KEY) === '1' } catch { return false } })
-  const steps = [
-    ['Expect', 'Approved subscriptions create the month’s charges ahead of time.', 'The app'],
-    ['Post', 'On its date, a charge counts as spent. It shows Missing until its receipt arrives.', 'The app'],
-    ['Match or add', 'Keith reads each receipt. It attaches to a charge, or becomes a new one-time expense.', 'Keith proposes, you decide'],
-    ['Submit', 'Personal purchases go to Concur. Mark them Submitted to Concur, then Reimbursed or Paid.', 'You'],
-    ['Close the month', 'Every charge has a receipt, nothing is left to review, Concur is done.', 'You, reminded on the 5th'],
-  ]
-  return (
-    <details className="bud-how" open={open} onToggle={e => { const o = e.currentTarget.open; setOpen(o); try { localStorage.setItem(HOW_KEY, o ? '1' : '0') } catch { /* private window */ } }}>
-      <summary>How the budget works each month</summary>
-      <ol className="bud-cycle">
-        {steps.map(([t, d, who], i) => <li key={t}><span className="no">Step {i + 1}</span><b>{t}</b><small>{d}</small><span className="who">{who}</span></li>)}
-      </ol>
-      <p className="bud-lane"><span>Each expense:</span> Expected → Posted → Receipt attached → Submitted to Concur → Reimbursed or Paid. <span className="bud-hint">One-time purchases start at Posted, the moment you add them.</span></p>
-    </details>
-  )
-}
-
 export default function BudgetSummary({ year, canEdit, onWrite, onGo, source, onOpenYear, receiptQueue = [] }) {
   const s = year.summary
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
+  const [reason, setReason] = useState('')
   const [note, setNote] = useState(year.budget?.owner_note || '')
   const [showIdle, setShowIdle] = useState(false)
   const reader = !canEdit
@@ -114,7 +90,9 @@ export default function BudgetSummary({ year, canEdit, onWrite, onGo, source, on
   const saveTotal = async () => {
     const v = parseMoney(draft)
     if (v == null) { onWrite.notify('Enter the budget in dollars, like 42,500.00.', 'err'); return }
-    if (await onWrite.run('set_total', { fiscal_year: year.fy, total: v }, 'Budget changed. Budget history has the old and new amounts.')) setEditing(false)
+    // BUDGET-FIXES-1 item 2.6: a change to the amount says why, in one line.
+    if (!reason.trim()) { onWrite.notify('Say in one line why the budget is changing.', 'err'); return }
+    if (await onWrite.run('set_total', { fiscal_year: year.fy, total: v, reason: reason.trim() }, 'Budget changed. Budget History has the old and new amounts and your reason.')) { setEditing(false); setReason('') }
   }
 
   const cps = s.costPerStudent
@@ -142,14 +120,19 @@ export default function BudgetSummary({ year, canEdit, onWrite, onGo, source, on
       )}
     </SurfaceCard>
   ) : null
+  // BUDGET-FIXES-1 item 2.3: Cost per student waits until an expense is tagged to a cohort; the other
+  // four tiles fill the row until then.
+  const showCps = cps.state !== 'untagged'
   const basis = (
-    <div className="bud-basis">
+    <div className={showCps ? 'bud-basis' : 'bud-basis bud-basis-4'}>
       <SurfaceCard className="bud-tile">
         <span className="k">Budget</span>
         {editing ? (
           <>
             <span className="bud-money"><span>$</span><input className="bud-input" aria-label="Annual budget" inputMode="decimal" value={draft} onChange={e => setDraft(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveTotal(); if (e.key === 'Escape') setEditing(false) }} autoFocus /></span>
-            <span className="bud-actions"><button type="button" className="bud-btn bud-btn-pri bud-btn-sm" onClick={saveTotal}>Save</button><button type="button" className="bud-btn bud-btn-sm" onClick={() => setEditing(false)}>Cancel</button></span>
+            <input className="bud-input bud-reason" aria-label="Reason for the change" placeholder="Why it is changing, in one line" maxLength={200} value={reason}
+              onChange={e => setReason(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveTotal(); if (e.key === 'Escape') setEditing(false) }} />
+            <span className="bud-actions"><button type="button" className="bud-btn bud-btn-pri bud-btn-sm" disabled={!reason.trim()} title={reason.trim() ? undefined : 'Add a reason first'} onClick={saveTotal}>Save</button><button type="button" className="bud-btn bud-btn-sm" onClick={() => { setEditing(false); setReason('') }}>Cancel</button></span>
           </>
         ) : (
           <>
@@ -164,11 +147,10 @@ export default function BudgetSummary({ year, canEdit, onWrite, onGo, source, on
         {!closed && prop.count > 0 && <span className="bud-if-sub">{usd(s.remaining - prop.fromStart)} if all {prop.count} {prop.count === 1 ? 'subscription is' : 'subscriptions are'} approved from Jul 1</span>}</SurfaceCard>
       <SurfaceCard className="bud-tile"><span className="k">Used</span><b>{pct(s.used)}</b><small>Year elapsed {Math.round(s.elapsed * 100)}%</small>
         <span className="bud-meter" aria-hidden="true"><i className={s.used > 1 ? 'over' : undefined} style={{ width: `${Math.min(100, s.used * 100)}%` }} /><u style={{ left: `calc(${Math.min(100, s.elapsed * 100)}% - 1px)` }} /></span></SurfaceCard>
-      <SurfaceCard className="bud-tile"><span className="k">Cost per student</span>
+      {showCps && <SurfaceCard className="bud-tile"><span className="k">Cost per student</span>
         {cps.state === 'ok' && <><b>{usd(cps.value)}</b><small>{cps.cohort} · {usd(cps.spend)} ÷ {cps.size} students</small></>}
         {cps.state === 'size_pending' && <><b><Missing /></b><small>{cps.cohort} · {usd(cps.spend)} tagged · roster size pending</small></>}
-        {cps.state === 'untagged' && <><b><Missing /></b><small>Tag expenses to a cohort to see this</small></>}
-      </SurfaceCard>
+      </SurfaceCard>}
     </div>
   )
 
@@ -194,18 +176,20 @@ export default function BudgetSummary({ year, canEdit, onWrite, onGo, source, on
   // With no plan, a category with no spend says nothing; list the ones that do, and offer the rest.
   const idle = withPlan ? [] : s.byCategory.filter(c => !c.spent)
 
+  // BUDGET-FIXES-1 item 2.5: reconciled means a month was closed. The last one closed, and when.
+  const lastClosed = [...(year.close?.months || [])].filter(m => m.closed_at).pop()
+  const reconciled = lastClosed ? `${lastClosed.name} ${lastClosed.year}, closed ${stamp(lastClosed.closed_at).replace(/, \d{4}$/, '')}` : null
   const noteCard = canEdit ? (
     <SurfaceCard className="bud-card bud-note">
       <h2>Owner Note</h2><p className="bud-sub">Leadership sees this above the figures.</p>
       <label className="bud-sr" htmlFor="bud-note">Owner note</label>
       <textarea id="bud-note" className="bud-textarea" value={note} maxLength={2000} placeholder="Context leadership needs to read these numbers correctly"
         onChange={e => setNote(e.target.value)} onBlur={() => { if (note !== (year.budget?.owner_note || '')) onWrite.run('set_note', { fiscal_year: year.fy, note }, 'Note saved.') }} />
-      <div className="bud-rec"><span>Last reconciled: <b>{year.budget?.last_reconciled_at ? stamp(year.budget.last_reconciled_at) : 'Not yet'}</b></span>
-        {<button type="button" className="bud-btn bud-btn-sm" onClick={() => onWrite.run('mark_reconciled', { fiscal_year: year.fy }, 'Marked reconciled today.')}>Mark reconciled today</button>}</div>
+      <div className="bud-rec"><span>Last reconciled: <b>{reconciled || 'No month closed yet'}</b></span></div>
     </SurfaceCard>
   ) : (
     <SurfaceCard className="bud-card bud-note">
-      <h2>From the Program Owner</h2><p className="bud-sub">Last reconciled: {year.budget?.last_reconciled_at ? stamp(year.budget.last_reconciled_at) : 'not yet'}</p>
+      <h2>From the Program Owner</h2><p className="bud-sub">Last reconciled: {reconciled || 'no month closed yet'}</p>
       {year.budget?.owner_note ? <blockquote>{year.budget.owner_note}</blockquote> : <p className="bud-hint">No note.</p>}
     </SurfaceCard>
   )
@@ -213,7 +197,7 @@ export default function BudgetSummary({ year, canEdit, onWrite, onGo, source, on
     <SurfaceCard className="bud-card">
       <h2>Budget History</h2><p className="bud-sub">Every change to the annual amount, the category plan and the estimates</p>
       <ul className="bud-hist">
-        {year.history.length ? year.history.map((h, i) => <li key={i}><span className="when">{stamp(h.created_at)}</span><span>{h.message}{h.actor_name && <small>{h.actor_name}</small>}</span></li>)
+        {year.history.length ? year.history.map((h, i) => <li key={i}><span className="when">{stamp(h.created_at)}</span><span>{h.message}{h.reason && <span className="bud-hist-why">{h.reason}</span>}{h.actor_name && <small>{h.actor_name}</small>}</span></li>)
           : <li><span className="when">–</span><span>No changes yet</span></li>}
       </ul>
     </SurfaceCard>
@@ -235,7 +219,6 @@ export default function BudgetSummary({ year, canEdit, onWrite, onGo, source, on
     <>
       {quiet}
       {reader && noteCard}
-      {canEdit && s.state === 'current' && <HowItWorks />}
       {basis}
       {pending}
       <BudgetClose year={year} canEdit={canEdit} onWrite={onWrite} onGo={onGo} />

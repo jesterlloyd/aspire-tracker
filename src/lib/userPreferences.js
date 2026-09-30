@@ -29,9 +29,14 @@ export const APPEARANCE_COLOR_MODE = 'appearance.colorMode'
 
 // Light stays everyone's default color mode (Owner, 2026-09-21), not the brief's System,
 // until the portals get a setting of their own or a toggle in place of Refresh.
+// BUDGET-FIXES-1 item 2.1 (Owner, 2026-09-29): the Program Budget's "How this works" steps, folded
+// unless the person opened them.
+export const BUDGET_HOW_IT_WORKS = 'budget.howItWorks'
+
 export const USER_PREFERENCES = Object.freeze({
   [APPEARANCE_STYLE]: Object.freeze({ values: Object.freeze(['classic', 'modern']), fallback: 'classic' }),
   [APPEARANCE_COLOR_MODE]: Object.freeze({ values: Object.freeze(['light', 'dark', 'system']), fallback: 'light' }),
+  [BUDGET_HOW_IT_WORKS]: Object.freeze({ values: Object.freeze(['closed', 'open']), fallback: 'closed' }),
 })
 
 const UNDEFINED_COLUMN = '42703'

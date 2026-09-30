@@ -5,6 +5,8 @@
 // posted and expected totals and whether it is closed (and its note), the target month, and for
 // the owner each open month's checklist (src/lib/budget/monthClose.js). Nothing is decided here.
 //
+// BUDGET-FIXES-1 item 2.4 (Owner, 2026-09-29): months close in order. The card works on the oldest
+// open month; a later one cannot be chosen until it is closed (the server refuses it too).
 // The owner sees the card from the 25th through the 10th, and while any earlier month is open: a
 // strip of months, the checklist, Close (when every item passes) and Close with a note (always).
 // A closed month can be reopened from the strip. A reader sees which months are reconciled and
@@ -36,20 +38,24 @@ export default function BudgetClose({ year, canEdit, onWrite, onGo }) {
   const months = close.months || []
   const closedAny = months.some(m => m.closed_at)
   const checklists = close.checklists || {}
-  const selectedKey = pick && (checklists[pick] || months.find(m => m.key === pick)?.closed_at) ? pick : close.target
+  const canPick = (key) => key === close.target || !!months.find(m => m.key === key)?.closed_at
+  const selectedKey = pick && canPick(pick) ? pick : close.target
   const selected = months.find(m => m.key === selectedKey) || null
 
   // A reader, a closed year, or an owner with nothing to close and nothing closed: say nothing more.
   if (!owner && !closedAny) return null
   if (owner && !close.target && !closedAny) return null
 
-  const last = Math.max(months.findIndex(m => m.key === (close.target || selectedKey)), months.reduce((a, m, i) => (m.closed_at ? i : a), -1))
+  // Every month to this one (the strip shows them all, item 2.4), then the next as Upcoming.
+  const nowIdx = months.findIndex(m => m.key === String(today).slice(0, 7))
+  const last = Math.max(nowIdx, months.findIndex(m => m.key === (close.target || selectedKey)), months.reduce((a, m, i) => (m.closed_at ? i : a), -1))
   const strip = months.slice(0, Math.min(months.length, (owner ? last + 2 : last + 1)))
   const closedSet = new Set(months.filter(m => m.closed_at).map(m => m.key))
   const statusOf = (m) => monthStatus(m.key, { closed: closedSet, target: owner ? selectedKey : null, today })
   const list = selectedKey ? checklists[selectedKey] : null
-  // Every ended month still open, other than the one this card is closing.
-  const earlierOpen = strip.filter(m => !m.closed_at && m.key !== (selected && !selected.closed_at ? selectedKey : null) && statusOf(m).key === 'not_closed').map(m => m.name)
+  // The ended months still open behind the one being closed: they wait their turn.
+  const waiting = strip.filter(m => !m.closed_at && m.key !== close.target && statusOf(m).key === 'not_closed').map(m => m.name)
+  const targetName = months.find(m => m.key === close.target)?.name
 
   const run = async (action, payload, done) => {
     setBusy(true)
@@ -65,7 +71,7 @@ export default function BudgetClose({ year, canEdit, onWrite, onGo }) {
       <div className="bud-months" role="list">
         {strip.map(m => {
           const st = statusOf(m)
-          const choosable = owner && (checklists[m.key] || m.closed_at)
+          const choosable = owner && canPick(m.key) && (checklists[m.key] || m.closed_at)
           const body = (
             <>
               <b>{m.label}</b>
@@ -124,7 +130,7 @@ export default function BudgetClose({ year, canEdit, onWrite, onGo }) {
       )}
 
       {owner
-        ? <p className="bud-hint">{earlierOpen.length ? `${earlierOpen.join(' and ')} ${earlierOpen.length === 1 ? 'was' : 'were'} never closed. ` : ''}Closing a month locks its rows and adds it to Budget history. Leadership sees which months are reconciled.</p>
+        ? <p className="bud-hint">{waiting.length && targetName ? `Months close in order: ${waiting.join(' and ')} ${waiting.length === 1 ? 'closes' : 'close'} after ${targetName}. ` : ''}Closing a month locks its rows and adds it to Budget history. Leadership sees which months are reconciled.</p>
         : months.filter(m => m.closed_at && m.note).map(m => <p key={m.key} className="bud-hint"><b>{m.name}</b> closed with a note: {m.note}</p>)}
     </SurfaceCard>
   )

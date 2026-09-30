@@ -14,6 +14,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Download, ReceiptText } from 'lucide-react'
 import SegmentedPicker from '../shared/SegmentedPicker'
+import BudgetHowItWorks from './BudgetHowItWorks'
 import BudgetSummary from './BudgetSummary'
 import BudgetSheet from './BudgetSheet'
 import BudgetSubscriptions from './BudgetSubscriptions'
@@ -160,7 +161,10 @@ export default function ProgramBudgetView({ source, renderBand, initialFy = null
             <button type="button" className="bud-toast-x" aria-label="Dismiss" onClick={() => setToast(null)}>×</button>
           </div>
         )}
-        <SegmentedPicker ariaLabel="Program Budget views" options={tabs} value={current} onChange={(t) => { setSheetFocus(null); setTab(t) }} />
+        {/* BUDGET-FIXES-1 item 2.1: the owner's "How this works" sits beside the tabs in a running year. */}
+        {canEdit && year.state === 'current'
+          ? <BudgetHowItWorks><SegmentedPicker ariaLabel="Program Budget views" options={tabs} value={current} onChange={(t) => { setSheetFocus(null); setTab(t) }} /></BudgetHowItWorks>
+          : <SegmentedPicker ariaLabel="Program Budget views" options={tabs} value={current} onChange={(t) => { setSheetFocus(null); setTab(t) }} />}
         {current === 'summary' && (notStarted
           ? <BudgetStart year={year} canEdit={canEdit} onWrite={onWrite} onPickYear={(y) => setFy(y)} />
           : <BudgetSummary key={year.fy} year={year} canEdit={canEdit} onWrite={onWrite} source={source} receiptQueue={canEdit ? receiptQueue : []}

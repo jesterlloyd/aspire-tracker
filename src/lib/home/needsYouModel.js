@@ -76,7 +76,7 @@ export function budgetGroup({ renewals = [], receipts = [], concur = [], missing
   const closeRows = close ? [{
     id: `close:${close.month}`, chip: 'Close',
     title: `Close ${close.name}`,
-    meta: ['Program Budget', `due ${ymdText(close.due)}`, close.earlier ? `${plural(close.earlier, 'earlier month')} also open` : null].filter(Boolean).join(' · '),
+    meta: ['Program Budget', `due ${ymdText(close.due)}`, close.later ? `${plural(close.later, 'later month')} also open` : null].filter(Boolean).join(' · '),
     pill: { text: 'Close month', tone: 'amber' },
     ageMs: Math.max(0, now - new Date(`${close.due}T12:00:00`).getTime()),
     to: '/settings/budget?tab=summary',

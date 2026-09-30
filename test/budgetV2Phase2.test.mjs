@@ -29,15 +29,18 @@ const TODAY = '2026-09-29'
 
 // ── The month-close rules ────────────────────────────────────────────────────────
 
-test('the card is for the window’s month, and stays while an earlier month is open', () => {
+// BUDGET-FIXES-1 item 2.4 changed this (Owner, 2026-09-29): months close in order, so the card is for
+// the OLDEST open month that has ended or is in the window.
+test('the card is for the oldest open month that has ended or is in the window', () => {
   const none = new Set()
   assert.deepEqual(MC.fyMonths(2027).map(m => m.key).slice(0, 3), ['2026-07', '2026-08', '2026-09'])
-  assert.equal(MC.closeTarget(2027, none, '2026-09-29'), '2026-09', 'from the 25th: this month')
-  assert.equal(MC.closeTarget(2027, none, '2026-10-03'), '2026-09', 'through the 10th: last month')
-  assert.equal(MC.closeTarget(2027, none, '2026-10-15'), '2026-09', 'after the window, while September is open')
-  assert.equal(MC.closeTarget(2027, new Set(['2026-09']), '2026-10-15'), '2026-08', 'then the latest earlier open month')
+  assert.equal(MC.closeTarget(2027, none, '2026-09-29'), '2026-07', 'July first, whatever month it is')
+  assert.equal(MC.closeTarget(2027, new Set(['2026-07', '2026-08']), '2026-09-29'), '2026-09', 'from the 25th: this month, once the earlier ones are closed')
+  assert.equal(MC.closeTarget(2027, new Set(['2026-07', '2026-08']), '2026-10-03'), '2026-09', 'through the 10th: last month')
+  assert.equal(MC.closeTarget(2027, new Set(['2026-07', '2026-08']), '2026-10-15'), '2026-09', 'after the window, while September is open')
+  assert.equal(MC.closeTarget(2027, new Set(['2026-09']), '2026-10-15'), '2026-07', 'a later month closed out of order does not skip July')
   assert.equal(MC.closeTarget(2027, new Set(['2026-07', '2026-08', '2026-09']), '2026-10-15'), null, 'nothing to close mid-month')
-  assert.equal(MC.closeTarget(2027, none, '2026-09-15'), '2026-08', 'mid-September: August has ended and is open')
+  assert.equal(MC.closeTarget(2027, new Set(['2026-07']), '2026-09-15'), '2026-08', 'mid-September: August has ended and is open')
   assert.equal(MC.closeTarget(2027, none, '2026-07-12'), null, 'the first month of the year, before its window')
   const st = (k, today = '2026-09-29') => MC.monthStatus(k, { closed: new Set(['2026-07']), target: '2026-09', today }).label
   assert.deepEqual([st('2026-07'), st('2026-08'), st('2026-09'), st('2026-10')], ['Closed', 'Not closed', 'Closing', 'Upcoming'])
@@ -68,13 +71,16 @@ test('the checklist names what is left, and a note or a receipt answers a missin
   assert.deepEqual(done.items.map(i => i.title), ['2 September charges posted', 'Every September expense has a receipt or a note', 'No September receipts left to review', 'Personal purchases submitted to Concur'])
 })
 
-test('the Action Center asks on the 5th for the latest open month, and says how many earlier ones are open', () => {
-  assert.equal(MC.closeReminder(2027, new Set(), '2026-10-04').month, '2026-08', 'before the 5th, September is not due yet; August is')
-  assert.deepEqual(MC.closeReminder(2027, new Set(), '2026-10-05'), { month: '2026-09', name: 'September', label: 'Sep 2026', due: '2026-10-05', earlier: 2 })
+// BUDGET-FIXES-1 item 2.4 changed this: the reminder names the OLDEST due month and how many wait behind it.
+test('the Action Center asks on the 5th for the oldest open month, and says how many later ones wait', () => {
+  assert.equal(MC.closeReminder(2027, new Set(), '2026-10-04').month, '2026-07', 'July first')
+  assert.equal(MC.closeReminder(2027, new Set(['2026-07']), '2026-10-04').month, '2026-08', 'before the 5th, September is not due yet; August is')
+  assert.deepEqual(MC.closeReminder(2027, new Set(['2026-07', '2026-08']), '2026-10-05'), { month: '2026-09', name: 'September', label: 'Sep 2026', due: '2026-10-05', later: 0 })
+  assert.deepEqual(MC.closeReminder(2027, new Set(), '2026-10-05'), { month: '2026-07', name: 'July', label: 'Jul 2026', due: '2026-08-05', later: 2 })
   assert.equal(MC.closeReminder(2027, new Set(['2026-07', '2026-08', '2026-09']), '2026-10-20'), null)
   const g = NY.budgetGroup({ close: MC.closeReminder(2027, new Set(), '2026-10-05'), now: Date.parse('2026-10-05T12:00:00') })
-  assert.deepEqual(g.rows.map(r => [r.chip, r.title, r.pill.text, r.to]), [['Close', 'Close September', 'Close month', '/settings/budget?tab=summary']])
-  assert.match(g.rows[0].meta, /due Oct 5, 2026 · 2 earlier months also open/)
+  assert.deepEqual(g.rows.map(r => [r.chip, r.title, r.pill.text, r.to]), [['Close', 'Close July', 'Close month', '/settings/budget?tab=summary']])
+  assert.match(g.rows[0].meta, /due Aug 5, 2026 · 2 later months also open/)
   assert.equal(g.open.to, '/settings/budget?tab=summary')
   assert.ok(read('src/lib/actionCenter/queueModel.js').includes("'Receipt', 'Renew', 'Close']"), 'Close is a chip, last')
   assert.equal(typeof QM.chipCounts, 'function')
@@ -171,9 +177,15 @@ test('September closes from its checklist or with a note, locks its rows, and re
   const { pg, db, owner, subId } = await world()
   await E.decideProposal(db, owner, { id: await subId('Resend'), decision: 'from_year_start', today: TODAY })
   let y = await year(db)
+  // BUDGET-FIXES-1 item 2.4 changed this: July comes first, and September waits for it.
+  assert.equal(y.close.target, '2026-07')
+  assert.equal(y.close.due, '2026-08-05')
+  await assert.rejects(E.closeMonth(db, owner, { fy: 2027, month: '2026-09', note: 'x', today: TODAY }), (e) => e.code === 'close_in_order' && e.message === 'Close July first. Months close in order, oldest first.')
+  for (const m of ['2026-07', '2026-08']) await E.closeMonth(db, owner, { fy: 2027, month: m, note: 'Closed in order.', today: TODAY })
+  y = await year(db)
   assert.equal(y.close.target, '2026-09')
   assert.equal(y.close.due, '2026-10-05')
-  assert.deepEqual(y.close.months.slice(0, 4).map(m => [m.key, m.posted, m.expected, m.closed_at]), [['2026-07', 20, 0, null], ['2026-08', 20, 0, null], ['2026-09', 20, 0, null], ['2026-10', 0, 20, null]])
+  assert.deepEqual(y.close.months.slice(0, 4).map(m => [m.key, m.posted, m.expected, !!m.closed_at]), [['2026-07', 20, 0, true], ['2026-08', 20, 0, true], ['2026-09', 20, 0, false], ['2026-10', 0, 20, false]])
   const sep = y.close.checklists['2026-09']
   assert.deepEqual(sep.items.map(i => i.ok), [true, false, true, false], 'the Resend charge has no receipt and is not submitted')
   assert.equal((await year(db, TODAY, 'reader')).close.checklists, undefined, 'a reader never sees the checklist')
@@ -186,7 +198,7 @@ test('September closes from its checklist or with a note, locks its rows, and re
 
   y = await year(db)
   assert.ok(y.close.months.find(m => m.key === '2026-09').closed_at)
-  assert.equal(y.close.target, '2026-08', 'the card moves to the earlier open month')
+  assert.equal(y.close.target, null, 'every month to date is closed')
   assert.ok(y.budget.last_reconciled_at, 'Last reconciled is updated')
   assert.equal(y.history[0].message, 'September 2026 closed with a note: Resend receipt requested from the vendor.')
   const reader = await year(db, TODAY, 'reader')
@@ -199,7 +211,7 @@ test('September closes from its checklist or with a note, locks its rows, and re
   await assert.rejects(E.createExpense(db, owner, { fields: { expense_date: '2026-09-20', item: 'Late', amount: 5 }, today: TODAY }), /closed/)
   await assert.rejects(E.updateExpense(db, owner, { id: y.expenses.find(e => e.expense_date === '2026-08-16').id, patch: { expense_date: '2026-09-02' }, today: TODAY }), /closed/, 'nor can a row move into it')
   const ctx = await R.checksContext(db, TODAY)
-  assert.deepEqual(ctx.years.get(2027).closedMonths, ['2026-09'], 'a receipt dated in September is asked to wait')
+  assert.deepEqual(ctx.years.get(2027).closedMonths, ['2026-07', '2026-08', '2026-09'], 'a receipt dated in a closed month is filed late')
 
   await assert.rejects(E.closeMonth(db, owner, { fy: 2027, month: '2026-09', note: 'again', today: TODAY }), /already closed/)
   const re = await E.reopenMonth(db, owner, { fy: 2027, month: '2026-09', today: TODAY })
@@ -210,13 +222,13 @@ test('September closes from its checklist or with a note, locks its rows, and re
   assert.deepEqual(y.close.checklists['2026-09'].items.map(i => i.ok), [true, true, true, true], 'the note answers the missing receipt')
   await E.closeMonth(db, owner, { fy: 2027, month: '2026-09', today: TODAY })
   assert.equal((await year(db)).history[0].message, 'September 2026 closed and reconciled.')
-  assert.equal((await pg.query(`SELECT count(*)::int AS n FROM budget_events WHERE kind IN ('month_closed', 'month_reopened')`)).rows[0].n, 3)
+  assert.equal((await pg.query(`SELECT count(*)::int AS n FROM budget_events WHERE kind IN ('month_closed', 'month_reopened')`)).rows[0].n, 5, 'July, August, and September three times')
 })
 
 test('the Action Center hears about the month from the 5th', async () => {
   const { db, owner } = await world()
-  assert.equal((await E.closeQueue(db, { today: '2026-09-29' })).month, '2026-08')
-  assert.deepEqual(await E.closeQueue(db, { today: '2026-10-05' }), { month: '2026-09', name: 'September', label: 'Sep 2026', due: '2026-10-05', earlier: 2 })
+  assert.equal((await E.closeQueue(db, { today: '2026-09-29' })).month, '2026-07', 'the oldest open month (item 2.4)')
+  assert.deepEqual(await E.closeQueue(db, { today: '2026-10-05' }), { month: '2026-07', name: 'July', label: 'Jul 2026', due: '2026-08-05', later: 2 })
   for (const m of ['2026-07', '2026-08', '2026-09']) await E.closeMonth(db, owner, { fy: 2027, month: m, note: 'Nothing posted.', today: '2026-10-05' })
   assert.equal(await E.closeQueue(db, { today: '2026-10-05' }), null)
 })
