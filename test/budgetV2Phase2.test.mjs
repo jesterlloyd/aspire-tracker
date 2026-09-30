@@ -88,14 +88,17 @@ test('an Expected row counts nowhere but committed: not in Spent, the Concur rem
   assert.deepEqual(K.concurDue([expected], { params: { remind_after_days: 1, deadline_days: 60 } }, '2026-09-29'), [])
 })
 
-test('a receipt dated in a closed month asks for the month to be reopened before it posts or attaches', () => {
+// Owner, 2026-09-29: "it should not refuse it. it should just file it for record purposes but notate that
+// the date has passed". The Phase 2 block became a warning, and the rows carry the note.
+test('a receipt dated in a closed month is filed and marked late, never refused', () => {
   const years = new Map([[2027, { state: 'current', total: 40000, spent: {}, plan: null, closedMonths: ['2026-09'] }]])
   const d = { vendor: 'Staples', date: '2026-09-12', total: 86.4, lines: [{ id: 'l', item: 'Supplies', category: 'Supplies & Materials', quantity: 1, amount: 86.4 }], payment_method: 'personal_concur', business_purpose: '', attendees: [] }
   const out = K.receiptChecks(d, { years, today: TODAY })
   const c = out.checks.find(x => x.key === 'closed_month')
-  assert.equal(c.text, 'This receipt belongs to September, which is closed. Reopen September to post or attach it.')
-  assert.deepEqual(c.reopen, { fy: 2027, month: '2026-09' })
-  assert.ok(out.blocked && out.attachBlocked)
+  assert.equal(c.tone, 'warn')
+  assert.equal(c.text, 'Dated in September, which is closed. It is filed for the record and marked as received after September closed; Budget history notes it.')
+  assert.deepEqual(c.late, { fy: 2027, month: '2026-09', name: 'September' })
+  assert.ok(!out.blocked && !out.attachBlocked)
   assert.equal(K.receiptChecks({ ...d, date: '2026-10-02' }, { years, today: TODAY }).blocked, false)
 })
 

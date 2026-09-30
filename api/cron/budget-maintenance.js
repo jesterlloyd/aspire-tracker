@@ -10,6 +10,7 @@ import { populationDb } from '../../lib/server/demoScope.js'
 import { startCronRun, finishCronRunSuccess, finishCronRunError } from '../lib/cronRuns.js'
 import { isAuthorizedCronRequest } from '../lib/cronAuth.js'
 import { postDueCharges, status } from '../../lib/server/budget/engine.js'
+import { autoStartApproved } from '../../lib/server/budget/plan.js'
 import process from 'node:process'
 
 export const CRON_NAME = 'budget-maintenance'
@@ -20,7 +21,9 @@ export default async function handler(req, res) {
   const runId = await startCronRun(db, CRON_NAME)
   try {
     const ready = await status(db)
-    const out = ready.enabled ? await postDueCharges(db) : { posted: 0, skipped: 'not_enabled' }
+    // BUDGET-V2 item 14: on July 1 an approved proposal becomes the year, then its charges post.
+    const started = ready.enabled ? await autoStartApproved(db) : { started: null }
+    const out = ready.enabled ? { ...(await postDueCharges(db)), started: started.started } : { posted: 0, skipped: 'not_enabled' }
     await finishCronRunSuccess(db, runId, out)
     return res.status(200).json(out)
   } catch (err) {

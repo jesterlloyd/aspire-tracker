@@ -480,3 +480,64 @@ button.bud-mo:hover { background: var(--color-bg-hover); }
 .bud-opt span { display: grid; gap: 2px; }
 .bud-opt small { font-size: 12px; color: var(--text-caption); }
 .bud-match { border: 0; padding: 0; margin: 0; min-width: 0; }
+
+/* ── BUDGET-V2 Phase 3 (2026-09-29): the plan stage, items 14 to 16 ── */
+.bud-chip-proposal { background: var(--pill-info-bg); color: var(--pill-info-fg); }
+.bud-quiet { margin: var(--aspire-gap-card) 0 0; font-size: 13px; color: var(--text-caption); }
+.bud-plan { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: var(--aspire-gap-card); align-items: start; margin-top: var(--aspire-gap-card); }
+@media (max-width: 960px) { .bud-plan { grid-template-columns: minmax(0, 1fr); } }
+.bud-plan-main { display: grid; gap: var(--aspire-gap-card); min-width: 0; }
+.bud-plan-main > .bud-card { margin: 0; }
+.bud-plan-side { display: grid; gap: var(--aspire-gap-card); position: sticky; top: calc(var(--app-chrome-height, 110px) + 12px); }
+@media (max-width: 960px) { .bud-plan-side { position: static; } }
+.bud-plan-side > .bud-card { margin: 0; }
+.bud-plan-head { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: flex-start; }
+.bud-plan-head .bud-sub { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.bud-plan-acts { display: flex; gap: 8px; flex-wrap: wrap; }
+.bud-plan-acts .bud-btn svg { margin-right: 4px; }
+.bud-plan-note { margin: 8px 0 0; white-space: pre-wrap; font-size: 13.5px; line-height: 1.55; color: var(--text-heading); }
+.bud-plan-cathead { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; align-items: baseline; }
+.bud-pcat { border-top: 1px solid var(--color-border-subtle); }
+.bud-pcat > summary { display: grid; grid-template-columns: 18px minmax(0, 1fr) repeat(3, 104px) auto; gap: 8px; align-items: center; padding: 10px 0; cursor: pointer; list-style: none; font-size: 13.5px; color: var(--text-heading); }
+.bud-pcat > summary::-webkit-details-marker { display: none; }
+.bud-pcat > summary .chev { transition: transform .15s; color: var(--text-caption); }
+.bud-pcat[open] > summary .chev { transform: rotate(90deg); }
+.bud-pcat > summary .nm { font-weight: 600; display: flex; gap: 8px; align-items: center; min-width: 0; }
+.bud-pcat > summary .n { text-align: right; font-variant-numeric: tabular-nums; color: var(--text-caption); }
+.bud-pcat > summary .n.req { color: var(--text-heading); font-weight: 700; }
+.bud-pcat > summary .n small { display: block; font-size: 11px; }
+.bud-pcat-4 > summary { grid-template-columns: 18px minmax(0, 1fr) repeat(4, 104px); }
+@media (max-width: 640px) { .bud-pcat > summary, .bud-pcat-4 > summary { grid-template-columns: 18px minmax(0, 1fr) 96px; } .bud-pcat > summary .n:not(.req) { display: none; } }
+@media (prefers-reduced-motion: reduce) { .bud-pcat > summary .chev { transition: none; } }
+.bud-tag { display: inline-flex; align-items: center; height: 18px; padding: 0 7px; border-radius: var(--aspire-radius-pill); background: var(--pill-info-bg); color: var(--pill-info-fg); font-size: 11px; font-weight: 700; }
+.bud-pitems { display: grid; gap: 8px; padding: 0 0 12px 26px; }
+.bud-pitem { display: grid; grid-template-columns: minmax(0, 1fr) 64px 10px 96px 104px auto 28px; gap: 6px; align-items: center; }
+.bud-pitem .x, .bud-pitem .eq { color: var(--text-caption); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.bud-pitem .bud-preason { grid-column: 1 / -1; font-size: 12.5px; }
+.bud-ptag { display: flex; gap: 4px; align-items: center; font-size: 12px; color: var(--text-caption); }
+@media (max-width: 640px) { .bud-pitem { grid-template-columns: minmax(0, 1fr) 56px 10px 80px 28px; } .bud-pitem .eq, .bud-pitem .bud-ptag { grid-column: span 2; } }
+.bud-pitem-ro { grid-template-columns: minmax(0, 1fr) auto; }
+.bud-pitem-ro .nm { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--text-heading); }
+.bud-pitem-ro small { grid-column: 1 / -1; font-size: 12px; color: var(--text-caption); }
+.bud-addcat { margin-top: 10px; max-width: 320px; }
+.bud-side-row { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; padding: 8px 0; border-top: 1px solid var(--color-border-subtle); font-size: 13px; color: var(--text-caption); }
+.bud-side-row:first-child { border-top: 0; padding-top: 0; }
+.bud-side-row b { color: var(--text-heading); font-variant-numeric: tabular-nums; font-size: 14px; }
+.bud-side-row small { color: var(--text-caption); font-weight: 500; }
+.bud-limit { display: grid; gap: 10px; margin: 8px 0; }
+.bud-limit .bud-input { width: 100%; box-sizing: border-box; }
+.bud-limit label { display: grid; gap: 4px; font-size: 12px; color: var(--text-caption); }
+.bud-review-table { display: grid; margin: 10px 0; }
+.bud-review-row { display: grid; grid-template-columns: minmax(0, 1fr) 110px 110px 130px; gap: 8px; align-items: center; padding: 7px 0; border-top: 1px solid var(--color-border-subtle); font-size: 13.5px; color: var(--text-heading); }
+.bud-review-row .n { text-align: right; font-variant-numeric: tabular-nums; }
+.bud-review-head { border-top: 0; font-size: var(--aspire-th-size, 11px); text-transform: uppercase; letter-spacing: .06em; color: var(--text-caption); font-weight: 700; }
+.bud-review-head span:not(:first-child) { text-align: right; }
+.bud-review-total { font-weight: 700; }
+@media (max-width: 640px) { .bud-review-row { grid-template-columns: minmax(0, 1fr) 90px 110px; } .bud-review-row > :nth-child(2) { display: none; } }
+/* The within-plan check's two paths, on a slip or a Sheet row. */
+.bud-plan-paths { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 6px; }
+.bud-plan-paths select { max-width: 220px; }
+.bud-plan-over { background: var(--pill-warn-bg); color: var(--pill-warn-fg); }
+.bud-fixwrap { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 16px; background: rgba(15, 20, 40, 0.35); }
+.bud-fix { width: min(520px, 100%); margin: 0; }
+.bud-review-row .bud-input { width: 100%; box-sizing: border-box; min-width: 0; }

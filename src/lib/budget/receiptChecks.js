@@ -16,6 +16,7 @@ import { fiscalYearOfDate, fyShort, usd, dateText, daysBetween, currentFiscalYea
 import { addDays } from '../rotationCalendarDates.js'
 import { paymentFromCard, rowsFrom, draftTotal } from './receiptModel.js'
 import { matchSubscriptionCharge, matchText, GUARDED } from './chargeMatch.js'
+import { planCheck } from './planModel.js'
 
 export const DUPLICATE_WINDOW_DAYS = 7
 const lc = (s) => String(s || '').trim().toLowerCase()
@@ -68,7 +69,7 @@ export function receiptChecks(draft, ctx = {}) {
   const method = draft.payment_method || null
   const fy = draft.date ? fiscalYearOfDate(draft.date) : null
   const year = fy ? years.get(fy) : null
-  const fyStarted = !!year && year.state !== 'not_started'
+  const fyStarted = !!year && (year.state === 'current' || year.state === 'closed')
   const rows = rowsFrom(draft)
 
   // What Accept cannot do without.
@@ -94,11 +95,12 @@ export function receiptChecks(draft, ctx = {}) {
 
   // B4.2 Fiscal year not started.
   if (fy && !fyStarted) add('not_started', 'block', `${fyShort(fy)} hasn’t started. Start ${fyShort(fy)} to post this receipt.`, { startYear: fy })
-  // BUDGET-V2 item 11: a closed month never changes on its own. Reopen it first.
+  // BUDGET-V2 (Owner, 2026-09-29: "it should not refuse it ... file it for record purposes but notate
+  // that the date has passed"): a receipt dated in a closed month is filed and marked late, never refused.
   const month = String(draft.date || '').slice(0, 7)
   if (month && (year?.closedMonths || []).includes(month)) {
     const name = new Date(`${month}-15T12:00:00Z`).toLocaleString('en-US', { month: 'long', timeZone: 'UTC' })
-    add('closed_month', 'block', `This receipt belongs to ${name}, which is closed. Reopen ${name} to post or attach it.`, { reopen: { fy, month } })
+    add('closed_month', 'warn', `Dated in ${name}, which is closed. It is filed for the record and marked as received after ${name} closed; Budget history notes it.`, { late: { fy, month, name } })
   }
 
   // B4.3 Split.
@@ -108,19 +110,17 @@ export function receiptChecks(draft, ctx = {}) {
   if (proposal.adds_up === false) add('adds_up', 'warn', `The items, tax and shipping Keith read do not add up to the ${usd(proposal.total)} total. Check the amounts against the original.`)
   else if (proposal.total && cents(draftTotal(draft)) !== cents(proposal.total) && !duplicate) add('total', 'warn', `The lines add up to ${usd(draftTotal(draft))}; the receipt says ${usd(proposal.total)}.`)
 
-  // B4.4 Budget impact, per category.
+  // BUDGET-V2 item 16: one plan line. Within the approved category total it posts; over it, the owner
+  // moves money inside the agreed limit or asks Margo for an amendment; with no approved plan it counts
+  // against the year's total. Keyed by category NAME here (the slip's lines carry names).
   if (fyStarted && !duplicate && !guarded) {
-    const plan = year.plan && Object.keys(year.plan).length ? year.plan : null
-    for (const r of rows.filter(x => x.category)) {
-      const now = (year.spent?.[r.category] || 0) + r.amount
-      const alloc = plan?.[r.category]
-      if (plan && alloc) {
-        const pct = (now / alloc) * 100
-        add(`impact:${r.category}`, now > alloc ? 'warn' : 'info', `${r.category} goes to ${usd(now)} of ${usd(alloc)} allocated (${pct.toFixed(1)}%)${now > alloc ? ', over its allocation' : ''}.`)
-      } else {
-        add(`impact:${r.category}`, 'info', `${r.category} has no ${fyShort(fy)} allocation. Spend still counts against the ${usd(year.total)} budget.`)
-      }
-    }
+    const p = year.approvedPlan
+    const arg = p ? {
+      effective: new Map(Object.entries(p.effective)), approved: new Map(Object.entries(p.approved)),
+      spent: new Map(Object.entries(year.spent || {})), names: new Map(Object.keys(p.effective).map(k => [k, k])), limits: p.limits,
+    } : null
+    const res = planCheck(rows.filter(r => r.category).map(r => ({ category_id: r.category, amount: r.amount })), arg, { total: year.total })
+    add('plan', res.tone, res.text, { plan: res, ...(res.key === 'over' ? { blocksAdd: true } : {}) })
   }
 
   // B4.5 Payment.
@@ -185,8 +185,8 @@ export function receiptChecks(draft, ctx = {}) {
 
   // Posting new rows waits for every block. Attaching to the duplicate's row posts nothing new, so
   // only the date stops it (the meals documentation then lives on the row it attaches to).
-  const blockers = checks.filter(c => c.tone === 'block')
-  const attachBlockers = blockers.filter(c => c.key === 'date' || c.key === 'closed_month')
+  const blockers = checks.filter(c => c.tone === 'block' || c.blocksAdd)
+  const attachBlockers = blockers.filter(c => c.key === 'date')
   return {
     checks, duplicate, subMatch, fy, fyStarted,
     blocked: blockers.length > 0, blockers: blockers.map(b => b.text),

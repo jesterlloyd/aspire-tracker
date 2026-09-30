@@ -168,7 +168,7 @@ export default function GrantPortalAccessModal({ onClose, onGranted, initial = n
   // PROGRAM-BUDGET (2026-09-27): only the Owner shares the Program Budget with a grant; the server
   // refuses anyone else, so the switch is not shown to them and the field is never sent.
   const { isOwner } = useAuth()
-  const [budgetAccess, setBudgetAccess] = useState(initial?.budget_access === 'view' ? 'view' : 'none')
+  const [budgetAccess, setBudgetAccess] = useState(['view', 'approve'].includes(initial?.budget_access) ? initial.budget_access : 'none')
   const [themesAccess, setThemesAccess] = useState(initial?.evaluation_themes_access === 'view' ? 'view' : 'none')
   const [cohortId, setCohortId] = useState('')
   const [cohorts, setCohorts] = useState([])
@@ -343,7 +343,7 @@ export default function GrantPortalAccessModal({ onClose, onGranted, initial = n
   const scopeSummary =
     role === 'student' ? (student ? `${studentName(student)}${student.school ? ` · ${student.school}` : ''}` : 'No student selected') :
     role === 'unit_leader' ? (unitKeys.join(', ') || 'No units selected') :
-    role === 'nursing_academic' ? `${contactsAccess === 'manage' ? 'ASPIRE-wide · Contacts Editor' : 'ASPIRE-wide (view only)'}${isOwner && budgetAccess === 'view' ? ' · Program Budget' : ''}${isOwner && themesAccess === 'view' ? ' · Evaluation themes' : ''}` :
+    role === 'nursing_academic' ? `${contactsAccess === 'manage' ? 'ASPIRE-wide · Contacts Editor' : 'ASPIRE-wide (view only)'}${isOwner && budgetAccess !== 'none' ? ` · Program Budget${budgetAccess === 'approve' ? ' (approves)' : ''}` : ''}${isOwner && themesAccess === 'view' ? ' · Evaluation themes' : ''}` :
     role === 'talent_acquisition' ? 'All residency cohorts' :
     (schoolKeys.join(', ') || 'No schools selected')
 
@@ -450,9 +450,18 @@ export default function GrantPortalAccessModal({ onClose, onGranted, initial = n
                   </p>
                   {isOwner && (
                     <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginTop: 12, fontSize: 13, color: 'var(--text-heading)' }}>
-                      <input type="checkbox" checked={budgetAccess === 'view'} onChange={e => setBudgetAccess(e.target.checked ? 'view' : 'none')} style={{ marginTop: 2 }} />
+                      <input type="checkbox" checked={budgetAccess !== 'none'} onChange={e => setBudgetAccess(e.target.checked ? 'view' : 'none')} style={{ marginTop: 2 }} />
                       <span>Share the Program Budget (read-only)
-                        <span style={{ display: 'block', fontSize: 11.5, color: 'var(--text-caption)', lineHeight: 1.45 }}>Adds a Program Budget tab with the Summary, Sheet and Subscriptions, and the category plan once you save it. Never receipts or drafts.</span>
+                        <span style={{ display: 'block', fontSize: 11.5, color: 'var(--text-caption)', lineHeight: 1.45 }}>Adds a Program Budget tab with the Summary, Sheet and Subscriptions, and the category plan once you submit it. Never receipts or drafts.</span>
+                      </span>
+                    </label>
+                  )}
+                  {/* BUDGET-V2 Phase 3 (Owner, 2026-09-29): Margo approves through a level of her own. */}
+                  {isOwner && budgetAccess !== 'none' && (
+                    <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginTop: 8, marginLeft: 24, fontSize: 13, color: 'var(--text-heading)' }}>
+                      <input type="checkbox" checked={budgetAccess === 'approve'} onChange={e => setBudgetAccess(e.target.checked ? 'approve' : 'view')} style={{ marginTop: 2 }} />
+                      <span>Approves the budget plan
+                        <span style={{ display: 'block', fontSize: 11.5, color: 'var(--text-caption)', lineHeight: 1.45 }}>May approve a submitted plan (or approve it with changes), send it back, and decide your amendment requests.</span>
                       </span>
                     </label>
                   )}

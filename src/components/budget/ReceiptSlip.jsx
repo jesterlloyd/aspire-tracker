@@ -78,10 +78,11 @@ export function ReceiptFold({ slip, context, onOpen }) {
 
 const shortDate = (ymd) => dateText(ymd).replace(/, \d{4}$/, '')
 
-export default function ReceiptSlip({ slip, context, categories, cohorts, busy, openSlips = [], onDraft, onAccept, onSnooze, onReject, onRead, onDiscard, onOriginal, onStartYear, onHold, onRemember, onReopen }) {
+export default function ReceiptSlip({ slip, context, categories, cohorts, busy, openSlips = [], onDraft, onAccept, onSnooze, onReject, onRead, onDiscard, onOriginal, onStartYear, onHold, onRemember, onAmend }) {
   const d = slip.draft
   const [details, setDetails] = useState(false)
-  const [choice, setChoice] = useState(null)       // BUDGET-V2 item 11: 'attach' | 'add'; null is Keith's pick   // date, vendor and order: Keith's reading, correctable on request
+  const [choice, setChoice] = useState(null)       // BUDGET-V2 item 11: 'attach' | 'add'; null is Keith's pick
+  const [moveFrom, setMoveFrom] = useState('')     // BUDGET-V2 item 16: the category a move comes from   // date, vendor and order: Keith's reading, correctable on request
   const result = useMemo(() => (d ? receiptChecks(d, { ...context, proposal: slip.proposal || {}, duplicateFile: slip.duplicateFile }) : null), [d, context, slip.proposal, slip.duplicateFile])
   const heading = `${slip.file_name}`
 
@@ -134,8 +135,12 @@ export default function ReceiptSlip({ slip, context, categories, cohorts, busy, 
         : `The ${charge.subscription.name} charge on ${shortDate(charge.charge_date)} (${usd(charge.amount)}). Spent does not change.`
     : dup ? `${dup.expense.row_label}: ${dup.expense.item || 'no item'}, ${usd(dup.expense.amount)}. Spent does not change.`
       : `Keith found no charge for ${usd(addTotal)} near ${d.date ? shortDate(d.date) : 'this date'}.`
+  // BUDGET-V2 item 16: over the approved plan, move inside the limit or ask Margo.
+  const planC = result.checks.find(c => c.key === 'plan')?.plan || null
+  const over = planC?.key === 'over' ? planC : null
+  const otherBlocks = result.checks.filter(c => c.tone === 'block')
+  const from = moveFrom && over?.sources.some(s => s.category_id === moveFrom) ? moveFrom : over?.sources[0]?.category_id || ''
   const addNote = result.fyStarted ? `Adds ${usd(addTotal)} to Spent in ${monthName}${rows.length > 1 ? `, as ${rows.length} rows` : ''}.` : 'Its fiscal year has to start first.'
-  const reopen = result.checks.find(c => c.reopen)?.reopen || null
   // BUDGET-V2 item 5: remember this card as the method chosen, for every open receipt on it.
   const card = slip.proposal?.card_last4 || ''
   const remembered = (context.rememberedCards || []).find(c => c.last4 === card)
@@ -249,12 +254,25 @@ export default function ReceiptSlip({ slip, context, categories, cohorts, busy, 
           </div>
         </fieldset>
 
+        {over && !pickAttach && (
+          <div className="bud-plan-paths" role="group" aria-label="Outside the approved plan">
+            {over.canMove ? (<>
+              <label className="bud-sr" htmlFor={`mv-${slip.id}`}>Move from</label>
+              <span className="bud-hint">Move {usd(over.first.over)} from</span>
+              <select id={`mv-${slip.id}`} className="bud-input" value={from} onChange={e => setMoveFrom(e.target.value)}>
+                {over.sources.map(s => <option key={s.category_id} value={s.category_id}>{s.name} ({usd(s.room)} left)</option>)}
+              </select>
+              <button type="button" className="bud-btn bud-btn-pri bud-btn-sm" disabled={busy || otherBlocks.length > 0} title={otherBlocks.length ? otherBlocks.map(c => c.text).join(' ') : undefined}
+                onClick={() => onAccept(slip, null, { moveFrom: from, asOneTime: !!charge })}>Move and add</button>
+            </>) : <span className="bud-hint">{over.whyNoMove}</span>}
+            {onAmend && <button type="button" className="bud-btn bud-btn-sm" disabled={busy || otherBlocks.length > 0} title={otherBlocks.length ? otherBlocks.map(c => c.text).join(' ') : undefined} onClick={() => onAmend(slip)}>Ask Margo for an amendment</button>}
+          </div>
+        )}
+
         <div className="bud-slip-acts">
           {startCheck
             ? <button type="button" className="bud-btn bud-btn-pri bud-btn-sm" onClick={() => onStartYear(startCheck.startYear)}>Start {fyShort(startCheck.startYear)}</button>
-            : reopen && onReopen
-              ? <button type="button" className="bud-btn bud-btn-pri bud-btn-sm" disabled={busy} onClick={() => onReopen(reopen)}>Reopen {monthName}</button>
-              : pickAttach && charge?.kind === 'hold'
+            : pickAttach && charge?.kind === 'hold'
                 ? <button type="button" className="bud-btn bud-btn-pri bud-btn-sm" disabled={busy} onClick={() => onHold(slip)}>Hold until {charge.subscription.name} is approved</button>
                 : pickAttach && charge
                   ? <button type="button" className="bud-btn bud-btn-pri bud-btn-sm" disabled={busy || result.attachBlocked} title={result.attachBlocked ? result.attachBlockers.join(' ') : undefined}

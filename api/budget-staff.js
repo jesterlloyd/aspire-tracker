@@ -20,6 +20,7 @@ import { verifyPortalCaller, getServiceDb } from './lib/portalAuth.js'
 import { can } from '../lib/server/access.js'
 import * as E from '../lib/server/budget/engine.js'
 import * as R from '../lib/server/budget/receipts.js'
+import * as P from '../lib/server/budget/plan.js'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const READS = new Set(['status', 'load', 'export', 'renewals'])
@@ -41,7 +42,7 @@ const ACTION_SCHEMAS = Object.freeze({
   subscription_update: ['action', 'id', 'patch'],
   subscription_delete: ['action', 'id'],
   renewal_decide: ['action', 'id', 'decision'],
-  subscription_approve: ['action', 'id', 'decision'],
+  subscription_approve: ['action', 'id', 'decision', 'into_closed'],
   post_charges: ['action'],
   renewals: ['action'],
   // PROGRAM-BUDGET Phase B: receipts. None is in READS, so every one is Owner-only (budget_admin):
@@ -54,7 +55,8 @@ const ACTION_SCHEMAS = Object.freeze({
   receipt_discard: ['action', 'id'],
   receipt_read: ['action', 'id'],
   receipt_draft: ['action', 'id', 'draft'],
-  receipt_accept: ['action', 'id', 'draft', 'attach_to', 'attach_charge', 'as_one_time'],
+  receipt_accept: ['action', 'id', 'draft', 'attach_to', 'attach_charge', 'as_one_time', 'move_from'],
+  receipt_amend: ['action', 'id', 'draft', 'reason'],
   // BUDGET-V2 Phase 1: hold for a subscription, remember a card, answer the overlap check.
   receipt_hold: ['action', 'id', 'draft'],
   receipts_hold_all: ['action'],
@@ -65,6 +67,15 @@ const ACTION_SCHEMAS = Object.freeze({
   month_close: ['action', 'fiscal_year', 'month', 'note'],
   month_reopen: ['action', 'fiscal_year', 'month'],
   concur_mark_submitted: ['action', 'fiscal_year', 'month'],
+  // BUDGET-V2 Phase 3: the plan (Owner only; Margo decides through /api/portal/academics-budget-review).
+  plan_start: ['action', 'fiscal_year'],
+  plan_save: ['action', 'id', 'note', 'items'],
+  plan_submit: ['action', 'id'],
+  plan_revise: ['action', 'id'],
+  plan_pdf: ['action', 'id'],
+  plan_move: ['action', 'fiscal_year', 'from', 'to', 'amount', 'reason', 'expense_id'],
+  plan_amend: ['action', 'fiscal_year', 'category_id', 'amount', 'reason', 'expense_id'],
+  plan_limits: ['action', 'pct', 'cap'],
   receipt_snooze: ['action', 'id', 'days'],
   receipt_reject: ['action', 'id'],
   receipt_undo: ['action', 'id'],
@@ -112,7 +123,7 @@ export function createBudgetStaffHandler({ verifyCaller = verifyPortalCaller, ma
     try {
       switch (body.action) {
         case 'status': return res.status(200).json({ ...(await E.status(db)), can_edit: viewer === 'owner' })
-        case 'load': return res.status(200).json({ ...(await E.loadYear(db, { fy: fy ?? E.currentFiscalYear(), viewer, ...day })), can_edit: viewer === 'owner' })
+        case 'load': return res.status(200).json({ ...(await P.withPlan(db, await E.loadYear(db, { fy: fy ?? E.currentFiscalYear(), viewer, ...day }), { viewer, ...day })), can_edit: viewer === 'owner' })
         case 'export': {
           const { bytes, fileName } = await E.exportYear(db, { fy: fy ?? E.currentFiscalYear(), viewer, ...day })
           return res.status(200).json({ fileName, xlsx: Buffer.from(bytes).toString('base64') })
@@ -132,7 +143,7 @@ export function createBudgetStaffHandler({ verifyCaller = verifyPortalCaller, ma
         case 'subscription_delete': return res.status(200).json(await E.deleteSubscription(db, actor, { id: body.id }))
         case 'subscription_approve': {
           // BUDGET-V2 item 1: the plan's held receipts attach to their charges (or go back to review).
-          const out = await E.decideProposal(db, actor, { id: body.id, decision: body.decision, ...day })
+          const out = await E.decideProposal(db, actor, { id: body.id, decision: body.decision, intoClosed: body.into_closed === true, ...day })
           const rel = await R.releaseHeld(db, actor, { subscriptionId: body.id, ...day })
           const extra = [rel.attached ? `${rel.attached} held ${rel.attached === 1 ? 'receipt' : 'receipts'} attached to ${rel.attached === 1 ? 'its charge' : 'their charges'}.` : '', rel.returned ? `${rel.returned} held ${rel.returned === 1 ? 'receipt is' : 'receipts are'} back in To Review.` : ''].filter(Boolean).join(' ')
           return res.status(200).json({ ...out, released: rel, message: [out.message, extra].filter(Boolean).join(' ') })
@@ -155,8 +166,26 @@ export function createBudgetStaffHandler({ verifyCaller = verifyPortalCaller, ma
         case 'receipt_draft': return res.status(200).json(await R.saveDraft(db, actor, { id: body.id, draft: obj(body.draft) }))
         case 'receipt_accept': {
           if (body.attach_to != null && !UUID.test(String(body.attach_to))) return invalid(res, 'attach_to', 'Choose the row to attach to.')
-          return res.status(200).json(await R.acceptReceipt(db, actor, { id: body.id, draft: obj(body.draft), attachTo: body.attach_to || null, attachCharge: body.attach_charge === true, asOneTime: body.as_one_time === true, ...day }))
+          return res.status(200).json(await R.acceptReceipt(db, actor, { id: body.id, draft: obj(body.draft), attachTo: body.attach_to || null, attachCharge: body.attach_charge === true, asOneTime: body.as_one_time === true, move: typeof body.move_from === 'string' && body.move_from ? { from: body.move_from } : null, ...day }))
         }
+        case 'receipt_amend': return res.status(200).json(await R.holdForAmendment(db, actor, { id: body.id, draft: body.draft ? obj(body.draft) : null, reason: typeof body.reason === 'string' ? body.reason : '', ...day }))
+        case 'plan_start': {
+          if (fy == null) return invalid(res, 'fiscal_year', 'Choose a fiscal year.')
+          return res.status(200).json(await P.startProposal(db, actor, { fy, ...day }))
+        }
+        case 'plan_save': return res.status(200).json(await P.savePlanDraft(db, actor, { planId: body.id, note: typeof body.note === 'string' ? body.note : null, items: Array.isArray(body.items) ? body.items : null }))
+        case 'plan_submit': return res.status(200).json(await P.submitPlan(db, actor, { planId: body.id }))
+        case 'plan_revise': return res.status(200).json(await P.revisePlan(db, actor, { planId: body.id }))
+        case 'plan_pdf': { const out = await P.planPdf(db, { planId: body.id }); return res.status(200).json({ fileName: out.fileName, pdf: Buffer.from(out.bytes).toString('base64') }) }
+        case 'plan_move': {
+          if (fy == null || !UUID.test(String(body.from || '')) || !UUID.test(String(body.to || ''))) return invalid(res, 'from', 'Choose the two categories.')
+          return res.status(200).json(await P.movePlan(db, actor, { fy, from: body.from, to: body.to, amount: Number(body.amount), reason: typeof body.reason === 'string' ? body.reason : '', expenseId: UUID.test(String(body.expense_id || '')) ? body.expense_id : null }))
+        }
+        case 'plan_amend': {
+          if (fy == null || !UUID.test(String(body.category_id || ''))) return invalid(res, 'category_id', 'Choose the category.')
+          return res.status(200).json(await P.requestAmendment(db, actor, { fy, category_id: body.category_id, amount: Number(body.amount), reason: typeof body.reason === 'string' ? body.reason : '', expenseId: UUID.test(String(body.expense_id || '')) ? body.expense_id : null }))
+        }
+        case 'plan_limits': return res.status(200).json(await P.saveLimits(db, actor, { pct: body.pct, cap: body.cap }))
         case 'receipt_hold': return res.status(200).json(await R.holdReceipt(db, actor, { id: body.id, draft: body.draft ? obj(body.draft) : null, ...day }))
         case 'receipt_unhold': return res.status(200).json(await R.unholdReceipt(db, actor, { id: body.id }))
         case 'receipts_hold_all': return res.status(200).json(await R.holdAll(db, actor, day))
@@ -172,7 +201,7 @@ export function createBudgetStaffHandler({ verifyCaller = verifyPortalCaller, ma
         default: return invalid(res, 'action', 'Unknown action.')
       }
     } catch (err) {
-      if (err instanceof E.BudgetError) return res.status(err.status).json({ error: err.code, message: err.message })
+      if (err instanceof E.BudgetError) return res.status(err.status).json({ error: err.code, message: err.message, ...(err.details ? { details: err.details } : {}) })
       console.error('[budget-staff] unhandled:', err?.message || err)
       return res.status(500).json({ error: 'internal_error' })
     }

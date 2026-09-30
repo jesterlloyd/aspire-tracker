@@ -286,6 +286,7 @@ export function slipState(result, rowCount) {
   // BUDGET-V2 item 1: a subscription charge says whose, and what it waits for.
   const m = result.subMatch
   if (m && m.kind !== 'uncounted') return { tone: 'warn', text: m.kind === 'hold' ? `Matches ${m.subscription.name} · awaiting approval` : m.kind === 'filed' ? `${m.subscription.name} charge has its receipt` : `Matches ${m.subscription.name}` }
+  if (result.checks.some(c => c.key === 'plan' && c.plan?.key === 'over')) return { tone: 'warn', text: 'Over the approved plan' }
   const block = result.checks.find(c => c.tone === 'block')
   if (block) {
     if (block.key === 'rule:meals_documentation') return { tone: 'warn', text: 'Needs purpose and attendees' }

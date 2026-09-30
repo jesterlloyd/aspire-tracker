@@ -239,7 +239,8 @@ test('the portal tab opens only for a grant with budget_access, and is read-only
 
 test('only the Owner shares the budget with a grant, and the directory survives before the column exists', () => {
   const invite = read('api/invite-portal-user.js')
-  assert.match(invite, /const BUDGET_ACCESS_LEVELS = \['none', 'view'\]/)
+  // BUDGET-V2 Phase 3 (2026-09-29): Margo's level, 'approve', joins 'view'.
+  assert.match(invite, /const BUDGET_ACCESS_LEVELS = \['none', 'view', 'approve'\]/)
   assert.match(invite, /if \(budgetAccess != null && !auth\.isOwner\)[\s\S]{0,120}Only the Owner may share the Program Budget/)
   assert.match(invite, /portalRole !== 'nursing_academic' && budgetAccess !== 'none'/, 'no other portal role can hold it')
   assert.match(invite, /budgetErr\.code === '42703' && budgetAccess === 'none'/, 'before the column, none is already true')

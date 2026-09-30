@@ -17,15 +17,23 @@ import { Buffer } from 'node:buffer'
 import { verifyPortalNursingAcademicCaller } from '../lib/nursingAcademicScope.js'
 import { getServiceDb } from '../lib/portalAuth.js'
 import * as E from '../../lib/server/budget/engine.js'
+import { withPlan } from '../../lib/server/budget/plan.js'
 
 /** Does this grant carry the Program Budget tab? A missing column means not yet. */
 export async function grantHasBudget(db, grantId) {
   const { data, error } = await db.from('user_role_grants').select('budget_access').eq('id', grantId).maybeSingle()
   if (error) { if (E.notEnabled(error)) return false; throw error }
-  return data?.budget_access === 'view'
+  return data?.budget_access === 'view' || data?.budget_access === 'approve'
 }
 
-export function createAcademicsBudgetHandler({ verifyCaller = verifyPortalNursingAcademicCaller, makeDb = getServiceDb, hasBudget = grantHasBudget, today } = {}) {
+/** BUDGET-V2 Phase 3: the grant's level, 'none' | 'view' | 'approve'. Approve decides plans and amendments. */
+export async function grantBudgetLevel(db, grantId) {
+  const { data, error } = await db.from('user_role_grants').select('budget_access').eq('id', grantId).maybeSingle()
+  if (error) return 'none'
+  return ['view', 'approve'].includes(data?.budget_access) ? data.budget_access : 'none'
+}
+
+export function createAcademicsBudgetHandler({ verifyCaller = verifyPortalNursingAcademicCaller, makeDb = getServiceDb, hasBudget = grantHasBudget, budgetLevel = grantBudgetLevel, today } = {}) {
   return async function handler(req, res) {
     res.setHeader('Cache-Control', 'no-store, private')
     if (req.method === 'OPTIONS') return res.status(200).end()
@@ -58,7 +66,10 @@ export function createAcademicsBudgetHandler({ verifyCaller = verifyPortalNursin
         const { bytes, fileName } = await E.exportYear(db, { fy, viewer: 'reader', ...day })
         return res.status(200).json({ fileName, xlsx: Buffer.from(bytes).toString('base64') })
       }
-      return res.status(200).json({ ...(await E.loadYear(db, { fy, viewer: 'reader', ...day })), can_edit: false })
+      // Staff previewing the portal read; only the grant itself may approve.
+      let approver = false
+      if (!auth.staffPreview) { try { approver = (await budgetLevel(db, auth.grant?.id)) === 'approve' } catch { approver = false } }
+      return res.status(200).json({ ...(await withPlan(db, await E.loadYear(db, { fy, viewer: 'reader', ...day }), { viewer: 'reader', approver, ...day })), can_edit: false })
     } catch (err) {
       if (err instanceof E.BudgetError) return res.status(err.status).json({ error: err.code, message: err.message })
       return res.status(500).json({ error: 'internal_error' })

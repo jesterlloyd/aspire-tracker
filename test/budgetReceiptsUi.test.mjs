@@ -116,11 +116,15 @@ test('reading and failed slips keep the paper blank and say what is happening', 
   assert.match(failed, />Remove<\/button>/)
 })
 
-test('the Receipts tab and Add receipts are the Owner’s only, in the prompt’s tab order', () => {
+test('the Receipts tab and Add receipts are the Owner’s only, in the prompt’s tab order', async () => {
   const view = read('src/components/budget/ProgramBudgetView.jsx')
-  assert.match(view, /if \(canEdit\) t\.push\(\{ value: 'receipts'/)
-  assert.match(view, /const t = \[\{ value: 'summary'[^\n]*\{ value: 'subscriptions', label: 'Subscriptions' \}\]\n\s+if \(canEdit\) t\.push\(\{ value: 'receipts'[^\n]*\n\s+if \(canEdit \|\| year\.budget\?\.plan_saved_at\) t\.push\(\{ value: 'allocations'/)
-  assert.match(view, /\{canEdit && \(<>\n\s+<button type="button" className="bud-btn" onClick=\{\(\) => addRef\.current\?\.click\(\)\}><ReceiptText/)
+  // BUDGET-V2 item 15 (2026-09-29): the tabs follow the year's state (planModel.tabsForState), Allocations
+  // is Plan, and Add receipts shows on the current year only.
+  const P = await import('../src/lib/budget/planModel.js')
+  assert.deepEqual(P.tabsForState('current', { owner: true }), ['summary', 'sheet', 'subscriptions', 'receipts', 'plan'])
+  assert.deepEqual(P.tabsForState('current', { owner: false, planVisible: false }), ['summary', 'sheet', 'subscriptions'], 'Receipts is the Owner\u2019s only')
+  assert.match(view, /tabsForState\(year\.state, \{ owner: canEdit, planVisible \}\)/)
+  assert.match(view, /\{canEdit && year\.state === 'current' && \(<>\n\s+<button type="button" className="bud-btn" onClick=\{\(\) => addRef\.current\?\.click\(\)\}><ReceiptText/)
   assert.match(view, /current === 'receipts' && canEdit &&/)
   // The Sheet's receipt mark opens the original for the Owner only.
   assert.match(read('src/components/budget/BudgetSheet.jsx'), /return canEdit\n\s+\? <button type="button" className="bud-rc bud-rc-open"/)

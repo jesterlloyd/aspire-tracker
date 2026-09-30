@@ -90,11 +90,15 @@ export const statusAfterPaymentChange = (method, status) => (statusesFor(method)
  */
 export function yearState(budget, fy, today = pacificToday()) {
   const r = fiscalYearRange(fy)
+  // BUDGET-V2 item 15: a year that has not begun is a Proposal: it has a Plan and nothing else.
+  if (r && today < r.start && !budget?.started_at) return 'proposal'
   if (r && today > r.end && budget?.started_at) return 'closed'
   if (!budget?.started_at) return 'not_started'
   return 'current'
 }
-export const STATE_CHIP = Object.freeze({ current: 'Current', closed: 'Closed', not_started: 'Not started' })
+export const STATE_CHIP = Object.freeze({ current: 'Current', closed: 'Closed', not_started: 'Not started', proposal: 'Proposal' })
+/** Has the year started (so it holds expenses)? */
+export const isStarted = (state) => state === 'current' || state === 'closed'
 
 /** Share of the fiscal year elapsed through today, 0 to 1 (1 for a closed year, 0 before it starts). */
 export function yearElapsed(fy, today = pacificToday()) {

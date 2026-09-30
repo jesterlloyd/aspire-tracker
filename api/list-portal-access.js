@@ -180,7 +180,7 @@ export default async function handler(req, res) {
     const budgetByGrant = new Map()
     {
       const { data: bRows, error: bErr } = await db.from('user_role_grants').select('id, budget_access').eq('role', 'nursing_academic').limit(2000)
-      if (!bErr) for (const r of bRows || []) budgetByGrant.set(r.id, r.budget_access === 'view' ? 'view' : 'none')
+      if (!bErr) for (const r of bRows || []) budgetByGrant.set(r.id, ['view', 'approve'].includes(r.budget_access) ? r.budget_access : 'none')
     }
     // KEITH-THEMES-1: which grants carry the Evaluation tab. Its own read, so a missing column
     // (before 20261019000000) reads as 'none' and never costs the budget column above.

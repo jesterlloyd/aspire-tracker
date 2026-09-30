@@ -107,16 +107,22 @@ const RULES = JSON.parse(JSON.stringify([
   { key: 'gifts', tone: 'warn', applies_to: 'all', message: 'Gifts need VP approval.', params: {}, enabled: true },
   { key: 'card_statement', tone: 'warn', applies_to: 'all', message: 'A statement is not a receipt.', params: {}, enabled: true },
 ]))
-const years = new Map([[2026, { state: 'closed', total: 40000, spent: { 'Supplies & Materials': 139.98 }, plan: null }], [2027, { state: 'current', total: 40000, spent: { 'Supplies & Materials': 1510 }, plan: { 'Supplies & Materials': 1500, 'Printing & Copying': 6000 } }]])
+const years = new Map([[2026, { state: 'closed', total: 40000, spent: { 'Supplies & Materials': 139.98 }, plan: null }], [2027, { state: 'current', total: 40000, spent: { 'Supplies & Materials': 1510 }, plan: { 'Supplies & Materials': 1500, 'Printing & Copying': 6000 }, approvedPlan: { effective: { 'Supplies & Materials': 1500, 'Printing & Copying': 6000 }, approved: { 'Supplies & Materials': 1500, 'Printing & Copying': 6000 }, limits: { pct: 10, cap: 500 } } }]])
 const ctx = (over = {}) => ({ expenses: [], years, rules: RULES, pcardLast4: '', proposal: M.parseReading(JSON.stringify(AMAZON), CATS), today: TODAY, ...over })
 const keysOf = (res) => res.checks.map(c => `${c.tone}:${c.key}`)
 
 test('a clean receipt: split, budget impact against the plan, the payment note and the privacy line', () => {
   const d = M.draftFrom(ctx().proposal)
   const res = C.receiptChecks(d, ctx())
-  assert.equal(res.blocked, false)
-  assert.deepEqual(keysOf(res), ['info:split', 'info:impact:Printing & Copying', 'warn:impact:Supplies & Materials', 'info:payment', 'ok:privacy'])
-  assert.match(res.checks.find(c => c.key === 'impact:Supplies & Materials').text, /goes to \$1,525\.88 of \$1,500\.00 allocated \(101\.7%\), over its allocation\./)
+  // BUDGET-V2 item 16 (2026-09-29): one plan line against the APPROVED plan replaced a line per
+  // category; over it, adding waits for a move or Margo's amendment.
+  assert.equal(res.blocked, true)
+  assert.deepEqual(keysOf(res), ['info:split', 'warn:plan', 'info:payment', 'ok:privacy'])
+  assert.equal(res.checks.find(c => c.key === 'plan').text, 'Outside approved plan. Supplies & Materials would reach $1,525.88 of $1,500.00 approved, $25.88 over.')
+  const within = C.receiptChecks(d, ctx({ years: new Map([[2027, { ...years.get(2027), spent: {} }]]) }))
+  assert.deepEqual([within.blocked, within.checks.find(c => c.key === 'plan').text], [false, 'Within approved plan.'])
+  const none = C.receiptChecks(d, ctx({ years: new Map([[2027, { ...years.get(2027), approvedPlan: null }]]) }))
+  assert.equal(none.checks.find(c => c.key === 'plan').text, 'No approved category plan. This counts against the $40,000.00 total.')
   assert.match(res.checks.find(c => c.key === 'privacy').text, /only you can open the original/)
 })
 
@@ -129,7 +135,7 @@ test('a duplicate is found by order number, then by vendor, amount and date with
   const res = C.receiptChecks(d, ctx({ expenses: [row] }))
   assert.match(res.checks.find(c => c.key === 'duplicate').text, /^Matches FY27 row 4 \(Paper, \$58\.57, Sep 1, 2026\) by vendor, amount and date\. Attach/)
   assert.equal(res.checks.find(c => c.key === 'duplicate').attachTo, 'e4')
-  assert.ok(!res.checks.some(c => c.key.startsWith('impact:')), 'an attach posts nothing, so it changes no category')
+  assert.ok(!res.checks.some(c => c.key === 'plan'), 'an attach posts nothing, so it changes no category')
 })
 
 test('a year that has not started blocks Accept and offers to start it', () => {
@@ -141,10 +147,13 @@ test('a year that has not started blocks Accept and offers to start it', () => {
 
 test('only the meals rule blocks: it wants a business purpose and an attendee list on every payment method', () => {
   const meal = M.draftFrom(M.parseReading(JSON.stringify({ ...AMAZON, vendor: 'Beverly Grove Catering', order_number: 'INV-20614', tip: 0, lines: [{ item: 'Lunch for preceptors', quantity: 1, amount: 53.49, category: 'Meals & Catering', confidence: 'high', reason: 'Catered lunch.' }] }), CATS))
-  const blocked = C.receiptChecks(meal, ctx())
+  // No approved plan here: this test is about the meals rule (a category missing from an approved
+  // plan is over it, BUDGET-V2 item 16, and would block for that reason too).
+  const noPlan = { years: new Map([[2027, { ...years.get(2027), approvedPlan: null }]]) }
+  const blocked = C.receiptChecks(meal, ctx(noPlan))
   assert.equal(blocked.blocked, true)
   assert.deepEqual(blocked.checks.find(c => c.key === 'rule:meals_documentation').needs, ['business purpose', 'attendee list'])
-  const ok = C.receiptChecks({ ...meal, business_purpose: 'Fall 2026 preceptor appreciation', attendees: [{ name: 'Ana Cruz', title: 'RN', organization: 'Cedars-Sinai', relationship: 'Preceptor' }] }, ctx())
+  const ok = C.receiptChecks({ ...meal, business_purpose: 'Fall 2026 preceptor appreciation', attendees: [{ name: 'Ana Cruz', title: 'RN', organization: 'Cedars-Sinai', relationship: 'Preceptor' }] }, ctx(noPlan))
   assert.equal(ok.blocked, false)
   assert.equal(ok.checks.find(c => c.key === 'rule:meals_documentation').text, 'Business purpose and 1 attendee recorded.')
 })

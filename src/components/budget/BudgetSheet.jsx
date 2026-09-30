@@ -19,11 +19,13 @@ import ReceiptOriginal from './ReceiptOriginal'
 import KeithMark from '../keith/KeithMark'
 import { Pill } from '../shared/DataSheet'
 import { needsReceipt } from '../../lib/budget/receiptChecks'
-import { PAYMENT_METHODS, STATUSES, statusesFor, statusLabel, statusTone, paymentKey, statusKey, dateText, monthOf, pacificToday, fiscalYearRange } from '../../lib/budget/budgetModel'
+import { rowPlanStatus, moveLimit } from '../../lib/budget/planModel'
+import SurfaceCard from '../ui/SurfaceCard'
+import { PAYMENT_METHODS, STATUSES, statusesFor, statusLabel, statusTone, paymentKey, statusKey, dateText, monthOf, pacificToday, fiscalYearRange, usd } from '../../lib/budget/budgetModel'
 
 const LEAD = { key: '@date', label: 'Date', type: 'date' }
 const TONE = { green: 'ok', amber: 'warn', blue: 'info', grey: 'off' }
-const NOT_EDITABLE = new Set(['unit', 'receipt', 'month', 'state'])
+const NOT_EDITABLE = new Set(['unit', 'receipt', 'month', 'state', 'plan'])
 // What Clear contents may empty: text and optional choices, never a date, an amount or a status.
 const CLEARABLE = new Set(['description', 'vendor', 'order_number', 'cost_center', 'notes', 'cat', 'pay', 'cohort'])
 const GROUPABLE = new Set(['cat', 'month', 'pay', 'status', 'cohort', 'concur'])
@@ -79,6 +81,13 @@ export default function BudgetSheet({ year, canEdit, onWrite, focus = null }) {
   // BUDGET-V2 item 13: a closed month's rows are locked until it is reopened on the Summary.
   const closedMonths = useMemo(() => new Set((year.close?.months || []).filter(m => m.closed_at).map(m => m.key)), [year.close])
   const inClosed = (row) => closedMonths.has(String(row.raw.expense_date || '').slice(0, 7))
+  // BUDGET-V2 item 16: each posted row's place in the approved plan, and the two paths when it is over.
+  const live = year.plan?.live || null
+  const planMaps = useMemo(() => (live ? {
+    effective: new Map(Object.entries(live.effective)), approved: new Map(Object.entries(live.approved)),
+  } : null), [live])
+  const planRows = useMemo(() => rowPlanStatus(year.expenses, planMaps, { pending: new Set((year.plan?.amendments || []).filter(a => a.status === 'pending' && a.expense_id).map(a => a.expense_id)) }), [year.expenses, planMaps, year.plan])
+  const [fix, setFix] = useState(null)   // { row, over }
   const columns = useMemo(() => [
     { key: 'item', label: 'Item', type: 'text' },
     { key: 'cat', label: 'Category', type: 'choice', options: year.categories.map(c => c.name) },
@@ -97,7 +106,8 @@ export default function BudgetSheet({ year, canEdit, onWrite, focus = null }) {
     { key: 'cost_center', label: 'Cost center', type: 'text' },
     { key: 'notes', label: 'Notes', type: 'paragraph' },
     { key: 'month', label: 'Month', type: 'text', compute: (r) => r.cells.month, note: 'Month follows the Date.' },
-  ], [year.categories, year.cohorts])
+    ...(live ? [{ key: 'plan', label: 'Plan', type: 'text', compute: (r) => planRows.get(r.id)?.text || '', note: 'Plan compares each row with its category’s approved total. Over it, move money inside your limit or ask Margo.' }] : []),
+  ], [year.categories, year.cohorts, live, planRows])
   const ungroupable = useMemo(() => new Set(columns.map(c => c.key).filter(k => !GROUPABLE.has(k))), [columns])
 
   const editable = canEdit && year.state !== 'not_started'
@@ -133,6 +143,7 @@ export default function BudgetSheet({ year, canEdit, onWrite, focus = null }) {
   return (
     <>
     {original && <ReceiptOriginal original={original} onClose={() => setOriginal(null)} />}
+    {fix && <PlanFix fix={fix} year={year} maps={planMaps} onWrite={onWrite} onClose={() => setFix(null)} />}
     <EditableSheet
       key={`${year.fy}-${focus?.at || ''}`}
       initialSearch={focus?.search || ''}   // RECEIPT-ORGANIZER-1: Filed > Show in Sheet opens the Sheet searched for the receipt
@@ -166,6 +177,15 @@ export default function BudgetSheet({ year, canEdit, onWrite, focus = null }) {
         // it had at accept. The server sends the provenance id to the Owner only.
         if (col.key === 'item') return <>{text || DASH}{row.raw.subscription_id && <span className="bud-subtag">Subscription</span>}{canEdit && row.raw.keith_provenance_id && <span className="bud-keith"><KeithMark provenanceId={row.raw.keith_provenance_id} /></span>}</>
         if (col.key === 'status') return row.raw.status ? <Pill tone={TONE[statusTone(row.raw.status)]}>{statusLabel(row.raw.status)}</Pill> : DASH
+        if (col.key === 'plan') {
+          const st = planRows.get(row.id)
+          if (!st) return DASH
+          if (st.key === 'within') return <Pill tone="ok">Within</Pill>
+          if (st.key === 'pending') return <Pill tone="info">Waiting for Margo</Pill>
+          return canEdit && st.key === 'over'
+            ? <button type="button" className="bud-rc bud-rc-open bud-plan-over" onClick={() => setFix({ row, over: st.over })}>{st.text}</button>
+            : <Pill tone="warn">{st.text}</Pill>
+        }
         if (col.key === 'state') return row.raw.state === 'expected' ? <Pill tone="off">Expected</Pill> : <Pill tone="info">Posted</Pill>
         if (col.key === 'concur') {
           if (row.raw.state === 'expected' || row.raw.payment_method !== 'personal_concur' || !row.cells.concur) return DASH
@@ -198,5 +218,41 @@ export default function BudgetSheet({ year, canEdit, onWrite, focus = null }) {
       notify={onWrite.notify}
     />
     </>
+  )
+}
+
+/**
+ * BUDGET-V2 item 16: a posted row over its category's approved total. Move the part that is over from
+ * a category with room (inside the agreed limit), or ask Margo to raise the category.
+ */
+function PlanFix({ fix, year, maps, onWrite, onClose }) {
+  const { row, over } = fix
+  const cat = row.raw.category_id
+  const names = new Map(year.categories.map(c => [c.id, c.name]))
+  const spent = new Map(year.summary.byCategory.map(c => [c.id, c.spent]))
+  const limit = moveLimit(maps.approved.get(cat) || 0, year.plan.limits)
+  const sources = [...maps.effective].filter(([id]) => id !== cat).map(([id, eff]) => ({ id, name: names.get(id) || '', room: Math.round((eff - (spent.get(id) || 0)) * 100) / 100 })).filter(s => s.room >= over).sort((a, b) => b.room - a.room)
+  const canMove = over <= limit && sources.length > 0
+  const [from, setFrom] = useState(sources[0]?.id || '')
+  const [busy, setBusy] = useState(false)
+  const go = async (action, payload) => { setBusy(true); if (await onWrite.run(action, { fiscal_year: year.fy, expense_id: row.id, ...payload })) onClose(); setBusy(false) }
+  return (
+    <div className="bud-fixwrap" role="dialog" aria-modal="true" aria-labelledby="bud-fix-h" onKeyDown={e => { if (e.key === 'Escape') onClose() }}>
+      <SurfaceCard className="bud-card bud-fix">
+        <h2 id="bud-fix-h">Outside the Approved Plan</h2>
+        <p className="bud-sub">{row.raw.item || 'This row'} ({usd(row.raw.amount)}) takes {names.get(cat) || 'its category'} {usd(over)} over its approved total.</p>
+        {canMove ? (
+          <div className="bud-plan-paths">
+            <span className="bud-hint">Move {usd(over)} from</span>
+            <select className="bud-input" aria-label="Move from" value={from} onChange={e => setFrom(e.target.value)} autoFocus>{sources.map(s => <option key={s.id} value={s.id}>{s.name} ({usd(s.room)} left)</option>)}</select>
+            <button type="button" className="bud-btn bud-btn-pri bud-btn-sm" disabled={busy} onClick={() => go('plan_move', { from, to: cat, amount: over, reason: `For ${row.raw.item || 'a row'} on ${row.raw.expense_date}.` })}>Move</button>
+          </div>
+        ) : <p className="bud-hint">{over > limit ? `A move of ${usd(over)} is over your limit of ${usd(limit)} for this category.` : `No category has ${usd(over)} to spare.`}</p>}
+        <div className="bud-close-acts">
+          <button type="button" className="bud-btn bud-btn-sm" disabled={busy} onClick={() => go('plan_amend', { category_id: cat, amount: over, reason: `For ${row.raw.item || 'a row'} (${usd(row.raw.amount)}) on ${row.raw.expense_date}.` })}>Ask Margo for an amendment</button>
+          <button type="button" className="bud-btn bud-btn-txt bud-btn-sm" onClick={onClose}>Cancel</button>
+        </div>
+      </SurfaceCard>
+    </div>
   )
 }

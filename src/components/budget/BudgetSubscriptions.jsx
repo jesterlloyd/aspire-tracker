@@ -113,7 +113,19 @@ export default function BudgetSubscriptions({ year, canEdit, onWrite }) {
     }
   }
   const decide = (id, decision, ok) => onWrite.run('renewal_decide', { id, decision }, ok)
-  const approve = (id, decision) => onWrite.run('subscription_approve', { id, decision })
+  // BUDGET-V2 (Owner, 2026-09-29): approving into a closed month asks first.
+  const [closedAsk, setClosedAsk] = useState(null)   // { id, name, message }
+  const approve = async (id, decision, intoClosed = false) => {
+    setClosedAsk(null)
+    try {
+      const out = await onWrite.call('subscription_approve', { id, decision, ...(intoClosed ? { into_closed: true } : {}) })
+      if (out?.message) onWrite.notify(out.message)
+      onWrite.changed()
+    } catch (e) {
+      if (e.code === 'closed_months') setClosedAsk({ id, name: prop.plans.find(p => p.id === id)?.name || 'This plan', message: e.message })
+      else onWrite.notify(e.message, 'err')
+    }
+  }
   const fyStart = dateText(`${year.fy - 1}-07-01`)
 
   return (
@@ -157,6 +169,16 @@ export default function BudgetSubscriptions({ year, canEdit, onWrite }) {
               {canEdit && <span />}
             </div>
             <p className="bud-hint">If approved from {fyStart}: {usd(prop.fromStart)} this year. From today: {usd(prop.fromToday)} through June 30.</p>
+            {closedAsk && (
+              <div className="bud-check bud-check-warn bud-overlap" role="alertdialog" aria-label={`Approve ${closedAsk.name} into closed months`}>
+                <span><b>{closedAsk.message}</b> Post them anyway, or approve from today so the closed months stay as they were.</span>
+                <span className="bud-overlap-acts">
+                  <button type="button" className="bud-btn bud-btn-sm" onClick={() => approve(closedAsk.id, 'from_year_start', true)}>Post into closed months</button>
+                  <button type="button" className="bud-btn bud-btn-sm" onClick={() => approve(closedAsk.id, 'from_today')}>Approve from today</button>
+                  <button type="button" className="bud-btn bud-btn-txt bud-btn-sm" onClick={() => setClosedAsk(null)}>Cancel</button>
+                </span>
+              </div>
+            )}
           </SurfaceCard>
         </section>
       )}

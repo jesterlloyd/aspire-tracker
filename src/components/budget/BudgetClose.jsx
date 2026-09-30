@@ -15,7 +15,8 @@ import { Pill } from '../shared/DataSheet'
 import { usd, dateText, pacificToday } from '../../lib/budget/budgetModel'
 import { monthStatus } from '../../lib/budget/monthClose'
 
-const stamp = (iso) => (iso ? dateText(String(iso).slice(0, 10)) : '')
+// A timestamp, as the day it was where the reader is (never the UTC day).
+const stamp = (iso) => (iso ? new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '')
 const monthName = (m) => m?.name || ''
 
 export default function BudgetClose({ year, canEdit, onWrite, onGo }) {

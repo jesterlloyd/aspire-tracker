@@ -12,7 +12,7 @@ async function token() {
 }
 async function read(res) {
   const json = await res.json().catch(() => ({}))
-  if (!res.ok) { const e = new Error(json.message || json.error || `Request failed (HTTP ${res.status}).`); e.code = json.error; e.status = res.status; throw e }
+  if (!res.ok) { const e = new Error(json.message || json.error || `Request failed (HTTP ${res.status}).`); e.code = json.error; e.status = res.status; e.details = json.details || null; throw e }
   return json
 }
 
@@ -33,17 +33,39 @@ export async function budgetPortal(query = {}) {
   return read(res)
 }
 
+/** BUDGET-V2 Phase 3: Margo's decisions, from the portal (a grant with budget_access 'approve'). */
+export async function budgetReview(action, payload = {}) {
+  const res = await fetch('/api/portal/academics-budget-review', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await token()}` },
+    body: JSON.stringify({ action, ...payload }),
+  })
+  return read(res)
+}
+
 /** The two sources the one view reads: the owner's (Settings) and the reader's (portal). */
 export const STAFF_SOURCE = Object.freeze({
   load: (fy) => budgetStaff('load', { fiscal_year: fy }),
   exportXlsx: (fy) => budgetStaff('export', { fiscal_year: fy }),
   write: budgetStaff,
+  pdf: (planId) => budgetStaff('plan_pdf', { id: planId }),
+  review: null,
 })
 export const PORTAL_SOURCE = Object.freeze({
   load: (fy) => budgetPortal({ fiscal_year: fy }),
   exportXlsx: (fy) => budgetPortal({ fiscal_year: fy, export: '1' }),
   write: null,
+  pdf: (planId) => budgetReview('plan_pdf', { plan_id: planId }),
+  review: budgetReview,
 })
+
+/** Save a PDF the server built (the plan for Finance). */
+export function savePdf({ fileName, pdf }) {
+  const bytes = Uint8Array.from(atob(pdf), ch => ch.charCodeAt(0))
+  const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }))
+  const a = document.createElement('a'); a.href = url; a.download = fileName; document.body.appendChild(a); a.click(); a.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 30000)
+}
 
 /** Save the workbook the server built. */
 export function saveXlsx({ fileName, xlsx }) {

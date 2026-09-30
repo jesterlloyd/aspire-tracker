@@ -11,6 +11,8 @@ import { useState } from 'react'
 import SurfaceCard from '../ui/SurfaceCard'
 import DataSheet, { Missing } from '../shared/DataSheet'
 import BudgetClose from './BudgetClose'
+import { proposalLine } from '../../lib/budget/planModel'
+import { fyShort } from '../../lib/budget/budgetModel'
 import { usd, fyRangeText, parseMoney } from '../../lib/budget/budgetModel'
 
 const pct = (v) => `${(v * 100).toFixed(1)}%`
@@ -99,7 +101,7 @@ function HowItWorks() {
   )
 }
 
-export default function BudgetSummary({ year, canEdit, onWrite, onGo }) {
+export default function BudgetSummary({ year, canEdit, onWrite, onGo, source, onOpenYear }) {
   const s = year.summary
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
@@ -185,8 +187,21 @@ export default function BudgetSummary({ year, canEdit, onWrite, onGo }) {
     </SurfaceCard>
   )
 
+  // BUDGET-V2 item 14: one quiet line about next year's proposal, once it is asked for or started.
+  const next = year.next
+  const line = proposalLine(next, { approver: !canEdit && !!year.canApprove })
+  const askProposal = async () => {
+    try { const out = await source.review('proposal_request', {}); onWrite.notify(out.message); onWrite.changed() } catch (e) { onWrite.notify(e.message, 'err') }
+  }
+  const quiet = (line && (canEdit || next?.plan)) ? (
+    <p className="bud-quiet">{line.text} <button type="button" className="bud-linkbtn bud-linkbtn-inline" onClick={() => onOpenYear?.(next.fy)}>{line.action} →</button></p>
+  ) : (!canEdit && year.canApprove && next && !next.plan && !next.requested && source?.review) ? (
+    <p className="bud-quiet">The {fyShort(next.fy)} proposal has not been started. <button type="button" className="bud-linkbtn bud-linkbtn-inline" onClick={askProposal}>Ask for the {fyShort(next.fy)} proposal →</button></p>
+  ) : (!canEdit && next?.requested && !next.plan) ? <p className="bud-quiet">You asked for the {fyShort(next.fy)} proposal.</p> : null
+
   return (
     <>
+      {quiet}
       {reader && noteCard}
       {canEdit && s.state === 'current' && <HowItWorks />}
       {basis}

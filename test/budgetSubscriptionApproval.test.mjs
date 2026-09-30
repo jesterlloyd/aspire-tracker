@@ -115,7 +115,8 @@ test('the screen lists proposals compactly for every viewer, with one Approve me
   assert.match(subs, /role="menu" aria-label=\{`Decide \$\{name\}`\}/)
   assert.doesNotMatch(subs, /bud-when-proposed/, 'no slips')
   assert.match(read('src/components/budget/BudgetSummary.jsx'), /awaiting approval \(\{usd\(year\.proposals\.monthly\)\} a month\) and not counted in these figures/)
-  assert.match(read('api/budget-staff.js'), /subscription_approve: \['action', 'id', 'decision'\]/)
+  // BUDGET-V2 (Owner, 2026-09-29: "ask first"): approving into a closed month needs into_closed.
+  assert.match(read('api/budget-staff.js'), /subscription_approve: \['action', 'id', 'decision', 'into_closed'\]/)
   assert.match(read('src/components/budget/ProgramBudgetView.jsx'), /canEdit \|\| year\.proposals\?\.count \? \[\{ value: 'subscriptions'/, 'leadership can see proposals before the year starts')
 })
 

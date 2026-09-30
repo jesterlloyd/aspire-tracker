@@ -18,6 +18,8 @@ import BudgetSummary from './BudgetSummary'
 import BudgetSheet from './BudgetSheet'
 import BudgetSubscriptions from './BudgetSubscriptions'
 import BudgetAllocations from './BudgetAllocations'
+import BudgetPlan from './BudgetPlan'
+import { tabsForState } from '../../lib/budget/planModel'
 import BudgetReceipts from './BudgetReceipts'
 import { inlineBadgeStyle } from '../../lib/badgeTokens'
 import BudgetStart from './BudgetStart'
@@ -28,15 +30,21 @@ import './budget.css'
 
 const NOT_ENABLED = 'Program Budget is not enabled yet. Its database update (20261009000000_program_budget_phase_a.sql) has not been applied.'
 
-// Tab order (prompt, decision 10): Summary, Sheet, Subscriptions, Receipts, Allocations. Receipts is
-// the Owner's alone (decision 5).
+// BUDGET-V2 item 15: the tabs follow the year's state. Proposal: Plan. Current: Summary, Sheet,
+// Subscriptions, Receipts (the Owner's alone, decision 5), Plan. Closed: Summary, Sheet, Plan. Allocations
+// is Plan now; before the Phase 3 update the Plan tab is still the Allocations editor.
+const TAB_LABEL = { summary: 'Summary', sheet: 'Sheet', subscriptions: 'Subscriptions', receipts: 'Receipts', plan: 'Plan' }
 function tabsFor(year, canEdit, receiptCount = 0) {
   // A reader sees Subscriptions before the year starts when there are proposals to look at (SUB-APPROVAL-1).
-  if (year.state === 'not_started') return [{ value: 'summary', label: canEdit ? `Start ${year.label}` : 'Summary' }, ...(canEdit || year.proposals?.count ? [{ value: 'subscriptions', label: 'Subscriptions' }] : [])]
-  const t = [{ value: 'summary', label: 'Summary' }, { value: 'sheet', label: 'Sheet' }, { value: 'subscriptions', label: 'Subscriptions' }]
-  if (canEdit) t.push({ value: 'receipts', label: receiptCount ? <>Receipts<span style={{ ...inlineBadgeStyle, marginLeft: 6 }} aria-label={`${receiptCount} waiting`}>{receiptCount}</span></> : 'Receipts' })
-  if (canEdit || year.budget?.plan_saved_at) t.push({ value: 'allocations', label: 'Allocations' })
-  return t
+  if (year.state === 'not_started') return [{ value: 'summary', label: canEdit ? `Start ${year.label}` : 'Summary' }, ...(canEdit || year.proposals?.count ? [{ value: 'subscriptions', label: 'Subscriptions' }] : []), ...(year.plan?.current ? [{ value: 'plan', label: 'Plan' }] : [])]
+  const planVisible = canEdit || !!year.plan?.current || (!year.plan?.enabled && !!year.budget?.plan_saved_at)
+  const waiting = year.canApprove && (year.plan?.current?.status === 'submitted' || (year.plan?.amendments || []).some(a => a.status === 'pending'))
+  return tabsForState(year.state, { owner: canEdit, planVisible }).map(k => ({
+    value: k,
+    label: k === 'receipts' && receiptCount ? <>Receipts<span style={{ ...inlineBadgeStyle, marginLeft: 6 }} aria-label={`${receiptCount} waiting`}>{receiptCount}</span></>
+      : k === 'plan' && waiting ? <>Plan<span style={{ ...inlineBadgeStyle, marginLeft: 6 }} aria-label="Waiting for your decision">1</span></>
+        : TAB_LABEL[k],
+  }))
 }
 
 export default function ProgramBudgetView({ source, renderBand, initialFy = null }) {
@@ -44,7 +52,7 @@ export default function ProgramBudgetView({ source, renderBand, initialFy = null
   const [year, setYear] = useState(null)
   const [error, setError] = useState(null)
   // AC-RENEW-1: the Action Center's Open lands on the tab it names (?tab=subscriptions).
-  const [tab, setTab] = useState(() => { try { return new URLSearchParams(window.location.search).get('tab') || 'summary' } catch { return 'summary' } })
+  const [tab, setTab] = useState(() => { try { const t = new URLSearchParams(window.location.search).get('tab') || 'summary'; return t === 'allocations' ? 'plan' : t } catch { return 'summary' } })
   const [toast, setToast] = useState(null)
   const [exporting, setExporting] = useState(false)
   const [receiptCount, setReceiptCount] = useState(0)
@@ -110,14 +118,14 @@ export default function ProgramBudgetView({ source, renderBand, initialFy = null
     <div className="bud-actions" role="group" aria-label="Program Budget actions">
       <label htmlFor="bud-fy"><span>Fiscal year</span>
         <select id="bud-fy" value={year.fy} onChange={e => { setTab('summary'); setFy(Number(e.target.value)) }}>
-          {year.years.map(y => <option key={y} value={y}>{fyShort(y)}</option>)}
+          {year.years.map(y => <option key={y} value={y}>{fyShort(y)}{y > currentFiscalYear() ? ' · Proposal' : ''}</option>)}
         </select></label>
-      {canEdit && (<>
+      {canEdit && year.state === 'current' && (<>
         <button type="button" className="bud-btn" onClick={() => addRef.current?.click()}><ReceiptText size={15} aria-hidden="true" />Add receipts</button>
         <input ref={addRef} type="file" accept="image/*,application/pdf,.pdf,.eml,message/rfc822,.heic,.heif" multiple hidden
           onChange={e => { const f = [...e.target.files]; e.target.value = ''; if (f.length) { setPendingFiles(f); setTab('receipts') } }} />
       </>)}
-      {year.state !== 'not_started' && <button type="button" className="bud-btn bud-btn-pri" onClick={exportXlsx} disabled={exporting}><Download size={15} aria-hidden="true" />{exporting ? 'Preparing…' : 'Export to Excel'}</button>}
+      {(year.state === 'current' || year.state === 'closed') && <button type="button" className="bud-btn bud-btn-pri" onClick={exportXlsx} disabled={exporting}><Download size={15} aria-hidden="true" />{exporting ? 'Preparing…' : 'Export to Excel'}</button>}
     </div>
   )
   const band = renderBand(actions, year && !canEdit ? 'Read-only access' : undefined)
@@ -126,7 +134,7 @@ export default function ProgramBudgetView({ source, renderBand, initialFy = null
   if (!year) return <>{band}<div className="bud-empty">Loading the budget…</div></>
 
   const tabs = tabsFor(year, canEdit, receiptCount)
-  const current = tabs.some(t => t.value === tab) ? tab : 'summary'
+  const current = tabs.some(t => t.value === tab) ? tab : (tabs[0]?.value || 'summary')
   const notStarted = year.state === 'not_started'
 
   return (
@@ -148,8 +156,9 @@ export default function ProgramBudgetView({ source, renderBand, initialFy = null
         <SegmentedPicker ariaLabel="Program Budget views" options={tabs} value={current} onChange={(t) => { setSheetFocus(null); setTab(t) }} />
         {current === 'summary' && (notStarted
           ? <BudgetStart year={year} canEdit={canEdit} onWrite={onWrite} onPickYear={(y) => setFy(y)} />
-          : <BudgetSummary key={year.fy} year={year} canEdit={canEdit} onWrite={onWrite}
-              onGo={(t, filter) => { setSheetFocus(filter ? { filter, at: Date.now() } : null); setTab(t) }} />)}
+          : <BudgetSummary key={year.fy} year={year} canEdit={canEdit} onWrite={onWrite} source={source}
+              onGo={(t, filter) => { setSheetFocus(filter ? { filter, at: Date.now() } : null); setTab(t) }}
+              onOpenYear={(y) => { setTab('plan'); setFy(y) }} />)}
         {current === 'sheet' && <BudgetSheet year={year} canEdit={canEdit} onWrite={onWrite} focus={sheetFocus} />}
         {current === 'subscriptions' && <BudgetSubscriptions year={year} canEdit={canEdit} onWrite={onWrite} />}
         {current === 'receipts' && canEdit && (
@@ -157,7 +166,9 @@ export default function ProgramBudgetView({ source, renderBand, initialFy = null
             onStartYear={(y) => { setTab('summary'); setFy(y) }}
             onShowInSheet={(r) => { setSheetFocus({ search: r.order_number || r.vendor, at: Date.now() }); setTab('sheet') }} />
         )}
-        {current === 'allocations' && <BudgetAllocations key={`${year.fy}-${year.budget?.plan_saved_at || ''}`} year={year} canEdit={canEdit} onWrite={onWrite} />}
+        {current === 'plan' && (year.plan?.enabled
+          ? <BudgetPlan key={`${year.fy}-${year.plan.current?.id || 'none'}-${year.plan.current?.status || ''}`} year={year} canEdit={canEdit} onWrite={onWrite} source={source} onOpenYear={(y) => { setTab('plan'); setFy(y) }} />
+          : <BudgetAllocations key={`${year.fy}-${year.budget?.plan_saved_at || ''}`} year={year} canEdit={canEdit} onWrite={onWrite} />)}
       </div>
     </>
   )

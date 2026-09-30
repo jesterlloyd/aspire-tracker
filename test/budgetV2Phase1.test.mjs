@@ -110,11 +110,11 @@ test('the slip’s checks carry the match, and a matched receipt is not new spen
   const out = K.receiptChecks(draft('Resend', '2026-07-16', 20), { years, subscriptions: [resend], today: TODAY })
   assert.equal(out.subMatch.kind, 'hold')
   assert.ok(out.checks.some(c => c.key === 'sub_match' && c.tone === 'warn'))
-  assert.ok(!out.checks.some(c => c.key.startsWith('impact:')), 'no budget impact line for a charge that is not new spend')
+  assert.ok(!out.checks.some(c => c.key === 'plan'), 'no plan line for a charge that is not new spend')
   assert.deepEqual(RM.slipState(out, 1), { tone: 'warn', text: 'Matches Resend · awaiting approval' })
   const plain = K.receiptChecks(draft('Staples', '2026-09-03', 20), { years, subscriptions: [resend], today: TODAY })
   assert.equal(plain.subMatch, null)
-  assert.ok(plain.checks.some(c => c.key.startsWith('impact:')))
+  assert.ok(plain.checks.some(c => c.key === 'plan'), 'BUDGET-V2 item 16: one plan line')
 })
 
 // ── Item 5: remember a card ──────────────────────────────────────────────────────
@@ -285,7 +285,7 @@ test('the overlap check is answered by ending the older plan or keeping both, an
 test('the API names every new action, and each is Owner-only', () => {
   const api = read('api/budget-staff.js')
   for (const a of ['receipt_hold', 'receipts_hold_all', 'receipt_unhold', 'card_remember', 'subscription_overlap']) assert.match(api, new RegExp(`${a}: \\['action'`), a)
-  assert.match(api, /receipt_accept: \['action', 'id', 'draft', 'attach_to', 'attach_charge', 'as_one_time'\]/)
+  assert.match(api, /receipt_accept: \['action', 'id', 'draft', 'attach_to', 'attach_charge', 'as_one_time', 'move_from'\]/, 'Phase 3 added move_from')
   assert.match(api, /const READS = new Set\(\['status', 'load', 'export', 'renewals'\]\)/, 'none of them is a read')
   assert.match(api, /R\.releaseHeld\(db, actor, \{ subscriptionId: body\.id/)
 })

@@ -115,10 +115,15 @@ export default function BudgetReceipts({ year, onWrite, pendingFiles, onPendingT
       load()
     } catch (e) { notify(e.message, 'err') } finally { mark(slip.id, false) }
   }
-  const onAccept = (slip, attachTo, { attachCharge = false, asOneTime = false } = {}) => {
+  const onAccept = (slip, attachTo, { attachCharge = false, asOneTime = false, moveFrom = null } = {}) => {
     const n = attachTo || attachCharge ? 0 : new Set(slip.draft.lines.map(l => l.category)).size
-    return decide(slip, 'receipt_accept', { draft: slip.draft, attach_to: attachTo || null, ...(attachCharge ? { attach_charge: true } : {}), ...(asOneTime ? { as_one_time: true } : {}) },
-      attachCharge ? 'Receipt attached to its subscription charge and filed. Spent did not change.' : attachTo ? `Receipt attached to its row and filed.` : `${n} ${n === 1 ? 'row' : 'rows'} posted and the receipt filed.`)
+    return decide(slip, 'receipt_accept', { draft: slip.draft, attach_to: attachTo || null, ...(attachCharge ? { attach_charge: true } : {}), ...(asOneTime ? { as_one_time: true } : {}), ...(moveFrom ? { move_from: moveFrom } : {}) },
+      attachCharge ? 'Receipt attached to its subscription charge and filed. Spent did not change.' : attachTo ? `Receipt attached to its row and filed.` : `${moveFrom ? 'Moved inside the limit. ' : ''}${n} ${n === 1 ? 'row' : 'rows'} posted and the receipt filed.`)
+  }
+  // BUDGET-V2 item 16: over the plan and past the move limit, the receipt waits for Margo.
+  const onAmend = async (slip) => {
+    mark(slip.id, true)
+    try { const out = await budgetStaff('receipt_amend', { id: slip.id, draft: slip.draft }); notify(out.message); onWrite.changed(); load() } catch (e) { notify(e.message, 'err') } finally { mark(slip.id, false) }
   }
   // BUDGET-V2 item 1: hold a receipt for a subscription awaiting approval, one or all at once.
   const onHold = (slip) => decide(slip, 'receipt_hold', { draft: slip.draft }, 'Held. It attaches to its charge when you approve the subscription.')
@@ -128,10 +133,6 @@ export default function BudgetReceipts({ year, onWrite, pendingFiles, onPendingT
   const onUnhold = async (slip) => {
     mark(slip.id, true)
     try { await budgetStaff('receipt_unhold', { id: slip.id }); notify('Back in To Review.'); load() } catch (e) { notify(e.message, 'err') } finally { mark(slip.id, false) }
-  }
-  // BUDGET-V2 item 11: a receipt in a closed month asks for the month to be reopened first.
-  const onReopen = async ({ fy, month }) => {
-    try { const out = await budgetStaff('month_reopen', { fiscal_year: fy, month }); notify(out.message); onWrite.changed(); load() } catch (e) { notify(e.message, 'err') }
   }
   // BUDGET-V2 item 5: remember a card (or forget it); the server sets every open receipt on it.
   const onRemember = async (last4, method, remember) => {
@@ -214,7 +215,7 @@ export default function BudgetReceipts({ year, onWrite, pendingFiles, onPendingT
               ? <ReceiptFold key={s.id} slip={s} context={ctx} onOpen={setOpenId} />
               : (
                 <ReceiptSlip key={s.id} slip={s} context={ctx} categories={categories} cohorts={year.cohorts} busy={busy.has(s.id)} openSlips={openSlips}
-                  onHold={onHold} onRemember={ctx.cardsEnabled ? onRemember : null} onReopen={onReopen}
+                  onHold={onHold} onRemember={ctx.cardsEnabled ? onRemember : null} onAmend={year.plan?.live ? onAmend : null}
                   onDraft={onDraft} onAccept={onAccept} onSnooze={onSnooze} onReject={onReject} onRead={onRead} onDiscard={onDiscard} onOriginal={onOriginal} onStartYear={onStartYear} />
               )))}
           </div>
@@ -228,7 +229,7 @@ export default function BudgetReceipts({ year, onWrite, pendingFiles, onPendingT
             {held.map(s => (
               <li key={s.id}>
                 <span className="bud-held-name">{s.draft?.vendor || s.file_name} · {usd(s.proposal?.total)}</span>
-                <small>{s.held_charge_date ? `${dateText(s.held_charge_date)} charge · ` : ''}Held until {subName.get(s.held_subscription_id) || 'its subscription'} is approved</small>
+                <small>{s.held_amendment_id ? 'Waiting for Margo to decide an amendment' : <>{s.held_charge_date ? `${dateText(s.held_charge_date)} charge · ` : ''}Held until {subName.get(s.held_subscription_id) || 'its subscription'} is approved</>}</small>
                 <span className="bud-grow" />
                 <button type="button" className="bud-linkbtn" onClick={() => onOriginal(s)}>View original</button>
                 <button type="button" className="bud-linkbtn" disabled={busy.has(s.id)} onClick={() => onUnhold(s)}>Back to review</button>

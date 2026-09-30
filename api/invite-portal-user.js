@@ -51,7 +51,7 @@ const CONTACTS_ACCESS_LEVELS = ['view', 'manage']
 // PROGRAM-BUDGET (2026-09-27): the Program Budget tab, a read-only capability on a
 // nursing_academic grant. Only the Owner may share the budget; a request that omits the field
 // leaves the grant's value as it is.
-const BUDGET_ACCESS_LEVELS = ['none', 'view']
+const BUDGET_ACCESS_LEVELS = ['none', 'view', 'approve']   // 'approve': BUDGET-V2 Phase 3
 // KEITH-THEMES-1: the Evaluation tab (Keith's de-identified comment themes). Same shape as the budget.
 const THEMES_ACCESS_LEVELS = ['none', 'view']
 // Verified ASPIRE Resend sender (cshs.org is not a verified Resend domain, so
