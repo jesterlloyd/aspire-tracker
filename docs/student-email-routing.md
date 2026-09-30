@@ -21,4 +21,24 @@ Owner/Admin users can select **Copy visible emails** or **Copy visible phone num
 
 The clipboard operation runs directly from the click, without a network wait. Residency routing context is loaded beforehand through an Owner/Admin endpoint that first checks student visibility using the caller's database permissions. A failed routing lookup disables email copying rather than guessing; phone copying remains available.
 
-No database migration is required. iPhone Messages recipient pasting requires a device check; automated clipboard tests do not establish iOS compatibility.
+No database migration is required. Device feedback confirmed that pasting the comma-separated phone list into iPhone Messages' To field can resolve to only one recipient. The copy operation preserves all numbers, but its plain-text result does not create separate recipient entries in Messages. Clipboard tests alone do not establish iOS compatibility. The copy confirmation must not claim that the list is ready for bulk pasting into Messages.
+
+Apple documents adding each recipient to the To field, but does not document bulk clipboard parsing: https://support.apple.com/en-gb/guide/iphone/iphb10c80fc5/ios. Changing delimiters without a device test is not a verified fix.
+
+## iPhone Shortcut setup
+
+Student Profiles includes **iPhone Messages setup**, with these instructions and a link to run the named shortcut. The shortcut must be created on the iPhone once. Apple's local signing tool rejected the generated template, so no installable file is supplied.
+
+In Shortcuts, tap **+** and name the shortcut **ASPIRE Group Message**. Add these five actions in order:
+
+1. **Get Clipboard**.
+2. **Split Text**, using Clipboard. Set the separator to **Custom** and enter a comma (`,`).
+3. **Get Phone Numbers from Input**, using the **Split Text** result.
+4. **Nothing**, so the phone list is not passed into the message body.
+5. **Send Message**. Leave Message blank. Press and hold Recipients, choose **Select Variable**, and select **Phone Numbers** from step 3. Expand the action and leave **Show When Run** on.
+
+Each time, copy the filtered phone numbers and run this shortcut on the iPhone. If copying on a computer, transfer that phone list to the iPhone clipboard first. The app enables its shortcut link only after a successful copy for the currently displayed phone list. The shortcut itself reads the clipboard when run; avoid copying something else in between.
+
+The message is a blank draft for the user to write, review, and send. Use a single Send Message action, not a repeat loop, to create a group conversation. Recipients can see one another's numbers and replies. On the first run, check that the draft has exactly the recipient count shown in ASPIRE without sending. No messages were sent during development, and actual iPhone behavior remains unverified.
+
+Apple's supported launch mechanism: https://support.apple.com/en-euro/guide/shortcuts/apd624386f42/ios. The launch URL contains only the shortcut name, never student numbers or message content.

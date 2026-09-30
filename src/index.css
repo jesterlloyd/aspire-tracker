@@ -3278,6 +3278,11 @@ button.ir-wl-th { background: transparent; border: 0; text-align: left; cursor: 
   flex-shrink: 0;
 }
 .profiles-copy-contact:disabled { opacity: 0.5; cursor: default; }
+.student-messages-setup { background: var(--bg-card, var(--pearl)); color: var(--text-body); border-radius: var(--aspire-radius-card); }
+.student-messages-setup h2, .student-messages-setup h3 { color: var(--text-body); }
+.student-messages-setup ol { padding-left: 22px; }
+.student-messages-setup li + li { margin-top: 10px; }
+.student-messages-setup .modal-footer { flex-wrap: wrap; border-radius: 0; }
 [data-theme="dark"] .student-profiles-tab,
 [data-theme="dark"] .profiles-full-container {
   background: var(--color-bg-page); color: var(--color-text-primary);

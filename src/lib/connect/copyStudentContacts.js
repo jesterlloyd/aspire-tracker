@@ -49,8 +49,11 @@ export async function copyVisibleStudentContacts(students, kind, toast, options 
       duplicates ? `${duplicates} duplicate${duplicates === 1 ? '' : 's'} removed.` : '',
       fallbacks ? `${fallbacks} used the other email because the preferred email was missing or invalid.` : '',
     ].filter(Boolean).join(' ')
+    const guidance = kind === 'email'
+      ? 'Ready to paste into your email recipients.'
+      : 'iPhone Messages may not separate a pasted list into recipients. Use iPhone Messages setup, then run ASPIRE Group Message in Shortcuts.'
     toast?.success(`Copied ${values.length} ${values.length === 1 ? (kind === 'email' ? 'email' : 'phone number') : noun}.`,
-      notes || (kind === 'email' ? 'Ready to paste into your email recipients.' : 'Ready to paste into Messages recipients.'))
+      [notes, guidance].filter(Boolean).join(' '))
     return { ...result, copied: true }
   } catch {
     toast?.error('Copy failed', 'Clipboard access was blocked. Try again in your browser.')

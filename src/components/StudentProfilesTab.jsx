@@ -19,6 +19,7 @@ import { getCsLinkStatus } from '../lib/utils'
 import { summarizeCsLink } from '../lib/derivations/csLink'
 import SegmentedPicker from './shared/SegmentedPicker'
 import { copyVisibleStudentContacts } from '../lib/connect/copyStudentContacts'
+import StudentMessagesSetup from './student/StudentMessagesSetup'
 
 // ── ASPIRE-CHART: URL state (approved) ────────────────────────────────────────
 // /students?student=<id>&filter=<bucket>&cslink=<stage> is shareable and survives
@@ -85,6 +86,7 @@ export default function StudentProfilesTab({
   const [activeStatusFilter, setActiveStatusFilter] = useState(() => FILTER_KEYS[searchParams.get('filter')] ?? null)
   const [csLinkFilter, setCsLinkFilter] = useState(() => cslinkFromKey(searchParams.get('cslink')))
   const [showImport, setShowImport] = useState(false)
+  const [showMessagesSetup, setShowMessagesSetup] = useState(false)
   const prevFilterKey = useRef(null)
 
   // URL writes happen ONLY in user-action handlers, never in an effect: the
@@ -344,6 +346,7 @@ export default function StudentProfilesTab({
               {kind === 'email' ? 'Copy visible emails' : 'Copy visible phone numbers'}
             </button>
           ))}
+          {canEdit && <button type="button" className="profiles-copy-contact" onClick={() => setShowMessagesSetup(true)}>iPhone Messages setup</button>}
           {canEdit && (
             <Tooltip label="Import students from CSV" placement="bottom">
             <button onClick={() => setShowImport(true)}
@@ -454,6 +457,7 @@ export default function StudentProfilesTab({
       )}
 
       {showImport && <ImportStudentsCSV cohortId={cohortId} onImported={onRefresh} onClose={() => setShowImport(false)} />}
+      {canEdit && showMessagesSetup && <StudentMessagesSetup students={view === 'access' ? accessStudents : displayedStudents} toast={toast} onClose={() => setShowMessagesSetup(false)} />}
     </div>
   )
 }

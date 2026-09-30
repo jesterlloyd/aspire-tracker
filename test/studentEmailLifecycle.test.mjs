@@ -85,6 +85,8 @@ test('clipboard success, denial, and empty results never report a false success'
     await copyVisibleStudentContacts([{ phone: '3105550123' }, { phone: '8185550123' }], 'phone', toast)
     assert.deepEqual(copied, ['+13105550123,+18185550123'])
     assert.equal(notices.at(-1)[0], 'success')
+    assert.match(notices.at(-1)[2], /may not separate a pasted list/)
+    assert.doesNotMatch(notices.at(-1)[2], /Ready to paste into Messages/)
     navigator.clipboard.writeText = async () => { throw new Error('denied') }
     await copyVisibleStudentContacts([student], 'email', toast, { now })
     assert.equal(notices.at(-1)[0], 'error')
