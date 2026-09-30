@@ -47,7 +47,7 @@ async function filed(db, owner, { vendor = 'Staples', total = 86.4, method = 'pe
   await R.acceptReceipt(db, owner, { id: r.id, draft: { ...r.draft, payment_method: method, business_purpose: 'Badge pouches for the Winter 2027 cohort.' }, today: TODAY })
   return r.id
 }
-const draft = { report_name: 'ASPIRE Program Supplies - September 2026', expense_type: 'Supplies - Student/Program', description: 'Name badge pouches from Staples', business_purpose: 'Pouches protect student ID badges worn on clinical placements for the Winter 2027 cohort.', attendees: [], attach: ['Itemized receipt (PDF)'], checks: [{ tone: 'info', text: 'Receipt required over $25: attached.' }], notes: '' }
+const draft = { report_name: 'ASPIRE Supplies - September 2026', expense_type: 'Supplies - Student/Program', description: 'Name badge pouches from Staples', business_purpose: 'Pouches protect student ID badges worn on clinical placements for the Winter 2027 cohort.', attendees: [], attach: ['Itemized receipt (PDF)'], checks: [{ tone: 'info', text: 'Receipt required over $25: attached.' }], notes: '' }
 
 test('Keith drafts the Concur entry from the receipt and the policy, and it is saved on the receipt', async () => {
   const { db, owner, pg } = await world()
