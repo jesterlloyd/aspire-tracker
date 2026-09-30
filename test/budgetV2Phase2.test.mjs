@@ -236,7 +236,8 @@ test('the Action Center hears about the month from the 5th', async () => {
 test('the API names each new action, Owner-only, and the queue carries the close reminder', () => {
   const api = read('api/budget-staff.js')
   for (const a of ['month_close', 'month_reopen', 'concur_mark_submitted']) assert.match(api, new RegExp(`${a}: \\['action', 'fiscal_year', 'month'`), a)
-  assert.match(api, /close: await E\.closeQueue\(db, day\)/)
+  // BUDGET-LOAD-SPEED-1 changed this: the queue's four reads go out together.
+  assert.match(api, /E\.missingReceiptQueue\(db\), E\.closeQueue\(db, day\)\]\)/)
   assert.match(api, /const READS = new Set\(\['status', 'load', 'export', 'renewals'\]\)/)
   assert.match(read('src/lib/home/homeLoaders.js'), /close: q\?\.close \|\| null/)
 })

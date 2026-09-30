@@ -114,5 +114,6 @@ test('the budget Sheet wears it: Missing in the Receipt cell, the filter, and th
   assert.match(sheet, /quickFilters=\{MISSING_FILTER\} initialQuick=\{focus\?\.filter \|\| null\}/)
   assert.match(sheet, /return missingReceipt\(row\.raw\) \? <span className="bud-rc-missing"[^>]*>Missing<\/span> : DASH/)
   assert.match(read('src/components/budget/ProgramBudgetView.jsx'), /get\('filter'\); return f === 'missing-receipt' \? \{ filter: f, at: 0 \} : null/)
-  assert.match(read('api/budget-staff.js'), /missing: await E\.missingReceiptQueue\(db\)/)
+  // BUDGET-LOAD-SPEED-1 changed this: the queue's reads go out together, missing among them.
+  assert.match(read('api/budget-staff.js'), /E\.missingReceiptQueue\(db\)/)
 })

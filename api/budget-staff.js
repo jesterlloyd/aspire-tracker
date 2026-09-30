@@ -162,7 +162,11 @@ export function createBudgetStaffHandler({ verifyCaller = verifyPortalCaller, ma
         case 'receipts_intake': return res.status(200).json(await R.intake(db, day))
         case 'receipts_open': return res.status(200).json(await R.openReceipts(db, { fy: fy ?? E.currentFiscalYear(), ...day }))
         case 'receipts_filed': return res.status(200).json({ receipts: await R.filedReceipts(db, { fy: fy ?? E.currentFiscalYear(), ...day }) })
-        case 'receipts_queue': return res.status(200).json({ receipts: await R.reviewQueue(db, day), concur: await E.concurQueue(db, day), missing: await E.missingReceiptQueue(db), close: await E.closeQueue(db, day) })
+        case 'receipts_queue': {
+          // BUDGET-LOAD-SPEED-1: four independent reads, one wait.
+          const [receipts, concur, missing, close] = await Promise.all([R.reviewQueue(db, day), E.concurQueue(db, day), E.missingReceiptQueue(db), E.closeQueue(db, day)])
+          return res.status(200).json({ receipts, concur, missing, close })
+        }
         case 'month_close': return res.status(200).json(await E.closeMonth(db, actor, { fy, month: body.month, note: typeof body.note === 'string' ? body.note : '', ...day }))
         case 'month_reopen': return res.status(200).json(await E.reopenMonth(db, actor, { fy, month: body.month, ...day }))
         case 'concur_mark_submitted': return res.status(200).json(await E.markConcurSubmitted(db, actor, { fy, month: body.month, ...day }))
