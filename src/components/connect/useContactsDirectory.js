@@ -34,6 +34,9 @@ export function useContactsDirectory({ refreshKey = 0 } = {}) {
   const [loading,         setLoading]         = useState(true)
   const [error,           setError]           = useState(null)
   const [search,          setSearch]          = useState('')
+  // LAUNCHER-2: the home page's Find a contact arrives as ?find=1 and puts the cursor in
+  // the search field, in whichever drawing is showing. Read once, on arrival.
+  const [focusSearch]                         = useState(() => new URLSearchParams(location.search).get('find') === '1')
   const [categoryFilter,  setCategoryFilter]  = useState('All')
   const [selectedId,      setSelectedId]      = useState(null)
   const [showInactive,    setShowInactive]    = useState(false)
@@ -202,7 +205,7 @@ export function useContactsDirectory({ refreshKey = 0 } = {}) {
 
   return {
     contacts, setContacts, loading, error,
-    search, setSearch, categoryFilter, setCategoryFilter,
+    search, setSearch, focusSearch, categoryFilter, setCategoryFilter,
     selectedId, setSelectedId, selectContact, selected,
     showInactive, setShowInactive,
     commHistory, loadingComm,

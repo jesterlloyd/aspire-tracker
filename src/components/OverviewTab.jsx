@@ -757,8 +757,8 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
 
   // The launcher
   const actions = useMemo(() => allowedActions({
-    isAdmin: canManage, canInterview, canMatch: canPerformMatching(userProfile), signatures: sigFlag.allowed, forms: formsStatus.enabled, isActive: userProfile?.is_active !== false,
-  }), [canManage, canInterview, userProfile, sigFlag.allowed, formsStatus.enabled])
+    isAdmin: canManage, isOwner, canInterview, canMatch: canPerformMatching(userProfile), signatures: sigFlag.allowed, forms: formsStatus.enabled, isActive: userProfile?.is_active !== false,
+  }), [canManage, isOwner, canInterview, userProfile, sigFlag.allowed, formsStatus.enabled])
   const people = useMemo(() => personRows({ students, contacts: qContacts.data || [], unitNameFor, displayName }), [students, qContacts.data, unitNameFor])
   const go = useCallback((to) => { if (to) navigate(to) }, [navigate])
   const openStudent = useCallback((id) => { if (onOpenStudent) onOpenStudent(id); else navigate(`/students?student=${encodeURIComponent(id)}`) }, [onOpenStudent, navigate])

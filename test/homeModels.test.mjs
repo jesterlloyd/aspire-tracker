@@ -17,7 +17,7 @@ import { onCampusGroups, scheduleRows, shiftGroupLabel, shiftGroupState, dueToda
 import { hoursBar, midpointBar } from '../src/lib/home/cohortPulseModel.js'
 import { placementSummary, capacityByServiceLine, filteredCapacityByServiceLine, requestsBySchool } from '../src/lib/home/placementSummaryModel.js'
 import { getUnit } from '../src/lib/unitCatalog.js'
-import { ACTIONS, QUICK_ACTION_KEYS, allowedActions, quickActions, personRows, searchLauncher, moveSelection, greetingFor } from '../src/lib/home/launcherModel.js'
+import { ACTIONS, QUICK_ACTION_KEYS, QUICK_ACTION_FALLBACK, allowedActions, quickActions, matchActions, personRows, searchLauncher, moveSelection, greetingFor } from '../src/lib/home/launcherModel.js'
 import { activityRows, ACTIVITY_LIMIT } from '../src/lib/home/recentActivityModel.js'
 
 const TODAY = '2026-09-24'
@@ -369,15 +369,50 @@ test('PLACEMENT 2b: capacity uses canonical service lines and the selected statu
 // ── Launcher ─────────────────────────────────────────────────────────────────
 
 test('LAUNCHER 1: six quick actions in a fixed order, filtered by permission, never offered disabled', () => {
-  assert.deepEqual(QUICK_ACTION_KEYS, ['sign', 'form', 'outreach', 'interview', 'file', 'contact'])
+  // LAUNCHER-2 (Owner, 2026-09-30) changed the six: Build a form, Send a file and Add a
+  // contact left the chips for Upload a receipt, Find a file and Find a contact, and a
+  // viewer who cannot use a chip gets the next from a fixed fallback.
+  assert.deepEqual(QUICK_ACTION_KEYS, ['sign', 'outreach', 'interview', 'receipt', 'findfile', 'findcontact'])
+  assert.deepEqual(QUICK_ACTION_FALLBACK, ['form', 'file', 'contact', 'release', 'shift', 'board'])
+  const owner = allowedActions({ isAdmin: true, isOwner: true, canInterview: true, canMatch: true, signatures: true, forms: true })
+  assert.deepEqual(quickActions(owner).map(a => a.title), ['Send for signature', 'Send outreach', 'Schedule an interview', 'Upload a receipt', 'Find a file', 'Find a contact'])
+  // Every Budget Tracker write is the Owner's, so an Admin never sees Upload a receipt;
+  // the grid stays full from the fallback.
   const admin = allowedActions({ isAdmin: true, canInterview: true, canMatch: true, signatures: true, forms: true })
-  assert.deepEqual(quickActions(admin).map(a => a.title), ['Send for signature', 'Build a form', 'Send outreach', 'Schedule an interview', 'Send a file', 'Add a contact'])
+  assert.equal(admin.some(a => a.key === 'receipt'), false)
+  assert.deepEqual(quickActions(admin).map(a => a.key), ['sign', 'outreach', 'interview', 'findfile', 'findcontact', 'form'])
   const interviewer = allowedActions({ isAdmin: false, canInterview: true, canMatch: false, signatures: false, forms: false })
-  assert.deepEqual(interviewer.map(a => a.key), ['interview', 'shift', 'board'])
+  assert.deepEqual(interviewer.map(a => a.key), ['interview', 'findfile', 'findcontact', 'shift', 'board'])
   const noFlag = allowedActions({ isAdmin: true, canInterview: true, canMatch: true, signatures: false, forms: true })
   assert.equal(noFlag.some(a => a.key === 'sign'), false, 'the signatures flag hides Send for signature')
-  assert.equal(allowedActions({ isAdmin: true, isActive: false }).length, 0)
-  assert.equal(ACTIONS.length, 12)
+  assert.equal(allowedActions({ isAdmin: true, isOwner: true, isActive: false }).length, 0)
+  assert.equal(ACTIONS.length, 15)
+  // Every chip lands where the screen reads it.
+  const to = Object.fromEntries(ACTIONS.map(a => [a.key, a.to]))
+  assert.equal(to.receipt, '/settings/budget?tab=receipts')
+  assert.equal(to.findfile, '/catalog?find=1')
+  assert.equal(to.findcontact, '/connect/contacts?find=1')
+})
+
+test('LAUNCHER-2: a typed request finds its action in everyday words, and a question does not', () => {
+  const owner = allowedActions({ isAdmin: true, isOwner: true, canInterview: true, canMatch: true, signatures: true, forms: true })
+  const keys = (q) => matchActions(q, owner).map(m => m.action.key)
+  assert.deepEqual(keys('upload a receipt from Resend for $20'), ['receipt'])
+  assert.equal(matchActions('I need to upload receipts', owner)[0].strong, true, 'filler and a plural still land')
+  assert.deepEqual(keys('rec'), ['receipt'], 'a word half typed')
+  assert.deepEqual(keys('look up a phone number'), ['findcontact'])
+  assert.deepEqual(keys('can you send this contract for signature'), ['sign'])
+  assert.deepEqual(keys('email the students about town hall').slice(0, 1), ['outreach'])
+  assert.deepEqual(keys('log my hours'), ['shift'])
+  // A question is for Keith: nothing the app does is named by half its words.
+  assert.deepEqual(keys('who is the manager of 6NE'), [])
+  assert.deepEqual(keys('how many receipts are past due'), [])
+  assert.deepEqual(keys('draft an email to students about town hall'), [])
+  // Only what this person may do.
+  const admin = allowedActions({ isAdmin: true, canInterview: true, canMatch: true, signatures: true, forms: true })
+  assert.deepEqual(matchActions('upload a receipt', admin), [])
+  // The launcher's Actions group reads the same rule.
+  assert.deepEqual(searchLauncher('upload receipt', { actions: owner, people: [] }).groups.actions.map(a => a.action.key), ['receipt'])
 })
 
 test('LAUNCHER 2: results come in three groups, capped, Keith always last; empty query, no results', () => {

@@ -740,6 +740,16 @@ tested modules in `src/lib/home/`. Nothing is computed in JSX.
   group shows 8 rows in two columns when alone, 5 with one other, else 3 (`rowsFor`).
 - **The quick-action chips are a 3 x 2 grid** the width of the search field (2 columns on a
   phone).
+- **The six chips and typed requests** (LAUNCHER-2, Owner, 2026-09-30): Send for signature, Send
+  outreach, Schedule an interview, Upload a receipt (Owner only, as every Budget Tracker write
+  is), Find a file, Find a contact; a viewer who cannot use one gets the next from
+  `QUICK_ACTION_FALLBACK`. Build a form, Send a file and Add a contact are found by typing.
+  `matchActions` in `launcherModel.js` is the ONE rule for a typed request: filler dropped, each
+  action's `words` count with its title, offered at half the words, `strong` at all of them.
+  Keith reads the same rule (the launcher hands it the action list through `askKeith`): a
+  strong match is answered with a "→" button and no model call, a partial one puts the button
+  under the model's reply. Keith still performs nothing itself. Find a file and Find a
+  contact arrive as `?find=1`, which focuses the Catalog's and both Contacts drawings' search.
 - **A planned shift works alongside its preceptor**: `student_shift_plans` stores the date and
   the preceptor's name, so its type is that preceptor's `shift_type` (matched by name), then the
   student's assigned preceptor's, then `students.shift_assigned`, then Day; Variable is skipped

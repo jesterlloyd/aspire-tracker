@@ -287,6 +287,27 @@ test('WINDOW: the glass reflection travels as the page scrolls, and holds still 
   assert.match(read('src/components/home/home.css'), /\.hm-window-glare \{[^}]*transform: translate3d\(var\(--hm-glare-x, 0px\), 0, 0\);/)
 })
 
+test('LAUNCHER-2: Keith is handed the way there, and the chips land where the screen reads them', () => {
+  // Owner, 2026-09-30: "keith should be able to understand the context if typed".
+  const l = read('src/components/home/Launcher.jsx')
+  assert.match(l, /if \(opt\.kind === 'keith'\) askKeith\(opt\.text, \{ actions \}\)/, 'the launcher hands Keith its permission-filtered actions')
+  const bus = read('src/lib/keithBus.js')
+  assert.match(bus, /export function askKeith\(text, \{ actions = null \} = \{\}\)/)
+  const k = read('src/components/Keith.jsx')
+  assert.match(k, /import \{ allowedActions, matchActions \} from '\.\.\/lib\/home\/launcherModel'/, 'one matching rule, not a second copy')
+  assert.match(k, /const matched = skillSlug \? \[\] : matchActions\(text, pool\)/)
+  assert.match(k, /if \(matched\[0\]\?\.strong\) \{/, 'a request every word of which lands is answered without the model')
+  assert.match(k, /actions: wayThere,\n\s+\}\]\);/, 'a model reply carries the way there too')
+  assert.match(k, /if \(action\.type === 'route' && action\.to\) \{\n\s+navigate\(action\.to\);/)
+  // ?find=1 puts the cursor in the search, in the Catalog and in both Contacts drawings.
+  assert.match(read('src/components/catalog/CatalogPage.jsx'), /get\('find'\) === '1'\)[\s\S]*autoFocus=\{focusSearch\}/)
+  assert.match(read('src/components/connect/useContactsDirectory.js'), /const \[focusSearch\]\s+= useState\(\(\) => new URLSearchParams\(location\.search\)\.get\('find'\) === '1'\)/)
+  assert.match(read('src/components/connect/ContactsView.jsx'), /value=\{search\}\n\s+autoFocus=\{dir\.focusSearch\}/)
+  assert.match(read('src/components/connect/ContactsBook.jsx'), /value=\{search\}\n\s+autoFocus=\{dir\.focusSearch\}/)
+  // Upload a receipt is the Owner's, as every Budget Tracker write is.
+  assert.match(read('src/components/OverviewTab.jsx'), /allowedActions\(\{\n\s+isAdmin: canManage, isOwner, canInterview,/)
+})
+
 test('LAUNCHER: the quick actions show only while the launcher is in use', () => {
   // Owner, 2026-09-25: "the tiles should only show up when I click on the search bar".
   const l = read('src/components/home/Launcher.jsx')

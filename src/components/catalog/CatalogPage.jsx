@@ -106,6 +106,8 @@ export default function CatalogPage({
   // null: nothing chosen yet, so a /catalog?resource=<slug> deep link decides; '' after ✕.
   const [selectedId, setSelectedId] = useState(null)
   const [deepSlug] = useState(() => new URLSearchParams(window.location.search).get('resource'))
+  // LAUNCHER-2: the home page's Find a file arrives as ?find=1 and puts the cursor in the search.
+  const [focusSearch] = useState(() => new URLSearchParams(window.location.search).get('find') === '1')
   const [shelfMode, setShelfMode] = useState('shelf')   // Classic only: 'shelf' | 'list'
   const [menuFor, setMenuFor] = useState(null)
   const [newOpen, setNewOpen] = useState(false)
@@ -447,7 +449,7 @@ export default function CatalogPage({
           <div className="ctl-tools">
             <div className="ctl-search">
               <Search size={16} aria-hidden="true" />
-              <input type="search" value={query} onChange={e => setQuery(e.target.value)}
+              <input type="search" value={query} autoFocus={focusSearch} onChange={e => setQuery(e.target.value)}
                 placeholder="Search titles, descriptions and categories" aria-label="Search the Catalog" />
             </div>
             <select value={sort} onChange={e => setSort(e.target.value)} aria-label="Sort">

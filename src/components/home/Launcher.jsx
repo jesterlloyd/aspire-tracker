@@ -14,12 +14,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Search, PenLine, ListChecks, Mail, CalendarDays, FileText, UserPlus, Send, Clock, Kanban, MessageSquare, HelpCircle,
+  Receipt, FileSearch, UserSearch,
 } from 'lucide-react'
 import { searchLauncher, moveSelection, quickActions } from '../../lib/home/launcherModel'
 import { askKeith } from '../../lib/keithBus'
 import { KeithIcon } from '../keith/KeithBrand'
 
-const ICON = { sign: PenLine, form: ListChecks, out: Mail, cal: CalendarDays, file: FileText, person: UserPlus, rel: Send, clock: Clock, board: Kanban, msg: MessageSquare, help: HelpCircle }
+const ICON = { sign: PenLine, form: ListChecks, out: Mail, cal: CalendarDays, file: FileText, add: UserPlus, person: UserSearch, find: FileSearch, receipt: Receipt, rel: Send, clock: Clock, board: Kanban, msg: MessageSquare, help: HelpCircle }
 
 const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent || '')
 
@@ -55,7 +56,7 @@ export default function Launcher({ actions = [], people = [], canAskKeith = true
 
   const run = (opt) => {
     if (!opt) return
-    if (opt.kind === 'keith') askKeith(opt.text)
+    if (opt.kind === 'keith') askKeith(opt.text, { actions })
     else if (opt.kind === 'person') onOpenPerson?.(opt.person)
     else onRun?.(opt.action)
     clear()

@@ -9,17 +9,23 @@
 const listeners = new Set()
 let pending = null
 
-/** Open Keith and send `text`. If Keith is not mounted yet, the question waits for it. */
-export function askKeith(text) {
+/**
+ * Open Keith and send `text`. If Keith is not mounted yet, the question waits for it.
+ * LAUNCHER-2: `actions` is the launcher's permission-filtered action list, so Keith can
+ * answer "upload a receipt" with the way there, using flags (signatures, forms) that only
+ * the home page has read.
+ */
+export function askKeith(text, { actions = null } = {}) {
   const t = String(text || '').trim()
   if (!t) return
-  if (listeners.size === 0) { pending = t; return }
-  listeners.forEach(fn => { try { fn(t) } catch { /* one bad listener must not break the rest */ } })
+  const opts = { actions: Array.isArray(actions) ? actions : null }
+  if (listeners.size === 0) { pending = { t, opts }; return }
+  listeners.forEach(fn => { try { fn(t, opts) } catch { /* one bad listener must not break the rest */ } })
 }
 
 /** Keith subscribes here. Returns an unsubscribe function. A question asked before Keith mounted is delivered at once. */
 export function onAskKeith(fn) {
   listeners.add(fn)
-  if (pending) { const t = pending; pending = null; try { fn(t) } catch { /* ignore */ } }
+  if (pending) { const { t, opts } = pending; pending = null; try { fn(t, opts) } catch { /* ignore */ } }
   return () => listeners.delete(fn)
 }

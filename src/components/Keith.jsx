@@ -1,10 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Tooltip from './ui/Tooltip';
 import { useQueryClient } from '@tanstack/react-query';
 import { greetingFor, capabilityLineFor, chipsFor, hasSeenWelcome, markWelcomeSeen } from '../lib/keithWelcome';
 import { useAuth } from '../contexts/AuthContext';
 import { announceFloatingPanelOpen, onFloatingPanelOpen, announceFloatingPanelClosed } from '../lib/floatingPanels';
 import { onAskKeith } from '../lib/keithBus';
+import { allowedActions, matchActions } from '../lib/home/launcherModel';
 import { renderMarkdownLite } from '../lib/keithMarkdown';
 import { paletteSummary } from '../lib/skillSummary';
 import { findSlashToken, filterSkills, applySlashSelection } from '../lib/slashPalette';
@@ -17,6 +19,7 @@ const KEITH_PREFETCH_CEILING_MS = 5000;
 // drawer stays reachable through askKeith(); the drawer's own close control still works.
 export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, supabase, isAuthenticated, hideLauncher = false }) {
   const { userProfile } = useAuth();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [isOpen,      setIsOpen]      = useState(false);
   const [messages,    setMessages]    = useState([]);
@@ -74,13 +77,16 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
   // drawer and sends it. handleSend is defined below, after the early returns, so the
   // subscription reaches it through a ref that an effect refreshes after every render.
   const askRef = useRef(null);
+  // LAUNCHER-2: the launcher's own action list rides along with its question (see keithBus).
+  const offerRef = useRef(null);
   useEffect(() => {
     // handleSend is a const declared after the early returns below. When one of them
     // fires (no session, a Viewer) the render never reaches that declaration, so the
     // binding is still in its temporal dead zone here; there is no Keith to ask then.
     try { askRef.current = handleSend; } catch { askRef.current = null; }
   });
-  useEffect(() => onAskKeith(text => {
+  useEffect(() => onAskKeith((text, opts) => {
+    offerRef.current = opts?.actions || null;
     announceFloatingPanelOpen('keith');
     setIsOpen(true);
     // Let the drawer mount and the input take focus before the message goes out.
@@ -231,6 +237,31 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
     setSlashDismissedAt(null);   // a dismissal belongs to one message, not the next
     setIsTyping(true);
 
+    // LAUNCHER-2 (Owner, 2026-09-30: "keith should be able to understand the context if
+    // typed"). A request that names something the app does ("upload a receipt", "look up
+    // a phone number") is matched against the launcher's own actions, by the one rule in
+    // launcherModel, and only among what this person may do. When every word lands, Keith
+    // answers with the way there and does not call the model; when some do, the model
+    // answers and the way there sits under its reply. Keith still takes no action itself.
+    const pool = offerRef.current || allowedActions({
+      isAdmin: ['owner', 'admin'].includes(userProfile?.role) || userProfile?.is_owner === true,
+      isOwner: userProfile?.is_owner === true,
+      canInterview: ['owner', 'admin', 'interviewer'].includes(userProfile?.role) || userProfile?.is_owner === true,
+      isActive: userProfile?.is_active !== false,
+    });
+    offerRef.current = null;
+    const matched = skillSlug ? [] : matchActions(text, pool);
+    const wayThere = matched.slice(0, 3).map(m => ({ type: 'route', to: m.action.to, label: m.action.title }));
+    if (matched[0]?.strong) {
+      const [first] = matched;
+      setMessages(prev => [...prev, {
+        id: Date.now() + 1, role: 'keith', isAI: false, actions: wayThere,
+        text: wayThere.length === 1 ? `${first.action.title} is in ${first.action.where}.` : 'Here is where you can do that.',
+      }]);
+      setIsTyping(false);
+      return;
+    }
+
     // Include last 10 messages for context window efficiency. For a slash-skill
     // invocation, the OUTGOING text is the skill input (e.g. the student name)
     // while the displayed message keeps what the user typed.
@@ -358,6 +389,7 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
             text: data.response, isAI: true,
             hasCopy: data.response?.includes('Subject:'),
             tool_calls: data.tool_calls || [],
+            actions: wayThere,
           }]);
           return;
         }
@@ -409,6 +441,10 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
     if (!action) return;
     if (action.type === 'tab') {
       setActiveTab(action.tab);
+      setIsOpen(false);
+    }
+    if (action.type === 'route' && action.to) {
+      navigate(action.to);
       setIsOpen(false);
     }
     if (action.type === 'bell') {
@@ -750,10 +786,12 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
                     </button>
                   )}
 
-                  {/* Navigation action */}
-                  {msg.action && (
+                  {/* Navigation actions (LAUNCHER-2: a reply can carry more than one way there) */}
+                  {[msg.action, ...(msg.actions || [])].filter(Boolean).map((a, ai) => (
                     <button
-                      onClick={() => handleAction(msg.action)}
+                      key={ai}
+                      type="button"
+                      onClick={() => handleAction(a)}
                       style={{
                         background: '#eff6ff',
                         border: '1px solid #bfdbfe',
@@ -764,9 +802,9 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
                         cursor: 'pointer',
                       }}
                     >
-                      → {msg.action.label}
+                      → {a.label}
                     </button>
-                  )}
+                  ))}
                 </div>
               ))}
 

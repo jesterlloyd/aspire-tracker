@@ -1519,6 +1519,7 @@ function ClassicContacts({ dir, actions }) {
             </span>
             <input
               value={search}
+              autoFocus={dir.focusSearch}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search contacts…"
               style={{

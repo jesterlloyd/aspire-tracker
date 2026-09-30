@@ -558,6 +558,7 @@ export default function ContactsBook({ dir, actions }) {
                   className="ab-search"
                   type="search"
                   value={search}
+                  autoFocus={dir.focusSearch}
                   onChange={e => setSearch(e.target.value)}
                   placeholder="Search name, school, role"
                   aria-label="Search contacts"
