@@ -36,7 +36,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { randomUUID } from 'crypto'
 import { can as canAccess } from '../lib/server/access.js'
-import { resolveRoute, QUALITY_ROUTE } from '../lib/server/keith/modelRouting.js'
+import { resolveRoute, modelRequestParams, QUALITY_ROUTE } from '../lib/server/keith/modelRouting.js'
 import {
   buildPlanPrompt, buildEntryPrompt, buildRetryNote, extractJson, validatePlan,
   validateEnrichment, missingNumbers, ENRICH_CAPS,
@@ -129,9 +129,7 @@ async function callAnthropic(prompt, timeoutMs) {
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: route.model,
-        temperature: route.temperature,
-        max_tokens: MAX_OUTPUT_TOKENS,
+        ...modelRequestParams({ ...route, maxTokens: MAX_OUTPUT_TOKENS }),
         messages: [{ role: 'user', content: prompt }],
       }),
       signal: controller.signal,
@@ -142,6 +140,7 @@ async function callAnthropic(prompt, timeoutMs) {
       return { ok: false, error: errorBody?.error?.type || `http_${response.status}`, elapsedMs: Date.now() - started }
     }
     const json = await response.json()
+    if (json?.stop_reason === 'refusal') return { ok: false, error: 'model_declined', elapsedMs: Date.now() - started }
     const text = (json?.content || []).filter(b => b.type === 'text').map(b => b.text).join('')
     return {
       ok: true, text,

@@ -37,7 +37,7 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
   });
   const sonnetAllowed = userProfile?.is_owner === true || String(userProfile?.role || '').toLowerCase() === 'admin';
   const modelChoices = sonnetAllowed ? ['auto', 'haiku', 'sonnet'] : ['auto', 'haiku'];
-  const MODEL_LABELS = { auto: 'Auto', haiku: 'Haiku 4.5', sonnet: 'Sonnet 4.5' };
+  const MODEL_LABELS = { auto: 'Auto', haiku: 'Haiku 4.5', sonnet: 'Sonnet 5.5' };
   const pickModel = (value) => {
     const v = modelChoices.includes(value) ? value : 'auto';
     setChatModel(v);

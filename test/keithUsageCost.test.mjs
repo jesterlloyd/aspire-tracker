@@ -58,6 +58,13 @@ test('cost arithmetic: tokens priced per million, correctly per model', () => {
   assert.equal(estimateCostUsd(HAIKU, -50, 'x'), 0)
 })
 
+test('Sonnet 5.5 is priced, and the retired Sonnet 4.5 keeps its row for history', () => {
+  // KEITH-SONNET-5-5: 1M in + 1M out on Sonnet 5.5 = $2 + $10.
+  assert.equal(estimateCostUsd('claude-sonnet-5-5', 1_000_000, 1_000_000), 12)
+  // Requests served by Sonnet 4.5 before the switch must still price.
+  assert.equal(estimateCostUsd(SONNET, 1_000_000, 1_000_000), 18)
+})
+
 test('an unknown model is NEVER priced as another model', () => {
   assert.equal(priceForModel('claude-sonnet-5'), null)
   assert.equal(estimateCostUsd('claude-sonnet-5', 5000, 1000), null)

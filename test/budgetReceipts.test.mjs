@@ -258,7 +258,7 @@ test('upload, read, accept: two rows, the original filed privately, the chain lo
   // Keith was given the categories, the skill's own instructions and the image, and nothing else.
   const [call] = seen
   assert.match(call.system, /You read ONE purchase receipt/)
-  assert.equal(call.route.model, 'claude-sonnet-4-5-20250929', 'the quality route')
+  assert.equal(call.route.model, 'claude-sonnet-5-5', 'the quality route (Sonnet 5.5 since KEITH-SONNET-5-5)')
   assert.equal(call.messages[0].content[1].type, 'image')
   assert.match(call.messages[0].content[0].text, /CATEGORIES \(use exactly one of these for each line\): Supplies & Materials; Technology & Software;/)
   const [usage] = (await pg.query(`SELECT intent, skill_id IS NOT NULL AS skill, input_tokens, outcome FROM keith_requests`)).rows

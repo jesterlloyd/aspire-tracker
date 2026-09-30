@@ -17,7 +17,7 @@ import { displayName } from '../src/lib/utils.js';
 import { classifyIntent, INTENTS, isExplicitEmailDrafting, preferGovernedRouting } from '../lib/server/keith/queryIntent.js';
 import { can as canAccess, keithContextScope, allowsContextSection } from '../lib/server/access.js';
 import { answerPersonContactQuery, CONTACTS_ROLE_DENIED } from '../lib/server/keith/contactsLookup.js';
-import { resolveRoute, resolveChatSelection, DEFAULT_ROUTE as DEFAULT_ROUTE_NAME } from '../lib/server/keith/modelRouting.js';
+import { resolveRoute, resolveChatSelection, modelRequestParams, MODEL_DECLINED_MESSAGE, DEFAULT_ROUTE as DEFAULT_ROUTE_NAME } from '../lib/server/keith/modelRouting.js';
 import { consumeRateLimit, rateLimitMessage, limiterUnavailableMessage, WEIGHT_CHAT, WEIGHT_SKILL } from '../lib/server/keith/rateLimit.js';
 import { recordKeithUsage, recordSkillInvocation, OUTCOMES } from '../lib/server/keith/usageLog.js';
 import { buildContactLine, allowsFieldInDefaultContext } from '../lib/server/keith/contextMinimization.js';
@@ -628,9 +628,7 @@ async function runToolLoop(initialMessages, systemPrompt, tools, supabase, activ
     // against the server allowlist) is honored; absent one, the default route.
     const route = chatRoute || resolveRoute(DEFAULT_ROUTE_NAME);
     const payload = {
-      model: route.model,
-      max_tokens: route.maxTokens,
-      temperature: route.temperature,
+      ...modelRequestParams(route),
       system: systemPrompt,
       messages,
     };
@@ -651,6 +649,8 @@ async function runToolLoop(initialMessages, systemPrompt, tools, supabase, activ
     const hasTools = content.some(b => b.type === 'tool_use');
 
     if (!hasTools) {
+      // A refusal carries no text; say so plainly instead of a 502.
+      if (response?.stop_reason === 'refusal') return { text: MODEL_DECLINED_MESSAGE, toolCalls: allToolCalls, usage: totalUsage };
       const text = content.filter(b => b.type === 'text').map(b => b.text).join('');
       return { text, toolCalls: allToolCalls, usage: totalUsage };
     }

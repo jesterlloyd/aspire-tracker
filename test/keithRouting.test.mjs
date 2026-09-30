@@ -210,7 +210,14 @@ test('QUALITY route and enrichment are untouched by chat selection', () => {
   const enrich = read('api/knowledge-enrich.js')
   assert.match(enrich, /resolveRoute\(QUALITY_ROUTE\)/)
   assert.doesNotMatch(enrich, /resolveChatSelection/)
-  assert.equal(resolveRoute(QUALITY_ROUTE).model, 'claude-sonnet-4-5-20250929')
+  // KEITH-SONNET-5-5 moved the quality route off the retiring Sonnet 4.5.
+  assert.equal(resolveRoute(QUALITY_ROUTE).model, 'claude-sonnet-5-5')
+})
+
+test('a chat refusal answers in words instead of a 502', () => {
+  // Sonnet 5.5 can end a turn with stop_reason "refusal" and no text; the tool
+  // loop used to return '' and the handler turned that into a 502.
+  assert.match(handler, /stop_reason === 'refusal'\) return \{ text: MODEL_DECLINED_MESSAGE/)
 })
 
 // ── Slash skills ─────────────────────────────────────────────────────────────

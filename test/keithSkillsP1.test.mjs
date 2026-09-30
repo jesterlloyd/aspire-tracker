@@ -13,7 +13,7 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
-import { resolveRoute, isKnownRoute, requestNamesModel, DEFAULT_ROUTE, QUALITY_ROUTE } from '../lib/server/keith/modelRouting.js'
+import { resolveRoute, isKnownRoute, requestNamesModel, modelRequestParams, DEFAULT_ROUTE, QUALITY_ROUTE } from '../lib/server/keith/modelRouting.js'
 import { allowsFieldInDefaultContext, buildContactLine, minimizeStudent, findWithheldFieldLabels, ALWAYS_WITHHELD_FIELDS } from '../lib/server/keith/contextMinimization.js'
 import { redactContactDetails, hasUnredactedContact, truncateForInference } from '../lib/server/keith/resumeRedaction.js'
 import { authorizeSkillForCaller, authorizeStudentResumeAccess, skillDeclaresData, DENY } from '../lib/server/keith/skillAuthorization.js'
@@ -38,7 +38,8 @@ const caller = (role, extra = {}) => ({ profileId: 'p-1', role, isOwner: role ==
 
 test('the model is chosen by the server, never by the request', () => {
   assert.equal(resolveRoute(DEFAULT_ROUTE).model, 'claude-haiku-4-5-20251001')
-  assert.equal(resolveRoute(QUALITY_ROUTE).model, 'claude-sonnet-4-5-20250929')
+  // KEITH-SONNET-5-5 moved the quality route off the retiring Sonnet 4.5.
+  assert.equal(resolveRoute(QUALITY_ROUTE).model, 'claude-sonnet-5-5')
   // An unknown route degrades DOWN to the default; it never escalates.
   assert.equal(resolveRoute('pro-max-please').model, resolveRoute(DEFAULT_ROUTE).model)
   assert.equal(resolveRoute(undefined).route, DEFAULT_ROUTE)
@@ -53,15 +54,31 @@ test('a model-bearing request body is detectable as tampering', () => {
   }
 })
 
-test('temperature is explicit on every route', () => {
-  for (const r of [DEFAULT_ROUTE, QUALITY_ROUTE]) {
-    assert.equal(typeof resolveRoute(r).temperature, 'number')
-    assert.equal(resolveRoute(r).temperature, 0.2)
+// KEITH-SONNET-5-5 changed this test: it used to require temperature 0.2 on
+// every route, but Sonnet 5.5 refuses `temperature` with a 400. Sampling is
+// still explicit on every route; the quality route says null and sets effort.
+test('sampling is explicit on every route, and never sent to a model that refuses it', () => {
+  assert.equal(resolveRoute(DEFAULT_ROUTE).temperature, 0.2)
+  assert.equal(resolveRoute(QUALITY_ROUTE).temperature, null)
+  assert.equal(resolveRoute(QUALITY_ROUTE).effort, 'low')
+
+  assert.deepEqual(modelRequestParams(resolveRoute(DEFAULT_ROUTE)),
+    { model: 'claude-haiku-4-5-20251001', max_tokens: 2048, temperature: 0.2 })
+  assert.deepEqual(modelRequestParams(resolveRoute(QUALITY_ROUTE)),
+    { model: 'claude-sonnet-5-5', max_tokens: 2048, output_config: { effort: 'low' } })
+  // A skill override that forces temperature 0 (skillDefs.js does) keeps it on
+  // Haiku and drops it on Sonnet 5.5, where it would be a 400.
+  const force0 = (r) => ({ ...r, temperature: 0 })
+  assert.equal(modelRequestParams(force0(resolveRoute(DEFAULT_ROUTE))).temperature, 0)
+  assert.equal('temperature' in modelRequestParams(force0(resolveRoute(QUALITY_ROUTE))), false)
+
+  // And every request builder takes its model fields from that one function.
+  for (const p of ['api/keith.js', 'api/knowledge-enrich.js', 'lib/server/keith/anthropicClient.js']) {
+    const src = read(p)
+    assert.match(src, /\.\.\.modelRequestParams\(/, `${p} builds its body from modelRequestParams`)
+    assert.doesNotMatch(src, /temperature: route\.temperature/, `${p} must not send temperature by hand`)
   }
-  // And the runtime actually sends it.
-  const src = read('api/keith.js')
-  assert.match(src, /temperature: route\.temperature/)
-  assert.doesNotMatch(src, /model: 'claude-haiku-4-5-20251001'/, 'the model id must not be hardcoded at the call site')
+  assert.doesNotMatch(read('api/keith.js'), /model: 'claude-haiku-4-5-20251001'/, 'the model id must not be hardcoded at the call site')
 })
 
 // ── P0: the base-Keith privacy boundary ──────────────────────────────────────
@@ -579,8 +596,22 @@ test('a skill runs with NO tools, so resume text cannot trigger a data read', as
   } finally { globalThis.fetch = origFetch }
   assert.ok(sent, 'the client must have issued a request')
   assert.equal('tools' in sent, false, 'no tools may be offered on a skill call')
-  assert.equal(sent.temperature, 0.2)
-  assert.equal(sent.model, 'claude-sonnet-4-5-20250929')
+  // KEITH-SONNET-5-5: the quality route is Sonnet 5.5, which takes effort, not temperature.
+  assert.equal('temperature' in sent, false)
+  assert.deepEqual(sent.output_config, { effort: 'low' })
+  assert.equal(sent.model, 'claude-sonnet-5-5')
+})
+
+test('a model refusal on a skill call is a named failure, not an empty completion', async () => {
+  const origFetch = globalThis.fetch
+  process.env.ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || 'test-key-not-used'
+  globalThis.fetch = async () => ({ ok: true, json: async () => ({ content: [], stop_reason: 'refusal', usage: {}, model: 'm' }) })
+  let out
+  try {
+    const { completeWithoutTools } = await import('../lib/server/keith/anthropicClient.js')
+    out = await completeWithoutTools({ route: resolveRoute(QUALITY_ROUTE), system: 's', messages: [{ role: 'user', content: 'c' }] })
+  } finally { globalThis.fetch = origFetch }
+  assert.deepEqual(out, { ok: false, reason: 'model_declined', status: 422 })
 })
 
 test('the resume path is resolved server-side and never taken from the request', () => {
