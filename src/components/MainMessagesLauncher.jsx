@@ -31,6 +31,7 @@ import { formatUnread, needsReplyLabel } from '../lib/messages/messagesConstants
 import { BADGE_COUNT_BG, BADGE_COUNT_FG } from '../lib/badgeTokens'
 import { announceFloatingPanelOpen, onFloatingPanelOpen, announceFloatingPanelClosed, onFloatingPanelClosed } from '../lib/floatingPanels'
 import { lazyReload } from '../lib/lazyReload'
+import MessagesShortcutIcon from './messages/MessagesShortcutIcon'
 // PORTAL-SPLIT Phase 2: the launcher is mounted on every staff screen, but the
 // workspace inside it renders only once the dock is open. Loading it with the
 // button meant every staff session downloaded the whole Messages tree to show
@@ -39,8 +40,8 @@ const MessagesWorkspace = lazyReload(() => import('./connect/messages/MessagesWo
 
 const F = 'Plus Jakarta Sans, sans-serif'
 
-// HOME-1: `hidden` keeps the dock's launcher off At a Glance. An open panel stays open
-// until closed; only the idle launcher is withheld there.
+// `hidden` is reserved for route-specific exceptions such as Program Budget. An open
+// panel stays open until closed; only the idle launcher is withheld.
 export default function MainMessagesLauncher({
   portalPreview = false,
   portalPreviewMobile = false,
@@ -176,7 +177,7 @@ export default function MainMessagesLauncher({
           style={{
             position: 'fixed', ...launcherPos,
             width: 52, height: 52, borderRadius: '50%',
-            background: 'var(--color-accent-primary,#1D2567)', color: 'var(--color-text-inverse,#fff)', border: 'none', cursor: 'pointer',
+            background: 'transparent', color: 'var(--color-text-inverse,#fff)', border: 'none', cursor: 'pointer',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             boxShadow: open
               ? '0 0 0 2px rgba(29,37,103,0.5), 0 0 20px rgba(29,37,103,0.35)'
@@ -186,7 +187,7 @@ export default function MainMessagesLauncher({
             zIndex: 1000,
           }}
         >
-          <MessageCircle size={24} aria-hidden="true" />
+          <MessagesShortcutIcon size={52} />
           {needsReply > 0 && (
             <span aria-hidden="true" style={{
               position: 'absolute', top: -5, right: -5,

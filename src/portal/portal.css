@@ -1613,7 +1613,7 @@ img.ptl-detail-photo {
   position: relative;
   width: 52px; height: 52px; min-width: 52px; min-height: 52px;
   border: 0; border-radius: 50%;
-  background: var(--ptl-navy, #1D2567); color: #fff;
+  background: transparent; color: #fff;
   display: inline-flex; align-items: center; justify-content: center;
   cursor: pointer;
   box-shadow: 0 4px 16px rgba(29, 37, 103, 0.35);

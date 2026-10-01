@@ -115,25 +115,28 @@ test('the launcher reuses the shared staff Messages state, permissions, and surf
 test('the launcher sits directly above the 60px Keith orb, canonical visuals', () => {
   assert.match(launcher, /bottom: 'calc\(96px \+ env\(safe-area-inset-bottom, 0px\)\)', right: '28px'/)
   assert.match(launcher, /width: 52, height: 52, borderRadius: '50%'/)
-  assert.match(launcher, /background: 'var\(--color-accent-primary,#1D2567\)'/)
+  assert.match(launcher, /background: 'transparent'/)
   assert.match(launcher, /background: BADGE_COUNT_BG/)   // the canonical count red
-  assert.match(launcher, /MessageCircle size=\{24\}/)
+  assert.match(launcher, /<MessagesShortcutIcon size=\{52\} \/>/)
   assert.match(launcher, /zIndex: 1000/)
   // Mounted in the App beside Keith; Keith's tooltip moved beside the orb so it
   // no longer floats up into the launcher's slot.
-  // HOME-1 (Owner, 2026-09-24): withheld on At a Glance only; every other screen keeps it.
   // BUDGET-V2 item 10 (Owner, 2026-09-29, commit budget-v2-p4): Program Budget also hides Messages and
-  // Feedback (keithOnly); the Keith orb stays. The At a Glance rule is unchanged.
-  assert.match(app, /<MainMessagesLauncher hidden=\{hideHomeChrome \|\| keithOnly\} keepLauncherVisible \/>/)
+  // Feedback (keithOnly); the Keith orb stays.
+  assert.match(app, /<MainMessagesLauncher hidden=\{keithOnly\} keepLauncherVisible \/>/)
   assert.ok(app.indexOf('<MainMessagesLauncher') > app.indexOf('<Keith'))
   assert.match(launcher, /if \(hidden && !open\) return null/)
   assert.match(read('src/components/Keith.jsx'), /bottom: '38px',\n {10}right: messagesOpen \? '168px' : '96px',/)
 })
 
-test('portal launcher parity is untouched', () => {
+test('portal launcher uses the same supplied shortcut artwork', () => {
   const utility = read('src/portal/PortalUtilityLayer.jsx')
+  const icon = read('src/components/messages/MessagesShortcutIcon.jsx')
   assert.match(utility, /aria-label="Open messages with the ASPIRE Team"/)
   assert.match(utility, /ptl-team-message-launcher/)
+  assert.match(utility, /<MessagesShortcutIcon size=\{52\} \/>/)
+  assert.match(icon, /src="\/brand\/messages-shortcut\.png"/)
+  assert.match(read('src/portal/portal.css'), /\.ptl-team-message-launcher \{[\s\S]*?background: transparent;/)
   // Feedback stays lower-left everywhere (side default 'left', no override).
   assert.doesNotMatch(read('src/components/FeedbackPanel.jsx'), /side=/)
   assert.doesNotMatch(read('src/portal/PortalFeedbackPanel.jsx'), /side="right"/)

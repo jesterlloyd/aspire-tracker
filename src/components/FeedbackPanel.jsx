@@ -1,7 +1,7 @@
 import SharedFeedbackPanel from './shared/SharedFeedbackPanel'
 import { openOutlookCompose } from '../lib/outlookCompose'
 
-// HOME-1: `hidden` keeps the launcher off At a Glance (the home page has no floating chrome).
+// `hidden` supports route-specific launcher exceptions such as Program Budget.
 export default function FeedbackPanel({
   activeTab,
   cohortName,

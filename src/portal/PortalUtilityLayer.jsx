@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { MessageCircle } from 'lucide-react'
+import MessagesShortcutIcon from '../components/messages/MessagesShortcutIcon'
 import PortalFeedbackPanel from './PortalFeedbackPanel'
 import PortalTeamMessagesPanel from './PortalTeamMessagesPanel'
 import { isFullMessagesPath } from '../lib/messages/messagesRoutes'
@@ -200,7 +200,7 @@ function PortalUtilityLayerContent({
             aria-label="Open messages with the ASPIRE Team"
             aria-expanded={visiblePanel === 'messages'}
           >
-            <MessageCircle size={24} aria-hidden="true" />
+            <MessagesShortcutIcon size={52} />
             {unread > 0 && <span className="ptl-team-message-badge" aria-hidden="true">{unread > 99 ? '99+' : unread}</span>}
           </button>
         </div>

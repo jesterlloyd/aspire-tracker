@@ -255,12 +255,11 @@ function MainApp({ onLogout }) {
     if (p.startsWith('/settings')) return 'settings' // WS2.1: app-level utility section
     return PATH_TO_TAB[p] || 'overview'
   })()
-  // HOME-1: At a Glance withholds the header search, the Keith orb, the Messages dock launcher
-  // and the Feedback launcher. While the welcome tour runs they stay, because the tour has a
-  // step anchored on each and skips a step whose anchor is missing.
+  // HOME-1: At a Glance withholds only the header search. The three floating shortcuts remain
+  // available there just as they are throughout the staff app.
   // Declared AFTER activeTab on purpose: reading a const above its declaration throws
   // (temporal dead zone) and took the whole staff app down on the first preview.
-  const hideHomeChrome = activeTab === 'overview' && !tourRunning
+  const hideHomeSearch = activeTab === 'overview' && !tourRunning
   // BUDGET-V2 item 10 (Owner, 2026-09-29: "Keith only"): on Program Budget the Messages dock and the
   // Feedback launcher step aside; the Keith orb stays. Every other screen keeps all three.
   const keithOnly = location.pathname.startsWith('/settings/budget') && !tourRunning
@@ -1430,7 +1429,7 @@ function MainApp({ onLogout }) {
         <Header
           cohort={{ cohorts, activeCohort, activeCohortId, sortedCohorts, handleCohortSwitch, canEdit, setShowManageCohort, setShowNewCohort }}
           /* HOME-1: At a Glance carries the launcher, so the header search is withheld there. */
-          search={{ hidden: hideHomeChrome, searchAreaRef, searchInputRef, searchQuery, searchFocused, searchOpen, searchLoading, searchFlat, searchResults, searchActiveIdx, setSearchActiveIdx, setSearchOpen, setSearchFocused, handleSearchChange, handleSearchKey, handleSearchResult }}
+          search={{ hidden: hideHomeSearch, searchAreaRef, searchInputRef, searchQuery, searchFocused, searchOpen, searchLoading, searchFlat, searchResults, searchActiveIdx, setSearchActiveIdx, setSearchOpen, setSearchFocused, handleSearchChange, handleSearchKey, handleSearchResult }}
           actions={{ cohorts, navigate, activeTab, bellRef, setShowActionCenter, showActionCenter, actionBadgeCount, notificationsUnread, toast }}
           /* SCOPE-PICKER-1: `experience` is passed ONLY for profiles holding
              ngrp_access. Its absence means one experience, which the Scope pill
@@ -1758,20 +1757,18 @@ function MainApp({ onLogout }) {
         cohortId={activeCohortId}
         supabase={supabase}
         isAuthenticated={true}
-        hideLauncher={hideHomeChrome}
+        hideLauncher={false}
       />
       {/* MESSAGES-AUTOSCROLL-1: the canonical Messages shortcut, directly above
           the Keith orb in the lower-right stack (self-gated to owner/admin).
-          HOME-1 (Owner, 2026-09-24): the orb, the Messages dock launcher and the
-          Feedback launcher are withheld on At a Glance only; every other screen
-          keeps all three. The header's Connect icon carries the needs-reply badge
-          on every screen, unchanged. */}
-      {!isFullMessagesPath(location.pathname) && <MainMessagesLauncher hidden={hideHomeChrome || keithOnly} keepLauncherVisible />}
+          At a Glance keeps the same Keith, Messages and Feedback shortcuts as the
+          rest of the app. Program Budget remains the only local shortcut exception. */}
+      {!isFullMessagesPath(location.pathname) && <MainMessagesLauncher hidden={keithOnly} keepLauncherVisible />}
       <FeedbackPanel
         activeTab={activeTab}
         cohortName={activeCohort?.name}
         isAuthenticated={true}
-        hidden={hideHomeChrome || keithOnly}
+        hidden={keithOnly}
       />
       <ToastContainer toasts={toasts} removeToast={removeToast} />
       {/* The tour renders null unless it is running, so mounting it only while
