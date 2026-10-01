@@ -31,8 +31,13 @@ const runnable = (sql) => sql.replace(/NOTIFY pgrst, 'reload schema';/g, '')
 
 test('one skill, two steps: SKILL.md is what the migration seeds, and the draft step shares the row', () => {
   const body = read('skills/knowledge-self-check/SKILL.md').split('---\n').slice(2).join('---\n').trim()
-  const seeded = read('supabase/migrations/20261029000000_keith_knowledge_selfcheck_phase2.sql').match(/E'(You keep[\s\S]*?)'\n\)/)[1].replace(/''/g, "'").replace(/\\n/g, '\n')
-  assert.equal(seeded, body)
+  // KEITH-KNOWLEDGE-SELFCHECK-FIX-1 changed this: SKILL.md gained two rules, and the migration that
+  // carries the current text is 20261030000000 (the Phase 2 migration still seeds the first version).
+  const current = read('supabase/migrations/20261030000000_knowledge_self_check_rules.sql').match(/v_body  text := E'(You keep[\s\S]*?)';\nBEGIN/)[1].replace(/''/g, "'").replace(/\\n/g, '\n')
+  assert.equal(current, body)
+  assert.match(read('supabase/migrations/20261029000000_keith_knowledge_selfcheck_phase2.sql'), /E'You keep ASPIRE Intelligence''s Knowledge Center current\./)
+  assert.match(body, /5\. Changes are listed newest first\. When two changes disagree, such as a screen renamed twice, the NEWEST one is what the app does now/)
+  assert.match(body, /Cite a change only when it is ABOUT the topic/)
   assert.doesNotMatch(body, /—/, 'house style: no em dashes in what Keith is told')
   assert.equal(D.SKILL_DEFS['knowledge-self-check'].skillSlug, undefined)
   assert.equal(D.SKILL_DEFS['knowledge-self-check-draft'].skillSlug, 'knowledge-self-check', 'one switch for both steps')
@@ -129,7 +134,7 @@ const PRELUDE = `
   CREATE FUNCTION public.update_updated_at_column() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN NEW.updated_at = now(); RETURN NEW; END $$;
   CREATE TABLE public.organizations (id uuid PRIMARY KEY);
   INSERT INTO public.organizations VALUES ('a5f1e000-0000-4000-8000-000000000001');
-  CREATE TABLE public.user_profiles (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), full_name text, email text, role text, is_owner boolean DEFAULT false, is_active boolean DEFAULT true, auth_user_id uuid);
+  CREATE TABLE public.user_profiles (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), full_name text, email text, role text, is_owner boolean DEFAULT false, is_active boolean DEFAULT true, auth_user_id uuid, created_at timestamptz DEFAULT now());
   CREATE TABLE public.activity_logs (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), user_id uuid, user_name text, user_role text, action_type text, entity_type text, entity_id text, cohort_id uuid, description text, metadata jsonb, created_at timestamptz DEFAULT now());
   CREATE TABLE public.keith_skills (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(), slug text NOT NULL UNIQUE, display_name text NOT NULL, description text NOT NULL DEFAULT '',
@@ -137,6 +142,7 @@ const PRELUDE = `
     allowed_roles text[] NOT NULL DEFAULT '{}', required_tools text[] NOT NULL DEFAULT '{}', required_data text[] NOT NULL DEFAULT '{}',
     trigger_phrases text[] NOT NULL DEFAULT '{}', data_classification text NOT NULL DEFAULT 'internal', model_route text NOT NULL DEFAULT 'default',
     io_contract jsonb NOT NULL DEFAULT '{}'::jsonb, instruction_body text NOT NULL DEFAULT '', owner_label text NOT NULL DEFAULT 'ASPIRE', provenance text NOT NULL DEFAULT '', updated_by uuid);
+  CREATE TABLE public.keith_skill_versions (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), skill_id uuid NOT NULL, version_number integer NOT NULL, display_name text NOT NULL, description text NOT NULL DEFAULT '', allowed_roles text[] NOT NULL DEFAULT '{}', required_tools text[] NOT NULL DEFAULT '{}', required_data text[] NOT NULL DEFAULT '{}', trigger_phrases text[] NOT NULL DEFAULT '{}', data_classification text NOT NULL, model_route text NOT NULL, io_contract jsonb NOT NULL DEFAULT '{}', instruction_body text NOT NULL DEFAULT '', change_note text NOT NULL DEFAULT '', editor_id uuid, created_at timestamptz DEFAULT now(), UNIQUE (skill_id, version_number));
   CREATE TABLE public.keith_requests (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), request_id text, profile_id uuid, role text, intent text, skill_id uuid, skill_version integer, model text, model_route text, rounds integer, input_tokens integer, output_tokens integer, duration_ms integer, outcome text, rate_limited boolean, created_at timestamptz DEFAULT now());
   CREATE TABLE public.keith_skill_invocations (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), skill_id uuid, skill_slug text, skill_version integer, request_id text, invoked_by uuid, invoked_role text, cohort_id uuid, student_id uuid, invocation_mode text, data_sources jsonb, outcome text, denial_reason text, model text, input_tokens integer, output_tokens integer, duration_ms integer, created_at timestamptz DEFAULT now());
 `
@@ -323,4 +329,50 @@ test('the Keith title is set as text beside the orb, and Enrich no longer shares
     assert.doesNotMatch(read(p), /Sparkles/, `${p}: Enrich wears the wand`)
     assert.match(read(p), /Wand2/)
   }
+})
+
+// ── KEITH-KNOWLEDGE-SELFCHECK-FIX-1 (2026-10-01): from the first real check ───────────────────────
+
+test('the history ceiling is 800, and a check that hits it says older changes were not read', async () => {
+  const A = await import('../lib/server/keith/appChanges.js')
+  assert.equal(A.MAX_CHANGES, 800, '200 was about a week of this repository')
+  assert.equal(M.MAX_TRIAGE_CHANGES, 800)
+  const row = (i) => ({ sha: `abcdef${String(i).padStart(4, '0')}`, parents: [{}], commit: { message: `C${i}`, committer: { date: '2026-09-30T00:00:00Z' } } })
+  let pages = 0
+  const r = await A.fetchAppChanges({ fetchImpl: async () => { pages++; return { ok: true, json: async () => Array.from({ length: 100 }, (_, i) => row(pages * 100 + i)) } }, token: '' })
+  assert.equal(r.commits.length, 800)
+  assert.equal(r.truncated, true)
+  assert.equal(pages, 8)
+
+  const w = await world()
+  const out = await C.runKnowledgeSelfCheck(w.db, { actor: w.owner, fetchChanges: async () => ({ ok: true, commits: changes, truncated: true }), complete: stubModel().complete })
+  assert.deepEqual(out.check.skipped[0], { title: 'App changes', reason: 'history_truncated', detail: 'only the newest 2 were read' })
+  assert.match(T.describeCheck({ ...out.check, cost_usd: 0.1 }), /Older app changes in this period were not read\.$/)
+  assert.doesNotMatch(T.describeCheck({ status: 'done', started_at: '2026-10-01', skipped: [] }), /not read/)
+})
+
+test('the rules migration: an active skill gets the new instructions as a new version, once', async () => {
+  const sql = runnable(read('supabase/migrations/20261030000000_knowledge_self_check_rules.sql'))
+  const w = await world()
+  await w.pg.exec(sql)
+  await w.pg.exec(sql)
+  const skill = await w.one(`SELECT id, version, status, enabled, instruction_body FROM keith_skills WHERE slug = 'knowledge-self-check'`)
+  assert.equal(skill.version, 2, 'one new version, however many times it runs')
+  assert.equal(skill.status, 'active')
+  assert.equal(skill.enabled, true)
+  assert.match(skill.instruction_body, /the NEWEST one is what the app does now/)
+  assert.match(skill.instruction_body, /Cite a change only when it is ABOUT the topic/)
+  const versions = (await w.pg.query(`SELECT version_number, change_note, editor_id FROM keith_skill_versions WHERE skill_id = $1`, [skill.id])).rows
+  assert.equal(versions.length, 1)
+  assert.equal(versions[0].version_number, 2)
+  assert.equal(versions[0].editor_id, w.owner.id)
+  assert.equal((await w.one(`SELECT count(*)::int AS n FROM activity_logs WHERE action_type = 'keith_skill_update'`)).n, 1)
+
+  // A skill still in Draft just takes the new text.
+  const d = await world({ on: false })
+  await d.pg.exec(sql)
+  const draftSkill = await d.one(`SELECT version, status, instruction_body FROM keith_skills WHERE slug = 'knowledge-self-check'`)
+  assert.equal(draftSkill.version, 0)
+  assert.equal(draftSkill.status, 'draft')
+  assert.match(draftSkill.instruction_body, /the NEWEST one is what the app does now/)
 })

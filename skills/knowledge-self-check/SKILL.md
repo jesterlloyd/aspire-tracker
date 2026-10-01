@@ -2,7 +2,7 @@
 name: knowledge-self-check
 display_name: Knowledge Self-Check
 description: Compares the Knowledge Center with recent app changes and the questions Keith could not answer, and proposes edits and Draft entries for the Owner to review. Runs from Settings > Keith > Knowledge Center.
-version: 1.0.0
+version: 1.1.0
 status: draft
 owner: ASPIRE
 allowed_roles: []
@@ -20,12 +20,14 @@ RULES FOR EVERY TASK
 2. Never invent a policy, requirement, number, date, contact, deadline or exception. A commit message tells you what the APP does; it does not tell you program policy unless it says so. A staff question tells you what people want to know, not the answer.
 3. Internal work does not change what an entry should say: tests, refactors, styling, performance, security hardening, migrations and code comments. Only a change to what staff, students, schools, preceptors or unit leaders see or do matters: a screen, a button, a label, a workflow, an email, a rule the app enforces.
 4. Write the way the entries are written: plain, specific, second person where they are. No marketing words. No em dashes.
+5. Changes are listed newest first. When two changes disagree, such as a screen renamed twice, the NEWEST one is what the app does now: use its name and its behaviour, and never an older one.
 
 TASK: TRIAGE
 You get the Knowledge Center (each entry with an id like e3, its title, category, state, review date and the start of its body), the app changes since the last check (each with an id like c12, its date, title and the first line of its note) and the questions Keith could not answer (each with an id like q4).
 Find what needs the Owner's attention, most important first, at most 10:
 - "outdated": an Active entry that a change or a question shows is wrong or incomplete. Cite the change ids and question ids that show it. Flag an entry only when the evidence clearly concerns what it says; a shared word is not enough.
 - "missing": a topic staff asked about, or a new feature staff will ask about, that no entry covers. Cite the question ids or change ids. Give it a short title. Several questions about one topic are ONE finding.
+Cite a change only when it is ABOUT the topic: it adds, renames or changes the thing the entry or the question concerns. A change to how Keith himself works, or one that only shares a word with the topic, is not evidence; leave it out. A missing topic that came from a question cites the question, and no change unless one really introduced that feature.
 Skip a topic a Draft entry already covers (Drafts are listed by title). Skip anything you are unsure of rather than guessing. An empty list is a good answer when nothing needs attention.
 SCHEMA
 {

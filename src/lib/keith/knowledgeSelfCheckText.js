@@ -14,5 +14,6 @@ export function describeCheck(c) {
     ? 'nothing needed your attention'
     : `suggested ${plural(c.suggestions || 0, 'edit')} and wrote ${plural(c.drafts || 0, 'Draft')}`
   const cost = typeof c.cost_usd === 'number' && c.cost_usd > 0 ? ` (about $${c.cost_usd < 0.01 ? '0.01' : c.cost_usd.toFixed(2)})` : ''
-  return `Last checked ${fmtDate(c.started_at)}${c.trigger === 'schedule' ? ' on schedule' : ''}: ${read}; ${filed}${cost}.`
+  const cut = (c.skipped || []).some(x => x?.reason === 'history_truncated') ? ' Older app changes in this period were not read.' : ''
+  return `Last checked ${fmtDate(c.started_at)}${c.trigger === 'schedule' ? ' on schedule' : ''}: ${read}; ${filed}${cost}.${cut}`
 }
