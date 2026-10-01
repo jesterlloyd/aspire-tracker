@@ -559,3 +559,16 @@ test('the link checker teaches the code escape hatch where a false link appears'
   assert.match(fields, /Showing the syntax on purpose\? Wrap it in backticks/)
   assert.match(fields, /is an example, not a link\./)
 })
+
+test('KNOWLEDGE-EXPORT-ZIP-1: Download is one zip that holds every entry', async () => {
+  const { zipStored } = await import('../lib/server/signatures/zip.js')
+  const files = Array.from({ length: 28 }, (_, i) => ({ name: `entry-${i + 1}.md`, data: Buffer.from(`# Entry ${i + 1}\n`, 'utf8') }))
+  const zip = zipStored(files)
+  assert.equal(zip.readUInt32LE(0), 0x04034b50, 'a zip file')
+  assert.equal(zip.readUInt16LE(zip.length - 22 + 10), 28, 'all 28 entries, not the first 10')
+  const endpoint = readFileSync(new URL('../api/knowledge-admin.js', import.meta.url), 'utf8')
+  assert.match(endpoint, /zip: zip\.toString\('base64'\)/)
+  const panel = readFileSync(new URL('../src/components/settings/KnowledgeCenterPanel.jsx', import.meta.url), 'utf8')
+  assert.match(panel, /application\/zip/)
+  assert.doesNotMatch(panel, /for \(const f of json\.files\)/, 'no download per entry')
+})

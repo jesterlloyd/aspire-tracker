@@ -24,6 +24,9 @@ import { serializeEntryFile, parseEntryFile, entryFilename } from '../lib/server
 import { buildKnowledgeGraph } from '../lib/server/keith/knowledgeGraph.js'
 import { isActiveProfile, INACTIVE_STATUS, INACTIVE_REASON, INACTIVE_MESSAGE } from './lib/activeAccount.js'
 import { slugify, nextAvailableSlug } from '../lib/server/keith/knowledgeSlugs.js'
+import { Buffer } from 'node:buffer'
+import { zipStored } from '../lib/server/signatures/zip.js'
+import { toPacificDateStr } from '../shared/dateUtils.js'
 
 // ── Constants (must match KT-1 CHECK constraints) ────────────────────────────
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -940,8 +943,13 @@ export default async function handler(req, res) {
         }))
         // Export is a READ. It writes nothing and changes no state, so it is
         // Owner/Admin like every other read here, not a lifecycle action.
+        // KNOWLEDGE-EXPORT-ZIP-1: one file, not one per entry. The browser stops a page's automatic
+        // downloads after about ten, so a vault of 28 arrived as its first 10.
+        const zip = zipStored(files.map(f => ({ name: f.filename, data: Buffer.from(f.content, 'utf8') })))
         return res.status(200).json({
           files,
+          zip: zip.toString('base64'),
+          zip_filename: `aspire-knowledge-center-${toPacificDateStr(new Date())}.zip`,
           count: files.length,
           truncated: rows.length >= MAX_EXPORT_ENTRIES,
         })

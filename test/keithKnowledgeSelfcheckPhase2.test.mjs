@@ -31,13 +31,16 @@ const runnable = (sql) => sql.replace(/NOTIFY pgrst, 'reload schema';/g, '')
 
 test('one skill, two steps: SKILL.md is what the migration seeds, and the draft step shares the row', () => {
   const body = read('skills/knowledge-self-check/SKILL.md').split('---\n').slice(2).join('---\n').trim()
-  // KEITH-KNOWLEDGE-SELFCHECK-FIX-1 changed this: SKILL.md gained two rules, and the migration that
-  // carries the current text is 20261030000000 (the Phase 2 migration still seeds the first version).
-  const current = read('supabase/migrations/20261030000000_knowledge_self_check_rules.sql').match(/v_body  text := E'(You keep[\s\S]*?)';\nBEGIN/)[1].replace(/''/g, "'").replace(/\\n/g, '\n')
+  // KEITH-KNOWLEDGE-SELFCHECK-TRIAGE-1 changed this: the triage was rewritten, and the migration that
+  // carries the current text is 20261031000000 (Phase 2 seeds the first version, 20261030000000 the second).
+  const current = read('supabase/migrations/20261031000000_knowledge_self_check_triage.sql').match(/v_body  text := E'(You keep[\s\S]*?)';\nBEGIN/)[1].replace(/''/g, "'").replace(/\\n/g, '\n')
   assert.equal(current, body)
   assert.match(read('supabase/migrations/20261029000000_keith_knowledge_selfcheck_phase2.sql'), /E'You keep ASPIRE Intelligence''s Knowledge Center current\./)
   assert.match(body, /5\. Changes are listed newest first\. When two changes disagree, such as a screen renamed twice, the NEWEST one is what the app does now/)
-  assert.match(body, /Cite a change only when it is ABOUT the topic/)
+  assert.match(body, /Go through the Active entries ONE AT A TIME; do not skip any/)
+  assert.match(body, /cite EVERY change that makes any part of it wrong/)
+  assert.match(body, /uses the feature's CURRENT name \(rule 5\)/)
+  assert.doesNotMatch(body, /Skip anything you are unsure of/, 'the sentence that made the second check find nothing')
   assert.doesNotMatch(body, /—/, 'house style: no em dashes in what Keith is told')
   assert.equal(D.SKILL_DEFS['knowledge-self-check'].skillSlug, undefined)
   assert.equal(D.SKILL_DEFS['knowledge-self-check-draft'].skillSlug, 'knowledge-self-check', 'one switch for both steps')
@@ -64,9 +67,9 @@ test('the triage message: ids for what Keith may cite, Active entries in full-is
   assert.match(message, /\[e1\] Clinical Hours · student_requirements · review none/)
   assert.ok(!message.includes('Draft parking notes'), 'a Draft is listed by title, never sent as an entry to flag')
   assert.equal(refs.entries.size, 2)
-  const long = M.buildTriage({ today: 'x', entries: [E('e', 'Long', 'x'.repeat(5000))], changes: [], questions: [] }).message
+  const long = M.buildTriage({ today: 'x', entries: [E('e', 'Long', 'x'.repeat(20000))], changes: [], questions: [] }).message
   assert.match(long, /…\(continues\)/)
-  assert.ok(long.length < 2000)
+  assert.ok(long.length < 6500)
 })
 
 test('findings are held to what Keith was shown: known ids, evidence, Active entries, one each, ten at most', () => {
@@ -200,7 +203,9 @@ test('a check files an edit and a Draft with their evidence, credits the Owner, 
   assert.equal(out.ok, true, out.message)
   assert.deepEqual(model.calls.map(c => c.task), ['TASK: TRIAGE', 'TASK: UPDATE ENTRY', 'TASK: NEW ENTRY'])
   assert.equal(model.calls[0].route.model, 'claude-sonnet-5-5', 'the quality route')
-  assert.equal(model.calls[0].route.maxTokens, 4000)
+  assert.equal(model.calls[0].route.maxTokens, 16000)
+  assert.equal(model.calls[0].route.effort, 'high', 'the triage thinks; the route default (low) missed a stale entry')
+  assert.equal(model.calls[1].route.effort, 'low', 'drafting stays on the route default')
   assert.equal(fetchChanges.seen[0].toISOString(), '2026-09-01T12:00:00.000Z', 'a first check reads the last 30 days')
 
   const rev = await w.one(`SELECT * FROM knowledge_revisions WHERE entry_id = $1`, [w.hoursRow.id])
@@ -375,4 +380,47 @@ test('the rules migration: an active skill gets the new instructions as a new ve
   assert.equal(draftSkill.version, 0)
   assert.equal(draftSkill.status, 'draft')
   assert.match(draftSkill.instruction_body, /the NEWEST one is what the app does now/)
+})
+
+test('the triage migration: version 3 after the rules migration, once, and a Draft just takes the text', async () => {
+  const rules = runnable(read('supabase/migrations/20261030000000_knowledge_self_check_rules.sql'))
+  const sql = runnable(read('supabase/migrations/20261031000000_knowledge_self_check_triage.sql'))
+  const w = await world()
+  await w.pg.exec(rules)
+  await w.pg.exec(sql)
+  await w.pg.exec(sql)
+  const skill = await w.one(`SELECT id, version, status, enabled, instruction_body FROM keith_skills WHERE slug = 'knowledge-self-check'`)
+  assert.equal(skill.version, 3, 'one new version, however many times it runs')
+  assert.equal(skill.status, 'active')
+  assert.equal(skill.enabled, true)
+  assert.match(skill.instruction_body, /Go through the Active entries ONE AT A TIME/)
+  const versions = (await w.pg.query(`SELECT version_number, editor_id FROM keith_skill_versions WHERE skill_id = $1 ORDER BY version_number`, [skill.id])).rows
+  assert.deepEqual(versions.map(v => v.version_number), [2, 3])
+  assert.equal(versions[1].editor_id, w.owner.id)
+  // Either order: on a skill the rules migration never reached, it still lands the current text.
+  const d = await world({ on: false })
+  await d.pg.exec(sql)
+  const draftSkill = await d.one(`SELECT version, status, instruction_body FROM keith_skills WHERE slug = 'knowledge-self-check'`)
+  assert.equal(draftSkill.version, 0)
+  assert.equal(draftSkill.status, 'draft')
+  assert.match(draftSkill.instruction_body, /Go through the Active entries ONE AT A TIME/)
+})
+
+test('a check that runs out of time does not move past the period it did not finish', async () => {
+  const w = await world()
+  const now = new Date('2026-10-01T12:00:00Z')
+  const out = await C.runKnowledgeSelfCheck(w.db, { actor: w.owner, now, fetchChanges: history(), complete: stubModel().complete, budgetMs: -1 })
+  assert.equal(out.ok, true, out.message)
+  assert.ok(out.check.skipped.some(x => x.reason === 'out_of_time'))
+  assert.equal(out.check.suggestions + out.check.drafts, 0)
+  assert.equal(new Date(out.check.changes_until).toISOString(), new Date(out.check.changes_since).toISOString(), 'the next check re-reads the same window')
+  const next = history()
+  await C.runKnowledgeSelfCheck(w.db, { actor: w.owner, now: new Date('2026-10-01T12:30:00Z'), fetchChanges: next, complete: stubModel().complete })
+  assert.equal(next.seen[0].toISOString(), '2026-09-01T12:00:00.000Z')
+})
+
+test('the triage shows most entries whole', () => {
+  assert.equal(M.EXCERPT_CHARS, 6000)
+  const long = E('00000000-0000-4000-8000-0000000000aa', 'Navigation', `# Navigation\n\n${'x'.repeat(3000)}\n\nRetired: Matrix board`)
+  assert.match(M.buildTriage({ today: '2026-10-01', entries: [long], changes: [], questions: [] }).message, /Retired: Matrix board/)
 })

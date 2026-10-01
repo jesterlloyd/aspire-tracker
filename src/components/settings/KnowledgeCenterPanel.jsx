@@ -308,16 +308,21 @@ export default function KnowledgeCenterPanel() {
         setPortMsg({ tone: 'error', text: 'We couldn’t download the vault. Please try again.' })
         return
       }
-      for (const f of json.files) {
-        const url = URL.createObjectURL(new Blob([f.content], { type: 'text/markdown;charset=utf-8' }))
-        const a = document.createElement('a')
-        a.href = url; a.download = f.filename
-        document.body.appendChild(a); a.click(); a.remove()
-        URL.revokeObjectURL(url)
+      // One zip: a browser stops a page's automatic downloads after about ten, so one file per
+      // entry delivered only the first 10 of 28 (KNOWLEDGE-EXPORT-ZIP-1).
+      if (typeof json.zip !== 'string' || !json.zip) {
+        setPortMsg({ tone: 'error', text: 'We couldn’t download the vault. Please try again.' })
+        return
       }
+      const bytes = Uint8Array.from(atob(json.zip), ch => ch.charCodeAt(0))
+      const url = URL.createObjectURL(new Blob([bytes], { type: 'application/zip' }))
+      const a = document.createElement('a')
+      a.href = url; a.download = json.zip_filename || 'aspire-knowledge-center.zip'
+      document.body.appendChild(a); a.click(); a.remove()
+      URL.revokeObjectURL(url)
       setPortMsg({
         tone: 'info',
-        text: `Downloaded ${json.count} entr${json.count === 1 ? 'y' : 'ies'} as Markdown with YAML frontmatter.${json.truncated ? ' The download hit its size limit and is partial.' : ''}`,
+        text: `Downloaded ${json.count} entr${json.count === 1 ? 'y' : 'ies'} in one zip file, each as Markdown with YAML frontmatter.${json.truncated ? ' The download hit its size limit and is partial.' : ''}`,
       })
     } catch {
       setPortMsg({ tone: 'error', text: 'We couldn’t download the vault. Please try again.' })
