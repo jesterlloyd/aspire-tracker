@@ -56,6 +56,10 @@
       "schedule": "15 * * * *"
     },
     {
+      "path": "/api/cron/photo-thumbs",
+      "schedule": "*/10 * * * *"
+    },
+    {
       "path": "/api/cron/keith-knowledge-check",
       "schedule": "10 14 1,15 * *"
     },
@@ -142,6 +146,7 @@
     "api/knowledge-enrich.js":            { "maxDuration": 300 },
     "api/keith-knowledge-check.js":       { "maxDuration": 300 },
     "api/cron/keith-knowledge-check.js":  { "maxDuration": 300 },
+    "api/cron/photo-thumbs.js":           { "maxDuration": 120 },
     "api/invite-user.js":                 { "maxDuration": 10 },
     "api/manage-interviewers.js":         { "maxDuration": 10 },
     "api/availability.js":                { "maxDuration": 15 },

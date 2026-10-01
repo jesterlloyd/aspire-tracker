@@ -37,6 +37,7 @@ import { checkLengths, LIMITS } from './lib/fieldLimits.js'
 // S-03: a stored file reference must be the canonical path for THIS student, not any string the
 // browser sends. See lib/server/studentFiles.js validateStoredFileRefForStudent.
 import { validateStoredFileRefForStudent } from '../lib/server/studentFiles.js'
+import { dropHeadshotThumb } from '../lib/server/studentPhotoThumbs.js'
 import { consumePublicRateLimit, INTAKE_SUBMIT_LIMITS, TOO_MANY_REQUESTS } from './lib/publicRateLimit.js'
 
 function getDb() {
@@ -275,6 +276,8 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'invalid_request', field: column, message: ref.message })
     }
     updates[column] = ref.path
+    // PHOTO-THUMBS-1: a (re)submitted headshot may replace an earlier one at the same path.
+    if (column === 'headshot_url') await dropHeadshotThumb(db.storage, ref.path)
   }
 
   // ── STUDENT-FORM-CEDARS-STATUS-AUTO-MAP (forward fix) ───────────────────────────

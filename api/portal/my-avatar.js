@@ -35,6 +35,7 @@
 import { randomUUID } from 'crypto'
 import { verifyPortalCaller, getServiceDb, hasActiveRoleGrant, getActiveStudentLinks } from '../lib/portalAuth.js'
 import { STUDENT_FILES_BUCKET, canonicalPath } from '../../lib/server/studentFiles.js'
+import { dropHeadshotThumb } from '../../lib/server/studentPhotoThumbs.js'
 import { normalizeEmailForLookup } from '../../src/lib/emailUtils.js'
 
 const AVATARS_BUCKET = 'avatars'
@@ -148,6 +149,9 @@ export default async function handler(req, res) {
       console.log('[portal-my-avatar] headshot upload failed', { request_id: requestId, message: uploadError.message })
       return res.status(502).json({ error: 'upload_failed', message: 'Could not upload the image. Please try again.' })
     }
+
+    // PHOTO-THUMBS-1: the new original is stored; drop the old small copy (best effort).
+    await dropHeadshotThumb(db.storage, cp.path)
 
     const { error: updateError } = await db
       .from('students').update({ headshot_url: cp.path }).eq('id', student.id)

@@ -131,7 +131,7 @@ function PresenceAvatar({ user, size = 32, online }) {
 // fails to load.
 function PortalAccountAvatar({ record, size = 32, online }) {
   const studentId = record.portal_role === 'student' ? (record.scope?.students?.[0]?.student_id || null) : null
-  const { url } = useStudentFileUrl({ studentId, kind: 'headshot', enabled: !!studentId && !record.avatar_url })
+  const { url } = useStudentFileUrl({ studentId, kind: 'headshot', enabled: !!studentId && !record.avatar_url, small: true })
   const user = !record.avatar_url && url ? { ...record, avatar_url: url } : record
   return <PresenceAvatar user={user} size={size} online={online} />
 }

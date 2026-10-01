@@ -654,6 +654,25 @@ handlers in `api/shift-log/` unchanged. Never accept `school_email` or an unlist
 from the client, and never re-implement the shift-log rules in a second place. The public
 `/shift-log` page stays for students without a portal account (STUDENT-SHIFT-TAB-1).
 
+## Student photos have a small copy (PHOTO-THUMBS-1, 2026-09-30)
+
+Headshots averaged 1 MB and every avatar downloaded its original. Each headshot now has a small
+copy beside it, `<cohort>/<student>/headshot-thumb.jpg` (256px on its shorter side, about 20 KB),
+made by `lib/server/studentPhotoThumbs.js` and the ten-minute sweep `api/cron/photo-thumbs.js`
+(which is also the one-time pass over existing photos; it never writes an original).
+
+- **The original is the record. The ID badge, Open and Download always get it.** They fetch through
+  `fetchStudentFileUrl` / `fetchPortalHeadshotUrl`, which never ask for a small copy, and
+  `test/photoThumbs.test.mjs` fails if either badge call site changes. An avatar asks with
+  `useStudentFileUrl({ small: true })`; the Unit Leader and Academic Partner roster endpoints
+  always prefer the copy (they draw no badge). The student's own portal endpoint is original-only.
+- **No copy yet is never a missing photo**: every signer falls back to the original.
+- **A replaced photo drops its old copy** at the four places a new headshot lands (staff replace
+  cleanup, portal my-avatar, intake submit, portal my-profile); a daily deep run (09:00 UTC) drops
+  any copy older than its original. A new upload path for headshots must call `dropHeadshotThumb`.
+- Access is unchanged: same private bucket, same path guard, same signed-URL lifetime, and the
+  folder delete removes the copy. `sharp` is imported only where a copy is made.
+
 ## New portal checklist
 
 A new portal imports `src/styles/aspireBrand.css` (as `PortalApp.jsx` does), uses

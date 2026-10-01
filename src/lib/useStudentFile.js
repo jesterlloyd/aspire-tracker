@@ -9,7 +9,7 @@
 // null URL and the component shows its normal fallback (initials, or no link).
 
 import { useEffect, useRef, useState } from 'react'
-import { fetchStudentFileUrl, fetchPortalHeadshotUrl } from './studentFileClient'
+import { fetchStudentFileUrl, fetchPortalHeadshotUrl, HEADSHOT_THUMB } from './studentFileClient'
 import { queueStudentFileUrl } from './studentPhotoBatch'
 import { resolveStudentPhotoUrl, peekStudentPhotoUrl } from './studentPhotoCache'
 import { downloadFile } from './fileUtils'
@@ -24,7 +24,13 @@ import { downloadFile } from './fileUtils'
 // (list<->grid, tab navigation) and multiple avatars for the same student share ONE
 // signing request and reuse a STABLE URL until it nears expiry, so warm navigation
 // is instant and the browser image cache is not defeated.
-export function useStudentFileUrl({ studentId, kind, enabled = true, refreshKey } = {}) {
+//
+// PHOTO-THUMBS-1: `small` asks for the headshot's small copy (about 20 KB in place of a megabyte).
+// It is for a photo drawn small: an avatar, a roster row, a card. The server falls back to the
+// original when no small copy exists yet. The ID badge, Open and Download never pass through this
+// hook: they call fetchStudentFileUrl, which always returns the original.
+export function useStudentFileUrl({ studentId, kind: askedKind, enabled = true, refreshKey, small = false } = {}) {
+  const kind = small && askedKind === 'headshot' ? HEADSHOT_THUMB : askedKind
   const active = Boolean(enabled && studentId && kind)
   const key = active ? `${studentId}:${kind}:${refreshKey ?? ''}` : null
   // Warm render: if the URL is already cached, show it immediately (no flash, no request).

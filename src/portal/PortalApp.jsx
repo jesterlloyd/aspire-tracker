@@ -359,6 +359,7 @@ export default function PortalApp() {
     kind: 'headshot',
     enabled: isStudent && staffPreview && Boolean(previewStudentId),
     refreshKey: previewStudentId,
+    small: true,
   })
   const openChangePhoto = useCallback(() => setPhotoDialogOpen(true), [])
   const onPhotoSaved = useCallback(() => {

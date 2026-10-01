@@ -98,7 +98,7 @@ test('PortalAccountAvatar resolves student headshots through useStudentFileUrl',
   assert.match(dir, /function PortalAccountAvatar\(\{ record, size = 32, online \}\)/)
   // Only student rows without an endpoint-resolved avatar ask for a signed URL.
   assert.match(dir, /record\.portal_role === 'student' \? \(record\.scope\?\.students\?\.\[0\]\?\.student_id \|\| null\) : null/)
-  assert.match(dir, /useStudentFileUrl\(\{ studentId, kind: 'headshot', enabled: !!studentId && !record\.avatar_url \}\)/)
+  assert.match(dir, /useStudentFileUrl\(\{ studentId, kind: 'headshot', enabled: !!studentId && !record\.avatar_url, small: true \}\)/) // PHOTO-THUMBS-1: an avatar asks for the small copy
   // An endpoint avatar_url always wins; the signed URL only fills the gap.
   assert.match(dir, /const user = !record\.avatar_url && url \? \{ \.\.\.record, avatar_url: url \} : record/)
 })

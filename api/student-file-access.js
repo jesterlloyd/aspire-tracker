@@ -22,6 +22,9 @@
 //
 // Single mode:  { student_id, kind }              -> { signed_url }
 // Batch mode:   { items: [{ student_id, kind }] } -> { results: [{ student_id, kind, signed_url }] }
+// PHOTO-THUMBS-1: an item may add variant: 'thumb' (headshot only). It is answered with the small
+// copy when one exists and the original otherwise, and the result echoes variant: 'thumb'. An item
+// WITHOUT it always gets the original: that is what the ID badge, Open and Download send.
 // A missing/empty/unauthorized reference yields signed_url: null (not an error), so
 // a list of students simply renders placeholders. Paths and bucket names are never
 // returned in errors.
@@ -30,6 +33,7 @@ import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js'
 import { verifyPortalCaller } from './lib/portalAuth.js'
 import { activeEntitledCohortIds } from '../lib/server/interviewerEntitlements.js'
 import { STUDENT_FILES_BUCKET, isUuid, parseStoredFileRef, refBelongsToStudent, signedUrlTtlSeconds } from '../lib/server/studentFiles.js'
+import { signHeadshotsPreferThumb } from '../lib/server/studentPhotoThumbs.js'
 import { normalizeStaffRole } from '../src/lib/permissions.js'
 
 const MAX_BATCH = 100
@@ -93,7 +97,8 @@ export default async function handler(req, res) {
   const normalized = items.map((it) => {
     const student_id = typeof it?.student_id === 'string' ? it.student_id : ''
     const kind = FILE_KINDS.has(it?.kind) ? it.kind : null
-    return { student_id, kind, valid: kind !== null && isUuid(student_id) }
+    const thumb = kind === 'headshot' && it?.variant === 'thumb'
+    return { student_id, kind, thumb, valid: kind !== null && isUuid(student_id) }
   })
 
   // Fetch id, cohort_id, and the stored references for the valid ids in one query.
@@ -109,7 +114,7 @@ export default async function handler(req, res) {
   // Resolve each authorized item to an object path.
   const toSign = [] // { index, path }
   const results = normalized.map((n, index) => {
-    const nullResult = { student_id: n.student_id, kind: n.kind, signed_url: null }
+    const nullResult = { student_id: n.student_id, kind: n.kind, ...(n.thumb ? { variant: 'thumb' } : {}), signed_url: null }
     if (!n.valid) return nullResult
     const row = byId.get(n.student_id)
     if (!row) return nullResult
@@ -123,16 +128,25 @@ export default async function handler(req, res) {
     // S-03 read-side binding: never sign a path that names a different student, whatever is
     // stored on the row. Fails closed as a null signed_url, like every other denial here.
     if (!refBelongsToStudent(ref.path, row.id)) return nullResult
-    toSign.push({ index, path: ref.path, kind: n.kind })
+    toSign.push({ index, path: ref.path, kind: n.kind, thumb: n.thumb })
     return nullResult
   })
 
   // Mint signed URLs in one call PER KIND (kinds carry different lifetimes:
   // headshots sign long for cacheability, resumes stay short), then map them
   // back by index.
-  if (toSign.length) {
+  // PHOTO-THUMBS-1: the items that asked for the small copy sign together (two storage calls at
+  // most: the copies, then the originals of the photos that have none yet).
+  const small = toSign.filter((t) => t.thumb)
+  if (small.length) {
+    const out = await signHeadshotsPreferThumb(supabaseAdmin.storage, small.map((t) => t.path))
+    if (!out.ok) return res.status(502).json({ error: 'access_unavailable' })
+    small.forEach((t, i) => { if (out.urls[i]) results[t.index].signed_url = out.urls[i] })
+  }
+  const full = toSign.filter((t) => !t.thumb)
+  if (full.length) {
     const byKind = new Map()
-    for (const t of toSign) {
+    for (const t of full) {
       if (!byKind.has(t.kind)) byKind.set(t.kind, [])
       byKind.get(t.kind).push(t)
     }

@@ -21,6 +21,7 @@ export default function StudentAvatar({ student, size = 34, style: extraStyle })
     studentId: student?.id, kind: 'headshot',
     enabled: Boolean(student?.id) && hasStored,
     refreshKey: student?.headshot_url,
+    small: true,   // PHOTO-THUMBS-1: an avatar is at most 96px; it never needs the original
   })
 
   const first    = student?.first_name?.trim() || ''

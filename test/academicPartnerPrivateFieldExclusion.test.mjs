@@ -154,7 +154,10 @@ test('the photo endpoint returns only a short-lived signed URL, never a raw or p
   assert.match(photo, /const SIGNED_URL_TTL_SECONDS = signedUrlTtlSeconds\('headshot'\)/)
   assert.match(photo, /STUDENT_FILES_BUCKET/)
   assert.match(photo, /createSignedUrl\(ref\.path, SIGNED_URL_TTL_SECONDS\)/)
-  assert.match(photo, /signed_url: signed\.signedUrl/)
+  // PHOTO-THUMBS-1: a roster photo is the small copy when one exists, the original otherwise;
+  // either way it is a signed URL from the same bucket at the same lifetime.
+  assert.match(photo, /signedUrl = await signHeadshotPreferThumb\(supabaseAdmin\.storage, ref\.path\)/)
+  assert.match(photo, /signed_url: signedUrl \}/)
   // No public URL is constructed, and the object path is used ONLY to sign, never returned.
   assert.doesNotMatch(photo, /getPublicUrl|publicUrl/)
   assert.doesNotMatch(photo, /json\([^)]*ref\.path|res\.status\(200\)\.json\(\{[^}]*path/)
@@ -166,7 +169,7 @@ test('the photo endpoint is non-enumerating: cross-school, revoked, expired, and
   assert.match(photo, /const nullResult = \(studentId, kind\) => \(\{ student_id: studentId, kind, signed_url: null \}\)/)
   assert.match(photo, /const student = authorized\.get\(studentId\)\s*\n\s*if \(!student\) \{/)
   assert.match(photo, /if \(ref\.kind === 'empty' \|\| ref\.kind === 'unknown'\) \{\s*\n\s*results\.push\(nullResult/)
-  assert.match(photo, /if \(signErr \|\| !signed\?\.signedUrl\) \{\s*\n\s*results\.push\(nullResult/)
+  assert.match(photo, /if \(!signedUrl\) \{\s*\n\s*results\.push\(nullResult/) // PHOTO-THUMBS-1: one null shape still covers a photo that will not sign
 })
 
 // ── Roster UI: secure photo when available, initials fallback, no raw path, sort/filter unchanged ──

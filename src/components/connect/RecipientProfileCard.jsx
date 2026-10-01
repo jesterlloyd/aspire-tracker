@@ -122,6 +122,7 @@ export default function RecipientProfileCard({
     studentId: rpcStudentId, kind: 'headshot',
     enabled: recipientType === 'student' && Boolean(rpcStudentId) && classifyStoredFileRef(rpcStoredHeadshot) !== 'empty',
     refreshKey: rpcStoredHeadshot,
+    small: true,
   })
 
   // ── No recipient selected ─────────────────────────────────────────────────

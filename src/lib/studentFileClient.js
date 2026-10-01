@@ -61,6 +61,11 @@ async function safeCode(res) {
 }
 
 // ── Reads (staff) ───────────────────────────────────────────────────────────
+// PHOTO-THUMBS-1: the small copy of a headshot is its own kind on this side (so the batcher and the
+// photo cache never mix it with the original) and travels as { kind: 'headshot', variant: 'thumb' }.
+// The server answers with the small copy when there is one and the original otherwise.
+export const HEADSHOT_THUMB = 'headshot_thumb'
+
 // Batch: [{ studentId, kind }] -> Map keyed `${studentId}:${kind}` -> signedUrl|null.
 export async function fetchStudentFileUrls(items, { signal } = {}) {
   const list = (items || []).filter((i) => i && i.studentId && i.kind)
@@ -68,13 +73,15 @@ export async function fetchStudentFileUrls(items, { signal } = {}) {
   const res = await fetch('/api/student-file-access', {
     method: 'POST',
     headers: { Authorization: await authHeader(), 'Content-Type': 'application/json' },
-    body: JSON.stringify({ items: list.map((i) => ({ student_id: i.studentId, kind: i.kind })) }),
+    body: JSON.stringify({ items: list.map((i) => (i.kind === HEADSHOT_THUMB
+      ? { student_id: i.studentId, kind: 'headshot', variant: 'thumb' }
+      : { student_id: i.studentId, kind: i.kind })) }),
     signal,
   })
   if (!res.ok) throw new StudentFileError(res.status, await safeCode(res))
   const data = await res.json()
   const map = new Map()
-  for (const r of data.results || []) map.set(`${r.student_id}:${r.kind}`, r.signed_url ?? null)
+  for (const r of data.results || []) map.set(`${r.student_id}:${r.variant === 'thumb' ? HEADSHOT_THUMB : r.kind}`, r.signed_url ?? null)
   return map
 }
 

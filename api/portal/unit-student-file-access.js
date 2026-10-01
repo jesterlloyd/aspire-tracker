@@ -26,6 +26,7 @@
 
 import supabaseAdmin from '../../lib/server/evaluation/supabase_admin.js'
 import { STUDENT_FILES_BUCKET, parseStoredFileRef, refBelongsToStudent, signedUrlTtlSeconds } from '../../lib/server/studentFiles.js'
+import { signHeadshotPreferThumb } from '../../lib/server/studentPhotoThumbs.js'
 import {
   verifyPortalUnitLeaderCaller,
   resolveUnitScopedStudents,
@@ -99,15 +100,23 @@ export default async function handler(req, res) {
       continue
     }
 
-    const { data: signed, error: signErr } = await supabaseAdmin.storage
-      .from(STUDENT_FILES_BUCKET)
-      .createSignedUrl(ref.path, signedUrlTtlSeconds(kind))
+    // PHOTO-THUMBS-1: a roster photo is the small copy when one exists (this portal never draws a
+    // badge), and the original otherwise. Every other kind signs exactly as before.
+    let signedUrl
+    if (kind === 'headshot') {
+      signedUrl = await signHeadshotPreferThumb(supabaseAdmin.storage, ref.path)
+    } else {
+      const { data: signed, error: signErr } = await supabaseAdmin.storage
+        .from(STUDENT_FILES_BUCKET)
+        .createSignedUrl(ref.path, signedUrlTtlSeconds(kind))
+      signedUrl = !signErr && signed?.signedUrl ? signed.signedUrl : null
+    }
 
-    if (signErr || !signed?.signedUrl) {
+    if (!signedUrl) {
       results.push(nullResult(studentId, kind))
       continue
     }
-    results.push({ student_id: studentId, kind, signed_url: signed.signedUrl })
+    results.push({ student_id: studentId, kind, signed_url: signedUrl })
   }
 
   // Single-item requests get the flat shape the photo hook already expects.

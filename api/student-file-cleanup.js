@@ -23,6 +23,7 @@ import { verifyStaffCaller } from './lib/messagesAuth.js'
 import {
   STUDENT_FILES_BUCKET, FILE_KINDS, isUuid, studentFolderPrefix,
 } from '../lib/server/studentFiles.js'
+import { THUMB_FILE } from '../lib/server/studentPhotoThumbs.js'
 
 const CLEANUP_ROLES = ['owner', 'admin']
 
@@ -83,6 +84,9 @@ export default async function handler(req, res) {
     if (!kind || !FILE_KINDS.includes(kind) || !keepExt) return res.status(400).json({ error: 'invalid_request' })
     const keepName = `${kind}.${keepExt}`
     toRemove = listed.names.filter((name) => name.startsWith(`${kind}.`) && name !== keepName)
+    // PHOTO-THUMBS-1: a new headshot is in place, so its old small copy goes too. Readers get the
+    // new original until the sweep rebuilds the copy; nobody is shown the previous photo.
+    if (kind === 'headshot' && listed.names.includes(THUMB_FILE)) toRemove.push(THUMB_FILE)
   }
 
   if (!toRemove.length) return res.status(200).json({ removed: 0 })

@@ -44,6 +44,7 @@ import { checkDocumentsRequired } from '../student-intake-submit.js'
 import { toLocalDateStr } from '../../shared/dateUtils.js'
 // S-03: a stored file reference must be the canonical path for THIS student.
 import { validateStoredFileRefForStudent } from '../../lib/server/studentFiles.js'
+import { dropHeadshotThumb } from '../../lib/server/studentPhotoThumbs.js'
 
 // Everything GET returns about the student. The editable set, plus read-only context
 // the profile view needs (identity binding, lock inputs, provenance, documents-on-file,
@@ -351,6 +352,8 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'invalid_request', field: column, message: ref.message })
       }
       patch[column] = ref.path
+      // PHOTO-THUMBS-1: a (re)submitted headshot may replace an earlier one at the same path.
+      if (column === 'headshot_url') await dropHeadshotThumb(db.storage, ref.path)
     }
     patch.submitted_via = 'student_form'
     patch.status = 'Form Received'

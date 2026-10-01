@@ -132,6 +132,8 @@ let loadHandler;
     .replace(/from '\.\/lib\/portalAuth\.js'/, `from ${JSON.stringify(pathToFileURL(join(dir, 'fake-auth.mjs')).href)}`)
     .replace(/from '\.\.\/lib\/server\/interviewerEntitlements\.js'/, `from ${JSON.stringify(pathToFileURL(join(repo, 'lib/server/interviewerEntitlements.js')).href)}`)
     .replace(/from '\.\.\/lib\/server\/studentFiles\.js'/, `from ${JSON.stringify(pathToFileURL(join(repo, 'lib/server/studentFiles.js')).href)}`)
+    // PHOTO-THUMBS-1: the endpoint also imports the small-copy signer.
+    .replace(/from '\.\.\/lib\/server\/studentPhotoThumbs\.js'/, `from ${JSON.stringify(pathToFileURL(join(repo, 'lib/server/studentPhotoThumbs.js')).href)}`)
     .replace(/from '\.\.\/src\/lib\/permissions\.js'/, `from ${JSON.stringify(pathToFileURL(join(repo, 'src/lib/permissions.js')).href)}`);
 
   const modPath = join(dir, 'handler.mjs');
