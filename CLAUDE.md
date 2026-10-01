@@ -1619,8 +1619,19 @@ question about every receipt: has it been submitted to Concur, and is it late? R
   Keith review and not bypass that"). Replace file uploads a slip marked `replaces_receipt_id`; Keith
   reads it and it waits in To Review as a `ReplacementSlip`. The filed receipt keeps its file and says
   "Replacement pending review" until the slip is accepted there (`acceptReplacement`: the file swaps in
-  place, rows untouched, the slip row goes) or rejected (nothing changes). A replacement never posts
-  rows, and one waits at a time. Do not bring back a direct swap.
+  place and the slip row goes) or rejected (nothing changes). A replacement never posts rows through
+  the ordinary Accept, and one waits at a time. Do not bring back a direct swap.
+- **Accepting a replacement updates the Sheet** (REPLACE-SHEET-1, Owner, 2026-10-01: "it should update it
+  everywhere"). The slip is fully editable and shows, before Accept, which rows change; the rule is
+  `replacementPlan` in `src/lib/budget/replaceModel.js`, read by the slip and run by the server. Rows the
+  receipt POSTED are updated, added or removed to match the new reading (paired by category, then in
+  order); a row the receipt was only ATTACHED to takes the new total and nothing else. Every change goes
+  through `updateExpense`, so it is logged and Stage and payment stay. The filed name follows the new
+  date, vendor and total, and Keith's Concur draft is cleared when the Sheet changed.
+- **Months are the Owner's to open and close** (MONTH-CONTROL-1, Owner, 2026-10-01). A replacement never
+  writes into a closed month: the slip names it and offers Reopen, and the server checks before anything
+  is written. A replacement that changes nothing in the Sheet is not stopped. The Close card works in a
+  closed year too (`closeView` and `BudgetClose` use `isStarted`). Months still close in order.
 - **Rejected receipts are listed in To Review**, each with View original, Back to review
   (`receipt_restore`) and Delete for good (`receipt_delete`, after a confirmation).
 - **Keith never invents why a receipt is late**: `draft-late-note` must return `[REASON]` exactly once,

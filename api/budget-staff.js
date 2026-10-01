@@ -60,7 +60,7 @@ const ACTION_SCHEMAS = Object.freeze({
   // RECEIPT-REPLACE-1: swap a filed receipt's file in place, or delete the receipt for good.
   receipt_replace_start: ['action', 'id', 'file_name', 'content_type', 'size'],
   // REPLACE-REVIEW-1: a replacement is reviewed in To Review; a rejected receipt can go back there.
-  receipt_replace_accept: ['action', 'id'],
+  receipt_replace_accept: ['action', 'id', 'draft'],
   receipt_restore: ['action', 'id'],
   receipt_delete: ['action', 'id'],
   receipt_read: ['action', 'id'],
@@ -184,7 +184,7 @@ export function createBudgetStaffHandler({ verifyCaller = verifyPortalCaller, ma
         case 'concur_mark_submitted': return res.status(200).json(await E.markConcurSubmitted(db, actor, { fy, month: body.month, ...day }))
         case 'receipt_upload': return res.status(200).json(await R.startUpload(db, actor, { fileName: body.file_name, contentType: body.content_type, size: body.size }))
         case 'receipt_replace_start': return res.status(200).json(await R.startReplace(db, actor, { id: body.id, fileName: body.file_name, contentType: body.content_type, size: body.size }))
-        case 'receipt_replace_accept': return res.status(200).json(await R.acceptReplacement(db, actor, { id: body.id }))
+        case 'receipt_replace_accept': return res.status(200).json(await R.acceptReplacement(db, actor, { id: body.id, draft: body.draft ? obj(body.draft) : null, ...day }))
         case 'receipt_restore': return res.status(200).json(await R.restoreReceipt(db, actor, { id: body.id }))
         case 'receipt_delete': return res.status(200).json(await R.deleteReceipt(db, actor, { id: body.id }))
         case 'receipt_discard': return res.status(200).json(await R.discardUpload(db, actor, { id: body.id }))

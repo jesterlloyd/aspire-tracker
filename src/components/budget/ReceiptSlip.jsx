@@ -14,6 +14,7 @@ import { AlertTriangle, Check, ChevronRight, Eye, Info, OctagonAlert, Plus, X } 
 import KeithMark from '../keith/KeithMark'
 import { receiptPaper, setLineCategory, rowsFrom, draftTotal, filedName, vendorLogo, slipState, receiptsOnCard, ATTENDEE_FIELDS } from '../../lib/budget/receiptModel'
 import { receiptChecks } from '../../lib/budget/receiptChecks'
+import { replacementPlan, replacementBlocks, planLines, closedMonthsHit } from '../../lib/budget/replaceModel'
 import { usd, dateText, fyShort, PAYMENT_METHODS, paymentLabel } from '../../lib/budget/budgetModel'
 
 // The mockup's check icons: a warning triangle, an info mark, a tick; a block is the stop sign.
@@ -302,20 +303,29 @@ export default function ReceiptSlip({ slip, context, categories, cohorts, busy, 
 
 /**
  * REPLACE-REVIEW-1 (Owner, 2026-10-01): a replacement for a filed receipt, in To Review. Keith has read
- * it like any upload; it posts nothing. Accepting it gives the filed receipt this file and this
- * reading, and deletes the old file; rejecting it leaves the filed receipt as it was. What differs
- * from the filed receipt (the total, the vendor, the kind of document) is said in words first.
+ * it like any upload. REPLACE-SHEET-1 (Owner, the same day: "it should update it everywhere"):
+ * accepting it gives the filed receipt this file AND makes the Sheet say what it says. The slip is
+ * fully editable (date, vendor, order number, every line) and shows, before Accept, exactly which rows
+ * change (src/lib/budget/replaceModel.js, the rule the server runs). A closed month is the Owner's to
+ * reopen: the slip names it and offers Reopen; it never writes into one.
  */
 const DOC_WORD = { invoice: 'an invoice', order_confirmation: 'an order confirmation', card_statement: 'a card statement', other: 'something other than a receipt' }
-export function ReplacementSlip({ slip, busy, onReplace, onReject, onOriginal }) {
+export function ReplacementSlip({ slip, context, categories, busy, onDraft, onReplace, onReject, onOriginal, onReopen }) {
   const p = slip.proposal || {}
+  const d = slip.draft
   const was = slip.replaces
+  const set = (patch) => onDraft(slip, { ...d, ...patch })
+  const setLine = (id, patch) => set({ lines: d.lines.map(l => (l.id === id ? { ...l, ...patch } : l)) })
+  const plan = replacementPlan(d, was)
+  const lines = planLines(plan)
+  const blocks = replacementBlocks(d, was)
+  const closedByYear = new Map([...(context.years || new Map()).entries()].map(([fy, y]) => [fy, y.closedMonths || []]))
+  const shut = plan.changed ? closedMonthsHit(d, was, closedByYear) : []
+  const sent = (was.rows || []).filter(x => x.stage === 'submitted' || x.stage === 'settled')
   const notes = []
   if (DOC_WORD[p.document_type]) notes.push({ tone: 'warn', text: `Keith reads this file as ${DOC_WORD[p.document_type]}, not a receipt.` })
-  if (Number(p.total) > 0 && Math.round(Number(p.total) * 100) !== Math.round(Number(was.total) * 100)) notes.push({ tone: 'warn', text: `This file totals ${usd(p.total)}; the filed receipt is ${usd(was.total)}. Replacing it does not change the Sheet.` })
   if (p.vendor && was.vendor && String(p.vendor).toLowerCase() !== String(was.vendor).toLowerCase()) notes.push({ tone: 'warn', text: `This file is from ${p.vendor}; the filed receipt is from ${was.vendor}.` })
-  if (p.date && was.date && p.date !== was.date) notes.push({ tone: 'info', text: `This file is dated ${dateText(p.date)}; the filed receipt is ${dateText(was.date)}.` })
-  if (!notes.length) notes.push({ tone: 'ok', text: 'Same vendor, date and total as the filed receipt.' })
+  if (plan.changed && sent.length) notes.push({ tone: 'warn', text: `This purchase is already ${sent.some(x => x.stage === 'settled') ? 'reimbursed or paid' : 'submitted to Concur'} at ${usd(plan.before)}. Changing the Sheet leaves Concur with the old amount.` })
   return (
     <article className="bud-slip bud-slip-repl" aria-labelledby={`slip-${slip.id}`}>
       <div className="bud-slip-side">
@@ -326,17 +336,57 @@ export function ReplacementSlip({ slip, busy, onReplace, onReject, onOriginal })
       <div className="bud-slip-prop">
         <div className="bud-slip-head">
           <div>
-            <b id={`slip-${slip.id}`}>Replacement · {p.vendor || 'Vendor'} · {usd(p.total)}</b>
+            <b id={`slip-${slip.id}`}>Replacement · {d.vendor || 'Vendor'} · {usd(draftTotal(d))}</b>
             <small>For the filed receipt {was.vendor} · {usd(was.total)}{was.date ? ` · ${dateText(was.date)}` : ''}</small>
           </div>
           <KeithMark provenanceId={slip.keith_provenance_id} />
         </div>
+
+        <div className="bud-slip-meta">
+          <label><span>Date</span><input type="date" className="bud-input" value={d.date || ''} disabled={was.attached} onChange={e => set({ date: e.target.value })} /></label>
+          <label><span>Vendor</span><input className="bud-input" value={d.vendor} maxLength={120} onChange={e => set({ vendor: e.target.value })} /></label>
+          <label><span>Order or invoice no.</span><input className="bud-input" value={d.order_number} maxLength={80} onChange={e => set({ order_number: e.target.value })} /></label>
+        </div>
+        <div className="bud-lines" role="group" aria-label="Lines">
+          <div className="bud-line bud-line-head" aria-hidden="true"><span>Item</span><span>Category</span><span>Qty</span><span>Amount</span><span /></div>
+          {d.lines.map((l, i) => (
+            <div key={l.id} className="bud-line-wrap">
+              <div className="bud-line">
+                <input className="bud-input" aria-label={`Line ${i + 1} item`} value={l.item} maxLength={200} onChange={e => setLine(l.id, { item: e.target.value })} />
+                <select className="bud-input" aria-label={`Line ${i + 1} category`} value={l.category || ''} disabled={was.attached} onChange={e => onDraft(slip, setLineCategory(d, l.id, e.target.value || null))}>
+                  <option value="">Choose a category</option>
+                  {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+                <input className="bud-input bud-num" aria-label={`Line ${i + 1} quantity`} inputMode="decimal" value={l.quantity} onChange={e => setLine(l.id, { quantity: e.target.value })} />
+                <input className="bud-input bud-num" aria-label={`Line ${i + 1} amount`} inputMode="decimal" placeholder="0.00" value={Number(l.amount) === 0 && String(l.amount) !== '0.' ? '' : l.amount} onChange={e => setLine(l.id, { amount: e.target.value })} />
+                <button type="button" className="bud-iconbtn" aria-label={`Remove line ${i + 1}`} disabled={d.lines.length === 1} onClick={() => set({ lines: d.lines.filter(x => x.id !== l.id) })}><X size={14} /></button>
+              </div>
+            </div>
+          ))}
+          <button type="button" className="bud-linkbtn" onClick={() => set({ lines: [...d.lines, { id: newId(), item: '', category: d.lines[0]?.category || null, quantity: 1, amount: 0, base: 0, confidence: 'high', reason: 'Line added by you.', flags: [], set_by_owner: true }] })}><Plus size={13} aria-hidden="true" /> Add line</button>
+        </div>
+
+        <div className="bud-repl-plan" role="status">
+          <b>{plan.changed ? 'Accepting changes the Sheet' : 'The Sheet already matches this file'}</b>
+          {plan.changed
+            ? <ul>{lines.map((t, i) => <li key={i}>{t}</li>)}</ul>
+            : <span>{was.attached ? 'The row it is attached to already has this amount.' : 'Same rows, categories, dates and amounts. Only the file changes.'}</span>}
+          {was.attached && <span className="bud-hint">This receipt is attached to a row that already existed, so only that row’s amount follows it.</span>}
+        </div>
+
         <ul className="bud-checks">
           {notes.map((n, i) => <li key={i} className={`bud-check bud-check-${n.tone}`}><span>{n.text}</span></li>)}
+          {blocks.map((t, i) => <li key={`b${i}`} className="bud-check bud-check-block"><span>{t}</span></li>)}
+          {shut.map(m => (
+            <li key={m.key} className="bud-check bud-check-block bud-repl-shut">
+              <span>{m.name} {m.year} is closed, so its rows are locked. Reopen it to accept this replacement; you can close it again afterwards.</span>
+              <button type="button" className="bud-btn bud-btn-sm" disabled={busy} onClick={() => onReopen(m)}>Reopen {m.name}</button>
+            </li>
+          ))}
         </ul>
-        <p className="bud-hint">Accepting gives the filed receipt this file and deletes the one it has now ({was.filed_name}). Its rows, amounts, Stage and Concur draft stay as they are. Rejecting leaves the filed receipt unchanged.</p>
+        <p className="bud-hint">Accepting gives the filed receipt this file and deletes the one it has now ({was.filed_name}). Stage and payment stay as they are. Rejecting leaves the filed receipt and the Sheet unchanged.</p>
         <div className="bud-slip-acts">
-          <button type="button" className="bud-btn bud-btn-pri bud-btn-sm" disabled={busy} onClick={() => onReplace(slip)}>{busy ? 'Replacing…' : 'Replace the filed receipt'}</button>
+          <button type="button" className="bud-btn bud-btn-pri bud-btn-sm" disabled={busy || blocks.length > 0 || shut.length > 0} onClick={() => onReplace(slip)}>{busy ? 'Replacing…' : plan.changed ? 'Replace and update the Sheet' : 'Replace the filed receipt'}</button>
           <span className="bud-grow" />
           <button type="button" className="bud-btn bud-btn-sm bud-btn-danger" disabled={busy} onClick={() => onReject(slip)}>Reject</button>
         </div>

@@ -30,11 +30,12 @@ export default function BudgetClose({ year, canEdit, onWrite, onGo }) {
   const [today] = useState(() => pacificToday())
   if (!close) return null
   if (close.enabled === false) {
-    return canEdit && year.state === 'current'
+    return canEdit && (year.state === 'current' || year.state === 'closed')
       ? <p className="bud-hint" role="note">Closing a month needs its database update (20261022000000_budget_v2_phase2.sql).</p>
       : null
   }
-  const owner = canEdit && year.state === 'current'
+  // MONTH-CONTROL-1 (Owner, 2026-10-01): the Owner closes and reopens months in a closed year too.
+  const owner = canEdit && (year.state === 'current' || year.state === 'closed')
   const months = close.months || []
   const closedAny = months.some(m => m.closed_at)
   const checklists = close.checklists || {}

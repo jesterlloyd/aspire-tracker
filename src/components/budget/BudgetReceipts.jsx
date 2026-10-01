@@ -169,7 +169,19 @@ export default function BudgetReceipts({ year, onWrite, pendingFiles, onPendingT
   // back in To Review, or delete a rejected one for good.
   const onReplace = async (slip) => {
     mark(slip.id, true)
-    try { const out = await budgetStaff('receipt_replace_accept', { id: slip.id }); notify(out.message, out.differs ? 'err' : 'ok'); onWrite.changed(); await load() } catch (e) { notify(e.message, 'err'); load() } finally { mark(slip.id, false) }
+    clearTimeout(draftTimers.current.get(slip.id))   // the draft goes with the accept; a late save would find the slip gone
+    try { const out = await budgetStaff('receipt_replace_accept', { id: slip.id, draft: slip.draft }); notify(out.message); onWrite.changed(); await load() } catch (e) { notify(e.message, 'err'); load() } finally { mark(slip.id, false) }
+  }
+  // MONTH-CONTROL-1: reopening a month is the Owner's own act, offered where a closed month is in the way.
+  const onReopenMonth = async (slip, m) => {
+    mark(slip.id, true)
+    try {
+      // Save what is typed on the slip first: the reload after reopening would otherwise bring back the
+      // draft as it was last saved, and an edit made a moment ago would be lost.
+      clearTimeout(draftTimers.current.get(slip.id))
+      await budgetStaff('receipt_draft', { id: slip.id, draft: slip.draft })
+      const out = await budgetStaff('month_reopen', { fiscal_year: m.fy, month: m.key }); notify(out.message); onWrite.changed(); await load()
+    } catch (e) { notify(e.message, 'err') } finally { mark(slip.id, false) }
   }
   const onRestore = async (slip) => {
     mark(slip.id, true)
@@ -256,7 +268,7 @@ export default function BudgetReceipts({ year, onWrite, pendingFiles, onPendingT
         ? (
           <div className="bud-slips">
             {waiting.map(s => (s.replaces && s.draft
-              ? <ReplacementSlip key={s.id} slip={s} busy={busy.has(s.id)} onReplace={onReplace} onReject={onReject} onOriginal={onOriginal} />
+              ? <ReplacementSlip key={s.id} slip={s} context={ctx} categories={categories} busy={busy.has(s.id)} onDraft={onDraft} onReplace={onReplace} onReject={onReject} onOriginal={onOriginal} onReopen={(m) => onReopenMonth(s, m)} />
               : s.id !== openKey && s.draft && FOLDABLE.has(s.status)
               ? <ReceiptFold key={s.id} slip={s} context={ctx} onOpen={setOpenId} />
               : (

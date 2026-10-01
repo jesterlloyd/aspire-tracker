@@ -16,6 +16,7 @@ import { PGlite } from '@electric-sql/pglite'
 import { pgliteRest } from './helpers/pgliteRest.mjs'
 
 const R = await import('../lib/server/budget/receipts.js')
+const M = await import('../src/lib/budget/replaceModel.js')
 const E = await import('../lib/server/budget/engine.js')
 const { createBudgetStaffHandler } = await import('../api/budget-staff.js')
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8')
@@ -78,7 +79,7 @@ test('Replace file sends the new file to To Review; the filed receipt keeps its 
   // It waits in To Review, named for the receipt it would replace, and is not offered as a duplicate.
   const tab = await R.intake(db, { today: TODAY })
   const slip = tab.waiting.find(x => x.id === rep.id)
-  assert.deepEqual(slip.replaces, { id: f.id, vendor: 'Amazon', date: '2026-09-03', total: 58.57, filed_name: 'FY27_2026-09-03_Amazon_112-7730158_$58.57.pdf', document_type: 'invoice' })
+  assert.deepEqual([slip.replaces.id, slip.replaces.vendor, slip.replaces.date, slip.replaces.total, slip.replaces.filed_name, slip.replaces.document_type, slip.replaces.attached, slip.replaces.rows.length], [f.id, 'Amazon', '2026-09-03', 58.57, 'FY27_2026-09-03_Amazon_112-7730158_$58.57.pdf', 'invoice', false, 2])
   assert.equal(slip.duplicateFile, null)
   assert.equal(tab.filedCount, 1, 'a replacement is not a filed receipt')
   // It can never post rows of its own, and only one replacement waits at a time.
@@ -93,9 +94,9 @@ test('accepting the replacement swaps the file in place: the rows and the filed 
   const before = (await pg.query(`SELECT id, amount::text, receipt_file_id FROM budget_expenses WHERE id = ANY($1) ORDER BY id`, [f.acc.expense_ids])).rows
   const rep = await replacement(db, owner, f.id)
   const out = await R.acceptReplacement(db, owner, { id: rep.id })
-  assert.deepEqual([out.replaced, out.receipt_id, out.differs], [true, f.id, null])
+  assert.deepEqual([out.replaced, out.receipt_id, out.sheet], [true, f.id, []])
   assert.equal(out.filed_name, 'FY27_2026-09-03_Amazon_112-7730158_$58.57.jpg', 'the same filed name, the new file type')
-  assert.equal(out.message, 'The filed receipt now has the new file. The old one is deleted.')
+  assert.equal(out.message, 'The filed receipt now has the new file. The old one is deleted. The Sheet already matched it.')
 
   const all = (await pg.query(`SELECT id, status, file_name, storage_path, content_type, proposal->>'document_type' AS kind, expense_ids FROM budget_receipts`)).rows
   assert.equal(all.length, 1, 'the slip is gone: its file is the filed receipt’s now')
@@ -112,7 +113,7 @@ test('accepting the replacement swaps the file in place: the rows and the filed 
   await assert.rejects(R.acceptReplacement(db, owner, { id: rep.id }), /no longer exists/)
 })
 
-test('a different total is reported and changes nothing; rejecting a replacement leaves the filed receipt as it was', async () => {
+test('rejecting a replacement leaves the filed receipt and the Sheet as they were', async () => {
   const { pg, db, owner } = await world()
   const f = await filed(db, owner)
   const a = await replacement(db, owner, f.id, { name: 'wrong.pdf', type: 'application/pdf', reading: { ...AMAZON, total: 60 } })
@@ -120,12 +121,78 @@ test('a different total is reported and changes nothing; rejecting a replacement
   assert.equal((await filedOne(db, f.id)).replacement, null, 'a rejected replacement is no longer pending')
   assert.match((await R.expenseReceiptUrl(db, { expenseId: f.acc.expense_ids[0] })).url, /invoice\.pdf$/)
   await assert.rejects(R.acceptReplacement(db, owner, { id: a.id }), /not waiting for review/)
-  // Another can be sent now, and its different total is said in words.
-  const b = await replacement(db, owner, f.id, { name: 'r2.pdf', type: 'application/pdf', reading: { ...AMAZON, total: 60 } })
-  const out = await R.acceptReplacement(db, owner, { id: b.id })
-  assert.deepEqual(out.differs, { receipt: 60, rows: 58.57 })
-  assert.match(out.message, /The new file totals \$60\.00 and the Sheet has \$58\.57; nothing in the Sheet was changed\./)
   assert.equal((await pg.query(`SELECT sum(amount)::text AS s FROM budget_expenses WHERE id = ANY($1)`, [f.acc.expense_ids])).rows[0].s, '58.57')
+})
+
+// REPLACE-SHEET-1 (Owner, 2026-10-01: "when replacing a receipt, why wouldn't it replace the sheet line
+// too? ... it should update it everywhere").
+test('accepting a replacement makes the Sheet say what the new file says: amounts, the date, a removed and an added row', async () => {
+  const { pg, db, owner } = await world()
+  const f = await filed(db, owner)   // two rows: Printing & Copying 42.69, Supplies & Materials 15.88
+  const slipOf = async (id) => (await R.intake(db, { today: TODAY })).waiting.find(x => x.id === id)
+  // The new file: paper now 30.00, the labels gone, a new Technology line, dated a day later.
+  const reading = { ...AMAZON, document_type: 'receipt', date: '2026-09-04', subtotal: 50, tax: 0, total: 50, lines: [
+    { item: 'Copy Paper, 5-Ream Case', quantity: 1, amount: 30, category: 'Printing & Copying', confidence: 'high', reason: 'Paper.' },
+    { item: 'USB hub', quantity: 1, amount: 20, category: 'Technology & Software', confidence: 'high', reason: 'Hub.' },
+  ] }
+  const rep = await replacement(db, owner, f.id, { reading })
+  const slip = await slipOf(rep.id)
+  assert.deepEqual(slip.replaces.rows.map(x => [x.row_label, x.category, x.amount, x.date]), [['FY27 row 1', 'Printing & Copying', 42.69, '2026-09-03'], ['FY27 row 2', 'Supplies & Materials', 15.88, '2026-09-03']])
+  // The slip shows the same plan the server runs.
+  const plan = M.replacementPlan(slip.draft, slip.replaces)
+  assert.deepEqual(M.planLines(plan), [
+    'FY27 row 1: $42.69 becomes $30.00, Sep 3, 2026 becomes Sep 4, 2026.',
+    'FY27 row 2: $15.88 becomes $20.00, Sep 3, 2026 becomes Sep 4, 2026, Supplies & Materials becomes Technology & Software.',
+  ])
+  const out = await R.acceptReplacement(db, owner, { id: rep.id, draft: slip.draft, today: TODAY })
+  assert.equal(out.sheet.length, 2)
+  assert.deepEqual([out.before, out.after], [58.57, 50])
+  assert.equal(out.message, 'The filed receipt now has the new file. The old one is deleted. The Sheet was updated: 2 rows changed, $58.57 to $50.00.')
+  assert.equal(out.filed_name, 'FY27_2026-09-04_Amazon_112-7730158_$50.00.jpg', 'the filed name follows the new date and total')
+  const rows = (await pg.query(`SELECT e.item, e.amount::text, e.expense_date::text AS d, c.name AS cat, e.receipt_file_id IS NOT NULL AS filed, e.payment_method FROM budget_expenses e LEFT JOIN budget_categories c ON c.id = e.category_id WHERE e.deleted_at IS NULL AND e.source = 'receipt' ORDER BY e.amount DESC`)).rows
+  assert.deepEqual(rows, [
+    { item: 'Copy Paper, 5-Ream Case', amount: '30.00', d: '2026-09-04', cat: 'Printing & Copying', filed: true, payment_method: 'personal_concur' },
+    { item: 'USB hub', amount: '20.00', d: '2026-09-04', cat: 'Technology & Software', filed: true, payment_method: 'personal_concur' },
+  ])
+  const filedNow = await filedOne(db, f.id)
+  assert.deepEqual([filedNow.total, filedNow.date, filedNow.rows.length, filedNow.filed_name], [50, '2026-09-04', 2, out.filed_name])
+  // Every row change is in the row's own log.
+  assert.ok((await pg.query(`SELECT count(*)::int AS n FROM budget_changes WHERE entity = 'expense' AND action = 'update' AND field = 'amount'`)).rows[0].n >= 2)
+})
+
+test('a replacement with fewer categories removes a row, with more adds one; the Owner’s edits on the slip win', async () => {
+  const { pg, db, owner } = await world()
+  const f = await filed(db, owner)
+  const one = { ...AMAZON, document_type: 'receipt', subtotal: 26.45, tax: 0, total: 26.45, lines: [{ item: 'Copy Paper', quantity: 1, amount: 26.45, category: 'Printing & Copying', confidence: 'high', reason: 'Paper.' }] }
+  const rep = await replacement(db, owner, f.id, { reading: one })
+  const slip = (await R.intake(db, { today: TODAY })).waiting.find(x => x.id === rep.id)
+  assert.deepEqual(M.planLines(M.replacementPlan(slip.draft, slip.replaces)), ['FY27 row 1: $42.69 becomes $26.45.', 'FY27 row 2 is removed (Supplies & Materials, $15.88).'])
+  // The Owner changes Keith's amount on the slip before accepting.
+  const draft = { ...slip.draft, lines: [{ ...slip.draft.lines[0], amount: 27, set_by_owner: true }] }
+  const out = await R.acceptReplacement(db, owner, { id: rep.id, draft, today: TODAY })
+  assert.deepEqual([out.before, out.after], [58.57, 27])
+  const live = (await pg.query(`SELECT amount::text FROM budget_expenses WHERE deleted_at IS NULL AND source = 'receipt'`)).rows
+  assert.deepEqual(live, [{ amount: '27.00' }])
+  assert.deepEqual((await filedOne(db, f.id)).rows.length, 1)
+  // And back to two categories: a row is added, linked to the receipt, with the first row's payment.
+  const rep2 = await replacement(db, owner, f.id, { name: 'two.jpg', reading: { ...AMAZON, document_type: 'receipt' } })
+  const slip2 = (await R.intake(db, { today: TODAY })).waiting.find(x => x.id === rep2.id)
+  assert.match(M.planLines(M.replacementPlan(slip2.draft, slip2.replaces))[1], /^A new row is added: Supplies & Materials, \$15\.88\.$/)
+  await R.acceptReplacement(db, owner, { id: rep2.id, draft: slip2.draft, today: TODAY })
+  const two = (await pg.query(`SELECT amount::text, payment_method, receipt_file_id IS NOT NULL AS filed FROM budget_expenses WHERE deleted_at IS NULL AND source = 'receipt' ORDER BY amount DESC`)).rows
+  assert.deepEqual(two, [{ amount: '42.69', payment_method: 'personal_concur', filed: true }, { amount: '15.88', payment_method: 'personal_concur', filed: true }])
+})
+
+test('a replacement that is not ready says what is missing, and nothing changes', async () => {
+  const { pg, db, owner } = await world()
+  const f = await filed(db, owner)
+  const rep = await replacement(db, owner, f.id)
+  const slip = (await R.intake(db, { today: TODAY })).waiting.find(x => x.id === rep.id)
+  const draft = { ...slip.draft, date: '', lines: slip.draft.lines.map(l => ({ ...l, category: null })) }
+  assert.deepEqual(M.replacementBlocks(draft, slip.replaces), ['Enter the date.', 'Choose a category for every line.'])
+  await assert.rejects(R.acceptReplacement(db, owner, { id: rep.id, draft, today: TODAY }), (e) => e.code === 'blocked' && /Enter the date/.test(e.message))
+  assert.equal((await pg.query(`SELECT status FROM budget_receipts WHERE id = $1`, [rep.id])).rows[0].status, 'review', 'still waiting')
+  assert.match((await R.expenseReceiptUrl(db, { expenseId: f.acc.expense_ids[0] })).url, /invoice\.pdf$/)
 })
 
 test('rejected receipts are listed, and each can be viewed, put back in To Review, or deleted for good', async () => {
@@ -229,12 +296,15 @@ test('the screens: the modal sends a replacement to review and says it is pendin
   assert.match(modal, /role="alertdialog"/)
   const tab = read('src/components/budget/BudgetReceipts.jsx')
   assert.match(tab, /s\.replaces && s\.draft\s*\? <ReplacementSlip/)
-  assert.match(tab, /budgetStaff\('receipt_replace_accept', \{ id: slip\.id \}\)/)
+  assert.match(tab, /budgetStaff\('receipt_replace_accept', \{ id: slip\.id, draft: slip\.draft \}\)/)
   assert.match(tab, /<h2>Rejected<\/h2>/)
   for (const a of ['receipt_restore', 'receipt_delete']) assert.match(tab, new RegExp(`budgetStaff\\('${a}', \\{ id: slip\\.id \\}\\)`))
   assert.match(tab, />View original<\/button>\s*<button[^>]*onClick=\{\(\) => onRestore\(s\)\}>Back to review<\/button>\s*<button[^>]*onClick=\{\(\) => setAskDelete\(s\.id\)\}>Delete<\/button>/)
   const slip = read('src/components/budget/ReceiptSlip.jsx')
   assert.match(slip, /Replace the filed receipt/)
+  assert.match(slip, /'Replace and update the Sheet'/)
+  assert.match(slip, /onClick=\{\(\) => onReopen\(m\)\}>Reopen \{m\.name\}<\/button>/)
+  assert.match(tab, /budgetStaff\('month_reopen', \{ fiscal_year: m\.fy, month: m\.key \}\)/)
   assert.match(slip, /Keith reads this file as \$\{DOC_WORD\[p\.document_type\]\}, not a receipt\./)
   const sql = read(`supabase/migrations/${REVIEW}.sql`)
   assert.match(sql, /OWNER-GATED: do not apply from a session/)

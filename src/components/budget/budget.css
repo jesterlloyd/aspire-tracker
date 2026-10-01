@@ -844,3 +844,9 @@ button.bud-mo:hover { background: var(--color-bg-hover); }
 .bud-rm-pending { display: grid; gap: 8px; justify-items: start; width: 100%; padding: 12px 14px; border-radius: var(--aspire-radius-card); background-color: var(--pill-info-bg); color: var(--pill-info-fg); font-size: 13px; line-height: 1.45; }
 .bud-rm-pending b { font-size: 13.5px; }
 .bud-rej-ask { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12.5px; color: var(--text-heading); }
+/* REPLACE-SHEET-1: what accepting a replacement changes in the Sheet, said before Accept. */
+.bud-repl-plan { display: grid; gap: 4px; padding: 10px 12px; border-radius: var(--aspire-radius-control); background-color: var(--pill-info-bg); color: var(--pill-info-fg); font-size: 13px; line-height: 1.45; }
+.bud-repl-plan ul { margin: 0; padding-left: 18px; }
+.bud-repl-plan .bud-hint { color: inherit; }
+.bud-repl-shut { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.bud-repl-shut span { flex: 1 1 260px; }
