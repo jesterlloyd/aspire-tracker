@@ -28,7 +28,6 @@ import PortalShell from './PortalShell'
 import PortalUtilityLayer from './PortalUtilityLayer'
 import FeedbackPanel from '../components/FeedbackPanel'
 import MainMessagesLauncher from '../components/MainMessagesLauncher'
-import Keith from '../components/Keith'
 import PortalNav from './PortalNav'
 // STUDENT-SHIFT-TAB-1: loaded on first visit; it carries the shift-log views.
 const StudentShiftLog = lazyReload(() => import('./StudentShiftLog'), 'StudentShiftLog')
@@ -153,24 +152,51 @@ function naThreadIdFromPath(pathname) {
   return m ? m[1] : null
 }
 
+function useMobileUtilityLayout() {
+  const [mobile, setMobile] = useState(false)
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 760px)')
+    const update = () => setMobile(media.matches)
+    update()
+    media.addEventListener?.('change', update)
+    return () => media.removeEventListener?.('change', update)
+  }, [])
+  return mobile
+}
+
 // Owner/Admin preview keeps the portal chrome but uses the staff utilities.
 // The student Messages tab stays inside the preview with an honest read-only
 // state; the shared launcher opens the real staff inbox. Neither action
 // impersonates a portal user.
 function StaffPreviewUtilities({ portalName, section }) {
   const location = useLocation()
+  const mobile = useMobileUtilityLayout()
+  const [activeUtility, setActiveUtility] = useState(null)
+  const handleMessagesOpenChange = useCallback((open) => {
+    setActiveUtility(current => open ? 'messages' : current === 'messages' ? null : current)
+  }, [])
+  const handleFeedbackOpenChange = useCallback((open) => {
+    setActiveUtility(current => open ? 'feedback' : current === 'feedback' ? null : current)
+  }, [])
   return (
     <>
-      <Keith
+      {!isFullMessagesPath(location.pathname) && (
+        <MainMessagesLauncher
+          portalPreview
+          portalPreviewMobile={mobile}
+          hidden={mobile && activeUtility === 'feedback'}
+          keepLauncherVisible={mobile}
+          onOpenChange={handleMessagesOpenChange}
+        />
+      )}
+      <FeedbackPanel
         activeTab={section}
-        setActiveTab={() => {}}
         cohortName={`${portalName} preview`}
-        cohortId={null}
-        supabase={supabase}
         isAuthenticated
+        hidden={mobile && activeUtility === 'messages'}
+        open={activeUtility === 'feedback'}
+        onOpenChange={handleFeedbackOpenChange}
       />
-      {!isFullMessagesPath(location.pathname) && <MainMessagesLauncher portalPreview />}
-      <FeedbackPanel activeTab={section} cohortName={`${portalName} preview`} isAuthenticated />
     </>
   )
 }

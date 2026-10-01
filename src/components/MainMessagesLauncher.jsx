@@ -41,7 +41,13 @@ const F = 'Plus Jakarta Sans, sans-serif'
 
 // HOME-1: `hidden` keeps the dock's launcher off At a Glance. An open panel stays open
 // until closed; only the idle launcher is withheld there.
-export default function MainMessagesLauncher({ portalPreview = false, hidden = false }) {
+export default function MainMessagesLauncher({
+  portalPreview = false,
+  portalPreviewMobile = false,
+  hidden = false,
+  keepLauncherVisible = false,
+  onOpenChange,
+}) {
   const { userProfile } = useAuth()
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
@@ -64,6 +70,9 @@ export default function MainMessagesLauncher({ portalPreview = false, hidden = f
   useEffect(() => onFloatingPanelClosed((source) => {
     if (source === 'keith') setKeithOpen(false)
   }), [])
+  useEffect(() => {
+    onOpenChange?.(open)
+  }, [onOpenChange, open])
 
   // Escape closes the panel and returns focus to the launcher.
   useEffect(() => {
@@ -101,21 +110,24 @@ export default function MainMessagesLauncher({ portalPreview = false, hidden = f
       : '/connect/messages')
   }
 
-  // Launcher geometry: idle = directly above the 60px Keith orb (24+60+12);
-  // while Keith is open = beside the orb at the bottom edge, BELOW Keith's
-  // drawer (which starts at bottom:96), so nothing covers the composer.
+  // Launcher geometry: the staff shell sits above Keith, while portal previews
+  // place Messages beside the Send Feedback launcher because portals do not
+  // mount Keith.
   const launcherPos = portalPreview
-    ? { bottom: 'calc(82px + env(safe-area-inset-bottom, 0px))', right: 'max(24px, env(safe-area-inset-right, 0px))' }
+    ? {
+        bottom: `calc(${portalPreviewMobile ? 82 : 24}px + env(safe-area-inset-bottom, 0px))`,
+        right: `max(${portalPreviewMobile ? 24 : 88}px, env(safe-area-inset-right, 0px))`,
+      }
     : keithOpen
     ? { bottom: 'calc(24px + env(safe-area-inset-bottom, 0px))', right: '96px' }
     : { bottom: 'calc(96px + env(safe-area-inset-bottom, 0px))', right: '28px' }
   const tooltipBottom = portalPreview
-    ? 'calc(146px + env(safe-area-inset-bottom, 0px))'
+    ? `calc(${portalPreviewMobile ? 146 : 88}px + env(safe-area-inset-bottom, 0px))`
     : '158px'
   const panelGeometry = portalPreview
     ? {
-        bottom: 'calc(146px + env(safe-area-inset-bottom, 0px))',
-        right: 'max(12px, env(safe-area-inset-right, 0px))',
+        bottom: `calc(${portalPreviewMobile ? 146 : 88}px + env(safe-area-inset-bottom, 0px))`,
+        right: portalPreviewMobile ? 'max(12px, env(safe-area-inset-right, 0px))' : 24,
         width: 'min(420px, calc(100vw - 24px))',
         height: 'min(620px, calc(100vh - 170px))',
       }
@@ -148,14 +160,14 @@ export default function MainMessagesLauncher({ portalPreview = false, hidden = f
           Messages
         </div>
       )}
-      {!open && (
+      {(!open || keepLauncherVisible) && (
         <button
           type="button"
           ref={launcherRef}
           data-tour="main-messages-launcher"
-          aria-label={needsReply > 0 ? `Messages, ${needsReplyLabel(needsReply)}` : 'Messages'}
+          aria-label={open ? 'Close messages' : needsReply > 0 ? `Messages, ${needsReplyLabel(needsReply)}` : 'Messages'}
           aria-expanded={open}
-          onClick={openPanel}
+          onClick={open ? () => closePanel(true) : openPanel}
           onMouseEnter={() => setHover(true)}
           onMouseLeave={() => setHover(false)}
           onFocus={() => setHover(false)}
