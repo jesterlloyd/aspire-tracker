@@ -17,6 +17,7 @@ const KEITH_PREFETCH_CEILING_MS = 5000;
 
 // HOME-1: `hideLauncher` hides the orb (At a Glance has the launcher instead) while the
 // drawer stays reachable through askKeith(); the drawer's own close control still works.
+// The orb returns while the drawer is open (KEITH-ORB-HOME-1).
 export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, supabase, isAuthenticated, hideLauncher = false }) {
   const { userProfile } = useAuth();
   const navigate = useNavigate();
@@ -500,8 +501,10 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
       )}
 
       {/* Floating button. HOME-1: hidden on At a Glance, where the launcher's Keith row
-          opens the drawer instead; the drawer below is unchanged. */}
-      {!hideLauncher && (
+          opens the drawer instead; the drawer below is unchanged. KEITH-ORB-HOME-1 (Owner,
+          2026-09-30): while the drawer is open it shows there too, so Keith can be put away
+          the way he is everywhere else; closed, At a Glance is clean again. */}
+      {(!hideLauncher || isOpen) && (
       <button
         data-tour="keith-orb"
         onClick={() => {

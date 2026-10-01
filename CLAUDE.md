@@ -716,7 +716,9 @@ tested modules in `src/lib/home/`. Nothing is computed in JSX.
   withheld (`hideLauncher` / `hidden`), and so is the header search, because the launcher is that
   field in larger form (Owner, 2026-09-24). Every other screen keeps all four. The header's
   ASPIRE Connect icon carries the needs-reply badge everywhere, unchanged. The launcher's
-  "Ask Keith" row opens Keith's own drawer through `src/lib/keithBus.js` (`askKeith`).
+  "Ask Keith" row opens Keith's own drawer through `src/lib/keithBus.js` (`askKeith`). While that
+  drawer is open, the orb shows here too, so Keith can be put away as everywhere else; closed, it
+  is withheld again (KEITH-ORB-HOME-1, Owner, 2026-09-30).
 - **The clock is the viewer's.** The banner draws the greeting, date and time by the viewer's
   clock in both styles; in Classic it hides the Masthead service's own greeting and clock inside
   the card's shadow root (`.mast-greet`, `.mast-date`, `.mast-clock`) and keeps its scenery and
