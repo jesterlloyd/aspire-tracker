@@ -836,3 +836,7 @@ button.bud-mo:hover { background: var(--color-bg-hover); }
 @media (max-width: 520px) { .bud-cc-row { grid-template-columns: minmax(0, 1fr); gap: 2px; } }
 /* A link on a tinted card takes the card's ink (the accent on the dark amber card measured 4.48:1). */
 .bud-rm-check .bud-linkbtn, .bud-rm-alert .bud-linkbtn { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+/* REPLACE-REVIEW-1: a replacement pending review (the modal), and a rejected receipt's delete confirmation. */
+.bud-rm-pending { display: grid; gap: 8px; justify-items: start; width: 100%; padding: 12px 14px; border-radius: var(--aspire-radius-card); background-color: var(--pill-info-bg); color: var(--pill-info-fg); font-size: 13px; line-height: 1.45; }
+.bud-rm-pending b { font-size: 13.5px; }
+.bud-rej-ask { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12.5px; color: var(--text-heading); }

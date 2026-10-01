@@ -299,3 +299,48 @@ export default function ReceiptSlip({ slip, context, categories, cohorts, busy, 
     </article>
   )
 }
+
+/**
+ * REPLACE-REVIEW-1 (Owner, 2026-10-01): a replacement for a filed receipt, in To Review. Keith has read
+ * it like any upload; it posts nothing. Accepting it gives the filed receipt this file and this
+ * reading, and deletes the old file; rejecting it leaves the filed receipt as it was. What differs
+ * from the filed receipt (the total, the vendor, the kind of document) is said in words first.
+ */
+const DOC_WORD = { invoice: 'an invoice', order_confirmation: 'an order confirmation', card_statement: 'a card statement', other: 'something other than a receipt' }
+export function ReplacementSlip({ slip, busy, onReplace, onReject, onOriginal }) {
+  const p = slip.proposal || {}
+  const was = slip.replaces
+  const notes = []
+  if (DOC_WORD[p.document_type]) notes.push({ tone: 'warn', text: `Keith reads this file as ${DOC_WORD[p.document_type]}, not a receipt.` })
+  if (Number(p.total) > 0 && Math.round(Number(p.total) * 100) !== Math.round(Number(was.total) * 100)) notes.push({ tone: 'warn', text: `This file totals ${usd(p.total)}; the filed receipt is ${usd(was.total)}. Replacing it does not change the Sheet.` })
+  if (p.vendor && was.vendor && String(p.vendor).toLowerCase() !== String(was.vendor).toLowerCase()) notes.push({ tone: 'warn', text: `This file is from ${p.vendor}; the filed receipt is from ${was.vendor}.` })
+  if (p.date && was.date && p.date !== was.date) notes.push({ tone: 'info', text: `This file is dated ${dateText(p.date)}; the filed receipt is ${dateText(was.date)}.` })
+  if (!notes.length) notes.push({ tone: 'ok', text: 'Same vendor, date and total as the filed receipt.' })
+  return (
+    <article className="bud-slip bud-slip-repl" aria-labelledby={`slip-${slip.id}`}>
+      <div className="bud-slip-side">
+        <ReceiptPaper proposal={slip.proposal} />
+        <span className="bud-slip-fname">{slip.file_name}</span>
+        <button type="button" className="bud-btn bud-btn-sm" onClick={() => onOriginal(slip)}><Eye size={14} aria-hidden="true" /> View original</button>
+      </div>
+      <div className="bud-slip-prop">
+        <div className="bud-slip-head">
+          <div>
+            <b id={`slip-${slip.id}`}>Replacement · {p.vendor || 'Vendor'} · {usd(p.total)}</b>
+            <small>For the filed receipt {was.vendor} · {usd(was.total)}{was.date ? ` · ${dateText(was.date)}` : ''}</small>
+          </div>
+          <KeithMark provenanceId={slip.keith_provenance_id} />
+        </div>
+        <ul className="bud-checks">
+          {notes.map((n, i) => <li key={i} className={`bud-check bud-check-${n.tone}`}><span>{n.text}</span></li>)}
+        </ul>
+        <p className="bud-hint">Accepting gives the filed receipt this file and deletes the one it has now ({was.filed_name}). Its rows, amounts, Stage and Concur draft stay as they are. Rejecting leaves the filed receipt unchanged.</p>
+        <div className="bud-slip-acts">
+          <button type="button" className="bud-btn bud-btn-pri bud-btn-sm" disabled={busy} onClick={() => onReplace(slip)}>{busy ? 'Replacing…' : 'Replace the filed receipt'}</button>
+          <span className="bud-grow" />
+          <button type="button" className="bud-btn bud-btn-sm bud-btn-danger" disabled={busy} onClick={() => onReject(slip)}>Reject</button>
+        </div>
+      </div>
+    </article>
+  )
+}

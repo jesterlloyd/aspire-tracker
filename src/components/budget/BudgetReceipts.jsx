@@ -15,7 +15,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ReceiptText } from 'lucide-react'
 import SurfaceCard from '../ui/SurfaceCard'
-import ReceiptSlip, { ReceiptFold } from './ReceiptSlip'
+import ReceiptSlip, { ReceiptFold, ReplacementSlip } from './ReceiptSlip'
 import BudgetFiled from './BudgetFiled'
 import SegmentedPicker from '../shared/SegmentedPicker'
 import ReceiptOriginal from './ReceiptOriginal'
@@ -55,6 +55,7 @@ export default function BudgetReceipts({ year, onWrite, pendingFiles, onPendingT
   const [local, setLocal] = useState([])             // slips the browser is still uploading
   const [original, setOriginal] = useState(null)     // { slip, url, content_type, file_name } | { loading }
   const [dragging, setDragging] = useState(false)
+  const [askDelete, setAskDelete] = useState(null)   // the rejected receipt whose Delete is being confirmed
   const inputRef = useRef(null)
   const firstLoad = useRef(false)
   const draftTimers = useRef(new Map())
@@ -164,6 +165,20 @@ export default function BudgetReceipts({ year, onWrite, pendingFiles, onPendingT
   }
   const onSnooze = (slip) => decide(slip, 'receipt_snooze', {}, 'Snoozed for 7 days.')
   const onReject = (slip) => decide(slip, 'receipt_reject', {}, 'Receipt rejected. Nothing was posted.')
+  // REPLACE-REVIEW-1: accept a replacement (it takes its filed receipt's place), put a rejected receipt
+  // back in To Review, or delete a rejected one for good.
+  const onReplace = async (slip) => {
+    mark(slip.id, true)
+    try { const out = await budgetStaff('receipt_replace_accept', { id: slip.id }); notify(out.message, out.differs ? 'err' : 'ok'); onWrite.changed(); await load() } catch (e) { notify(e.message, 'err'); load() } finally { mark(slip.id, false) }
+  }
+  const onRestore = async (slip) => {
+    mark(slip.id, true)
+    try { await budgetStaff('receipt_restore', { id: slip.id }); notify('Back in To Review.'); await load() } catch (e) { notify(e.message, 'err') } finally { mark(slip.id, false) }
+  }
+  const onDelete = async (slip) => {
+    mark(slip.id, true)
+    try { await budgetStaff('receipt_delete', { id: slip.id }); setAskDelete(null); notify('Receipt deleted for good.'); await load() } catch (e) { notify(e.message, 'err') } finally { mark(slip.id, false) }
+  }
   const onRead = async (slip) => {
     mark(slip.id, true)
     replaceSlip({ ...slip, status: 'reading' })
@@ -190,6 +205,8 @@ export default function BudgetReceipts({ year, onWrite, pendingFiles, onPendingT
   const reviewable = waiting.filter(s => s.draft && FOLDABLE.has(s.status))
   const openKey = reviewable.some(s => s.id === openId) ? openId : reviewable[0]?.id
   const held = data.held || []
+  // Before the server sends the full list, the recent ones (the last twelve decided).
+  const rejected = data.rejected || data.recent.filter(x => x.status === 'rejected')
   const openSlips = [...data.waiting, ...data.snoozed, ...held]
   const holdable = reviewable.filter(s => receiptChecks(s.draft, { ...ctx, proposal: s.proposal || {} }).subMatch?.kind === 'hold')
   const subName = new Map((ctx.subscriptions || []).map(x => [x.id, x.name]))
@@ -221,6 +238,7 @@ export default function BudgetReceipts({ year, onWrite, pendingFiles, onPendingT
 
       {view === 'filed'
         ? <BudgetFiled key={year.fy} year={year} receipts={filed} notify={notify} onShowInSheet={onShowInSheet} onGo={onGo}
+            onReview={(id) => { setOpenId(id); setView('review') }}
             rule={(ctx?.rules || []).find(x => x.key === 'concur_60_days') || null} openReceipt={openReceipt} onOpened={onOpened}
             onChanged={async () => { await load(); onWrite.changed() }} />
         : (<>
@@ -237,7 +255,9 @@ export default function BudgetReceipts({ year, onWrite, pendingFiles, onPendingT
       {waiting.length
         ? (
           <div className="bud-slips">
-            {waiting.map(s => (s.id !== openKey && s.draft && FOLDABLE.has(s.status)
+            {waiting.map(s => (s.replaces && s.draft
+              ? <ReplacementSlip key={s.id} slip={s} busy={busy.has(s.id)} onReplace={onReplace} onReject={onReject} onOriginal={onOriginal} />
+              : s.id !== openKey && s.draft && FOLDABLE.has(s.status)
               ? <ReceiptFold key={s.id} slip={s} context={ctx} onOpen={setOpenId} />
               : (
                 <ReceiptSlip key={s.id} slip={s} context={ctx} categories={categories} cohorts={year.cohorts} busy={busy.has(s.id)} openSlips={openSlips}
@@ -266,17 +286,36 @@ export default function BudgetReceipts({ year, onWrite, pendingFiles, onPendingT
       )}
 
       {/* Accepted receipts live in Filed now (RECEIPT-ORGANIZER-1); this keeps what Filed does not. */}
-      {(data.snoozed.length > 0 || data.recent.some(s => s.status === 'rejected')) && (
+      {data.snoozed.length > 0 && (
         <SurfaceCard className="bud-card">
-          <h2>Snoozed and Rejected</h2>
+          <h2>Snoozed</h2>
           <ul className="bud-recent">
             {data.snoozed.map(s => <li key={s.id}><span>{s.draft?.vendor || s.file_name} · {usd(s.proposal?.total)}</span><small>Snoozed until {dateText(s.snoozed_until)}</small></li>)}
-            {data.recent.filter(s => s.status === 'rejected').map(s => (
+          </ul>
+        </SurfaceCard>
+      )}
+      {/* REPLACE-REVIEW-1 (Owner, 2026-10-01): every rejected receipt can be viewed, put back or deleted for good. */}
+      {rejected.length > 0 && (
+        <SurfaceCard className="bud-card">
+          <h2>Rejected</h2>
+          <p className="bud-sub">Nothing was posted for these. View one, put it back in To Review, or delete its file for good.</p>
+          <ul className="bud-recent">
+            {rejected.map(s => (
               <li key={s.id}>
-                <span>{s.draft?.vendor || s.file_name} · {usd(s.proposal?.total)}</span>
-                <small>Rejected{s.decided_at ? ` ${dateText(String(s.decided_at).slice(0, 10))}` : ''}</small>
+                <span>{s.draft?.vendor || s.file_name}{s.proposal?.total != null ? ` · ${usd(s.proposal.total)}` : ''}</span>
+                <small>{s.replaces_receipt_id ? 'Replacement · ' : ''}Rejected{s.decided_at ? ` ${dateText(String(s.decided_at).slice(0, 10))}` : ''}</small>
                 <span className="bud-grow" />
-                <button type="button" className="bud-linkbtn" onClick={() => onOriginal(s)}>View original</button>
+                {askDelete === s.id ? (
+                  <span className="bud-rej-ask" role="alertdialog" aria-label={`Delete ${s.file_name}`}>
+                    <span>Delete this file for good? It cannot be brought back.</span>
+                    <button type="button" className="bud-btn bud-btn-sm" disabled={busy.has(s.id)} onClick={() => setAskDelete(null)}>Keep it</button>
+                    <button type="button" className="bud-btn bud-btn-sm bud-btn-danger" disabled={busy.has(s.id)} onClick={() => onDelete(s)}>{busy.has(s.id) ? 'Deleting…' : 'Delete for good'}</button>
+                  </span>
+                ) : (<>
+                  <button type="button" className="bud-linkbtn" onClick={() => onOriginal(s)}>View original</button>
+                  <button type="button" className="bud-linkbtn" disabled={busy.has(s.id)} onClick={() => onRestore(s)}>Back to review</button>
+                  <button type="button" className="bud-linkbtn bud-btn-danger" disabled={busy.has(s.id)} onClick={() => setAskDelete(s.id)}>Delete</button>
+                </>)}
               </li>
             ))}
           </ul>

@@ -1615,6 +1615,14 @@ question about every receipt: has it been submitted to Concur, and is it late? R
   The tick is stored with who and when; a new draft clears it. Copy ticks are session memory.
 - **Undo is `receipt_stage` backwards**, on the server, logged. Replace file and Delete receipt
   (RECEIPT-REPLACE-1) live in the modal's Details.
+- **A replacement goes through review** (REPLACE-REVIEW-1, Owner, 2026-10-01: "it should still go through
+  Keith review and not bypass that"). Replace file uploads a slip marked `replaces_receipt_id`; Keith
+  reads it and it waits in To Review as a `ReplacementSlip`. The filed receipt keeps its file and says
+  "Replacement pending review" until the slip is accepted there (`acceptReplacement`: the file swaps in
+  place, rows untouched, the slip row goes) or rejected (nothing changes). A replacement never posts
+  rows, and one waits at a time. Do not bring back a direct swap.
+- **Rejected receipts are listed in To Review**, each with View original, Back to review
+  (`receipt_restore`) and Delete for good (`receipt_delete`, after a confirmation).
 - **Keith never invents why a receipt is late**: `draft-late-note` must return `[REASON]` exactly once,
   or the draft is refused rather than shown.
 - **Every folder still starts closed** (Owner, 2026-09-27), which the mockup's open September does not show.

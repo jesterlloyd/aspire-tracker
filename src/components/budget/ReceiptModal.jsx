@@ -9,6 +9,8 @@
 // - Every word and state comes from src/lib/budget/filedModel.js; nothing is computed here.
 // - A stage change goes through receipt_stage, which moves the Sheet's rows, stamps the date and
 //   writes the history line. Undo is the same action backwards.
+// - Replace file sends the new file to To Review (REPLACE-REVIEW-1); the modal says a replacement is
+//   pending until it is accepted or rejected there.
 // - Mark submitted waits for the policy tick only when Keith's draft carries a warning. The tick is
 //   stored (who, when); before the database update it is kept for this session.
 // - Copy ticks live in memory for the session and are never stored.
@@ -40,7 +42,7 @@ export function PaperMark({ receipt, big = false, fresh = false }) {
   return <span className={`bud-stamp bud-stamp-${m.tone}${fresh ? ' bud-stamp-new' : ''}`} aria-hidden="true">{m.word}{big && m.date ? <small>{m.date}</small> : null}</span>
 }
 
-export default function ReceiptModal({ receipt: r, list, where, batch, subRow, months, onNavigate, onClose, onBatchDone, notify, onChanged, onOriginal, onShowInSheet, onSubscriptions }) {
+export default function ReceiptModal({ receipt: r, list, where, batch, subRow, months, onNavigate, onClose, onBatchDone, notify, onChanged, onOriginal, onShowInSheet, onSubscriptions, onReview = () => {} }) {
   const [busy, setBusy] = useState('')
   const [, setTick] = useState(0)                     // repaint after a session-memory change
   const [undo, setUndo] = useState(null)              // { id, to } after a stage change
@@ -124,16 +126,21 @@ export default function ReceiptModal({ receipt: r, list, where, batch, subRow, m
     setBusy('note')
     try { const out = await budgetStaff('receipt_late_note', { id: r.id }); setLocalNote({ id: r.id, note: out.late_note }); onChanged() } catch (e) { notify(e.message, 'err') } finally { setBusy('') }
   }
+  // REPLACE-REVIEW-1 (Owner, 2026-10-01): a replacement is not swapped in here. It goes to To Review,
+  // Keith reads it, and it takes this receipt's place only when it is accepted there.
   const replace = async (raw) => {
     if (!raw) return
     setBusy('replace')
+    let sent = false
     try {
       const file = await prepareReceiptFile(raw)
-      const { upload } = await budgetStaff('receipt_replace_start', { id: r.id, file_name: file.name, content_type: file.type, size: file.size })
+      const { receipt, upload } = await budgetStaff('receipt_replace_start', { id: r.id, file_name: file.name, content_type: file.type, size: file.size })
       await uploadReceiptFile(upload, file)
-      const out = await budgetStaff('receipt_replace_finish', { id: r.id, path: upload.path, file_name: file.name, content_type: file.type })
-      notify(out.message, out.differs ? 'err' : 'ok'); await onChanged()
-    } catch (e) { notify(e.message, 'err') } finally { setBusy(''); if (pick.current) pick.current.value = '' }
+      sent = true
+      await onChanged()
+      await budgetStaff('receipt_read', { id: receipt.id })
+      notify('The replacement is in To Review. This receipt keeps its file until you accept it there.')
+    } catch (e) { notify(sent ? `The replacement is in To Review, but Keith could not read it: ${e.message}` : e.message, 'err') } finally { await onChanged(); setBusy(''); if (pick.current) pick.current.value = '' }
   }
   const remove = async () => {
     setBusy('delete')
@@ -181,6 +188,13 @@ export default function ReceiptModal({ receipt: r, list, where, batch, subRow, m
               <ReceiptPaper proposal={r.proposal} />
               <PaperMark receipt={r} big fresh={fresh === r.id} />
             </div>
+            {r.replacement && (
+              <div className="bud-rm-pending" role="status">
+                <b>Replacement pending review</b>
+                <span>{r.replacement.file_name} is in To Review{r.replacement.status === 'reading' || r.replacement.status === 'uploading' ? ', and Keith is reading it' : ''}. This receipt keeps its file until you accept it there.</span>
+                <button type="button" className="bud-btn" onClick={() => onReview(r.replacement.id)}>Review it</button>
+              </div>
+            )}
             <div className="bud-rm-files">
               <button type="button" className="bud-btn" onClick={() => onOriginal(r, true)}>Download</button>
               <button type="button" className="bud-btn" onClick={() => onOriginal(r)}>View original</button>
@@ -295,7 +309,7 @@ export default function ReceiptModal({ receipt: r, list, where, batch, subRow, m
                         </span>
                       </span>
                     ) : (<>
-                      <button type="button" className="bud-btn" disabled={!!busy} onClick={() => pick.current?.click()}>{busy === 'replace' ? 'Replacing…' : 'Replace file'}</button>
+                      <button type="button" className="bud-btn" disabled={!!busy || !!r.replacement} title={r.replacement ? 'A replacement is already waiting in To Review' : undefined} onClick={() => pick.current?.click()}>{busy === 'replace' ? 'Sending to review…' : r.replacement ? 'Replacement pending' : 'Replace file'}</button>
                       <button type="button" className="bud-btn bud-btn-danger" disabled={!!busy} onClick={() => setAsking(true)}>Delete receipt</button>
                     </>)}
                   </span>

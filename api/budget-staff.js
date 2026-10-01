@@ -59,7 +59,9 @@ const ACTION_SCHEMAS = Object.freeze({
   receipt_discard: ['action', 'id'],
   // RECEIPT-REPLACE-1: swap a filed receipt's file in place, or delete the receipt for good.
   receipt_replace_start: ['action', 'id', 'file_name', 'content_type', 'size'],
-  receipt_replace_finish: ['action', 'id', 'path', 'file_name', 'content_type'],
+  // REPLACE-REVIEW-1: a replacement is reviewed in To Review; a rejected receipt can go back there.
+  receipt_replace_accept: ['action', 'id'],
+  receipt_restore: ['action', 'id'],
   receipt_delete: ['action', 'id'],
   receipt_read: ['action', 'id'],
   receipt_concur_prepare: ['action', 'id'],
@@ -182,7 +184,8 @@ export function createBudgetStaffHandler({ verifyCaller = verifyPortalCaller, ma
         case 'concur_mark_submitted': return res.status(200).json(await E.markConcurSubmitted(db, actor, { fy, month: body.month, ...day }))
         case 'receipt_upload': return res.status(200).json(await R.startUpload(db, actor, { fileName: body.file_name, contentType: body.content_type, size: body.size }))
         case 'receipt_replace_start': return res.status(200).json(await R.startReplace(db, actor, { id: body.id, fileName: body.file_name, contentType: body.content_type, size: body.size }))
-        case 'receipt_replace_finish': return res.status(200).json(await R.finishReplace(db, actor, { id: body.id, path: body.path, fileName: body.file_name, contentType: body.content_type, ...(complete ? { complete } : {}), ...day }))
+        case 'receipt_replace_accept': return res.status(200).json(await R.acceptReplacement(db, actor, { id: body.id }))
+        case 'receipt_restore': return res.status(200).json(await R.restoreReceipt(db, actor, { id: body.id }))
         case 'receipt_delete': return res.status(200).json(await R.deleteReceipt(db, actor, { id: body.id }))
         case 'receipt_discard': return res.status(200).json(await R.discardUpload(db, actor, { id: body.id }))
         case 'receipt_stage': return res.status(200).json(await C.setReceiptStage(db, actor, { id: body.id, to: body.to, ...day }))

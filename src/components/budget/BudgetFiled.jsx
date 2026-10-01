@@ -37,7 +37,7 @@ const TILTS = [-0.8, 0.6, -0.4, 0.7, -0.6]
 const shortDate = (ymd) => (ymd ? dateText(ymd).replace(/, \d{4}$/, '') : '')
 const Bar = ({ pct, label }) => <span className="bud-bar" role="img" aria-label={label}><i style={{ width: `${pct}%` }} /></span>
 
-export default function BudgetFiled({ year, receipts: given, notify, onShowInSheet, onGo = null, onChanged = async () => {}, rule = null, openReceipt = null, onOpened = () => {} }) {
+export default function BudgetFiled({ year, receipts: given, notify, onShowInSheet, onGo = null, onChanged = async () => {}, rule = null, onReview = null, openReceipt = null, onOpened = () => {} }) {
   // RECEIPTS-SPEED-1: the Receipts tab reads Filed with its intake and hands it down; a caller that
   // does not still gets it read here.
   const [fetched, setReceipts] = useState(null)
@@ -173,7 +173,8 @@ export default function BudgetFiled({ year, receipts: given, notify, onShowInShe
           onBatchDone={() => { const label = modal.batch?.label; closeModal(); notify(`${label} submitted to Concur.`) }}
           onOriginal={viewOriginal}
           onShowInSheet={(r) => { setModal(null); onShowInSheet(r) }}
-          onSubscriptions={() => { setModal(null); onGo?.('subscriptions') }} />
+          onSubscriptions={() => { setModal(null); onGo?.('subscriptions') }}
+          onReview={(id) => { setModal(null); onReview?.(id) }} />
       )}
       {original && <ReceiptOriginal original={original} onClose={() => setOriginal(null)} />}
     </div>
