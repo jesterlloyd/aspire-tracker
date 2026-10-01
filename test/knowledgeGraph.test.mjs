@@ -268,3 +268,36 @@ test('state is encoded by shape as well as color', () => {
   assert.match(view, /hollow = draft · dashed ring = deprecated · gray = archived/,
     'the legend explains the non-color cues')
 })
+
+// ── KNOWLEDGE-GRAPH-ORBIT-1 (Owner, 2026-10-01): the graph turns slowly, like a galaxy ─────────────
+
+test('the orbit is a rigid turn about the centre: shape, distances and the centre are kept', async () => {
+  const L = await import('../src/lib/knowledgeGraphLayout.js')
+  const pos = new Map([['a', { x: 10, y: 0 }], ['b', { x: -10, y: 0 }], ['c', { x: 0, y: 20 }]])
+  const center = L.centroidOf(pos)
+  const before = Math.hypot(pos.get('a').x - pos.get('c').x, pos.get('a').y - pos.get('c').y)
+  L.rotatePositions(pos, center, Math.PI / 2)
+  const after = Math.hypot(pos.get('a').x - pos.get('c').x, pos.get('a').y - pos.get('c').y)
+  assert.ok(Math.abs(before - after) < 1e-9, 'distances between pages never change')
+  const c2 = L.centroidOf(pos)
+  assert.ok(Math.abs(c2.x - center.x) < 1e-9 && Math.abs(c2.y - center.y) < 1e-9, 'it turns about its own centre')
+  L.rotatePositions(pos, center, (3 * Math.PI) / 2)
+  assert.ok(Math.abs(pos.get('a').x - 10) < 1e-9 && Math.abs(pos.get('a').y) < 1e-9, 'a full turn comes home')
+  // The frame holds the whole sweep: every page at every angle is inside it.
+  const b = L.orbitBounds(pos, center, 0)
+  for (let k = 0; k < 16; k++) {
+    L.rotatePositions(pos, center, Math.PI / 8)
+    for (const { x, y } of pos.values()) assert.ok(x >= b.minX - 1e-9 && x <= b.maxX + 1e-9 && y >= b.minY - 1e-9 && y <= b.maxY + 1e-9)
+  }
+  assert.equal(L.ORBIT_PERIOD_MS, 240000)
+})
+
+test('the orbit holds still while it is being used, respects reduced motion, and has a Pause button', () => {
+  const src = readFileSync(new URL('../src/components/settings/KnowledgeGraphView.jsx', import.meta.url), 'utf8')
+  assert.match(src, /matchMedia\('\(prefers-reduced-motion: reduce\)'\)\.matches/)
+  assert.match(src, /if \(!document\.hidden && !pointerInRef\.current && !dragRef\.current\) \{/)
+  assert.match(src, /onPointerEnter=\{\(\) => \{ pointerInRef\.current = true \}\}/)
+  assert.match(src, /orbiting \? orbitBounds\(visiblePos, centerRef\.current\) : boundsOf\(visiblePos\)/)
+  assert.match(src, /aria-pressed=\{orbiting\} onClick=\{\(\) => setOrbiting\(v => !v\)\}/)
+  assert.match(src, /return \(\) => cancelAnimationFrame\(raf\)/, 'the loop stops when the graph is left')
+})

@@ -176,3 +176,35 @@ export function fitTransform(bounds, width, height, maxScale = 1.6) {
 export function nodeRadius(degree) {
   return Math.min(19, 5.5 + Math.sqrt(degree || 0) * 3);
 }
+
+// ── KNOWLEDGE-GRAPH-ORBIT-1 (Owner, 2026-10-01): the graph turns slowly, like a galaxy ──────────
+// A RIGID rotation of every position about the layout's centre: the picture keeps its shape, so
+// linked pages stay together, labels stay upright (only positions move, never the canvas), and
+// clicking, dragging and hover keep working on the moving nodes. One turn takes ORBIT_PERIOD_MS.
+
+export const ORBIT_PERIOD_MS = 240000;
+
+/** The mean of the positions: the point the graph turns about. */
+export function centroidOf(positions) {
+  let sx = 0; let sy = 0; let n = 0;
+  for (const { x, y } of positions.values()) { sx += x; sy += y; n++; }
+  return n ? { x: sx / n, y: sy / n } : { x: 0, y: 0 };
+}
+
+/** Turn every position by `angle` radians about `center`, in place. */
+export function rotatePositions(positions, center, angle) {
+  const c = Math.cos(angle); const s = Math.sin(angle);
+  for (const [id, p] of positions) {
+    const dx = p.x - center.x; const dy = p.y - center.y;
+    positions.set(id, { x: center.x + dx * c - dy * s, y: center.y + dx * s + dy * c });
+  }
+  return positions;
+}
+
+/** A square around `center` that holds the positions at every angle of a full turn. */
+export function orbitBounds(positions, center, pad = 40) {
+  let r = 0;
+  for (const { x, y } of positions.values()) r = Math.max(r, Math.hypot(x - center.x, y - center.y));
+  if (!r) return { minX: center.x - 1, minY: center.y - 1, maxX: center.x + 1, maxY: center.y + 1 };
+  return { minX: center.x - r - pad, minY: center.y - r - pad, maxX: center.x + r + pad, maxY: center.y + r + pad };
+}

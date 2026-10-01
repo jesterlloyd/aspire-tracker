@@ -24,7 +24,7 @@
 // permission and governance rule is unchanged; the plan of record is
 // docs/product/KEITH_SKILLS_KNOWLEDGE_VAULT_PLAN.md Section 2.3.
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
-import { FileText, Search, Plus, Download, Upload, Sparkles } from 'lucide-react'
+import { FileText, Search, Plus, Download, Upload, Wand2 } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
 import EmptyState from '../EmptyState'
@@ -452,7 +452,7 @@ export default function KnowledgeCenterPanel() {
                 because that is what the browser actually does here; the
                 underlying export_vault / import_entry_file actions are
                 unchanged. */}
-            <Button variant="quiet" icon={<Sparkles size={14} strokeWidth={2.2} />} onClick={() => setEnrichOpen(v => !v)} aria-expanded={enrichOpen}>
+            <Button variant="quiet" icon={<Wand2 size={14} strokeWidth={2.2} />} onClick={() => setEnrichOpen(v => !v)} aria-expanded={enrichOpen}>
               Enrich
             </Button>
             <Button variant="quiet" icon={<Download size={14} strokeWidth={2.2} />} onClick={exportVault} disabled={porting}>

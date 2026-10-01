@@ -8,13 +8,9 @@
   mask: url('/brand/keith-icon.png') center / contain no-repeat;
 }
 
-/* The title line of Settings > Keith is 36px; the lockup sits inside it. */
-.keith-lockup { display: inline-flex; align-items: center; height: 32px; vertical-align: middle; }
-.keith-lockup-art { display: block; height: 32px; width: auto; }
-.keith-lockup-dark { display: none; align-items: center; gap: 8px; }
-.keith-lockup-dark img { width: 28px; height: 28px; border-radius: 50%; }
-.keith-lockup-name { font-weight: 800; letter-spacing: -0.01em; color: var(--text-heading); }
-.keith-lockup-ai { align-self: flex-end; margin-bottom: 4px; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; color: var(--text-caption); }
-
-[data-theme="dark"] .keith-lockup-art { display: none; }
-[data-theme="dark"] .keith-lockup-dark { display: inline-flex; }
+/* The title line of Settings > Keith is 36px; the lockup sits inside it, its left edge on the
+   subtitle's (KEITH-LOCKUP-2). The name takes the heading's own size, weight and ink. */
+.keith-lockup { display: inline-flex; align-items: center; gap: 10px; height: 32px; vertical-align: middle; }
+.keith-lockup-orb { display: block; flex: none; width: 30px; height: 30px; border-radius: 50%; }
+.keith-lockup-name { font: inherit; letter-spacing: -0.01em; color: var(--text-heading); }
+.keith-lockup-ai { align-self: flex-start; margin: 3px 0 0 -4px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; color: var(--text-caption); }

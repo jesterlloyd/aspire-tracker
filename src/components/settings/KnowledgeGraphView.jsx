@@ -27,10 +27,10 @@
 // view carries an aria summary, a keyboard-usable search-and-open path, and
 // nothing exists here that cannot be reached from the list.
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
-import { Maximize2, CircleDot } from 'lucide-react'
+import { Maximize2, CircleDot, Orbit, Pause } from 'lucide-react'
 import SurfaceCard from '../ui/SurfaceCard'
 import { CATEGORY_LABELS } from './knowledgeCategories'
-import { computeLayout, boundsOf, fitTransform, nodeRadius, buildAdjacency, neighborhood } from '../../lib/knowledgeGraphLayout'
+import { computeLayout, boundsOf, fitTransform, nodeRadius, buildAdjacency, neighborhood, centroidOf, rotatePositions, orbitBounds, ORBIT_PERIOD_MS } from '../../lib/knowledgeGraphLayout'
 
 // Category palette: the seven deep accent solids already canonized by
 // FilterKPICard, plus one neutral slate for FAQ (the catch-all category).
@@ -79,12 +79,21 @@ export default function KnowledgeGraphView({
   const viewRef = useRef({ scale: 1, tx: 0, ty: 0 })
   const dragRef = useRef(null)
   const sizeRef = useRef({ w: 800, h: 560 })
+  // KNOWLEDGE-GRAPH-ORBIT-1: the graph turns about centerRef while nobody is using it. The loop reads
+  // the latest draw and whether the pointer is over the canvas through refs, so it never restarts.
+  const centerRef = useRef({ x: 0, y: 0 })
+  const drawRef = useRef(() => {})
+  const pointerInRef = useRef(false)
 
   const [hoverId, setHoverId] = useState(null)
   const [tooltip, setTooltip] = useState(null) // { x, y, node }
   const [scope, setScope] = useState('global') // 'global' | 'local'
   const [depth, setDepth] = useState(1)        // local-graph hops
   const [showUnlinked, setShowUnlinked] = useState(true)
+  // On unless the person's system asks for reduced motion; the Rotate button turns it either way.
+  const [orbiting, setOrbiting] = useState(() => {
+    try { return !window.matchMedia('(prefers-reduced-motion: reduce)').matches } catch { return true }
+  })
 
   const adjacency = useMemo(() => buildAdjacency(edges || []), [edges])
 
@@ -260,21 +269,42 @@ export default function KnowledgeGraphView({
       }
     }
     const { w, h } = sizeRef.current
-    const t = fitTransform(boundsOf(visiblePos), w, h)
+    // While it turns, frame the whole circle it sweeps, so no page swings out of view.
+    const t = fitTransform(orbiting ? orbitBounds(visiblePos, centerRef.current) : boundsOf(visiblePos), w, h)
     viewRef.current = { scale: t.scale, tx: t.tx, ty: t.ty }
     draw()
-  }, [nodes, isVisible, draw])
+  }, [nodes, isVisible, draw, orbiting])
 
   useEffect(() => {
     if (!nodes || !nodes.length) return
     posRef.current = computeLayout(nodes, edges || [])
+    centerRef.current = centroidOf(posRef.current)
     fit()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodes, edges])
 
   // Scope / visibility changes re-frame the picture.
   useEffect(() => { fit() }, [scope, depth, showUnlinked, fit])
-  useEffect(() => { draw() }, [draw])
+  useEffect(() => { draw(); drawRef.current = draw }, [draw])
+
+  // KNOWLEDGE-GRAPH-ORBIT-1: one turn every ORBIT_PERIOD_MS. It holds still while the pointer is over
+  // the graph (so a page is easy to click), while dragging, and while the tab is hidden.
+  useEffect(() => {
+    if (!orbiting || !nodes || !nodes.length) return
+    let raf = 0
+    let last = performance.now()
+    const tick = (t) => {
+      const dt = Math.min(64, t - last)
+      last = t
+      if (!document.hidden && !pointerInRef.current && !dragRef.current) {
+        rotatePositions(posRef.current, centerRef.current, (dt / ORBIT_PERIOD_MS) * 2 * Math.PI)
+        drawRef.current()
+      }
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [orbiting, nodes])
 
   // Canvas sizing (DPR-aware, responsive to the container).
   useEffect(() => {
@@ -419,6 +449,12 @@ export default function KnowledgeGraphView({
         <button type="button" style={btn(false)} onClick={fit} aria-label="Fit graph to view">
           <Maximize2 size={12} style={{ verticalAlign: '-1px', marginRight: 5 }} />Fit
         </button>
+        <button type="button" style={btn(false)} aria-pressed={orbiting} onClick={() => setOrbiting(v => !v)}
+          aria-label={orbiting ? 'Pause the graph’s rotation' : 'Rotate the graph slowly'}>
+          {orbiting
+            ? <><Pause size={12} style={{ verticalAlign: '-1px', marginRight: 5 }} />Pause</>
+            : <><Orbit size={12} style={{ verticalAlign: '-1px', marginRight: 5 }} />Rotate</>}
+        </button>
         <button type="button" style={btn(!showUnlinked)} aria-pressed={!showUnlinked}
           onClick={() => setShowUnlinked(v => !v)}>
           {showUnlinked ? 'Hide unlinked' : 'Showing linked only'}
@@ -456,7 +492,8 @@ export default function KnowledgeGraphView({
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
-            onPointerLeave={() => { setHoverId(null); setTooltip(null); dragRef.current = null }}
+            onPointerEnter={() => { pointerInRef.current = true }}
+            onPointerLeave={() => { pointerInRef.current = false; setHoverId(null); setTooltip(null); dragRef.current = null }}
             style={{ display: 'block', touchAction: 'none' }}
           />
         </SurfaceCard>

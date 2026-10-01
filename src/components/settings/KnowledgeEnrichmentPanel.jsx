@@ -16,7 +16,7 @@
 // server-side (and the DB's UNIQUE constraint backstops it), so a re-run only
 // fills gaps.
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Sparkles, ChevronDown, ChevronRight, Check, X, AlertTriangle } from 'lucide-react'
+import { Wand2, ChevronDown, ChevronRight, Check, X, AlertTriangle } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import SurfaceCard from '../ui/SurfaceCard'
 import Button from '../ui/Button'
@@ -228,7 +228,7 @@ export default function KnowledgeEnrichmentPanel({ isOwner, catalog = [], onData
     <SurfaceCard padding="18px 20px" style={{ marginBottom: 16 }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
         <span style={{ fontSize: 14.5, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 7 }}>
-          <Sparkles size={15} style={{ color: 'var(--color-accent-primary, #1D2567)' }} />
+          <Wand2 size={15} style={{ color: 'var(--color-accent-primary, #1D2567)' }} />
           Vault enrichment
         </span>
         <span style={{ fontSize: 12.5, color: secondary }}>
@@ -250,7 +250,7 @@ export default function KnowledgeEnrichmentPanel({ isOwner, catalog = [], onData
             <div style={{ padding: '8px 12px', marginBottom: 10, borderRadius: 8, background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626', fontSize: 12.5 }}>{runError}</div>
           )}
           {isOwner ? (
-            <Button variant="primary" icon={<Sparkles size={14} />} onClick={startRun}>
+            <Button variant="primary" icon={<Wand2 size={14} />} onClick={startRun}>
               Analyze corpus &amp; propose revisions
             </Button>
           ) : (

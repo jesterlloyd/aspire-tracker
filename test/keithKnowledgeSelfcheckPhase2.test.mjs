@@ -311,3 +311,16 @@ test('the Knowledge Center: the Keith card and badge, the check strip, and evide
   assert.match(admin, /submitted_at, proposed_by, evidence'\)/)
   assert.match(read('vercel.json'), /"api\/keith-knowledge-check\.js":\s+\{ "maxDuration": 300 \}/)
 })
+
+test('the Keith title is set as text beside the orb, and Enrich no longer shares Skills’ icon', () => {
+  const brand = read('src/components/keith/KeithBrand.jsx')
+  assert.match(brand, /<img className="keith-lockup-orb" src="\/brand\/keith-orb-160\.png"/)
+  assert.match(brand, /<span className="keith-lockup-name">Keith<\/span>/)
+  assert.doesNotMatch(brand, /src="\/brand\/keith-lockup\.png"/, 'the padded PNG wordmark is no longer drawn (KEITH-LOCKUP-2)')
+  assert.match(read('src/components/keith/keithBrand.css'), /\.keith-lockup \{ display: inline-flex; align-items: center; gap: 10px;/)
+  assert.match(read('src/components/settings/SettingsShell.jsx'), /keithSkills: Sparkles/)
+  for (const p of ['src/components/settings/KnowledgeCenterPanel.jsx', 'src/components/settings/KnowledgeEnrichmentPanel.jsx']) {
+    assert.doesNotMatch(read(p), /Sparkles/, `${p}: Enrich wears the wand`)
+    assert.match(read(p), /Wand2/)
+  }
+})
