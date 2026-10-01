@@ -77,6 +77,7 @@ import { setCohortPassword } from '../lib/cohortPassword'
 import { callAvailability } from '../lib/availabilityApi'
 import { useNgrpCycles } from '../lib/ngrp/useNgrpData'
 import { TAB_TO_PATH, PORTAL_STAFF_ROLES } from '../lib/staffRoutes'
+import { nextWarmTab, warmDelay, withAllWarmTabs } from '../lib/tabWarmup'
 
 // PORTAL-SPLIT Phase 2 (2026-09-15): the heavy staff areas are their own chunks.
 //
@@ -236,9 +237,13 @@ function MainApp({ onLogout }) {
   // PORTAL-SPLIT Phase 2: the five ASPIRE tabs used to mount together at boot,
   // which is why switching between them is instant and their state survives.
   // Interviews and Evaluation are their own chunks now, so they mount on first
-  // visit rather than at boot; once visited they stay mounted exactly as before,
-  // and every other tab is unchanged.
+  // visit rather than at boot; once visited they stay mounted exactly as before.
+  // TAB-WARMUP-1 (2026-10-01): At a Glance, Student Profiles and Rotation no longer mount
+  // together at boot either. The opened one mounts alone; the others are warmed afterward,
+  // one at a time (the effect below, rules in src/lib/tabWarmup.js), or on the click that
+  // opens them. A mounted tab still stays mounted.
   const [visitedTabs, setVisitedTabs] = useState(() => new Set())
+  const warmedOnceRef = useRef(false)
   const [loading,   setLoading]   = useState(true)
   const [dbError,   setDbError]   = useState(null)
 
@@ -268,6 +273,29 @@ function MainApp({ onLogout }) {
   // on the SAME render that activates it. From an effect, a deep link straight
   // into /interviews would paint an empty workspace for one frame first.
   if (!visitedTabs.has(activeTab)) setVisitedTabs(prev => new Set(prev).add(activeTab))
+
+  // TAB-WARMUP-1: warm the hidden tabs once the opened screen has had the network to itself.
+  // One tab per pass; adding it re-runs this effect, which schedules the next. Idle time is used
+  // where the browser offers it, so a mount never lands in the middle of typing or scrolling.
+  // The welcome tour needs every anchor present, so it mounts all three at once (adjusted during
+  // render, like the line above, so the anchors exist on the render that starts the tour).
+  const bootReady = !loading && !dbError && cohorts.length > 0
+  if (tourRunning && nextWarmTab(visitedTabs)) setVisitedTabs(prev => withAllWarmTabs(prev))
+  useEffect(() => {
+    if (!bootReady || tourRunning) return undefined
+    const next = nextWarmTab(visitedTabs)
+    if (!next) return undefined
+    let idleId = null
+    const mount = () => { warmedOnceRef.current = true; setVisitedTabs(prev => (prev.has(next) ? prev : new Set(prev).add(next))) }
+    const timer = setTimeout(() => {
+      if (typeof window.requestIdleCallback === 'function') idleId = window.requestIdleCallback(mount, { timeout: 2000 })
+      else mount()
+    }, warmDelay(warmedOnceRef.current))
+    return () => {
+      clearTimeout(timer)
+      if (idleId != null && typeof window.cancelIdleCallback === 'function') window.cancelIdleCallback(idleId)
+    }
+  }, [bootReady, tourRunning, visitedTabs])
 
   // Track the last non-Connect path for the workspace back affordance.
   // Stored in a ref so it never triggers re-renders.
@@ -1517,11 +1545,12 @@ function MainApp({ onLogout }) {
           </div>
         )}
 
-        {/* All five tabs mount simultaneously once initial data is ready.
-            Tab switching only changes CSS display, no unmount/remount,
+        {/* A tab mounts when it is first opened, or when the warm-up reaches it (TAB-WARMUP-1),
+            and then stays mounted: switching only changes CSS display, no unmount/remount,
             so queries, local state, and scroll position persist instantly. */}
         {!loading && !dbError && cohorts.length > 0 && (
           <>
+            {visitedTabs.has('overview') && (
             <div style={{ display: activeTab === 'overview' ? 'block' : 'none' }}>
               <OverviewTab students={students} units={units} onStudentUpdate={updateStudent} cohortId={activeCohortId} cohort={activeCohort} toast={toast}
                 onRefreshUnits={() => fetchUnits(activeCohortId)}
@@ -1537,7 +1566,9 @@ function MainApp({ onLogout }) {
                 onOpenActionCenter={() => setShowActionCenter(true)}
                 currentUserId={user?.id} />
             </div>
+            )}
 
+            {visitedTabs.has('profiles') && (
             <div style={{ display: activeTab === 'profiles' ? 'block' : 'none' }}>
               <StudentProfilesTab
                 students={students}
@@ -1556,6 +1587,7 @@ function MainApp({ onLogout }) {
                 toast={toast}
               />
             </div>
+            )}
 
             {/* Interviews carries FullCalendar, the single heaviest dependency
                 in the staff app. It mounts on first visit and stays mounted. */}
@@ -1583,6 +1615,7 @@ function MainApp({ onLogout }) {
               </div>
             )}
 
+            {visitedTabs.has('rotation') && (
             <div style={{ display: activeTab === 'rotation' ? 'block' : 'none' }}>
               <RotationTab
                 students={students} units={units} matches={matches}
@@ -1604,6 +1637,7 @@ function MainApp({ onLogout }) {
                 toast={toast}
               />
             </div>
+            )}
 
             {visitedTabs.has('evaluation') && (
               <div style={{ display: activeTab === 'evaluation' ? 'block' : 'none' }}>
