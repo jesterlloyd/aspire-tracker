@@ -244,7 +244,8 @@ test('the API names each new action, Owner-only, and the queue carries the close
 
 test('the Sheet shows Stage, Missing, closed-month locks, and Expected rows below it', () => {
   const sheet = read('src/components/budget/BudgetSheet.jsx')
-  assert.match(sheet, /tail=\{\{ label: 'Expected · not counted as spent yet', rows: expectedRows \}\}/)
+  // TAIL-COLLAPSE-1 changed this (Owner, 2026-10-01): the tail carries a one-line summary and starts folded.
+  assert.match(sheet, /tail=\{\{ label: 'Expected · not counted as spent yet', rows: expectedRows, summary: /)
   // BUDGET-FIXES-1 release 2 changed this: one Stage column replaced State, Status and Concur.
   assert.match(sheet, /\{ key: 'stage', label: 'Stage', type: 'choice'/)
   assert.doesNotMatch(sheet, /key: '(state|concur|status)', label:/)

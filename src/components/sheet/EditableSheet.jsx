@@ -51,7 +51,8 @@
 //   tools            which toolbar groups show: { text, align, clear, newColumn }, all on by default.
 //                    Program Budget keeps number and date formats only (BUDGET-V2 item 9).
 //   emptyState       what an empty sheet shows in place of its ten blank rows (a message, the next action).
-//   tail             { label, rows } shown read-only below the sheet, under their own heading, and never
+//   tail             { label, rows, summary } shown read-only below the sheet, under their own heading
+//                    (folded to that one line until opened: TAIL-COLLAPSE-1), and never
 //                    in the Σ row, a selection, a group or a sort (Program Budget's Expected charges).
 //                    Hidden while a search or filter is on.
 //   editorLabel(row, col), editorExtras({ col, row, editing, setEditing, keys }), saveLabel(col)
@@ -109,6 +110,7 @@ import {
 } from '../../lib/sheet/sheetModel'
 import { formulaRefs, isFormula, tryFormula, FORMULA_MAX } from '../../lib/sheet/sheetFormula'
 import Tooltip from '../ui/Tooltip'
+import { confirmDialog } from '../shared/confirmDialog'
 
 const W_DEFAULT = 160, W_LEAD = 200, W_ROWNUM = 44
 const fillHex = Object.fromEntries(SHEET_FILLS.map(f => [f.key, f.hex]))
@@ -185,6 +187,7 @@ export default function EditableSheet({
   const flashTimer = useRef(null)
   const [dragCol, setDragCol] = useState(null)
   const [newCol, setNewCol] = useState({ label: '', type: 'text', options: '' })
+  const [tailOpen, setTailOpen] = useState(false)     // the tail (Expected charges) starts folded
   const [ctx, setCtx] = useState(null)                // the right-click menu: { x, y, kind: 'cell' | 'row' | 'col', r, c }
   const frameRef = useRef(null)
   const toolRef = useRef(null)
@@ -592,8 +595,8 @@ export default function EditableSheet({
     changeLayout(l => ({ ...l, staffColumns: [...l.staffColumns, col] }))
     setNewCol({ label: '', type: 'text', options: '' }); setMenu(null)
   }
-  const removeStaffColumn = (key) => {
-    if (!window.confirm('Delete this column and everything typed in it?')) return
+  const removeStaffColumn = async (key) => {
+    if (!(await confirmDialog('Delete this column? Everything typed in it goes with it.', { confirmLabel: 'Delete column', danger: true }))) return
     changeLayout(l => ({ ...l, staffColumns: l.staffColumns.filter(c => c.key !== key), order: l.order.filter(k => k !== key), hidden: l.hidden.filter(k => k !== key) }))
     setSel(null)
   }
@@ -708,7 +711,7 @@ export default function EditableSheet({
   const deleteMenuRows = async () => {
     const list = menuRows().filter(r => canDeleteRow(r))
     if (!list.length) { notify?.('These rows cannot be deleted.'); return }
-    if (!window.confirm(list.length === 1 ? 'Delete this row?' : `Delete these ${list.length} rows?`)) return
+    if (!(await confirmDialog(list.length === 1 ? 'Delete this row?' : `Delete these ${list.length} rows?`, { confirmLabel: list.length === 1 ? 'Delete row' : `Delete ${list.length} rows`, danger: true }))) return
     setSave('saving')
     try {
       await onDeleteRows(list)
@@ -815,7 +818,7 @@ export default function EditableSheet({
   const deleteRows = async () => {
     if (!canDelete) return
     const n = pickedRows.length
-    if (!window.confirm(n === 1 ? 'Delete this row?' : `Delete these ${n} rows?`)) return
+    if (!(await confirmDialog(n === 1 ? 'Delete this row?' : `Delete these ${n} rows?`, { confirmLabel: n === 1 ? 'Delete row' : `Delete ${n} rows`, danger: true }))) return
     setSave('saving')
     try {
       await onDeleteRows(pickedRows)
@@ -1055,8 +1058,16 @@ export default function EditableSheet({
           </tbody>
           {tail?.rows?.length > 0 && !search.trim() && !filters.length && !quick && (
             <tbody className="fs-tail">
-              <tr className="fs-tailhead"><th scope="rowgroup" colSpan={gridCols.length + 1}><span style={{ position: 'sticky', left: 12 }}>{tail.label}</span></th></tr>
-              {tail.rows.map(row => (
+              <tr className="fs-tailhead"><th scope="rowgroup" colSpan={gridCols.length + 1}>
+                {/* TAIL-COLLAPSE-1 (Owner, 2026-10-01): the tail starts folded to this one line; it is the Owner's to open. */}
+                <button type="button" className="fs-tailtoggle" style={{ position: 'sticky', left: 12 }} aria-expanded={tailOpen} onClick={() => setTailOpen(o => !o)}>
+                  {tailOpen ? <ChevronDown size={14} aria-hidden="true" /> : <ChevronRight size={14} aria-hidden="true" />}
+                  <span>{tail.label}</span>
+                  {tail.summary && <span className="fs-tailsum">{tail.summary}</span>}
+                  <span className="fs-tailact">{tailOpen ? 'Hide' : 'Show'}</span>
+                </button>
+              </th></tr>
+              {tailOpen && tail.rows.map(row => (
                 <tr key={row.id} className="fs-row fs-tailrow">
                   <th scope="row" className="fs-rownum" style={{ position: 'sticky', left: 0, zIndex: 2 }} aria-label="Not counted" />
                   {gridCols.map(col => {

@@ -5,6 +5,7 @@ import { X, Trash2, Copy, Check } from 'lucide-react'
 import Tooltip from './ui/Tooltip'
 import { supabase } from '../lib/supabase'
 import { deriveBreakMinutes } from '../lib/interviewAvailability'
+import { confirmDialog } from './shared/confirmDialog'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -255,7 +256,7 @@ export default function InterviewDayDrawer({
   const handleCancelBooking = async (slot) => {
     const student = Array.isArray(slot.students) ? slot.students[0] : slot.students
     const name = student ? `${student.first_name} ${student.last_name}` : 'this student'
-    if (!window.confirm(`Cancel ${name}'s booking? Their status will return to Form Received.`)) return
+    if (!(await confirmDialog(`Cancel ${name}'s booking? Their status will return to Form Received.`, { confirmLabel: 'Cancel booking', cancelLabel: 'Keep booking', danger: true }))) return
     setCancelling(slot.id)
     await onCancelBooking(slot)
     setCancelling(null)
@@ -269,7 +270,7 @@ export default function InterviewDayDrawer({
       alert(`Cancel ${bookedCount} booking${bookedCount !== 1 ? 's' : ''} before deleting this block.`)
       return
     }
-    if (!window.confirm(`Delete ${block.interviewer_name}'s block (${block.start_time}–${block.end_time})?`)) return
+    if (!(await confirmDialog(`Delete ${block.interviewer_name}'s block (${block.start_time}–${block.end_time})?`, { confirmLabel: 'Delete block', danger: true }))) return
     setDeletingBlock(block.id)
     await onDeleteBlock(block.id)
     setDeletingBlock(null)
@@ -317,7 +318,7 @@ export default function InterviewDayDrawer({
   }
 
   const handleDeleteSlot = async (slotId) => {
-    if (!window.confirm('Delete this single slot? The parent availability block stays intact.')) return
+    if (!(await confirmDialog('Delete this single slot? The parent availability block stays intact.', { confirmLabel: 'Delete slot', danger: true }))) return
     setDeletingSlot(slotId)
     // AVAILABILITY-CALENDAR-1: routed through the availability endpoint instead
     // of a raw client delete, so the action carries the same ownership rule as

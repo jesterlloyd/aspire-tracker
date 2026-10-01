@@ -183,7 +183,7 @@ export default function BudgetSheet({ year, canEdit, onWrite, focus = null, rece
           <button type="button" className="bud-btn bud-btn-sm" onClick={async () => { try { await onWrite.call('expense_create', { fields: { expense_date: newDate } }); onWrite.changed() } catch (e) { onWrite.notify(e.message, 'err') } }}>+ Add a row</button>
         </span>}
       </>}
-      tail={{ label: 'Expected · not counted as spent yet', rows: expectedRows }}
+      tail={{ label: 'Expected · not counted as spent yet', rows: expectedRows, summary: `${expectedRows.length} ${expectedRows.length === 1 ? 'charge' : 'charges'} · ${usd(expectedRows.reduce((a, r) => a + (Number(r.raw.amount) || 0), 0))}` }}
       isLocked={(row, col) => inClosed(row) || (col.key === 'stage' && row.raw.state === 'expected') || (col.key === 'concur_done' && (!concurApplies(row.raw) || row.raw.status === 'reimbursed'))}
       cellClass={(r) => (r.raw.status === 'void' ? 'bud-void' : undefined)}
       formulas

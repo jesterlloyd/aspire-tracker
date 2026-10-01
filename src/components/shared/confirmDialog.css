@@ -1,0 +1,18 @@
+/* src/components/shared/confirmDialog.css
+   CONFIRM-DIALOG-1: the app's one confirmation. Imported by confirmDialog.jsx, so it reaches the staff
+   app and every portal. The staff app's theme tokens are read with the portal's light values as
+   fallbacks (the portals do not load theme.css); corners come from the canon tokens. */
+.cfm-scrim { position: fixed; inset: 0; z-index: 5000; display: flex; align-items: center; justify-content: center; padding: 20px; background: var(--color-bg-overlay, rgba(15, 20, 25, 0.45)); }
+.cfm { box-sizing: border-box; width: min(440px, 100%); padding: 22px 24px 18px; border-radius: var(--aspire-radius-card); background: var(--color-bg-surface, #FFFFFF); color: var(--text-heading, #191919); box-shadow: 0 16px 48px rgba(10, 12, 30, 0.32); font-family: var(--aspire-sans, 'Plus Jakarta Sans', sans-serif); }
+.cfm h2 { margin: 0; font-size: 16px; font-weight: 700; line-height: 1.35; color: var(--text-heading, #191919); }
+.cfm p { margin: 8px 0 0; font-size: 13.5px; line-height: 1.55; color: var(--text-caption, #4B5563); }
+.cfm-acts { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; margin-top: 20px; }
+.cfm-btn { min-height: 40px; padding: 0 16px; border: 1px solid var(--color-border-default, #D1D5DB); border-radius: var(--aspire-radius-control); background: var(--color-bg-surface, #FFFFFF); color: var(--text-heading, #191919); font: 600 13.5px var(--aspire-sans, 'Plus Jakarta Sans', sans-serif); cursor: pointer; }
+.cfm-btn:hover { background: var(--color-bg-hover, #F3F4F6); }
+.cfm-primary { border-color: var(--color-accent-primary, #1D2567); background: var(--color-accent-primary, #1D2567); color: var(--color-text-inverse, #FFFFFF); }
+.cfm-primary:hover { background: var(--color-accent-primary, #1D2567); filter: brightness(1.1); }
+/* A fixed pair in both themes: white on this red measures 6.5:1. */
+.cfm-danger { border-color: #B42318; background: #B42318; color: #FFFFFF; }
+.cfm-danger:hover { background: #912018; border-color: #912018; }
+.cfm-btn:focus-visible { outline: 3px solid var(--color-accent-primary, #1D2567); outline-offset: 2px; }
+[data-theme="dark"] .cfm-btn:focus-visible { outline-color: #9FB0F5; }

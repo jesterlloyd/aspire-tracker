@@ -26,6 +26,7 @@ import { buildContactsCsv } from '../../lib/contactsCsv'
 import { downloadCSV } from '../../lib/utils'
 import Tooltip from '../../components/ui/Tooltip'
 import { createAcademicsContact, fetchAcademicsContacts, updateAcademicsContact, uploadAcademicsContactAvatar } from './nursingAcademicsApi'
+import { confirmDialog } from '../../components/shared/confirmDialog'
 
 // CONTACTS-CANON-1: category, title, affiliation, and units come from the
 // shared canonical vocabulary; Preferred Contact Method is retired.
@@ -688,7 +689,7 @@ export default function AcademicsContactsView({ active = true }) {
   }
   const changeContactStatus = async contact => {
     const activate = contact.is_active === false
-    if (!activate && !window.confirm(`Deactivate ${displayListName(contact)}? The contact will be hidden here and can be reactivated from ASPIRE Connect.`)) return
+    if (!activate && !(await confirmDialog(`Deactivate ${displayListName(contact)}? The contact will be hidden here and can be reactivated from ASPIRE Connect.`, { confirmLabel: 'Deactivate', danger: true }))) return
     setSaving(true); setMutationError('')
     const res = await updateAcademicsContact(contact.id, { is_active: activate })
     setSaving(false)

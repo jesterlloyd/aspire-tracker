@@ -1639,3 +1639,15 @@ question about every receipt: has it been submitted to Concur, and is it late? R
 - **Every folder still starts closed** (Owner, 2026-09-27), which the mockup's open September does not show.
 - Stamps and LATE tabs are `aria-hidden`; the chip and the tracker say it in words. Grid cells carry
   their status as text. Swept: light and dark, modal with every branch open, zero failures.
+
+## One confirmation (CONFIRM-DIALOG-1, 2026-10-01)
+
+The browser's own confirm box ("aspireintelligence.app says") is gone. Every confirmation is
+`confirmDialog()` from `src/components/shared/confirmDialog.jsx`: `if (!(await confirmDialog('Delete
+this row?', { confirmLabel: 'Delete row', danger: true }))) return`. It resolves true or false, mounts
+its own root on `<body>` (so the portals have it with no host), and sits above whatever asked. A
+sentence after the first question mark becomes the explanation. Name the action on the button; a
+destructive one is `danger` (red, focus starts on Cancel so Enter never deletes by reflex); when the
+action itself is "cancel", say `cancelLabel: 'Keep booking'`. `test/confirmDialog.test.mjs` fails on
+any `window.confirm` in `src/`. The Editable sheet's tail (Budget Tracker's Expected charges) starts
+folded to one line with its count and total (TAIL-COLLAPSE-1).

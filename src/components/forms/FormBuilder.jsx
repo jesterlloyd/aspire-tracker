@@ -12,6 +12,7 @@ import {
 import FormRenderer from './FormRenderer'
 import { formStaff } from './formsApi'
 import { supabase } from '../../lib/supabase'
+import { confirmDialog } from '../shared/confirmDialog'
 
 const SAMPLE = {
   'student.full_name': 'Ava Reyes', 'student.preferred_name': 'Ava Reyes', 'student.first_name': 'Ava', 'student.last_name': 'Reyes', 'student.email': 'ava.reyes@example.edu', 'student.phone': '(310) 555-0101',
@@ -112,7 +113,7 @@ export default function FormBuilder({ formId, notify, onBack, onResponses }) {
   const starter = form && save === 'saved' ? starterUpdateFor({ ...form, draft }) : null
   const [replacing, setReplacing] = useState(false)
   const replaceWithStarter = async () => {
-    if (!window.confirm(`Replace this draft with the updated ${starter.title} starter? Your published versions and every answer already given are kept. Publish changes afterwards to send it.`)) return
+    if (!(await confirmDialog(`Replace this draft with the updated ${starter.title} starter? Your published versions and every answer already given are kept. Publish changes afterwards to send it.`, { confirmLabel: 'Replace draft' }))) return
     setReplacing(true)
     try {
       const r = await formStaff('use_starter', { id: formId })

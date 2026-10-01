@@ -11,6 +11,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
+import { confirmDialog } from './shared/confirmDialog'
 
 const ROLE_LABELS  = { secondary: 'Secondary', coverage: 'Coverage' }
 const ROLE_OPTIONS = ['secondary', 'coverage']
@@ -89,7 +90,7 @@ export default function AdditionalPreceptors({ student, preceptors = [], canEdit
   }
 
   const endAssignment = async (row) => {
-    if (!window.confirm('End this additional preceptor assignment? This will remove it from the active assignment list.')) return
+    if (!(await confirmDialog('End this additional preceptor assignment? This will remove it from the active assignment list.', { confirmLabel: 'End assignment', danger: true }))) return
     setBusy(true); setMsg(null)
     const headers = await authHeaders()
     if (!headers) { setBusy(false); setMsg({ type: 'error', text: 'Session expired. Refresh and try again.' }); return }

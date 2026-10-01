@@ -3,6 +3,7 @@
 // soft-delete), and restore removed targets. Targeting a unit never creates capacity or a response
 // row; that only happens when the unit submits the form. All writes go through the staff-authorized
 // server endpoint (owner/admin enforced server-side). Accessible: labelled dialog, keyboard operable.
+import { confirmDialog } from './shared/confirmDialog'
 import { useState, useEffect, useCallback } from 'react'
 import { getEligibleUnits } from '../lib/unitCatalog'
 import { canonicalUnitKey } from '../lib/canonicalUnit'
@@ -68,7 +69,7 @@ export default function CohortResponseTargetsModal({ cohortId, cohortName, onClo
   const doAdd = async () => {
     const chosen = addableRows.filter(r => toAdd.has(r.key))
     if (!chosen.length) return
-    if (chosen.length > 5 && !window.confirm(`Mark ${chosen.length} units as already contacted for ${cohortName || 'this cohort'}? This records them as expected responders without sending anything.`)) return
+    if (chosen.length > 5 && !(await confirmDialog(`Mark ${chosen.length} units as already contacted for ${cohortName || 'this cohort'}? This records them as expected responders without sending anything.`, { confirmLabel: 'Mark as contacted' }))) return
     setSaving(true); setError('')
     const units = chosen.map(r => ({ unit_key: r.name, unit_name: r.name }))
     const { ok, json } = await createCohortResponseTargets(cohortId, units)

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { callAvailability } from '../lib/availabilityApi'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
+import { confirmDialog } from './shared/confirmDialog'
 
 const TIME_SLOTS_15 = []
 for (let h = 7; h <= 18; h++) {
@@ -155,7 +156,7 @@ export default function AvailabilityManagerModal({ cohortId, onClose, onBlockSav
   }
 
   const deleteBlock = async (blockId) => {
-    if (!window.confirm('Delete this availability block? Unbooked slots will be removed.')) return
+    if (!(await confirmDialog('Delete this availability block? Unbooked slots will be removed.', { confirmLabel: 'Delete block', danger: true }))) return
     try {
       const { data: { session } } = await supabase.auth.getSession()
       const token = session?.access_token

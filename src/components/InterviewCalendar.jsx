@@ -43,6 +43,7 @@ const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0
 import { getStudentPreferredFullName } from '../lib/studentNameFormatters'
 import SegmentedPicker from './shared/SegmentedPicker'
 import { CAPACITY_STATES, capacityState, slotStyle } from '../lib/interviewCalendarLegend'
+import { confirmDialog } from './shared/confirmDialog'
 
 // Distinct ASPIRE-event chip - filled left-accent bar + type color (never looks like an interview
 // slot's pastel capacity card). Clicking opens the event modal (edit for owner/admin, else read-only).
@@ -476,7 +477,7 @@ function BlockPopover({ block, slots, position, canDelete, onDelete, onCancelBoo
       alert(`Cancel all ${booked.length} booking${booked.length !== 1 ? 's' : ''} first before deleting this block.`)
       return
     }
-    if (!window.confirm('Delete this availability block?')) return
+    if (!(await confirmDialog('Delete this availability block?', { confirmLabel: 'Delete block', danger: true }))) return
     setDeleting(true)
     await onDelete(block.id)
     setDeleting(false)
@@ -485,7 +486,7 @@ function BlockPopover({ block, slots, position, canDelete, onDelete, onCancelBoo
   const handleCancelBooking = async (slot) => {
     const student = Array.isArray(slot.students) ? slot.students[0] : slot.students
     const name = student ? `${student.first_name} ${student.last_name}` : 'this student'
-    if (!window.confirm(`Cancel ${name}'s booking?`)) return
+    if (!(await confirmDialog(`Cancel ${name}'s booking?`, { confirmLabel: 'Cancel booking', cancelLabel: 'Keep booking', danger: true }))) return
     setCancelling(slot.id)
     await onCancelBooking(slot)
     setCancelling(null)
@@ -618,7 +619,7 @@ function DayPopover({ date, blocks, slots, colorMap, position, canDelete, onDele
       alert(`Cancel ${bookedCount} booking${bookedCount !== 1 ? 's' : ''} before deleting this block.`)
       return
     }
-    if (!window.confirm(`Delete ${block.interviewer_name}'s block (${block.start_time}–${block.end_time})?`)) return
+    if (!(await confirmDialog(`Delete ${block.interviewer_name}'s block (${block.start_time}–${block.end_time})?`, { confirmLabel: 'Delete block', danger: true }))) return
     setDeleting(block.id)
     await onDeleteBlock(block.id)
     setDeleting(null)
@@ -1504,7 +1505,7 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
 
     if (!studentId) { alert('No student linked to this slot.'); return }
 
-    if (!window.confirm(`Cancel ${name}'s booking? Their status will return to Form Received.`)) return
+    if (!(await confirmDialog(`Cancel ${name}'s booking? Their status will return to Form Received.`, { confirmLabel: 'Cancel booking', cancelLabel: 'Keep booking', danger: true }))) return
 
     try {
       const { data: { session } } = await supabase.auth.getSession()
