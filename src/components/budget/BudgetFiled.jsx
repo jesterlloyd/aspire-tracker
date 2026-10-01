@@ -9,8 +9,10 @@
 //   next 14 days. Only Personal (Concur) receipts are counted: a P-card receipt never needs Concur.
 // - Group by Month (default), Vendor, Stage or Category. Every folder still starts CLOSED and changing
 //   the grouping closes them all (Owner, 2026-09-27: "I need to open them to launch them"). A closed
-//   folder is a tan card: up to five small receipts with a LATE or SOON tab, its count and total, its
-//   progress and its late and due-soon chips. An open one takes the whole row.
+//   folder is a tan card, and every one is the SAME size (FOLDER-SIZE-1, Owner, 2026-10-01, "like iphone
+//   folder"): its first four small receipts with a LATE or SOON tab and "+N" for the rest, its name and
+//   total on one line, its count and progress, and a line for its late and due-soon chips that keeps
+//   its place when empty. An open one takes the whole row.
 // - A month that still has unsubmitted Personal (Concur) receipts offers Submit [Month] to Concur,
 //   which walks them in the modal, oldest first.
 // - Receipts stay white; what holds them is the tan paper of Rotation > Activity (.bud-holder).
@@ -34,6 +36,7 @@ import { filedStats, folderSummary, folderChips, stageChips, cardLabel, isLate, 
 
 const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`
 const TILTS = [-0.8, 0.6, -0.4, 0.7, -0.6]
+const FOLDER_PEEK = 4   // a closed folder shows its first four receipts, then "+N"
 const shortDate = (ymd) => (ymd ? dateText(ymd).replace(/, \d{4}$/, '') : '')
 const Bar = ({ pct, label }) => <span className="bud-bar" role="img" aria-label={label}><i style={{ width: `${pct}%` }} /></span>
 
@@ -147,17 +150,21 @@ export default function BudgetFiled({ year, receipts: given, notify, onShowInShe
                 : (
                   <button key={f.key} type="button" className="bud-fcard bud-holder" aria-expanded="false" onClick={() => toggle(f.key)}
                     aria-label={`Open ${f.key}: ${plural(f.count, 'receipt')}, ${usd(f.total)}${sum.concur ? `, ${progress}` : ''}${chips.length ? `, ${chips.map(c => c.text).join(', ')}` : ''}`}>
+                    {/* FOLDER-SIZE-1 (Owner, 2026-10-01): every folder is the same size, like a phone's folder:
+                        the first FOLDER_PEEK receipts, then how many more. Each line keeps its place even
+                        when it has nothing to say, so the cards line up. */}
                     <span className="bud-fcard-minis" aria-hidden="true">
-                      {f.entries.slice(0, 5).map(e => (
+                      {f.entries.slice(0, FOLDER_PEEK).map(e => (
                         <span key={e.receipt.id} className="bud-mini">
                           <ReceiptPaper proposal={e.receipt.proposal} size="xs" />
                           {isLate(e.receipt) ? <b className="late">LATE</b> : isSoon(e.receipt) ? <b className="soon">SOON</b> : null}
                         </span>
                       ))}
+                      {f.count > FOLDER_PEEK && <span className="bud-mini-more">+{f.count - FOLDER_PEEK}</span>}
                     </span>
-                    <span className="bud-fcard-row"><strong>{f.key}</strong><span>{plural(f.count, 'receipt')}</span><em>{usd(f.total)}</em></span>
-                    {sum.concur > 0 && <span className="bud-fcard-prog"><Bar pct={sum.pct} label={progress} /><span>{progress}</span></span>}
-                    {chips.length > 0 && <span className="bud-chips">{chips.map(c => <span key={c.text} className={`bud-chip bud-chip-${c.tone}`}>{c.text}</span>)}</span>}
+                    <span className="bud-fcard-row"><strong>{f.key}</strong><em>{usd(f.total)}</em></span>
+                    <span className="bud-fcard-prog"><span className="n">{plural(f.count, 'receipt')}</span>{sum.concur > 0 ? <><Bar pct={sum.pct} label={progress} /><span>{progress}</span></> : <span className="none">{progress}</span>}</span>
+                    <span className="bud-chips bud-fcard-chips">{chips.map(c => <span key={c.text} className={`bud-chip bud-chip-${c.tone}`}>{c.text}</span>)}</span>
                   </button>
                 )
             })}

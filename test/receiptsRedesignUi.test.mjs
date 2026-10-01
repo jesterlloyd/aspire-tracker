@@ -94,3 +94,15 @@ test('the Subscriptions tab holds the month grid, a cell says its status in word
   assert.match(filed, /onGo\('subscriptions'\)\}>Subscriptions by month →/, 'linked from the Receipts toolbar')
   assert.match(modal, /onClick=\{onSubscriptions\}>See all subscriptions →/)
 })
+
+// FOLDER-SIZE-1 (Owner, 2026-10-01): "making the folders be the same size on all to make it easy on the
+// eyes. maybe like iphone folder where if there's more than 4 in a folder then just show the first 4".
+test('every closed folder is one size: four fixed rows, the first four receipts and "+N", nothing wraps', () => {
+  assert.match(filed, /const FOLDER_PEEK = 4/)
+  assert.match(filed, /\{f\.count > FOLDER_PEEK && <span className="bud-mini-more">\+\{f\.count - FOLDER_PEEK\}<\/span>\}/)
+  assert.match(css, /\.bud-fcard \{ display: grid; grid-template-rows: 64px 26px 20px 22px;/)
+  assert.match(css, /\.bud-fcard-row strong \{ min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;/)
+  // The chips line is always there, so a folder with nothing late is as tall as one with chips.
+  assert.match(filed, /<span className="bud-chips bud-fcard-chips">\{chips\.map\(/)
+  assert.doesNotMatch(filed, /chips\.length > 0 && <span className="bud-chips">/)
+})

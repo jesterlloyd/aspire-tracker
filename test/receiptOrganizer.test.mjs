@@ -115,7 +115,8 @@ test('every folder starts closed and closes again when the grouping changes (Own
   // RECEIPTS-REDESIGN-1 (2 of 3) changed this: a closed folder is a tan card with up to five small
   // receipts, each with its LATE or SOON tab. Still closed by default, still closed by a regroup.
   assert.match(src, /className="bud-fcard bud-holder" aria-expanded="false"/)
-  assert.match(src, /f\.entries\.slice\(0, 5\)\.map\(e => \(/, 'five receipts shown')
+  // FOLDER-SIZE-1 changed this again (Owner, 2026-10-01, "like iphone folder"): the first four, then "+N".
+  assert.match(src, /f\.entries\.slice\(0, FOLDER_PEEK\)\.map\(e => \(/, 'the first four receipts shown')
   assert.match(src, /<ReceiptPaper proposal=\{e\.receipt\.proposal\} size="xs" \/>/)
   assert.match(read('api/budget-staff.js'), /receipts_filed: \['action', 'fiscal_year'\]/)
   assert.doesNotMatch(read('api/budget-staff.js'), /READS = new Set\(\[[^\]]*receipts_filed/, 'Owner only')
