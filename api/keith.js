@@ -26,7 +26,8 @@ import { detectSkillHelp, buildSkillHelpResponse, buildSkillUnavailableResponse,
 import { runResumeInterviewQuestions, RIQ_SLUG } from '../lib/server/keith/resumeInterviewQuestions.js';
 import { schoolMatches } from './lib/schoolAliases.js';
 import { createClient } from '@supabase/supabase-js';
-import { populationDb, narrowSendLog } from '../lib/server/demoScope.js';
+import { populationDb, populationOf, narrowSendLog } from '../lib/server/demoScope.js';
+import { shouldRecordGap, recordKnowledgeGap } from '../lib/server/keith/knowledgeGaps.js';
 import { randomUUID } from 'crypto';
 import { isActiveProfile, INACTIVE_STATUS, INACTIVE_REASON, INACTIVE_MESSAGE } from './lib/activeAccount.js';
 
@@ -1468,8 +1469,9 @@ CRITICAL DATA ACCESS RULES:
   // KT-4: retrieve governed (Active) Knowledge Center entries for this question and
   // inject them as the authoritative source of truth ABOVE the legacy reference. The
   // retrieval is resilient (any failure yields a zero-coverage note so Keith still
-  // answers from legacy fallback). The user's question is used only for lexical
-  // scoring and is NEVER logged. (lastUserText was computed at intent classification.)
+  // answers from legacy fallback). The user's question is used for lexical scoring and
+  // is NEVER logged; the one exception, a scrubbed copy of an uncovered program question,
+  // is below (KEITH-KNOWLEDGE-SELFCHECK-1). (lastUserText was computed at intent classification.)
   // KEITH-GOVERNED-ROUTING-1: `governed` was retrieved once, before the contacts
   // short-circuit, and is reused here unchanged.
   // KT-5: inject the governed block at the explicit GOVERNED_KNOWLEDGE_MARKER slot in
@@ -1491,6 +1493,19 @@ CRITICAL DATA ACCESS RULES:
     block_chars: governed.blockChars,
     ...(governed.error ? { retrieval_error: governed.error } : {}),
   });
+
+  // KEITH-KNOWLEDGE-SELFCHECK-1 (Owner, 2026-09-30): a program question no Active entry covered is
+  // kept SCRUBBED for Keith's Knowledge Center self-check (lib/server/keith/knowledgeGaps.js holds
+  // every rule). It runs alongside the model call and is awaited before the response, so it adds no
+  // wait; it never changes the answer and never fails the request.
+  const gapCapture = shouldRecordGap({ intent, governed, isDemo: populationOf(req), question: lastUserText })
+    ? recordKnowledgeGap(keithDb(), { question: lastUserText, intent, governed, role: auth.isOwner ? 'owner' : auth.role })
+    : null;
+  const settleGapCapture = async () => {
+    if (!gapCapture) return;
+    const out = await gapCapture;
+    console.log('[keith-gap]', { request_id: requestId, recorded: out.recorded, ...(out.reason ? { reason: out.reason } : {}) });
+  };
 
   const toolInstruction  = canUseTools ? `
 
@@ -1562,6 +1577,7 @@ Be transparent: after forming a recommendation, briefly note which tools you use
       requestId,
       chatSelection.route
     );
+    await settleGapCapture();
     if (!text) return res.status(502).json({ error: 'Unexpected AI response format' });
     // Usage records what actually ran: the RESOLVED route and model, plus the
     // real token totals across every round (previously chat tokens were logged
@@ -1575,6 +1591,7 @@ Be transparent: after forming a recommendation, briefly note which tools you use
     });
     return res.status(200).json({ response: text, tool_calls: toolCalls, model_selection: chatSelection.selection });
   } catch (err) {
+    await settleGapCapture();
     console.error('[keith] all retries exhausted:', err.details || err.message);
     const errorType = err.details?.errorType;
     let userMessage;

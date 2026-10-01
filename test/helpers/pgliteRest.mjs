@@ -3,7 +3,7 @@
 // A small supabase-js look-alike over PGlite, for tests that must run the real engine
 // against real Postgres (triggers, constraints, the audit chain) without a network.
 // Covers exactly the query builder calls lib/server/signatures uses: select/insert/
-// update/upsert/delete with eq, neq, in, is, not(...), order, limit, single, maybeSingle.
+// update/upsert/delete with eq, neq, gt, gte, lt, lte, like, in, is, not(...), order, limit, single, maybeSingle.
 // Plus an in-memory storage bucket. Not a general PostgREST.
 
 const ident = (s) => `"${String(s).replace(/"/g, '""')}"`
@@ -26,7 +26,9 @@ function builder(pg, table, arrayCols) {
     delete() { st.op = 'delete'; return api },
     eq(c, v) { st.where.push(() => `${ident(c)} = ${p(v)}`); return api },
     neq(c, v) { st.where.push(() => `${ident(c)} IS DISTINCT FROM ${p(v)}`); return api },
+    gt(c, v) { st.where.push(() => `${ident(c)} > ${p(v)}`); return api },
     gte(c, v) { st.where.push(() => `${ident(c)} >= ${p(v)}`); return api },
+    lt(c, v) { st.where.push(() => `${ident(c)} < ${p(v)}`); return api },
     lte(c, v) { st.where.push(() => `${ident(c)} <= ${p(v)}`); return api },
     like(c, v) { st.where.push(() => `${ident(c)} LIKE ${p(v)}`); return api },
     in(c, vs) { st.where.push(() => vs.length ? `${ident(c)} IN (${vs.map(v => p(v)).join(', ')})` : 'false'); return api },
