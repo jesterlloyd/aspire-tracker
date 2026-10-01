@@ -1590,3 +1590,33 @@ the Parking form follows Parking Services' own form (received 2026-09-24).
 - **Tables here follow `.aspire-th`.** Its grey on `#f9fafb` measures 4.37:1 (the app-wide header),
   noted, not changed. `--aspire-row-band` is a light-mode constant, so the Responses table bands
   from the Catalog surface instead.
+
+## Receipts answer one question (RECEIPTS-REDESIGN-1, 2026-10-01)
+
+Budget Tracker > Receipts > Filed, the receipt modal and the Subscriptions month grid answer one
+question about every receipt: has it been submitted to Concur, and is it late? Reference:
+`docs/mockups/receipts-redesign.html`. Every figure and word comes from `src/lib/budget/filedModel.js`
+(pure, tested); the screens are `BudgetFiled.jsx`, `ReceiptModal.jsx` and `SubscriptionMonths.jsx`.
+
+- **One drawing in both styles** (Owner, 2026-10-01, over the brief's "Modern only"): the manila
+  folders are retired. Receipts stay white; what holds them (`.bud-holder`: an open month, a folder
+  card, the modal's left column) is the tan paper of Rotation > Activity. The tan values are the
+  `--aspire-paper-tan*` tokens in `aspireBrand.css`, read by the calendar too; they live there, not in
+  theme.css, because the portals' calendars do not load theme.css. In dark the holder is the app's surface.
+- **One 60-day rule**: `concurTiming` in `receiptChecks.js` (the owner's `concur_60_days` policy rule;
+  late past the deadline, soon at `SOON_DAYS` 14 or fewer). The slip check, the Concur reminder, Keith's
+  Concur draft, the chips, stamps and the grid all read it. Only Personal (Concur) receipts are counted
+  anywhere; a P-card receipt is Paid and never shows a deadline or the Concur pieces.
+- **A Stage change stamps its date wherever it is made** (`concurStamps` in the engine: the receipt, the
+  Sheet, Close month) and writes a `budget_event`. A stamp prints the STORED date, never today's; a row
+  marked before 20261101000000 with no change to take a date from shows none.
+- **The modal's Mark submitted waits for the policy tick only when Keith's draft carries a warning**
+  (`needsPolicyConfirm`), and only there: the Sheet and Close month do not ask (Owner, 2026-10-01).
+  The tick is stored with who and when; a new draft clears it. Copy ticks are session memory.
+- **Undo is `receipt_stage` backwards**, on the server, logged. Replace file and Delete receipt
+  (RECEIPT-REPLACE-1) live in the modal's Details.
+- **Keith never invents why a receipt is late**: `draft-late-note` must return `[REASON]` exactly once,
+  or the draft is refused rather than shown.
+- **Every folder still starts closed** (Owner, 2026-09-27), which the mockup's open September does not show.
+- Stamps and LATE tabs are `aria-hidden`; the chip and the tracker say it in words. Grid cells carry
+  their status as text. Swept: light and dark, modal with every branch open, zero failures.

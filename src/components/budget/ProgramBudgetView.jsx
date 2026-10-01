@@ -68,6 +68,9 @@ export default function ProgramBudgetView({ source, renderBand, initialFy = null
   const [receiptQueue, setReceiptQueue] = useState([])   // BUDGET-V2 item 2: the Summary's "Not counted yet"
   // Filed > Show in Sheet: what the Sheet opens searched for; the Action Center's Missing receipt link
   // (?tab=sheet&filter=missing-receipt) opens it with that quick filter on.
+  // RECEIPTS-REDESIGN-1: a Subscriptions grid cell opens its receipt in Receipts > Filed.
+  const [receiptFocus, setReceiptFocus] = useState(null)
+  const clearReceiptFocus = useCallback(() => setReceiptFocus(null), [])
   const [sheetFocus, setSheetFocus] = useState(() => { try { const f = new URLSearchParams(window.location.search).get('filter'); return f === 'missing-receipt' ? { filter: f, at: 0 } : null } catch { return null } })
   const [pendingFiles, setPendingFiles] = useState(null)   // files chosen from the header's Add receipts
   const addRef = useRef(null)
@@ -177,9 +180,9 @@ export default function ProgramBudgetView({ source, renderBand, initialFy = null
               onOpenYear={(y) => { setTab('plan'); setFy(y) }} />)}
         {current === 'sheet' && <BudgetSheet year={year} canEdit={canEdit} onWrite={onWrite} focus={sheetFocus} receiptCount={receiptCount} onGo={(t) => { setSheetFocus(null); setTab(t) }}
           onUpload={canEdit ? (files) => { setPendingFiles(files); setTab('receipts') } : undefined} />}
-        {current === 'subscriptions' && <BudgetSubscriptions year={year} canEdit={canEdit} onWrite={onWrite} />}
+        {current === 'subscriptions' && <BudgetSubscriptions year={year} canEdit={canEdit} onWrite={onWrite} onOpenReceipt={(id) => { setReceiptFocus(id); setTab('receipts') }} />}
         {current === 'receipts' && canEdit && (
-          <BudgetReceipts year={year} onWrite={onWrite} pendingFiles={pendingFiles} onPendingTaken={() => setPendingFiles(null)} onCount={setReceiptCount}
+          <BudgetReceipts year={year} onWrite={onWrite} pendingFiles={pendingFiles} onPendingTaken={() => setPendingFiles(null)} onCount={setReceiptCount} onGo={setTab} openReceipt={receiptFocus} onOpened={clearReceiptFocus}
             onStartYear={(y) => { setTab('summary'); setFy(y) }}
             onShowInSheet={(r) => { setSheetFocus({ search: r.order_number || r.vendor, at: Date.now() }); setTab('sheet') }} />
         )}

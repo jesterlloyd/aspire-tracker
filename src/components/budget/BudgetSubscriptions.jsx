@@ -8,6 +8,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import SurfaceCard from '../ui/SurfaceCard'
 import EditableSheet from '../sheet/EditableSheet'
+import SubscriptionMonths from './SubscriptionMonths'
 import { Pill } from '../shared/DataSheet'
 import { BUDGET_TOOLS } from './budgetSheetTools'
 import {
@@ -41,7 +42,7 @@ function fitPinned(layout, pinned) {
 const billingLabel = (k) => BILLING.find(b => b.key === k)?.label || ''
 const billingKey = (l) => BILLING.find(b => b.label === l)?.key || 'monthly'
 
-export default function BudgetSubscriptions({ year, canEdit, onWrite }) {
+export default function BudgetSubscriptions({ year, canEdit, onWrite, onOpenReceipt = null }) {
   const [today] = useState(() => pacificToday())   // one day per visit, so the calculated columns hold still
   const state = year.state
   const subs = year.subscriptions
@@ -165,6 +166,9 @@ export default function BudgetSubscriptions({ year, canEdit, onWrite }) {
           ? <span className="bud-if">{usd(due + prop.toCome)} if approved</span>
           : <small>{next ? `Next: ${next[0].name}, ${dateText(next[1])}` : 'Nothing scheduled'}</small>}</SurfaceCard>
       </div>
+
+      {/* RECEIPTS-REDESIGN-1: every recurring charge by month, with where it is in Concur (the Owner's view). */}
+      {canEdit && <SubscriptionMonths year={year} onOpenReceipt={onOpenReceipt} />}
 
       {/* SUB-APPROVAL-1: proposals are shown with what they would cost, and count against nothing. */}
       {prop.count > 0 && (
