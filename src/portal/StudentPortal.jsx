@@ -293,7 +293,7 @@ export default function StudentPortal({
     return (
       <div className="ptl-card ptl-center-card ptl-prepared">
         <div className="ptl-prepared-art" aria-hidden="true">
-          <img src="/public-site/illustrations/hero.png" alt="" loading="lazy" decoding="async" />
+          <img src="/public-site/illustrations/hero.webp" alt="" loading="lazy" decoding="async" />
         </div>
         <h1 className="ptl-card-title">No student record on this account</h1>
         {/* PORTAL-ACCESS-STATE: plain, and no promise. This said "no student

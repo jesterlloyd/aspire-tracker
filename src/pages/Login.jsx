@@ -93,7 +93,7 @@ export default function Login() {
               leaders, academic partners, and Cedars-Sinai staff.
             </p>
             <div className="lg-brand-art" aria-hidden="true">
-              <img src="/public-site/illustrations/hero.png" alt=""
+              <img src="/public-site/illustrations/hero.webp" alt=""
                 loading="lazy" decoding="async" />
             </div>
             <p className="lg-brand-inst">Geri &amp; Richard Brawerman Nursing Institute</p>

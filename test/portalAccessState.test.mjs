@@ -175,7 +175,7 @@ test('artwork: the no-access card has no image at all', () => {
 test('artwork: the illustration stays where arriving is the subject', () => {
   // Sign-in keeps it. Removing it everywhere would have been a different, larger
   // decision than the one asked for.
-  assert.match(read('src/pages/Login.jsx'), /illustrations\/hero\.png/)
+  assert.match(read('src/pages/Login.jsx'), /illustrations\/hero\.webp/ /* SPEED-1: the same picture, compressed */)
 })
 
 test('artwork: the plain card is composed, not just emptied', () => {

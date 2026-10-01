@@ -279,7 +279,7 @@ test('login page', async (t) => {
     assert.match(login, /One secure sign-in for invited ASPIRE students, preceptors, unit/)
   })
   await t.test('reuses the homepage student-group illustration as the login hero', () => {
-    assert.match(login, /lg-brand-art[\s\S]*?src="\/public-site\/illustrations\/hero\.png"/)
+    assert.match(login, /lg-brand-art[\s\S]*?src="\/public-site\/illustrations\/hero\.webp"/)
     assert.doesNotMatch(login, /login-panel\.jpg/)
   })
   await t.test('institute attribution sits BELOW the illustration, not grouped with the logo', () => {

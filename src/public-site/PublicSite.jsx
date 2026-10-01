@@ -79,11 +79,13 @@ function applyHead(page) {
 // radius, shadow, or fade. The full composition is preserved at its natural
 // aspect ratio; the CSS only scales it responsively and layers soft radial
 // washes BEHIND it (never over it).
+// SPEED-1 (2026-09-30): served as WebP with its alpha channel (about 65 to 115 KB each); the PNGs
+// beside them (0.8 to 1.3 MB each) are the approved originals the WebP files are made from.
 function Art({ base, alt, className = '', eager = false }) {
   return (
     <img
       className={`ps-art ${className}`}
-      src={`/public-site/illustrations/${base}.png`}
+      src={`/public-site/illustrations/${base}.webp`}
       alt={alt}
       loading={eager ? 'eager' : 'lazy'}
       decoding="async"
