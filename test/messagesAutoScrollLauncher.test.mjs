@@ -124,10 +124,10 @@ test('the launcher sits directly above the 60px Keith orb, canonical visuals', (
   // HOME-1 (Owner, 2026-09-24): withheld on At a Glance only; every other screen keeps it.
   // BUDGET-V2 item 10 (Owner, 2026-09-29, commit budget-v2-p4): Program Budget also hides Messages and
   // Feedback (keithOnly); the Keith orb stays. The At a Glance rule is unchanged.
-  assert.match(app, /<MainMessagesLauncher hidden=\{hideHomeChrome \|\| keithOnly\} \/>/)
+  assert.match(app, /<MainMessagesLauncher hidden=\{hideHomeChrome \|\| keithOnly\} keepLauncherVisible \/>/)
   assert.ok(app.indexOf('<MainMessagesLauncher') > app.indexOf('<Keith'))
   assert.match(launcher, /if \(hidden && !open\) return null/)
-  assert.match(read('src/components/Keith.jsx'), /bottom: '38px',\n {10}right: '96px',/)
+  assert.match(read('src/components/Keith.jsx'), /bottom: '38px',\n {10}right: messagesOpen \? '168px' : '96px',/)
 })
 
 test('portal launcher parity is untouched', () => {

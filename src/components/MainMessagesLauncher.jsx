@@ -11,8 +11,8 @@
 //   - while Keith is open the launcher RELOCATES beside the Keith orb at the
 //     bottom edge (below Keith's drawer), so no launcher, badge, or tooltip
 //     can ever cover Keith's composer - and it still switches tools on click;
-//   - while the Messages panel is open the launcher hides (the panel owns the
-//     slot; the visible Keith orb below it switches back to Keith).
+//   - while the Messages panel is open the active launcher stays at the
+//     far-right edge and Keith relocates beside it, mirroring Keith-open state.
 //
 // Session behavior: the panel UNMOUNTS on close but the dock remembers the
 // last selected conversation, so reopening restores that thread - the
@@ -110,14 +110,16 @@ export default function MainMessagesLauncher({
       : '/connect/messages')
   }
 
-  // Launcher geometry: the staff shell sits above Keith, while portal previews
-  // place Messages beside the Send Feedback launcher because portals do not
-  // mount Keith.
+  // Launcher geometry: idle staff stacks Messages above Keith. Opening either
+  // panel forms a bottom-edge pair with the active panel's launcher at far right.
+  // Portal previews have no Keith launcher, so Messages always hugs the right edge.
   const launcherPos = portalPreview
     ? {
         bottom: `calc(${portalPreviewMobile ? 82 : 24}px + env(safe-area-inset-bottom, 0px))`,
-        right: `max(${portalPreviewMobile ? 24 : 88}px, env(safe-area-inset-right, 0px))`,
+        right: 'max(24px, env(safe-area-inset-right, 0px))',
       }
+    : open
+    ? { bottom: 'calc(24px + env(safe-area-inset-bottom, 0px))', right: '28px' }
     : keithOpen
     ? { bottom: 'calc(24px + env(safe-area-inset-bottom, 0px))', right: '96px' }
     : { bottom: 'calc(96px + env(safe-area-inset-bottom, 0px))', right: '28px' }
@@ -176,7 +178,12 @@ export default function MainMessagesLauncher({
             width: 52, height: 52, borderRadius: '50%',
             background: 'var(--color-accent-primary,#1D2567)', color: 'var(--color-text-inverse,#fff)', border: 'none', cursor: 'pointer',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 4px 16px rgba(29,37,103,0.30)', zIndex: 1000,
+            boxShadow: open
+              ? '0 0 0 2px rgba(29,37,103,0.5), 0 0 20px rgba(29,37,103,0.35)'
+              : '0 4px 16px rgba(29,37,103,0.30)',
+            transform: open ? 'scale(0.95)' : 'scale(1)',
+            transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+            zIndex: 1000,
           }}
         >
           <MessageCircle size={24} aria-hidden="true" />

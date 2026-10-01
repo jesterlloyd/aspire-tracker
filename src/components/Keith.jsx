@@ -4,7 +4,7 @@ import Tooltip from './ui/Tooltip';
 import { useQueryClient } from '@tanstack/react-query';
 import { greetingFor, capabilityLineFor, chipsFor, hasSeenWelcome, markWelcomeSeen } from '../lib/keithWelcome';
 import { useAuth } from '../contexts/AuthContext';
-import { announceFloatingPanelOpen, onFloatingPanelOpen, announceFloatingPanelClosed } from '../lib/floatingPanels';
+import { announceFloatingPanelOpen, onFloatingPanelOpen, announceFloatingPanelClosed, onFloatingPanelClosed } from '../lib/floatingPanels';
 import { onAskKeith } from '../lib/keithBus';
 import { allowedActions, matchActions } from '../lib/home/launcherModel';
 import { renderMarkdownLite } from '../lib/keithMarkdown';
@@ -28,6 +28,7 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
   const [isTyping,    setIsTyping]    = useState(false);
   const [copiedId,    setCopiedId]    = useState(null);
   const [showTooltip, setShowTooltip] = useState(false);
+  const [messagesOpen, setMessagesOpen] = useState(false);
   const [toolExpanded, setToolExpanded] = useState({});
   // KEITH-MODEL-SELECT-1: user model selection (auto | haiku | sonnet). The
   // server enforces the allowlist; this control only offers what the role may
@@ -153,6 +154,10 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
   // chat/message state is untouched, exactly like the existing backdrop close.
   useEffect(() => onFloatingPanelOpen(source => {
     if (source !== 'keith') setIsOpen(false);
+    setMessagesOpen(source === 'main-messages');
+  }), []);
+  useEffect(() => onFloatingPanelClosed(source => {
+    if (source === 'main-messages') setMessagesOpen(false);
   }), []);
 
 
@@ -481,7 +486,7 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
         <div style={{
           position: 'fixed',
           bottom: '38px',
-          right: '96px',
+          right: messagesOpen ? '168px' : '96px',
           background: 'var(--aspire-tooltip-bg, rgba(9, 12, 28, 0.94))',
           color: 'var(--aspire-tooltip-fg, #ffffff)',
           fontFamily: 'var(--aspire-tooltip-font-family, Plus Jakarta Sans, sans-serif)',
@@ -516,7 +521,7 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
         style={{
           position: 'fixed',
           bottom: '24px',
-          right: '24px',
+          right: messagesOpen && !isOpen ? '96px' : '24px',
           width: '60px',
           height: '60px',
           borderRadius: '50%',

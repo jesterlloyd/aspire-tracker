@@ -88,11 +88,15 @@ test('opening either tool closes the other through the shared registry', () => {
   assert.match(keith, /announceFloatingPanelClosed\('keith'\)/)
 })
 
-test('the launcher relocates while Keith is open and hides while its own panel is open', () => {
+test('the desktop dock keeps the active launcher at far right and relocates the inactive launcher', () => {
   assert.match(dock, /const launcherPos = portalPreview/)
+  assert.match(dock, /: open\n {4}\? \{ bottom: 'calc\(24px \+ env\(safe-area-inset-bottom, 0px\)\)', right: '28px' \}\n {4}: keithOpen/)
   assert.match(dock, /: keithOpen\n {4}\? \{ bottom: 'calc\(24px \+ env\(safe-area-inset-bottom, 0px\)\)', right: '96px' \}\n {4}: \{ bottom: 'calc\(96px \+ env\(safe-area-inset-bottom, 0px\)\)', right: '28px' \}/)
   assert.match(dock, /bottom: `calc\(\$\{portalPreviewMobile \? 82 : 24\}px \+ env\(safe-area-inset-bottom, 0px\)\)`/)
+  assert.match(dock, /right: 'max\(24px, env\(safe-area-inset-right, 0px\)\)'/)
   assert.match(dock, /\{\(!open \|\| keepLauncherVisible\) && \(\n {8}<button/)
+  assert.match(dock, /boxShadow: open[\s\S]{0,180}0 0 0 2px rgba\(29,37,103,0\.5\)/)
+  assert.match(dock, /transform: open \? 'scale\(0\.95\)' : 'scale\(1\)'/)
   // The tooltip never renders in the relocated (Keith-open) state either.
   assert.match(dock, /\{hover && !open && !keithOpen && \(/)
 })
@@ -119,6 +123,9 @@ test('panel geometry mirrors the corner-drawer convention and clears Keith\'s or
   assert.match(dock, /height: 'min\(620px, calc\(100vh - 170px\)\)'/)
   assert.match(dock, /role="dialog"/)
   assert.match(dock, /aria-label="Messages"/)
+  assert.match(keith, /const \[messagesOpen, setMessagesOpen\] = useState\(false\)/)
+  assert.match(keith, /setMessagesOpen\(source === 'main-messages'\)/)
+  assert.match(keith, /right: messagesOpen && !isOpen \? '96px' : '24px'/)
 })
 
 test('the Connect workspace keeps the shared implementation and the portals stay intact', () => {

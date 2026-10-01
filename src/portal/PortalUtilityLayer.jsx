@@ -163,7 +163,7 @@ function PortalUtilityLayerContent({
   const messagesLauncherVisible = messagesEnabled
     && !utilitiesHidden
     && !onMessagesRoute
-    && (mobile ? visiblePanel !== 'feedback' : visiblePanel !== 'messages')
+    && (!mobile || visiblePanel !== 'feedback')
 
   return (
     <>

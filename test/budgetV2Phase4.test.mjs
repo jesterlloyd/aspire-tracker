@@ -144,7 +144,7 @@ test('the Summary, the tabs, the copy and the floating buttons follow the mockup
   assert.match(subs, /Confirm before approving:/)
   const app = read('src/staff/StaffApp.jsx')
   assert.match(app, /const keithOnly = location\.pathname\.startsWith\('\/settings\/budget'\) && !tourRunning/)
-  assert.match(app, /<MainMessagesLauncher hidden=\{hideHomeChrome \|\| keithOnly\} \/>/)
+  assert.match(app, /<MainMessagesLauncher hidden=\{hideHomeChrome \|\| keithOnly\} keepLauncherVisible \/>/)
   assert.match(app, /hidden=\{hideHomeChrome \|\| keithOnly\}\n\s+\/>/, 'Feedback steps aside too')
   assert.match(app, /hideLauncher=\{hideHomeChrome\}/, 'the Keith orb stays on Program Budget')
 })

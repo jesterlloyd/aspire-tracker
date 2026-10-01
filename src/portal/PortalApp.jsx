@@ -185,7 +185,7 @@ function StaffPreviewUtilities({ portalName, section }) {
           portalPreview
           portalPreviewMobile={mobile}
           hidden={mobile && activeUtility === 'feedback'}
-          keepLauncherVisible={mobile}
+          keepLauncherVisible
           onOpenChange={handleMessagesOpenChange}
         />
       )}

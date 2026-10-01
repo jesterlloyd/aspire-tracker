@@ -1766,7 +1766,7 @@ function MainApp({ onLogout }) {
           Feedback launcher are withheld on At a Glance only; every other screen
           keeps all three. The header's Connect icon carries the needs-reply badge
           on every screen, unchanged. */}
-      {!isFullMessagesPath(location.pathname) && <MainMessagesLauncher hidden={hideHomeChrome || keithOnly} />}
+      {!isFullMessagesPath(location.pathname) && <MainMessagesLauncher hidden={hideHomeChrome || keithOnly} keepLauncherVisible />}
       <FeedbackPanel
         activeTab={activeTab}
         cohortName={activeCohort?.name}
