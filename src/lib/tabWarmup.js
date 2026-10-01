@@ -36,3 +36,18 @@ export function withAllWarmTabs(visited) {
   for (const t of WARM_TABS) next.add(t)
   return next.size === (visited?.size ?? -1) ? visited : next
 }
+
+// ── The bell badge's queue (BADGE-DEFER-1, 2026-10-01) ─────────────────────────────────────────
+// The header bell counts the whole Action Center queue (signatures, forms, the budget queue,
+// messages, Keith's check-ins and suggestions, the release queue), which is a dozen or more
+// endpoint calls, and it loaded them on every screen at boot, beside the screen's own data. It now
+// waits its turn: at once on At a Glance (the page reads the same queries for its own cards) and
+// when the drawer is opened; otherwise a moment after the boot data is in. Once on, it stays on.
+
+/** How long the opened screen has the network before the badge's queue loads. */
+export const BADGE_QUEUE_DELAY_MS = 2000
+
+/** May the badge's queue load now? `released` is the timer having fired (or a release already made). */
+export function badgeQueueReady({ activeTab, drawerOpen = false, released = false } = {}) {
+  return released || drawerOpen === true || activeTab === 'overview'
+}

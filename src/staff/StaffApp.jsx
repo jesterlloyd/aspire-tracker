@@ -77,7 +77,7 @@ import { setCohortPassword } from '../lib/cohortPassword'
 import { callAvailability } from '../lib/availabilityApi'
 import { useNgrpCycles } from '../lib/ngrp/useNgrpData'
 import { TAB_TO_PATH, PORTAL_STAFF_ROLES } from '../lib/staffRoutes'
-import { nextWarmTab, warmDelay, withAllWarmTabs } from '../lib/tabWarmup'
+import { nextWarmTab, warmDelay, withAllWarmTabs, badgeQueueReady, BADGE_QUEUE_DELAY_MS } from '../lib/tabWarmup'
 
 // PORTAL-SPLIT Phase 2 (2026-09-15): the heavy staff areas are their own chunks.
 //
@@ -296,6 +296,18 @@ function MainApp({ onLogout }) {
       if (idleId != null && typeof window.cancelIdleCallback === 'function') window.cancelIdleCallback(idleId)
     }
   }, [bootReady, tourRunning, visitedTabs])
+
+  // BADGE-DEFER-1: the bell badge's queue waits until the opened screen has loaded (rules in
+  // src/lib/tabWarmup.js). Adjusted during render when the page or the drawer needs it at once,
+  // so nothing waits a frame; otherwise a timer releases it. Once released it stays released.
+  const [badgeQueueReleased, setBadgeQueueReleased] = useState(false)
+  const badgeQueueOn = badgeQueueReady({ activeTab, drawerOpen: showActionCenter, released: badgeQueueReleased })
+  if (badgeQueueOn && !badgeQueueReleased) setBadgeQueueReleased(true)
+  useEffect(() => {
+    if (!bootReady || badgeQueueReleased) return undefined
+    const timer = setTimeout(() => setBadgeQueueReleased(true), BADGE_QUEUE_DELAY_MS)
+    return () => clearTimeout(timer)
+  }, [bootReady, badgeQueueReleased])
 
   // Track the last non-Connect path for the workspace back affordance.
   // Stored in a ref so it never triggers re-renders.
@@ -1437,7 +1449,7 @@ function MainApp({ onLogout }) {
   // The source queries reuse At a Glance's React Query keys, so resolving either
   // surface refreshes the same cached module data without coupling the two UIs.
   const actionCenterQueue = useActionCenterQueue({
-    enabled: canEdit,
+    enabled: canEdit && badgeQueueOn,
     includeOtherCohorts: showActionCenter,
     cohortId: activeCohortId,
     cohorts,

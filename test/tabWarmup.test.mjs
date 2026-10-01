@@ -63,3 +63,25 @@ test('a student opened from another screen still lands when Student Profiles was
   assert.match(tab, /if \(focusStudentId\) \{ setSelectedStudentId\(focusStudentId\); onClearFocusStudent\?\.\(\) \}\s+\}, \[focusStudentId\]\)/)
   assert.match(app, /onOpenStudent=\{\(id\) => \{ switchTab\('profiles'\); setFocusStudentId\(id\) \}\}/)
 })
+
+test('BADGE-DEFER-1: the bell badge\'s queue waits for the opened screen, except where it is needed at once', async () => {
+  const { badgeQueueReady, BADGE_QUEUE_DELAY_MS } = await import('../src/lib/tabWarmup.js')
+  assert.equal(badgeQueueReady({ activeTab: 'rotation' }), false, 'another screen: the queue waits')
+  assert.equal(badgeQueueReady({ activeTab: 'settings' }), false)
+  assert.equal(badgeQueueReady({ activeTab: 'overview' }), true, 'At a Glance reads the same queries for its own cards')
+  assert.equal(badgeQueueReady({ activeTab: 'rotation', drawerOpen: true }), true, 'opening the Action Center never waits')
+  assert.equal(badgeQueueReady({ activeTab: 'rotation', released: true }), true, 'once released it stays released')
+  assert.equal(badgeQueueReady(), false)
+  assert.ok(BADGE_QUEUE_DELAY_MS >= 1500 && BADGE_QUEUE_DELAY_MS <= 4000, 'long enough for the screen, short enough that the badge is not missed')
+  // The staff app: the queue is gated, the release is one-way, and the timer waits for boot data.
+  assert.match(app, /enabled: canEdit && badgeQueueOn,/)
+  assert.match(app, /const badgeQueueOn = badgeQueueReady\(\{ activeTab, drawerOpen: showActionCenter, released: badgeQueueReleased \}\)/)
+  assert.match(app, /if \(badgeQueueOn && !badgeQueueReleased\) setBadgeQueueReleased\(true\)/)
+  assert.match(app, /if \(!bootReady \|\| badgeQueueReleased\) return undefined\s+const timer = setTimeout\(\(\) => setBadgeQueueReleased\(true\), BADGE_QUEUE_DELAY_MS\)/)
+  assert.doesNotMatch(app, /setBadgeQueueReleased\(false\)/, 'nothing switches the queue back off')
+  const at = (s) => app.indexOf(s)
+  for (const decl of ['const [showActionCenter,', 'const bootReady =']) assert.ok(at(decl) > 0 && at(decl) < at('const badgeQueueOn ='), decl)
+  assert.ok(at('const badgeQueueOn =') < at('const actionCenterQueue = useActionCenterQueue('))
+  // The unread notifications count is a different, single read and is not deferred.
+  assert.match(app, /const staffNotifications = useStaffNotifications\(\{ enabled: canEdit \}\)/)
+})
