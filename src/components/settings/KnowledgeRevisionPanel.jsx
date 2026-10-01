@@ -14,6 +14,7 @@ import { supabase } from '../../lib/supabase'
 import Button from '../ui/Button'
 import { TermChips, MarkdownBodyEditor, ReviewFields } from './KnowledgeVaultFields'
 import { CATEGORY_LABELS, CATEGORY_KEYS, CAPS, fmtDate } from './knowledgeCategories'
+import KeithEvidence from './KeithEvidence'
 
 const MAX_ALIASES = 12
 const MAX_TAGS = 16
@@ -325,10 +326,13 @@ export default function KnowledgeRevisionPanel({ entry, onApplied }) {
               Draft revision of {entry.title}
             </div>
             <div style={{ fontSize: 12, color: 'var(--color-text-secondary, #6b7280)', marginBottom: 12 }}>
-              {revision.author_id === myId ? 'Submitted by you' : 'Submitted by another Owner/Admin'}
+              {revision.proposed_by === 'keith' ? 'Suggested by Keith’s Knowledge Center check' : revision.author_id === myId ? 'Submitted by you' : 'Submitted by another Owner/Admin'}
               {revision.submitted_at ? ` · ${fmtDate(revision.submitted_at)}` : ''}
               {revision.updated_at && revision.updated_at !== revision.submitted_at ? ` · updated ${fmtDate(revision.updated_at)}` : ''}
             </div>
+
+            {/* KEITH-KNOWLEDGE-SELFCHECK-1: a revision Keith proposed says why, with its evidence. */}
+            {revision.proposed_by === 'keith' && <KeithEvidence evidence={revision.evidence} kind="edit" />}
 
             <div style={{ fontSize: 12, color: 'var(--color-text-secondary, #6b7280)', marginBottom: 8 }}>
               This is the proposed content. The Active entry above is unchanged until applied.

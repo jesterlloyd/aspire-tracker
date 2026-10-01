@@ -26,6 +26,7 @@ import { TermChips, MarkdownBodyEditor, ReviewFields, EntryLinksPanel } from './
 import { renderMarkdownLite } from '../../lib/keithMarkdown'
 import { CATEGORY_LABELS, CATEGORY_KEYS, CAPS, isValidDateStr, fmtDate } from './knowledgeCategories'
 import { buildResolver } from '../../lib/wikilinkResolver'
+import KeithEvidence from './KeithEvidence'
 
 const MAX_ALIASES = 12
 const MAX_TAGS = 16
@@ -440,6 +441,9 @@ export default function KnowledgeEntryDrawer({ open, mode, entry, isOwner = fals
               )}
             </div>
           ) : null}
+
+          {/* KEITH-KNOWLEDGE-SELFCHECK-1: a Draft Keith wrote for a missing topic says why. */}
+          {entry?.proposed_by === 'keith' && entry?.state === 'draft' && <KeithEvidence evidence={entry.proposal_evidence} kind="draft" />}
 
           <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.4, color: 'var(--color-text-secondary, #9ca3af)', marginBottom: 6 }}>Body</div>
           {/* A page renders as what it DECLARES itself to be. A legacy plain

@@ -33,6 +33,7 @@ import SettingsPageHeader from './SettingsPageHeader'
 import KnowledgeEntryDrawer from './KnowledgeEntryDrawer'
 import KnowledgeGraphView from './KnowledgeGraphView'
 import KnowledgeEnrichmentPanel from './KnowledgeEnrichmentPanel'
+import KnowledgeSelfCheckBar from './KnowledgeSelfCheckBar'
 import SegmentedTabs from '../ui/SegmentedTabs'
 import { KNOWLEDGE_STATES, CATEGORY_LABELS, CATEGORY_KEYS, fmtDate } from './knowledgeCategories'
 import SurfaceCard from '../ui/SurfaceCard'
@@ -52,9 +53,11 @@ const STATE_CARDS = [
   { key: 'all', accent: 'nightfall' },
   ...STATES.map(s => ({ key: s, accent: STATE_CARD_ACCENTS[s] })),
   { key: 'review', accent: 'dawn' },
+  // KEITH-KNOWLEDGE-SELFCHECK-1: Keith's suggested edits and the Drafts he wrote, waiting for review.
+  { key: 'keith', accent: 'lavender' },
 ]
-const CARD_LABELS = { review: 'Needs review' }
-const CARD_SUBS = { review: 'Past review or expiry' }
+const CARD_LABELS = { review: 'Needs review', keith: 'Keith’s suggestions' }
+const CARD_SUBS = { review: 'Past review or expiry', keith: 'Waiting for your review' }
 const cardLabel = (key) => CARD_LABELS[key] || key.charAt(0).toUpperCase() + key.slice(1)
 
 // Authenticated POST helper for the knowledge-admin endpoint (the backend authorizes
@@ -70,6 +73,9 @@ async function postAdmin(payload) {
   return res
 }
 
+// The small text badges beside a title (MD, Keith): one style, so they read as one family.
+const TITLE_BADGE = { fontSize: 9.5, fontWeight: 700, letterSpacing: 0.3, padding: '1px 5px', borderRadius: 4, background: 'var(--color-bg-elevated, #eef2fb)', color: 'var(--color-accent-primary, #1D2567)' }
+
 // Entries table columns (DataTable) - identical cells to the KT-3a-1 table.
 const ENTRY_COLUMNS = [
   {
@@ -82,7 +88,11 @@ const ENTRY_COLUMNS = [
           {/* Markdown is marked by a small text badge, not by an icon alone,
               so the format is legible without relying on iconography. */}
           {e.body_format === 'markdown' && (
-            <span title="Markdown" style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: 0.3, padding: '1px 5px', borderRadius: 4, background: 'var(--color-bg-elevated, #eef2fb)', color: 'var(--color-accent-primary, #1D2567)' }}>MD</span>
+            <span title="Markdown" style={TITLE_BADGE}>MD</span>
+          )}
+          {/* KEITH-KNOWLEDGE-SELFCHECK-1: one of Keith's suggestions waits on this entry. */}
+          {e.keith_suggestion && (
+            <span title={e.state === 'draft' ? 'Keith wrote this Draft' : 'Keith suggested an edit'} style={TITLE_BADGE}>✦ KEITH</span>
           )}
         </div>
         {(e.tags?.length > 0) && (
@@ -221,10 +231,11 @@ export default function KnowledgeCenterPanel() {
   }, [loadEntries])
 
   const counts = useMemo(() => {
-    const c = { draft: 0, active: 0, deprecated: 0, archived: 0, review: 0 }
+    const c = { draft: 0, active: 0, deprecated: 0, archived: 0, review: 0, keith: 0 }
     for (const e of entries) {
       if (c[e.state] !== undefined) c[e.state]++
       if (e.expired || e.due_for_review) c.review++
+      if (e.keith_suggestion) c.keith++
     }
     return c
   }, [entries])
@@ -246,7 +257,9 @@ export default function KnowledgeCenterPanel() {
       // "Needs review" is a cross-cutting filter, not a state, so it sits
       // beside the state filter rather than inside its vocabulary.
       const stateOk = stateFilter === 'all'
-        || (stateFilter === 'review' ? (e.expired || e.due_for_review) : e.state === stateFilter)
+        || (stateFilter === 'review' ? (e.expired || e.due_for_review)
+          : stateFilter === 'keith' ? e.keith_suggestion === true
+            : e.state === stateFilter)
       if (!stateOk) return false
       if (categoryFilter !== 'all' && e.category !== categoryFilter) return false
       if (activeTagFilter !== 'all' && !(e.tags || []).includes(activeTagFilter)) return false
@@ -478,6 +491,8 @@ export default function KnowledgeCenterPanel() {
           {portMsg.text}
         </SurfaceCard>
       )}
+
+      <KnowledgeSelfCheckBar onChanged={loadEntries} />
 
       {enrichOpen && (
         <KnowledgeEnrichmentPanel

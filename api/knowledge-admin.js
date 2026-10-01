@@ -23,6 +23,7 @@ import { resolveBodyLinks } from '../lib/server/keith/knowledgeLinks.js'
 import { serializeEntryFile, parseEntryFile, entryFilename } from '../lib/server/keith/knowledgeFrontmatter.js'
 import { buildKnowledgeGraph } from '../lib/server/keith/knowledgeGraph.js'
 import { isActiveProfile, INACTIVE_STATUS, INACTIVE_REASON, INACTIVE_MESSAGE } from './lib/activeAccount.js'
+import { slugify, nextAvailableSlug } from '../lib/server/keith/knowledgeSlugs.js'
 
 // ── Constants (must match KT-1 CHECK constraints) ────────────────────────────
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -107,7 +108,7 @@ const ENTRY_VERSION_LIST_COLS = 'version_number, change_note, editor_id, created
 
 // List/get projections. Body is omitted from list payloads (lean); full row on get.
 // KNOWLEDGE-VAULT-1 adds the vault metadata the table and review queue need.
-const ENTRY_LIST_COLS = 'id, title, slug, category, state, precedence_rank, current_version, effective_date, expires_at, created_by, updated_by, created_at, updated_at, body_format, aliases, tags, review_date, confidence, superseded_by'
+const ENTRY_LIST_COLS = 'id, title, slug, category, state, precedence_rank, current_version, effective_date, expires_at, created_by, updated_by, created_at, updated_at, body_format, aliases, tags, review_date, confidence, superseded_by, proposed_by'
 
 // The catalog wikilink resolution runs against: every entry, any state, with
 // just the fields the resolver needs.
@@ -259,34 +260,8 @@ async function emitAudit(db, auth, { actionType, entityId, description, metadata
   }
 }
 
-// slug: lowercase, hyphenated, [a-z0-9-] only; collapse + trim hyphens.
-function slugify(title) {
-  const base = String(title || '')
-    .toLowerCase()
-    .normalize('NFKD').replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 180)
-  return base || 'entry'
-}
-
-// Race-safe-enough slug dedup for v1: read existing slugs sharing the base,
-// pick the lowest unused numeric suffix. A concurrent insert may still collide
-// on the UNIQUE(slug) constraint; the caller maps that 23505 to 409.
-async function nextAvailableSlug(db, base) {
-  const { data, error } = await db
-    .from('knowledge_entries')
-    .select('slug')
-    .or(`slug.eq.${base},slug.like.${base}-%`)
-  if (error) return { error }
-  const taken = new Set((data || []).map(r => r.slug))
-  if (!taken.has(base)) return { slug: base }
-  for (let i = 2; i < 10000; i++) {
-    const cand = `${base}-${i}`
-    if (!taken.has(cand)) return { slug: cand }
-  }
-  return { error: { code: 'slug_exhausted' } }
-}
+// slugify / nextAvailableSlug moved to lib/server/keith/knowledgeSlugs.js (KEITH-KNOWLEDGE-SELFCHECK-1),
+// shared with Keith's self-check Drafts; behaviour unchanged.
 
 // Validate the shared knowledge content fields.
 // `mode`: 'create'   - title+category required; body/source/precedence optional
@@ -512,6 +487,10 @@ export default async function handler(req, res) {
         if (body.tag !== undefined) q = q.contains('tags', [body.tag])
         const { data, error } = await q
         if (error) return res.status(500).json({ error: 'internal_error' })
+        // KEITH-KNOWLEDGE-SELFCHECK-1: which entries have one of Keith's suggested edits waiting, so the
+        // list can mark them and the "Keith's suggestions" card can count them with his Drafts.
+        const { data: keithRevs } = await db.from('knowledge_revisions').select('entry_id').eq('proposed_by', 'keith')
+        const keithRevIds = new Set((keithRevs || []).map(r => r.entry_id))
 
         // KNOWLEDGE-VAULT-1: the review signal. `expires_at` is reported, NOT
         // enforced - an expired entry still answers in Keith exactly as it did
@@ -522,6 +501,7 @@ export default async function handler(req, res) {
           ...e,
           expired: !!(e.expires_at && String(e.expires_at) < today),
           due_for_review: !!(e.review_date && String(e.review_date) <= today),
+          keith_suggestion: keithRevIds.has(e.id) || (e.proposed_by === 'keith' && e.state === 'draft'),
         }))
         return res.status(200).json({
           entries,
@@ -884,7 +864,7 @@ export default async function handler(req, res) {
       // ── KNOWLEDGE-ENRICH-1: batch review read ────────────────────────────
       case 'list_pending_revisions': {
         const { data: revs, error: rErr } = await db.from('knowledge_revisions')
-          .select('id, entry_id, title, category, body, body_format, aliases, tags, change_note, author_id, submitted_at')
+          .select('id, entry_id, title, category, body, body_format, aliases, tags, change_note, author_id, submitted_at, proposed_by, evidence')
           .order('submitted_at', { ascending: true })
         if (rErr) return res.status(500).json({ error: 'internal_error' })
         const rows = revs || []
