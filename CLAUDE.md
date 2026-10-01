@@ -659,7 +659,8 @@ from the client, and never re-implement the shift-log rules in a second place. T
 Headshots averaged 1 MB and every avatar downloaded its original. Each headshot now has a small
 copy beside it, `<cohort>/<student>/headshot-thumb.jpg` (256px on its shorter side, about 20 KB),
 made by `lib/server/studentPhotoThumbs.js` and the ten-minute sweep `api/cron/photo-thumbs.js`
-(which is also the one-time pass over existing photos; it never writes an original).
+(which is also the one-time pass over existing photos; it never writes an original). Real and demo
+students are swept separately, each through its own scoped client (DEMO-THUMBS-1).
 
 - **The original is the record. The ID badge, Open and Download always get it.** They fetch through
   `fetchStudentFileUrl` / `fetchPortalHeadshotUrl`, which never ask for a small copy, and

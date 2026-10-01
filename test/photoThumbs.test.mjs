@@ -196,7 +196,8 @@ test('the scheduled job: every ten minutes, real students only, a deep check onc
 
 test('PHOTO-THUMBS-LOG-1: a run that did something says so in the server log, in counts only', async () => {
   const src = read('api/cron/photo-thumbs.js')
-  assert.match(src, /if \(out\.built \|\| out\.failed \|\| out\.dropped\) console\.log\('\[photo-thumbs\]', JSON\.stringify\(out\)\)/)
+  // DEMO-THUMBS-1 changed the condition: either sweep having done something, or the demo sweep failing.
+  assert.match(src, /if \(did\(real\) \|\| did\(demo\) \|\| demo\?\.error\) console\.log\('\[photo-thumbs\]', JSON\.stringify\(out\)\)/)
   const { createPhotoThumbsCron } = await import('../api/cron/photo-thumbs.js')
   const db = { storage: {}, from: () => ({ insert: () => ({ select: () => ({ single: async () => ({ data: { id: 'run' }, error: null }) }) }), update: () => ({ eq: async () => ({ error: null }) }) }) }
   const res = () => { const r = { status() { return r }, json() { return r } }; return r }
@@ -206,4 +207,37 @@ test('PHOTO-THUMBS-LOG-1: a run that did something says so in the server log, in
     await createPhotoThumbsCron({ makeDb: () => db, authorized: () => true, sweep: async () => ({ photos: 57, missing: 3, built: 2, failed: 1, dropped: 0 }) })({}, res())
   } finally { console.log = log }
   assert.deepEqual(lines.filter(l => l.startsWith('[photo-thumbs]')), ['[photo-thumbs] {"photos":57,"missing":3,"built":2,"failed":1,"dropped":0}'], 'a quiet run writes nothing')
+})
+
+test('DEMO-THUMBS-1: demo students get small copies too, swept apart from real ones', async () => {
+  const src = read('api/cron/photo-thumbs.js')
+  assert.match(src, /populationDb\(createClient\(/, 'the real sweep still reads real rows only')
+  assert.match(src, /scopedServiceDb\(serviceClient\(\), true\)/, 'the demo sweep has its own client, scoped to demo rows')
+  const { scopedServiceDb } = await import('../lib/server/demoScope.js')
+  // The scope is real: a students read through each client carries its own is_demo filter.
+  const seen = []
+  const fake = () => ({ storage: {}, from: (t) => ({ select: () => ({ eq: (c, v) => { seen.push([t, c, v]); return { not: () => ({ limit: async () => ({ data: [], error: null }) }) } } }) }) })
+  await scopedServiceDb(fake(), true).from('students').select('id, headshot_url').not('headshot_url', 'is', null).limit(1)
+  await scopedServiceDb(fake(), false).from('students').select('id, headshot_url').not('headshot_url', 'is', null).limit(1)
+  assert.deepEqual(seen, [['students', 'is_demo', true], ['students', 'is_demo', false]])
+
+  const { createPhotoThumbsCron } = await import('../api/cron/photo-thumbs.js')
+  const mk = (tag) => ({ tag, storage: { tag }, from: () => ({ insert: () => ({ select: () => ({ single: async () => ({ data: { id: 'run' }, error: null }) }) }), update: () => ({ eq: async () => ({ error: null }) }) }) })
+  const res = () => { const r = { code: 0, body: null, status(c) { r.code = c; return r }, json(b) { r.body = b; return r } }; return r }
+  const calls = []
+  const sweep = async (db, storage) => { calls.push([db.tag, storage.tag]); return db.tag === 'real' ? { photos: 57, missing: 0, built: 0, failed: 0, dropped: 0 } : { photos: 21, missing: 21, built: 20, failed: 0, dropped: 0 } }
+  const lines = []; const log = console.log; console.log = (...a) => lines.push(a.join(' '))
+  const ok = res()
+  try { await createPhotoThumbsCron({ makeDb: () => mk('real'), makeDemoDb: () => mk('demo'), sweep, authorized: () => true })({}, ok) } finally { console.log = log }
+  assert.deepEqual(calls, [['real', 'real'], ['demo', 'demo']], 'two sweeps, each with its own client and storage, real first')
+  assert.deepEqual(ok.body, { photos: 57, missing: 0, built: 0, failed: 0, dropped: 0, demo: { photos: 21, missing: 21, built: 20, failed: 0, dropped: 0 } })
+  assert.equal(lines.filter(l => l.startsWith('[photo-thumbs]')).length, 1, 'a demo build is logged, in counts only')
+  // A demo sweep that throws never fails the real run.
+  const bad = res()
+  const lines2 = []; console.log = (...a) => lines2.push(a.join(' '))
+  try { await createPhotoThumbsCron({ makeDb: () => mk('real'), makeDemoDb: () => mk('demo'), authorized: () => true, sweep: async (db) => { if (db.tag === 'demo') throw new Error('storage_unavailable'); return { photos: 57, missing: 0, built: 0, failed: 0, dropped: 0 } } })({}, bad) } finally { console.log = log }
+  assert.equal(bad.code, 200)
+  assert.deepEqual(bad.body.demo, { error: 'storage_unavailable' })
+  // Access is untouched: a demo photo's copy is signed by the same endpoints under the same rules.
+  assert.doesNotMatch(read('lib/server/studentPhotoThumbs.js'), /is_demo/)
 })
