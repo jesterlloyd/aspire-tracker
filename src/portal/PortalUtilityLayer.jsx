@@ -47,6 +47,18 @@ function useNarrowViewport() {
   return narrow
 }
 
+function useMobileViewport() {
+  const [mobile, setMobile] = useState(false)
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 760px)')
+    const update = () => setMobile(mq.matches)
+    update()
+    mq.addEventListener?.('change', update)
+    return () => mq.removeEventListener?.('change', update)
+  }, [])
+  return mobile
+}
+
 function useUtilitySuppression(panelOpen) {
   const [suppressed, setSuppressed] = useState(false)
   useEffect(() => {
@@ -102,6 +114,7 @@ function PortalUtilityLayerContent({
   const feedbackRef = useRef(null)
   const messagesRef = useRef(null)
   const narrow = useNarrowViewport()
+  const mobile = useMobileViewport()
   const suppressed = useUtilitySuppression(Boolean(activePanel))
   const onMessagesRoute = isFullMessagesPath(pathname)
   const noticeKey = profileId ? storageKey(profileId, portalRole) : null
@@ -146,6 +159,11 @@ function PortalUtilityLayerContent({
 
   const utilitiesHidden = suppressed
   const visiblePanel = suppressed || onMessagesRoute ? null : activePanel
+  const feedbackLauncherHidden = utilitiesHidden || (mobile && visiblePanel === 'messages')
+  const messagesLauncherVisible = messagesEnabled
+    && !utilitiesHidden
+    && !onMessagesRoute
+    && (mobile ? visiblePanel !== 'feedback' : visiblePanel !== 'messages')
 
   return (
     <>
@@ -160,7 +178,7 @@ function PortalUtilityLayerContent({
         <PortalFeedbackPanel
           open={visiblePanel === 'feedback'}
           onOpenChange={openFeedback}
-          hidden={utilitiesHidden}
+          hidden={feedbackLauncherHidden}
           launcherRef={feedbackRef}
           pathname={pathname}
           section={section}
@@ -168,7 +186,7 @@ function PortalUtilityLayerContent({
         />
       )}
 
-      {messagesEnabled && !utilitiesHidden && !onMessagesRoute && (
+      {messagesLauncherVisible && (
         <div className={`ptl-team-message-launcher-wrap${visiblePanel === 'messages' ? ' is-open' : ''}`}>
           <div className="ptl-team-message-tooltip">
             Messages

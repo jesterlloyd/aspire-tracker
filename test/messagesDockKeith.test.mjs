@@ -27,11 +27,11 @@ const panels = read('src/lib/floatingPanels.js')
 
 test('the launcher opens docked Messages; Connect is a restrained secondary action', () => {
   assert.match(dock, /const openPanel = \(\) => \{\n {4}announceFloatingPanelOpen\('main-messages'\)/)
-  assert.match(dock, /onClick=\{openPanel\}/)
+  assert.match(dock, /onClick=\{open \? \(\) => closePanel\(true\) : openPanel\}/)
   // Navigation exists ONLY behind the explicit header action.
   assert.match(dock, /const openInConnect = \(\) => \{[\s\S]{0,240}navigate\(lastSelectedId[\s\S]{0,180}`\/connect\/messages\?conversation=/)
   assert.match(dock, /Open in ASPIRE Connect/)
-  const clickIdx = dock.indexOf('onClick={openPanel}')
+  const clickIdx = dock.indexOf('onClick={open ? () => closePanel(true) : openPanel}')
   assert.ok(clickIdx > -1, 'the launcher click opens the panel')
   assert.doesNotMatch(dock.slice(0, clickIdx), /onClick=\{openInConnect\}/, 'navigation is never the launcher behavior')
 })
@@ -91,8 +91,8 @@ test('opening either tool closes the other through the shared registry', () => {
 test('the launcher relocates while Keith is open and hides while its own panel is open', () => {
   assert.match(dock, /const launcherPos = portalPreview/)
   assert.match(dock, /: keithOpen\n {4}\? \{ bottom: 'calc\(24px \+ env\(safe-area-inset-bottom, 0px\)\)', right: '96px' \}\n {4}: \{ bottom: 'calc\(96px \+ env\(safe-area-inset-bottom, 0px\)\)', right: '28px' \}/)
-  assert.match(dock, /bottom: 'calc\(82px \+ env\(safe-area-inset-bottom, 0px\)\)'/)
-  assert.match(dock, /\{!open && \(\n {8}<button/)
+  assert.match(dock, /bottom: `calc\(\$\{portalPreviewMobile \? 82 : 24\}px \+ env\(safe-area-inset-bottom, 0px\)\)`/)
+  assert.match(dock, /\{\(!open \|\| keepLauncherVisible\) && \(\n {8}<button/)
   // The tooltip never renders in the relocated (Keith-open) state either.
   assert.match(dock, /\{hover && !open && !keithOpen && \(/)
 })
@@ -115,7 +115,7 @@ test('panel geometry mirrors the corner-drawer convention and clears Keith\'s or
   assert.match(dock, /right: 24/)
   assert.match(dock, /width: 'min\(420px, calc\(100vw - 32px\)\)'/)
   assert.match(dock, /height: 'min\(720px, calc\(100vh - 160px\)\)'/)
-  assert.match(dock, /bottom: 'calc\(146px \+ env\(safe-area-inset-bottom, 0px\)\)'/)
+  assert.match(dock, /bottom: `calc\(\$\{portalPreviewMobile \? 146 : 88\}px \+ env\(safe-area-inset-bottom, 0px\)\)`/)
   assert.match(dock, /height: 'min\(620px, calc\(100vh - 170px\)\)'/)
   assert.match(dock, /role="dialog"/)
   assert.match(dock, /aria-label="Messages"/)

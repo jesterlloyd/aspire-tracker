@@ -51,9 +51,9 @@ test('staff and portal launchers use the same route rule without hiding Feedback
   // BUDGET-V2 item 10 (Owner, 2026-09-29, commit budget-v2-p4): Program Budget also hides Messages and
   // Feedback (keithOnly); the Keith orb stays. The At a Glance rule is unchanged.
   assert.match(staffApp, /!isFullMessagesPath\(location\.pathname\) && <MainMessagesLauncher hidden=\{hideHomeChrome \|\| keithOnly\}/)
-  assert.match(portalApp, /!isFullMessagesPath\(location\.pathname\) && <MainMessagesLauncher portalPreview/)
+  assert.match(portalApp, /!isFullMessagesPath\(location\.pathname\) && \([\s\S]{0,120}<MainMessagesLauncher[\s\S]{0,80}portalPreview/)
   assert.match(utilityLayer, /const onMessagesRoute = isFullMessagesPath\(pathname\)/)
-  assert.match(utilityLayer, /messagesEnabled && !utilitiesHidden && !onMessagesRoute/)
+  assert.match(utilityLayer, /const messagesLauncherVisible = messagesEnabled/)
   assert.match(utilityLayer, /<PortalUtilityLayerContent key=\{props\.pathname\}/)
   assert.match(utilityLayer, /feedbackEnabled && \(/)
   assert.match(portalApp, /const onMessagesRoute = isFullMessagesPath\(location\.pathname\)/)
