@@ -1,3 +1,7 @@
+-- APPLIED. DO NOT RE-RUN once 20261021000000_evaluation_reminder_invitation_cycles.sql
+-- is applied: its CREATE OR REPLACE statements replace the guarded activate function with
+-- this unguarded one and recreate a spare 3-argument prepare function. That happened on
+-- 2026-09-30; db/audit/evaluation_reminder_rerun_repair_20260930.sql is the repair.
 -- Apply before deploying the staged-token reminder sender.
 -- Keep uq_eval_tokens_one_active. Pending links remain revoked until acceptance.
 BEGIN;
