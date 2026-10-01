@@ -140,6 +140,9 @@ function getRowAction(s, studentRubs, sessions, communications = [], canEdit = f
   return null  // row click already opens the rubric; no distinct action needed
 }
 
+// LAUNCHER-2: the worklist filters a link may open with (?filter=). The keys are the KPI cards'.
+const ARRIVAL_FILTERS = new Set(['scheduled', 'completed', 'not_scheduled', 'flagged', 'recommended'])
+
 export default function InterviewRubricTab({
   students, rubrics, cohortId, cohort,
   sessions = [], slots = [], communications = [],
@@ -159,6 +162,38 @@ export default function InterviewRubricTab({
   const [sortDir,           setSortDir]           = useState('asc')
   const [activeFilter,      setActiveFilter]      = useState(null)
   const [worklistSearch,    setWorklistSearch]    = useState('')
+
+  // LAUNCHER-2 (Owner, 2026-09-30): the home page's Schedule an interview arrives as
+  // ?filter=not_scheduled and lands on the worklist with that card on, because a student
+  // is scheduled by sending them a scheduling link (each row's own action), not by booking
+  // a slot here. This tab stays mounted while hidden, so the param is read on every arrival
+  // (location.key), not once at mount. State only: the URL is never written from here.
+  const kpisRef = useRef(null)
+  const arrivedFilterKey = useRef(null)
+  useEffect(() => {
+    if (location.pathname !== '/interviews') return
+    const f = new URLSearchParams(location.search).get('filter')
+    if (!ARRIVAL_FILTERS.has(f) || arrivedFilterKey.current === location.key) return
+    arrivedFilterKey.current = location.key
+    setActiveFilter(f)
+    setSelectedStudentId(null)
+    // After StaffApp's own scroll-to-top for a new page (useScrollTopOnRoute), which runs
+    // after this child effect. The calendar above fills in after the first frame and pushed
+    // the worklist ~500px back down, so the scroll is repeated while the page settles, and
+    // stops the moment the person scrolls for themselves. No cleanup on purpose: StrictMode
+    // re-runs this effect, the key guard returns early, and a cleanup would cancel the
+    // only scroll scheduled; a timer that outlives the tab finds no element and does nothing.
+    let placed = null
+    for (const ms of [0, 350, 900]) {
+      setTimeout(() => requestAnimationFrame(() => {
+        if (placed !== null && Math.abs(window.scrollY - placed) > 4) return
+        const el = kpisRef.current
+        if (!el || !el.offsetParent) return
+        el.scrollIntoView({ block: 'start', behavior: 'auto' })
+        placed = window.scrollY
+      }), ms)
+    }
+  }, [location.key, location.pathname, location.search])
 
   // URL writes happen ONLY in this user-action handler, never in an effect:
   // the workspace tabs stay mounted while hidden and StrictMode re-runs
@@ -602,7 +637,7 @@ export default function InterviewRubricTab({
       {/* The tab's own 20px gutter is the gutter. These used to add 16px more, so the
           filters and the strip above them were narrower than the calendar and the
           worklist they sit between (Owner, 2026-09-18). */}
-      <div className="ir-kpis" style={{ display:'grid', gap:10, padding:'10px 0 12px' }}>
+      <div className="ir-kpis" ref={kpisRef} style={{ display:'grid', gap:10, padding:'10px 0 12px', scrollMarginTop:'calc(var(--app-chrome-height, 112px) + 56px)' }}>
         <FilterKPICard value={total}        label="Total"         accent="nightfall"  active={activeFilter === null}            onClick={() => setActiveFilter(null)} />
         <FilterKPICard value={scheduled}    label="Scheduled"     accent="marina"     active={activeFilter === 'scheduled'}    onClick={() => handleCardClick('scheduled')} />
         <FilterKPICard value={completed}    label="Completed"     accent="sage"       active={activeFilter === 'completed'}    onClick={() => handleCardClick('completed')} />

@@ -31,6 +31,7 @@ import RowActionsMenu from '../shared/RowActionsMenu'
 import {
   CATALOG_FEATURES, KIND_LABEL, SORTS, audienceOf, audienceLabel, kindOf, fileBadge, fmtShortDate, fmtBytes,
   catalogSummary, railCounts, isLongCoverTitle, isPdfFile, completionStats, filterItems, sortItems, listSections, shelfOrder, viewTitle, sendButtonLabel,
+  sendPickFromSearch, personToken,
 } from '../../lib/catalog/catalogModel'
 import CatalogSendModal from './CatalogSendModal'
 import {
@@ -99,7 +100,11 @@ export default function CatalogPage({
   const [personal, setPersonal] = useState({ candidates: 0, moved: [] })
 
   // ── View state ──
-  const [view, setView] = useState({ type: 'all', category: null, track: null })
+  // LAUNCHER-2: a link that starts a send (?send=1, or ?send=form&student=<id>) asks the
+  // person to choose an item; a form send opens on Forms. Owner and Admin only: nobody
+  // else can send. Read once, on arrival; the Catalog mounts fresh on every visit.
+  const [sendPick, setSendPick] = useState(() => (canManage ? sendPickFromSearch(window.location.search) : null))
+  const [view, setView] = useState(() => ({ type: sendPick?.kind === 'form' ? 'form' : 'all', category: null, track: null }))
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState('recent')
   const [showRemoved, setShowRemoved] = useState(false)
@@ -306,6 +311,8 @@ export default function CatalogPage({
   }, [accessResource, copyLink, canManage, isOwner, runUpdate, phase1, features.signatures, sigLink])
 
   const openSend = useCallback((r) => { if (canManage) setDialog({ type: 'send', row: r }) }, [canManage])
+  // The person a send was started for, once the contacts are in (null: nobody, or out of reach).
+  const pickPerson = useMemo(() => (sendPick?.personKey ? personToken(sendPick.personKey, sendCtx) : null), [sendPick, sendCtx])
 
   const pickView = (next) => {
     setView({ type: 'all', category: null, track: null, ...next })
@@ -421,6 +428,17 @@ export default function CatalogPage({
         </div>
       )}
 
+      {sendPick && (
+        <div className="ctl-notice" role="status">
+          <span>
+            Choose {sendPick.kind === 'form' && features.forms ? 'a form' : 'a file'} to send
+            {pickPerson ? <> to <b>{pickPerson.label}</b></> : null}, then press its Send.
+            {pickPerson ? ` ${pickPerson.label} is already in the To field, and nothing goes out until you send it.` : ''}
+          </span>
+          <button type="button" onClick={() => setSendPick(null)}>Cancel</button>
+        </div>
+      )}
+
       <div className={`ctl-grid${selected ? '' : ' ctl-nodetail'}`}>
         <nav className="rr-nav ctl-rail" aria-label="Catalog sections">
           <p className="rr-nav-group">Library</p>
@@ -482,7 +500,9 @@ export default function CatalogPage({
 
       {dialog?.type === 'send' && contacts && (
         <CatalogSendModal item={dialog.row} ctx={sendCtx} onClose={() => setDialog(null)}
+          presetTokens={sendPick && pickPerson ? [pickPerson] : null}
           onSent={({ sent, log, keepOpen, signature, requests, form, failed }) => {
+            setSendPick(null)
             if (form) {
               say(failed?.length ? 'err' : 'ok', `Form sent to ${sent} ${sent === 1 ? 'person' : 'people'}.${failed?.length ? ` The mail service did not accept ${failed.length}: ${failed.slice(0, 3).join(', ')}${failed.length > 3 ? '…' : ''}.` : ''} Track them on its Responses.`)
               formStaff('tracker').then(r => setTrackRows(r.rows || [])).catch(() => {})

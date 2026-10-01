@@ -24,7 +24,7 @@ export const ACTIONS = Object.freeze([
     words: 'create make questionnaire parking scrubex' },
   { key: 'outreach', title: 'Send outreach', where: 'Connect · Outreach', to: '/connect/outreach', need: 'manage', icon: 'out',
     words: 'email emails bulk blast announce announcement newsletter mass everyone cohort students schools' },
-  { key: 'interview', title: 'Schedule an interview', where: 'Interviews', to: '/interviews?schedule=1', need: 'interview', icon: 'cal',
+  { key: 'interview', title: 'Schedule an interview', where: 'Interviews', to: '/interviews?filter=not_scheduled', need: 'interview', icon: 'cal',
     words: 'book booking appointment slot availability' },
   { key: 'receipt', title: 'Upload a receipt', where: 'Budget Tracker · Receipts', to: '/settings/budget?tab=receipts', need: 'budget', icon: 'receipt',
     words: 'expense expenses reimburse reimbursement concur spend spent purchase invoice subscription budget' },
@@ -125,7 +125,7 @@ export function personRows({ students = [], contacts = [], unitNameFor = () => '
       qualifier: ['Student', s.school, unit || (s.status === 'Interviewed' ? 'Unplaced' : null)].filter(Boolean).join(' · '),
       to: `/students?student=${encodeURIComponent(s.id)}`,
       message: `/connect/messages?new=1&student=${encodeURIComponent(s.id)}`,
-      form: `/catalog?send=1&student=${encodeURIComponent(s.id)}`,
+      form: `/catalog?send=form&student=${encodeURIComponent(s.id)}`,
     })
   }
   const kindOf = (c) => {
@@ -142,7 +142,7 @@ export function personRows({ students = [], contacts = [], unitNameFor = () => '
       qualifier: [kindOf(c), c.unit_name || c.organization || c.school || null].filter(Boolean).join(' · '),
       to: `/connect/contacts?contactId=${encodeURIComponent(c.id)}`,
       message: null,
-      form: c.email ? `/catalog?send=1&contact=${encodeURIComponent(c.id)}` : null,
+      form: c.email ? `/catalog?send=form&contact=${encodeURIComponent(c.id)}` : null,
     })
   }
   return rows

@@ -17,7 +17,7 @@ import { dirname, join } from 'node:path'
 import {
   AUDIENCES, audienceOf, kindOf, fileBadge, CATALOG_FEATURES, completionStatus, completionStats, progressLabel,
   catalogSummary, railCounts, filterItems, sortItems, listSections, shelfOrder, shelfRows, viewTitle,
-  expandTokens, suggestTokens, defaultTokens, searchPeople, chunkRecipients, personalFileMatches,
+  expandTokens, suggestTokens, defaultTokens, searchPeople, chunkRecipients, personalFileMatches, sendPickFromSearch, personToken,
   toOutreachMerge, messageForSend, defaultMessage, sendAsFor, fmtShortDate, fmtBytes,
 } from '../src/lib/catalog/catalogModel.js'
 import { recordCatalogSend, isCatalogResourceId } from '../api/lib/catalogSendLog.js'
@@ -174,6 +174,29 @@ test('default recipients: partner schools for a school item, the current cohort 
   assert.ok(!sugg.some(t => t.label === '5 North students'), 'a suggestion that reaches no one is not offered')
   assert.equal(searchPeople('ruiz', ctx)[0].id, 'c1')
   assert.deepEqual(searchPeople('a', ctx), [], 'two characters before searching')
+})
+
+test('LAUNCHER-2: a link starts a send for one person, and never guesses who', () => {
+  // The home page's Send a file, and a person's Send a form.
+  assert.deepEqual(sendPickFromSearch('?send=1'), { kind: null, personKey: null })
+  assert.deepEqual(sendPickFromSearch('?send=form&student=s1'), { kind: 'form', personKey: 'student:s1' })
+  assert.deepEqual(sendPickFromSearch('?send=form&contact=c1'), { kind: 'form', personKey: 'contact:c1' })
+  assert.equal(sendPickFromSearch('?resource=x'), null)
+  assert.equal(sendPickFromSearch('?send=yes'), null)
+  // The token is the one the To field's own search gives, so the send is the same send.
+  assert.deepEqual(personToken('student:s1', ctx), searchPeople('nguyen', ctx).find(t => t.key === 'student:s1'))
+  assert.deepEqual(personToken('contact:c1', ctx), searchPeople('ruiz', ctx)[0])
+  // Out of reach is nobody, not a guess: no email, inactive, not in this cohort.
+  assert.equal(personToken('student:s4', ctx), null)
+  assert.equal(personToken('contact:c3', ctx), null)
+  assert.equal(personToken('student:elsewhere', ctx), null)
+  assert.equal(personToken('nonsense', ctx), null)
+  const page = read('src/components/catalog/CatalogPage.jsx')
+  assert.match(page, /useState\(\(\) => \(canManage \? sendPickFromSearch\(window\.location\.search\) : null\)\)/, 'Owner and Admin only')
+  assert.match(page, /type: sendPick\?\.kind === 'form' \? 'form' : 'all'/, 'a form send opens on Forms')
+  assert.match(page, /presetTokens=\{sendPick && pickPerson \? \[pickPerson\] : null\}/)
+  assert.match(read('src/components/catalog/CatalogSendModal.jsx'),
+    /useState\(\(\) => \(presetTokens\?\.length \? presetTokens : defaultTokens\(item, ctx\)\)\)/, 'the person alone, never the cohort on top')
 })
 
 test('a large send goes in batches of at most 75', () => {

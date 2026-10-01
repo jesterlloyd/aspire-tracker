@@ -750,6 +750,12 @@ tested modules in `src/lib/home/`. Nothing is computed in JSX.
   strong match is answered with a "→" button and no model call, a partial one puts the button
   under the model's reply. Keith still performs nothing itself. Find a file and Find a
   contact arrive as `?find=1`, which focuses the Catalog's and both Contacts drawings' search.
+  Schedule an interview opens the Interviews worklist on Not Scheduled (`?filter=`, read on
+  every arrival because that tab stays mounted): a student is scheduled by the row's
+  scheduling link, not by booking a slot. Send a file (`/catalog?send=1`) and a person's Send
+  a form (`?send=form&student=` or `&contact=`) put a "Choose ..." notice on the Catalog
+  (Owner and Admin only); the chosen item's Send opens with that person ALONE in the To field
+  (`personToken`, the To search's own token, or nobody), and nothing is sent from a link.
 - **A planned shift works alongside its preceptor**: `student_shift_plans` stores the date and
   the preceptor's name, so its type is that preceptor's `shift_type` (matched by name), then the
   student's assigned preceptor's, then `students.shift_assigned`, then Day; Variable is skipped

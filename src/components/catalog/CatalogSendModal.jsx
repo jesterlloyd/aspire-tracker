@@ -37,8 +37,10 @@ const REASON_TEXT = {
 }
 const reasonText = (r) => REASON_TEXT[r] || String(r || '').replace(/^send_error: /, '').replace(/_/g, ' ')
 
-export default function CatalogSendModal({ item, ctx, contactsLoading, onClose, onSent }) {
-  const [tokens, setTokens] = useState(() => defaultTokens(item, ctx))
+export default function CatalogSendModal({ item, ctx, contactsLoading, onClose, onSent, presetTokens = null }) {
+  // LAUNCHER-2: a send started for one person opens with that person ALONE in the To
+  // field, never the cohort default on top of them.
+  const [tokens, setTokens] = useState(() => (presetTokens?.length ? presetTokens : defaultTokens(item, ctx)))
   const [q, setQ] = useState('')
   const [subject, setSubject] = useState(() => defaultSubject(item))
   const [message, setMessage] = useState(() => defaultMessage(item))

@@ -392,6 +392,9 @@ test('LAUNCHER 1: six quick actions in a fixed order, filtered by permission, ne
   assert.equal(to.receipt, '/settings/budget?tab=receipts')
   assert.equal(to.findfile, '/catalog?find=1')
   assert.equal(to.findcontact, '/connect/contacts?find=1')
+  // Scheduling is a link the student books from, so the chip opens the students without one.
+  assert.equal(to.interview, '/interviews?filter=not_scheduled')
+  assert.equal(to.file, '/catalog?send=1')
 })
 
 test('LAUNCHER-2: a typed request finds its action in everyday words, and a question does not', () => {
@@ -426,6 +429,8 @@ test('LAUNCHER 2: results come in three groups, capped, Keith always last; empty
   assert.equal(people.find(p => p.id === 'student:s2').qualifier, 'Student · APU · Unplaced')
   assert.equal(people.find(p => p.id === 'contact:c1').qualifier, 'Unit leader · 6 NE')
   assert.equal(people.some(p => p.id === 'contact:c2'), false)
+  // A person's Send a form starts a form send for that person (LAUNCHER-2).
+  assert.equal(people.find(p => p.id === 'student:s1').form, '/catalog?send=form&student=s1')
   const r = searchLauncher('ma', { actions, people })
   assert.equal(r.options[r.options.length - 1].kind, 'keith')
   assert.equal(r.groups.people.length, 3)

@@ -304,6 +304,13 @@ test('LAUNCHER-2: Keith is handed the way there, and the chips land where the sc
   assert.match(read('src/components/connect/useContactsDirectory.js'), /const \[focusSearch\]\s+= useState\(\(\) => new URLSearchParams\(location\.search\)\.get\('find'\) === '1'\)/)
   assert.match(read('src/components/connect/ContactsView.jsx'), /value=\{search\}\n\s+autoFocus=\{dir\.focusSearch\}/)
   assert.match(read('src/components/connect/ContactsBook.jsx'), /value=\{search\}\n\s+autoFocus=\{dir\.focusSearch\}/)
+  // Schedule an interview lands on the worklist's Not Scheduled card, on EVERY arrival:
+  // the Interviews tab stays mounted while hidden, so a mount-time read would miss it.
+  const iv = read('src/components/InterviewRubricTab.jsx')
+  assert.match(iv, /const ARRIVAL_FILTERS = new Set\(\['scheduled', 'completed', 'not_scheduled', 'flagged', 'recommended'\]\)/)
+  assert.match(iv, /arrivedFilterKey\.current = location\.key\n\s+setActiveFilter\(f\)/)
+  assert.match(iv, /\}, \[location\.key, location\.pathname, location\.search\]\)/)
+  assert.match(iv, /className="ir-kpis" ref=\{kpisRef\}/)
   // Upload a receipt is the Owner's, as every Budget Tracker write is.
   assert.match(read('src/components/OverviewTab.jsx'), /allowedActions\(\{\n\s+isAdmin: canManage, isOwner, canInterview,/)
 })

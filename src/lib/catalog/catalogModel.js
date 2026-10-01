@@ -385,6 +385,39 @@ export function searchPeople(q, ctx, limit = 8) {
   return hits.slice(0, limit)
 }
 
+// LAUNCHER-2 (Owner, 2026-09-30): a link that starts a send. The home page's Send a file
+// arrives as /catalog?send=1; a person's "Send a form" as ?send=form&student=<id> (or
+// &contact=<id>). The Catalog then asks the person to choose an item, and that item's Send
+// opens with the person already in the To field. Nothing is sent from a link.
+// @returns {null | { kind: 'form' | null, personKey: string | null }}
+export function sendPickFromSearch(search) {
+  const p = new URLSearchParams(search || '')
+  const send = p.get('send')
+  if (send !== '1' && send !== 'form') return null
+  const student = p.get('student'), contact = p.get('contact')
+  return {
+    kind: send === 'form' ? 'form' : null,
+    personKey: student ? `student:${student}` : contact ? `contact:${contact}` : null,
+  }
+}
+
+// The To-field token for one person, the shape searchPeople gives; null when the person is
+// not in this send's reach (another cohort, no usable email), so nothing is guessed.
+export function personToken(key, ctx) {
+  const [type, id] = String(key || '').split(':')
+  if (type === 'student') {
+    const s = (ctx.students || []).find(x => String(x.id) === id)
+    if (!s || !studentEmail(s)) return null
+    return { type: 'student', key: `student:${s.id}`, id: s.id, label: getStudentPreferredFullName(s), sub: s.school || 'Student', count: 1 }
+  }
+  if (type === 'contact') {
+    const c = (ctx.contacts || []).find(x => String(x.id) === id)
+    if (!c || !reachableContact(c)) return null
+    return { type: 'contact', key: `contact:${c.id}`, id: c.id, label: c.full_name || c.email, sub: contactCategory(c) || 'Contact', count: 1 }
+  }
+  return null
+}
+
 // Outreach accepts at most 75 recipients per request; a larger send goes as several
 // batches, each its own logged send.
 export const OUTREACH_BATCH_MAX = 75
