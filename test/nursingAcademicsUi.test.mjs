@@ -466,3 +466,34 @@ test('the portal endpoint gates notes to editors and accepts avatar_url writes',
   assert.match(endpoint, /'linkedin_url', 'avatar_url', 'notes',/)
   assert.match(endpoint, /invalid_avatar_url/)
 })
+
+// ── NA-NAV-ALPHA-1 + NA-BUDGET-BAND-1 (Owner, 2026-09-30) ────────────────────
+
+test('the section row is At a Glance, then every other tab in alphabetical order', async () => {
+  const { NAV_LABELS, alphabetizeNav } = await import('../src/lib/navigationCanon.js')
+  const L = NAV_LABELS
+  // Every optional tab on, handed over in the old product order.
+  const rest = [L.communityBenefit, L.contacts, L.evaluation, L.programBudgets, L.messages].map(label => ({ label }))
+  assert.deepEqual([L.atAGlance, ...alphabetizeNav(rest).map(s => s.label)],
+    ['At a Glance', 'Budget Tracker', 'Community Benefit', 'Contacts', 'Evaluation', 'Messages'])
+  // A grant with fewer tabs keeps the same relative order, and the input is not mutated.
+  assert.deepEqual(alphabetizeNav([{ label: L.contacts }, { label: L.communityBenefit }]).map(s => s.label), ['Community Benefit', 'Contacts'])
+  assert.equal(rest[0].label, L.communityBenefit)
+  assert.deepEqual(alphabetizeNav(undefined), [])
+  // The landing section leads by rule, not by the luck of its first letter.
+  assert.match(chrome, /const sections = \[HOME_SECTION, \.\.\.alphabetizeNav\(\[/)
+  assert.doesNotMatch(chrome, /const SECTIONS = \[\s*\{ key: 'calendar'/)
+})
+
+test('the Budget Tracker band carries the year line, and adds no second page-top', () => {
+  const portal = read('src/portal/na/NursingAcademicsPortal.jsx')
+  assert.match(portal, /<ProgramBudgetView source=\{PORTAL_SOURCE\} yearLineInBand renderBand=\{\(actions, _note, yearLine\) =>/)
+  assert.match(portal, /<h2>Budget Tracker<\/h2><p className="bud-sub bud-portal-sub">\{yearLine\}<\/p>/)
+  assert.doesNotMatch(portal, /Shared from ASPIRE Intelligence by the program owner/)
+  // .ptl-main already supplies --aspire-page-top; a second one measured 48px under the tab row.
+  const css = read('src/components/budget/budget.css')
+  const rule = css.match(/\n\.bud-portal \{[^}]*\}/)[0]
+  assert.doesNotMatch(rule, /padding-top/)
+  // The subtitle slot is reserved while the year loads, so the tabs below do not jump.
+  assert.match(css, /\.bud-portal-sub \{ min-height: 20px;/)
+})

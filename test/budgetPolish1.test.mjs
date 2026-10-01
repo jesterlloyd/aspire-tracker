@@ -63,7 +63,7 @@ test('the screens: one Add receipts, the year line in the band, Filed when empty
   const view = read('src/components/budget/ProgramBudgetView.jsx')
   assert.match(view, /tab !== 'receipts' && \(<>/)
   assert.match(view, /yearLineInBand \? <BudgetYearLine year=\{year\} canEdit=\{canEdit\} onWrite=\{onWrite\} \/> : undefined/)
-  assert.match(view, /\{!yearLineInBand && \(\n\s+<div className="bud-head">/, 'the portal keeps its line')
+  assert.match(view, /\{!yearLineInBand && \(\n\s+<div className="bud-head">/, 'a host that does not ask for the band line keeps the line below')
   const panel = read('src/components/settings/ProgramBudgetPanel.jsx')
   assert.match(panel, /yearLineInBand/)
   assert.match(panel, /subtitle=\{yearLine \|\| 'One budget per fiscal year: its expenses, subscriptions and category plan\.'\}/)

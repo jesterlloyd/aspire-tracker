@@ -81,9 +81,12 @@ export default function NursingAcademicsPortal({ view = 'calendar', messagesEnab
           while open, so nothing is fetched for a grant that never opens it. */}
       {view === 'budget' && (budgetEnabled ? (
         <div className="bud-portal">
-          <ProgramBudgetView source={PORTAL_SOURCE} renderBand={(actions) => (
+          {/* NA-BUDGET-BAND-1 (Owner, 2026-09-30): the year's line is the subtitle, as in
+              Settings > Budget Tracker, in place of a sentence about the page and a second
+              line under it. The slot is reserved while the year loads, so nothing shifts. */}
+          <ProgramBudgetView source={PORTAL_SOURCE} yearLineInBand renderBand={(actions, _note, yearLine) => (
             <header className="bud-portal-head">
-              <div><h2>Budget Tracker</h2><p className="bud-sub">ASPIRE, read-only. Shared from ASPIRE Intelligence by the program owner.</p></div>
+              <div><h2>Budget Tracker</h2><p className="bud-sub bud-portal-sub">{yearLine}</p></div>
               {actions}
             </header>
           )} />

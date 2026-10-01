@@ -62,3 +62,10 @@ export const NAV_ICONS = Object.freeze({
   contacts: ContactRound,
   programBudgets: Wallet,
 })
+
+// NA-NAV-ALPHA-1 (Owner, 2026-09-30): a section row in alphabetical order of the label the reader
+// sees. Pure and non-mutating. A host puts its landing section first and hands the rest here, so
+// the order never depends on which optional tabs a given account has switched on.
+export function alphabetizeNav(sections) {
+  return [...(sections || [])].sort((a, b) => String(a.label).localeCompare(String(b.label), 'en', { sensitivity: 'base' }))
+}

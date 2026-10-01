@@ -9,16 +9,19 @@
 
 import { PortalNavRefresh } from '../PortalRefresh'
 import { formatUnread, unreadLabel } from '../../lib/messages/messagesConstants'
-import { NAV_ICONS, NAV_LABELS } from '../../lib/navigationCanon'
+import { NAV_ICONS, NAV_LABELS, alphabetizeNav } from '../../lib/navigationCanon'
 
 const srOnly = {
   position: 'absolute', width: 1, height: 1, padding: 0, margin: -1,
   overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap', border: 0,
 }
 
-// Product order. Module-local, consumed only by NursingAcademicsNav.
+// NA-NAV-ALPHA-1 (Owner, 2026-09-30): the landing section leads, and every other tab follows in
+// alphabetical order of the label the reader sees. The order is DERIVED (alphabetizeNav), so a
+// tab that is switched on for one grant and not another lands in the same place for everyone,
+// and a new tab never needs a position chosen for it.
+const HOME_SECTION = { key: 'calendar', label: NAV_LABELS.atAGlance, Icon: NAV_ICONS.atAGlance }
 const SECTIONS = [
-  { key: 'calendar', label: NAV_LABELS.atAGlance, Icon: NAV_ICONS.atAGlance },
   { key: 'community-benefit', label: NAV_LABELS.communityBenefit, Icon: NAV_ICONS.communityBenefit },
   { key: 'contacts', label: NAV_LABELS.contacts, Icon: NAV_ICONS.contacts },
 ]
@@ -36,7 +39,7 @@ const EVALUATION_SECTION = { key: 'evaluation', label: NAV_LABELS.evaluation, Ic
  * (PortalApp), so back, forward, and refresh behave like the rest of the app.
  */
 export function NursingAcademicsNav({ view, onNavigate, messagesEnabled = false, budgetEnabled = false, themesEnabled = false, unread = 0 }) {
-  const sections = [...SECTIONS, ...(themesEnabled ? [EVALUATION_SECTION] : []), ...(budgetEnabled ? [BUDGET_SECTION] : []), ...(messagesEnabled ? [MESSAGES_SECTION] : [])]
+  const sections = [HOME_SECTION, ...alphabetizeNav([...SECTIONS, ...(themesEnabled ? [EVALUATION_SECTION] : []), ...(budgetEnabled ? [BUDGET_SECTION] : []), ...(messagesEnabled ? [MESSAGES_SECTION] : [])])]
   return (
     <nav className="ptl-nav" aria-label="Nursing Education and Leadership Portal sections">
       {sections.map(({ key, label, Icon }) => (

@@ -141,9 +141,12 @@
 .bud-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 
 /* The portal's band (Settings uses SettingsPageHeader). */
-.bud-portal { display: flex; flex-direction: column; gap: var(--aspire-gap-card); padding-top: var(--aspire-page-top); }
+/* No padding-top: .ptl-main already puts the first thing on a portal page at --aspire-page-top.
+   A second one here made it 48px, twice every other portal page (NA-BUDGET-BAND-1). */
+.bud-portal { display: flex; flex-direction: column; gap: var(--aspire-gap-card); }
 .bud-portal-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
 .bud-portal-head h2 { margin: 0; font-size: 20px; font-weight: 700; color: var(--text-heading); }
+.bud-portal-sub { min-height: 20px; margin-top: 4px; display: flex; align-items: center; }
 
 /* SUB-APPROVAL-1: a proposal is marked in the info tone, never the warning one: it is waiting, not wrong. */
 .bud-renew .when.bud-when-proposed { color: var(--pill-info-fg, var(--text-heading)); background: var(--pill-info-bg); }

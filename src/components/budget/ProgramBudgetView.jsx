@@ -50,7 +50,7 @@ function tabsFor(year, canEdit, receiptCount = 0) {
   }))
 }
 
-// `yearLineInBand`: the host puts the year's line in its band's subtitle (Settings); the portal keeps
+// `yearLineInBand`: the host puts the year's line in its band's subtitle (Settings, and the NE&L portal since NA-BUDGET-BAND-1); a host without it keeps
 // it below the band, with the program and the owner's name.
 export default function ProgramBudgetView({ source, renderBand, initialFy = null, yearLineInBand = false }) {
   // BUDGET-TRACKER-1: opens on the year last opened here (in memory: a hard refresh or a new sign-in
