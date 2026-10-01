@@ -337,16 +337,16 @@ export default function StudentProfilesTab({
           <div style={{ flex:1, minWidth:8 }} />
 
           {/* Action buttons */}
-          {canEdit && ['email', 'phone'].map(kind => (
-            <button key={kind} type="button" className="profiles-copy-contact"
+          {canEdit && (
+            <button type="button" className="profiles-copy-contact"
               disabled={!(view === 'access' ? accessStudents : displayedStudents).length ||
-                (kind === 'email' && (view === 'access' ? accessStudents : displayedStudents).some(s => s.email_context_loaded === false))}
-              title={kind === 'email' && students.some(s => s.email_context_loaded === false) ? 'Refresh to load student email routing.' : undefined}
-              onClick={() => copyVisibleStudentContacts(view === 'access' ? accessStudents : displayedStudents, kind, toast)}>
-              {kind === 'email' ? 'Copy visible emails' : 'Copy visible phone numbers'}
+                (view === 'access' ? accessStudents : displayedStudents).some(s => s.email_context_loaded === false)}
+              title={students.some(s => s.email_context_loaded === false) ? 'Refresh to load student email routing.' : undefined}
+              onClick={() => copyVisibleStudentContacts(view === 'access' ? accessStudents : displayedStudents, 'email', toast)}>
+              Copy visible emails
             </button>
-          ))}
-          {canEdit && <button type="button" className="profiles-copy-contact" onClick={() => setShowMessagesSetup(true)}>iPhone Messages setup</button>}
+          )}
+          {canEdit && <button type="button" className="profiles-copy-contact" title="Message students matching the current filters. Review the draft before sending." onClick={() => setShowMessagesSetup(true)}>Send Message to All</button>}
           {canEdit && (
             <Tooltip label="Import students from CSV" placement="bottom">
             <button onClick={() => setShowImport(true)}

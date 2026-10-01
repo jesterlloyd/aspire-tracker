@@ -17,7 +17,7 @@ The pure implementation is in `src/lib/notifications/studentEmailLifecycle.js` a
 
 ## Student Profiles
 
-Owner/Admin users can select **Copy visible emails** or **Copy visible phone numbers**. Both use the displayed roster after school, search, and the active view's KPI filters. Results exclude missing/invalid values and remove duplicates. Phone numbers are normalized with country codes and copied as a comma-separated recipient list. US/Canadian numbers without a country code receive `+1`; international numbers require an explicit country code. Extensions and multiple numbers in one field are skipped.
+Owner/Admin users can select **Copy visible emails** or **Send Message to All**. Both use the displayed roster after school, search, and the active view's KPI filters. “All” means students matching those filters. Phone copying is inside the message dialog; there is no separate phone-copy toolbar button. Results exclude missing/invalid values and remove duplicates. Phone numbers are normalized with country codes and copied as a comma-separated recipient list. US/Canadian numbers without a country code receive `+1`; international numbers require an explicit country code. Extensions and multiple numbers in one field are skipped.
 
 The clipboard operation runs directly from the click, without a network wait. Residency routing context is loaded beforehand through an Owner/Admin endpoint that first checks student visibility using the caller's database permissions. A failed routing lookup disables email copying rather than guessing; phone copying remains available.
 
@@ -27,7 +27,7 @@ Apple documents adding each recipient to the To field, but does not document bul
 
 ## iPhone Shortcut setup
 
-Student Profiles includes **iPhone Messages setup**, with these instructions and a link to run the named shortcut. The shortcut must be created on the iPhone once. Apple's local signing tool rejected the generated template, so no installable file is supplied.
+Student Profiles includes **Send Message to All**, with these instructions and a link to run the named shortcut. The shortcut must be created on the iPhone once. Apple's local signing tool rejected the generated template, so no installable file is supplied.
 
 In Shortcuts, tap **+** and name the shortcut **ASPIRE Group Message**. Add these five actions in order:
 
@@ -39,6 +39,6 @@ In Shortcuts, tap **+** and name the shortcut **ASPIRE Group Message**. Add thes
 
 Each time, copy the filtered phone numbers and run this shortcut on the iPhone. If copying on a computer, transfer that phone list to the iPhone clipboard first. The app enables its shortcut link only after a successful copy for the currently displayed phone list. The shortcut itself reads the clipboard when run; avoid copying something else in between.
 
-The message is a blank draft for the user to write, review, and send. Use a single Send Message action, not a repeat loop, to create a group conversation. Recipients can see one another's numbers and replies. On the first run, check that the draft has exactly the recipient count shown in ASPIRE without sending. No messages were sent during development, and actual iPhone behavior remains unverified.
+The message is a blank draft for the user to write, review, and send. Use a single Send Message action, not a repeat loop, to create a group conversation. Recipients can see one another's numbers and replies. Check that the draft has exactly the recipient count shown in ASPIRE. The owner confirmed that the shortcut worked on their iPhone before requesting the toolbar simplification. No messages were sent during development.
 
 Apple's supported launch mechanism: https://support.apple.com/en-euro/guide/shortcuts/apd624386f42/ios. The launch URL contains only the shortcut name, never student numbers or message content.

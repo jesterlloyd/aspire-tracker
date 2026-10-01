@@ -21,11 +21,11 @@ export default function StudentMessagesSetup({ students, toast, onClose }) {
     <div className="modal-overlay" onMouseDown={onClose}>
       <div ref={ref} className="modal student-messages-setup" role="dialog" aria-modal="true" aria-labelledby="student-messages-title" onMouseDown={e => e.stopPropagation()}>
         <div className="modal-header">
-          <h2 id="student-messages-title">iPhone group message</h2>
-          <button type="button" className="modal-close" aria-label="Close iPhone setup" onClick={onClose}>×</button>
+          <h2 id="student-messages-title">Send Message to All</h2>
+          <button type="button" className="modal-close" aria-label="Close group message" onClick={onClose}>×</button>
         </div>
         <div className="modal-body">
-          <p>Messages may read a pasted phone list as one recipient. Use an iPhone Shortcut to separate the numbers before opening your draft.</p>
+          <p>Message students matching your current filters. Use the ASPIRE Group Message shortcut to open a draft with separate recipients.</p>
           <h3>Set up once on your iPhone</h3>
           <p>Open Shortcuts, tap +, and name the shortcut <strong>ASPIRE Group Message</strong>. Add these actions in order:</p>
           <ol>
@@ -38,7 +38,6 @@ export default function StudentMessagesSetup({ students, toast, onClose }) {
           <h3>Use it with your filtered students</h3>
           <p>Copy the numbers below, then open the shortcut on your iPhone. If you copied on a computer, make sure that phone list is on your iPhone clipboard before running it.</p>
           <p>Check that the draft contains all <strong>{numbers.length}</strong> recipients, write your message, and tap Send yourself. This is a group conversation: recipients can see one another’s numbers and replies.</p>
-          <p>On first use, verify the recipient count without sending. This workflow still needs an iPhone check.</p>
         </div>
         <div className="modal-footer">
           <button type="button" className="btn btn-secondary-outline" disabled={!numbers.length || copying} onClick={copy}>

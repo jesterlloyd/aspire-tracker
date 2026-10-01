@@ -51,7 +51,7 @@ export async function copyVisibleStudentContacts(students, kind, toast, options 
     ].filter(Boolean).join(' ')
     const guidance = kind === 'email'
       ? 'Ready to paste into your email recipients.'
-      : 'iPhone Messages may not separate a pasted list into recipients. Use iPhone Messages setup, then run ASPIRE Group Message in Shortcuts.'
+      : 'iPhone Messages may not separate a pasted list into recipients. Open ASPIRE Group Message in Shortcuts, then review your draft.'
     toast?.success(`Copied ${values.length} ${values.length === 1 ? (kind === 'email' ? 'email' : 'phone number') : noun}.`,
       [notes, guidance].filter(Boolean).join(' '))
     return { ...result, copied: true }
