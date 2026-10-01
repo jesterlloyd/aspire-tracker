@@ -156,7 +156,7 @@ export function receiptChecks(draft, ctx = {}) {
   const late = ruleOf('concur_60_days')
   if (late && draft.date && today) {
     const days = daysBetween(draft.date, today)
-    const deadline = addDays(draft.date, Number(late.params?.deadline_days) || 60)
+    const deadline = concurDeadline(draft.date, late)
     policy(late, days >= (Number(late.params?.remind_after_days) || 45), { deadline: dateText(deadline), days: String(days) })
   }
 
@@ -195,6 +195,33 @@ export function receiptChecks(draft, ctx = {}) {
 }
 
 /**
+ * RECEIPTS-REDESIGN-1 (Owner, 2026-10-01): the ONE 60-day rule. The deadline is the expense date plus
+ * the owner's `deadline_days` (budget_policy_rules 'concur_60_days', 60 unless changed); a disabled or
+ * absent rule means no deadline. Timing: 'late' past it, 'soon' with SOON_DAYS or fewer left, else 'ok'.
+ * The check on a slip, the Concur reminder, Keith's Concur draft, the Filed chips and stamps and the
+ * Subscriptions grid all read this.
+ */
+export const SOON_DAYS = 14
+export function concurDeadline(date, rule) {
+  if (!rule || rule.enabled === false || !date) return null
+  return addDays(String(date).slice(0, 10), Number(rule.params?.deadline_days) || 60)
+}
+export function concurTiming(date, rule, today) {
+  const deadline = concurDeadline(date, rule)
+  if (!deadline || !today) return null
+  const daysLeft = daysBetween(today, deadline)
+  return { deadline, daysLeft, timing: daysLeft < 0 ? 'late' : daysLeft <= SOON_DAYS ? 'soon' : 'ok' }
+}
+/** "32 days late", "Due today", "Due in 5 days", "30 days left". */
+export function dueText(t) {
+  if (!t) return ''
+  const d = t.daysLeft
+  if (d < 0) return `${-d} ${d === -1 ? 'day' : 'days'} late`
+  if (d === 0) return 'Due today'
+  return t.timing === 'soon' ? `Due in ${d} ${d === 1 ? 'day' : 'days'}` : `${d} days left`
+}
+
+/**
  * The Concur reminder (Owner, 2026-09-27): a Personal (Concur) expense still Recorded
  * `remind_after_days` after its date needs submitting before `deadline_days`. Returns the
  * expenses due, soonest deadline first, with the deadline and days left.
@@ -202,10 +229,9 @@ export function receiptChecks(draft, ctx = {}) {
 export function concurDue(expenses = [], rule, today) {
   if (!rule || rule.enabled === false || !today) return []
   const after = Number(rule.params?.remind_after_days) || 45
-  const deadlineDays = Number(rule.params?.deadline_days) || 60
   return expenses
     .filter(e => !e.deleted_at && e.state !== 'expected' && e.payment_method === 'personal_concur' && e.status === 'recorded' && e.date_precision !== 'month' && e.expense_date)
-    .map(e => ({ expense: e, age: daysBetween(e.expense_date, today), deadline: addDays(e.expense_date, deadlineDays) }))
+    .map(e => ({ expense: e, age: daysBetween(e.expense_date, today), deadline: concurDeadline(e.expense_date, rule) }))
     .filter(x => x.age >= after)
     .map(x => ({ ...x, daysLeft: daysBetween(today, x.deadline) }))
     .sort((a, b) => a.deadline.localeCompare(b.deadline))

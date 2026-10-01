@@ -63,6 +63,10 @@ const ACTION_SCHEMAS = Object.freeze({
   receipt_delete: ['action', 'id'],
   receipt_read: ['action', 'id'],
   receipt_concur_prepare: ['action', 'id'],
+  // RECEIPTS-REDESIGN-1: the receipt's stage (and its Undo), the policy tick and Keith's late note.
+  receipt_stage: ['action', 'id', 'to'],
+  receipt_policy_confirm: ['action', 'id', 'confirmed'],
+  receipt_late_note: ['action', 'id'],
   receipt_draft: ['action', 'id', 'draft'],
   receipt_accept: ['action', 'id', 'draft', 'attach_to', 'attach_charge', 'as_one_time', 'move_from'],
   receipt_amend: ['action', 'id', 'draft', 'reason'],
@@ -181,6 +185,9 @@ export function createBudgetStaffHandler({ verifyCaller = verifyPortalCaller, ma
         case 'receipt_replace_finish': return res.status(200).json(await R.finishReplace(db, actor, { id: body.id, path: body.path, fileName: body.file_name, contentType: body.content_type, ...(complete ? { complete } : {}), ...day }))
         case 'receipt_delete': return res.status(200).json(await R.deleteReceipt(db, actor, { id: body.id }))
         case 'receipt_discard': return res.status(200).json(await R.discardUpload(db, actor, { id: body.id }))
+        case 'receipt_stage': return res.status(200).json(await C.setReceiptStage(db, actor, { id: body.id, to: body.to, ...day }))
+        case 'receipt_policy_confirm': return res.status(200).json(await C.confirmPolicy(db, actor, { id: body.id, confirmed: body.confirmed !== false }))
+        case 'receipt_late_note': return res.status(200).json(await C.draftLateNote(db, actor, { id: body.id, ...(complete ? { complete } : {}), ...day }))
         case 'receipt_concur_prepare': return res.status(200).json(await C.prepareConcur(db, actor, { id: body.id, ...(complete ? { complete } : {}) }))
         case 'receipt_read': return res.status(200).json(await R.readReceipt(db, actor, { id: body.id, ...(complete ? { complete } : {}), ...day }))
         case 'receipt_draft': return res.status(200).json(await R.saveDraft(db, actor, { id: body.id, draft: obj(body.draft) }))

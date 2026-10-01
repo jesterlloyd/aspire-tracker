@@ -1,0 +1,575 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ASPIRE Receipts Mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root{
+  --navy:#1b2461; --navy-soft:#eef1fb; --ink:#1d2140; --muted:#555a70;
+  --bg:#f4f2ee; --line:#e3ddd2; --field:#ddd8ce; --card:#ffffff;
+  /* Holder surface: the tan paper theme from Rotation > Activity */
+  --holder:#FBF3E2; --holder-line:rgba(120,90,40,.22);
+  /* Receipt paper stays white */
+  --receipt:#ffffff; --receipt-line:#ebe5d9; --receipt-rule:#b9b3a6;
+  --red:#c2362b; --red-ink:#9e2a20; --red-soft:#fdecea; --red-line:#f3c2bd;
+  --amber:#e8b34a; --amber-ink:#7a5208; --amber-soft:#fbf3e2; --amber-line:#ecd6a6;
+  --green-ink:#256b35; --green-soft:#eaf5ec; --green-line:#bfe0c6;
+  --blue:#1f4fa8; --blue-soft:#e8eefb; --blue-line:#bccbef;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);font-family:'DM Sans',system-ui,sans-serif;color:var(--ink)}
+button,input{font-family:inherit}
+button:focus-visible,a:focus-visible,input:focus-visible,.rc:focus-visible{outline:3px solid #6b7fd7;outline-offset:2px}
+a{color:#1f2a6b}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.mono{font-family:'IBM Plex Mono',monospace}
+
+.demo{background:#fff8e1;border-bottom:1px solid #ecd9a0;padding:8px 24px;font-size:14px}
+.appbar{height:68px;background:var(--navy);color:#fff;display:flex;align-items:center;gap:18px;padding:0 32px}
+.appbar .brand{font-size:21px;font-weight:700}
+.appbar .sp{flex:1}
+.pill{display:flex;gap:8px;align-items:center;padding:7px 15px;border-radius:999px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);font-weight:600;font-size:15px}
+.pill small{font-size:11px;letter-spacing:.12em;color:#c9cde6;font-weight:500}
+
+.page{max-width:1360px;margin:0 auto;padding:22px 40px 48px;display:flex;flex-direction:column;gap:18px}
+.drop{display:flex;align-items:center;gap:16px;padding:14px 20px;border:1.5px dashed #cfc8ba;border-radius:12px;background:#fff}
+.drop .t{flex:1;font-size:15px}
+.drop .t span{color:var(--muted)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 16px;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;border:1px solid var(--field);background:#fff;color:var(--ink)}
+.btn.primary{background:var(--navy);border-color:var(--navy);color:#fff}
+.btn.primary:disabled{background:#c9cbd6;border-color:#c9cbd6;color:#4a4d5e;cursor:not-allowed}
+.btn.ghost{border-color:transparent;background:transparent}
+.btn.danger{color:var(--red-ink);border-color:var(--red-line)}
+.btn.sm{min-height:38px;font-size:14px;padding:0 12px}
+.icon-btn{width:44px;height:44px;border-radius:10px;border:1px solid var(--field);background:#fff;cursor:pointer;color:var(--ink);display:inline-flex;align-items:center;justify-content:center}
+.icon-btn:disabled{color:#b5b2aa;border-color:#ece7de;cursor:not-allowed}
+
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.stat{padding:14px 18px;border-radius:12px;background:#fff;border:1px solid var(--line)}
+.stat .k{font-size:13px;color:var(--muted)}
+.stat .v{font-size:26px;font-weight:700}
+.stat .s{font-size:13px;color:var(--muted)}
+.stat.red{background:var(--red-soft);border-color:var(--red-line)}
+.stat.red *{color:var(--red-ink)}
+.stat.amber{background:var(--amber-soft);border-color:var(--amber-line)}
+.stat.amber *{color:var(--amber-ink)}
+.bar{height:7px;border-radius:4px;background:#ebe7df;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--blue)}
+
+.toolbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.seg{display:flex;border:1px solid var(--field);border-radius:10px;overflow:hidden;background:#fff}
+.seg button{min-height:42px;padding:0 15px;border:0;border-left:1px solid var(--field);background:#fff;color:#3b4060;font-size:15px;cursor:pointer}
+.seg button:first-child{border-left:0}
+.seg button[aria-pressed="true"]{background:var(--navy);color:#fff;font-weight:600}
+.seg.soft button[aria-pressed="true"]{background:var(--navy-soft);color:var(--navy)}
+.search{display:flex;align-items:center;gap:8px;width:320px;height:44px;padding:0 14px;border:1px solid var(--field);border-radius:10px;background:#fff;margin-left:auto}
+.search input{flex:1;border:0;outline:none;font-size:15px;background:transparent}
+
+/* Holder surfaces (tan) */
+.month{background:var(--holder);border:1px solid var(--holder-line);border-radius:16px;padding:22px 26px 30px;display:flex;flex-direction:column;gap:22px}
+.month-head{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.month-head h2{margin:0;font-size:22px}
+.month-head .meta{font-size:15px;color:var(--muted)}
+.month-head .prog{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:600;color:#3b4060}
+.month-head .prog .bar{width:140px;height:8px;background:rgba(120,90,40,.14)}
+.grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:26px}
+.folders{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px}
+.folder{display:flex;flex-direction:column;gap:8px;padding:20px 22px;border-radius:14px;background:var(--holder);border:1px solid var(--holder-line)}
+.folder .minis{display:flex;gap:6px;margin-bottom:4px}
+.mini{position:relative;width:52px;height:64px;background:var(--receipt);border:1px solid #e6e0d4;box-shadow:0 1px 3px rgba(20,20,40,.12);display:flex;justify-content:center;padding-top:8px;font-size:9px;font-weight:700}
+.mini b{position:absolute;bottom:6px;left:4px;right:4px;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:7px;letter-spacing:.08em;padding:1px 0}
+.mini b.late{background:var(--red);color:#fff}
+.mini b.soon{background:var(--amber);color:#3a2a04}
+.folder .row1{display:flex;align-items:baseline;gap:10px}
+.folder .row1 strong{font-size:20px}
+.folder .row1 span{flex:1;font-size:14px;color:var(--muted)}
+.folder .row1 em{font-style:normal;font-size:18px;font-weight:700}
+.folder .bar{flex:1;background:rgba(120,90,40,.14)}
+
+/* Receipt card in the grid */
+.rc{display:flex;flex-direction:column;gap:12px;text-decoration:none;color:var(--ink);background:none;border:0;padding:0;text-align:left;cursor:pointer;font:inherit}
+.paper{position:relative;padding:16px 14px 14px;background:var(--receipt);border:1px solid var(--receipt-line);box-shadow:0 6px 14px rgba(30,25,15,.10),0 1px 2px rgba(30,25,15,.08);display:flex;flex-direction:column;min-height:196px;transition:transform .15s ease, box-shadow .15s ease}
+.rc:hover .paper{box-shadow:0 10px 20px rgba(30,25,15,.16),0 1px 2px rgba(30,25,15,.08)}
+.paper .wm{text-align:center;font-size:22px;font-weight:700;letter-spacing:-.02em}
+.paper .hd{text-align:center;font-size:11px;color:var(--muted);line-height:16px}
+.paper .rule{border-top:1px dashed var(--receipt-rule);margin:8px 0 6px}
+.paper .ln{display:flex;justify-content:space-between;gap:6px;font-size:11px;line-height:17px}
+.paper .ln span:first-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.paper .tot{display:flex;justify-content:space-between;font-size:12px;font-weight:700}
+.stamp{position:absolute;left:50%;top:52%;transform:translate(-50%,-50%) rotate(-14deg);padding:4px 10px;border:3px double;border-radius:4px;font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600;letter-spacing:.14em;opacity:.85;background:rgba(255,255,255,.35);text-align:center;pointer-events:none}
+.stamp.sub{color:var(--blue);border-color:var(--blue)}
+.stamp.paid{color:var(--green-ink);border-color:var(--green-ink)}
+.tab-late{position:absolute;top:-11px;right:14px;padding:3px 9px;background:var(--red);color:#fff;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.12em;box-shadow:0 2px 4px rgba(0,0,0,.25)}
+@media (prefers-reduced-motion:no-preference){.stamp.new{animation:stamp .28s cubic-bezier(.2,1.4,.4,1)}@keyframes stamp{from{transform:translate(-50%,-50%) rotate(-14deg) scale(1.8);opacity:0}to{transform:translate(-50%,-50%) rotate(-14deg) scale(1);opacity:.85}}}
+.rc .cap{display:flex;justify-content:space-between;gap:8px;font-size:15px}
+.rc .cap b{font-weight:700}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:-6px}
+.chip{padding:3px 9px;border-radius:999px;font-size:12px;font-weight:600;border:1px solid var(--field);background:#fff;color:#3b4060}
+.chip.sub{background:var(--blue-soft);color:var(--blue);border-color:var(--blue-line)}
+.chip.paid{background:var(--green-soft);color:var(--green-ink);border-color:var(--green-line)}
+.chip.late{background:var(--red-soft);color:var(--red-ink);border-color:var(--red-line)}
+.chip.soon{background:var(--amber-soft);color:var(--amber-ink);border-color:var(--amber-line)}
+.chip.due{background:#f0eee9;border-color:transparent;font-weight:500}
+
+/* Subscriptions */
+table.subs{width:100%;border-collapse:separate;border-spacing:0;background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;font-size:15px}
+table.subs th,table.subs td{padding:12px;border-bottom:1px solid #f0ebe2;text-align:left}
+table.subs thead th{background:#faf8f4;color:var(--muted);font-weight:600}
+table.subs th[scope=row]{padding-left:20px;font-weight:400}
+table.subs .cell{display:flex;align-items:center;justify-content:center;height:40px;border-radius:8px;font-size:13px;font-weight:600;border:1.5px solid #8a8ea3;background:#fff;color:var(--ink);width:100%;cursor:pointer}
+table.subs .cell.late{background:var(--red);border-color:var(--red);color:#fff}
+table.subs .cell.soon{background:var(--amber);border-color:var(--amber);color:#2e2104}
+table.subs .cell.sub{background:var(--blue);border-color:var(--blue);color:#fff}
+table.subs .cell.exp{border:1.5px dashed #d6d0c4;color:var(--muted);cursor:default;font-weight:500}
+.legend{display:flex;gap:18px;font-size:14px;color:#3b4060;flex-wrap:wrap}
+.legend span{display:flex;align-items:center;gap:6px}
+.legend i{width:12px;height:12px;border-radius:3px;display:inline-block}
+.note{flex:1;padding:16px 20px;border-radius:12px;font-size:15px;line-height:22px}
+
+/* Modal */
+.scrim{position:fixed;inset:0;background:rgba(20,22,40,.55);display:flex;align-items:center;justify-content:center;padding:24px;z-index:20}
+.modal{width:min(1220px,100%);height:min(1080px,100%);background:#fff;border-radius:18px;box-shadow:0 24px 60px rgba(10,12,30,.45);display:flex;flex-direction:column;overflow:hidden}
+.m-head{padding:20px 28px 16px;border-bottom:1px solid #ece7de;display:flex;flex-direction:column;gap:16px}
+.m-title{display:flex;align-items:center;gap:12px}
+.m-title .t{flex:1;display:flex;flex-direction:column;gap:2px}
+.m-title h2{margin:0;font-size:25px}
+.m-title .sub{font-size:15px;color:var(--muted)}
+.m-title .pos{font-size:14px;color:var(--muted)}
+.batch{padding:6px 12px;border-radius:999px;background:var(--navy-soft);color:var(--navy);font-size:13px;font-weight:700}
+.steps{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.steps li{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;border:1px solid #ece7de;background:#fff}
+.steps li .dot{width:26px;height:26px;flex-shrink:0;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;background:#ebe7df;color:var(--muted)}
+.steps li .l{font-size:14px;font-weight:700}
+.steps li .s{font-size:12px;color:var(--muted)}
+.steps li.done{background:#f5faf6;border-color:var(--green-line)}
+.steps li.done .dot{background:var(--green-ink);color:#fff}
+.steps li.done .l{color:var(--green-ink)}
+.steps li.cur{background:var(--navy-soft);border-color:var(--navy)}
+.steps li.cur .dot{background:var(--navy);color:#fff}
+.m-body{flex:1;min-height:0;display:grid;grid-template-columns:400px minmax(0,1fr)}
+.m-left{background:var(--holder);border-right:1px solid var(--holder-line);padding:30px 34px;display:flex;flex-direction:column;align-items:center;gap:18px;overflow-y:auto}
+.big{position:relative;width:300px;padding:26px 22px 22px;background:var(--receipt);border:1px solid var(--receipt-line);box-shadow:0 10px 24px rgba(30,25,15,.14),0 1px 3px rgba(30,25,15,.1);transform:rotate(-.8deg)}
+.big .wm{text-align:center;font-size:34px;font-weight:700;letter-spacing:-.02em}
+.big .hd{text-align:center;font-size:13px;color:var(--muted);line-height:20px;margin-top:4px}
+.big .rule{border-top:1px dashed var(--receipt-rule);margin:12px 0 10px}
+.big .ln{display:flex;justify-content:space-between;gap:10px;font-size:13px;line-height:22px}
+.big .ln.tot{font-size:15px;font-weight:700}
+.big .stamp{font-size:22px;padding:6px 14px;border-width:4px;line-height:26px}
+.big .stamp small{display:block;font-size:12px;letter-spacing:.08em}
+.recur{width:100%;padding:16px 18px;border-radius:12px;background:#fff;border:1px solid var(--line);display:flex;flex-direction:column;gap:10px}
+.recur .ms{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.recur .ms span{padding:6px 0;text-align:center;border-radius:8px;font-size:13px;font-weight:600;background:#f0eee9;color:#3b4060}
+.recur .ms span.late{background:var(--red-soft);color:var(--red-ink)}
+.recur .ms span.soon{background:var(--amber-soft);color:var(--amber-ink)}
+.recur .ms span.sub{background:var(--blue-soft);color:var(--blue)}
+.recur .ms span.paid{background:var(--green-soft);color:var(--green-ink)}
+.m-right{min-height:0;overflow-y:auto;padding:24px 30px;display:flex;flex-direction:column;gap:18px}
+.alert{display:flex;flex-direction:column;gap:10px;padding:14px 18px;border-radius:12px;border:1px solid}
+.alert .top{display:flex;align-items:center;gap:12px;font-size:16px}
+.alert .top span{flex:1}
+.alert.late{background:var(--red-soft);border-color:var(--red-line);color:var(--red-ink)}
+.alert.soon{background:var(--amber-soft);border-color:var(--amber-line);color:var(--amber-ink)}
+.alert.ok{background:#f7f5f1;border-color:var(--line);color:#3b4060}
+.alert .draft{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:8px;background:#fff;border:1px solid var(--red-line);color:var(--ink);font-size:15px;line-height:22px}
+.alert .draft span{flex:1}
+.check{display:flex;flex-direction:column;gap:12px;padding:16px 18px;border-radius:12px;border:1px solid var(--amber-line);background:var(--amber-soft)}
+.check.ok{border-color:var(--green-line);background:#f5faf6}
+.check .h{display:flex;align-items:center;gap:10px}
+.check .h b{flex:1;font-size:15px}
+.check .h small{font-size:13px;color:var(--muted)}
+.kmark{width:28px;height:28px;border-radius:50%;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700}
+.check p{margin:0;font-size:15px;line-height:22px}
+.check label{display:flex;align-items:center;gap:10px;min-height:44px;font-size:15px;font-weight:600;cursor:pointer}
+.check input{width:20px;height:20px;accent-color:var(--navy)}
+.concur{border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.concur .h{display:flex;align-items:center;gap:12px;padding:14px 18px;background:#faf8f4;border-bottom:1px solid var(--line)}
+.concur .h b{font-size:16px}
+.concur .h span{flex:1;font-size:14px;color:var(--muted)}
+.f{display:grid;grid-template-columns:150px minmax(0,1fr) 44px;gap:14px;align-items:start;padding:12px 18px;border-bottom:1px solid #f0ebe2}
+.f.done{background:#f5faf6}
+.f .lab{font-size:14px;color:var(--muted);padding-top:2px}
+.f .val{font-size:15px;line-height:22px}
+.copy{width:40px;height:40px;border-radius:8px;border:1px solid var(--field);background:#fff;color:#3b4060;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.f.done .copy{border-color:var(--green-line);background:var(--green-soft);color:var(--green-ink)}
+.details{border:1px solid var(--line);border-radius:12px}
+.details>button{width:100%;display:flex;align-items:center;gap:10px;min-height:52px;padding:0 18px;border:0;background:transparent;cursor:pointer;font-size:15px;font-weight:600;color:var(--ink);text-align:left}
+.details>button span{flex:1}
+.details>button em{font-style:normal;font-weight:400;color:var(--muted)}
+.details .in{padding:4px 18px 18px;display:grid;grid-template-columns:150px minmax(0,1fr);row-gap:10px;column-gap:14px;font-size:15px}
+.details .in .lab{color:var(--muted)}
+.m-foot{display:flex;align-items:center;gap:12px;padding:14px 28px;border-top:1px solid #ece7de}
+.m-foot .hint{flex:1;font-size:14px;color:var(--muted)}
+.m-foot .hint.warn{color:var(--amber-ink)}
+.m-foot .hint.good{color:var(--green-ink)}
+
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:8px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:40}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+<div class="demo" role="note"><strong>Mockup.</strong> Demo data, as of Oct 1, 2026. Click a receipt to open it. Try <strong>Submit September to Concur</strong>, or open the July folder to see a late receipt.</div>
+<header class="appbar">
+  <div class="brand">ASPIRE Intelligence</div>
+  <div class="sp"></div>
+  <div class="pill"><small>SCOPE</small>Internship · Fall 2026</div>
+</header>
+<main class="page" id="app"></main>
+<div id="modal-root"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+const TODAY = Date.UTC(2026, 9, 1); // Oct 1, 2026
+const DAY = 86400000;
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const fmtDate = (t) => { const d = new Date(t); return MON[d.getUTCMonth()] + ' ' + d.getUTCDate() + ', ' + d.getUTCFullYear(); };
+const money = (n) => '$' + n.toFixed(2);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+const VERCEL_PURPOSE = 'Vercel Pro is the platform service that builds and runs the ASPIRE Intelligence app. This subscription provides the hosting, deployment and performance infrastructure required to deliver the app to ASPIRE students and program stakeholders.';
+
+// Demo receipts. Amounts and order numbers come from the current app.
+const receipts = [
+  { id: 'sep-anth-cr', vendor: 'Anthropic', entity: 'Anthropic, PBC', sub: 'anth-cr', order: 'EYZ0BO6O-0003', date: Date.UTC(2026, 8, 30), total: 10.35, card: '',
+    items: [['Auto-recharge credits', 10.35]], plan: 'Anthropic API auto-recharge credits' },
+  { id: 'sep-supa', vendor: 'supabase', entity: 'Supabase Pte. Ltd.', sub: 'supa', order: 'LOENXJ-00007', date: Date.UTC(2026, 8, 29), total: 35, card: '',
+    items: [['Pro Plan (Sep 29 – Oct 29)', 25], ['Compute Hours', 10]], plan: 'Supabase Pro plan and compute' },
+  { id: 'sep-resend', vendor: 'Resend', entity: 'Resend', sub: 'resend', order: '9S4B2PID-0003', date: Date.UTC(2026, 8, 16), total: 20, card: '2002',
+    items: [['Transactional Pro', 20]], plan: 'Resend Transactional Pro subscription' },
+  { id: 'sep-vercel', vendor: 'Vercel', entity: 'Vercel Inc.', sub: 'vercel', order: 'VGNBABRU-0007', date: Date.UTC(2026, 8, 1), total: 20, card: '1004',
+    items: [['Pro (Sep 1 – Sep 30)', 20], ['Observability Plus', 0]], plan: 'Vercel Pro subscription', purpose: VERCEL_PURPOSE },
+  { id: 'sep-anth-max', vendor: 'Anthropic', entity: 'Anthropic, PBC', sub: 'anth-max', order: 'RGFTYKPO-0006', date: Date.UTC(2026, 8, 1), total: 100, card: '1004',
+    items: [['Max plan, 5x', 100]], plan: 'Anthropic Max plan subscription' },
+  { id: 'jul-vercel', vendor: 'Vercel', entity: 'Vercel Inc.', sub: 'vercel', order: 'VGNBABRU-0004', date: Date.UTC(2026, 6, 1), total: 20, card: '1004',
+    items: [['Observability Plus, Jul', 0], ['Pro, Jul 1 – Jul 31', 20]], plan: 'Vercel Pro subscription', purpose: VERCEL_PURPOSE }
+];
+receipts.forEach((r) => { r.row = r.id === 'jul-vercel' ? '2' : '[ROW]'; r.stage = 0; r.confirmed = false; r.copied = {}; r.lateNote = false; r.details = false; r.stampedAt = null; });
+const byId = (id) => receipts.find((r) => r.id === id);
+const SEPT = receipts.filter((r) => r.id.startsWith('sep-'));
+
+const deadline = (r) => r.date + 60 * DAY;
+const daysLeft = (r) => Math.round((deadline(r) - TODAY) / DAY);
+const timing = (r) => { const d = daysLeft(r); return d < 0 ? 'late' : d <= 14 ? 'soon' : 'ok'; };
+const dueText = (r) => { const d = daysLeft(r); return d < 0 ? (-d) + ' days late' : d === 0 ? 'Due today' : d + ' days left'; };
+
+// Subscriptions grid. [AMT] marks amounts that weren't in the source screenshots.
+const subs = [
+  { id: 'anth-max', vendor: 'Anthropic, PBC', plan: 'Max plan, 5x', cells: [['[AMT]', 'late'], ['[AMT]', 'late'], ['sep-anth-max']] },
+  { id: 'anth-cr', vendor: 'Anthropic, PBC', plan: 'Auto-recharge credits', cells: [['[AMT]', 'late'], ['$10.03', 'soon'], ['sep-anth-cr']] },
+  { id: 'supa', vendor: 'Supabase Pte. Ltd.', plan: 'Pro plan and compute', cells: [['[AMT]', 'late'], ['[AMT]', 'ok'], ['sep-supa']] },
+  { id: 'resend', vendor: 'Resend', plan: 'Transactional Pro', cells: [['$20.00', 'late'], ['$20.00', 'soon'], ['sep-resend']] },
+  { id: 'vercel', vendor: 'Vercel Inc.', plan: 'Pro', cells: [['jul-vercel'], ['[AMT]', 'late'], ['sep-vercel']] }
+];
+const cellState = (c) => {
+  if (c.length === 1) { const r = byId(c[0]); return { r, amt: money(r.total), kind: r.stage >= 1 ? 'sub' : timing(r) }; }
+  return { r: null, amt: c[0], kind: c[1] };
+};
+
+const state = { view: 'receipts', open: 'sep', modal: null, batch: false };
+
+let toastT;
+function toast(m) { const t = document.getElementById('toast'); t.textContent = m; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 1800); }
+
+const I = {
+  copy: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a1 1 0 0 1 1-1h10"/></svg>',
+  tick: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+  send: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12l16-8-6 16-3-7z"/></svg>',
+  left: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>',
+  right: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>',
+  x: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  clock: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+  chev: (open) => '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="transform:' + (open ? 'rotate(180deg)' : 'none') + '"><path d="M6 9l6 6 6-6"/></svg>',
+  search: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b6f85" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>'
+};
+
+function stageChip(r) {
+  if (r.stage === 2) return '<span class="chip paid">Reimbursed</span>';
+  if (r.stage === 1) return '<span class="chip sub">Submitted</span>';
+  const t = timing(r);
+  return '<span class="chip">Not submitted</span><span class="chip ' + (t === 'ok' ? 'due' : t) + '">' + dueText(r) + '</span>';
+}
+function stampHtml(r, big) {
+  if (!r.stage) return '';
+  const cls = r.stage === 2 ? 'paid' : 'sub';
+  const word = r.stage === 2 ? 'REIMBURSED' : 'SUBMITTED';
+  const fresh = r.stampedAt && Date.now() - r.stampedAt < 600 ? ' new' : '';
+  return '<span class="stamp ' + cls + fresh + '" aria-hidden="true">' + word + (big ? '<small>OCT 1, 2026</small>' : '') + '</span>';
+}
+
+function receiptCard(r, tilt) {
+  const t = timing(r);
+  let h = '<button type="button" class="rc" data-open="' + r.id + '" aria-label="' + esc(r.entity + ', ' + money(r.total) + ', ' + fmtDate(r.date) + ', ' + (r.stage ? (r.stage === 2 ? 'reimbursed' : 'submitted') : 'not submitted, ' + dueText(r))) + '">';
+  h += '<span class="paper" style="transform:rotate(' + tilt + 'deg)">';
+  if (!r.stage && t === 'late') h += '<span class="tab-late" aria-hidden="true">LATE</span>';
+  h += '<span class="wm">' + esc(r.vendor) + '</span>';
+  h += '<span class="hd">' + esc(r.entity) + '<br>Order #' + esc(r.order) + '<br>' + fmtDate(r.date) + '</span><span class="rule"></span>';
+  r.items.forEach((it) => { h += '<span class="ln"><span>' + esc(it[0]) + '</span><span>' + money(it[1]) + '</span></span>'; });
+  h += '<span class="rule"></span><span class="tot"><span>Total</span><span>' + money(r.total) + '</span></span>';
+  h += stampHtml(r, false) + '</span>';
+  h += '<span class="cap"><span>' + esc(r.entity) + '</span><b>' + money(r.total) + '</b></span>';
+  h += '<span class="chips">' + stageChip(r) + '</span></button>';
+  return h;
+}
+
+function renderReceipts() {
+  const tracked = receipts;
+  const submitted = tracked.filter((r) => r.stage >= 1).length;
+  const julLate = byId('jul-vercel').stage ? 0 : 1;
+  const late = 6 + julLate; // 4 other July receipts + 2 August receipts are not modeled in this demo
+  const septDone = SEPT.filter((r) => r.stage >= 1).length;
+  const tilts = [-0.8, 0.6, -0.4, 0.7, -0.6];
+
+  let h = '<div class="drop"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1b2461" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg><div class="t"><strong>Drop receipts here.</strong> <span>Keith reads each one and proposes rows. Nothing posts until you accept it.</span></div><button class="btn" type="button">Choose files</button></div>';
+
+  h += '<div class="stats">';
+  h += '<div class="stat"><div class="k">Filed in FY27</div><div class="v">$548.89</div><div class="s">15 receipts</div></div>';
+  h += '<div class="stat"><div class="k">Submitted to Concur</div><div class="v">' + submitted + ' of 15</div><div class="bar" style="margin-top:6px"><i style="width:' + (submitted / 15 * 100) + '%"></i></div></div>';
+  h += '<div class="stat red"><div class="k">Past the 60-day limit</div><div class="v">' + late + ' receipts</div><div class="s">' + (julLate ? 'All of July, 2 from August' : '4 from July, 2 from August') + '</div></div>';
+  h += '<div class="stat amber"><div class="k">Due in the next 14 days</div><div class="v">2 receipts</div><div class="s">Next: Oct 6</div></div>';
+  h += '</div>';
+
+  h += '<div class="toolbar">';
+  h += '<div class="seg" role="group" aria-label="Receipt status"><button type="button" aria-pressed="false">To review <span class="mono">0</span></button><button type="button" aria-pressed="true">Filed <span class="mono">15</span></button></div>';
+  h += '<div class="seg soft" role="group" aria-label="View"><button type="button" data-view="receipts" aria-pressed="true">Receipts</button><button type="button" data-view="subs" aria-pressed="false">Subscriptions</button></div>';
+  h += '<span style="font-size:14px;color:var(--muted)">Group by</span><div class="seg" role="group" aria-label="Group by"><button type="button" aria-pressed="true">Month</button><button type="button" aria-pressed="false">Vendor</button><button type="button" aria-pressed="false">Stage</button><button type="button" aria-pressed="false">Category</button></div>';
+  h += '<label class="search">' + I.search + '<span class="sr">Search receipts</span><input type="search" placeholder="Search vendor, item or order number"></label>';
+  h += '</div>';
+
+  h += '<section class="month" aria-label="September 2026">';
+  h += '<div class="month-head"><h2>September 2026</h2><span class="meta">5 receipts · $185.35</span>';
+  h += '<span class="prog"><span class="bar"><i style="width:' + (septDone / 5 * 100) + '%"></i></span>' + septDone + ' of 5 submitted</span>';
+  h += '<span class="meta">' + (septDone === 5 ? 'All submitted' : 'Next due Oct 31') + '</span><span style="flex:1"></span>';
+  if (septDone < 5) h += '<button type="button" class="btn primary" data-act="batch">' + I.send + 'Submit September to Concur</button>';
+  h += '</div><div class="grid">';
+  SEPT.forEach((r, i) => { h += receiptCard(r, tilts[i]); });
+  h += '</div></section>';
+
+  const jul = byId('jul-vercel');
+  h += '<div class="folders">';
+  h += folderCard('August 2026', '$185.03', 0, [['Vercel', 'late'], ['Anthropic', 'late'], ['Anthropic', 'soon'], ['Resend', 'soon'], ['supabase', '']], '<span class="chip late">2 late</span><span class="chip soon">2 due by Oct 15</span>', null);
+  h += folderCard('July 2026', '$178.51', jul.stage ? 1 : 0, [['Vercel', jul.stage ? '' : 'late'], ['Anthropic', 'late'], ['Anthropic', 'late'], ['Resend', 'late'], ['supabase', 'late']], '<span class="chip late">' + (jul.stage ? 4 : 5) + ' late</span>', 'jul-vercel');
+  h += '</div>';
+  return h;
+}
+function folderCard(name, total, done, minis, chips, openId) {
+  let h = '<div class="folder"><div class="minis">';
+  minis.forEach((m) => { h += '<span class="mini">' + esc(m[0]) + (m[1] ? '<b class="' + m[1] + '">' + (m[1] === 'late' ? 'LATE' : 'SOON') + '</b>' : '') + '</span>'; });
+  h += '</div><div class="row1"><strong>' + name + '</strong><span>5 receipts</span><em>' + total + '</em></div>';
+  h += '<div style="display:flex;align-items:center;gap:10px"><span class="bar" style="flex:1"><i style="width:' + (done / 5 * 100) + '%"></i></span><span style="font-size:13px;color:#3b4060">' + done + ' of 5 submitted</span></div>';
+  h += '<div class="chips" style="margin-top:0">' + chips + '</div>';
+  if (openId) h += '<button type="button" class="btn sm" data-open="' + openId + '" style="align-self:flex-start;margin-top:4px">Open the Vercel receipt</button>';
+  else h += '<span style="font-size:13px;color:var(--muted)">Not drawn in this demo</span>';
+  return h + '</div>';
+}
+
+function renderSubs() {
+  let h = '<div class="toolbar"><div class="seg soft" role="group" aria-label="View"><button type="button" data-view="receipts" aria-pressed="false">Receipts</button><button type="button" data-view="subs" aria-pressed="true">Subscriptions</button></div>';
+  h += '<div class="legend" style="margin-left:auto"><span><i style="background:var(--red)"></i>Late, not submitted</span><span><i style="background:var(--amber)"></i>Due within 14 days</span><span><i style="border:1.5px solid #8a8ea3"></i>Filed, on time</span><span><i style="background:var(--blue)"></i>Submitted</span></div></div>';
+  h += '<div style="display:flex;align-items:baseline;gap:16px"><h2 style="margin:0;font-size:26px">Platform subscriptions · FY27</h2><span style="font-size:15px;color:var(--muted)">4 vendors · 5 monthly charges · about $185 a month</span></div>';
+  h += '<table class="subs"><thead><tr><th scope="col" style="padding-left:20px">Vendor and plan</th><th scope="col">Jul</th><th scope="col">Aug</th><th scope="col">Sep</th><th scope="col">Oct</th><th scope="col" style="text-align:right;padding-right:20px">Last charge</th></tr></thead><tbody>';
+  const WORD = { late: 'late', soon: 'due soon', ok: 'on time', sub: 'submitted' };
+  subs.forEach((s) => {
+    h += '<tr><th scope="row"><div style="font-weight:700">' + esc(s.vendor) + '</div><div style="font-size:13px;color:var(--muted)">' + esc(s.plan) + '</div></th>';
+    s.cells.forEach((c, i) => {
+      const cs = cellState(c);
+      const label = cs.amt + (cs.kind === 'ok' ? '' : ' · ' + WORD[cs.kind]);
+      const aria = s.vendor + ', ' + ['July', 'August', 'September'][i] + ', ' + cs.amt + ', ' + WORD[cs.kind];
+      h += '<td><button type="button" class="cell ' + (cs.kind === 'ok' ? '' : cs.kind) + '" ' + (cs.r ? 'data-open="' + cs.r.id + '"' : 'data-act="not-drawn"') + ' aria-label="' + esc(aria) + '">' + label + '</button></td>';
+    });
+    const last = byId(s.cells[2][0]);
+    h += '<td><span class="cell exp">Expected</span></td><td style="text-align:right;padding-right:20px;font-weight:700">' + money(last.total) + '</td></tr>';
+  });
+  h += '<tr style="background:#faf8f4"><th scope="row" style="font-weight:700">Month total</th><td style="font-weight:700">$178.51</td><td style="font-weight:700">$185.03</td><td style="font-weight:700">$185.35</td><td style="color:var(--muted)">Pending</td><td style="text-align:right;padding-right:20px;font-weight:700">$548.89</td></tr>';
+  h += '</tbody></table>';
+  const nLate = subs.reduce((a, s) => a + s.cells.filter((c) => cellState(c).kind === 'late').length, 0);
+  h += '<div style="display:flex;gap:14px"><div class="note" style="background:var(--red-soft);border:1px solid var(--red-line);color:var(--red-ink)"><strong>' + nLate + ' charges are past the 60-day limit.</strong> Submit July as one report today, then August.</div>';
+  h += '<div class="note" style="background:#fff;border:1px solid var(--line)"><strong>Every charge here repeats monthly.</strong> Moving them to Purchasing or a department card would end about 60 Concur entries a year.</div></div>';
+  return h;
+}
+
+function concurFields(r) {
+  const month = MONTHS[new Date(r.date).getUTCMonth()];
+  return [
+    ['report', 'Report name', 'ASPIRE Platform Infrastructure - ' + month + ' 2026'],
+    ['type', 'Expense type', 'Miscellaneous'],
+    ['date', 'Transaction date', fmtDate(r.date)],
+    ['amount', 'Amount', money(r.total)],
+    ['vendor', 'Vendor', r.entity],
+    ['desc', 'Description', r.plan + ' for ' + month + ' 2026 (order ' + r.order + ')'],
+    ['purpose', 'Business purpose', r.purpose || '[Keith drafts the business purpose from the reimbursement policy]']
+  ];
+}
+function modalList() { return state.batch ? SEPT : (byId(state.modal).id.startsWith('sep-') ? SEPT : [byId(state.modal)]); }
+
+function renderModal() {
+  const root = document.getElementById('modal-root');
+  if (!state.modal) { root.innerHTML = ''; return; }
+  const r = byId(state.modal);
+  const list = modalList();
+  const idx = list.indexOf(r);
+  const month = MONTHS[new Date(r.date).getUTCMonth()];
+  const t = timing(r);
+  const fields = concurFields(r);
+  const nCopied = fields.filter((f) => r.copied[f[0]]).length;
+  const sub = subs.find((s) => s.id === r.sub);
+
+  let h = '<div class="scrim" data-act="scrim"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="m-title">';
+  h += '<div class="m-head"><div class="m-title"><div class="t"><h2 id="m-title">' + esc(r.entity) + ' · ' + money(r.total) + '</h2><span class="sub">' + fmtDate(r.date) + ' · FY27 · Technology &amp; Software · <span class="mono" style="font-size:14px">' + esc(r.order) + '</span></span></div>';
+  if (state.batch) h += '<span class="batch">Submitting September · ' + (idx + 1) + ' of 5</span>';
+  else h += '<span class="pos">' + (idx + 1) + ' of ' + (list.length === 1 ? '5' : list.length) + ' in ' + month + '</span>';
+  h += '<button type="button" class="icon-btn" data-act="prev" aria-label="Previous receipt"' + (idx <= 0 ? ' disabled' : '') + '>' + I.left + '</button>';
+  h += '<button type="button" class="icon-btn" data-act="next" aria-label="Next receipt"' + (idx >= list.length - 1 ? ' disabled' : '') + '>' + I.right + '</button>';
+  h += '<button type="button" class="icon-btn" style="border:0" data-act="close" aria-label="Close">' + I.x + '</button></div>';
+
+  const steps = [['Received', 'Sep 29 by Keith'], ['In the Sheet', 'FY27 row ' + r.row], ['Submitted to Concur', r.stage >= 1 ? 'Oct 1, 2026' : 'Not yet'], ['Reimbursed', r.stage >= 2 ? 'Oct 1, 2026' : 'Not yet']];
+  const reached = 2 + r.stage;
+  h += '<ol class="steps" aria-label="Receipt progress">';
+  steps.forEach((s, i) => { const cls = i < reached ? 'done' : i === reached ? 'cur' : ''; h += '<li class="' + cls + '"' + (cls === 'cur' ? ' aria-current="step"' : '') + '><span class="dot">' + (i < reached ? '✓' : i + 1) + '</span><span><div class="l">' + s[0] + '</div><div class="s">' + s[1] + '</div></span></li>'; });
+  h += '</ol></div>';
+
+  h += '<div class="m-body"><div class="m-left"><div class="big">';
+  if (!r.stage && t === 'late') h += '<span class="tab-late" style="right:18px;top:-12px;font-size:11px">' + (-daysLeft(r)) + ' DAYS LATE</span>';
+  h += '<div class="wm">' + esc(r.vendor) + '</div><div class="hd">' + esc(r.entity) + '<br>Order #' + esc(r.order) + '<br>' + fmtDate(r.date) + '</div><div class="rule"></div>';
+  r.items.forEach((it) => { h += '<div class="ln"><span>' + esc(it[0]) + '</span><span>' + money(it[1]) + '</span></div>'; });
+  h += '<div class="rule"></div><div class="ln"><span>Subtotal</span><span>' + money(r.total) + '</span></div><div class="ln tot"><span>Total</span><span>' + money(r.total) + '</span></div>';
+  if (r.card) h += '<div class="ln"><span>Card</span><span>•••• ' + r.card + '</span></div>';
+  h += stampHtml(r, true) + '</div>';
+  h += '<div style="display:flex;gap:10px"><button type="button" class="btn">Download</button><button type="button" class="btn">View original</button></div>';
+  if (sub) {
+    h += '<div class="recur"><b style="font-size:14px">' + esc(r.entity.split(',')[0].replace(' Inc.', '')) + ' bills monthly</b><div class="ms">';
+    sub.cells.forEach((c, i) => { const cs = cellState(c); const w = { late: 'late', soon: 'soon', ok: 'open', sub: 'sent' }[cs.kind]; h += '<span class="' + cs.kind + '">' + MON[6 + i] + ' · ' + w + '</span>'; });
+    h += '</div><div style="font-size:13px;line-height:19px;color:var(--muted)">Paying through Purchasing would end the monthly Concur entries.</div><button type="button" class="btn ghost sm" data-view="subs" style="align-self:flex-start;padding:0;color:#1f2a6b">See all subscriptions →</button></div>';
+  }
+  h += '</div><div class="m-right">';
+
+  if (r.stage === 0) {
+    if (t === 'late') {
+      h += '<div class="alert late" role="alert"><div class="top">' + I.clock + '<span><strong>' + (-daysLeft(r)) + ' days past the 60-day limit.</strong> It was due ' + fmtDate(deadline(r)) + '. Concur may ask why it\'s late.</span>';
+      if (!r.lateNote) h += '<button type="button" class="btn sm danger" data-act="late-note">Draft late note</button>';
+      h += '</div>';
+      if (r.lateNote) h += '<div class="draft"><span>This expense is submitted after the 60-day window because [REASON]. It is a recurring monthly subscription for the ASPIRE Intelligence platform, and the receipt is attached.</span><button type="button" class="copy" aria-label="Copy late note" data-act="copy-note">' + I.copy + '</button></div>';
+      h += '</div>';
+    } else {
+      h += '<div class="alert ' + (t === 'soon' ? 'soon' : 'ok') + '"><div class="top">' + I.clock + '<span><strong>Submit by ' + fmtDate(deadline(r)) + '.</strong> ' + dueText(r) + ' under the 60-day limit.</span></div></div>';
+    }
+  }
+
+  h += '<div class="check' + (r.confirmed ? ' ok' : '') + '"><div class="h"><span class="kmark" aria-hidden="true">K</span><b>Keith\'s policy check</b><small>Drafted Sep 30 · <a href="#">Draft again</a></small></div>';
+  h += '<p>The receipt doesn\'t state a business purpose. Policy requires one for subscriptions. Confirm that this plan is necessary for ASPIRE and that it\'s the right tier.</p>';
+  h += '<label><input type="checkbox" data-act="confirm"' + (r.confirmed ? ' checked' : '') + (r.stage ? ' disabled' : '') + '> I confirm this is necessary for ASPIRE operations.</label></div>';
+
+  h += '<div class="concur"><div class="h"><b>Concur entry</b><span>' + (nCopied === 7 ? 'All 7 fields copied' : nCopied + ' of 7 copied') + '</span><button type="button" class="btn sm" data-act="copy-all">' + I.copy + 'Copy all</button></div>';
+  fields.forEach((f) => {
+    const done = !!r.copied[f[0]];
+    h += '<div class="f' + (done ? ' done' : '') + '"><span class="lab">' + f[1] + '</span><span class="val">' + esc(f[2]) + '</span><button type="button" class="copy" data-copy="' + f[0] + '" aria-label="' + (done ? f[1] + ' copied' : 'Copy ' + f[1]) + '">' + (done ? I.tick : I.copy) + '</button></div>';
+  });
+  h += '<div class="f" style="border-bottom:0;grid-template-columns:150px minmax(0,1fr)"><span class="lab">Attach</span><span class="val">The itemized receipt. Use <strong>Download</strong> under the receipt.</span></div></div>';
+
+  h += '<div class="details"><button type="button" data-act="details" aria-expanded="' + r.details + '"><span>Details <em>· Sheet row, payment, file</em></span>' + I.chev(r.details) + '</button>';
+  if (r.details) {
+    const d = new Date(r.date);
+    const file = 'FY27_' + d.toISOString().slice(0, 10) + '_' + r.entity.replace(/[ ,]+/g, '-').replace(/-+$/, '') + '_' + r.order + '_' + money(r.total) + '.pdf';
+    h += '<div class="in"><span class="lab">Sheet row</span><span>FY27 row ' + (receipts.indexOf(r) + 2) + ' · ' + esc(r.plan) + ' · <a href="#">Show in Sheet</a></span>';
+    h += '<span class="lab">Payment</span><span>' + (r.card ? 'Personal card ending ' + r.card + ', reimbursed through Concur' : 'Personal, reimbursed through Concur') + '</span>';
+    h += '<span class="lab">Accepted</span><span>Sep 29, 2026 by Jester Lloyd Bautista</span>';
+    h += '<span class="lab">File</span><span class="mono" style="font-size:13px;word-break:break-all">Budget Tracker › FY27 › Receipts › ' + esc(file) + '</span>';
+    h += '<span></span><span style="display:flex;gap:10px;margin-top:4px"><button type="button" class="btn sm">Replace file</button><button type="button" class="btn sm danger">Delete receipt</button></span></div>';
+  }
+  h += '</div></div></div>';
+
+  let label, disabled = false, hint = '', hcls = '';
+  if (r.stage === 0) {
+    label = state.batch && idx < list.length - 1 ? 'Mark submitted and go to next' : 'Mark submitted to Concur';
+    disabled = !r.confirmed;
+    hint = r.confirmed ? 'The Sheet\'s Stage and Submitted to Concur box update too.' : 'Confirm the business purpose above to continue.';
+    hcls = r.confirmed ? '' : 'warn';
+  } else if (r.stage === 1) {
+    label = 'Mark reimbursed'; hint = 'Submitted Oct 1, 2026. Mark it reimbursed when the money arrives.';
+  } else {
+    label = idx < list.length - 1 ? 'Next receipt' : 'Done'; hint = 'Reimbursed Oct 1, 2026. This receipt is complete.'; hcls = 'good';
+  }
+  h += '<div class="m-foot"><span class="hint ' + hcls + '">' + hint + '</span>';
+  if (r.stage) h += '<button type="button" class="btn ghost" data-act="undo">Undo</button>';
+  h += '<button type="button" class="btn primary" data-act="primary"' + (disabled ? ' disabled' : '') + ' style="min-height:48px;padding:0 24px;font-size:16px">' + label + '</button></div>';
+  h += '</div></div>';
+  root.innerHTML = h;
+}
+
+function render() {
+  document.getElementById('app').innerHTML = state.view === 'subs' ? renderSubs() : renderReceipts();
+  renderModal();
+}
+
+let lastFocus = null;
+function openModal(id, batch) {
+  lastFocus = document.activeElement;
+  state.modal = id; state.batch = !!batch; render();
+  const m = document.querySelector('.modal [data-act="close"]'); if (m) m.focus();
+}
+function closeModal() {
+  const id = state.modal; state.modal = null; state.batch = false; render();
+  const back = document.querySelector('[data-open="' + id + '"]') || lastFocus; if (back && back.focus) back.focus();
+}
+function go(step) {
+  const list = modalList(); const i = list.indexOf(byId(state.modal)) + step;
+  if (i >= 0 && i < list.length) { state.modal = list[i].id; render(); }
+}
+
+document.addEventListener('click', (e) => {
+  const el = e.target.closest('button, [data-act="scrim"], a[href="#"]');
+  if (!el) return;
+  if (el.tagName === 'A') { e.preventDefault(); return; }
+  if (el.dataset.act === 'scrim') { if (e.target === el) closeModal(); return; }
+  if (el.dataset.view) { state.view = el.dataset.view; if (state.modal) { state.modal = null; state.batch = false; } render(); return; }
+  if (el.dataset.open) { openModal(el.dataset.open, false); return; }
+  const r = state.modal ? byId(state.modal) : null;
+  if (el.dataset.copy && r) { r.copied[el.dataset.copy] = true; renderModal(); toast('Copied'); return; }
+  switch (el.dataset.act) {
+    case 'batch': { const first = SEPT.find((x) => x.stage === 0) || SEPT[0]; openModal(first.id, true); break; }
+    case 'not-drawn': toast('Not drawn in this demo'); break;
+    case 'close': closeModal(); break;
+    case 'prev': go(-1); break;
+    case 'next': go(1); break;
+    case 'late-note': r.lateNote = true; renderModal(); break;
+    case 'copy-note': toast('Late note copied'); break;
+    case 'copy-all': concurFields(r).forEach((f) => { r.copied[f[0]] = true; }); renderModal(); toast('All fields copied'); break;
+    case 'details': r.details = !r.details; renderModal(); break;
+    case 'undo': r.stage -= 1; r.stampedAt = null; render(); toast('Undone'); break;
+    case 'primary':
+      if (r.stage === 0) {
+        r.stage = 1; r.stampedAt = Date.now(); toast('Marked submitted to Concur');
+        if (state.batch) {
+          const next = modalList().find((x) => x.stage === 0);
+          render();
+          if (next) setTimeout(() => { state.modal = next.id; render(); }, 650);
+          else setTimeout(() => { closeModal(); toast('September submitted to Concur'); }, 650);
+          return;
+        }
+      } else if (r.stage === 1) { r.stage = 2; r.stampedAt = Date.now(); toast('Marked reimbursed'); }
+      else { const list = modalList(); const i = list.indexOf(r); if (i < list.length - 1) go(1); else closeModal(); return; }
+      render(); break;
+  }
+});
+document.addEventListener('change', (e) => {
+  if (e.target.dataset.act === 'confirm' && state.modal) { byId(state.modal).confirmed = e.target.checked; renderModal(); const c = document.querySelector('[data-act="confirm"]'); if (c) c.focus(); }
+});
+document.addEventListener('keydown', (e) => {
+  if (!state.modal) return;
+  if (e.key === 'Escape') { e.preventDefault(); closeModal(); }
+  else if (e.target.tagName !== 'INPUT' && e.key === 'ArrowRight') go(1);
+  else if (e.target.tagName !== 'INPUT' && e.key === 'ArrowLeft') go(-1);
+  else if (e.key === 'Tab') {
+    const f = [...document.querySelectorAll('.modal button:not([disabled]), .modal a[href], .modal input:not([disabled])')];
+    if (!f.length) return;
+    if (e.shiftKey && document.activeElement === f[0]) { e.preventDefault(); f[f.length - 1].focus(); }
+    else if (!e.shiftKey && document.activeElement === f[f.length - 1]) { e.preventDefault(); f[0].focus(); }
+  }
+});
+
+render();
+</script>
+</body>
+</html>
