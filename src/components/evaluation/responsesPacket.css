@@ -695,6 +695,16 @@
   color: var(--paper-ink);
 }
 
+/* DARK-SWEEP-2 (2026-09-30): in dark the accent lifts to a light periwinkle, so a resting tab is a
+   LIGHT ground and its white ink measured 2.1:1. The ink turns dark where the ground does (the
+   segmented picker's own dark pair, 7.6:1 on the tab). The selected tab is paper and keeps its rule. */
+:root[data-theme="dark"][data-style="classic"] .evaluation-workspace .rp-tab:not([data-selected="true"]) .rp-tab-main,
+:root[data-theme="dark"][data-style="classic"] .evaluation-workspace .rp-tab:not([data-selected="true"]) .rp-tab-main:hover,
+:root[data-theme="dark"][data-style="classic"] .evaluation-workspace .rp-tab:not([data-selected="true"]) .rp-tab-preview,
+:root[data-theme="dark"][data-style="classic"] .evaluation-workspace .rp-tab:not([data-selected="true"]) .rp-tab-preview:hover {
+  color: var(--seg-active-ink, #0F1419);
+}
+
 :root[data-style="classic"] .evaluation-workspace .rp-sheethead {
   border-bottom-color: var(--color-accent-primary);
 }

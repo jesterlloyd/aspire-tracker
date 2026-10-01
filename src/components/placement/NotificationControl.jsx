@@ -121,7 +121,7 @@ export default function NotificationControl({
             onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation() } }}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 3,
               background: 'none', border: 'none', padding: '1px 2px', cursor: 'default',
-              fontFamily: F, fontSize: 10.5, fontWeight: 700, color: '#166534',
+              fontFamily: F, fontSize: 10.5, fontWeight: 700, color: 'var(--pb-notified-ink, #166534)',
               whiteSpace: 'nowrap', flexShrink: 0 }}>
             <Check size={12} strokeWidth={3} aria-hidden="true" />
             {compact ? '' : 'Notified'}
