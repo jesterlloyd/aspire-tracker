@@ -13,8 +13,11 @@
 // - Clicking a receipt opens the side panel: the drawn receipt, the Sheet rows it posted, payment,
 //   status, the filed name, a meal's purpose and attendees, and View original, Show in Sheet, Download.
 // - No frame around a receipt: on hover (and keyboard focus) the paper itself lifts.
+// - RECEIPT-REPLACE-1 (Owner, 2026-10-01): the panel's "This file" section. Replace file swaps the
+//   file in place (the rows, Stage and Concur draft stay); Delete receipt removes the file for good
+//   and leaves its rows in the Sheet as Missing. Delete asks first, in the panel; neither has an Undo.
 // Classic draws the folders as the manila folder of Evaluation > Responses; Modern as plain cards.
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Search } from 'lucide-react'
 import SurfaceCard from '../ui/SurfaceCard'
 import DetailDrawer from '../ui/DetailDrawer'
@@ -22,7 +25,7 @@ import ReceiptConcur from './ReceiptConcur'
 import SegmentedPicker from '../shared/SegmentedPicker'
 import { ReceiptPaper } from './ReceiptSlip'
 import ReceiptOriginal from './ReceiptOriginal'
-import { budgetStaff } from './budgetApi'
+import { budgetStaff, prepareReceiptFile, uploadReceiptFile } from './budgetApi'
 import { filedFolders, FILED_GROUPS } from '../../lib/budget/receiptModel'
 import { usd, dateText, fyShort, fiscalYearOfDate } from '../../lib/budget/budgetModel'
 
@@ -124,6 +127,7 @@ export default function BudgetFiled({ year, receipts: given, notify, onShowInShe
           </>)}>
           <FiledDetail receipt={panelReceipt} />
           <ReceiptConcur receipt={panelReceipt} notify={notify} onChanged={onChanged} />
+          <FiledFile key={panelReceipt.id} receipt={panelReceipt} notify={notify} onChanged={onChanged} onDeleted={() => setPanel(null)} />
         </DetailDrawer>
       )}
       {original && <ReceiptOriginal original={original} onClose={() => setOriginal(null)} />}
@@ -152,6 +156,60 @@ function FiledTile({ entry, groupBy, onOpen }) {
         </span>
       </span>
     </button>
+  )
+}
+
+/** The side panel's "This file": replace the file in place, or delete the receipt for good. */
+function FiledFile({ receipt: r, notify, onChanged, onDeleted }) {
+  const [busy, setBusy] = useState('')
+  const [asking, setAsking] = useState(false)
+  const pick = useRef(null)
+  const settled = r.rows.filter(x => x.stage === 'submitted' || x.stage === 'settled')
+  const replace = async (raw) => {
+    if (!raw) return
+    setBusy('replace')
+    try {
+      const file = await prepareReceiptFile(raw)
+      const { upload } = await budgetStaff('receipt_replace_start', { id: r.id, file_name: file.name, content_type: file.type, size: file.size })
+      await uploadReceiptFile(upload, file)
+      const out = await budgetStaff('receipt_replace_finish', { id: r.id, path: upload.path, file_name: file.name, content_type: file.type })
+      notify(out.message, out.differs ? 'err' : 'ok')
+      onChanged()
+    } catch (e) { notify(e.message, 'err') } finally { setBusy(''); if (pick.current) pick.current.value = '' }
+  }
+  const remove = async () => {
+    setBusy('delete')
+    try {
+      const out = await budgetStaff('receipt_delete', { id: r.id })
+      notify(out.rows ? `Receipt deleted. ${plural(out.rows, 'row')} in the Sheet ${out.rows === 1 ? 'reads' : 'read'} Missing now.` : 'Receipt deleted.')
+      onDeleted(); onChanged()
+    } catch (e) { notify(e.message, 'err'); setBusy('') }
+  }
+  return (
+    <div className="bud-ffile">
+      <h3>This File</h3>
+      <p className="bud-hint">Filed the wrong document? Replace it and the rows, Stage and Concur draft stay as they are. Keith reads the new file so the drawn receipt matches it.</p>
+      <input ref={pick} type="file" hidden accept="image/*,application/pdf,.pdf,.eml,message/rfc822,.heic,.heif" onChange={e => replace(e.target.files?.[0])} />
+      {asking
+        ? (
+          <div className="bud-ffile-ask" role="alertdialog" aria-label="Delete this receipt">
+            <p><b>Delete this receipt for good?</b> The file and its filed record are removed and cannot be brought back.{' '}
+              {r.rows.length ? `${plural(r.rows.length, 'row')} ${r.rows.length === 1 ? 'stays' : 'stay'} in the Sheet and will read Missing.` : ''}{' '}
+              {r.concur ? 'Keith’s Concur draft for it goes too. ' : ''}
+              {settled.length ? <span className="bud-ffile-warn">This purchase is already {settled.some(x => x.stage === 'settled') ? 'reimbursed or paid' : 'submitted to Concur'}; its record will have no receipt.</span> : null}</p>
+            <span className="bud-ffile-acts">
+              <button type="button" className="bud-btn bud-btn-sm" disabled={!!busy} onClick={() => setAsking(false)}>Keep it</button>
+              <button type="button" className="bud-btn bud-btn-sm bud-btn-danger" disabled={!!busy} onClick={remove}>{busy === 'delete' ? 'Deleting…' : 'Delete for good'}</button>
+            </span>
+          </div>
+        )
+        : (
+          <span className="bud-ffile-acts">
+            <button type="button" className="bud-btn bud-btn-sm" disabled={!!busy} onClick={() => pick.current?.click()}>{busy === 'replace' ? 'Replacing…' : 'Replace file'}</button>
+            <button type="button" className="bud-btn bud-btn-sm bud-btn-danger" disabled={!!busy} onClick={() => setAsking(true)}>Delete receipt</button>
+          </span>
+        )}
+    </div>
   )
 }
 

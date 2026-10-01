@@ -406,6 +406,14 @@
 .bud-fdetail-kv dt { color: var(--text-caption); }
 .bud-fdetail-kv dd { margin: 0; min-width: 0; }
 .bud-fdetail-kv code { display: inline; overflow-wrap: anywhere; }
+/* RECEIPT-REPLACE-1: the panel's "This File" section. */
+.bud-ffile { display: grid; gap: 8px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--color-border-subtle); }
+.bud-ffile h3 { margin: 0; font-size: 13px; color: var(--text-heading); }
+.bud-ffile .bud-hint { margin: 0; }
+.bud-ffile-acts { display: flex; gap: 8px; flex-wrap: wrap; }
+.bud-ffile-ask { display: grid; gap: 10px; padding: 12px; border-radius: var(--aspire-radius-control); background: var(--color-bg-hover); }
+.bud-ffile-ask p { margin: 0; font-size: 13px; line-height: 1.45; color: var(--text-heading); }
+.bud-ffile-warn { color: var(--aspire-bad); font-weight: 600; }
 .bud-att-line { display: block; }
 
 /* ── BUDGET-V2 Phase 1 (2026-09-29): docs/mockups/program-budget-v2.html items 1, 3, 5 ── */
