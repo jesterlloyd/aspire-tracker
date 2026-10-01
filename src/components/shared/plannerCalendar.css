@@ -209,11 +209,11 @@
   --pad-base: #2B3453;
 }
 .pl-planner[data-paper="tan"] {
-  --paper: #FBF3E2;
-  --paper-2: #F3E8D0;
-  --paper-ink: #3A2E1C;
-  --paper-muted: #7A6647;
-  --rule: rgba(120, 90, 40, 0.22);
+  --paper: var(--aspire-paper-tan);
+  --paper-2: var(--aspire-paper-tan-2);
+  --paper-ink: var(--aspire-paper-tan-ink);
+  --paper-muted: var(--aspire-paper-tan-muted);
+  --rule: var(--aspire-rule-tan);
   --pad-a: #C9A470;
   --pad-b: #A87F4C;
   --pad-c: #8A6538;

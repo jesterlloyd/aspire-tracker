@@ -65,7 +65,10 @@ test('Stage is the word everywhere the Sheet’s statuses were named', () => {
   assert.match(sheet, /initialLayout=\{withConcurColumn\(withStage\(/)
   assert.match(sheet, /case 'stage': return \{ status: stageChoices\(row\.raw\)\.find\(c => c\.label === v\)\?\.status \?\? null \}/)
   assert.match(read('lib/server/budget/engine.js'), /'Spent \(\$\)', 'Stage', 'Receipt',/, 'the Excel export')
-  assert.match(read('src/components/budget/BudgetFiled.jsx'), /<dt>Stage<\/dt>/)
+  // RECEIPTS-REDESIGN-1 (2 of 3) changed this: a filed receipt shows its stage as a chip and in the
+  // modal's tracker, and Group by still names it Stage.
+  assert.match(read('src/components/budget/BudgetFiled.jsx'), /stageChips\(r\)\.map\(c => <span key=\{c\.text\} className=\{`bud-chip bud-chip-\$\{c\.tone\}`\}>/)
+  assert.match(read('src/lib/budget/receiptModel.js'), /\{ key: 'status', label: 'Stage' \}/)
   assert.match(read('src/components/budget/BudgetClose.jsx'), />Mark all Submitted to Concur<\/button>/)
   const subs = read('src/components/budget/BudgetSubscriptions.jsx')
   assert.match(subs, /Each charge is Expected until its date, then Posted on the Sheet, marked Subscription\./)

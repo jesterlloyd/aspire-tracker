@@ -112,16 +112,21 @@ test('every folder starts closed and closes again when the grouping changes (Own
   const src = read('src/components/budget/BudgetFiled.jsx')
   assert.match(src, /const \[open, setOpen\] = useState\(\(\) => new Set\(\)\)/)
   assert.match(src, /const regroup = \(g\) => \{ setGroupBy\(g\); setOpen\(new Set\(\)\) \}/)
-  assert.match(src, /className="bud-fcard" aria-expanded="false"/)
-  assert.match(src, /f\.entries\.slice\(0, 3\)\.map\(e => <ReceiptPaper key=\{e\.receipt\.id\} proposal=\{e\.receipt\.proposal\} size="sm" \/>\)/, 'three receipts tucked in')
+  // RECEIPTS-REDESIGN-1 (2 of 3) changed this: a closed folder is a tan card with up to five small
+  // receipts, each with its LATE or SOON tab. Still closed by default, still closed by a regroup.
+  assert.match(src, /className="bud-fcard bud-holder" aria-expanded="false"/)
+  assert.match(src, /f\.entries\.slice\(0, 5\)\.map\(e => \(/, 'five receipts shown')
+  assert.match(src, /<ReceiptPaper proposal=\{e\.receipt\.proposal\} size="xs" \/>/)
   assert.match(read('api/budget-staff.js'), /receipts_filed: \['action', 'fiscal_year'\]/)
   assert.doesNotMatch(read('api/budget-staff.js'), /READS = new Set\(\[[^\]]*receipts_filed/, 'Owner only')
 })
 
 test('a filed receipt has no frame: the paper itself lifts on hover and focus', () => {
   const css = read('src/components/budget/budget.css')
-  assert.match(css, /\.bud-ftile:hover \.bud-rcpt, \.bud-ftile:focus-visible \.bud-rcpt \{ transform: translateY\(-4px\) rotate\(-0\.6deg\);/)
-  assert.match(css, /\.bud-ftile-paper \{ display: grid; justify-items: center; padding: 6px 4px 10px; min-width: 0; \}/, 'no background or border on the holder')
+  // RECEIPTS-REDESIGN-1 (2 of 3) changed this: the paper sits at a slight fixed tilt (--tilt) and lifts
+  // straight up, and its wrapper is the anchor for the stamp and the LATE tab.
+  assert.match(css, /\.bud-ftile:hover \.bud-rcpt, \.bud-ftile:focus-visible \.bud-rcpt \{ transform: translateY\(-4px\);/)
+  assert.match(css, /\.bud-ftile-paper \{ position: relative; display: grid; justify-items: center; padding: 12px 4px 4px; min-width: 0; transform: rotate\(var\(--tilt, 0deg\)\); \}/, 'no background or border on the holder')
   // KPI-PAD-1 (Owner, 2026-09-27: the KPI cards' contents sat on their edges): the receipt tile first
   // shipped as .bud-tile, the KPI card's own class, and its padding: 0 won. The KPI card is the only
   // .bud-tile rule with a padding, and the filed tile never uses that name again.

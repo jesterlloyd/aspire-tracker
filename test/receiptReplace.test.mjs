@@ -159,7 +159,8 @@ test('both are the Owner’s through the endpoint: an Admin is refused, and an u
 })
 
 test('the panel offers both, with a confirmation for Delete', () => {
-  const ui = read('src/components/budget/BudgetFiled.jsx')
+  // RECEIPTS-REDESIGN-1 (2 of 3) changed this: both live in the receipt modal's Details now.
+  const ui = read('src/components/budget/ReceiptModal.jsx')
   assert.match(ui, /Replace file/)
   assert.match(ui, /Delete for good/)
   assert.match(ui, /role="alertdialog"/)

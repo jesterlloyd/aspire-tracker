@@ -37,13 +37,15 @@ function otherYears(d, fy) {
 }
 const toContext = (c) => (c ? { ...c, years: new Map(Object.entries(c.years || {}).map(([k, v]) => [Number(k), v])) } : null)
 
-export default function BudgetReceipts({ year, onWrite, pendingFiles, onPendingTaken, onStartYear, onCount, onShowInSheet }) {
+export default function BudgetReceipts({ year, onWrite, pendingFiles, onPendingTaken, onStartYear, onCount, onShowInSheet, onGo = null, openReceipt = null, onOpened = () => {} }) {
   // RECEIPT-ORGANIZER-1 (Owner, 2026-09-27): To Review is the queue, one slip open at a time and the
   // rest folded to a line; Filed is every accepted receipt in folders (BudgetFiled).
   const [view, setView] = useState('review')
   // BUDGET-CONCUR-1: arriving with files (the Sheet's Upload, the header's Add receipts) opens To Review,
   // where they are read, even when nothing else is waiting.
   const withFiles = useRef(!!pendingFiles?.length)
+  // RECEIPTS-REDESIGN-1: the Subscriptions grid opens a receipt, which lives in Filed.
+  useEffect(() => { if (openReceipt) Promise.resolve().then(() => setView('filed')) }, [openReceipt])
   const [openId, setOpenId] = useState(null)
   const [status, setStatus] = useState(null)        // { enabled, keith }
   const [data, setData] = useState(null)
@@ -200,26 +202,27 @@ export default function BudgetReceipts({ year, onWrite, pendingFiles, onPendingT
       {status?.keith !== 'on' && (
         <div className="bud-check bud-check-warn" role="status">Keith&apos;s Read Receipt skill is off. Turn it on in Settings &gt; Keith &gt; Skills (Activate, then Enable) so Keith can read receipts.</div>
       )}
+      {/* RECEIPTS-REDESIGN-1: one compact row. */}
       <SurfaceCard className="bud-drop">
-        <ReceiptText size={26} aria-hidden="true" className="bud-drop-icon" />
+        <ReceiptText size={22} aria-hidden="true" className="bud-drop-icon" />
         <div className="bud-drop-text">
-          <b>Drop receipts here</b>
-          <small>Photos, PDFs or saved order emails. Keith reads each one, proposes rows, categories and the payment method, and checks for duplicates and the reimbursement policy. Nothing posts until you accept it.</small>
+          <b>Drop receipts here.</b>{' '}
+          <small>Keith reads each one and proposes rows. Nothing posts until you accept it.</small>
         </div>
         <button type="button" className="bud-btn" onClick={() => inputRef.current?.click()}>Choose files</button>
         <input ref={inputRef} type="file" accept={ACCEPT} multiple hidden onChange={e => { addFiles(e.target.files); e.target.value = '' }} />
-        <span className="bud-drop-count bud-path">Budget Tracker · {filedIn(data, fy)} filed in {fyShort(fy)}</span>
-        {otherYears(data, fy) && <span className="bud-drop-more">{otherYears(data, fy)}</span>}
       </SurfaceCard>
 
       <div className="bud-viewbar">
         <SegmentedPicker ariaLabel="Receipts view" value={view} onChange={setView}
           options={[{ value: 'review', label: <>To Review<span className="bud-view-n">{waiting.length}</span></> }, { value: 'filed', label: <>Filed<span className="bud-view-n">{filedIn(data, fy)}</span></> }]} />
-        <span className="bud-hint">{view === 'review' ? 'One receipt open at a time; the rest wait folded, oldest first.' : 'Every accepted receipt, drawn the same way, in folders. Open a folder, then a receipt, to see what it posted.'}</span>
+        <span className="bud-hint">{view === 'review' ? 'One receipt open at a time; the rest wait folded, oldest first.' : 'Open a month, then a receipt, to send it to Concur.'}{otherYears(data, fy) ? ` ${otherYears(data, fy)}.` : ''}</span>
       </div>
 
       {view === 'filed'
-        ? <BudgetFiled key={year.fy} year={year} receipts={filed} notify={notify} onShowInSheet={onShowInSheet} onChanged={() => { load(); onWrite.changed() }} />
+        ? <BudgetFiled key={year.fy} year={year} receipts={filed} notify={notify} onShowInSheet={onShowInSheet} onGo={onGo}
+            rule={(ctx?.rules || []).find(x => x.key === 'concur_60_days') || null} openReceipt={openReceipt} onOpened={onOpened}
+            onChanged={async () => { await load(); onWrite.changed() }} />
         : (<>
       <div className="bud-qhead">
         <h2>Waiting for Review</h2>

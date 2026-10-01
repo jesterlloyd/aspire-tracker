@@ -120,6 +120,14 @@
   --aspire-on-cream-label: #5A4A22;
   --aspire-on-board: #4A5560;
   --aspire-on-board-strong: #1D2567;
+  /* The tan paper of anything about shifts (Rotation > Activity) and of what holds receipts
+     (RECEIPTS-REDESIGN-1). One definition, here because the portals' calendars need it too and they do not load theme.css:
+     plannerCalendar.css and budget.css both read these. */
+  --aspire-paper-tan:        #FBF3E2;
+  --aspire-paper-tan-2:      #F3E8D0;
+  --aspire-paper-tan-ink:    #3A2E1C;
+  --aspire-paper-tan-muted:  #7A6647;
+  --aspire-rule-tan:         rgba(120, 90, 40, 0.22);
   --aspire-paper: #FFFFFF;
   --aspire-paper-ink: #18203F;
   --aspire-paper-ink-soft: #5E6480;

@@ -257,8 +257,10 @@ export function vendorLogo(vendor, logos = VENDOR_LOGOS) {
 }
 
 export const FILED_GROUPS = Object.freeze([
-  { key: 'month', label: 'Month' }, { key: 'category', label: 'Category' }, { key: 'vendor', label: 'Vendor' }, { key: 'status', label: 'Stage' },
+  { key: 'month', label: 'Month' }, { key: 'vendor', label: 'Vendor' }, { key: 'status', label: 'Stage' }, { key: 'category', label: 'Category' },   // RECEIPTS-REDESIGN-1: this order
 ])
+const CONCUR_STAGE = { open: 'Not submitted', submitted: 'Submitted', reimbursed: 'Reimbursed' }
+const STAGE_SORT = ['Not submitted', 'Submitted', 'Reimbursed', 'Paid']
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 const monthLabel = (ymd) => { const [y, m] = String(ymd || '').split('-').map(Number); return y && m ? `${MONTHS[m - 1]} ${y}` : 'No date' }
 
@@ -281,7 +283,11 @@ export function filedFolders(receipts = [], { groupBy = 'month', query = '' } = 
       if (!by.size) by.set('Uncategorized', r.total)
       for (const [cat, amt] of by) put(cat, cat, { receipt: r, part: by.size > 1 ? amt : null })
     } else if (groupBy === 'vendor') put(r.vendor || 'Unknown vendor', String(r.vendor || '').toLowerCase(), { receipt: r, part: null })
-    else if (groupBy === 'status') { const st = r.rows?.[0]?.stageLabel || 'Not recorded'; put(st, st, { receipt: r, part: null }) }
+    else if (groupBy === 'status') {
+      // RECEIPTS-REDESIGN-1: the folder is the receipt's own stage word (the card's chip), in the order it moves.
+      const st = r.concurState ? CONCUR_STAGE[r.concurState] : r.paid ? 'Paid' : r.rows?.[0]?.stageLabel || 'Not recorded'
+      put(st, `${STAGE_SORT.indexOf(st) < 0 ? 9 : STAGE_SORT.indexOf(st)}${st}`, { receipt: r, part: null })
+    }
     else put(monthLabel(r.date), `~${9999 - Number(String(r.date || '0000').slice(0, 4))}-${String(99 - Number(String(r.date || '').slice(5, 7) || 0)).padStart(2, '0')}`, { receipt: r, part: null })
   }
   return [...folders.values()]

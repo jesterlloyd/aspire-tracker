@@ -67,7 +67,10 @@ test('the planner reads the shared paper in dark mode; light mode is the approve
   assert.match(planner, /\.pl-planner \{\s*--paper: #FFFDF7;/)
   assert.match(planner, /\[data-theme="dark"\] \.pl-planner,\s*\[data-theme="dark"\] \.pl-planner\[data-paper="tan"\],\s*\[data-theme="dark"\] \.pl-planner\[data-paper="forest"\] \{\s*--paper: var\(--aspire-paper\);\s*--paper-2: var\(--aspire-paper-2\);\s*--paper-ink: var\(--aspire-paper-ink\);\s*--paper-muted: var\(--aspire-paper-muted\);\s*--rule: var\(--aspire-rule\);/)
   // The tan and forest papers are their own and stay literal.
-  assert.match(planner, /\.pl-planner\[data-paper="tan"\] \{\s*--paper: #FBF3E2;/)
+  // RECEIPTS-REDESIGN-1 (2 of 3) changed this: the tan paper is one definition in aspireBrand.css (both
+  // bundles load it), because Budget Tracker > Receipts holds its receipts on the same paper. Same values.
+  assert.match(planner, /\.pl-planner\[data-paper="tan"\] \{\s*--paper: var\(--aspire-paper-tan\);\s*--paper-2: var\(--aspire-paper-tan-2\);\s*--paper-ink: var\(--aspire-paper-tan-ink\);\s*--paper-muted: var\(--aspire-paper-tan-muted\);\s*--rule: var\(--aspire-rule-tan\);/)
+  assert.match(readFileSync(new URL('../src/styles/aspireBrand.css', import.meta.url), 'utf8'), /--aspire-paper-tan:\s*#FBF3E2;\s*--aspire-paper-tan-2:\s*#F3E8D0;\s*--aspire-paper-tan-ink:\s*#3A2E1C;\s*--aspire-paper-tan-muted:\s*#7A6647;\s*--aspire-rule-tan:\s*rgba\(120, 90, 40, 0\.22\);/)
   // No second definition of the slate paper anywhere in the clipboard sheet.
   assert.doesNotMatch(cssCode, /#FDFCFA|#F6F5F2|#1B2140|#61667E/)
 })

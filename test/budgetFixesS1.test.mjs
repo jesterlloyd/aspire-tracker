@@ -147,7 +147,12 @@ test('Receipts counts the selected year, and names the others', async () => {
   assert.deepEqual(out.filedByYear, { 2026: 1, 2027: 1 })
   const tab = read('src/components/budget/BudgetReceipts.jsx')
   // BUDGET-TRACKER-1 changed this (Owner, 2026-09-30): Program Budget is now labelled Budget Tracker.
-  assert.match(tab, /Budget Tracker · \{filedIn\(data, fy\)\} filed in \{fyShort\(fy\)\}/)
+  // RECEIPTS-REDESIGN-1 (commit "RECEIPTS-REDESIGN-1 (2 of 3)") changed this: the drop zone is one compact
+  // row, so the selected year's count is the Filed picker's number and the strip's first tile, and the
+  // other years are named in the view bar's hint.
+  assert.doesNotMatch(tab, /bud-drop-count/)
+  assert.match(tab, /\{otherYears\(data, fy\) \? ` \$\{otherYears\(data, fy\)\}\.` : ''\}/)
+  assert.match(read('src/components/budget/BudgetFiled.jsx'), /<span className="k">Filed in \{fyShort\(year\.fy\)\}<\/span>/)
   assert.match(tab, /`\$\{n\} more in \$\{fyShort\(Number\(k\)\)\}`/)
   assert.match(tab, /label: <>Filed<span className="bud-view-n">\{filedIn\(data, fy\)\}<\/span><\/>/)
 })
