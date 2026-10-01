@@ -7,12 +7,12 @@
 // a decision (table canon §2). Paired banding is the sheet's own `--band`.
 
 import { useState } from 'react'
-import { PenLine, MessageSquare, Send, ListChecks, CalendarDays, Kanban, Check } from 'lucide-react'
+import { PenLine, MessageSquare, Send, ListChecks, CalendarDays, Kanban, Check, BookOpen } from 'lucide-react'
 import HomeCard, { CardLink } from './HomeCard'
 import { orderGroups, needsYouSummary, filterChips, nextFilter, visibleGroups, rowsFor } from '../../lib/home/needsYouModel'
 
-const ICON = { signatures: PenLine, messages: MessageSquare, reviewRelease: Send, formsDocs: ListChecks, interviews: CalendarDays, placement: Kanban }
-const NAMES = { signatures: 'Signatures', messages: 'Messages', reviewRelease: 'Review & Release', formsDocs: 'Forms and documents', interviews: 'Interviews', placement: 'Placement and rotation' }
+const ICON = { signatures: PenLine, messages: MessageSquare, reviewRelease: Send, formsDocs: ListChecks, interviews: CalendarDays, placement: Kanban, knowledge: BookOpen }
+const NAMES = { signatures: 'Signatures', messages: 'Messages', reviewRelease: 'Review & Release', formsDocs: 'Forms and documents', interviews: 'Interviews', placement: 'Placement and rotation', knowledge: 'Knowledge Center' }
 
 export function Pill({ tone = 'grey', children, className = '' }) {
   return <span className={`hm-pill hm-pill-${tone} ${className}`.trim()}>{children}</span>

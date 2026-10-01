@@ -7,7 +7,7 @@ import { RefreshCw } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import SurfaceCard from '../ui/SurfaceCard'
 import Button from '../ui/Button'
-import { describeCheck, plural } from '../../lib/keith/knowledgeSelfCheckText'
+import { describeCheck, plural, progressText } from '../../lib/keith/knowledgeSelfCheckText'
 
 async function postCheck(action) {
   const { data: { session } } = await supabase.auth.getSession()
@@ -25,6 +25,14 @@ export default function KnowledgeSelfCheckBar({ onChanged }) {
   const [status, setStatus] = useState(null)
   const [running, setRunning] = useState(false)
   const [message, setMessage] = useState(null)
+  const [elapsed, setElapsed] = useState(0)
+  // The progress line: a clock while the request is out (it carries no stages of its own).
+  useEffect(() => {
+    if (!running) return undefined
+    const started = Date.now()
+    const id = setInterval(() => setElapsed(Math.floor((Date.now() - started) / 1000)), 1000)
+    return () => clearInterval(id)
+  }, [running])
 
   const load = useCallback(async () => {
     try {
@@ -35,7 +43,7 @@ export default function KnowledgeSelfCheckBar({ onChanged }) {
   useEffect(() => { load() }, [load])
 
   const runNow = useCallback(async () => {
-    setRunning(true); setMessage(null)
+    setElapsed(0); setRunning(true); setMessage(null)
     try {
       const { ok, json } = await postCheck('run')
       if (ok) {
@@ -71,7 +79,7 @@ export default function KnowledgeSelfCheckBar({ onChanged }) {
         <div style={{ flex: '1 1 320px', minWidth: 0 }}>
           <div style={{ fontWeight: 700, color: 'var(--text-heading, #1f2937)' }}>Keith’s Knowledge Center Check</div>
           <div style={{ color: 'var(--text-caption, #6b7280)' }}>
-            {running ? 'Keith is reading the app changes, the questions he could not answer and your entries. This takes a minute or two.' : describeCheck(last)}
+            {running ? <span role="status" aria-live="off" data-testid="knowledge-check-progress">{progressText(elapsed)}</span> : describeCheck(last)}
           </div>
           <div style={{ color: 'var(--text-caption, #6b7280)' }}>
             {plural(waiting, 'suggestion')} waiting for review · {plural(status.questions_waiting || 0, 'unanswered question')} collected

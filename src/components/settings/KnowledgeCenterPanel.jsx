@@ -134,7 +134,10 @@ export default function KnowledgeCenterPanel() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [search, setSearch] = useState('')
-  const [stateFilter, setStateFilter] = useState('all')
+  // At a Glance > Needs you opens the list on Keith's suggestions (?filter=keith).
+  const [stateFilter, setStateFilter] = useState(() => {
+    try { return new URLSearchParams(window.location.search).get('filter') === 'keith' ? 'keith' : 'all' } catch { return 'all' }
+  })
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [tagFilter, setTagFilter] = useState('all')
   // KNOWLEDGE-GRAPH-1: List | Graph projection of the SAME governed data.

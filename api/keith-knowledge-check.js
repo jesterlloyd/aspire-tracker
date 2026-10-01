@@ -19,6 +19,7 @@ import { loadSkill } from '../lib/server/keith/runKeithSkill.js'
 import { skillMode } from '../src/lib/keith/provenanceModel.js'
 import { estimateCostUsd } from '../lib/server/keith/modelPricing.js'
 
+const WAITING_LIMIT = 25
 const ACTION_SCHEMAS = Object.freeze({ status: ['action'], run: ['action'] })
 const count = async (q) => { const { count: n, data, error } = await q; return error ? null : (n ?? (Array.isArray(data) ? data.length : 0)) }
 
@@ -63,8 +64,18 @@ export function createKnowledgeCheckHandler({ verifyCaller = verifyPortalCaller,
           count(db.from('knowledge_revisions').select('id', { count: 'exact', head: true }).eq('proposed_by', 'keith')),
           count(db.from('knowledge_entries').select('id', { count: 'exact', head: true }).eq('proposed_by', 'keith').eq('state', 'draft')),
         ])
+        // Phase 3: what is waiting, by title, for At a Glance > Needs you (Owner). Titles only, never bodies.
+        const [revs, drafts] = await Promise.all([
+          db.from('knowledge_revisions').select('entry_id, title, submitted_at').eq('proposed_by', 'keith').order('submitted_at', { ascending: true }).limit(WAITING_LIMIT),
+          db.from('knowledge_entries').select('id, title, created_at').eq('proposed_by', 'keith').eq('state', 'draft').order('created_at', { ascending: true }).limit(WAITING_LIMIT),
+        ])
+        const waiting = [
+          ...(revs.data || []).map(r => ({ kind: 'edit', id: r.entry_id, title: r.title, since: r.submitted_at })),
+          ...(drafts.data || []).map(d => ({ kind: 'draft', id: d.id, title: d.title, since: d.created_at })),
+        ]
         return res.status(200).json({
           enabled: true,
+          waiting,
           skill_on: !!skill && skillMode(skill) !== 'off',
           can_run: profile?.is_owner === true,
           questions_waiting: questionsWaiting, edits_waiting: editsWaiting, drafts_waiting: draftsWaiting,

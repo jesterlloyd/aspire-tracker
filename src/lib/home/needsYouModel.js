@@ -29,7 +29,7 @@ import { knownDate } from './cyclePhase.js'
 export const ROWS_PER_GROUP = 3
 const DAY = 86400000
 
-export const GROUP_ORDER = Object.freeze(['signatures', 'messages', 'reviewRelease', 'formsDocs', 'interviews', 'placement', 'budget'])
+export const GROUP_ORDER = Object.freeze(['signatures', 'messages', 'reviewRelease', 'formsDocs', 'interviews', 'placement', 'budget', 'knowledge'])
 
 /** "Today", "2d", "9d": how long a row has been waiting. */
 export function ageLabel(iso, now = Date.now()) {
@@ -53,6 +53,30 @@ function finish(group) {
   if (!group.rows.length && !group.count) return null
   const sorted = sortByAge(group.rows)
   return { ...group, rows: sorted.slice(0, ROWS_PER_GROUP), allRows: sorted, total: group.rows.length }
+}
+
+// ── Keith's Knowledge Center suggestions (KEITH-KNOWLEDGE-SELFCHECK-1 Phase 3) ──
+
+export const KNOWLEDGE_REVIEW_PATH = '/settings/keith/knowledge?filter=keith'
+
+/**
+ * The Owner's: what Keith's Knowledge Center check proposed and nobody has reviewed. A row is
+ * navigation: Apply, Discard and Activate stay in the Knowledge Center.
+ * @param waiting rows from /api/keith-knowledge-check `status`: { kind: 'edit' | 'draft', id, title, since }
+ */
+export function knowledgeGroup({ waiting = [], now = Date.now() } = {}) {
+  const rows = (waiting || []).map(w => ({
+    id: `knowledge:${w.kind}:${w.id}`, chip: 'Review',
+    title: w.title || 'Untitled entry',
+    meta: w.kind === 'draft' ? 'Keith wrote a Draft for a topic no entry covers' : 'Keith suggested an edit to this entry',
+    pill: w.kind === 'draft' ? { text: 'Draft', tone: 'plum' } : { text: 'Edit', tone: 'amber' },
+    ageMs: Math.max(0, now - new Date(w.since || now).getTime()),
+    to: KNOWLEDGE_REVIEW_PATH,
+  }))
+  const edits = rows.filter(r => r.pill.text === 'Edit').length
+  const drafts = rows.length - edits
+  const pills = [edits ? { text: plural(edits, 'edit'), tone: 'amber' } : null, drafts ? { text: plural(drafts, 'Draft'), tone: 'plum' } : null].filter(Boolean)
+  return finish({ key: 'knowledge', name: 'Knowledge Center', sub: 'Keith’s suggestions to review', pills, rows, open: { label: 'Open Knowledge Center', to: KNOWLEDGE_REVIEW_PATH }, count: rows.length })
 }
 
 // ── Program Budget (AC-RENEW-1) ─────────────────────────────────────────────────

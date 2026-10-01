@@ -424,3 +424,111 @@ test('the triage shows most entries whole', () => {
   const long = E('00000000-0000-4000-8000-0000000000aa', 'Navigation', `# Navigation\n\n${'x'.repeat(3000)}\n\nRetired: Matrix board`)
   assert.match(M.buildTriage({ today: '2026-10-01', entries: [long], changes: [], questions: [] }).message, /Retired: Matrix board/)
 })
+
+// ── Phase 3: the schedule, the audit rows, Needs you, the progress line ──────────
+
+const INVOCATION_CHECK = `ALTER TABLE public.keith_skill_invocations ADD CONSTRAINT mode_chk CHECK (invocation_mode IS NULL OR invocation_mode IN ('picker','trigger_phrase'))`
+
+test('KEITH-AUDIT-MODE-1: a check\'s audit rows land under the real invocation_mode CHECK', async () => {
+  // The first schema's CHECK (20260805000001) allows only the two chat modes; the self-check's
+  // 'knowledge_check' was refused in production (23514) and every audit row of a check was lost.
+  assert.match(read('supabase/migrations/20260805000001_keith_p0_foundations_and_skills.sql'), /invocation_mode IN \('picker','trigger_phrase'\)/)
+  const w = await world()
+  await w.pg.exec(INVOCATION_CHECK)
+  const out = await C.runKnowledgeSelfCheck(w.db, { actor: w.owner, fetchChanges: history(), complete: stubModel().complete })
+  assert.equal(out.ok, true, out.message)
+  const rows = (await w.pg.query(`SELECT invocation_mode, data_sources FROM keith_skill_invocations`)).rows
+  assert.equal(rows.length, 3, 'the triage and both drafts')
+  for (const r of rows) {
+    assert.equal(r.invocation_mode, null)
+    assert.equal(r.data_sources.invocation, 'knowledge_check', 'how it ran is still recorded')
+  }
+  const U = await import('../lib/server/keith/usageLog.js')
+  assert.deepEqual([...U.CHAT_INVOCATION_MODES], ['picker', 'trigger_phrase'])
+  const seen = []
+  const db = { from: () => ({ insert: async (row) => { seen.push(row); return { error: null } } }) }
+  await U.recordSkillInvocation(db, { skillId: 'x', invocationMode: 'picker', dataSources: { a: 1 } })
+  await U.recordSkillInvocation(db, { skillId: 'x', invocationMode: 'receipt_panel' })
+  assert.deepEqual([seen[0].invocation_mode, seen[0].data_sources], ['picker', { a: 1 }], 'a chat mode is stored as before')
+  assert.deepEqual([seen[1].invocation_mode, seen[1].data_sources], [null, { invocation: 'receipt_panel' }])
+})
+
+test('Phase 3: the 1st and the 15th, with nobody behind it', async () => {
+  const vercel = JSON.parse(read('vercel.json'))
+  assert.deepEqual(vercel.crons.find(c => c.path === '/api/cron/keith-knowledge-check'), { path: '/api/cron/keith-knowledge-check', schedule: '10 14 1,15 * *' })
+  assert.equal(vercel.functions['api/cron/keith-knowledge-check.js'].maxDuration, 300)
+  const { createKnowledgeCheckCron, CRON_NAME } = await import('../api/cron/keith-knowledge-check.js')
+  assert.equal(CRON_NAME, 'keith-knowledge-check')
+  const res = () => { const r = { code: 0, body: null, status(c) { r.code = c; return r }, json(b) { r.body = b; return r } }; return r }
+
+  const w = await world()
+  await w.pg.exec(INVOCATION_CHECK)
+  await w.pg.exec(`CREATE TABLE IF NOT EXISTS public.cron_runs (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), cron_name text, status text DEFAULT 'running', started_at timestamptz DEFAULT now(), finished_at timestamptz, details jsonb, error_text text)`)
+  const run = (db, opts) => C.runKnowledgeSelfCheck(db, { ...opts, fetchChanges: history(), complete: stubModel().complete })
+  const denied = res()
+  await createKnowledgeCheckCron({ makeDb: () => w.db, run, authorized: () => false })({}, denied)
+  assert.equal(denied.code, 401)
+
+  const ok = res()
+  await createKnowledgeCheckCron({ makeDb: () => w.db, run, authorized: () => true })({}, ok)
+  assert.equal(ok.code, 200)
+  assert.deepEqual(ok.body, { checked: true, changes_read: changes.length, questions_read: 1, suggestions: 1, drafts: 1 })
+  const check = await w.one(`SELECT trigger, run_by, status FROM keith_knowledge_checks`)
+  assert.deepEqual(check, { trigger: 'schedule', run_by: null, status: 'done' })
+  const rev = await w.one(`SELECT author_id, proposed_by FROM knowledge_revisions`)
+  assert.deepEqual(rev, { author_id: w.owner.id, proposed_by: 'keith' }, 'credited to the Owner who reviews it')
+  assert.match(T.describeCheck({ status: 'done', started_at: '2026-10-15', trigger: 'schedule', changes_read: 3, questions_read: 0, suggestions: 1, drafts: 0 }), /on schedule: read 3 app changes/)
+
+  // The skill off is a stand-down, not a failure; anything else is a failed run.
+  const off = await world({ on: false })
+  const quiet = res()
+  await createKnowledgeCheckCron({ makeDb: () => off.db, run, authorized: () => true })({}, quiet)
+  assert.deepEqual([quiet.code, quiet.body], [200, { checked: false, reason: 'off' }])
+  const bad = res()
+  await createKnowledgeCheckCron({ makeDb: () => off.db, run: async () => ({ ok: false, reason: 'history_unavailable' }), authorized: () => true })({}, bad)
+  assert.equal(bad.code, 500)
+  // DEMO-DATA-2: a cron that builds a service client scopes it.
+  assert.match(read('api/cron/keith-knowledge-check.js'), /populationDb\(createClient\(/)
+})
+
+test('Phase 3: At a Glance lists what Keith is waiting on, for the Owner, as navigation', async () => {
+  const Y = await import('../src/lib/home/needsYouModel.js')
+  assert.ok(Y.GROUP_ORDER.includes('knowledge'))
+  const now = Date.parse('2026-10-02T12:00:00Z')
+  const g = Y.knowledgeGroup({ now, waiting: [
+    { kind: 'draft', id: 'd1', title: 'Budget Tracker', since: '2026-10-01T12:00:00Z' },
+    { kind: 'edit', id: 'e1', title: 'App Navigation', since: '2026-09-30T12:00:00Z' },
+  ] })
+  assert.deepEqual([g.key, g.name, g.count], ['knowledge', 'Knowledge Center', 2])
+  assert.deepEqual(g.rows.map(r => [r.title, r.pill.text, r.to]), [
+    ['App Navigation', 'Edit', '/settings/keith/knowledge?filter=keith'],
+    ['Budget Tracker', 'Draft', '/settings/keith/knowledge?filter=keith'],
+  ], 'oldest first, and every row opens the Knowledge Center on Keith\'s suggestions')
+  assert.deepEqual(g.pills.map(p => p.text), ['1 edit', '1 Draft'])
+  assert.equal(Y.knowledgeGroup({ waiting: [] }), null, 'nothing waiting, no group')
+
+  const home = read('src/components/OverviewTab.jsx')
+  assert.match(home, /queryFn: loadKnowledgeSuggestions, enabled: !!isOwner/)
+  assert.match(home, /if \(isOwner\) out\.push\(\{ key: 'knowledge', status: qStatus\(qKnowledge\)/)
+  assert.match(read('src/components/settings/KnowledgeCenterPanel.jsx'), /get\('filter'\) === 'keith' \? 'keith' : 'all'/)
+
+  // The status the row reads: titles only, the Owner's and Admin's.
+  const w = await world()
+  await C.runKnowledgeSelfCheck(w.db, { actor: w.owner, fetchChanges: history(), complete: stubModel().complete })
+  const handler = createKnowledgeCheckHandler({ verifyCaller: async () => ({ authenticated: true, profile: w.owner }), makeDb: () => w.db })
+  const r = { code: 0, body: null, setHeader() {}, status(c) { r.code = c; return r }, json(b) { r.body = b; return r }, end() {} }
+  await handler({ method: 'POST', body: { action: 'status' } }, r)
+  assert.equal(r.code, 200)
+  assert.deepEqual(r.body.waiting.map(x => [x.kind, x.title]), [['edit', 'Clinical Hours'], ['draft', 'Personal Devices on the Unit']])
+  assert.ok(r.body.waiting.every(x => !('body' in x)))
+})
+
+test('the progress line: the time gone, what Keith is usually doing by then, and no false claims', () => {
+  assert.match(T.progressText(0), /^Keith is reading the app changes.* 0:00 so far; a check usually takes about two minutes\. You can leave this page/)
+  assert.match(T.progressText(95), /^Keith is writing his suggestions.* 1:35 so far/)
+  assert.match(T.progressText(260), /^Still working\..* 4:20 so far/)
+  assert.doesNotMatch(T.progressText(95), /finished|done|—/i)
+  const bar = read('src/components/settings/KnowledgeSelfCheckBar.jsx')
+  assert.match(bar, /progressText\(elapsed\)/)
+  assert.match(bar, /clearInterval\(id\)/)
+})

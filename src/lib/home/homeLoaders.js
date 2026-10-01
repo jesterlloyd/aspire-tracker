@@ -15,6 +15,7 @@
 //                   cohort_school_rotations
 //   Activity        /api/home-activity             active staff; Owner/Admin sources gated there
 //   Program Budget  /api/budget-staff renewals     the Owner only (AC-RENEW-1); anyone else gets none
+//   Knowledge Center /api/keith-knowledge-check    the Owner only: Keith's suggestions waiting for review
 //
 // A caller who cannot use a source does not call it (`enabled: false`), so nothing here
 // asks for what the viewer cannot complete.
@@ -76,6 +77,18 @@ export async function loadBudgetRenewals() {
 export async function loadBudgetQueue() {
   const [renewals, review] = await Promise.all([loadBudgetRenewals(), loadBudgetReview()])
   return { renewals, ...review }
+}
+
+/** Keith's Knowledge Center suggestions waiting for the Owner (Phase 3). Before the check's tables exist there are none. */
+export async function loadKnowledgeSuggestions() {
+  const res = await fetch('/api/keith-knowledge-check', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await token()}` },
+    body: JSON.stringify({ action: 'status' }),
+  })
+  if (!res.ok) throw new Error('knowledge_status_failed')
+  const json = await res.json()
+  return { waiting: json?.enabled === false ? [] : (json?.waiting || []) }
 }
 
 export async function loadCatalogTracker() {

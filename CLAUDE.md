@@ -710,6 +710,10 @@ tested modules in `src/lib/home/`. Nothing is computed in JSX.
   slow or failed source shows a skeleton or "Couldn't load ... Retry" and never blocks the rest.
   A source the viewer cannot use is not listed (never shown disabled). An empty source is hidden;
   "All caught up" shows only when every source loaded and every one is empty.
+- **The Owner also sees Keith's Knowledge Center suggestions in Needs you** (KEITH-KNOWLEDGE-SELFCHECK-1
+  Phase 3, 2026-09-30): `knowledgeGroup` reads `/api/keith-knowledge-check` `status` (titles only), and
+  every row opens Settings > Keith > Knowledge Center on Keith's suggestions (`?filter=keith`). The
+  check itself runs on the 1st and 15th (`api/cron/keith-knowledge-check.js`) and from Check now.
 - **Review & Release has one queue builder**: `src/lib/evaluation/reviewQueueBuild.js`, read by
   the clipboard AND Needs you, so they cannot disagree about ready and blocked.
 - **On this page only**, the Keith orb, the Messages dock launcher and the Feedback launcher are
