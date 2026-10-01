@@ -28,6 +28,7 @@ import PortalShell from './PortalShell'
 import PortalUtilityLayer from './PortalUtilityLayer'
 import FeedbackPanel from '../components/FeedbackPanel'
 import MainMessagesLauncher from '../components/MainMessagesLauncher'
+import Keith from '../components/Keith'
 import PortalNav from './PortalNav'
 // STUDENT-SHIFT-TAB-1: loaded on first visit; it carries the shift-log views.
 const StudentShiftLog = lazyReload(() => import('./StudentShiftLog'), 'StudentShiftLog')
@@ -160,6 +161,14 @@ function StaffPreviewUtilities({ portalName, section }) {
   const location = useLocation()
   return (
     <>
+      <Keith
+        activeTab={section}
+        setActiveTab={() => {}}
+        cohortName={`${portalName} preview`}
+        cohortId={null}
+        supabase={supabase}
+        isAuthenticated
+      />
       {!isFullMessagesPath(location.pathname) && <MainMessagesLauncher portalPreview />}
       <FeedbackPanel activeTab={section} cohortName={`${portalName} preview`} isAuthenticated />
     </>
