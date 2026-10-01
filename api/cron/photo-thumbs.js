@@ -27,6 +27,9 @@ export function createPhotoThumbsCron({ makeDb, sweep = runThumbSweep, authorize
       const now = clock()
       const out = await sweep(db, db.storage, { deep: isDeepRun(now), now: now.getTime() })
       await finishCronRunSuccess(db, runId, out)
+      // Counts only (no names, no paths), and only when something happened or went wrong, so a quiet
+      // run does not write a line every ten minutes.
+      if (out.built || out.failed || out.dropped) console.log('[photo-thumbs]', JSON.stringify(out))
       return res.status(200).json(out)
     } catch (err) {
       await finishCronRunError(db, runId, err?.message || String(err))

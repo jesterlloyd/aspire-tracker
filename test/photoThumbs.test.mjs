@@ -193,3 +193,17 @@ test('the scheduled job: every ten minutes, real students only, a deep check onc
   assert.ok(!JSON.stringify(ok.body).includes('/'), 'counts only: no names and no paths leave the job')
   assert.match(read('api/cron/photo-thumbs.js'), /populationDb\(createClient\(/)
 })
+
+test('PHOTO-THUMBS-LOG-1: a run that did something says so in the server log, in counts only', async () => {
+  const src = read('api/cron/photo-thumbs.js')
+  assert.match(src, /if \(out\.built \|\| out\.failed \|\| out\.dropped\) console\.log\('\[photo-thumbs\]', JSON\.stringify\(out\)\)/)
+  const { createPhotoThumbsCron } = await import('../api/cron/photo-thumbs.js')
+  const db = { storage: {}, from: () => ({ insert: () => ({ select: () => ({ single: async () => ({ data: { id: 'run' }, error: null }) }) }), update: () => ({ eq: async () => ({ error: null }) }) }) }
+  const res = () => { const r = { status() { return r }, json() { return r } }; return r }
+  const lines = []; const log = console.log; console.log = (...a) => lines.push(a.join(' '))
+  try {
+    await createPhotoThumbsCron({ makeDb: () => db, authorized: () => true, sweep: async () => ({ photos: 57, missing: 0, built: 0, failed: 0, dropped: 0 }) })({}, res())
+    await createPhotoThumbsCron({ makeDb: () => db, authorized: () => true, sweep: async () => ({ photos: 57, missing: 3, built: 2, failed: 1, dropped: 0 }) })({}, res())
+  } finally { console.log = log }
+  assert.deepEqual(lines.filter(l => l.startsWith('[photo-thumbs]')), ['[photo-thumbs] {"photos":57,"missing":3,"built":2,"failed":1,"dropped":0}'], 'a quiet run writes nothing')
+})

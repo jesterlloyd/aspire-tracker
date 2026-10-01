@@ -10,6 +10,7 @@ export const ACTION_CENTER_GROUPS = Object.freeze([
   { key: 'interviews', label: 'Interviews', icon: 'I' },
   { key: 'placement', label: 'Placement and rotation', icon: 'P' },
   { key: 'budget', label: 'Budget Tracker', icon: 'B' },   // AC-RENEW-1: the Owner's renewals to decide
+  { key: 'knowledge', label: 'Knowledge Center', icon: 'K' },   // PHASE 3: Keith's suggestions, the Owner's to review
 ])
 
 export const ACTION_CENTER_GROUP_ORDER = Object.freeze(
@@ -85,6 +86,11 @@ function actionsFor({ group, row, student }) {
     { key: 'open', label: 'Open', primary: true },
     { key: 'snooze', label: 'Snooze' },
   ]
+  // Keith's Knowledge Center suggestions: Apply, Discard and Activate stay in the Knowledge Center.
+  if (group === 'knowledge') return [
+    { key: 'open', label: 'Review', primary: true },
+    { key: 'snooze', label: 'Snooze' },
+  ]
   return [{ key: 'open', label: 'Open', primary: true }]
 }
 
@@ -99,13 +105,14 @@ export function normalizeHomeQueue({ groups = [], conversations = [], students =
       const entityId = rawId.replace(/^[^:]+:/, '')
       const conversation = group === 'messages' ? conversationById.get(entityId) : null
       const student = group === 'interviews' && rawId.startsWith('iv-open:') ? studentById.get(entityId) : null
-      const personal = group === 'messages' || group === 'signatures' || group === 'budget'
+      const personal = group === 'messages' || group === 'signatures' || group === 'budget' || group === 'knowledge'
       const chip = group === 'signatures' ? 'Sign'
         : group === 'messages' ? 'Reply'
           : group === 'review-release' ? 'Release'
             : group === 'forms' ? 'Overdue'
               : group === 'interviews' ? 'Schedule'
-                : group === 'budget' ? (row.chip || 'Renew') : 'Placement'   // Program Budget: Renew, Review, Submit, Receipt or Close
+                : group === 'budget' ? (row.chip || 'Renew')
+                  : group === 'knowledge' ? 'Review' : 'Placement'   // Program Budget: Renew, Review, Submit, Receipt or Close
       const tag = group === 'messages' ? 'reply' : String(row.pill?.text || '').toLowerCase()
       const title = conversation?.participant_name || String(row.title || '').split(' · ')[0]
       const qualifier = conversation?.subject || String(row.title || '').split(' · ').slice(1).join(' · ')

@@ -532,3 +532,25 @@ test('the progress line: the time gone, what Keith is usually doing by then, and
   assert.match(bar, /progressText\(elapsed\)/)
   assert.match(bar, /clearInterval\(id\)/)
 })
+
+test('ACTION-CENTER-KNOWLEDGE-1: Keith\'s suggestions are in the Action Center too, for the Owner, as navigation', async () => {
+  const Q = await import('../src/lib/actionCenter/queueModel.js')
+  const Y = await import('../src/lib/home/needsYouModel.js')
+  assert.ok(Q.ACTION_CENTER_GROUPS.some(g => g.key === 'knowledge' && g.label === 'Knowledge Center'))
+  const now = Date.parse('2026-10-02T12:00:00Z')
+  const group = Y.knowledgeGroup({ now, waiting: [{ kind: 'edit', id: 'e1', title: 'App Navigation', since: '2026-09-30T12:00:00Z' }, { kind: 'draft', id: 'd1', title: 'Budget Tracker', since: '2026-10-01T12:00:00Z' }] })
+  const items = Q.normalizeHomeQueue({ groups: [group], now })
+  assert.deepEqual(items.map(i => [i.group, i.chip, i.personal, i.cohort, i.title, i.href]), [
+    ['knowledge', 'Review', true, null, 'App Navigation', '/settings/keith/knowledge?filter=keith'],
+    ['knowledge', 'Review', true, null, 'Budget Tracker', '/settings/keith/knowledge?filter=keith'],
+  ])
+  assert.deepEqual(items[0].actions.map(a => a.label), ['Review', 'Snooze'], 'no Apply or Discard here: the decision stays in the Knowledge Center')
+  const hook = read('src/hooks/useActionCenterQueue.js')
+  assert.match(hook, /queryKey: \['home_knowledge_suggestions'\], queryFn: loadKnowledgeSuggestions, enabled: enabled && !!isOwner/)
+  assert.match(hook, /queryState\(qKnowledge, 'knowledge', 'Knowledge Center'\)/)
+})
+
+test('KEITH-LABEL-1: a Knowledge Center entry has one name on the Keith card', () => {
+  assert.deepEqual([...D.INPUT_LABELS.knowledge_entry], ['Knowledge Center entry', 'Knowledge Center entries'])
+  assert.equal((read('lib/server/keith/skillDefs.js').match(/^\s+knowledge_entry:/gm) || []).length, 1, 'the key was declared twice and the second ("policy entry") won')
+})
