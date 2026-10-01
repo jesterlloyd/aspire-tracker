@@ -27,7 +27,7 @@ import { runResumeInterviewQuestions, RIQ_SLUG } from '../lib/server/keith/resum
 import { schoolMatches } from './lib/schoolAliases.js';
 import { createClient } from '@supabase/supabase-js';
 import { populationDb, populationOf, narrowSendLog } from '../lib/server/demoScope.js';
-import { shouldRecordGap, recordKnowledgeGap } from '../lib/server/keith/knowledgeGaps.js';
+import { isGapCandidate, shouldRecordGap, recordKnowledgeGap } from '../lib/server/keith/knowledgeGaps.js';
 import { randomUUID } from 'crypto';
 import { isActiveProfile, INACTIVE_STATUS, INACTIVE_REASON, INACTIVE_MESSAGE } from './lib/activeAccount.js';
 
@@ -1496,15 +1496,15 @@ CRITICAL DATA ACCESS RULES:
 
   // KEITH-KNOWLEDGE-SELFCHECK-1 (Owner, 2026-09-30): a program question no Active entry covered is
   // kept SCRUBBED for Keith's Knowledge Center self-check (lib/server/keith/knowledgeGaps.js holds
-  // every rule). It runs alongside the model call and is awaited before the response, so it adds no
-  // wait; it never changes the answer and never fails the request.
-  const gapCapture = shouldRecordGap({ intent, governed, isDemo: populationOf(req), question: lastUserText })
-    ? recordKnowledgeGap(keithDb(), { question: lastUserText, intent, governed, role: auth.isOwner ? 'owner' : auth.role })
-    : null;
-  const settleGapCapture = async () => {
-    if (!gapCapture) return;
-    const out = await gapCapture;
-    console.log('[keith-gap]', { request_id: requestId, recorded: out.recorded, ...(out.reason ? { reason: out.reason } : {}) });
+  // every rule). KEITH-GAP-DETECT-1: "covered" is decided AFTER the answer, because retrieval matches
+  // shared words and only Keith's answer ("governed guidance was not found") says whether the entries
+  // actually answered it. Only a miss reads the names to scrub, so a covered answer pays nothing; it
+  // never changes the answer and never fails the request.
+  const gapCandidate = isGapCandidate({ intent, governed, isDemo: populationOf(req), question: lastUserText });
+  const settleGapCapture = async (answer) => {
+    if (!gapCandidate || !shouldRecordGap({ intent, governed, isDemo: false, question: lastUserText, answer })) return;
+    const out = await recordKnowledgeGap(keithDb(), { question: lastUserText, intent, governed, role: auth.isOwner ? 'owner' : auth.role });
+    console.log('[keith-gap]', { request_id: requestId, recorded: out.recorded, via: governed.governedCovered ? 'keith_said_not_found' : 'no_entry_matched', ...(out.reason ? { reason: out.reason } : {}) });
   };
 
   const toolInstruction  = canUseTools ? `
@@ -1577,7 +1577,7 @@ Be transparent: after forming a recommendation, briefly note which tools you use
       requestId,
       chatSelection.route
     );
-    await settleGapCapture();
+    await settleGapCapture(text);
     if (!text) return res.status(502).json({ error: 'Unexpected AI response format' });
     // Usage records what actually ran: the RESOLVED route and model, plus the
     // real token totals across every round (previously chat tokens were logged
@@ -1591,7 +1591,7 @@ Be transparent: after forming a recommendation, briefly note which tools you use
     });
     return res.status(200).json({ response: text, tool_calls: toolCalls, model_selection: chatSelection.selection });
   } catch (err) {
-    await settleGapCapture();
+    await settleGapCapture('');
     console.error('[keith] all retries exhausted:', err.details || err.message);
     const errorType = err.details?.errorType;
     let userMessage;

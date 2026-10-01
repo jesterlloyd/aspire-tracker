@@ -31,10 +31,42 @@ test('only an uncovered program question from a real session is kept', () => {
   for (const intent of ['cohort_status', 'placement_capacity', 'person_contact_role', 'email_drafting']) {
     assert.equal(G.shouldRecordGap({ intent, governed: miss, isDemo: false, question: q }), false, `${intent} is answered from records or is not a question`)
   }
-  assert.equal(G.shouldRecordGap({ intent: 'policy_process', governed: { ...miss, governedCovered: true }, isDemo: false, question: q }), false, 'covered')
+  assert.equal(G.shouldRecordGap({ intent: 'policy_process', governed: { ...miss, governedCovered: true }, isDemo: false, question: q, answer: 'Students log hours within 48 hours.' }), false, 'covered and answered')
   assert.equal(G.shouldRecordGap({ intent: 'policy_process', governed: { ...miss, error: 'x' }, isDemo: false, question: q }), false, 'a failed retrieval is not a gap')
   assert.equal(G.shouldRecordGap({ intent: 'policy_process', governed: miss, isDemo: true, question: q }), false, 'demo keeps nothing')
   assert.equal(G.shouldRecordGap({ intent: 'policy_process', governed: miss, isDemo: false, question: 'hi' }), false, 'too short to mean anything')
+})
+
+// KEITH-GAP-DETECT-1 (2026-09-30): the Owner asked "What is the policy for students bringing personal
+// laptops to the unit?" and nothing was kept. Retrieval had matched entries on "students", "unit" and
+// "policy", so it reported covered; Keith read them and said he had no governed guidance. A question
+// whose ANSWER says so is a gap too.
+test('a matched question whose answer says governed guidance was not found is kept', () => {
+  const covered = { governedCovered: true, scores: [6, 4], matchedCount: 2 }
+  const laptops = "I don't have governed guidance on personal laptop policies for students on clinical units. That's an operational or unit-specific policy that isn't covered in the ASPIRE Knowledge Center entries available to me."
+  assert.equal(G.shouldRecordGap({ intent: 'policy_process', governed: covered, isDemo: false, question: 'What is the policy for students bringing personal laptops to the unit?', answer: laptops }), true)
+  assert.equal(G.isGapCandidate({ intent: 'policy_process', governed: covered, isDemo: false, question: q }), true, 'a candidate before the answer is known')
+  assert.equal(G.isGapCandidate({ intent: 'cohort_status', governed: covered, isDemo: false, question: q }), false)
+})
+
+test('the answer patterns: every way Keith says "not found", and none of the ways he answers', () => {
+  for (const t of [
+    "I don't have governed guidance on personal laptop policies.",
+    'Governed guidance was not found for this question.',
+    'No governed entry covers that.',
+    "That isn't covered in the ASPIRE Knowledge Center entries available to me.",
+    'These topics aren’t covered by the Knowledge Center.',
+    'This is not covered in the Knowledge Center.',
+    'I could not find governed guidance on that, so please verify with the Owner.',
+  ]) assert.equal(G.answerSaysNotFound(t), true, t)
+  for (const t of [
+    'Per the governed guidance, students may not bring laptops onto the unit.',
+    'The governed entry says students cannot use personal devices.',
+    'Students must complete 120 hours. No exceptions without written approval.',
+    'Governed guidance: badges are worn above the waist; do not wear artificial nails.',
+    'The Knowledge Center covers this: students are not covered by unit insurance.',
+    '',
+  ]) assert.equal(G.answerSaysNotFound(t), false, t)
 })
 
 test('scrubbing removes emails, phones and every known name, and keeps unit names', () => {
@@ -69,14 +101,22 @@ test('recording is best-effort: a missing table or a throw never escapes', async
   assert.deepEqual(await G.recordKnowledgeGap(boom, { question: q, intent: 'policy_process', governed: miss }), { recorded: false, reason: 'threw' })
 })
 
-test('the chat handler keeps a gap alongside the model call and settles it on every path', () => {
+// KEITH-GAP-DETECT-1 changed this test: the decision moved from before the model call to after
+// it, because only the answer says whether the matched entries actually answered the question.
+test('the chat handler decides after the answer, on both paths, and logs no text', () => {
   const src = read('api/keith.js')
-  assert.match(src, /shouldRecordGap\(\{ intent, governed, isDemo: populationOf\(req\), question: lastUserText \}\)/)
-  const start = src.indexOf('const gapCapture =')
-  assert.ok(start > src.indexOf('[keith-retrieval]'), 'after retrieval, on the main model path')
-  assert.ok(start < src.indexOf('await runToolLoop('), 'started before the model call, so it runs alongside it')
-  assert.equal((src.match(/await settleGapCapture\(\);/g) || []).length, 2, 'settled on success and on failure')
-  assert.doesNotMatch(src, /console\.log\('\[keith-gap\]'[^\n]*question/, 'the log line carries the outcome, never the question')
+  assert.match(src, /isGapCandidate\(\{ intent, governed, isDemo: populationOf\(req\), question: lastUserText \}\)/)
+  assert.ok(src.indexOf('const gapCandidate =') > src.indexOf('[keith-retrieval]'), 'after retrieval, on the main model path')
+  assert.match(src, /await settleGapCapture\(text\);/, 'success: judged on the answer')
+  assert.match(src, /await settleGapCapture\(''\);/, 'failure: judged on retrieval alone')
+  assert.match(src, /shouldRecordGap\(\{ intent, governed, isDemo: false, question: lastUserText, answer \}\)/)
+  assert.doesNotMatch(src, /console\.log\('\[keith-gap\]'[^\n]*(question|answer|lastUserText)/, 'the log line carries the outcome, never the text')
+})
+
+test('At a Glance shows the Keith orb while his drawer is open, and hides it when closed', () => {
+  // KEITH-ORB-HOME-1 (Owner, 2026-09-30): HOME-1 hid the orb on At a Glance; opened from the
+  // launcher, the drawer then had no orb to put it away with.
+  assert.match(read('src/components/Keith.jsx'), /\{\(!hideLauncher \|\| isOpen\) && \(/)
 })
 
 // ── The app's change history ─────────────────────────────────────────────────────
