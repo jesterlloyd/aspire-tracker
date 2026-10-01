@@ -237,10 +237,13 @@ test('close after due, reminders, and the CSV export', async () => {
   const w = await world()
   const form = await E.createForm(w.db, { title: 'Parking', definition: { title: 'Parking', questions: [{ id: 'plate', type: 'short', label: 'Plate', required: true }] }, settings: { closeAfterDue: true } }, w.owner)
   await E.publish(w.db, form.id, w.owner)
-  await E.sendForm(w.db, { formId: form.id, people: [{ name: 'Late', email: 'late@x.org' }, { name: 'Ok', email: 'ok@x.org' }], dueAt: '2026-10-01T00:00:00Z' }, { appUrl, mailer: w.mailer, sender: w.owner })
+  // The due date is relative to now: it was the literal 2026-10-01T00:00:00Z, and the suite went red the
+  // moment the clock passed it, because the "Ok" submission below is made before the due date.
+  const dueAt = new Date(Date.now() + 86_400_000).toISOString()
+  await E.sendForm(w.db, { formId: form.id, people: [{ name: 'Late', email: 'late@x.org' }, { name: 'Ok', email: 'ok@x.org' }], dueAt }, { appUrl, mailer: w.mailer, sender: w.owner })
   const okToken = tokenOf(w.mailer.sent[1].html)
   const [lateLink, okLink] = [await E.resolveLink(w.db, tokenOf(w.mailer.sent[0].html)), await E.resolveLink(w.db, okToken)]
-  assert.equal(E.linkState(lateLink.assignment, lateLink.version.settings, Date.parse('2026-10-02')).open, false)
+  assert.equal(E.linkState(lateLink.assignment, lateLink.version.settings, Date.parse(dueAt) + 86_400_000).open, false)
   await E.submit(w.db, { ...okLink, answers: { plate: '=HYPERLINK("x")' } }, { mailer: w.mailer, appUrl })
 
   // Three days after sending, before the due date: one reminder to the one still open.
