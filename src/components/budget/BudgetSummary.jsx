@@ -14,6 +14,7 @@ import DataSheet, { Missing } from '../shared/DataSheet'
 import BudgetClose from './BudgetClose'
 import { proposalLine } from '../../lib/budget/planModel'
 import { fyShort } from '../../lib/budget/budgetModel'
+import { paceLabelSpot } from '../../lib/budget/paceLabel'
 import { usd, fyRangeText, parseMoney } from '../../lib/budget/budgetModel'
 
 const pct = (v) => `${(v * 100).toFixed(1)}%`
@@ -38,6 +39,11 @@ function MonthlyChart({ s }) {
   const k = (v) => (v >= 1000 ? `$${+(v / 1000).toFixed(1)}k` : `$${Math.round(v)}`)
   const ticks = []
   for (let v = 0; v <= max; v += step) ticks.push(v)
+  // BUDGET-PACE-LABEL-1: the pace label goes where no bar and no bar's value already is.
+  const paceAt = paceLabelSpot({
+    bars: s.byMonth.map((m, i) => (m.spent + m.scheduled > 0 ? { cx: L + i * cw + cw / 2, bw, top: y(m.spent + m.scheduled) } : null)).filter(Boolean),
+    paceY: y(s.evenPace), yBase: y(0), left: L, right: W - R, step: cw,
+  })
   return (
     <>
       <svg className="bud-chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Monthly spend for ${s.label} against an even pace of ${usd(s.evenPace)} per month`}>
@@ -63,7 +69,7 @@ function MonthlyChart({ s }) {
           )
         })}
         <line className="pace" x1={L} x2={W - R} y1={y(s.evenPace)} y2={y(s.evenPace)} />
-        <text x={W - R} y={y(s.evenPace) - 6} textAnchor="end">Pace {k(s.evenPace)}/mo</text>
+        {paceAt && <text x={paceAt.x} y={paceAt.y} textAnchor={paceAt.anchor}>Pace {k(s.evenPace)}/mo</text>}
       </svg>
       <div className="bud-legend">
         <span><i />Spent in month</span>
