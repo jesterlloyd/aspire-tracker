@@ -1109,12 +1109,22 @@ afterward, from memory.
 - `db/audit/preceptor_parity_check.sql`: standing data-integrity checks,
   including the ones lifted from the deleted Phase 2A preflight branch.
 
-## Unverified in production (as of 2026-08-27)
+## Unverified in production (list from 2026-08-27, updated 2026-10-02)
 
-1. Mid-session revocation behavior on all five portal surfaces (`b8db8a4`).
-2. Banned account's existing access token: immediate rejection vs expiry.
-3. Every rate-limit ceiling (no live request has exercised one).
-4. S-08 server-side password path and S-10 guarded prefill, live.
+1. STILL UNVERIFIED: mid-session revocation behavior on the five portal surfaces
+   (Student, Unit Leader, Academic Partner, My Profile, Messages; `b8db8a4`). A
+   production click-through script was written on 2026-10-02 and awaits the Owner.
+2. CONFIRMED 2026-08-23: a deactivated (banned) account's existing access token stayed
+   valid after deactivation, and the per-request endpoint checks (S-05) refused all
+   data. Access ends at the endpoints immediately; the session itself ends at token
+   expiry.
+3. STILL UNVERIFIED: the rate-limit ceilings. No live request has exercised one. The
+   2026-10-02 script exercises the unit form lookup's burst bucket (15 in 60 seconds).
+4. S-08 server-side password path: CONFIRMED 2026-09-25 by POST-B 4 of
+   `db/audit/s08_school_form_password_hash_checks.sql` (the Owner confirmed the live
+   school form accepts the right password and refuses a wrong one after the plaintext
+   column was dropped). S-10 guarded prefill on the unit form: STILL UNVERIFIED live;
+   covered by the 2026-10-02 script.
 5. RESOLVED 2026-08-27: migrations 20260822010000, 20260822020000, and
    20260822030000 are confirmed APPLIED (see the OWNER_SQL_GATE ledger for the
    verification each ran).
