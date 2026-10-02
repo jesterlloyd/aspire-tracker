@@ -1562,6 +1562,10 @@ the Parking form follows Parking Services' own form (received 2026-09-24).
 - **An empty Sheet is still a sheet** (SHEET-EMPTY-1, Owner, 2026-09-24): before anyone
   submits, it shows the tools, the header and ten blank numbered rows, with the note above the
   grid, so columns, formats and the Σ row can be set up before the first answer.
+- **The tab reads Answers, not Sheet** (FORMS-ANSWERS-TAB-1, Owner, 2026-10-02): People | Answers | Summary.
+  Only the words changed, as with Budget Tracker's Expenses: the picker's key is still `sheet`, the
+  component `FormSheet`, the action `sheet`, and the notes here that say "the Sheet" mean that tab. In
+  copy say "in Answers", never "the Sheet".
 - **Responses' header** (RESPONSES-CANON-1): People | Sheet | Summary is the shared
   `SegmentedPicker`; Remind all overdue shows on People only; the export is the navy button
   with the download icon, as in NE&L Portal > Contacts.

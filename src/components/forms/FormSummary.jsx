@@ -54,13 +54,13 @@ function Card({ q, onSheet }) {
       {q.kind === 'grouped' && (q.groups.length
         ? (<>
             <ul className="fsum-texts fsum-groups">{q.groups.map((g, i) => <li key={i}><span>{g.text}</span>{g.count > 1 && <b>× {g.count}</b>}</li>)}</ul>
-            {q.distinct > q.groups.length && <p className="fm-hint">Showing the {q.groups.length} most common of {q.distinct} different answers. <button type="button" className="fm-link" onClick={onSheet}>See them all in Sheet</button></p>}
+            {q.distinct > q.groups.length && <p className="fm-hint">Showing the {q.groups.length} most common of {q.distinct} different answers. <button type="button" className="fm-link" onClick={onSheet}>See them all in Answers</button></p>}
           </>)
         : <p className="fm-hint">No answers yet.</p>)}
       {q.kind === 'text' && (q.samples.length
         ? (<>
             <ul className="fsum-texts">{q.samples.map((x, i) => <li key={i}><b>{x.name}</b><span>{x.text}</span></li>)}</ul>
-            {q.answered > q.samples.length && <p className="fm-hint">Showing the latest {q.samples.length} of {q.answered}. <button type="button" className="fm-link" onClick={onSheet}>See them all in Sheet</button></p>}
+            {q.answered > q.samples.length && <p className="fm-hint">Showing the latest {q.samples.length} of {q.answered}. <button type="button" className="fm-link" onClick={onSheet}>See them all in Answers</button></p>}
           </>)
         : <p className="fm-hint">No answers yet.</p>)}
     </section>

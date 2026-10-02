@@ -55,7 +55,7 @@ const LABELS = {
   frameLabel: 'Answers, one row per person. Arrow keys move, Enter edits.',
   readOnlyEdit: 'Editing needs the database update the Owner applies.',
   newColumnHint: 'A column for your team, like Lot assignment, Fee or Processed. Students never see it.',
-  help: "Click a cell, a column header or a row number to select it; Shift-click extends; Cmd/Ctrl+A selects everything. Double-click or Enter edits. Drag a header to move a column and its right edge to resize. The Σ row sums, averages or counts each column over the rows shown. Corrections change the Sheet and the Excel export; each person's submitted answers and filed PDF stay as they sent them.",
+  help: "Click a cell, a column header or a row number to select it; Shift-click extends; Cmd/Ctrl+A selects everything. Double-click or Enter edits. Drag a header to move a column and its right edge to resize. The Σ row sums, averages or counts each column over the rows shown. Corrections change Answers and the Excel export; each person's submitted answers and filed PDF stay as they sent them.",
 }
 
 export default function FormSheet({ formId, onOpen, notify, viewRef }) {
@@ -106,12 +106,12 @@ export default function FormSheet({ formId, onOpen, notify, viewRef }) {
       if (back) delete corrected[col.key]; else corrected[col.key] = { by: 'you', at: new Date().toISOString(), original: original ?? null, reason: editing.reason }
       return { ...x, cells: { ...x.cells, [col.key]: text }, answers: { ...x.answers, [col.key]: r.value }, corrected }
     })
-    notify?.(back ? 'Put back to what they submitted.' : 'Corrected in the Sheet. Their submitted answer and PDF are unchanged.')
+    notify?.(back ? 'Put back to what they submitted.' : 'Corrected in Answers. Their submitted answer and PDF are unchanged.')
   }
 
   const editorExtras = ({ row, editing, setEditing }) => (keys) => (<>
     <input className="fs-reason" value={editing.reason} maxLength={500} placeholder="Why (optional)" onChange={e => setEditing(x => ({ ...x, reason: e.target.value }))} onKeyDown={keys} />
-    <small>Changes the Sheet only. {row.name}&apos;s submitted answer and PDF stay as sent.</small>
+    <small>Changes Answers only. {row.name}&apos;s submitted answer and PDF stay as sent.</small>
   </>)
 
   return (

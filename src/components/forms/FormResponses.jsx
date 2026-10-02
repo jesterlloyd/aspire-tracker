@@ -25,7 +25,7 @@ export default function FormResponses({ formId, notify, onBack, onEdit }) {
   const [picked, setPicked] = useState(() => new Set())
   const [open, setOpen] = useState(null)      // a submission being read
   const [busy, setBusy] = useState(false)
-  const [view, setView] = useState('people')   // People (who and status) | Sheet (the answers) | Summary (FORM-SUMMARY-1)
+  const [view, setView] = useState('people')   // People (who and status) | Answers (the sheet; FORMS-ANSWERS-TAB-1, the key stays 'sheet') | Summary (FORM-SUMMARY-1)
 
   const load = useCallback(async () => {
     try { setData(await formStaff('assignments', { id: formId })); setError(null) } catch (e) { setError(e.message) }
@@ -84,7 +84,7 @@ export default function FormResponses({ formId, notify, onBack, onEdit }) {
           )}
           {form.settings?.exportCsv !== false && form.current_version > 0 && (
             <button type="button" className="fm-btn fm-pri fm-csv" onClick={exportExcel} disabled={exporting || !counts.submitted}
-              title={!counts.submitted ? 'Nothing to export until someone submits' : view === 'sheet' ? 'Download the rows and columns the Sheet shows, as Excel' : 'Download every answer as Excel, in the Sheet\'s saved layout'}>
+              title={!counts.submitted ? 'Nothing to export until someone submits' : view === 'sheet' ? 'Download the rows and columns Answers shows, as Excel' : 'Download every answer as Excel, in the layout saved in Answers'}>
               <Download size={16} aria-hidden="true" /> {exporting ? 'Exporting…' : 'Export to Excel'}</button>
           )}
         </div>
@@ -92,7 +92,7 @@ export default function FormResponses({ formId, notify, onBack, onEdit }) {
 
       {/* RESPONSES-CANON-1 (Owner, 2026-09-24): the app's one view picker, not a local copy. */}
       <SegmentedPicker ariaLabel="View" value={view} onChange={setView}
-        options={[{ value: 'people', label: 'People' }, { value: 'sheet', label: 'Sheet' }, { value: 'summary', label: 'Summary' }]} />
+        options={[{ value: 'people', label: 'People' }, { value: 'sheet', label: 'Answers' }, { value: 'summary', label: 'Summary' }]} />
 
       {view === 'summary' ? <FormSummary formId={form.id} onSheet={() => setView('sheet')} />
         : view === 'sheet' ? <FormSheet formId={form.id} notify={notify} onOpen={openAnswer} viewRef={sheetView} /> : (<>

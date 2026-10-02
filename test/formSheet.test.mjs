@@ -118,7 +118,7 @@ test('Responses has People and Sheet; Build a form can add a category', () => {
   const r = read('src/components/forms/FormResponses.jsx')
   // RESPONSES-CANON-1 (this commit): the views are the app's SegmentedPicker, not local buttons.
   assert.match(r, /<SegmentedPicker ariaLabel="View"/)
-  assert.match(r, /label: 'People'/); assert.match(r, /label: 'Sheet'/); assert.match(r, /label: 'Summary'/)
+  assert.match(r, /label: 'People'/); assert.match(r, /value: 'sheet', label: 'Answers'/) /* FORMS-ANSWERS-TAB-1: the tab reads Answers; the key stays 'sheet' */; assert.match(r, /label: 'Summary'/)
   assert.match(r, /<FormSheet formId=\{form\.id\}/)
   assert.match(r, /\{view === 'people' && \(\s*<button[^>]*remind_overdue|\{view === 'people' && \(/, 'Remind all overdue belongs to People')
   // EXPORT-ONE-1 (the commit that retired Download CSV): one export, Export to Excel, in the
