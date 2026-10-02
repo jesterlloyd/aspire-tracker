@@ -16,12 +16,6 @@ function errorText(code) {
       return 'Too many reports were sent recently. Please try again later.'
     case 'message_required':
       return 'Please enter a message.'
-    case 'expected_behavior_required':
-      return 'Please describe what you expected to happen.'
-    case 'actual_behavior_required':
-      return 'Please describe what actually happened.'
-    case 'reproduction_steps_required':
-      return 'Please add the steps to reproduce the issue.'
     default:
       return 'Something went wrong. Your text is still here so you can try again.'
   }
@@ -44,7 +38,7 @@ export default function PortalFeedbackPanel({
   section,
   portalType = 'unit_leader',
 }) {
-  const submit = async ({ category, message, bugFields }) => {
+  const submit = async ({ category, message }) => {
     const intentKey = `${portalType}:utility`
     const requestId = createPortalFeedbackRequestId(intentKey)
     const type = typeForCategory(category)
@@ -57,9 +51,6 @@ export default function PortalFeedbackPanel({
       build_sha: BUILD_SHA,
       environment: BUILD_ENV,
       ...(type === 'bug' ? {
-        expected_behavior: bugFields.expected_behavior,
-        actual_behavior: bugFields.actual_behavior,
-        reproduction_steps: bugFields.reproduction_steps,
         viewport_width: Math.max(1, Math.round(window.innerWidth || 1)),
         viewport_height: Math.max(1, Math.round(window.innerHeight || 1)),
       } : {}),
@@ -89,7 +80,8 @@ export default function PortalFeedbackPanel({
       open={open}
       onOpenChange={onOpenChange}
       hidden={hidden}
-      submitLabel="Send to ASPIRE"
+      submitLabel="Send Feedback"
+      showBugDetails={false}
       contextNote={`Will include: ${section || 'current section'} · ${portalLabel}`}
       onSubmit={submit}
     />

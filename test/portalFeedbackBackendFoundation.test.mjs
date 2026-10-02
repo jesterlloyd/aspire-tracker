@@ -25,6 +25,7 @@ import {
 import { buildPortalFeedbackEmail } from '../lib/server/portalFeedback/emailContent.js';
 import { submitPortalFeedback } from '../lib/server/portalFeedback/submissionService.js';
 import { createPortalFeedbackSubmitHandler } from '../api/portal/feedback-submit.js';
+import { validatePortalFeedbackClientPayload } from '../src/lib/portalFeedbackValidation.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const read = (p) => readFileSync(join(here, p), 'utf8');
@@ -48,6 +49,43 @@ const validFeedback = {
   build_sha: 'abc123',
   environment: 'production',
 };
+
+test('all portals use the simplified category-and-message feedback form', () => {
+  const panel = read('../src/portal/PortalFeedbackPanel.jsx');
+  const layer = read('../src/portal/PortalUtilityLayer.jsx');
+  assert.match(panel, /showBugDetails=\{false\}/);
+  assert.match(panel, /submitLabel="Send Feedback"/);
+  assert.doesNotMatch(panel, /bugFields\.|expected_behavior:|actual_behavior:|reproduction_steps:/);
+  assert.match(layer, /<PortalFeedbackPanel/);
+  for (const role of ['student', 'unit_leader', 'academic_partner', 'nursing_academic']) {
+    assert.ok(layer.includes(`'${role}'`));
+  }
+});
+
+test('message-only reports pass both validators without losing diagnostic context', () => {
+  for (const pathname of ['/portal', '/portal/unit', '/portal/academic-partner', '/portal/nursing-academic']) {
+    for (const category of ['Bug Report', 'Feature Idea', 'Question']) {
+      const bug = category === 'Bug Report';
+      const payload = {
+        ...validFeedback, pathname, type: bug ? 'bug' : 'feedback',
+        message: `[${category}]\n\nThe calendar needs attention.`,
+        ...(bug ? { viewport_width: 390, viewport_height: 844 } : {}),
+      };
+      assert.equal(validatePortalFeedbackClientPayload(payload).ok, true);
+      const result = validatePortalFeedbackPayload(payload);
+      assert.equal(result.ok, true);
+      assert.equal(result.value.message, payload.message);
+      assert.equal(result.value.pathname, pathname);
+      assert.equal(result.value.expected_behavior, null);
+      assert.equal(result.value.actual_behavior, null);
+      assert.equal(result.value.reproduction_steps, null);
+      assert.equal(result.value.viewport_width, bug ? 390 : null);
+      for (const validate of [validatePortalFeedbackClientPayload, validatePortalFeedbackPayload]) {
+        assert.equal(validate({ ...payload, message: '   ' }).error, 'message_required');
+      }
+    }
+  }
+});
 
 function createRes() {
   const headers = {};
