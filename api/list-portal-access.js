@@ -31,6 +31,17 @@ const MAX_LIMIT = 100
 
 const str = (v) => (typeof v === 'string' ? v.trim() : '')
 
+// Historical identities remain for messages and audit records after login
+// deletion. They are not accounts to display or count in this directory.
+export function removedPortalProfileIds(profiles, grants) {
+  const unrevoked = new Set(grants.filter(g => !g.revoked_at).map(g => g.user_profile_id))
+  return new Set(profiles.filter(p =>
+    p.role === 'portal' && p.auth_user_id === null &&
+    p.login_enabled === false && p.is_active === false &&
+    !unrevoked.has(p.id)
+  ).map(p => p.id))
+}
+
 function getServiceDb() {
   return createClient(
     process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL,
@@ -195,7 +206,7 @@ export default async function handler(req, res) {
     let profilesById = {}
     if (profileIds.length) {
       const { data: profs, error: pErr } = await db
-        .from('user_profiles').select('id, full_name, email, role, last_login_at, avatar_url').in('id', profileIds)
+        .from('user_profiles').select('id, full_name, email, role, last_login_at, avatar_url, auth_user_id, login_enabled, is_active').in('id', profileIds)
       if (pErr) { console.log('[list-portal-access] profile read failed', { errorCode: pErr.code, request_id: requestId }); return res.status(500).json({ error: 'internal_error' }) }
       profilesById = Object.fromEntries((profs || []).map(p => [p.id, p]))
     }
@@ -243,7 +254,8 @@ export default async function handler(req, res) {
     )
     const { pendingAvailable, pendingEmails, pendingInvitedAtByEmail } = await pendingPromise
 
-    // 4. Build one sanitized record per grant.
+    const removedProfiles = removedPortalProfileIds(Object.values(profilesById), grants || [])
+    // 4. Build one sanitized record per grant, excluding removed login identities.
     const records = (grants || []).map(g => {
       const p = profilesById[g.user_profile_id] || {}
       let status = deriveStatus(g, nowMs)
@@ -286,7 +298,7 @@ export default async function handler(req, res) {
         last_login_at: p.last_login_at || null,
         avatar_url: p.avatar_url || contactAvatarByEmail.get(normalizeEmailForLookup(p.email)) || null,
       }
-    })
+    }).filter(r => !removedProfiles.has(r.user_profile_id))
 
     // 5. Counts across the FULL (unfiltered) set for the summary indicators.
     // ACCOUNTS-KPI-SORT-1 (additive): all_grants + by_role feed the portal KPI cards.
