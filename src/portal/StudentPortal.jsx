@@ -33,10 +33,7 @@ import { generateBadgePNGs } from '../lib/badgeGenerator'
 import { fetchPortalHeadshotUrl } from '../lib/studentFileClient'
 import { fmtDate, placementWindow, TBC } from '../lib/portalDates'
 import { surveyName, TIMEPOINT_QUALIFIERS } from '../lib/evaluation/surveyNames.js'
-import { buildStudentShiftOrdinals } from '../lib/shiftOrdinals'
-import ShiftNumberBadge from '../components/ShiftNumberBadge'
 import ShiftLogHistoryDrawer from './ShiftLogHistoryDrawer'
-import { portalShiftStatus } from '../lib/portalShiftStatus'
 import { shiftDrivesState } from '../lib/shiftLifecycle'
 import { composePortalEmail, composePortalMailto } from '../lib/outlookCompose'
 import { PRECEPTOR_ROLE_LABEL, emailablePreceptors, buildPreceptorRecipients, buildPreceptorEmailDraft } from '../lib/placementContacts'
@@ -95,7 +92,6 @@ export default function StudentPortal({
   const loginEmail = user?.email || ''
   const [summary, setSummary]   = useState(null)
   const [logs, setLogs]         = useState([])
-  const [historyOpen, setHistoryOpen] = useState(false)
   const [evals, setEvals]       = useState([])
   const [certs, setCerts]       = useState([])
   const [error, setError]       = useState(null)
@@ -368,10 +364,6 @@ export default function StudentPortal({
   }
 
   const shiftCount = myLogs.length
-  // SHIFT-SEQUENCE-1: the student sees the same shift numbers staff and their
-  // Unit Leader see, from the one shared rule.
-  const myShiftOrdinals = buildStudentShiftOrdinals(
-    (myLogs || []).map(l => ({ ...l, student_id: l.student_id ?? '__me__' })))
   const mostRecentShift = fmtDate(myLogs[0]?.shift_date)
   const waitingSurveys = myEvals.filter(e => EVAL_WAITING.has(e.status))
   const badgeRelevant = badgeStatus && badgeStatus.state !== 'not_yet'
@@ -439,7 +431,7 @@ export default function StudentPortal({
             student={student}
             logs={myLogs}
             readOnly={readOnlyPreview}
-            onManageLogs={() => setHistoryOpen(true)}
+            onManageLogs={() => document.getElementById('ptl-hours')?.scrollIntoView({ block: 'start', behavior: 'smooth' })}
           />
         </Suspense>
       )}
@@ -544,23 +536,8 @@ export default function StudentPortal({
                 <span className="ptl-shift-count">{shiftCount} {shiftCount === 1 ? 'shift' : 'shifts'} logged</span>
                 {mostRecentShift && <span className="ptl-muted ptl-small">Most recent: {mostRecentShift}</span>}
               </div>
-              <ul className="ptl-list">
-                {myLogs.slice(0, 4).map(l => (
-                  <li key={l.id}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
-                      <ShiftNumberBadge ordinal={myShiftOrdinals.get(l.id)} size={20} />
-                      {fmtDate(l.shift_date) || 'Date pending'}{l.unit_name ? ` · ${l.unit_name}` : ''}{l.total_hours != null ? ` · ${l.total_hours}h` : ''}</span>
-                    {(() => {
-                      // STUDENT-SHIFT-LOG-MANAGEMENT-1: canonical vocabulary. The
-                      // previous comparison tested the lowercase literal 'approved',
-                      // which no stored status ever equals, so every entry read as
-                      // "Awaiting review" - including approved ones.
-                      const st = portalShiftStatus(l)
-                      return <span className={`ptl-chip ptl-chip-soft ptl-chip-${st.tone}`}>{st.label}</span>
-                    })()}
-                  </li>
-                ))}
-              </ul>
+              <ShiftLogHistoryDrawer inline open logs={myLogs} student={student}
+                loginEmail={loginEmail} onChanged={() => { load() }} readOnly={readOnlyPreview} />
             </>
           )}
           {canLogShift && shiftCount === 0 && (
@@ -569,27 +546,6 @@ export default function StudentPortal({
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             {canLogShift && !readOnlyPreview && (
               <button type="button" className="ptl-btn ptl-btn-sm" onClick={() => onOpenShiftLog?.()}><CalendarPlus size={15} /> Log a Shift</button>
-            )}
-            {/* STUDENT-SHIFT-LOG-MANAGEMENT-1: the card lists only the four most
-                recent entries; the full history (and the correct/withdraw
-                controls) lives in the drawer.
-
-                SHIFT-HISTORY-LABEL-1: one promise, not two. The old label read
-                "View all N shifts" above four entries and "View & manage shifts"
-                at or below four, so the common case promised a longer list and
-                opened a management panel instead. The panel is where a student
-                edits, withdraws, or requests a correction, so the label says so
-                every time. The count is not repeated here: the divider directly
-                above already reads "N shifts logged". In the Owner/Admin preview
-                the panel is read-only, and the label matches that too. */}
-            {shiftCount > 0 && (
-              <button
-                className="ptl-slh-ghost"
-                data-testid="open-shift-history"
-                onClick={() => setHistoryOpen(true)}
-              >
-                {readOnlyPreview ? 'View shifts' : 'View & manage shifts'}
-              </button>
             )}
           </div>
         </section>
@@ -794,18 +750,6 @@ export default function StudentPortal({
           profile editing lives in My Profile (/portal/profile). The drawer component
           file is retained for direct callers/rollback (UserManagement precedent). */}
 
-      {/* STUDENT-SHIFT-LOG-MANAGEMENT-1: full history + self-service. A change
-          returns the authoritative recomputed totals, so the portal reloads its
-          own data immediately rather than waiting for a refresh or Realtime. */}
-      <ShiftLogHistoryDrawer
-        open={historyOpen}
-        logs={myLogs}
-        student={student}
-        loginEmail={loginEmail}
-        onClose={() => setHistoryOpen(false)}
-        onChanged={() => { load() }}
-        readOnly={readOnlyPreview}
-      />
     </div>
   )
 }

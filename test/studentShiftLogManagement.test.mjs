@@ -171,7 +171,7 @@ test('the portal explains each lock and offers a correction request instead', ()
     assert.match(api, new RegExp(`${reason}:`), `${reason} has student-facing copy`)
   }
   const drawer = read('src/portal/ShiftLogHistoryDrawer.jsx')
-  assert.match(drawer, /data-testid="shift-correction-btn"/)
+  assert.match(drawer, /key: 'correction', label: 'Request a correction'/)
   assert.match(drawer, /Request a correction/)
 })
 
@@ -328,7 +328,7 @@ test('NEGATIVE CONTROL: the old lowercase comparison is gone from both surfaces'
   const portal = read('src/portal/StudentPortal.jsx')
   assert.doesNotMatch(portal, /l\.status === 'approved' \? 'Approved' : 'Awaiting review'/,
     'the broken chip comparison is removed')
-  assert.match(portal, /portalShiftStatus\(l\)/)
+  assert.match(read('src/portal/ShiftLogHistoryDrawer.jsx'), /portalShiftStatus\(log\)/)
   // The pre-fix expression would have mislabelled an Approved shift; prove the
   // replacement does not.
   assert.notEqual(portalShiftStatus({ status: 'Approved' }).label, 'Awaiting review')
@@ -351,7 +351,7 @@ test('counting helpers exclude withdrawn entries', () => {
 
 test('the portal exposes a complete history, not four entries', () => {
   const portal = read('src/portal/StudentPortal.jsx')
-  assert.match(portal, /data-testid="open-shift-history"/)
+  assert.match(portal, /<ShiftLogHistoryDrawer inline open/)
   assert.match(portal, /<ShiftLogHistoryDrawer/)
   // The drawer receives the WHOLE list; only the home card slices.
   assert.match(portal, /logs=\{myLogs\}/)
@@ -367,7 +367,7 @@ test('SHIFT-HISTORY-LABEL-1: the history button makes ONE promise, and it is man
   // and it names the panel's actual job.
   const portal = read('src/portal/StudentPortal.jsx')
   assert.doesNotMatch(portal, /View all \$\{shiftCount\} shifts/, 'the disclosure-only label is gone')
-  assert.match(portal, /\{readOnlyPreview \? 'View shifts' : 'View & manage shifts'\}/)
+  assert.doesNotMatch(portal, /setHistoryOpen|myLogs\.slice\(0, 4\)/)
   // The count is not repeated on the button: the divider directly above carries it.
   assert.match(portal, /ptl-shift-count">\{shiftCount\} \{shiftCount === 1 \? 'shift' : 'shifts'\} logged/)
   // The Owner/Admin preview opens the SAME panel with every control suppressed, so

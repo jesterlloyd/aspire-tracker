@@ -15,6 +15,8 @@ import { getUsHolidaysForRange } from '../lib/usHolidays'
 import { firstNameOf } from '../lib/greeting'
 import { eventColor, eventTypeLabel } from '../lib/aspireEvents'
 import { portalShiftStatus } from '../lib/portalShiftStatus'
+import { buildStudentShiftOrdinals } from '../lib/shiftOrdinals'
+import ShiftNumberBadge from '../components/ShiftNumberBadge'
 import {
   reconcileStudentRotationActivity,
   groupStudentActivityByDate,
@@ -111,6 +113,7 @@ function PlanDialog({ form, preceptors, busy, error, onChange, onSave, onClose }
 
 export default function StudentRotationActivity({ student, logs = [], readOnly = false, onManageLogs }) {
   const today = pacificToday()
+  const ordinals = useMemo(() => buildStudentShiftOrdinals(logs.map(log => ({ ...log, student_id: log.student_id ?? '__me__' }))), [logs])
   const [cursor, setCursor] = useState(() => ({ y: Number(today.slice(0, 4)), m: Number(today.slice(5, 7)) - 1 }))
   const [selectedDate, setSelectedDate] = useState(today)
   const [resource, setResource] = useState({ plans: [], rotations: {}, preceptors: {} })
@@ -285,7 +288,7 @@ export default function StudentRotationActivity({ student, logs = [], readOnly =
           {selectedLog && (
             <div className="ptl-student-cal-detail ptl-student-cal-detail-logged">
               <b>Logged shift</b>
-              <span>{selectedLog.preceptor_name ? `With ${selectedLog.preceptor_name}` : 'Preceptor not listed'}</span>
+              <span><ShiftNumberBadge ordinal={ordinals.get(selectedLog.id)} size={20} /> {selectedLog.preceptor_name ? `With ${selectedLog.preceptor_name}` : 'Preceptor not listed'}</span>
               <span>{portalShiftStatus(selectedLog).label}{selectedLog.total_hours != null ? ` · ${selectedLog.total_hours} hours` : ''}</span>
               {!readOnly && <button type="button" className="ptl-inline-link ptl-inline-btn" onClick={onManageLogs}>View or edit log</button>}
             </div>
@@ -411,9 +414,10 @@ export default function StudentRotationActivity({ student, logs = [], readOnly =
                   {log && (
                     <CanonicalActivityChip
                       label="Shift"
+                      ordinal={ordinals.get(log.id)}
                       live={log.lifecycle_state === 'in_progress'}
                       secondary={firstNameOf(log.preceptor_name) ? `with ${firstNameOf(log.preceptor_name)}` : null}
-                      ariaLabel={`Logged shift${log.preceptor_name ? ` with ${log.preceptor_name}` : ''}`}
+                      ariaLabel={`Logged shift ${ordinals.get(log.id) ?? ''}${log.preceptor_name ? ` with ${log.preceptor_name}` : ''}`}
                     />
                   )}
                   {/* STUDENT-CAL-TOUCH-1 (Owner): a planned shift reads "Planned Shift with

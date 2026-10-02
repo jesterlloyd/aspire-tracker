@@ -70,7 +70,7 @@ const ALLOWED_KEYS = new Set([
 ])
 
 async function editReady(db) {
-  const { data, error } = await db.rpc('student_shift_edit_ready')
+  const { data, error } = await db.rpc('student_shift_self_service_v2_ready')
   if (error) return false // PGRST202 (migration absent) or anything else: not ready
   return data === true
 }
@@ -111,7 +111,7 @@ export default async function handler(req, res) {
     if (!(await editReady(db))) {
       return res.status(503).json({
         error: 'migration_required',
-        detail: 'Apply 20260901010000_student_rotation_activity before managing reviewed shift logs.',
+        detail: 'Apply 20261027000000_student_shift_self_service_window before managing shift logs.',
       })
     }
 
@@ -142,7 +142,7 @@ export default async function handler(req, res) {
         success: true,
         eligibility: {
           ...verdict,
-          voidable: ['Auto-Accepted', 'Pending Review'].includes(shiftRow.status),
+          voidable: verdict.editable === true,
         },
       })
     }
@@ -161,12 +161,7 @@ export default async function handler(req, res) {
 
     // ── 4a. WITHDRAW ────────────────────────────────────────────────────────
     if (action === 'void') {
-      // A reviewed entry may be corrected, but withdrawing it would erase the
-      // current staff decision from hour totals without a fresh review. Keep
-      // withdrawal on the original unreviewed statuses only.
-      if (!['Auto-Accepted', 'Pending Review'].includes(shiftRow.status)) {
-        return res.status(409).json({ error: 'not_editable', reason: 'staff_decided' })
-      }
+      // The locked RPC applies the same eligibility rule to all reviewed statuses.
       const { data: result, error } = await db.rpc('student_void_shift_log', {
         p_shift_id: shiftId,
         p_student_id: studentId,

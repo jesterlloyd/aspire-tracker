@@ -121,7 +121,7 @@ export default function ShiftLogPage({ initialSchoolEmail = '', presetStudent = 
     e.preventDefault()
     const errs = []
     if (shiftDate > today) errs.push('Shift date cannot be in the future.')
-    if (hours < 1 || hours > 13) errs.push('Hours must be between 1 and 13.')
+    if (!Number.isFinite(Number(hours)) || hours < 1 || hours > 13) errs.push('Hours must be between 1 and 13, including partial hours such as 7.5.')
     if (!attestation) errs.push('You must confirm the attestation before submitting.')
     if (isDiffUnit && !diffUnitReason.trim()) errs.push('Please explain why you worked at a different unit.')
     setFormErrors(errs)
@@ -142,7 +142,7 @@ export default function ShiftLogPage({ initialSchoolEmail = '', presetStudent = 
         submission_id:          submissionIdRef.current,
         school_email:           student.school_email,
         shift_date:             shiftDate,
-        total_hours:            hours,
+        total_hours:            Number(hours),
         shift_type:             shiftType,
         unit_name:              isDiffUnit ? diffUnitName.trim() : unitName,
         preceptor_name:         preceptorName.trim(),
@@ -295,12 +295,15 @@ export default function ShiftLogPage({ initialSchoolEmail = '', presetStudent = 
                 <div style={{ marginBottom:18 }}>
                   <label style={{ fontSize:14, fontWeight:600, color:'var(--raven)', display:'block', marginBottom:6 }}>Hours Worked</label>
                   <div style={{ display:'flex', alignItems:'center', gap:12, width:'100%' }}>
-                    <button type="button" onClick={() => setHours(h => Math.max(1, +(h-0.5).toFixed(1)))}
+                    <button type="button" onClick={() => setHours(h => Math.max(1, +(Number(h)-0.25).toFixed(2)))}
                       style={{ width:48, height:48, borderRadius:'50%', fontSize:22, border:'2px solid var(--nightfall)', background:'#fff', cursor:'pointer', fontWeight:700, color:'var(--nightfall)', flexShrink:0 }}>−</button>
-                    <span style={{ flex:1, fontSize:28, fontWeight:700, color:'var(--nightfall)', textAlign:'center', minHeight:56, display:'flex', alignItems:'center', justifyContent:'center' }}>{hours}</span>
-                    <button type="button" onClick={() => setHours(h => Math.min(13, +(h+0.5).toFixed(1)))}
+                    <input aria-label="Hours worked" type="number" inputMode="decimal" min="1" max="13" step="0.25"
+                      value={hours} onChange={e => setHours(e.target.value)}
+                      style={{ flex:1, width:0, minWidth:0, fontSize:28, color:'var(--nightfall)', textAlign:'center', minHeight:56 }} />
+                    <button type="button" onClick={() => setHours(h => Math.min(13, +(Number(h)+0.25).toFixed(2)))}
                       style={{ width:48, height:48, borderRadius:'50%', fontSize:22, border:'2px solid var(--nightfall)', background:'#fff', cursor:'pointer', fontWeight:700, color:'var(--nightfall)', flexShrink:0 }}>+</button>
                   </div>
+                  <div style={{ fontSize:12, color:'var(--raven)', marginTop:6 }}>Enter 1–13 hours. Partial hours, such as 7.5, are allowed.</div>
                 </div>
 
                 {/* Shift type */}
@@ -469,7 +472,7 @@ export default function ShiftLogPage({ initialSchoolEmail = '', presetStudent = 
               Log Another Shift
             </button>
             <p style={{ fontSize:13, color:'#6b7280', margin:0 }}>
-              To edit or delete a previous entry, email <a href={`mailto:${JESTER}`} target="_blank" rel="noopener noreferrer" style={{ color:'var(--nightfall)' }}>{JESTER}</a>.
+              {embedded ? 'To edit, delete, or request a correction, use the shift’s three-dot menu in Rotation Progress on Home.' : <>To edit or delete a previous entry, email <a href={`mailto:${JESTER}`} target="_blank" rel="noopener noreferrer" style={{ color:'var(--nightfall)' }}>{JESTER}</a>.</>}
             </p>
           </div>
         )}

@@ -39,10 +39,9 @@ export function voidMyShiftLog({ shift_id, reason }) {
 
 /**
  * The AUTHORITATIVE eligibility verdict for one entry - the same
- * student_shift_edit_eligibility() the writer consults. The drawer asks the
- * server rather than guessing locally, so certificate-issued,
- * rotation-concluded, terminal, staff-decided, open, and withdrawn entries all
- * show the correct explanation BEFORE the student attempts anything.
+ * student_shift_edit_eligibility() the writer consults. The list asks the
+ * server rather than guessing whether the required hours and scheduled
+ * rotation window have both been completed.
  */
 export async function fetchMyShiftEligibility(shiftId) {
   const r = await post({ action: 'eligibility', shift_id: shiftId })
@@ -52,6 +51,7 @@ export async function fetchMyShiftEligibility(shiftId) {
 
 /** Student-facing copy for every refusal the endpoint can return. */
 export const NOT_EDITABLE_COPY = {
+  rotation_window_closed: 'Your required hours are approved and your rotation window has ended. Request a correction and the team will review it.',
   staff_decided: 'The ASPIRE team has already reviewed this shift, so it can no longer be changed here. Request a correction and the team will take it from there.',
   already_voided: 'This entry has already been withdrawn.',
   shift_in_progress: 'This shift is still open. Check out first, then you can correct it.',

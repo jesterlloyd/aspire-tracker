@@ -3,11 +3,9 @@
 // STUDENT-SHIFT-LOG-MANAGEMENT-1: the student's complete shift history, with
 // self-service correction and withdrawal.
 //
-// Every entry is listed (the home card shows only the four most recent), each
-// with its canonical status. Entries the student may still change carry Edit
-// and Withdraw; entries the ASPIRE team has already reviewed, or that are
-// locked by an issued certificate or a concluded rotation, explain why and
-// offer a correction request instead of a control that would fail.
+// Rotation Progress renders every entry inline with its canonical status.
+// Reviewed entries remain editable until approved hours meet the requirement
+// AND the scheduled rotation window has passed. The server decides eligibility.
 //
 // Withdrawing asks for explicit confirmation and states exactly what happens
 // to the hours. Nothing here writes the database directly: every action calls
@@ -18,6 +16,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { X } from 'lucide-react'
+import RowActionsMenu from '../components/shared/RowActionsMenu'
 import ShiftNumberBadge from '../components/ShiftNumberBadge'
 import { buildStudentShiftOrdinals } from '../lib/shiftOrdinals'
 import { portalShiftStatus, isVoided } from '../lib/portalShiftStatus'
@@ -39,9 +38,10 @@ function correctionBody({ name, log }) {
 }
 
 export default function ShiftLogHistoryDrawer({
-  open, logs = [], student, loginEmail = '', onClose, onChanged, returnFocusRef, readOnly = false,
+  inline = false, open, logs = [], student, loginEmail = '', onClose, onChanged, returnFocusRef, readOnly = false,
 }) {
   const panelRef = useRef(null)
+  const [menuId, setMenuId] = useState(null)
   const [editingId, setEditingId] = useState(null)
   const [confirmVoidId, setConfirmVoidId] = useState(null)
   const [busy, setBusy] = useState(false)
@@ -49,9 +49,8 @@ export default function ShiftLogHistoryDrawer({
   const [form, setForm] = useState(null)
   const [voidReason, setVoidReason] = useState('')
   // AUTHORITATIVE per-entry verdicts from the server, keyed by shift id. The
-  // drawer never decides eligibility locally: certificate-issued,
-  // rotation-concluded and terminal locks are invisible in the shift row
-  // itself, so only the server's verdict can explain them correctly.
+  // list never decides eligibility locally: hours and the scheduled window
+  // must be evaluated together against authoritative records.
   const [verdicts, setVerdicts] = useState({})
   // Distinct from a per-entry lock: until 20260819000000 is applied the
   // endpoint answers 'migration_required' for every entry. Saying "this can no
@@ -60,7 +59,7 @@ export default function ShiftLogHistoryDrawer({
   const [featureOff, setFeatureOff] = useState(false)
 
   useEffect(() => {
-    if (!open) return undefined
+    if (!open || inline) return undefined
     const returnFocus = returnFocusRef?.current || null
     const onKey = (e) => { if (e.key === 'Escape') onClose?.() }
     window.addEventListener('keydown', onKey)
@@ -69,7 +68,7 @@ export default function ShiftLogHistoryDrawer({
       window.removeEventListener('keydown', onKey)
       returnFocus?.focus?.()
     }
-  }, [open, onClose, returnFocusRef])
+  }, [open, inline, onClose, returnFocusRef])
 
   useEffect(() => {
     if (!open || readOnly) return undefined
@@ -87,7 +86,7 @@ export default function ShiftLogHistoryDrawer({
 
   if (!open) return null
 
-  const ordinals = buildStudentShiftOrdinals(logs)
+  const ordinals = buildStudentShiftOrdinals(logs.map(log => ({ ...log, student_id: log.student_id ?? '__me__' })))
   const name = [student?.preferred_first_name || student?.first_name, student?.last_name].filter(Boolean).join(' ')
 
   const requestCorrection = (log) => {
@@ -159,11 +158,11 @@ export default function ShiftLogHistoryDrawer({
     if (!r.ok) {
       setNotice(r.error === 'not_editable'
         ? (NOT_EDITABLE_COPY[r.reason] || NOT_EDITABLE_COPY.not_editable)
-        : 'That entry could not be withdrawn. Please try again.')
+        : 'That entry could not be deleted. Please try again.')
       return
     }
     setConfirmVoidId(null); setVoidReason('')
-    setNotice('That entry was withdrawn and its hours were removed from your totals. It stays in your history.')
+    setNotice('That entry was deleted from your totals. An audit record is retained.')
     onChanged?.(r.result)
   }
 
@@ -180,24 +179,24 @@ export default function ShiftLogHistoryDrawer({
 
   return (
     <>
-      <div className="ptl-drawer-backdrop" onMouseDown={onClose} />
+      {!inline && <div className="ptl-drawer-backdrop" onMouseDown={onClose} />}
       <aside
-        className="ptl-drawer"
-        role="dialog"
-        aria-modal="true"
+        className={inline ? "ptl-shift-history-inline" : "ptl-drawer"}
+        role={inline ? undefined : "dialog"}
+        aria-modal={inline ? undefined : true}
         aria-label="Shift Log History"
         data-testid="shift-history-drawer"
         ref={panelRef}
         tabIndex={-1}
       >
-        <div className="ptl-drawer-head">
+        {!inline && <div className="ptl-drawer-head">
           <h2 className="ptl-drawer-title">Shift Log History</h2>
           <button className="ptl-icon-btn" onClick={onClose} aria-label="Close shift log history">
             <X size={18} />
           </button>
-        </div>
+        </div>}
 
-        <div className="ptl-drawer-body">
+        <div className={inline ? "ptl-shift-history-list" : "ptl-drawer-body"}>
           {notice && (
             <div data-testid="shift-history-notice" style={{
               fontSize: 13, lineHeight: 1.5, padding: '10px 12px', borderRadius: 10, marginBottom: 12,
@@ -224,7 +223,7 @@ export default function ShiftLogHistoryDrawer({
             <p style={{ fontSize: 14, color: '#6b7280' }}>You have not logged any shifts yet.</p>
           )}
 
-          {logs.map(log => {
+          {[...logs].sort((a, b) => String(b.shift_date).localeCompare(String(a.shift_date)) || String(b.id).localeCompare(String(a.id))).map(log => {
             const st = portalShiftStatus(log)
             const can = editable(log)
             const voided = isVoided(log)
@@ -264,16 +263,14 @@ export default function ShiftLogHistoryDrawer({
                   <div style={{ fontSize: 12.5, color: '#9ca3af', marginTop: 9 }}>Checking…</div>
                 )}
                 {!readOnly && !voided && can.ready && can.ok && editingId !== log.id && confirmVoidId !== log.id && (
-                  <div className="ptl-slh-actions" style={{ display: 'flex', gap: 8, marginTop: 9 }}>
-                    <button className="ptl-btn ptl-btn-sm" data-testid="shift-edit-btn"
-                      onClick={() => startEdit(log)}>Edit</button>
-                    {can.voidable && (
-                      <button className="ptl-slh-ghost" data-testid="shift-void-btn"
-                        onClick={() => { setEditingId(null); setNotice(null); setVoidReason(''); setConfirmVoidId(log.id) }}>
-                        Withdraw
-                      </button>
-                    )}
-                  </div>
+                  <RowActionsMenu label={`Actions for shift on ${fmtDate(log.shift_date)}`}
+                    open={menuId === log.id} onToggle={() => setMenuId(menuId === log.id ? null : log.id)}
+                    onClose={() => setMenuId(null)}
+                    items={[
+                      { key: 'edit', label: 'Edit shift', onSelect: () => startEdit(log) },
+                      ...(can.voidable ? [{ key: 'delete', label: 'Delete shift', danger: true,
+                        onSelect: () => { setEditingId(null); setNotice(null); setVoidReason(''); setConfirmVoidId(log.id) } }] : []),
+                    ]} />
                 )}
 
                 {!readOnly && !voided && can.ready && !can.ok && (
@@ -284,11 +281,10 @@ export default function ShiftLogHistoryDrawer({
                       </div>
                     )}
                     {can.reason !== 'shift_in_progress' && (
-                      <button className="ptl-slh-ghost" style={{ marginTop: 7 }}
-                        data-testid="shift-correction-btn"
-                        onClick={() => requestCorrection(log)}>
-                        Request a correction
-                      </button>
+                      <RowActionsMenu label={`Actions for shift on ${fmtDate(log.shift_date)}`}
+                        open={menuId === log.id} onToggle={() => setMenuId(menuId === log.id ? null : log.id)}
+                        onClose={() => setMenuId(null)}
+                        items={[{ key: 'correction', label: 'Request a correction', onSelect: () => requestCorrection(log) }]} />
                     )}
                   </div>
                 )}
@@ -300,13 +296,13 @@ export default function ShiftLogHistoryDrawer({
                     border: '1px solid #f0c9b0', background: '#fdf6ec',
                   }}>
                     <div style={{ fontSize: 13.5, fontWeight: 700, color: '#191919', marginBottom: 4 }}>
-                      Withdraw this shift?
+                      Delete this shift?
                     </div>
                     <div style={{ fontSize: 12.5, color: '#4b5563', lineHeight: 1.5, marginBottom: 9 }}>
                       {log.total_hours != null ? `Its ${log.total_hours} hours ` : 'Its hours '}
                       will be removed from your{' '}
                       {log.status === 'Pending Review' || log.status === 'needs_review' ? 'pending' : 'approved'}
-                      {' '}hours. The entry stays in your history marked withdrawn, and nothing is deleted.
+                      {' '}hours. An audit record of the deleted entry is retained.
                       If you only need to fix a detail, use Edit instead.
                     </div>
                     <input
@@ -321,7 +317,7 @@ export default function ShiftLogHistoryDrawer({
                         onClick={() => setConfirmVoidId(null)}>Cancel</button>
                       <button className="ptl-btn ptl-btn-sm" disabled={busy}
                         data-testid="shift-void-confirm-btn"
-                        onClick={() => submitVoid(log)}>Yes, withdraw it</button>
+                        onClick={() => submitVoid(log)}>Yes, delete shift</button>
                     </div>
                   </div>
                 )}
@@ -332,7 +328,7 @@ export default function ShiftLogHistoryDrawer({
                     marginTop: 10, padding: '11px 12px', borderRadius: 10,
                     border: '1px solid #c3cdf0', background: '#f8faff',
                   }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 9 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(150px, 100%), 1fr))', gap: 9 }}>
                       <label style={lbl}>Date
                         <input type="date" value={form.shift_date} data-testid="edit-date"
                           onChange={e => setForm(f => ({ ...f, shift_date: e.target.value }))} style={inp} />
@@ -402,7 +398,7 @@ export default function ShiftLogHistoryDrawer({
                       requires a new ASPIRE approval before the hours count as approved.
                     </div>
 
-                    <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                    <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
                       <button className="ptl-slh-ghost" disabled={busy}
                         onClick={() => setEditingId(null)}>Cancel</button>
                       <button className="ptl-btn ptl-btn-sm" disabled={busy} data-testid="edit-save-btn"
@@ -420,5 +416,5 @@ export default function ShiftLogHistoryDrawer({
 }
 
 const lbl = { display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12.5, fontWeight: 600, color: '#374151' }
-const inp = { padding: '7px 9px', borderRadius: 8, border: '1.5px solid #e5e7eb', fontSize: 13, color: '#191919', background: '#fff' }
+const inp = { padding: '7px 9px', width: '100%', minWidth: 0, boxSizing: 'border-box', borderRadius: 8, border: '1.5px solid #e5e7eb', fontSize: 16, color: '#191919', background: '#fff' }
 const chk = { display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, color: '#374151' }

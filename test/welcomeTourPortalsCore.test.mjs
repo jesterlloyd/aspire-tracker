@@ -25,6 +25,19 @@ const engineSrc = read('../src/components/CustomOnboardingTour.jsx')
 const appSrc = read('../src/staff/StaffApp.jsx')
 const toursHelpSrc = read('../src/components/settings/ToursHelpPanel.jsx')
 
+test('student tour follows navigation order and every experience calls the banner Skyline', () => {
+  const steps = getTourSteps('student', { userProfile: {} })
+  const targets = steps.map(s => s.target)
+  const ordered = ['home', 'placement', 'messages', 'shiftlog'].map(key =>
+    targets.indexOf(`[data-tour="portal-nav-${key}"]`))
+  assert.ok(ordered.every((index, i) => index >= 0 && (i === 0 || index > ordered[i - 1])))
+  for (const experience of Object.keys(TOUR_EXPERIENCES)) {
+    const tour = getTourSteps(experience, { userProfile: {} })
+    assert.equal(tour.find(s => s.target === '[data-tour="masthead"]')?.title, 'Your Skyline')
+    assert.ok(tour.every(s => !/masthead/i.test(s.title + ' ' + s.content)))
+  }
+})
+
 // ── Ledger parse / serialize ─────────────────────────────────────────────────
 
 test('parseTourAcks / serializeTourAcks', async (t) => {
@@ -662,7 +675,7 @@ test('the student tour walks the Shift Log tab and sends corrections to the hist
   assert.match(shift.content, /Placed and in an Active Rotation/)
   // ... and it must NOT claim editing lives on the tab: the history panel owns
   // edit, withdraw and correction, and opens from Home or My Placement.
-  assert.match(shift.content, /shift history from Home or My Placement/)
+  assert.match(shift.content, /three-dot actions menu in Rotation Progress on Home/)
 
   // STUDENT-PHONE-1: the welcome says where the sections are on a phone.
   assert.match(steps[0].content, /bar along the bottom/)

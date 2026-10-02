@@ -68,7 +68,7 @@ writeFileSync(join(dir, 'fake.mjs'), `
     return {
       rpc: async (name, args) => {
         rpcCalls.push({ name, args })
-        if (name === 'student_shift_edit_ready') return { data: true, error: null }
+        if (name === 'student_shift_self_service_v2_ready') return { data: true, error: null }
         if (name === 'student_shift_edit_eligibility') {
           const row = state.shifts[args.p_shift_id]
           if (!row || row.student_id !== args.p_student_id) {
@@ -154,6 +154,18 @@ const EDIT_FIELDS = {
 
 // ── The multi-link proofs ───────────────────────────────────────────────────
 
+test('partial hours reach the writer unchanged; invalid hours never reach it', async () => {
+  twoLinkedStudents()
+  const edited = await post({ action: 'edit', shift_id: SHIFT_A, ...EDIT_FIELDS, total_hours: 7.5 })
+  assert.equal(edited.statusCode, 200)
+  assert.equal(fake.__rpcCalls().find(c => c.name === 'student_revise_shift_log').args.p_total_hours, 7.5)
+  for (const hours of [0, -1, 14, 'invalid']) {
+    twoLinkedStudents()
+    assert.equal((await post({ action: 'edit', shift_id: SHIFT_A, ...EDIT_FIELDS, total_hours: hours })).statusCode, 400)
+    assert.ok(!fake.__rpcCalls().some(c => c.name === 'student_revise_shift_log'))
+  }
+})
+
 test('a caller linked to TWO students may manage an eligible shift of EITHER', async () => {
   twoLinkedStudents()
 
@@ -232,7 +244,7 @@ test('the eligibility action is read-only and honours the same allowlist', async
 
   const mine = await post({ action: 'eligibility', shift_id: SHIFT_B })
   assert.equal(mine.statusCode, 200)
-  assert.deepEqual(mine.body.eligibility, { editable: false, reason: 'certificate_issued', voidable: true })
+  assert.deepEqual(mine.body.eligibility, { editable: false, reason: 'certificate_issued', voidable: false })
 
   const theirs = await post({ action: 'eligibility', shift_id: SHIFT_STRANGER })
   assert.equal(theirs.statusCode, 404)

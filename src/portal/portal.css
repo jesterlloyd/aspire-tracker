@@ -2174,6 +2174,12 @@ img.ptl-detail-photo {
    notes), so every button inside this drawer undoes that explicitly. */
 .ptl-slh-row .ptl-btn,
 .ptl-slh-actions .ptl-btn { margin-top: 0; }
+.ptl-shift-history-inline { min-width: 0; width: 100%; }
+.ptl-shift-history-inline .ptl-slh-row { position: relative; overflow-wrap: anywhere; }
+.ptl-shift-history-inline .ptl-slh-row > div:first-child { padding-right: 40px; }
+.ptl-shift-history-inline .shared-row-actions { position: absolute; top: 8px; right: 8px; width: auto; }
+.ptl-shift-history-inline .shared-row-actions-btn { min-width: 40px; min-height: 40px; }
+#ptl-hours { scroll-margin-top: 150px; }
 .ptl-slh-ghost {
   margin-top: 0;
   padding: 7px 14px;

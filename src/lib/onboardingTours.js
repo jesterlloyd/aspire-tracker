@@ -157,7 +157,7 @@ export function shouldAutoStartTour(userProfile, experience) {
 
 const mastheadStep = {
   target: '[data-tour="masthead"]',
-  title: 'Your Masthead',
+  title: 'Your Skyline',
   content: 'The card at the top greets you, keeps a live clock and date, and shows the weather where you are. Anything on the calendar in the next two weeks appears as a chip along its bottom edge. The scenery behind it follows the time of day and the weather, and tapping the temperature lets you choose which city it shows. Your choice is remembered on this device.',
 };
 
@@ -424,34 +424,31 @@ function getStudentSteps(userProfile) {
       // nav is the fixed bar along the bottom rather than a row of tabs. The
       // anchors are the same buttons either way, so the tour spotlights them in
       // place; the welcome says where to look.
-      content: 'This is your ASPIRE Compass, your home for tracking your stage progress, messaging the ASPIRE team, logging your shifts, and managing your rotation. This short tour walks you through the areas you will use most. On a phone, those sections live in the bar along the bottom of the screen.',
+      content: 'This is your ASPIRE Student Portal, your home for tracking your stage progress, messaging the ASPIRE team, logging your shifts, and managing your rotation. This short tour walks you through the areas you will use most. On a phone, those sections live in the bar along the bottom of the screen.',
     },
     {
       target: '[data-tour="portal-nav-home"]',
       title: 'Home',
-      content: 'Your Compass home: where you are in the ASPIRE stages, what to do next, your Rotation Activity calendar, and quick access to your profile.',
+      content: 'Your home for the Rotation Activity calendar and Rotation Progress. See your logged shifts, approved hours, and remaining hours here.',
     },
     mastheadStep,
-    {
-      target: '[data-tour="portal-nav-messages"]',
-      title: 'Messages',
-      content: 'Send and receive secure messages with the ASPIRE team here. An unread badge shows when a new message is waiting.',
-    },
     {
       target: '[data-tour="portal-nav-placement"]',
       title: 'My Placement',
       content: 'Review your placement progress, ASPIRE status, surveys, badge and certificates, and support options here.',
     },
     {
+      target: '[data-tour="portal-nav-messages"]',
+      title: 'Messages',
+      content: 'Send and receive secure messages with the ASPIRE team here. An unread badge shows when a new message is waiting.',
+    },
+    {
       // STUDENT-SHIFT-TAB-1: shift logging moved INSIDE the portal, with the
       // session as identity. The tab itself is check in / check out / log a past
-      // shift; editing, withdrawing and corrections live in the shift history
-      // panel, which opens from Home's Rotation Activity and from My Placement
-      // (see src/portal/ShiftLogHistoryDrawer.jsx), so the copy sends you there
-      // rather than promising it on this tab.
+      // shift; edits, deletions and corrections live inline in Rotation Progress.
       target: '[data-tour="portal-nav-shiftlog"]',
       title: 'Shift Log',
-      content: 'Check in at the start of a shift, check out at the end, and log a past shift, without leaving the portal or typing your school email. Logging opens once you are Placed and in an Active Rotation. To edit, withdraw, or request a correction on a shift you already logged, open your shift history from Home or My Placement.',
+      content: 'Check in at the start of a shift, check out at the end, and log a past shift, without leaving the portal or typing your school email. Logging opens once you are Placed and in an Active Rotation. To edit, delete, or request a correction on a logged shift, use its three-dot actions menu in Rotation Progress on Home.',
     },
     portalFeedbackStep,
     portalMessagesLauncherStep,

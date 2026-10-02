@@ -77,7 +77,7 @@ test('reviewed-log edits preserve review history and require a fresh approval', 
   assert.match(migration, /reviewed_at\s+= NULL/)
   assert.match(migration, /INSERT INTO public\.student_shift_log_edits/)
   assert.match(manageEndpoint, /rpc\('student_revise_shift_log'/)
-  assert.match(manageEndpoint, /voidable: \['Auto-Accepted', 'Pending Review'\]\.includes\(shiftRow\.status\)/)
+  assert.match(manageEndpoint, /voidable: verdict\.editable === true/)
 })
 
 test('Student Home and navigation match the approved information architecture', () => {
