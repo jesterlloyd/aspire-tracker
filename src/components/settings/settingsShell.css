@@ -48,7 +48,7 @@
 .settings-rail-ic { flex: none; color: var(--color-accent-primary, #1D2567); }
 .rr-row-select.sel .settings-rail-ic { color: #FFFFFF; }
 /* Keith's custom K has a different visual center than the Lucide glyphs beside it. */
-.settings-rail-row .settings-rail-ic.keith-icon { transform: translateY(-1px); }
+.settings-rail-row .settings-rail-ic.keith-icon { transform: translate(4px, -1px); }
 
 .settings-content {
   min-width: 0;
