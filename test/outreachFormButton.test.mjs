@@ -70,7 +70,10 @@ test('ordinary Outreach preview does not statically load the full Forms engine',
 
 test('each recipient gets their own link; a second send reuses it; a failed email withdraws a new one', async () => {
   const w = await world()
-  const html = button(w.form.id, ' data-due="2026-10-01"')
+  // A far date in Pacific daylight time: this was 2026-10-01, and the suite went red on 2026-10-02
+  // because an open link is reused below and a link past its due date is closed. A fixed summer
+  // date keeps the end-of-day assertion exact (a date relative to now would cross a clock change).
+  const html = button(w.form.id, ' data-due="2099-07-01"')
   const forms = await B.prepareFormButtons(w.db, html)
   const ctx = { forms, batchId: '22222222-2222-4222-8222-222222222222', subject: 'Your form', appUrl, sender: w.owner }
   const ava = await B.personalizeFormButtons(w.db, html, { ...ctx, person: { name: 'Ava Reyes', email: 'ava@ucla.edu', studentId: w.student.id } })
@@ -86,7 +89,7 @@ test('each recipient gets their own link; a second send reuses it; a failed emai
   const { rows } = await w.pg.query(`SELECT email, status, student_id, due_at, delivery_ok, audience_label FROM form_assignments ORDER BY email`)
   assert.equal(rows[0].email, 'ava@ucla.edu'); assert.equal(rows[0].status, 'sent'); assert.equal(rows[0].student_id, w.student.id)
   assert.equal(rows[0].delivery_ok, true); assert.equal(rows[0].audience_label, 'ASPIRE Connect Outreach')
-  assert.equal(new Date(rows[0].due_at).toISOString(), '2026-10-02T06:59:00.000Z', 'due at the end of the day, Pacific time')
+  assert.equal(new Date(rows[0].due_at).toISOString(), '2099-07-02T06:59:00.000Z', 'due at the end of the day, Pacific time')
   assert.equal(rows[1].status, 'voided', 'an email that failed takes its new link back')
 
   const again = await B.personalizeFormButtons(w.db, html, { ...ctx, person: { name: 'Ava Reyes', email: 'ava@ucla.edu', studentId: w.student.id } })

@@ -179,7 +179,9 @@ test('send, prefill, submit: the PDF is filed to the student record and the link
   const f = await E.createForm(w.db, { title: 'Sizes', definition: M.RETIRED_STARTER_DRAFTS['scrubex-request-form'][0] }, w.owner)
   await E.publish(w.db, f.id, w.owner)
   const out = await E.sendForm(w.db, { formId: f.id, people: [{ name: 'Ava Reyes', email: 'ava@ucla.edu', studentId: w.student.id }, { name: 'dup', email: 'AVA@ucla.edu' }],
-    dueAt: '2026-10-01T23:59:00Z', subject: 'ScrubEx sizes', message: 'Hi {first name}, please fill this in.' }, { appUrl, mailer: w.mailer, sender: w.owner })
+    // Relative to now: this was the literal 2026-10-01T23:59:00Z, and the suite went red on 2026-10-02
+    // because the link is submitted below and a link past its due date is closed.
+    dueAt: new Date(Date.now() + 7 * 86_400_000).toISOString(), subject: 'ScrubEx sizes', message: 'Hi {first name}, please fill this in.' }, { appUrl, mailer: w.mailer, sender: w.owner })
   assert.equal(out.created, 1, 'a duplicate address is sent once')
   assert.equal(out.sent, 1)
   const mail = w.mailer.sent[0]
