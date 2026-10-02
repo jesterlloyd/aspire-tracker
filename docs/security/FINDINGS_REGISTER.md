@@ -1,5 +1,12 @@
 # Security Findings Register
 
+**Program status, 2026-10-02.** Every finding in this register is Closed: S-01 through
+S-33 and D-01 through D-05. `npm audit` reports zero advisories at `58dc8324`. The
+"Unverified in production" list at the end is resolved, with one accepted gap recorded
+by the Owner's decision: a revoked portal session keeps showing already-loaded screens
+until its next request, and no re-check on tab change will be added. New findings start
+at S-34.
+
 Reconstructed 2026-08-27 from the repository at commit `d2f2719`, after the
 remediation status audit found that the original audit report existed only in
 chat and was never committed. This file is now the durable register. Update it
@@ -1126,13 +1133,21 @@ afterward, from memory.
    valid after deactivation, and the per-request endpoint checks (S-05) refused all
    data. Access ends at the endpoints immediately; the session itself ends at token
    expiry.
-3. STILL UNVERIFIED: the rate-limit ceilings. No live request has exercised one. The
-   2026-10-02 script exercises the unit form lookup's burst bucket (15 in 60 seconds).
+3. Rate-limit ceiling, VERIFIED live 2026-10-02 on the public unit form lookup
+   (`api/unit-form-lookup.js`, burst bucket 15 per 60 seconds per address): fifteen
+   lookups in one minute were answered, the sixteenth was refused with 429 and "Too many
+   requests. Please wait a moment and try again.", and a lookup after the minute was
+   answered again. Read-only lookups of a unit name that does not exist; nothing was
+   written or sent. The other buckets share the same limiter and RPC.
 4. S-08 server-side password path: CONFIRMED 2026-09-25 by POST-B 4 of
    `db/audit/s08_school_form_password_hash_checks.sql` (the Owner confirmed the live
    school form accepts the right password and refuses a wrong one after the plaintext
-   column was dropped). S-10 guarded prefill on the unit form: STILL UNVERIFIED live;
-   covered by the 2026-10-02 script.
+   column was dropped). S-10 guarded prefill on the unit form: VERIFIED live 2026-10-02. For
+   a unit with a stored response in the accepting cohort (Winter 2027), the lookup with
+   no email and with a wrong email returned exactly the seven structured fields
+   (`response_status`, `slots_offered`, `shift_preference`, `hiring_new_grads_ngrp`,
+   `has_hired_aspire_alumni`, `aspire_alumni_outcome`, `would_consider_aspire_alumni`)
+   and none of the guarded ones (no name, email, role or free text).
 5. RESOLVED 2026-08-27: migrations 20260822010000, 20260822020000, and
    20260822030000 are confirmed APPLIED (see the OWNER_SQL_GATE ledger for the
    verification each ran).
