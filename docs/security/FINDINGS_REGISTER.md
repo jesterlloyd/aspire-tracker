@@ -1111,9 +1111,17 @@ afterward, from memory.
 
 ## Unverified in production (list from 2026-08-27, updated 2026-10-02)
 
-1. STILL UNVERIFIED: mid-session revocation behavior on the five portal surfaces
-   (Student, Unit Leader, Academic Partner, My Profile, Messages; `b8db8a4`). A
-   production click-through script was written on 2026-10-02 and awaits the Owner.
+1. Mid-session revocation (`b8db8a4`), VERIFIED on the Student Portal 2026-10-02 by the
+   Owner with a test account, with one gap recorded. Result: after the revoke, nothing
+   new was served. The first tab that made a request (Shift Log) was refused and the
+   portal replaced itself with the "No portal access on this account" card. Tabs that
+   had already loaded before the revoke stayed readable until the next request, because
+   the Student Portal fetches its summary once on open and a tab switch redraws that
+   data without asking the server. So access ends at the endpoints immediately; the
+   screen catches up on the next request or a reload. Follow-up, Owner's call: re-run
+   `get_my_portal_access()` on tab change or window focus so the card appears without a
+   fetch. The other four surfaces (Unit Leader, Academic Partner, My Profile, Messages)
+   use the same handoff and are unverified live.
 2. CONFIRMED 2026-08-23: a deactivated (banned) account's existing access token stayed
    valid after deactivation, and the per-request endpoint checks (S-05) refused all
    data. Access ends at the endpoints immediately; the session itself ends at token
