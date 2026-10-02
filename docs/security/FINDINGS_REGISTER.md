@@ -1,11 +1,13 @@
 # Security Findings Register
 
-**Program status, 2026-10-02.** Every finding in this register is Closed: S-01 through
-S-33 and D-01 through D-05. `npm audit` reports zero advisories at `58dc8324`. The
-"Unverified in production" list at the end is resolved, with one accepted gap recorded
-by the Owner's decision: a revoked portal session keeps showing already-loaded screens
-until its next request, and no re-check on tab change will be added. New findings start
-at S-34.
+**Program status, 2026-10-02.** S-01 through S-33 and D-01 through D-05 are Closed, and
+`npm audit` reports zero advisories at `58dc8324`. The "Unverified in production" list at
+the end is resolved, with one accepted gap recorded by the Owner's decision: a revoked
+portal session keeps showing already-loaded screens until its next request. A read-only
+DELTA AUDIT of everything added since the original audit (commit `9258409`, 2026-08-20,
+through `03f314db`: 739 commits, 85 migrations, about 200 endpoint files) was completed
+the same day. It found no regression of a closed finding and sixteen new findings,
+S-34 through S-49, all OPEN below: six Medium, ten Low, none High or Critical.
 
 Reconstructed 2026-08-27 from the repository at commit `d2f2719`, after the
 remediation status audit found that the original audit report existed only in
@@ -1088,6 +1090,310 @@ afterward, from memory.
 - **Fix (DEPS-2, 2026-09-26)**: every `@tiptap/*` package moved together to 3.31.3, sixty-six packages at one version. The four declared packages (`react`, `starter-kit`, `extension-link`, `extension-underline`) are ^3.31.3, and `@tiptap/pm` is now declared explicitly at ^3.31.3 because tiptap pins it as an exact peer and the locked 3.27.1 tree would not resolve otherwise. No major bump was needed; no source file changed. After DEPS-2, `npm audit` reports zero advisories.
 - **Live paths touched**: the Connect rich-text editor (`src/components/connect/RichTextEditor.jsx`) and its four custom content blocks (button, event, note, divider), used by Outreach's Send to One and Send to Many and by the template editor. After deploy, click through: type and format (bold, italic, underline, bulleted and numbered lists, clear formatting), add and remove a link, insert each content block and edit it in place, scroll a long draft to confirm the toolbar stays pinned, open the preview, and send a test to yourself.
 - **Closing commit**: DEPS-2 (2026-09-26).
+
+## Delta audit, 2026-08-20 to 2026-10-02 (S-34 onward)
+
+Scope: every endpoint, migration, policy, SECURITY DEFINER function, storage path, cron,
+webhook and portal surface added or changed between `9258409` and `03f314db`. Read-only;
+no SQL was run. Severity is judged by real exploitability in this system (who can reach
+it, with what credential). CONFIRMED means the code path was read end to end; SUSPECTED
+means a live catalog, a race, or production data would be needed to prove it. Standing
+sweeps re-run green on 2026-10-02 and still discover new code: S-05 (132 tests across the
+S-05, S-13, S-16, S-17, S-23, S-24, demo-boundary, demo-mailer, public-hardening and
+revocation suites), S-12 (`test/cronSecretFailClosed.test.mjs`, every file in `api/cron/`).
+
+## S-34. Keith's data tools ignore an Interviewer's cohort entitlement and rubric authorship
+
+- **Severity**: Medium. **Status**: OPEN.
+- **Risk**: an active Interviewer reads contact details, GPA, scores and every other
+  interviewer's rubric comments for students in any cohort, through the model.
+- **Evidence** (CONFIRMED): `api/keith.js:265-275` grants `search_students`,
+  `get_student_detail`, `get_unit_details` and `get_cohort_summary` by role alone
+  (`allowedRoles: ['admin', 'interviewer']`); `:1455` takes the active cohort from the
+  request body (`liveData?.activeCohortId`); `:552` lets the tool input override it;
+  `get_student_detail` (`:430-465`) selects `school_email`, `personal_email`, `phone`,
+  `cumulative_gpa` and then every `interview_rubrics` row for the student with
+  `summary_comments`, on the service role. No entitlement check exists in the file. The
+  platform's own rule (`api/student-update.js:476-490`, `api/student-file-access.js:79-85`)
+  bounds an Interviewer by `activeEntitledCohortIds`, and RLS limits them to their own rubrics.
+- **Exploit**: POST `/api/keith` with any cohort id in `liveData.activeCohortId` and ask for
+  the students, then for a student's details. The caller controls the prompt.
+- **Fix direction**: in the tool executor, derive the entitled cohort set from the caller's
+  profile for any role without `student_read`, refuse a cohort outside it, re-check the
+  student's cohort in `get_student_detail`, and filter rubrics to the caller's own unless
+  `can_manage_all`. Never treat `activeCohortId` from the body as authority. Needs SQL: no.
+
+## S-35. Invite-user matches an existing account with an unescaped ILIKE and re-enables it
+
+- **Severity**: Medium. **Status**: OPEN.
+- **Risk**: an Owner or Admin invite can silently attach staff access to the wrong person,
+  including a deactivated former account, and lift its auth ban.
+- **Evidence** (CONFIRMED): `api/invite-user.js:209` validates the address only as
+  containing `@` and `.`; `:232-236` looks up the profile with `.ilike('email', normEmail)`
+  where `_` matches any character and `%` any run; `:303-316` reuses the matched profile
+  (`is_active: true`, `role: requestedRole`, `login_enabled: true`); `:344` calls
+  `restoreAuthAccess`. Two matches make `maybeSingle` error, the error is ignored, and the
+  insert path runs. Introduced in `fa689d41` (2026-08-03); not among the S-27 sites.
+- **Exploit**: invite `jane_doe@cshs.org` as Admin while `jane.doe@cshs.org` exists as a
+  portal or deactivated profile.
+- **Fix direction**: exact match on a normalised email (or `escapeLikePattern`), treat a
+  lookup error as a failure, validate the address, and add the site to the S-27 sweep.
+  Needs SQL: no.
+
+## S-36. Interview rubric policies and the cohort list function carry no cohort scope
+
+- **Severity**: Medium. **Status**: OPEN.
+- **Risk**: the RLS-layer twin of S-14. An Interviewer or Viewer reads rubric scores,
+  recommendations, suggested units and summary comments for every rubric in any cohort,
+  and an Interviewer can write their own-identity rubric against any student in any cohort.
+- **Evidence** (CONFIRMED): `supabase/migrations/20260822010000_interview_rubric_authorization.sql`
+  INSERT policy `:133-142` and UPDATE policy `:144-157` pass on
+  `interview_rubric_identity_matches_caller` alone; `list_interview_rubrics_for_cohort`
+  `:203-224` admits `interviewer` and `viewer` for any `p_cohort_id` and `:227-258` masks
+  only the notes and question columns, returning `cj_score`, `pp_score`, `ga_score`,
+  `individual_recommendation`, `suggested_unit`, `summary_comments` and `composite_score`
+  for every row. The browser writes the table directly (`src/components/RubricSession.jsx`)
+  and reads through the RPC (`:149`). No cohort-entitlement predicate exists in SQL.
+- **Fix direction**: add an active cohort-entitlement predicate (the model
+  `api/student-file-access.js` uses) to the non-privileged branches of both write policies
+  and of the list function, or move rubric writes behind an endpoint as S-04 did for slots.
+  Needs SQL: yes.
+
+## S-37. Email preheaders and organization fields are interpolated into email HTML unescaped
+
+- **Severity**: Medium. **Status**: OPEN.
+- **Risk**: a student-controlled name becomes live markup inside an authentic ASPIRE email
+  to staff, an interviewer, and an outside department.
+- **Evidence** (CONFIRMED): `lib/server/email/aspireShell.js:60` writes
+  `<div style="display:none;...">${preheader}</div>` raw, and `:50-55, 69, 89, 95-97`
+  interpolate `display_name`, `logo_alt_text`, the address and `general_email` raw.
+  Callers that build the preheader from data: `lib/server/email/interviewBooked.js:47`
+  (`${studentName} self-scheduled ...`, from `api/interview-book.js:268`, a name any
+  student sets at intake or in My Profile with no character rule),
+  `lib/server/forms/mail.js:52` (the forward email to `settings.forwardTo`, an external
+  inbox, with `${title} from ${who}` where `who` is the respondent's name) and `:28`, and
+  `lib/server/signatures/mail.js:30`. `preceptorEmailTemplates.js:100` escapes its
+  preheader, so the shell's "plain text" contract is applied inconsistently. This is a gap
+  left by the S-06 closing commit `dbed654d`, not a regression of it.
+- **Exploit**: set `last_name` to markup that closes the hidden div and shows a link, then
+  self-book an interview, or submit a ScrubEx form that is forwarded to Linen Services.
+  Mail clients run no script; the risk is phishing and content spoofing.
+- **Fix direction**: escape `preheader` and the organization fields inside
+  `aspireEmailShell`, remove the pre-escaping at the one call site that does it, and add a
+  test that sweeps the preheader sinks. Needs SQL: no.
+
+## S-38. The school form password verifier is an unthrottled anon oracle at the database
+
+- **Severity**: Medium. **Status**: OPEN.
+- **Risk**: online guessing of a cohort password, and CPU denial of service, through
+  PostgREST, bypassing every endpoint rate limit.
+- **Evidence** (CONFIRMED): `20261003000000_s08_school_form_password_plaintext_drop.sql:137-138`
+  grants EXECUTE on `verify_school_form_password` (bcrypt cost 10) and
+  `school_form_requires_password` to `anon` and `authenticated`. The browser calls the
+  verifier directly: `src/components/SchoolFormPage.jsx:258`,
+  `src/portal/ap/PlacementRequestsView.jsx:213`. The S-11 limiter lives in `api/` and
+  never sees this path. S-08 recorded the anon grant as deliberate; the missing throttle on
+  it was not recorded.
+- **Exploit**: loop `POST /rest/v1/rpc/verify_school_form_password` with the anon key and
+  the cohort id the public page loads. Each call costs one bcrypt on a `t4g.nano` instance.
+- **Fix direction**: revoke EXECUTE from `anon` and `authenticated`, and verify through a
+  throttled endpoint (`api/school-form-existing-request.js` already does this on the
+  service role); or add a per-cohort attempt counter inside the function. Needs SQL: yes
+  (REVOKE), after the two browser call sites move.
+
+## S-39. The Skyline masthead script is loaded live into the app origin with no CSP or SRI
+
+- **Severity**: Medium (supply chain; the service is the Owner's own project).
+- **Status**: OPEN.
+- **Risk**: whoever can deploy to the Skyline Vercel project, or compromises it, runs
+  JavaScript in the ASPIRE origin on the staff home and all four portals, with the
+  signed-in session available.
+- **Evidence** (CONFIRMED): `src/lib/skylineService.js:7-8, 20` loads
+  `${SKYLINE_URL}/v1/skyline.js` as an unpinned module script with no `integrity`
+  attribute; `vercel.json` and `index.html` set no `Content-Security-Policy`,
+  `frame-ancestors` or `X-Frame-Options`, so `/sign` and `/form` can also be framed.
+- **Fix direction**: serve a versioned file with SRI or vendor it into the build, add a
+  CSP whose `script-src` is self plus that exact URL, and `frame-ancestors 'none'`.
+  Needs SQL: no.
+
+## S-40. Demo boundary gaps: a missing header mixes populations on portal resolvers, and demo events email real staff
+
+- **Severity**: Low. **Status**: OPEN.
+- **Risk**: fabricated rows shown to real portal users or aggregated into real reports;
+  real Owner and Admin inboxes receive notifications about demo students.
+- **Evidence** (CONFIRMED): `api/lib/unitLeaderScope.js:79`, `api/lib/schoolScope.js:33-35`,
+  `api/lib/nursingAcademicScope.js:40`, `api/portal/unit-participation-submit.js:55`, the
+  `api/ngrp-*.js` endpoints and the community-benefit endpoints use
+  `serviceDbForRequest`, which maps an absent `x-aspire-demo` header to "no filter"
+  (`lib/server/demoScope.js:188-190`); DEMO-DATA-2 reserved that behaviour for single-record
+  reads and gave aggregates `populationDb`. A portal user controls the header. The comment
+  at `demoScope.js:12-14` claiming only Owner or Admin endpoints read it is false.
+  `_emit_staff_notifications` (`20260723000000:440-462`) queues an emailed row to every
+  active Owner and Admin with no `is_demo` check on the subject student, so a primary
+  preceptor change made in demo mode emails real staff; the mailer guard looks only at
+  recipients (`lib/server/email/mailer.js:56-66`). SUSPECTED: `students.is_demo` is
+  column-writable by any staff writer through the Wave E UPDATE policies
+  (`20260921000000:126-149`; the inherit trigger is INSERT-only, `:164-195`), which would
+  let an insider drop a real student out of every real sweep.
+- **Fix direction**: use `populationDb` in the portal verifiers (absent means real);
+  suppress or skip `_emit_staff_notifications` when the subject student is demo; refuse
+  `is_demo` changes outside the service role. Needs SQL: yes for the last two.
+
+## S-41. Database portal predicates ignore `user_profiles.is_active`
+
+- **Severity**: Low. **Status**: OPEN.
+- **Risk**: a deactivated portal account whose access token has not yet expired can read
+  its own records through the browser-direct views and still-joined threads. The
+  endpoints refuse it (S-05); the database does not.
+- **Evidence** (CONFIRMED): `20260712000007_phase2_authz_foundation.sql:192` defines
+  `portal_profile_id()` with no `is_active` test, and `has_active_role_grant` and
+  `my_linked_student_ids` (`:195-218`) inherit that; the scoped-student branch of
+  `message_participant_can_read` (`20260930000000:94-110`) has no
+  `message_profile_is_active` while the other branches do. `src/portal/StudentPortal.jsx:217-219`
+  reads `portal_my_shift_logs`, `portal_my_evaluation_assignments` and
+  `portal_my_certificates` directly. Deactivation does not revoke grants or links
+  (`api/admin-users.js:307`). Not a regression: S-05 was scoped to endpoints.
+- **Fix direction**: AND `is_active` into `portal_profile_id()`. Needs SQL: yes.
+
+## S-42. A Nursing Education and Leadership contacts editor can rewrite the Unit Leader contacts that drive routing
+
+- **Severity**: Low (needs a `contacts_access = 'manage'` grant). **Status**: OPEN.
+- **Risk**: the derived unit lead, and therefore the unit form CC, the placement greeting
+  and the capacity outreach selector, can be redirected to an address the editor chooses.
+- **Evidence** (CONFIRMED): `api/portal/academics-contacts.js:43-47` makes `email`,
+  `category`, `role`, `unit_name` and `related_units` writable, and `:353-377` patches any
+  contact id; `src/lib/unitLeadersFromConnect.js:87-89` derives leadership from exactly
+  those fields. An `activity_logs` row is written (`:254-273`).
+- **Fix direction**: refuse NE&L edits to those five fields on a contact whose current or
+  resulting category is Unit Leader, or route them for staff confirmation. Needs SQL: no.
+
+## S-43. The signer one-time code attempt counter is not atomic
+
+- **Severity**: Low. **Status**: OPEN, SUSPECTED (a race).
+- **Evidence**: `lib/server/signatures/engine.js:275-283` reads `code_attempts`, compares
+  it to the maximum, then writes the incremented value with no compare-and-set; the same
+  shape at `:261-266` for sends. The per-IP limit is 40 a minute (`api/sig-signer.js:37-40`).
+- **Risk**: a link holder firing parallel guesses gets more than five attempts per code.
+- **Fix direction**: increment with a conditional update (`.lt('code_attempts', max)`)
+  and act on the matched row count, or an RPC. Needs SQL: optional.
+
+## S-44. Raw database error text can reach anonymous callers on the form and signer routes
+
+- **Severity**: Low (S-19 class). **Status**: OPEN.
+- **Evidence** (CONFIRMED): `lib/server/forms/engine.js:48` throws
+  `FormError('db_failed', \`${what}: ${res.error.message}\`, 500)`, returned verbatim by
+  `api/form-respond.js:43`; `lib/server/signatures/engine.js:77, 156, 170, 187, 366, 576`
+  embed `error.message`, returned by `api/sig-signer.js:114`.
+- **Fix direction**: log the provider message and return a fixed sentence for those
+  codes; extend `test/lowSeverityCleanup.test.mjs` to the two engines. Needs SQL: no.
+
+## S-45. Recipient emails and names still written to function logs outside the three S-20 crons
+
+- **Severity**: Low (S-20 class). **Status**: OPEN.
+- **Evidence** (CONFIRMED): `src/lib/notifications/index.js:125, 128, 133` log
+  `recipient.email` on every `sendNotification` send, which every reminder, birthday,
+  midpoint, retirement and clock-out cron uses; `api/send-midpoint-checkin.js:128`;
+  `api/admin/resend-coordinator-digest.js:416, 418`; `api/cron/teams-invite-reminders.js:161`
+  (interviewer name). S-20 named only the three crons it fixed.
+- **Fix direction**: log type, ids and the provider id only; widen the S-20 sweep to
+  these files. Needs SQL: no.
+
+## S-46. Student shift self-service no longer stops at a certificate, a concluded rotation or a terminal status
+
+- **Severity**: Low (integrity; intent unconfirmed). **Status**: OPEN.
+- **Evidence** (CONFIRMED): `20261027000000_student_shift_self_service_window.sql:5-43`
+  replaced the eligibility function of `20260901010000:86-102`, dropping the
+  `certificate_issued`, `rotation_concluded` and `student_status_terminal` refusals; the
+  only lock is now `v_approved >= v_required AND v_end < today`, and `v_end` is NULL for
+  the sentinel or a missing rotation row, so that comparison never closes. The header says
+  certificate issuance must never be used as the end date, which reads as deliberate.
+- **Risk**: a certified, Completed or Not Proceeding student can still revise or void
+  approved shifts, so a certificate and the stored hours can disagree.
+- **Fix direction**: Owner decision. If unintended, restore the terminal gates and treat
+  an unknown window as closed once the status is terminal. Needs SQL: yes, if changed.
+
+## S-47. Transition Form links never expire, and a closed link still returns prefill and prior answers
+
+- **Severity**: Low. **Status**: OPEN.
+- **Evidence** (CONFIRMED): `api/ngrp-transition.js:82-145` serves `load` when the form is
+  closed, returning school, program, the suggested email and the latest revision payload;
+  `lib/server/ngrpTransition.js:418-442` never checks token age, and `isFormClosed`
+  (`:100-103`) gates writes only. Reflection links, by contrast, die when the run stops.
+  Related: `api/ngrp-reflection.js:99-112` runs `schedule_add` and `schedule_remove`
+  before the submitted and closed checks, so an old period link keeps schedule write access
+  while the run is active.
+- **Fix direction**: on closed, return the state only; retire tokens some days after
+  close; order the reflection checks before the schedule actions. Needs SQL: no.
+
+## S-48. Form-link surface hardening: unbounded uploads, drafts of prefilled PII, and an indefinite copy
+
+- **Severity**: Low. **Status**: OPEN.
+- **Evidence** (CONFIRMED): `lib/server/forms/engine.js:499-507` mints an upload slot per
+  call with the size checked only as the client declared it, no content-type allow-list and
+  no per-assignment cap, at 400 an hour per IP; `respondentCopy` (`:468-476`) returns the
+  filed PDF to any link holder with no time limit, and `respondentState` (`:484-490`)
+  returns prefilled phone, unit, preceptor and rotation dates before submission;
+  `src/pages/.../FormRenderer.jsx:18, 25` writes the prefill plus answers to
+  `localStorage` on page open and clears it only on submit. The path confinement itself is
+  sound (`:584-588`).
+- **Fix direction**: bucket MIME and size limits, a slot cap and an orphan sweep in
+  `form-maintenance`; a window on `copy`; draft only what was typed, with a TTL. Needs SQL:
+  no (bucket settings are an Owner storage change).
+
+## S-49. Unescaped ILIKE wildcards at three more sites (S-27 siblings)
+
+- **Severity**: Low. **Status**: OPEN.
+- **Evidence** (CONFIRMED): `api/contacts-upsert.js:447` (the duplicate-email check, so `_`
+  can produce a false "already exists"), `api/lib/unitPreceptorContactSync.js:99`,
+  `api/cron/teams-invite-reminders.js:155`. All run on the service role with staff- or
+  data-sourced values; S-35 is the one with a privilege consequence and is listed on its own.
+- **Fix direction**: `escapeLikePattern` or exact matches, and add the sites to the S-27
+  pins. Needs SQL: no.
+
+## Delta audit: informational notes (no finding opened)
+
+- The organization logo accepts SVG screened by a blocklist regex
+  (`lib/server/organizationSettings.js:55`) into the public `organization-branding`
+  bucket, which has no size or MIME limit (`20260923000000:44-46`). Only the Owner uploads,
+  and the file renders as `<img>`. Rasterise or drop SVG when convenient.
+- The catalog, signature and forms tables never revoke Supabase's default anon and
+  authenticated table privileges; RLS with SELECT-only policies refuses writes today, so
+  this is defence in depth only (`20260926000000`, `20260927000000`, `20260928000000`,
+  `20260929000000`). The budget, Keith and NGRP files revoke explicitly.
+- Real student names sit in migration comments and exception text
+  (`20260830000000:95-105`, `20260901000000`), the S-32 class; relevant only if the
+  repository is public.
+- Five migration pairs share a version number (20260829000000, 20260922000000,
+  20260923000000, 20261021000000, 20261027000000). Harmless under the manual Owner gate;
+  CLI tooling would skip the second of each pair.
+- Messaging capability switches for Academic Partner and NE&L are checked on thread
+  creation only, not on reply or react.
+- `messages_mark_read` refuses `unit_leader`, `academic_partner` and `nursing_academic`
+  callers (`20260716000002:366`), a functional defect that fails closed.
+- The `sig_events` hash chain is ordered by `id`, assigned before the advisory lock, so
+  two concurrent events can commit out of chain order; nothing verifies the chain today.
+  The TSA reply's own signature is not verified and the default TSA URL is plain HTTP.
+- Talent Acquisition receives `candidates.notes` and eligibility override reasons and holds
+  cycle, source and unit management actions; consistent with "TA co-owns", for the Owner
+  to confirm.
+- `src/lib/connect/richCompose.js:69-70` parses HTML into a live-document element; only
+  the user's own draft reaches it today. Use `DOMParser` or a `<template>`.
+- Keith's markdown renderer allows any `https:` link from model output; text a student
+  controls reaches the model, so an injected instruction could surface a phishing link.
+  `javascript:` and HTML are blocked.
+- `sig-signer` serves the document before consent is recorded; `requireSession` compares
+  hashes with `!==` (negligible); `FORM_TOKEN_SECRET` falls back to `SIG_TOKEN_SECRET`, so
+  setting it later invalidates every live form link.
+
+Not verifiable read-only: live `pg_policies` and column grants on tables created outside
+the repo (`aspire_events`, `students.is_demo`, `interview_rubrics`); whether the
+dashboard-created `aspire-catalog` and `outreach-attachments` buckets are private and what
+storage policies they carry; bucket size and MIME settings; whether Vercel overwrites a
+client-supplied `X-Forwarded-For` (which keys every public limiter); the configured JWT
+lifetime (which bounds S-41); whether production function bodies match the repository for
+`messages_mark_read`, `can_read`, `_emit_staff_notifications` and the `ul_eval_*` RPCs;
+who can deploy to the Skyline project; and whether any stored name or title already
+contains markup (a `db/audit` query would show it).
 
 ---
 
