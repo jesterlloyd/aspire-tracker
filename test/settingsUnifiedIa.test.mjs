@@ -41,7 +41,7 @@ test('the rail is the brief\'s six destinations plus Organization, in order, for
   assert.deepEqual(railKeys(OWNER), ['general', 'accounts', 'organization', 'communityBenefit', 'programBudget', 'keith', 'demoMode', 'preceptorParity'])
   assert.deepEqual(visibleSections(OWNER).map(s => s.label),
     // BUDGET-TRACKER-1 changed this (Owner, 2026-09-30): Program Budget is now labelled Budget Tracker.
-    ['General', 'Accounts & Access', 'Organization', 'Community Benefit', 'Budget Tracker', 'Keith', 'Demo Mode', 'Preceptor Parity'])
+    ['General', 'Accounts & Access', 'Organization', 'Community Benefit', 'Budget Tracker', 'Keith AI', 'Demo Mode', 'Preceptor Parity'])
 })
 
 test('groups are Workspace, Administration, Diagnostics, contiguous', () => {
