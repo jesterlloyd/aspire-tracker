@@ -84,7 +84,7 @@ test('a replacement that changes nothing in the Sheet is not stopped by a closed
   for (const month of ['2026-07', '2026-08', '2026-09']) await E.closeMonth(db, owner, { fy: 2027, month, note: 'x', today: TODAY })
   const slip = await replacement(db, owner, f.id, reading(48.93))
   const out = await R.acceptReplacement(db, owner, { id: slip.id, draft: slip.draft, today: TODAY })
-  assert.deepEqual([out.sheet, out.message], [[], 'The filed receipt now has the new file. The old one is deleted. The Sheet already matched it.'])
+  assert.deepEqual([out.sheet, out.message], [[], 'The filed receipt now has the new file. The old one is deleted. Expenses already matched it.'])
   assert.equal((await pg.query(`SELECT file_name FROM budget_receipts WHERE id = $1`, [f.id])).rows[0].file_name, 'second.pdf')
 })
 

@@ -278,7 +278,7 @@ test('the overlap check is answered by ending the older plan or keeping both, an
   await E.decideOverlap(db, owner, { id: pro2.id, decision: 'reopen', today: TODAY })
   y = await E.loadYear(db, { fy: 2027, viewer: 'owner', today: TODAY })
   const ended = await E.decideOverlap(db, owner, { id: pro2.id, decision: 'end', end_on: y.overlaps[0].endOn, today: TODAY })
-  assert.equal(ended.message, 'Claude Pro annual purchase marked ended May 31, 2026. Charges it already posted stay on the Sheet.')
+  assert.equal(ended.message, 'Claude Pro annual purchase marked ended May 31, 2026. Charges it already posted stay in Expenses.')
   y = await E.loadYear(db, { fy: 2027, viewer: 'owner', today: TODAY })
   assert.deepEqual([y.overlaps.length, y.subscriptions.find(s => s.id === pro2.id).status], [0, 'Ended'])
 })

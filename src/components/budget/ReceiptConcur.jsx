@@ -60,7 +60,7 @@ export default function ReceiptConcur({ receipt: r, notify, onChanged }) {
         {state === 'submitted' && <button type="button" className="bud-btn bud-btn-pri bud-btn-sm" disabled={!!busy} onClick={() => mark('reimbursed', 'Marked reimbursed.')}>Mark reimbursed</button>}
         {state === 'submitted' && <button type="button" className="bud-btn bud-btn-sm" disabled={!!busy} onClick={() => mark('recorded', 'Back to not submitted.')}>Not submitted yet</button>}
         {state === 'reimbursed' && <button type="button" className="bud-btn bud-btn-sm" disabled={!!busy} onClick={() => mark('submitted', 'Back to submitted.')}>Not reimbursed yet</button>}
-        <span className="bud-hint">The Sheet’s Stage and its Submitted to Concur box follow this.</span>
+        <span className="bud-hint">The Stage and the Submitted to Concur box in Expenses follow this.</span>
       </div>
 
       {!r.concurEnabled ? (

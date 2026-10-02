@@ -79,14 +79,14 @@ test('a folder shows its progress, its late and due-soon counts, and where a mon
 test('the tracker: four steps for Concur, one Paid step for the P-card, the current one marked', () => {
   const base = { received_at: '2026-09-29T20:00:00Z', read_by_keith: true }
   const open = F.trackerSteps({ ...rc('2', '2026-09-01', 20, 'open'), ...base })
-  assert.deepEqual(open.map(s => [s.label, s.state]), [['Received', 'done'], ['In the Sheet', 'done'], ['Submitted to Concur', 'current'], ['Reimbursed', 'todo']])
+  assert.deepEqual(open.map(s => [s.label, s.state]), [['Received', 'done'], ['In Expenses', 'done'], ['Submitted to Concur', 'current'], ['Reimbursed', 'todo']])
   assert.deepEqual([open[0].detail, open[1].detail, open[2].detail], ['Sep 29 by Keith', 'FY27 row 2', 'Not yet'])
   const sub = F.trackerSteps({ ...rc('2', '2026-09-01', 20, 'submitted', { submitted_at: '2026-10-01T19:00:00Z' }), ...base })
   assert.deepEqual(sub.map(s => s.state), ['done', 'done', 'done', 'current'])
   assert.equal(sub[2].detail, 'Oct 1, 2026')
   assert.deepEqual(F.trackerSteps({ ...rc('2', '2026-09-01', 20, 'reimbursed'), ...base }).map(s => s.state), ['done', 'done', 'done', 'done'])
   const paid = F.trackerSteps({ ...base, concurState: null, paid: true, rows: [{ row_label: 'FY27 row 9' }] })
-  assert.deepEqual(paid.map(s => [s.label, s.state]), [['Received', 'done'], ['In the Sheet', 'done'], ['Paid', 'done']])
+  assert.deepEqual(paid.map(s => [s.label, s.state]), [['Received', 'done'], ['In Expenses', 'done'], ['Paid', 'done']])
 })
 
 test('the deadline card is shown only before submission, in three tones', () => {
@@ -113,7 +113,7 @@ test('the footer’s one button follows the stage, and waits for the policy tick
   const warn = { checks: [{ tone: 'warn', text: 'Confirm.' }] }
   const open = rc('a', '2026-09-01', 20, 'open', { concur: warn })
   assert.deepEqual(F.footerState(open), { action: 'submit', label: 'Mark submitted to Concur', disabled: true, hint: 'Confirm the business purpose above to continue.', tone: 'warn' })
-  assert.deepEqual(F.footerState(open, { confirmed: true }), { action: 'submit', label: 'Mark submitted to Concur', disabled: false, hint: 'The Sheet’s Stage and Submitted to Concur box update too.', tone: '' })
+  assert.deepEqual(F.footerState(open, { confirmed: true }), { action: 'submit', label: 'Mark submitted to Concur', disabled: false, hint: 'The Stage and Submitted to Concur box in Expenses update too.', tone: '' })
   assert.equal(F.footerState(rc('a', '2026-09-01', 20, 'open')).disabled, false, 'no warning, nothing to confirm')
   assert.equal(F.footerState(open, { confirmed: true, batch: true, isLast: false }).label, 'Mark submitted and go to next')
   assert.equal(F.footerState(open, { confirmed: true, batch: true, isLast: true }).label, 'Mark submitted to Concur')

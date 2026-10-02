@@ -325,7 +325,7 @@ export function ReplacementSlip({ slip, context, categories, busy, onDraft, onRe
   const notes = []
   if (DOC_WORD[p.document_type]) notes.push({ tone: 'warn', text: `Keith reads this file as ${DOC_WORD[p.document_type]}, not a receipt.` })
   if (p.vendor && was.vendor && String(p.vendor).toLowerCase() !== String(was.vendor).toLowerCase()) notes.push({ tone: 'warn', text: `This file is from ${p.vendor}; the filed receipt is from ${was.vendor}.` })
-  if (plan.changed && sent.length) notes.push({ tone: 'warn', text: `This purchase is already ${sent.some(x => x.stage === 'settled') ? 'reimbursed or paid' : 'submitted to Concur'} at ${usd(plan.before)}. Changing the Sheet leaves Concur with the old amount.` })
+  if (plan.changed && sent.length) notes.push({ tone: 'warn', text: `This purchase is already ${sent.some(x => x.stage === 'settled') ? 'reimbursed or paid' : 'submitted to Concur'} at ${usd(plan.before)}. Changing Expenses leaves Concur with the old amount.` })
   return (
     <article className="bud-slip bud-slip-repl" aria-labelledby={`slip-${slip.id}`}>
       <div className="bud-slip-side">
@@ -367,7 +367,7 @@ export function ReplacementSlip({ slip, context, categories, busy, onDraft, onRe
         </div>
 
         <div className="bud-repl-plan" role="status">
-          <b>{plan.changed ? 'Accepting changes the Sheet' : 'The Sheet already matches this file'}</b>
+          <b>{plan.changed ? 'Accepting changes Expenses' : 'Expenses already match this file'}</b>
           {plan.changed
             ? <ul>{lines.map((t, i) => <li key={i}>{t}</li>)}</ul>
             : <span>{was.attached ? 'The row it is attached to already has this amount.' : 'Same rows, categories, dates and amounts. Only the file changes.'}</span>}
@@ -384,9 +384,9 @@ export function ReplacementSlip({ slip, context, categories, busy, onDraft, onRe
             </li>
           ))}
         </ul>
-        <p className="bud-hint">Accepting gives the filed receipt this file and deletes the one it has now ({was.filed_name}). Stage and payment stay as they are. Rejecting leaves the filed receipt and the Sheet unchanged.</p>
+        <p className="bud-hint">Accepting gives the filed receipt this file and deletes the one it has now ({was.filed_name}). Stage and payment stay as they are. Rejecting leaves the filed receipt and Expenses unchanged.</p>
         <div className="bud-slip-acts">
-          <button type="button" className="bud-btn bud-btn-pri bud-btn-sm" disabled={busy || blocks.length > 0 || shut.length > 0} onClick={() => onReplace(slip)}>{busy ? 'Replacing…' : plan.changed ? 'Replace and update the Sheet' : 'Replace the filed receipt'}</button>
+          <button type="button" className="bud-btn bud-btn-pri bud-btn-sm" disabled={busy || blocks.length > 0 || shut.length > 0} onClick={() => onReplace(slip)}>{busy ? 'Replacing…' : plan.changed ? 'Replace and update Expenses' : 'Replace the filed receipt'}</button>
           <span className="bud-grow" />
           <button type="button" className="bud-btn bud-btn-sm bud-btn-danger" disabled={busy} onClick={() => onReject(slip)}>Reject</button>
         </div>

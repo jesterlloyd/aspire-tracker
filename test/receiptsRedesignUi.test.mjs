@@ -67,7 +67,7 @@ test('the modal: a named dialog that traps focus, the tracker, the order of work
   assert.match(modal, /undo\?\.id === r\.id && <button[^>]*onClick=\{doUndo\}>Undo<\/button>/)
   // The footer no longer carries Download, Show in Sheet or View original.
   const foot = modal.slice(modal.indexOf('<footer className="bud-rm-foot">'))
-  assert.doesNotMatch(foot, /Download|Show in Sheet|View original/)
+  assert.doesNotMatch(foot, /Download|Show in Expenses|View original/)
   // A P-card receipt never shows the Concur pieces.
   assert.match(modal, /\{stage && stage !== 'paid' && \(\s*<section className="bud-rm-concur"/)
   assert.match(modal, /Submitting \{batch\.label\} · \{batch\.ids\.indexOf\(r\.id\) \+ 1\} of \{batch\.ids\.length\}/)
@@ -83,10 +83,12 @@ test('touch targets in the modal and the grid are at least 44px', () => {
 
 test('the Subscriptions tab holds the month grid, a cell says its status in words and opens its receipt', () => {
   const subs = read('src/components/budget/BudgetSubscriptions.jsx')
-  assert.match(subs, /\{canEdit && <SubscriptionMonths year=\{year\} onOpenReceipt=\{onOpenReceipt\} \/>\}/, 'the Owner’s view: receipts are the Owner’s')
+  // SUBSCRIPTIONS-ONE-VIEW-1 changed this: the grid is the tab's one table, with each plan's status too.
+  assert.match(subs, /\{canEdit && <SubscriptionMonths year=\{year\} statusOf=\{statusOf\} onOpenReceipt=\{onOpenReceipt\} \/>\}/, 'the Owner’s view: receipts are the Owner’s')
   assert.match(grid, /\$\{usd\(c\.amount\)\}\$\{c\.kind === 'ok' \? '' : ` · \$\{c\.word\}`\}/, 'never colour alone')
   assert.match(grid, /aria-label=\{`\$\{c\.label\}\. Open the receipt\.`\} onClick=\{\(\) => onOpenReceipt\(c\.receiptId\)\}/)
-  assert.match(grid, /<span className="bud-subm-cell k-expected">Expected<\/span>/)
+  assert.doesNotMatch(grid, /k-expected/, 'SUBSCRIPTIONS-ONE-VIEW-1: the Next charge column says when the next one comes')
+  assert.match(grid, /<th scope="col" className="aspire-th">Next charge<\/th>/)
   assert.match(grid, /className="aspire-th"/, 'the shared table header')
   assert.doesNotMatch(grid, /<th[^>]*style=/)
   const view = read('src/components/budget/ProgramBudgetView.jsx')

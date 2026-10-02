@@ -122,7 +122,7 @@ export function trackerSteps(r) {
   const rows = r.rows || []
   const steps = [
     { label: 'Received', detail: [shortDate(String(r.received_at || '').slice(0, 10)) || stampDate(r.received_at), r.read_by_keith ? 'by Keith' : ''].filter(Boolean).join(' '), done: true },
-    { label: 'In the Sheet', detail: rows.length ? rows.map(x => x.row_label).filter(Boolean).slice(0, 2).join(', ') + (rows.length > 2 ? ` and ${rows.length - 2} more` : '') : 'Rows deleted', done: rows.length > 0 },
+    { label: 'In Expenses', detail: rows.length ? rows.map(x => x.row_label).filter(Boolean).slice(0, 2).join(', ') + (rows.length > 2 ? ` and ${rows.length - 2} more` : '') : 'Rows deleted', done: rows.length > 0 },
   ]
   if (st === 'paid' || !st) steps.push({ label: 'Paid', detail: st === 'paid' ? 'P-card' : 'Not recorded', done: st === 'paid' })
   else {
@@ -169,12 +169,12 @@ export function footerState(r, { confirmed = false, batch = false, isLast = true
     const wait = needsPolicyConfirm(r.concur) && !confirmed
     return {
       action: 'submit', label: batch && !isLast ? 'Mark submitted and go to next' : 'Mark submitted to Concur', disabled: wait,
-      hint: wait ? 'Confirm the business purpose above to continue.' : 'The Sheet’s Stage and Submitted to Concur box update too.', tone: wait ? 'warn' : '',
+      hint: wait ? 'Confirm the business purpose above to continue.' : 'The Stage and Submitted to Concur box in Expenses update too.', tone: wait ? 'warn' : '',
     }
   }
   if (st === 'submitted') return { action: 'reimburse', label: 'Mark reimbursed', disabled: false, hint: `Submitted${r.submitted_at ? ` ${stampDate(r.submitted_at)}` : ''}. Mark it reimbursed when the money arrives.`, tone: '' }
   if (st === 'reimbursed') return { ...onward, disabled: false, hint: `Reimbursed${r.reimbursed_at ? ` ${stampDate(r.reimbursed_at)}` : ''}. This receipt is complete.`, tone: 'good' }
-  return { ...onward, disabled: false, hint: st === 'paid' ? 'Paid on the P-card. It never goes to Concur.' : 'This receipt’s rows are no longer in the Sheet.', tone: st === 'paid' ? 'good' : '' }
+  return { ...onward, disabled: false, hint: st === 'paid' ? 'Paid on the P-card. It never goes to Concur.' : 'This receipt’s rows are no longer in Expenses.', tone: st === 'paid' ? 'good' : '' }
 }
 
 // ── Subscriptions month grid ──────────────────────────────────────────────────────
@@ -200,7 +200,7 @@ function chargeKind(e, rule, today) {
  *           totals: { [monthKey]: n }, total, late, lateMonths: [name], concurMonthly, perYear }.
  * A cell: { amount, kind, word, receiptId, expenseIds, label }.
  */
-export function subscriptionGrid({ subscriptions = [], expenses = [], receipts = [], fy, today, rule = null } = {}) {
+export function subscriptionGrid({ subscriptions = [], expenses = [], receipts = [], fy, today, rule = null, all = false } = {}) {
   const range = fiscalYearRange(fy)
   if (!range || !today) return { months: [], next: null, rows: [], totals: {}, total: 0, late: 0, lateMonths: [], concurMonthly: 0, perYear: 0 }
   const upto = today < range.end ? today : range.end
@@ -214,7 +214,8 @@ export function subscriptionGrid({ subscriptions = [], expenses = [], receipts =
   for (const s of subscriptions) {
     const own = charges.filter(e => e.subscription_id === s.id)
     const posted = own.filter(e => e.state !== 'expected')
-    if (!posted.length) continue
+    // SUBSCRIPTIONS-ONE-VIEW-1: with `all`, a plan with no charge yet this year still has its row.
+    if (!posted.length && !all) continue
     const cells = {}
     for (const m of months) {
       const here = posted.filter(e => monthKey(e.expense_date) === m.key)
@@ -228,12 +229,12 @@ export function subscriptionGrid({ subscriptions = [], expenses = [], receipts =
       }
     }
     const last = [...posted].sort((a, b) => String(b.expense_date).localeCompare(String(a.expense_date)))[0]
-    rows.push({ id: s.id, vendor: s.name, plan: s.plan || '', cells, last: money(last.amount), monthly: s.billing !== 'annual', concur: last.payment_method === 'personal_concur' })
+    rows.push({ id: s.id, vendor: s.name, plan: s.plan || '', cells, last: last ? money(last.amount) : null, monthly: s.billing !== 'annual', concur: (last?.payment_method || s.payment_method) === 'personal_concur', charged: posted.length > 0 })
   }
   rows.sort((a, b) => a.vendor.localeCompare(b.vendor) || a.plan.localeCompare(b.plan))
   const totals = Object.fromEntries(months.map(m => [m.key, money(rows.reduce((a, r) => a + (r.cells[m.key].amount || 0), 0))]))
   const lateCells = rows.flatMap(r => months.filter(m => r.cells[m.key].kind === 'late').map(m => m))
-  const concurMonthly = rows.filter(r => r.monthly && r.concur).length
+  const concurMonthly = rows.filter(r => r.monthly && r.concur && r.charged).length
   return {
     months, next, rows, totals, total: money(Object.values(totals).reduce((a, n) => a + n, 0)),
     late: lateCells.length, lateMonths: [...new Map(lateCells.map(m => [m.key, m.name])).values()],

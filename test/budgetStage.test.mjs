@@ -71,7 +71,7 @@ test('Stage is the word everywhere the Sheet’s statuses were named', () => {
   assert.match(read('src/lib/budget/receiptModel.js'), /\{ key: 'status', label: 'Stage' \}/)
   assert.match(read('src/components/budget/BudgetClose.jsx'), />Mark all Submitted to Concur<\/button>/)
   const subs = read('src/components/budget/BudgetSubscriptions.jsx')
-  assert.match(subs, /Each charge is Expected until its date, then Posted on the Sheet, marked Subscription\./)
+  assert.match(subs, /Each charge is Expected until its date, then Posted in Expenses, marked Subscription\./)
   for (const f of ['src/components/budget/BudgetSubscriptions.jsx', 'src/components/budget/BudgetSummary.jsx', 'src/lib/budget/receiptModel.js', 'src/lib/budget/receiptChecks.js']) {
     assert.doesNotMatch(read(f).replace(/^\s*(\/\/|\*).*$/gm, ''), /Recorded or Paid|, Recorded\.|starts as Recorded|Mark them Submitted,/, f)
   }

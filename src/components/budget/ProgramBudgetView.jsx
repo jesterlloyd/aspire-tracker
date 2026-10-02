@@ -35,7 +35,7 @@ const NOT_ENABLED = 'Budget Tracker is not enabled yet. Its database update (202
 // BUDGET-V2 item 15: the tabs follow the year's state. Proposal: Plan. Current: Summary, Sheet,
 // Subscriptions, Receipts (the Owner's alone, decision 5), Plan. Closed: Summary, Sheet, Plan. Allocations
 // is Plan now; before the Phase 3 update the Plan tab is still the Allocations editor.
-const TAB_LABEL = { summary: 'Summary', sheet: 'Sheet', subscriptions: 'Subscriptions', receipts: 'Receipts', plan: 'Plan' }
+const TAB_LABEL = { summary: 'Summary', sheet: 'Expenses', subscriptions: 'Subscriptions', receipts: 'Receipts', plan: 'Plan' }
 function tabsFor(year, canEdit, receiptCount = 0) {
   // A reader sees Subscriptions before the year starts when there are proposals to look at (SUB-APPROVAL-1).
   if (year.state === 'not_started') return [{ value: 'summary', label: canEdit ? `Start ${year.label}` : 'Summary' }, ...(canEdit || year.proposals?.count ? [{ value: 'subscriptions', label: 'Subscriptions' }] : []), ...(year.plan?.current ? [{ value: 'plan', label: 'Plan' }] : [])]

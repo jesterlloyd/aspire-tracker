@@ -5,8 +5,9 @@
 // posted and expected totals and whether it is closed (and its note), the target month, and for
 // the owner each open month's checklist (src/lib/budget/monthClose.js). Nothing is decided here.
 //
-// BUDGET-FIXES-1 item 2.4 (Owner, 2026-09-29): months close in order. The card works on the oldest
-// open month; a later one cannot be chosen until it is closed (the server refuses it too).
+// MONTH-ANY-ORDER-1 (Owner, 2026-10-02): months close in ANY order. The card opens on the oldest open
+// month, and any month that has started can be chosen from the strip and closed or reopened. (It
+// reverses BUDGET-FIXES-1 item 2.4 of 2026-09-29, months close in order.)
 // The owner sees the card from the 25th through the 10th, and while any earlier month is open: a
 // strip of months, the checklist, Close (when every item passes) and Close with a note (always).
 // A closed month can be reopened from the strip. A reader sees which months are reconciled and
@@ -39,7 +40,8 @@ export default function BudgetClose({ year, canEdit, onWrite, onGo }) {
   const months = close.months || []
   const closedAny = months.some(m => m.closed_at)
   const checklists = close.checklists || {}
-  const canPick = (key) => key === close.target || !!months.find(m => m.key === key)?.closed_at
+  // MONTH-ANY-ORDER-1 (Owner, 2026-10-02): any month with a checklist (it has started) or already closed.
+  const canPick = (key) => !!checklists[key] || !!months.find(m => m.key === key)?.closed_at
   const selectedKey = pick && canPick(pick) ? pick : close.target
   const selected = months.find(m => m.key === selectedKey) || null
 
@@ -54,9 +56,6 @@ export default function BudgetClose({ year, canEdit, onWrite, onGo }) {
   const closedSet = new Set(months.filter(m => m.closed_at).map(m => m.key))
   const statusOf = (m) => monthStatus(m.key, { closed: closedSet, target: owner ? selectedKey : null, today })
   const list = selectedKey ? checklists[selectedKey] : null
-  // The ended months still open behind the one being closed: they wait their turn.
-  const waiting = strip.filter(m => !m.closed_at && m.key !== close.target && statusOf(m).key === 'not_closed').map(m => m.name)
-  const targetName = months.find(m => m.key === close.target)?.name
 
   const run = async (action, payload, done) => {
     setBusy(true)
@@ -104,7 +103,7 @@ export default function BudgetClose({ year, canEdit, onWrite, onGo }) {
                 <span>
                   {!i.ok && i.key === 'concur' && <button type="button" className="bud-btn bud-btn-sm" disabled={busy} onClick={() => run('concur_mark_submitted', { month: selected.key })}>Mark all Submitted to Concur</button>}
                   {!i.ok && i.key === 'review' && onGo && <button type="button" className="bud-btn bud-btn-sm" onClick={() => onGo('receipts')}>Review</button>}
-                  {!i.ok && i.key === 'receipts' && onGo && <button type="button" className="bud-btn bud-btn-sm" onClick={() => onGo('sheet', 'missing-receipt')}>Show in Sheet</button>}
+                  {!i.ok && i.key === 'receipts' && onGo && <button type="button" className="bud-btn bud-btn-sm" onClick={() => onGo('sheet', 'missing-receipt')}>Show in Expenses</button>}
                 </span>
               </li>
             ))}
@@ -131,7 +130,7 @@ export default function BudgetClose({ year, canEdit, onWrite, onGo }) {
       )}
 
       {owner
-        ? <p className="bud-hint">{waiting.length && targetName ? `Months close in order: ${waiting.join(' and ')} ${waiting.length === 1 ? 'closes' : 'close'} after ${targetName}. ` : ''}Closing a month locks its rows and adds it to Budget history. Leadership sees which months are reconciled.</p>
+        ? <p className="bud-hint">Choose any month above to close or reopen it, in any order. Closing a month locks its rows and adds it to Budget history. Leadership sees which months are reconciled.</p>
         : months.filter(m => m.closed_at && m.note).map(m => <p key={m.key} className="bud-hint"><b>{m.name}</b> closed with a note: {m.note}</p>)}
     </SurfaceCard>
   )

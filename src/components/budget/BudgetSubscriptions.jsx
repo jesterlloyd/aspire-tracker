@@ -6,6 +6,7 @@
 // year, Due by Jun 30 and Status are calculated from the row, by src/lib/budget/budgetModel.js,
 // so an edit shows its effect at once.
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { ChevronDown, ChevronRight } from 'lucide-react'
 import SurfaceCard from '../ui/SurfaceCard'
 import EditableSheet from '../sheet/EditableSheet'
 import SubscriptionMonths from './SubscriptionMonths'
@@ -153,25 +154,29 @@ export default function BudgetSubscriptions({ year, canEdit, onWrite, onOpenRece
     }
   }
   const fyStart = dateText(`${year.fy - 1}-07-01`)
+  // With no plans yet, Edit plans starts open: it is where the first one is added.
+  const [editOpen, setEditOpen] = useState(() => subs.length === 0)
 
   return (
     <>
-      <div className="bud-basis bud-basis-4">
-        <SurfaceCard className="bud-tile"><span className="k">Active</span><b>{active.length}</b><small>{activeLine}</small></SurfaceCard>
-        <SurfaceCard className="bud-tile"><span className="k">Monthly run rate</span><b>{usd(run)}</b>{prop.count ? <span className="bud-if">{usd(run + prop.monthly)} if approved</span> : <small>Annual plans spread by month</small>}</SurfaceCard>
-        <SurfaceCard className="bud-tile"><span className="k">Per year</span><b>{usd(run * 12)}</b>{prop.count
-          ? <span className="bud-if">{usd(run * 12 + prop.perYear)} if approved{pct(run * 12 + prop.perYear)}</span>
-          : <small>{state === 'current' && year.summary.total ? `${((run * 12) / year.summary.total * 100).toFixed(1)}% of the ${fyShort(year.fy)} budget` : 'At current plans'}</small>}</SurfaceCard>
-        <SurfaceCard className="bud-tile"><span className="k">Due by Jun 30</span><b>{usd(due)}</b>{prop.count
-          ? <span className="bud-if">{usd(due + prop.toCome)} if approved</span>
-          : <small>{next ? `Next: ${next[0].name}, ${dateText(next[1])}` : 'Nothing scheduled'}</small>}</SurfaceCard>
-      </div>
+      {/* SUBSCRIPTIONS-ONE-VIEW-1 (Owner, 2026-10-02): the totals, said once, on one line. */}
+      <SurfaceCard className="bud-card bud-substrip" role="group" aria-label="Subscription totals">
+        <span><b>{active.length}</b> active<small>{activeLine}</small></span>
+        <span><b>{usd(run)}</b> a month{prop.count ? <small>{usd(run + prop.monthly)} if approved</small> : <small>Annual plans spread by month</small>}</span>
+        <span><b>{usd(run * 12)}</b> a year{prop.count
+          ? <small>{usd(run * 12 + prop.perYear)} if approved{pct(run * 12 + prop.perYear)}</small>
+          : <small>{state === 'current' && year.summary.total ? `${((run * 12) / year.summary.total * 100).toFixed(1)}% of the ${fyShort(year.fy)} budget` : 'At current plans'}</small>}</span>
+        <span><b>{usd(due)}</b> due by Jun 30{prop.count
+          ? <small>{usd(due + prop.toCome)} if approved</small>
+          : <small>{next ? `Next: ${next[0].name}, ${dateText(next[1])}` : 'Nothing scheduled'}</small>}</span>
+      </SurfaceCard>
 
-      {/* RECEIPTS-REDESIGN-1: every recurring charge by month, with where it is in Concur (the Owner's view). */}
-      {canEdit && <SubscriptionMonths year={year} onOpenReceipt={onOpenReceipt} />}
+      {/* The one table: every plan, its cost, its next charge and its months' Concur status (the Owner's view). */}
+      {canEdit && <SubscriptionMonths year={year} statusOf={statusOf} onOpenReceipt={onOpenReceipt} />}
 
       {/* SUB-APPROVAL-1: proposals are shown with what they would cost, and count against nothing. */}
-      {prop.count > 0 && (
+      {/* Leadership sees the totals and the Platform Cost statement only (Owner, 2026-10-02: "Portal gets less"). */}
+      {canEdit && prop.count > 0 && (
         <section aria-label="Awaiting approval">
           <p className="bud-sub"><b>Awaiting Approval</b> · {prop.count} {prop.count === 1 ? 'subscription' : 'subscriptions'} · {usd(prop.monthly)} a month · Not counted against the budget until approved</p>
           {/* SUB-APPROVAL-2 (Owner, 2026-09-27): one compact list, a row per proposal, one Approve menu each. */}
@@ -233,7 +238,7 @@ export default function BudgetSubscriptions({ year, canEdit, onWrite, onOpenRece
       )}
 
       {/* BUDGET-V2 item 4: the platform's cost, shown on its own. BUDGET-FIXES-1 item 1.6: it is program spend. */}
-      {plat.count > 0 && (
+      {!canEdit && plat.count > 0 && (
         <SurfaceCard className="bud-card bud-platform">
           <div className="bud-platform-head"><span className="bud-tag">Platform</span><h2>ASPIRE Intelligence Platform Cost</h2></div>
           <p className="bud-sub">The services that build and run the app: {plat.names.join(', ')}.{' '}
@@ -260,69 +265,79 @@ export default function BudgetSubscriptions({ year, canEdit, onWrite, onOpenRece
         </div>
       )}
 
-      <p className="bud-hint">{canEdit
-        ? 'Amounts in grey italics count only after approval. Each charge is Expected until its date, then Posted on the Sheet, marked Subscription. Usage-based amounts are estimates. Click a cell and type to change it; every change saves itself. Amount takes a formula, like =200/12. Set an End date to stop a plan.'
-        : 'Read-only view.'}</p>
-      <EditableSheet
-        // The sheet keeps its own rows. A decision made outside it (Approve, the overlap check) changes
-        // statuses it cannot see, so those redraw it; its own cell edits do not.
-        key={`subs-${year.fy}-${decisionKey}`}
-        initialRows={rows}
-        initialLayout={fitPinned(withoutAmountSum({ ...DEFAULT_LAYOUT, ...(year.subscriptionsLayout || {}) }), subs.some(x => x.billing === 'usage' && x.amount_pinned))}
-        lead={LEAD}
-        columns={columns}
-        editable={canEdit}
-        valueOf={(r, k) => (k === '@name' ? r.raw.name : k === 'amount' ? r.raw.amount : r.cells[k])}
-        shownOf={(r, k) => (k === '@name' ? r.raw.name : (r.cells[k] ?? ''))}
-        searchValues={(r) => [r.raw.name, r.raw.vendor, r.raw.notes]}
-        ungroupable={new Set(['amount', 'next', 'perYear', 'due', 'anchor', 'start', 'end', 'notes', 'plan'])}
-        unsummable={UNSUMMABLE}
-        defaultSort={{ key: '@name', dir: 'asc' }} defaultFilterKey="billing"
-        // SUB-CELLS-1: a cell's format and a + Column value live on the row; a save refreshes the year.
-        saveLayout={async (layout) => { await onWrite.call('sheet_layout', { layout, sheet: 'subscriptions' }); onWrite.changed() }}
-        saveCells={async (updates) => { await onWrite.call('sheet_cells', { updates, sheet: 'subscriptions' }); onWrite.changed() }}
-        canEditColumn={(col) => !CALCULATED.has(col.key) && !col.staff}
-        tools={BUDGET_TOOLS}
-        emptyState={<><b>No subscriptions yet</b><span>{canEdit ? 'Add a row for each recurring charge, like a software plan. Each charge then posts on its date.' : 'None are on file.'}</span></>}
-        canClear={(col) => ['plan', 'vendor', 'notes', 'end', 'cat', 'pay', 'tag'].includes(col.key)}
-        formulas
-        draftOf={(r, col) => (col.key === '@name' ? r.raw.name : r.cells[col.key])}
-        commitEdit={async (row, col, editing, { patchRows }) => {
-          const out = await onWrite.call('subscription_update', { id: row.id, patch: toPatch(col.key, editing.draft) })
-          patchRows(x => (x.id === row.id ? toRow({ ...row.raw, ...normalize(out.subscription) }) : x))
-          onWrite.changed()
-        }}
-        onAddRow={canEdit ? async () => { const out = await onWrite.call('subscription_create', { fields: { name: 'New subscription' } }); onWrite.changed(); return toRow(normalize(out.subscription)) } : undefined}
-        onDeleteRows={canEdit ? async (list) => { for (const r of list) await onWrite.call('subscription_delete', { id: r.id }); onWrite.changed() } : undefined}
-        renderCell={(row, col, text) => {
-          if (col.key === 'status') { const st = statusOf(row.raw); return <Pill tone={TONE[st.tone]}>{st.label}</Pill> }
-          // BUDGET-V2 item 3: a proposal shows what it would cost, in grey italics, never a dash. The
-          // column's sum counts only what is approved, because the figure is the computed value.
-          if (col.key === 'perYear' || col.key === 'due') {
-            const ia = ifApproved(row.raw, year.fy, today)
-            if (ia) return <span className="bud-ifv" title="Counts only after approval">{usd(col.key === 'perYear' ? ia.perYear : ia.due)}</span>
-          }
-          // BUDGET-FIXES-1 item 1.2: a usage-based Amount is the average of its last three receipts, an
-          // estimate; one the owner typed is theirs until Use average hands it back.
-          if (col.key === 'amount' && row.raw.billing === 'usage' && text) return (
-            <span className="bud-est">{text} <span className="bud-dash">est.</span>
-              {row.raw.amount_pinned && <> <span className="bud-dash">· set by you</span>
-                {canEdit && <> <button type="button" className="bud-link bud-est-avg" onMouseDown={e => e.stopPropagation()}
-                  onClick={e => { e.stopPropagation(); takeAverage(row.raw) }}>Use average</button></>}</>}
-            </span>
-          )
-          if (col.key === 'tag') return row.raw.tag === 'platform' ? <span className="bud-tag">Platform</span> : DASH
-          return text === '' || text == null ? DASH : undefined
-        }}
-        labels={{
-          searchPlaceholder: 'Search services, vendors and notes', searchLabel: 'Search the subscriptions',
-          count: (n, total) => (n === total ? `${n} ${n === 1 ? 'subscription' : 'subscriptions'}` : `${n} of ${total}`),
-          emptyNote: canEdit ? 'No subscriptions yet. Add a row for each recurring charge.' : 'No subscriptions.',
-          noMatch: 'No subscriptions match.', frameLabel: 'Subscriptions. Arrow keys move, Enter edits.',
-          readOnlyEdit: 'This view is read-only.',
-        }}
-        notify={onWrite.notify}
-      />
+      {/* Edit plans: the full editable sheet (formulas, Undo and Redo, + Row), folded until it is wanted. */}
+      {canEdit && (
+        <section className="bud-editplans" aria-label="Edit plans">
+          <button type="button" className="bud-editplans-toggle" aria-expanded={editOpen} onClick={() => setEditOpen(o => !o)}>
+            {editOpen ? <ChevronDown size={16} aria-hidden="true" /> : <ChevronRight size={16} aria-hidden="true" />}
+            <b>Edit Plans</b><span>{subs.length} {subs.length === 1 ? 'subscription' : 'subscriptions'} · add one, change an amount, a date or a payment method</span>
+            <span className="act">{editOpen ? 'Hide' : 'Show'}</span>
+          </button>
+          {editOpen && (<>
+            <p className="bud-hint">Amounts in grey italics count only after approval. Each charge is Expected until its date, then Posted in Expenses, marked Subscription. Usage-based amounts are estimates. Click a cell and type to change it; every change saves itself. Amount takes a formula, like =200/12. Set an End date to stop a plan.</p>
+            <EditableSheet
+              // The sheet keeps its own rows. A decision made outside it (Approve, the overlap check) changes
+              // statuses it cannot see, so those redraw it; its own cell edits do not.
+              key={`subs-${year.fy}-${decisionKey}`}
+              initialRows={rows}
+              initialLayout={fitPinned(withoutAmountSum({ ...DEFAULT_LAYOUT, ...(year.subscriptionsLayout || {}) }), subs.some(x => x.billing === 'usage' && x.amount_pinned))}
+              lead={LEAD}
+              columns={columns}
+              editable={canEdit}
+              valueOf={(r, k) => (k === '@name' ? r.raw.name : k === 'amount' ? r.raw.amount : r.cells[k])}
+              shownOf={(r, k) => (k === '@name' ? r.raw.name : (r.cells[k] ?? ''))}
+              searchValues={(r) => [r.raw.name, r.raw.vendor, r.raw.notes]}
+              ungroupable={new Set(['amount', 'next', 'perYear', 'due', 'anchor', 'start', 'end', 'notes', 'plan'])}
+              unsummable={UNSUMMABLE}
+              defaultSort={{ key: '@name', dir: 'asc' }} defaultFilterKey="billing"
+              // SUB-CELLS-1: a cell's format and a + Column value live on the row; a save refreshes the year.
+              saveLayout={async (layout) => { await onWrite.call('sheet_layout', { layout, sheet: 'subscriptions' }); onWrite.changed() }}
+              saveCells={async (updates) => { await onWrite.call('sheet_cells', { updates, sheet: 'subscriptions' }); onWrite.changed() }}
+              canEditColumn={(col) => !CALCULATED.has(col.key) && !col.staff}
+              tools={BUDGET_TOOLS}
+              emptyState={<><b>No subscriptions yet</b><span>{canEdit ? 'Add a row for each recurring charge, like a software plan. Each charge then posts on its date.' : 'None are on file.'}</span></>}
+              canClear={(col) => ['plan', 'vendor', 'notes', 'end', 'cat', 'pay', 'tag'].includes(col.key)}
+              formulas
+              draftOf={(r, col) => (col.key === '@name' ? r.raw.name : r.cells[col.key])}
+              commitEdit={async (row, col, editing, { patchRows }) => {
+                const out = await onWrite.call('subscription_update', { id: row.id, patch: toPatch(col.key, editing.draft) })
+                patchRows(x => (x.id === row.id ? toRow({ ...row.raw, ...normalize(out.subscription) }) : x))
+                onWrite.changed()
+              }}
+              onAddRow={canEdit ? async () => { const out = await onWrite.call('subscription_create', { fields: { name: 'New subscription' } }); onWrite.changed(); return toRow(normalize(out.subscription)) } : undefined}
+              onDeleteRows={canEdit ? async (list) => { for (const r of list) await onWrite.call('subscription_delete', { id: r.id }); onWrite.changed() } : undefined}
+              renderCell={(row, col, text) => {
+                if (col.key === 'status') { const st = statusOf(row.raw); return <Pill tone={TONE[st.tone]}>{st.label}</Pill> }
+                // BUDGET-V2 item 3: a proposal shows what it would cost, in grey italics, never a dash. The
+                // column's sum counts only what is approved, because the figure is the computed value.
+                if (col.key === 'perYear' || col.key === 'due') {
+                  const ia = ifApproved(row.raw, year.fy, today)
+                  if (ia) return <span className="bud-ifv" title="Counts only after approval">{usd(col.key === 'perYear' ? ia.perYear : ia.due)}</span>
+                }
+                // BUDGET-FIXES-1 item 1.2: a usage-based Amount is the average of its last three receipts, an
+                // estimate; one the owner typed is theirs until Use average hands it back.
+                if (col.key === 'amount' && row.raw.billing === 'usage' && text) return (
+                  <span className="bud-est">{text} <span className="bud-dash">est.</span>
+                    {row.raw.amount_pinned && <> <span className="bud-dash">· set by you</span>
+                      {canEdit && <> <button type="button" className="bud-link bud-est-avg" onMouseDown={e => e.stopPropagation()}
+                        onClick={e => { e.stopPropagation(); takeAverage(row.raw) }}>Use average</button></>}</>}
+                  </span>
+                )
+                if (col.key === 'tag') return row.raw.tag === 'platform' ? <span className="bud-tag">Platform</span> : DASH
+                return text === '' || text == null ? DASH : undefined
+              }}
+              labels={{
+                searchPlaceholder: 'Search services, vendors and notes', searchLabel: 'Search the subscriptions',
+                count: (n, total) => (n === total ? `${n} ${n === 1 ? 'subscription' : 'subscriptions'}` : `${n} of ${total}`),
+                emptyNote: canEdit ? 'No subscriptions yet. Add a row for each recurring charge.' : 'No subscriptions.',
+                noMatch: 'No subscriptions match.', frameLabel: 'Subscriptions. Arrow keys move, Enter edits.',
+                readOnlyEdit: 'This view is read-only.',
+              }}
+              notify={onWrite.notify}
+            />
+          </>)}
+        </section>
+      )}
     </>
   )
 }

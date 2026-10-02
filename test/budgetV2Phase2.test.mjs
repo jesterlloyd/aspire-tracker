@@ -180,7 +180,8 @@ test('September closes from its checklist or with a note, locks its rows, and re
   // BUDGET-FIXES-1 item 2.4 changed this: July comes first, and September waits for it.
   assert.equal(y.close.target, '2026-07')
   assert.equal(y.close.due, '2026-08-05')
-  await assert.rejects(E.closeMonth(db, owner, { fy: 2027, month: '2026-09', note: 'x', today: TODAY }), (e) => e.code === 'close_in_order' && e.message === 'Close July first. Months close in order, oldest first.')
+  // MONTH-ANY-ORDER-1 (Owner, 2026-10-02) removed the in-order refusal that was asserted here; the any-order
+  // rule is tested in budgetFixesS23.test.mjs.
   for (const m of ['2026-07', '2026-08']) await E.closeMonth(db, owner, { fy: 2027, month: m, note: 'Closed in order.', today: TODAY })
   y = await year(db)
   assert.equal(y.close.target, '2026-09')

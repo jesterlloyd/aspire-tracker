@@ -1631,7 +1631,9 @@ question about every receipt: has it been submitted to Concur, and is it late? R
 - **Months are the Owner's to open and close** (MONTH-CONTROL-1, Owner, 2026-10-01). A replacement never
   writes into a closed month: the slip names it and offers Reopen, and the server checks before anything
   is written. A replacement that changes nothing in the Sheet is not stopped. The Close card works in a
-  closed year too (`closeView` and `BudgetClose` use `isStarted`). Months still close in order.
+  closed year too (`closeView` and `BudgetClose` use `isStarted`). **Months close in any order**
+  (MONTH-ANY-ORDER-1, Owner, 2026-10-02, reversing BUDGET-FIXES-1 item 2.4): the card opens on the oldest
+  open month and any month that has started can be chosen.
 - **Rejected receipts are listed in To Review**, each with View original, Back to review
   (`receipt_restore`) and Delete for good (`receipt_delete`, after a confirmation).
 - **Keith never invents why a receipt is late**: `draft-late-note` must return `[REASON]` exactly once,
@@ -1651,3 +1653,21 @@ destructive one is `danger` (red, focus starts on Cancel so Enter never deletes 
 action itself is "cancel", say `cancelLabel: 'Keep booking'`. `test/confirmDialog.test.mjs` fails on
 any `window.confirm` in `src/`. The Editable sheet's tail (Budget Tracker's Expected charges) starts
 folded to one line with its count and total (TAIL-COLLAPSE-1).
+
+## Budget Tracker: Expenses, and Subscriptions as one view (2026-10-02)
+
+- **The tab is Expenses, not Sheet** (SHEET-IS-EXPENSES-1, Owner: "Sheet is the view. Expenses are what it
+  is"). Only the words changed: the tab key is still `sheet`, the component `BudgetSheet`, and the generic
+  Editable sheet keeps its name. Say "Show in Expenses", "in Expenses"; never "the Sheet" in Budget Tracker copy.
+- **Subscriptions is one view** (SUBSCRIPTIONS-ONE-VIEW-1, Owner: see my subscriptions, when they are due,
+  what they cost, their Concur status and whether they will be late, "in one view not two"). One summary
+  line says the totals ONCE (`.bud-substrip`); one table (`SubscriptionMonths.jsx`) has a row per plan:
+  cost, next charge, this year's months as Concur-status cells (a cell opens its receipt), per year.
+  Decisions (approvals, renewals, overlaps) show only when one waits. The full editable sheet is under
+  **Edit Plans**, folded unless there are no plans yet. Do not bring back the four tiles, the separate
+  Charges by Month card, or the Platform Cost card on the Owner's view.
+- **Leadership gets less** (Owner, 2026-10-02): a reader sees the totals line and the Platform Cost
+  statement, never the plan-by-plan list, the months or the approval list.
+- **A popover never lives in the Settings band's subtitle** (COST-CENTER-FIX-1): `.settings-page-sub` is a
+  fixed 20px line with `overflow: hidden`, so the cost center editor is drawn on `<body>` (`createPortal`,
+  `position: fixed` at the button). Its wrapper is `.bud-ccline`; `.bud-cc` is the Concur draft's list.

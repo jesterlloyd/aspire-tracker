@@ -92,7 +92,7 @@ test('the Owner’s subscriptions arrive proposed, cost what the document says, 
 
   const id = (n) => y.subscriptions.find(s => s.name === n).id
   const a = await E.decideProposal(db, owner, { id: id('Claude Max'), decision: 'from_year_start', today: TODAY })
-  assert.equal(a.message, 'Claude Max approved from Jul 1, 2026. 3 charges posted to the Sheet.')
+  assert.equal(a.message, 'Claude Max approved from Jul 1, 2026. 3 charges posted to Expenses.')
   const b = await E.decideProposal(db, owner, { id: id('Vercel Pro'), decision: 'from_today', today: TODAY })
   assert.equal(b.posted, 0, 'from today: nothing before today')
   await E.decideProposal(db, owner, { id: id('Resend'), decision: 'decline', today: TODAY })

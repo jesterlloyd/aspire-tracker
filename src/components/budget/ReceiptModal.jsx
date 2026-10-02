@@ -146,7 +146,7 @@ export default function ReceiptModal({ receipt: r, list, where, batch, subRow, m
     setBusy('delete')
     try {
       const out = await budgetStaff('receipt_delete', { id: r.id })
-      notify(out.rows ? `Receipt deleted. ${plural(out.rows, 'row')} in the Sheet ${out.rows === 1 ? 'reads' : 'read'} Missing now.` : 'Receipt deleted.')
+      notify(out.rows ? `Receipt deleted. ${plural(out.rows, 'row')} in Expenses ${out.rows === 1 ? 'reads' : 'read'} Missing now.` : 'Receipt deleted.')
       onClose(); onChanged()
     } catch (e) { notify(e.message, 'err'); setBusy('') }
   }
@@ -280,16 +280,16 @@ export default function ReceiptModal({ receipt: r, list, where, batch, subRow, m
 
             <div className="bud-rm-details">
               <button type="button" aria-expanded={details} onClick={() => setDetails(d => !d)}>
-                <span>Details <em>· Sheet row, payment, file</em></span><ChevronDown size={18} aria-hidden="true" className={details ? 'up' : undefined} />
+                <span>Details <em>· Expense row, payment, file</em></span><ChevronDown size={18} aria-hidden="true" className={details ? 'up' : undefined} />
               </button>
               {details && (
                 <div className="in">
-                  <span className="lab">Sheet {r.rows.length === 1 ? 'row' : 'rows'}</span>
+                  <span className="lab">Expense {r.rows.length === 1 ? 'row' : 'rows'}</span>
                   <span>
                     {r.rows.length
                       ? r.rows.map(x => <span key={x.id} className="bud-rm-row">{x.row_label || 'Row'} · {x.item || 'No item'} · {usd(x.amount)}</span>)
-                      : 'The rows this receipt posted have since been deleted from the Sheet.'}
-                    {r.rows.length > 0 && <button type="button" className="bud-linkbtn" onClick={() => onShowInSheet(r)}>Show in Sheet</button>}
+                      : 'The rows this receipt posted have since been deleted from Expenses.'}
+                    {r.rows.length > 0 && <button type="button" className="bud-linkbtn" onClick={() => onShowInSheet(r)}>Show in Expenses</button>}
                   </span>
                   <span className="lab">Payment</span><span>{r.rows[0]?.payment || 'Not recorded'}</span>
                   <span className="lab">Accepted</span><span>{r.decided_at ? stampDate(r.decided_at) : ''}{r.decided_by ? ` by ${r.decided_by}` : ''}</span>
@@ -300,7 +300,7 @@ export default function ReceiptModal({ receipt: r, list, where, batch, subRow, m
                     {asking ? (
                       <span className="bud-ffile-ask" role="alertdialog" aria-label="Delete this receipt">
                         <span><b>Delete this receipt for good?</b> The file and its filed record are removed and cannot be brought back.{' '}
-                          {r.rows.length ? `${plural(r.rows.length, 'row')} ${r.rows.length === 1 ? 'stays' : 'stay'} in the Sheet and will read Missing. ` : ''}
+                          {r.rows.length ? `${plural(r.rows.length, 'row')} ${r.rows.length === 1 ? 'stays' : 'stay'} in Expenses and will read Missing. ` : ''}
                           {r.concur ? 'Keith’s Concur draft for it goes too. ' : ''}
                           {settled.length ? <span className="bud-ffile-warn">This purchase is already {settled.some(x => x.stage === 'settled') ? 'reimbursed or paid' : 'submitted to Concur'}; its record will have no receipt.</span> : null}</span>
                         <span className="bud-ffile-acts">

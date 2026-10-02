@@ -49,22 +49,28 @@ test('2.2 and 2.3 the Summary order, and four tiles until an expense has a cohor
   assert.doesNotMatch(sum, /Tag expenses to a cohort to see this/)
 })
 
-test('2.4 months close oldest first: September waits for July', async () => {
+// MONTH-ANY-ORDER-1 (Owner, 2026-10-02: "I want to be able to close months in any order") reversed item
+// 2.4: the card still opens on the oldest open month, but any month that has started can be closed.
+test('2.4 reversed: months close in any order; the card still opens on the oldest open month', async () => {
   const { db, owner } = await world()
   let y = await E.loadYear(db, { fy: 2027, viewer: 'owner', today: TODAY })
   assert.equal(y.close.target, '2026-07')
-  await assert.rejects(E.closeMonth(db, owner, { fy: 2027, month: '2026-08', note: 'x', today: TODAY }), /Close July first/)
+  assert.equal((await E.closeMonth(db, owner, { fy: 2027, month: '2026-08', note: 'August first.', today: TODAY })).closed, '2026-08')
+  y = await E.loadYear(db, { fy: 2027, viewer: 'owner', today: TODAY })
+  assert.equal(y.close.target, '2026-07', 'July is still the oldest open month')
+  assert.ok(y.close.checklists['2026-09'], 'every open month that has started can be chosen')
   await E.closeMonth(db, owner, { fy: 2027, month: '2026-07', note: 'Nothing posted.', today: TODAY })
   y = await E.loadYear(db, { fy: 2027, viewer: 'owner', today: TODAY })
-  assert.equal(y.close.target, '2026-08')
+  assert.equal(y.close.target, '2026-09')
   assert.deepEqual(y.close.months.slice(0, 3).map(m => [m.key, m.year]), [['2026-07', 2026], ['2026-08', 2026], ['2026-09', 2026]])
   // Found in the browser: with July the target, September (this month) read Upcoming.
   const MC = await import('../src/lib/budget/monthClose.js')
   assert.equal(MC.monthStatus('2026-09', { target: '2026-07', today: TODAY }).label, 'In progress')
   assert.equal(MC.monthStatus('2026-10', { target: '2026-07', today: TODAY }).label, 'Upcoming')
   const card = read('src/components/budget/BudgetClose.jsx')
-  assert.match(card, /const canPick = \(key\) => key === close\.target \|\| !!months\.find\(m => m\.key === key\)\?\.closed_at/)
-  assert.match(card, /Months close in order: \$\{waiting\.join\(' and '\)\}/)
+  assert.match(card, /const canPick = \(key\) => !!checklists\[key\] \|\| !!months\.find\(m => m\.key === key\)\?\.closed_at/)
+  assert.match(card, /Choose any month above to close or reopen it, in any order\./)
+  assert.doesNotMatch(read('lib/server/budget/engine.js'), /close_in_order/)
 })
 
 test('2.5 Last reconciled is the last closed month, and Mark reconciled today is gone', () => {

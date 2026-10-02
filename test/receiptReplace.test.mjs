@@ -96,7 +96,7 @@ test('accepting the replacement swaps the file in place: the rows and the filed 
   const out = await R.acceptReplacement(db, owner, { id: rep.id })
   assert.deepEqual([out.replaced, out.receipt_id, out.sheet], [true, f.id, []])
   assert.equal(out.filed_name, 'FY27_2026-09-03_Amazon_112-7730158_$58.57.jpg', 'the same filed name, the new file type')
-  assert.equal(out.message, 'The filed receipt now has the new file. The old one is deleted. The Sheet already matched it.')
+  assert.equal(out.message, 'The filed receipt now has the new file. The old one is deleted. Expenses already matched it.')
 
   const all = (await pg.query(`SELECT id, status, file_name, storage_path, content_type, proposal->>'document_type' AS kind, expense_ids FROM budget_receipts`)).rows
   assert.equal(all.length, 1, 'the slip is gone: its file is the filed receipt’s now')
@@ -147,7 +147,7 @@ test('accepting a replacement makes the Sheet say what the new file says: amount
   const out = await R.acceptReplacement(db, owner, { id: rep.id, draft: slip.draft, today: TODAY })
   assert.equal(out.sheet.length, 2)
   assert.deepEqual([out.before, out.after], [58.57, 50])
-  assert.equal(out.message, 'The filed receipt now has the new file. The old one is deleted. The Sheet was updated: 2 rows changed, $58.57 to $50.00.')
+  assert.equal(out.message, 'The filed receipt now has the new file. The old one is deleted. Expenses were updated: 2 rows changed, $58.57 to $50.00.')
   assert.equal(out.filed_name, 'FY27_2026-09-04_Amazon_112-7730158_$50.00.jpg', 'the filed name follows the new date and total')
   const rows = (await pg.query(`SELECT e.item, e.amount::text, e.expense_date::text AS d, c.name AS cat, e.receipt_file_id IS NOT NULL AS filed, e.payment_method FROM budget_expenses e LEFT JOIN budget_categories c ON c.id = e.category_id WHERE e.deleted_at IS NULL AND e.source = 'receipt' ORDER BY e.amount DESC`)).rows
   assert.deepEqual(rows, [
@@ -302,7 +302,7 @@ test('the screens: the modal sends a replacement to review and says it is pendin
   assert.match(tab, />View original<\/button>\s*<button[^>]*onClick=\{\(\) => onRestore\(s\)\}>Back to review<\/button>\s*<button[^>]*onClick=\{\(\) => setAskDelete\(s\.id\)\}>Delete<\/button>/)
   const slip = read('src/components/budget/ReceiptSlip.jsx')
   assert.match(slip, /Replace the filed receipt/)
-  assert.match(slip, /'Replace and update the Sheet'/)
+  assert.match(slip, /'Replace and update Expenses'/)
   assert.match(slip, /onClick=\{\(\) => onReopen\(m\)\}>Reopen \{m\.name\}<\/button>/)
   assert.match(tab, /budgetStaff\('month_reopen', \{ fiscal_year: m\.fy, month: m\.key \}\)/)
   assert.match(slip, /Keith reads this file as \$\{DOC_WORD\[p\.document_type\]\}, not a receipt\./)

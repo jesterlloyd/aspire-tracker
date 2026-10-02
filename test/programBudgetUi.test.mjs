@@ -100,15 +100,19 @@ test('Sheet: the owner adds and deletes rows; a reader gets a view-only sheet; a
   assert.match(closed, /Delete row/)
 })
 
-test('Subscriptions: the owner decides renewals on slips; a reader sees the plans, not the decision', () => {
+// SUBSCRIPTIONS-ONE-VIEW-1 changed the last two lines (Owner, 2026-10-02, "Portal gets less"): a reader
+// sees the totals and the Platform Cost statement, never the plan-by-plan list; the totals are one line.
+test('Subscriptions: the owner decides renewals on slips; a reader sees the totals, not the plans or the decision', () => {
   const owner = html(C.Subs, Y.owner, true), reader = html(C.Subs, Y.reader, false)
   assert.match(owner, /Renewals to Decide/)
   assert.match(owner, /Survey platform renews Oct 15, 2026 for \$600\.00/)
   assert.match(owner, /Cancel at renewal/)
   assert.match(owner, /Remind me in 7 days/)
   assert.doesNotMatch(reader, /Renewals to Decide|Cancel at renewal/)
-  assert.match(reader, /Renews soon/, 'the status pill still says it')
-  assert.match(reader, /Monthly run rate/)
+  assert.doesNotMatch(reader, /Renews soon|fs-frame|Edit Plans/, 'no plan-by-plan list for leadership')
+  assert.match(reader, /aria-label="Subscription totals"/)
+  assert.match(reader, /a month/)
+  assert.match(owner, /Edit Plans/)
 })
 
 test('Allocations: the owner edits a draft and saves the plan; a reader sees only the saved figures', () => {
