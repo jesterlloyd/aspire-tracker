@@ -6,6 +6,8 @@
 
 .fm { --fm-r-chip: 8px; display: grid; gap: 14px; min-width: 0; }
 .fm > * { min-width: 0; }   /* a grid item would widen to the table inside it; the table scrolls in its own box */
+/* BACK-TIDY-1: the error state's BackButton pill keeps its own width; a grid item stretches. */
+.fm > .nav-pill { justify-self: start; }
 .fm-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 .fm-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px 20px; flex-wrap: wrap; }
 /* NAV-POLISH-1: the trail is the shared breadcrumb (shared/breadcrumb.css); .fm-crumb only places it. */

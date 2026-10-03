@@ -14,6 +14,7 @@ import FormSummary from './FormSummary'
 import SegmentedPicker from '../shared/SegmentedPicker'
 import { Download } from 'lucide-react'
 import Breadcrumb from '../shared/Breadcrumb'
+import BackButton from '../BackButton'
 
 const WORD = { submitted: 'Submitted', overdue: 'Overdue', opened: 'Opened', sent: 'Not opened', closed: 'Closed', voided: 'Withdrawn' }
 const FILTERS = [['all', 'Everyone'], ['submitted', 'Submitted'], ['overdue', 'Overdue'], ['opened', 'Opened'], ['sent', 'Not opened'], ['closed', 'Closed']]
@@ -64,7 +65,7 @@ export default function FormResponses({ formId, notify, onBack, onForms, onEdit 
     catch (e) { setOpen(null); notify?.(e.message, 'err') }
   }
 
-  if (error) return <div className="fm"><p className="fm-err" role="alert">{error}</p><button type="button" className="fm-btn" onClick={onBack}>‹ Catalog</button></div>
+  if (error) return <div className="fm"><p className="fm-err" role="alert">{error}</p><BackButton label="Back to Catalog" onClick={onBack} /></div>
   if (!data) return <div className="fm"><p className="fm-hint">Loading responses…</p></div>
   const form = data.form
 

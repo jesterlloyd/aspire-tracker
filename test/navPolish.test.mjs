@@ -43,7 +43,7 @@ test('one breadcrumb: parents are buttons, the page is aria-current, the separat
   for (const f of ['src/components/settings/SettingsShell.jsx', 'src/components/forms/FormBuilder.jsx',
     'src/components/forms/FormResponses.jsx', 'src/components/signatures/SignaturesPage.jsx']) {
     assert.match(read(f), /<Breadcrumb className="/, f)
-    // (an error state's own "‹ Catalog" button is an action, not a trail, and stays)
+    // (an error state's way out is the canonical BackButton pill, BACK-TIDY-1)
     assert.doesNotMatch(read(f), /‹ (Catalog|Settings)<\/button>\s*<span[^>]*>\//, `${f} keeps no old crumb`)
   }
 })

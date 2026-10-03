@@ -39,6 +39,9 @@ test('every Back to surface uses BackButton', () => {
     'src/components/InterviewRubricTab.jsx',
     'src/components/RubricSession.jsx',
     'src/components/connect/messages/MessagesWorkspace.jsx',
+    // BACK-TIDY-1 (2026-10-02): a form that fails to load offers the canonical pill back.
+    'src/components/forms/FormBuilder.jsx',
+    'src/components/forms/FormResponses.jsx',
     'src/components/settings/KnowledgeVersionHistory.jsx',
     'src/components/settings/SettingsShell.jsx',
     'src/components/shift-log-lifecycle/ShiftLogLifecycle.jsx',

@@ -14,6 +14,7 @@ import { formStaff } from './formsApi'
 import { supabase } from '../../lib/supabase'
 import { confirmDialog } from '../shared/confirmDialog'
 import Breadcrumb from '../shared/Breadcrumb'
+import BackButton from '../BackButton'
 
 const SAMPLE = {
   'student.full_name': 'Ava Reyes', 'student.preferred_name': 'Ava Reyes', 'student.first_name': 'Ava', 'student.last_name': 'Reyes', 'student.email': 'ava.reyes@example.edu', 'student.phone': '(310) 555-0101',
@@ -124,7 +125,7 @@ export default function FormBuilder({ formId, notify, onBack, onForms, onRespons
     } catch (e) { notify?.(e.message, 'err') } finally { setReplacing(false) }
   }
 
-  if (error) return <div className="fm"><p className="fm-err" role="alert">{error}</p><button type="button" className="fm-btn" onClick={onBack}>‹ Catalog</button></div>
+  if (error) return <div className="fm"><p className="fm-err" role="alert">{error}</p><BackButton label="Back to Catalog" onClick={onBack} /></div>
   if (!draft) return <div className="fm"><p className="fm-hint">Loading the form…</p></div>
 
   const q = draft.questions.find(x => x.id === sel) || null

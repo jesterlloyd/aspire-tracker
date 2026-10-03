@@ -1728,8 +1728,8 @@ Reference: `docs/mockups/topbar-profile.html`, brief `docs/mockups/topbar-profil
   full-screen pages ("Settings / Budget Tracker"), the Catalog's forms ("Catalog / Forms /
   <form> / Responses") and Signatures ("Catalog / Signatures") all use it. The white
   BackButton pill is only for LEAVING an area. "Forms" opens `/catalog?view=forms`, which the
-  Catalog reads on every arrival. An error state's own "‹ Catalog" button is an action and
-  stays a button.
+  Catalog reads on every arrival. A form that fails to load offers the BackButton pill
+  ("Back to Catalog"), not a trail.
 - **Every portal menu has the staff menu's shape** (`ProfileMenu` in `PortalShell.jsx`;
   PORTAL-MENU-1 extended NAV-POLISH-1 to every portal user, Owner, 2026-10-02). Sections:
   the name row (a student's My Profile, a unit leader's Profile, plain where a portal has no
