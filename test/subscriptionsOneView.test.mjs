@@ -55,7 +55,8 @@ test('leadership sees the totals, the plans read-only and the platform note', ()
   assert.doesNotMatch(c, /bud-platform\b/)
   assert.doesNotMatch(read('src/components/budget/budget.css'), /\.bud-platform \{/)
   // PEND-EDGE-1 (Owner, 2026-10-03): Not Counted Yet is a plain card too.
-  assert.doesNotMatch(read('src/components/budget/budget.css'), /\.bud-pend \{[^}]*inset 4px/)
+  // BATCH-EDGE-1 (Owner, 2026-10-03): and so is the Receipts batch box; no Budget Tracker card has a coloured left edge.
+  assert.doesNotMatch(read('src/components/budget/budget.css'), /inset 4px 0 0/)
   assert.match(c, /\{canEdit && \(\s*<section className="bud-editplans"/, 'no plan-by-plan list for a reader')
 })
 
