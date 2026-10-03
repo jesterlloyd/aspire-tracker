@@ -1316,14 +1316,15 @@ function MainApp({ onLogout }) {
   const runSearch = useCallback(async rawQ => {
     // S-26: a typed term never carries PostgREST filter syntax or LIKE wildcards into .or().
     const q = sanitizeContactTerm(rawQ)
-    if (!activeCohortId || q.length < 2) { setSearchResults({ students:[], units:[], placements:[], contacts:[], preceptors:[], cohorts:[], catalog:[] }); setSearchOpen(false); return }
+    const cohortIds = (cohorts || []).map(c => c.id).filter(Boolean)
+    if (!cohortIds.length || q.length < 2) { setSearchResults({ students:[], units:[], placements:[], contacts:[], preceptors:[], cohorts:[], catalog:[] }); setSearchOpen(false); return }
     setSearchLoading(true); setSearchOpen(true)
     // UNIVERSAL-SEARCH-1: every query below is an EXISTING-RLS-backed client read - permissioning is
     // the table's own RLS (students/units cohort-scoped; contacts is_active; preceptors authenticated
     // read; catalog Owner/Admin/Interviewer-tiered). No new endpoint, no schema, read-only.
     const [stuRes, unitRes, contRes, precRes, catRes] = await Promise.all([
-      supabase.from('students').select('id, first_name, last_name, preferred_first_name, school, school_email, status, headshot_url')
-        .eq('cohort_id', activeCohortId)
+      supabase.from('students').select('id, cohort_id, first_name, last_name, preferred_first_name, school, school_email, status, headshot_url')
+        .in('cohort_id', cohortIds)
         .or(`first_name.ilike.%${q}%,last_name.ilike.%${q}%,preferred_first_name.ilike.%${q}%,school_email.ilike.%${q}%,personal_email.ilike.%${q}%,phone.ilike.%${q}%,school.ilike.%${q}%`).limit(6),
       supabase.from('units').select('id, unit_name, division, contact_person, slots_remaining, total_slots')
         .eq('cohort_id', activeCohortId).or(`unit_name.ilike.%${q}%,contact_person.ilike.%${q}%`).limit(6),
@@ -1356,10 +1357,11 @@ function MainApp({ onLogout }) {
       preceptors: precRes.data||[], cohorts: cohortMatches, catalog: catalogMatches,
     })
     setSearchLoading(false); setSearchActiveIdx(-1)
-  }, [activeCohortId, students, units, cohorts]) // eslint-disable-line
+  }, [students, units, cohorts]) // eslint-disable-line
 
   const handleSearchChange = e => {
-    const q = e.target.value; setSearchQuery(q)
+    const q = typeof e === 'string' ? e : e.target.value
+    setSearchQuery(q)
     clearTimeout(searchTimer.current)
     if (q.length < 2) { setSearchResults({ students:[], units:[], placements:[], contacts:[], preceptors:[], cohorts:[], catalog:[] }); setSearchOpen(false); return }
     searchTimer.current = setTimeout(() => runSearch(q), 300)
@@ -1375,12 +1377,32 @@ function MainApp({ onLogout }) {
     ...searchResults.catalog.map(r => ({ type:'catalog', data:r })),
   ]
 
+  const contactByEmail = new Map((searchResults.contacts || []).filter(c => c.email).map(c => [String(c.email).trim().toLowerCase(), c]))
+  const contactByName = new Map((searchResults.contacts || []).map(c => [String(c.full_name || '').trim().toLowerCase(), c]))
+  const commandPreceptors = (searchResults.preceptors || []).map(p => ({
+    ...p,
+    contact_id: contactByEmail.get(String(p.email || '').trim().toLowerCase())?.id
+      || contactByName.get(String(p.full_name || '').trim().toLowerCase())?.id || null,
+  })).filter(p => !p.contact_id)
+  const commandPeople = personRows({
+    students: searchResults.students,
+    contacts: searchResults.contacts,
+    preceptors: commandPreceptors,
+    displayName,
+  })
+  const isAdmin = currentUserProfile?.is_owner === true || ['admin', 'administrator'].includes(String(currentUserProfile?.role || '').toLowerCase())
   const headerCommand = {
-    actions: allowedActions({ isActive: currentUserProfile?.is_active !== false }),
-    people: personRows({ students, displayName }),
+    actions: allowedActions({ isActive: currentUserProfile?.is_active !== false, isAdmin, isOwner: currentUserProfile?.is_owner === true }),
+    people: commandPeople,
     canAskKeith: currentUserProfile?.role !== 'viewer' || currentUserProfile?.is_owner === true,
+    onQuery: handleSearchChange,
     onRun: (item) => item?.to && navigate(item.to),
-    onOpenPerson: (person) => person?.to && navigate(person.to),
+    onOpenPerson: (person) => {
+      if (!person?.to) return
+      const cohortId = person.cohort_id || person.data?.cohort_id
+      if (person.kind === 'student' && cohortId && cohortId !== activeCohortId) handleCohortSwitch(cohortId)
+      navigate(person.to)
+    },
   }
 
   const handleSearchKey = e => {

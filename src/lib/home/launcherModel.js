@@ -28,6 +28,10 @@ export const ACTIONS = Object.freeze([
     words: 'book booking appointment slot availability' },
   { key: 'receipt', title: 'Upload a receipt', where: 'Budget Tracker · Receipts', to: '/settings/budget?tab=receipts', need: 'budget', icon: 'receipt',
     words: 'expense expenses reimburse reimbursement concur spend spent purchase invoice subscription budget' },
+  { key: 'budget', title: 'Budget Tracker', where: 'Settings · Program', to: '/settings/budget', need: 'manage', icon: 'receipt',
+    words: 'budget tracker program finances money expenses expense' },
+  { key: 'skills', title: 'Skills', where: 'Settings · Administration · Keith AI', to: '/settings/keith/skills', need: 'manage', icon: 'find',
+    words: 'skill skills keith ai capabilities governed' },
   { key: 'findfile', title: 'Find a file', where: 'Catalog', to: '/catalog?find=1', need: 'catalog', icon: 'find',
     words: 'search look open view document documents pdf resource handout template' },
   { key: 'findcontact', title: 'Find a contact', where: 'Connect · Contacts', to: '/connect/contacts?find=1', need: 'any', icon: 'person',
@@ -115,13 +119,14 @@ export function matchActions(query, actions = []) {
 }
 
 /** One row per person, with the qualifier the brief asks for ("Student · Cal State LA · 4 South"). */
-export function personRows({ students = [], contacts = [], unitNameFor = () => '', displayName = (s) => s?.first_name || '' } = {}) {
+export function personRows({ students = [], contacts = [], preceptors = [], unitNameFor = () => '', displayName = (s) => s?.first_name || '' } = {}) {
   const rows = []
   for (const s of students || []) {
     if (!s?.id) continue
     const unit = unitNameFor(s.matched_unit_id)
     rows.push({
       id: `student:${s.id}`, kind: 'student', name: displayName(s),
+      cohort_id: s.cohort_id || null,
       qualifier: ['Student', s.school, unit || (s.status === 'Interviewed' ? 'Unplaced' : null)].filter(Boolean).join(' · '),
       to: `/students?student=${encodeURIComponent(s.id)}`,
       message: `/connect/messages?new=1&student=${encodeURIComponent(s.id)}`,
@@ -143,6 +148,18 @@ export function personRows({ students = [], contacts = [], unitNameFor = () => '
       to: `/connect/contacts?contactId=${encodeURIComponent(c.id)}`,
       message: null,
       form: c.email ? `/catalog?send=form&contact=${encodeURIComponent(c.id)}` : null,
+    })
+  }
+  for (const p of preceptors || []) {
+    if (!p?.id || !p?.full_name) continue
+    rows.push({
+      id: `preceptor:${p.id}`, kind: 'preceptor', name: p.full_name,
+      qualifier: ['Preceptor', p.unit_name || null, p.shift_type || null].filter(Boolean).join(' · '),
+      to: p.contact_id
+        ? `/connect/contacts?contactId=${encodeURIComponent(p.contact_id)}`
+        : '/rotation/preceptors',
+      message: p.contact_id ? `/connect/messages?new=1&contactId=${encodeURIComponent(p.contact_id)}` : null,
+      form: p.contact_id ? `/catalog?send=form&contact=${encodeURIComponent(p.contact_id)}` : null,
     })
   }
   return rows

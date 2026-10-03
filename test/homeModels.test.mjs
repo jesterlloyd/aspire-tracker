@@ -386,7 +386,7 @@ test('LAUNCHER 1: six quick actions in a fixed order, filtered by permission, ne
   const noFlag = allowedActions({ isAdmin: true, canInterview: true, canMatch: true, signatures: false, forms: true })
   assert.equal(noFlag.some(a => a.key === 'sign'), false, 'the signatures flag hides Send for signature')
   assert.equal(allowedActions({ isAdmin: true, isOwner: true, isActive: false }).length, 0)
-  assert.equal(ACTIONS.length, 15)
+  assert.equal(ACTIONS.length, 17)
   // Every chip lands where the screen reads it.
   const to = Object.fromEntries(ACTIONS.map(a => [a.key, a.to]))
   assert.equal(to.receipt, '/settings/budget?tab=receipts')
@@ -395,6 +395,8 @@ test('LAUNCHER 1: six quick actions in a fixed order, filtered by permission, ne
   // Scheduling is a link the student books from, so the chip opens the students without one.
   assert.equal(to.interview, '/interviews?filter=not_scheduled')
   assert.equal(to.file, '/catalog?send=1')
+  assert.equal(to.budget, '/settings/budget')
+  assert.equal(to.skills, '/settings/keith/skills')
 })
 
 test('LAUNCHER-2: a typed request finds its action in everyday words, and a question does not', () => {
