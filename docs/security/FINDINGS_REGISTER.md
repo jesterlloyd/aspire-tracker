@@ -1264,8 +1264,11 @@ revocation suites), S-12 (`test/cronSecretFailClosed.test.mjs`, every file in `a
   `category`, `role`, `unit_name` and `related_units` writable, and `:353-377` patches any
   contact id; `src/lib/unitLeadersFromConnect.js:87-89` derives leadership from exactly
   those fields. An `activity_logs` row is written (`:254-273`).
-- **Fix direction**: refuse NE&L edits to those five fields on a contact whose current or
-  resulting category is Unit Leader, or route them for staff confirmation. Needs SQL: no.
+- **Owner decision (2026-10-02)**: NE&L users with manage access may edit all contacts,
+  including Unit Leader routing contacts, but may not delete any contact. The fix is
+  therefore not a field restriction: confirm that deletion is refused server-side for NE&L
+  callers, and record the actor plus the old and new values for every contact edit made
+  through the NE&L editor. Status stays OPEN until that ships. Needs SQL: no.
 
 ## S-43. The signer one-time code attempt counter is not atomic
 
@@ -1309,8 +1312,10 @@ revocation suites), S-12 (`test/cronSecretFailClosed.test.mjs`, every file in `a
   certificate issuance must never be used as the end date, which reads as deliberate.
 - **Risk**: a certified, Completed or Not Proceeding student can still revise or void
   approved shifts, so a certificate and the stored hours can disagree.
-- **Fix direction**: Owner decision. If unintended, restore the terminal gates and treat
-  an unknown window as closed once the status is terminal. Needs SQL: yes, if changed.
+- **Owner decision (2026-10-02)**: unintended. A student with a certificate, or a shift in
+  a terminal approved state, may not void or edit that shift. Restore the certificate and
+  terminal-status gates in the eligibility function. Status stays OPEN until that ships.
+  Needs SQL: yes (Owner-gated migration through `docs/security/OWNER_SQL_GATE.md`).
 
 ## S-47. Transition Form links never expire, and a closed link still returns prefill and prior answers
 
@@ -1322,8 +1327,10 @@ revocation suites), S-12 (`test/cronSecretFailClosed.test.mjs`, every file in `a
   Related: `api/ngrp-reflection.js:99-112` runs `schedule_add` and `schedule_remove`
   before the submitted and closed checks, so an old period link keeps schedule write access
   while the run is active.
-- **Fix direction**: on closed, return the state only; retire tokens some days after
-  close; order the reflection checks before the schedule actions. Needs SQL: no.
+- **Owner decision (2026-10-02)**: Transition Form links expire 7 days after issue, and a
+  closed or expired link returns no answers (the state only, never prefill or a prior
+  revision). The reflection check ordering stays part of this entry. Status stays OPEN
+  until that ships. Needs SQL: no.
 
 ## S-48. Form-link surface hardening: unbounded uploads, drafts of prefilled PII, and an indefinite copy
 
