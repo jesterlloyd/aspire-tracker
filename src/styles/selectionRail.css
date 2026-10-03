@@ -34,7 +34,8 @@
 }
 .rr-nav-group {
   font-family: var(--rr-mono); font-size: 10px; letter-spacing: 0.13em; text-transform: uppercase;
-  color: var(--text-muted); padding: 8px 10px 4px; margin: 0;
+  /* NAV-POLISH-1: caption ink. --text-muted measured 4.06-4.37:1 at this 10px size. */
+  color: var(--text-caption); padding: 8px 10px 4px; margin: 0;
 }
 .rr-nav .rr-nav-group:not(:first-child) { margin-top: 6px; border-top: 1px solid var(--aspire-rule); padding-top: 12px; }
 .rr-row-select {

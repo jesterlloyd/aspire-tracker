@@ -38,19 +38,23 @@ const section = (k) => SETTINGS_SECTIONS.find(s => s.key === k)
 // 1d79fa60 (organization settings branding) added Organization, Owner only, under Administration.
 test('the rail is the brief\'s six destinations plus Organization, in order, for the Owner', () => {
   // PROGRAM-BUDGET A3 (2026-09-27) added Program Budget after Community Benefit (Owner decision: /settings/budget).
-  assert.deepEqual(railKeys(OWNER), ['general', 'accounts', 'organization', 'communityBenefit', 'programBudget', 'keith', 'demoMode', 'preceptorParity'])
+  // NAV-POLISH-1 (Owner, 2026-10-02): Keith AI joins Administration; Community Benefit and
+  // Budget Tracker are the Program group after it.
+  assert.deepEqual(railKeys(OWNER), ['general', 'accounts', 'organization', 'keith', 'communityBenefit', 'programBudget', 'demoMode', 'preceptorParity'])
   assert.deepEqual(visibleSections(OWNER).map(s => s.label),
     // BUDGET-TRACKER-1 changed this (Owner, 2026-09-30): Program Budget is now labelled Budget Tracker.
     // TOPBAR-PROFILE-1 (2026-10-02): Accounts & Access is Users & Access.
-    ['General', 'Users & Access', 'Organization', 'Community Benefit', 'Budget Tracker', 'Keith AI', 'Demo Mode', 'Preceptor Parity'])
+    ['General', 'Users & Access', 'Organization', 'Keith AI', 'Community Benefit', 'Budget Tracker', 'Demo Mode', 'Preceptor Parity'])
 })
 
-test('groups are Workspace, Administration, Diagnostics, contiguous', () => {
-  assert.deepEqual(SETTINGS_GROUPS, ['Workspace', 'Administration', 'Diagnostics'])
+// NAV-POLISH-1 (Owner, 2026-10-02) changed this: four groups.
+test('groups are Personal, Administration, Program, Diagnostics, contiguous', () => {
+  assert.deepEqual(SETTINGS_GROUPS, ['Personal', 'Administration', 'Program', 'Diagnostics'])
   const seq = visibleSections(OWNER).map(s => s.group).filter((g, i, a) => g !== a[i - 1])
   assert.deepEqual(seq, SETTINGS_GROUPS)
-  assert.equal(section('general').group, 'Workspace')
-  for (const k of ['accounts', 'communityBenefit', 'keith']) assert.equal(section(k).group, 'Administration')
+  assert.equal(section('general').group, 'Personal')
+  for (const k of ['accounts', 'organization', 'keith']) assert.equal(section(k).group, 'Administration')
+  for (const k of ['communityBenefit', 'programBudget']) assert.equal(section(k).group, 'Program')
   for (const k of ['demoMode', 'preceptorParity']) assert.equal(section(k).group, 'Diagnostics')
 })
 
@@ -65,7 +69,7 @@ test('Profile, Appearance, Tours & Help and About left the rail for General', ()
 
 test('every role keeps the gates it had', () => {
   // PROGRAM-BUDGET A3 (2026-09-27) added Program Budget after Community Benefit (Owner decision: /settings/budget).
-  assert.deepEqual(railKeys(ADMIN), ['general', 'accounts', 'communityBenefit', 'programBudget', 'keith'])
+  assert.deepEqual(railKeys(ADMIN), ['general', 'accounts', 'keith', 'communityBenefit', 'programBudget'])
   assert.deepEqual(railKeys(STAFF), ['general'])
   const s = section
   for (const k of ['accounts', 'communityBenefit', 'programBudget', 'keith', 'keithKnowledge', 'keithSkills', 'keithUsage']) {
@@ -148,10 +152,15 @@ test('a drill-in opens in the right pane under a breadcrumb, with its parent sel
   assert.match(shell, /const railActiveKey = current\.parent \|\| current\.key/)
   assert.match(shell, /const parent = current\.parent \? routable\.find\(s => s\.key === current\.parent\) : null/)
   const crumb = shell.slice(shell.indexOf('function SettingsCrumb'), shell.indexOf('export default function SettingsShell'))
-  assert.match(crumb, /<nav className="settings-crumb" aria-label="Breadcrumb">/)
-  assert.match(crumb, /onClick=\{\(\) => navigate\(parent\.path\)\}/)
-  assert.match(crumb, /<span className="settings-crumb-sep" aria-hidden="true">\/<\/span>/)
-  assert.match(crumb, /aria-current="page">\{here\.label\}</)
+  // NAV-POLISH-1: the shared breadcrumb, Settings / <parent> / <page>; the separator and
+  // the current page's aria-current are the component's own (shared/Breadcrumb.jsx).
+  assert.match(crumb, /<Breadcrumb className="settings-crumb" items=\{\[/)
+  assert.match(crumb, /\{ label: 'Settings', onClick: \(\) => navigate\(DEFAULT_SETTINGS_PATH\) \}/)
+  assert.match(crumb, /\{ label: parent\.label, onClick: \(\) => navigate\(parent\.path\) \}/)
+  assert.match(crumb, /\{ label: here\.label \}/)
+  const bc = read('src/components/shared/Breadcrumb.jsx')
+  assert.match(bc, /<li className="aspire-crumb-sep" aria-hidden="true">\/<\/li>/)
+  assert.match(bc, /aria-current="page">\{item\.label\}</)
   // Two panes, never three: the page is the content column itself.
   assert.match(shellCss, /\.settings-grid \{\s*display: grid;\s*grid-template-columns: 240px minmax\(0, 1fr\);/)
   assert.doesNotMatch(shell, /GeneralPanel|KeithPanel|NON_RAIL_SUBKEYS/)

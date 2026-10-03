@@ -8,8 +8,8 @@
 .fm > * { min-width: 0; }   /* a grid item would widen to the table inside it; the table scrolls in its own box */
 .fm-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 .fm-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px 20px; flex-wrap: wrap; }
-.fm-crumb { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--ctl-muted); }
-.fm-crumb button { background: none; border: 0; padding: 0; cursor: pointer; color: var(--ctl-navy); font: 700 13px var(--aspire-sans); }
+/* NAV-POLISH-1: the trail is the shared breadcrumb (shared/breadcrumb.css); .fm-crumb only places it. */
+.fm-crumb { min-width: 0; }
 .fm-head h1 { margin: 6px 0 2px; font-size: 24px; line-height: 1.25; color: var(--ctl-ink); display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
 .fm-tag { font: 500 10.5px/1.4 var(--ctl-mono); letter-spacing: 0.1em; text-transform: uppercase; padding: 3px 8px; border-radius: var(--fm-r-chip);
   background: var(--ctl-amber-soft); color: var(--ctl-amber); }

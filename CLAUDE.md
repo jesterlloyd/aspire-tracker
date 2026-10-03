@@ -1714,3 +1714,29 @@ Reference: `docs/mockups/topbar-profile.html`, brief `docs/mockups/topbar-profil
   the wordmark goes; below 560px the profile button is its photo alone, and the light/dark
   button now stays at every width. Scope and Search are NOT hidden below 860px, despite the
   brief: no screen offers either one in their place, so hiding them would strand phone users.
+
+## Settings groups, one breadcrumb, the staff menu in portals (NAV-POLISH-1, 2026-10-02)
+
+- **The Settings rail is four groups** (Owner): Personal (General), Administration (Users &
+  Access, Organization, Keith AI), Program (Community Benefit, Budget Tracker), Diagnostics
+  (Demo Mode, Preceptor Parity). `SETTINGS_GROUPS` orders them; no role gate moved. The
+  selection rail's group labels read `--text-caption` (`--text-muted` was 4.06-4.37:1 at
+  10px), which Review & Release's rail shares.
+- **One breadcrumb**: `src/components/shared/Breadcrumb.jsx` + `breadcrumb.css`. Every parent
+  is a link, the page you are on is plain text with `aria-current`, the "/" is hidden
+  decoration in caption ink. Settings drill-ins ("Settings / General / Profile"), Settings'
+  full-screen pages ("Settings / Budget Tracker"), the Catalog's forms ("Catalog / Forms /
+  <form> / Responses") and Signatures ("Catalog / Signatures") all use it. The white
+  BackButton pill is only for LEAVING an area. "Forms" opens `/catalog?view=forms`, which the
+  Catalog reads on every arrival. An error state's own "‹ Catalog" button is an action and
+  stays a button.
+- **An Owner or Admin in a portal gets the staff menu's shape** (`StaffPortalMenuItems` in
+  `PortalShell.jsx`): identity row (opens `/settings/general/profile`), Settings with
+  Cmd+, / Ctrl+,, Preview as (the current portal checked and inert), then Main App, Public
+  site, Sign out; arrows, Home and End. It is chosen by `portalSwitcher`, which only
+  PortalApp's `staffMenu` (ownerAdmin) supplies; a real portal user's menu is untouched. No
+  email in the portal bundle, still.
+- **Measuring tip**: a backgrounded browser pane does not finish CSS transitions, so a theme
+  switch read through `getComputedStyle` can report the old ink. Inject
+  `*{transition:none!important}` before a contrast sweep. Locally, portal previews and the
+  forms API cannot run (Vite serves `api/` files as text); check those on the live site.

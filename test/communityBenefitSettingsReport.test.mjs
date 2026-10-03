@@ -102,10 +102,13 @@ test('Settings Community Benefit presents modal actions, compact inputs, the ful
   assert.match(panel, /reportPortalFailures=\{false\}/)
 })
 
-test('Administration rail is alphabetical for Accounts, Community Benefit, and Keith', () => {
+// NAV-POLISH-1 (Owner, 2026-10-02) changed this: Community Benefit moved to the Program
+// group with Budget Tracker; Administration is Users & Access, Organization, Keith AI.
+test('Community Benefit sits in Program, after Administration\'s Users & Access and Keith', () => {
   const sections = read('src/components/settings/settingsSections.js')
   const accounts = sections.indexOf("key: 'accounts'")
   const communityBenefit = sections.indexOf("key: 'communityBenefit'")
   const keith = sections.indexOf("key: 'keith'")
-  assert.ok(accounts < communityBenefit && communityBenefit < keith)
+  assert.ok(accounts < keith && keith < communityBenefit)
+  assert.match(sections, /key: 'communityBenefit'[^\n]*group: 'Program'/)
 })

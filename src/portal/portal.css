@@ -448,6 +448,26 @@
 /* The four portal names are long; the identity-only menu's 210px would wrap them. */
 .ptl-menu-wide { min-width: 292px; }
 
+/* NAV-POLISH-1: the Owner/Admin menu in a portal, shaped like the staff profile menu
+   (TOPBAR-PROFILE-1). The identity row is a link to their Profile in the main app; the
+   group label and the quiet items read at AA (the old label grey was 2.5:1). */
+.ptl-menu-staff { width: 320px; max-width: calc(100vw - 16px); }
+.ptl-menu-id-link {
+  display: flex; align-items: center; gap: 10px;
+  padding: 4px 6px 4px 0; border-radius: 8px;
+  color: inherit; text-decoration: none;
+}
+.ptl-menu-id-text { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; }
+.ptl-menu-id-link .ptl-menu-name { padding-bottom: 4px; }
+.ptl-menu-id-chev { flex: none; color: #4A5560; }
+.ptl-menu-id-link:hover, .ptl-menu-id-link:focus { background: #f5f4ef; }
+.ptl-menu-id-link:hover .ptl-menu-id-chev, .ptl-menu-id-link:focus .ptl-menu-id-chev { color: #1D2567; }
+.ptl-menu-sec { padding: 4px 0; }
+.ptl-menu-staff .ptl-menu-group-label { color: #4A5560; }
+.ptl-menu-kbd, .ptl-menu-ext { margin-left: auto; flex: none; color: #4A5560; }
+.ptl-menu-kbd { font-family: inherit; font-size: 11.5px; font-weight: 500; background: none; border: 0; padding: 0; }
+.ptl-menu-quiet { color: #4A5560; }
+
 /* Student Portal Home column. The old navy compass orientation band was retired in favor of the
    shared greeting masthead (GreetingMasthead / .mast*), so its styles (and the attention-chip /
    pathway-dot styles it owned) were removed. */

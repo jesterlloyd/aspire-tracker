@@ -48,7 +48,16 @@ test('every Back to surface uses BackButton', () => {
     'src/portal/StudentShiftLog.jsx',
     'src/portal/messages/PortalMessagesThread.jsx',
   ]
-  for (const path of surfaces) assert.match(read(path), /<BackButton\b/, path)
+  // NAV-POLISH-1: Settings' one back pill is WorkspaceBackLink, which renders BackButton;
+  // its drill-in trail is the shared Breadcrumb, not a second pill.
+  for (const path of surfaces) {
+    if (path === 'src/components/settings/SettingsShell.jsx') {
+      assert.match(read(path), /<WorkspaceBackLink\b/, path)
+      assert.match(read('src/components/ui/WorkspaceBackLink.jsx'), /<BackButton\b/)
+      continue
+    }
+    assert.match(read(path), /<BackButton\b/, path)
+  }
 })
 
 test('Interview Rubric unlock action uses the same canonical pill shape', () => {

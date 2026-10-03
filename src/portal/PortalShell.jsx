@@ -6,8 +6,8 @@
 // focused, read-mostly surfaces; the staff shell is never loaded here.
 import { useState, useRef, useEffect } from 'react'
 import {
-  ChevronDown, ExternalLink, Camera, UserRound, LogOut, RotateCcw, House,
-  Settings, Check, GraduationCap, Building2, School, HeartHandshake, BriefcaseBusiness,
+  ChevronDown, ChevronRight, ExternalLink, Camera, UserRound, LogOut, RotateCcw, House,
+  Settings, Check, GraduationCap, Building2, School, HeartHandshake, BriefcaseBusiness, Globe,
 } from 'lucide-react'
 import { PORTAL_LINKS } from '../lib/portalLinks'
 import { supabase } from '../lib/supabase'
@@ -27,6 +27,79 @@ const PORTAL_ICONS = {
 
 function initials(name) {
   return (name || '?').trim().split(/\s+/).slice(0, 2).map(w => w[0]?.toUpperCase() || '').join('') || '?'
+}
+
+// NAV-POLISH-1 (Owner, 2026-10-02): an Owner or Admin in a portal gets the staff profile
+// menu's shape (src/components/UserMenu.jsx, TOPBAR-PROFILE-1), so the two never read
+// differently: an identity row that opens their Profile in the main app, Settings with
+// Cmd+, / Ctrl+,, Preview as (the portals, the one in view checked), then the way out:
+// Main App, Public site, Sign out. Arrows, Home and End move through it. The email stays
+// out: no staff or student email is handled in the portal bundle. A student's, unit
+// leader's, partner's or resident's own menu (no portalSwitcher) is unchanged below.
+const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent || '')
+
+function StaffPortalMenuItems({ userName, roleLabel, portalSwitcher, settingsUrl, mainAppUrl, publicSiteUrl, close, signOut }) {
+  const { currentKey, profileUrl } = portalSwitcher
+  return (
+    <>
+      {profileUrl ? (
+        <a role="menuitem" className="ptl-menu-id ptl-menu-id-link" href={profileUrl}
+           aria-label={`Profile, ${userName || ''}${roleLabel ? `, ${roleLabel}` : ''}`}>
+          <span className="ptl-menu-id-text">
+            {userName && <span className="ptl-menu-name">{userName}</span>}
+            {roleLabel && <span className="ptl-menu-role">{roleLabel}</span>}
+          </span>
+          <ChevronRight size={16} aria-hidden="true" className="ptl-menu-id-chev" />
+        </a>
+      ) : (userName || roleLabel) && (
+        <div className="ptl-menu-id">
+          {userName && <div className="ptl-menu-name">{userName}</div>}
+          {roleLabel && <span className="ptl-menu-role">{roleLabel}</span>}
+        </div>
+      )}
+      {settingsUrl && (
+        <div className="ptl-menu-sec" role="none">
+          <a role="menuitem" className="ptl-menu-item" href={settingsUrl} aria-keyshortcuts={IS_MAC ? 'Meta+Comma' : 'Control+Comma'}>
+            <Settings size={15} /> Settings
+            <kbd className="ptl-menu-kbd" aria-hidden="true">{IS_MAC ? '⌘,' : 'Ctrl+,'}</kbd>
+          </a>
+        </div>
+      )}
+      <div className="ptl-menu-group" role="group" aria-labelledby="ptl-preview-label">
+        <div className="ptl-menu-group-label" id="ptl-preview-label">Preview as</div>
+        {PORTAL_LINKS.map(({ key, label, path }) => {
+          const Icon = PORTAL_ICONS[key]
+          if (key === currentKey) {
+            return (
+              <span key={key} role="menuitem" aria-current="page" aria-disabled="true" tabIndex={-1}
+                    className="ptl-menu-item ptl-menu-item-current">
+                <Icon size={15} /> {label}
+                <Check size={14} className="ptl-menu-check" aria-hidden="true" />
+              </span>
+            )
+          }
+          return (
+            <a key={key} role="menuitem" className="ptl-menu-item" href={path}>
+              <Icon size={15} /> {label}
+            </a>
+          )
+        })}
+      </div>
+      <div className="ptl-menu-group" role="none">
+        {mainAppUrl && (
+          <a role="menuitem" className="ptl-menu-item" href={mainAppUrl}>
+            <House size={15} /> Main App
+          </a>
+        )}
+        <a role="menuitem" className="ptl-menu-item" href={publicSiteUrl}
+           {...(publicSiteUrl !== '/' ? { target: '_blank', rel: 'noopener noreferrer', 'aria-label': 'Public site (opens in a new tab)' } : {})}>
+          <Globe size={15} /> Public site
+          {publicSiteUrl !== '/' && <ExternalLink size={13} className="ptl-menu-ext" aria-hidden="true" />}
+        </a>
+        <button role="menuitem" type="button" className="ptl-menu-item ptl-menu-quiet" onClick={() => { close(); signOut() }}><LogOut size={15} /> Sign out</button>
+      </div>
+    </>
+  )
 }
 
 function ProfileMenu({
@@ -49,6 +122,28 @@ function ProfileMenu({
     setTimeout(() => menuRef.current?.querySelector('[role="menuitem"]')?.focus(), 10)
     return () => { document.removeEventListener('mousedown', onDoc); document.removeEventListener('keydown', onKey) }
   }, [open])
+  // NAV-POLISH-1: Cmd+, / Ctrl+, opens Settings from a portal too, for the staff who have it.
+  useEffect(() => {
+    if (!portalSwitcher || !settingsUrl) return undefined
+    const onKey = (e) => {
+      if (e.key !== ',' || !(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey) return
+      e.preventDefault()
+      window.location.assign(settingsUrl)
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [portalSwitcher, settingsUrl])
+  // Up, Down, Home and End through the staff menu's items (the inert current portal skipped).
+  const onStaffMenuKeyDown = (e) => {
+    if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) return
+    const items = [...(menuRef.current?.querySelectorAll('[role="menuitem"]:not([aria-disabled="true"])') || [])]
+    if (!items.length) return
+    e.preventDefault()
+    const i = items.indexOf(document.activeElement)
+    const n = e.key === 'Home' ? 0 : e.key === 'End' ? items.length - 1 : i < 0 ? 0
+      : (i + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length
+    items[n].focus()
+  }
   return (
     <div className="ptl-menu-wrap">
       <button ref={btnRef} type="button" className="ptl-avatar-btn" aria-haspopup="menu" aria-expanded={open} aria-label="Open profile menu" data-tour="portal-profile-menu" onClick={() => setOpen(o => !o)}>
@@ -59,8 +154,15 @@ function ProfileMenu({
         </span>
         <ChevronDown size={15} className="ptl-avatar-caret" />
       </button>
-      {open && (
-        <div ref={menuRef} className={`ptl-menu${portalSwitcher ? ' ptl-menu-wide' : ''}`} role="menu" aria-label="Profile menu">
+      {open && portalSwitcher && (
+        <div ref={menuRef} className="ptl-menu ptl-menu-wide ptl-menu-staff" role="menu" aria-label="Profile menu" onKeyDown={onStaffMenuKeyDown}>
+          <StaffPortalMenuItems userName={userName} roleLabel={roleLabel} portalSwitcher={portalSwitcher}
+            settingsUrl={settingsUrl} mainAppUrl={mainAppUrl} publicSiteUrl={publicSiteUrl}
+            close={() => setOpen(false)} signOut={signOut} />
+        </div>
+      )}
+      {open && !portalSwitcher && (
+        <div ref={menuRef} className="ptl-menu" role="menu" aria-label="Profile menu">
           {/* The signed-in email is deliberately absent: no staff or student email is
               handled in the portal bundle (see test/messagesPhase5biiPortalActivation). */}
           {(userName || roleLabel) && (

@@ -37,16 +37,21 @@
 // LEGACY_SETTINGS_REDIRECTS, never dropped.
 export const DEFAULT_SETTINGS_PATH = '/settings/general'
 
-export const SETTINGS_GROUPS = ['Workspace', 'Administration', 'Diagnostics']
+// NAV-POLISH-1 (Owner, 2026-10-02): four groups, each answering one question. Personal is
+// "my settings" (General's own page says they are yours alone; "Workspace" said otherwise).
+// Administration is who and what the app is (people, the organization, Keith). Program is
+// ASPIRE's reports and money, which are also the two full-screen pages. Diagnostics is the
+// Owner's. Visibility did not move: every page keeps the role gate it had.
+export const SETTINGS_GROUPS = ['Personal', 'Administration', 'Program', 'Diagnostics']
 
 export const SETTINGS_SECTIONS = [
-  { key: 'general',    label: 'General',           path: '/settings/general',    group: 'Workspace', implemented: true, visible: () => true },
+  { key: 'general',    label: 'General',           path: '/settings/general',    group: 'Personal', implemented: true, visible: () => true },
   // TOPBAR-PROFILE-1: "Accounts & Access" read like a personal page; it manages other people.
   { key: 'accounts',   label: 'Users & Access',    path: '/settings/users',      group: 'Administration', implemented: true, visible: r => r.isAdmin }, // WS2.2: Owner/Admin only
   { key: 'organization', label: 'Organization', path: '/settings/organization', group: 'Administration', implemented: true, visible: r => r.isOwner },
-  { key: 'communityBenefit', label: 'Community Benefit', path: '/settings/community-benefit', group: 'Administration', implemented: true, fullScreen: true, visible: r => r.isAdmin }, // NURSING-ACADEMICS-1: report + reporting inputs; Admin sees read-only, WRITES are Owner-only server-side
-  { key: 'programBudget', label: 'Budget Tracker', path: '/settings/budget', group: 'Administration', implemented: true, fullScreen: true, visible: r => r.isAdmin }, // PROGRAM-BUDGET (2026-09-27): Owner edits, Admin reads; api/budget-staff.js is the authority
   { key: 'keith',      label: 'Keith AI',           path: '/settings/keith',      group: 'Administration', implemented: true, visible: r => r.isAdmin },
+  { key: 'communityBenefit', label: 'Community Benefit', path: '/settings/community-benefit', group: 'Program', implemented: true, fullScreen: true, visible: r => r.isAdmin }, // NURSING-ACADEMICS-1: report + reporting inputs; Admin sees read-only, WRITES are Owner-only server-side
+  { key: 'programBudget', label: 'Budget Tracker', path: '/settings/budget', group: 'Program', implemented: true, fullScreen: true, visible: r => r.isAdmin }, // PROGRAM-BUDGET (2026-09-27): Owner edits, Admin reads; api/budget-staff.js is the authority
   // DEMO-MODE-1: Owner only, and grouped with Diagnostics because it is the other
   // switch that changes what every screen reports rather than changing the program
   // itself. Per user, per device; nothing here is a workspace setting.

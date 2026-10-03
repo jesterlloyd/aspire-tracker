@@ -53,12 +53,12 @@ test('General lists Profile, Appearance, Tours & Help, About, in that order, wit
   assert.equal(SETTINGS_SECTIONS.some(s => s.key === 'signature' || s.label === 'Email Signature'), false)
 })
 
-test('every role reaches Profile; the rail is unchanged apart from the rename', () => {
+test('every role reaches Profile; the rail carries the rename (and NAV-POLISH-1\'s groups)', () => {
   for (const flags of [{ isOwner: true, isAdmin: true }, { isOwner: false, isAdmin: true }, { isOwner: false, isAdmin: false }]) {
     assert.ok(childSections('general', flags).some(r => r.key === 'profile'))
   }
   assert.deepEqual(visibleSections({ isOwner: true, isAdmin: true }).map(s => s.label),
-    ['General', 'Users & Access', 'Organization', 'Community Benefit', 'Budget Tracker', 'Keith AI', 'Demo Mode', 'Preceptor Parity'])
+    ['General', 'Users & Access', 'Organization', 'Keith AI', 'Community Benefit', 'Budget Tracker', 'Demo Mode', 'Preceptor Parity'])
 })
 
 test('old paths land where things live now', () => {

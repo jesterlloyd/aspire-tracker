@@ -1,0 +1,27 @@
+/* NAV-POLISH-1 (2026-10-02): the one breadcrumb (Breadcrumb.jsx). Parents are accent links,
+   the current page is heading ink, the separator is caption ink, so every piece reads at AA
+   on the page in both themes. Theme tokens only; nothing here is a material. */
+.aspire-crumb ol {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px;
+  margin: 0; padding: 0; list-style: none;
+  font: 500 13px/1.4 var(--aspire-sans);
+  min-width: 0;
+}
+.aspire-crumb li { display: inline-flex; min-width: 0; }
+.aspire-crumb-link {
+  padding: 2px 0; border: 0; background: none;
+  color: var(--color-accent-primary, #1D2567);
+  font: 700 13px/1.4 var(--aspire-sans);
+  cursor: pointer;
+}
+.aspire-crumb-link:hover { text-decoration: underline; text-underline-offset: 2px; }
+.aspire-crumb-link:focus-visible {
+  outline: 3px solid var(--color-accent-primary, #1D2567);
+  outline-offset: 2px;
+  border-radius: var(--aspire-radius-control);
+}
+.aspire-crumb-sep { color: var(--text-caption, #4A5560); }
+.aspire-crumb-here {
+  color: var(--text-heading, #191919); font-weight: 600;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}

@@ -67,11 +67,12 @@ test('portal profile menu lets Owner/Admin cross to any portal, the main app, or
   assert.match(shell, /<House size=\{15\} \/> Main App/)
   assert.match(shell, /<Settings size=\{15\} \/> Settings/)
   assert.match(shell, /portalSwitcher && \(/)
-  assert.match(shell, /<div className="ptl-menu-group-label">Portals<\/div>/)
+  // NAV-POLISH-1 (Owner, 2026-10-02): the group reads Preview as, like the staff menu.
+  assert.match(shell, /<div className="ptl-menu-group-label" id="ptl-preview-label">Preview as<\/div>/)
   // ONE predicate decides all of it, and it is the staff menu's own Owner/Admin test, so a
   // staff member offered a way ACROSS the portals is offered the way OUT from the same menu.
   assert.match(portalApp, /const staffMenu = ownerAdmin \? \{/)
-  assert.match(portalApp, /portalSwitcher: \{ currentKey: previewRole \|\| experience \}/)
+  assert.match(portalApp, /portalSwitcher: \{ currentKey: previewRole \|\| experience, profileUrl: STAFF_PROFILE_PATH \}/)
   assert.match(portalApp, /mainAppUrl: MAIN_APP_PATH/)
   assert.match(portalApp, /settingsUrl: STAFF_SETTINGS_PATH/)
   // All five shells read that one object; none keeps a switcher rule of its own.

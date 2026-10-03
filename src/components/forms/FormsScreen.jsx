@@ -9,8 +9,10 @@ import './forms.css'
 
 export default function FormsScreen({ formId, view, notify, navigate }) {
   const back = () => navigate('/catalog')
+  // NAV-POLISH-1: the breadcrumb's "Forms" opens the Catalog on its Forms shelf.
+  const toForms = () => navigate('/catalog?view=forms')
   if (!/^[0-9a-f-]{36}$/i.test(formId || '')) return <div className="fm"><p className="fm-err" role="alert">That form link is not complete.</p></div>
   return view === 'responses'
-    ? <FormResponses formId={formId} notify={notify} onBack={back} onEdit={() => navigate(`/catalog/forms/${formId}/edit`)} />
-    : <FormBuilder formId={formId} notify={notify} onBack={back} onResponses={() => navigate(`/catalog/forms/${formId}/responses`)} />
+    ? <FormResponses formId={formId} notify={notify} onBack={back} onForms={toForms} onEdit={() => navigate(`/catalog/forms/${formId}/edit`)} />
+    : <FormBuilder formId={formId} notify={notify} onBack={back} onForms={toForms} onResponses={() => navigate(`/catalog/forms/${formId}/responses`)} />
 }

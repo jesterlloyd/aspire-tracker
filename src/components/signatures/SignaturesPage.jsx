@@ -13,6 +13,7 @@ import { emptyDraft } from '../../lib/signatures/draft'
 import SignerFlow from './SignerFlow'
 import { sigStaff } from './sigApi'
 import { colorForIndex } from '../../lib/signatures/sigModel'
+import Breadcrumb from '../shared/Breadcrumb'
 import './signatures.css'
 
 const TABS = [['requests', 'Signature requests'], ['prepare', 'Prepare and send'], ['preview', 'Signer preview']]
@@ -55,7 +56,7 @@ export default function SignaturesPage({ flagState, people, notify, backPath = '
 
   return (
     <div className="sg">
-      <div className="sg-crumb"><button type="button" onClick={() => navigate(backPath)}>‹ Catalog</button><span>/</span><span>Signatures</span></div>
+      <Breadcrumb className="sg-crumb" items={[{ label: 'Catalog', onClick: () => navigate(backPath) }, { label: 'Signatures' }]} />
       <h1 className="sg-title">Signatures</h1>
       {flagState !== 'on' && (
         <div className="sg-legal" role="note">

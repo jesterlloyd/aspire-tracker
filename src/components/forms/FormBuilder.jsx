@@ -13,13 +13,14 @@ import FormRenderer from './FormRenderer'
 import { formStaff } from './formsApi'
 import { supabase } from '../../lib/supabase'
 import { confirmDialog } from '../shared/confirmDialog'
+import Breadcrumb from '../shared/Breadcrumb'
 
 const SAMPLE = {
   'student.full_name': 'Ava Reyes', 'student.preferred_name': 'Ava Reyes', 'student.first_name': 'Ava', 'student.last_name': 'Reyes', 'student.email': 'ava.reyes@example.edu', 'student.phone': '(310) 555-0101',
   'student.school': 'UCLA', 'placement.unit': '6 NE', 'placement.start_date': '2026-10-05', 'placement.end_date': '2026-12-11', 'placement.preceptor': 'Maria Lopez, RN',
 }
 
-export default function FormBuilder({ formId, notify, onBack, onResponses }) {
+export default function FormBuilder({ formId, notify, onBack, onForms, onResponses }) {
   const [form, setForm] = useState(null)
   const [draft, setDraft] = useState(null)
   const [settings, setSettings] = useState(DEFAULT_SETTINGS)
@@ -133,7 +134,11 @@ export default function FormBuilder({ formId, notify, onBack, onResponses }) {
     <div className="fm">
       <div className="fm-head">
         <div>
-          <div className="fm-crumb"><button type="button" onClick={onBack}>‹ Catalog</button><span>/</span><span>Forms</span></div>
+          <Breadcrumb className="fm-crumb" items={[
+            { label: 'Catalog', onClick: onBack },
+            { label: 'Forms', onClick: onForms },
+            { label: draft.title || 'Form' },
+          ]} />
           <h1>{draft.title} <span className={`fm-tag${form.status === 'published' && !form.draft_dirty ? ' fm-tag-ok' : ''}`}>{status}</span></h1>
           <p className="fm-save" aria-live="polite">{save === 'saving' ? 'Saving…' : save === 'unsaved' ? 'Unsaved changes' : save === 'error' ? 'Not saved. Check your connection.' : 'All changes saved'}</p>
         </div>

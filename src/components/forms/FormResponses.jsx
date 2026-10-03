@@ -13,12 +13,13 @@ import FormSheet from './FormSheet'
 import FormSummary from './FormSummary'
 import SegmentedPicker from '../shared/SegmentedPicker'
 import { Download } from 'lucide-react'
+import Breadcrumb from '../shared/Breadcrumb'
 
 const WORD = { submitted: 'Submitted', overdue: 'Overdue', opened: 'Opened', sent: 'Not opened', closed: 'Closed', voided: 'Withdrawn' }
 const FILTERS = [['all', 'Everyone'], ['submitted', 'Submitted'], ['overdue', 'Overdue'], ['opened', 'Opened'], ['sent', 'Not opened'], ['closed', 'Closed']]
 const short = (iso) => iso ? new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''
 
-export default function FormResponses({ formId, notify, onBack, onEdit }) {
+export default function FormResponses({ formId, notify, onBack, onForms, onEdit }) {
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
   const [filter, setFilter] = useState('all')
@@ -71,7 +72,12 @@ export default function FormResponses({ formId, notify, onBack, onEdit }) {
     <div className="fm">
       <div className="fm-head">
         <div>
-          <div className="fm-crumb"><button type="button" onClick={onBack}>‹ Catalog</button><span>/</span><span>Forms</span><span>/</span><span>Responses</span></div>
+          <Breadcrumb className="fm-crumb" items={[
+            { label: 'Catalog', onClick: onBack },
+            { label: 'Forms', onClick: onForms },
+            { label: form.draft?.title || 'Form', onClick: onEdit },
+            { label: 'Responses' },
+          ]} />
           <h1>{form.draft?.title} <span className="fm-tag">Responses</span></h1>
           <p className="fm-save">{rows.length ? progressLabel('form', stats) : 'Nothing has been sent yet. Send it from the Catalog.'}</p>
         </div>

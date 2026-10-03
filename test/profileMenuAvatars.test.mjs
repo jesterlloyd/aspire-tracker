@@ -57,10 +57,13 @@ test('UserMenu links the canonical public site in a new tab, portal-style', () =
 test('the shared ProfileMenu offers Change Photo when wired, between profile and Public site', () => {
   assert.match(shell, /onChangePhoto && \(/)
   assert.match(shell, /> Change Photo<\/button>/)
-  const profileIdx = shell.indexOf('> My Profile</button>')
-  const photoIdx = shell.indexOf('> Change Photo</button>')
-  const publicIdx = shell.indexOf('> Public site')
-  const signOutIdx = shell.indexOf('> Sign out</button>')
+  // NAV-POLISH-1: read the real portal user's menu, in ProfileMenu itself (the Owner/Admin
+  // menu is StaffPortalMenuItems, defined above it).
+  const menu = shell.slice(shell.indexOf('function ProfileMenu('))
+  const profileIdx = menu.indexOf('> My Profile</button>')
+  const photoIdx = menu.indexOf('> Change Photo</button>')
+  const publicIdx = menu.indexOf('> Public site')
+  const signOutIdx = menu.indexOf('> Sign out</button>')
   assert.ok(profileIdx > -1 && photoIdx > -1 && publicIdx > -1 && signOutIdx > -1)
   assert.ok(profileIdx < photoIdx && photoIdx < publicIdx && publicIdx < signOutIdx,
     'menu order must be profile item, Change Photo, Public site, ..., Sign out')

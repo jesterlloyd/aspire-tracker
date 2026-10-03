@@ -122,9 +122,12 @@ test('PortalShell: the shared header controls wrapper carries portal-scope-selec
 test('PortalShell: ProfileMenu renders Restart Welcome Tour only when onRestartTour is provided, before Sign out', () => {
   assert.match(shellCode, /function ProfileMenu\(\{[^)]*onRestartTour[^)]*\}\)/)
   assert.match(shellCode, /\{portalUserActionsEnabled && onRestartTour && \([\s\S]{0,200}Restart Welcome Tour[\s\S]{0,40}\)\}/)
-  const publicSiteIdx = shellCode.indexOf('Public site')
-  const restartIdx = shellCode.indexOf('Restart Welcome Tour')
-  const signOutIdx = shellCode.indexOf('<LogOut size={15} /> Sign out')
+  // NAV-POLISH-1: the Owner/Admin menu (StaffPortalMenuItems) is defined first; this is
+  // about a real portal user's menu, which lives in ProfileMenu itself.
+  const menu = shellCode.slice(shellCode.indexOf('function ProfileMenu('))
+  const publicSiteIdx = menu.indexOf('Public site')
+  const restartIdx = menu.indexOf('Restart Welcome Tour')
+  const signOutIdx = menu.indexOf('<LogOut size={15} /> Sign out')
   assert.ok(publicSiteIdx > -1 && restartIdx > -1 && signOutIdx > -1)
   assert.ok(publicSiteIdx < restartIdx && restartIdx < signOutIdx, 'Restart Welcome Tour must sit between Public site and Sign out')
 })

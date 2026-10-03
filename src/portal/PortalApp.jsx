@@ -76,7 +76,7 @@ import { resolveAccessState, accessCopy, ACCESS_STATES, SUPPORT_EMAIL } from '..
 // A data surface that is refused for an access reason reports it here rather than
 // showing its own "something went wrong" card.
 import { PortalAccessSignalContext } from './portalAccessSignal'
-import { portalKeyFromPath, MAIN_APP_PATH, STAFF_SETTINGS_PATH } from '../lib/portalLinks'
+import { portalKeyFromPath, MAIN_APP_PATH, STAFF_SETTINGS_PATH, STAFF_PROFILE_PATH } from '../lib/portalLinks'
 import '../styles/aspireBrand.css'
 import '../styles/aspireTable.css'
 import './portal.css'
@@ -572,7 +572,8 @@ export default function PortalApp() {
   // is offered a way ACROSS the portals is offered the way OUT of them from the same menu.
   // A student, unit leader, academic partner or nursing academic sees none of this.
   const staffMenu = ownerAdmin ? {
-    portalSwitcher: { currentKey: previewRole || experience },
+    // NAV-POLISH-1: the identity row opens the person's Profile in the main app.
+    portalSwitcher: { currentKey: previewRole || experience, profileUrl: STAFF_PROFILE_PATH },
     mainAppUrl: MAIN_APP_PATH,
     settingsUrl: STAFF_SETTINGS_PATH,
     roleLabel: userProfile?.is_owner ? 'Owner' : 'Admin',

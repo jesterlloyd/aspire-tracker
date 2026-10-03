@@ -50,7 +50,7 @@ import SurfaceCard from '../ui/SurfaceCard'
 import WorkspaceBackLink from '../ui/WorkspaceBackLink'
 import SettingsPageHeader from './SettingsPageHeader'
 import { KeithIcon, KeithLockup } from '../keith/KeithBrand'
-import BackButton from '../BackButton'
+import Breadcrumb from '../shared/Breadcrumb'
 import { confirmLeave } from '../../lib/unsavedChanges'
 import '../../styles/selectionRail.css'
 import './settingsShell.css'
@@ -135,14 +135,15 @@ function SettingsListPage({ section, rows, navigate }) {
   )
 }
 
-// "‹ General / Appearance": the way back to the list the page was opened from.
+// NAV-POLISH-1: "Settings / General / Profile", the app's one breadcrumb (shared/Breadcrumb).
+// Every parent is a link; the page you are on is not.
 function SettingsCrumb({ parent, here, navigate }) {
   return (
-    <nav className="settings-crumb" aria-label="Breadcrumb">
-      <BackButton label={`Back to ${parent.label}`} onClick={() => navigate(parent.path)} />
-      <span className="settings-crumb-sep" aria-hidden="true">/</span>
-      <span className="settings-crumb-here" aria-current="page">{here.label}</span>
-    </nav>
+    <Breadcrumb className="settings-crumb" items={[
+      { label: 'Settings', onClick: () => navigate(DEFAULT_SETTINGS_PATH) },
+      { label: parent.label, onClick: () => navigate(parent.path) },
+      { label: here.label },
+    ]} />
   )
 }
 
@@ -190,11 +191,10 @@ export default function SettingsShell({ backPath = '/aggregate', backLabel = 'At
   if (current.fullScreen) {
     return (
       <div className="settings-shell settings-full">
-        <nav className="settings-fullcrumb" aria-label="Breadcrumb">
-          <button type="button" onClick={() => navigate(DEFAULT_SETTINGS_PATH)}>‹ Settings</button>
-          <span aria-hidden="true">/</span>
-          <span aria-current="page">{current.label}</span>
-        </nav>
+        <Breadcrumb className="settings-fullcrumb" items={[
+          { label: 'Settings', onClick: () => navigate(DEFAULT_SETTINGS_PATH) },
+          { label: current.label },
+        ]} />
         <div className="settings-full-content">
           {currentKey === 'communityBenefit' && <CommunityBenefitPanel />}
           {currentKey === 'programBudget' && <ProgramBudgetPanel />}

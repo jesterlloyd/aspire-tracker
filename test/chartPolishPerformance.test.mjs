@@ -21,7 +21,8 @@ test('Catalog: honest access copy, no inert Manage labels', () => {
 test('Settings: workspace vs administration vs owner diagnostics', () => {
   const sections = read('src/components/settings/settingsSections.js')
   // SETTINGS-HIERARCHY-1: the personal pages are General's rows, not rail groups.
-  assert.match(sections, /key: 'general'[^\n]*group: 'Workspace'/)
+  // NAV-POLISH-1 (Owner, 2026-10-02): the personal group is named Personal.
+  assert.match(sections, /key: 'general'[^\n]*group: 'Personal'/)
   assert.match(sections, /key: 'appearance'[^\n]*parent: 'general'/)
   // TOPBAR-PROFILE-1: Email Signature merged into Profile, still one of General's rows.
   assert.match(sections, /key: 'profile',\s*label: 'Profile'[^\n]*parent: 'general'/)

@@ -37,7 +37,8 @@ for (const [path, label] of [['/settings/budget', 'Budget Tracker'], ['/settings
   test(`${label} takes the whole screen under a Settings crumb`, () => {
     const html = at(path)
     assert.match(html, /class="settings-shell settings-full"/)
-    assert.match(html, new RegExp(`<nav class="settings-fullcrumb" aria-label="Breadcrumb"><button type="button">‹ Settings</button><span aria-hidden="true">/</span><span aria-current="page">${label}</span></nav>`))
+    // NAV-POLISH-1: the shared breadcrumb, Settings / <page>.
+    assert.match(html, new RegExp(`<nav class="aspire-crumb settings-fullcrumb" aria-label="Breadcrumb"><ol><li><button type="button" class="aspire-crumb-link">Settings</button></li><li class="aspire-crumb-sep" aria-hidden="true">/</li><li><span class="aspire-crumb-here" aria-current="page">${label}</span></li></ol></nav>`))
     assert.doesNotMatch(html, /settings-grid|settings-side|rr-nav/, 'no rail')
   })
 }

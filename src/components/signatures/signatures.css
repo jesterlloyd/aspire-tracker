@@ -11,8 +11,8 @@
 .sg .sg-c-plum { --c: var(--ctl-plum); } .sg .sg-c-teal { --c: var(--ctl-teal); } .sg .sg-c-navy { --c: var(--ctl-navy); }
 .sg .sg-c-amber { --c: var(--ctl-amber); } .sg .sg-c-green { --c: var(--ctl-green); } .sg .sg-c-slate { --c: var(--ctl-muted); }
 .sg-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-.sg-crumb { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--ctl-muted); }
-.sg-crumb button { background: none; border: 0; padding: 0; cursor: pointer; color: var(--ctl-navy); font: 700 13px var(--aspire-sans); }
+/* NAV-POLISH-1: the trail is the shared breadcrumb (shared/breadcrumb.css); .sg-crumb only places it. */
+.sg-crumb { min-width: 0; }
 .sg-title { margin: 0; font-size: 24px; font-weight: 700; color: var(--ctl-ink); }
 .sg-legal { padding: 10px 12px; font-size: 13px; color: var(--ctl-amber); background: var(--ctl-amber-soft); border-radius: var(--aspire-radius-control); }
 .sg-h3 { margin: 0; font-family: var(--ctl-mono); font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ctl-faint); }

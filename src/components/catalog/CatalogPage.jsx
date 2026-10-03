@@ -125,6 +125,14 @@ export default function CatalogPage({
     (canManage && new URLSearchParams(window.location.search).get('new') === 'form') ? { type: 'newform' } : null)
   const [msg, setMsg] = useState(null)         // { tone: 'ok' | 'err', text }
 
+  // NAV-POLISH-1: the forms screens' breadcrumb "Forms" arrives as /catalog?view=forms and
+  // opens the Forms shelf. Read on every arrival, because the Catalog stays mounted under
+  // its /catalog/forms/ routes.
+  useEffect(() => {
+    if (location.pathname.replace(/\/+$/, '') !== '/catalog') return
+    if (new URLSearchParams(location.search).get('view') === 'forms') setView({ type: 'form', category: null, track: null })
+  }, [location.pathname, location.search])
+
   const say = useCallback((tone, text) => {
     if (toast?.success && tone === 'ok') toast.success(text)
     else if (toast?.error && tone === 'err') toast.error(text)

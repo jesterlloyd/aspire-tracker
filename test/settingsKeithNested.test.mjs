@@ -90,8 +90,9 @@ test('the rail keeps Keith selected on every Keith workspace, and the page gets 
   assert.match(shell, /const railActiveKey = current\.parent \|\| current\.key/)
   assert.match(shell, /const active = s\.key === activeKey/)
   assert.match(shell, /\{parent && <SettingsCrumb parent=\{parent\} here=\{current\} navigate=\{navigate\} \/>\}/)
-  assert.match(shell, /<nav className="settings-crumb" aria-label="Breadcrumb">/)
-  assert.match(shell, /<span className="settings-crumb-here" aria-current="page">\{here\.label\}<\/span>/)
+  // NAV-POLISH-1: the shared breadcrumb, Settings / Keith AI / <workspace>.
+  assert.match(shell, /<Breadcrumb className="settings-crumb" items=\{\[/)
+  assert.match(shell, /\{ label: here\.label \},/)
 })
 
 // ── Access ───────────────────────────────────────────────────────────────────
