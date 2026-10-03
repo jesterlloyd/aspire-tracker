@@ -1104,7 +1104,7 @@ revocation suites), S-12 (`test/cronSecretFailClosed.test.mjs`, every file in `a
 
 ## S-34. Keith's data tools ignore an Interviewer's cohort entitlement and rubric authorship
 
-- **Severity**: Medium. **Status**: OPEN.
+- **Severity**: Medium. **Status**: Closed 2026-10-02 (see Fix below).
 - **Risk**: an active Interviewer reads contact details, GPA, scores and every other
   interviewer's rubric comments for students in any cohort, through the model.
 - **Evidence** (CONFIRMED): `api/keith.js:265-275` grants `search_students`,
@@ -1122,6 +1122,18 @@ revocation suites), S-12 (`test/cronSecretFailClosed.test.mjs`, every file in `a
   profile for any role without `student_read`, refuse a cohort outside it, re-check the
   student's cohort in `get_student_detail`, and filter rubrics to the caller's own unless
   `can_manage_all`. Never treat `activeCohortId` from the body as authority. Needs SQL: no.
+- **Fix (2026-10-02)**: `lib/server/keith/toolScope.js` resolves a scope once per request
+  from the verified caller: unrestricted when `can(caller, 'student_read')` (Owner, Admin,
+  Co-Lead, unchanged), otherwise the ACTIVE rows of `interviewer_cohort_entitlements` for
+  the caller's `user_profiles.id`, and an empty set on a lookup error (fail closed).
+  `api/keith.js` passes the scope to `executeToolCall`: `search_students` and
+  `get_unit_details` refuse an unentitled `activeCohortId`, `get_cohort_summary` refuses an
+  unentitled `cohort_id` or `activeCohortId`, and `get_student_detail` selects the student's
+  own `cohort_id`, refuses an out-of-scope student with the same sentence as a missing one,
+  and keeps only rubric rows whose `interviewer_profile_id` is the caller's (identity, never
+  a name match). `test/s34KeithToolScope.test.mjs` covers an out-of-cohort refusal, a
+  withheld colleague's rubric, the fail-closed path and the wiring.
+- **Status**: Closed 2026-10-02.
 
 ## S-35. Invite-user matches an existing account with an unescaped ILIKE and re-enables it
 

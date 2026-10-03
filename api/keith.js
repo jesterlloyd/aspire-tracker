@@ -30,6 +30,7 @@ import { populationDb, populationOf, narrowSendLog } from '../lib/server/demoSco
 import { isGapCandidate, shouldRecordGap, recordKnowledgeGap } from '../lib/server/keith/knowledgeGaps.js';
 import { randomUUID } from 'crypto';
 import { isActiveProfile, INACTIVE_STATUS, INACTIVE_REASON, INACTIVE_MESSAGE } from './lib/activeAccount.js';
+import { resolveToolScope, cohortAllowed, rubricsForScope, COHORT_REFUSED, STUDENT_REFUSED } from '../lib/server/keith/toolScope.js';
 
 const KEITH_TOTAL_DEADLINE_MS          = 25000;
 const KEITH_CONTEXT_TIMEOUT_MS         = 5000;
@@ -395,7 +396,12 @@ const KEITH_TOOLS = [
 
 // ── Tool executor ─────────────────────────────────────────────────────────────
 
-async function executeToolCall(toolName, input, userRole, supabase, activeCohortId) {
+// S-34: `scope` comes from resolveToolScope on the SERVER-VERIFIED caller. activeCohortId is
+// what the browser asked for and carries no authority: every tool checks it against the scope
+// before reading, and get_student_detail re-checks the student's own cohort, so a bounded
+// caller (an Interviewer) reads only the cohorts they hold an active entitlement for, and only
+// their own rubric rows. Owner, Admin and Co-Lead are unrestricted, as before.
+async function executeToolCall(toolName, input, userRole, supabase, activeCohortId, scope) {
   // Sensitive fields never returned to Keith
   const EXCLUDED_FIELDS = ['date_of_birth', 'ssn_last4', 'gender'];
 
@@ -410,6 +416,7 @@ async function executeToolCall(toolName, input, userRole, supabase, activeCohort
     switch (toolName) {
 
       case 'search_students': {
+        if (!cohortAllowed(scope, activeCohortId)) return { error: COHORT_REFUSED };  // S-34
         const limit = Math.min(input.limit || 20, 50);
         let query = supabase
           .from('students')
@@ -433,10 +440,13 @@ async function executeToolCall(toolName, input, userRole, supabase, activeCohort
       case 'get_student_detail': {
         const { data: student, error } = await supabase
           .from('students')
-          .select('id, first_name, preferred_first_name, last_name, school, program_type, status, cumulative_gpa, school_email, personal_email, phone, unit_preference_1, unit_preference_2, unit_preference_3, matched_unit_id, matched_preceptor, preceptor_id, shift_assigned, interview_scheduled_date, interview_scheduled_time, interview_assigned_interviewers, avg_composite_score, avg_cj_score, avg_pp_score, avg_ga_score, auto_recommendation, score_flag, score_flag_message, rubric_count, cs_stage1_submitted, cs_link_complete, badge_created, approved_hours, hours_required, flagged_for_second_interview, flag_note, cohort_school_rotation_id, interest_statement')
+          .select('id, cohort_id, first_name, preferred_first_name, last_name, school, program_type, status, cumulative_gpa, school_email, personal_email, phone, unit_preference_1, unit_preference_2, unit_preference_3, matched_unit_id, matched_preceptor, preceptor_id, shift_assigned, interview_scheduled_date, interview_scheduled_time, interview_assigned_interviewers, avg_composite_score, avg_cj_score, avg_pp_score, avg_ga_score, auto_recommendation, score_flag, score_flag_message, rubric_count, cs_stage1_submitted, cs_link_complete, badge_created, approved_hours, hours_required, flagged_for_second_interview, flag_note, cohort_school_rotation_id, interest_statement')
           .eq('id', input.student_id)
           .single();
-        if (error || !student) return { error: 'Student not found' };
+        if (error || !student) return { error: STUDENT_REFUSED };
+        // S-34: the student's OWN cohort decides, not the cohort the body named. Same sentence as
+        // not-found, so a bounded caller cannot probe which student ids exist.
+        if (!cohortAllowed(scope, student.cohort_id)) return { error: STUDENT_REFUSED };
 
         // Resolve preceptor via FK when free-text field is empty
         let resolvedStudent = student;
@@ -455,12 +465,14 @@ async function executeToolCall(toolName, input, userRole, supabase, activeCohort
           }
         }
 
-        // Fetch rubrics
-        const { data: rubrics } = await supabase
+        // Fetch rubrics. S-34: a bounded caller sees only rows carrying their own
+        // interviewer_profile_id (the identity RLS uses), never a colleague's comments.
+        const { data: rubricRows } = await supabase
           .from('interview_rubrics')
-          .select('interviewer_name, composite_score, cj_score, pp_score, ga_score, individual_recommendation, summary_comments, suggested_unit, status, interview_date')
+          .select('interviewer_profile_id, interviewer_name, composite_score, cj_score, pp_score, ga_score, individual_recommendation, summary_comments, suggested_unit, status, interview_date')
           .eq('student_id', input.student_id)
           .order('created_at', { ascending: false });
+        const rubrics = rubricsForScope(scope, rubricRows).map(r => { const copy = { ...r }; delete copy.interviewer_profile_id; return copy; });
 
         // Fetch linked rotation (canonical coordinator-owned dates).
         // STUDENT-PROFILE-CANON-1C: expose a ready display string and treat the 1900-01-01
@@ -499,6 +511,7 @@ async function executeToolCall(toolName, input, userRole, supabase, activeCohort
       }
 
       case 'get_unit_details': {
+        if (!cohortAllowed(scope, activeCohortId)) return { error: COHORT_REFUSED };  // S-34
         const { data: unitRows } = await supabase
           .from('units')
           .select('id, unit_name, division, total_slots, slots_remaining, contact_person, contact_email, is_participating, patient_population')
@@ -550,6 +563,7 @@ async function executeToolCall(toolName, input, userRole, supabase, activeCohort
 
       case 'get_cohort_summary': {
         const cohortId = input.cohort_id || activeCohortId;
+        if (!cohortAllowed(scope, cohortId)) return { error: COHORT_REFUSED };  // S-34
         const [{ data: cohort }, { data: students }, { data: rotations }] = await Promise.all([
           supabase.from('cohorts').select('id, name, status, start_date, end_date').eq('id', cohortId).single(),
           supabase.from('students').select('id, status, school, program_type, matched_unit_id').eq('cohort_id', cohortId),
@@ -610,6 +624,11 @@ async function runToolLoop(initialMessages, systemPrompt, tools, supabase, activ
   const allToolCalls = [];
   const totalUsage = { input: 0, output: 0 };
   const MAX_ROUNDS = 5;
+
+  // S-34: resolve the caller's cohort and rubric scope ONCE from the verified identity.
+  // A bounded caller whose entitlement lookup fails gets an empty scope, so every data
+  // tool refuses rather than falling open.
+  const toolScope = await resolveToolScope(supabase, auth);
 
   for (let round = 0; round < MAX_ROUNDS; round++) {
     if (timeRemaining && timeRemaining() < KEITH_TOOL_LOOP_MIN_REMAINING_MS) {
@@ -690,7 +709,7 @@ async function runToolLoop(initialMessages, systemPrompt, tools, supabase, activ
         continue;
       }
 
-      const result  = await executeToolCall(block.name, block.input, auth.role, supabase, activeCohortId);
+      const result  = await executeToolCall(block.name, block.input, auth.role, supabase, activeCohortId, toolScope);
       const summary = generateResultSummary(block.name, result);
       allToolCalls.push({ tool: block.name, input: block.input, result_summary: summary });
 
