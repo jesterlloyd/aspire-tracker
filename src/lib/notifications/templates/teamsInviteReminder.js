@@ -22,7 +22,7 @@ export const teamsInviteReminder = {
   interviewer: (ctx) => ({
     subject: `Reminder: send the Teams invite for ${ctx.studentName} (interview in ~${ctx.hoursUntilInterview}h)`,
     html: aspireEmailShell({
-      preheader: `Teams invite still needs to be sent for ${escapeHtml(ctx.studentName)}.`,
+      preheader: `Teams invite still needs to be sent for ${ctx.studentName}.`,
       body: `
         ${renderEmailNote({ title: 'Action needed', body: `Your ASPIRE interview with ${ctx.studentName} is in about ${ctx.hoursUntilInterview} hours, and the Microsoft Teams invitation hasn't been sent yet.`, tone: 'warning' })}
 
@@ -58,7 +58,7 @@ export const teamsInviteReminderEscalation = {
   interviewer: (ctx) => ({
     subject: `URGENT: Teams invite still pending for ${ctx.studentName} (interview in ~${ctx.hoursUntilInterview}h)`,
     html: aspireEmailShell({
-      preheader: `Second reminder: Teams invite still pending for ${escapeHtml(ctx.studentName)}.`,
+      preheader: `Second reminder: Teams invite still pending for ${ctx.studentName}.`,
       body: `
         <div style="background:#FDF0E6;border-left:3px solid #C2410C;padding:12px 16px;margin-bottom:20px;border-radius:4px;">
           <strong style="color:#9A3412;">This is a second reminder.</strong> ${escapeHtml(ctx.studentName)}'s interview is in about ${escapeHtml(ctx.hoursUntilInterview)} hours and the Teams invitation still hasn't been sent. The student is expecting it.

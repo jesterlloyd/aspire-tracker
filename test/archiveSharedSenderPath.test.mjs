@@ -61,6 +61,8 @@ const src = read('src/lib/notifications/index.js')
   .replace(/from '@supabase\/supabase-js'/, `from ${JSON.stringify(pathToFileURL(join(dir, 'fake.mjs')).href)}`)
   .replace(/from '\.\/templates\/index\.js'/, `from ${JSON.stringify(pathToFileURL(join(repo, 'src/lib/notifications/templates/index.js')).href)}`)
   .replace(/from '\.\/recipients\.js'/, `from ${JSON.stringify(pathToFileURL(join(repo, 'src/lib/notifications/recipients.js')).href)}`)
+  // S-37 (2026-10-02): the sender escapes the organization fields it substitutes.
+  .replace(/from '\.\.\/htmlEscape\.js'/, `from ${JSON.stringify(pathToFileURL(join(repo, 'src/lib/htmlEscape.js')).href)}`)
   .replace(/from '\.\.\/\.\.\/\.\.\/api\/lib\/archiveClassification\.js'/, `from ${JSON.stringify(pathToFileURL(join(repo, 'api/lib/archiveClassification.js')).href)}`)
   // messageArchive is REAL: its upsert lands on the fake db above.
   .replace(/from '\.\.\/\.\.\/\.\.\/api\/lib\/messageArchive\.js'/, `from ${JSON.stringify(pathToFileURL(join(repo, 'api/lib/messageArchive.js')).href)}`)

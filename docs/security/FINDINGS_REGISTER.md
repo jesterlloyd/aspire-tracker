@@ -1183,7 +1183,7 @@ revocation suites), S-12 (`test/cronSecretFailClosed.test.mjs`, every file in `a
 
 ## S-37. Email preheaders and organization fields are interpolated into email HTML unescaped
 
-- **Severity**: Medium. **Status**: OPEN.
+- **Severity**: Medium. **Status**: Closed 2026-10-02 (see Fix below).
 - **Risk**: a student-controlled name becomes live markup inside an authentic ASPIRE email
   to staff, an interviewer, and an outside department.
 - **Evidence** (CONFIRMED): `lib/server/email/aspireShell.js:60` writes
@@ -1203,6 +1203,19 @@ revocation suites), S-12 (`test/cronSecretFailClosed.test.mjs`, every file in `a
 - **Fix direction**: escape `preheader` and the organization fields inside
   `aspireEmailShell`, remove the pre-escaping at the one call site that does it, and add a
   test that sweeps the preheader sinks. Needs SQL: no.
+- **Fix (2026-10-02)**: `aspireEmailShell` escapes `preheader`, `display_name`,
+  `logo_alt_text`, the address and `general_email` once (`escapeHtml`), and the two logo
+  URLs for the attribute context (`escapeAttr`); `applyOrganizationBranding` in both
+  `lib/server/email/aspireShell.js` and `src/lib/notifications/index.js` escapes the
+  organization values it substitutes. The preheader contract is now "plain text, the shell
+  escapes it", so the pre-escaping was removed at the eight call sites that had it
+  (`preceptorEmailTemplates.js`, `preceptorFeedbackDecisionEmail.js`, `teamsInviteReminder.js`,
+  `coordinatorWeeklyDigest.js`, `unitFormReceived.js`, `placementRequestReceived.js`,
+  `formReceived.js`, `unitLeaderAlert.js`), which the S-06 double-escape assertions confirm.
+  `test/s37ShellEscaping.test.mjs` renders the shell and the three builders named above with
+  a name containing markup, asserts it is text and escaped exactly once, and sweeps every
+  shell caller for a preheader that still escapes. `footerNote` remains caller-authored HTML.
+- **Status**: Closed 2026-10-02.
 
 ## S-38. The school form password verifier is an unthrottled anon oracle at the database
 

@@ -122,14 +122,13 @@ export const unitFormReceived = {
   submitter: (ctx) => {
     const isHosting = (ctx.slotsOffered || 0) > 0;
     const greetName = getGreetingName({ full_name: ctx.submitterName, preferred_name: ctx.submitterPreferredName });
-    // Subject is plain text and must stay raw. The preheader is interpolated into the shell's
-    // hidden HTML div, so it is escaped like any other HTML context.
+    // Subject and preheader are plain text and stay raw: the shell escapes the preheader itself (S-37).
     const subject = isHosting
       ? `Thank you, ${greetName}: ${ctx.unitName} response received for ${ctx.cohortName}`
       : `Response received: ${ctx.unitName} for ${ctx.cohortName}`;
     const preheader = isHosting
-      ? `We've recorded ${escapeHtml(ctx.slotsOffered)} slot${ctx.slotsOffered === 1 ? '' : 's'} for ${escapeHtml(ctx.unitName)}.`
-      : `We've received your response from ${escapeHtml(ctx.unitName)}. Your input matters.`;
+      ? `We've recorded ${ctx.slotsOffered} slot${ctx.slotsOffered === 1 ? '' : 's'} for ${ctx.unitName}.`
+      : `We've received your response from ${ctx.unitName}. Your input matters.`;
     return { subject, html: aspireEmailShell({ body: buildConfirmationHtml({ ...ctx, isHosting }), preheader }) };
   },
 
@@ -138,7 +137,7 @@ export const unitFormReceived = {
     const subject = isHosting
       ? `Unit response: ${ctx.unitName}, ${ctx.slotsOffered} slot${ctx.slotsOffered === 1 ? '' : 's'} (${ctx.cohortName})`
       : `Unit response: ${ctx.unitName}, not hosting (${ctx.cohortName})`;
-    const preheader = `${escapeHtml(ctx.submitterName || ctx.submitterEmail)} submitted on behalf of ${escapeHtml(ctx.unitName)}`;
+    const preheader = `${ctx.submitterName || ctx.submitterEmail} submitted on behalf of ${ctx.unitName}`;
     return { subject, html: aspireEmailShell({ body: buildInternalAlertHtml({ ...ctx, isHosting }), preheader }) };
   },
 };

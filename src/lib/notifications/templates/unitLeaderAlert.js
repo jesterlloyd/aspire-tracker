@@ -28,10 +28,10 @@ import { appUrl } from '../../appUrl.js'
 const NAVY = '#1d2567'
 const SAND = '#F4F1EC'
 
-/** A short preheader, with no student information, mirroring the subject. */
+/** A short preheader, with no student information, mirroring the subject. Plain text: the shell escapes it (S-37). */
 function preheaderFor(ctx) {
-  const unit = ctx.unit_name ? ` for ${escapeHtml(ctx.unit_name)}` : ''
-  return `${escapeHtml(ctx.alert_label || 'ASPIRE update')}${unit}`
+  const unit = ctx.unit_name ? ` for ${ctx.unit_name}` : ''
+  return `${ctx.alert_label || 'ASPIRE update'}${unit}`
 }
 
 function body(ctx) {

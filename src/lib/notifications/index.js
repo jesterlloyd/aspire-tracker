@@ -9,6 +9,7 @@ import { resolveRecipients } from './recipients.js';
 import { sharedSenderMayArchive } from '../../../api/lib/archiveClassification.js';
 import { archiveSentMessage } from '../../../api/lib/messageArchive.js';
 import { createMailer } from '../../../lib/server/email/mailer.js';
+import { escapeHtml } from '../htmlEscape.js';
 
 // ARCHIVE-SNAPSHOT-1: recorded in archive metadata so a stored body can be tied
 // to the renderer that produced it. Bump when a template's shape changes.
@@ -25,9 +26,10 @@ async function loadOrganization(db) {
 
 function applyOrganizationBranding(html, organization) {
   if (!organization) return html
-  const email = organization.general_email || 'aspire@cshs.org'
-  const name = organization.display_name || 'Cedars-Sinai'
-  const address = [organization.address_line_1, organization.address_line_2, organization.city, organization.state_province, organization.postal_code].filter(Boolean).join(', ')
+  // S-37: Owner-edited text landing in HTML text nodes; escaped once here.
+  const email = escapeHtml(organization.general_email || 'aspire@cshs.org')
+  const name = escapeHtml(organization.display_name || 'Cedars-Sinai')
+  const address = escapeHtml([organization.address_line_1, organization.address_line_2, organization.city, organization.state_province, organization.postal_code].filter(Boolean).join(', '))
   return String(html || '').replaceAll('jesterlloyd.bautista@cshs.org', email).replaceAll('JesterLloyd.Bautista@cshs.org', email).replaceAll('Email Jester at', 'Email us at').replaceAll('email Jester directly at', 'email us at').replaceAll('Cedars-Sinai Medical Center &bull; 8700 Beverly Blvd, Los Angeles, CA 90048', `${name}${address ? ` &bull; ${address}` : ''}`).replaceAll('https://aspire-program.com/cs-logo-large.png', organization.document_logo_url || 'https://aspire-program.com/cs-logo-large.png').replaceAll('https://aspire-program.com/cs-logo-white-mark.png', organization.document_logo_url || 'https://aspire-program.com/cs-logo-white-mark.png')
 }
 

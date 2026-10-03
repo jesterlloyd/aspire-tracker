@@ -7,7 +7,8 @@
 // the internal_team variant has no signature block (ends with the app button) and is unchanged.
 // S-06 TEMPLATE ESCAPING: student and school values reach this template from the public intake and
 // school forms. Everything interpolated into raw HTML below (bodies, table cells, mailto hrefs, and
-// the preheader, which the shell renders into a hidden div) passes through escapeHtml. Values given
+// the greeting and every body field) passes through escapeHtml; the preheader is plain text the shell
+// escapes itself (S-37). Values given
 // to renderEmailDetailsCard / renderEmailButton are NOT escaped here, because those primitives
 // escape their own inputs and a second pass would show literal character entities.
 import { escapeHtml } from '../../htmlEscape.js';
@@ -44,7 +45,7 @@ export const formReceived = {
   internal_team: (ctx) => ({
     subject: `New ASPIRE application: ${ctx.studentName} (${ctx.school || 'unknown school'})`,
     html: aspireEmailShell({
-      preheader: `New ASPIRE application from ${escapeHtml(ctx.studentName)}.`,
+      preheader: `New ASPIRE application from ${ctx.studentName}.`,
       body: `
         <h2 style="color:${NAVY};font-weight:600;margin:0 0 12px;">New ASPIRE Application</h2>
 
@@ -66,7 +67,7 @@ export const formReceived = {
     return {
       subject: `${ctx.studentName} has submitted their ASPIRE application`,
       html: aspireEmailShell({
-        preheader: `${escapeHtml(ctx.studentName)} submitted their ASPIRE application.`,
+        preheader: `${ctx.studentName} submitted their ASPIRE application.`,
         body: `
           <p style="margin:0 0 16px;">Hi ${escapeHtml(coordFirst)},</p>
           <p style="margin:0 0 16px;">This is a heads-up that <strong>${escapeHtml(ctx.studentName)}</strong> from ${escapeHtml(ctx.school)} has just submitted their ASPIRE application at Cedars-Sinai.</p>
