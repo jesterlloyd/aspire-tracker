@@ -66,7 +66,6 @@ export default function UnitLeaderPreceptorManager({
   loadPreceptors = getUnitPreceptors,
   mutateAssignment = mutateUnitPreceptorAssignment,
   readOnlyMessage = 'Assignments are read-only because this completed rotation is outside the 90-day Unit Leader window.',
-  commandQuery = '',
 }) {
   const panelRef = useRef(null)
   const closeRef = useRef(null)
@@ -75,7 +74,7 @@ export default function UnitLeaderPreceptorManager({
   const [resource, setResource] = useState({ status: 'loading', data: null })
   const [intent, setIntent] = useState(() => initialIntent(initialAction))
   const [selectedId, setSelectedId] = useState('')
-  const [search, setSearch] = useState(commandQuery)
+  const [search, setSearch] = useState('')
   const [unitFilter, setUnitFilter] = useState('all')
   const [shiftFilter, setShiftFilter] = useState('all')
   const [saving, setSaving] = useState(false)

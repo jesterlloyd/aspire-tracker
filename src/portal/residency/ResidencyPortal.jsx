@@ -16,7 +16,7 @@
 //
 // Access is decided server-side by the Residency endpoints. This component
 // renders whatever they allow and never widens it.
-import { Suspense, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../../contexts/AuthContext'
 import { useToast } from '../../hooks/useToast'
@@ -25,7 +25,8 @@ import { lazyReload } from '../../lib/lazyReload'
 import { ngrpPart } from '../../lib/ngrpWorkspaceLoader'
 import ScopePicker from '../../components/Header/scope/ScopePicker'
 import ResidencyCohortList from '../../components/Header/scope/ResidencyCohortList'
-import { useNgrpCycles } from '../../lib/ngrp/useNgrpData'
+import { useNgrpCycles, useNgrpApplicants, useNgrpResidents } from '../../lib/ngrp/useNgrpData'
+import { deriveApplicantRows } from '../../lib/ngrp/ngrpStates'
 import { orderCyclesForSelector, resolveSelectedCycle } from '../../lib/ngrp/ngrpStates'
 import { ngrpCycleStorageKey } from '../../lib/ngrp/ngrpAccess'
 import { NgrpSurfaceProvider, RESIDENCY_PORTAL_SURFACE } from '../../lib/ngrp/ngrpSurface'
@@ -45,7 +46,7 @@ const CreateCohortDialog  = lazyReload(ngrpPart('CreateCohortDialog'), 'CreateCo
 const EXPERIENCES = [RESIDENCY_EXPERIENCE]
 const stayInResidency = () => {}
 
-export default function ResidencyPortal({ canManage = false }) {
+export default function ResidencyPortal({ canManage = false, onCommandPeople }) {
   const { user } = useAuth()
   const queryClient = useQueryClient()
   const { toasts, removeToast, toast } = useToast()
@@ -62,6 +63,29 @@ export default function ResidencyPortal({ canManage = false }) {
   const [showNewCohort, setShowNewCohort] = useState(false)
 
   const activeCycle = resolveSelectedCycle(cyclesQuery.cycles, cyclePref)
+  const applicants = useNgrpApplicants(activeCycle?.id)
+  const residents = useNgrpResidents(activeCycle?.id, { scope: 'aggregate' })
+
+  useEffect(() => {
+    const rows = deriveApplicantRows(applicants.payload?.students || [], applicants.payload?.candidates || [])
+    const people = rows.map(row => ({
+      id: `residency-applicant:${row.id}`, kind: 'person',
+      name: `${row.student.first_name || ''} ${row.student.last_name || ''}`.trim(),
+      qualifier: ['Applicant', row.student.school || null, row.interview_status !== 'not_scheduled' ? 'Interview' : null, row.assigned_unit ? `Placement · ${row.assigned_unit}` : null].filter(Boolean).join(' · '),
+      to: `/portal/residency/profiles?candidate=${encodeURIComponent(row.candidate_id || row.id)}`,
+    }))
+    const residentPeople = (residents.residents || []).map(row => ({
+      id: `residency-resident:${row.candidate_id}`, kind: 'person',
+      name: `${row.student?.first_name || ''} ${row.student?.last_name || ''}`.trim(),
+      qualifier: ['Resident', row.student?.school || null, row.preceptor?.value ? `Preceptor · ${row.preceptor.value}` : null].filter(Boolean).join(' · '),
+      to: `/portal/residency/residents?resident=${encodeURIComponent(row.candidate_id)}`,
+    }))
+    const schools = [...new Set(rows.map(row => row.student?.school).filter(Boolean))].map(school => ({
+      id: `residency-school:${school}`, kind: 'person', name: school,
+      qualifier: 'School · Residency Profiles', to: `/portal/residency/profiles?school=${encodeURIComponent(school)}`,
+    }))
+    onCommandPeople?.([...people, ...residentPeople, ...schools])
+  }, [applicants.payload, residents.residents, onCommandPeople])
   const selectCycle = (id) => {
     setCyclePref(id)
     try {

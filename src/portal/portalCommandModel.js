@@ -30,8 +30,11 @@ export function portalActionsFor(kind, { budgetEnabled = false, messagesEnabled 
   ]
   if (kind === 'talent_acquisition') return [
     action('overview', 'Open At a Glance', 'Residency Portal · At a Glance', '/portal/residency/overview', 'overview home'),
-    action('profiles', 'Find a Resident', 'Residency Portal · Profiles', '/portal/residency/profiles', 'resident applicant profile'),
-    action('interviews', 'Open Interviews', 'Residency Portal · Interviews', '/portal/residency/interviews', 'interview schedule'),
+    action('profiles', 'Find a Resident or Applicant', 'Residency Portal · Profiles', '/portal/residency/profiles', 'resident residents applicant applicants student students profile profiles'),
+    action('interviews', 'Open Interviews', 'Residency Portal · Interviews', '/portal/residency/interviews', 'interview interviews interviewee schedule'),
+    action('placement', 'Open Placement', 'Residency Portal · Placement', '/portal/residency/placement', 'placement placements unit match matching'),
+    action('schools', 'Find a School', 'Residency Portal · Profiles', '/portal/residency/profiles', 'school schools university college'),
+    action('contacts', 'Find a Contact', 'Residency Portal · Contacts', '/connect/contacts?find=1', 'contact contacts directory email phone'),
   ]
   return []
 }

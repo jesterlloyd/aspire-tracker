@@ -223,7 +223,6 @@ export default function PortalApp() {
   const [previewStudents, setPreviewStudents] = useState([])
   const [previewStudentId, setPreviewStudentId] = useState(null)
   const [commandPeople, setCommandPeople] = useState([])
-  const [commandQuery, setCommandQuery] = useState('')
 
   // STUDENT-PORTAL-PROFILE-1: /portal/profile is the My Profile destination.
   const studentMessagesPath = location.pathname.startsWith('/portal/messages')
@@ -327,7 +326,6 @@ export default function PortalApp() {
     canAskKeith: false,
     onRun: (item) => item?.to && navigate(item.to),
     onOpenPerson: (person) => person?.to && navigate(person.to),
-    onQuery: setCommandQuery,
   }
   // KEITH-THEMES-1 (2026-09-29): the Evaluation tab shows only when the server says this grant carries
   // evaluation_themes_access (or the viewer is Owner/Admin previewing). Fail-closed, like the budget.
@@ -669,6 +667,7 @@ export default function PortalApp() {
               previewStudents={previewStudents}
               onPreviewStudentChange={setPreviewStudentId}
               readOnlyPreview={staffPreview}
+              onCommandPeople={setCommandPeople}
             />
           </Suspense>
         </div>
@@ -750,7 +749,6 @@ export default function PortalApp() {
             messagesEnabled={!staffPreview}
             staffPreview={staffPreview}
             onCommandPeople={setCommandPeople}
-            commandQuery={commandQuery}
           />
         </Suspense>
         {!staffPreview && photoDialog}
@@ -848,6 +846,7 @@ export default function PortalApp() {
         <Suspense fallback={<PortalLoading label="Loading your portal" />}>
           <NursingAcademicsPortal view={naView}
             messagesEnabled={naMessagesEnabled} budgetEnabled={naBudgetEnabled} themesEnabled={naThemesEnabled}
+            onCommandPeople={setCommandPeople}
             threadId={naThreadId} onSelectThread={openNaThread} onBackToList={naBackToList} />
         </Suspense>
         {!staffPreview && photoDialog}
@@ -880,7 +879,7 @@ export default function PortalApp() {
             settings alongside the ASPIRE team. A staff preview shows what that staff member
             may manage. The server decides either way. */}
         <Suspense fallback={<PortalLoading label="Loading the residency workspace" />}>
-          <ResidencyPortal canManage={staffPreview ? canManageNgrp(userProfile) : true} />
+          <ResidencyPortal canManage={staffPreview ? canManageNgrp(userProfile) : true} onCommandPeople={setCommandPeople} />
         </Suspense>
         {!staffPreview && photoDialog}
       </PortalShell>

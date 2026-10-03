@@ -15,6 +15,7 @@
 // private support narratives are never requested by any call in this file.
 
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { lazyReload } from '../lib/lazyReload'
 import PortalMessagesWorkspace from './messages/PortalMessagesWorkspace'
 import { useRegisterPortalRefresh } from './PortalRefresh'
@@ -41,7 +42,7 @@ import {
 } from './unit/UnitLeaderChrome'
 import {
   ALL_UNITS, EMPTY, orDash, studentName, sentenceCase, fmtShortDate, ASPIRE_AUTHORITY_NOTE,
-  getRoster, getPlacementRequests, respondToPlacement,
+  getRoster, getUnitPreceptors, getPlacementRequests, respondToPlacement,
   submitParticipation,
   startUnitConversation,
   getNotifications, setNotificationPreference, getShiftActivity,
@@ -113,12 +114,13 @@ function useEndpoint(loader, deps) {
   }
 }
 
-export default function UnitLeaderPortal({ view = 'home', onNavigate, threadId, onSelectThread, onBackToList, composeIntent = null, messagesEnabled = true, staffPreview = false, onCommandPeople, commandQuery = '' }) {
+export default function UnitLeaderPortal({ view = 'home', onNavigate, threadId, onSelectThread, onBackToList, composeIntent = null, messagesEnabled = true, staffPreview = false, onCommandPeople }) {
   const { userProfile } = useAuth()
   const [unitKey, setUnitKey] = useState(ALL_UNITS)
   const [cohortSel, setCohortSel] = useState(null)   // null => the resolved default (newest active)
 
   const roster = useEndpoint(getRoster, [])
+  const preceptorRoster = useEndpoint(getUnitPreceptors, [])
   const units = useMemo(() => roster.data?.units || [], [roster.data])
   // The server resolves the accepting cohort, so a unit with NO prior capacity
   // submission can still submit. Inferring it from existing rows would have made
@@ -132,15 +134,23 @@ export default function UnitLeaderPortal({ view = 'home', onNavigate, threadId, 
     return src.flatMap(u => (u.students || []).map(s => ({ ...s, unit_key: u.unit_key })))
   }, [units, unitKey])
   useEffect(() => {
-    onCommandPeople?.(students.map(s => ({
+    const preceptors = (preceptorRoster.data?.roster || []).map(p => ({
+      id: `preceptor:${p.id}`,
+      kind: 'preceptor',
+      name: p.full_name,
+      qualifier: ['Preceptor', p.home_unit?.name || null, p.shift || null].filter(Boolean).join(' · '),
+      to: '/portal/unit/preceptors',
+    }))
+    onCommandPeople?.([...students.map(s => ({
       id: `student:${s.id}`,
       kind: 'student',
       name: studentName(s),
       qualifier: ['Student', s.unit_key].filter(Boolean).join(' · '),
-      to: '/portal/unit/students',
+      to: `/portal/unit/students?student=${encodeURIComponent(s.id)}`,
+      cohort_id: s.cohort_id || s.cohort?.id || null,
       message: `/portal/messages?student=${encodeURIComponent(s.id)}`,
-    })))
-  }, [students, onCommandPeople])
+    })), ...preceptors])
+  }, [students, preceptorRoster.data, onCommandPeople])
 
   // Cohort context. Only Home and Students are genuinely cohort-scoped: the roster mixes cohorts, and a
   // browser cohort choice NARROWS only within the already server-authorized set (it never widens it).
@@ -189,7 +199,7 @@ export default function UnitLeaderPortal({ view = 'home', onNavigate, threadId, 
   // No assigned unit is a permission state, not an empty one.
   if (unitKeys.length === 0) return <DeniedState />
 
-  const shared = { unitKey, unitKeys, students, acceptingCohort, refreshRoster: roster.refresh, commandQuery }
+  const shared = { unitKey, unitKeys, students, acceptingCohort, refreshRoster: roster.refresh }
 
   // The switcher renders only where narrowing the unit view materially changes what the
   // page shows, and never as an authorization control. Placement Requests and Capacity
@@ -240,7 +250,7 @@ export default function UnitLeaderPortal({ view = 'home', onNavigate, threadId, 
             <UnitEvaluationsWorkspace unitKeys={unitKeys} />
           </Suspense>
         )}
-        {view === 'preceptors' && <PreceptorScreen unitKey={unitKey} unitKeys={unitKeys} refreshRoster={roster.refresh} commandQuery={commandQuery} />}
+        {view === 'preceptors' && <PreceptorScreen unitKey={unitKey} unitKeys={unitKeys} refreshRoster={roster.refresh} />}
         {view === 'profile'    && <ProfileScreen unitKeys={unitKeys} profile={userProfile} />}
         {view === 'messages' && composeIntent?.compose === 'aspire' && (
           <AspireTeamComposer
@@ -869,6 +879,7 @@ function StudentRoster({ students, photos: providedPhotos = null, onNavigate, on
   const [busy, setBusy] = useState(null)          // duplicate-click protection
   const [openActions, setOpenActions] = useState(null)
   const [detailStudent, setDetailStudent] = useState(null)
+  const [searchParams] = useSearchParams()
   const [manager, setManager] = useState(null)
   const [assignmentRefreshKey, setAssignmentRefreshKey] = useState(0)
   const [nameSortDir, setNameSortDir] = useState('asc')
@@ -883,6 +894,12 @@ function StudentRoster({ students, photos: providedPhotos = null, onNavigate, on
   // student's canonical rotation end date against now for the hours-complete helper. Frozen for the
   // life of the mounted roster, like the Home masthead date.
   const todayYmd = useMemo(() => new Date().toLocaleDateString('en-CA'), [])
+
+  useEffect(() => {
+    const requestedId = searchParams.get('student')
+    const requested = requestedId ? students.find(s => String(s.id) === requestedId) : null
+    if (requested) setDetailStudent(requested)
+  }, [searchParams, students])
 
   const openDetail = (student, triggerEl) => {
     detailTriggerRef.current = triggerEl || null
@@ -1123,10 +1140,10 @@ function StudentRow({
   )
 }
 
-function PreceptorScreen({ unitKey, unitKeys, refreshRoster, commandQuery = '' }) {
+function PreceptorScreen({ unitKey, unitKeys, refreshRoster }) {
   return (
     <Suspense fallback={<TableSkeleton label="Loading preceptors" />}>
-      <UnitPreceptorsWorkspace unitKey={unitKey} unitKeys={unitKeys} onAssignmentsChanged={refreshRoster} commandQuery={commandQuery} />
+      <UnitPreceptorsWorkspace unitKey={unitKey} unitKeys={unitKeys} onAssignmentsChanged={refreshRoster} />
     </Suspense>
   )
 }

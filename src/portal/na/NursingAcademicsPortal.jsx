@@ -10,7 +10,8 @@
 // re-checks the active nursing_academic grant server-side; nothing here
 // writes anything, anywhere.
 
-import { useMemo } from 'react'
+import { useMemo, useEffect } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import SkylineCard from '../../components/SkylineCard'
 import { useMastheadFeed } from '../shared/useMastheadFeed'
@@ -25,13 +26,16 @@ import AcademicsCalendarView from './AcademicsCalendarView'
 import CommunityBenefitView from './CommunityBenefitView'
 import AcademicsContactsView from './AcademicsContactsView'
 import AcademicsEvaluationView from './AcademicsEvaluationView'
+import { fetchAcademicsContacts } from './nursingAcademicsApi'
 
 // NA-PORTAL-UTILITIES-1: Messages reuses the SAME canonical PortalMessagesWorkspace the other
 // portals use (variant='nursing_academic'). Enablement is the SERVER capability passed as
 // messagesEnabled (env flag AND applied DB migration), never a client constant; until the server
 // reports enabled, a pasted /portal/academics/messages link shows an honest prepared state.
-export default function NursingAcademicsPortal({ view = 'calendar', messagesEnabled = false, budgetEnabled = false, themesEnabled = false, threadId, onSelectThread, onBackToList }) {
+export default function NursingAcademicsPortal({ view = 'calendar', messagesEnabled = false, budgetEnabled = false, themesEnabled = false, threadId, onSelectThread, onBackToList, onCommandPeople }) {
   const { userProfile, user } = useAuth()
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   // EVENT-AUDIENCE-2: flagged events ticked for Nursing Education & Leadership.
   const mastheadItems = useMastheadFeed('nursing_academic')
   const dateLabel = useMemo(
@@ -45,6 +49,24 @@ export default function NursingAcademicsPortal({ view = 'calendar', messagesEnab
     const fy = currentFiscalYear()
     return `FY ${fy - 1}-${fy}`
   }, [])
+
+  useEffect(() => {
+    let live = true
+    fetchAcademicsContacts().then(res => {
+      if (!live || !res?.ok) return
+      onCommandPeople?.((res.data?.contacts || []).filter(c => c.is_active !== false).map(c => ({
+        id: `na-contact:${c.id}`, kind: 'person', name: c.preferred_name || c.full_name,
+        qualifier: [c.category || 'Contact', c.organization || c.school_name || c.unit_name || null].filter(Boolean).join(' · '),
+        to: `/portal/academics/contacts?contactId=${encodeURIComponent(c.id)}`,
+      })))
+    }).catch(() => {})
+    return () => { live = false }
+  }, [onCommandPeople])
+
+  useEffect(() => {
+    const contactId = searchParams.get('contactId')
+    if (contactId && view !== 'contacts') navigate(`/portal/academics/contacts?contactId=${encodeURIComponent(contactId)}`, { replace: true })
+  }, [navigate, searchParams, view])
 
   return (
     <div className="ptl-page ptl-na-page">

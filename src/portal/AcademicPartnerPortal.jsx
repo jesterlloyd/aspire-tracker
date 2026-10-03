@@ -15,6 +15,7 @@
 // first-release Students workspace; they belong with the later Reports / NGRP surface.
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import SkylineCard from '../components/SkylineCard'
@@ -109,6 +110,7 @@ function StudentsView({ onCommandPeople }) {
   // needed to seed the selection: the newest school and its default cohort resolve at render time.
   const [selectedSchoolKey, setSelectedSchoolKey] = useState(null)
   const [selectedCohortId, setSelectedCohortId]   = useState(null)
+  const [searchParams] = useSearchParams()
   const [statusFilter, setStatusFilter]           = useState(null)   // canonical status payload; null = all
   const [sort, setSort]                           = useState({ column: null, direction: 'asc' })
 
@@ -169,6 +171,16 @@ function StudentsView({ onCommandPeople }) {
     ? (schools.find(s => s.school_key === selectedSchoolKey) || schools[0])
     : null
   const roster = activeSchool?.students || EMPTY_ROSTER
+  useEffect(() => {
+    const requestedId = searchParams.get('student')
+    if (!requestedId || !schools?.length) return
+    const requested = schools.flatMap(school => school.students || []).find(student => String(student.id) === requestedId)
+    if (!requested) return
+    const requestedSchool = schools.find(school => (school.students || []).some(student => String(student.id) === requestedId))
+    if (requestedSchool && requestedSchool.school_key !== activeSchool?.school_key) setSelectedSchoolKey(requestedSchool.school_key)
+    const requestedCohort = searchParams.get('cohort') || requested.cohort_id || requested.cohort?.id
+    if (requestedCohort) setSelectedCohortId(requestedCohort)
+  }, [searchParams, schools, activeSchool?.school_key])
   // Prime secure, short-lived signed photo URLs for this school's roster into the shared cache, and
   // only for students the endpoint flagged has_photo. Authorization is server-side; initials remain
   // the fallback whenever a photo is absent or not yet resolved.
@@ -179,7 +191,8 @@ function StudentsView({ onCommandPeople }) {
       kind: 'student',
       name: displayName(s),
       qualifier: ['Student', s.school_name || activeSchool?.school_key].filter(Boolean).join(' · '),
-      to: `/portal/ap/students?student=${encodeURIComponent(s.id)}`,
+      to: `/portal/ap/students?student=${encodeURIComponent(s.id)}&cohort=${encodeURIComponent(s.cohort_id || s.cohort?.id || '')}`,
+      cohort_id: s.cohort_id || s.cohort?.id || null,
     })))
   }, [roster, onCommandPeople, activeSchool?.school_key])
 

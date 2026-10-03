@@ -47,7 +47,7 @@ function associatedWithUnit(preceptor, unitKey) {
     preceptor.assignments.some(assignment => assignment.student_unit === unitKey)
 }
 
-export default function UnitPreceptorsWorkspace({ unitKey, unitKeys, onAssignmentsChanged, commandQuery = '' }) {
+export default function UnitPreceptorsWorkspace({ unitKey, unitKeys, onAssignmentsChanged }) {
   const loadPreceptors = useCallback(signal => getUnitPreceptors(signal), [])
   const loadHistory = useCallback(signal => getNominations(unitKey, signal), [unitKey])
   const preceptors = useResource(loadPreceptors)
@@ -55,10 +55,7 @@ export default function UnitPreceptorsWorkspace({ unitKey, unitKeys, onAssignmen
   // The shared portal Refresh re-fetches the preceptor directory and its nomination history. No-op
   // when this workspace is rendered outside a portal (the hook needs the portal refresh provider).
   useRegisterPortalRefresh(() => Promise.all([preceptors.refresh(), history.refresh()]))
-  // 7bab66f5 moved this search into the header command bar, but the query never arrived and the
-  // assignment drawer (aria-modal) cannot reach the header. The field stays; a header query fills it.
-  const [search, setSearch] = useState(commandQuery)
-  useEffect(() => { setSearch(commandQuery) }, [commandQuery])
+  const [search, setSearch] = useState('')
   const [shift, setShift] = useState('all')
   const [active, setActive] = useState('active')
   const [crossUnit, setCrossUnit] = useState('all')

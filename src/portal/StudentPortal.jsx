@@ -20,6 +20,7 @@
 //   Evaluations -> Surveys, Documents -> Badge & Certificate,
 //   Need help? -> Support.
 import { Suspense, useState, useEffect, useRef, useMemo } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { lazyReload } from '../lib/lazyReload'
 import {
   MapPin, Clock, ClipboardCheck, CalendarPlus, LifeBuoy, Pencil, Mail,
@@ -84,8 +85,11 @@ function HomeSkeleton() {
 export default function StudentPortal({
   active = true, view = 'home', onOpenProfile, onOpenShiftLog,
   previewStudentId = null, previewStudents = [], onPreviewStudentChange, readOnlyPreview = false,
+  onCommandPeople,
 }) {
   const { user } = useAuth()
+  const location = useLocation()
+  const navigate = useNavigate()
   // EVENT-AUDIENCE-2: flagged events ticked for Students. Off in Owner/Admin
   // preview, where the caller holds no student grant and the call would only 403.
   const mastheadItems = useMastheadFeed('student', { enabled: !readOnlyPreview })
@@ -328,7 +332,7 @@ export default function StudentPortal({
   // them; one emailable preceptor composes directly. Unit leadership from ASPIRE
   // Connect and the ASPIRE team are always copied.
   const preceptors = Array.isArray(student.preceptors) ? student.preceptors : []
-  const mailablePreceptors = emailablePreceptors(preceptors)
+  const mailablePreceptors = useMemo(() => emailablePreceptors(preceptors), [preceptors])
   const emailPreceptor = (choice) => {
     const recipients = buildPreceptorRecipients({ preceptors, leadership: student.unit_leadership, choice })
     if (!recipients) return
@@ -362,6 +366,31 @@ export default function StudentPortal({
     setPreceptorPickerOpen(false)
     preceptorBtnRef.current?.focus()
   }
+
+  useEffect(() => {
+    if (readOnlyPreview || !student) return
+    const command = new URLSearchParams(location.search).get('command')
+    if (!command || view !== 'placement') return
+    if (command === 'aspire') onContact()
+    if (command.startsWith('preceptor:')) emailPreceptor(command.slice('preceptor:'.length))
+    navigate('/portal/placement', { replace: true })
+  }, [location.search, navigate, onContact, emailPreceptor, readOnlyPreview, student, view])
+
+  useEffect(() => {
+    if (!student) { onCommandPeople?.([]); return }
+    const people = [
+      {
+        id: 'student-support:aspire', kind: 'person', name: 'Email ASPIRE Team',
+        qualifier: 'My Placement · Support', to: '/portal/placement?command=aspire',
+      },
+      ...mailablePreceptors.map(p => ({
+        id: `student-support:preceptor:${p.id}`, kind: 'person', name: p.name,
+        qualifier: `My Placement · Support · Email Preceptor`,
+        to: `/portal/placement?command=preceptor:${encodeURIComponent(p.id)}`,
+      })),
+    ]
+    onCommandPeople?.(people)
+  }, [mailablePreceptors, onCommandPeople, student])
 
   const shiftCount = myLogs.length
   const mostRecentShift = fmtDate(myLogs[0]?.shift_date)

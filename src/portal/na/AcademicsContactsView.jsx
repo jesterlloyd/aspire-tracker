@@ -3,6 +3,7 @@
 // update, deactivate, and reactivate controls, but no permanent deletion.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Check, Copy, Download, Mail, Pencil, Phone, Plus, Power, PowerOff, Search, UserRound, X } from 'lucide-react'
 import { LoadingState, EmptyState, ErrorState } from '../unit/UnitLeaderChrome'
 import { useRegisterPortalRefresh } from '../PortalRefresh'
@@ -475,6 +476,7 @@ function ContactEditorModal({ contact, saving, error, onClose, onSave }) {
 }
 
 export default function AcademicsContactsView({ active = true }) {
+  const [searchParams] = useSearchParams()
   const [contacts, setContacts] = useState([])
   const [selectedId, setSelectedId] = useState(null)
   const [search, setSearch] = useState('')
@@ -553,13 +555,16 @@ export default function AcademicsContactsView({ active = true }) {
       // First selection follows display order (the first row of the grouped
       // All view), not fetch order.
       const firstDisplayed = orderContacts(next.filter(contact => contact.is_active !== false), 'All', '')[0]
-      setSelectedId(current => current && next.some(contact => contact.id === current) ? current : (firstDisplayed?.id || next[0]?.id || null))
+      const requestedId = searchParams.get('contactId')
+      setSelectedId(current => requestedId && next.some(contact => contact.id === requestedId)
+        ? requestedId
+        : current && next.some(contact => contact.id === current) ? current : (firstDisplayed?.id || next[0]?.id || null))
       setLoaded(true)
       setError(null)
       setLoading(false)
     })
     return () => { cancelled = true; controller.abort() }
-  }, [active, reloadKey, reportFailure])
+  }, [active, reloadKey, reportFailure, searchParams])
 
   const query = search.trim().toLowerCase()
   // NA-CONTACTS-POLISH-3: the directory lists active contacts only; a
