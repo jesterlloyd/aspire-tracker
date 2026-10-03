@@ -54,6 +54,8 @@ test('leadership sees the totals, the plans read-only and the platform note', ()
   assert.match(c, /const READER_HIDDEN = new Set\(\['proposed', 'declined'\]\)/)
   assert.doesNotMatch(c, /bud-platform\b/)
   assert.doesNotMatch(read('src/components/budget/budget.css'), /\.bud-platform \{/)
+  // PEND-EDGE-1 (Owner, 2026-10-03): Not Counted Yet is a plain card too.
+  assert.doesNotMatch(read('src/components/budget/budget.css'), /\.bud-pend \{[^}]*inset 4px/)
   assert.match(c, /\{canEdit && \(\s*<section className="bud-editplans"/, 'no plan-by-plan list for a reader')
 })
 

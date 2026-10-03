@@ -756,7 +756,8 @@ button.bud-mo:hover { background: var(--color-bg-hover); }
 /* ── BUDGET-V2 Phase 4 (2026-09-29): clarity ── */
 .bud-empty-acts { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 4px; }
 /* Not counted yet (item 2): what waits outside the figures, each with its way in. */
-.bud-pend { margin-top: var(--aspire-gap-card); padding: 12px 16px; box-shadow: inset 4px 0 0 var(--pill-warn-fg), var(--aspire-shadow-card) !important; }
+/* PEND-EDGE-1 (Owner, 2026-10-03): a plain card, like every other; no coloured left edge. */
+.bud-pend { margin-top: var(--aspire-gap-card); padding: 12px 16px; }
 .bud-pend h3 { margin: 0 0 6px; font-size: 13px; font-weight: 700; color: var(--text-heading); }
 .bud-pend-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 7px 0; border-top: 1px solid var(--color-border-subtle); font-size: 13px; color: var(--text-heading); }
 .bud-pend-row:first-of-type { border-top: 0; }
