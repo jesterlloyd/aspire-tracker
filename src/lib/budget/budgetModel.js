@@ -152,6 +152,12 @@ export function yearState(budget, fy, today = pacificToday()) {
   if (!budget?.started_at) return 'not_started'
   return 'current'
 }
+// OWNER-NOTE-RETIRE-1 (2026-10-03): reconciled means a month was closed (BUDGET-FIXES-1 item 2.5). The
+// last month closed, as the year line says it: "Reconciled through March 2026". Null when none is closed.
+export function lastReconciled(year) {
+  const last = [...(year?.close?.months || [])].filter(m => m.closed_at).pop()
+  return last ? `Reconciled through ${last.name} ${last.year}` : null
+}
 export const STATE_CHIP = Object.freeze({ current: 'Current', closed: 'Closed', not_started: 'Not started', proposal: 'Proposal' })
 /** Has the year started (so it holds expenses)? */
 export const isStarted = (state) => state === 'current' || state === 'closed'

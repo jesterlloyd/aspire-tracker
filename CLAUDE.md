@@ -1672,6 +1672,19 @@ folded to one line with its count and total (TAIL-COLLAPSE-1).
   Charges by Month card, or the Platform Cost card on the Owner's view.
 - **Leadership gets less** (Owner, 2026-10-02): a reader sees the totals line and the Platform Cost
   statement, never the plan-by-plan list, the months or the approval list.
+- **KPI cards, a note, and a plan list for leadership** (SUBS-KPI-1, Owner, 2026-10-03). The Subscriptions
+  totals are four `.bud-tile` KPI cards (Active, A month, A year, Due by Jun 30), as on Summary; the strip is
+  retired. The platform cost is a plain note (`.bud-platnote`, the Platform tag and a sentence) in both views:
+  never a card with a coloured left edge (Owner: "I hate that"). A reader also gets **Plans**, a read-only
+  DataSheet (service, cost, next charge, per year) that leaves out plans awaiting approval or declined and
+  shows no Concur status, months or decisions.
+- **No Owner Note** (OWNER-NOTE-RETIRE-1, Owner, 2026-10-03): neither view has the card. "Reconciled through
+  March 2026" (or "No month closed yet") ends the year line (`lastReconciled` in budgetModel). A note already
+  saved stays in `owner_note`, unread; `set_note` is left in place.
+- **A view-only sheet has no toolbar** (VIEW-ONLY-TOOLBAR-1): EditableSheet renders `.fs-toolbar` only when
+  editable; search, filters and Columns stay. This applies to the Forms Answers sheet before its migration too.
+- **The header's controls are one size** (HEADER-CONTROLS-1): the year picker and the header buttons share
+  `--bud-act-w` (150px) and the 34px height, in Settings and in the NE&L portal.
 - **A popover never lives in the Settings band's subtitle** (COST-CENTER-FIX-1): `.settings-page-sub` is a
   fixed 20px line with `overflow: hidden`, so the cost center editor is drawn on `<body>` (`createPortal`,
   `position: fixed` at the button). Its wrapper is `.bud-ccline`; `.bud-cc` is the Concur draft's list.

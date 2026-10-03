@@ -832,8 +832,9 @@ export default function EditableSheet({
     <div className="fs">
       {!editable && labels.notice && <p className="fm-note" role="status">{labels.notice}</p>}
 
-      {/* The Smartsheet row: text formatting, number and date formats, then the grid's own tools. */}
-      <div className="fs-toolbar" ref={toolRef} role="toolbar" aria-label="Sheet tools">
+      {/* The Smartsheet row: text formatting, number and date formats, then the grid's own tools.
+          VIEW-ONLY-TOOLBAR-1 (Owner, 2026-10-03): a view-only sheet has no toolbar; it could use none of it. */}
+      {editable && <div className="fs-toolbar" ref={toolRef} role="toolbar" aria-label="Sheet tools">
         {editable && <div className="fs-tgroup">
           <SheetTip label="Undo (Cmd/Ctrl+Z)"><button type="button" className="fs-tb" disabled={!hist.undo.length || replayingNow} onClick={undo} aria-label="Undo"><Undo2 size={15} /></button></SheetTip>
           <SheetTip label="Redo (Cmd/Ctrl+Shift+Z)"><button type="button" className="fs-tb" disabled={!hist.redo.length || replayingNow} onClick={redo} aria-label="Redo"><Redo2 size={15} /></button></SheetTip>
@@ -913,7 +914,7 @@ export default function EditableSheet({
         {/* SHEET-LIVE-1: every save says so here for a moment ("Saved"), then settles on "All changes saved". */}
         <span className={`fs-save${save === 'error' ? ' fs-save-bad' : ''}${save === 'saved' && flash ? ' fs-save-flash' : ''}`} aria-live="polite">
           {off ? 'View only' : save === 'saving' ? 'Saving…' : save === 'error' ? 'Not saved' : flash ? <><Check size={13} aria-hidden="true" /> Saved</> : 'All changes saved'}</span>
-      </div>
+      </div>}
 
       <div className="fs-tools">
         <input className="fs-search" type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder={labels.searchPlaceholder} aria-label={labels.searchLabel} />

@@ -63,15 +63,14 @@ after(async () => { await vite?.close() })
 const onWrite = { notify() {}, call: async () => ({}), changed() {}, run: async () => true }
 const html = (Comp, year, canEdit) => renderToStaticMarkup(React.createElement(Comp, { year, canEdit, onWrite, onPickYear() {} }))
 
-test('Summary: the owner changes the budget and writes the note; a reader reads the note first', () => {
+// OWNER-NOTE-RETIRE-1 (Owner, 2026-10-03) changed this: no Owner Note card in either view; what has been
+// reconciled is on the year line (see the year-line test below).
+test('Summary: the owner changes the budget; neither view has an Owner Note card', () => {
   const owner = html(C.Summary, Y.owner, true), reader = html(C.Summary, Y.reader, false)
   assert.match(owner, /Change budget/)
-  assert.match(owner, /Owner Note/)
-  // BUDGET-FIXES-1 item 2.5 changed this: no Mark reconciled today; Last reconciled is the last closed month.
+  assert.doesNotMatch(owner + reader, /Owner Note|From the Program Owner|Last reconciled|<textarea/)
   assert.doesNotMatch(owner, /Mark reconciled today/)
-  assert.match(owner, /Last reconciled: <b>(No month closed yet|[A-Z][a-z]+ \d{4}, closed [A-Z][a-z]{2} \d{1,2})<\/b>/)
-  assert.doesNotMatch(reader, /Change budget|Mark reconciled today|<textarea/)
-  assert.ok(reader.indexOf('From the Program Owner') < reader.indexOf('Budget</span>'), 'the note comes before the figures')
+  assert.doesNotMatch(reader, /Change budget|Mark reconciled today/)
   assert.match(owner, /\$41\.41/)
   // BUDGET-V2 item 12 (2026-09-29): upcoming charges are Expected charges.
   assert.match(owner, /after \$600\.00 in expected charges/, 'Remaining names what subscriptions will still charge')
@@ -87,7 +86,9 @@ test('Sheet: the owner adds and deletes rows; a reader gets a view-only sheet; a
   assert.match(owner, /Delete row/)
   assert.match(owner, /Copy Paper/)
   assert.match(owner, /class="bud-dash">–</, 'missing is an en dash')
-  assert.match(reader, /View only/)
+  // VIEW-ONLY-TOOLBAR-1 (Owner, 2026-10-03) changed this: a view-only sheet has no formatting toolbar.
+  assert.doesNotMatch(reader, /fs-toolbar|Date format|Group by/)
+  assert.match(owner, /fs-toolbar/)
   assert.doesNotMatch(reader, /<\/svg> Row<\/button>|Delete row/)
   assert.match(closed, /Jan 2026/, 'an imported row shows its month')
   // Owner, 2026-09-27: a closed year is editable (the prompt's locks are retired).
@@ -109,9 +110,13 @@ test('Subscriptions: the owner decides renewals on slips; a reader sees the tota
   assert.match(owner, /Cancel at renewal/)
   assert.match(owner, /Remind me in 7 days/)
   assert.doesNotMatch(reader, /Renewals to Decide|Cancel at renewal/)
-  assert.doesNotMatch(reader, /Renews soon|fs-frame|Edit Plans/, 'no plan-by-plan list for leadership')
+  // SUBS-KPI-1 (Owner, 2026-10-03) changed this: leadership sees KPI cards and a read-only plan list, never the editor.
+  assert.doesNotMatch(reader, /Renews soon|fs-frame|Edit Plans/, 'no editable sheet and no decisions for leadership')
   assert.match(reader, /aria-label="Subscription totals"/)
-  assert.match(reader, /a month/)
+  assert.match(reader, /A month/)
+  assert.match(reader, /aria-label="Subscription plans"/)
+  assert.match(reader, /Survey platform/)
+  assert.doesNotMatch(owner, /aria-label="Subscription plans"/, 'the Owner has the month table instead')
   assert.match(owner, /Edit Plans/)
 })
 

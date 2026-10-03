@@ -140,7 +140,8 @@ test('the Summary, the tabs, the copy and the floating buttons follow the mockup
   assert.doesNotMatch(view, /inlineBadgeStyle/, 'no red count on a budget tab')
   assert.match(read('src/components/budget/budget.css'), /\.bud-tabn \{[^}]*background: var\(--pill-warn-bg\); color: var\(--pill-warn-fg\)/)
   const subs = read('src/components/budget/BudgetSubscriptions.jsx')
-  assert.match(subs, /ASPIRE Intelligence Platform Cost/)
+  // SUBS-KPI-1 (2026-10-03) changed this: the platform cost is a note, not a titled card.
+  assert.match(subs, /ASPIRE Intelligence platform cost\./)
   assert.match(subs, /Confirm before approving:/)
   const app = read('src/staff/StaffApp.jsx')
   assert.match(app, /const keithOnly = location\.pathname\.startsWith\('\/settings\/budget'\) && !tourRunning/)

@@ -10,7 +10,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react'
 import SurfaceCard from '../ui/SurfaceCard'
 import EditableSheet from '../sheet/EditableSheet'
 import SubscriptionMonths from './SubscriptionMonths'
-import { Pill } from '../shared/DataSheet'
+import DataSheet, { Pill } from '../shared/DataSheet'
 import { BUDGET_TOOLS } from './budgetSheetTools'
 import {
   usd, dateText, BILLING, PAYMENT_METHODS, nextCharge, perYear, dueByYearEnd, subscriptionStatus, isActiveSub, monthlyEquivalent,
@@ -159,23 +159,37 @@ export default function BudgetSubscriptions({ year, canEdit, onWrite, onOpenRece
 
   return (
     <>
-      {/* SUBSCRIPTIONS-ONE-VIEW-1 (Owner, 2026-10-02): the totals, said once, on one line. */}
-      <SurfaceCard className="bud-card bud-substrip" role="group" aria-label="Subscription totals">
-        <span><b>{active.length}</b> active<small>{activeLine}</small></span>
-        <span><b>{usd(run)}</b> a month{prop.count ? <small>{usd(run + prop.monthly)} if approved</small> : <small>Annual plans spread by month</small>}</span>
-        <span><b>{usd(run * 12)}</b> a year{prop.count
-          ? <small>{usd(run * 12 + prop.perYear)} if approved{pct(run * 12 + prop.perYear)}</small>
-          : <small>{state === 'current' && year.summary.total ? `${((run * 12) / year.summary.total * 100).toFixed(1)}% of the ${fyShort(year.fy)} budget` : 'At current plans'}</small>}</span>
-        <span><b>{usd(due)}</b> due by Jun 30{prop.count
-          ? <small>{usd(due + prop.toCome)} if approved</small>
-          : <small>{next ? `Next: ${next[0].name}, ${dateText(next[1])}` : 'Nothing scheduled'}</small>}</span>
-      </SurfaceCard>
+      {/* SUBS-KPI-1 (Owner, 2026-10-03): the totals, said once, as the app's KPI cards (the Summary's tiles). */}
+      <div className="bud-basis bud-basis-4" role="group" aria-label="Subscription totals">
+        <SurfaceCard className="bud-tile"><span className="k">Active</span><b>{active.length}</b><small>{activeLine || 'No other plans'}</small></SurfaceCard>
+        <SurfaceCard className="bud-tile"><span className="k">A month</span><b>{usd(run)}</b><small>{prop.count ? `${usd(run + prop.monthly)} if approved` : 'Annual plans spread by month'}</small></SurfaceCard>
+        <SurfaceCard className="bud-tile"><span className="k">A year</span><b>{usd(run * 12)}</b><small>{prop.count
+          ? `${usd(run * 12 + prop.perYear)} if approved${pct(run * 12 + prop.perYear)}`
+          : state === 'current' && year.summary.total ? `${((run * 12) / year.summary.total * 100).toFixed(1)}% of the ${fyShort(year.fy)} budget` : 'At current plans'}</small></SurfaceCard>
+        <SurfaceCard className="bud-tile"><span className="k">Due by Jun 30</span><b>{usd(due)}</b><small>{prop.count
+          ? `${usd(due + prop.toCome)} if approved`
+          : next ? `Next: ${next[0].name}, ${dateText(next[1])}` : 'Nothing scheduled'}</small></SurfaceCard>
+      </div>
+
+      {/* BUDGET-V2 item 4: the platform's cost, shown on its own. BUDGET-FIXES-1 item 1.6: it is program spend.
+          SUBS-KPI-1 (Owner, 2026-10-03): a note, in both views; never a card with a coloured edge. */}
+      {plat.count > 0 && (
+        <p className="bud-platnote"><span className="bud-tag">Platform</span>
+          <span><b>ASPIRE Intelligence platform cost.</b> The services that build and run the app: {plat.names.join(', ')}.{' '}
+            {plat.active ? <>{usd(plat.monthly)} a month, {usd(plat.perYear)} a year now. </> : null}
+            {plat.waiting ? <>{usd(plat.ifApprovedMonthly)} a month if approved, {usd(plat.ifApprovedPerYear)} a year. </> : null}
+            Counted in program spend; shown on its own so it can be reported separately.</span></p>
+      )}
+      {canEdit && plat.waiting > 0 && <div className="bud-check bud-check-info"><span><b>Confirm before approving:</b> whether ASPIRE reimburses platform subscriptions, and whether Technology Ventures needs to know. Approvals stay open until you decide.</span></div>}
+
+      {/* SUBS-KPI-1 (Owner, 2026-10-03): leadership sees the plans, read-only, with no Concur status,
+          months or decisions; plans awaiting approval or declined are not listed. */}
+      {!canEdit && <ReaderPlans subs={subs} statusOf={statusOf} today={today} />}
 
       {/* The one table: every plan, its cost, its next charge and its months' Concur status (the Owner's view). */}
       {canEdit && <SubscriptionMonths year={year} statusOf={statusOf} onOpenReceipt={onOpenReceipt} />}
 
       {/* SUB-APPROVAL-1: proposals are shown with what they would cost, and count against nothing. */}
-      {/* Leadership sees the totals and the Platform Cost statement only (Owner, 2026-10-02: "Portal gets less"). */}
       {canEdit && prop.count > 0 && (
         <section aria-label="Awaiting approval">
           <p className="bud-sub"><b>Awaiting Approval</b> · {prop.count} {prop.count === 1 ? 'subscription' : 'subscriptions'} · {usd(prop.monthly)} a month · Not counted against the budget until approved</p>
@@ -237,17 +251,6 @@ export default function BudgetSubscriptions({ year, canEdit, onWrite, onOpenRece
         </section>
       )}
 
-      {/* BUDGET-V2 item 4: the platform's cost, shown on its own. BUDGET-FIXES-1 item 1.6: it is program spend. */}
-      {!canEdit && plat.count > 0 && (
-        <SurfaceCard className="bud-card bud-platform">
-          <div className="bud-platform-head"><span className="bud-tag">Platform</span><h2>ASPIRE Intelligence Platform Cost</h2></div>
-          <p className="bud-sub">The services that build and run the app: {plat.names.join(', ')}.{' '}
-            {plat.active ? <><b>{usd(plat.monthly)} a month</b>, <b>{usd(plat.perYear)} a year</b> now. </> : null}
-            {plat.waiting ? <><b>{usd(plat.ifApprovedMonthly)} a month</b> if approved, <b>{usd(plat.ifApprovedPerYear)} a year</b>. </> : null}
-            Counted in program spend. Shown here on its own so it can be reported separately.</p>
-          {plat.waiting > 0 && <div className="bud-check bud-check-info"><span><b>Confirm before approving:</b> whether ASPIRE reimburses platform subscriptions, and whether Technology Ventures needs to know. Approvals stay open until you decide.</span></div>}
-        </SurfaceCard>
-      )}
 
       {canEdit && overlapNow && !overlapDone && (
         <div className="bud-check bud-check-warn bud-overlap" role="group" aria-label="Overlapping plans">
@@ -377,3 +380,28 @@ function ApproveMenu({ name, fyStart, onChoose }) {
   )
 }
 
+
+// SUBS-KPI-1: the reader's plan list, one row per plan: what it is, what it costs, when it next charges, a year.
+const READER_HIDDEN = new Set(['proposed', 'declined'])
+const READER_PILL = new Set(['ended', 'ending'])
+function ReaderPlans({ subs, statusOf, today }) {
+  const rows = subs.filter(s => !READER_HIDDEN.has(statusOf(s).key))
+  if (!rows.length) return null
+  const columns = [
+    { key: 'name', label: 'Service', min: 180, grow: 1.8, priority: 1, sortValue: s => s.name, render: s => {
+      const st = statusOf(s)
+      return <span className="bud-rplan"><b>{s.name}</b>{s.plan && <small>{s.plan}</small>}{READER_PILL.has(st.key) && <Pill tone={TONE[st.tone]}>{st.label}</Pill>}</span>
+    } },
+    { key: 'cost', label: 'Cost', min: 110, grow: 0.8, align: 'right', priority: 1, sortValue: s => Number(s.amount) || 0,
+      render: s => <span className="bud-rplan bud-rplan-n"><b>{s.amount == null ? '–' : usd(s.amount)}</b><small>{billingLabel(s.billing)}{s.billing === 'usage' ? ', est.' : ''}</small></span> },
+    { key: 'next', label: 'Next charge', min: 110, grow: 0.8, priority: 2, sortValue: s => nextCharge(s, today) || '9999', render: s => { const n = nextCharge(s, today); return n ? dateText(n) : DASH } },
+    { key: 'year', label: 'Per year', min: 100, grow: 0.7, align: 'right', priority: 1, sortValue: s => perYear(s, today) || 0, render: s => { const y = perYear(s, today); return y ? usd(y) : DASH } },
+  ]
+  return (
+    <SurfaceCard className="bud-card">
+      <h2>Plans</h2><p className="bud-sub">Every subscription the program pays for, read-only</p>
+      <DataSheet level="plain" columns={columns} rows={rows} rowKey={s => s.id} defaultSort={{ key: 'name', dir: 'asc' }}
+        emptyMessage="No plans" aria-label="Subscription plans" />
+    </SurfaceCard>
+  )
+}

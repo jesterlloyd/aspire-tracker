@@ -29,8 +29,9 @@ test('every plan has a row in the one table, charged this year or not', () => {
 
 test('the Owner’s tab is one view: totals once, the one table, decisions when waiting, Edit plans folded', () => {
   const c = code(subs)
-  assert.match(c, /className="bud-card bud-substrip" role="group" aria-label="Subscription totals"/)
-  assert.doesNotMatch(c, /bud-basis-4|Monthly run rate/, 'the four tiles are gone')
+  // SUBS-KPI-1 (Owner, 2026-10-03) changed this: the totals are the app's KPI cards again, said once.
+  assert.match(c, /<div className="bud-basis bud-basis-4" role="group" aria-label="Subscription totals">/)
+  assert.doesNotMatch(c, /bud-substrip|Monthly run rate/)
   assert.match(c, /\{canEdit && <SubscriptionMonths year=\{year\} statusOf=\{statusOf\} onOpenReceipt=\{onOpenReceipt\} \/>\}/)
   assert.match(c, /const \[editOpen, setEditOpen\] = useState\(\(\) => subs\.length === 0\)/, 'folded, unless there is nothing yet to show')
   assert.match(c, /aria-expanded=\{editOpen\} onClick=\{\(\) => setEditOpen\(o => !o\)\}/)
@@ -43,10 +44,16 @@ test('the Owner’s tab is one view: totals once, the one table, decisions when 
   assert.doesNotMatch(code(table), /Every charge here repeats monthly|Last charge/)
 })
 
-test('leadership sees the totals and the Platform Cost statement only', () => {
+// SUBS-KPI-1 (Owner, 2026-10-03) changed this: leadership also gets a read-only plan list, and the
+// platform cost is a note (no card, no coloured edge) in both views.
+test('leadership sees the totals, the plans read-only and the platform note', () => {
   const c = code(subs)
   assert.match(c, /\{canEdit && prop\.count > 0 && \(\s*<section aria-label="Awaiting approval">/)
-  assert.match(c, /\{!canEdit && plat\.count > 0 && \(\s*<SurfaceCard className="bud-card bud-platform">/, 'the Owner has the table instead')
+  assert.match(c, /\{plat\.count > 0 && \(\s*<p className="bud-platnote">/)
+  assert.match(c, /\{!canEdit && <ReaderPlans subs=\{subs\} statusOf=\{statusOf\} today=\{today\} \/>\}/)
+  assert.match(c, /const READER_HIDDEN = new Set\(\['proposed', 'declined'\]\)/)
+  assert.doesNotMatch(c, /bud-platform\b/)
+  assert.doesNotMatch(read('src/components/budget/budget.css'), /\.bud-platform \{/)
   assert.match(c, /\{canEdit && \(\s*<section className="bud-editplans"/, 'no plan-by-plan list for a reader')
 })
 

@@ -92,10 +92,8 @@ export default function BudgetSummary({ year, canEdit, onWrite, onGo, source, on
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
   const [reason, setReason] = useState('')
-  const [note, setNote] = useState(year.budget?.owner_note || '')
   const [showIdle, setShowIdle] = useState(false)
   const [histOpen, setHistOpen] = useState(false)   // HISTORY-FOLD-1: the newest HISTORY_PEEK, then the arrow
-  const reader = !canEdit
   const closed = s.state === 'closed'
 
   const saveTotal = async () => {
@@ -187,23 +185,8 @@ export default function BudgetSummary({ year, canEdit, onWrite, onGo, source, on
   // With no plan, a category with no spend says nothing; list the ones that do, and offer the rest.
   const idle = withPlan ? [] : s.byCategory.filter(c => !c.spent)
 
-  // BUDGET-FIXES-1 item 2.5: reconciled means a month was closed. The last one closed, and when.
-  const lastClosed = [...(year.close?.months || [])].filter(m => m.closed_at).pop()
-  const reconciled = lastClosed ? `${lastClosed.name} ${lastClosed.year}, closed ${stamp(lastClosed.closed_at).replace(/, \d{4}$/, '')}` : null
-  const noteCard = canEdit ? (
-    <SurfaceCard className="bud-card bud-note">
-      <h2>Owner Note</h2><p className="bud-sub">Leadership sees this above the figures.</p>
-      <label className="bud-sr" htmlFor="bud-note">Owner note</label>
-      <textarea id="bud-note" className="bud-textarea" value={note} maxLength={2000} placeholder="Context leadership needs to read these numbers correctly"
-        onChange={e => setNote(e.target.value)} onBlur={() => { if (note !== (year.budget?.owner_note || '')) onWrite.run('set_note', { fiscal_year: year.fy, note }, 'Note saved.') }} />
-      <div className="bud-rec"><span>Last reconciled: <b>{reconciled || 'No month closed yet'}</b></span></div>
-    </SurfaceCard>
-  ) : (
-    <SurfaceCard className="bud-card bud-note">
-      <h2>From the Program Owner</h2><p className="bud-sub">Last reconciled: {reconciled || 'no month closed yet'}</p>
-      {year.budget?.owner_note ? <blockquote>{year.budget.owner_note}</blockquote> : <p className="bud-hint">No note.</p>}
-    </SurfaceCard>
-  )
+  // OWNER-NOTE-RETIRE-1 (Owner, 2026-10-03): no Owner Note card in either view. "Last reconciled" is on
+  // the year line (BudgetYearLine, lastReconciled). A note already saved stays in the database, unread.
   const history = (
     <SurfaceCard className="bud-card">
       <h2>Budget History</h2><p className="bud-sub">Every change to the annual amount, the category plan and the estimates</p>
@@ -235,7 +218,6 @@ export default function BudgetSummary({ year, canEdit, onWrite, onGo, source, on
   return (
     <>
       {quiet}
-      {reader && noteCard}
       {basis}
       {pending}
       <BudgetClose year={year} canEdit={canEdit} onWrite={onWrite} onGo={onGo} />
@@ -258,7 +240,7 @@ export default function BudgetSummary({ year, canEdit, onWrite, onGo, source, on
           )}
         </SurfaceCard>
       </div>
-      <div className="bud-two">{canEdit ? noteCard : null}{history}</div>
+      {history}
     </>
   )
 }

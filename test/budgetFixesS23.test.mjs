@@ -76,7 +76,9 @@ test('2.4 reversed: months close in any order; the card still opens on the oldes
 test('2.5 Last reconciled is the last closed month, and Mark reconciled today is gone', () => {
   const sum = read('src/components/budget/BudgetSummary.jsx')
   assert.doesNotMatch(sum, /Mark reconciled today|mark_reconciled/)
-  assert.match(sum, /`\$\{lastClosed\.name\} \$\{lastClosed\.year\}, closed \$\{stamp\(lastClosed\.closed_at\)\.replace\(/)
+  // OWNER-NOTE-RETIRE-1 (2026-10-03) moved it from the Owner Note card to the year line.
+  assert.match(read('src/lib/budget/budgetModel.js'), /const last = \[\.\.\.\(year\?\.close\?\.months \|\| \[\]\)\]\.filter\(m => m\.closed_at\)\.pop\(\)/)
+  assert.match(read('src/components/budget/BudgetYearLine.jsx'), /lastReconciled\(year\) \|\| 'No month closed yet'/)
 })
 
 test('2.6 a budget change needs a reason; History shows it, and older changes say none was recorded', async () => {

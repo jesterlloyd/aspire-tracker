@@ -162,7 +162,8 @@ test('Subscriptions: no Sum on Amount, and the Platform line says it is program 
   assert.match(src, /const UNSUMMABLE = new Set\(\['amount'\]\)/)
   assert.match(src, /initialLayout=\{fitPinned\(withoutAmountSum\(/)
   assert.match(src, /unsummable=\{UNSUMMABLE\}/)
-  assert.match(src, /Counted in program spend\. Shown here on its own so it can be reported separately\./)
+  // SUBS-KPI-1 (2026-10-03) shortened the note's wording; it still says it is program spend.
+  assert.match(src, /Counted in program spend; shown on its own so it can be reported separately\./)
   assert.doesNotMatch(src, /Reported separately from program spend/)
   assert.match(read('src/components/sheet/EditableSheet.jsx'), /unsummable\.has\(c\.key\) \? null :/)
   assert.match(src, /set by you/)

@@ -29,6 +29,11 @@
   height: 34px; padding: 0 10px; border: 1px solid var(--border-input); border-radius: var(--aspire-radius-control);
   background: var(--color-bg-input, var(--color-bg-surface)); color: var(--text-heading); font: inherit; font-size: 13px;
 }
+/* HEADER-CONTROLS-1 (Owner, 2026-10-03): the year picker and the header's buttons are one size, so
+   "FY27" does not sit beside a button twice its width. */
+.bud-actions { --bud-act-w: 150px; }
+.bud-actions select { min-width: var(--bud-act-w); font-weight: 600; }
+.bud-actions > .bud-btn { min-width: var(--bud-act-w); justify-content: center; }
 .bud-textarea { height: auto; min-height: 96px; padding: 8px 10px; width: 100%; resize: vertical; box-sizing: border-box; }
 .bud-btn {
   display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 14px; border-radius: var(--aspire-radius-control);
@@ -749,9 +754,6 @@ button.bud-mo:hover { background: var(--color-bg-hover); }
 .bud-review-row .bud-input { width: 100%; box-sizing: border-box; min-width: 0; }
 
 /* ── BUDGET-V2 Phase 4 (2026-09-29): clarity ── */
-.bud-platform { box-shadow: inset 4px 0 0 var(--pill-info-fg), var(--aspire-shadow-card) !important; }
-.bud-platform-head { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-.bud-platform .bud-check { margin-top: 10px; }
 .bud-empty-acts { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 4px; }
 /* Not counted yet (item 2): what waits outside the figures, each with its way in. */
 .bud-pend { margin-top: var(--aspire-gap-card); padding: 12px 16px; box-shadow: inset 4px 0 0 var(--pill-warn-fg), var(--aspire-shadow-card) !important; }
@@ -856,11 +858,14 @@ button.bud-mo:hover { background: var(--color-bg-hover); }
 .bud-repl-shut { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .bud-repl-shut span { flex: 1 1 260px; }
 /* SUBSCRIPTIONS-ONE-VIEW-1 (Owner, 2026-10-02): the totals once, on one line; the one table; Edit plans folded. */
-.bud-substrip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px 20px; padding: 12px 18px; font-size: 13.5px; color: var(--text-heading); }
-.bud-substrip > span { min-width: 0; }
-.bud-substrip b { font-size: 17px; font-variant-numeric: tabular-nums; margin-right: 4px; }
-.bud-substrip small { display: block; font-size: 12px; color: var(--text-caption); }
-@media (max-width: 900px) { .bud-substrip { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* SUBS-KPI-1: the platform cost is a note (plain text, no card), and leadership's plan list. */
+.bud-platnote { display: flex; gap: 10px; align-items: baseline; margin: var(--aspire-gap-card) 0 0; font-size: 13px; line-height: 1.5; color: var(--text-caption); }
+.bud-platnote b { color: var(--text-heading); font-weight: 600; }
+.bud-platnote .bud-tag { flex: none; }
+.bud-rplan { display: inline-flex; flex-direction: column; gap: 2px; min-width: 0; }
+.bud-rplan small { font-size: 12px; color: var(--text-caption); }
+.bud-rplan-n { align-items: flex-end; font-variant-numeric: tabular-nums; }
+.bud-rplan .aspire-pill, .bud-rplan [class*="pill"] { align-self: flex-start; }
 .bud-subm-table tbody th .ds-pill, .bud-subm-table tbody th [class*="pill"] { margin-top: 4px; }
 .bud-subm-table td small { display: block; font-size: 12px; color: var(--text-caption); font-weight: 400; }
 .bud-subm > .bud-subm-note { flex: none; }

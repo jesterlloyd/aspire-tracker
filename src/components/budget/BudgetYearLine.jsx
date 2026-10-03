@@ -9,9 +9,12 @@
 // 20px line with overflow hidden, so a popover hanging below it was cut off: the field showed and its
 // Save button never did. The popover is drawn on <body> at the button's place instead (fixed), where
 // nothing clips it. Enter saves; Escape and a click elsewhere close it.
+//
+// OWNER-NOTE-RETIRE-1 (Owner, 2026-10-03): the line ends with what has been reconciled, which the Owner
+// Note card used to carry.
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { fyRangeText, STATE_CHIP } from '../../lib/budget/budgetModel'
+import { fyRangeText, STATE_CHIP, lastReconciled } from '../../lib/budget/budgetModel'
 
 export default function BudgetYearLine({ year, canEdit, onWrite }) {
   const cc = year.budget?.cost_center || ''
@@ -59,6 +62,7 @@ export default function BudgetYearLine({ year, canEdit, onWrite }) {
           </span>
         : <span>{cc}</span>)}
       <span>{fyRangeText(year.fy)}</span>
+      {(year.state === 'current' || year.state === 'closed') && <span>{lastReconciled(year) || 'No month closed yet'}</span>}
     </span>
   )
 }
