@@ -66,6 +66,7 @@ export default function UnitLeaderPreceptorManager({
   loadPreceptors = getUnitPreceptors,
   mutateAssignment = mutateUnitPreceptorAssignment,
   readOnlyMessage = 'Assignments are read-only because this completed rotation is outside the 90-day Unit Leader window.',
+  commandQuery = '',
 }) {
   const panelRef = useRef(null)
   const closeRef = useRef(null)
@@ -74,7 +75,7 @@ export default function UnitLeaderPreceptorManager({
   const [resource, setResource] = useState({ status: 'loading', data: null })
   const [intent, setIntent] = useState(() => initialIntent(initialAction))
   const [selectedId, setSelectedId] = useState('')
-  const [search, setSearch] = useState('')
+  const search = commandQuery
   const [unitFilter, setUnitFilter] = useState('all')
   const [shiftFilter, setShiftFilter] = useState('all')
   const [saving, setSaving] = useState(false)
@@ -173,7 +174,6 @@ export default function UnitLeaderPreceptorManager({
     controller.reset()
     setIntent(null)
     setSelectedId('')
-    setSearch('')
     setUnitFilter('all')
     setShiftFilter('all')
     setError(null)
@@ -183,7 +183,6 @@ export default function UnitLeaderPreceptorManager({
     controller.reset()
     setIntent(nextIntent)
     setSelectedId('')
-    setSearch('')
     setUnitFilter('all')
     setShiftFilter('all')
     setError(null)
@@ -294,11 +293,7 @@ export default function UnitLeaderPreceptorManager({
         ) : (
           <>
             <div className="ptl-asn-filters">
-              <label className="ptl-field ptl-asn-search">
-                <span className="ptl-label">Search active preceptors</span>
-                <input className="ptl-input" type="search" value={search} disabled={saving}
-                  onChange={event => setSearch(event.target.value)} placeholder="Search by name" />
-              </label>
+              {search.trim() && <span className="ptl-muted">Search: “{search.trim()}”</span>}
               <label className="ptl-field">
                 <span className="ptl-label">Home unit</span>
                 <select className="ptl-input" value={unitFilter} disabled={saving}

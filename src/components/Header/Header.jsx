@@ -15,6 +15,8 @@ import ScopePicker from './scope/ScopePicker'
 import InternshipCohortList from './scope/InternshipCohortList'
 import ResidencyCohortList from './scope/ResidencyCohortList'
 import UniversalSearch from './UniversalSearch'
+import Launcher from '../home/Launcher'
+import '../home/home.css'
 import HeaderActions from './HeaderActions'
 import {
   residencyCohortLabel, cohortDotStatus, residencyLabelIsState,
@@ -98,7 +100,9 @@ export default function Header({ cohort, search, actions, experience, residencyC
 
       {/* Zone 3: Search. HOME-1: At a Glance carries the launcher, which is this field in
           larger form, so the header's copy is withheld there and only there. */}
-      {!search?.hidden && <UniversalSearch {...search} />}
+      {!search?.hidden && (search?.command
+        ? <Launcher {...search.command} compact placeholder="Search" />
+        : <UniversalSearch {...search} />)}
 
       {/* Zone 4: Actions - connect + catalog + bell + user menu */}
       <div className="chart-header-actions">

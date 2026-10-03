@@ -47,7 +47,7 @@ function associatedWithUnit(preceptor, unitKey) {
     preceptor.assignments.some(assignment => assignment.student_unit === unitKey)
 }
 
-export default function UnitPreceptorsWorkspace({ unitKey, unitKeys, onAssignmentsChanged }) {
+export default function UnitPreceptorsWorkspace({ unitKey, unitKeys, onAssignmentsChanged, commandQuery = '' }) {
   const loadPreceptors = useCallback(signal => getUnitPreceptors(signal), [])
   const loadHistory = useCallback(signal => getNominations(unitKey, signal), [unitKey])
   const preceptors = useResource(loadPreceptors)
@@ -55,7 +55,7 @@ export default function UnitPreceptorsWorkspace({ unitKey, unitKeys, onAssignmen
   // The shared portal Refresh re-fetches the preceptor directory and its nomination history. No-op
   // when this workspace is rendered outside a portal (the hook needs the portal refresh provider).
   useRegisterPortalRefresh(() => Promise.all([preceptors.refresh(), history.refresh()]))
-  const [search, setSearch] = useState('')
+  const search = commandQuery
   const [shift, setShift] = useState('all')
   const [active, setActive] = useState('active')
   const [crossUnit, setCrossUnit] = useState('all')
@@ -140,11 +140,7 @@ export default function UnitPreceptorsWorkspace({ unitKey, unitKeys, onAssignmen
 
       <div className="ptl-prec-toolbar" aria-label="Preceptor directory controls">
         <button type="button" className="ptl-btn ptl-prec-add" onClick={() => setCreateOpen(true)}>+ Add Preceptor</button>
-        <label className="ptl-field ptl-prec-search">
-          <span className="ptl-visually-hidden">Search preceptors</span>
-          <input className="ptl-input" type="search" value={search}
-            onChange={event => setSearch(event.target.value)} placeholder="Name or email" />
-        </label>
+        {search.trim() && <span className="ptl-muted">Search: “{search.trim()}”</span>}
         <details className="ptl-prec-filter-menu">
           <summary className="ptl-btn ptl-btn-quiet">Filters</summary>
           <div className="ptl-prec-filter-panel">

@@ -17,7 +17,7 @@
 import { useEffect, useRef, useState } from 'react'
 import SkylineCard from '../SkylineCard'
 import Launcher from './Launcher'
-import { greetingFor, dateTimeLine } from '../../lib/home/launcherModel'
+import { greetingFor, dateTimeLine, launcherPromptFor } from '../../lib/home/launcherModel'
 
 function useMinuteClock() {
   const [now, setNow] = useState(() => new Date())
@@ -74,6 +74,7 @@ function useScrollGlare(sceneRef, glareRef, enabled) {
 
 export default function HomeBanner({ classic, fullName, userKey, items, calendar, launcher }) {
   const now = useMinuteClock()
+  const [cityTimeZone, setCityTimeZone] = useState(null)
   const firstName = String(fullName || '').trim().split(/\s+/)[0] || ''
   const sceneRef = useRef(null)
   const glareRef = useRef(null)
@@ -114,6 +115,26 @@ export default function HomeBanner({ classic, fullName, userKey, items, calendar
     return () => { clearTimeout(timer); mo.disconnect() }
   }, [])
 
+  // Skyline owns the city preference and announces changes through its public
+  // host contract. The small registry covers the city packs currently used by
+  // ASPIRE; unknown packs safely use the viewer clock.
+  useEffect(() => {
+    const zones = {
+      atlanta: 'America/New_York', capeTown: 'Africa/Johannesburg', chicago: 'America/Chicago',
+      hongKong: 'Asia/Hong_Kong', istanbul: 'Europe/Istanbul', london: 'Europe/London',
+      porterRanch: 'America/Los_Angeles', reine: 'Europe/Oslo', rio: 'America/Sao_Paulo',
+      seattle: 'America/Los_Angeles', tokyo: 'Asia/Tokyo', toronto: 'America/Toronto',
+    }
+    const onCity = (event) => {
+      const key = event.detail?.city || event.detail?.cityKey || event.detail
+      const normalized = String(key || '').replace(/[-_ ]/g, '').toLowerCase()
+      const match = Object.entries(zones).find(([name]) => name.replace(/[-_ ]/g, '').toLowerCase() === normalized)
+      setCityTimeZone(match?.[1] || null)
+    }
+    window.addEventListener('masthead-city', onCity)
+    return () => window.removeEventListener('masthead-city', onCity)
+  }, [])
+
   const scene = (
     <div className="hm-window-scene" ref={sceneRef}>
       <SkylineCard fullName={fullName} userKey={userKey} items={items} calendar={calendar} flush />
@@ -127,7 +148,7 @@ export default function HomeBanner({ classic, fullName, userKey, items, calendar
           {greetingFor(now, firstName)}
           <small><time dateTime={now.toISOString()}>{dateTimeLine(now)}</time></small>
         </div>
-        <Launcher {...launcher} />
+        <Launcher {...launcher} placeholder={launcher?.placeholder || launcherPromptFor(now, cityTimeZone)} />
       </div>
     </div>
   )

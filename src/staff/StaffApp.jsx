@@ -40,6 +40,7 @@ import RotationTab from '../components/RotationTab'
 import AddStudentModal from '../components/AddStudentModal'
 import UnifiedNav from '../components/UnifiedNav'
 import Header from '../components/Header/Header'
+import { allowedActions, personRows } from '../lib/home/launcherModel'
 import NewCohortModal from '../components/NewCohortModal'
 import ManageCohortModal from '../components/ManageCohortModal'
 import { useAuth } from '../contexts/AuthContext'
@@ -1374,6 +1375,14 @@ function MainApp({ onLogout }) {
     ...searchResults.catalog.map(r => ({ type:'catalog', data:r })),
   ]
 
+  const headerCommand = {
+    actions: allowedActions({ isActive: currentUserProfile?.is_active !== false }),
+    people: personRows({ students, displayName }),
+    canAskKeith: currentUserProfile?.role !== 'viewer' || currentUserProfile?.is_owner === true,
+    onRun: (item) => item?.to && navigate(item.to),
+    onOpenPerson: (person) => person?.to && navigate(person.to),
+  }
+
   const handleSearchKey = e => {
     if (!searchOpen) return
     if (e.key === 'ArrowDown') { e.preventDefault(); setSearchActiveIdx(i => Math.min(i+1, searchFlat.length-1)) }
@@ -1469,7 +1478,7 @@ function MainApp({ onLogout }) {
         <Header
           cohort={{ cohorts, activeCohort, activeCohortId, sortedCohorts, handleCohortSwitch, canEdit, setShowManageCohort, setShowNewCohort }}
           /* HOME-1: At a Glance carries the launcher, so the header search is withheld there. */
-          search={{ hidden: hideHomeSearch, searchAreaRef, searchInputRef, searchQuery, searchFocused, searchOpen, searchLoading, searchFlat, searchResults, searchActiveIdx, setSearchActiveIdx, setSearchOpen, setSearchFocused, handleSearchChange, handleSearchKey, handleSearchResult }}
+          search={{ hidden: hideHomeSearch, command: headerCommand, searchAreaRef, searchInputRef, searchQuery, searchFocused, searchOpen, searchLoading, searchFlat, searchResults, searchActiveIdx, setSearchActiveIdx, setSearchOpen, setSearchFocused, handleSearchChange, handleSearchKey, handleSearchResult }}
           actions={{ cohorts, navigate, activeTab, bellRef, setShowActionCenter, showActionCenter, actionBadgeCount, notificationsUnread, toast }}
           /* SCOPE-PICKER-1: `experience` is passed ONLY for profiles holding
              ngrp_access. Its absence means one experience, which the Scope pill

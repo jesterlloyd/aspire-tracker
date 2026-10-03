@@ -186,3 +186,20 @@ export function dateTimeLine(now = new Date()) {
   const time = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
   return `${date} · ${time}`
 }
+
+// The launcher follows the place shown by Skyline when the service tells the host
+// which city is active. Until that event arrives, the viewer's clock is the honest
+// fallback. Keep the copy short because it is also used in compact taskbar fields.
+export function launcherPromptFor(now = new Date(), timeZone = null) {
+  let hour = now.getHours()
+  if (timeZone) {
+    const hourText = new Intl.DateTimeFormat('en-US', { hour: 'numeric', hour12: false, timeZone }).format(now)
+    hour = Number(hourText)
+  }
+  const period = hour < 5 ? 'tonight'
+    : hour < 12 ? 'this morning'
+    : hour < 17 ? 'this afternoon'
+    : hour < 21 ? 'this evening'
+    : 'tonight'
+  return `What do you want to do ${period}?`
+}

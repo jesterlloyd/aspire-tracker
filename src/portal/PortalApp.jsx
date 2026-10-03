@@ -84,6 +84,7 @@ import { demoScopeParam } from '../lib/demoMode'
 import { isFullMessagesPath } from '../lib/messages/messagesRoutes'
 import { budgetPortal } from '../components/budget/budgetApi'
 import { fetchAcademicsEvaluationThemes } from './na/nursingAcademicsApi'
+import { portalActionsFor } from './portalCommandModel'
 
 // PORTAL-SPLIT Phase 3: what a portal shows while its own chunk arrives. The
 // same card the Shift Log tab already uses, so a portal opening for the first
@@ -221,6 +222,8 @@ export default function PortalApp() {
   const [accessEnded, setAccessEnded] = useState(false)
   const [previewStudents, setPreviewStudents] = useState([])
   const [previewStudentId, setPreviewStudentId] = useState(null)
+  const [commandPeople, setCommandPeople] = useState([])
+  const [commandQuery, setCommandQuery] = useState('')
 
   // STUDENT-PORTAL-PROFILE-1: /portal/profile is the My Profile destination.
   const studentMessagesPath = location.pathname.startsWith('/portal/messages')
@@ -317,6 +320,15 @@ export default function PortalApp() {
     budgetPortal({ probe: '1' }).then(r => { if (live) setNaBudgetEnabled(!!r?.enabled) }).catch(() => { if (live) setNaBudgetEnabled(false) })
     return () => { live = false }
   }, [isNursingAcademic])
+  const portalKind = isStudent ? 'student' : isUnitLeader ? 'unit_leader' : isAcademicPartner ? 'academic_partner' : isNursingAcademic ? 'nursing_academic' : 'talent_acquisition'
+  const portalCommand = {
+    actions: portalActionsFor(portalKind, { budgetEnabled: naBudgetEnabled, messagesEnabled: !staffPreview }),
+    people: commandPeople,
+    canAskKeith: false,
+    onRun: (item) => item?.to && navigate(item.to),
+    onOpenPerson: (person) => person?.to && navigate(person.to),
+    onQuery: setCommandQuery,
+  }
   // KEITH-THEMES-1 (2026-09-29): the Evaluation tab shows only when the server says this grant carries
   // evaluation_themes_access (or the viewer is Owner/Admin previewing). Fail-closed, like the budget.
   const [naThemesEnabled, setNaThemesEnabled] = useState(false)
@@ -609,6 +621,7 @@ export default function PortalApp() {
     return (
       <PortalAccessSignalContext.Provider value={handleAccessEnded}>
       <PortalShell title="Student Portal" userName={userProfile?.full_name}
+        command={portalCommand}
         onEditProfile={goProfile} withTabBar
         headerVariant="nightfall" logoSrc="/cs-logo-large.png"
         homePath={staffPreview ? '/portal/student' : '/portal'} homeLabel="Home"
@@ -700,7 +713,7 @@ export default function PortalApp() {
     // Every fetching child can hand an access refusal up to the shell.
     return (
       <PortalAccessSignalContext.Provider value={handleAccessEnded}>
-      <PortalShell title="Unit Leader Portal" userName={userProfile?.full_name} withTabBar showHeaderName
+      <PortalShell title="Unit Leader Portal" userName={userProfile?.full_name} withTabBar showHeaderName command={portalCommand}
         headerVariant="nightfall" logoSrc="/cs-logo-large.png"
         homePath="/portal/unit/home" homeLabel="Home"
         profileImageUrl={userProfile?.avatar_url}
@@ -736,6 +749,8 @@ export default function PortalApp() {
             onBackToList={backToList}
             messagesEnabled={!staffPreview}
             staffPreview={staffPreview}
+            onCommandPeople={setCommandPeople}
+            commandQuery={commandQuery}
           />
         </Suspense>
         {!staffPreview && photoDialog}
@@ -754,7 +769,7 @@ export default function PortalApp() {
     // Every fetching child can hand an access refusal up to the shell.
     return (
       <PortalAccessSignalContext.Provider value={handleAccessEnded}>
-      <PortalShell title="Academic Partner Portal" userName={userProfile?.full_name} withTabBar showHeaderName
+      <PortalShell title="Academic Partner Portal" userName={userProfile?.full_name} withTabBar showHeaderName command={portalCommand}
         headerVariant="nightfall" logoSrc="/cs-logo-large.png"
         homePath="/portal/ap/students" homeLabel="Home"
         profileImageUrl={userProfile?.avatar_url}
@@ -784,6 +799,7 @@ export default function PortalApp() {
         <Suspense fallback={<PortalLoading label="Loading your portal" />}>
           <AcademicPartnerPortal view={apView} onNavigate={goApSection} schoolKeys={access?.school_keys || []}
             messagesEnabled={apMessagesEnabled}
+            onCommandPeople={setCommandPeople}
             threadId={apThreadId} onSelectThread={openApThread} onBackToList={apBackToList} />
         </Suspense>
         {!staffPreview && photoDialog}
@@ -802,7 +818,7 @@ export default function PortalApp() {
     // Every fetching child can hand an access refusal up to the shell.
     return (
       <PortalAccessSignalContext.Provider value={handleAccessEnded}>
-      <PortalShell title="Nursing Education & Leadership Portal" userName={userProfile?.full_name} withTabBar showHeaderName
+      <PortalShell title="Nursing Education & Leadership Portal" userName={userProfile?.full_name} withTabBar showHeaderName command={portalCommand}
         headerVariant="nightfall" logoSrc="/cs-logo-large.png"
         homePath="/portal/academics/calendar" homeLabel="Home"
         profileImageUrl={userProfile?.avatar_url}
@@ -848,7 +864,7 @@ export default function PortalApp() {
     // changes. Messages, Send Feedback, and a Welcome Tour are not enabled for it yet.
     return (
       <PortalAccessSignalContext.Provider value={handleAccessEnded}>
-      <PortalShell title="Residency Portal" userName={userProfile?.full_name} withTabBar showHeaderName
+      <PortalShell title="Residency Portal" userName={userProfile?.full_name} withTabBar showHeaderName command={portalCommand}
         headerVariant="nightfall" logoSrc="/cs-logo-large.png"
         homePath="/portal/residency/overview" homeLabel="At a Glance"
         profileImageUrl={userProfile?.avatar_url}

@@ -69,7 +69,7 @@ function ApHoursCell({ hours }) {
 // reply, and Refresh integration. Enablement is the SERVER capability passed as messagesEnabled (env
 // flag AND applied DB migration), never a client constant; until the server reports enabled, Messages
 // shows an honest prepared state (no workspace, no polling) and no lower-right launcher mounts.
-export default function AcademicPartnerPortal({ view = 'students', onNavigate, messagesEnabled = false, threadId, onSelectThread, onBackToList }) {
+export default function AcademicPartnerPortal({ view = 'students', onNavigate, messagesEnabled = false, threadId, onSelectThread, onBackToList, onCommandPeople }) {
   if (view === 'placement-requests') {
     return <PlacementRequestsView onNavigate={onNavigate} />
   }
@@ -92,10 +92,10 @@ export default function AcademicPartnerPortal({ view = 'students', onNavigate, m
       />
     )
   }
-  return <StudentsView />
+  return <StudentsView onCommandPeople={onCommandPeople} />
 }
 
-function StudentsView() {
+function StudentsView({ onCommandPeople }) {
   const { userProfile, user } = useAuth()
   // EVENT-AUDIENCE-2: flagged events ticked for Academic Partners. No calendar
   // pill: this portal has no calendar to open.
@@ -173,6 +173,15 @@ function StudentsView() {
   // only for students the endpoint flagged has_photo. Authorization is server-side; initials remain
   // the fallback whenever a photo is absent or not yet resolved.
   const photos = useSchoolStudentPhotos(roster)
+  useEffect(() => {
+    onCommandPeople?.(roster.map(s => ({
+      id: `student:${s.id}`,
+      kind: 'student',
+      name: displayName(s),
+      qualifier: ['Student', s.school_name || activeSchool?.school_key].filter(Boolean).join(' · '),
+      to: `/portal/ap/students?student=${encodeURIComponent(s.id)}`,
+    })))
+  }, [roster, onCommandPeople, activeSchool?.school_key])
 
   if (loading) return <LoadingState label="Loading your students" />
   if (error)   return <ErrorState detail={error} onRetry={reload} />

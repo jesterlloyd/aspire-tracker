@@ -46,7 +46,7 @@ export default function UniversalSearch({
             border:`1px solid ${searchFocused ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.10)'}`,
             borderRadius:8, color:'#fff', fontSize:12.5, fontFamily:'Plus Jakarta Sans',
           }}
-          placeholder="Search students, units, contacts…"
+          placeholder="Search"
         />
         <span style={{ position:'absolute', right:10, pointerEvents:'none', fontSize:10, fontWeight:500, color:'rgba(255,255,255,0.70)', fontFamily:'ui-monospace, monospace', background:'rgba(255,255,255,0.10)', border:'1px solid rgba(255,255,255,0.15)', padding:'1px 5px', borderRadius:3 }}>⌘K</span>
       </div>

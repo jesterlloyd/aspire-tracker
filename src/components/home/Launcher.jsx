@@ -24,7 +24,7 @@ const ICON = { sign: PenLine, form: ListChecks, out: Mail, cal: CalendarDays, fi
 
 const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent || '')
 
-export default function Launcher({ actions = [], people = [], canAskKeith = true, onRun, onOpenPerson }) {
+export default function Launcher({ actions = [], people = [], canAskKeith = true, onRun, onOpenPerson, onQuery, placeholder = 'What do you want to do today?', compact = false }) {
   const [query, setQuery] = useState('')
   const [sel, setSel] = useState(0)
   const [open, setOpen] = useState(false)
@@ -52,7 +52,7 @@ export default function Launcher({ actions = [], people = [], canAskKeith = true
 
   useEffect(() => () => clearTimeout(blurTimer.current), [])
 
-  const clear = () => { setQuery(''); setSel(0); setOpen(false) }
+  const clear = () => { setQuery(''); onQuery?.(''); setSel(0); setOpen(false) }
 
   const run = (opt) => {
     if (!opt) return
@@ -73,7 +73,7 @@ export default function Launcher({ actions = [], people = [], canAskKeith = true
   const activeId = expanded && options[sel] ? `hm-opt-${options[sel].id}` : undefined
 
   return (
-    <div className={`hm-cmdwrap${inUse ? ' is-in-use' : ''}`}
+    <div className={`hm-cmdwrap${compact ? ' hm-cmdwrap-compact' : ''}${inUse ? ' is-in-use' : ''}`}
       onFocus={() => setInUse(true)}
       onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setInUse(false) }}>
       <div className="hm-cmd">
@@ -88,10 +88,10 @@ export default function Launcher({ actions = [], people = [], canAskKeith = true
           aria-controls="hm-cmd-results"
           aria-autocomplete="list"
           aria-activedescendant={activeId}
-          aria-label="What do you want to do today? Search actions, people, or ask Keith"
-          placeholder="What do you want to do today?"
+          aria-label={`${placeholder} Search actions, people, or ask Keith`}
+          placeholder={placeholder}
           value={query}
-          onChange={(e) => { setQuery(e.target.value); setSel(0); setOpen(true) }}
+          onChange={(e) => { setQuery(e.target.value); onQuery?.(e.target.value); setSel(0); setOpen(true) }}
           onFocus={() => setOpen(true)}
           onBlur={() => { blurTimer.current = setTimeout(() => setOpen(false), 120) }}
           onKeyDown={onKeyDown}

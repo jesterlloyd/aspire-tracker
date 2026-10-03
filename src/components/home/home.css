@@ -204,6 +204,11 @@
 
 /* The launcher */
 .hm-cmdwrap { display: flex; flex-direction: column; align-items: center; padding: 6px 0 0; }
+.hm-cmdwrap-compact { padding: 0; align-items: stretch; }
+.hm-cmdwrap-compact .hm-cmd { width: 220px; }
+.hm-cmdwrap-compact .hm-cmd input { height: 36px; border-radius: 8px; padding-left: 38px; padding-right: 52px; font-size: 12.5px; box-shadow: none; }
+.hm-cmdwrap-compact .hm-cmd-ico { left: 12px; top: 10px; width: 16px; height: 16px; }
+.hm-cmdwrap-compact .hm-cmd-kbd { right: 8px; top: 8px; padding: 2px 5px; font-size: 10px; }
 .hm-cmd { position: relative; width: min(680px, 100%); }
 .hm-cmd input {
   width: 100%; height: 48px;

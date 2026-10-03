@@ -14,6 +14,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { PortalRefreshProvider } from './PortalRefresh'
 import { PortalHeaderSlotsContext } from './PortalHeaderSlots'
+import PortalCommandBar from './PortalCommandBar'
 
 // PORTAL-SWITCHER-1: the same icon per portal as the staff UserMenu, so a portal is
 // recognizable from either menu. The labels and paths come from the shared list.
@@ -226,6 +227,7 @@ export default function PortalShell({
   previewProfileImageUrl = null,
   nav = null,
   utilityLayer = null,
+  command = null,
   onRestartTour,
   children,
 }) {
@@ -288,6 +290,7 @@ export default function PortalShell({
               </div>
             </div>
             <div className="ptl-header-user">
+              {command && <PortalCommandBar {...command} />}
               {/* WELCOME-TOUR-PORTALS-1: this span is the DOM wrapper every portal's school/cohort
                   scope selectors portal into (see PortalHeaderControls), so it is the outermost
                   wrapper for however many of those controls a given portal renders. */}

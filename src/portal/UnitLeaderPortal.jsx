@@ -113,7 +113,7 @@ function useEndpoint(loader, deps) {
   }
 }
 
-export default function UnitLeaderPortal({ view = 'home', onNavigate, threadId, onSelectThread, onBackToList, composeIntent = null, messagesEnabled = true, staffPreview = false }) {
+export default function UnitLeaderPortal({ view = 'home', onNavigate, threadId, onSelectThread, onBackToList, composeIntent = null, messagesEnabled = true, staffPreview = false, onCommandPeople, commandQuery = '' }) {
   const { userProfile } = useAuth()
   const [unitKey, setUnitKey] = useState(ALL_UNITS)
   const [cohortSel, setCohortSel] = useState(null)   // null => the resolved default (newest active)
@@ -131,6 +131,16 @@ export default function UnitLeaderPortal({ view = 'home', onNavigate, threadId, 
     const src = unitKey === ALL_UNITS ? units : units.filter(u => u.unit_key === unitKey)
     return src.flatMap(u => (u.students || []).map(s => ({ ...s, unit_key: u.unit_key })))
   }, [units, unitKey])
+  useEffect(() => {
+    onCommandPeople?.(students.map(s => ({
+      id: `student:${s.id}`,
+      kind: 'student',
+      name: studentName(s),
+      qualifier: ['Student', s.unit_key].filter(Boolean).join(' · '),
+      to: '/portal/unit/students',
+      message: `/portal/messages?student=${encodeURIComponent(s.id)}`,
+    })))
+  }, [students, onCommandPeople])
 
   // Cohort context. Only Home and Students are genuinely cohort-scoped: the roster mixes cohorts, and a
   // browser cohort choice NARROWS only within the already server-authorized set (it never widens it).
@@ -179,7 +189,7 @@ export default function UnitLeaderPortal({ view = 'home', onNavigate, threadId, 
   // No assigned unit is a permission state, not an empty one.
   if (unitKeys.length === 0) return <DeniedState />
 
-  const shared = { unitKey, unitKeys, students, acceptingCohort, refreshRoster: roster.refresh }
+  const shared = { unitKey, unitKeys, students, acceptingCohort, refreshRoster: roster.refresh, commandQuery }
 
   // The switcher renders only where narrowing the unit view materially changes what the
   // page shows, and never as an authorization control. Placement Requests and Capacity
@@ -230,7 +240,7 @@ export default function UnitLeaderPortal({ view = 'home', onNavigate, threadId, 
             <UnitEvaluationsWorkspace unitKeys={unitKeys} />
           </Suspense>
         )}
-        {view === 'preceptors' && <PreceptorScreen unitKey={unitKey} unitKeys={unitKeys} refreshRoster={roster.refresh} />}
+        {view === 'preceptors' && <PreceptorScreen unitKey={unitKey} unitKeys={unitKeys} refreshRoster={roster.refresh} commandQuery={commandQuery} />}
         {view === 'profile'    && <ProfileScreen unitKeys={unitKeys} profile={userProfile} />}
         {view === 'messages' && composeIntent?.compose === 'aspire' && (
           <AspireTeamComposer
@@ -1113,10 +1123,10 @@ function StudentRow({
   )
 }
 
-function PreceptorScreen({ unitKey, unitKeys, refreshRoster }) {
+function PreceptorScreen({ unitKey, unitKeys, refreshRoster, commandQuery = '' }) {
   return (
     <Suspense fallback={<TableSkeleton label="Loading preceptors" />}>
-      <UnitPreceptorsWorkspace unitKey={unitKey} unitKeys={unitKeys} onAssignmentsChanged={refreshRoster} />
+      <UnitPreceptorsWorkspace unitKey={unitKey} unitKeys={unitKeys} onAssignmentsChanged={refreshRoster} commandQuery={commandQuery} />
     </Suspense>
   )
 }
