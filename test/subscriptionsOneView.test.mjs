@@ -52,6 +52,9 @@ test('leadership sees the totals, the plans read-only and the platform note', ()
   assert.match(c, /\{plat\.count > 0 && \(\s*<p className="bud-platnote">/)
   assert.match(c, /\{!canEdit && <ReaderPlans subs=\{subs\} statusOf=\{statusOf\} today=\{today\} \/>\}/)
   assert.match(c, /const READER_HIDDEN = new Set\(\['proposed', 'declined'\]\)/)
+  // PLAN-COLUMNS-1 (Owner, 2026-10-03): the four columns share the row evenly; the figures are right-aligned.
+  for (const k of ['name', 'cost', 'next', 'year']) assert.match(c, new RegExp(`key: '${k}', label: '[^']+', min: \\d+, grow: 1,`), k)
+  assert.match(c, /key: 'next', label: 'Next charge', min: 110, grow: 1, align: 'right'/)
   assert.doesNotMatch(c, /bud-platform\b/)
   assert.doesNotMatch(read('src/components/budget/budget.css'), /\.bud-platform \{/)
   // PEND-EDGE-1 (Owner, 2026-10-03): Not Counted Yet is a plain card too.

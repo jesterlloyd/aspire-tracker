@@ -382,20 +382,22 @@ function ApproveMenu({ name, fyStart, onChoose }) {
 
 
 // SUBS-KPI-1: the reader's plan list, one row per plan: what it is, what it costs, when it next charges, a year.
+// PLAN-COLUMNS-1 (Owner, 2026-10-03): four even columns, the three figures right-aligned, so Cost and Next
+// charge no longer touch while Service holds most of the row.
 const READER_HIDDEN = new Set(['proposed', 'declined'])
 const READER_PILL = new Set(['ended', 'ending'])
 function ReaderPlans({ subs, statusOf, today }) {
   const rows = subs.filter(s => !READER_HIDDEN.has(statusOf(s).key))
   if (!rows.length) return null
   const columns = [
-    { key: 'name', label: 'Service', min: 180, grow: 1.8, priority: 1, sortValue: s => s.name, render: s => {
+    { key: 'name', label: 'Service', min: 180, grow: 1, priority: 1, sortValue: s => s.name, render: s => {
       const st = statusOf(s)
       return <span className="bud-rplan"><b>{s.name}</b>{s.plan && <small>{s.plan}</small>}{READER_PILL.has(st.key) && <Pill tone={TONE[st.tone]}>{st.label}</Pill>}</span>
     } },
-    { key: 'cost', label: 'Cost', min: 110, grow: 0.8, align: 'right', priority: 1, sortValue: s => Number(s.amount) || 0,
+    { key: 'cost', label: 'Cost', min: 110, grow: 1, align: 'right', priority: 1, sortValue: s => Number(s.amount) || 0,
       render: s => <span className="bud-rplan bud-rplan-n"><b>{s.amount == null ? '–' : usd(s.amount)}</b><small>{billingLabel(s.billing)}{s.billing === 'usage' ? ', est.' : ''}</small></span> },
-    { key: 'next', label: 'Next charge', min: 110, grow: 0.8, priority: 2, sortValue: s => nextCharge(s, today) || '9999', render: s => { const n = nextCharge(s, today); return n ? dateText(n) : DASH } },
-    { key: 'year', label: 'Per year', min: 100, grow: 0.7, align: 'right', priority: 1, sortValue: s => perYear(s, today) || 0, render: s => { const y = perYear(s, today); return y ? usd(y) : DASH } },
+    { key: 'next', label: 'Next charge', min: 110, grow: 1, align: 'right', priority: 2, sortValue: s => nextCharge(s, today) || '9999', render: s => { const n = nextCharge(s, today); return n ? dateText(n) : DASH } },
+    { key: 'year', label: 'Per year', min: 110, grow: 1, align: 'right', priority: 1, sortValue: s => perYear(s, today) || 0, render: s => { const y = perYear(s, today); return y ? usd(y) : DASH } },
   ]
   return (
     <SurfaceCard className="bud-card">
