@@ -101,17 +101,16 @@ test('S-05: both directions of toggle_active are wired, and audited', () => {
   assert.match(src, /admin_account_deactivated/)
 })
 
-test('S-05: re-inviting a previously deactivated account lifts its ban', () => {
+// S-35 (Owner decision 2026-10-02, commit "S-35: invite-user matches an account exactly and
+// never lifts a deactivation"): this test used to require the OPPOSITE, that re-inviting a
+// deactivated account lifted its ban. Inviting is no longer a reactivation path: a deactivated
+// profile is refused with 409 and the ban stays until Users & Access lifts it.
+test('S-35: inviting never lifts a deactivation ban; a deactivated account is refused', () => {
   const src = read('api/invite-user.js')
-  // The re-invite path sets is_active: true, so the ban must be lifted or the
-  // re-invited person still could not sign in.
-  assert.match(src, /is_active: true/)
-  assert.match(src, /await restoreAuthAccess\(supabaseAdmin, newUserId\)/)
-  const call = src.indexOf('await restoreAuthAccess(supabaseAdmin, newUserId)')
-  const profileWrite = src.indexOf("from('user_profiles')\n        .update({")
-  assert.ok(profileWrite > 0 && call > profileWrite, 'the ban is lifted after the profile is re-enabled')
-  // Non-fatal: the activation email still matters more.
-  assert.match(src, /could not lift auth ban on re-invite/)
+  assert.doesNotMatch(src, /import \{[^}]*restoreAuthAccess[^}]*\} from '\.\/lib\/accountSession\.js'/)
+  assert.doesNotMatch(src, /await restoreAuthAccess\(/)
+  assert.match(src, /if \(existingProfile && existingProfile\.is_active === false\) \{[\s\S]{0,400}status\(409\)/)
+  assert.match(src, /belongs to a deactivated account\. Reactivate it from Users & Access/)
 })
 
 test('S-05: only admin-users deactivates a staff account', () => {

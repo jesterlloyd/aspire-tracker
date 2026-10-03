@@ -67,7 +67,9 @@ test('S-27: the four service-role ilike values are escaped', () => {
   assert.match(code('api/messages-staff-options.js'), /\.ilike\('full_name', `%\$\{escapeLikePattern\(q\)\}%`\)/)
   assert.match(code('api/keith.js'), /\.ilike\('program_type', `%\$\{escapeLikePattern\(input\.program_type\)\}%`\)/)
   assert.match(code('api/keith.js'), /\.ilike\('unit_name', `%\$\{escapeLikePattern\(input\.unit_name\)\}%`\)/)
-  for (const f of ['api/interview-book.js', 'api/messages-staff-options.js', 'api/keith.js']) {
+  // S-35 (2026-10-02): the invite-user lookup joined the sweep; its pattern is the whole address, escaped.
+  assert.match(code('api/invite-user.js'), /\.ilike\('email', escapeLikePattern\(normEmail\)\)/)
+  for (const f of ['api/interview-book.js', 'api/messages-staff-options.js', 'api/keith.js', 'api/invite-user.js']) {
     const src = code(f)
     for (const m of src.matchAll(/\.ilike\([^)]*\)/g)) assert.match(m[0], /escapeLikePattern/, `${f}: ${m[0]}`)
   }

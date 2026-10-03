@@ -1137,7 +1137,7 @@ revocation suites), S-12 (`test/cronSecretFailClosed.test.mjs`, every file in `a
 
 ## S-35. Invite-user matches an existing account with an unescaped ILIKE and re-enables it
 
-- **Severity**: Medium. **Status**: OPEN.
+- **Severity**: Medium. **Status**: Closed 2026-10-02 (see Fix below).
 - **Risk**: an Owner or Admin invite can silently attach staff access to the wrong person,
   including a deactivated former account, and lift its auth ban.
 - **Evidence** (CONFIRMED): `api/invite-user.js:209` validates the address only as
@@ -1151,6 +1151,16 @@ revocation suites), S-12 (`test/cronSecretFailClosed.test.mjs`, every file in `a
 - **Fix direction**: exact match on a normalised email (or `escapeLikePattern`), treat a
   lookup error as a failure, validate the address, and add the site to the S-27 sweep.
   Needs SQL: no.
+- **Fix (2026-10-02)**: `api/invite-user.js` validates the address as one address with no
+  whitespace or LIKE wildcards, looks the profile up with
+  `.ilike('email', escapeLikePattern(normEmail))`, re-compares every returned row on
+  `normalizeEmailForLookup` equality, returns 500 on a lookup error and 409 on more than one
+  exact match, and refuses a profile with `is_active === false` with 409 ("deactivated;
+  reactivate from Users & Access"). `restoreAuthAccess` is no longer imported or called
+  there (Owner, 2026-10-02: inviting never lifts a deactivation; S-05's test that required
+  the lift is inverted in the same commit). The site joined the S-27 sweep in
+  `test/lowSeverityCleanup.test.mjs`; `test/s35InviteUserMatch.test.mjs` covers the rule.
+- **Status**: Closed 2026-10-02.
 
 ## S-36. Interview rubric policies and the cohort list function carry no cohort scope
 

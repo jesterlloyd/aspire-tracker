@@ -31,9 +31,8 @@ import { randomUUID } from 'crypto';
 import { createMailer } from '../lib/server/email/mailer.js';
 import { appUrl } from '../lib/server/appUrl.js';
 import { staffInvitationEmail } from '../lib/server/email/staffInvitation.js';
-import { normalizeEmailForLookup } from '../src/lib/emailUtils.js';
+import { normalizeEmailForLookup, escapeLikePattern } from '../src/lib/emailUtils.js';
 import { isActiveProfile, INACTIVE_STATUS, INACTIVE_REASON, INACTIVE_MESSAGE } from './lib/activeAccount.js';
-import { restoreAuthAccess } from './lib/accountSession.js';
 
 // STAFF-INVITE-CONTACTS-1 / PORTAL-ACTIVATION-RELIABILITY-1 parity.
 //
@@ -206,7 +205,9 @@ export default async function handler(req, res) {
   if (!email) {
     return res.status(400).json({ error: 'invalid_request', field: 'email', message: 'Email is required.' });
   }
-  if (!email.includes('@') || !email.includes('.')) {
+  // S-35: one address, no whitespace, no LIKE wildcards. The lookup below escapes them anyway;
+  // refusing them here keeps a typo from ever reaching Auth.
+  if (!/^[^\s@%_]+@[^\s@%_]+\.[^\s@%_]+$/.test(email)) {
     return res.status(400).json({ error: 'invalid_request', field: 'email', message: 'Email is invalid.' });
   }
   const fullName = typeof body.full_name === 'string' ? body.full_name.trim() : null;
@@ -224,16 +225,44 @@ export default async function handler(req, res) {
   try {
     await recordStaffInviteEvent(supabaseAdmin, { eventType: 'invite_requested', email: normEmail, actorProfileId: auth.profileId, requestId });
 
-    // ── EXISTING-IDENTITY PRE-CHECK (normalized email) ────────────────────────
-    // Staff access already active is a conflict the caller must see; every other
-    // pre-existing shape (portal-only profile, profile with no auth identity, a
-    // disabled staff account) is a SAFE RE-INVITE that reuses the identity. The
-    // account is never duplicated and nothing is ever deleted.
-    const { data: existingProfile } = await supabaseAdmin
+    // ── EXISTING-IDENTITY PRE-CHECK (exact normalized email) ──────────────────
+    // Staff access already active is a conflict the caller must see; a DEACTIVATED
+    // account is a conflict too (S-35, Owner 2026-10-02: inviting never lifts a
+    // deactivation; Users & Access reactivates). Every other pre-existing shape
+    // (portal-only profile, profile with no auth identity) is a SAFE RE-INVITE that
+    // reuses the identity. The account is never duplicated and nothing is deleted.
+    //
+    // S-35: the match is EXACT. The pattern is escaped so `_` and `%` in the typed
+    // address match themselves, and every row returned is re-compared on the
+    // normalized email in JS (the emailUtils rule), so a case-folded exact match is
+    // the only thing that can attach this invitation to an existing person. A
+    // lookup error or more than one match is a failure, never the insert path.
+    const { data: emailRows, error: lookupErr } = await supabaseAdmin
       .from('user_profiles')
-      .select('id, role, is_owner, is_active, login_enabled, auth_user_id, can_conduct_interviews, interviewer_color')
-      .ilike('email', normEmail)
-      .maybeSingle();
+      .select('id, email, role, is_owner, is_active, login_enabled, auth_user_id, can_conduct_interviews, interviewer_color')
+      .ilike('email', escapeLikePattern(normEmail))
+      .limit(5);
+    if (lookupErr) {
+      console.log('[invite-user] profile lookup failed', { errorCode: lookupErr.code, request_id: requestId });
+      return res.status(500).json({ error: 'internal_error' });
+    }
+    const exactMatches = (emailRows || []).filter(r => normalizeEmailForLookup(r.email) === normEmail);
+    if (exactMatches.length > 1) {
+      console.log('[invite-user] ambiguous email match', { matches: exactMatches.length, request_id: requestId });
+      return res.status(409).json({
+        error: 'conflict',
+        message: 'More than one account uses that email. Resolve it in Users & Access before inviting.',
+      });
+    }
+    const existingProfile = exactMatches[0] || null;
+
+    if (existingProfile && existingProfile.is_active === false) {
+      console.log('[invite-user] existing deactivated account', { requestedRole, request_id: requestId });
+      return res.status(409).json({
+        error: 'conflict',
+        message: 'That email belongs to a deactivated account. Reactivate it from Users & Access instead of inviting again.',
+      });
+    }
 
     const STAFF_ROLES = ['owner', 'admin', 'co-lead', 'co_lead', 'interviewer', 'viewer'];
     const hasActiveStaff = !!existingProfile
@@ -298,8 +327,8 @@ export default async function handler(req, res) {
     // Profile creation. Sequence preserved: identity first, then profile upsert
     // (Auth and Postgres are NOT in a shared transaction - see report). The
     // existing profile resolved by the pre-check above is REUSED here, so a
-    // portal-only user, a pre-created temp profile, or a previously disabled
-    // staff account is linked and re-enabled rather than duplicated.
+    // portal-only user or a pre-created temp profile is linked rather than
+    // duplicated. A deactivated profile never reaches this point (S-35).
     let profileError;
     if (existingProfile) {
       ({ error: profileError } = await supabaseAdmin
@@ -335,16 +364,10 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'internal_error', message: 'Invitation partially processed. The ASPIRE team will follow up.' });
     }
 
-    // S-05: both branches above set is_active: true, so a previously deactivated
-    // person can be re-invited. Deactivation bans the auth identity, so the ban
-    // has to be lifted here too or the re-invited account would still be unable
-    // to sign in. Harmless on an identity that was never banned. Logged rather
-    // than fatal: the profile is already active and the activation email still
-    // matters more than this call.
-    const restored = await restoreAuthAccess(supabaseAdmin, newUserId);
-    if (!restored.ok) {
-      console.error('[invite-user] could not lift auth ban on re-invite', { newUserId, requestedRole, reason: restored.reason, request_id: requestId });
-    }
+    // S-35 (Owner, 2026-10-02): this endpoint no longer lifts an auth ban. S-05 had it
+    // call restoreAuthAccess so a re-invited, previously deactivated person could sign
+    // in; a deactivated profile is now refused above, so the only accounts that reach
+    // here were never banned, and reactivation is Users & Access's job alone.
 
     // Send the branded, scanner-safe invitation. The account and role are already
     // committed, so a mail failure never rolls them back; it is reported honestly
