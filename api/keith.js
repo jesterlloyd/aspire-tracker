@@ -17,6 +17,7 @@ import { displayName } from '../src/lib/utils.js';
 import { classifyIntent, INTENTS, isExplicitEmailDrafting, preferGovernedRouting } from '../lib/server/keith/queryIntent.js';
 import { can as canAccess, keithContextScope, allowsContextSection } from '../lib/server/access.js';
 import { answerPersonContactQuery, CONTACTS_ROLE_DENIED } from '../lib/server/keith/contactsLookup.js';
+import { placementFor } from '../lib/server/keith/studentPlacement.js';
 import { resolveRoute, resolveChatSelection, modelRequestParams, MODEL_DECLINED_MESSAGE, DEFAULT_ROUTE as DEFAULT_ROUTE_NAME } from '../lib/server/keith/modelRouting.js';
 import { consumeRateLimit, rateLimitMessage, limiterUnavailableMessage, WEIGHT_CHAT, WEIGHT_SKILL } from '../lib/server/keith/rateLimit.js';
 import { recordKeithUsage, recordSkillInvocation, OUTCOMES } from '../lib/server/keith/usageLog.js';
@@ -302,6 +303,7 @@ When the request involves a SPECIFIC, individually identified student, placement
    Include only fields relevant to the draft; mark any unavailable field as "Unavailable" rather than omitting it silently.
 4. If fields conflict across sources, STOP and surface the conflict with the competing values; do not pick a best guess; ask the user to resolve it.
 5. Never silently substitute data from another student, school, unit, preceptor, or placement. If a record's data is missing, say so explicitly.
+6. A student's unit is get_student_detail's placement.assigned_unit, and their preceptors are placement.preceptors, each with its role (primary, secondary, coverage). A unit preference (unit_preference_1/2/3) or an interviewer's suggested_unit is NEVER the assigned unit. If the placement says "Not recorded", write "Unavailable" for that field and tell the user; never fill it from a preference, a suggestion, another student, or memory. If the user is told a value is wrong, re-read the record before answering again; do not offer a new value you have not read.
 
 UNSUPPORTED CLAIMS, do NOT state any of the following unless verified via a live tool or the live data block:
 - that an attachment is included or available
@@ -362,7 +364,7 @@ const KEITH_TOOLS = [
   },
   {
     name: 'get_student_detail',
-    description: 'Get full details for a single student including rubric scores, recommendations, interview notes, unit preferences, placement state, and rotation info. Use AFTER identifying a candidate via search_students.',
+    description: 'Get full details for a single student including rubric scores, recommendations, interview notes, unit preferences, rotation info, and `placement`: the assigned unit BY NAME, every live unit assignment, and every active preceptor with their role (primary, secondary, coverage). Use AFTER identifying a candidate via search_students. Unit preferences are NOT the assignment.',
     input_schema: {
       type: 'object',
       required: ['student_id'],
@@ -493,6 +495,13 @@ async function executeToolCall(toolName, input, userRole, supabase, activeCohort
           }
         }
 
+        // KEITH-PLACEMENT-TRUTH-1 (Owner, 2026-10-03): the placement as it is recorded, by NAME. This
+        // tool used to return matched_unit_id alone and only the one preceptor on the student row, so
+        // Keith wrote a unit preference (and then a unit from nowhere) into a preceptor email, and
+        // did not know the student's secondary preceptor. Every unit and preceptor assignment that is
+        // live now comes back with its role; a missing value says "Not recorded" in words.
+        const placement = await placementFor(supabase, student)
+
         // Fetch recent communications
         const { data: comms } = await supabase
           .from('notification_log')
@@ -503,6 +512,7 @@ async function executeToolCall(toolName, input, userRole, supabase, activeCohort
 
         return {
           student: stripSensitive(resolvedStudent),
+          placement,
           rubrics: rubrics || [],
           rotation,
           rotation_dates: rotationDatesDisplay,
