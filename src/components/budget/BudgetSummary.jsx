@@ -9,6 +9,7 @@
 //   4. By category: a DataSheet plain sheet (table canon row 9).
 //   5. The owner's note card, beside Budget history.
 import { useState } from 'react'
+import { ChevronDown, ChevronUp } from 'lucide-react'
 import SurfaceCard from '../ui/SurfaceCard'
 import DataSheet, { Missing } from '../shared/DataSheet'
 import BudgetClose from './BudgetClose'
@@ -16,6 +17,9 @@ import { proposalLine } from '../../lib/budget/planModel'
 import { fyShort } from '../../lib/budget/budgetModel'
 import { paceLabelSpot } from '../../lib/budget/paceLabel'
 import { usd, fyRangeText, parseMoney } from '../../lib/budget/budgetModel'
+
+// HISTORY-FOLD-1 (Owner, 2026-10-03): Budget History shows the newest changes and folds the rest.
+const HISTORY_PEEK = 5
 
 const pct = (v) => `${(v * 100).toFixed(1)}%`
 const stamp = (iso) => (iso ? new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '')
@@ -90,6 +94,7 @@ export default function BudgetSummary({ year, canEdit, onWrite, onGo, source, on
   const [reason, setReason] = useState('')
   const [note, setNote] = useState(year.budget?.owner_note || '')
   const [showIdle, setShowIdle] = useState(false)
+  const [histOpen, setHistOpen] = useState(false)   // HISTORY-FOLD-1: the newest HISTORY_PEEK, then the arrow
   const reader = !canEdit
   const closed = s.state === 'closed'
 
@@ -203,9 +208,15 @@ export default function BudgetSummary({ year, canEdit, onWrite, onGo, source, on
     <SurfaceCard className="bud-card">
       <h2>Budget History</h2><p className="bud-sub">Every change to the annual amount, the category plan and the estimates</p>
       <ul className="bud-hist">
-        {year.history.length ? year.history.map((h, i) => <li key={i}><span className="when">{stamp(h.created_at)}</span><span>{h.message}{h.reason && <span className="bud-hist-why">{h.reason}</span>}{h.actor_name && <small>{h.actor_name}</small>}</span></li>)
+        {year.history.length ? (histOpen ? year.history : year.history.slice(0, HISTORY_PEEK)).map((h, i) => <li key={i}><span className="when">{stamp(h.created_at)}</span><span>{h.message}{h.reason && <span className="bud-hist-why">{h.reason}</span>}{h.actor_name && <small>{h.actor_name}</small>}</span></li>)
           : <li><span className="when">–</span><span>No changes yet</span></li>}
       </ul>
+      {year.history.length > HISTORY_PEEK && (
+        <button type="button" className="bud-hist-more" aria-expanded={histOpen} onClick={() => setHistOpen(o => !o)}>
+          {histOpen ? <ChevronUp size={16} aria-hidden="true" /> : <ChevronDown size={16} aria-hidden="true" />}
+          {histOpen ? 'Show fewer' : `Show all ${year.history.length} changes`}
+        </button>
+      )}
     </SurfaceCard>
   )
 

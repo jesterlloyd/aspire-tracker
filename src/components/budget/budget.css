@@ -84,6 +84,9 @@
 .bud-hist li { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 10px; font-size: 13px; color: var(--text-heading); }
 .bud-hist .when { color: var(--text-caption); font-variant-numeric: tabular-nums; }
 .bud-hist small { display: block; color: var(--text-caption); }
+.bud-hist-more { display: inline-flex; align-items: center; gap: 6px; margin-top: 12px; min-height: 32px; padding: 0 4px; border: 0; background: none; color: var(--color-accent-primary); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.bud-hist-more:hover { text-decoration: underline; text-underline-offset: 2px; }
+.bud-hist-more:focus-visible { outline: 3px solid var(--color-accent-primary); outline-offset: 2px; border-radius: var(--aspire-radius-control); }
 .bud-note blockquote { margin: 0; padding: 10px 12px; border-left: 3px solid var(--color-accent-primary); background: var(--color-bg-hover); color: var(--text-heading); font-size: 13.5px; white-space: pre-wrap; }
 .bud-rec { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 10px; font-size: 12.5px; color: var(--text-caption); flex-wrap: wrap; }
 
