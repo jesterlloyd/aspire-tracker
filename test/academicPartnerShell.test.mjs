@@ -55,7 +55,8 @@ test('AcademicPartnerNav is exactly Students, Placement Requests, Messages', () 
 
 test('the three sections route: Students roster, Placement Requests workspace, Messages prepared', () => {
   const code = stripJs(portal)
-  assert.match(portal, /export default function AcademicPartnerPortal\(\{ view = 'students', onNavigate, messagesEnabled = false, threadId, onSelectThread, onBackToList \}\)/)
+  // 7bab66f5 (Unify staff and portal command search) added onCommandPeople: the roster feeds the header search.
+  assert.match(portal, /export default function AcademicPartnerPortal\(\{ view = 'students', onNavigate, messagesEnabled = false, threadId, onSelectThread, onBackToList, onCommandPeople \}\)/)
   assert.match(portal, /if \(view === 'placement-requests'\)/)
   assert.match(portal, /if \(view === 'messages'\)/)
   // Placement Requests is now the live workspace; Messages stays an honest prepared state.
@@ -63,9 +64,9 @@ test('the three sections route: Students roster, Placement Requests workspace, M
   assert.match(code, /return <PlacementRequestsView onNavigate=\{onNavigate\} \/>/)
   assert.match(portal, /import \{[^}]*\bEmptyState\b[^}]*\} from '\.\/unit\/UnitLeaderChrome'/)
   assert.match(portal, /being prepared and is not active yet/)  // Messages prepared state (flag off)
-  // Students still renders the roster (StudentsView).
-  assert.match(code, /return <StudentsView \/>/)
-  assert.match(code, /function StudentsView\(\)/)
+  // Students still renders the roster (StudentsView). 7bab66f5 hands it onCommandPeople for the header search.
+  assert.match(code, /return <StudentsView onCommandPeople=\{onCommandPeople\} \/>/)
+  assert.match(code, /function StudentsView\(\{ onCommandPeople \}\)/)
   // No fake data, no drawer, no On Campus Now, no Needs Attention on the students surface.
   assert.doesNotMatch(code, /OnCampusNow|NeedsAttention|StudentDetailDrawer|ptl-detail-drawer/)
 })
