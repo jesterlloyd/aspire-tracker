@@ -1730,12 +1730,15 @@ Reference: `docs/mockups/topbar-profile.html`, brief `docs/mockups/topbar-profil
   BackButton pill is only for LEAVING an area. "Forms" opens `/catalog?view=forms`, which the
   Catalog reads on every arrival. An error state's own "‹ Catalog" button is an action and
   stays a button.
-- **An Owner or Admin in a portal gets the staff menu's shape** (`StaffPortalMenuItems` in
-  `PortalShell.jsx`): identity row (opens `/settings/general/profile`), Settings with
-  Cmd+, / Ctrl+,, Preview as (the current portal checked and inert), then Main App, Public
-  site, Sign out; arrows, Home and End. It is chosen by `portalSwitcher`, which only
-  PortalApp's `staffMenu` (ownerAdmin) supplies; a real portal user's menu is untouched. No
-  email in the portal bundle, still.
+- **Every portal menu has the staff menu's shape** (`ProfileMenu` in `PortalShell.jsx`;
+  PORTAL-MENU-1 extended NAV-POLISH-1 to every portal user, Owner, 2026-10-02). Sections:
+  the name row (a student's My Profile, a unit leader's Profile, plain where a portal has no
+  profile page; an Owner or Admin's opens `/settings/general/profile`), staff only Settings
+  with Cmd+, / Ctrl+, and Preview as, then Change Photo and Restart Welcome Tour, then Main
+  App (staff), Public site, Sign out. Arrows, Home and End everywhere. Staff parts hang off
+  `staff = Boolean(portalSwitcher)`, which only PortalApp's `staffMenu` (ownerAdmin)
+  supplies. An Owner/Admin who also holds a real grant keeps their portal profile as
+  "Portal profile". Sign out is quiet ink, no longer red. No email in the portal bundle.
 - **Measuring tip**: a backgrounded browser pane does not finish CSS transitions, so a theme
   switch read through `getComputedStyle` can report the old ink. Inject
   `*{transition:none!important}` before a contrast sweep. Locally, portal previews and the

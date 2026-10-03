@@ -57,16 +57,17 @@ test('UserMenu links the canonical public site in a new tab, portal-style', () =
 test('the shared ProfileMenu offers Change Photo when wired, between profile and Public site', () => {
   assert.match(shell, /onChangePhoto && \(/)
   assert.match(shell, /> Change Photo<\/button>/)
-  // NAV-POLISH-1: read the real portal user's menu, in ProfileMenu itself (the Owner/Admin
-  // menu is StaffPortalMenuItems, defined above it).
+  // PORTAL-MENU-1 (Owner, 2026-10-02): the name row is the profile link ({identity}), then
+  // the personal section (Change Photo), then the way out (Public site, Sign out).
   const menu = shell.slice(shell.indexOf('function ProfileMenu('))
-  const profileIdx = menu.indexOf('> My Profile</button>')
-  const photoIdx = menu.indexOf('> Change Photo</button>')
-  const publicIdx = menu.indexOf('> Public site')
-  const signOutIdx = menu.indexOf('> Sign out</button>')
+  const render = menu.slice(menu.indexOf('{open && ('))
+  const profileIdx = render.indexOf('{identity}')
+  const photoIdx = menu.indexOf('> Change Photo</button>') > -1 ? render.indexOf('{personal.length > 0') : -1
+  const publicIdx = render.indexOf('> Public site')
+  const signOutIdx = render.indexOf('> Sign out</button>')
   assert.ok(profileIdx > -1 && photoIdx > -1 && publicIdx > -1 && signOutIdx > -1)
   assert.ok(profileIdx < photoIdx && photoIdx < publicIdx && publicIdx < signOutIdx,
-    'menu order must be profile item, Change Photo, Public site, ..., Sign out')
+    'menu order must be profile (name row), Change Photo, Public site, ..., Sign out')
 })
 
 test('all three portals wire Change Photo, and the student Public site is canonical', () => {

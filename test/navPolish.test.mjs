@@ -57,25 +57,37 @@ test('the forms trail is Catalog / Forms / <form> (/ Responses), and Forms opens
 })
 
 test('the Owner/Admin portal menu reads identity, Settings, Preview as, then Main App, Public site, Sign out', () => {
+  // PORTAL-MENU-1 (2026-10-02): one menu for everyone; the staff parts hang off `staff`.
   const shell = read('src/portal/PortalShell.jsx')
-  const staff = shell.slice(shell.indexOf('function StaffPortalMenuItems('), shell.indexOf('function ProfileMenu('))
-  const order = ['ptl-menu-id-link', '<Settings size={15} /> Settings', '>Preview as</div>', '<House size={15} /> Main App',
-    '<Globe size={15} /> Public site', '<LogOut size={15} /> Sign out'].map(s => staff.indexOf(s))
+  const menu = shell.slice(shell.indexOf('{open && ('))
+  const order = ['{identity}', '<Settings size={15} /> Settings', '>Preview as</div>', '<House size={15} /> Main App',
+    '<Globe size={15} /> Public site', '<LogOut size={15} /> Sign out'].map(s => menu.indexOf(s))
   assert.ok(order.every(i => i > 0), `all present: ${order}`)
   assert.deepEqual([...order].sort((a, b) => a - b), order)
-  assert.match(staff, /href=\{profileUrl\}/)
-  assert.match(staff, /aria-label=\{`Profile, \$\{userName \|\| ''\}/)
-  assert.doesNotMatch(staff, /email/i, 'no email in the portal bundle')
-  assert.match(shell, /\{open && portalSwitcher && \(/)
+  assert.match(shell, /href=\{portalSwitcher\.profileUrl\}/)
+  assert.match(shell, /aria-label=\{`Profile, \$\{userName \|\| ''\}/)
+  assert.doesNotMatch(shell.slice(shell.indexOf('function ProfileMenu(')), /\.email\b|userEmail/, 'no email in the portal bundle')
   assert.match(shell, /window\.location\.assign\(settingsUrl\)/)
   assert.match(read('src/portal/PortalApp.jsx'), /profileUrl: STAFF_PROFILE_PATH/)
 })
 
-test('a real portal user\'s menu is the one it was: no Preview as, no Main App, no Settings', () => {
+test('a real portal user gets the sections without the staff parts, and keeps every action', () => {
   const shell = read('src/portal/PortalShell.jsx')
-  const own = shell.slice(shell.indexOf('{open && !portalSwitcher && ('), shell.indexOf('export default function PortalShell'))
-  assert.doesNotMatch(own, /Preview as/)
-  assert.match(own, /My Profile/)
-  assert.match(own, /Change Photo/)
-  assert.match(own, /ptl-menu-danger/)
+  // The name row opens their own profile where the portal has one, else it is plain text.
+  assert.match(shell, /\} else if \(!staff && ownProfile\) \{/)
+  assert.match(shell, /<div className="ptl-menu-id ptl-menu-id-static">/)
+  // Change Photo and Restart Welcome Tour stay, behind the same switches as before.
+  assert.match(shell, /portalUserActionsEnabled && onChangePhoto && \(/)
+  assert.match(shell, /portalUserActionsEnabled && onRestartTour && \(/)
+  // An Owner/Admin who also holds a real grant keeps their own portal profile as an item,
+  // named so it is not a second "Profile".
+  assert.match(shell, /staff && ownProfile && \(/)
+  assert.match(shell, /<UserRound size=\{15\} \/> Portal profile<\/button>/)
+  // The name row says where it goes for a portal user.
+  assert.match(shell, /\{!staff && ownProfile && <span className="ptl-menu-id-sub" aria-hidden="true">\{ownProfile\.word\}<\/span>\}/)
+  // Every staff part is behind `staff`.
+  for (const g of ['{staff && settingsUrl && (', '{staff && (', '{staff && mainAppUrl && (']) assert.ok(shell.includes(g), g)
+  // Arrows for everyone, and one rule per section.
+  assert.match(shell, /role="menu" aria-label="Profile menu" onKeyDown=\{onMenuKeyDown\}/)
+  assert.match(read('src/portal/portal.css'), /\.ptl-menu-sectioned \.ptl-menu-id \{ border-bottom: 0; margin-bottom: 0; \}/)
 })

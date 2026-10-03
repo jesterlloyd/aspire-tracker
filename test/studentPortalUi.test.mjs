@@ -126,7 +126,10 @@ test('shell, navigation, and mobile', async (t) => {
     // My Profile page), and Change Photo joined every portal menu.
     assert.match(shell, /function ProfileMenu/)
     assert.match(shell, /ptl-menu-name/)
-    assert.match(shell, /> My Profile<\/button>/)
+    // PORTAL-MENU-1 (Owner, 2026-10-02) changed this: the menu is sectioned like the staff menu; the
+    // person's name row IS the way to their profile, labelled by ownProfile.word.
+    assert.match(shell, /\{ word: 'My Profile', go: onEditProfile \}/)
+    assert.match(shell, /aria-label=\{`\$\{ownProfile\.word\}, \$\{userName \|\| ''\}`\}/)
     assert.match(shell, /> Change Photo<\/button>/)
     assert.match(shell, /Public site/)
     assert.match(shell, /Sign out/)

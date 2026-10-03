@@ -163,8 +163,9 @@ test('the avatar menu shows exactly Profile, Public site, Sign out for a Unit Le
   // The Unit Leader mount passes onProfile and a canonical public-site URL.
   assert.match(app, /onProfile=\{\(\) => goUnitSection\('profile'\)\}/)
   assert.match(app, /publicSiteUrl="https:\/\/aspireintelligence\.app"/)
-  // The menu renders Profile (not Edit Profile) when onProfile is present.
-  assert.match(shell, /onProfile\s*\n?\s*\?\s*<button[\s\S]*?Profile<\/button>/)
+  // The menu names the profile Profile (not Edit Profile) when onProfile is present.
+  // PORTAL-MENU-1 (Owner, 2026-10-02): the name row IS that link now, labelled by ownProfile.word.
+  assert.match(shell, /onProfile \? \{ word: 'Profile', go: onProfile \}/)
   assert.match(shell, /Public site/)
   assert.match(shell, /Sign out/)
   // Notification Preferences must NOT be in the avatar menu.
@@ -179,7 +180,8 @@ test('the Student Portal avatar menu keeps its own profile route, now labeled My
   const studentMount = app.slice(app.indexOf('title="Student Portal"'), app.indexOf('title="Student Portal"') + 400)
   assert.ok(!studentMount.includes('onProfile={'), 'the student menu must keep its My Profile route, not the UL Profile section')
   assert.ok(studentMount.includes('onEditProfile={goProfile}'))
-  assert.match(shell, /> My Profile<\/button>/)
+  // PORTAL-MENU-1: the name row is the My Profile link.
+  assert.match(shell, /\{ word: 'My Profile', go: onEditProfile \}/)
 })
 
 // ── More ────────────────────────────────────────────────────────────────────

@@ -66,7 +66,8 @@ test('only active Owner/Admin staff routes enter preview; other staff still retu
 test('portal profile menu lets Owner/Admin cross to any portal, the main app, or Settings', () => {
   assert.match(shell, /<House size=\{15\} \/> Main App/)
   assert.match(shell, /<Settings size=\{15\} \/> Settings/)
-  assert.match(shell, /portalSwitcher && \(/)
+  // PORTAL-MENU-1: one menu, its staff parts behind `staff` (Boolean(portalSwitcher)).
+  assert.match(shell, /\{staff && \(/)
   // NAV-POLISH-1 (Owner, 2026-10-02): the group reads Preview as, like the staff menu.
   assert.match(shell, /<div className="ptl-menu-group-label" id="ptl-preview-label">Preview as<\/div>/)
   // ONE predicate decides all of it, and it is the staff menu's own Owner/Admin test, so a
@@ -97,8 +98,10 @@ test('a real portal user is offered no switcher, no main app, and no Settings', 
   // student, unit leader, academic partner or nursing academic menu is unchanged by this.
   assert.match(portalApp, /const ownerAdmin = userProfile\?\.is_active !== false && \['owner', 'admin'\]\.includes\(userProfile\?\.role\)/)
   assert.match(portalApp, /\} : \{\s*portalSwitcher: null,\s*mainAppUrl: undefined,\s*settingsUrl: undefined,/)
-  for (const guarded of ['portalSwitcher', 'settingsUrl', 'mainAppUrl']) {
-    assert.match(shell, new RegExp(`\\{${guarded} && \\(|\\{${guarded} &&\\n`), `${guarded} must render only when supplied`)
+  // PORTAL-MENU-1: one menu; every staff part renders only for staff (portalSwitcher supplied).
+  assert.match(shell, /const staff = Boolean\(portalSwitcher\)/)
+  for (const guarded of ['staff && settingsUrl && \\(', 'staff && \\(', 'staff && mainAppUrl && \\(']) {
+    assert.match(shell, new RegExp(`\\{${guarded}`), `${guarded} must render only for staff`)
   }
 })
 

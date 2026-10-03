@@ -79,7 +79,8 @@ test('Consistent "Public site" label', async (t) => {
     assert.doesNotMatch(login, /Back to the ASPIRE site/)
   })
   await t.test('portal profile menu keeps "Public site"', () => {
-    assert.match(shell, /<ExternalLink size=\{15\} \/> Public site/)
+    // PORTAL-MENU-1: the item reads Public site with a globe, and an external-link mark after it.
+    assert.match(shell, /<Globe size=\{15\} \/> Public site/)
   })
   await t.test('no inconsistent public-site label remains anywhere in src', () => {
     const hits = execSync(

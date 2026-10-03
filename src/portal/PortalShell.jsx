@@ -29,78 +29,19 @@ function initials(name) {
   return (name || '?').trim().split(/\s+/).slice(0, 2).map(w => w[0]?.toUpperCase() || '').join('') || '?'
 }
 
-// NAV-POLISH-1 (Owner, 2026-10-02): an Owner or Admin in a portal gets the staff profile
-// menu's shape (src/components/UserMenu.jsx, TOPBAR-PROFILE-1), so the two never read
-// differently: an identity row that opens their Profile in the main app, Settings with
-// Cmd+, / Ctrl+,, Preview as (the portals, the one in view checked), then the way out:
-// Main App, Public site, Sign out. Arrows, Home and End move through it. The email stays
-// out: no staff or student email is handled in the portal bundle. A student's, unit
-// leader's, partner's or resident's own menu (no portalSwitcher) is unchanged below.
+// PORTAL-MENU-1 (Owner, 2026-10-02): every portal's profile menu has the staff menu's shape
+// (src/components/UserMenu.jsx, TOPBAR-PROFILE-1), in sections separated by one rule:
+//   1. identity: the person's name, and the way to their profile when the portal has one
+//      (a student's My Profile, a unit leader's Profile; plain text where there is none).
+//      An Owner or Admin's identity opens their Profile in the main app instead.
+//   2. staff only (NAV-POLISH-1): Settings with Cmd+, / Ctrl+,, then Preview as, the
+//      portals with the one in view checked and inert.
+//   3. the person's own actions: Change Photo, Restart Welcome Tour (and, for an Owner or
+//      Admin who also holds a real portal grant, their portal profile), as each is wired.
+//   4. the way out: Main App (staff), Public site, Sign out.
+// Arrows, Home and End move through it; Escape closes it. The email stays out: no staff or
+// student email is handled in the portal bundle (test/messagesPhase5biiPortalActivation).
 const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent || '')
-
-function StaffPortalMenuItems({ userName, roleLabel, portalSwitcher, settingsUrl, mainAppUrl, publicSiteUrl, close, signOut }) {
-  const { currentKey, profileUrl } = portalSwitcher
-  return (
-    <>
-      {profileUrl ? (
-        <a role="menuitem" className="ptl-menu-id ptl-menu-id-link" href={profileUrl}
-           aria-label={`Profile, ${userName || ''}${roleLabel ? `, ${roleLabel}` : ''}`}>
-          <span className="ptl-menu-id-text">
-            {userName && <span className="ptl-menu-name">{userName}</span>}
-            {roleLabel && <span className="ptl-menu-role">{roleLabel}</span>}
-          </span>
-          <ChevronRight size={16} aria-hidden="true" className="ptl-menu-id-chev" />
-        </a>
-      ) : (userName || roleLabel) && (
-        <div className="ptl-menu-id">
-          {userName && <div className="ptl-menu-name">{userName}</div>}
-          {roleLabel && <span className="ptl-menu-role">{roleLabel}</span>}
-        </div>
-      )}
-      {settingsUrl && (
-        <div className="ptl-menu-sec" role="none">
-          <a role="menuitem" className="ptl-menu-item" href={settingsUrl} aria-keyshortcuts={IS_MAC ? 'Meta+Comma' : 'Control+Comma'}>
-            <Settings size={15} /> Settings
-            <kbd className="ptl-menu-kbd" aria-hidden="true">{IS_MAC ? '⌘,' : 'Ctrl+,'}</kbd>
-          </a>
-        </div>
-      )}
-      <div className="ptl-menu-group" role="group" aria-labelledby="ptl-preview-label">
-        <div className="ptl-menu-group-label" id="ptl-preview-label">Preview as</div>
-        {PORTAL_LINKS.map(({ key, label, path }) => {
-          const Icon = PORTAL_ICONS[key]
-          if (key === currentKey) {
-            return (
-              <span key={key} role="menuitem" aria-current="page" aria-disabled="true" tabIndex={-1}
-                    className="ptl-menu-item ptl-menu-item-current">
-                <Icon size={15} /> {label}
-                <Check size={14} className="ptl-menu-check" aria-hidden="true" />
-              </span>
-            )
-          }
-          return (
-            <a key={key} role="menuitem" className="ptl-menu-item" href={path}>
-              <Icon size={15} /> {label}
-            </a>
-          )
-        })}
-      </div>
-      <div className="ptl-menu-group" role="none">
-        {mainAppUrl && (
-          <a role="menuitem" className="ptl-menu-item" href={mainAppUrl}>
-            <House size={15} /> Main App
-          </a>
-        )}
-        <a role="menuitem" className="ptl-menu-item" href={publicSiteUrl}
-           {...(publicSiteUrl !== '/' ? { target: '_blank', rel: 'noopener noreferrer', 'aria-label': 'Public site (opens in a new tab)' } : {})}>
-          <Globe size={15} /> Public site
-          {publicSiteUrl !== '/' && <ExternalLink size={13} className="ptl-menu-ext" aria-hidden="true" />}
-        </a>
-        <button role="menuitem" type="button" className="ptl-menu-item ptl-menu-quiet" onClick={() => { close(); signOut() }}><LogOut size={15} /> Sign out</button>
-      </div>
-    </>
-  )
-}
 
 function ProfileMenu({
   userName, roleLabel, profileImageUrl, onEditProfile, onProfile, onChangePhoto,
@@ -133,8 +74,8 @@ function ProfileMenu({
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [portalSwitcher, settingsUrl])
-  // Up, Down, Home and End through the staff menu's items (the inert current portal skipped).
-  const onStaffMenuKeyDown = (e) => {
+  // Up, Down, Home and End through the items (an inert current portal is skipped).
+  const onMenuKeyDown = (e) => {
     if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) return
     const items = [...(menuRef.current?.querySelectorAll('[role="menuitem"]:not([aria-disabled="true"])') || [])]
     if (!items.length) return
@@ -144,6 +85,59 @@ function ProfileMenu({
       : (i + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length
     items[n].focus()
   }
+
+  const staff = Boolean(portalSwitcher)
+  const close = () => setOpen(false)
+  // The person's own portal profile: a student's My Profile, a unit leader's Profile.
+  const ownProfile = portalUserActionsEnabled
+    ? (onProfile ? { word: 'Profile', go: onProfile } : onEditProfile ? { word: 'My Profile', go: onEditProfile } : null)
+    : null
+  // Staff see their role under the name; a portal user sees where the row goes ("My Profile"),
+  // so the name row reads as the way to their profile and the tour's "Open My Profile" holds.
+  const idText = (
+    <span className="ptl-menu-id-text">
+      {userName && <span className="ptl-menu-name">{userName}</span>}
+      {roleLabel && <span className="ptl-menu-role">{roleLabel}</span>}
+      {!staff && ownProfile && <span className="ptl-menu-id-sub" aria-hidden="true">{ownProfile.word}</span>}
+    </span>
+  )
+  const idChev = <ChevronRight size={16} aria-hidden="true" className="ptl-menu-id-chev" />
+  let identity = null
+  if (staff && portalSwitcher.profileUrl) {
+    identity = (
+      <a role="menuitem" className="ptl-menu-id ptl-menu-id-link" href={portalSwitcher.profileUrl}
+         aria-label={`Profile, ${userName || ''}${roleLabel ? `, ${roleLabel}` : ''}`}>
+        {idText}{idChev}
+      </a>
+    )
+  } else if (!staff && ownProfile) {
+    identity = (
+      <button role="menuitem" type="button" className="ptl-menu-id ptl-menu-id-link"
+              aria-label={`${ownProfile.word}, ${userName || ''}`} onClick={() => { close(); ownProfile.go() }}>
+        {idText}{idChev}
+      </button>
+    )
+  } else if (userName || roleLabel) {
+    identity = <div className="ptl-menu-id ptl-menu-id-static">{idText}</div>
+  }
+  // An Owner or Admin's identity row opens the main app, so their own portal profile (when
+  // they also hold a real grant) is listed with their other personal actions, named
+  // "Portal profile" so it cannot be mistaken for the row above it.
+  const personal = [
+    staff && ownProfile && (
+      <button key="profile" role="menuitem" type="button" className="ptl-menu-item" onClick={() => { close(); ownProfile.go() }}><UserRound size={15} /> Portal profile</button>
+    ),
+    // PROFILE-MENU-AVATARS-1: self-service photo management, wired per portal.
+    portalUserActionsEnabled && onChangePhoto && (
+      <button key="photo" role="menuitem" type="button" className="ptl-menu-item" onClick={() => { close(); onChangePhoto() }}><Camera size={15} /> Change Photo</button>
+    ),
+    // WELCOME-TOUR-PORTALS-1: only when the portal wires a restart handler.
+    portalUserActionsEnabled && onRestartTour && (
+      <button key="tour" role="menuitem" type="button" className="ptl-menu-item" onClick={() => { close(); onRestartTour() }}><RotateCcw size={15} /> Restart Welcome Tour</button>
+    ),
+  ].filter(Boolean)
+  const external = publicSiteUrl !== '/'
+
   return (
     <div className="ptl-menu-wrap">
       <button ref={btnRef} type="button" className="ptl-avatar-btn" aria-haspopup="menu" aria-expanded={open} aria-label="Open profile menu" data-tour="portal-profile-menu" onClick={() => setOpen(o => !o)}>
@@ -154,54 +148,28 @@ function ProfileMenu({
         </span>
         <ChevronDown size={15} className="ptl-avatar-caret" />
       </button>
-      {open && portalSwitcher && (
-        <div ref={menuRef} className="ptl-menu ptl-menu-wide ptl-menu-staff" role="menu" aria-label="Profile menu" onKeyDown={onStaffMenuKeyDown}>
-          <StaffPortalMenuItems userName={userName} roleLabel={roleLabel} portalSwitcher={portalSwitcher}
-            settingsUrl={settingsUrl} mainAppUrl={mainAppUrl} publicSiteUrl={publicSiteUrl}
-            close={() => setOpen(false)} signOut={signOut} />
-        </div>
-      )}
-      {open && !portalSwitcher && (
-        <div ref={menuRef} className="ptl-menu" role="menu" aria-label="Profile menu">
-          {/* The signed-in email is deliberately absent: no staff or student email is
-              handled in the portal bundle (see test/messagesPhase5biiPortalActivation). */}
-          {(userName || roleLabel) && (
-            <div className="ptl-menu-id">
-              {userName && <div className="ptl-menu-name">{userName}</div>}
-              {roleLabel && <span className="ptl-menu-role">{roleLabel}</span>}
+      {open && (
+        <div ref={menuRef} className={`ptl-menu ptl-menu-sectioned${staff ? ' ptl-menu-wide ptl-menu-staff' : ''}`}
+             role="menu" aria-label="Profile menu" onKeyDown={onMenuKeyDown}>
+          {identity}
+          {staff && settingsUrl && (
+            <div className="ptl-menu-group" role="none">
+              <a role="menuitem" className="ptl-menu-item" href={settingsUrl} aria-keyshortcuts={IS_MAC ? 'Meta+Comma' : 'Control+Comma'}>
+                <Settings size={15} /> Settings
+                <kbd className="ptl-menu-kbd" aria-hidden="true">{IS_MAC ? '⌘,' : 'Ctrl+,'}</kbd>
+              </a>
             </div>
           )}
-          {portalUserActionsEnabled && (onProfile
-            ? <button role="menuitem" type="button" className="ptl-menu-item" onClick={() => { setOpen(false); onProfile() }}><UserRound size={15} /> Profile</button>
-            : onEditProfile && <button role="menuitem" type="button" className="ptl-menu-item" onClick={() => { setOpen(false); onEditProfile() }}><UserRound size={15} /> My Profile</button>)}
-          {/* PROFILE-MENU-AVATARS-1: self-service photo management, wired per portal.
-              The label "My Profile" above (student) matches the destination page and
-              nav-tab name; the former "Edit Profile" wording predated the My Profile
-              page. */}
-          {portalUserActionsEnabled && onChangePhoto && (
-            <button role="menuitem" type="button" className="ptl-menu-item" onClick={() => { setOpen(false); onChangePhoto() }}><Camera size={15} /> Change Photo</button>
-          )}
-          <a role="menuitem" className="ptl-menu-item" href={publicSiteUrl}
-             {...(publicSiteUrl !== '/' ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>
-            <ExternalLink size={15} /> Public site
-          </a>
-          {mainAppUrl && (
-            <a role="menuitem" className="ptl-menu-item" href={mainAppUrl}>
-              <House size={15} /> Main App
-            </a>
-          )}
-          {/* PORTAL-SWITCHER-1: Owner/Admin can cross straight to another portal instead of
-              returning to the main app first. Wired only for staff who already see this list
-              in the staff profile menu, so a student's or a unit leader's menu is unchanged.
-              The portal being viewed is marked and does not navigate. */}
-          {portalSwitcher && (
-            <div className="ptl-menu-group">
-              <div className="ptl-menu-group-label">Portals</div>
+          {/* PORTAL-SWITCHER-1: Owner/Admin cross straight to another portal. The portal
+              being viewed is marked and does not navigate. */}
+          {staff && (
+            <div className="ptl-menu-group" role="group" aria-labelledby="ptl-preview-label">
+              <div className="ptl-menu-group-label" id="ptl-preview-label">Preview as</div>
               {PORTAL_LINKS.map(({ key, label, path }) => {
                 const Icon = PORTAL_ICONS[key]
                 if (key === portalSwitcher.currentKey) {
                   return (
-                    <span key={key} role="menuitem" aria-current="page" aria-disabled="true"
+                    <span key={key} role="menuitem" aria-current="page" aria-disabled="true" tabIndex={-1}
                           className="ptl-menu-item ptl-menu-item-current">
                       <Icon size={15} /> {label}
                       <Check size={14} className="ptl-menu-check" aria-hidden="true" />
@@ -216,17 +184,20 @@ function ProfileMenu({
               })}
             </div>
           )}
-          {settingsUrl && (
-            <a role="menuitem" className="ptl-menu-item" href={settingsUrl}>
-              <Settings size={15} /> Settings
+          {personal.length > 0 && <div className="ptl-menu-group" role="none">{personal}</div>}
+          <div className="ptl-menu-group" role="none">
+            {staff && mainAppUrl && (
+              <a role="menuitem" className="ptl-menu-item" href={mainAppUrl}>
+                <House size={15} /> Main App
+              </a>
+            )}
+            <a role="menuitem" className="ptl-menu-item" href={publicSiteUrl}
+               {...(external ? { target: '_blank', rel: 'noopener noreferrer', 'aria-label': 'Public site (opens in a new tab)' } : {})}>
+              <Globe size={15} /> Public site
+              {external && <ExternalLink size={13} className="ptl-menu-ext" aria-hidden="true" />}
             </a>
-          )}
-          {/* WELCOME-TOUR-PORTALS-1: only rendered when the caller wires a restart handler, so
-              a portal that has not adopted the tour yet keeps its existing menu unchanged. */}
-          {portalUserActionsEnabled && onRestartTour && (
-            <button role="menuitem" type="button" className="ptl-menu-item" onClick={() => { setOpen(false); onRestartTour() }}><RotateCcw size={15} /> Restart Welcome Tour</button>
-          )}
-          <button role="menuitem" type="button" className="ptl-menu-item ptl-menu-danger" onClick={() => { setOpen(false); signOut() }}><LogOut size={15} /> Sign out</button>
+            <button role="menuitem" type="button" className="ptl-menu-item ptl-menu-quiet" onClick={() => { close(); signOut() }}><LogOut size={15} /> Sign out</button>
+          </div>
         </div>
       )}
     </div>

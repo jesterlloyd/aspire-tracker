@@ -112,7 +112,9 @@ test('Unit Leader title, name, avatar, profile menu, and public site remain', ()
   assert.match(shellCode, /className="ptl-avatar-btn"/)
   assert.match(shellCode, /aria-haspopup="menu"/)
   assert.match(shellCode, /aria-expanded=\{open\}/)
-  assert.match(shellCode, /> Profile<\/button>/)
+  // PORTAL-MENU-1 (Owner, 2026-10-02) changed this: the menu is sectioned like the staff menu; the
+  // person's name row IS the way to their profile, labelled by ownProfile.word.
+  assert.match(shellCode, /onProfile \? \{ word: 'Profile', go: onProfile \}/)
   assert.match(shellCode, /> Public site/)
   assert.match(shellCode, /> Sign out<\/button>/)
 })
