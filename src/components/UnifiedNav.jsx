@@ -16,7 +16,9 @@ export function RefreshHint({ onClick, tooltipLabel, loading = false, disabled =
   return (
     <div style={{ display:'flex', alignItems:'center', marginLeft:'auto', paddingRight:4, flexShrink:0, alignSelf:'center', fontFamily:'Plus Jakarta Sans, sans-serif' }}>
       <Tooltip label={tipLabel} placement="bottom">
-      <RefreshPill onClick={handleClick} disabled={isDisabled} loading={loading} />
+        <span style={{ display:'inline-flex', alignItems:'center' }}>
+          <RefreshPill onClick={handleClick} disabled={isDisabled} loading={loading} />
+        </span>
       </Tooltip>
     </div>
   )

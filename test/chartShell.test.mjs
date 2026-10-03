@@ -112,6 +112,10 @@ test('responsive workspace nav', async (t) => {
     assert.match(tokens, /@media \(max-width: 760px\) \{[\s\S]*?\.chart-nav-refresh \{ display: none; \}/)
   })
 
+  await t.test('refresh tooltip anchors to a real layout box', () => {
+    assert.match(nav, /<Tooltip label=\{tipLabel\} placement="bottom">[\s\S]*?<span style=\{\{ display:'inline-flex', alignItems:'center' \}\}>[\s\S]*?<RefreshPill\b/)
+  })
+
   await t.test('the shared badge tokens still drive the nav counters', () => {
     assert.match(nav, /import \{ BADGE_COUNT_BG, BADGE_COUNT_FG \} from '\.\.\/lib\/badgeTokens'/)
   })
