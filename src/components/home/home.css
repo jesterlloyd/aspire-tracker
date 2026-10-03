@@ -209,6 +209,24 @@
 .hm-cmdwrap-compact .hm-cmd input { height: 36px; border-radius: 8px; padding-left: 38px; padding-right: 52px; font-size: 12.5px; box-shadow: none; }
 .hm-cmdwrap-compact .hm-cmd-ico { left: 12px; top: 10px; width: 16px; height: 16px; }
 .hm-cmdwrap-compact .hm-cmd-kbd { right: 8px; top: 8px; padding: 2px 5px; font-size: 10px; }
+.hm-cmdwrap-compact .hm-results {
+  top: 42px; left: auto; right: 0; width: 360px; box-sizing: border-box;
+  background: #fff; color: #232842; border: 1px solid #dfe3ee;
+  border-radius: 10px; box-shadow: 0 14px 32px rgba(16, 24, 64, .20);
+  padding: 6px; max-height: 320px;
+}
+.hm-cmdwrap-compact .hm-results-grp { color: #737b94; padding: 7px 9px 4px; }
+.hm-cmdwrap-compact .hm-results [role="option"] {
+  min-height: 34px; box-sizing: border-box; padding: 7px 9px; border-radius: 7px;
+  font-size: 12.5px; gap: 8px;
+}
+.hm-cmdwrap-compact .hm-results [role="option"] .hm-opt-t {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.hm-cmdwrap-compact .hm-results [role="option"] small { white-space: nowrap; font-size: 11.5px; }
+.hm-cmdwrap-compact .hm-opt-actions { flex: none; }
+.hm-cmdwrap-compact .hm-opt-sec { padding: 3px 7px; font-size: 10.5px; white-space: nowrap; }
+.hm-cmdwrap-compact .hm-chips { display: none !important; }
 .hm-cmd { position: relative; width: min(680px, 100%); }
 .hm-cmd input {
   width: 100%; height: 48px;

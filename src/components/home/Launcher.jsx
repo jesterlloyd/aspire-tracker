@@ -147,7 +147,7 @@ export default function Launcher({ actions = [], people = [], canAskKeith = true
           })()}
         </div>
       </div>
-      {quick.length > 0 && (
+      {!compact && quick.length > 0 && (
         <div className="hm-chips" aria-label="Quick actions" hidden={!inUse}>
           {quick.map(a => {
             const I = ICON[a.icon] || Send
