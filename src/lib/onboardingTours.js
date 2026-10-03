@@ -298,7 +298,9 @@ const staffUserMenu = {
   title: 'Your Profile',
   // PORTAL-SWITCHER-1: the Portals group in this menu is Owner/Admin only
   // (src/lib/portalLinks.js drives it), so the sentence names that audience.
-  content: "View your role, open Settings, or sign out. Settings holds appearance, help, restarting this tour under Tours & Help, and, for Owners and Admins, account access and the governed Knowledge Center. Owners and Admins can also open any of the four portals straight from this menu.",
+  // TOPBAR-PROFILE-1: the top row opens Profile (photo, name, Connect signature); the
+  // portals are listed under Preview as.
+  content: "Open your Profile to change your photo, your name and your Connect signature, open Settings, or sign out. Settings holds appearance, help, restarting this tour under Tours & Help, and, for Owners and Admins, Users & Access and the governed Knowledge Center. Owners and Admins can also preview any of the five portals from this menu, under Preview as.",
   placement: 'bottom-end',
   spotlightPadding: 6,
   disableBeacon: true,

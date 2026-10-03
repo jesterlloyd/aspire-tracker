@@ -35,19 +35,21 @@ test('UserMenu links the canonical public site in a new tab, portal-style', () =
   assert.match(userMenu, /href=\{CANONICAL_APP_URL\}/)
   assert.match(userMenu, /target="_blank" rel="noopener noreferrer"/)
   assert.match(userMenu, /Public site/)
-  // Order: identity block -> Public site -> Settings -> Sign out.
-  const publicIdx = userMenu.indexOf('Public site')
-  // APPEARANCE-STYLE-1: Settings opens on Appearance, through the one shared path.
-  const settingsIdx = userMenu.indexOf('navigate(STAFF_SETTINGS_PATH)')
-  const signOutIdx = userMenu.indexOf('Sign out')
-  assert.ok(publicIdx > -1 && publicIdx < settingsIdx && settingsIdx < signOutIdx)
-  // Existing self-photo controls are untouched.
-  assert.match(userMenu, /Change Photo/)
-  assert.match(userMenu, /Remove photo/)
+  // TOPBAR-PROFILE-1 (2026-10-02): identity -> Settings -> Preview as -> Public site ->
+  // Sign out. Public site moved below Settings and the portals, beside Sign out.
+  const settingsIdx = userMenu.indexOf('>Settings</span>')
+  const publicIdx = userMenu.indexOf('>Public site</span>')
+  const signOutIdx = userMenu.indexOf('>Sign out</span>')
+  assert.ok(settingsIdx > -1 && settingsIdx < publicIdx && publicIdx < signOutIdx)
+  // The self-photo controls moved to Settings > General > Profile, with the same handlers.
+  const avatar = read('src/hooks/useMyAvatar.js')
+  const profile = read('src/components/settings/ProfilePanel.jsx')
+  assert.match(profile, /Change photo/)
+  assert.match(profile, /Remove photo/)
   // S16-1: the self photo is written by /api/my-avatar; the browser no longer calls
   // update_my_avatar or touches Storage.
-  assert.match(userMenu, /fetch\('\/api\/my-avatar'/)
-  assert.doesNotMatch(userMenu, /rpc\('update_my_avatar'/)
+  assert.match(avatar, /fetch\('\/api\/my-avatar'/)
+  assert.doesNotMatch(avatar, /rpc\('update_my_avatar'/)
 })
 
 // ── Portal menus: unified structure ──────────────────────────────────────────

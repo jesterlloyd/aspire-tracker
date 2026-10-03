@@ -41,7 +41,8 @@ test('the rail is the brief\'s six destinations plus Organization, in order, for
   assert.deepEqual(railKeys(OWNER), ['general', 'accounts', 'organization', 'communityBenefit', 'programBudget', 'keith', 'demoMode', 'preceptorParity'])
   assert.deepEqual(visibleSections(OWNER).map(s => s.label),
     // BUDGET-TRACKER-1 changed this (Owner, 2026-09-30): Program Budget is now labelled Budget Tracker.
-    ['General', 'Accounts & Access', 'Organization', 'Community Benefit', 'Budget Tracker', 'Keith AI', 'Demo Mode', 'Preceptor Parity'])
+    // TOPBAR-PROFILE-1 (2026-10-02): Accounts & Access is Users & Access.
+    ['General', 'Users & Access', 'Organization', 'Community Benefit', 'Budget Tracker', 'Keith AI', 'Demo Mode', 'Preceptor Parity'])
 })
 
 test('groups are Workspace, Administration, Diagnostics, contiguous', () => {
@@ -53,9 +54,9 @@ test('groups are Workspace, Administration, Diagnostics, contiguous', () => {
   for (const k of ['demoMode', 'preceptorParity']) assert.equal(section(k).group, 'Diagnostics')
 })
 
-test('Appearance, Email Signature, Tours & Help and About left the rail for General', () => {
+test('Profile, Appearance, Tours & Help and About left the rail for General', () => {
   for (const r of ROLE_COMBOS) {
-    for (const k of ['appearance', 'signature', 'tours', 'about', 'keithKnowledge', 'keithSkills', 'keithUsage']) {
+    for (const k of ['profile', 'appearance', 'tours', 'about', 'keithKnowledge', 'keithSkills', 'keithUsage']) {
       assert.ok(!railKeys(r).includes(k), `${k} is a drill-in, never in the rail`)
     }
     assert.ok(!railKeys(r).includes('templates') && !railKeys(r).includes('audit'))
@@ -75,7 +76,7 @@ test('every role keeps the gates it had', () => {
     assert.equal(s(k).visible({ isOwner: true }), true, k)
     assert.equal(s(k).visible({ isOwner: false }), false, k)
   }
-  for (const k of ['general', 'appearance', 'signature', 'tours', 'about']) assert.equal(s(k).visible(STAFF), true, k)
+  for (const k of ['general', 'profile', 'appearance', 'tours', 'about']) assert.equal(s(k).visible(STAFF), true, k)
 })
 
 test('the rail IS the Review & Release selection canon, reused, not restyled', () => {
@@ -103,7 +104,8 @@ test('the icons are the ones Settings already used, monochrome, with no tile', (
   // PROGRAM-BUDGET A3 (2026-09-27) added Program Budget after Community Benefit (Owner decision: /settings/budget).
   // KEITH-FOUNDATION-1 gave Keith's row Keith's own K (KeithIcon, a mask in the icon colour, still monochrome).
   assert.match(shell, /general: Settings, accounts: Users, organization: Building2, communityBenefit: HandCoins, programBudget: Wallet, keith: KeithIcon,\s*demoMode: Presentation, preceptorParity: Scale,/)
-  assert.match(shell, /about: BadgeInfo, appearance: Monitor, signature: PenLine, tours: Info,/)
+  // TOPBAR-PROFILE-1: Profile took Email Signature's place; its icon is the person.
+  assert.match(shell, /about: BadgeInfo, appearance: Monitor, profile: UserRound, tours: Info,/)
   assert.match(shell, /keithKnowledge: FileText, keithSkills: Sparkles, keithUsage: BarChart3,/)
   assert.match(shellCss, /\.settings-rail-ic \{ flex: none; color: var\(--color-accent-primary, #1D2567\); \}/)
   assert.match(shellCss, /\.rr-row-select\.sel \.settings-rail-ic \{ color: #FFFFFF; \}/)
@@ -113,15 +115,17 @@ test('the icons are the ones Settings already used, monochrome, with no tile', (
 
 // ── List pages ──────────────────────────────────────────────────────────────
 
-test('General lists About, Appearance, Email Signature, Tours & Help, with the approved lines', () => {
+// TOPBAR-PROFILE-1 (Owner, 2026-10-02) changed this: Email Signature merged into Profile,
+// and the list is in the Owner's order rather than alphabetical.
+test('General lists Profile, Appearance, Tours & Help, About, with the approved lines', () => {
   const rows = childSections('general', STAFF)
-  assert.deepEqual(rows.map(r => r.label), ['About', 'Appearance', 'Email Signature', 'Tours & Help'])
+  assert.deepEqual(rows.map(r => r.label), ['Profile', 'Appearance', 'Tours & Help', 'About'])
   assert.deepEqual(rows.map(r => r.sub), [
-    'Version, build, and deployment details', 'Style and color mode',
-    'Your Connect signature', 'Replay the welcome tour and find help',
+    'Photo, name, title and your Connect signature', 'Style and color mode',
+    'Replay the welcome tour and find help', 'Version, build and deployment details',
   ])
   assert.deepEqual(rows.map(r => r.path),
-    ['/settings/general/about', '/settings/general/appearance', '/settings/general/signature', '/settings/general/tours'])
+    ['/settings/general/profile', '/settings/general/appearance', '/settings/general/tours', '/settings/general/about'])
   // SETTINGS-BAND-1: the list page's one subtitle line lives in the header band, which
   // is the same height on every page, so it no longer pushes the list down.
   assert.match(shell, /general: 'Settings that are yours alone\. They follow you to any device\.'/)
@@ -158,7 +162,7 @@ test('every drill-in has its own route under its parent, and renders its existin
   for (const [k, p, panel] of [
     ['about', '/settings/general/about', '<AboutPanel />'],
     ['appearance', '/settings/general/appearance', '<AppearancePanel />'],
-    ['signature', '/settings/general/signature', '<SignaturePanel />'],
+    ['profile', '/settings/general/profile', '<ProfilePanel />'],
     ['tours', '/settings/general/tours', '<ToursHelpPanel onRestartTour={onRestartTour} />'],
     ['keithKnowledge', '/settings/keith/knowledge', '<KnowledgeCenterPanel />'],
     ['keithSkills', '/settings/keith/skills', '<KeithSkillsPanel />'],
@@ -175,7 +179,8 @@ test('every drill-in has its own route under its parent, and renders its existin
 })
 
 test('the pages that bring no heading get one from the shell, on the shared spec', () => {
-  assert.match(shell, /const TITLED_BY_SHELL = \['signature', 'tours', 'about'\]/)
+  // TOPBAR-PROFILE-1: Profile brings its own band, so Email Signature's slot here is gone.
+  assert.match(shell, /const TITLED_BY_SHELL = \['tours', 'about'\]/)
   assert.match(shell, /\{shellTitle && <SettingsPageHeader title=\{shellTitle\} subtitle=\{current\.sub\} \/>\}/)
   assert.match(read('src/components/settings/AppearancePanel.jsx'), /<SettingsPageHeader\s+id=\{`\$\{uid\}-title`\}\s+title="Appearance"/)
   // Every other page's title comes through the one band, which reads the shared spec.
@@ -190,13 +195,17 @@ test('every old path redirects to where it lives now, with replace', () => {
   assert.deepEqual({ ...LEGACY_SETTINGS_REDIRECTS }, {
     '/settings': '/settings/general',
     '/settings/appearance': '/settings/general/appearance',
-    '/settings/signature': '/settings/general/signature',
+    // TOPBAR-PROFILE-1: the signature lives in Profile's #signature section, and
+    // Accounts & Access was renamed Users & Access with a new path.
+    '/settings/signature': '/settings/general/profile#signature',
+    '/settings/general/signature': '/settings/general/profile#signature',
+    '/settings/accounts': '/settings/users',
     '/settings/tours': '/settings/general/tours',
     '/settings/about': '/settings/general/about',
     '/settings/knowledge': '/settings/keith/knowledge',
   })
   const routablePaths = routableSections(OWNER).map(s => s.path)
-  for (const to of Object.values(LEGACY_SETTINGS_REDIRECTS)) assert.ok(routablePaths.includes(to), `${to} is a real page`)
+  for (const to of Object.values(LEGACY_SETTINGS_REDIRECTS)) assert.ok(routablePaths.includes(to.split('#')[0]), `${to} is a real page`)
   for (const from of Object.keys(LEGACY_SETTINGS_REDIRECTS)) assert.ok(!routablePaths.includes(from), `${from} is not a page any more`)
   assert.match(shell, /const moved = LEGACY_SETTINGS_REDIRECTS\[path\]\s*\n\s*if \(moved\) \{\s*\n\s*navigate\(moved, \{ replace: true \}\)/)
   assert.match(shell, /if \(path\.startsWith\('\/settings'\) && !knownPaths\.includes\(path\)\) \{\s*\n\s*navigate\(DEFAULT_SETTINGS_PATH, \{ replace: true \}\)/)
@@ -207,14 +216,15 @@ test('routableSections is a superset of the rail for every role', () => {
   for (const r of ROLE_COMBOS) {
     const routableKeys = routableSections(r).map(s => s.key)
     for (const key of railKeys(r)) assert.ok(routableKeys.includes(key))
-    for (const key of ['appearance', 'signature', 'tours', 'about']) assert.ok(routableKeys.includes(key), `${key} for ${JSON.stringify(r)}`)
+    for (const key of ['profile', 'appearance', 'tours', 'about']) assert.ok(routableKeys.includes(key), `${key} for ${JSON.stringify(r)}`)
   }
 })
 
-test('deep-link consumers: the user menu and the portals open General; Interviewers opens Accounts', () => {
+test('deep-link consumers: the user menu and the portals open General; Interviewers opens Users & Access', () => {
   assert.equal(STAFF_SETTINGS_PATH, '/settings/general')
-  assert.match(read('src/components/UserMenu.jsx'), /navigate\(STAFF_SETTINGS_PATH\)/)
-  assert.match(read('src/components/InterviewersModal.jsx'), /navigate\('\/settings\/accounts'\)/)
+  // TOPBAR-PROFILE-1: the menu navigates through go(), which asks first on unsaved edits.
+  assert.match(read('src/components/UserMenu.jsx'), /go\(STAFF_SETTINGS_PATH\)/)
+  assert.match(read('src/components/InterviewersModal.jsx'), /navigate\('\/settings\/users'\)/)
 })
 
 // ── SETTINGS-FIX-2: order-proof, one baseline, one size ─────────────────────
@@ -246,7 +256,8 @@ test('a destination reads the same size in the rail and in a list', () => {
 })
 
 test('the breadcrumb rides the back link\'s row, over the page column, so titles sit right under it', () => {
-  assert.match(shell, /<div className="settings-top">\s*<WorkspaceBackLink path=\{backPath\} label=\{backLabel\} \/>\s*\{parent && <SettingsCrumb parent=\{parent\} here=\{current\} navigate=\{navigate\} \/>\}/)
+  // TOPBAR-PROFILE-1: the back link asks before leaving unsaved edits (guard).
+  assert.match(shell, /<div className="settings-top">\s*<WorkspaceBackLink path=\{backPath\} label=\{backLabel\} guard=\{confirmLeave\} \/>\s*\{parent && <SettingsCrumb parent=\{parent\} here=\{current\} navigate=\{navigate\} \/>\}/)
   // The top row is the same two columns as the panes, so the crumb starts where the page does.
   assert.match(shellCss, /\.settings-top \{\s*display: grid;\s*grid-template-columns: 240px minmax\(0, 1fr\);\s*column-gap: 28px;/)
   assert.match(shellCss, /\.settings-grid \{[^}]*margin-top: 16px;/)
@@ -267,7 +278,7 @@ test('the band is one fixed shape: a title line and ONE reserved subtitle line',
 })
 
 test('every Settings page opens with the band, and nothing else draws a page title', () => {
-  for (const f of ['AppearancePanel', 'AccountsDirectory', 'CommunityBenefitPanel', 'DemoModePanel', 'PreceptorParityPanel',
+  for (const f of ['AppearancePanel', 'ProfilePanel', 'AccountsDirectory', 'CommunityBenefitPanel', 'DemoModePanel', 'PreceptorParityPanel',
     'KnowledgeCenterPanel', 'KeithSkillsPanel', 'KeithUsagePanel']) {
     const src = read(`src/components/settings/${f}.jsx`)
     assert.match(src, /<SettingsPageHeader\b/, `${f} opens with the band`)
@@ -278,7 +289,7 @@ test('every Settings page opens with the band, and nothing else draws a page tit
 
 test('every subtitle is one sentence that fits one line (85 characters)', () => {
   const subs = []
-  for (const f of ['SettingsShell', 'AppearancePanel', 'AccountsDirectory', 'CommunityBenefitPanel', 'DemoModePanel',
+  for (const f of ['SettingsShell', 'AppearancePanel', 'ProfilePanel', 'AccountsDirectory', 'CommunityBenefitPanel', 'DemoModePanel',
     'PreceptorParityPanel', 'KnowledgeCenterPanel', 'KeithSkillsPanel', 'KeithUsagePanel']) {
     const src = read(`src/components/settings/${f}.jsx`)
     for (const m of src.matchAll(/subtitle="([^"]+)"/g)) subs.push(m[1])
@@ -298,7 +309,7 @@ test('every section uses the full canonical workspace width (no caps)', () => {
 
 test('the back breadcrumb sits at the workspace top offset, inside the canonical 20px inset', () => {
   assert.match(shellCss, /\.settings-shell \{\s*padding: 0 20px 40px;/)
-  assert.match(shell, /<WorkspaceBackLink path=\{backPath\} label=\{backLabel\} \/>/)
+  assert.match(shell, /<WorkspaceBackLink path=\{backPath\} label=\{backLabel\} guard=\{confirmLeave\} \/>/)
 })
 
 test('AboutPanel source: owns the buildInfo-backed content and the copy button', () => {
@@ -314,13 +325,14 @@ test('AboutPanel source: owns the buildInfo-backed content and the copy button',
 test('generic subtitles are gone; operational guidance survives inside content', () => {
   assert.doesNotMatch(read('src/components/settings/AppearancePanel.jsx'), /Control how ASPIRE Intelligence looks/)
   assert.doesNotMatch(read('src/components/settings/ToursHelpPanel.jsx'), /Replay the guided tour or find your way/)
-  const signature = read('src/components/settings/SignaturePanel.jsx')
-  assert.match(signature, /manual ASPIRE Connect<\/strong> emails only/)
+  // TOPBAR-PROFILE-1: the signature's scope note lives in Profile's Connect Signature section.
+  const signature = read('src/components/settings/ProfilePanel.jsx')
+  assert.match(signature, /Used on emails you write in ASPIRE Connect\. Automated program emails \(reminders, notifications\) do not use it\./)
   assert.match(read('src/components/settings/PreceptorParityPanel.jsx'), /by preceptor identity \(ID\)/)
 })
 
 test('canonical SurfaceCard replaces the custom bordered containers', () => {
-  for (const f of ['AboutPanel', 'AppearancePanel', 'SignaturePanel', 'ToursHelpPanel']) {
+  for (const f of ['AboutPanel', 'AppearancePanel', 'ProfilePanel', 'ToursHelpPanel']) {
     const src = read(`src/components/settings/${f}.jsx`)
     assert.match(src, /import SurfaceCard from '\.\.\/ui\/SurfaceCard'/, `${f} imports SurfaceCard`)
     assert.doesNotMatch(src, /border: '1px solid var\(--color-border-default[\s\S]{0,80}borderRadius: 12/, `${f} has no custom bordered card`)

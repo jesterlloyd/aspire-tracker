@@ -41,7 +41,8 @@ export const SETTINGS_GROUPS = ['Workspace', 'Administration', 'Diagnostics']
 
 export const SETTINGS_SECTIONS = [
   { key: 'general',    label: 'General',           path: '/settings/general',    group: 'Workspace', implemented: true, visible: () => true },
-  { key: 'accounts',   label: 'Accounts & Access', path: '/settings/accounts',   group: 'Administration', implemented: true, visible: r => r.isAdmin }, // WS2.2: Owner/Admin only
+  // TOPBAR-PROFILE-1: "Accounts & Access" read like a personal page; it manages other people.
+  { key: 'accounts',   label: 'Users & Access',    path: '/settings/users',      group: 'Administration', implemented: true, visible: r => r.isAdmin }, // WS2.2: Owner/Admin only
   { key: 'organization', label: 'Organization', path: '/settings/organization', group: 'Administration', implemented: true, visible: r => r.isOwner },
   { key: 'communityBenefit', label: 'Community Benefit', path: '/settings/community-benefit', group: 'Administration', implemented: true, fullScreen: true, visible: r => r.isAdmin }, // NURSING-ACADEMICS-1: report + reporting inputs; Admin sees read-only, WRITES are Owner-only server-side
   { key: 'programBudget', label: 'Budget Tracker', path: '/settings/budget', group: 'Administration', implemented: true, fullScreen: true, visible: r => r.isAdmin }, // PROGRAM-BUDGET (2026-09-27): Owner edits, Admin reads; api/budget-staff.js is the authority
@@ -52,11 +53,13 @@ export const SETTINGS_SECTIONS = [
   { key: 'demoMode', label: 'Demo Mode', path: '/settings/demo-mode', group: 'Diagnostics', implemented: true, visible: r => r.isOwner },
   { key: 'preceptorParity', label: 'Preceptor Parity', path: '/settings/preceptor-parity', group: 'Diagnostics', implemented: true, visible: r => r.isOwner }, // PRECEPTOR-INTEGRITY-1: read-only integrity monitor for out-of-band SQL drift, Owner only
 
-  // General's rows, alphabetical by label, visible to everyone.
-  { key: 'about',      label: 'About',           sub: 'Version, build, and deployment details', path: '/settings/general/about',      parent: 'general', inRail: false, implemented: true, visible: () => true },
+  // General's rows, visible to everyone, in the Owner's order (TOPBAR-PROFILE-1): the
+  // person first, then how the app looks, then help, then the build. Email Signature is the
+  // last section of Profile now; its old path redirects there.
+  { key: 'profile',    label: 'Profile',         sub: 'Photo, name, title and your Connect signature', path: '/settings/general/profile', parent: 'general', inRail: false, implemented: true, visible: () => true },
   { key: 'appearance', label: 'Appearance',      sub: 'Style and color mode',                   path: '/settings/general/appearance', parent: 'general', inRail: false, implemented: true, visible: () => true }, // per-user, follows the account (APPEARANCE-STYLE-1)
-  { key: 'signature',  label: 'Email Signature', sub: 'Your Connect signature',                 path: '/settings/general/signature',  parent: 'general', inRail: false, implemented: true, visible: () => true }, // CONNECT-COMMS-1D
   { key: 'tours',      label: 'Tours & Help',    sub: 'Replay the welcome tour and find help',  path: '/settings/general/tours',      parent: 'general', inRail: false, implemented: true, visible: () => true }, // WS2.3
+  { key: 'about',      label: 'About',           sub: 'Version, build and deployment details',  path: '/settings/general/about',      parent: 'general', inRail: false, implemented: true, visible: () => true },
 
   // Keith's rows (SETTINGS-KEITH-NESTED-1, KEITH-USAGE-1), alphabetical, Owner/Admin like
   // Keith itself; api/keith-usage.js and the other endpoints remain the real authority.
@@ -74,7 +77,9 @@ export const SETTINGS_SECTIONS = [
 export const LEGACY_SETTINGS_REDIRECTS = Object.freeze({
   '/settings': '/settings/general',
   '/settings/appearance': '/settings/general/appearance',
-  '/settings/signature': '/settings/general/signature',
+  '/settings/signature': '/settings/general/profile#signature',
+  '/settings/general/signature': '/settings/general/profile#signature', // TOPBAR-PROFILE-1
+  '/settings/accounts': '/settings/users', // TOPBAR-PROFILE-1: the page was renamed Users & Access
   '/settings/tours': '/settings/general/tours',
   '/settings/about': '/settings/general/about',
   '/settings/knowledge': '/settings/keith/knowledge', // KT-3a-1's Knowledge Center, under Keith since SETTINGS-KEITH-NESTED-1

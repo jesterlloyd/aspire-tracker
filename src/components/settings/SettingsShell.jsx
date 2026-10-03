@@ -22,10 +22,10 @@
 // and the rail card and the page's first card start on one line, on every page. A
 // drill-in's breadcrumb rides the back link's row, over the page column, so the titles
 // sit right under it.
-import { useEffect, Fragment } from 'react'
+import { useEffect, useCallback, Fragment } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
-  Settings, Users, HandCoins, Sparkles, Presentation, Scale, BadgeInfo, Monitor, PenLine, Info, Building2,
+  Settings, Users, HandCoins, Sparkles, Presentation, Scale, BadgeInfo, Monitor, UserRound, Info, Building2,
   FileText, BarChart3, ChevronRight, Wallet,
 } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
@@ -34,7 +34,7 @@ import {
   DEFAULT_SETTINGS_PATH, LEGACY_SETTINGS_REDIRECTS,
 } from './settingsSections'
 import AppearancePanel from './AppearancePanel'
-import SignaturePanel from './SignaturePanel'
+import ProfilePanel from './ProfilePanel'
 import ToursHelpPanel from './ToursHelpPanel'
 import AboutPanel from './AboutPanel'
 import AccountsAccessPanel from './AccountsAccessPanel'
@@ -51,6 +51,7 @@ import WorkspaceBackLink from '../ui/WorkspaceBackLink'
 import SettingsPageHeader from './SettingsPageHeader'
 import { KeithIcon, KeithLockup } from '../keith/KeithBrand'
 import BackButton from '../BackButton'
+import { confirmLeave } from '../../lib/unsavedChanges'
 import '../../styles/selectionRail.css'
 import './settingsShell.css'
 
@@ -59,7 +60,7 @@ import './settingsShell.css'
 const SECTION_ICONS = {
   general: Settings, accounts: Users, organization: Building2, communityBenefit: HandCoins, programBudget: Wallet, keith: KeithIcon,
   demoMode: Presentation, preceptorParity: Scale,
-  about: BadgeInfo, appearance: Monitor, signature: PenLine, tours: Info,
+  about: BadgeInfo, appearance: Monitor, profile: UserRound, tours: Info,
   keithKnowledge: FileText, keithSkills: Sparkles, keithUsage: BarChart3,
 }
 
@@ -71,7 +72,7 @@ const LIST_PAGE_COPY = {
 
 // The drill-ins that bring no heading of their own; the shell titles them with their
 // row's name and line. Every other page renders its own SettingsPageHeader.
-const TITLED_BY_SHELL = ['signature', 'tours', 'about']
+const TITLED_BY_SHELL = ['tours', 'about']
 
 function SettingsRail({ sections, activeKey, navigate }) {
   const groups = SETTINGS_GROUPS
@@ -147,8 +148,13 @@ function SettingsCrumb({ parent, here, navigate }) {
 
 export default function SettingsShell({ backPath = '/aggregate', backLabel = 'At a Glance', onRestartTour }) {
   const location = useLocation()
-  const navigate = useNavigate()
+  const routerNavigate = useNavigate()
   const { isOwner, isAdmin } = useAuth()
+  // TOPBAR-PROFILE-1: every way out of a page from inside Settings (rail, list rows,
+  // breadcrumb, back link) asks first when the page holds unsaved edits (Profile).
+  const navigate = useCallback(async (to, opts) => {
+    if (opts?.replace || await confirmLeave()) routerNavigate(to, opts)
+  }, [routerNavigate])
 
   const roleFlags = { isOwner, isAdmin }
   const sections = visibleSections(roleFlags)
@@ -205,7 +211,7 @@ export default function SettingsShell({ backPath = '/aggregate', backLabel = 'At
       {/* The back link over the rail's column; a drill-in's breadcrumb on the same row,
           over the page column. */}
       <div className="settings-top">
-        <WorkspaceBackLink path={backPath} label={backLabel} />
+        <WorkspaceBackLink path={backPath} label={backLabel} guard={confirmLeave} />
         {parent && <SettingsCrumb parent={parent} here={current} navigate={navigate} />}
       </div>
 
@@ -225,7 +231,7 @@ export default function SettingsShell({ backPath = '/aggregate', backLabel = 'At
           )}
           {shellTitle && <SettingsPageHeader title={shellTitle} subtitle={current.sub} />}
           {currentKey === 'appearance' && <AppearancePanel />}
-          {currentKey === 'signature'  && <SignaturePanel />}
+          {currentKey === 'profile'    && <ProfilePanel />}
           {currentKey === 'tours'      && <ToursHelpPanel onRestartTour={onRestartTour} />}
           {currentKey === 'about'      && <AboutPanel />}
           {currentKey === 'accounts'   && <AccountsAccessPanel />}

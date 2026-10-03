@@ -34,15 +34,18 @@ test('the renderer honors Department and defaults to the historical institute li
 })
 
 test('the Settings preview mirrors the sent block', () => {
-  const panel = read('src/components/settings/SignaturePanel.jsx')
+  // TOPBAR-PROFILE-1: the preview moved from the Email Signature page to Profile's
+  // Connect Signature section; its inks moved to profilePanel.css.
+  const panel = read('src/components/settings/ProfilePanel.jsx')
+  const css = read('src/components/settings/profilePanel.css')
   assert.match(panel, /Kind regards,/)
   assert.doesNotMatch(panel, /Warm regards,/)
   // Same shared map and default as the renderer - never a private lookalike.
   assert.match(panel, /connectSignatureImagePath\(email\)/)
   assert.match(panel, /CONNECT_SIGNATURE_DEFAULT_AFFILIATION/)
   // CS-Red bold name, GIF above the name at the sent dimensions.
-  assert.match(panel, /const CS_RED = '#dc1e34'/)
-  assert.match(panel, /<strong style=\{\{ color: CS_RED \}\}>/)
+  assert.match(css, /\.pf-preview-name \{ color: #dc1e34; \}/i)
+  assert.match(panel, /<strong className="pf-preview-name">/)
   assert.match(panel, /width=\{160\} height=\{60\}/)
 })
 

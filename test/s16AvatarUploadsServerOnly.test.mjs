@@ -232,7 +232,8 @@ test('every server writer of avatar_url validates the value with the one rule', 
 })
 
 test('the upload clients post bytes to the server and the paste field is gone', () => {
-  const menu = stripComments(read('src/components/UserMenu.jsx'))
+  // TOPBAR-PROFILE-1: the staff self-photo client moved out of UserMenu, unchanged.
+  const menu = stripComments(read('src/hooks/useMyAvatar.js'))
   assert.match(menu, /fetch\('\/api\/my-avatar'/)
   assert.match(menu, /action: 'remove'/)
   assert.doesNotMatch(menu, /safeWrite|update_my_avatar|storage/)

@@ -1675,3 +1675,42 @@ folded to one line with its count and total (TAIL-COLLAPSE-1).
 - **A popover never lives in the Settings band's subtitle** (COST-CENTER-FIX-1): `.settings-page-sub` is a
   fixed 20px line with `overflow: hidden`, so the cost center editor is drawn on `<body>` (`createPortal`,
   `position: fixed` at the button). Its wrapper is `.bud-ccline`; `.bud-cc` is the Concur draft's list.
+
+## The profile menu and Profile (TOPBAR-PROFILE-1, 2026-10-02)
+
+Reference: `docs/mockups/topbar-profile.html`, brief `docs/mockups/topbar-profile-brief.md`.
+
+- **The menu is four sections** (`src/components/UserMenu.jsx`, `userMenu.css`): an identity
+  row that opens Settings > General > Profile; Settings with Cmd+, / Ctrl+, (from anywhere in
+  the staff app); **Preview as**, the five portal previews that already existed, the same
+  routes and the same active Owner/Admin gate; then Public site (new tab) and Sign out. The
+  menu holds no photo controls. Keyboard: opened by keyboard, focus is on the identity row;
+  arrows, Home, End; Escape returns focus to the button.
+- **Portal previews were moved, not rebuilt** (Owner, 2026-10-02). There is no preview banner,
+  person picker or server write guard; a preview is still `/portal/*` under the staff
+  session, as PortalApp has always resolved it. Do not add those without the Owner.
+- **Profile replaces Email Signature** (`ProfilePanel.jsx`, `profilePanel.css`):
+  Photo (the old menu handlers, moved unchanged into `src/hooks/useMyAvatar.js`), Your
+  Details, Connect Signature (`#signature`), one Save. `/settings/general/signature` and
+  `/settings/signature` redirect to `/settings/general/profile#signature`.
+- **Display name is the account's `full_name`**, written by the self-only RPC
+  `update_my_profile` (`20261103000000_my_profile_name.sql`, Owner-gated), which also writes
+  the signature in the same statement. Before it is applied the page falls back to
+  `update_my_connect_signature` and says the account name did not change. full_name stays
+  unwritable by a raw client update.
+- **Two names are shown, never merged quietly.** Connect signs with
+  `connect_signature.display_name`. When it differs from `full_name` the page says so and
+  the signature keeps its own name until the person edits Display name.
+  `db/audit/my_profile_name_conflicts.sql` lists every such account.
+- **Signature off is not unsigned**: Connect falls back to a default block
+  (`resolveSenderSignature`), and the preview says so.
+- **Unsaved edits**: the staff app is a `<BrowserRouter>` (no `useBlocker`), so
+  `src/lib/unsavedChanges.js` is asked by the controls that leave a Settings page (rail, list
+  rows, breadcrumb, back link) and by the profile menu; a reload or closed tab gets the
+  browser's own prompt. The workspace tabs do not ask.
+- **Users & Access** is Accounts & Access renamed, at `/settings/users`;
+  `/settings/accounts` redirects.
+- **The top bar**: tooltips read Connect, Catalog, Action Center, Light or dark. Below 1100px
+  the wordmark goes; below 560px the profile button is its photo alone, and the light/dark
+  button now stays at every width. Scope and Search are NOT hidden below 860px, despite the
+  brief: no screen offers either one in their place, so hiding them would strand phone users.

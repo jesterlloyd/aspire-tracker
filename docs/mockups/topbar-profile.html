@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Top Bar and Profile</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Mockup: top bar, profile menu, portal preview, Settings shell. Synthetic data only. */
+:root{
+  --navy:#1E2A6E; --navy-soft:#E8ECF8; --bar:#1B2466; --on-navy:#fff;
+  --ink:#1B2140; --muted:#61667E; --faint:#8A90A6;
+  --ground:#F4F2EE; --surface:#FFFFFF; --surface-2:#F8F7F4;
+  --line:rgba(30,42,110,.12); --line-2:rgba(30,42,110,.22);
+  --amber:#8F5A0A; --amber-soft:#FBF0DC; --amber-bar:#F5C46B;
+  --shadow:0 2px 4px rgba(24,32,63,.08), 0 16px 40px rgba(24,32,63,.16);
+  --font:'Plus Jakarta Sans', system-ui, sans-serif; --mono:'JetBrains Mono', ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --navy:#8FA2F0; --navy-soft:#232B4A; --on-navy:#12141C;
+    --ink:#E9EAF2; --muted:#A0A4BC; --faint:#7C8098;
+    --ground:#12141C; --surface:#1B1E2B; --surface-2:#171A25;
+    --line:rgba(159,176,245,.14); --line-2:rgba(159,176,245,.26);
+    --amber:#E6A544; --amber-soft:#2A2517; --shadow:0 2px 4px rgba(0,0,0,.4), 0 16px 40px rgba(0,0,0,.45);
+  }
+}
+:root[data-theme="dark"]{
+  --navy:#8FA2F0; --navy-soft:#232B4A; --on-navy:#12141C;
+  --ink:#E9EAF2; --muted:#A0A4BC; --faint:#7C8098;
+  --ground:#12141C; --surface:#1B1E2B; --surface-2:#171A25;
+  --line:rgba(159,176,245,.14); --line-2:rgba(159,176,245,.26);
+  --amber:#E6A544; --amber-soft:#2A2517; --shadow:0 2px 4px rgba(0,0,0,.4), 0 16px 40px rgba(0,0,0,.45);
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--ground); color:var(--ink); font-family:var(--font); font-size:14px; line-height:1.45; min-height:100vh}
+button{font:inherit; color:inherit}
+:focus-visible{outline:3px solid var(--navy); outline-offset:2px; border-radius:6px}
+.sr{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0)}
+svg.i{width:17px; height:17px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; flex:none}
+
+/* Demo bar */
+.demo{display:flex; flex-wrap:wrap; gap:10px 18px; align-items:center; padding:8px 20px; background:#0D0F16; color:#C9CCDA; font-size:12px}
+.demo b{color:#fff}
+.seg{display:inline-flex; flex-wrap:wrap; border:1px solid #343A50; border-radius:7px; overflow:hidden}
+.seg button{background:transparent; border:0; color:#C9CCDA; padding:4px 10px; cursor:pointer; font-size:12px}
+.seg button[aria-pressed="true"]{background:#3A4AA8; color:#fff}
+.demo .note{margin-left:auto; color:#7C8098}
+
+/* Preview banner */
+.pv{display:none; align-items:center; gap:12px; padding:8px 24px; background:var(--amber-bar); color:#2A1C04; font-size:13px; font-weight:600}
+.pv.on{display:flex}
+.pv svg{width:16px; height:16px}
+.pv select{font:inherit; font-weight:600; border:1px solid rgba(42,28,4,.35); background:rgba(255,255,255,.6); border-radius:6px; padding:2px 6px; color:#2A1C04}
+.pv .sp{flex:1}
+.pv button{border:1px solid rgba(42,28,4,.45); background:#2A1C04; color:#FBE7BF; border-radius:7px; padding:4px 12px; font-weight:700; cursor:pointer}
+
+/* App bar */
+.appbar{background:var(--bar); color:#fff; display:flex; align-items:center; gap:10px; padding:10px 24px; position:relative}
+.brand{display:flex; align-items:center; gap:14px; font-weight:700; font-size:20px; white-space:nowrap}
+.brand .mark{width:30px; height:30px; border-radius:50%; border:4px solid #E23B4B; box-shadow:10px 0 0 -4px #E23B4B}
+.brand .sep{width:1px; height:26px; background:rgba(255,255,255,.25)}
+.sp{flex:1}
+.scope{border:1px solid rgba(255,255,255,.22); border-radius:999px; padding:6px 14px; font-size:13px; display:flex; gap:8px; align-items:center; white-space:nowrap; margin-right:4px}
+.scope small{font-family:var(--mono); letter-spacing:.1em; opacity:.6; font-size:10.5px}
+.scope .live{width:7px; height:7px; border-radius:50%; background:#3CCB8A}
+.search{display:flex; align-items:center; gap:8px; width:260px; height:38px; border-radius:9px; border:1px solid rgba(255,255,255,.2); background:rgba(255,255,255,.06); padding:0 8px 0 11px; color:rgba(255,255,255,.75); font-size:13px; white-space:nowrap; overflow:hidden}
+.search kbd{margin-left:auto; font:600 10.5px var(--mono); border:1px solid rgba(255,255,255,.25); border-radius:5px; padding:2px 5px}
+.search[hidden]{display:none}
+.ib{position:relative; width:38px; height:38px; border-radius:9px; border:1px solid rgba(255,255,255,.2); background:rgba(255,255,255,.06); color:#fff; display:grid; place-items:center; cursor:pointer}
+.ib:hover{background:rgba(255,255,255,.14)}
+.ib .badge{position:absolute; top:-6px; right:-6px; min-width:18px; height:18px; padding:0 5px; border-radius:9px; background:#E6A544; color:#2A1C04; font:700 10.5px var(--mono); display:grid; place-items:center}
+.tip{position:absolute; top:44px; left:50%; transform:translateX(-50%); background:#0D0F16; color:#fff; font-size:11.5px; font-weight:600; padding:4px 8px; border-radius:6px; white-space:nowrap; opacity:0; pointer-events:none; transition:opacity .12s; z-index:5}
+.ib:hover .tip,.ib:focus-visible .tip{opacity:1}
+.who{display:flex; align-items:center; gap:9px; border:1px solid rgba(255,255,255,.22); border-radius:10px; padding:4px 10px 4px 4px; background:rgba(255,255,255,.06); color:#fff; cursor:pointer; margin-left:4px}
+.who[aria-expanded="true"]{background:rgba(255,255,255,.18)}
+.av{width:30px; height:30px; border-radius:50%; background:linear-gradient(135deg,#5A67B8,#3A4590); display:grid; place-items:center; font-weight:700; font-size:11.5px; color:#fff; flex:none}
+.who .nm{font-size:13px; font-weight:600; line-height:1.1; text-align:left}
+.who small{display:block; font-size:11px; opacity:.65; font-weight:500}
+.who .car{width:14px; height:14px; transition:transform .15s}
+.who[aria-expanded="true"] .car{transform:rotate(180deg)}
+
+/* Profile menu */
+.pm{position:absolute; top:58px; right:20px; width:320px; z-index:30; background:var(--surface); color:var(--ink); border:1px solid var(--line); border-radius:14px; box-shadow:var(--shadow); overflow:hidden}
+.pm[hidden]{display:none}
+.pm-id{display:flex; align-items:center; gap:12px; width:100%; text-align:left; border:0; background:none; cursor:pointer; padding:16px 14px 14px 16px; border-bottom:1px solid var(--line)}
+.pm-id:hover,.pm-id:focus-visible{background:var(--navy-soft)}
+.pm-id .idt{flex:1; min-width:0; display:flex; flex-direction:column; align-items:flex-start}
+.pm-id .idc{color:var(--faint)}
+.pm-id:hover .idc{color:var(--navy)}
+.pm-id .av{width:44px; height:44px; font-size:15px}
+.pm-id b{font-size:14.5px}
+.pm-id .em{color:var(--muted); font-size:12.5px; word-break:break-all}
+.role{display:inline-block; margin-top:5px; font:700 10.5px var(--mono); letter-spacing:.06em; text-transform:uppercase; background:var(--navy); color:var(--on-navy); border-radius:999px; padding:2px 9px}
+.pm-sec{padding:6px; border-bottom:1px solid var(--line)}
+.pm-sec:last-child{border-bottom:0}
+.pm-lbl{font:600 10px var(--mono); letter-spacing:.12em; text-transform:uppercase; color:var(--faint); padding:8px 10px 4px}
+.mi{display:flex; align-items:center; gap:11px; width:100%; text-align:left; background:none; border:0; padding:8px 10px; border-radius:8px; cursor:pointer; font-size:13.5px}
+.mi:hover,.mi:focus-visible{background:var(--navy-soft)}
+.mi .sub{display:block; color:var(--muted); font-size:11.5px; font-weight:400}
+.mi .k{margin-left:auto; font:500 11px var(--mono); color:var(--faint)}
+.mi svg.ext{width:13px; height:13px; margin-left:auto; color:var(--faint)}
+.mi .t{flex:1; min-width:0}
+.mi.out{color:var(--muted)}
+
+.ap{display:flex; align-items:center; gap:10px; padding:6px 10px 8px}
+.ap .lab{font-size:13.5px; display:flex; gap:11px; align-items:center; flex:1}
+.ap-seg{display:inline-flex; padding:3px; border-radius:9px; background:var(--surface-2); border:1px solid var(--line)}
+.ap-seg label{position:relative; display:grid; place-items:center; width:34px; height:28px; border-radius:7px; cursor:pointer; color:var(--muted)}
+.ap-seg input{position:absolute; opacity:0; inset:0; margin:0; cursor:pointer}
+.ap-seg label:has(input:checked){background:var(--surface); color:var(--navy); box-shadow:0 1px 2px rgba(24,32,63,.18)}
+.ap-seg label:has(input:focus-visible){outline:3px solid var(--navy); outline-offset:1px}
+.ap-seg svg{width:15px; height:15px}
+
+/* Page shells */
+main{max-width:1200px; margin:0 auto; padding:24px}
+.back{display:inline-flex; align-items:center; gap:6px; border:1px solid var(--line); background:var(--surface); border-radius:999px; padding:6px 14px; font-weight:600; font-size:13px; cursor:pointer}
+.settings{display:grid; grid-template-columns:240px 1fr; column-gap:32px; row-gap:0; align-items:start}
+.settings .r0{grid-row:1; min-height:34px; display:flex; align-items:center; margin-bottom:22px}
+.settings .r0.c1{grid-column:1} .settings .r0.c2{grid-column:2}
+.settings .s-h{grid-row:2; grid-column:1; font-size:22px; margin:0}
+.settings .p-h{grid-row:2; grid-column:2}
+.settings .side{grid-row:3; grid-column:1; margin-top:18px}
+.settings .p-b{grid-row:3; grid-column:2; margin-top:18px; min-width:0}
+.side{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:10px}
+.side .grp{font:600 10px var(--mono); letter-spacing:.12em; text-transform:uppercase; color:var(--faint); padding:10px 10px 6px}
+.side .grp:not(:first-child){border-top:1px solid var(--line); margin-top:6px; padding-top:14px}
+.side button{display:flex; align-items:center; gap:10px; width:100%; border:0; background:none; padding:8px 10px; border-radius:8px; text-align:left; cursor:pointer; font-size:14px}
+.side button:hover{background:var(--navy-soft)}
+.side button[aria-current="page"]{background:var(--surface-2); box-shadow:inset 3px 0 0 var(--navy); font-weight:700; color:var(--navy)}
+.p-h h2{margin:0; font-size:22px; line-height:1.25}
+.p-h .lede{color:var(--muted); margin:4px 0 0}
+.settings .s-h{line-height:1.25}
+.crumb{display:inline-flex; align-items:center; gap:6px; border:1px solid var(--line); background:var(--surface); border-radius:999px; padding:6px 14px; font-weight:600; font-size:13px; cursor:pointer; color:var(--ink)}
+.crumb-cur{color:var(--muted); font-size:13px; margin-left:10px}
+.list{background:var(--surface); border:1px solid var(--line); border-radius:12px; overflow:hidden}
+.row{display:flex; align-items:center; gap:14px; width:100%; text-align:left; border:0; background:none; padding:13px 16px; cursor:pointer; border-top:1px solid var(--line)}
+.row:first-child{border-top:0}
+.row:hover{background:var(--surface-2)}
+.row .t{flex:1}
+.row b{display:block; font-size:14px}
+.row span.s{color:var(--muted); font-size:12.5px}
+.row .new{font:700 10px var(--mono); background:var(--amber-soft); color:var(--amber); border-radius:4px; padding:1px 6px; margin-left:6px; vertical-align:2px}
+.chev{color:var(--faint)}
+.acct{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:20px 22px; display:grid; gap:14px; max-width:860px}
+.acct .ph{display:flex; align-items:center; gap:16px}
+.acct .ph .av{width:64px; height:64px; font-size:20px}
+.btn{border:1px solid var(--line-2); background:var(--surface); border-radius:8px; padding:6px 12px; font-weight:600; cursor:pointer; font-size:13px}
+.btn.ghost{border-color:transparent; color:var(--muted)}
+.fld{display:grid; grid-template-columns:140px 1fr; gap:12px; align-items:center; border-top:1px solid var(--line); padding-top:14px}
+.fld .l{color:var(--muted); font-size:13px}
+.fld .v{font-weight:600}
+.fld .v small{display:block; color:var(--muted); font-weight:400; font-size:12px}
+.sh{margin:6px 0 0; font-size:15px}
+.grid{display:grid; grid-template-columns:1fr 1fr; gap:12px 16px}
+.f{display:flex; flex-direction:column; gap:5px}
+.f label{font:600 10.5px var(--mono); letter-spacing:.1em; text-transform:uppercase; color:var(--muted)}
+.f .ro{font-weight:500; letter-spacing:0; text-transform:none; color:var(--faint); margin-left:4px}
+.f input{height:40px; border-radius:8px; border:1px solid var(--line-2); background:var(--surface); color:var(--ink); padding:0 12px; font:500 14px var(--font)}
+.f input[readonly]{background:var(--surface-2); color:var(--muted)}
+.f .help{font-size:11.5px; color:var(--faint)}
+.rolel{font-size:13px; color:var(--muted)}
+.rolel b{color:var(--ink)}
+.link2{background:none; border:0; color:var(--navy); font-weight:600; cursor:pointer; padding:0}
+.hint{margin:-6px 0 0; color:var(--muted); font-size:13px}
+.chk{display:flex; gap:8px; align-items:center; font-size:13.5px}
+.chk input{width:16px; height:16px; accent-color:var(--navy)}
+.script{font-family:"Brush Script MT","Segoe Script",cursive; font-size:22px; color:var(--ink)}
+.script.big{font-size:30px; margin:4px 0 6px}
+.pvw{border:1px solid var(--line-2); border-radius:10px; padding:16px 18px; background:#fff; color:#1B2140; font-size:14px; line-height:1.6}
+.pvw .pl{font:600 10px var(--mono); letter-spacing:.12em; text-transform:uppercase; color:#8A90A6; margin-bottom:6px}
+.pvw .sn{color:#B3262F; font-weight:700}
+.pvw .lk{color:#1E2A6E; text-decoration:underline}
+.foot{display:flex; justify-content:flex-end; align-items:center; gap:14px}
+.saved{color:var(--muted); font-size:12.5px}
+.btn.pri{background:var(--navy); border-color:var(--navy); color:var(--on-navy); padding:8px 18px}
+.side .rn{margin-left:auto; font:700 9.5px var(--mono); background:var(--amber-soft); color:var(--amber); border-radius:4px; padding:1px 5px}
+.callout{border:1px dashed var(--line-2); border-radius:10px; padding:12px 14px; color:var(--muted); font-size:12.5px; margin-top:16px; background:var(--surface)}
+.callout b{color:var(--ink)}
+
+.home{display:grid; gap:16px}
+.ph-card{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:20px}
+.ph-card h2{margin:0 0 4px; font-size:18px; color:var(--navy)}
+.ph-card p{margin:0; color:var(--muted)}
+.launch{height:48px; border-radius:12px; border:1px solid var(--line-2); background:var(--surface); display:flex; align-items:center; padding:0 16px; color:var(--muted); gap:10px; max-width:640px; margin:10px auto 0}
+
+.toast{position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(20px); opacity:0; background:#1B2140; color:#fff; padding:10px 16px; border-radius:9px; font-size:13px; box-shadow:0 10px 26px rgba(0,0,0,.3); transition:opacity .18s, transform .18s; pointer-events:none; z-index:50}
+.toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
+
+@media (max-width:1100px){ .search{width:200px} .brand .sep,.brand .prod{display:none} }
+@media (max-width:860px){
+  .settings{grid-template-columns:1fr}
+  .settings > *{grid-column:1 !important; grid-row:auto !important}
+  .settings .r0{margin-bottom:12px} .settings .r0:empty{display:none}
+  .settings .s-h{margin-bottom:10px}
+  .scope{display:none}
+  .search{display:none}
+}
+@media (max-width:560px){
+  .appbar{padding:10px 12px; gap:6px}
+  .brand span:not(.mark){display:none}
+  .who .nm,.who .car{display:none}
+  .who{padding:4px}
+  .pm{right:8px; left:8px; width:auto}
+  main{padding:16px 12px}
+  .grid{grid-template-columns:1fr}
+  .pv{padding:8px 12px; flex-wrap:wrap}
+}
+@media (prefers-reduced-motion:reduce){ *{transition:none !important} }
+</style>
+</head>
+<body>
+
+<div class="demo" role="region" aria-label="Mockup controls">
+  <b>Mockup controls</b>
+  <span>Screen <span class="seg" id="pageSeg">
+    <button aria-pressed="false" data-v="home">At a Glance</button><button aria-pressed="true" data-v="settings">Settings</button><button aria-pressed="false" data-v="profile">Profile</button>
+  </span></span>
+  <span>Color <span class="seg" id="colorSeg">
+    <button aria-pressed="true" data-v="light">Light</button><button aria-pressed="false" data-v="dark">Dark</button>
+  </span></span>
+  <span>Profile menu <span class="seg" id="menuSeg">
+    <button aria-pressed="true" data-v="open">Open</button><button aria-pressed="false" data-v="closed">Closed</button>
+  </span></span>
+  <span class="note">Synthetic data · not part of the app</span>
+</div>
+
+<div class="pv" id="pv" role="status" aria-live="polite">
+  <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+  <span id="pvText">Previewing the Student Portal as</span>
+  <label class="sr" for="pvWho">Preview as</label>
+  <select id="pvWho"></select>
+  <span style="font-weight:500">· Read-only. Nothing you click sends or saves.</span>
+  <span class="sp"></span>
+  <button id="pvExit">Exit preview</button>
+</div>
+
+<header class="appbar">
+  <div class="brand"><span class="mark" aria-hidden="true"></span><span>Cedars-Sinai</span><span class="sep" aria-hidden="true"></span><span class="prod">ASPIRE Intelligence</span></div>
+  <span class="sp"></span>
+  <div class="scope"><span class="live" aria-hidden="true"></span><small>SCOPE</small> Internship · Fall 2026 <span aria-hidden="true">▾</span></div>
+  <div class="search" id="search" role="search">
+    <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+    Search students, units, forms <kbd>⌘K</kbd>
+  </div>
+  <button class="ib" data-open="ASPIRE Connect" aria-label="ASPIRE Connect, 3 need your reply">
+    <svg class="i" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></svg><span class="badge">3</span><span class="tip" aria-hidden="true">Connect</span>
+  </button>
+  <button class="ib" data-open="ASPIRE Catalog" aria-label="ASPIRE Catalog">
+    <svg class="i" viewBox="0 0 24 24"><path d="M5 4v16M10 4v16M15 5l4 14"/></svg><span class="tip" aria-hidden="true">Catalog</span>
+  </button>
+  <button class="ib" data-open="Action Center" aria-label="Action Center, 9 items need you">
+    <svg class="i" viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4zM10 21h4"/></svg><span class="badge">9</span><span class="tip" aria-hidden="true">Action Center</span>
+  </button>
+  <button class="ib" id="themeBtn" aria-label="Switch to dark mode">
+    <svg class="i" viewBox="0 0 24 24" id="themeIco"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg><span class="tip" aria-hidden="true">Light or dark</span>
+  </button>
+  <button class="who" id="who" aria-haspopup="true" aria-expanded="true" aria-controls="pm" aria-label="Account menu for Jester Lloyd Bautista">
+    <span class="av" aria-hidden="true">JB</span>
+    <span class="nm">Jester<small>Owner</small></span>
+    <svg class="i car" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+  </button>
+
+  <div class="pm" id="pm" aria-label="Account menu">
+    <button class="pm-id" data-go="profile" aria-label="Profile, Jester Lloyd Bautista, Owner">
+      <span class="av" aria-hidden="true">JB</span>
+      <span class="idt"><b>Jester Lloyd Bautista</b><span class="em">JesterLloyd.Bautista@cshs.org</span><span class="role">Owner</span></span>
+      <svg class="i idc" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+    </button>
+    <div class="pm-sec">
+      <button class="mi" data-go="settings"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span class="t">Settings</span><span class="k" aria-hidden="true">⌘,</span></button>
+    </div>
+    <div class="pm-sec">
+      <div class="pm-lbl" id="pvLbl">Preview as</div>
+      <div role="group" aria-labelledby="pvLbl" id="portals"></div>
+    </div>
+    <div class="pm-sec">
+      <button class="mi" data-open="Public site, in a new tab"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg><span class="t">Public site</span><svg class="i ext" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg><span class="sr">(opens in a new tab)</span></button>
+      <button class="mi out" data-open="Signs you out"><svg class="i" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg><span class="t">Sign out</span></button>
+    </div>
+  </div>
+</header>
+
+<main id="main"></main>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+const $=s=>document.querySelector(s);
+const ICON = {
+  student:'<path d="M2 9l10-5 10 5-10 5z"/><path d="M6 11v5c3 2 9 2 12 0v-5"/>',
+  unit:'<rect x="4" y="3" width="16" height="18" rx="1"/><path d="M9 21v-4h6v4M8 7h2M14 7h2M8 11h2M14 11h2"/>',
+  partner:'<path d="M3 21h18M5 21V10l7-5 7 5v11M9 21v-6h6v6"/>',
+  nel:'<path d="M12 21s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 11c0 5.5-7 10-7 10z"/>',
+  res:'<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
+  chev:'<path d="M9 6l6 6-6 6"/>'
+};
+const ic = (k,cls='i') => `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICON[k]}</svg>`;
+const PORTALS = [
+  {k:'student', n:'Student Portal', who:['Maya Okafor · Cal State LA','Daniel Reyes · Azusa Pacific','A sample student with no data']},
+  {k:'unit', n:'Unit Leader Portal', who:['Maria Santos · 6 NE','Kevin Park · 5 SCCT']},
+  {k:'partner', n:'Academic Partner Portal', who:['Dr. Alan Brooks · Cal State LA','Susan Hunter · Azusa Pacific']},
+  {k:'nel', n:'Nursing Education & Leadership Portal', who:['Nursing Education leadership view']},
+  {k:'res', n:'Residency Portal', who:['A sample resident']}
+];
+$('#portals').innerHTML = PORTALS.map((p,i)=>`<button class="mi" data-portal="${i}">${ic(p.k)}<span class="t">${p.n}</span></button>`).join('');
+
+function toast(t){ const el=$('#toast'); el.textContent=t; el.classList.add('show'); clearTimeout(toast.t); toast.t=setTimeout(()=>el.classList.remove('show'),2200); }
+
+/* Menu open / close */
+const who=$('#who'), pm=$('#pm');
+function setMenu(open, focusFirst){
+  pm.hidden=!open; who.setAttribute('aria-expanded', open);
+  document.querySelectorAll('#menuSeg button').forEach(b=>b.setAttribute('aria-pressed', (b.dataset.v==='open')===open));
+  if(open && focusFirst) pm.querySelector('.pm-id').focus();
+}
+who.addEventListener('click',()=>setMenu(pm.hidden, true));
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape' && !pm.hidden){ setMenu(false); who.focus(); }
+  if((e.metaKey||e.ctrlKey) && e.key===','){ e.preventDefault(); go('settings'); }
+});
+document.addEventListener('click',e=>{ if(!pm.hidden && !pm.contains(e.target) && !who.contains(e.target) && !e.target.closest('.demo')) setMenu(false); });
+pm.addEventListener('keydown',e=>{
+  if(!['ArrowDown','ArrowUp','Home','End'].includes(e.key)) return;
+  const items=[...pm.querySelectorAll('.pm-id, .mi')]; const i=items.indexOf(document.activeElement);
+  if(i<0) return; e.preventDefault();
+  const n = e.key==='Home'?0 : e.key==='End'?items.length-1 : (i+(e.key==='ArrowDown'?1:-1)+items.length)%items.length;
+  items[n].focus();
+});
+
+/* Portal preview */
+let pvIndex=null;
+pm.addEventListener('click',e=>{
+  const p=e.target.closest('[data-portal]'); if(p){ startPreview(+p.dataset.portal); return; }
+  const g=e.target.closest('[data-go]'); if(g){ go(g.dataset.go); setMenu(false); return; }
+});
+function startPreview(i){
+  pvIndex=i; const P=PORTALS[i];
+  $('#pvText').textContent='Previewing the '+P.n+' as';
+  $('#pvWho').innerHTML=P.who.map(w=>`<option>${w}</option>`).join('');
+  $('#pv').classList.add('on'); setMenu(false);
+  $('#main').innerHTML = `<div class="ph-card" style="margin-top:4px"><h2>${P.n}</h2><p>The portal renders here exactly as <b id="pvName">${P.who[0]}</b> sees it, inside the admin app. Links and buttons work for navigation. Sends, submissions, signatures and uploads are disabled and show "Preview only".</p></div>`;
+  $('#pvExit').focus();
+}
+$('#pvWho').addEventListener('change',e=>{ const n=$('#pvName'); if(n) n.textContent=e.target.value; });
+$('#pvExit').addEventListener('click',()=>{ $('#pv').classList.remove('on'); go(cur); who.focus(); });
+
+/* Screens */
+let cur='settings';
+const ROW = (ico,t,s,go,extra='') => `<button class="row" ${go?`data-goto="${go}"`:`data-open="${t}"`}>${ico}<span class="t"><b>${t}${extra}</b><span class="s">${s}</span></span>${ic('chev','i chev')}</button>`;
+const SVG = p => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true" style="color:var(--navy)">${p}</svg>`;
+function sideHTML(active){
+  const b=(n,t,extra='')=>`<button ${active===n?'aria-current="page"':''} data-side="${n}">${t}${extra}</button>`;
+  return `<nav class="side" aria-label="Settings sections">
+    <div class="grp">Workspace</div>${b('general','General')}
+    <div class="grp">Administration</div>${b('acc','Users &amp; Access','<span class="rn">RENAMED</span>')}${b('org','Organization')}${b('cb','Community Benefit')}${b('bt','Budget Tracker')}${b('keith','Keith AI')}
+    <div class="grp">Diagnostics</div>${b('demo','Demo Mode')}${b('parity','Preceptor Parity')}
+  </nav>`;
+}
+const F = (id,label,val,opts={}) => `<div class="f ${opts.wide?'wide':''}"><label for="${id}">${label}${opts.req?' *':''}${opts.ro?' <span class="ro">Read-only</span>':''}</label>
+  <input id="${id}" value="${val}" ${opts.ro?'readonly':''} data-sig="${opts.sig||''}">${opts.help?`<span class="help">${opts.help}</span>`:''}</div>`;
+function shell(crumb, title, lede, id, body){
+  return `<div class="settings">
+    <div class="r0 c1"><button class="back" data-open="Back to the last screen">‹ Back to At a Glance</button></div>
+    <div class="r0 c2">${crumb}</div>
+    <h1 class="s-h">Settings</h1>
+    <div class="p-h"><h2 id="${id}">${title}</h2><p class="lede">${lede}</p></div>
+    ${sideHTML('general')}
+    <section class="p-b" aria-labelledby="${id}">${body}</section>
+  </div>`;
+}
+function go(p){
+  cur=p; $('#pv').classList.remove('on');
+  document.querySelectorAll('#pageSeg button').forEach(b=>b.setAttribute('aria-pressed', b.dataset.v===p));
+  $('#search').hidden = p==='home';
+  const m=$('#main');
+  if(p==='home'){
+    m.innerHTML=`<div class="home"><div class="ph-card" style="text-align:center"><h2>Good evening, Jester</h2><p>At a Glance has its own launcher, so the top-bar search is hidden on this screen only.</p><div class="launch">${SVG('<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>')}What do you want to do today?</div></div></div>`;
+  } else if(p==='settings'){
+    m.innerHTML=shell('', 'General', 'Settings that are yours alone. They follow you to any device.', 'gH', `<div class="list">
+        ${ROW(SVG('<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/>'),'Profile','Photo, name, title and your Connect signature','profile','<span class="new">NEW</span>')}
+        ${ROW(SVG('<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>'),'Appearance','Style and color mode')}
+        ${ROW(SVG('<circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/>'),'Tours & Help','Replay the welcome tour and find help')}
+        ${ROW(SVG('<circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/>'),'About','Version, build and deployment details')}
+      </div>
+      <div class="callout"><b>What changed:</b> Email Signature is now the last section of Profile, because both asked for your name, title and email. Open Profile from the top of the account menu. Appearance is unchanged: Style (Classic or Modern) and Color mode. "Accounts &amp; Access" is now "Users &amp; Access", since it manages other people's accounts.</div>
+`);
+  } else {
+    m.innerHTML=shell('<button class="crumb" id="crumb">‹ Back to General</button><span class="crumb-cur">/ Profile</span>', 'Profile', 'How you appear to students, schools and your team. Your signature is built from these details.', 'aH', `<div class="acct">
+        <h3 class="sh">Photo</h3>
+        <div class="ph"><span class="av" aria-hidden="true">JB</span><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" data-open="Upload a photo">Change photo</button><button class="btn ghost" data-open="Removes your photo">Remove photo</button></div></div>
+        <h3 class="sh">Your details</h3>
+        <div class="grid">
+          ${F('dn','Display name','Jester Lloyd Bautista',{req:1,sig:'name'})}
+          ${F('cr','Credentials','PhD, MSN, RN, NPD-BC, CCRN, SCRN',{sig:'cred'})}
+          ${F('ti','Title','Nursing Professional Development Practitioner',{sig:'title'})}
+          ${F('de','Department','Geri &amp; Richard Brawerman Nursing Institute',{sig:'dept'})}
+          ${F('em','Email','JesterLloyd.Bautista@cshs.org',{ro:1,help:'From Cedars-Sinai sign-in'})}
+          ${F('pn','Phone','310-248-8964',{sig:'phone'})}
+        </div>
+        <div class="rolel">Role: <b>Owner</b> · <button class="link2" data-open="Users &amp; Access">Managed in Users &amp; Access</button></div>
+        <h3 class="sh" id="signature">Connect signature</h3>
+        <p class="hint">Used on emails you write in ASPIRE Connect. Automated program emails (reminders, notifications) do not use it.</p>
+        <label class="chk"><input type="checkbox" id="inc" checked> Include my signature on emails I write in Connect</label>
+        <div class="grid">
+          ${F('so','Sign-off','Kind regards,',{sig:'off'})}
+          <div class="f"><label>Handwritten signature</label><div style="display:flex;gap:8px;align-items:center;height:40px"><span class="script">Jester Bau</span><button class="btn" data-open="Draw or upload a handwritten signature">Change</button><button class="btn ghost" data-open="Removes the handwritten signature">Remove</button></div></div>
+        </div>
+        <div class="pvw" id="pvw" aria-live="polite"></div>
+        <div class="foot"><span class="saved" id="saved">All changes saved</span><button class="btn pri" id="save">Save</button></div>
+      </div>
+`);
+    $('#crumb').addEventListener('click',()=>go('settings'));
+    const draw=()=>{
+      const v=k=>m.querySelector(`[data-sig="${k}"]`).value;
+      $('#pvw').innerHTML = $('#inc').checked ? `<div class="pl">Preview</div>${v('off')}<div class="script big">Jester Bau</div>
+        <div class="sn">${v('name')}${v('cred')?', '+v('cred'):''}</div><div>${v('title')}</div><div>${v('dept')}</div>
+        <div><span class="lk">JesterLloyd.Bautista@cshs.org</span>${v('phone')?' | Office: '+v('phone'):''}</div>` : `<div class="pl">Preview</div><span style="color:var(--muted)">No signature will be added.</span>`;
+    };
+    m.addEventListener('input',()=>{ draw(); $('#saved').textContent='Unsaved changes'; });
+    $('#inc').addEventListener('change',draw);
+    $('#save').addEventListener('click',()=>{ $('#saved').textContent='All changes saved'; toast('Profile and signature saved'); });
+    draw();
+    if(location.hash==='#signature') $('#signature').scrollIntoView();
+  }
+}
+document.addEventListener('click',e=>{
+  const g=e.target.closest('[data-goto]'); if(g){ go(g.dataset.goto); return; }
+  const s=e.target.closest('[data-side]'); if(s && s.dataset.side!=='general') toast('Opens '+s.textContent.replace('RENAMED',''));
+  const b=e.target.closest('[data-open]'); if(b) toast('Opens '+b.dataset.open.replace(/^Opens /,''));
+});
+
+/* Color: top-bar toggle (unchanged from the Appearance build) and mockup control */
+function setTheme(t){
+  document.documentElement.setAttribute('data-theme',t);
+  $('#themeBtn').setAttribute('aria-label', t==='dark'?'Switch to light mode':'Switch to dark mode');
+  $('#themeIco').innerHTML = t==='dark' ? '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>' : '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>';
+  document.querySelectorAll('#colorSeg button').forEach(b=>b.setAttribute('aria-pressed', b.dataset.v===t));
+}
+$('#themeBtn').addEventListener('click',()=>{ const t=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark'; setTheme(t); toast(t==='dark'?'Dark mode':'Light mode'); });
+
+function seg(id, fn){ $(id).addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; fn(b.dataset.v); }); }
+seg('#pageSeg', v=>go(v));
+seg('#menuSeg', v=>setMenu(v==='open'));
+seg('#colorSeg', v=>setTheme(v));
+go('settings'); setMenu(true);
+</script>
+</body>
+</html>

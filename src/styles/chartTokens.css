@@ -122,7 +122,9 @@
    take a fifth icon: it crushed the brand from 87px to 41px at 375 (measured). Settings >
    Appearance still switches the mode there. */
 .chart-color-mode { display: flex; }
-@media (max-width: 560px) { .chart-color-mode { display: none; } }
+/* TOPBAR-PROFILE-1 (2026-10-02): the button stays at every width now. What used to crowd
+   it out below 560px was the wordmark, and the wordmark goes below 1100px (below), and the
+   profile button shrinks to its photo below 560px (userMenu.css). */
 
 /* Search: width moved from inline styles to CSS so it can flex on
    small screens. Focus growth preserved on desktop. */
@@ -164,6 +166,14 @@
 /* The cohort side is the long one; cap it so a cohort-rich program cannot push the
    dropdown past the viewport, and scroll inside instead. */
 .chart-scope-pane-cohort .chart-scope-rows { max-height: 340px; overflow-y: auto; }
+
+/* TOPBAR-PROFILE-1: below 1100px the bar is the brand mark alone; the wordmark and its
+   divider step aside so the actions never crowd it. Connect, Catalog, the Action Center,
+   the light/dark button and the profile button are never hidden. */
+@media (max-width: 1100px) {
+  .chart-brand-divider,
+  .chart-brand-title { display: none; }
+}
 
 /* The unwrapped band needs ~1150px (brand + cohort + search + actions), so
    wrapping starts at 1200px - measured, not guessed; at 1024 the actions

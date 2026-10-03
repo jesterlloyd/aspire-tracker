@@ -276,6 +276,8 @@ test('DEMO_UNSCOPED_RPCS still lists every people-bearing rpc in src/', () => {
   const IDENTITY_OR_CONFIG = new Set([
     'get_my_profile', 'update_my_avatar', 'touch_my_last_login',
     'update_my_connect_signature', 'get_my_portal_access', 'mark_staff_notifications_read',
+    // TOPBAR-PROFILE-1: the caller's own name and signature, nobody else's.
+    'update_my_profile',
     'verify_school_form_password', 'school_form_requires_password',
   ])
 

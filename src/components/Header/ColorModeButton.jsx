@@ -14,7 +14,7 @@ import { oppositeMode, quickToggleLabel } from '../../lib/appearance'
 export function ColorModeButtonView({ resolved, onToggle }) {
   const Icon = resolved === 'dark' ? Moon : Sun
   return (
-    <Tooltip label="Switch light or dark" placement="bottom">
+    <Tooltip label="Light or dark" placement="bottom">
       <button
         type="button"
         data-testid="color-mode-button"

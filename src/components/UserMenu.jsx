@@ -1,17 +1,31 @@
-import { useState, useRef, useEffect } from 'react';
+// TOPBAR-PROFILE-1 (2026-10-02): the staff profile menu, in four sections.
+// Reference: docs/mockups/topbar-profile.html, brief docs/mockups/topbar-profile-brief.md.
+//
+//   1. Identity: one button (photo, name, work email, role pill, chevron) that opens
+//      Settings > General > Profile. The photo controls that used to sit here live on that
+//      page now (src/hooks/useMyAvatar.js, the same handlers).
+//   2. Settings, with its shortcut: Cmd+, on a Mac, Ctrl+, elsewhere, from anywhere in the
+//      staff app with the menu open or closed.
+//   3. Preview as: the five portal previews that already existed (PORTAL-OWNER-SWITCHER),
+//      the same routes, the same Owner/Admin gate; only their place and label changed.
+//   4. Leave: Public site (new tab) and Sign out.
+//
+// Keyboard: opening by keyboard puts focus on the identity row; Up and Down move, Home
+// and End jump, Escape closes and returns focus to the button. Layout: userMenu.css.
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { supabase } from '../lib/supabase';
 import { getAvatarUrl } from '../lib/getAvatar';
 import { announceFloatingPanelOpen, onFloatingPanelOpen } from '../lib/floatingPanels';
 import {
-  LogOut, ChevronDown, Settings, ExternalLink, GraduationCap,
-  Building2, School, HeartHandshake, BriefcaseBusiness,
+  LogOut, ChevronDown, ChevronRight, Settings, ExternalLink, GraduationCap,
+  Building2, School, HeartHandshake, BriefcaseBusiness, Globe,
 } from 'lucide-react';
-import Tooltip from './ui/Tooltip';
 import { CANONICAL_APP_URL } from '../lib/appUrl';
-import { PORTAL_LINKS, STAFF_SETTINGS_PATH } from '../lib/portalLinks';
+import { PORTAL_LINKS, STAFF_SETTINGS_PATH, STAFF_PROFILE_PATH } from '../lib/portalLinks';
 import { preloadPortalApp } from '../lib/portalAppLoader';
+import { confirmLeave } from '../lib/unsavedChanges';
+import './userMenu.css';
 
 const ROLE_LABELS = {
   owner:       { label: 'Owner',       bg: '#1D2567', color: '#ffffff' },
@@ -30,14 +44,33 @@ const PORTAL_ICONS = {
   talent_acquisition: BriefcaseBusiness,
 };
 
+const MENU_ID = 'staff-profile-menu';
+const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent || '');
+const SETTINGS_SHORTCUT_LABEL = IS_MAC ? '⌘,' : 'Ctrl+,';
+
+// Cmd+, (Mac) or Ctrl+, (elsewhere), with no other modifier.
+function isSettingsShortcut(e) {
+  return e.key === ',' && (e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey;
+}
+
+function Avatar({ profile, size, fallbackBg, initials }) {
+  return (
+    <span className="um-avatar" style={{ width: size, height: size }}>
+      <img src={getAvatarUrl(profile)} alt="" aria-hidden="true"
+        onError={e => { e.target.style.display='none'; e.target.parentNode.style.background=fallbackBg; e.target.parentNode.innerHTML=`<span class="um-avatar-initials">${initials}</span>` }} />
+    </span>
+  );
+}
+
 export default function UserMenu() {
   const { userProfile, signOut } = useAuth();
   const navigate = useNavigate();
-  const [isOpen,    setIsOpen]    = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const fileInputRef = useRef(null);
+  const [isOpen, setIsOpen] = useState(false);
+  const [focusFirst, setFocusFirst] = useState(false);
+  const buttonRef = useRef(null);
+  const menuRef = useRef(null);
 
-  // PORTAL-PREFETCH: the Portals group is in this menu, so opening it is the
+  // PORTAL-PREFETCH: the Preview as group is in this menu, so opening it is the
   // earliest signal that a portal chunk may be wanted. Start it now; the click
   // then mounts an already-downloaded chunk instead of showing a loading screen.
   useEffect(() => {
@@ -50,249 +83,170 @@ export default function UserMenu() {
     if (source !== 'user-menu') setIsOpen(false);
   }), []);
 
-  // S-16: one call shape for set and remove, against the server-side writer.
-  const postMyAvatar = async (payload) => {
-    const { data: { session } } = await supabase.auth.getSession();
-    const token = session?.access_token;
-    const res = await fetch('/api/my-avatar', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-      body: JSON.stringify(payload),
-    });
-    const body = await res.json().catch(() => ({}));
-    return { ok: res.ok, body };
-  };
-  const readFileAsBase64 = (f) => new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(String(r.result).split(',')[1] || '');
-    r.onerror = () => reject(new Error('Could not read that file.'));
-    r.readAsDataURL(f);
-  });
+  const close = useCallback((returnFocus) => {
+    setIsOpen(false);
+    if (returnFocus) buttonRef.current?.focus();
+  }, []);
 
-  const handleAvatarUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
-    if (!validTypes.includes(file.type)) { alert('Please upload a JPG, PNG, or WebP image.'); return; }
-    if (file.size > 2 * 1024 * 1024)    { alert('Image must be under 2MB.'); return; }
+  // A page with unsaved edits (Settings > Profile) is asked before the menu leaves it.
+  const go = useCallback(async (path) => {
+    setIsOpen(false);
+    if (await confirmLeave()) navigate(path);
+  }, [navigate]);
 
-    setUploading(true);
-    try {
-      // S-16: the browser never touches Storage. /api/my-avatar validates the bytes,
-      // uploads with the service role to a path derived from the verified identity,
-      // and writes avatar_url itself.
-      const data_base64 = await readFileAsBase64(file);
-      const { ok, body } = await postMyAvatar({ content_type: file.type, data_base64 });
-      if (!ok) { alert(body.message || 'Could not update your photo. Please try again.'); return; }
-      window.location.reload();
-    } catch (err) {
-      alert(`Error: ${err.message}`);
-    } finally {
-      setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    }
+  // Cmd+, / Ctrl+, opens Settings from anywhere in the staff app, menu open or closed.
+  useEffect(() => {
+    if (!userProfile) return undefined;
+    const onKey = (e) => {
+      if (!isSettingsShortcut(e)) return;
+      e.preventDefault();
+      go(STAFF_SETTINGS_PATH);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [userProfile, go]);
+
+  // Escape closes from anywhere while open and gives focus back to the button.
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); close(true); } };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [isOpen, close]);
+
+  // Opened by keyboard: focus lands on the identity row.
+  useEffect(() => {
+    if (isOpen && focusFirst) menuRef.current?.querySelector('[role="menuitem"]')?.focus();
+  }, [isOpen, focusFirst]);
+
+  const onMenuKeyDown = (e) => {
+    if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) return;
+    const items = [...(menuRef.current?.querySelectorAll('[role="menuitem"]') || [])];
+    if (!items.length) return;
+    e.preventDefault();
+    const i = items.indexOf(document.activeElement);
+    const n = e.key === 'Home' ? 0
+      : e.key === 'End' ? items.length - 1
+      : i < 0 ? 0
+      : (i + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
+    items[n].focus();
   };
 
   if (!userProfile) return null;
 
   const roleStyle = ROLE_LABELS[userProfile.role] || ROLE_LABELS.viewer;
-  const initials = userProfile.full_name
+  const roleLabel = userProfile.is_owner ? 'Owner' : roleStyle.label;
+  const fullName = userProfile.full_name || '';
+  const initials = fullName
     .split(' ')
     .map(n => n[0])
     .slice(0, 2)
     .join('')
     .toUpperCase();
+  // PORTAL-OWNER-SWITCHER: Owner/Admin use their existing staff identity to enter an
+  // explicitly scoped portal preview (src/portal/PortalApp.jsx); nobody else sees the group.
+  const canPreview = ['owner', 'admin'].includes(userProfile.role) && userProfile.is_active !== false;
 
   return (
-    <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '8px' }}>
-
-      {/* WS2.2a: the standalone People & Access header icon was removed; the entry now
-          lives in the dropdown below (→ /settings/accounts). The old icon carried
-          data-tour="people-access"; it was removed with the icon (a closed dropdown
-          item is not a reliable tour target, and the visible avatar trigger already
-          carries data-tour="user-profile"). WS2.3 will re-point or remove the
-          privileged People & Access tour step in onboardingTours.js. */}
-
-      {/* User button */}
-      <Tooltip label="My Profile" placement="bottom">
+    <div className="um-wrap">
       <button
+        ref={buttonRef}
+        type="button"
+        className="um-trigger"
         data-tour="user-profile"
-        onClick={() => {
+        aria-haspopup="true"
+        aria-expanded={isOpen}
+        aria-controls={MENU_ID}
+        aria-label={`Account menu for ${fullName}`}
+        onClick={(e) => {
           const next = !isOpen;
           if (next) announceFloatingPanelOpen('user-menu'); // UI-0.5: closes an open Keith panel
+          // A click from the keyboard (Enter or Space) carries detail 0.
+          setFocusFirst(next && e.detail === 0);
           setIsOpen(next);
         }}
-        style={{
-          display: 'flex', alignItems: 'center', gap: '8px',
-          background: 'rgba(255,255,255,0.10)',
-          border: '1px solid rgba(255,255,255,0.15)',
-          borderRadius: '10px',
-          padding: '5px 10px 5px 6px',
-          cursor: 'pointer',
-          transition: 'background 0.15s ease',
-        }}
-        onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.18)'}
-        onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.10)'}
       >
-        {/* Avatar - DiceBear or custom photo */}
-        <div style={{ width:'26px', height:'26px', borderRadius:'50%', overflow:'hidden', flexShrink:0, border:'1.5px solid rgba(255,255,255,0.3)' }}>
-          <img src={getAvatarUrl(userProfile)} alt={userProfile.full_name}
-            style={{ width:'100%', height:'100%', objectFit:'cover' }}
-            onError={e => { e.target.style.display='none'; e.target.parentNode.style.background=roleStyle.bg; e.target.parentNode.style.display='flex'; e.target.parentNode.style.alignItems='center'; e.target.parentNode.style.justifyContent='center'; e.target.parentNode.innerHTML=`<span style="font-family:Plus Jakarta Sans;font-weight:700;font-size:10px;color:#fff">${initials}</span>` }} />
-        </div>
-
-        {/* Name + role */}
-        <div style={{ textAlign: 'left' }}>
-          <div style={{ fontFamily: 'Plus Jakarta Sans', fontWeight: 600, fontSize: '12px', color: '#ffffff', lineHeight: 1.2, whiteSpace: 'nowrap' }}>
-            {userProfile.full_name.split(' ')[0]}
-          </div>
-          <div style={{ fontFamily: 'Plus Jakarta Sans', fontWeight: 500, fontSize: '10px', color: 'rgba(255,255,255,0.55)', lineHeight: 1 }}>
-            {roleStyle.label}
-          </div>
-        </div>
-
-        <ChevronDown
-          size={12} color="rgba(255,255,255,0.5)"
-          style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }}
-        />
+        <Avatar profile={userProfile} size={26} fallbackBg={roleStyle.bg} initials={initials} />
+        <span className="um-trigger-text" aria-hidden="true">
+          <span className="um-trigger-name">{fullName.split(' ')[0]}</span>
+          <span className="um-trigger-role">{roleLabel}</span>
+        </span>
+        <ChevronDown size={12} aria-hidden="true" className="um-trigger-caret" />
       </button>
-      </Tooltip>
 
-      {/* Dropdown */}
       {isOpen && (
         <>
-          <div onClick={() => setIsOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 998 }} />
-          <div style={{
-            position: 'absolute', top: '100%', right: 0, marginTop: '6px',
-            background: 'var(--color-bg-surface, #ffffff)', borderRadius: '12px',
-            boxShadow: 'var(--shadow-elevated, 0 8px 32px rgba(29,37,103,0.18))',
-            border: '1px solid var(--color-border-default, transparent)',
-            minWidth: ['owner', 'admin'].includes(userProfile.role) ? '280px' : '200px', zIndex: 999, overflow: 'hidden',
-          }}>
-            {/* Profile info */}
-            <div style={{ padding:'14px 16px', borderBottom:'1px solid var(--color-border-subtle,#f3f4f6)', display:'flex', alignItems:'center', gap:'12px' }}>
-              <div style={{ width:'40px', height:'40px', borderRadius:'50%', overflow:'hidden', flexShrink:0 }}>
-                <img src={getAvatarUrl(userProfile)} alt={userProfile.full_name}
-                  style={{ width:'100%', height:'100%', objectFit:'cover' }} />
-              </div>
-              <div>
-                <div style={{ fontFamily:'Plus Jakarta Sans', fontWeight:700, fontSize:'13px', color:'var(--color-text-primary,#1D2567)' }}>{userProfile.full_name}</div>
-                <div style={{ fontFamily:'Plus Jakarta Sans', fontSize:'11px', color:'var(--color-text-muted,#9ca3af)', marginTop:'2px' }}>{userProfile.email}</div>
-                <span style={{ display:'inline-block', marginTop:'5px', background:roleStyle.bg, color:roleStyle.color, fontFamily:'Plus Jakarta Sans', fontWeight:700, fontSize:'10px', padding:'2px 8px', borderRadius:'20px' }}>
-                  {userProfile.is_owner ? 'Owner' : roleStyle.label}
-                </span>
-                {/* Hidden file input */}
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  onChange={handleAvatarUpload}
-                  style={{ display: 'none' }}
-                />
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading}
-                  style={{ background:'none', border:'none', fontFamily:'Plus Jakarta Sans', fontSize:'11px', color:'#6b7280', cursor: uploading ? 'default' : 'pointer', padding:0, marginTop:'4px', display:'flex', alignItems:'center', gap:'5px' }}
-                >
-                  {uploading ? (
-                    <>
-                      <div style={{ width:'10px', height:'10px', borderRadius:'50%', border:'2px solid #e5e7eb', borderTopColor:'#1D2567', animation:'spin 0.8s linear infinite', flexShrink:0 }} />
-                      Uploading...
-                    </>
-                  ) : (
-                    <>{userProfile?.avatar_url ? 'Change Photo' : 'Upload Photo'}</>
-                  )}
-                </button>
-                {userProfile?.avatar_url && !uploading && (
-                  <button
-                    onClick={async () => {
-                      const { ok, body } = await postMyAvatar({ action: 'remove' });
-                      if (!ok) { alert(body.message || 'Could not remove your photo. Please try again.'); return; }
-                      window.location.reload();
-                    }}
-                    style={{ background:'none', border:'none', fontFamily:'Plus Jakarta Sans', fontSize:'10px', color:'#9ca3af', cursor:'pointer', padding:0, marginTop:'2px', display:'block' }}
-                  >
-                    Remove photo
-                  </button>
-                )}
-              </div>
+          <div className="um-scrim" onClick={() => close(false)} aria-hidden="true" />
+          <div
+            ref={menuRef}
+            id={MENU_ID}
+            className="um-menu"
+            role="menu"
+            aria-label="Account menu"
+            onKeyDown={onMenuKeyDown}
+          >
+            {/* 1. Identity, and the way to Profile. */}
+            <button
+              type="button"
+              role="menuitem"
+              className="um-id"
+              aria-label={`Profile, ${fullName}, ${roleLabel}`}
+              onClick={() => go(STAFF_PROFILE_PATH)}
+            >
+              <Avatar profile={userProfile} size={44} fallbackBg={roleStyle.bg} initials={initials} />
+              <span className="um-id-text">
+                <span className="um-id-name">{fullName}</span>
+                <span className="um-id-email">{userProfile.email}</span>
+                <span className="um-role" style={{ background: roleStyle.bg, color: roleStyle.color }}>{roleLabel}</span>
+              </span>
+              <ChevronRight size={16} aria-hidden="true" className="um-id-chev" />
+            </button>
+
+            {/* 2. Settings. */}
+            <div className="um-sec" role="none">
+              <button type="button" role="menuitem" className="um-item" onClick={() => go(STAFF_SETTINGS_PATH)}
+                aria-keyshortcuts={IS_MAC ? 'Meta+Comma' : 'Control+Comma'}>
+                <Settings size={16} strokeWidth={1.9} aria-hidden="true" className="um-ic" />
+                <span className="um-item-text">Settings</span>
+                <kbd className="um-kbd" aria-hidden="true">{SETTINGS_SHORTCUT_LABEL}</kbd>
+              </button>
             </div>
 
-            {/* PROFILE-MENU-AVATARS-1: Public site, mirroring the portals' menu item.
-                Same open behavior as the Unit Leader / Academic Partner portals: the
-                canonical domain in a new tab. */}
-            <a
-              href={CANONICAL_APP_URL}
-              target="_blank" rel="noopener noreferrer"
-              onClick={() => setIsOpen(false)}
-              style={{ width: '100%', boxSizing: 'border-box', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '10px', background: 'none', border: 'none', fontFamily: 'Plus Jakarta Sans', fontSize: '13px', color: 'var(--color-text-primary,#374151)', cursor: 'pointer', textAlign: 'left', textDecoration: 'none', borderTop: '1px solid var(--color-border-subtle,#f3f4f6)', transition: 'background 0.15s ease' }}
-              onMouseEnter={e => e.currentTarget.style.background = 'var(--color-bg-hover,#f9fafb)'}
-              onMouseLeave={e => e.currentTarget.style.background = 'none'}
-            >
-              <ExternalLink size={14} strokeWidth={2} color="#6b7280" />
-              Public site
-            </a>
-
-            {/* PORTAL-OWNER-SWITCHER: Owner/Admin use their existing staff
-                identity to enter an explicitly scoped portal preview. NGRP is
-                intentionally absent until that portal has a real route. */}
-            {['owner', 'admin'].includes(userProfile.role) && (
-              <div style={{ borderTop: '1px solid var(--color-border-subtle,#f3f4f6)', padding: '8px 0' }}>
-                <div style={{ padding: '2px 16px 6px', fontFamily: 'Plus Jakarta Sans', fontSize: '10px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-text-muted,#9ca3af)' }}>
-                  Portals
-                </div>
+            {/* 3. Preview as: the existing portal previews. */}
+            {canPreview && (
+              <div className="um-sec" role="group" aria-labelledby="um-preview-label">
+                <div className="um-label" id="um-preview-label">Preview as</div>
                 {PORTAL_LINKS.map(({ key, label, path }) => {
                   const Icon = PORTAL_ICONS[key];
                   return (
-                  <button
-                    key={path}
-                    onClick={() => { setIsOpen(false); navigate(path); }}
-                    style={{ width: '100%', padding: '9px 16px', display: 'flex', alignItems: 'center', gap: '10px', background: 'none', border: 'none', fontFamily: 'Plus Jakarta Sans', fontSize: '13px', color: 'var(--color-text-primary,#374151)', cursor: 'pointer', textAlign: 'left', transition: 'background 0.15s ease' }}
-                    onMouseEnter={e => e.currentTarget.style.background = 'var(--color-bg-hover,#f9fafb)'}
-                    onMouseLeave={e => e.currentTarget.style.background = 'none'}
-                  >
-                    <Icon size={14} strokeWidth={2} color="#6b7280" />
-                    {label}
-                  </button>
+                    <button key={path} type="button" role="menuitem" className="um-item" onClick={() => go(path)}>
+                      <Icon size={16} strokeWidth={1.9} aria-hidden="true" className="um-ic" />
+                      <span className="um-item-text">{label}</span>
+                    </button>
                   );
                 })}
               </div>
             )}
 
-            {/* WS2.1: Settings link, to General (SETTINGS-HIERARCHY-1). */}
-            <button
-              onClick={() => { setIsOpen(false); navigate(STAFF_SETTINGS_PATH); }}
-              style={{ width: '100%', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '10px', background: 'none', border: 'none', fontFamily: 'Plus Jakarta Sans', fontSize: '13px', color: 'var(--color-text-primary,#374151)', cursor: 'pointer', textAlign: 'left', borderTop: '1px solid var(--color-border-subtle,#f3f4f6)', transition: 'background 0.15s ease' }}
-              onMouseEnter={e => e.currentTarget.style.background = 'var(--color-bg-hover,#f9fafb)'}
-              onMouseLeave={e => e.currentTarget.style.background = 'none'}
-            >
-              <Settings size={14} strokeWidth={2} color="#6b7280" />
-              Settings
-            </button>
-
-            {/* WS2.4: People & Access, Restart Welcome Tour, and Appearance were removed
-                from the UserMenu so each control has a single canonical home in Settings
-                (Accounts & Access / Tours & Help / Appearance). UserMenu is now identity +
-                Public site + Settings + Sign out (PROFILE-MENU-AVATARS-1 added Public
-                site for parity with the portal menus). */}
-
-            {/* Sign out */}
-            <button
-              onClick={() => { setIsOpen(false); signOut(); }}
-              style={{
-                width: '100%', padding: '12px 16px',
-                display: 'flex', alignItems: 'center', gap: '10px',
-                background: 'none', border: 'none',
-                fontFamily: 'Plus Jakarta Sans', fontSize: '13px', color: 'var(--color-text-primary,#374151)',
-                cursor: 'pointer', textAlign: 'left',
-                transition: 'background 0.15s ease',
-              }}
-              onMouseEnter={e => e.currentTarget.style.background = 'var(--color-bg-hover,#f9fafb)'}
-              onMouseLeave={e => e.currentTarget.style.background = 'none'}
-            >
-              <LogOut size={14} color="#6b7280" />
-              Sign out
-            </button>
+            {/* 4. Leave. PROFILE-MENU-AVATARS-1: Public site is the canonical domain in a new tab. */}
+            <div className="um-sec" role="none">
+              <a
+                role="menuitem"
+                className="um-item"
+                href={CANONICAL_APP_URL}
+                target="_blank" rel="noopener noreferrer"
+                aria-label="Public site (opens in a new tab)"
+                onClick={() => setIsOpen(false)}
+              >
+                <Globe size={16} strokeWidth={1.9} aria-hidden="true" className="um-ic" />
+                <span className="um-item-text">Public site</span>
+                <ExternalLink size={13} aria-hidden="true" className="um-ext" />
+              </a>
+              <button type="button" role="menuitem" className="um-item um-out" onClick={() => { setIsOpen(false); signOut(); }}>
+                <LogOut size={16} strokeWidth={1.9} aria-hidden="true" className="um-ic" />
+                <span className="um-item-text">Sign out</span>
+              </button>
+            </div>
           </div>
         </>
       )}

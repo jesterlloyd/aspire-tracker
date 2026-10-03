@@ -16,7 +16,7 @@ export default function AccountsAccessPanel() {
   if (!isAdmin) {
     return (
       <div style={{ fontSize: 13, color: 'var(--color-text-secondary, #6b7280)' }}>
-        You don’t have access to Accounts &amp; Access.
+        You don’t have access to Users &amp; Access.
       </div>
     )
   }

@@ -402,12 +402,14 @@ test('the header button shows what is on screen and names the switch it makes', 
   assert.match(light, /lucide-sun/)
   assert.match(dark, /lucide-moon/)
   assert.match(light, /width:34px;height:34px/)
-  // Hidden on phones, where the actions row cannot take a fifth icon; its display lives
-  // in the stylesheet so that rule can win.
+  // Its display lives in the stylesheet. TOPBAR-PROFILE-1 (2026-10-02) changed the phone
+  // rule: the button stays at every width, because the wordmark leaves below 1100px and
+  // the profile button shrinks to its photo below 560px, which is the room it lacked.
   assert.match(light, /class="chart-color-mode"/)
   assert.doesNotMatch(light, /display:flex/)
   const tokens = read('src/styles/chartTokens.css')
-  assert.match(tokens, /\.chart-color-mode \{ display: flex; \}\s*@media \(max-width: 560px\) \{ \.chart-color-mode \{ display: none; \} \}/)
+  assert.match(tokens, /\.chart-color-mode \{ display: flex; \}/)
+  assert.doesNotMatch(tokens, /\.chart-color-mode \{ display: none; \}/)
   const actions = strip(read('src/components/Header/HeaderActions.jsx'))
   assert.match(actions, /<ColorModeButton toast=\{toast\} \/>\s*<UserMenu \/>/, 'beside the other icon buttons, before the menu')
   const btn = strip(read('src/components/Header/ColorModeButton.jsx'))

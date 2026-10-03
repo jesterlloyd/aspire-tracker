@@ -655,9 +655,10 @@ test('staff v5 additions: the Messages dock, Keith slash commands, and the porta
   const keith = steps.find(s => s.target === '[data-tour="keith-orb"]')
   assert.match(keith.content, /slash/)
 
-  // PORTAL-SWITCHER-1: the profile menu names the Owner/Admin portal list.
+  // PORTAL-SWITCHER-1: the profile menu names the Owner/Admin portal list. TOPBAR-PROFILE-1
+  // renamed the group Preview as and counts all five portals.
   const menu = steps.find(s => s.target === '[data-tour="user-profile"]')
-  assert.match(menu.content, /Owners and Admins can also open any of the four portals/)
+  assert.match(menu.content, /Owners and Admins can also preview any of the five portals from this menu, under Preview as/)
   assert.match(read('../src/components/UserMenu.jsx'), /PORTAL_LINKS/)
 })
 

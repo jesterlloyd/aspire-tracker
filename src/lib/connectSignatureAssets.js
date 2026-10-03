@@ -2,7 +2,7 @@
 //
 // SIGNATURE-PREVIEW-PARITY-1: the ONE sender-scoped handwritten-image map,
 // shared by the server renderer (lib/server/connect/emailTemplates.js, which
-// wraps the path in appUrl) and the Settings preview (SignaturePanel, which
+// wraps the path in appUrl) and the Settings preview (ProfilePanel, which
 // uses the same-origin path directly) - so the preview can never show a GIF
 // the sent email would not carry, or vice versa.
 //

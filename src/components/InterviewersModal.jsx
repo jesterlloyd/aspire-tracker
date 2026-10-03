@@ -391,18 +391,18 @@ export default function InterviewersModal({ isOpen, onClose }) {
       style={{ position: 'fixed', inset: 0, zIndex: 1999, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: F }}
     >
       <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 14, padding: '26px 24px', maxWidth: 460, width: '90%', boxShadow: '0 16px 48px rgba(0,0,0,0.2)' }}>
-        <div style={{ fontWeight: 700, fontSize: 16, color: '#1D2567', marginBottom: 10 }}>Interviewers are managed in Accounts &amp; Access</div>
+        <div style={{ fontWeight: 700, fontSize: 16, color: '#1D2567', marginBottom: 10 }}>Interviewers are managed in Users &amp; Access</div>
         <div style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.6, marginBottom: 20 }}>
           Interviewers are now login accounts with <strong>Can Conduct Interviews</strong> enabled, managed
-          in <strong>Settings › Accounts &amp; Access › People / Interviewers</strong>. To add an interviewer,
+          in <strong>Settings › Users &amp; Access › People / Interviewers</strong>. To add an interviewer,
           invite the person as a login account, then turn on Can Conduct Interviews (their calendar color is
           set there too). This separate interviewer list is no longer edited here.
         </div>
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
           <button type="button" onClick={onClose}
             style={{ padding: '9px 16px', border: '1px solid #e5e7eb', borderRadius: 8, background: '#f9fafb', fontFamily: F, fontSize: 13, cursor: 'pointer' }}>Close</button>
-          <button type="button" onClick={() => { onClose?.(); navigate('/settings/accounts') }}
-            style={{ padding: '9px 18px', border: 'none', borderRadius: 8, background: '#1D2567', color: '#fff', fontFamily: F, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>Go to Accounts &amp; Access</button>
+          <button type="button" onClick={() => { onClose?.(); navigate('/settings/users') }}
+            style={{ padding: '9px 18px', border: 'none', borderRadius: 8, background: '#1D2567', color: '#fff', fontFamily: F, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>Go to Users &amp; Access</button>
         </div>
       </div>
     </div>

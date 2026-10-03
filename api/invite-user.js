@@ -244,7 +244,7 @@ export default async function handler(req, res) {
       console.log('[invite-user] existing active staff account', { requestedRole, request_id: requestId });
       return res.status(409).json({
         error: 'conflict',
-        message: 'That email already has an active staff account. Update their role from Accounts & Access instead of inviting again.',
+        message: 'That email already has an active staff account. Update their role from Users & Access instead of inviting again.',
       });
     }
 

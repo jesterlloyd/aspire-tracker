@@ -7,7 +7,9 @@
 import { useNavigate } from 'react-router-dom'
 import BackButton from '../BackButton'
 
-export default function WorkspaceBackLink({ path = '/aggregate', label = 'At a Glance' }) {
+// `guard` (TOPBAR-PROFILE-1): an optional async check that may keep the reader on the page,
+// e.g. Settings asking before it leaves unsaved edits.
+export default function WorkspaceBackLink({ path = '/aggregate', label = 'At a Glance', guard }) {
   const navigate = useNavigate()
-  return <BackButton label={`Back to ${label}`} onClick={() => navigate(path)} />
+  return <BackButton label={`Back to ${label}`} onClick={async () => { if (!guard || await guard()) navigate(path) }} />
 }

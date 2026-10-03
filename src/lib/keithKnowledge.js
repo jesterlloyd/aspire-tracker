@@ -440,12 +440,12 @@ Keith is the AI assistant built into ASPIRE Intelligence. Keith is named after K
 export const USER_ROLES = `
 User roles and permissions:
 - Owner: full access, only one (Jester). Cannot be demoted.
-- Admin: full access including Accounts & Access and cohort management.
+- Admin: full access including Users & Access and cohort management.
 - Co-Lead: operational access, can perform placements, cannot manage users.
-- Interviewer: limited to Aggregate, Student Profiles (limited view), and Interviews. No Rotation or Accounts & Access.
+- Interviewer: limited to Aggregate, Student Profiles (limited view), and Interviews. No Rotation or Users & Access.
 - Viewer: read-only.
 
-Interviewers can conduct interviews by default. Owner, Admin, and Co-Lead can also conduct interviews if the toggle is enabled in Accounts & Access.
+Interviewers can conduct interviews by default. Owner, Admin, and Co-Lead can also conduct interviews if the toggle is enabled in Users & Access.
 `.trim();
 
 export const RECENT_UPDATES = `

@@ -43,7 +43,7 @@ export default function HeaderActions({
   return (
     <>
       {cohorts.length > 0 && (
-        <Tooltip label="ASPIRE Connect" placement="bottom">
+        <Tooltip label="Connect" placement="bottom">
         <button
           data-tour="connect"
           // aria-label overrides inner text for the accessible name, so the count
@@ -106,7 +106,7 @@ export default function HeaderActions({
         </Tooltip>
       )}
       {cohorts.length > 0 && canViewCatalog && (
-        <Tooltip label="ASPIRE Catalog" placement="bottom">
+        <Tooltip label="Catalog" placement="bottom">
         <button
           data-tour="catalog"
           aria-label="ASPIRE Catalog"

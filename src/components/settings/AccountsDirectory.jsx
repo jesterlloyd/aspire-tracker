@@ -415,7 +415,7 @@ export default function AccountsDirectory() {
   }
 
   if (!isAdmin) return (
-    <div style={{ fontSize: 13, color: '#6b7280' }}>You don’t have access to Accounts &amp; Access.</div>
+    <div style={{ fontSize: 13, color: '#6b7280' }}>You don’t have access to Users &amp; Access.</div>
   )
 
   // Context-aware filter options.
@@ -435,7 +435,7 @@ export default function AccountsDirectory() {
       {/* Header: the Settings header band (SETTINGS-BAND-1), the actions on its title line. */}
       <SettingsPageHeader
         id="accounts-directory-heading"
-        title="Accounts & Access"
+        title="Users & Access"
         subtitle="Manage staff accounts and scoped portal access."
         actions={(
           <>

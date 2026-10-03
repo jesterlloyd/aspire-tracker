@@ -23,7 +23,8 @@ test('Settings: workspace vs administration vs owner diagnostics', () => {
   // SETTINGS-HIERARCHY-1: the personal pages are General's rows, not rail groups.
   assert.match(sections, /key: 'general'[^\n]*group: 'Workspace'/)
   assert.match(sections, /key: 'appearance'[^\n]*parent: 'general'/)
-  assert.match(sections, /key: 'signature',\s*label: 'Email Signature'[^\n]*parent: 'general'/)
+  // TOPBAR-PROFILE-1: Email Signature merged into Profile, still one of General's rows.
+  assert.match(sections, /key: 'profile',\s*label: 'Profile'[^\n]*parent: 'general'/)
   assert.match(sections, /key: 'accounts'[^\n]*group: 'Administration'/)
   // The migration diagnostic is Owner-only and lives under Diagnostics.
   assert.match(sections, /key: 'preceptorParity'[^\n]*group: 'Diagnostics'[^\n]*visible: r => r\.isOwner/)

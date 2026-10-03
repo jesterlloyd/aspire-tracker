@@ -1,0 +1,119 @@
+/* TOPBAR-PROFILE-1 (2026-10-02): the staff profile button and its menu.
+   Reference: docs/mockups/topbar-profile.html. Every colour is a theme token, so the
+   menu follows dark mode; the corner is the card canon (the mockup's 14px is not a
+   token, and a popover is a card). The role pill keeps its fixed ink-on-fill pairs. */
+
+.um-wrap { position: relative; display: flex; align-items: center; }
+
+/* The button on the navy bar. */
+.um-trigger {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 10px 5px 6px;
+  background: rgba(255, 255, 255, 0.10);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: var(--aspire-radius-control);
+  color: #FFFFFF;
+  font-family: var(--aspire-sans);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+.um-trigger:hover,
+.um-trigger[aria-expanded="true"] { background: rgba(255, 255, 255, 0.18); }
+.um-trigger:focus-visible { outline: 3px solid #FFFFFF; outline-offset: 2px; }
+.um-trigger .um-avatar { border: 1.5px solid rgba(255, 255, 255, 0.3); }
+.um-trigger-text { display: flex; flex-direction: column; text-align: left; }
+.um-trigger-name { font-weight: 600; font-size: 12px; line-height: 1.2; white-space: nowrap; }
+.um-trigger-role { font-weight: 500; font-size: 10px; line-height: 1; color: rgba(255, 255, 255, 0.72); }
+.um-trigger-caret { color: rgba(255, 255, 255, 0.6); transition: transform 0.2s ease; }
+.um-trigger[aria-expanded="true"] .um-trigger-caret { transform: rotate(180deg); }
+
+.um-avatar {
+  display: flex; align-items: center; justify-content: center;
+  flex: none; overflow: hidden; border-radius: 50%;
+}
+.um-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.um-avatar-initials { font-weight: 700; font-size: 10px; color: #FFFFFF; }
+
+/* The menu. */
+.um-scrim { position: fixed; inset: 0; z-index: 998; }
+.um-menu {
+  position: absolute; top: calc(100% + 8px); right: 0; z-index: 999;
+  width: 320px;
+  overflow: hidden;
+  background: var(--color-bg-surface, #FFFFFF);
+  color: var(--color-text-primary, #191919);
+  border: 1px solid var(--color-border-default, rgba(25, 25, 25, 0.10));
+  border-radius: var(--aspire-radius-card);
+  box-shadow: var(--shadow-elevated, 0 8px 24px rgba(0, 0, 0, 0.12));
+  font-family: var(--aspire-sans);
+  text-align: left;
+}
+
+/* 1. Identity: the whole row is the way to Profile. */
+.um-id {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%;
+  padding: 16px 14px 14px 16px;
+  background: none; border: 0;
+  border-bottom: 1px solid var(--color-border-default, rgba(25, 25, 25, 0.10));
+  color: inherit; font: inherit; text-align: left;
+  cursor: pointer;
+}
+.um-id-text { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; }
+.um-id-name { font-weight: 700; font-size: 14px; line-height: 1.3; }
+.um-id-email { font-size: 12.5px; color: var(--text-caption, #4A5560); overflow-wrap: anywhere; }
+.um-role {
+  display: inline-block; margin-top: 5px;
+  padding: 2px 9px;
+  border-radius: var(--aspire-radius-pill);
+  font-weight: 700; font-size: 10.5px; letter-spacing: 0.04em; text-transform: uppercase;
+}
+.um-id-chev { flex: none; color: var(--text-caption, #4A5560); }
+.um-id:hover .um-id-chev,
+.um-id:focus-visible .um-id-chev { color: var(--color-accent-primary, #1D2567); }
+
+/* Sections, separated by one rule. */
+.um-sec { padding: 6px; border-bottom: 1px solid var(--color-border-default, rgba(25, 25, 25, 0.10)); }
+.um-sec:last-child { border-bottom: 0; }
+.um-label {
+  padding: 8px 10px 4px;
+  font-weight: 700; font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--text-caption, #4A5560);
+}
+.um-item {
+  display: flex; align-items: center; gap: 11px;
+  width: 100%;
+  padding: 8px 10px;
+  background: none; border: 0;
+  border-radius: var(--aspire-radius-control);
+  color: inherit; font: inherit; font-size: 13.5px; text-align: left; text-decoration: none;
+  cursor: pointer;
+}
+.um-item-text { flex: 1; min-width: 0; }
+.um-ic { flex: none; color: var(--text-caption, #4A5560); }
+.um-kbd, .um-ext { margin-left: auto; flex: none; color: var(--text-caption, #4A5560); }
+.um-kbd { font: 500 11.5px var(--aspire-sans); background: none; border: 0; padding: 0; }
+.um-out { color: var(--text-caption, #4A5560); }
+
+/* Hover and focus: the accent's soft tint. Focus also draws the canon ring. */
+.um-id:hover, .um-id:focus-visible,
+.um-item:hover, .um-item:focus-visible {
+  background: color-mix(in srgb, var(--color-accent-primary, #1D2567) 9%, transparent);
+}
+.um-id:focus-visible, .um-item:focus-visible {
+  position: relative; z-index: 1;
+  outline: 3px solid var(--color-accent-primary, #1D2567);
+  outline-offset: -3px;
+}
+
+/* Phones: the button is the photo alone, and the menu spans the screen with 8px either
+   side (the wrapper sits 12px in from the right edge on the wrapped header). */
+@media (max-width: 560px) {
+  .um-trigger { padding: 4px; }
+  .um-trigger-text, .um-trigger-caret { display: none; }
+  .um-menu { right: -4px; width: calc(100vw - 16px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .um-trigger, .um-trigger-caret { transition: none; }
+}

@@ -25,6 +25,8 @@ export const PORTAL_LINKS = Object.freeze([
 export const MAIN_APP_PATH = '/aggregate'
 // SETTINGS-HIERARCHY-1: Settings opens on General, the first destination in its rail.
 export const STAFF_SETTINGS_PATH = '/settings/general'
+// TOPBAR-PROFILE-1: the profile menu's identity row opens the person's own Profile page.
+export const STAFF_PROFILE_PATH = '/settings/general/profile'
 
 // The portal a staff-preview path names, or null when the path is not a preview path.
 // A real portal user lives at /portal (and /portal/messages, /portal/profile), which is
