@@ -58,6 +58,7 @@ export const STORAGE_KEY_REGISTRY = Object.freeze([
   { prefix: 'aspire.connect.outreach.directDraft.', store: 'local', cls: 'keyed', holds: 'an unsent Send-to-one draft: subject, body, attachments, recipient token; keyed by user id and cohort, 7-day TTL' },
   { prefix: 'aspire.connect.outreach.lastDraftPointer.', store: 'local', cls: 'keyed', holds: 'which direct draft to reopen; keyed by user id and cohort' },
   { prefix: 'aspire.connect.outreach.bulkDraft.', store: 'local', cls: 'keyed', holds: 'an unsent Send-to-many draft: subject, body, signature flag (no recipients); keyed by user id and cohort' },
+  { prefix: 'aspire.messages.draft.v1.', store: 'local', cls: 'keyed', holds: 'an unsent Messages reply or New message (text, and for staff the chosen recipient); keyed by the writer\'s profile id and the thread, 7-day TTL (MESSAGE-DRAFTS-1)' },
   { prefix: 'aspire.rubric.draft.', store: 'local', cls: 'keyed', holds: 'an interview rubric safety-net draft for one student; keyed by student id AND the interviewer profile id' },
   { prefix: 'aspire:activeCohort:', store: 'local', cls: 'keyed', holds: 'the selected ASPIRE cohort (what you work in, kept on purpose; sessionKeys.js)' },
   { prefix: 'aspire:lastActiveTab:', store: 'local', cls: 'keyed', holds: 'the staff tab (cleared for the leaving user by clearLastLocationOnSignOut)' },

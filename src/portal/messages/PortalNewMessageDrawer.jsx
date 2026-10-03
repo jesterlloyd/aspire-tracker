@@ -5,11 +5,16 @@
 // Follows the existing portal drawer pattern (EditProfileDrawer): ptl-drawer
 // markup, focus trapped while open, Escape closes, focus returns to the trigger.
 //
+// MESSAGE-DRAFTS-1 (Owner, 2026-10-03): the subject, category and message are
+// saved in this browser under the signed-in person's own id until sent or
+// discarded, so closing the drawer loses nothing (useMessageDraft).
+//
 // There is NO recipient picker. The start endpoint accepts only subject,
 // category, and body; the server resolves the student from the verified JWT and
 // the ASPIRE Team is the implicit recipient.
 
 import { useEffect, useRef, useState } from 'react'
+import { useMessageDraft } from '../../lib/messages/useMessageDraft'
 import { X } from 'lucide-react'
 import { startPortalConversation } from '../../lib/messages/portalMessagesApiClient'
 import {
@@ -26,6 +31,8 @@ import {
 // server would reject.
 const toCategory = (v) => (v === '' ? null : v)
 
+const NEW_DRAFT_TEXT = ['subject', 'body']
+
 export default function PortalNewMessageDrawer({
   open, onClose, onSent, announce, returnFocusRef,
   api = { startPortalConversation },
@@ -36,9 +43,13 @@ export default function PortalNewMessageDrawer({
   // each fire a request. A ref flips immediately, so one activation is one
   // request even under a fast double click or a held Enter key.
   const submittingRef = useRef(false)
-  const [subject, setSubject] = useState('')
-  const [category, setCategory] = useState('')
-  const [body, setBody] = useState('')
+  const { draft, update, discard, saved } = useMessageDraft('new', { subject: '', category: '', body: '' }, NEW_DRAFT_TEXT)
+  const subject = draft.subject || ''
+  const category = draft.category || ''
+  const body = draft.body || ''
+  const setSubject = (value) => update({ subject: value })
+  const setCategory = (value) => update({ category: value })
+  const setBody = (value) => update({ body: value })
   const [pending, setPending] = useState(false)
   const [err, setErr] = useState(null)
   const [touched, setTouched] = useState(false)
@@ -94,7 +105,7 @@ export default function PortalNewMessageDrawer({
         body: normalized,
       })
       // Clear only after authoritative success.
-      setSubject(''); setCategory(''); setBody(''); setTouched(false)
+      discard(); setTouched(false)
       // The server returns the confirmation copy; the constant is only a
       // fallback, so the announcement never contradicts the server.
       announce?.(out?.confirmation || PORTAL_SEND_CONFIRMATION)
@@ -191,8 +202,17 @@ export default function PortalNewMessageDrawer({
 
           {err && <p className="ptl-form-error" role="alert">{err}</p>}
 
+          {saved && !pending && (
+            <p className="ptl-small ptl-msg-draft-note">
+              Draft saved
+              <button type="button" className="ptl-msg-draft-discard" onClick={() => { discard(); setTouched(false); setErr(null) }}>
+                Discard draft
+              </button>
+            </p>
+          )}
+
           <div className="ptl-form-actions ptl-drawer-foot">
-            <button type="button" className="ptl-btn-outline" onClick={onClose} disabled={pending}>Cancel</button>
+            <button type="button" className="ptl-btn-outline" onClick={onClose} disabled={pending}>Close</button>
             <button type="submit" className="ptl-btn ptl-msg-btn" disabled={disabled}>
               {pending ? 'Sending...' : 'Send message'}
             </button>

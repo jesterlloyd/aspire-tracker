@@ -23,10 +23,12 @@
 // metadata; the client's routing-field guard still enforces this. The server
 // owns all routing and delivery construction.
 //
-// Privacy: no email is displayed, nothing is logged, and no field is persisted
-// to browser storage.
+// Privacy: no email is displayed and nothing is logged. MESSAGE-DRAFTS-1: the
+// unsent draft (recipient, subject, message) is kept in this browser under the
+// signed-in person's own id until it is sent or discarded (useMessageDraft).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useMessageDraft } from '../../../lib/messages/useMessageDraft'
 import { useQuery } from '@tanstack/react-query'
 import { Search, X, AlertCircle, RotateCw } from 'lucide-react'
 import {
@@ -49,12 +51,20 @@ const T = {
   danger: '#B3282D',
 }
 
+const NEW_DRAFT_TEXT = ['subject', 'body']
+
 export default function NewMessageDialog({ open, onClose, onCreated, announce = () => {}, api = defaultApi }) {
   const [q, setQ] = useState('')
   const [search, setSearch] = useState('')
-  const [participant, setParticipant] = useState(null)
-  const [subject, setSubject] = useState('')
-  const [body, setBody] = useState('')
+  // MESSAGE-DRAFTS-1: the recipient, subject and message survive closing the
+  // dialog (and the drawer or page around it) until sent or discarded.
+  const { draft, update, discard, saved } = useMessageDraft('new', { participant: null, subject: '', body: '' }, NEW_DRAFT_TEXT)
+  const participant = draft.participant || null
+  const subject = draft.subject || ''
+  const body = draft.body || ''
+  const setParticipant = (value) => update({ participant: value })
+  const setSubject = (value) => update({ subject: value })
+  const setBody = (value) => update({ body: value })
   const [errors, setErrors] = useState({})
   const [formError, setFormError] = useState(null)
   const [pending, setPending] = useState(false)
@@ -100,9 +110,9 @@ export default function NewMessageDialog({ open, onClose, onCreated, announce = 
   const reset = useCallback(() => {
     applySearch.cancel()
     setQ(''); setSearch('')
-    setParticipant(null); setSubject(''); setBody('')
+    discard()
     setErrors({}); setFormError(null)
-  }, [applySearch])
+  }, [applySearch, discard])
 
   const close = useCallback(() => { if (!pending) onClose() }, [pending, onClose])
 
@@ -279,8 +289,16 @@ export default function NewMessageDialog({ open, onClose, onCreated, announce = 
             </p>
           )}
 
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
-            <button type="button" onClick={close} disabled={pending} style={secondaryBtn}>Cancel</button>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', alignItems: 'center', marginTop: 12 }}>
+            {saved && !pending && (
+              <span className="messages-draft-note" style={{ marginRight: 'auto' }}>
+                Draft saved
+                <button type="button" className="messages-draft-discard messages-focusable" onClick={() => { discard(); setErrors({}); setFormError(null) }}>
+                  Discard draft
+                </button>
+              </span>
+            )}
+            <button type="button" onClick={close} disabled={pending} style={secondaryBtn}>Close</button>
             <button type="submit" disabled={pending} style={{ ...primaryBtn, opacity: pending ? 0.6 : 1 }}>
               {pending ? 'Sending' : 'Send message'}
             </button>

@@ -1009,6 +1009,13 @@
   border-radius: 10px; font-size: 12.5px; line-height: 1.45;
 }
 .ptl-msg-workspace-guidance { margin-top: 12px; margin-bottom: -2px; }
+/* MESSAGE-DRAFTS-1: the quiet note that a draft is kept, with its way out. */
+.ptl-msg-draft-note { margin: 0; display: inline-flex; align-items: center; gap: 6px; color: #4b5563; }
+.ptl-msg-draft-discard {
+  padding: 2px 4px; border: 0; background: transparent; cursor: pointer;
+  color: #1D2567; font: inherit; font-weight: 650; text-decoration: underline;
+}
+.ptl-msg-draft-discard:focus-visible { outline: 2px solid #1D2567; outline-offset: 2px; }
 /* MESSAGES-REFINE-2: the safety notice as one quiet line under the reply box. */
 .ptl-msg-compose-notice { margin: 0; font-size: 12px; line-height: 1.45; color: #4b5563; }
 /* Declared after the base: an equal-specificity rule inside an earlier media

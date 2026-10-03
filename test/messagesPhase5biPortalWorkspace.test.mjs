@@ -377,7 +377,8 @@ test('New message', async (t) => {
   })
 
   await t.test('success clears, closes, selects the authoritative conversation, refreshes', () => {
-    assert.match(newMsg, /setSubject\(''\); setCategory\(''\); setBody\(''\)/)
+    // MESSAGE-DRAFTS-1: success discards the saved draft.
+    assert.match(newMsg, /discard\(\); setTouched\(false\)/)
     assert.match(newMsg, /onSent\?\.\(out\)/)
     assert.match(newMsg, /onClose\?\.\(\)/)
     assert.match(workspace, /if \(out\?\.conversation_id\) \{/)
@@ -436,8 +437,7 @@ test('reply', async (t) => {
   })
 
   await t.test('success clears the draft and announces the server confirmation', () => {
-    assert.match(reply, /setBody\(''\)/)
-    assert.match(reply, /announce\?\.\(out\?\.confirmation \|\| PORTAL_SEND_CONFIRMATION\)/)
+    assert.match(reply, /discard\(\)\s*\n[\s\S]{0,40}announce\?\.\(out\?\.confirmation \|\| PORTAL_SEND_CONFIRMATION\)/)
     assert.match(read('../api/portal/messages-reply.js'), /confirmation: 'Your message was sent to the ASPIRE Team\.'/)
   })
 
@@ -472,12 +472,14 @@ test('reply', async (t) => {
     assert.match(constants, /Sending a reply will reopen it if it still needs attention/)
   })
 
-  await t.test('the draft lives only in React state', () => {
+  // MESSAGE-DRAFTS-1 (Owner, 2026-10-03) replaced "React state only": the draft
+  // survives closing the drawer, saved by the one hook under the writer's id.
+  await t.test('the draft is kept by the draft hook, never by a component', () => {
     for (const s of allCode) {
       assert.doesNotMatch(s, /localStorage|sessionStorage|indexedDB|IndexedDB/)
     }
     // Polling cannot clear it: the draft is not derived from a query result.
-    assert.match(reply, /const \[body, setBody\] = useState\(''\)/)
+    assert.match(reply, /useMessageDraft\(conversationId \? `reply\.\$\{conversationId\}` : null, \{ body: '' \}\)/)
   })
 })
 

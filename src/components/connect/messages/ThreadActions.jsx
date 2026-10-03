@@ -20,11 +20,14 @@
 //
 // None of these actions sends an email.
 //
-// Privacy: the reply draft lives in component memory only. It is never written
-// to localStorage, sessionStorage, IndexedDB, or analytics, and background
-// polling never clears it.
+// Drafts (MESSAGE-DRAFTS-1, Owner, 2026-10-03): the reply draft is saved in
+// this browser under the signed-in person's own id (useMessageDraft), so closing
+// the drawer or the page mid-sentence loses nothing. It is removed when it is
+// sent, emptied or discarded, and after seven days. Never sent anywhere before
+// Send, never in analytics, and background polling never clears it.
 
 import { useState } from 'react'
+import { useMessageDraft } from '../../../lib/messages/useMessageDraft'
 import { useQueryClient } from '@tanstack/react-query'
 import { Flag, AlertCircle, Check, RotateCcw } from 'lucide-react'
 import {
@@ -59,7 +62,9 @@ export function ReplyComposer({ conversationId, accessActive, api = defaultApi, 
   const queryClient = useQueryClient()
   const { userProfile } = useAuth() || {}
   const replyingAs = userProfile?.full_name || ''
-  const [body, setBody] = useState('')
+  const { draft, update, discard, saved } = useMessageDraft(conversationId ? `reply.${conversationId}` : null, { body: '' })
+  const body = draft.body || ''
+  const setBody = (value) => update({ body: value })
   const [pending, setPending] = useState(false)
   const [error, setError] = useState(null)
   const [noticeOpen, setNoticeOpen] = useState(false)
@@ -83,7 +88,7 @@ export function ReplyComposer({ conversationId, accessActive, api = defaultApi, 
       const result = await api.replyStaffConversation({ conversationId, body: v.value })
       // Only after the authoritative response does the draft clear. Nothing is
       // optimistically inserted, so a duplicate message can never appear.
-      setBody('')
+      discard()
       announce('Message sent.')
       queryClient.invalidateQueries({ queryKey: ['messages_staff_thread', conversationId] })
       queryClient.invalidateQueries({ queryKey: ['messages_staff_list'] })
@@ -137,6 +142,12 @@ export function ReplyComposer({ conversationId, accessActive, api = defaultApi, 
           <span id="reply-count" style={{ fontSize: 11.5, color: nearLimit ? T.danger : T.muted, fontFamily: F }}>
             {body.length} of {MESSAGE_MAX_BODY_CHARS}
           </span>
+          {saved && !pending && (
+            <span className="messages-draft-note">
+              Draft saved
+              <button type="button" className="messages-draft-discard messages-focusable" onClick={discard}>Discard</button>
+            </span>
+          )}
           {error && (
             <span role="alert" style={{ fontSize: 11.5, color: T.danger, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
               <AlertCircle size={12} aria-hidden="true" /> {error}

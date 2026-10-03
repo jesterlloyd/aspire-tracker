@@ -2,11 +2,14 @@
 //
 // DORMANT: mounted only by PortalMessagesWorkspace.
 //
-// The draft lives in React state only. It is never written to localStorage,
-// sessionStorage, IndexedDB, or analytics, and background polling never clears
-// it because the draft is not derived from any query result.
+// MESSAGE-DRAFTS-1 (Owner, 2026-10-03): the draft is saved in this browser under
+// the signed-in person's own id (useMessageDraft), so leaving Messages or closing
+// the page mid-sentence loses nothing. It is removed when it is sent, emptied or
+// discarded, and after seven days. Never in analytics, and background polling
+// never clears it because the draft is not derived from any query result.
 
 import { useRef, useState } from 'react'
+import { useMessageDraft } from '../../lib/messages/useMessageDraft'
 import { Send } from 'lucide-react'
 import { replyToPortalConversation } from '../../lib/messages/portalMessagesApiClient'
 import {
@@ -25,7 +28,9 @@ export default function PortalReplyComposer({
   announce,
   api = { replyToPortalConversation },
 }) {
-  const [body, setBody] = useState('')
+  const { draft, update, discard, saved } = useMessageDraft(conversationId ? `reply.${conversationId}` : null, { body: '' })
+  const body = draft.body || ''
+  const setBody = (value) => update({ body: value })
   const [pending, setPending] = useState(false)
   // Synchronous send mutex; see PortalNewMessageDrawer. React state alone cannot
   // block repeats that land inside a single tick.
@@ -56,7 +61,7 @@ export default function PortalReplyComposer({
       })
       // Cleared only after authoritative success. No optimistic message is ever
       // inserted: the thread refetch is the single source of truth.
-      setBody('')
+      discard()
       announce?.(out?.confirmation || PORTAL_SEND_CONFIRMATION)
       onSent?.(out)
     } catch (e2) {
@@ -111,6 +116,13 @@ export default function PortalReplyComposer({
       {/* MESSAGES-REFINE-2: the safety notice sits where you write, not above
           the whole workspace. Opt-in: the Team Messages panel shows its own. */}
       {showNotice && <p className="ptl-msg-compose-notice">{PORTAL_SAFETY_NOTICE}</p>}
+
+      {saved && !pending && (
+        <p className="ptl-small ptl-msg-draft-note">
+          Draft saved
+          <button type="button" className="ptl-msg-draft-discard" onClick={discard}>Discard</button>
+        </p>
+      )}
 
       {err && <p className="ptl-form-error" role="alert">{err}</p>}
 

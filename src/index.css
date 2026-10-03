@@ -723,6 +723,23 @@ body { min-height: 100vh; }
 .messages-status-line--done { color: var(--messages-neutral-ink, #3b4060); }
 .messages-composer-hint--compact { flex-wrap: nowrap; }
 .messages-composer-hint--compact > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* MESSAGE-DRAFTS-1: the quiet note that a draft is kept, with its way out. */
+.messages-draft-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: 500 11.5px/1.4 'Plus Jakarta Sans', sans-serif;
+  color: var(--text-caption, #4a5560);
+}
+.messages-draft-discard {
+  padding: 2px 4px;
+  border: 0;
+  background: transparent;
+  color: var(--color-accent-primary, #1D2567);
+  font: 650 11.5px/1.4 'Plus Jakarta Sans', sans-serif;
+  text-decoration: underline;
+  cursor: pointer;
+}
 .messages-composer-hint {
   display: flex;
   flex-wrap: wrap;

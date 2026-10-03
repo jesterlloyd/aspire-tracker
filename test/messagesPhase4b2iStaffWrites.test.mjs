@@ -155,7 +155,8 @@ test('reply composer', async (t) => {
   })
 
   await t.test('success clears the draft and invalidates the right keys', () => {
-    assert.match(actions, /setBody\(''\)\s*\n\s*announce\('Message sent\.'\)/)
+    // MESSAGE-DRAFTS-1: clearing the saved draft is discard(), only after success.
+    assert.match(actions, /discard\(\)\s*\n\s*announce\('Message sent\.'\)/)
     assert.match(actions, /queryKey: \['messages_staff_thread', conversationId\]/)
     assert.match(actions, /queryKey: \['messages_staff_list'\]/)
     assert.match(actions, /queryKey: \['messages_staff_unread'\]/)
@@ -163,13 +164,15 @@ test('reply composer', async (t) => {
 
   await t.test('failure preserves the draft and a 409 refreshes access state', () => {
     const fail = actions.slice(actions.indexOf('} catch (err) {'), actions.indexOf('} finally {'))
-    assert.doesNotMatch(fail, /setBody\(''\)/, 'the draft must survive a failure')
+    assert.doesNotMatch(fail, /setBody\(''\)|discard\(\)/, 'the draft must survive a failure')
     assert.match(fail, /err\?\.status === 409/)
     assert.match(fail, /messages_staff_thread/)
   })
 
-  await t.test('the draft is memory only and polling cannot clear it', () => {
-    assert.match(actions, /const \[body, setBody\] = useState\(''\)/)
+  // MESSAGE-DRAFTS-1 (Owner, 2026-10-03) replaced "memory only": the draft now
+  // survives closing the drawer, saved by the one hook under the writer's id.
+  await t.test('the draft is kept by the draft hook, never by the component, and polling cannot clear it', () => {
+    assert.match(actions, /useMessageDraft\(conversationId \? `reply\.\$\{conversationId\}` : null, \{ body: '' \}\)/)
     assert.doesNotMatch(strip(actions), /localStorage|sessionStorage|indexedDB|analytics/i)
   })
 })
