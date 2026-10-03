@@ -2227,6 +2227,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
       try { payload = await res.json() } catch { /* ignore */ }
       setDmConfirmOpen(false)
       if (res.ok && payload?.success) {
+        richDocRef.current = null
         setMsgSubject('')
         setMsgBody('')
         setActiveTemplateId(null)
@@ -2254,7 +2255,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
         const recipientDisplayName = recipientType === 'contact' ? fromContact?.name
           : (effectiveStudent?.name || `${fetchedStudent?.first_name || ''} ${fetchedStudent?.last_name || ''}`.trim())
         const successMsg = payload.message || `Email sent to ${recipientDisplayName || 'recipient'}.`
-        setDmSendStatus({ ok: true, msg: successMsg })
+        setDmSendStatus({ ok: true, msg: successMsg, subject: msgSubject, recipient: resolvedToEmail })
         toast?.success('Email sent', successMsg)
       } else {
         const errMsg = payload?.error || (res.status === 403 ? 'Access denied or recipient cannot receive email.' : 'Failed to send email. Please try again.')
@@ -3170,7 +3171,21 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
           {/* Direct Message: subject + body editor + live preview + actions */}
           {outreachMode === 'message' && (
             <>
-            {!dmConfirmOpen && (
+            {dmSendStatus?.ok && (
+              <ConnectPanel tone="draft" title="Email sent" className="outreach-draft-panel">
+                <div role="status" aria-live="polite" style={{ padding: '32px 8px', minHeight: 240 }}>
+                  <h3 style={{ margin: '0 0 12px', fontSize: 24 }}>Your message has been sent.</h3>
+                  <p style={{ margin: '0 0 8px', overflowWrap: 'anywhere' }}>To: {dmSendStatus.recipient}</p>
+                  <p style={{ margin: '0 0 20px', overflowWrap: 'anywhere' }}>Subject: {dmSendStatus.subject}</p>
+                  <p>The draft has been cleared. You can check delivery updates in Sent History.</p>
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+                  <button type="button" className="btn btn-primary" onClick={() => setDmSendStatus(null)}>Write a new message</button>
+                  <button type="button" className="btn btn-secondary" onClick={() => setRecipientMode('history')}>View Sent History</button>
+                </div>
+              </ConnectPanel>
+            )}
+            {!dmConfirmOpen && !dmSendStatus?.ok && (
             <ConnectPanel tone="draft" title="Draft" className="outreach-draft-panel">
 
               <div className="outreach-address-to" style={fieldWrap}>
