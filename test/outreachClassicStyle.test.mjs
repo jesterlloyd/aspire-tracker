@@ -37,7 +37,9 @@ test('the composer spacing is compact and its writing canvas is visibly white', 
 
 test('direct email preview is revealed by the draft action and owns the confirming send', () => {
   const outreach = read('src/components/connect/OutreachView.jsx')
-  assert.match(outreach, /\{!dmConfirmOpen && \(\s*<ConnectPanel tone="draft" title="Draft" className="outreach-draft-panel">/s)
+  // a39c9c86 (Show sent confirmation and clear Outreach rich draft) also hides the draft while the
+  // "Email sent" panel is showing.
+  assert.match(outreach, /\{!dmConfirmOpen && !dmSendStatus\?\.ok && \(\s*<ConnectPanel tone="draft" title="Draft" className="outreach-draft-panel">/s)
   assert.match(outreach, /\{dmConfirmOpen && \(\s*<div className="outreach-email-preview-pane">\s*<ConnectPanel[\s\S]*tone="preview"[\s\S]*title="Email Preview"[\s\S]*className="outreach-preview-panel"/s)
   assert.doesNotMatch(outreach, /dmPreviewRef|scrollIntoView/)
   const previewStart = outreach.indexOf('<div className="outreach-email-preview-pane">')

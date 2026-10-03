@@ -137,8 +137,13 @@ export default function RichTextEditor({ html = '', richDocRef = null, onChange,
   // or setContent throws. The richDoc is read from the parent's REF here (inside the effect, never
   // during render) and is not a trigger - typing emits a fresh richDoc each keystroke but the html
   // string-compare guards against re-hydration loops.
+  // A discarded editor is skipped (CONNECT-EDITOR-1, 2026-10-03). Outreach stays mounted behind the
+  // Contacts tab, so opening Connect from another page builds this editor and throws one instance away
+  // before the live one arrives. Since TipTap 3 (DEPS-2) a destroyed editor has no schema, and getHTML()
+  // on it crashed the whole page ("Cannot read properties of null (reading 'cached')"). Both effects run
+  // again when the live editor replaces it.
   useEffect(() => {
-    if (!editor) return
+    if (!editor || editor.isDestroyed) return
     const current = editor.getHTML()
     const next = html || ''
     if (next === current) return
@@ -150,7 +155,7 @@ export default function RichTextEditor({ html = '', richDocRef = null, onChange,
   }, [html, editor, richDocRef])   // richDocRef is a stable ref object - listed to satisfy the linter; never re-triggers
 
   useEffect(() => {
-    if (editor) editor.setEditable(!disabled)
+    if (editor && !editor.isDestroyed) editor.setEditable(!disabled)
   }, [disabled, editor])
 
   const handleButtonSave = useCallback((saved) => {
