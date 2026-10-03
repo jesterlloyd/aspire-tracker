@@ -49,6 +49,9 @@ const PREFERRED_SURFACES = [
   'src/components/connect/OutreachView.jsx',
   'lib/server/evaluation/reminderSend.js',
   'lib/server/evaluation/reminderRecipient.js',
+  // Manual and automated preceptor feedback requests share this send core. Its
+  // one studentName value feeds the subject, prose, details card, result, and log.
+  'lib/server/evaluation/preceptorSend.js',
   // 2026-09-08: the CS-Link access-retirement list composed the name itself and
   // sent the recipient a legal name for an account registered under a preferred
   // one. It was not on this list, and the patterns below did not match its
@@ -119,6 +122,19 @@ test('a template greeting reads the canon, it does not split a display string', 
   // A contact has no preferred_first_name, so splitting its display name is still the only
   // source available and must remain the fallback.
   assert.match(src, /firstNameOf\(dmRecipientName\)/)
+})
+
+test('preceptor feedback requests use the preferred full name for every email surface', () => {
+  const send = strip(read('lib/server/evaluation/preceptorSend.js'))
+  const template = strip(read('lib/server/evaluation/preceptorEmailTemplates.js'))
+
+  assert.match(send, /const studentName = getStudentPreferredFullName\(student\) \|\| 'the student'/)
+  assert.match(send, /buildPreceptorInvitationEmail\(\{\s*period, studentName, preceptorFirstName/)
+  assert.doesNotMatch(send, /const studentName = `\$\{student\.first_name/)
+
+  assert.match(template, /subjectFor\(safePeriod, studentName\)/)
+  assert.match(template, /introCopy\(safePeriod, studentName\)/)
+  assert.match(template, /\{ label: 'Student',\s+value: studentName \}/)
 })
 
 // ── What must NOT change ─────────────────────────────────────────────────────
