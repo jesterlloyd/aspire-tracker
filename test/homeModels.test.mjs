@@ -18,6 +18,7 @@ import { hoursBar, midpointBar } from '../src/lib/home/cohortPulseModel.js'
 import { placementSummary, capacityByServiceLine, filteredCapacityByServiceLine, requestsBySchool } from '../src/lib/home/placementSummaryModel.js'
 import { getUnit } from '../src/lib/unitCatalog.js'
 import { ACTIONS, QUICK_ACTION_KEYS, QUICK_ACTION_FALLBACK, allowedActions, quickActions, matchActions, personRows, searchLauncher, moveSelection, greetingFor } from '../src/lib/home/launcherModel.js'
+import { greetingText } from '../src/lib/home/greetings.js'
 import { activityRows, ACTIVITY_LIMIT } from '../src/lib/home/recentActivityModel.js'
 
 const TODAY = '2026-09-24'
@@ -447,9 +448,11 @@ test('LAUNCHER 3: selection wraps and the greeting follows the viewer\'s clock',
   assert.equal(moveSelection(0, -1, 4), 3)
   assert.equal(moveSelection(3, 1, 4), 0)
   assert.equal(moveSelection(0, 1, 0), -1)
-  assert.equal(greetingFor(new Date('2026-09-24T08:00:00'), 'Jester'), 'Good morning, Jester')
-  assert.equal(greetingFor(new Date('2026-09-24T13:00:00'), 'Jester'), 'Good afternoon, Jester')
-  assert.equal(greetingFor(new Date('2026-09-24T20:46:00'), 'Jester'), 'Good evening, Jester')
+  // GREETINGS-1 (2026-10-04): the words now rotate (test/homeGreetings.test.mjs);
+  // what holds here is that the banner reads that rule by the viewer's clock.
+  for (const t of ['2026-09-24T08:00:00', '2026-09-24T13:00:00', '2026-09-24T20:46:00']) {
+    assert.equal(greetingFor(new Date(t), 'Jester'), greetingText(new Date(t), 'Jester'))
+  }
 })
 
 // ── Recent activity ──────────────────────────────────────────────────────────

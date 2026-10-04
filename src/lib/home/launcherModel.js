@@ -17,6 +17,8 @@
 // besides its title, so "I need to upload a receipt from Resend" or "look up a phone
 // number" still finds it (matchActions below). Keep them plain and specific: a word that
 // belongs to three actions finds all three.
+import { greetingText } from './greetings.js'
+
 export const ACTIONS = Object.freeze([
   { key: 'sign', title: 'Send for signature', where: 'Catalog · Signatures', to: '/catalog/signatures?tab=prepare', need: 'signatures', icon: 'sign',
     words: 'sign signed signing esign e-sign docusign agreement contract consent' },
@@ -190,11 +192,13 @@ export function moveSelection(index, delta, length) {
   return ((index + delta) % length + length) % length
 }
 
-/** "Good morning", "Good afternoon", "Good evening", by the VIEWER's clock. */
+/**
+ * The banner's greeting, by the VIEWER's clock. GREETINGS-1 (Owner, 2026-10-04):
+ * a rotating set adapted from Claude's, by part of the day and weekday; the rule
+ * is ./greetings.js, which is the same file as Skyline's src/lib/greetings.js.
+ */
 export function greetingFor(now = new Date(), firstName = '') {
-  const h = now.getHours()
-  const word = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening'
-  return firstName ? `${word}, ${firstName}` : word
+  return greetingText(now, firstName)
 }
 
 /** "Thursday, Sep 24 · 8:46 PM", by the viewer's clock and zone. */
