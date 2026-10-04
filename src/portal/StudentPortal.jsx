@@ -286,6 +286,42 @@ export default function StudentPortal({
     [],
   )
 
+  // PORTAL-HOOKS-1 (2026-10-04): every hook sits above the loading/error returns. These three
+  // were added below them by dfa18021, so the first (loading) render ran fewer hooks than the
+  // loaded one and every student got React #310. The command handlers are defined after the
+  // returns, so the effect reaches them through a ref the full render path refreshes.
+  const commandHandlersRef = useRef(null)
+  const mailablePreceptors = useMemo(
+    () => emailablePreceptors(Array.isArray(student?.preceptors) ? student.preceptors : []),
+    [student?.preceptors],
+  )
+
+  useEffect(() => {
+    if (readOnlyPreview || !student) return
+    const command = new URLSearchParams(location.search).get('command')
+    if (!command || view !== 'placement') return
+    const handlers = commandHandlersRef.current
+    if (command === 'aspire') handlers?.onContact()
+    if (command.startsWith('preceptor:')) handlers?.emailPreceptor(command.slice('preceptor:'.length))
+    navigate('/portal/placement', { replace: true })
+  }, [location.search, navigate, readOnlyPreview, student, view])
+
+  useEffect(() => {
+    if (!student) { onCommandPeople?.([]); return }
+    const people = [
+      {
+        id: 'student-support:aspire', kind: 'person', name: 'Email ASPIRE Team',
+        qualifier: 'My Placement · Support', to: '/portal/placement?command=aspire',
+      },
+      ...mailablePreceptors.map(p => ({
+        id: `student-support:preceptor:${p.id}`, kind: 'person', name: p.name,
+        qualifier: `My Placement · Support · Email Preceptor`,
+        to: `/portal/placement?command=preceptor:${encodeURIComponent(p.id)}`,
+      })),
+    ]
+    onCommandPeople?.(people)
+  }, [mailablePreceptors, onCommandPeople, student])
+
   if (loading) return <HomeSkeleton />
   if (error)   return <div className="ptl-card ptl-error">{error}</div>
 
@@ -332,7 +368,6 @@ export default function StudentPortal({
   // them; one emailable preceptor composes directly. Unit leadership from ASPIRE
   // Connect and the ASPIRE team are always copied.
   const preceptors = Array.isArray(student.preceptors) ? student.preceptors : []
-  const mailablePreceptors = useMemo(() => emailablePreceptors(preceptors), [preceptors])
   const emailPreceptor = (choice) => {
     const recipients = buildPreceptorRecipients({ preceptors, leadership: student.unit_leadership, choice })
     if (!recipients) return
@@ -367,30 +402,7 @@ export default function StudentPortal({
     preceptorBtnRef.current?.focus()
   }
 
-  useEffect(() => {
-    if (readOnlyPreview || !student) return
-    const command = new URLSearchParams(location.search).get('command')
-    if (!command || view !== 'placement') return
-    if (command === 'aspire') onContact()
-    if (command.startsWith('preceptor:')) emailPreceptor(command.slice('preceptor:'.length))
-    navigate('/portal/placement', { replace: true })
-  }, [location.search, navigate, onContact, emailPreceptor, readOnlyPreview, student, view])
-
-  useEffect(() => {
-    if (!student) { onCommandPeople?.([]); return }
-    const people = [
-      {
-        id: 'student-support:aspire', kind: 'person', name: 'Email ASPIRE Team',
-        qualifier: 'My Placement · Support', to: '/portal/placement?command=aspire',
-      },
-      ...mailablePreceptors.map(p => ({
-        id: `student-support:preceptor:${p.id}`, kind: 'person', name: p.name,
-        qualifier: `My Placement · Support · Email Preceptor`,
-        to: `/portal/placement?command=preceptor:${encodeURIComponent(p.id)}`,
-      })),
-    ]
-    onCommandPeople?.(people)
-  }, [mailablePreceptors, onCommandPeople, student])
+  commandHandlersRef.current = { onContact, emailPreceptor }
 
   const shiftCount = myLogs.length
   const mostRecentShift = fmtDate(myLogs[0]?.shift_date)

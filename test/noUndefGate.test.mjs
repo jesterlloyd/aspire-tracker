@@ -75,3 +75,34 @@ test('the gate is real: eslint actually ran and saw the tree', () => {
   assert.ok(linted.some(p => p.endsWith('src/components/Header/scope/ScopePicker.jsx')),
     'ScopePicker must be in the linted set; it is the file whose omission caused the incident')
 })
+
+// PORTAL-HOOKS-1, 2026-10-04. The Student Portal went down for every student with React
+// error #310 ("Rendered more hooks than during the previous render"). dfa18021 added a
+// useMemo and two useEffects BELOW StudentPortal's `if (loading) return` early return, so
+// the loading render ran three fewer hooks than the loaded one. rules-of-hooks reports
+// that instantly; nothing was asking it. Same lint pass, same zero-tolerance shape, except
+// for the violations that predate this gate, listed by file and count so the list can only
+// shrink. Fix one and lower its number; never raise one or add a file.
+const KNOWN_HOOK_ORDER_DEBT = {
+  // Four effects below `if (!isAuthenticated) return null`. Staff-only; flips only if auth
+  // or role changes while Keith is mounted. Separate fix.
+  'src/components/Keith.jsx': 4,
+}
+
+test('no component calls a hook after an early return (React #310)', () => {
+  const counts = {}
+  const lines = []
+  for (const file of report) {
+    for (const m of file.messages) {
+      if (m.ruleId !== 'react-hooks/rules-of-hooks') continue
+      const rel = file.filePath.replace(root + '/', '')
+      counts[rel] = (counts[rel] || 0) + 1
+      lines.push(`${rel}:${m.line}  ${m.message}`)
+    }
+  }
+  const over = Object.entries(counts).filter(([f, n]) => n > (KNOWN_HOOK_ORDER_DEBT[f] || 0))
+  assert.deepEqual(over, [],
+    'A hook called conditionally or after an early return crashes the component the first ' +
+    'time the branch flips (React #310). This took the Student Portal down on 2026-10-04. ' +
+    'Move the hook above every return.\n\n' + lines.map(l => '  ' + l).join('\n'))
+})
