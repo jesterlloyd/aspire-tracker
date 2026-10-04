@@ -84,9 +84,8 @@ test('the gate is real: eslint actually ran and saw the tree', () => {
 // for the violations that predate this gate, listed by file and count so the list can only
 // shrink. Fix one and lower its number; never raise one or add a file.
 const KNOWN_HOOK_ORDER_DEBT = {
-  // Four effects below `if (!isAuthenticated) return null`. Staff-only; flips only if auth
-  // or role changes while Keith is mounted. Separate fix.
-  'src/components/Keith.jsx': 4,
+  // Empty: zero tolerance. Keith.jsx's four effects moved above its early returns in
+  // KEITH-HOOKS-1. Do not add an entry; move the hook instead.
 }
 
 test('no component calls a hook after an early return (React #310)', () => {

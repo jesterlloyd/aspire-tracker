@@ -106,23 +106,16 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
     return () => clearTimeout(t);
   }, []);
 
-  if (!isAuthenticated) return null;
+  // KEITH-HOOKS-1: every hook sits above the two early returns below, so a session or role
+  // that changes while Keith is mounted cannot change the hook order (React #310).
   // KEITH-WELCOME-1: the resolved role model gives Viewer no Keith access (the
   // server 403s before any context is assembled). The launcher now agrees
   // instead of offering a door that does not open. Chrome only - authorization
   // is unchanged and remains server-side.
-  if (userProfile?.role === 'viewer' && userProfile?.is_owner !== true) return null;
+  const keithHidden = !isAuthenticated || (userProfile?.role === 'viewer' && userProfile?.is_owner !== true);
 
   const scrollToBottom = (behavior = 'smooth') => {
     messagesEndRef.current?.scrollIntoView({ behavior });
-  };
-
-  // KEITH-CHAT-UX-1: track whether the user is near the bottom so new Keith replies stick to the
-  // latest message, but we never yank the user down while they scroll up to read earlier messages.
-  const handleListScroll = () => {
-    const el = listRef.current;
-    if (!el) return;
-    nearBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
   };
 
   // New messages: scroll to bottom when the user just sent one, or when they were already near the
@@ -138,15 +131,19 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
   // closed state on every close path (toggle, backdrop, action, mutual dismiss)
   // so the Messages launcher can restore its idle position, and closing on
   // Escape like every other corner panel.
+  // KEITH-HOOKS-1: while Keith renders nothing (no session, a Viewer) there is no input to
+  // focus and no drawer to close, so the effect stands down; the early returns used to keep it
+  // from running at all in that state.
   useEffect(() => {
-    if (!isOpen) { announceFloatingPanelClosed('keith'); return; }
+    if (keithHidden) return undefined;
+    if (!isOpen) { announceFloatingPanelClosed('keith'); return undefined; }
     if (inputRef.current) inputRef.current.focus();
     nearBottomRef.current = true;
     requestAnimationFrame(() => scrollToBottom('auto'));
     const onKey = (e) => { if (e.key === 'Escape') setIsOpen(false); };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [isOpen]);
+  }, [isOpen, keithHidden]);
 
   // UI-0.5: mutual dismiss - close this panel when another floating panel
   // (e.g. the UserMenu) announces it is opening. Closing only toggles isOpen;
@@ -159,7 +156,15 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
     if (source === 'main-messages') setMessagesOpen(false);
   }), []);
 
+  if (keithHidden) return null;
 
+  // KEITH-CHAT-UX-1: track whether the user is near the bottom so new Keith replies stick to the
+  // latest message, but we never yank the user down while they scroll up to read earlier messages.
+  const handleListScroll = () => {
+    const el = listRef.current;
+    if (!el) return;
+    nearBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+  };
 
   const firstName = userProfile?.full_name?.split(' ')[0];
   // KEITH-WELCOME-1: the welcome is computed, not recited. Time-of-day
@@ -170,8 +175,7 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
   // "Returning" flips only between sessions: it is read per render but only
   // WRITTEN when the user actually engages (sends a message or closes the
   // panel), so the fuller sentence never swaps out mid-first-session. No new
-  // hooks - this component's hook order is already fragile (see the
-  // pre-existing lint notes) and a welcome flag does not justify touching it.
+  // hooks: a welcome flag does not justify one.
   const returning = hasSeenWelcome(userProfile?.id);
   const rememberWelcomed = () => { if (!returning) markWelcomeSeen(userProfile?.id); };
   const greeting = greetingFor(new Date(), firstName);
