@@ -1,5 +1,16 @@
-import { ChevronLeft, RotateCw } from 'lucide-react'
+import { ChevronLeft } from 'lucide-react'
 import './navigationPill.css'
+
+function RefreshIcon({ className, size = 16, strokeWidth = 2.25 }) {
+  return (
+    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M20.5 8.5a8.5 8.5 0 0 0-14.9-3.3L3 8.5" />
+      <path d="M3 3v5.5h5.5" />
+      <path d="M3.5 15.5a8.5 8.5 0 0 0 14.9 3.3l2.6-3.3" />
+      <path d="M21 21v-5.5h-5.5" />
+    </svg>
+  )
+}
 
 export function NavigationPill({
   children,
@@ -34,7 +45,7 @@ export function BackPill({ children, label, ...props }) {
 
 export function RefreshPill({ loading = false, ...props }) {
   return (
-    <NavigationPill icon={RotateCw} loading={loading} ariaLabel="Refresh" {...props}>
+    <NavigationPill icon={RefreshIcon} loading={loading} ariaLabel="Refresh" {...props}>
       {loading ? 'Refreshing…' : 'Refresh'}
     </NavigationPill>
   )

@@ -12,7 +12,7 @@ test('one shared pill owns back and refresh presentation', () => {
   const css = read('src/components/ui/navigationPill.css')
   assert.match(component, /export function BackPill/)
   assert.match(component, /export function RefreshPill/)
-  assert.match(component, /icon=\{RotateCw\}/)
+  assert.match(component, /icon=\{RefreshIcon\}/)
   assert.match(component, /disabled=\{disabled \|\| loading\}/)
   assert.match(component, /aria-busy=\{loading \|\| undefined\}/)
   assert.match(css, /\.nav-pill:focus-visible[\s\S]*box-shadow: 0 0 0 3px #93c5fd/)
