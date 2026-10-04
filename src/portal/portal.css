@@ -825,6 +825,11 @@
   .ptl-header-ctl { width: 100%; max-width: 100%; }
   .ptl-menu-wrap { flex: none; }
   .ptl-header-sub { display: none; }
+  /* STUDENT-HEADER-1: no search on a phone (Student Portal), so the logo gets its full width and
+     its divider back, and ASPIRE no longer collides with it. */
+  .ptl-command-bar-desktop { display: none; }
+  .ptl-header-nightfall:has(.ptl-command-bar-desktop) .ptl-header-divider { display: block; height: 26px; }
+  .ptl-header-nightfall:has(.ptl-command-bar-desktop) .ptl-header-brand { gap: 12px; }
   .ptl-help-grid { grid-template-columns: 1fr; }
   .ptl-card { padding: 18px 16px; --ptl-card-pad-x: 16px; }
   .ptl-drawer { max-width: 100%; }

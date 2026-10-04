@@ -326,6 +326,8 @@ export default function PortalApp() {
     canAskKeith: false,
     onRun: (item) => item?.to && navigate(item.to),
     onOpenPerson: (person) => person?.to && navigate(person.to),
+    // STUDENT-HEADER-1: a student's search is desktop only (see PortalCommandBar).
+    desktopOnly: isStudent,
   }
   // KEITH-THEMES-1 (2026-09-29): the Evaluation tab shows only when the server says this grant carries
   // evaluation_themes_access (or the viewer is Owner/Admin previewing). Fail-closed, like the budget.
