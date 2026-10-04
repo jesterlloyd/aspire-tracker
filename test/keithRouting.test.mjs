@@ -336,7 +336,10 @@ test('chips are role-aware, action-oriented, and at most four', async () => {
 })
 
 test('the launcher agrees with the resolved role model: no orb for Viewer', () => {
-  assert.match(keithUi, /userProfile\?\.role === 'viewer' && userProfile\?\.is_owner !== true\) return null/)
+  // KEITH-HOOKS-1 moved the rule into keithHidden, computed above the hooks, so a role change
+  // while mounted cannot change the hook order; the return below the hooks reads it.
+  assert.match(keithUi, /const keithHidden = !isAuthenticated \|\| \(userProfile\?\.role === 'viewer' && userProfile\?\.is_owner !== true\);/)
+  assert.match(keithUi, /if \(keithHidden\) return null;/)
 })
 
 // KEITH-FOUNDATION-1 replaced KEITH-ORB-1's CSS lens with the animated orb (KeithOrbVideo). The rules
