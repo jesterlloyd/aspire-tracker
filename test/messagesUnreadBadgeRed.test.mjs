@@ -187,7 +187,9 @@ test('the Connect icon badge', async (t) => {
   await t.test('the icon click target and routing are unchanged', () => {
     assert.match(headerActions, /localStorage\.getItem\('aspire\.connect\.lastTab'\)/)
     assert.match(headerActions, /navigate\(`\/connect\/\$\{tab\}`\)/)
-    assert.match(headerActions, /width: 34, height: 34/)
+    // 620d40e3 (Unify header control heights) moved the fixed 34px square onto the shared
+    // --header-control-height token; the click target is still a fixed square.
+    assert.match(headerActions, /width: ?'var\(--header-control-height, 36px\)', height: ?'var\(--header-control-height, 36px\)'/)
   })
 
   await t.test('Action Center now shares the red, but its count LOGIC is unchanged', () => {

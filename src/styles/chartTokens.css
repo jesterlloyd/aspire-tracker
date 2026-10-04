@@ -111,7 +111,7 @@
   box-sizing: border-box;
   height: var(--header-control-height);
   min-height: var(--header-control-height);
-  border-radius: 10px;
+  border-radius: var(--aspire-radius-control);
 }
 .chart-header .um-trigger { padding-top: 0; padding-bottom: 0; }
 

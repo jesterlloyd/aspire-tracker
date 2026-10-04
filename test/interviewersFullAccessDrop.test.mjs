@@ -32,8 +32,10 @@ const code = live.split('\n').filter(l => !l.trim().startsWith('--')).join('\n')
 
 test('full-access drop: the policy name appears in no other SQL in the repository', () => {
   // The whole premise. If a migration ever starts creating it, this test must be revisited.
+  // Agent worktrees live under .claude/worktrees/ inside the repository and hold full copies of
+  // every migration, so the walk skips them along with node_modules and .git.
   const hits = execSync(
-    `grep -rl "Full access on interviewers" --include="*.sql" . 2>/dev/null | grep -v node_modules || true`,
+    `grep -rl "Full access on interviewers" --include="*.sql" --exclude-dir=.claude --exclude-dir=node_modules --exclude-dir=.git . 2>/dev/null || true`,
     { cwd: root, encoding: 'utf8' },
   ).trim().split('\n').filter(Boolean)
   assert.deepEqual(hits.sort(), [`./${AUDIT}`, `./${MIGRATION}`].sort(),
