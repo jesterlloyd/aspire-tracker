@@ -24,7 +24,7 @@ export function ColorModeButtonView({ resolved, onToggle }) {
         onClick={onToggle}
         style={{
           position: 'relative', flexShrink: 0,
-          width: 34, height: 34, alignItems: 'center', justifyContent: 'center',
+          width: 'var(--header-control-height, 36px)', height: 'var(--header-control-height, 36px)', boxSizing: 'border-box', padding: 0, alignItems: 'center', justifyContent: 'center',
           background: 'rgba(255,255,255,0.06)',
           border: '1px solid rgba(255,255,255,0.10)',
           // The header's icon buttons are one row at one corner; this matches them.

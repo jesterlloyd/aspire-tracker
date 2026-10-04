@@ -72,7 +72,7 @@ export default function HeaderActions({
           }}
           style={{
             position: 'relative', flexShrink: 0,
-            width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: 'var(--header-control-height, 36px)', height: 'var(--header-control-height, 36px)', boxSizing: 'border-box', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
             background: connectActive ? 'rgba(255,255,255,0.26)' : 'rgba(255,255,255,0.06)',
             border: `1px solid ${connectActive ? 'rgba(255,255,255,0.50)' : 'rgba(255,255,255,0.10)'}`,
             borderRadius: 8,
@@ -113,7 +113,7 @@ export default function HeaderActions({
           onClick={() => navigate('/catalog')}
           style={{
             position: 'relative', flexShrink: 0,
-            width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: 'var(--header-control-height, 36px)', height: 'var(--header-control-height, 36px)', boxSizing: 'border-box', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
             background: catalogActive ? 'rgba(255,255,255,0.26)' : 'rgba(255,255,255,0.06)',
             border: `1px solid ${catalogActive ? 'rgba(255,255,255,0.50)' : 'rgba(255,255,255,0.10)'}`,
             borderRadius: 8,
@@ -151,7 +151,7 @@ export default function HeaderActions({
           onClick={() => setShowActionCenter(p => !p)}
           style={{
             position:'relative', flexShrink:0, overflow:'visible',
-            width:34, height:34, display:'flex', alignItems:'center', justifyContent:'center',
+            width:'var(--header-control-height, 36px)', height:'var(--header-control-height, 36px)', boxSizing:'border-box', padding:0, display:'flex', alignItems:'center', justifyContent:'center',
             background: showActionCenter ? 'rgba(255,255,255,0.26)' : 'rgba(255,255,255,0.06)',
             border:`1px solid ${showActionCenter ? 'rgba(255,255,255,0.50)' : 'rgba(255,255,255,0.10)'}`,
             borderRadius:8, color: showActionCenter ? '#fff' : 'rgba(255,255,255,0.75)', cursor:'pointer',

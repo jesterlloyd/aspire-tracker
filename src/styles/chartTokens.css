@@ -92,6 +92,7 @@
    truncated mid-search at phone widths).
    ============================================================ */
 .chart-header {
+  --header-control-height: 36px;
   background: linear-gradient(180deg, #1D2567 0%, #161D52 100%);
   padding: 0 24px;
   height: 64px;
@@ -103,6 +104,16 @@
   position: relative;
 }
 .chart-header-spacer { flex: 1; }
+
+/* One outer height for every top-bar control, including its border and padding. */
+.chart-header .um-trigger,
+.chart-header .hm-cmdwrap-compact .hm-cmd input {
+  box-sizing: border-box;
+  height: var(--header-control-height);
+  min-height: var(--header-control-height);
+  border-radius: 10px;
+}
+.chart-header .um-trigger { padding-top: 0; padding-bottom: 0; }
 
 .chart-brand { display: flex; align-items: center; gap: 14px; flex-shrink: 0; min-width: 0; overflow: hidden; }
 /* The tooltip wrapper around the wordmark must be allowed to shrink, or the

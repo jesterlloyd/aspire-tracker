@@ -40,7 +40,7 @@ export default function UniversalSearch({
           /* ASPIRE-CHART: width lives in .chart-search-area CSS so the box can
              go full-width on narrow screens (focus growth kept on desktop). */
           style={{
-            height:34, paddingLeft:32, paddingRight:44,
+            height:'var(--header-control-height, 36px)', boxSizing:'border-box', paddingLeft:32, paddingRight:44,
             transition:'width 200ms ease, border-color 150ms ease',
             background: searchFocused ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.07)',
             border:`1px solid ${searchFocused ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.10)'}`,

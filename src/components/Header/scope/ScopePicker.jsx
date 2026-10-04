@@ -92,7 +92,7 @@ export default function ScopePicker({
           style={{
             display: 'flex', alignItems: 'center', gap: 8,
             background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.10)',
-            borderRadius: 10, height: 34, padding: '7px 13px',
+            borderRadius: 10, height: 'var(--header-control-height, 36px)', boxSizing: 'border-box', padding: '0 13px',
             color: '#fff', cursor: 'pointer', fontFamily: 'Plus Jakarta Sans, sans-serif',
             transition: 'background 0.15s', minWidth: 0,
           }}
