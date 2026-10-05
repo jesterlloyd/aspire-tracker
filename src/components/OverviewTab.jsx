@@ -56,7 +56,7 @@ import RecentActivity from './home/RecentActivity'
 import { ApplicationsOutreach, SurveysResults } from './home/PhaseCards'
 import { derivePhase, pipelineCounts } from '../lib/home/cyclePhase'
 import {
-  messagesGroup, signaturesGroup, reviewReleaseGroup, formsDocsGroup, interviewsGroup, placementGroup, budgetGroup, knowledgeGroup,
+  messagesGroup, signaturesGroup, reviewReleaseGroup, formsDocsGroup, interviewsGroup, placementGroup, budgetGroup, knowledgeGroup, residencyDocsGroup,
 } from '../lib/home/needsYouModel'
 import { scheduleRows, onCampusGroups, dueTodayItems } from '../lib/home/todayModel'
 import { hoursBar, midpointBar } from '../lib/home/cohortPulseModel'
@@ -67,7 +67,7 @@ import { activityRows } from '../lib/home/recentActivityModel'
 import { applicationsSummary, latestOutreachOpenRate, surveysSummary } from '../lib/home/phaseCardsModel'
 import {
   loadMessagesNeedingYou, loadSignaturesList, loadReviewQueues, loadCatalogTracker, loadTodaysInterviews,
-  loadRotationWindows, loadTodaysShifts, loadRecentActivity, loadLauncherContacts, loadBudgetQueue, loadKnowledgeSuggestions,
+  loadRotationWindows, loadTodaysShifts, loadRecentActivity, loadLauncherContacts, loadBudgetQueue, loadKnowledgeSuggestions, loadResidencyDocActivity,
 } from '../lib/home/homeLoaders'
 import './home/home.css'
 
@@ -632,6 +632,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
   // AC-RENEW-1: the Owner's annual renewals to decide, the same source the Action Center reads.
   const qBudget = useQuery({ queryKey: ['home_budget_queue'], queryFn: loadBudgetQueue, enabled: !!isOwner, staleTime: 300000 })
   const qKnowledge = useQuery({ queryKey: ['home_knowledge_suggestions'], queryFn: loadKnowledgeSuggestions, enabled: !!isOwner, staleTime: 300000 })
+  const qResidencyDocs = useQuery({ queryKey: ['home_residency_docs'], queryFn: loadResidencyDocActivity, enabled: canManage && onTodayRoute, staleTime: 120000 })
   const qShifts = useQuery({ queryKey: ['home_shifts', cohortId, today], queryFn: () => loadTodaysShifts(cohortId, today, yesterdayStr), enabled: !!cohortId && onTodayRoute, refetchInterval: onTodayRoute ? 60000 : false })
   const qEvents = useQuery({
     queryKey: ['aggregate_welcome_events', today, eventsTo],
@@ -697,9 +698,11 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
       group: qBudget.data ? budgetGroup(qBudget.data) : null })
     if (isOwner) out.push({ key: 'knowledge', status: qStatus(qKnowledge), retry: qKnowledge.refetch,
       group: qKnowledge.data ? knowledgeGroup({ waiting: qKnowledge.data.waiting, now: nowMs }) : null })
+    if (canManage) out.push({ key: 'residencyDocs', status: qStatus(qResidencyDocs), retry: qResidencyDocs.refetch,
+      group: qResidencyDocs.data ? residencyDocsGroup({ ...qResidencyDocs.data, now: nowMs }) : null })
     return out
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canManage, sigFlag.ready, sigFlag.allowed, qSig.status, qSig.data, qMessages.status, qMessages.data, qRR.status, qRR.data, qCat.status, qCat.data, qIv.status, qIv.data, qRot.status, qRot.data, isOwner, qBudget.status, qBudget.data, qKnowledge.status, qKnowledge.data, scopedSlots, students, units, communications, rotations, cohortId, today])
+  }, [canManage, sigFlag.ready, sigFlag.allowed, qSig.status, qSig.data, qMessages.status, qMessages.data, qRR.status, qRR.data, qCat.status, qCat.data, qIv.status, qIv.data, qRot.status, qRot.data, isOwner, qBudget.status, qBudget.data, qKnowledge.status, qKnowledge.data, qResidencyDocs.status, qResidencyDocs.data, scopedSlots, students, units, communications, rotations, cohortId, today])
 
   // Today
   const holidaysToday = useMemo(() => getUsHolidaysForRange(today, today), [today])

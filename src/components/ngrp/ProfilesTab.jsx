@@ -252,9 +252,15 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
   // RESIDENCY-PORTAL-2b: a staff notification links here with ?candidate=<id>,
   // which opens that applicant's drawer (when they are in the selected cohort).
   const linkedCandidate = searchParams.get('candidate')
+  // RESIDENCY-TAB-1: Needs you links an alumnus by STUDENT (?student=<id>&docs=1), because an
+  // alumnus with no Transition Form has no candidate yet. docs=1 opens their Documents too.
+  // Like ?candidate=, it opens when they are on the selected residency cohort's roster.
+  const linkedStudent = searchParams.get('student')
+  const openDocs = searchParams.get('docs') === '1'
   const drawerRow = (drawerRowId
     ? allRows.find(r => r.id === drawerRowId)
-    : linkedCandidate ? allRows.find(r => r.candidate_id === linkedCandidate) : null) || null
+    : linkedCandidate ? allRows.find(r => r.candidate_id === linkedCandidate)
+      : linkedStudent ? allRows.find(r => r.id === linkedStudent) : null) || null
 
   const runFeedback = useCallback(async (action, extra, successTitle, successBody) => {
     const res = await postNgrpPreceptorFeedback(action, extra)
@@ -714,7 +720,15 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
         cycle={cycle}
         canManage={canManage}
         provisioned={transitionProvisioned}
-        onClose={() => { setDrawerRowId(null); if (linkedCandidate) setParam('candidate', '') }}
+        onClose={() => {
+          setDrawerRowId(null)
+          if (linkedCandidate || linkedStudent || openDocs) {
+            const next = new URLSearchParams(searchParams)
+            next.delete('candidate'); next.delete('student'); next.delete('docs')
+            setSearchParams(next, { replace: true })
+          }
+        }}
+        initialDocsOpen={Boolean(linkedStudent && openDocs && !drawerRowId)}
         toast={toast}
         feedback={drawerRow ? {
           entry: feedback.byStudent[drawerRow.student?.id] || null,

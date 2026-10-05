@@ -1,0 +1,40 @@
+/* RESIDENCY-TAB-1: the Student Portal's Residency tab. Portal cards and tables (.ptl-card,
+   .ptl-table) carry the structure; this sheet only lays out what is inside them. */
+.sr-root { display: flex; flex-direction: column; gap: var(--aspire-gap-card, 16px); }
+.sr-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+.sr-request { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.sr-dates, .sr-support, .sr-events { list-style: none; margin: 0; padding: 0; }
+.sr-dates li, .sr-support li { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid #eef0f4; font-size: 14px; color: #1f2430; }
+.sr-dates li:last-child, .sr-support li:last-child, .sr-events li:last-child { border-bottom: 0; }
+.sr-dates li.sr-past { color: #6b7280; }
+.sr-events li { display: flex; flex-direction: column; gap: 2px; padding: 9px 0; border-bottom: 1px solid #eef0f4; font-size: 14px; color: #1f2430; }
+.sr-progress { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 12px; font-size: 14px; color: #1f2430; }
+.sr-bar { width: 140px; height: 8px; border-radius: var(--aspire-radius-pill, 999px); background: #e8ebf3; overflow: hidden; }
+.sr-bar i { display: block; height: 100%; border-radius: inherit; background: #2f7d4f; }
+.sr-table td { font-size: 13px; }
+.sr-acts { text-align: right; white-space: nowrap; }
+.sr-acts .ptl-btn { margin-left: 6px; }
+.sr-warn { color: #8a5a00; font-weight: 600; font-size: 12.5px; }
+.sr-link { background: none; border: 0; padding: 0 0 0 10px; font: inherit; font-size: 12.5px; font-weight: 600; color: #1D2567; text-decoration: underline; cursor: pointer; }
+.sr-history td { background: #f8f9fc; }
+.sr-history ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.sr-history li { display: flex; gap: 10px; align-items: center; font-size: 13px; }
+.sr-foot { margin: 12px 0 0; }
+.sr-formline { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0 0 6px; }
+.sr-upload { display: flex; flex-direction: column; gap: 12px; }
+.sr-drop { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 14px; border: 1.5px dashed #c9cfe0; border-radius: var(--aspire-radius-control, 10px); background: #f8f9fc; font-size: 13.5px; color: #1f2430; }
+.sr-datecheck { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-radius: var(--aspire-radius-control, 10px); background: #fff7e6; }
+.sr-datecheck .ptl-muted { margin: 0; color: #4a3200; }
+.sr-field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 600; color: #1f2430; }
+.sr-field input { height: 36px; max-width: 200px; padding: 0 10px; border: 1px solid #c9cfe0; border-radius: var(--aspire-radius-control, 10px); font: inherit; }
+.sr-check { display: flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 600; color: #1f2430; min-height: 32px; }
+.sr-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.sr-error { margin: 0; font-size: 13px; color: #b3282d; }
+@media (max-width: 760px) {
+  .sr-table thead { display: none; }
+  .sr-table tr { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; padding: 10px 0; border-bottom: 1px solid #eef0f4; }
+  .sr-table td { border: 0; padding: 0; background: none !important; }
+  .sr-table td.sr-acts { grid-column: 1 / -1; text-align: left; white-space: normal; }
+  .sr-acts .ptl-btn { margin: 6px 6px 0 0; min-height: 44px; }
+  .sr-link, .sr-check, .sr-request .ptl-btn, .sr-actions .ptl-btn, .sr-drop .ptl-btn { min-height: 44px; }
+}

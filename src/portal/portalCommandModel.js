@@ -3,9 +3,12 @@
 // actions are navigation only and never grant access by themselves.
 const action = (key, title, where, to, words = '') => ({ key, title, where, to, need: 'any', words })
 
-export function portalActionsFor(kind, { budgetEnabled = false, messagesEnabled = true } = {}) {
+export function portalActionsFor(kind, { budgetEnabled = false, messagesEnabled = true, residency = false } = {}) {
   if (kind === 'student') return [
-    action('shift-log', 'Open Shift Log', 'Student Portal · Rotation', '/portal/shift-log', 'shift shifts hours rotation clinical log'),
+    // RESIDENCY-TAB-1: an alumnus's fourth place is Residency, not Shift Log.
+    residency
+      ? action('residency', 'Open Residency', 'Student Portal · Residency', '/portal/residency', 'residency ngrp application documents resume transcript bls deadline')
+      : action('shift-log', 'Open Shift Log', 'Student Portal · Rotation', '/portal/shift-log', 'shift shifts hours rotation clinical log'),
     action('placement', 'View Placement', 'Student Portal · Placement', '/portal/placement', 'placement unit rotation assignment'),
     action('profile', 'Open My Profile', 'Student Portal · Profile', '/portal/profile', 'profile information account'),
     ...(messagesEnabled ? [action('messages', 'Open Messages', 'Student Portal · Messages', '/portal/messages', 'message messages inbox')] : []),

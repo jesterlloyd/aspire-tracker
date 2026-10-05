@@ -7,10 +7,10 @@ import { scopeInterviewsForViewer } from '../lib/interviewsToday'
 import { schoolGroupKey } from '../lib/schoolIdentity'
 import {
   loadMessagesNeedingYou, loadSignaturesList, loadReviewQueues, loadCatalogTracker,
-  loadTodaysInterviews, loadRotationWindows, loadBudgetQueue, loadKnowledgeSuggestions,
+  loadTodaysInterviews, loadRotationWindows, loadBudgetQueue, loadKnowledgeSuggestions, loadResidencyDocActivity,
 } from '../lib/home/homeLoaders'
 import {
-  messagesGroup, signaturesGroup, reviewReleaseGroup, formsDocsGroup, interviewsGroup, placementGroup, budgetGroup, knowledgeGroup,
+  messagesGroup, signaturesGroup, reviewReleaseGroup, formsDocsGroup, interviewsGroup, placementGroup, budgetGroup, knowledgeGroup, residencyDocsGroup,
 } from '../lib/home/needsYouModel'
 import { supabase } from '../lib/supabase'
 import { keithCheckin } from '../lib/keith/keithCheckinApi'
@@ -47,6 +47,8 @@ export function useActionCenterQueue({ enabled = true, includeOtherCohorts = fal
   const qBudget = useQuery({ queryKey: ['home_budget_queue'], queryFn: loadBudgetQueue, enabled: enabled && !!isOwner, staleTime: 300000 })
   // Keith's Knowledge Center suggestions waiting for the Owner (the same query At a Glance uses).
   const qKnowledge = useQuery({ queryKey: ['home_knowledge_suggestions'], queryFn: loadKnowledgeSuggestions, enabled: enabled && !!isOwner, staleTime: 300000 })
+  // RESIDENCY-TAB-1: alumni résumés to score and files completed (the query At a Glance uses).
+  const qResidencyDocs = useQuery({ queryKey: ['home_residency_docs'], queryFn: loadResidencyDocActivity, enabled: enabled && canManage, staleTime: 120000 })
   const qSnooze = useQuery({
     queryKey: ['action_snoozes', userProfile?.id],
     queryFn: async () => {
@@ -128,8 +130,9 @@ export function useActionCenterQueue({ enabled = true, includeOtherCohorts = fal
     }))
     if (qBudget.data) out.push(budgetGroup(qBudget.data))
     if (qKnowledge.data) out.push(knowledgeGroup({ waiting: qKnowledge.data.waiting, now }))
+    if (qResidencyDocs.data) out.push(residencyDocsGroup({ ...qResidencyDocs.data, now }))
     return out.filter(Boolean)
-  }, [qSig.data, qMessages.data, qRR.data, qCat.data, qIv.data, qRot.data, qBudget.data, qKnowledge.data, scopedSlots, personalConversations, students, communications, units, unitById, userProfile?.id, sigFlag.allowed, today, now])
+  }, [qSig.data, qMessages.data, qRR.data, qCat.data, qIv.data, qRot.data, qBudget.data, qKnowledge.data, qResidencyDocs.data, scopedSlots, personalConversations, students, communications, units, unitById, userProfile?.id, sigFlag.allowed, today, now])
 
   // KEITH-CHECKIN-1: Keith's sorts, the daily line and the shadow card. A failure here leaves the
   // support items exactly as they were; it never blocks them.
@@ -184,6 +187,7 @@ export function useActionCenterQueue({ enabled = true, includeOtherCohorts = fal
     ...(cohortId ? [queryState(qIv, 'interviews', 'Interviews'), queryState(qRot, 'placement', 'Placement and rotation')] : []),
     ...(canManage && cohortId ? [queryState(qSupport, 'support', 'Support check-ins')] : []),
     ...(isOwner ? [queryState(qBudget, 'budget', 'Budget Tracker'), queryState(qKnowledge, 'knowledge', 'Knowledge Center')] : []),
+    ...(canManage ? [queryState(qResidencyDocs, 'residency-docs', 'Residency Documents')] : []),
   ]
 
   const invalidate = useCallback(() => {
@@ -197,6 +201,7 @@ export function useActionCenterQueue({ enabled = true, includeOtherCohorts = fal
     queryClient.invalidateQueries({ queryKey: ['action_keith_checkins', cohortId] })
     queryClient.invalidateQueries({ queryKey: ['home_budget_queue'] })
     queryClient.invalidateQueries({ queryKey: ['home_knowledge_suggestions'] })
+    queryClient.invalidateQueries({ queryKey: ['home_residency_docs'] })
   }, [queryClient, cohortId, today])
 
   return {

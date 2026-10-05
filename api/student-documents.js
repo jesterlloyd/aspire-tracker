@@ -11,6 +11,7 @@
 //   upload_start { student_id, doc_type, file_name, content_type, size } -> { path, token }
 //   upload_finish{ student_id, doc_type, path, file_name, doc_date?, date_confirmed? }
 //   open         { version_id }                                   -> a 60 s link
+//   activity     -> portal résumés to score and completed checklists (RESIDENCY-TAB-1)
 //   keep_record_resume { student_id } -> the chart's Replace calls this BEFORE it uploads, so
 //                  the file on the record becomes a version instead of being overwritten.
 //   RESUME-REVIEW-1 (Phase 3): review_start { student_id, version_id? } scores a résumé version
@@ -29,13 +30,15 @@ import {
   DOCUMENTS_BUCKET, isMissingTable, loadTypes, loadStudentDocuments, uploadPath,
   finishUpload, openVersion, keepBeforeRecordReplace, adoptRecordResume,
 } from '../lib/server/studentDocuments.js'
+import { documentActivity } from '../lib/server/documentActivity.js'
+import { populationOf } from '../lib/server/demoScope.js'
 import { listReviews, getReview, scoreResumeVersion, reviseDraft, saveDraft, scoringAvailability } from '../lib/server/resumeReview.js'
 import { extsFor, DOCUMENT_MAX_BYTES } from '../src/lib/documents/documentChecklist.js'
 
 const READ_ROLES = new Set(['owner', 'admin', 'co-lead'])
 const WRITE_ROLES = new Set(['owner', 'admin'])
 const WRITES = new Set(['upload_start', 'upload_finish', 'keep_record_resume', 'review_start', 'review_draft', 'review_save'])
-const ACTIONS = new Set(['list', 'open', 'review_get', ...WRITES])
+const ACTIONS = new Set(['list', 'open', 'review_get', 'activity', ...WRITES])
 
 const unprovisioned = res => res.status(200).json({ provisioned: false })
 const internal = res => res.status(500).json({ error: 'internal_error' })
@@ -67,6 +70,13 @@ export default async function handler(req, res) {
   const nowIso = new Date().toISOString()
 
   try {
+    // RESIDENCY-TAB-1: what alumni did in the portal that needs the team (Needs you, Action Center).
+    if (action === 'activity') {
+      const a = await documentActivity(db, { demo: populationOf(req) })
+      if (a.error) return isMissingTable(a.error) ? res.status(200).json({ ok: true, provisioned: false, uploads: [], completions: [] }) : internal(res)
+      return res.status(200).json({ ok: true, provisioned: true, uploads: a.uploads, completions: a.completions })
+    }
+
     if (action === 'open') {
       if (!isUuid(body.version_id)) return res.status(422).json({ error: 'invalid_version_id' })
       const o = await openVersion(db, storage, { versionId: body.version_id })

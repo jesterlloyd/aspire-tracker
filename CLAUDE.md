@@ -1851,6 +1851,35 @@ addressed to that student, exactly like the placement handoff.
 - `ngrp_support_entries.source` / `source_ref` arrive with 20261106000000 (Owner-gated); the app
   writes the same rows without them before it.
 
+## Residency in the Student Portal (RESIDENCY-TAB-1, 2026-10-05)
+
+Phase 5 of the résumé review build. For an ASPIRE alumnus (status Completed, decided by the
+server) the Student Portal's fourth tab is **Residency** in place of Shift Log (Owner: "make it
+a control center for them for residency preparation"); current students keep Shift Log, and an
+Owner/Admin preview shows Shift Log. `src/portal/StudentResidency.jsx`, endpoint
+`api/portal/my-residency.js`, reads in `lib/server/alumnusResidency.js`, words in
+`src/lib/residencyTabModel.js`.
+
+- **Sections**: a banner per open document request (a Documents Request sent in the last 90
+  days that no later upload of that type answered), Key Dates (the residency cohort's dates),
+  Application Documents (the staff checklist and upload path, `via: 'portal'`, history with
+  upload dates, the date confirmed by them: "I checked this date against my document"),
+  Transition Form (status words only, never the link; a provider-unaccepted send reads Not
+  sent), Upcoming Events (the portal calendar feed's NGRP dates, Town Halls and interview
+  window; Interview Bootcamp is not an event type), Support You've Had (activity and date).
+- **Never on this tab**: a Keith score, report or draft, a staff note, who uploaded or
+  confirmed a file, a path. Every shape is built field by field; a test holds the version keys.
+- **Identity is the session**: grant, then links, then the Completed student among them; the
+  request never names a student. A file opens only when its document is theirs.
+- **Staff see what alumni did**: `api/student-documents.js` `activity` feeds a Needs you /
+  Action Center group, Residency Documents: "uploaded a new résumé · Score now" (a current
+  portal résumé with no review, 30 days) and "completed application documents" (required set
+  complete through a portal upload, 14 days). One population (demo or real), filtered in
+  memory. A row opens `/ngrp/profiles?student=<id>&docs=1`, which opens the applicant drawer
+  and its Documents when the alumnus is on the selected residency cohort's roster.
+- `residencyEligible` in PortalApp is declared ABOVE the command bar that reads it; a const
+  read before its declaration takes the whole portal down (the 2026-10-04 incident's cousin).
+
 ## Settings groups, one breadcrumb, the staff menu in portals (NAV-POLISH-1, 2026-10-02)
 
 - **The Settings rail is four groups** (Owner): Personal (General), Administration (Users &

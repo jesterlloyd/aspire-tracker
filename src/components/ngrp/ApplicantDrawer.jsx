@@ -803,11 +803,11 @@ function PreceptorFeedbackSection({ row, feedback, actions }) {
 // STUDENT-DOCUMENTS-1: the application documents, summarised, with the way into the
 // Documents drawer. The staff app only: Talent Acquisition never sees a student's files
 // (the endpoint refuses them too).
-function DocumentsSection({ row, toast, cycle }) {
+function DocumentsSection({ row, toast, cycle, initialOpen = false }) {
   const { staffApp } = useNgrpSurface()
   const studentId = row.student?.id || null
   const docs = useStudentDocuments(studentId, { enabled: staffApp })
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(initialOpen)
   if (!staffApp || docs.status === 'error') return null
   const summary = checklistSummary(docs.types, docs.documents, { resumeOnRecord: docs.resumeOnRecord })
   return (
@@ -834,7 +834,7 @@ export default function ApplicantDrawer(props) {
 }
 
 function ApplicantDrawerBody({
-  open, row, cycle, canManage, provisioned, onClose, actions = {}, feedback = null, toast = null,
+  open, row, cycle, canManage, provisioned, onClose, actions = {}, feedback = null, toast = null, initialDocsOpen = false,
 }) {
   const [review, setReview] = useState(null)
   const [reviewState, setReviewState] = useState('idle')
@@ -958,7 +958,7 @@ function ApplicantDrawerBody({
         )}
       </Section>
 
-      <DocumentsSection row={row} toast={toast} cycle={cycle} />
+      <DocumentsSection row={row} toast={toast} cycle={cycle} initialOpen={initialDocsOpen} />
 
       <Section title="Residency Interest" tint="rgba(96,120,170,0.055)">
         <Row label="Interest"><NgrpStatusPill config={INTEREST_STATES} value={row.interest} /></Row>

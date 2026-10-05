@@ -91,6 +91,18 @@ export async function loadKnowledgeSuggestions() {
   return { waiting: json?.enabled === false ? [] : (json?.waiting || []) }
 }
 
+// RESIDENCY-TAB-1: alumni résumés to score and application files completed in the portal.
+export async function loadResidencyDocActivity() {
+  const res = await fetch('/api/student-documents', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await token()}` },
+    body: JSON.stringify({ action: 'activity' }),
+  })
+  if (!res.ok) throw new Error('residency_doc_activity_failed')
+  const json = await res.json()
+  return { uploads: json?.uploads || [], completions: json?.completions || [] }
+}
+
 export async function loadCatalogTracker() {
   const [tracker, items] = await Promise.all([
     formStaff('tracker'),

@@ -29,7 +29,7 @@ import { knownDate } from './cyclePhase.js'
 export const ROWS_PER_GROUP = 3
 const DAY = 86400000
 
-export const GROUP_ORDER = Object.freeze(['signatures', 'messages', 'reviewRelease', 'formsDocs', 'interviews', 'placement', 'budget', 'knowledge'])
+export const GROUP_ORDER = Object.freeze(['signatures', 'messages', 'reviewRelease', 'formsDocs', 'interviews', 'placement', 'budget', 'knowledge', 'residencyDocs'])
 
 /** "Today", "2d", "9d": how long a row has been waiting. */
 export function ageLabel(iso, now = Date.now()) {
@@ -77,6 +77,43 @@ export function knowledgeGroup({ waiting = [], now = Date.now() } = {}) {
   const drafts = rows.length - edits
   const pills = [edits ? { text: plural(edits, 'edit'), tone: 'amber' } : null, drafts ? { text: plural(drafts, 'Draft'), tone: 'plum' } : null].filter(Boolean)
   return finish({ key: 'knowledge', name: 'Knowledge Center', sub: 'Keith’s suggestions to review', pills, rows, open: { label: 'Open Knowledge Center', to: KNOWLEDGE_REVIEW_PATH }, count: rows.length })
+}
+
+// ── Residency documents (RESIDENCY-TAB-1) ───────────────────────────────────────
+
+/** An alumnus's Documents, opened in Residency > Profiles (no cohort switch). */
+export const alumnusDocumentsPath = studentId => `/ngrp/profiles?student=${encodeURIComponent(studentId)}&docs=1`
+
+/**
+ * What alumni did in the Student Portal's Residency tab that the team acts on: a new résumé to
+ * score ("Score now" opens their Documents, where Score now is) and an application file that
+ * became complete. Navigation only; scoring stays in Documents.
+ * @param uploads, completions rows from /api/student-documents `activity`
+ */
+export function residencyDocsGroup({ uploads = [], completions = [], now = Date.now() } = {}) {
+  const name = p => [p.first_name, p.last_name].filter(Boolean).join(' ') || 'An alumnus'
+  const uploadRows = (uploads || []).map(u => ({
+    id: `resume:${u.version_id}`, chip: 'Score now',
+    title: `${name(u)} · uploaded a new résumé`,
+    meta: [u.cohort, `uploaded ${shortDate(u.uploaded_at)}`].filter(Boolean).join(' · '),
+    pill: { text: 'Score now', tone: 'plum' },
+    ageMs: Math.max(0, now - new Date(u.uploaded_at || now).getTime()),
+    to: alumnusDocumentsPath(u.student_id),
+  }))
+  const completeRows = (completions || []).map(c => ({
+    id: `complete:${c.student_id}`, chip: 'Review',
+    title: `${name(c)} · completed application documents`,
+    meta: [c.cohort, `last upload ${shortDate(c.completed_at)}`].filter(Boolean).join(' · '),
+    pill: { text: 'Complete', tone: 'green' },
+    ageMs: Math.max(0, now - new Date(c.completed_at || now).getTime()),
+    to: alumnusDocumentsPath(c.student_id),
+  }))
+  const rows = [...uploadRows, ...completeRows]
+  const pills = [
+    uploadRows.length ? { text: plural(uploadRows.length, 'résumé', 'résumés') + ' to score', tone: 'plum' } : null,
+    completeRows.length ? { text: `${plural(completeRows.length, 'file')} complete`, tone: 'green' } : null,
+  ].filter(Boolean)
+  return finish({ key: 'residencyDocs', name: 'Residency Documents', sub: 'From alumni in the Student Portal', pills, rows, open: { label: 'Open Support', to: '/ngrp/support/before' }, count: rows.length })
 }
 
 // ── Program Budget (AC-RENEW-1) ─────────────────────────────────────────────────

@@ -430,6 +430,8 @@ const OUTSIDE_THE_WRAPPER = {
   'my-profile-file-sign.js': 'self-scoped',
   'my-rotation-activity.js': 'self-scoped',
   'my-shift-lifecycle.js': 'self-scoped',
+  // RESIDENCY-TAB-1 (2026-10-05): the caller's own linked student records only.
+  'my-residency.js': 'self-scoped',
   'my-shift-log-manage.js': 'self-scoped',
   'update-profile.js': 'self-scoped',
   'student-file-access.js': 'self-scoped',

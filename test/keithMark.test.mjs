@@ -113,7 +113,9 @@ test('no portal page, email, PDF or export imports the mark or reads provenance'
   const outside = [
     ...walk(join(root, 'src/portal')), ...walk(join(root, 'src/pages')),
     ...walk(join(root, 'lib/server/forms')), ...walk(join(root, 'lib/server/signatures')),
-    ...walk(join(root, 'api')).filter(p => /email|mail|pdf|export|portal|notify|cron/i.test(p)),
+    // Matched on the repo-relative path (2026-10-05): a checkout folder whose name contains
+    // "portal" swept every staff endpoint in.
+    ...walk(join(root, 'api')).filter(p => /email|mail|pdf|export|portal|notify|cron/i.test(p.slice(root.length))),
     join(root, 'lib/server/sheet/xlsx.js'),
   ].filter(p => /\.(jsx?|mjs)$/.test(p) && !/ \d\.(jsx?|mjs)$/.test(p))
   assert.ok(outside.length > 50, `swept ${outside.length} files`)

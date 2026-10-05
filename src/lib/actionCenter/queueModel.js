@@ -11,6 +11,7 @@ export const ACTION_CENTER_GROUPS = Object.freeze([
   { key: 'placement', label: 'Placement and rotation', icon: 'P' },
   { key: 'budget', label: 'Budget Tracker', icon: 'B' },   // AC-RENEW-1: the Owner's renewals to decide
   { key: 'knowledge', label: 'Knowledge Center', icon: 'K' },   // PHASE 3: Keith's suggestions, the Owner's to review
+  { key: 'residency-docs', label: 'Residency Documents', icon: 'D' },   // RESIDENCY-TAB-1: alumni uploads to score, files complete
 ])
 
 export const ACTION_CENTER_GROUP_ORDER = Object.freeze(
@@ -38,13 +39,14 @@ function isoFromAgeMs(ageMs, now) {
 function homeGroupKey(key) {
   if (key === 'reviewRelease') return 'review-release'
   if (key === 'formsDocs') return 'forms'
+  if (key === 'residencyDocs') return 'residency-docs'
   return key
 }
 
 function stateText(row) {
   const text = row?.pill?.text || ''
   // A renewal says when it falls due, not how long it has waited (AC-RENEW-1).
-  return /^(Your turn|Blocked|No slot|Unplaced|Renews today)$/i.test(text) || /^\d+ ready$/i.test(text) || /^In \d+ days?$/i.test(text) || /^(Due in \d+ days?|Due today|Past due|No receipt|Close month)$/i.test(text) ? text : null
+  return /^(Your turn|Blocked|No slot|Unplaced|Renews today|Score now|Complete)$/i.test(text) || /^\d+ ready$/i.test(text) || /^In \d+ days?$/i.test(text) || /^(Due in \d+ days?|Due today|Past due|No receipt|Close month)$/i.test(text) ? text : null
 }
 
 function actionsFor({ group, row, student }) {
@@ -91,6 +93,11 @@ function actionsFor({ group, row, student }) {
     { key: 'open', label: 'Review', primary: true },
     { key: 'snooze', label: 'Snooze' },
   ]
+  // RESIDENCY-TAB-1: scoring stays in the alumnus's Documents.
+  if (group === 'residency-docs') return [
+    { key: 'open', label: row?.chip === 'Score now' ? 'Score now' : 'Open', primary: true },
+    { key: 'snooze', label: 'Snooze' },
+  ]
   return [{ key: 'open', label: 'Open', primary: true }]
 }
 
@@ -105,14 +112,15 @@ export function normalizeHomeQueue({ groups = [], conversations = [], students =
       const entityId = rawId.replace(/^[^:]+:/, '')
       const conversation = group === 'messages' ? conversationById.get(entityId) : null
       const student = group === 'interviews' && rawId.startsWith('iv-open:') ? studentById.get(entityId) : null
-      const personal = group === 'messages' || group === 'signatures' || group === 'budget' || group === 'knowledge'
+      const personal = group === 'messages' || group === 'signatures' || group === 'budget' || group === 'knowledge' || group === 'residency-docs'
       const chip = group === 'signatures' ? 'Sign'
         : group === 'messages' ? 'Reply'
           : group === 'review-release' ? 'Release'
             : group === 'forms' ? 'Overdue'
               : group === 'interviews' ? 'Schedule'
                 : group === 'budget' ? (row.chip || 'Renew')
-                  : group === 'knowledge' ? 'Review' : 'Placement'   // Program Budget: Renew, Review, Submit, Receipt or Close
+                  : group === 'knowledge' ? 'Review'
+                    : group === 'residency-docs' ? (row.chip || 'Review') : 'Placement'   // Program Budget: Renew, Review, Submit, Receipt or Close
       const tag = group === 'messages' ? 'reply' : String(row.pill?.text || '').toLowerCase()
       const title = conversation?.participant_name || String(row.title || '').split(' · ')[0]
       const qualifier = conversation?.subject || String(row.title || '').split(' · ').slice(1).join(' · ')
@@ -233,6 +241,6 @@ export function groupQueue(items = []) {
 }
 
 export function chipCounts(items = []) {
-  const order = ['Sign', 'Reply', 'Release', 'Overdue', 'Schedule', 'Placement', 'Review', 'Submit', 'Receipt', 'Renew', 'Close']
+  const order = ['Sign', 'Reply', 'Release', 'Overdue', 'Schedule', 'Placement', 'Score now', 'Review', 'Submit', 'Receipt', 'Renew', 'Close']
   return order.map(chip => ({ chip, count: items.filter(item => item.chip === chip).length })).filter(x => x.count)
 }

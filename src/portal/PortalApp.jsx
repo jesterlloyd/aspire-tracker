@@ -20,6 +20,7 @@
 // because the view derives from the location instead of transient state.
 
 import { useState, useEffect, useCallback, useRef, Suspense } from 'react'
+import { postMyResidency } from '../lib/myResidencyApi'
 import { lazyReload } from '../lib/lazyReload'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -31,6 +32,7 @@ import MainMessagesLauncher from '../components/MainMessagesLauncher'
 import PortalNav from './PortalNav'
 // STUDENT-SHIFT-TAB-1: loaded on first visit; it carries the shift-log views.
 const StudentShiftLog = lazyReload(() => import('./StudentShiftLog'), 'StudentShiftLog')
+const StudentResidency = lazyReload(() => import('./StudentResidency'), 'StudentResidency')
 // PORTAL-SPLIT Phase 3 (2026-09-16): one chunk per portal.
 //
 // All five were static imports, so every portal visitor downloaded all five. A
@@ -229,6 +231,7 @@ export default function PortalApp() {
     || (previewRole === 'student' && location.pathname.startsWith('/portal/student/messages'))
   const studentView = studentMessagesPath ? 'messages'
     : location.pathname.startsWith('/portal/shift-log') || location.pathname.startsWith('/portal/student/shift-log') ? 'shiftlog'
+    : location.pathname.startsWith('/portal/residency') ? 'residency'
     : location.pathname.startsWith('/portal/profile') ? 'profile'
     : location.pathname.startsWith('/portal/placement') || location.pathname.startsWith('/portal/student/placement') ? 'placement'
     : 'home'
@@ -319,9 +322,19 @@ export default function PortalApp() {
     budgetPortal({ probe: '1' }).then(r => { if (live) setNaBudgetEnabled(!!r?.enabled) }).catch(() => { if (live) setNaBudgetEnabled(false) })
     return () => { live = false }
   }, [isNursingAcademic])
+  // RESIDENCY-TAB-1: is this student an ASPIRE alumnus (Completed)? The server answers; the
+  // nav then shows Residency in Shift Log's place. Not in an Owner/Admin preview, which does
+  // not impersonate the student.
+  const [residencyEligible, setResidencyEligible] = useState(false)
+  useEffect(() => {
+    if (!isStudent || staffPreview) return undefined
+    let cancelled = false
+    postMyResidency('status').then((r) => { if (!cancelled) setResidencyEligible(r.ok && r.eligible === true) })
+    return () => { cancelled = true }
+  }, [isStudent, staffPreview])
   const portalKind = isStudent ? 'student' : isUnitLeader ? 'unit_leader' : isAcademicPartner ? 'academic_partner' : isNursingAcademic ? 'nursing_academic' : 'talent_acquisition'
   const portalCommand = {
-    actions: portalActionsFor(portalKind, { budgetEnabled: naBudgetEnabled, messagesEnabled: !staffPreview }),
+    actions: portalActionsFor(portalKind, { budgetEnabled: naBudgetEnabled, messagesEnabled: !staffPreview, residency: residencyEligible }),
     people: commandPeople,
     canAskKeith: false,
     onRun: (item) => item?.to && navigate(item.to),
@@ -387,6 +400,7 @@ export default function PortalApp() {
   const goHome = useCallback(() => navigate(staffPreview ? '/portal/student' : '/portal'), [navigate, staffPreview])
   const goPlacement = useCallback(() => navigate(staffPreview ? '/portal/student/placement' : '/portal/placement'), [navigate, staffPreview])
   const goShiftLog = useCallback(() => navigate(staffPreview ? '/portal/student/shift-log' : '/portal/shift-log'), [navigate, staffPreview])
+  const goResidency = useCallback(() => navigate('/portal/residency'), [navigate])
   const goMessages = useCallback(() => navigate(
     previewRole === 'student' ? '/portal/student/messages'
       : staffPreview ? '/connect/messages' : '/portal/messages',
@@ -642,6 +656,8 @@ export default function PortalApp() {
             onMessages={goMessages}
             onShiftLog={goShiftLog}
             messagesEnabled
+            residency={residencyEligible}
+            onResidency={goResidency}
           />
         )}
         utilityLayer={(
@@ -692,6 +708,13 @@ export default function PortalApp() {
         {studentView === 'shiftlog' && (
           <Suspense fallback={<div className="ptl-card ptl-activity-loading" role="status">Loading Shift Log</div>}>
             <StudentShiftLog active readOnlyPreview={staffPreview} />
+          </Suspense>
+        )}
+        {/* RESIDENCY-TAB-1: mounted only while visited; the page and the server both refuse a
+            student who is not an alumnus. */}
+        {!staffPreview && studentView === 'residency' && (
+          <Suspense fallback={<PortalLoading label="Loading your residency page" />}>
+            <StudentResidency active />
           </Suspense>
         )}
         {/* STUDENT-PORTAL-PROFILE-1: mounted only while visited (it fetches on

@@ -16,7 +16,7 @@ const srOnly = {
   overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap', border: 0,
 }
 
-export default function PortalNav({ view, unread = 0, onHome, onPlacement, onMessages, onShiftLog, messagesEnabled = true }) {
+export default function PortalNav({ view, unread = 0, onHome, onPlacement, onMessages, onShiftLog, messagesEnabled = true, residency = false, onResidency }) {
   return (
     <nav className="ptl-nav" aria-label="Student Portal sections">
       {/* WELCOME-TOUR-PORTALS-1: stable anchors for the Welcome Tour. */}
@@ -65,16 +65,32 @@ export default function PortalNav({ view, unread = 0, onHome, onPlacement, onMes
 
       {/* STUDENT-SHIFT-TAB-1 (Owner decision, 2026-09-05): shift logging lives inside the
           portal, with the session as identity. Last, where Refresh used to be the only thing. */}
-      <button
-        type="button"
-        className={`ptl-nav-item${view === 'shiftlog' ? ' ptl-nav-item-active' : ''}`}
-        aria-current={view === 'shiftlog' ? 'page' : undefined}
-        data-tour="portal-nav-shiftlog"
-        onClick={() => onShiftLog?.()}
-      >
-        <NAV_ICONS.shiftLog size={16} aria-hidden="true" />
-        <span className="ptl-nav-label">{NAV_LABELS.shiftLog}</span>
-      </button>
+      {/* RESIDENCY-TAB-1 (Owner, 2026-10-05): an ASPIRE alumnus can no longer log shifts, so
+          the fourth place is Residency, their residency preparation home. The server decides
+          who is an alumnus (Completed); the bar stays at four items on a phone. */}
+      {residency ? (
+        <button
+          type="button"
+          className={`ptl-nav-item${view === 'residency' ? ' ptl-nav-item-active' : ''}`}
+          aria-current={view === 'residency' ? 'page' : undefined}
+          data-tour="portal-nav-residency"
+          onClick={() => onResidency?.()}
+        >
+          <NAV_ICONS.residency size={16} aria-hidden="true" />
+          <span className="ptl-nav-label">{NAV_LABELS.residency}</span>
+        </button>
+      ) : (
+        <button
+          type="button"
+          className={`ptl-nav-item${view === 'shiftlog' ? ' ptl-nav-item-active' : ''}`}
+          aria-current={view === 'shiftlog' ? 'page' : undefined}
+          data-tour="portal-nav-shiftlog"
+          onClick={() => onShiftLog?.()}
+        >
+          <NAV_ICONS.shiftLog size={16} aria-hidden="true" />
+          <span className="ptl-nav-label">{NAV_LABELS.shiftLog}</span>
+        </button>
+      )}
 
       {/* Right-aligned shared Refresh (desktop only; hidden in the phone bottom bar). */}
       <PortalNavRefresh tooltipLabel="Refresh" />
