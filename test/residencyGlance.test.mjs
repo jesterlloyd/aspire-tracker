@@ -132,9 +132,12 @@ test('the roster reads the assigned unit and interview back (they were written b
   // RESIDENCY-ROSTER-1 added a third group, so the fallback drops ONE group at a
   // time, newest first: a cohort missing 20260916000000's columns still gets its
   // assigned unit and interview back rather than falling all the way to the base.
+  // RESIDENCY-FLAG-1 (this commit) put the follow-up flag on top as the newest group, so
+  // the first miss drops only the flag and the roster keeps everything else.
   const cand = selects.filter(s => s.name === 'ngrp_candidates')
   assert.equal(cand.length, 2)
-  assert.match(cand[0].cols, /not_proceeding_reason/)
-  assert.doesNotMatch(cand[1].cols, /not_proceeding_reason/)
+  assert.match(cand[0].cols, /flagged_for_followup/)
+  assert.doesNotMatch(cand[1].cols, /flagged_for_followup/)
+  assert.match(cand[1].cols, /not_proceeding_reason/)
   assert.match(cand[1].cols, /assigned_unit/)
 })

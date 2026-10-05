@@ -70,7 +70,15 @@ export function useChartScroll(studentId, sheets = CHART_SHEETS) {
     const root = scrollerRef.current
     if (!root) return
 
-    const onScroll = () => setLifted(root.scrollTop > LIFT_AT)
+    // RESIDENCY-SPLIT-1: at the very bottom the LAST sheet is current, even when it is too
+    // short to reach the top of the scroller. Without this a short last sheet needed a
+    // 60vh floor (empty paper under it) for its tab ever to light up.
+    const last = sheets[sheets.length - 1]?.id
+    const atBottom = () => root.scrollTop > 0 && root.scrollTop + root.clientHeight >= root.scrollHeight - 2
+    const onScroll = () => {
+      setLifted(root.scrollTop > LIFT_AT)
+      if (last && atBottom()) setActiveSheet(last)
+    }
     root.addEventListener('scroll', onScroll, { passive: true })
 
     let observer = null
@@ -79,7 +87,8 @@ export function useChartScroll(studentId, sheets = CHART_SHEETS) {
         const top = entries
           .filter(e => e.isIntersecting)
           .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0]
-        if (top?.target?.dataset?.sheet) setActiveSheet(top.target.dataset.sheet)
+        if (last && atBottom()) setActiveSheet(last)
+        else if (top?.target?.dataset?.sheet) setActiveSheet(top.target.dataset.sheet)
       }, { root, rootMargin: SPY_MARGIN, threshold: 0 })
       for (const s of sheets) {
         const el = root.querySelector(`#${sheetDomId(s.id)}`)

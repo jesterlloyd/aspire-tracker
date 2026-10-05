@@ -43,7 +43,7 @@
  *
  * PROPS
  * @param {Object}   student       - required; full student record from DB
- * @param {string}   variant       - required; 'profile' | 'on-campus' | 'interview'
+ * @param {string}   variant       - required; 'profile' | 'on-campus' | 'interview' | 'applicant'
  * @param {Function} onClick       - required; called on click or Enter/Space keypress
  * @param {Object}   [variantProps]- variant-specific data (see above)
  * @param {boolean}  [isSelected]  - optional; draws accent border (profile variant only)
@@ -423,6 +423,12 @@ export default function StudentCard({ student, variant, onClick, variantProps = 
             overdue={variantProps.overdue}
             unit={variantProps.unit}
           />
+        )}
+        {/* RESIDENCY-SPLIT-1: an alumnus in Residency > Profiles & Interest's grid. The
+            strip is the host's (their application status); no completion badge, which
+            measures the internship student record and would mislead here. */}
+        {variant === 'applicant' && (
+          <div style={{ padding: '6px 8px 10px', display: 'flex', justifyContent: 'center' }}>{variantProps.strip}</div>
         )}
         {variant === 'interview' && (
           <InterviewStrip

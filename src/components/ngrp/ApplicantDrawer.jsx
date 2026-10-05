@@ -21,6 +21,7 @@ import { shiftBadge } from '../../lib/shiftStatus'
 import { RESIDENT_SHIFTS } from '../../lib/ngrp/ngrpReflectionForm'
 import { useNgrpSurface } from '../../lib/ngrp/ngrpSurface'
 import { StudentDocumentsBody } from '../documents/StudentDocumentsDrawer'
+import FlagRibbon from '../rubric/FlagRibbon'
 // APPLICANT-CHART-1: the applicant is the Student Profiles binder with the application's
 // sheets: the same rings, plate, tabs, tints and scroll behaviour, read from the same files.
 import '../student/studentChart.css'
@@ -860,7 +861,7 @@ export function ApplicantChart(props) {
 
 function ApplicantDrawerBody({
   open, row, cycle, canManage, provisioned, onClose, actions = {}, feedback = null, toast = null, initialDocsOpen = false,
-  embedded = false,
+  embedded = false, followUp = null,
 }) {
   const [review, setReview] = useState(null)
   const [reviewState, setReviewState] = useState('idle')
@@ -893,6 +894,20 @@ function ApplicantDrawerBody({
     scrollerRef: chartScrollerRef, activeSheet: chartSheet,
     goToSheet: goToChartSheet, lifted: chartLifted,
   } = useChartScroll(s?.id, sheets)
+  // RESIDENCY-FLAG-1: the residency follow-up flag (ngrp_candidates.flagged_for_followup), the
+  // student chart's ribbon in the same place. NOT the student's own flag. The ASPIRE team only;
+  // `followUp` is null in the Residency Portal. Painted at once, then the roster refetches.
+  const [flagPending, setFlagPending] = useState(null)
+  const [flagSaving, setFlagSaving] = useState(false)
+  const followUpFlagged = flagPending ?? row.flagged_for_followup === true
+  const setFollowUp = async (next) => {
+    if (!followUp?.available || flagSaving) return
+    setFlagPending(next); setFlagSaving(true)
+    const ok = await followUp.onSet(row, next)
+    if (!ok) setFlagPending(null)
+    setFlagSaving(false)
+  }
+
   // A link that asks for the documents (?docs=1, Needs you) opens the binder at that sheet.
   useEffect(() => {
     if (initialDocsOpen && staffApp) goToChartSheet('documents')
@@ -939,6 +954,19 @@ function ApplicantDrawerBody({
             <i className="sc-ring" /><i className="sc-ring" /><i className="sc-ring" />
             <i className="sc-ring" /><i className="sc-ring" />
           </div>
+          {followUp && (
+            <FlagRibbon
+              flagged={followUpFlagged}
+              disabled={!followUp.available || flagSaving}
+              onFlag={() => setFollowUp(true)}
+              onUnflag={() => setFollowUp(false)}
+              classPrefix="sc-ribbon"
+              labelOn={`${displayName(s)} is flagged for follow-up. Pull the ribbon up, or press, to remove the flag.`}
+              labelOff={followUp.available
+                ? `Pull the ribbon down, or press, to flag ${displayName(s)} for follow-up.`
+                : 'The residency follow-up flag is not enabled on this database yet.'}
+            />
+          )}
           <div className="sc-paper">
             <div className="sr-only" role="status" aria-live="polite">
               {displayName(s)}, {titleOf(chartSheet)}

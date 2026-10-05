@@ -124,5 +124,7 @@ export default async function handler(req, res) {
     // roster still renders (neutral defaults), but send/review actions
     // disable themselves honestly instead of failing mid-flight.
     transitionProvisioned: payload.transitionProvisioned !== false,
+    // RESIDENCY-FLAG-1: the ASPIRE team's follow-up flag; Talent Acquisition never gets it.
+    followUpFlagProvisioned: view === payload ? payload.followUpFlagProvisioned === true : false,
   })
 }

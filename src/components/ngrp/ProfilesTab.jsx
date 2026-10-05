@@ -25,7 +25,8 @@
 // 5. Raw emails never reach the browser - rows carry has_email only.
 import { useMemo, useState, useCallback, useEffect, useRef } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
-import { Search, Send, GraduationCap, X, Eye, Download } from 'lucide-react'
+import { Search, Send, GraduationCap, X, Eye, Download, List, LayoutGrid } from 'lucide-react'
+import StudentCard from '../StudentCard'
 import { writeLaunchContext, LAUNCH_KINDS } from '../../lib/connect/launchContext'
 import { FilterKPICard } from '../KPIBand'
 import StudentAvatar from '../StudentAvatar'
@@ -123,11 +124,12 @@ function PinnedSplitFrame({ children }) {
 // their application stands.
 function AlumniListRow({ row, selected, onSelect, feedbackEntry }) {
   const s = row.student
+  const flagged = row.flagged_for_followup === true
   const name = displayName(s)
   const { preferences } = effectivePreferences(row)
   const status = rosterStatus(row)
   return (
-    <div className={`pl-row${selected ? ' pl-selected' : ''}`} role="button" tabIndex={0}
+    <div className={`pl-row${selected ? ' pl-selected' : ''}${flagged ? ' pl-followup' : ''}`} role="button" tabIndex={0}
       aria-current={selected ? 'true' : undefined} aria-label={`Open the applicant chart for ${name}`}
       style={{ alignItems: 'flex-start', padding: '11px 14px', display: 'grid', gridTemplateColumns: '40% 28% 32%', gap: 6 }}
       onClick={() => onSelect(row.id)}
@@ -166,6 +168,12 @@ function AlumniListRow({ row, selected, onSelect, feedbackEntry }) {
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 3, paddingTop: 3, minWidth: 0 }}>
         <NgrpStatusPill config={FORM_SENT_STATES} value={formSentState(row)} srPrefix="Transition Form" />
         <NgrpStatusPill config={ROSTER_STATUSES} value={status} srPrefix="Status" />
+        {/* RESIDENCY-FLAG-1: the chart ribbon's mark, as on a student's row. */}
+        {flagged && (
+          <span title="Flagged for follow up" style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--aspire-red-editorial,#B3282D)', whiteSpace: 'nowrap' }}>
+            <span aria-hidden="true">⚑</span> Flagged for follow up
+          </span>
+        )}
       </div>
     </div>
   )
@@ -206,8 +214,12 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
   // RESIDENCY-SPLIT-1 (Owner, 2026-10-05): Profiles (the list with the chart open beside it,
   // as Student Profiles) or Application Status (the full table, where bulk send lives), as
   // Student Profiles' Profiles | CS-Link Access. In the URL, like every filter here.
-  const view = searchParams.get('view') === 'status' ? 'status' : 'profiles'
+  // Owner, 2026-10-05: the views are Profiles | Interest (the tab's own two words). 'status'
+  // was the first name and still opens Interest from an old link.
+  const view = ['interest', 'status'].includes(searchParams.get('view')) ? 'interest' : 'profiles'
   const changeView = v => setParam('view', v, 'profiles')
+  // List or Grid, as Student Profiles (session only, as there).
+  const [viewMode, setViewMode] = useState('list')
 
   const [selected, setSelected] = useState(() => new Set())
   const [drawerRowId, setDrawerRowId] = useState(null)
@@ -308,6 +320,21 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
     if (!ctx) { toast?.error?.('Send unavailable', 'The send could not be prepared in this browser.'); return }
     navigate('/connect/outreach?launch=1')
   }, [cycle, navigate, toast])
+
+  // RESIDENCY-FLAG-1: the residency follow-up flag, by student (an alumnus with no form yet
+  // is enrolled by the server). Resolves true when it saved, so the ribbon can roll back.
+  const setFollowUp = useCallback(async (r, next) => {
+    const res = await postNgrpManage('followup_flag_set', { cycle_id: cycle.id, student_id: r.student.id, flagged: next })
+    if (!res.ok) {
+      toast?.error?.(next ? 'Not flagged' : 'Flag not removed', res.status === 409
+        ? 'The residency follow-up flag is not enabled on this database yet.'
+        : 'Please try again.')
+      return false
+    }
+    toast?.success?.(next ? 'Flagged for follow-up' : 'Follow-up flag removed', displayName(r.student))
+    refetch()
+    return true
+  }, [cycle, refetch, toast])
 
   // Stable identity: AutomationEmailPreviewDrawer memoizes its render on `entry`, so a
   // fresh object each parent render would re-render the email on every keystroke above.
@@ -449,7 +476,7 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
         <>
           <div style={{ padding: '0 0 12px' }}>
             <SegmentedPicker ariaLabel="Profiles & Interest views" value={view} onChange={changeView}
-              options={[{ value: 'profiles', label: 'Profiles' }, { value: 'status', label: 'Application Status' }]} />
+              options={[{ value: 'profiles', label: 'Profiles' }, { value: 'interest', label: 'Interest' }]} />
           </div>
           <div className="ngrp-kpis" role="group" aria-label="Roster filters">
             {KPI_DEFS.map(k => (
@@ -497,6 +524,18 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                   {SORT_OPTIONS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
                 </select>
               </label>
+              {view === 'profiles' && (
+                <div style={{ display: 'flex', borderRadius: 7, border: '1px solid var(--border-input,rgba(29,37,103,0.10))', overflow: 'hidden', flexShrink: 0 }}>
+                  {[['list', 'List', List], ['grid', 'Grid', LayoutGrid]].map(([key, label, Icon]) => (
+                    <button key={key} type="button" onClick={() => setViewMode(key)} aria-pressed={viewMode === key}
+                      style={{ height: 32, padding: '0 12px', display: 'flex', alignItems: 'center', gap: 6, border: 'none', cursor: 'pointer', fontSize: 12, fontFamily: 'Plus Jakarta Sans,sans-serif', fontWeight: 500,
+                        background: viewMode === key ? 'var(--color-accent-primary,#1D2567)' : 'var(--bg-input,#fff)',
+                        color: viewMode === key ? '#fff' : 'var(--text-secondary,#4A5560)', transition: 'all 0.12s' }}>
+                      <Icon size={13} /> {label}
+                    </button>
+                  ))}
+                </div>
+              )}
               <span style={{ fontSize: 12, color: '#6B7785' }} aria-live="polite">
                 {filteredRows.length} of {allRows.length} alumni
               </span>
@@ -516,9 +555,10 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                 <div className="profiles-list-narrow">
                   <div style={{ position: 'sticky', top: 0, zIndex: 5, background: 'var(--color-bg-elevated,#f9fafb)', borderBottom: '1px solid var(--border-card,rgba(29,37,103,0.08))', padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
                     <div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-heading,#191919)', lineHeight: 1.2 }}>Alumni Roster</div>
+                      {/* Mirrors Student Profiles' "Student Cohort View" (Owner, 2026-10-05). */}
+                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-heading,#191919)', lineHeight: 1.2 }}>Alumni Cohort View</div>
                       <div style={{ fontSize: 11, color: 'var(--text-caption,#6b7280)', marginTop: 2 }}>
-                        {filteredRows.length} of {allRows.length} alumni shown · KPI cards work as quick filters
+                        {filteredRows.length} {filteredRows.length === 1 ? 'alumnus' : 'alumni'} shown · KPI cards work as quick filters
                       </div>
                     </div>
                     {shownRow && (
@@ -537,12 +577,22 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                       <EmptyState compact heading="No alumni match the current filters"
                         subtext="Adjust the filters above, or clear them to see every completed alumnus in the cohort's participating ASPIRE cohorts." />
                     ) : (
-                      <div className="pl-list">
-                        {filteredRows.map(r => (
-                          <AlumniListRow key={r.id} row={r} selected={r.id === shownRowId}
-                            onSelect={id => selectRow(id)} feedbackEntry={feedback.byStudent[r.student?.id]} />
-                        ))}
-                      </div>
+                      viewMode === 'grid' ? (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(132px, 1fr))', gap: '16px 12px', padding: '16px 16px 8px' }}>
+                          {filteredRows.map(r => (
+                            <StudentCard key={r.id} variant="applicant" student={r.student}
+                              onClick={() => selectRow(r.id)} isSelected={r.id === shownRowId}
+                              variantProps={{ strip: <NgrpStatusPill config={ROSTER_STATUSES} value={rosterStatus(r)} srPrefix="Status" /> }} />
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="pl-list ngrp-pl-list">
+                          {filteredRows.map(r => (
+                            <AlumniListRow key={r.id} row={r} selected={r.id === shownRowId}
+                              onSelect={id => selectRow(id)} feedbackEntry={feedback.byStudent[r.student?.id]} />
+                          ))}
+                        </div>
+                      )
                     )}
                   </div>
                 </div>
@@ -556,6 +606,7 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                   canManage={canManage}
                   provisioned={transitionProvisioned}
                   initialDocsOpen={Boolean(linkedStudent && openDocs && !drawerRowId)}
+                  followUp={canManage && canSendForms ? { available: payload?.followUpFlagProvisioned === true, onSet: setFollowUp } : null}
                   toast={toast}
                   feedback={shownRow ? {
                     entry: feedback.byStudent[shownRow.student?.id] || null,

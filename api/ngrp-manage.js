@@ -45,7 +45,8 @@ import {
   validateNotProceedingPayload, validateUnitPreferencesPayload,
 } from '../lib/server/ngrpPlanning.js'
 import { poolDecision, NOT_PROCEEDING } from '../lib/server/ngrpPool.js'
-import { isMissingNgrpTable, isMissingNgrpSchema, isMissingNgrpColumn } from '../lib/server/ngrpApplicants.js'
+import { isMissingNgrpTable, isMissingNgrpSchema, isMissingNgrpColumn, loadApplicantsPayload } from '../lib/server/ngrpApplicants.js'
+import { enrollStudents } from '../lib/server/ngrpSupportLog.js'
 import {
   liveAssignmentForCandidate, revokeTokensById, recalculateEligibility,
 } from '../lib/server/ngrpTransition.js'
@@ -70,6 +71,8 @@ const ACTIONS = new Set([
   'not_proceeding_set', 'application_reinstate', 'unit_preferences_set',
   // RESIDENTS-1
   'resident_details_set',
+  // RESIDENCY-FLAG-1
+  'followup_flag_set',
 ])
 const ELIGIBILITY_VOCAB = ['pending', 'eligible', 'conditionally_eligible', 'not_eligible']
 const OVERRIDE_CATEGORIES = ['documentation_verified', 'requirement_waived', 'data_correction', 'other']
@@ -347,6 +350,29 @@ export default async function handler(req, res) {
         }
         return res.status(200).json({ ok: true })
       }
+    }
+
+    // ── RESIDENCY-FLAG-1: the follow-up flag on an alumnus's residency record ──
+    // By STUDENT and cycle, because an alumnus with no Transition Form has no candidate row
+    // yet: one on this cycle's roster (the server's roster, never the request's) is enrolled
+    // first, exactly as Support's logging does. The ASPIRE team only. Before migration
+    // 20261107000000 the column is absent and this answers 409 not_enabled.
+    if (action === 'followup_flag_set') {
+      if (isTalentAcquisition) return res.status(403).json({ error: 'aspire_team_only' })
+      const cycleId = typeof body.cycle_id === 'string' && UUID.test(body.cycle_id) ? body.cycle_id : null
+      const studentId = typeof body.student_id === 'string' && UUID.test(body.student_id) ? body.student_id : null
+      if (!cycleId || !studentId || typeof body.flagged !== 'boolean') return res.status(422).json({ error: 'invalid_request' })
+      const payload = await loadApplicantsPayload(db, cycleId)
+      if (payload.state === 'unprovisioned') return unprovisioned(res)
+      if (payload.state === 'cycle_not_found') return res.status(404).json({ error: 'cycle_not_found' })
+      if (payload.state !== 'ok') return internal(res)
+      if (!(payload.students || []).some(st => st.id === studentId)) return res.status(404).json({ error: 'not_on_roster' })
+      const e = await enrollStudents(db, { cycleId, studentIds: [studentId] })
+      if (e.error) return isMissingNgrpTable(e.error) ? unprovisioned(res) : internal(res)
+      const cand = e.byStudent.get(studentId)
+      const upd = await db.from('ngrp_candidates').update({ flagged_for_followup: body.flagged }).eq('id', cand.id)
+      if (upd.error) return isMissingNgrpColumn(upd.error) ? res.status(409).json({ error: 'not_enabled' }) : internal(res)
+      return res.status(200).json({ ok: true, flagged: body.flagged, candidate_id: cand.id })
     }
 
     // ── candidate-scoped actions ────────────────────────────────────────────

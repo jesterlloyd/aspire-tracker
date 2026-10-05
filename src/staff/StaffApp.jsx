@@ -67,7 +67,7 @@ import { ToastContainer } from '../components/Toast'
 import { logActivity } from '../lib/logActivity'
 import { safeWrite } from '../lib/safeWrite'
 import { cleanupStudentFiles } from '../lib/studentFileClient'
-import { resolveNgrpPath, resolveNgrpEntryPath, ngrpPath } from '../lib/ngrp/ngrpTabs'
+import { resolveNgrpPath, ngrpPath } from '../lib/ngrp/ngrpTabs'
 import { compareCohortsChrono } from '../lib/cohortSeason'
 import { canAccessNgrp, canManageNgrp, ngrpCycleStorageKey } from '../lib/ngrp/ngrpAccess'
 import {
@@ -696,17 +696,17 @@ function MainApp({ onLogout }) {
 
   // NGRP-WORKSPACE-1: Experience switch from the header picker (Internship =
   // the ASPIRE workspace, Residency = the NGRP workspace) - plain navigation,
-  // never a scroll or swipe. EACH experience restores the user's last-used
-  // operational tab (lastTabKey / lastNgrpTabKey), and neither direction
+  // never a scroll or swipe. Internship restores the user's last-used operational
+  // tab (lastTabKey); Residency opens At a Glance (RESIDENCY-LANDING-1). Neither direction
   // touches the OTHER experience's scope: the ASPIRE cohort pick and the
   // per-user residency-cohort pref are separate state.
   const switchExperience = exp => {
     if (exp === 'residency') {
-      let savedNgrp = null
-      try { savedNgrp = user?.id ? localStorage.getItem(lastNgrpTabKey(user.id)) : null } catch { /* storage unavailable */ }
-      // NGRP-WORKSPACE-2: the saved id may be a RETIRED one; resolveNgrpEntryPath
-      // maps it forward and appends the tab's default sub-tab.
-      navigate(resolveNgrpEntryPath(savedNgrp))
+      // RESIDENCY-LANDING-1 (Owner, 2026-10-05): switching to Residency always opens its
+      // At a Glance. It used to restore the last Residency tab, which meant landing in
+      // Support or Profiles & Interest. A return path from ASPIRE Connect or the Catalog
+      // still goes back where it came from: that is its own navigation, not this switch.
+      navigate(ngrpPath('overview'))
       return
     }
     const saved = user?.id ? localStorage.getItem(lastTabKey(user.id)) : null

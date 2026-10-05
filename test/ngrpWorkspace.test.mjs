@@ -551,9 +551,9 @@ test('header: unconfigured, unavailable, and loading picker states are truthful 
 
 test('header: each experience restores its own last operational tab; residency cohort pref is per user', () => {
   const wsSwitch = appJsx.slice(appJsx.indexOf('const switchExperience'), appJsx.indexOf('const ngrpActiveTab'))
-  assert.match(wsSwitch, /lastNgrpTabKey\(user\.id\)/)
+  // RESIDENCY-LANDING-1 (this commit): Residency opens At a Glance; Internship restores its tab.
   assert.match(wsSwitch, /lastTabKey\(user\.id\)/)
-  assert.match(wsSwitch, /resolveNgrpEntryPath\(savedNgrp\)/)
+  assert.match(wsSwitch, /navigate\(ngrpPath\('overview'\)\)/)
   assert.equal(ngrpCycleStorageKey('user-a'), 'aspire:ngrpCycle:user-a')
   assert.notEqual(ngrpCycleStorageKey('user-a'), ngrpCycleStorageKey('user-b'))
   assert.equal(ngrpCycleStorageKey(null), null)

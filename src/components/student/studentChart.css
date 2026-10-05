@@ -302,8 +302,10 @@
 .sc-sheet[data-tint="documents"]   { background: var(--aspire-sheet-documents); }
 .sc-sheet[data-tint="evaluations"] { background: var(--aspire-sheet-evaluations); }
 .sc-sheet[data-tint="notes"]       { background: var(--aspire-sheet-notes); }
-/* Activity is that binder's last sheet, so it carries the last sheet's rule. */
-.sc-sheet[data-sheet="activity"] { border-bottom: none; min-height: 60vh; }
+/* Activity is that binder's last sheet: no rule under it, and NO 60vh floor (Owner,
+   2026-10-05: it scrolled "way past" the last sheet). useChartScroll makes the last sheet
+   current at the bottom of the scroller instead, so its tab still lights up. */
+.sc-sheet[data-sheet="activity"] { border-bottom: none; }
 /* In a drawer the binder takes the drawer body's height, with a floor. In Profiles &
    Interest's split view the panel is already measured (useChartViewport keeps it at 420px
    or more), so there the floor would only push the binder past its panel's bottom. */
@@ -708,7 +710,6 @@
   .sc-plate { padding: 12px 14px; }
   .sc-plate-name { font-size: 20px; }
   .sc-sheet[data-sheet="notes"] { min-height: 0; }
-  .sc-sheet[data-sheet="activity"] { min-height: 0; }
 }
 
 /* The chart's pages are TINTED, not white, so the app's quietest greys lose a little

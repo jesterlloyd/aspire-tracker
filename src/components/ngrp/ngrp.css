@@ -625,3 +625,7 @@
    index.css). The frame only gives the binder's bottom cover the same air below it. */
 .ngrp-split-frame { padding-bottom: 12px; }
 .ngrp-split-toolbar { font-family: 'Plus Jakarta Sans', sans-serif; }
+/* The list ends at its last row (Owner, 2026-10-05: it scrolled "way past the last name").
+   Student Profiles' .pl-list keeps 120px under its rows for the floating launchers; here the
+   list card sits clear of them, so the end of the list is the end of the scroll. */
+.pl-list.ngrp-pl-list { padding-bottom: 8px; }

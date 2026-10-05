@@ -1984,6 +1984,30 @@ KPI cards:
 - The neutral NgrpStatusPill ("Not Sent", "Not in Pool", "Not Scheduled") measures 4.39:1
   everywhere it appears; it is the shared pill and was left for its own fix.
 
+## Residency mirrors Student Profiles (RESIDENCY-POLISH-1, 2026-10-05)
+
+- **Profiles | Interest** (Owner chose it over Application Status): the tab's own two words.
+  `?view=interest`; an old `?view=status` link still opens Interest.
+- **Alumni Cohort View**, "N alumni shown · KPI cards work as quick filters", mirroring Student
+  Cohort View, with the same **List | Grid** toggle. Grid is `StudentCard variant="applicant"`
+  (the internship card, its strip being the roster Status pill; no completion badge, which
+  measures the internship record and would mislead).
+- **The residency follow-up flag** (RESIDENCY-FLAG-1, Owner chose a SEPARATE flag):
+  `ngrp_candidates.flagged_for_followup` (`20261107000000_ngrp_followup_flag.sql`, Owner-gated),
+  never `students.flagged_for_followup`. The chart wears the student chart's `FlagRibbon`
+  (`classPrefix="sc-ribbon"`) and a flagged row its `pl-followup` mark. Written by
+  `/api/ngrp-manage` `followup_flag_set` by STUDENT and cycle (an alumnus with no candidate row is
+  enrolled first, roster checked server-side), refused to Talent Acquisition, 409 not_enabled
+  before the migration. Talent Acquisition's payload drops the column; `followUpFlagProvisioned`
+  is staff only. The candidate read tries the flag column first and falls back one tier.
+- **Ends where the content ends**: `.pl-list.ngrp-pl-list` drops Student Profiles' 120px launcher
+  padding (the list card sits clear of the launchers here); the Activity sheet has no 60vh floor,
+  because `useChartScroll` now makes the LAST sheet current at the bottom of the scroller. Student
+  Profiles keeps both, unchanged.
+- **Switching to Residency opens At a Glance** (RESIDENCY-LANDING-1). It used to restore the last
+  Residency tab. Internship still restores its own; a return path from Connect or the Catalog is
+  its own navigation and still goes back.
+
 ## Settings groups, one breadcrumb, the staff menu in portals (NAV-POLISH-1, 2026-10-02)
 
 - **The Settings rail is four groups** (Owner): Personal (General), Administration (Users &
