@@ -27,6 +27,7 @@ import { TYPE_LABELS, TYPE_COLORS } from '../lib/commTypes'
 import { buildStudentFilename } from '../lib/fileUtils'
 import { signAndUploadStaffFile, cleanupStudentFiles, fetchStudentFileUrl } from '../lib/studentFileClient'
 import { openStudentFile, downloadStudentFile } from '../lib/useStudentFile'
+import { keepRecordResume } from '../lib/documents/studentDocumentsClient'
 import { DECLINE_REASONS } from '../lib/statuses'
 import { EVENT_TYPES, EVENT_TYPE_LABELS, getEventColor } from '../lib/eventTypes'
 import { logEvent, eventExists } from '../lib/logEvent'
@@ -1012,6 +1013,12 @@ export default function StudentSidePanel({
     setUploadingRes(true)
     setResumeMsg(null)
     try {
+      // STUDENT-DOCUMENTS-1: replacing never deletes. The résumé on the record is kept
+      // as an earlier version first; if it cannot be kept, nothing is replaced.
+      if (data.resume_url) {
+        const kept = await keepRecordResume(student.id)
+        if (!kept.ok) { setResumeMsg('The current résumé could not be kept in its history, so nothing was replaced. Try again.'); return }
+      }
       const { path } = await signAndUploadStaffFile({ studentId: student.id, kind: 'resume', file })
       // WAVE F-2 PASS 2: persist the canonical object path, never a public/signed URL.
       setData(p => ({ ...p, resume_url: path }))

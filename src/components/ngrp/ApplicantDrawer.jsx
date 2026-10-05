@@ -19,6 +19,10 @@ import {
 import { displayName } from '../../lib/utils'
 import { shiftBadge } from '../../lib/shiftStatus'
 import { RESIDENT_SHIFTS } from '../../lib/ngrp/ngrpReflectionForm'
+import { useNgrpSurface } from '../../lib/ngrp/ngrpSurface'
+import StudentDocumentsDrawer from '../documents/StudentDocumentsDrawer'
+import { useStudentDocuments } from '../../lib/documents/studentDocumentsClient'
+import { checklistSummary } from '../../lib/documents/documentChecklist'
 
 const F = 'Plus Jakarta Sans, sans-serif'
 const fmt = ts => {
@@ -796,13 +800,41 @@ function PreceptorFeedbackSection({ row, feedback, actions }) {
   )
 }
 
+// STUDENT-DOCUMENTS-1: the application documents, summarised, with the way into the
+// Documents drawer. The staff app only: Talent Acquisition never sees a student's files
+// (the endpoint refuses them too).
+function DocumentsSection({ row, toast }) {
+  const { staffApp } = useNgrpSurface()
+  const studentId = row.student?.id || null
+  const docs = useStudentDocuments(studentId, { enabled: staffApp })
+  const [open, setOpen] = useState(false)
+  if (!staffApp || docs.status === 'error') return null
+  const summary = checklistSummary(docs.types, docs.documents, { resumeOnRecord: docs.resumeOnRecord })
+  return (
+    <Section
+      title="Documents" tint="rgba(96,120,170,0.055)"
+      right={docs.status === 'ok' ? <button type="button" style={{ ...smallBtn(), height: 24, padding: '0 9px', fontSize: 11 }} onClick={() => setOpen(true)}>Open Documents</button> : null}
+    >
+      {docs.status === 'loading' && <p style={{ margin: 0, fontSize: 12, color: '#6B7785' }}>Loading…</p>}
+      {docs.status === 'unprovisioned' && <p style={{ margin: 0, fontSize: 12, color: '#6B7785' }}>Documents switch on once the documents update is applied.</p>}
+      {docs.status === 'ok' && (
+        <>
+          <Row label="Required on file">{summary.onFile} of {summary.required}</Row>
+          {summary.missing.length > 0 && <Row label="Missing">{summary.missing.join(', ')}</Row>}
+        </>
+      )}
+      <StudentDocumentsDrawer open={open} student={row.student} subline={row.student?.aspire_cohort} onClose={() => setOpen(false)} toast={toast} />
+    </Section>
+  )
+}
+
 export default function ApplicantDrawer(props) {
   if (!props.open || !props.row) return null
   return <ApplicantDrawerBody key={props.row.id} {...props} />
 }
 
 function ApplicantDrawerBody({
-  open, row, cycle, canManage, provisioned, onClose, actions = {}, feedback = null,
+  open, row, cycle, canManage, provisioned, onClose, actions = {}, feedback = null, toast = null,
 }) {
   const [review, setReview] = useState(null)
   const [reviewState, setReviewState] = useState('idle')
@@ -925,6 +957,8 @@ function ApplicantDrawerBody({
           </div>
         )}
       </Section>
+
+      <DocumentsSection row={row} toast={toast} />
 
       <Section title="Residency Interest" tint="rgba(96,120,170,0.055)">
         <Row label="Interest"><NgrpStatusPill config={INTEREST_STATES} value={row.interest} /></Row>

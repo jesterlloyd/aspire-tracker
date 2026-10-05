@@ -143,6 +143,7 @@
   "functions": {
     "api/connect-send-bulk-message.js":   { "maxDuration": 60 },
     "api/keith.js":                       { "maxDuration": 30 },
+    "api/student-documents.js":           { "maxDuration": 30 },
     "api/knowledge-enrich.js":            { "maxDuration": 300 },
     "api/keith-knowledge-check.js":       { "maxDuration": 300 },
     "api/cron/keith-knowledge-check.js":  { "maxDuration": 300 },

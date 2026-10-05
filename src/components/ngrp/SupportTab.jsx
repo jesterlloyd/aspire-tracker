@@ -18,6 +18,8 @@ import { KPICell } from '../KPIBand'
 import DetailDrawer from '../ui/DetailDrawer'
 import DataSheet, { Pill, Missing } from '../shared/DataSheet'
 import './supportLog.css'
+import StudentDocumentsDrawer from '../documents/StudentDocumentsDrawer'
+import { useNgrpSurface } from '../../lib/ngrp/ngrpSurface'
 import StudentAvatar from '../StudentAvatar'
 // RESIDENCY-REFLECTION-1: the same drawer Profiles & Interest uses to preview
 // the Transition Form email, rendering the same builder the send uses.
@@ -301,6 +303,11 @@ function ActivityCell({ cell }) {
 
 function BeforePanel({ cycle, rows, support, toast }) {
   const [logging, setLogging] = useState(false)
+  // STUDENT-DOCUMENTS-1: an alumnus's Documents open here, in Residency, so the staff
+  // app's cohort never changes to reach someone from a past cohort.
+  const { staffApp } = useNgrpSurface()
+  const canDocs = staffApp && support.canRecord
+  const [docsFor, setDocsFor] = useState(null)
   const view = useMemo(() => beforeResidency(rows, support.entries), [rows, support.entries])
   const entries = support.entries.filter(e => supportActivity(e.activity)?.phase === 'before')
   const shortLabel = { town_hall: 'Town Hall', interview_bootcamp: 'Bootcamp', placement_advising: 'Advising', resume_review: 'Résumé' }
@@ -311,7 +318,15 @@ function BeforePanel({ cycle, rows, support, toast }) {
       sortValue: t => ['Submitted', 'Pending', 'Not sent'].indexOf(t.form.label), render: t => <Pill tone={t.form.tone}>{t.form.label}</Pill> },
     ...view.activities.map((a, i) => ({
       key: a.key, label: shortLabel[a.key] || a.label, title: a.label, min: 96, grow: 0.8, align: 'right', priority: i === 0 ? 2 : 3,
-      sortValue: t => t.cells[a.key].last, render: t => <ActivityCell cell={t.cells[a.key]} />,
+      sortValue: t => t.cells[a.key].last,
+      render: (t) => {
+        if (a.key !== 'resume_review' || !canDocs) return <ActivityCell cell={t.cells[a.key]} />
+        // The Résumé column opens the alumnus's Documents; with no review yet it says Upload.
+        const who = displayName(t.row.student)
+        return t.cells[a.key].count > 0
+          ? <button type="button" className="ngrp-linkbtn sl-cellbtn" onClick={() => setDocsFor(t.row)} aria-label={`${who}: résumé reviewed ${fmtDay(t.cells[a.key].last)}. Open documents`}><ActivityCell cell={t.cells[a.key]} /></button>
+          : <button type="button" className="ngrp-linkbtn sl-cellbtn" onClick={() => setDocsFor(t.row)} aria-label={`Upload a résumé for ${who}`}>Upload</button>
+      },
     })),
   ]
   return (
@@ -346,6 +361,11 @@ function BeforePanel({ cycle, rows, support, toast }) {
       </section>
 
       <RecentEntries entries={entries} rows={rows} canRecord={support.canRecord} onChanged={support.refetch} toast={toast} />
+
+      {canDocs && (
+        <StudentDocumentsDrawer open={Boolean(docsFor)} student={docsFor?.student} subline={docsFor?.student?.aspire_cohort}
+          onClose={() => setDocsFor(null)} toast={toast} />
+      )}
     </>
   )
 }

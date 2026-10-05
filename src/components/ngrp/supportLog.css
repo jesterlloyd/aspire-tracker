@@ -6,6 +6,7 @@
 .sl-logbtn { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; }
 
 .sl-sheet { padding: 14px 16px 10px; }
+.sl-cellbtn { font-size: 13px; min-height: 32px; font-variant-numeric: tabular-nums; }
 
 .sl-form { display: flex; flex-direction: column; gap: 18px; }
 .sl-field { border: 0; padding: 0; margin: 0; min-width: 0; }
@@ -27,7 +28,7 @@
   border: 1px solid var(--border-input, rgba(29,37,103,0.18)); background: var(--color-bg-surface, #fff);
   color: var(--text-heading, #191919); font: inherit; font-size: 12.5px; cursor: pointer;
 }
-.sl-chip:hover { background: var(--color-bg-subtle, #f4f5f8); }
+.sl-chip:hover { background: var(--color-bg-hover, #f4f5f8); }
 .sl-chip[aria-pressed="true"] { background: var(--color-accent-primary, #1D2567); border-color: var(--color-accent-primary, #1D2567); color: var(--seg-active-ink, #fff); }
 
 .sl-rosterbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
@@ -40,7 +41,7 @@
   display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px; cursor: pointer;
   font-size: 13px; color: var(--text-heading, #191919);
 }
-.sl-person:hover { background: var(--color-bg-subtle, #f4f5f8); }
+.sl-person:hover { background: var(--color-bg-hover, #f4f5f8); }
 .sl-person input { width: 16px; height: 16px; flex: none; margin: 0; }
 .sl-person-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sl-person-q { color: var(--text-caption, #5b6470); }
@@ -53,7 +54,7 @@
 
 /* Touch targets: 44px on a phone or any coarse pointer. */
 @media (max-width: 600px), (pointer: coarse) {
-  .sl-chip, .sl-selectall, .sl-input, .sl-footbtn, .sl-logbtn { min-height: 44px; }
+  .sl-chip, .sl-selectall, .sl-input, .sl-footbtn, .sl-logbtn, .sl-cellbtn { min-height: 44px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

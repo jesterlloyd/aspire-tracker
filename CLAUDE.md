@@ -1749,9 +1749,38 @@ may already be sending me their resume for review 5 weeks before").
   Outreach send; take it out in that commit. Mentorship sessions keep their own record.
 - **The Form column is a pill, never a gate**: Submitted, Pending (sent, opened, in progress),
   Not sent (none, or a send the provider never accepted). By Alumnus is the plain DataSheet.
-- **Not in Phase 1, on purpose**: the Score column (Phase 3) and the Résumé column's Upload
-  link to Documents. Alumni are in past cohorts and Student Profiles is scoped to the active
-  one, so where an alumnus's Documents open is Phase 2's decision.
+- **The Score column is Phase 3.** The Résumé column opens the alumnus's Documents (below).
+
+## Documents keep every version (STUDENT-DOCUMENTS-1, 2026-10-04)
+
+Phase 2 of the résumé review build. An alumnus's Documents open in Residency, never in
+Student Profiles (Owner, option B: alumni are in past cohorts and switching the staff
+app's cohort to reach one is a side effect). Two ways in: the applicant drawer's Documents
+section, and Support > By Alumnus's Résumé column (a date opens them, "Upload" when there is
+none). `src/components/documents/StudentDocumentsDrawer.jsx`, rules in
+`src/lib/documents/documentChecklist.js`, server in `lib/server/studentDocuments.js` behind
+`api/student-documents.js`. Migration `20261104000000_student_documents.sql` is Owner-gated;
+before it the drawer says so and the chart's Replace behaves as it always did.
+
+- **The checklist is a table** (`student_document_types`), one NGRP list: five required,
+  BLS / ACLS / licensure optional ("Not yet · After NCLEX"). No editor yet; change rows in SQL.
+- **Replacing never deletes.** A version row has no DELETE grant and only `keith_check` may
+  change. The résumé's CURRENT file stays `students.resume_url` in student-files (Interviews,
+  Keith, the Unit Leader portal and the chart read it there); each version is its own copy in
+  the private `student-documents` bucket, and the current one is mirrored to the canonical
+  path. **The order is the safety**: keep the record's file as a version first, then mirror,
+  then write the row, then repoint the record, then remove other extensions. The chart's
+  résumé Replace calls `keep_record_resume` before it uploads and stops if that fails.
+- **Same bytes are not a version** (409 `same_file`). A record that names a missing object
+  holds nothing to keep; any other download failure stops the replace.
+- **Who**: read Owner, Admin, Co-Lead; write Owner, Admin (the résumé's existing rule). Never
+  Talent Acquisition: the section checks `useNgrpSurface().staffApp` and the endpoint the role.
+- **Dates are typed and confirmed** in Phase 2 (transcript completion, card expiry): Upload
+  stays disabled until the box "I checked this date against the file" is ticked, and
+  `confirmed_by_profile_id` / `confirmed_at` are stored. Phase 3 has Keith read the date first.
+- **Not yet**: Keith's checks and scores (Phase 3), Request through Outreach (Phase 4), the
+  Student Portal mirror (after). A deleted student's document files are removed by
+  `student-file-cleanup`'s `delete_student`, best-effort.
 
 ## Settings groups, one breadcrumb, the staff menu in portals (NAV-POLISH-1, 2026-10-02)
 

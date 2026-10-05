@@ -21,7 +21,7 @@
 import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js'
 import { verifyStaffCaller } from './lib/messagesAuth.js'
 import {
-  STUDENT_FILES_BUCKET, FILE_KINDS, isUuid, studentFolderPrefix,
+  STUDENT_FILES_BUCKET, DOCUMENTS_BUCKET, FILE_KINDS, isUuid, studentFolderPrefix,
 } from '../lib/server/studentFiles.js'
 import { THUMB_FILE } from '../lib/server/studentPhotoThumbs.js'
 
@@ -32,6 +32,20 @@ async function listFolder(prefix) {
     .from(STUDENT_FILES_BUCKET).list(prefix, { limit: 100 })
   if (error) return { error }
   return { names: (data || []).map((o) => o.name).filter(Boolean) }
+}
+
+async function removeStudentDocuments(studentId) {
+  try {
+    const bucket = supabaseAdmin.storage.from(DOCUMENTS_BUCKET)
+    const folders = await bucket.list(studentId, { limit: 100 })
+    if (folders.error) return
+    for (const f of folders.data || []) {
+      if (!f?.name || !/^[a-z0-9_]{2,40}$/.test(f.name)) continue
+      const files = await bucket.list(`${studentId}/${f.name}`, { limit: 1000 })
+      const paths = (files.data || []).map(o => o.name).filter(Boolean).map(n => `${studentId}/${f.name}/${n}`)
+      if (paths.length) await bucket.remove(paths)
+    }
+  } catch { /* best-effort */ }
 }
 
 export default async function handler(req, res) {
@@ -66,6 +80,11 @@ export default async function handler(req, res) {
   } else {
     return res.status(404).json({ error: 'not_found' })
   }
+
+  // STUDENT-DOCUMENTS-1: a deleted student's application documents go with the record.
+  // Their rows have already cascaded away with the student; these are the files.
+  // Best-effort, and only once the student row is gone.
+  if (action === 'delete_student' && !student) await removeStudentDocuments(studentId)
 
   const fp = studentFolderPrefix(cohortId, studentId)
   if (!fp.ok) return res.status(500).json({ error: 'internal_error' })

@@ -715,6 +715,7 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
         canManage={canManage}
         provisioned={transitionProvisioned}
         onClose={() => { setDrawerRowId(null); if (linkedCandidate) setParam('candidate', '') }}
+        toast={toast}
         feedback={drawerRow ? {
           entry: feedback.byStudent[drawerRow.student?.id] || null,
           audience: feedback.audience,

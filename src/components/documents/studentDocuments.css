@@ -1,0 +1,126 @@
+/* STUDENT-DOCUMENTS-1: an alumnus's Documents drawer. Cards read the canon tokens (corner,
+   gap, shadow edge), inks and surfaces read theme.css, so the drawer follows dark mode. The
+   checklist itself is the canon DataSheet at the plain level. */
+
+.sd-root { display: flex; flex-direction: column; gap: var(--aspire-gap-card, 16px); color: var(--text-heading, #191919); }
+.sd-who { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--text-heading, #191919); }
+
+.sd-card {
+  background: var(--color-bg-surface, #fff);
+  border-radius: var(--aspire-radius-card, 12px);
+  box-shadow: var(--aspire-shadow-card);
+  border: 0;
+}
+.sd-pad { padding: 18px 20px; }
+
+.sd-h2 { margin: 2px 0 12px; font-size: 18px; font-weight: 600; color: var(--text-heading, #191919); }
+.sd-h3 { margin: 0 0 12px; font-size: 15px; font-weight: 700; color: var(--text-heading, #191919); }
+.sd-mono {
+  font-family: var(--aspire-mono, ui-monospace, monospace); font-size: 10.5px; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--text-caption, #5b6470);
+}
+.sd-muted { color: var(--text-caption, #5b6470); font-size: 12.5px; }
+.sd-none { margin: 4px 0 12px; }
+.sd-warn { color: var(--aspire-warn, #8a5a00); font-weight: 600; }
+.sd-error { margin: 0; font-size: 13px; color: var(--aspire-bad, #B3282D); }
+.sd-note {
+  margin: 12px 0 0; padding: 10px 12px; font-size: 12.5px; line-height: 1.5;
+  border-radius: var(--aspire-radius-control, 10px);
+  background: var(--color-bg-hover, #f4f5f8); color: var(--text-caption, #5b6470);
+}
+
+/* Buttons: the app's white control and its navy primary. */
+.sd-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: 34px; padding: 0 14px; border-radius: var(--aspire-radius-control, 10px);
+  border: 1px solid var(--border-input, rgba(29,37,103,0.18));
+  background: var(--color-bg-surface, #fff); color: var(--color-accent-primary, #1D2567);
+  font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap;
+}
+.sd-btn:hover:not(:disabled) { background: var(--color-bg-hover, #f4f5f8); }
+.sd-btn-pri { background: var(--color-accent-primary, #1D2567); border-color: var(--color-accent-primary, #1D2567); color: var(--seg-active-ink, #fff); }
+.sd-btn-pri:hover:not(:disabled) { background: var(--color-accent-primary, #1D2567); filter: brightness(1.12); }
+.sd-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.sd-btn-sm { min-height: 30px; padding: 0 11px; font-size: 12.5px; }
+.sd-link {
+  background: none; border: 0; padding: 0; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+  color: var(--color-accent-primary, #1D2567); text-decoration: underline; text-underline-offset: 2px;
+}
+.sd-rowacts { display: inline-flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
+.sd-actions { display: inline-flex; gap: 8px; }
+
+/* File chip: a file and how it got here. */
+.sd-filechip {
+  display: flex; align-items: center; gap: 12px; padding: 10px 12px; margin-bottom: 12px;
+  border-radius: var(--aspire-radius-control, 10px);
+  border: 1px solid var(--border-input, rgba(29,37,103,0.18));
+  background: var(--color-bg-surface, #fff);
+}
+.sd-ficon {
+  flex: none; width: 40px; height: 40px; display: grid; place-items: center;
+  border-radius: var(--aspire-radius-control, 10px); background: var(--color-bg-hover, #f4f5f8);
+  font-family: var(--aspire-mono, monospace); font-size: 10px; font-weight: 700; color: var(--text-heading, #191919);
+}
+.sd-fileinfo { flex: 1 1 auto; min-width: 0; }
+.sd-filename { font-size: 13.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sd-filemeta { font-size: 12px; color: var(--text-caption, #5b6470); margin-top: 2px; }
+
+/* Drop zone: also a real Choose file button. */
+.sd-drop {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 14px 16px;
+  border-radius: var(--aspire-radius-control, 10px);
+  border: 1.5px dashed var(--border-input, rgba(29,37,103,0.25));
+  background: var(--color-bg-hover, #f4f5f8);
+}
+.sd-drop-over { border-color: var(--color-accent-primary, #1D2567); background: var(--color-bg-surface, #fff); }
+.sd-drop-icon { flex: none; color: var(--text-caption, #5b6470); }
+.sd-drop-text { flex: 1 1 220px; min-width: 0; font-size: 13px; line-height: 1.45; }
+
+/* Résumé card: the file on the left, its history on the right. */
+.sd-resume { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 24px; padding: 18px 20px; }
+.sd-versions { list-style: none; margin: 10px 0 0; padding: 0; }
+.sd-version {
+  display: grid; grid-template-columns: 96px minmax(0, 1fr) auto; align-items: center; gap: 10px;
+  min-height: 40px; border-bottom: 1px solid var(--rule, rgba(0,0,0,0.08)); font-size: 13px;
+}
+.sd-vdate { font-variant-numeric: tabular-nums; }
+.sd-vwhat { display: inline-flex; align-items: center; gap: 8px; min-width: 0; flex-wrap: wrap; }
+
+/* Checklist head: the count, the bar, what is missing. */
+.sd-checkhead { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
+.sd-progress { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; font-size: 13px; }
+.sd-bar { width: 160px; height: 8px; border-radius: var(--aspire-radius-pill, 999px); background: var(--color-bg-hover, #f4f5f8); overflow: hidden; }
+.sd-bar i { display: block; height: 100%; border-radius: inherit; background: var(--aspire-ok, #2f7d4f); }
+.sd-docname { display: inline; min-width: 0; }
+
+/* Upload panel */
+.sd-upload { display: flex; flex-direction: column; gap: 14px; }
+.sd-field { display: flex; flex-direction: column; gap: 6px; margin: 0; }
+.sd-label { font-size: 12px; font-weight: 600; color: var(--text-heading, #191919); }
+.sd-input {
+  height: 36px; padding: 0 10px; box-sizing: border-box; max-width: 420px;
+  border-radius: var(--aspire-radius-control, 10px); border: 1px solid var(--border-input, rgba(29,37,103,0.18));
+  background: var(--color-bg-surface, #fff); color: var(--text-heading, #191919); font: inherit; font-size: 13px;
+}
+.sd-date { width: 180px; }
+.sd-swap { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.sd-swap .sd-mono { margin-bottom: 6px; }
+.sd-datecheck {
+  display: flex; flex-direction: column; gap: 8px; padding: 12px 14px;
+  border-radius: var(--aspire-radius-control, 10px); background: var(--aspire-warn-soft, #fdf6e3);
+}
+.sd-datecheck .sd-muted { margin: 0; color: var(--text-heading, #191919); }
+.sd-check { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; min-height: 32px; cursor: pointer; }
+.sd-check input { width: 16px; height: 16px; margin: 0; }
+.sd-upload-foot { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; padding-top: 4px; }
+
+@media (max-width: 760px) {
+  .sd-resume, .sd-swap { grid-template-columns: minmax(0, 1fr); }
+  .sd-resume, .sd-pad { padding: 14px; }
+}
+@media (max-width: 600px), (pointer: coarse) {
+  .sd-btn, .sd-btn-sm, .sd-input, .sd-check, .sd-link { min-height: 44px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sd-btn, .sd-drop { transition: none; }
+}
