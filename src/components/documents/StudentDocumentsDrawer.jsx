@@ -26,6 +26,7 @@ import {
 } from '../../lib/documents/documentChecklist'
 import './studentDocuments.css'
 import ResumeReviewDrawer from './ResumeReviewDrawer'
+import KeithMark from '../keith/KeithMark'
 import { startResumeReview, reviewErrorText } from '../../lib/documents/studentDocumentsClient'
 import { reviewState } from '../../lib/documents/resumeReviewModel'
 import { detectDocumentDate, readPdfText } from '../../lib/documents/documentDates'
@@ -39,13 +40,13 @@ const localToday = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-function FileChip({ name, meta, onView, viewLabel, badge }) {
+function FileChip({ name, meta, onView, viewLabel, badge, mark = null }) {
   return (
     <div className="sd-filechip">
       <span className="sd-ficon" aria-hidden="true">{badge || extBadge(name)}</span>
       <div className="sd-fileinfo">
         <div className="sd-filename">{name}</div>
-        {meta && <div className="sd-filemeta">{meta}</div>}
+        {meta && <div className="sd-filemeta">{mark}{meta}</div>}
       </div>
       {onView && <button type="button" className="sd-btn" onClick={onView} aria-label={viewLabel}>View</button>}
     </div>
@@ -253,6 +254,8 @@ function ResumeCard({ student, doc, resumeOnRecord, canWrite, onPick, toast, rev
   }
   const scored = ['scored', 'sent'].includes(state) && currentReview
   const keithMeta = scored ? ` · Keith ${currentReview.score} · ${currentReview.readiness}` : ''
+  // The Keith mark (as on receipts and comment themes): drafted, edited or accepted (sent).
+  const keithMark = scored && currentReview.provenance_id ? <KeithMark provenanceId={currentReview.provenance_id} /> : null
   return (
     <section className="sd-card sd-resume" aria-labelledby="sd-resume-title">
       <div className="sd-resume-main">
@@ -263,7 +266,7 @@ function ResumeCard({ student, doc, resumeOnRecord, canWrite, onPick, toast, rev
         </div>
         {current ? (
           <FileChip name={current.file_name} meta={`Uploaded ${shortDay(current.uploaded_at)}${current.pages != null ? ` · ${current.pages} ${current.pages === 1 ? 'page' : 'pages'}` : ''}${keithMeta}`}
-            onView={viewCurrent} viewLabel="View the current résumé" />
+            onView={viewCurrent} viewLabel="View the current résumé" mark={keithMark} />
         ) : onRecordOnly ? (
           <FileChip name="Résumé on the student record" badge="CV" meta="Uploaded before version history" onView={viewCurrent} viewLabel="View the current résumé" />
         ) : (
@@ -302,6 +305,7 @@ function ResumeCard({ student, doc, resumeOnRecord, canWrite, onPick, toast, rev
                   <span className="sd-vwhat">
                     {['scored', 'sent'].includes(rvState) ? (
                       <>
+                        {rv.provenance_id && <KeithMark provenanceId={rv.provenance_id} />}
                         <b className="sd-vscore">{rv.score}</b>
                         <Pill tone={rv.readiness === 'Highly Competitive' ? 'ok' : rv.readiness === 'Competitive' ? 'info' : 'warn'}>{rv.readiness}</Pill>
                         {rvState === 'sent' && <span className="sd-muted">email sent</span>}

@@ -189,10 +189,10 @@ export default async function handler(req, res) {
       // Talent Acquisition never sees a score. Absent until 20261105000000.
       let scores = {}
       if (!isTA && studentIds.length) {
-        const rv = await db.from('resume_reviews').select('student_id, score, readiness, status, scored_at')
+        const rv = await db.from('resume_reviews').select('student_id, score, readiness, status, scored_at, provenance_id')
           .in('student_id', studentIds).in('status', ['scored', 'sent']).order('scored_at', { ascending: false })
         if (!rv.error) {
-          for (const r of rv.data || []) if (!scores[r.student_id]) scores[r.student_id] = { score: r.score, readiness: r.readiness }
+          for (const r of rv.data || []) if (!scores[r.student_id]) scores[r.student_id] = { score: r.score, readiness: r.readiness, provenanceId: r.provenance_id || null }
         }
       }
 

@@ -83,7 +83,7 @@ export default async function handler(req, res) {
       if (!g.review) return res.status(404).json({ error: 'not_found' })
       if (action === 'review_get') return res.status(200).json({ ok: true, review: g.review })
       if (action === 'review_save') {
-        const sv = await saveDraft(db, { review: g.review, subject: body.subject, body: body.body, includeScore: body.include_score, includeBullets: body.include_bullets })
+        const sv = await saveDraft(db, { review: g.review, subject: body.subject, body: body.body, includeScore: body.include_score, includeBullets: body.include_bullets, actor: caller.profile })
         return sv.ok ? res.status(200).json({ ok: true }) : res.status(sv.status).json({ error: sv.error })
       }
       const rv = await reviseDraft(db, { review: g.review, style: body.style, actor: caller.profile })

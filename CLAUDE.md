@@ -1805,6 +1805,12 @@ Instructions: `skills/review-resume/SKILL.md`, seeded by `20261105000000_resume_
 - **Who**: running a score (a paid call) is Owner and Admin (`allowed_roles`); reading scores,
   reports and drafts is Owner, Admin and Co-Lead. Never Talent Acquisition, never the portal.
 - **The quality route refuses `temperature`.** Do not add one to this Skill's route.
+- **The Keith mark is the receipts' and comment themes' mark** (Owner, 2026-10-05: "so it's
+  consistent"): `<KeithMark provenanceId>` beside the score on the résumé chip, each scored
+  version, By Alumnus's Score, and the review's Score and Draft titles. Drafted is the orb;
+  changing Keith's subject or text (not a checkbox) records `edit` (the pencil); a sent review
+  records `accept` (the check, or the pencil stays if edited). The card is shown to Owner, Admin
+  and Co-Lead only (`canSeeEntity` 'resume_review'); a Skill step is named by its Skill's row.
 - **A row is written as 'scoring' before Keith is asked**, so closing the drawer loses nothing;
   a row still 'scoring' after 4 minutes reads as failed with Retry. An off Skill, a refused
   role or another student's version writes no row. The scoring steps after "Uploaded and

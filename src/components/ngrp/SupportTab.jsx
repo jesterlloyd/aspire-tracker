@@ -19,6 +19,7 @@ import DetailDrawer from '../ui/DetailDrawer'
 import DataSheet, { Pill, Missing } from '../shared/DataSheet'
 import './supportLog.css'
 import StudentDocumentsDrawer from '../documents/StudentDocumentsDrawer'
+import KeithMark from '../keith/KeithMark'
 import { useNgrpSurface } from '../../lib/ngrp/ngrpSurface'
 import StudentAvatar from '../StudentAvatar'
 // RESIDENCY-REFLECTION-1: the same drawer Profiles & Interest uses to preview
@@ -321,7 +322,9 @@ function BeforePanel({ cycle, rows, support, toast }) {
     sortValue: t => support.scores?.[t.row.student?.id || t.row.id]?.score ?? null,
     render: (t) => {
       const sc = support.scores?.[t.row.student?.id || t.row.id]
-      return sc ? <span title={sc.readiness}>{sc.score}</span> : dash
+      return sc
+        ? <span className="sl-cell" title={sc.readiness}>{sc.provenanceId && <KeithMark provenanceId={sc.provenanceId} />}{sc.score}</span>
+        : dash
     },
   }
   const shortLabel = { town_hall: 'Town Hall', interview_bootcamp: 'Bootcamp', placement_advising: 'Advising', resume_review: 'Résumé' }

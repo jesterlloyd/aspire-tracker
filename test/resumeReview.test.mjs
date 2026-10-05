@@ -272,3 +272,30 @@ test('the wording fix on Postgres: a draft takes the text, an active skill gets 
   await db.exec(fix)
   assert.equal((await db.query(`SELECT version FROM keith_skills`)).rows[0].version, 2, 'a re-run changes nothing')
 })
+
+test('the Keith mark: a review is seen by its readers, edits draw the pencil, a send draws the check', async () => {
+  const { canSeeEntity } = await import('../lib/server/keith/provenanceCards.js')
+  assert.equal(canSeeEntity({ role: 'co_lead', is_active: true }, 'resume_review'), true)
+  assert.equal(canSeeEntity({ role: 'admin', is_active: true }, 'resume_review'), true)
+  assert.equal(canSeeEntity({ role: 'interviewer', is_active: true }, 'resume_review'), false, 'an interviewer may chat with Keith but never sees a score')
+  const { saveDraft } = await import('../lib/server/resumeReview.js')
+  const calls = []
+  // A minimal chain: every builder returns itself; awaiting it resolves to { data, error }.
+  const chain = (t, data) => {
+    const q = {
+      select: () => q, eq: () => q, limit: () => q,
+      update: (p) => { calls.push([t, p]); return chain(t, [{ id: 'p1' }]) },
+      then: (ok, bad) => Promise.resolve({ data, error: null }).then(ok, bad),
+    }
+    return q
+  }
+  const db = { from: t => chain(t, t === 'keith_provenance' ? [{ id: 'p1', state: 'drafted', human_diff: null }] : []) }
+  await saveDraft(db, { review: { id: 'r1', provenance_id: 'p1', draft_body: 'Hi Maya,' }, body: 'Hi Maya, edited', actor: { id: 'o' } })
+  const prov = calls.find(([t]) => t === 'keith_provenance')
+  assert.equal(prov?.[1].state, 'edited', 'changing Keith\'s text marks his review Edited')
+  calls.length = 0
+  await saveDraft(db, { review: { id: 'r1', provenance_id: 'p1', draft_body: 'Hi Maya,' }, includeScore: false, actor: { id: 'o' } })
+  assert.equal(calls.some(([t]) => t === 'keith_provenance'), false, 'a checkbox is not an edit of Keith\'s text')
+  const src = read('lib/server/supportHandoff.js')
+  assert.match(src, /recordKeithOutcome\(db, handoff\.provenanceId, 'accept'/)
+})

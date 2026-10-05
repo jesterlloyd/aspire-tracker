@@ -14,6 +14,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Copy, RefreshCw, Send } from 'lucide-react'
 import DetailDrawer from '../ui/DetailDrawer'
 import { Pill } from '../shared/DataSheet'
+import KeithMark from '../keith/KeithMark'
 import { displayName } from '../../lib/utils'
 import {
   getResumeReview, reviseResumeDraft, saveResumeDraft, openStudentDocumentVersion, studentDocumentsKey, reviewErrorText,
@@ -128,7 +129,7 @@ function DraftBox({ review, student, sender, canWrite, toast, onSaved, cycle, ve
   return (
     <section className="rr-box" aria-labelledby="rr-draft-title">
       <div className="rr-boxh">
-        <h3 id="rr-draft-title">Draft Response to {firstName(student)}</h3>
+        <h3 id="rr-draft-title" className="rr-titlemark">{review.provenance_id && <KeithMark provenanceId={review.provenance_id} />}Draft Response to {firstName(student)}</h3>
         {canWrite && (
           <div className="rr-btnrow">
             {[['warmer', 'Warmer'], ['shorter', 'Shorter'], ['fresh', 'Regenerate']].map(([k, l]) => (
@@ -264,7 +265,7 @@ export default function ResumeReviewDrawer({ open, reviewId, student, reviews = 
 
                   <section className="rr-box" aria-labelledby="rr-score-title">
                     <div className="rr-boxh">
-                      <h3 id="rr-score-title">Score</h3>
+                      <h3 id="rr-score-title" className="rr-titlemark">{review.provenance_id && <KeithMark provenanceId={review.provenance_id} />}Score</h3>
                       <button type="button" className="rr-btn rr-btn-sm" onClick={copyScore} aria-label="Copy the score as one line">Copy score</button>
                     </div>
                     <div className="rr-pad">

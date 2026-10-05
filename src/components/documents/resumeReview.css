@@ -139,3 +139,6 @@
 @media (prefers-reduced-motion: reduce) {
   .rr-spin { animation: none; }
 }
+
+/* The Keith mark sits before a title it speaks for, as on receipts and comment themes. */
+.rr-titlemark { display: inline-flex; align-items: center; gap: 8px; }
