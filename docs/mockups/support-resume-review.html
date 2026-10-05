@@ -1,0 +1,864 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Résumé Review Flow</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&family=Source+Serif+4:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy:#1E2A8A; --navy-d:#171C5C; --navy-tint:#E6E9F7;
+  --ink:#1B2140; --muted:#61667E; --faint:#8A8FA6;
+  --ground:#F3F4F7; --surface:#FFFFFF; --soft:#F7F8FB;
+  --paper:#FCFDFA; --paper-2:#F1F4EE;
+  --rule:rgba(30,42,110,.13); --rule-2:rgba(30,42,110,.2);
+  --band:rgba(15,122,77,.045);
+  --green:#0F7A4D; --green-ink:#0B5E3B; --green-bg:#E3F3EA;
+  --amber-ink:#7A4A00; --amber-bg:#FFF1D6; --amber:#C77700;
+  --blue-ink:#1E3FA8; --blue-bg:#E4EBFC;
+  --grey-ink:#4A4F68; --grey-bg:#EEEFF3;
+  --red-ink:#A3281B; --red-bg:#FBE9E7;
+  --mono:'IBM Plex Mono',ui-monospace,monospace;
+}
+:root:not([data-theme="light"]){ color-scheme: light; }
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:Outfit,system-ui,sans-serif;font-size:16px;-webkit-font-smoothing:antialiased}
+a{color:var(--navy)}
+button{font:inherit;cursor:pointer}
+button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid #8EA0F2;outline-offset:2px}
+.mono{font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.num{font-variant-numeric:tabular-nums}
+.sr{position:absolute;left:-9999px}
+
+/* Mockup controls (review only, do not build) */
+.demo{background:#FFF7C2;color:#5B4A00;font-size:14px;padding:10px 24px;border-bottom:1px solid #E9D56B}
+.ctrl{background:#111427;color:#fff;display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 24px;font-size:14px;position:sticky;top:0;z-index:60}
+.ctrl span{opacity:.6;margin-right:6px}
+.ctrl button{background:transparent;border:1px solid rgba(255,255,255,.25);color:#fff;border-radius:999px;padding:6px 12px;font-size:13px}
+.ctrl button[aria-pressed="true"]{background:#fff;color:#111427;font-weight:600}
+
+/* App shell */
+.top{background:var(--navy-d);color:#fff;display:flex;flex-wrap:wrap;align-items:center;gap:20px;padding:14px 40px}
+.brand{display:flex;align-items:center;gap:16px;flex:1 1 300px}
+.brand b{font-size:19px;line-height:1.05}
+.brand i{width:1px;height:34px;background:rgba(255,255,255,.25)}
+.brand span{font-size:24px;font-weight:600}
+.scope{display:flex;align-items:center;gap:10px;border:1px solid rgba(255,255,255,.2);border-radius:10px;padding:9px 14px;font-size:15px}
+.scope em{width:8px;height:8px;border-radius:50%;background:#E8B931}
+.scope small{font-family:var(--mono);font-size:11px;letter-spacing:.12em;opacity:.7}
+.me{display:flex;align-items:center;gap:10px;font-size:14px;line-height:1.2}
+.av{width:36px;height:36px;border-radius:50%;background:#3A428F;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:14px;flex:none}
+.nav{background:var(--surface);border-bottom:1px solid var(--rule);display:flex;flex-wrap:wrap;gap:4px;padding:0 40px}
+.nav a{padding:17px 16px;font-size:17px;color:var(--muted);text-decoration:none;border-bottom:3px solid transparent}
+.nav a[aria-current="page"]{color:var(--navy);font-weight:600;border-bottom-color:var(--navy)}
+main{max-width:1320px;margin:0 auto;padding:28px 40px 80px}
+.view{display:none}.view.on{display:block}
+.crumb{font-size:14px;color:var(--muted);margin-bottom:14px}
+.crumb a{text-decoration:none}
+
+.card{background:var(--surface);border:1px solid rgba(30,42,110,.1);border-radius:14px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:10px 18px;border-radius:10px;font-size:15px;font-weight:600;border:1px solid var(--rule-2);background:var(--surface);color:var(--ink);text-decoration:none}
+.btn.pri{background:var(--navy);border-color:var(--navy);color:#fff}
+.btn.pri:disabled{background:#C9CCDA;border-color:#C9CCDA;color:#4A4F68;cursor:not-allowed}
+.btn.ghost{border-color:var(--navy);color:var(--navy)}
+.btn.sm{min-height:36px;padding:6px 12px;font-size:14px}
+.pill{display:inline-block;font-size:13px;font-weight:600;border-radius:999px;padding:3px 10px;white-space:nowrap}
+.p-green{background:var(--green-bg);color:var(--green-ink)}
+.p-amber{background:var(--amber-bg);color:var(--amber-ink)}
+.p-blue{background:var(--blue-bg);color:var(--blue-ink)}
+.p-grey{background:var(--grey-bg);color:var(--grey-ink)}
+.dash{color:var(--faint)}
+
+/* Profile header */
+.prof{display:flex;flex-wrap:wrap;align-items:center;gap:18px;padding:22px 26px}
+.prof .av{width:64px;height:64px;font-size:22px;background:#2E3A9A}
+.prof h1{margin:0;font-size:28px;font-weight:600}
+.prof .meta{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:6px;font-size:15px;color:var(--muted)}
+.ptabs{display:flex;flex-wrap:wrap;gap:4px;padding:0 20px;border-top:1px solid var(--rule)}
+.ptabs a{padding:14px 14px;text-decoration:none;color:var(--muted);font-size:16px;border-bottom:3px solid transparent}
+.ptabs a[aria-current="page"]{color:var(--navy);font-weight:600;border-bottom-color:var(--navy)}
+
+/* Résumé document card */
+.resume{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:0}
+.resume > div{padding:22px 26px}
+.resume > div + div{border-left:1px solid var(--rule)}
+.filechip{display:flex;align-items:center;gap:14px;border:1px solid var(--rule);border-radius:12px;padding:12px 14px;background:var(--paper)}
+.ficon{width:40px;height:48px;border-radius:6px;background:var(--red-bg);color:var(--red-ink);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:11px;flex:none}
+.drop{margin-top:14px;border:1.5px dashed var(--rule-2);border-radius:12px;padding:16px;display:flex;flex-wrap:wrap;align-items:center;gap:14px;background:var(--soft)}
+.drop.hot{border-color:var(--navy);background:var(--navy-tint)}
+.vers{display:grid;grid-template-columns:70px 44px minmax(0,1fr) auto;gap:10px 14px;align-items:center;font-size:14px}
+
+/* DataSheet plain */
+.ds{border:1px solid var(--rule);border-radius:8px;padding:0 14px;background:var(--paper)}
+.ds .h,.ds .r{display:grid;gap:12px;align-items:center}
+.ds .h{padding:11px 0;border-bottom:1.5px solid var(--ink);font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--muted)}
+.ds .h button{font:inherit;color:inherit;background:none;border:0;padding:0;text-align:inherit;cursor:pointer}
+.ds .h button.on{color:var(--ink)}
+.ds .r{padding:12px 0;border-bottom:1px solid rgba(30,42,110,.07);font-size:15px}
+.ds .rb .r:nth-child(4n+1),.ds .rb .r:nth-child(4n+2){background:var(--band)}
+.ds .r:last-child{border-bottom:0}
+.ds .right{text-align:right}
+.trunc{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* Modal */
+.scrim{position:fixed;inset:0;background:rgba(17,20,39,.55);display:none;align-items:flex-start;justify-content:center;padding:40px 20px;overflow:auto;z-index:70}
+.scrim.on{display:flex}
+.modal{background:var(--surface);border-radius:16px;box-shadow:0 30px 80px rgba(10,14,40,.35);width:100%;max-width:560px}
+.modal.wide{max-width:1180px}
+.mh{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:22px 26px 16px;border-bottom:1px solid var(--rule)}
+.mh h2{margin:4px 0 0;font-size:24px;font-weight:600;color:var(--navy)}
+.x{width:44px;height:44px;border-radius:10px;border:1px solid var(--rule-2);background:var(--surface);display:flex;align-items:center;justify-content:center;color:var(--ink);flex:none}
+.mb{padding:22px 26px}
+.mf{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:12px;padding:16px 26px;border-top:1px solid var(--rule);background:var(--soft);border-radius:0 0 16px 16px}
+.hint{font-size:14px;color:var(--muted)}
+
+/* Replace compare */
+.cmp{display:grid;grid-template-columns:1fr 40px 1fr;align-items:center;gap:8px;margin:16px 0}
+.cmp .filechip{flex-direction:column;align-items:flex-start;gap:6px}
+.cmp .arrow{text-align:center;color:var(--muted);font-size:22px}
+
+/* Scoring */
+.steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px}
+.steps li{display:flex;align-items:center;gap:12px;font-size:15px;color:var(--muted)}
+.steps .dot{width:26px;height:26px;border-radius:50%;border:2px solid var(--rule-2);display:flex;align-items:center;justify-content:center;font-size:13px;flex:none}
+.steps li.done{color:var(--green-ink)}
+.steps li.done .dot{background:var(--green);border-color:var(--green);color:#fff}
+.steps li.now{color:var(--navy);font-weight:600}
+.steps li.now .dot{border-color:var(--navy);border-top-color:transparent;animation:spin .9s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.steps li.now .dot{animation:none;border-top-color:var(--navy)}}
+
+/* Review modal */
+.tracker{list-style:none;margin:0;padding:14px 26px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;border-bottom:1px solid var(--rule);font-size:14px}
+.tracker li{display:flex;gap:10px;align-items:flex-start;color:var(--muted)}
+.tracker .d{width:26px;height:26px;border-radius:50%;border:2px solid var(--rule-2);display:flex;align-items:center;justify-content:center;font-size:13px;flex:none;color:var(--muted)}
+.tracker b{display:block;font-weight:600;color:var(--ink)}
+.tracker li.done .d{background:var(--green);border-color:var(--green);color:#fff}
+.tracker li.done b{color:var(--green-ink)}
+.tracker li.cur .d{background:var(--navy);border-color:var(--navy);color:#fff}
+.tracker li.cur b{color:var(--navy)}
+.two{display:grid;grid-template-columns:400px minmax(0,1fr)}
+.left{background:var(--paper-2);padding:22px;border-right:1px solid var(--rule)}
+.right{padding:22px 26px;display:flex;flex-direction:column;gap:18px;min-width:0}
+.sheet{background:#fff;border:1px solid var(--rule);border-radius:4px;box-shadow:0 2px 3px rgba(24,32,63,.06),0 12px 26px rgba(24,32,63,.1);padding:22px 22px 26px;font-family:'Source Serif 4',Georgia,serif;font-size:10.5px;line-height:1.45;color:#2A2E45;transform:rotate(-.6deg);position:relative}
+.sheet h5{margin:0;font-size:15px;font-family:Outfit,sans-serif;letter-spacing:.02em}
+.sheet .sub{font-size:9.5px;color:#666b80;margin-bottom:10px}
+.sheet h6{margin:10px 0 4px;font-size:9px;font-family:var(--mono);letter-spacing:.14em;color:#4A4F68;border-bottom:1px solid #DADDE6;padding-bottom:3px}
+.sheet ul{margin:0;padding-left:14px}
+.hl{background:rgba(199,119,0,.18);box-shadow:inset 0 -1.5px 0 rgba(199,119,0,.6)}
+.stamp{position:absolute;right:14px;top:16px;font-family:var(--mono);font-size:11px;letter-spacing:.14em;color:var(--blue-ink);border:2px solid var(--blue-ink);border-radius:4px;padding:3px 8px;transform:rotate(8deg);opacity:.85}
+.alert{display:flex;gap:12px;align-items:flex-start;border-radius:12px;padding:12px 14px;font-size:14px;line-height:1.45}
+.alert.amber{background:#FFF6E3;color:#5E3B00}
+.alert.green{background:var(--green-bg);color:var(--green-ink)}
+.alert.blue{background:var(--blue-bg);color:var(--blue-ink)}
+.box{border:1px solid var(--rule);border-radius:14px;overflow:hidden}
+.boxh{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px;padding:12px 18px;background:var(--soft);border-bottom:1px solid var(--rule)}
+.boxh h3{margin:0;font-size:17px;font-weight:600;color:var(--navy)}
+.scorehead{display:flex;flex-wrap:wrap;gap:20px;align-items:center;padding:18px}
+.ring{width:100px;height:100px;border-radius:50%;background:conic-gradient(var(--navy) 0 78%,#E2E5F0 78% 100%);display:flex;align-items:center;justify-content:center;flex:none}
+.ring div{width:78px;height:78px;border-radius:50%;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.ring b{font-size:30px;line-height:1}
+.ring small{font-size:12px;color:var(--muted)}
+.delta{font-size:13px;font-weight:600;color:var(--green-ink);background:var(--green-bg);border-radius:999px;padding:2px 8px}
+.cats{padding:0 18px 16px;display:flex;flex-direction:column;gap:10px}
+.cat{display:grid;grid-template-columns:220px minmax(0,1fr) 48px;gap:14px;align-items:center;font-size:15px}
+.bar{height:8px;border-radius:999px;background:#E2E5F0;overflow:hidden}
+.bar i{display:block;height:100%;border-radius:999px;background:var(--navy)}
+.bar i.low{background:var(--amber)}
+.fixes{padding:4px 18px 18px}
+.fixes ol{margin:8px 0 0;padding-left:22px;display:flex;flex-direction:column;gap:8px;font-size:15px;line-height:1.45}
+.links{display:flex;flex-wrap:wrap;gap:16px;margin-top:12px;font-size:14px;font-weight:600}
+.draft{padding:16px 18px;font-size:15px;line-height:1.6;white-space:pre-wrap;background:var(--paper);max-height:340px;overflow:auto}
+.toggles{display:flex;flex-wrap:wrap;gap:16px;padding:12px 18px;border-top:1px solid var(--rule);font-size:14px}
+.toggles label{display:flex;align-items:center;gap:8px}
+input[type=checkbox]{width:18px;height:18px;accent-color:var(--navy);margin:0}
+
+/* Outreach */
+.ob{display:grid;grid-template-columns:240px minmax(0,1fr);gap:24px}
+.oside{padding:16px}
+.oside a{display:flex;justify-content:space-between;padding:11px 12px;border-radius:8px;text-decoration:none;color:var(--ink);font-size:15px}
+.oside a[aria-current="page"]{background:var(--navy-tint);color:var(--navy);font-weight:600}
+.field{display:grid;grid-template-columns:90px minmax(0,1fr);gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--rule);font-size:15px}
+.field label{color:var(--muted)}
+.field input{font:inherit;font-size:15px;border:0;padding:8px 0;color:var(--ink);background:transparent;width:100%}
+.chipto{display:inline-flex;align-items:center;gap:8px;background:var(--navy-tint);color:var(--navy);border-radius:999px;padding:4px 10px 4px 4px;font-size:14px;font-weight:600}
+.chipto .av{width:24px;height:24px;font-size:11px}
+.tag{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--green);color:var(--green-ink);background:var(--green-bg);border-radius:8px;padding:5px 10px;font-size:14px;font-weight:600}
+textarea.body{font:inherit;font-size:15px;line-height:1.6;width:100%;min-height:440px;border:1px solid var(--rule-2);border-radius:10px;padding:16px;color:var(--ink);resize:vertical;margin-top:14px}
+
+/* Support */
+.kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr))}
+.kpis > div{padding:22px 26px}
+.kpis > div + div{border-left:1px solid rgba(30,42,110,.1)}
+.kpis b{display:block;font-size:42px;font-weight:600;color:var(--navy)}
+.kpis b.g{color:var(--green)}
+.kpis small{display:block;font-size:14px;color:var(--muted);margin-top:4px}
+.seg{display:inline-flex;background:var(--surface);border:1px solid var(--rule);border-radius:10px;padding:4px}
+.seg button{border:0;border-radius:7px;padding:9px 16px;background:transparent;color:var(--ink);font-size:15px}
+.seg button[aria-selected="true"]{background:var(--navy);color:#fff;font-weight:600}
+.auto{display:inline-flex;align-items:center;gap:6px}
+.auto svg{color:var(--green)}
+.newrow{animation:flash 2.4s ease-out}
+@keyframes flash{0%{background:#CDEBDB}100%{background:transparent}}
+@media (prefers-reduced-motion:reduce){.newrow{animation:none}}
+
+/* Toast */
+.toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:#111427;color:#fff;border-radius:12px;padding:14px 18px;display:none;align-items:center;gap:16px;box-shadow:0 14px 40px rgba(0,0,0,.3);z-index:90;font-size:15px;max-width:calc(100% - 32px)}
+.toast.on{display:flex}
+.toast button{background:transparent;border:1px solid rgba(255,255,255,.35);color:#fff;border-radius:8px;padding:6px 12px;font-size:14px}
+
+@media (max-width:1000px){
+  .two,.resume,.ob{grid-template-columns:1fr}
+  .left{border-right:0;border-bottom:1px solid var(--rule)}
+  .resume > div + div{border-left:0;border-top:1px solid var(--rule)}
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .tracker{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:640px){
+  .top,.nav,main{padding-left:16px;padding-right:16px}
+  .cat{grid-template-columns:1fr 48px}.cat .bar{grid-column:1/-1;grid-row:2}
+  .scrim{padding:0}.modal{border-radius:0}
+}
+</style>
+</head>
+<body>
+
+<div class="demo"><b>Demo only.</b> Synthetic alumni and scores as of Oct 4, 2026. The dark bar below jumps between steps for review. Do not build it.</div>
+<nav class="ctrl" aria-label="Mockup steps">
+  <span>Mockup steps</span>
+  <button data-go="docs">1 · Documents</button>
+  <button data-go="replace">2 · Replace prompt</button>
+  <button data-go="scoring">3 · Keith scoring</button>
+  <button data-go="review">4 · Review</button>
+  <button data-go="outreach">5 · Outreach</button>
+  <button data-go="support">6 · Support tab</button>
+</nav>
+
+<header class="top">
+  <div class="brand"><b>Cedars<br>Sinai</b><i></i><span>ASPIRE Intelligence</span></div>
+  <div class="scope"><em></em><small>SCOPE</small><b>Residency · Winter 2027</b></div>
+  <div class="me"><span class="av">JB</span><span><b>Jester</b><br><span style="opacity:.7">Owner</span></span></div>
+</header>
+<nav class="nav" aria-label="Sections">
+  <a href="#" data-nav="glance">At a Glance</a>
+  <a href="#" data-nav="support">Support</a>
+  <a href="#" data-nav="docs">Profiles &amp; Interest</a>
+  <a href="#" data-nav="res">Residency</a>
+  <a href="#" data-nav="outreach">ASPIRE Connect</a>
+</nav>
+
+<main>
+
+<!-- 1. PROFILE > DOCUMENTS -->
+<section class="view" id="v-docs" aria-labelledby="pName">
+  <div class="crumb"><a href="#" data-go="support">Support</a> › Maya Ortiz › Documents</div>
+  <div class="card">
+    <div class="prof">
+      <span class="av">MO</span>
+      <div style="flex:1;min-width:240px">
+        <h1 id="pName">Maya Ortiz</h1>
+        <div class="meta">Summer 2026 · CSULA · ASPIRE alum <span class="pill p-green">Submitted</span> <span>transition form</span></div>
+      </div>
+      <a class="btn" href="#" data-go="support">View support history</a>
+    </div>
+    <nav class="ptabs" aria-label="Profile">
+      <a href="#">Overview</a><a href="#" aria-current="page">Documents</a><a href="#">Hours</a><a href="#">Evaluations</a><a href="#">Support</a>
+    </nav>
+  </div>
+
+  <div class="card" style="margin-top:20px">
+    <div class="resume">
+      <div>
+        <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px">
+          <div>
+            <div class="mono">Résumé · current</div>
+            <h2 style="margin:4px 0 0;font-size:22px;font-weight:600;color:var(--navy)">Résumé</h2>
+          </div>
+          <span class="pill p-blue" id="docStatus">Sent · Sep 12</span>
+        </div>
+        <div class="filechip" id="currentFile">
+          <span class="ficon">PDF</span>
+          <div style="flex:1;min-width:0">
+            <div class="trunc" style="font-weight:600" id="curName">Ortiz_Maya_Resume_Sep2026.pdf</div>
+            <div style="font-size:13px;color:var(--muted)" id="curMeta">Submitted with ASPIRE application · Keith 64 · Needs work</div>
+          </div>
+          <a class="btn sm" href="#">View</a>
+        </div>
+        <div class="drop" id="drop">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color:var(--navy)"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M12 18v-6"/><path d="m9 15 3-3 3 3"/></svg>
+          <div style="flex:1;min-width:200px;font-size:15px"><b>Drop a new résumé here.</b> <span style="color:var(--muted)">Keith scores it with the ASPIRE résumé reviewer as soon as it uploads, and checks for clinical rotation hours (facility, unit, hours).</span></div>
+          <button class="btn pri" data-go="replace">Choose file</button>
+        </div>
+      </div>
+      <div>
+        <div class="mono" style="margin-bottom:12px">Version history</div>
+        <div class="vers num" id="vers">
+          <span>Sep 12</span><b>64</b><span><span class="pill p-grey">Needs work</span> <span style="color:var(--muted)">email sent</span></span><a href="#" style="font-weight:600">Open</a>
+          <span>Jun 3</span><b class="dash">–</b><span style="color:var(--muted)">Application upload, not scored</span><a href="#" style="font-weight:600">Open</a>
+        </div>
+        <div class="alert blue" style="margin-top:18px">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" style="flex:none;margin-top:2px"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.01"/></svg>
+          <span>Replacing never deletes. The current file moves here with its score, so you can show growth across reviews.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:20px;padding:20px 26px">
+    <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:14px;margin-bottom:14px">
+      <div>
+        <h2 style="margin:0;font-size:20px;font-weight:600;color:var(--navy)">Application documents</h2>
+        <div style="display:flex;align-items:center;gap:12px;margin-top:8px;font-size:15px">
+          <span class="num"><b id="docCount">3</b> of 6 on file</span>
+          <span style="width:160px;height:8px;border-radius:999px;background:#E2E5F0;overflow:hidden" aria-hidden="true"><i id="docBar" style="display:block;height:100%;width:50%;background:var(--green);border-radius:999px"></i></span>
+          <span style="color:var(--muted)" id="docMissing">Missing: Reference letter 2, ACLS card</span>
+        </div>
+      </div>
+      <button class="btn pri" data-up="pick">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M5 20h14"/></svg>
+        Upload documents
+      </button>
+    </div>
+    <div style="overflow-x:auto">
+      <div class="ds" style="min-width:820px">
+        <div class="h" style="grid-template-columns:minmax(0,2fr) 104px 100px 120px 230px"><button class="on">DOCUMENT ↑</button><button>STATUS</button><button class="right">UPDATED</button><button class="right">EXPIRES</button><span></span></div>
+        <div class="rb num" id="docRows"></div>
+      </div>
+    </div>
+    <p class="hint" style="margin:12px 0 0">Replacing a document moves the old file to its version history. For BLS and ACLS cards, Keith reads the expiration date and you confirm it.</p>
+  </div>
+</section>
+
+<!-- 5. OUTREACH COMPOSE -->
+<section class="view" id="v-outreach" aria-labelledby="oTitle">
+  <div class="crumb">ASPIRE Connect › Outreach › New message</div>
+  <div class="ob">
+    <nav class="card oside" aria-label="ASPIRE Connect">
+      <div class="mono" style="padding:4px 12px 10px">ASPIRE Connect</div>
+      <a href="#" aria-current="page">Outreach <span class="num">●</span></a>
+      <a href="#">Campaigns</a>
+      <a href="#">Templates</a>
+      <a href="#">Sent</a>
+    </nav>
+    <div class="card" style="padding:22px 26px">
+      <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:12px">
+        <h1 id="oTitle" style="margin:0;font-size:24px;font-weight:600;color:var(--navy)">New outreach</h1>
+        <span class="tag"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M20 12V5a1 1 0 0 0-1-1h-7L4 12l8 8 8-8z"/><circle cx="15.5" cy="8.5" r="1.2"/></svg>Support · Résumé Review · Maya Ortiz</span>
+      </div>
+      <div class="alert green" style="margin-top:14px">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true" style="flex:none;margin-top:2px"><path d="m5 12 4 4 10-10"/></svg>
+        <span>Pre-filled from Keith's review. When you send, Maya is logged as supported for <b>Résumé Review</b> on the send date. If you schedule it, the log uses the date it goes out.</span>
+      </div>
+      <div style="margin-top:8px">
+        <div class="field"><label>To</label><div><span class="chipto"><span class="av">MO</span>Maya Ortiz · personal email on file</span></div></div>
+        <div class="field"><label for="oFrom">From</label><input id="oFrom" value="Jester Lloyd Bautista · ASPIRE"></div>
+        <div class="field"><label for="oSub">Subject</label><input id="oSub" value="Your résumé review and 3 quick wins before you apply"></div>
+        <div class="field"><label>Attached</label><div style="display:flex;flex-wrap:wrap;gap:8px"><span class="pill p-grey">Ortiz_Maya_Resume_Oct2026.pdf</span><span class="pill p-grey">Rewritten bullets (1 page)</span></div></div>
+      </div>
+      <label class="sr" for="oBody">Message</label>
+      <textarea class="body" id="oBody"></textarea>
+      <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:12px;margin-top:16px">
+        <span class="hint">Sent from ASPIRE Connect. Replies land in Outreach › Sent › Maya Ortiz.</span>
+        <div style="display:flex;gap:10px">
+          <button class="btn" data-go="review">Back to review</button>
+          <button class="btn">Schedule</button>
+          <button class="btn pri" id="sendBtn">Send to Maya</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 6. SUPPORT TAB -->
+<section class="view" id="v-support" aria-labelledby="sTitle">
+  <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:14px;margin-bottom:18px">
+    <div class="seg" role="tablist" aria-label="Support phase">
+      <button role="tab" aria-selected="true">Before Residency</button>
+      <button role="tab" aria-selected="false">At the Start</button>
+      <button role="tab" aria-selected="false">During Residency</button>
+    </div>
+    <span style="font-size:15px;color:var(--muted)">Winter 2027 · optional, never affects eligibility</span>
+  </div>
+
+  <div class="card">
+    <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:12px;padding:20px 26px;border-bottom:1px solid rgba(30,42,110,.1)">
+      <h1 id="sTitle" style="margin:0;font-size:24px;font-weight:600;color:var(--navy)">Support Before Residency</h1>
+      <button class="btn pri">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+        Log group activity
+      </button>
+    </div>
+    <div class="kpis num">
+      <div><b class="g" id="kAlumni">13</b><span class="mono">Alumni supported</span><small>of 28 alumni</small></div>
+      <div><b id="kResume">8</b><span class="mono">Résumé review</span><small>Logged from Outreach sends</small></div>
+      <div><b>12</b><span class="mono">Town hall</span><small>Alumni reached</small></div>
+      <div><b>0</b><span class="mono">Interview bootcamp</span><small>Alumni reached</small></div>
+      <div><b>3</b><span class="mono">Placement advising</span><small>Alumni reached</small></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:20px;padding:20px 26px">
+    <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:end;gap:12px;margin-bottom:14px">
+      <div>
+        <h2 style="margin:0;font-size:22px;font-weight:600;color:var(--navy)">By Alumnus</h2>
+        <div style="font-size:15px;color:var(--muted);margin-top:4px">Most recent date for each activity. Résumé Review fills in when you send the review from Outreach.</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted)">
+        <span class="auto"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M4 4h16v12H5.2L4 17.2z"/></svg></span> logged from Outreach
+      </div>
+    </div>
+    <div style="overflow-x:auto">
+      <div class="ds" style="min-width:920px">
+        <div class="h" style="grid-template-columns:minmax(0,2fr) 104px 120px 64px 110px 110px 110px"><button class="on">ALUMNUS ↑</button><button>FORM</button><button class="right">RÉSUMÉ</button><button class="right">SCORE</button><button class="right">TOWN HALL</button><button class="right">BOOTCAMP</button><button class="right">ADVISING</button></div>
+        <div class="rb num" id="grid"></div>
+      </div>
+    </div>
+    <p class="hint" style="margin:12px 0 0">An alumnus with no résumé review shows <b>Upload</b>, which opens their profile Documents. Form status never blocks a support entry.</p>
+  </div>
+</section>
+
+<section class="view" id="v-blank"><div class="card" style="padding:40px;color:var(--muted)">Not part of this mockup.</div></section>
+</main>
+
+<!-- 2. REPLACE PROMPT -->
+<div class="scrim" id="m-replace">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="rTitle">
+    <div class="mh">
+      <div><div class="mono">Documents · Résumé</div><h2 id="rTitle">Replace Maya's current résumé?</h2></div>
+      <button class="x" aria-label="Cancel" data-go="docs"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    </div>
+    <div class="mb">
+      <p style="margin:0;font-size:15px;line-height:1.5">The new file becomes her current résumé. The old one moves to version history with its score. Nothing is deleted.</p>
+      <div class="cmp">
+        <div class="filechip"><span class="mono">Current → history</span><b style="font-size:14px" class="trunc">Ortiz_Maya_Resume_Sep2026.pdf</b><span style="font-size:13px;color:var(--muted)">Sep 12 · Keith 64</span></div>
+        <div class="arrow" aria-hidden="true">→</div>
+        <div class="filechip" style="border-color:var(--navy);background:var(--navy-tint)"><span class="mono" style="color:var(--navy)">New current</span><b style="font-size:14px" class="trunc">Ortiz_Maya_Resume_Oct2026.pdf</b><span style="font-size:13px;color:var(--muted)">2 pages · 184 KB</span></div>
+      </div>
+      <label style="display:flex;gap:10px;align-items:center;font-size:15px"><input type="checkbox" checked> Score it with Keith after upload</label>
+    </div>
+    <div class="mf">
+      <span class="hint">Same file twice? Keith skips the duplicate and tells you.</span>
+      <div style="display:flex;gap:10px"><button class="btn" data-go="docs">Cancel</button><button class="btn pri" data-go="scoring">Replace and score</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- 2b. UPLOAD APPLICATION DOCUMENT -->
+<div class="scrim" id="m-upload">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="uTitle">
+    <div class="mh">
+      <div><div class="mono">Documents · Maya Ortiz</div><h2 id="uTitle">Upload document</h2></div>
+      <button class="x" aria-label="Cancel" data-go="docs"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    </div>
+    <div class="mb" style="display:flex;flex-direction:column;gap:16px">
+      <div id="uTypeWrap">
+        <label for="uType" class="mono" style="display:block;margin-bottom:8px">Document type</label>
+        <select id="uType" style="font:inherit;font-size:15px;width:100%;border:1px solid var(--rule-2);border-radius:10px;padding:11px 12px;color:var(--ink);background:#fff"></select>
+      </div>
+      <div class="cmp" id="uCmp" style="margin:0">
+        <div class="filechip"><span class="mono">Current → history</span><b style="font-size:14px" class="trunc" id="uOld"></b><span style="font-size:13px;color:var(--muted)" id="uOldMeta"></span></div>
+        <div class="arrow" aria-hidden="true">→</div>
+        <div class="filechip" style="border-color:var(--navy);background:var(--navy-tint)"><span class="mono" style="color:var(--navy)">New current</span><b style="font-size:14px" class="trunc" id="uNew1"></b><span style="font-size:13px;color:var(--muted)">1 page · 96 KB</span></div>
+      </div>
+      <div class="filechip" id="uSingle"><span class="ficon">PDF</span><div style="flex:1;min-width:0"><b class="trunc" style="display:block;font-size:15px" id="uNew2"></b><span style="font-size:13px;color:var(--muted)">1 page · 96 KB · ready to upload</span></div><button class="btn sm">Change file</button></div>
+      <div id="uExp" style="display:none">
+        <label for="uExpIn" class="mono" style="display:block;margin-bottom:8px">Expiration date</label>
+        <input id="uExpIn" type="text" style="font:inherit;font-size:15px;width:100%;border:1px solid var(--rule-2);border-radius:10px;padding:11px 12px;color:var(--ink)">
+        <div class="alert blue" style="margin-top:10px"><span><b>Keith read this from the card.</b> Check it against the file before you save.</span></div>
+        <label style="display:flex;gap:10px;align-items:center;font-size:15px;margin-top:10px"><input type="checkbox" id="uConfirm"> I checked this date against the card</label>
+      </div>
+    </div>
+    <div class="mf">
+      <span class="hint" id="uHint">Nothing is deleted. Old versions stay in history.</span>
+      <div style="display:flex;gap:10px"><button class="btn" data-go="docs">Cancel</button><button class="btn pri" id="uSave">Upload</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- 3. KEITH SCORING -->
+<div class="scrim" id="m-scoring">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="kTitle" aria-busy="true">
+    <div class="mh">
+      <div><div class="mono">Keith · ASPIRE résumé reviewer</div><h2 id="kTitle">Scoring Maya's résumé</h2></div>
+    </div>
+    <div class="mb">
+      <ol class="steps" id="kSteps" aria-live="polite">
+        <li><span class="dot"></span>Uploaded and filed to Documents</li>
+        <li><span class="dot"></span>Reading 2 pages</li>
+        <li><span class="dot"></span>Scoring six categories</li>
+        <li><span class="dot"></span>Drafting the email to Maya</li>
+      </ol>
+      <p class="hint" style="margin:18px 0 0">You can close this. The score shows on her Documents tab when it is ready.</p>
+    </div>
+  </div>
+</div>
+
+<!-- 4. REVIEW MODAL -->
+<div class="scrim" id="m-review">
+  <div class="modal wide" role="dialog" aria-modal="true" aria-labelledby="vTitle">
+    <div class="mh">
+      <div>
+        <div class="mono">Résumé review · Oct 4, 2026</div>
+        <h2 id="vTitle">Maya Ortiz · Summer 2026</h2>
+        <div style="font-size:14px;color:var(--muted);margin-top:4px">Ortiz_Maya_Resume_Oct2026.pdf · scored by Keith in 14 s</div>
+      </div>
+      <button class="x" aria-label="Close review" data-go="docsScored"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    </div>
+    <ol class="tracker" aria-label="Review progress">
+      <li class="done"><span class="d">✓</span><span><b>Uploaded</b>Oct 4 · replaced Sep 12</span></li>
+      <li class="done"><span class="d">✓</span><span><b>Scored</b>78 · Keith</span></li>
+      <li class="cur" aria-current="step"><span class="d">3</span><span><b>Send via Outreach</b>Waiting on you</span></li>
+      <li><span class="d">4</span><span><b>Logged as support</b>On send</span></li>
+    </ol>
+    <div class="two">
+      <div class="left">
+        <div class="sheet" aria-label="Résumé preview, highlights mark the top fixes">
+          <span class="stamp" aria-hidden="true">SCORED 78</span>
+          <h5>MAYA ORTIZ</h5>
+          <div class="sub">Los Angeles, CA · [phone] · [email] · linkedin.com/in/[handle]</div>
+          <h6>EDUCATION</h6>
+          <div><b>Bachelor of Science in Nursing</b>, California State University, Los Angeles<br>Expected Dec 2026</div>
+          <h6>SENIOR PRACTICUM</h6>
+          <div><b>Student Nurse</b>, <span class="hl">Medical-Surgical Unit</span> · Jun to Aug 2026</div>
+          <ul>
+            <li><span class="hl">Managed 4 patients</span> per shift, including post-operative care</li>
+            <li>Completed head-to-toe assessments and documented in the EHR</li>
+            <li>Educated patients on discharge medications</li>
+          </ul>
+          <h6>CLINICAL ROTATIONS</h6>
+          <ul><li>Pediatrics, Obstetrics, Psychiatric-Mental Health, Community Health <span class="hl">[facility, unit, hours missing]</span></li></ul>
+          <h6>CERTIFICATIONS</h6>
+          <ul><li>BLS, American Heart Association</li></ul>
+          <h6>LEADERSHIP</h6>
+          <ul><li>Secretary, Student Nurses' Association, 2025 to 2026</li></ul>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:18px"><a class="btn sm" href="#">Download</a><a class="btn sm" href="#">View original</a></div>
+        <div class="box" style="margin-top:18px;background:#fff">
+          <div class="boxh"><h3 style="font-size:15px">Score history</h3><span class="delta">+14</span></div>
+          <div style="padding:12px 18px;display:grid;grid-template-columns:70px 40px 1fr;gap:8px 12px;font-size:14px" class="num">
+            <span>Oct 4</span><b>78</b><span><span class="pill p-blue">Competitive</span></span>
+            <span>Sep 12</span><b>64</b><span><span class="pill p-grey">Needs work</span></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="right">
+        <div class="alert amber">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="flex:none;margin-top:2px"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.01"/></svg>
+          <span><b>Missing from the résumé:</b> clinical rotation hours. The application asks for facility, unit, and hours for each rotation. Keith scored without them and asks Maya to add them. Keith never fills these in.</span>
+        </div>
+
+        <section class="box" aria-labelledby="scTitle">
+          <div class="boxh"><h3 id="scTitle">Score</h3><button class="btn sm" id="copyScore">Copy score</button></div>
+          <div class="scorehead">
+            <div class="ring"><div><b class="num">78</b><small>of 100</small></div></div>
+            <div style="flex:1;min-width:220px">
+              <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+                <span class="pill p-blue" style="font-size:15px;padding:5px 14px">Competitive</span>
+                <span class="delta">+14 since Sep 12</span>
+              </div>
+              <p style="margin:10px 0 0;font-size:15px;line-height:1.5;color:#3D4260">Clean, ATS-ready layout and solid clinical bullets. Her Cedars-Sinai rotation and nursing values are under-sold.</p>
+            </div>
+          </div>
+          <div class="cats num">
+            <div class="cat"><span>ATS optimization</span><span class="bar"><i style="width:80%"></i></span><b style="text-align:right">8/10</b></div>
+            <div class="cat"><span>Cedars-Sinai alignment</span><span class="bar"><i class="low" style="width:60%"></i></span><b style="text-align:right">6/10</b></div>
+            <div class="cat"><span>ASPIRE positioning</span><span class="bar"><i class="low" style="width:60%"></i></span><b style="text-align:right">6/10</b></div>
+            <div class="cat"><span>Clinical experience</span><span class="bar"><i style="width:80%"></i></span><b style="text-align:right">8/10</b></div>
+            <div class="cat"><span>Leadership and professionalism</span><span class="bar"><i style="width:70%"></i></span><b style="text-align:right">7/10</b></div>
+            <div class="cat"><span>Overall NGRP competitiveness</span><span class="bar"><i style="width:80%"></i></span><b style="text-align:right">8/10</b></div>
+          </div>
+          <div class="fixes">
+            <div class="mono">Top 3 fixes</div>
+            <ol>
+              <li>Name Cedars-Sinai, her unit, and her patient population in the senior practicum entry.</li>
+              <li>Change "managed 4 patients" to supervised wording, such as "under preceptor guidance."</li>
+              <li>Add one line that shows Advocacy or Inclusion in action.</li>
+            </ol>
+            <div class="links"><a href="#">Open full report (10 sections)</a><a href="#">Rewritten bullets</a></div>
+          </div>
+        </section>
+
+        <section class="box" aria-labelledby="drTitle">
+          <div class="boxh">
+            <h3 id="drTitle">Draft response to Maya</h3>
+            <div style="display:flex;flex-wrap:wrap;gap:6px">
+              <button class="btn sm">Warmer</button><button class="btn sm">Shorter</button><button class="btn sm">Regenerate</button>
+            </div>
+          </div>
+          <div class="draft" id="draft"></div>
+          <div class="toggles">
+            <label><input type="checkbox" id="incScore" checked> Include score</label>
+            <label><input type="checkbox" id="incBullets" checked> Attach rewritten bullets</label>
+          </div>
+        </section>
+      </div>
+    </div>
+    <div class="mf" style="border-radius:0 0 16px 16px">
+      <span class="hint">Opens a pre-filled Outreach message tagged to Maya. Sending it logs Résumé Review with the date.</span>
+      <div style="display:flex;flex-wrap:wrap;gap:10px">
+        <button class="btn" id="copyDraft" title="Copying does not log support">Copy draft</button>
+        <button class="btn pri" data-go="outreach">Open in Outreach
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"><span id="toastText"></span><button id="toastBtn">View</button></div>
+
+<script>
+(function(){
+  var D = '–';
+  var state = { sent:false };
+  var ROWS = [
+    {n:'Daniel Reyes', f:'Pending', r:'', s:'', t:'Sep 18', b:'', a:''},
+    {n:'Grace Okafor', f:'Submitted', r:'Sep 19', s:'72', t:'Sep 18', b:'', a:''},
+    {n:'Hannah Kim', f:'Submitted', r:'', s:'', t:'', b:'', a:'Sep 30'},
+    {n:'Jordan Lee', f:'Submitted', r:'', s:'', t:'', b:'', a:''},
+    {n:'Maya Ortiz', f:'Submitted', r:'Sep 12', s:'64', t:'Sep 18', b:'', a:'Sep 30', me:true},
+    {n:'Priya Nair', f:'Submitted', r:'Sep 26', s:'84', t:'', b:'', a:''},
+    {n:'Sofia Alvarez', f:'Pending', r:'Sep 22', s:'61', t:'', b:'', a:''}
+  ];
+
+  function draftText(withScore, withBullets){
+    var s = 'Hi Maya,\n\nThank you for sending your updated résumé. I reviewed it with the same lens our NGRP recruiters use, and you have made real progress.';
+    if (withScore) s += ' Your résumé scored 78 out of 100, up from 64 last month, which puts you in the Competitive range.';
+    s += '\n\nYour layout is clean and easy to scan, and your clinical bullets already show good judgment and teamwork.\n\nHere are three changes that will make the biggest difference:\n\n1. In your senior practicum entry, name Cedars-Sinai, your unit, and the patients you cared for. Your ASPIRE experience is your edge, so let it show.\n2. Change "managed 4 patients" to "provided care for 4 patients under preceptor guidance." Recruiters notice scope of practice.\n3. Add one line that shows how you advocated for a patient or family. It connects you to our nursing values.\n\nPlease also add your clinical rotation hours. The application asks for the facility, unit, and number of hours for each rotation, and right now they are missing.';
+    if (withBullets) s += '\n\nI attached a one-page set of rewritten bullets you can adapt in your own words.';
+    s += '\n\nSend me your next version when it is ready and I will take another look. You are closer than you think.\n\nWarmly,\nJester\n\nJester Lloyd Bautista, PhD, MSN, RN, NPD-BC, CCRN, SCRN\nNursing Professional Development Practitioner\nGeri and Richard Brawerman Nursing Institute | Cedars-Sinai';
+    return s;
+  }
+  function renderDraft(){
+    var t = draftText(document.getElementById('incScore').checked, document.getElementById('incBullets').checked);
+    document.getElementById('draft').textContent = t;
+    document.getElementById('oBody').value = t;
+  }
+  function cell(v){ return v ? '<span class="right">'+v+'</span>' : '<span class="right dash">'+D+'</span>'; }
+  function renderGrid(){
+    var cols = 'grid-template-columns:minmax(0,2fr) 104px 120px 64px 110px 110px 110px';
+    var html = ROWS.map(function(x){
+      var fresh = x.me && state.sent;
+      var r = x.me && state.sent ? 'Oct 4' : x.r;
+      var s = x.me && state.sent ? '78' : x.s;
+      var resumeCell = r
+        ? '<span class="right"><a href="#" data-go="docs" style="text-decoration:none;color:inherit" class="auto" aria-label="Résumé review '+r+', logged from Outreach, open Documents">'+(fresh||x.r?'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M4 4h16v12H5.2L4 17.2z"/></svg>':'')+r+'</a></span>'
+        : '<span class="right"><a href="#" data-go="docs" style="font-weight:600">Upload</a></span>';
+      return '<div class="r'+(fresh?' newrow':'')+'" style="'+cols+'"><span class="trunc"><b style="font-weight:600">'+x.n+'</b><span style="color:var(--muted)"> · Summer 2026</span></span>'+
+        '<span><span class="pill '+(x.f==='Submitted'?'p-green':'p-amber')+'">'+x.f+'</span></span>'+
+        resumeCell + cell(s) + cell(x.t) + cell(x.b) + cell(x.a) + '</div>';
+    }).join('');
+    document.getElementById('grid').innerHTML = html;
+    document.getElementById('kResume').textContent = state.sent ? '9' : '8';
+  }
+
+  var views = ['docs','outreach','support','blank'];
+  var modals = ['replace','upload','scoring','review'];
+  var scoringTimer = [];
+  function show(view, modal){
+    views.forEach(function(v){ document.getElementById('v-'+v).classList.toggle('on', v===view); });
+    modals.forEach(function(m){ document.getElementById('m-'+m).classList.toggle('on', m===modal); });
+    document.querySelectorAll('.nav a').forEach(function(a){
+      var map = {docs:'docs', outreach:'outreach', support:'support'};
+      a.toggleAttribute('aria-current', a.dataset.nav === map[view]);
+      if (a.dataset.nav === map[view]) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current');
+    });
+    document.body.style.overflow = modal ? 'hidden' : '';
+    if (modal){ var f = document.querySelector('#m-'+modal+' button, #m-'+modal+' a'); if (f) f.focus(); }
+  }
+  function markScored(){
+    document.getElementById('curName').textContent = 'Ortiz_Maya_Resume_Oct2026.pdf';
+    document.getElementById('curMeta').textContent = 'Uploaded Oct 4 · Keith 78 · Competitive';
+    var st = document.getElementById('docStatus');
+    if (state.sent){ st.className='pill p-green'; st.textContent='Sent · Oct 4'; }
+    else { st.className='pill p-amber'; st.textContent='Scored · not sent'; }
+    document.getElementById('vers').innerHTML =
+      '<span>Oct 4</span><b>78</b><span><span class="pill p-blue">Competitive</span> <span style="color:var(--muted)">'+(state.sent?'email sent':'current')+'</span></span><a href="#" data-go="review" style="font-weight:600">Open</a>'+
+      '<span>Sep 12</span><b>64</b><span><span class="pill p-grey">Needs work</span> <span style="color:var(--muted)">email sent</span></span><a href="#" style="font-weight:600">Open</a>'+
+      '<span>Jun 3</span><b class="dash">'+D+'</b><span style="color:var(--muted)">Application upload, not scored</span><a href="#" style="font-weight:600">Open</a>';
+  }
+  function runScoring(){
+    scoringTimer.forEach(clearTimeout); scoringTimer=[];
+    var lis = document.querySelectorAll('#kSteps li');
+    lis.forEach(function(li){ li.className=''; li.querySelector('.dot').textContent=''; });
+    var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var step = reduce ? 250 : 750;
+    lis.forEach(function(li,i){
+      scoringTimer.push(setTimeout(function(){
+        if (i>0){ lis[i-1].className='done'; lis[i-1].querySelector('.dot').textContent='✓'; }
+        li.className='now';
+      }, i*step));
+    });
+    scoringTimer.push(setTimeout(function(){
+      var last = lis[lis.length-1]; last.className='done'; last.querySelector('.dot').textContent='✓';
+      markScored(); go('review');
+    }, lis.length*step));
+  }
+  function setCtrl(key){
+    document.querySelectorAll('.ctrl button').forEach(function(b){ b.setAttribute('aria-pressed', b.dataset.go===key ? 'true':'false'); });
+  }
+  function toast(text){
+    document.getElementById('toastText').innerHTML = text;
+    var t = document.getElementById('toast'); t.classList.add('on');
+    clearTimeout(toast._t); toast._t = setTimeout(function(){ t.classList.remove('on'); }, 6000);
+  }
+  function go(key){
+    if (key!=='scoring'){ scoringTimer.forEach(clearTimeout); scoringTimer=[]; }
+    if (key==='review' || key==='outreach') markScored();
+    setCtrl(key==='docsScored'?'docs':key);
+    switch(key){
+      case 'docs': show('docs'); break;
+      case 'docsScored': markScored(); show('docs'); setCtrl('docs'); break;
+      case 'replace': show('docs','replace'); break;
+      case 'scoring': show('docs','scoring'); runScoring(); break;
+      case 'review': show('docs','review'); break;
+      case 'outreach': show('outreach'); break;
+      case 'support': renderGrid(); show('support'); break;
+      default: show('blank');
+    }
+    window.scrollTo(0,0);
+  }
+
+  document.addEventListener('click', function(e){
+    var el = e.target.closest('[data-go]');
+    if (el){ e.preventDefault(); go(el.dataset.go); return; }
+    var nav = e.target.closest('[data-nav]');
+    if (nav){ e.preventDefault(); var k = nav.dataset.nav; go(k==='docs'||k==='outreach'||k==='support' ? k : 'blank'); }
+  });
+  document.getElementById('sendBtn').addEventListener('click', function(){
+    state.sent = true; markScored(); go('support');
+    toast('Sent to Maya. <b>Résumé Review</b> logged for Oct 4, 2026.');
+  });
+  document.getElementById('toastBtn').addEventListener('click', function(){ document.getElementById('toast').classList.remove('on'); go('docs'); });
+  document.getElementById('incScore').addEventListener('change', renderDraft);
+  document.getElementById('incBullets').addEventListener('change', renderDraft);
+  document.getElementById('copyScore').addEventListener('click', function(e){
+    var t = 'Maya Ortiz résumé score: 78/100 (Competitive), up from 64. ATS 8, Cedars-Sinai alignment 6, ASPIRE positioning 6, Clinical 8, Leadership 7, Overall 8.';
+    try{ navigator.clipboard.writeText(t); }catch(err){}
+    e.currentTarget.textContent = 'Score copied ✓';
+  });
+  document.getElementById('copyDraft').addEventListener('click', function(e){
+    try{ navigator.clipboard.writeText(document.getElementById('draft').textContent); }catch(err){}
+    toast('Draft copied. Copying does not log support. Use <b>Open in Outreach</b> to log on send.');
+  });
+  document.addEventListener('keydown', function(e){
+    if (e.key==='Escape'){
+      if (document.getElementById('m-upload').classList.contains('on')) { go('docs'); return; }
+      if (document.getElementById('m-review').classList.contains('on')) go('docsScored');
+      else if (document.getElementById('m-replace').classList.contains('on')) go('docs');
+    }
+  });
+  var drop = document.getElementById('drop');
+  ['dragenter','dragover'].forEach(function(ev){ drop.addEventListener(ev,function(e){ e.preventDefault(); drop.classList.add('hot'); }); });
+  ['dragleave','drop'].forEach(function(ev){ drop.addEventListener(ev,function(e){ e.preventDefault(); drop.classList.remove('hot'); if(ev==='drop') go('replace'); }); });
+
+  /* Application documents */
+  var DOCS = [
+    {id:'statement', name:'Personal statement', q:'Max 2 pages', req:true, file:'Ortiz_Maya_Statement.pdf', up:'Aug 20', detail:'2 pages · within limit',
+      check:{kind:'note', text:'Keith checks the page count. Over 2 pages gets flagged before you save.'}},
+    {id:'transcript', name:'Transcript', q:'Official or unofficial', req:true, file:'Ortiz_Maya_Transcript.pdf', up:'Aug 28', detail:'Completion Dec 2026',
+      check:{kind:'date', label:'Graduation or completion date', value:'Dec 2026', text:'Keith read this from the transcript. A transcript without a date gets flagged.'}},
+    {id:'rec1', name:'Letter of recommendation 1', q:'Clinical instructor', req:true, file:'Ortiz_Maya_Rec_Instructor.pdf', up:'Aug 22', detail:'Signed · on letterhead',
+      check:{kind:'note', text:'Keith checks for a signature and the recommender’s name.'}},
+    {id:'rec2', name:'Letter of recommendation 2', q:'Second recommender', req:true, file:'', up:'', detail:'',
+      check:{kind:'note', text:'Keith checks for a signature and the recommender’s name.'}},
+    {id:'bls', name:'BLS card', q:'AHA', req:false, file:'Ortiz_Maya_BLS.pdf', up:'May 14', detail:'Expires May 2028',
+      check:{kind:'date', label:'Expiration date', value:'May 31, 2028', text:'Keith read this from the card.'}},
+    {id:'acls', name:'ACLS card', q:'If held', req:false, file:'', up:'', detail:'',
+      check:{kind:'date', label:'Expiration date', value:'Sep 30, 2028', text:'Keith read this from the card.'}},
+    {id:'license', name:'Proof of licensure', q:'California RN', req:false, file:'', up:'', detail:'After NCLEX', later:true,
+      check:{kind:'date', label:'License expiration date', value:'[from license]', text:'Keith reads the expiration date from the license.'}}
+  ];
+  var uDoc = null;
+  function docRow(d){
+    var cols = 'grid-template-columns:minmax(0,2fr) 104px 100px 160px 190px';
+    var status = d.file ? '<span class="pill p-green">On file</span>'
+      : d.later ? '<span class="pill p-grey">Not yet</span>'
+      : d.req ? '<span class="pill p-amber">Missing</span>' : '<span class="pill p-grey">None</span>';
+    var acts = d.file
+      ? '<a href="#" style="font-weight:600">View</a><button class="btn sm" data-up="'+d.id+'">Replace</button>'
+      : '<button class="btn sm" data-req="'+d.id+'">Request</button><button class="btn sm pri" data-up="'+d.id+'">Upload</button>';
+    return '<div class="r" style="'+cols+'"><span class="trunc"><b style="font-weight:600">'+d.name+'</b><span style="color:var(--muted)"> · '+d.q+'</span></span>'+
+      '<span>'+status+'</span>'+(d.up?'<span class="right">'+d.up+'</span>':'<span class="right dash">'+D+'</span>')+
+      (d.detail?'<span class="right trunc" title="'+d.detail+'">'+d.detail+'</span>':'<span class="right dash">'+D+'</span>')+
+      '<span style="display:flex;justify-content:flex-end;align-items:center;gap:10px">'+acts+'</span></div>';
+  }
+  function renderDocs(){
+    var req = DOCS.filter(function(d){return d.req;}), opt = DOCS.filter(function(d){return !d.req;});
+    var head = '<div class="mono" style="padding:12px 0 6px;border-bottom:1px solid var(--rule)">';
+    document.getElementById('docRows').innerHTML =
+      head+'Required for the NGRP application</div>'+
+      '<div class="r" style="grid-template-columns:minmax(0,2fr) 104px 100px 160px 190px"><span class="trunc"><b style="font-weight:600">Résumé</b><span style="color:var(--muted)"> · with rotation hours</span></span><span><span class="pill p-green">On file</span></span><span class="right">'+(document.getElementById('curMeta').textContent.indexOf('Oct 4')>-1?'Oct 4':'Sep 12')+'</span><span class="right">Scored above</span><span style="display:flex;justify-content:flex-end"><a href="#" style="font-weight:600" onclick="window.scrollTo({top:0,behavior:\'smooth\'});return false;">See résumé card</a></span></div>'+
+      req.map(docRow).join('')+
+      head+'Also on file · not on the application list</div>'+opt.map(docRow).join('');
+    var have = 1 + req.filter(function(d){return d.file;}).length, total = 1 + req.length;
+    document.getElementById('docCount').textContent = have;
+    document.querySelector('#docCount').parentNode.lastChild.textContent = ' of '+total+' required on file';
+    document.getElementById('docBar').style.width = Math.round(have/total*100)+'%';
+    var miss = req.filter(function(d){return !d.file;}).map(function(d){return d.name;});
+    document.getElementById('docMissing').textContent = miss.length ? 'Missing: '+miss.join(', ') : 'All required documents on file';
+  }
+  function fillUpload(d){
+    uDoc = d;
+    document.getElementById('uTitle').textContent = (d.file?'Replace ':'Upload ')+d.name.charAt(0).toLowerCase()+d.name.slice(1);
+    document.getElementById('uType').value = d.id;
+    var newName = 'Ortiz_Maya_'+d.name.replace(/[^A-Za-z0-9]+/g,'_').replace(/_+$/,'')+'_Oct2026.pdf';
+    document.getElementById('uCmp').style.display = d.file ? '' : 'none';
+    document.getElementById('uSingle').style.display = d.file ? 'none' : '';
+    document.getElementById('uOld').textContent = d.file;
+    document.getElementById('uOldMeta').textContent = 'Uploaded '+d.up;
+    document.getElementById('uNew1').textContent = newName;
+    document.getElementById('uNew2').textContent = newName;
+    var ex = document.getElementById('uExp'), isDate = d.check.kind==='date';
+    ex.style.display = '';
+    ex.querySelector('label[for="uExpIn"]').style.display = isDate ? '' : 'none';
+    document.getElementById('uExpIn').style.display = isDate ? '' : 'none';
+    document.getElementById('uConfirm').parentNode.style.display = isDate ? '' : 'none';
+    ex.querySelector('label[for="uExpIn"]').textContent = isDate ? d.check.label : '';
+    document.getElementById('uExpIn').value = isDate ? d.check.value : '';
+    ex.querySelector('.alert span').innerHTML = '<b>'+(isDate?'Keith check':'Keith check')+'.</b> '+d.check.text+(isDate?' Check it against the file before you save.':'');
+    document.getElementById('uConfirm').checked = false;
+    syncSave();
+  }
+  function syncSave(){
+    var b = document.getElementById('uSave'), needs = uDoc && uDoc.check.kind==='date';
+    b.disabled = needs && !document.getElementById('uConfirm').checked;
+    b.textContent = uDoc && uDoc.file ? 'Replace' : 'Upload';
+    document.getElementById('uHint').textContent = b.disabled ? 'Confirm the date above to continue.' : 'Nothing is deleted. Old versions stay in history.';
+  }
+  var sel = document.getElementById('uType');
+  sel.innerHTML = DOCS.map(function(d){ return '<option value="'+d.id+'">'+d.name+(d.req?'':' (optional)')+'</option>'; }).join('');
+  sel.addEventListener('change', function(){ fillUpload(DOCS.filter(function(d){return d.id===sel.value;})[0]); });
+  document.getElementById('uConfirm').addEventListener('change', syncSave);
+  document.getElementById('uSave').addEventListener('click', function(){
+    var d = uDoc; if (!d) return;
+    var wasNew = !d.file;
+    d.file = document.getElementById(wasNew?'uNew2':'uNew1').textContent; d.up = 'Oct 4'; d.later = false;
+    if (d.check.kind==='date') d.detail = (d.id==='transcript'?'Completion ':'Expires ')+document.getElementById('uExpIn').value;
+    else if (d.id==='statement') d.detail = '2 pages · within limit';
+    else d.detail = 'Signed · on letterhead';
+    renderDocs(); go('docs');
+    toast(d.name+(wasNew?' uploaded':' replaced')+' to Maya’s documents.'+(wasNew?'':' The old file is in history.'));
+  });
+  document.addEventListener('click', function(e){
+    var u = e.target.closest('[data-up]');
+    if (u){ e.preventDefault();
+      var id = u.dataset.up==='pick' ? 'rec2' : u.dataset.up;
+      document.getElementById('uTypeWrap').style.display = u.dataset.up==='pick' ? '' : 'none';
+      fillUpload(DOCS.filter(function(d){return d.id===id;})[0]);
+      setCtrl('docs'); show('docs','upload'); return; }
+    var r = e.target.closest('[data-req]');
+    if (r){ e.preventDefault();
+      var d = DOCS.filter(function(x){return x.id===r.dataset.req;})[0];
+      toast('Request for <b>'+d.name+'</b> drafted in ASPIRE Connect › Outreach. Requests do not log support.'); }
+  });
+  var _markScored = markScored;
+  markScored = function(){ _markScored(); renderDocs(); };
+
+  renderDraft(); renderGrid(); renderDocs(); go('docs');
+})();
+</script>
+</body>
+</html>

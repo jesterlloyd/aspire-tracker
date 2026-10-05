@@ -1728,6 +1728,31 @@ Reference: `docs/mockups/topbar-profile.html`, brief `docs/mockups/topbar-profil
   button now stays at every width. Scope and Search are NOT hidden below 860px, despite the
   brief: no screen offers either one in their place, so hiding them would strand phone users.
 
+## Support stands on its own (SUPPORT-STANDALONE-1, 2026-10-04)
+
+Phase 1 of the résumé review build (`docs/mockups/support-resume-review.html`, brief beside
+it). Residency > Support > Before Residency never needs the Transition Form first (Owner:
+"I may not send the transition form until two weeks before the application opens but they
+may already be sending me their resume for review 5 weeks before").
+
+- **An entry still points at an `ngrp_candidates` row, and that row is NOT the form.** It is
+  the alumnus's enrollment in the cycle (cycle + student, workflow state only). Log group
+  activity creates it when it is missing (`enrollStudents` in `lib/server/ngrpSupportLog.js`,
+  through the table's UNIQUE (cycle_id, student_id)), and the later form send finds and
+  reuses it. A bare candidate reads exactly like none: form_status 'not_sent'. No migration.
+- **One panel logs Before Residency**: Log Group Activity (a drawer with `trapFocus`), one
+  activity, one date (Today, Yesterday, Last event), an optional shared note, any number of
+  alumni by STUDENT id, checked against the cycle's own roster on the server. A repeat is
+  skipped and counted. The save returns its entry ids; the toast's Undo (10 s) voids exactly
+  those, and only the caller's own (`void_batch`). Never delete.
+- **`BULK_ACTIVITY_KEYS` includes Résumé Review only until Phase 4** logs it from the
+  Outreach send; take it out in that commit. Mentorship sessions keep their own record.
+- **The Form column is a pill, never a gate**: Submitted, Pending (sent, opened, in progress),
+  Not sent (none, or a send the provider never accepted). By Alumnus is the plain DataSheet.
+- **Not in Phase 1, on purpose**: the Score column (Phase 3) and the Résumé column's Upload
+  link to Documents. Alumni are in past cohorts and Student Profiles is scoped to the active
+  one, so where an alumnus's Documents open is Phase 2's decision.
+
 ## Settings groups, one breadcrumb, the staff menu in portals (NAV-POLISH-1, 2026-10-02)
 
 - **The Settings rail is four groups** (Owner): Personal (General), Administration (Users &

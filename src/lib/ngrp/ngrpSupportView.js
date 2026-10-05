@@ -27,7 +27,7 @@ export function beforeResidency(rows = [], entries = []) {
       const hits = list.filter(e => e.activity === a.key).map(e => e.occurred_on).sort()
       cells[a.key] = { count: hits.length, last: hits[hits.length - 1] || null }
     }
-    return { row: r, cells, total: list.length }
+    return { row: r, cells, total: list.length, form: formStatusPill(r.form_status) }
   })
   const kpis = {
     supported: tableRows.filter(t => t.total > 0).length,
@@ -35,6 +35,48 @@ export function beforeResidency(rows = [], entries = []) {
     ...Object.fromEntries(acts.map(a => [a.key, tableRows.filter(t => t.cells[a.key].count > 0).length])),
   }
   return { activities: acts, rows: tableRows, kpis }
+}
+
+// SUPPORT-STANDALONE-1: the Transition Form's state, as one word in a pill. It never
+// blocks logging support; it is shown so the team can see who has not answered yet.
+export function formStatusPill(formStatus) {
+  if (formStatus === 'submitted' || formStatus === 'revised') return { label: 'Submitted', tone: 'ok' }
+  // A prepared send the provider never accepted is not Sent (ngrpApplicants.js), so
+  // 'pending' the ASSIGNMENT status reads Not sent here, like no form at all.
+  if (['sent', 'opened', 'in_progress'].includes(formStatus)) return { label: 'Pending', tone: 'warn' }
+  return { label: 'Not sent', tone: 'off' }
+}
+
+// The roster filters in Log group activity.
+export const GROUP_LOG_FILTERS = Object.freeze([
+  Object.freeze({ key: 'all', label: 'All alumni' }),
+  Object.freeze({ key: 'not_yet', label: null }), // "No <activity> yet", named by the activity
+  Object.freeze({ key: 'form_open', label: 'Form not submitted' }),
+])
+
+export function groupLogChoices(rows = [], entries = [], { activity, filter = 'all' } = {}) {
+  const done = new Set(live(entries).filter(e => e.activity === activity).map(e => e.student_id))
+  return rows.filter((r) => {
+    const sid = r.student?.id || r.id
+    if (filter === 'not_yet') return !done.has(sid)
+    if (filter === 'form_open') return formStatusPill(r.form_status).label !== 'Submitted'
+    return true
+  })
+}
+
+// The most recent day this activity was logged for anyone: the "Last event" shortcut.
+export function lastEventDay(entries = [], activity) {
+  const days = live(entries).filter(e => e.activity === activity).map(e => dayStr(e.occurred_on)).filter(Boolean).sort()
+  return days[days.length - 1] || null
+}
+
+// YYYY-MM-DD minus one day, by the calendar (no time zone can move it).
+export function dayBefore(day) {
+  if (!day) return null
+  const [y, m, d] = day.split('-').map(Number)
+  const dt = new Date(Date.UTC(y, m - 1, d - 1))
+  const pad = n => String(n).padStart(2, '0')
+  return `${dt.getUTCFullYear()}-${pad(dt.getUTCMonth() + 1)}-${pad(dt.getUTCDate())}`
 }
 
 // A resident is a hired applicant who has not separated.

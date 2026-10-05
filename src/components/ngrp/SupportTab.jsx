@@ -15,6 +15,9 @@
 import { Fragment, useMemo, useState } from 'react'
 import { Plus, Eye, ExternalLink } from 'lucide-react'
 import { KPICell } from '../KPIBand'
+import DetailDrawer from '../ui/DetailDrawer'
+import DataSheet, { Pill, Missing } from '../shared/DataSheet'
+import './supportLog.css'
 import StudentAvatar from '../StudentAvatar'
 // RESIDENCY-REFLECTION-1: the same drawer Profiles & Interest uses to preview
 // the Transition Form email, rendering the same builder the send uses.
@@ -23,8 +26,11 @@ import { NGRP_REFLECTION_PREVIEW } from '../../lib/ngrp/reflectionPreviewFixture
 import { SAMPLE_PATH } from '../../lib/ngrp/reflectionSample'
 import { useNgrpApplicants, useNgrpSupport, postNgrpSupport } from '../../lib/ngrp/useNgrpData'
 import { deriveApplicantRows } from '../../lib/ngrp/ngrpStates'
-import { activitiesFor, supportActivity } from '../../lib/ngrp/ngrpSupportActivities'
-import { beforeResidency, startOfResidency, duringResidency } from '../../lib/ngrp/ngrpSupportView'
+import { supportActivity, BULK_ACTIVITIES } from '../../lib/ngrp/ngrpSupportActivities'
+import {
+  beforeResidency, startOfResidency, duringResidency,
+  formStatusPill, groupLogChoices, lastEventDay, dayBefore, GROUP_LOG_FILTERS,
+} from '../../lib/ngrp/ngrpSupportView'
 import {
   SESSION_FORMATS, sessionFormatLabel, sessionLoggerLabel,
   DURATION_MIN, DURATION_MAX, TOPICS_MAX, NEXT_STEPS_MAX,
@@ -50,6 +56,7 @@ const ERRORS = {
   already_recorded: 'That activity is already recorded for this alumnus on that date.',
   aspire_team_only: 'Only the ASPIRE team records support.',
   candidate_not_found: 'That alumnus is not in this residency cohort.',
+  not_on_roster: 'One of those alumni is not in this residency cohort.',
   entry_not_found: 'That entry was already voided.',
 }
 const errorText = res => (res.errors || []).map(e => e.message).join(' ') || ERRORS[res.error] || 'It could not be saved.'
@@ -69,91 +76,172 @@ function Name({ row, sub }) {
   )
 }
 
-// ── Recording (the ASPIRE team) ──────────────────────────────────────────────
-function RecordForm({ cycle, rows, today, phase, preset, onDone, toast }) {
-  const acts = activitiesFor(phase)
-  const [activity, setActivity] = useState(preset?.activity || acts[0].key)
+// ── Log group activity (the ASPIRE team) ─────────────────────────────────────
+// SUPPORT-STANDALONE-1 (Owner, 2026-10-04): one activity, one date, any number of
+// alumni, and no transition form needed first. One save is one Undo for ten seconds.
+const UNDO_MS = 10_000
+
+// One choice from a short list, as chips that wrap on a phone (a segmented control
+// four labels wide runs off a 375px drawer).
+function ChipChoice({ options, value, onChange, ariaLabel }) {
+  return (
+    <div className="sl-chips" role="group" aria-label={ariaLabel}>
+      {options.map(o => (
+        <button key={o.value} type="button" className="sl-chip" aria-pressed={value === o.value} onClick={() => onChange(o.value)}>
+          {o.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function LogGroupDrawer({ open, cycle, rows, entries, today, onClose, onSaved, toast }) {
+  const [activity, setActivity] = useState(BULK_ACTIVITIES[0].key)
   const [occurredOn, setOccurredOn] = useState(today || '')
-  const [single, setSingle] = useState(preset?.candidateId || '')
-  const [group, setGroup] = useState(() => new Set())
+  const [filter, setFilter] = useState('all')
+  const [picked, setPicked] = useState(() => new Set())
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
-  const isGroup = supportActivity(activity)?.mode === 'group'
-  const choices = rows.filter(r => r.candidate_id)
+  const [error, setError] = useState('')
+  const act = supportActivity(activity)
+  const lastEvent = lastEventDay(entries, activity)
+  const yesterday = dayBefore(today)
+  const shown = useMemo(
+    () => groupLogChoices(rows, entries, { activity, filter })
+      .sort((x, y) => displayName(x.student).localeCompare(displayName(y.student), undefined, { sensitivity: 'base' })),
+    [rows, entries, activity, filter],
+  )
+  const shownIds = shown.map(r => r.student?.id || r.id)
+  const allShownPicked = shownIds.length > 0 && shownIds.every(id => picked.has(id))
+
+  const toggle = id => setPicked((prev) => {
+    const next = new Set(prev)
+    if (next.has(id)) next.delete(id); else next.add(id)
+    return next
+  })
+  const pickShown = () => setPicked((prev) => {
+    const next = new Set(prev)
+    if (allShownPicked) shownIds.forEach(id => next.delete(id)); else shownIds.forEach(id => next.add(id))
+    return next
+  })
+
+  const undo = async (entryIds, what) => {
+    const res = await postNgrpSupport('void_batch', { entry_ids: entryIds })
+    if (!res.ok) { toast?.error?.('Not undone', errorText(res)); return }
+    toast?.success?.('Undone', `${what} was removed. The record of it is kept.`)
+    onSaved()
+  }
 
   const submit = async (e) => {
     e.preventDefault()
     setBusy(true)
-    const base = { activity, occurred_on: occurredOn, note: note.trim() || null }
-    const res = isGroup
-      ? await postNgrpSupport('record_attendance', { ...base, cycle_id: cycle.id, candidate_ids: [...group] })
-      : await postNgrpSupport('record', { ...base, candidate_id: single })
+    setError('')
+    const res = await postNgrpSupport('record_attendance', {
+      cycle_id: cycle.id, activity, occurred_on: occurredOn, note: note.trim() || null, student_ids: [...picked],
+    })
     setBusy(false)
-    if (!res.ok) { toast?.error?.('Not saved', errorText(res)); return }
-    const what = supportActivity(activity).label
-    toast?.success?.('Support recorded', isGroup
-      ? `${what}: ${plural(res.created, 'alumnus', 'alumni')} recorded${res.alreadyRecorded ? `, ${res.alreadyRecorded} already on record` : ''}.`
-      : `${what} is on record.`)
-    onDone()
+    if (!res.ok) { setError(errorText(res)); return }
+    const what = `${act.label} on ${fmtDay(occurredOn)}`
+    const skipped = res.alreadyRecorded ? ` ${plural(res.alreadyRecorded, 'was', 'were')} already logged and skipped.` : ''
+    const ids = res.entryIds || []
+    const message = `${plural(res.created, 'alumnus', 'alumni')} logged.${skipped}`
+    if (ids.length) {
+      toast?.success?.(`${act.label} logged`, message, { duration: UNDO_MS, action: { label: 'Undo', onClick: () => undo(ids, what) } })
+    } else {
+      toast?.info?.('Nothing new to log', `Everyone chosen already has ${what}.`)
+    }
+    setPicked(new Set())
+    setNote('')
+    onSaved()
+    onClose()
   }
 
+  const filterLabel = f => (f.key === 'not_yet' ? `No ${act.label} yet` : f.label)
+  const footer = (
+    <>
+      <button type="button" className="sl-footbtn" style={btn()} onClick={onClose}>Cancel</button>
+      <button type="submit" form="sl-log-form" className="sl-footbtn" style={btn(true)} disabled={busy || !occurredOn || picked.size === 0}>
+        {busy ? 'Saving…' : picked.size ? `Log ${plural(picked.size, 'alumnus', 'alumni')}` : 'Log'}
+      </button>
+    </>
+  )
+
   return (
-    <form className="snap ngrp-glance-panel" onSubmit={submit} style={{ padding: '16px 18px' }} aria-label="Record support">
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 12 }}>
-        <label style={{ margin: 0 }}>
-          <span style={label}>Activity</span>
-          <select style={field} value={activity} onChange={e => setActivity(e.target.value)} disabled={Boolean(preset?.activity)}>
-            {acts.map(a => <option key={a.key} value={a.key}>{a.label}</option>)}
-          </select>
-        </label>
-        <label style={{ margin: 0 }}>
-          <span style={label}>Date</span>
-          <input style={field} type="date" value={occurredOn} max={today || undefined} onChange={e => setOccurredOn(e.target.value)} required />
-        </label>
-        {!isGroup && (
-          <label style={{ margin: 0 }}>
-            <span style={label}>Alumnus</span>
-            <select style={field} value={single} onChange={e => setSingle(e.target.value)} required disabled={Boolean(preset?.candidateId)}>
-              <option value="">Choose…</option>
-              {choices.map(r => <option key={r.candidate_id} value={r.candidate_id}>{displayName(r.student)}</option>)}
-            </select>
-          </label>
-        )}
-      </div>
-      {isGroup && (
-        <fieldset style={{ border: 0, padding: 0, margin: '0 0 12px' }}>
-          <legend style={label}>Who attended ({group.size} selected)</legend>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '4px 12px', maxHeight: 220, overflowY: 'auto' }}>
-            {choices.map(r => (
-              <label key={r.candidate_id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontFamily: F, cursor: 'pointer' }}>
-                <input type="checkbox" checked={group.has(r.candidate_id)} onChange={() => setGroup(prev => {
-                  const next = new Set(prev)
-                  if (next.has(r.candidate_id)) next.delete(r.candidate_id); else next.add(r.candidate_id)
-                  return next
-                })} />
-                {displayName(r.student)}
-              </label>
-            ))}
-          </div>
+    <DetailDrawer open={open} title="Log Group Activity" onClose={onClose} footer={footer} width={620} trapFocus>
+      <form id="sl-log-form" className="sl-form" onSubmit={submit}>
+        <fieldset className="sl-field">
+          <legend className="sl-label">Activity</legend>
+          <ChipChoice ariaLabel="Activity" value={activity} onChange={setActivity}
+            options={BULK_ACTIVITIES.map(a => ({ value: a.key, label: a.label }))} />
         </fieldset>
-      )}
-      <label style={{ display: 'block', margin: '0 0 12px' }}>
-        <span style={label}>Note (optional)</span>
-        <input style={field} value={note} maxLength={1000} onChange={e => setNote(e.target.value)} placeholder="Anything worth remembering" />
-      </label>
-      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-        <button type="button" style={btn()} onClick={onDone}>Cancel</button>
-        <button type="submit" style={btn(true)} disabled={busy || !occurredOn || (isGroup ? group.size === 0 : !single)}>
-          {busy ? 'Saving…' : 'Record Support'}
-        </button>
-      </div>
-    </form>
+
+        <div className="sl-field">
+          <label className="sl-label" htmlFor="sl-date">Date</label>
+          <div className="sl-daterow">
+            <input id="sl-date" className="sl-input" type="date" value={occurredOn} max={today || undefined}
+              onChange={e => setOccurredOn(e.target.value)} required />
+            <div className="sl-chips" role="group" aria-label="Date shortcuts">
+              {today && <button type="button" className="sl-chip" aria-pressed={occurredOn === today} onClick={() => setOccurredOn(today)}>Today</button>}
+              {yesterday && <button type="button" className="sl-chip" aria-pressed={occurredOn === yesterday} onClick={() => setOccurredOn(yesterday)}>Yesterday</button>}
+              {lastEvent && (
+                <button type="button" className="sl-chip" aria-pressed={occurredOn === lastEvent} onClick={() => setOccurredOn(lastEvent)}>
+                  Last event · {fmtDay(lastEvent)}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="sl-field">
+          <label className="sl-label" htmlFor="sl-note">Note for everyone (optional)</label>
+          <input id="sl-note" className="sl-input" value={note} maxLength={1000} onChange={e => setNote(e.target.value)}
+            placeholder="Anything worth remembering" />
+        </div>
+
+        <fieldset className="sl-field">
+          <legend className="sl-label">Alumni · {picked.size} selected</legend>
+          <div className="sl-rosterbar">
+            <ChipChoice ariaLabel="Show" value={filter} onChange={setFilter}
+              options={GROUP_LOG_FILTERS.map(f => ({ value: f.key, label: filterLabel(f) }))} />
+            <button type="button" className="ngrp-linkbtn sl-selectall" onClick={pickShown} disabled={shownIds.length === 0}>
+              {allShownPicked ? 'Clear shown' : 'Select all shown'}
+            </button>
+          </div>
+          {shown.length === 0 ? (
+            <p className="sl-empty">No alumni match this filter.</p>
+          ) : (
+            <ul className="sl-roster">
+              {shown.map((r) => {
+                const id = r.student?.id || r.id
+                const pill = formStatusPill(r.form_status)
+                return (
+                  <li key={id}>
+                    <label className="sl-person">
+                      <input type="checkbox" checked={picked.has(id)} onChange={() => toggle(id)} />
+                      <span className="sl-person-name">
+                        {displayName(r.student)}
+                        {r.student?.aspire_cohort && <span className="sl-person-q"> · {r.student.aspire_cohort}</span>}
+                      </span>
+                      <Pill tone={pill.tone}>{pill.label}</Pill>
+                    </label>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </fieldset>
+        {error && <p className="sl-error" role="alert">{error}</p>}
+        <p className="sl-hint">The transition form never has to come first. Logging the same activity on the same day twice is skipped, not doubled.</p>
+      </form>
+    </DetailDrawer>
   )
 }
 
 function RecentEntries({ entries, rows, canRecord, onChanged, toast }) {
   const [open, setOpen] = useState(false)
-  const nameOf = useMemo(() => new Map(rows.map(r => [r.candidate_id, displayName(r.student)])), [rows])
+  // By student, not candidate: an alumnus enrolled by Log group activity has a candidate
+  // id the roster has not refetched yet, but always the same student id.
+  const nameOf = useMemo(() => new Map(rows.map(r => [r.student?.id || r.id, displayName(r.student)])), [rows])
   if (entries.length === 0) return null
   const voidEntry = async (entry) => {
     const res = await postNgrpSupport('void', { entry_id: entry.id })
@@ -186,7 +274,7 @@ function RecentEntries({ entries, rows, canRecord, onChanged, toast }) {
               {entries.slice(0, 50).map(e => (
                 <tr key={e.id}>
                   <td style={{ whiteSpace: 'nowrap' }}>{fmtDay(e.occurred_on)}</td>
-                  <td>{nameOf.get(e.candidate_id) || ''}</td>
+                  <td>{nameOf.get(e.student_id) || ''}</td>
                   <td>{supportActivity(e.activity)?.label}{e.mentor_name ? ` · ${e.mentor_name}` : ''}</td>
                   <td className="ngrp-glance-muted">{e.note || ''}</td>
                   {canRecord && (
@@ -205,16 +293,40 @@ function RecentEntries({ entries, rows, canRecord, onChanged, toast }) {
 }
 
 // ── Before residency ─────────────────────────────────────────────────────────
+const dash = <Missing />
+function ActivityCell({ cell }) {
+  if (!cell || cell.count === 0) return dash
+  return <>{fmtDay(cell.last)}{cell.count > 1 && <span className="ds-dim"> ×{cell.count}</span>}</>
+}
+
 function BeforePanel({ cycle, rows, support, toast }) {
-  const [recording, setRecording] = useState(false)
+  const [logging, setLogging] = useState(false)
   const view = useMemo(() => beforeResidency(rows, support.entries), [rows, support.entries])
   const entries = support.entries.filter(e => supportActivity(e.activity)?.phase === 'before')
+  const shortLabel = { town_hall: 'Town Hall', interview_bootcamp: 'Bootcamp', placement_advising: 'Advising', resume_review: 'Résumé' }
+  const columns = [
+    { key: 'name', label: 'Alumnus', min: 170, grow: 2.2, priority: 1,
+      sortValue: t => displayName(t.row.student), render: t => <Name row={t.row} /> },
+    { key: 'form', label: 'Form', min: 92, grow: 0.8, priority: 2,
+      sortValue: t => ['Submitted', 'Pending', 'Not sent'].indexOf(t.form.label), render: t => <Pill tone={t.form.tone}>{t.form.label}</Pill> },
+    ...view.activities.map((a, i) => ({
+      key: a.key, label: shortLabel[a.key] || a.label, title: a.label, min: 96, grow: 0.8, align: 'right', priority: i === 0 ? 2 : 3,
+      sortValue: t => t.cells[a.key].last, render: t => <ActivityCell cell={t.cells[a.key]} />,
+    })),
+  ]
   return (
     <>
       <section className="snap" aria-label="Support before residency snapshot" style={{ margin: '14px 0' }}>
         <div className="snap-head">
-          <span className="ov-panel-title">Support Before Residency</span>
-          <span className="snap-sub">{cycle.name} · optional, never affects eligibility</span>
+          <span className="sl-headtext">
+            <span className="ov-panel-title">Support Before Residency</span>
+            <span className="snap-sub">{cycle.name} · optional, never affects eligibility</span>
+          </span>
+          {support.canRecord && (
+            <button type="button" className="sl-logbtn" style={btn(true)} onClick={() => setLogging(true)}>
+              <Plus size={14} strokeWidth={2.2} aria-hidden="true" /> Log Group Activity
+            </button>
+          )}
         </div>
         <div className="glance-kpis snap-kpis">
           <KPICell value={view.kpis.supported} label="Alumni Supported" sub={`of ${plural(view.kpis.alumni, 'alumnus', 'alumni')}`} accent="sage" />
@@ -222,51 +334,15 @@ function BeforePanel({ cycle, rows, support, toast }) {
         </div>
       </section>
 
-      {recording && (
-        <RecordForm cycle={cycle} rows={rows} today={support.today} phase="before" toast={toast}
-          onDone={() => { setRecording(false); support.refetch() }} />
+      {support.canRecord && (
+        <LogGroupDrawer open={logging} cycle={cycle} rows={rows} entries={support.entries} today={support.today}
+          onClose={() => setLogging(false)} onSaved={() => support.refetch()} toast={toast} />
       )}
 
-      <section className="snap ngrp-glance-panel" aria-label="Support by alumnus">
-        <div className="aggregate-panel-hdr">
-          <div>
-            <div className="ov-panel-title">By Alumnus</div>
-            <div className="ov-panel-sub">Most recent date for each activity</div>
-          </div>
-          {support.canRecord && !recording && (
-            <button type="button" style={btn(true)} onClick={() => setRecording(true)}>
-              <Plus size={14} strokeWidth={2.2} aria-hidden="true" /> Record Support
-            </button>
-          )}
-        </div>
-        {view.rows.length === 0 ? (
-          <p className="ngrp-glance-empty">No alumni in this residency cohort yet.</p>
-        ) : (
-          <div className="ngrp-glance-scroll">
-            <table className="ngrp-glance-table">
-              <thead>
-                <tr>
-                  <th className="aspire-th">Alumnus</th>
-                  {view.activities.map(a => <th key={a.key} className="aspire-th aspire-th-center">{a.label}</th>)}
-                </tr>
-              </thead>
-              <tbody>
-                {view.rows.map(({ row, cells }) => (
-                  <tr key={row.id}>
-                    <td><Name row={row} /></td>
-                    {view.activities.map(a => (
-                      <td key={a.key} style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
-                        {cells[a.key].count > 0
-                          ? <>{fmtDay(cells[a.key].last)}{cells[a.key].count > 1 && <span className="ngrp-glance-muted"> ×{cells[a.key].count}</span>}</>
-                          : <span className="ngrp-glance-muted">Not yet</span>}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+      <section className="snap ngrp-glance-panel sl-sheet" aria-label="Support by alumnus">
+        <DataSheet level="plain" title="By Alumnus" caption="Most recent date for each activity. The transition form never blocks a support entry."
+          columns={columns} rows={view.rows} rowKey={t => t.row.id} defaultSort={{ key: 'name', dir: 'asc' }}
+          emptyMessage="No alumni in this residency cohort yet." />
       </section>
 
       <RecentEntries entries={entries} rows={rows} canRecord={support.canRecord} onChanged={support.refetch} toast={toast} />

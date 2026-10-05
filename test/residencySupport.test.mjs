@@ -53,11 +53,15 @@ test('an entry: a real, past date; notes bounded; mentor name only on a mentorsh
   assert.equal(validateSupportEntry({ activity: 'town_hall', occurred_on: '2026-09-10', note: 'x'.repeat(1001) }).ok, false)
 })
 
-test('attendance is for group activities only, 1 to 200 alumni', () => {
+test('Log group activity takes the bulk activities only, 1 to 200 alumni', () => {
   const ok = validateAttendance({ activity: 'town_hall', occurred_on: '2026-09-10', candidate_ids: [ID('11'), ID('11'), ID('12')] }, { today: '2026-09-11' })
   assert.equal(ok.ok, true)
   assert.deepEqual(ok.candidateIds, [ID('11'), ID('12')], 'duplicates collapse')
-  assert.equal(validateAttendance({ activity: 'resume_review', occurred_on: '2026-09-10', candidate_ids: [ID('11')] }).ok, false)
+  // SUPPORT-STANDALONE-1 (2026-10-04): Placement Advising and, until the Outreach send
+  // logs it, Résumé Review are logged through the same panel. A mentorship session is not.
+  assert.equal(validateAttendance({ activity: 'placement_advising', occurred_on: '2026-09-10', candidate_ids: [ID('11')] }).ok, true)
+  assert.equal(validateAttendance({ activity: 'resume_review', occurred_on: '2026-09-10', candidate_ids: [ID('11')] }).ok, true)
+  assert.equal(validateAttendance({ activity: 'mentorship_session', occurred_on: '2026-09-10', candidate_ids: [ID('11')] }).ok, false)
   assert.equal(validateAttendance({ activity: 'town_hall', occurred_on: '2026-09-10', candidate_ids: [] }).ok, false)
   assert.equal(validateAttendance({ activity: 'town_hall', occurred_on: '2026-09-10', candidate_ids: ['nope'] }).ok, false)
   assert.equal(ATTENDANCE_MAX, 200)

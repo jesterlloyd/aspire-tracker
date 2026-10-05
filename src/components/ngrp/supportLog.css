@@ -1,0 +1,61 @@
+/* SUPPORT-STANDALONE-1: Residency > Support, Before Residency. Log Group Activity and
+   the By Alumnus sheet. Theme tokens throughout, so the drawer and the sheet follow
+   dark mode; the sheet itself is the canon DataSheet at the plain level. */
+
+.sl-headtext { display: inline-flex; align-items: baseline; gap: 10px; flex-wrap: wrap; min-width: 0; }
+.sl-logbtn { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; }
+
+.sl-sheet { padding: 14px 16px 10px; }
+
+.sl-form { display: flex; flex-direction: column; gap: 18px; }
+.sl-field { border: 0; padding: 0; margin: 0; min-width: 0; }
+.sl-label {
+  display: block; padding: 0; margin: 0 0 6px;
+  font-size: 12px; font-weight: 600; color: var(--text-heading, #191919);
+}
+.sl-input {
+  width: 100%; box-sizing: border-box; height: 36px; padding: 0 10px;
+  border-radius: var(--aspire-radius-control); border: 1px solid var(--border-input, rgba(29,37,103,0.18));
+  background: var(--color-bg-surface, #fff); color: var(--text-heading, #191919);
+  font: inherit; font-size: 13px;
+}
+.sl-daterow { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.sl-daterow .sl-input { width: 170px; }
+.sl-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.sl-chip {
+  min-height: 32px; padding: 0 12px; border-radius: var(--aspire-radius-pill, 999px);
+  border: 1px solid var(--border-input, rgba(29,37,103,0.18)); background: var(--color-bg-surface, #fff);
+  color: var(--text-heading, #191919); font: inherit; font-size: 12.5px; cursor: pointer;
+}
+.sl-chip:hover { background: var(--color-bg-subtle, #f4f5f8); }
+.sl-chip[aria-pressed="true"] { background: var(--color-accent-primary, #1D2567); border-color: var(--color-accent-primary, #1D2567); color: var(--seg-active-ink, #fff); }
+
+.sl-rosterbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.sl-selectall { font-size: 12.5px; min-height: 32px; }
+.sl-roster {
+  list-style: none; margin: 0; padding: 4px 0; max-height: 340px; overflow-y: auto;
+  border: 1px solid var(--border-input, rgba(29,37,103,0.18)); border-radius: var(--aspire-radius-control);
+}
+.sl-person {
+  display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px; cursor: pointer;
+  font-size: 13px; color: var(--text-heading, #191919);
+}
+.sl-person:hover { background: var(--color-bg-subtle, #f4f5f8); }
+.sl-person input { width: 16px; height: 16px; flex: none; margin: 0; }
+.sl-person-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sl-person-q { color: var(--text-caption, #5b6470); }
+.sl-empty { margin: 0; padding: 14px 12px; font-size: 13px; color: var(--text-caption, #5b6470); }
+.sl-error { margin: 0; font-size: 13px; color: var(--aspire-bad, #B3282D); }
+.sl-hint { margin: 0; font-size: 12px; line-height: 1.5; color: var(--text-caption, #5b6470); }
+
+/* The DataSheet's pill reads the paper tokens; inside the drawer they come from theme.css too. */
+.sl-person .ds-pill { flex: none; }
+
+/* Touch targets: 44px on a phone or any coarse pointer. */
+@media (max-width: 600px), (pointer: coarse) {
+  .sl-chip, .sl-selectall, .sl-input, .sl-footbtn, .sl-logbtn { min-height: 44px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sl-chip, .sl-person { transition: none; }
+}

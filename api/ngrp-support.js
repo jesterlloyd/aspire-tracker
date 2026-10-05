@@ -7,7 +7,12 @@
 //                     Talent Acquisition gets the same narrowed roster as
 //                     every other Residency endpoint (submitted forms only).
 //   record            { candidate_id, activity, occurred_on, note?, mentor_name?, event_id? }
-//   record_attendance { cycle_id, activity, occurred_on, candidate_ids[], note?, event_id? }
+//   record_attendance { cycle_id, activity, occurred_on, student_ids[] | candidate_ids[], note?, event_id? }
+//                     -> Log group activity (SUPPORT-STANDALONE-1). By student id, an
+//                        alumnus on the cycle's roster is enrolled as it is logged, so
+//                        no Transition Form is needed first. Returns the entry ids.
+//   void_batch        { entry_ids[] } -> Undo of one Log group activity save: voids the
+//                        caller's own live entries among those ids.
 //   void              { entry_id, reason? }
 //   set_mentor        { candidate_id, mentor_name, mentor_profile_id? }
 //                     -> the ASPIRE team only (Owner, 2026-09-11): staff with
@@ -30,7 +35,8 @@ import { getServiceDb } from './lib/portalAuth.js'
 import { verifyNgrpCaller } from './lib/ngrpAuth.js'
 import { loadApplicantsPayload, isMissingNgrpTable, isMissingNgrpColumn } from '../lib/server/ngrpApplicants.js'
 import { TALENT_ACQUISITION, narrowPayloadForTalentAcquisition } from '../lib/server/ngrpTalentAcquisition.js'
-import { validateSupportEntry, validateAttendance, validateMentor, validateVoid } from '../lib/server/ngrpSupport.js'
+import { validateSupportEntry, validateAttendance, validateMentor, validateVoid, validateUndo } from '../lib/server/ngrpSupport.js'
+import { enrollStudents, writeGroupEntries } from '../lib/server/ngrpSupportLog.js'
 import { generateToken } from '../lib/server/evaluation/tokens.js'
 import { emailBaseUrl } from '../lib/server/appUrl.js'
 import { buildReflectionEmail } from '../lib/server/email/ngrpReflectionEmail.js'
@@ -51,8 +57,8 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 //   residents         { cycle_id } | { scope: 'aggregate' } -> RESIDENTS-1: the
 //                        hired residents and their affiliation, for Residency >
 //                        Residents. Both audiences; Talent Acquisition narrowed.
-const ACTIONS = new Set(['summary', 'residents', 'record', 'record_attendance', 'void', 'set_mentor', 'reflection_start', 'reflection_stop', 'reflection_view', 'schedule', 'entries_for_students'])
-const WRITES = new Set(['record', 'record_attendance', 'void', 'set_mentor', 'reflection_start', 'reflection_stop'])
+const ACTIONS = new Set(['summary', 'residents', 'record', 'record_attendance', 'void', 'void_batch', 'set_mentor', 'reflection_start', 'reflection_stop', 'reflection_view', 'schedule', 'entries_for_students'])
+const WRITES = new Set(['record', 'record_attendance', 'void', 'void_batch', 'set_mentor', 'reflection_start', 'reflection_stop'])
 // Reading a resident's answers is the ASPIRE team's until the Owner decides
 // how sharing works; it is a read, so it needs no manage capability.
 const TEAM_ONLY = new Set([...WRITES, 'reflection_view', 'entries_for_students'])
@@ -340,29 +346,51 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, entry: ins.data })
     }
 
-    // ── group attendance (Town Hall, Interview Bootcamp) ─────────────────────
+    // ── Log group activity: one activity and date, many alumni ───────────────
     if (action === 'record_attendance') {
       const cycleId = typeof body.cycle_id === 'string' && UUID.test(body.cycle_id) ? body.cycle_id : null
       if (!cycleId) return res.status(422).json({ error: 'invalid_cycle_id' })
       const v = validateAttendance(body, { today })
       if (!v.ok) return invalid(res, v.errors)
-      const cands = await db.from('ngrp_candidates').select('id, cycle_id, student_id').in('id', v.candidateIds)
-      if (cands.error) return isMissingNgrpTable(cands.error) ? unprovisioned(res) : internal(res)
-      const inCycle = (cands.data || []).filter(c => c.cycle_id === cycleId)
-      if (inCycle.length !== v.candidateIds.length) return res.status(404).json({ error: 'candidate_not_found' })
-      let created = 0
-      let alreadyRecorded = 0
-      for (const c of inCycle) {
-        const ins = await db.from(ENTRIES).insert({
-          ...v.entry, cycle_id: cycleId, candidate_id: c.id, student_id: c.student_id, recorded_by_profile_id: actorId,
-        })
-        if (ins.error) {
-          if (isUnique(ins.error)) { alreadyRecorded += 1; continue }
-          return isMissingNgrpTable(ins.error) ? unprovisioned(res) : res.status(500).json({ error: 'internal_error', created })
-        }
-        created += 1
+      let candidates
+      let enrolled = 0
+      if (v.studentIds) {
+        // Only an alumnus on this cycle's roster (the same roster the tab shows) can be
+        // logged, and the roster is the server's, never the request's.
+        const payload = await loadApplicantsPayload(db, cycleId)
+        if (payload.state === 'unprovisioned') return unprovisioned(res)
+        if (payload.state === 'cycle_not_found') return res.status(404).json({ error: 'cycle_not_found' })
+        if (payload.state !== 'ok') return internal(res)
+        const roster = new Set((payload.students || []).map(s => s.id))
+        if (!v.studentIds.every(id => roster.has(id))) return res.status(404).json({ error: 'not_on_roster' })
+        const e = await enrollStudents(db, { cycleId, studentIds: v.studentIds })
+        if (e.error) return isMissingNgrpTable(e.error) ? unprovisioned(res) : internal(res)
+        candidates = v.studentIds.map(id => e.byStudent.get(id))
+        enrolled = e.enrolled
+      } else {
+        const cands = await db.from('ngrp_candidates').select('id, cycle_id, student_id').in('id', v.candidateIds)
+        if (cands.error) return isMissingNgrpTable(cands.error) ? unprovisioned(res) : internal(res)
+        candidates = (cands.data || []).filter(c => c.cycle_id === cycleId)
+        if (candidates.length !== v.candidateIds.length) return res.status(404).json({ error: 'candidate_not_found' })
       }
-      return res.status(200).json({ ok: true, created, alreadyRecorded })
+      const w = await writeGroupEntries(db, { cycleId, candidates, entry: v.entry, actorId })
+      if (w.error) {
+        if (isMissingNgrpTable(w.error)) return unprovisioned(res)
+        return res.status(500).json({ error: 'internal_error', created: w.created || 0, entryIds: w.entryIds || [] })
+      }
+      return res.status(200).json({ ok: true, created: w.created, alreadyRecorded: w.alreadyRecorded, entryIds: w.entryIds, enrolled })
+    }
+
+    // ── void_batch: Undo of one Log group activity save ──────────────────────
+    if (action === 'void_batch') {
+      const v = validateUndo(body)
+      if (!v.ok) return invalid(res, v.errors)
+      const upd = await db.from(ENTRIES)
+        .update({ voided_at: new Date().toISOString(), voided_by_profile_id: actorId, void_reason: 'Undone right after it was logged.' })
+        .in('id', v.entryIds).eq('recorded_by_profile_id', actorId).is('voided_at', null)
+        .select('id')
+      if (upd.error) return isMissingNgrpTable(upd.error) ? unprovisioned(res) : internal(res)
+      return res.status(200).json({ ok: true, voided: (upd.data || []).length })
     }
 
     // ── void (never delete) ─────────────────────────────────────────────────
