@@ -24,8 +24,10 @@ export function beforeResidency(rows = [], entries = []) {
     const list = byStudent.get(r.student?.id || r.id) || []
     const cells = {}
     for (const a of acts) {
-      const hits = list.filter(e => e.activity === a.key).map(e => e.occurred_on).sort()
-      cells[a.key] = { count: hits.length, last: hits[hits.length - 1] || null }
+      const mine = list.filter(e => e.activity === a.key).sort((x, y) => String(x.occurred_on).localeCompare(String(y.occurred_on)))
+      const latest = mine[mine.length - 1] || null
+      // SUPPORT-OUTREACH-1: whether the latest entry was logged by an Outreach send.
+      cells[a.key] = { count: mine.length, last: latest?.occurred_on || null, fromOutreach: latest?.source === 'outreach' }
     }
     return { row: r, cells, total: list.length, form: formStatusPill(r.form_status) }
   })

@@ -26,10 +26,9 @@ export const SUPPORT_ACTIVITY_KEYS = Object.freeze(SUPPORT_ACTIVITIES.map(a => a
 
 // SUPPORT-STANDALONE-1 (Owner, 2026-10-04): Before Residency is logged through ONE
 // panel, Log group activity: one activity and one date for any number of alumni, and
-// no transition form is needed first. Résumé Review is listed here only until it is
-// logged by the Outreach send itself (the résumé review build's Phase 4); remove it
-// from this list in that commit, and the manual path closes with it.
-export const BULK_ACTIVITY_KEYS = Object.freeze(['resume_review', 'town_hall', 'interview_bootcamp', 'placement_advising'])
+// no transition form is needed first. SUPPORT-OUTREACH-1 (2026-10-05): Résumé Review is
+// NOT here. It is logged only by sending a résumé review from ASPIRE Connect > Outreach.
+export const BULK_ACTIVITY_KEYS = Object.freeze(['town_hall', 'interview_bootcamp', 'placement_advising'])
 export const BULK_ACTIVITIES = Object.freeze(BULK_ACTIVITY_KEYS.map(k => SUPPORT_ACTIVITIES.find(a => a.key === k)))
 
 export const SUPPORT_NOTE_MAX = 1000

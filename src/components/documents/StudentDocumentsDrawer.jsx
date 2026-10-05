@@ -10,6 +10,7 @@
 // summary line) is src/lib/documents/documentChecklist.js; nothing is decided here.
 // Keith's checks and scores arrive in Phase 3, the Request button with Outreach in Phase 4.
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { FileText, Upload } from 'lucide-react'
 import DetailDrawer from '../ui/DetailDrawer'
@@ -28,6 +29,8 @@ import ResumeReviewDrawer from './ResumeReviewDrawer'
 import { startResumeReview, reviewErrorText } from '../../lib/documents/studentDocumentsClient'
 import { reviewState } from '../../lib/documents/resumeReviewModel'
 import { detectDocumentDate, readPdfText } from '../../lib/documents/documentDates'
+import { writeLaunchContext } from '../../lib/connect/launchContext'
+import { documentRequestHandoff, outreachHandoffPath } from '../../lib/documents/supportHandoffModel'
 
 const firstName = s => s?.preferred_first_name || s?.first_name || displayName(s)
 const extBadge = name => String(name || '').split('.').pop().toUpperCase().slice(0, 4) || 'FILE'
@@ -326,7 +329,8 @@ function ResumeCard({ student, doc, resumeOnRecord, canWrite, onPick, toast, rev
 }
 
 // ── The drawer ───────────────────────────────────────────────────────────────
-export default function StudentDocumentsDrawer({ open, student, onClose, toast, subline = null }) {
+export default function StudentDocumentsDrawer({ open, student, onClose, toast, subline = null, cycle = null }) {
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const docs = useStudentDocuments(student?.id, { enabled: open })
   const [upload, setUpload] = useState(null) // { type, file } | { type: null }
@@ -361,6 +365,13 @@ export default function StudentDocumentsDrawer({ open, student, onClose, toast, 
     refresh()
     if (result?.score && result.version?.id) score(result.version.id, result.version.pages ?? null)
   }
+  // SUPPORT-OUTREACH-1: ask the alumnus for a missing document. Opens an Outreach draft to
+  // their personal email; a request never logs support.
+  const request = (type) => {
+    const ctx = writeLaunchContext(documentRequestHandoff({ type, student, cycle }))
+    if (!ctx) { toast?.error?.('Could not open Outreach', 'This browser blocked the hand-off.'); return }
+    navigate(outreachHandoffPath(student.id))
+  }
   const view = async (row) => {
     const r = row.current ? await openStudentDocumentVersion(row.current.id) : await openStudentFile({ studentId: student.id, kind: 'resume' })
     if (!r.ok) toast?.error?.('Could not open the document', 'Try again in a moment.')
@@ -380,10 +391,13 @@ export default function StudentDocumentsDrawer({ open, student, onClose, toast, 
       render: r => (r.updated ? shortDay(r.updated) : <Missing />) },
     { key: 'detail', label: 'Detail', min: 150, grow: 1.4, priority: 2, sortValue: r => r.detail?.text || '',
       render: r => (r.detail ? <span className={r.detail.warn ? 'sd-warn' : undefined}>{r.detail.text}</span> : <Missing />) },
-    { key: 'actions', label: '', title: 'Actions', min: 120, grow: 0.9, align: 'right', priority: 1,
+    { key: 'actions', label: '', title: 'Actions', min: 150, grow: 0.9, align: 'right', priority: 1,
       render: r => (
         <span className="sd-rowacts">
           {r.hasFile && <button type="button" className="sd-btn sd-btn-sm" onClick={() => view(r)} aria-label={`View ${r.type.label}`}>View</button>}
+          {!r.hasFile && docs.canWrite && cycle?.id && r.status.key !== 'not_yet' && (
+            <button type="button" className="sd-btn sd-btn-sm" onClick={() => request(r.type)} aria-label={`Request ${r.type.label} from ${firstName(student)}`}>Request</button>
+          )}
           {docs.canWrite && (
             <button type="button" className="sd-btn sd-btn-sm" onClick={() => setUpload({ type: r.type.key })} aria-label={`${r.hasFile ? 'Replace' : 'Upload'} ${r.type.label}`}>
               {r.hasFile ? 'Replace' : 'Upload'}
@@ -454,7 +468,7 @@ export default function StudentDocumentsDrawer({ open, student, onClose, toast, 
       </div>
       <ResumeReviewDrawer open={Boolean(reviewOpen)} reviewId={reviewOpen} student={student}
         reviews={docs.reviews.filter(r => (resumeDoc?.versions || []).some(v => v.id === r.document_version_id))}
-        versions={resumeDoc?.versions || []} sender={docs.sender} canWrite={docs.canWrite}
+        versions={resumeDoc?.versions || []} sender={docs.sender} canWrite={docs.canWrite} cycle={cycle}
         onClose={() => setReviewOpen(null)} toast={toast} />
     </DetailDrawer>
   )

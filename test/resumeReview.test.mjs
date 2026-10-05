@@ -204,6 +204,10 @@ test('SKILL.md is exactly what the migration seeds, and the skill is a disabled 
   const sql = read('supabase/migrations/20261105000000_resume_reviews.sql')
   const seeded = sql.match(/E'(You review ONE[\s\S]*?)'\n\)\nON CONFLICT/)[1].replace(/''/g, "'").replace(/\\n/g, '\n').replace(/\\\\/g, '\\')
   assert.equal(seeded, body)
+  const fix = read('supabase/migrations/20261106000001_review_resume_wording.sql')
+  const fixed = fix.match(/v_body  text := E'([\s\S]*?)';\n/)[1].replace(/''/g, "'").replace(/\\n/g, '\n').replace(/\\\\/g, '\\')
+  assert.equal(fixed, body, 'the wording fix brings an applied row to exactly SKILL.md')
+  assert.doesNotMatch(body, /New-Graduate|ASPIRE Program/)
   assert.match(sql, /'review-resume',\s*'Review Résumé',[\s\S]*?'draft',\s*false,\s*'on',\s*ARRAY\['owner', 'admin'\]/)
   assert.match(sql, /ARRAY\['student_resume_read'\]/)
   assert.deepEqual([...SKILL_DEFS['review-resume'].inputs], ['resume_text', 'applicant'])
@@ -239,4 +243,32 @@ test('the migration on Postgres: server-only, never deleted, and a scored review
   await assert.rejects(db.query(`INSERT INTO resume_reviews (student_id, document_version_id, status) VALUES ($1, $2, 'scored')`, [s, v]), /scored_complete/)
   await db.query(`INSERT INTO resume_reviews (student_id, document_version_id, status, score, readiness, scored_at) VALUES ($1, $2, 'scored', 72, 'Competitive', now())`, [s, v])
   await assert.rejects(db.query(`INSERT INTO resume_reviews (student_id, document_version_id, readiness) VALUES ($1, $2, 'Great')`, [s, v]))
+})
+
+test('the wording fix on Postgres: a draft takes the text, an active skill gets a version, a re-run does nothing', async () => {
+  const db = new PGlite()
+  await db.exec(`
+    CREATE TABLE public.user_profiles (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), is_owner boolean, created_at timestamptz DEFAULT now());
+    INSERT INTO public.user_profiles (is_owner) VALUES (true);
+    CREATE TABLE public.keith_skills (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), slug text UNIQUE, display_name text, description text, version integer DEFAULT 0,
+      status text, enabled boolean, allowed_roles text[], required_tools text[], required_data text[], trigger_phrases text[], data_classification text,
+      model_route text, io_contract jsonb, instruction_body text, updated_by uuid);
+    CREATE TABLE public.keith_skill_versions (skill_id uuid, version_number integer, display_name text, description text, allowed_roles text[], required_tools text[],
+      required_data text[], trigger_phrases text[], data_classification text, model_route text, io_contract jsonb, instruction_body text, change_note text, editor_id uuid);
+    CREATE TABLE public.activity_logs (user_id uuid, user_name text, user_role text, action_type text, entity_type text, entity_id text, description text, metadata jsonb);
+  `)
+  const fix = read('supabase/migrations/20261106000001_review_resume_wording.sql')
+  const body = read('skills/review-resume/SKILL.md').split('---\n').slice(2).join('---\n').trim()
+  const old = 'Applying to Cedars-Sinai\'s New-Graduate RN Residency Program; aspire_participation: the ASPIRE ' + 'Program by name'
+  await db.query(`INSERT INTO keith_skills (slug, status, enabled, version, instruction_body) VALUES ('review-resume', 'draft', false, 0, $1)`, [old])
+  await db.exec(fix)
+  let r = (await db.query(`SELECT version, instruction_body = $1 AS fixed FROM keith_skills`, [body])).rows[0]
+  assert.deepEqual(r, { version: 0, fixed: true }, 'a draft just takes the text')
+  await db.query(`UPDATE keith_skills SET status = 'active', enabled = true, version = 1, instruction_body = $1`, [old])
+  await db.exec(fix)
+  r = (await db.query(`SELECT version, status, enabled, instruction_body = $1 AS fixed FROM keith_skills`, [body])).rows[0]
+  assert.deepEqual(r, { version: 2, status: 'active', enabled: true, fixed: true }, 'an active skill gets version + 1, status and switch kept')
+  assert.equal((await db.query(`SELECT COUNT(*)::int AS n FROM keith_skill_versions WHERE version_number = 2`)).rows[0].n, 1)
+  await db.exec(fix)
+  assert.equal((await db.query(`SELECT version FROM keith_skills`)).rows[0].version, 2, 'a re-run changes nothing')
 })

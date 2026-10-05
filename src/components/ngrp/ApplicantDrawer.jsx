@@ -803,7 +803,7 @@ function PreceptorFeedbackSection({ row, feedback, actions }) {
 // STUDENT-DOCUMENTS-1: the application documents, summarised, with the way into the
 // Documents drawer. The staff app only: Talent Acquisition never sees a student's files
 // (the endpoint refuses them too).
-function DocumentsSection({ row, toast }) {
+function DocumentsSection({ row, toast, cycle }) {
   const { staffApp } = useNgrpSurface()
   const studentId = row.student?.id || null
   const docs = useStudentDocuments(studentId, { enabled: staffApp })
@@ -823,7 +823,7 @@ function DocumentsSection({ row, toast }) {
           {summary.missing.length > 0 && <Row label="Missing">{summary.missing.join(', ')}</Row>}
         </>
       )}
-      <StudentDocumentsDrawer open={open} student={row.student} subline={row.student?.aspire_cohort} onClose={() => setOpen(false)} toast={toast} />
+      <StudentDocumentsDrawer open={open} student={row.student} subline={row.student?.aspire_cohort} cycle={cycle} onClose={() => setOpen(false)} toast={toast} />
     </Section>
   )
 }
@@ -958,7 +958,7 @@ function ApplicantDrawerBody({
         )}
       </Section>
 
-      <DocumentsSection row={row} toast={toast} />
+      <DocumentsSection row={row} toast={toast} cycle={cycle} />
 
       <Section title="Residency Interest" tint="rgba(96,120,170,0.055)">
         <Row label="Interest"><NgrpStatusPill config={INTEREST_STATES} value={row.interest} /></Row>

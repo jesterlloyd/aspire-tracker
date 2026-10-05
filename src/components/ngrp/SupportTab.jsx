@@ -13,7 +13,7 @@
 // the recorded entries (src/lib/ngrp/ngrpSupportView.js). A wrong entry is
 // voided, never deleted.
 import { Fragment, useMemo, useState } from 'react'
-import { Plus, Eye, ExternalLink } from 'lucide-react'
+import { Plus, Eye, ExternalLink, MessageSquare } from 'lucide-react'
 import { KPICell } from '../KPIBand'
 import DetailDrawer from '../ui/DetailDrawer'
 import DataSheet, { Pill, Missing } from '../shared/DataSheet'
@@ -298,7 +298,12 @@ function RecentEntries({ entries, rows, canRecord, onChanged, toast }) {
 const dash = <Missing />
 function ActivityCell({ cell }) {
   if (!cell || cell.count === 0) return dash
-  return <>{fmtDay(cell.last)}{cell.count > 1 && <span className="ds-dim"> ×{cell.count}</span>}</>
+  return (
+    <span className="sl-cell">
+      {cell.fromOutreach && <MessageSquare size={13} aria-label="Logged from an Outreach send" className="sl-cell-icon" />}
+      {fmtDay(cell.last)}{cell.count > 1 && <span className="ds-dim"> ×{cell.count}</span>}
+    </span>
+  )
 }
 
 function BeforePanel({ cycle, rows, support, toast }) {
@@ -310,6 +315,15 @@ function BeforePanel({ cycle, rows, support, toast }) {
   const [docsFor, setDocsFor] = useState(null)
   const view = useMemo(() => beforeResidency(rows, support.entries), [rows, support.entries])
   const entries = support.entries.filter(e => supportActivity(e.activity)?.phase === 'before')
+  // RESUME-REVIEW-1: the latest Keith score, the ASPIRE team only (Talent Acquisition gets none).
+  const scoreColumn = {
+    key: 'score', label: 'Score', title: 'Latest résumé score', min: 64, grow: 0.5, align: 'right', priority: 3,
+    sortValue: t => support.scores?.[t.row.student?.id || t.row.id]?.score ?? null,
+    render: (t) => {
+      const sc = support.scores?.[t.row.student?.id || t.row.id]
+      return sc ? <span title={sc.readiness}>{sc.score}</span> : dash
+    },
+  }
   const shortLabel = { town_hall: 'Town Hall', interview_bootcamp: 'Bootcamp', placement_advising: 'Advising', resume_review: 'Résumé' }
   const columns = [
     { key: 'name', label: 'Alumnus', min: 170, grow: 2.2, priority: 1,
@@ -329,6 +343,8 @@ function BeforePanel({ cycle, rows, support, toast }) {
       },
     })),
   ]
+  // The Score column sits right after Résumé.
+  columns.splice(columns.findIndex(c => c.key === 'resume_review') + 1, 0, scoreColumn)
   return (
     <>
       <section className="snap" aria-label="Support before residency snapshot" style={{ margin: '14px 0' }}>
@@ -345,7 +361,7 @@ function BeforePanel({ cycle, rows, support, toast }) {
         </div>
         <div className="glance-kpis snap-kpis">
           <KPICell value={view.kpis.supported} label="Alumni Supported" sub={`of ${plural(view.kpis.alumni, 'alumnus', 'alumni')}`} accent="sage" />
-          {view.activities.map(a => <KPICell key={a.key} value={view.kpis[a.key]} label={a.label} sub="Alumni reached" />)}
+          {view.activities.map(a => <KPICell key={a.key} value={view.kpis[a.key]} label={a.label} sub={a.key === 'resume_review' ? 'Logged from Outreach sends' : 'Alumni reached'} />)}
         </div>
       </section>
 
@@ -363,7 +379,7 @@ function BeforePanel({ cycle, rows, support, toast }) {
       <RecentEntries entries={entries} rows={rows} canRecord={support.canRecord} onChanged={support.refetch} toast={toast} />
 
       {canDocs && (
-        <StudentDocumentsDrawer open={Boolean(docsFor)} student={docsFor?.student} subline={docsFor?.student?.aspire_cohort}
+        <StudentDocumentsDrawer open={Boolean(docsFor)} student={docsFor?.student} subline={docsFor?.student?.aspire_cohort} cycle={cycle}
           onClose={() => setDocsFor(null)} toast={toast} />
       )}
     </>

@@ -143,8 +143,11 @@ export default async function handler(req, res) {
       let sessionDetailsProvisioned = true
       if (candidateIds.length) {
         const readEntries = cols => db.from(ENTRIES).select(cols).in('candidate_id', candidateIds).is('voided_at', null).order('occurred_on', { ascending: false })
+        // SUPPORT-OUTREACH-1: `source` arrives with 20261106000000; before it, the next tier.
+        let widest = await readEntries(`${ENTRY_FIELDS}, ${SESSION_FIELDS}, source`)
+        if (widest.error && isMissingNgrpColumn(widest.error)) widest = null
         const [first, m] = await Promise.all([
-          readEntries(`${ENTRY_FIELDS}, ${SESSION_FIELDS}`),
+          widest || readEntries(`${ENTRY_FIELDS}, ${SESSION_FIELDS}`),
           db.from(MENTORS).select('candidate_id, mentor_name, mentor_profile_id, assigned_at').in('candidate_id', candidateIds),
         ])
         let e = first
@@ -182,7 +185,16 @@ export default async function handler(req, res) {
           }
         }
       }
-      void studentIds
+      // RESUME-REVIEW-1: each alumnus's latest Keith score, for By Alumnus. The ASPIRE team only:
+      // Talent Acquisition never sees a score. Absent until 20261105000000.
+      let scores = {}
+      if (!isTA && studentIds.length) {
+        const rv = await db.from('resume_reviews').select('student_id, score, readiness, status, scored_at')
+          .in('student_id', studentIds).in('status', ['scored', 'sent']).order('scored_at', { ascending: false })
+        if (!rv.error) {
+          for (const r of rv.data || []) if (!scores[r.student_id]) scores[r.student_id] = { score: r.score, readiness: r.readiness }
+        }
+      }
 
       return res.status(200).json({
         provisioned: true,
@@ -192,6 +204,7 @@ export default async function handler(req, res) {
         mentors,
         sessionDetailsProvisioned,
         reflections: { provisioned: reflectionsProvisioned, runs, periods },
+        scores,
       })
     }
 

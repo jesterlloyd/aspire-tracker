@@ -378,7 +378,9 @@ test('preview resolves for display but sends and writes nothing', () => {
 test('audit metadata records names and sizes, never bytes or paths', () => {
   for (const f of ['api/connect-send-direct-email.js', 'api/connect-send-bulk-message.js']) {
     const src = read(f)
-    assert.match(src, /attachments:\s+att\.summary/, `${f} logs the summary`)
+    // SUPPORT-OUTREACH-1 (2026-10-05): the direct endpoint logs the Catalog summary and the student
+    // document summary together; both are metadata only.
+    assert.match(src, /attachments:\s+(att\.summary|\[\.\.\.att\.summary, \.\.\.docAtt\.summary\])/, `${f} logs the summary`)
     assert.doesNotMatch(src, /attachments:\s+att\.attachments\s*,/,
       `${f} must never put the byte-bearing array into metadata`)
   }

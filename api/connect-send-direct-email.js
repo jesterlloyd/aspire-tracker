@@ -54,13 +54,16 @@ import { JESTER_SIGNATURE, KRYSTAL_SIGNATURE } from '../src/lib/notifications/te
 import { INACTIVE_MESSAGE } from './lib/activeAccount.js';
 import { getOrganizationSettings, organizationAssetUrl } from '../lib/server/organizationSettings.js';
 import { randomUUID } from 'node:crypto';
+import { verifySupportHandoff, resolveDocumentAttachments, recordSupportSend, HANDOFF_TEMPLATE_KEYS } from '../lib/server/supportHandoff.js';
 import { prepareFormButtons, previewFormButtons, personalizeFormButtons, hasFormButtons, settleFormButtons, isDemoSend } from '../lib/server/forms/outreachButtons.js';
 
 // Templates a send may declare by key. The marker never changes the body; it
 // records WHICH template this was. Empty since RESIDENCY-REFLECTION-1 retired
 // the weekly check-in (2026-09-13); the allowlist stays so a future template
 // has one place to be declared and an undeclared key is still refused.
-const TEMPLATE_KEYS = new Set([]);
+// SUPPORT-OUTREACH-1: the two keys a verified support handoff stamps. They are set from the
+// verified handoff, so a request that claims one without a handoff is refused below.
+const TEMPLATE_KEYS = new Set(Object.values(HANDOFF_TEMPLATE_KEYS));
 
 // CONNECT-COMMS-1D: seeded fallback signatures for the two known leads (by email), used when a
 // sender has not configured their own connect_signature yet. (signatures.js has no phone field.)
@@ -279,6 +282,21 @@ async function _handler(req, res, startMs) {
   // been proved against the database - see api/lib/placementSendGuard.js.
   let placementMeta = null;
 
+  // SUPPORT-OUTREACH-1: an OPTIONAL support handoff from Residency > Documents (a résumé review
+  // or a document request), and the student's own documents to attach. Both are claims,
+  // verified before any mail client exists; see lib/server/supportHandoff.js.
+  const supportRefRaw = body.support_ref && typeof body.support_ref === 'object' && !Array.isArray(body.support_ref)
+    ? body.support_ref
+    : null;
+  const documentVersionIds = Array.isArray(body.document_version_ids) ? body.document_version_ids : [];
+  if (documentVersionIds.length && !supportRefRaw) {
+    return res.status(400).json({ success: false, error: 'Student documents can only be attached from Residency > Documents.' });
+  }
+  if (templateKey && !supportRefRaw) {
+    return res.status(400).json({ success: false, error: 'That template is only sent from Residency > Documents.' });
+  }
+  let supportHandoff = null;
+
   // Normalize legacy contact_id to unified shape for backward compatibility.
   // Phase 3B.2A.0 UI sends contact_id; Phase 3B.2A.1 UI sends recipient_type + recipient_id.
   let recipientType = body.recipient_type;
@@ -386,7 +404,15 @@ async function _handler(req, res, startMs) {
       hardError = { status: 404, error: 'Student not found' };
       recipientSource = 'missing';
     } else {
-      const resolved = resolveStudentCorrespondenceRecipient(student, null, {});
+      // SUPPORT-OUTREACH-1: an alumnus's support goes to the PERSONAL email on file. Only a
+      // verified handoff can ask for it; with none on file, the ordinary routing applies and
+      // the preview says so.
+      let resolved = resolveStudentCorrespondenceRecipient(student, null, {});
+      if (supportRefRaw) {
+        const personal = resolveStudentCorrespondenceRecipient(student, null, { emailSource: 'personal' });
+        if (personal.email) resolved = personal;
+        else resolved = { ...resolved, warning: [resolved.warning, 'No personal email on file; this goes to the address below.'].filter(Boolean).join(' ') };
+      }
       recipientEmail       = resolved.email;
       recipientName        = `${student.first_name || ''} ${student.last_name || ''}`.trim() || null;
       recipientRole        = 'Student';
@@ -440,6 +466,23 @@ async function _handler(req, res, startMs) {
     organization,
   });
 
+  // ── 5a-bis. SUPPORT-OUTREACH-1: prove the support handoff and resolve the student's own
+  //   documents BEFORE preview or send. A claim that fails stops both: nothing is emailed or logged.
+  let docAtt = { ok: true, attachments: [], summary: [] };
+  if (supportRefRaw) {
+    const verdict = await verifySupportHandoff({ db: supabaseAdmin, ref: supportRefRaw, recipientType, recipientId });
+    if (!verdict.ok) {
+      console.warn('[connect-send-direct] support handoff rejected:', { code: verdict.code });
+      return res.status(verdict.status).json({ success: false, error: verdict.error, support_error: verdict.code });
+    }
+    supportHandoff = verdict.handoff;
+    if (templateKey && templateKey !== supportHandoff.templateKey) {
+      return res.status(400).json({ success: false, error: 'That template does not match the support handoff.' });
+    }
+    docAtt = await resolveDocumentAttachments({ db: supabaseAdmin, storage: supabaseAdmin.storage, versionIds: documentVersionIds, studentId: recipientId });
+    if (!docAtt.ok) return res.status(docAtt.status || 400).json({ success: false, error: docAtt.error });
+  }
+
   // ── 5b. PREVIEW: return exact HTML + resolved recipient/CC/signature. No send, no log. ──
   // OUTREACH-ATTACHMENTS-1: preview reports the attachment list it WOULD send by
   // resolving the same slugs through the same server path, so what Review shows
@@ -453,6 +496,9 @@ async function _handler(req, res, startMs) {
       success: true,
       html,
       attachments: pv.summary,
+      // SUPPORT-OUTREACH-1: the student's own documents, resolved the same way the send will.
+      document_attachments: docAtt.summary,
+      support: supportHandoff ? { kind: supportHandoff.kind, logs_support: supportHandoff.kind === 'resume_review' } : null,
       recipient: {
         email:   recipientEmail,
         type:    recipientSource,
@@ -484,6 +530,11 @@ async function _handler(req, res, startMs) {
   if (!att.ok) {
     return res.status(att.status || 400).json({ success: false, error: att.error });
   }
+  const catalogBytes = (att.summary || []).reduce((n, a) => n + (Number(a.size_bytes) || 0), 0);
+  if (docAtt.summary.length && catalogBytes + docAtt.summary.reduce((n, a) => n + a.size_bytes, 0) > 10 * 1024 * 1024) {
+    return res.status(413).json({ success: false, error: 'Attachments total more than 10 MB. Remove one and try again.' });
+  }
+  const allAttachments = [...att.attachments, ...docAtt.attachments];
 
   // ── 5d. Prove the placement BEFORE any provider client exists ────────────────
   // A stale, altered, cross-cohort, cross-unit, wrong-preceptor or wrong-recipient
@@ -538,7 +589,7 @@ async function _handler(req, res, startMs) {
       ...(ccList.length ? { cc: ccList } : {}),
       subject:  trimmedSubject,
       html,
-      ...(att.attachments.length ? { attachments: att.attachments } : {}),
+      ...(allAttachments.length ? { attachments: allAttachments } : {}),
       tags: [
         { name: 'type',           value: 'direct_message' },
         { name: 'recipient_type', value: recipientType },
@@ -593,11 +644,11 @@ async function _handler(req, res, startMs) {
     body_format:           resolvedBodyFormat,
     body_length:           trimmedBody.length,
     // RESIDENCY-SUPPORT-1: present only for a declared template send.
-    ...(templateKey ? { template_key: templateKey } : {}),
+    ...(supportHandoff ? { template_key: supportHandoff.templateKey, ...supportHandoff.meta } : (templateKey ? { template_key: templateKey } : {})),
     // OUTREACH-ATTACHMENTS-1: metadata ONLY (slug, title, filename, type, size).
     // Never bytes, storage paths, signed URLs, or upload tokens.
-    attachments:           att.summary,
-    attachment_count:      att.summary.length,
+    attachments:           [...att.summary, ...docAtt.summary],
+    attachment_count:      att.summary.length + docAtt.summary.length,
     // Present only for a placement-scoped send, and only on this success path -
     // a failed send returned 500 above, so no row exists to carry it.
     ...(placementMeta || {}),
@@ -672,6 +723,22 @@ async function _handler(req, res, startMs) {
     console.warn('[connect-send-direct] last_contact_update_skipped: notification_log write failed for', recipientId);
   }
 
+  // ── 8b. SUPPORT-OUTREACH-1: a résumé review that went out is Résumé Review support, on the
+  //   send date. Only after the send succeeded AND was logged; a failure here never fails the
+  //   send (it already went), it is reported so the Owner can log it by hand.
+  let supportEntry = null;
+  if (supportHandoff && auditLogged) {
+    const rec = await recordSupportSend({ db: supabaseAdmin, handoff: supportHandoff, studentId: recipientId, notificationLogId, actorId: ownerUserProfileId, sentAt });
+    if (rec.error) {
+      console.error('[connect-send-direct] support log failed:', { code: rec.error.code || null });
+      supportEntry = { logged: false };
+    } else if (!rec.skipped) {
+      supportEntry = { logged: true, occurred_on: rec.occurredOn, already_recorded: rec.alreadyRecorded === true };
+    }
+  } else if (supportHandoff && supportHandoff.kind === 'resume_review') {
+    supportEntry = { logged: false };
+  }
+
   // ── 9. Best-effort message archive (Phase 2B) - store a REDACTED copy of the just-sent body so
   //      Sent History can preview this manual message later. NEVER fails the send: Resend already
   //      delivered and notification_log is written. Only runs once the notification_log id exists. ──
@@ -703,5 +770,6 @@ async function _handler(req, res, startMs) {
     audit_logged:        auditLogged,
     archive_status:      archiveStatus,
     sent_at:             sentAt,
+    ...(supportEntry ? { support_entry: supportEntry } : {}),
   });
 }

@@ -17,7 +17,8 @@ import RecipientPicker from './RecipientPicker'
 import SentHistory from './SentHistory'
 import ContactAutocomplete from './ContactAutocomplete'
 import BulkManualComposer from './BulkManualComposer'
-import { readLaunchContext, LAUNCH_KINDS } from '../../lib/connect/launchContext'
+import { readLaunchContext, clearLaunchContext, LAUNCH_KINDS } from '../../lib/connect/launchContext'
+import { handoffChip, supportRefFor, sentMessage } from '../../lib/documents/supportHandoffModel'
 import RichTextEditor from './RichTextEditor'
 import { isRichComposeEnabled, plainTextToHtml, htmlToPlainText } from '../../lib/connect/richCompose'
 import ConnectPanel from './ConnectPanel'
@@ -420,6 +421,19 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
     ? preceptorLaunchForCohort
     : null
 
+  // ── SUPPORT-OUTREACH-1: a résumé review or document request from Residency > Documents.
+  // Like the placement handoff it applies ONLY while the composer is addressed to the very
+  // student it was written for; a different recipient leaves it inert. Everything in it is a
+  // claim the server re-verifies before any send.
+  const supportLaunch = (launchCtx && launchCtx.kind === LAUNCH_KINDS.SUPPORT_HANDOFF) ? launchCtx : null
+  const activeSupport = (supportLaunch
+    && recipientType === 'student'
+    && studentId
+    && String(supportLaunch.support?.studentId || '') === String(studentId))
+    ? supportLaunch
+    : null
+  const supportChip = activeSupport ? handoffChip(activeSupport.support) : null
+
   // The ASPIRE Catalog answer travels WITH the handoff. The Placement Board asks
   // /api/outreach-attachment-options (the same endpoint and the same resolver the
   // picker uses) before it navigates, so the composer opens already knowing which
@@ -526,6 +540,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
   // Priority: launch deep link > explicit Sent History deep link > explicit recipient > localStorage.
   const [recipientMode, setRecipientMode] = useState(() => {
     if (launchCtx?.kind === LAUNCH_KINDS.PRECEPTOR_ASSIGNMENT) return 'single'
+    if (launchCtx?.kind === LAUNCH_KINDS.SUPPORT_HANDOFF) return 'single'
     if (launchCtx) return 'bulk'                                      // Send-and-confirm launch
     if (searchParams.get('tab') === 'sent_history') return 'history'  // Phase D.1 deep link
     if (hasExplicitRecipient || urlMode === 'message') return 'single'
@@ -537,6 +552,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
   // Priority: URL param > explicit router state > localStorage > default ──
   const [outreachMode, setOutreachMode] = useState(() => {
     if (launchCtx?.kind === LAUNCH_KINDS.PRECEPTOR_ASSIGNMENT) return 'message'
+    if (launchCtx?.kind === LAUNCH_KINDS.SUPPORT_HANDOFF) return 'message'
     if (urlMode === 'message' || urlMode === 'survey') return urlMode
     if (hasExplicitRecipient) return 'message'
     const saved = localStorage.getItem(LAST_MODE_KEY)
@@ -623,6 +639,14 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
   // A saved draft still wins: the restore effect below overwrites this seed with
   // the stored draft and opens the branded Replace draft? confirmation.
   const handoffSeed = useMemo(() => {
+    // SUPPORT-OUTREACH-1: the review's (or the request's) draft, as written in Documents.
+    if (activeSupport?.draft) {
+      return {
+        subject: activeSupport.draft.subject,
+        body: richEnabled ? plainTextToHtml(activeSupport.draft.body) : activeSupport.draft.body,
+        attachments: [],
+      }
+    }
     if (!activePlacement) return null
     const merged = buildPreceptorAssignmentDraft({
       firstName: activePlacement.placement?.preceptorFirstName || '',
@@ -638,7 +662,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
         slug: a.slug, title: a.title, type_label: a.type_label, size_bytes: null,
       })),
     }
-  }, [activePlacement, requiredDocs, richEnabled])
+  }, [activePlacement, requiredDocs, richEnabled, activeSupport])
 
   // ── Direct Message send state ─────────────────────────────────────────────
   const [includeSignature,  setIncludeSignature]  = useState(true)
@@ -656,6 +680,9 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
   const [dmPreview,         setDmPreview]          = useState({ recipientKey: null, html: '', recipient: null, cc: [], signature: null, attachments: [], loading: false, error: null })
   // OUTREACH-ATTACHMENTS-1: slugs + display text only. Never bytes or paths.
   const [dmAttachments,     setDmAttachments]      = useState(() => handoffSeed?.attachments || [])
+  // SUPPORT-OUTREACH-1: the student's own documents (a résumé version), by version id. They
+  // travel only with a verified support handoff and are resolved by the server like any file.
+  const [docAttachments,    setDocAttachments]     = useState(() => (activeSupport?.documents || []))
   // CONNECT-COMMS-1D: CC support (Direct Message only). ccList = confirmed chips; ccInput = in-progress typing.
   // ccAutoSuggested flags that the coordinator chip was pre-filled (vs. manually added) for metadata/telemetry.
   const [ccList,            setCcList]             = useState([])
@@ -697,7 +724,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
     // PRECEPTOR handoff is the exception: its recipient rides on router state,
     // which a refresh strips - the pointer (this very draft's recipient) is then
     // exactly the right thing to adopt.
-    const blockingLaunch = launchCtx && launchCtx.kind !== LAUNCH_KINDS.PRECEPTOR_ASSIGNMENT
+    const blockingLaunch = launchCtx && launchCtx.kind !== LAUNCH_KINDS.PRECEPTOR_ASSIGNMENT && launchCtx.kind !== LAUNCH_KINDS.SUPPORT_HANDOFF
     if (adoptedRecipient || stickyRecipient || blockingLaunch) return
     if (explicitContactId || explicitStudentId) return
     if (!userKey || recipientMode !== 'single') return
@@ -1287,9 +1314,14 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
   // OUTREACH-ATTACHMENTS-1: Send stays disabled until the server has resolved
   // EXACTLY the current selection. A pending, stale, failed or oversized
   // resolution blocks the send rather than falling back to the client's list.
+  const docAttachmentsVerified = docAttachments.length === 0 || (
+    (dmPreview.documents || []).length === docAttachments.length
+    && docAttachments.every((d, i) => dmPreview.documents[i]?.version_id === d.versionId))
   const dmAttachmentBlock = sendBlockedReason(dmAttachments, dmPreview.attachments, {
     previewError: dmPreview.error, previewLoading: dmPreview.loading,
-  })
+  }) || (docAttachments.length && !docAttachmentsVerified
+    ? (dmPreview.error ? 'The attached documents could not be verified. Remove them or try again.' : 'Checking attachments…')
+    : null)
 
   // ── Derived values ────────────────────────────────────────────────────────
   // effectiveStudent and studentHasDisplayInfo are declared earlier (before effects) to avoid TDZ.
@@ -2221,6 +2253,8 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
           // descriptive only: the server ignores it for routing and records it
           // solely on a confirmed successful send.
           ...(placementSendRef ? { placement_ref: placementSendRef } : {}),
+          // SUPPORT-OUTREACH-1: only while the handoff applies to this recipient.
+          ...(activeSupport ? { support_ref: supportRefFor(activeSupport), document_version_ids: docAttachments.map(d => d.versionId) } : {}),
         }),
       })
       let payload = null
@@ -2254,9 +2288,23 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
         }
         const recipientDisplayName = recipientType === 'contact' ? fromContact?.name
           : (effectiveStudent?.name || `${fetchedStudent?.first_name || ''} ${fetchedStudent?.last_name || ''}`.trim())
-        const successMsg = payload.message || `Email sent to ${recipientDisplayName || 'recipient'}.`
+        const successMsg = sentMessage({
+          support: activeSupport?.support || null,
+          supportEntry: payload.support_entry || null,
+          fallback: payload.message || `Email sent to ${recipientDisplayName || 'recipient'}.`,
+        })
         setDmSendStatus({ ok: true, msg: successMsg, subject: msgSubject, recipient: resolvedToEmail })
-        toast?.success('Email sent', successMsg)
+        if (activeSupport) {
+          // The handoff is spent: the next message to this alumnus is an ordinary one.
+          setDocAttachments([])
+          clearLaunchContext()
+          queryClient.invalidateQueries({ queryKey: ['ngrp_workspace', 'support'] })
+          queryClient.invalidateQueries({ queryKey: ['student_documents'] })
+          if (payload.support_entry && !payload.support_entry.logged) toast?.warning?.('Email sent', successMsg)
+          else toast?.success('Email sent', successMsg)
+        } else {
+          toast?.success('Email sent', successMsg)
+        }
       } else {
         const errMsg = payload?.error || (res.status === 403 ? 'Access denied or recipient cannot receive email.' : 'Failed to send email. Please try again.')
         setDmSendStatus({ ok: false, msg: errMsg })
@@ -2270,7 +2318,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
     } finally {
       setDmSendInFlight(false)
     }
-  }, [dmConfirmReady, dmSendInFlight, recipientType, contactId, studentId, msgSubject, msgBody, includeSignature, ccList, ccInput, ccAutoSuggested, fromContact, fromStudent, richEnabled, dmAttachments, resolvedToEmail])
+  }, [dmConfirmReady, dmSendInFlight, recipientType, contactId, studentId, msgSubject, msgBody, includeSignature, ccList, ccInput, ccAutoSuggested, fromContact, fromStudent, richEnabled, dmAttachments, resolvedToEmail, activeSupport, docAttachments])
 
   // ── CONNECT-COMMS-1B: debounced true-preview fetch ────────────────────────
   // Calls the send endpoint in preview:true mode (no send, no log) so the inline preview and the
@@ -2312,13 +2360,14 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
             cc:                ccList,
             cc_auto_suggested: ccAutoSuggested,
             attachment_slugs:  toSlugs(dmAttachments),
+            ...(activeSupport ? { support_ref: supportRefFor(activeSupport), document_version_ids: docAttachments.map(d => d.versionId) } : {}),
           }),
         })
         const data = await res.json().catch(() => null)
         if (cancelled) return
         if (res.ok && data?.success) {
           // Server-resolved attachment list: the exact files that will be sent.
-          setDmPreview({ recipientKey: previewRecipientKey, html: data.html || '', recipient: data.recipient || null, cc: Array.isArray(data.cc) ? data.cc : [], signature: data.signature || null, attachments: Array.isArray(data.attachments) ? data.attachments : [], loading: false, error: null })
+          setDmPreview({ recipientKey: previewRecipientKey, html: data.html || '', recipient: data.recipient || null, cc: Array.isArray(data.cc) ? data.cc : [], signature: data.signature || null, attachments: Array.isArray(data.attachments) ? data.attachments : [], documents: Array.isArray(data.document_attachments) ? data.document_attachments : [], loading: false, error: null })
         } else {
           // Never leave a previous run's attachment list behind on failure.
           const detail = typeof data?.error === 'string' && data.error.trim()
@@ -2336,7 +2385,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
       }
     }, 450)
     return () => { cancelled = true; clearTimeout(timer) }
-  }, [outreachMode, recipientType, contactId, studentId, msgSubject, msgBody, includeSignature, ccList, richEnabled, dmAttachments])
+  }, [outreachMode, recipientType, contactId, studentId, msgSubject, msgBody, includeSignature, ccList, richEnabled, dmAttachments, activeSupport, docAttachments])
 
   // ── CONNECT-COMMS-1D: coordinator CC suggestion (removable, never forced) ──
   // The clinical coordinator's email is sourced from fetchedStudent (the navigation state in
@@ -3195,6 +3244,13 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
                   {resolvedToEmail && <span>&lt;{resolvedToEmail}&gt;</span>}
                 </div>
               </div>
+              {supportChip && (
+                <div className="outreach-support-handoff" data-testid="support-handoff">
+                  <span className="outreach-support-chip">{supportChip.label}</span>
+                  <p className={activeSupport.support.kind === 'resume_review' ? 'outreach-support-note outreach-support-note-logs' : 'outreach-support-note'}>{supportChip.note}</p>
+                  {dmPreview.recipient?.warning && <p className="outreach-support-note">{dmPreview.recipient.warning}</p>}
+                </div>
+              )}
 
               {/* CC field (CONNECT-COMMS-1D) - Direct Message only. Chips + free entry; the clinical
                   coordinator is pre-filled as a removable suggestion. Server is source of truth
@@ -3297,6 +3353,17 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
               {/* Keep draft controls together directly beneath the editor. */}
               <div className="outreach-draft-action-bar">
                 <div className="outreach-draft-action-main">
+                  {docAttachments.length > 0 && (
+                    <ul className="outreach-doc-attachments" aria-label="Student documents attached">
+                      {docAttachments.map(d => (
+                        <li key={d.versionId}>
+                          <span>{d.fileName}</span>
+                          <button type="button" aria-label={`Remove ${d.fileName}`} disabled={dmSendInFlight}
+                            onClick={() => { markDraftDirty(); setDocAttachments(list => list.filter(x => x.versionId !== d.versionId)) }}>×</button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                   <AttachmentPicker
                     value={dmAttachments}
                     onChange={next => { markDraftDirty(); setDmAttachments(next) }}

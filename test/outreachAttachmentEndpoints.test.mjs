@@ -285,6 +285,8 @@ function swap(src) {
     .replace(/from '\.\.\/lib\/server\/organizationSettings\.js'/, `from ${abs('lib/server/organizationSettings.js')}`)
     // OUTREACH-FORM-BUTTON-1: form buttons, real (a body without one passes through untouched).
     .replace(/from '\.\.\/lib\/server\/forms\/outreachButtons\.js'/, `from ${abs('lib/server/forms/outreachButtons.js')}`)
+    // SUPPORT-OUTREACH-1 (2026-10-05): the direct endpoint's support handoff module, real.
+    .replace(/from '\.\.\/lib\/server\/supportHandoff\.js'/, `from ${abs('lib/server/supportHandoff.js')}`)
     .replace(/const SEND_DELAY_MS\s*=\s*300;/, 'const SEND_DELAY_MS = 0;')
 }
 

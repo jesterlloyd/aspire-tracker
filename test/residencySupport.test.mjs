@@ -57,10 +57,10 @@ test('Log group activity takes the bulk activities only, 1 to 200 alumni', () =>
   const ok = validateAttendance({ activity: 'town_hall', occurred_on: '2026-09-10', candidate_ids: [ID('11'), ID('11'), ID('12')] }, { today: '2026-09-11' })
   assert.equal(ok.ok, true)
   assert.deepEqual(ok.candidateIds, [ID('11'), ID('12')], 'duplicates collapse')
-  // SUPPORT-STANDALONE-1 (2026-10-04): Placement Advising and, until the Outreach send
-  // logs it, Résumé Review are logged through the same panel. A mentorship session is not.
+  // SUPPORT-STANDALONE-1 (2026-10-04): Placement Advising is logged through the same panel.
+  // SUPPORT-OUTREACH-1 (this commit): Résumé Review no longer is; only an Outreach send logs it.
   assert.equal(validateAttendance({ activity: 'placement_advising', occurred_on: '2026-09-10', candidate_ids: [ID('11')] }).ok, true)
-  assert.equal(validateAttendance({ activity: 'resume_review', occurred_on: '2026-09-10', candidate_ids: [ID('11')] }).ok, true)
+  assert.equal(validateAttendance({ activity: 'resume_review', occurred_on: '2026-09-10', candidate_ids: [ID('11')] }).ok, false)
   assert.equal(validateAttendance({ activity: 'mentorship_session', occurred_on: '2026-09-10', candidate_ids: [ID('11')] }).ok, false)
   assert.equal(validateAttendance({ activity: 'town_hall', occurred_on: '2026-09-10', candidate_ids: [] }).ok, false)
   assert.equal(validateAttendance({ activity: 'town_hall', occurred_on: '2026-09-10', candidate_ids: ['nope'] }).ok, false)
@@ -82,7 +82,8 @@ test('before residency: per-alumnus cells and KPI counts; voided entries never c
     { student_id: ID('13'), activity: 'town_hall', occurred_on: '2026-08-05', voided_at: '2026-08-06T00:00:00Z' },
   ]
   const b = beforeResidency(rows, entries)
-  assert.deepEqual(b.rows[0].cells.resume_review, { count: 2, last: '2026-08-20' })
+  // SUPPORT-OUTREACH-1 (this commit): a cell also says whether its latest entry came from an Outreach send.
+  assert.deepEqual(b.rows[0].cells.resume_review, { count: 2, last: '2026-08-20', fromOutreach: false })
   assert.equal(b.kpis.supported, 2)
   assert.equal(b.kpis.alumni, 3)
   assert.equal(b.kpis.resume_review, 1)

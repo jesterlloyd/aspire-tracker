@@ -329,7 +329,9 @@ test('the weekly check-in is retired everywhere, not just hidden', () => {
   ]) {
     assert.doesNotMatch(read(f), /RESIDENT_CHECKIN|resident_weekly_checkin|buildResidentWeeklyCheckinDraft|WEEKLY_CHECKIN/, f)
   }
-  assert.match(read('api/connect-send-direct-email.js'), /const TEMPLATE_KEYS = new Set\(\[\]\)/, 'the allowlist mechanism stays, empty')
+  // SUPPORT-OUTREACH-1 (2026-10-05): the allowlist now holds exactly the two support handoff keys,
+  // set from a verified handoff; the weekly check-in key is still gone (asserted above).
+  assert.match(read('api/connect-send-direct-email.js'), /const TEMPLATE_KEYS = new Set\(Object\.values\(HANDOFF_TEMPLATE_KEYS\)\)/, 'the allowlist is the support handoff keys only')
 })
 
 // ── Migration and audit ─────────────────────────────────────────────────────

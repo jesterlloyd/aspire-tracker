@@ -9,8 +9,9 @@
 // Phase 4 adds Open in Outreach (and logging Résumé Review on send). Until then the draft is
 // copied, and copying never logs support.
 import { useMemo, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Copy, RefreshCw } from 'lucide-react'
+import { Copy, RefreshCw, Send } from 'lucide-react'
 import DetailDrawer from '../ui/DetailDrawer'
 import { Pill } from '../shared/DataSheet'
 import { displayName } from '../../lib/utils'
@@ -21,6 +22,8 @@ import {
   CATEGORIES, LOW_CATEGORY, MISSING_INFO, composeDraft, copyScoreLine, scoreChange, highlightRuns, trackerSteps, reviewState,
 } from '../../lib/documents/resumeReviewModel'
 import { shortDay } from '../../lib/documents/documentChecklist'
+import { writeLaunchContext } from '../../lib/connect/launchContext'
+import { resumeReviewHandoff, outreachHandoffPath } from '../../lib/documents/supportHandoffModel'
 import './resumeReview.css'
 
 const firstName = s => s?.preferred_first_name || s?.first_name || displayName(s)
@@ -80,7 +83,8 @@ function FullReport({ review }) {
   )
 }
 
-function DraftBox({ review, student, sender, canWrite, toast, onSaved }) {
+function DraftBox({ review, student, sender, canWrite, toast, onSaved, cycle, version }) {
+  const navigate = useNavigate()
   const [subject, setSubject] = useState(review.draft_subject || '')
   const [body, setBody] = useState(review.draft_body || '')
   const [includeScore, setIncludeScore] = useState(review.include_score !== false)
@@ -110,6 +114,15 @@ function DraftBox({ review, student, sender, canWrite, toast, onSaved }) {
       toast?.info?.('Draft copied', 'Copying does not log support.')
       setLive('Draft copied.')
     } else toast?.error?.('Could not copy', 'Select the text and copy it instead.')
+  }
+
+  // SUPPORT-OUTREACH-1: the draft as it reads here, the résumé attached, tagged to this
+  // alumnus. Sending it from Outreach logs Résumé Review with the send date.
+  const canHandoff = canWrite && Boolean(cycle?.id) && Boolean(version)
+  const openInOutreach = () => {
+    const ctx = writeLaunchContext(resumeReviewHandoff({ review, student, cycle, version, includeScore, includeBullets, subject, body }))
+    if (!ctx) { toast?.error?.('Could not open Outreach', 'This browser blocked the hand-off. Copy the draft instead.'); return }
+    navigate(outreachHandoffPath(student.id))
   }
 
   return (
@@ -147,15 +160,22 @@ function DraftBox({ review, student, sender, canWrite, toast, onSaved }) {
         </div>
       </div>
       <div className="rr-foot">
-        <span className="rr-muted">Copying the draft does not log Résumé Review as support.</span>
-        <button type="button" className="rr-btn rr-btn-pri" onClick={copyDraft}><Copy size={14} aria-hidden="true" /> Copy draft</button>
+        <span className="rr-muted">
+          {canHandoff
+            ? `Opens a pre-filled Outreach message to ${firstName(student)}. Sending it logs Résumé Review with the date. Copying does not.`
+            : 'Copying the draft does not log Résumé Review as support.'}
+        </span>
+        <span className="rr-btnrow">
+          <button type="button" className={canHandoff ? 'rr-btn' : 'rr-btn rr-btn-pri'} onClick={copyDraft}><Copy size={14} aria-hidden="true" /> Copy draft</button>
+          {canHandoff && <button type="button" className="rr-btn rr-btn-pri" onClick={openInOutreach}><Send size={14} aria-hidden="true" /> Open in Outreach</button>}
+        </span>
       </div>
       <span className="sr-only" aria-live="polite">{live}</span>
     </section>
   )
 }
 
-export default function ResumeReviewDrawer({ open, reviewId, student, reviews = [], versions = [], sender, canWrite, onClose, toast }) {
+export default function ResumeReviewDrawer({ open, reviewId, student, reviews = [], versions = [], sender, canWrite, onClose, toast, cycle = null }) {
   const queryClient = useQueryClient()
   const q = useQuery({
     queryKey: ['resume_review', reviewId],
@@ -199,7 +219,7 @@ export default function ResumeReviewDrawer({ open, reviewId, student, reviews = 
               {steps.map((s, i) => (
                 <li key={s.key} className={s.done ? 'rr-done' : s.current ? 'rr-cur' : ''} aria-current={s.current ? 'step' : undefined}>
                   <span className="rr-dot" aria-hidden="true">{s.done ? '✓' : i + 1}</span>
-                  <span><b>{s.label}</b>{s.done && s.at ? shortDay(s.at) : s.current ? (s.key === 'send' ? 'Copy the draft for now' : 'Waiting') : s.key === 'logged' ? 'On send' : ''}</span>
+                  <span><b>{s.label}</b>{s.done && s.at ? shortDay(s.at) : s.current ? (s.key === 'send' ? 'Waiting on you' : 'Waiting') : s.key === 'logged' ? 'On send' : ''}</span>
                 </li>
               ))}
             </ol>
@@ -279,7 +299,7 @@ export default function ResumeReviewDrawer({ open, reviewId, student, reviews = 
                     </div>
                   </section>
 
-                  <DraftBox key={review.id} review={review} student={student} sender={sender} canWrite={canWrite} toast={toast} onSaved={refresh} />
+                  <DraftBox key={review.id} review={review} student={student} sender={sender} canWrite={canWrite} toast={toast} onSaved={refresh} cycle={cycle} version={version} />
                 </div>
               </div>
             )}

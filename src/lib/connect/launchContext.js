@@ -44,6 +44,11 @@ export const LAUNCH_KINDS = Object.freeze({
   // contact selected, most useful before any school has sent a request. It writes nothing on
   // return: it is a reminder, not a tracked request.
   ACADEMIC_PARTNER_REQUEST: 'academic_partner_request',
+  // SUPPORT-OUTREACH-1 (résumé review build, Phase 4): Residency > Documents opens ONE message
+  // to ONE alumnus: a résumé review (its draft, the résumé attached; a SUCCESSFUL send logs
+  // Résumé Review) or a document request. Residency scoped (cycleId). It opens an editable
+  // draft and nothing else; the server re-verifies every claim in it before a send.
+  SUPPORT_HANDOFF: 'support_handoff',
 })
 const VALID_KINDS = new Set(Object.values(LAUNCH_KINDS))
 
@@ -59,7 +64,7 @@ export function writeLaunchContext(ctx) {
   const store = safeStorage()
   // NGRP launches are scoped by residency cohort (cycleId) instead of an
   // ASPIRE cohortId; every other kind keeps the original cohortId requirement.
-  const RESIDENCY_SCOPED = new Set([LAUNCH_KINDS.NGRP_TRANSITION_FORM])
+  const RESIDENCY_SCOPED = new Set([LAUNCH_KINDS.NGRP_TRANSITION_FORM, LAUNCH_KINDS.SUPPORT_HANDOFF])
   const scopeId = RESIDENCY_SCOPED.has(ctx?.kind) ? ctx?.cycleId : ctx?.cohortId
   if (!store || !ctx || !VALID_KINDS.has(ctx.kind) || !scopeId || !ctx.templateKey) return null
   const record = {
@@ -93,6 +98,12 @@ export function writeLaunchContext(ctx) {
     // Slugs and display text only - the same identifiers the composer is allowed
     // to hold. Never a storage path, a signed URL, or file bytes.
     attachments: ctx.attachments && typeof ctx.attachments === 'object' ? { ...ctx.attachments } : null,
+    // SUPPORT_HANDOFF: what the message is about ({ kind, studentId, studentName, firstName,
+    // resumeReviewId?, docType?, docLabel? }), its editable draft ({ subject, body } as plain
+    // text) and the student's own documents to attach ([{ versionId, fileName }]).
+    support: ctx.support && typeof ctx.support === 'object' ? { ...ctx.support } : null,
+    draft: ctx.draft && typeof ctx.draft === 'object' ? { subject: String(ctx.draft.subject || ''), body: String(ctx.draft.body || '') } : null,
+    documents: Array.isArray(ctx.documents) ? ctx.documents.filter(d => d && d.versionId).map(d => ({ versionId: d.versionId, fileName: String(d.fileName || 'Document') })) : [],
     batchId: null,
     sentEmails: [],
     summary: null,

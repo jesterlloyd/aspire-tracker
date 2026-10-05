@@ -60,3 +60,7 @@
 @media (prefers-reduced-motion: reduce) {
   .sl-chip, .sl-person { transition: none; }
 }
+
+/* SUPPORT-OUTREACH-1: a Résumé Review date logged by an Outreach send carries a message icon. */
+.sl-cell { display: inline-flex; align-items: center; gap: 5px; }
+.sl-cell-icon { color: var(--color-accent-primary, #1D2567); flex: none; }

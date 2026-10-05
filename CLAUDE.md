@@ -1745,8 +1745,8 @@ may already be sending me their resume for review 5 weeks before").
   alumni by STUDENT id, checked against the cycle's own roster on the server. A repeat is
   skipped and counted. The save returns its entry ids; the toast's Undo (10 s) voids exactly
   those, and only the caller's own (`void_batch`). Never delete.
-- **`BULK_ACTIVITY_KEYS` includes Résumé Review only until Phase 4** logs it from the
-  Outreach send; take it out in that commit. Mentorship sessions keep their own record.
+- **Résumé Review is not a bulk activity** (removed by SUPPORT-OUTREACH-1): only an Outreach
+  send logs it. Mentorship sessions keep their own record.
 - **The Form column is a pill, never a gate**: Submitted, Pending (sent, opened, in progress),
   Not sent (none, or a send the provider never accepted). By Alumnus is the plain DataSheet.
 - **The Score column is Phase 3.** The Résumé column opens the alumnus's Documents (below).
@@ -1812,8 +1812,38 @@ Instructions: `skills/review-resume/SKILL.md`, seeded by `20261105000000_resume_
   a minute".
 - **The draft is composed, not stored whole**: Keith's body, the score sentence after the
   greeting (Include score), the rewritten bullets (Add rewritten bullets) and the reader's
-  own sign-off (Connect signature name and credentials). Copying never logs support.
-  Open in Outreach and the send-time log are Phase 4.
+  own sign-off (Connect signature name and credentials). Copying never logs support; Open in
+  Outreach and the send-time log are SUPPORT-OUTREACH-1, below.
+
+## Résumé Review is logged by the send (SUPPORT-OUTREACH-1, 2026-10-05)
+
+Phase 4 of the résumé review build. A review's **Open in Outreach** and a missing document's
+**Request** write a `SUPPORT_HANDOFF` launch context (`src/lib/documents/supportHandoffModel.js`)
+and open Outreach's send-to-one composer on that student (`?launch=1&recipientType=student&
+recipientId=`, so a refresh keeps the recipient). The handoff applies only while the composer is
+addressed to that student, exactly like the placement handoff.
+
+- **Nothing in the handoff is trusted.** `api/connect-send-direct-email.js` takes `support_ref`
+  and `document_version_ids` and proves them in `lib/server/supportHandoff.js` BEFORE preview and
+  before any mail client: the review is this recipient's and scored, the student is on that
+  cycle's roster, a requested type exists, every attachment is a version of this student's own
+  document (checked like a Catalog file). A failed claim sends nothing and logs nothing.
+  `template_key` is now `support_resume_review` / `support_document_request`, accepted only with
+  a handoff, and the student documents only travel with one.
+- **To is the personal email** when one is on file (`emailSource: 'personal'`), else the
+  ordinary routing with a warning. Only a verified handoff can ask for it; the recipient
+  override fields are still refused.
+- **The log is the send.** Only after a successful AND logged send does `recordSupportSend`
+  write Résumé Review for the Pacific send date (source `outreach`, `source_ref` the log id),
+  enrolling the alumnus if needed, and mark the review Sent. The live unique index makes a
+  second send that day "already logged". A document request, a copy, a failed send: nothing.
+  If the log write fails after the email went, the toast says so; it never fails the send.
+- **Résumé Review is not in Log Group Activity any more** (`BULK_ACTIVITY_KEYS`). By Alumnus
+  shows a message icon on a date an Outreach send logged, a Score column (the latest Keith
+  score, ASPIRE team only), and the KPI reads "Logged from Outreach sends".
+- **No scheduled sends exist in Outreach**, so "logs when it goes out" is simply "logs on send".
+- `ngrp_support_entries.source` / `source_ref` arrive with 20261106000000 (Owner-gated); the app
+  writes the same rows without them before it.
 
 ## Settings groups, one breadcrumb, the staff menu in portals (NAV-POLISH-1, 2026-10-02)
 
