@@ -1944,7 +1944,7 @@ the real chart's are).
 
 - **Same parts, same files**: `.sc-binder` and its rings, the `.sc-plate`, the die-cut `.sc-index`
   tabs and `useChartScroll` (which now takes a sheet list), all from `src/components/student/`.
-  The seven sheets are `APPLICANT_SHEETS` in `chartSheets.js`: Applicant, Application, Documents,
+  The seven sheets are `APPLICANT_SHEETS` in `chartSheets.js`: Profile (id `applicant`), Application, Documents,
   Support, Interview, Hiring, Activity. Each borrows a Student Profiles tint by name (`data-tint`),
   so no colour is new; the tab rules sit BEFORE Modern's, which must still make every tab plain.
 - **Every section the drawer had is on a sheet, unchanged in what it shows or saves**; `Section`
@@ -1977,6 +1977,10 @@ KPI cards:
 - **Application Status** is the roster table exactly as it was, with the checkboxes and bulk
   Send Transition Form. Clicking a name opens that alumnus in Profiles.
 - The Interview Board still opens the same component as a drawer (`ApplicantDrawer`).
+- **The list's scroll box is `position: relative` on purpose.** NgrpStatusPill's `.sr-only` labels
+  are absolutely positioned; without a positioned ancestor inside the clipped list they escaped
+  the clip and made the page scroll on past the binder (shipped in 9c46e722, fixed the same day).
+  Any list of pills inside a clipped scroller needs the same.
 - The neutral NgrpStatusPill ("Not Sent", "Not in Pool", "Not Scheduled") measures 4.39:1
   everywhere it appears; it is the shared pill and was left for its own fix.
 

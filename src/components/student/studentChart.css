@@ -304,8 +304,11 @@
 .sc-sheet[data-tint="notes"]       { background: var(--aspire-sheet-notes); }
 /* Activity is that binder's last sheet, so it carries the last sheet's rule. */
 .sc-sheet[data-sheet="activity"] { border-bottom: none; min-height: 60vh; }
-/* In a drawer the binder takes the drawer body's height (Student Profiles measures it). */
+/* In a drawer the binder takes the drawer body's height, with a floor. In Profiles &
+   Interest's split view the panel is already measured (useChartViewport keeps it at 420px
+   or more), so there the floor would only push the binder past its panel's bottom. */
 .ac-chart { height: 100%; min-height: 520px; }
+.profiles-panel-slide .ac-chart { min-height: 0; }
 
 .sc-sheet-title {
   font-family: 'Plus Jakarta Sans', system-ui, sans-serif;

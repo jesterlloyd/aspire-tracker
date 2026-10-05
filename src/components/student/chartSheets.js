@@ -30,7 +30,9 @@ export const FIRST_SHEET = CHART_SHEETS[0].id
 // new colour exists; studentChart.css maps them. Order: who they are, their application, what
 // is on file, the support they had, the interview, the outcome, and everything that happened.
 export const APPLICANT_SHEETS = [
-  { id: 'applicant',   label: 'Applicant',   title: 'Applicant',   tint: 'profile' },
+  // Labelled Profile, as in Student Profiles (Owner, 2026-10-05: "Applicant and Application
+  // tabs are confusing"). The id stays 'applicant'.
+  { id: 'applicant',   label: 'Profile',     title: 'Profile',     tint: 'profile' },
   { id: 'application', label: 'Application', title: 'Application', tint: 'placement' },
   { id: 'documents',   label: 'Documents',   title: 'Documents',   tint: 'documents' },
   { id: 'support',     label: 'Support',     title: 'Support',     tint: 'hours' },

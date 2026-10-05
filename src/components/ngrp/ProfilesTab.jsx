@@ -527,7 +527,12 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                       </div>
                     )}
                   </div>
-                  <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+                  {/* `position: relative` is load-bearing (RESIDENCY-SPLIT-1 fix): the status
+                      pills carry `.sr-only` labels, which are absolutely positioned. With no
+                      positioned ancestor inside this clipped list they escaped the clip and
+                      stretched the PAGE to the full list's length, so it scrolled on past the
+                      binder. Student Profiles' rows have no such labels, which is why it never did. */}
+                  <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, position: 'relative' }}>
                     {filteredRows.length === 0 ? (
                       <EmptyState compact heading="No alumni match the current filters"
                         subtext="Adjust the filters above, or clear them to see every completed alumnus in the cohort's participating ASPIRE cohorts." />

@@ -20,6 +20,15 @@ test('seven sheets in the approved order, each wearing an existing Student Profi
   assert.ok(css.indexOf('.sc-tab[data-tint="notes"]') < css.indexOf('[data-style="modern"] .sc-tab,'))
 })
 
+// RESIDENCY-SPLIT-1 fix (this commit): the first sheet reads Profile, and the split's list is a
+// containing block so its pills' .sr-only labels cannot stretch the page.
+test('the first sheet is labelled Profile, and the list scroll box is positioned', () => {
+  assert.equal(APPLICANT_SHEETS[0].label, 'Profile')
+  const tab = readFileSync(new URL('../src/components/ngrp/ProfilesTab.jsx', import.meta.url), 'utf8')
+  assert.match(tab, /<div style=\{\{ flex: 1, overflowY: 'auto', minHeight: 0, position: 'relative' \}\}>/)
+  assert.match(css, /\.profiles-panel-slide \.ac-chart \{ min-height: 0; \}/)
+})
+
 test('the drawer is the same binder: rings, plate, die-cut index and the shared scroll hook', () => {
   assert.match(drawer, /className="sc-binder material-leather-black material-forestack material-forestack-right"/)
   assert.match(drawer, /className="sc-rings" aria-hidden="true"/)
