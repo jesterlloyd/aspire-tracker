@@ -1,0 +1,441 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Applicant Chart</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+/* APPLICANT-CHART-1 mockup. Synthetic data as of Oct 5, 2026. The yellow note and the dark
+   "Mockup" bar are for review only; do not build them. */
+:root {
+  --navy: #1D2567; --ink: #191919; --ink-soft: #4b5675; --muted: #5d6675; --line: rgba(29,37,103,.12);
+  --page: #F4F2EE; --card: #fff;
+  --leather: #15161A; --leather-lift: #2A2C33; --leather-deep: #0D0E11;
+  --gilt: #c9a43a; --gilt-deep: #8a6d1d;
+  --s-applicant: #FFFFFF; --s-application: #EFF3FB; --s-documents: #FBF4E6; --s-support: #EFF6F1;
+  --s-interview: #F6F3FA; --s-hiring: #F2F0F8; --s-activity: #F4F5F7;
+  --ok: #1f6b45; --ok-soft: #e3f3ea; --warn: #8a5300; --warn-soft: #fdf0d8; --info: #23408e; --info-soft: #e7edfb;
+  --off: #545b66; --off-soft: #eef0f3;
+  --r-card: 12px; --r-control: 10px; --r-pill: 999px;
+  --mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font: 14px/1.45 'Plus Jakarta Sans', system-ui, sans-serif; color: var(--ink); background: var(--page); }
+button { font: inherit; }
+
+/* Review-only chrome */
+.mock-bar { position: sticky; top: 0; z-index: 30; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+  background: #111; color: #eee; padding: 8px 16px; font-size: 12.5px; }
+.mock-bar b { color: #fff; }
+.mock-bar button { background: #2b2b2b; color: #eee; border: 1px solid #444; border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+.mock-bar button[aria-pressed="true"] { background: #fff; color: #111; }
+.mock-note { max-width: 1180px; margin: 14px auto 0; padding: 12px 16px; background: #FFF6C9; border: 1px solid #E8D37A; border-radius: 8px; font-size: 13px; color: #4a3d00; }
+.mock-note h2 { margin: 0 0 6px; font-size: 14px; }
+.mock-note ol { margin: 6px 0 0 18px; padding: 0; }
+.mock-note li { margin: 3px 0; }
+
+/* Beside the drawer, the note stays readable (review only). */
+@media (min-width: 1200px) {
+  body:not(.split) .mock-note { position: fixed; z-index: 25; left: 12px; top: 53px; width: calc(100vw - min(1080px, 100vw) - 24px); max-height: calc(100vh - 65px); overflow: auto; margin: 0; }
+}
+
+/* The staff app around it (dimmed) */
+.app-head { background: var(--navy); color: #fff; padding: 14px 24px; font-weight: 700; font-size: 18px; margin-top: 14px; }
+.app-nav { background: #fff; border-bottom: 1px solid var(--line); padding: 0 24px; display: flex; gap: 28px; font-size: 15px; color: var(--muted); }
+.app-nav span { padding: 12px 0; }
+.app-nav .cur { color: var(--navy); font-weight: 700; border-bottom: 2px solid var(--navy); }
+.roster { max-width: 1180px; margin: 24px auto; background: #fff; border-radius: var(--r-card); box-shadow: 0 1px 3px rgba(0,0,0,.08); padding: 18px 20px; opacity: .5; }
+.roster div { padding: 10px 0; border-bottom: 1px solid var(--line); color: var(--muted); }
+.scrim { position: fixed; inset: 0; background: rgba(15,18,40,.32); z-index: 10; }
+
+/* The drawer */
+.drawer { position: fixed; top: var(--bar-h, 41px); right: 0; bottom: 0; width: min(1080px, 100vw); z-index: 20; background: var(--page);
+  box-shadow: -8px 0 30px rgba(0,0,0,.18); display: flex; flex-direction: column; }
+.drawer-head { display: flex; align-items: center; gap: 12px; padding: 14px 20px; background: #fff; border-bottom: 1px solid var(--line); }
+.drawer-head h1 { margin: 0; font-size: 16px; color: var(--navy); }
+.drawer-head .x { margin-left: auto; background: none; border: 0; font-size: 20px; color: var(--muted); cursor: pointer; }
+.drawer-body { flex: 1; min-height: 0; padding: 16px 20px 20px; display: flex; }
+
+/* The binder */
+.binder { position: relative; flex: 1; min-height: 0; display: flex; border-radius: 8px;
+  padding: 14px 27px 14px 30px; background:
+    linear-gradient(145deg, var(--leather-lift), var(--leather) 45%, var(--leather-deep) 75%, var(--leather-lift));
+  box-shadow: 0 2px 6px rgba(0,0,0,.28); }
+.rings { position: absolute; left: 9px; top: 26px; bottom: 26px; width: 12px; display: flex; flex-direction: column; justify-content: space-between; }
+.rings i { display: block; height: 12px; border-radius: 50%; border: 1px solid var(--gilt-deep);
+  background: radial-gradient(circle at 34% 28%, #fff7cc 0 10%, #e5ca61 24%, var(--gilt) 58%, var(--gilt-deep) 100%);
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.62), 0 1px 2px rgba(5,10,43,.48); }
+.paper { position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; background: #fff;
+  box-shadow: 3px 3px 0 #e9e6df, 6px 6px 0 #dcd8cf; }
+
+/* Name plate */
+.plate { display: flex; gap: 14px; align-items: center; padding: 14px 18px; border-bottom: 1px solid var(--line); background: #fff; }
+.avatar { width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(135deg,#c9b8a6,#8e7766); color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 18px; flex: none; }
+.plate h2 { margin: 0; font-size: 20px; color: var(--navy); line-height: 1.2; }
+.plate .sub { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 7px; }
+.plate-acts { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.btn { border: 1px solid var(--line); background: #fff; color: var(--navy); border-radius: var(--r-control); padding: 7px 12px; font-weight: 600; font-size: 13px; cursor: pointer; white-space: nowrap; }
+.btn-pri { background: var(--navy); color: #fff; border-color: var(--navy); }
+.btn-sm { padding: 4px 10px; font-size: 12px; }
+
+/* Sheets + index */
+.reader { flex: 1; min-height: 0; display: flex; }
+.scroller { flex: 1; min-width: 0; overflow-y: auto; position: relative; scroll-behavior: smooth; }
+.sheet { padding: 20px 22px 26px; border-bottom: 1px solid var(--line); }
+.sheet h3 { margin: 0 0 4px; font-size: 18px; color: var(--navy); }
+.sheet .lede { margin: 0 0 14px; color: var(--ink-soft); font-size: 12.5px; }
+.sheet[data-s="applicant"] { background: var(--s-applicant); }
+.sheet[data-s="application"] { background: var(--s-application); }
+.sheet[data-s="documents"] { background: var(--s-documents); }
+.sheet[data-s="support"] { background: var(--s-support); }
+.sheet[data-s="interview"] { background: var(--s-interview); }
+.sheet[data-s="hiring"] { background: var(--s-hiring); }
+.sheet[data-s="activity"] { background: var(--s-activity); min-height: 50vh; border-bottom: 0; }
+.index { width: 104px; flex: none; display: flex; flex-direction: column; gap: 4px; padding: 12px 0; background: #fff; border-left: 1px solid var(--line); }
+.tab { text-align: left; border: 0; border-radius: 0 8px 8px 0; padding: 9px 10px; font-size: 12.5px; font-weight: 600; color: var(--ink-soft); cursor: pointer; margin-right: 6px; }
+.tab[aria-current="true"] { color: var(--navy); font-weight: 700; box-shadow: inset 3px 0 0 var(--navy); }
+.tab[data-s="applicant"] { background: var(--s-applicant); border: 1px solid var(--line); border-left: 0; }
+.tab[data-s="application"] { background: var(--s-application); }
+.tab[data-s="documents"] { background: var(--s-documents); }
+.tab[data-s="support"] { background: var(--s-support); }
+.tab[data-s="interview"] { background: var(--s-interview); }
+.tab[data-s="hiring"] { background: var(--s-hiring); }
+.tab[data-s="activity"] { background: var(--s-activity); }
+
+/* Content pieces */
+.sec { padding: 12px 0; border-top: 1px solid var(--line); }
+.sec:first-of-type { border-top: 0; padding-top: 0; }
+.sec h4 { margin: 0 0 8px; font-size: 13.5px; color: var(--navy); display: flex; align-items: center; gap: 8px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px 22px; }
+.f label { display: block; font-size: 11px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: var(--muted); margin-bottom: 2px; }
+.f div { font-size: 13.5px; }
+.src { font-family: var(--mono); font-size: 10.5px; color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px; font-weight: 500; text-transform: none; letter-spacing: 0; }
+.pill { display: inline-flex; align-items: center; gap: 4px; font-family: var(--mono); font-size: 11px; font-weight: 500; padding: 2px 9px; border-radius: var(--r-pill); white-space: nowrap; }
+.ok { background: var(--ok-soft); color: var(--ok); } .warn { background: var(--warn-soft); color: var(--warn); }
+.info { background: var(--info-soft); color: var(--info); } .off { background: var(--off-soft); color: var(--off); }
+.later { border: 1px dashed #a3a9b6; color: var(--muted); background: transparent; }
+.ghost { color: var(--muted); }
+.steps { display: flex; gap: 0; list-style: none; margin: 0; padding: 0; flex-wrap: wrap; }
+.steps li { flex: 1 1 120px; padding: 8px 10px; border-top: 3px solid #cfd5e3; font-size: 12.5px; }
+.steps li.done { border-color: var(--ok); }
+.steps li b { display: block; font-size: 12.5px; }
+.steps li span { color: var(--muted); font-size: 12px; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { text-align: left; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); padding: 7px 8px; border-bottom: 2px solid var(--navy); }
+td { padding: 8px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+td.r, th.r { text-align: right; }
+.keith { width: 16px; height: 16px; border-radius: 50%; background: conic-gradient(from 200deg, #5b7cfa, #b46cf0, #2f3fb3, #5b7cfa); display: inline-block; vertical-align: -3px; }
+.progress { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 13px; flex-wrap: wrap; }
+.bar { width: 160px; height: 6px; background: #e6e0d2; border-radius: 6px; overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--ok); }
+.att { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.att .card { background: rgba(255,255,255,.7); border-radius: 8px; padding: 10px 12px; }
+.att .card h5 { margin: 0 0 6px; font-size: 13px; color: var(--navy); }
+.att ul { list-style: none; margin: 0; padding: 0; font-size: 13px; }
+.att li { display: flex; justify-content: space-between; gap: 8px; padding: 4px 0; border-bottom: 1px dashed var(--line); }
+.att li:last-child { border-bottom: 0; }
+.log { list-style: none; margin: 0; padding: 0; }
+.log li { display: grid; grid-template-columns: 110px 1fr; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+.log time { color: var(--muted); font-family: var(--mono); font-size: 11.5px; }
+.callout { border-left: 3px solid var(--navy); background: rgba(255,255,255,.75); padding: 8px 12px; font-size: 12.5px; color: var(--ink-soft); margin-top: 10px; }
+
+/* Choice B: split view instead of a drawer */
+body.split .scrim { display: none; }
+body.split .drawer { position: static; width: auto; max-width: 1180px; margin: 0 auto 30px; height: 860px; box-shadow: none; background: transparent; }
+body.split .roster { display: none; }
+body.split .drawer-head { display: none; }
+body.split .split-list { display: block; }
+.split-list { display: none; width: 280px; flex: none; margin-right: 16px; background: #fff; border-radius: var(--r-card); box-shadow: 0 1px 3px rgba(0,0,0,.08); overflow: hidden; }
+.split-list div { padding: 10px 14px; border-bottom: 1px solid var(--line); font-size: 13px; }
+.split-list .sel { background: var(--info-soft); font-weight: 700; color: var(--navy); }
+
+/* Phone */
+@media (max-width: 760px) {
+  .drawer-body { padding: 8px; }
+  .binder { padding: 8px 13px 8px 22px; }
+  .rings { left: 5px; }
+  .reader { flex-direction: column-reverse; }
+  .index { width: auto; flex-direction: row; overflow-x: auto; border-left: 0; border-top: 1px solid var(--line); padding: 6px; }
+  .tab { border-radius: 8px; margin: 0; white-space: nowrap; }
+  .plate { flex-wrap: wrap; }
+  .plate-acts { margin-left: 0; justify-content: flex-start; }
+}
+</style>
+</head>
+<body>
+
+<nav class="mock-bar" aria-label="Mockup">
+  <b>Mockup</b> · How it opens:
+  <button type="button" data-layout="drawer" aria-pressed="true">A · Drawer over the roster (recommended)</button>
+  <button type="button" data-layout="split" aria-pressed="false">B · Split view, like Student Profiles</button>
+</nav>
+
+<div class="mock-note">
+  <h2>Applicant Chart · Residency &gt; Profiles &amp; Interest (review only)</h2>
+  The applicant drawer becomes a binder, the same black leather ring binder as Student Profiles, holding the
+  application's sheets instead of the rotation's. Everything about the person (name, photo, emails, phone, school)
+  is read from the student record and tagged <span class="src">Student record</span>; only residency facts are
+  stored on the residency side. All names and dates are synthetic. Dashed pills mark what is <span class="pill later">Later</span>.
+  <ol>
+    <li><b>Same binder as Student Profiles?</b> Recommended: yes, one bound object for a person, tinted sheets, gilt rings.</li>
+    <li><b>Drawer or split view?</b> Recommended A: the roster's columns and filters stay put, as today. Use the bar above to compare.</li>
+    <li><b>Seven sheets in this order?</b> Applicant, Application, Documents, Support, Interview, Hiring, Activity.</li>
+    <li><b>Support:</b> Town Hall and Bootcamp read as attendance; Advising is a placeholder until its exchange log is built.</li>
+    <li><b>Hiring:</b> the Cedars-Sinai email and start date have a place now, filled once hired (where it is stored is decided when Employment is built).</li>
+  </ol>
+</div>
+
+<header class="app-head">ASPIRE Intelligence</header>
+<nav class="app-nav"><span>At a Glance</span><span>Support</span><span class="cur">Profiles &amp; Interest</span><span>Residency</span><span>Evaluation</span></nav>
+<section class="roster" aria-hidden="true">
+  <div>Bayaraa, Emi · Summer 2026</div><div>Chung, Lauren · Summer 2026</div><div>Ortiz, Maya · Summer 2026</div><div>Perez, Juan · Summer 2026</div>
+</section>
+<div class="scrim" aria-hidden="true"></div>
+
+<aside class="drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
+  <div class="drawer-head">
+    <h1 id="drawer-title">Ortiz, Maya · Applicant</h1>
+    <button type="button" class="x" aria-label="Close">×</button>
+  </div>
+  <div class="drawer-body">
+    <div class="split-list" aria-hidden="true">
+      <div>Bayaraa, Emi</div><div>Chung, Lauren</div><div class="sel">Ortiz, Maya</div><div>Perez, Juan</div><div>Simon, Pedro</div>
+    </div>
+
+    <div class="binder">
+      <div class="rings" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="paper">
+
+        <div class="plate">
+          <div class="avatar" aria-hidden="true">MO</div>
+          <div>
+            <h2>Maya Ortiz</h2>
+            <div class="sub">CSU Northridge · BSN · ASPIRE Summer 2026</div>
+            <div class="chips">
+              <span class="pill ok">ASPIRE Completed</span>
+              <span class="pill info">Residency · Winter 2027</span>
+              <span class="pill ok">Interested</span>
+              <span class="pill ok">Eligible</span>
+            </div>
+          </div>
+          <div class="plate-acts">
+            <button type="button" class="btn">Open Student Profile ↗</button>
+            <button type="button" class="btn btn-pri">Send Transition Form</button>
+          </div>
+        </div>
+
+        <div class="reader">
+          <div class="scroller" id="scroller">
+
+            <section class="sheet" data-s="applicant" id="s-applicant" aria-labelledby="h-applicant">
+              <h3 id="h-applicant">Applicant</h3>
+              <p class="lede">Who they are and how to reach them, read from the student record. Edit these in Student Profiles.</p>
+              <div class="sec">
+                <h4>Contact <span class="src">Student record</span></h4>
+                <div class="grid">
+                  <div class="f"><label>Personal email</label><div>maya.ortiz@example.com</div></div>
+                  <div class="f"><label>School email</label><div>maya.ortiz.42@my.csun.edu</div></div>
+                  <div class="f"><label>Phone</label><div>(818) 555-0147</div></div>
+                  <div class="f"><label>Cedars-Sinai email</label><div class="ghost"><span class="pill later">Later</span> Added once hired</div></div>
+                </div>
+              </div>
+              <div class="sec">
+                <h4>Education <span class="src">Student record</span></h4>
+                <div class="grid">
+                  <div class="f"><label>School</label><div>CSU Northridge, BSN</div></div>
+                  <div class="f"><label>Graduation</label><div>Dec 2026</div></div>
+                  <div class="f"><label>ASPIRE rotation</label><div>6 NE · 168 of 168 hours</div></div>
+                </div>
+              </div>
+              <div class="sec">
+                <h4>Residency</h4>
+                <div class="grid">
+                  <div class="f"><label>Interest</label><div><span class="pill ok">Interested</span></div></div>
+                  <div class="f"><label>Eligibility</label><div><span class="pill ok">Eligible</span> <span class="ghost">· calculated, no override</span></div></div>
+                  <div class="f"><label>Residency cohort</label><div>Winter 2027</div></div>
+                </div>
+              </div>
+            </section>
+
+            <section class="sheet" data-s="application" id="s-application" aria-labelledby="h-application">
+              <h3 id="h-application">Application</h3>
+              <p class="lede">The Transition Form, their unit choices, and what the pool rule decided.</p>
+              <div class="sec">
+                <h4>Transition Form <span class="pill ok">Submitted</span></h4>
+                <ol class="steps">
+                  <li class="done"><b>Sent</b><span>Sep 22, 2026</span></li>
+                  <li class="done"><b>Opened</b><span>Sep 22, 2026</span></li>
+                  <li class="done"><b>Draft</b><span>Sep 24, 2026</span></li>
+                  <li class="done"><b>Submitted</b><span>Sep 26, 2026</span></li>
+                </ol>
+              </div>
+              <div class="sec">
+                <h4>Unit Choices</h4>
+                <table>
+                  <thead><tr><th>Choice</th><th>Unit</th><th>Why</th></tr></thead>
+                  <tbody>
+                    <tr><td>1st</td><td>6 NE · Neuro ICU</td><td>Where I rotated; I want to stay with this team.</td></tr>
+                    <tr><td>2nd</td><td>5 North · Cardiac Telemetry</td><td>Interest in cardiac care.</td></tr>
+                    <tr><td>3rd</td><td>Float Pool</td><td>Broad exposure.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="sec">
+                <h4>Applicant Pool <span class="pill ok">In the pool</span></h4>
+                <div class="ghost" style="font-size:13px">Submitted the form, interested, eligible. Decided automatically by the pool rule.</div>
+              </div>
+            </section>
+
+            <section class="sheet" data-s="documents" id="s-documents" aria-labelledby="h-documents">
+              <h3 id="h-documents">Documents</h3>
+              <p class="lede">The NGRP application checklist. Replacing never deletes; every file keeps its versions.</p>
+              <div class="progress">
+                <b>3 of 5 required on file</b><span class="bar" aria-hidden="true"><i style="width:60%"></i></span>
+                <span class="ghost">Missing: Letter of Recommendation 1, Letter of Recommendation 2</span>
+                <button type="button" class="btn btn-sm" style="margin-left:auto">Upload Documents</button>
+              </div>
+              <table>
+                <thead><tr><th>Document</th><th>Status</th><th class="r">Updated</th><th>Detail</th><th class="r"></th></tr></thead>
+                <tbody>
+                  <tr><td><b>Résumé</b> <span class="ghost">· With rotation hours</span></td><td><span class="pill ok">On file</span></td><td class="r">Oct 5</td>
+                    <td><span class="keith" aria-hidden="true"></span> 71 · <span class="pill info">Competitive</span></td>
+                    <td class="r"><button type="button" class="btn btn-sm btn-pri">Open résumé</button></td></tr>
+                  <tr><td><b>Personal Statement</b> <span class="ghost">· Max 2 pages</span></td><td><span class="pill ok">On file</span></td><td class="r">Oct 2</td><td>2 pages · within limit</td>
+                    <td class="r"><button type="button" class="btn btn-sm">View</button> <button type="button" class="btn btn-sm">Replace</button></td></tr>
+                  <tr><td><b>Transcript</b> <span class="ghost">· Official or unofficial</span></td><td><span class="pill ok">On file</span></td><td class="r">Oct 2</td><td>Completion Dec 2026 · confirmed by Maya</td>
+                    <td class="r"><button type="button" class="btn btn-sm">View</button> <button type="button" class="btn btn-sm">Replace</button></td></tr>
+                  <tr><td><b>Letter of Recommendation 1</b></td><td><span class="pill warn">Missing</span></td><td class="r">–</td><td>–</td>
+                    <td class="r"><button type="button" class="btn btn-sm">Request</button> <button type="button" class="btn btn-sm">Upload</button></td></tr>
+                  <tr><td><b>Letter of Recommendation 2</b></td><td><span class="pill warn">Missing</span></td><td class="r">–</td><td>–</td>
+                    <td class="r"><button type="button" class="btn btn-sm">Request</button> <button type="button" class="btn btn-sm">Upload</button></td></tr>
+                  <tr><td><b>BLS Card</b> <span class="ghost">· AHA</span></td><td><span class="pill ok">On file</span></td><td class="r">Sep 30</td><td>Expires May 2028</td>
+                    <td class="r"><button type="button" class="btn btn-sm">View</button> <button type="button" class="btn btn-sm">Replace</button></td></tr>
+                  <tr><td><b>Proof of Licensure</b> <span class="ghost">· California RN</span></td><td><span class="pill off">Not yet</span></td><td class="r">–</td><td>After NCLEX</td>
+                    <td class="r"><button type="button" class="btn btn-sm">Upload</button></td></tr>
+                </tbody>
+              </table>
+            </section>
+
+            <section class="sheet" data-s="support" id="s-support" aria-labelledby="h-support">
+              <h3 id="h-support">Support</h3>
+              <p class="lede">What ASPIRE has done to prepare them. Optional, and never affects eligibility.</p>
+              <div class="sec">
+                <h4>Résumé Reviews</h4>
+                <table>
+                  <thead><tr><th>Version</th><th class="r">Score</th><th>Readiness</th><th>Sent</th><th class="r"></th></tr></thead>
+                  <tbody>
+                    <tr><td>Oct 5 · RN Resume v2.pdf</td><td class="r"><span class="keith" aria-hidden="true"></span> <b>71</b></td><td><span class="pill info">Competitive</span></td><td>Oct 5 via Outreach</td><td class="r"><button type="button" class="btn btn-sm">Review</button></td></tr>
+                    <tr><td>Sep 12 · RN Resume.pdf</td><td class="r"><span class="keith" aria-hidden="true"></span> <b>58</b></td><td><span class="pill warn">Needs Improvement</span></td><td>Sep 12 via Outreach</td><td class="r"><button type="button" class="btn btn-sm">Review</button></td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="sec">
+                <h4>Attendance</h4>
+                <div class="att">
+                  <div class="card"><h5>Town Hall</h5><ul>
+                    <li><span>Residency Town Hall · Sep 30</span><span class="pill ok">Attended</span></li>
+                    <li><span>Residency Town Hall · Aug 19</span><span class="pill off">Not recorded</span></li>
+                  </ul></div>
+                  <div class="card"><h5>Interview Bootcamp</h5><ul>
+                    <li><span>Bootcamp · Oct 14</span><span class="pill off">Upcoming</span></li>
+                  </ul></div>
+                </div>
+              </div>
+              <div class="sec">
+                <h4>Advising <span class="pill later">Later</span></h4>
+                <div class="callout">An exchange log between you (or staff) and Maya: each conversation, its date, what was asked and what was advised. Built after the attendance sheets.</div>
+              </div>
+            </section>
+
+            <section class="sheet" data-s="interview" id="s-interview" aria-labelledby="h-interview">
+              <h3 id="h-interview">Interview</h3>
+              <p class="lede">The residency interview and what the preceptor said.</p>
+              <div class="sec">
+                <h4>Interview <span class="pill info">Scheduled</span></h4>
+                <div class="grid">
+                  <div class="f"><label>When</label><div>Oct 28, 2026 · 10:00 AM</div></div>
+                  <div class="f"><label>Hiring unit</label><div>6 NE · Neuro ICU</div></div>
+                  <div class="f"><label>Interviewers</label><div>2 assigned</div></div>
+                </div>
+              </div>
+              <div class="sec">
+                <h4>Preceptor Feedback <span class="pill ok">Received</span></h4>
+                <div class="callout">“Maya anticipates needs and communicates early. Ready for a supported start in critical care.” Sep 18, 2026</div>
+              </div>
+            </section>
+
+            <section class="sheet" data-s="hiring" id="s-hiring" aria-labelledby="h-hiring">
+              <h3 id="h-hiring">Hiring</h3>
+              <p class="lede">The residency outcome, and the start of employment once they are hired.</p>
+              <div class="sec">
+                <h4>Residency Outcome <span class="pill off">Pending</span></h4>
+                <div class="grid">
+                  <div class="f"><label>Offer</label><div class="ghost">–</div></div>
+                  <div class="f"><label>Unit</label><div class="ghost">–</div></div>
+                  <div class="f"><label>Start date</label><div class="ghost">–</div></div>
+                </div>
+              </div>
+              <div class="sec">
+                <h4>Employment <span class="pill later">Later</span></h4>
+                <div class="grid">
+                  <div class="f"><label>Cedars-Sinai email</label><div class="ghost">Added once hired</div></div>
+                  <div class="f"><label>Residency start</label><div class="ghost">From the outcome</div></div>
+                </div>
+                <div class="callout">When the email is added it shows on the Applicant sheet beside the personal email, and the student record still supplies everything else.</div>
+              </div>
+            </section>
+
+            <section class="sheet" data-s="activity" id="s-activity" aria-labelledby="h-activity">
+              <h3 id="h-activity">Activity</h3>
+              <p class="lede">Everything that happened, newest first.</p>
+              <ol class="log">
+                <li><time>Oct 5, 2026</time><span>Résumé review sent through Outreach · Résumé Review logged</span></li>
+                <li><time>Oct 5, 2026</time><span>Keith scored the new résumé: Competitive</span></li>
+                <li><time>Oct 5, 2026</time><span>Maya uploaded a new résumé in the Student Portal</span></li>
+                <li><time>Oct 2, 2026</time><span>Transcript uploaded · completion date confirmed by Maya</span></li>
+                <li><time>Sep 30, 2026</time><span>Attended the Residency Town Hall</span></li>
+                <li><time>Sep 26, 2026</time><span>Transition Form submitted</span></li>
+                <li><time>Sep 22, 2026</time><span>Transition Form sent</span></li>
+              </ol>
+            </section>
+
+          </div>
+          <nav class="index" aria-label="Applicant chart sheets">
+            <button type="button" class="tab" data-s="applicant" aria-current="true">Applicant</button>
+            <button type="button" class="tab" data-s="application">Application</button>
+            <button type="button" class="tab" data-s="documents">Documents</button>
+            <button type="button" class="tab" data-s="support">Support</button>
+            <button type="button" class="tab" data-s="interview">Interview</button>
+            <button type="button" class="tab" data-s="hiring">Hiring</button>
+            <button type="button" class="tab" data-s="activity">Activity</button>
+          </nav>
+        </div>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<script>
+// The index scrolls; it never mounts (as in Student Profiles). The scroll spy names the current tab.
+const scroller = document.getElementById('scroller')
+const tabs = [...document.querySelectorAll('.tab')]
+tabs.forEach(t => t.addEventListener('click', () => {
+  const s = document.getElementById('s-' + t.dataset.s)
+  scroller.scrollTo({ top: s.offsetTop, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
+}))
+scroller.addEventListener('scroll', () => {
+  const y = scroller.scrollTop + 40
+  let cur = tabs[0].dataset.s
+  for (const t of tabs) if (document.getElementById('s-' + t.dataset.s).offsetTop <= y) cur = t.dataset.s
+  tabs.forEach(t => t.setAttribute('aria-current', String(t.dataset.s === cur)))
+})
+document.querySelectorAll('[data-layout]').forEach(b => b.addEventListener('click', () => {
+  document.body.classList.toggle('split', b.dataset.layout === 'split')
+  document.querySelectorAll('[data-layout]').forEach(x => x.setAttribute('aria-pressed', String(x === b)))
+}))
+</script>
+</body>
+</html>
