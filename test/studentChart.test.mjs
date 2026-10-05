@@ -86,13 +86,17 @@ test('BINDER 5: radii are tokens, so the canon ratchet cannot be raised by this 
 
 // ── SHEETS: nothing was dropped ─────────────────────────────────────────────
 
+// APPLICANT-CHART-1 (this commit): chartSheets.js also lists the Applicant chart's sheets, so
+// these read the CHART_SHEETS block alone.
+const chartList = sheets.slice(sheets.indexOf('export const CHART_SHEETS'), sheets.indexOf('export const FIRST_SHEET'))
+
 test('SHEETS 1: seven sheets, in the order a coordinator meets a student', () => {
-  const ids = [...sheets.matchAll(/\{ id: '([a-z]+)'/g)].map(m => m[1])
+  const ids = [...chartList.matchAll(/\{ id: '([a-z]+)'/g)].map(m => m[1])
   assert.deepEqual(ids, ['profile', 'background', 'placement', 'hours', 'documents', 'evaluations', 'notes'])
 })
 
 test('SHEETS 2: every sheet in the list is rendered, and every rendered sheet is in the list', () => {
-  const listed = [...sheets.matchAll(/\{ id: '([a-z]+)'/g)].map(m => m[1]).sort()
+  const listed = [...chartList.matchAll(/\{ id: '([a-z]+)'/g)].map(m => m[1]).sort()
   const rendered = [...panel.matchAll(/id="sc-sheet-([a-z]+)" data-sheet="([a-z]+)"/g)]
   assert.deepEqual(rendered.map(m => m[1]).sort(), listed)
   for (const m of rendered) assert.equal(m[1], m[2], 'a sheet\'s id and data-sheet must agree')

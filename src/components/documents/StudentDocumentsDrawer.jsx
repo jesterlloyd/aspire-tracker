@@ -347,10 +347,23 @@ function ResumeCard({ student, doc, resumeOnRecord, canWrite, onPick, toast, rev
 // application documents belongs to the applicant (Profiles & Interest), which opens this
 // drawer whole.
 export default function StudentDocumentsDrawer({ open, student, onClose, toast, subline = null, cycle = null, only = null }) {
+  if (!student || !open) return null
+  const resumeOnly = only === 'resume'
+  return (
+    <DetailDrawer open={open} onClose={onClose} title={`${resumeOnly ? 'Résumé' : 'Documents'} · ${displayName(student)}`} width={resumeOnly ? 920 : 1040} trapFocus>
+      <StudentDocumentsBody student={student} toast={toast} subline={subline} cycle={cycle} only={only} />
+    </DetailDrawer>
+  )
+}
+
+// APPLICANT-CHART-1: the drawer's body on its own, so the Applicant chart's Documents sheet
+// shows the same résumé card and checklist inline (`showWho={false}`: the binder's name plate
+// already says whose they are). One body, two hosts; nothing about it is copied.
+export function StudentDocumentsBody({ student, toast, subline = null, cycle = null, only = null, showWho = true }) {
   const resumeOnly = only === 'resume'
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const docs = useStudentDocuments(student?.id, { enabled: open })
+  const docs = useStudentDocuments(student?.id, { enabled: Boolean(student) })
   const [upload, setUpload] = useState(null) // { type, file } | { type: null }
   const [scoring, setScoring] = useState(null) // { startedAt, pages } while Keith works
   const [reviewOpen, setReviewOpen] = useState(null)
@@ -367,7 +380,6 @@ export default function StudentDocumentsDrawer({ open, student, onClose, toast, 
   }, [docs.reviews])
 
   if (!student) return null
-  const close = () => { setUpload(null); onClose() }
   const refresh = () => queryClient.invalidateQueries({ queryKey: studentDocumentsKey(student.id) })
   const score = async (versionId, pages = null) => {
     setScoring({ startedAt: Date.now(), pages })
@@ -426,13 +438,13 @@ export default function StudentDocumentsDrawer({ open, student, onClose, toast, 
   ]
 
   return (
-    <DetailDrawer open={open} onClose={close} title={`${resumeOnly ? 'Résumé' : 'Documents'} · ${displayName(student)}`} width={resumeOnly ? 920 : 1040} trapFocus>
+    <>
       <div className="sd-root">
-        <div className="sd-who">
+        {showWho && <div className="sd-who">
           <FileText size={16} aria-hidden="true" />
           <span>{displayName(student)}</span>
           {subline && <span className="sd-muted">· {subline}</span>}
-        </div>
+        </div>}
 
         {docs.status === 'loading' && <p className="sd-muted" aria-live="polite">Loading documents…</p>}
         {docs.status === 'error' && (
@@ -488,7 +500,7 @@ export default function StudentDocumentsDrawer({ open, student, onClose, toast, 
         reviews={docs.reviews.filter(r => (resumeDoc?.versions || []).some(v => v.id === r.document_version_id))}
         versions={resumeDoc?.versions || []} sender={docs.sender} canWrite={docs.canWrite} cycle={cycle}
         onClose={() => setReviewOpen(null)} toast={toast} />
-    </DetailDrawer>
+    </>
   )
 }
 

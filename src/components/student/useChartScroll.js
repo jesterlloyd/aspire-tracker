@@ -34,16 +34,19 @@ const LIFT_AT = 2   // px of travel before the plate is considered to be over pa
 const prefersReducedMotion = () =>
   typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches
 
-export function useChartScroll(studentId) {
+// APPLICANT-CHART-1: `sheets` lets another binder (Residency's Applicant chart) reuse the same
+// behaviour with its own sheets. Student Profiles passes nothing and gets CHART_SHEETS.
+export function useChartScroll(studentId, sheets = CHART_SHEETS) {
+  const first = sheets[0]?.id || FIRST_SHEET
   const scrollerRef = useRef(null)
-  const [activeSheet, setActiveSheet] = useState(FIRST_SHEET)
+  const [activeSheet, setActiveSheet] = useState(first)
   const [lifted, setLifted] = useState(false)
   const [shownStudent, setShownStudent] = useState(studentId)
 
   // A different student is a different record: first sheet, flat plate, every time.
   if (shownStudent !== studentId) {
     setShownStudent(studentId)
-    setActiveSheet(FIRST_SHEET)
+    setActiveSheet(first)
     setLifted(false)
   }
 
@@ -78,7 +81,7 @@ export function useChartScroll(studentId) {
           .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0]
         if (top?.target?.dataset?.sheet) setActiveSheet(top.target.dataset.sheet)
       }, { root, rootMargin: SPY_MARGIN, threshold: 0 })
-      for (const s of CHART_SHEETS) {
+      for (const s of sheets) {
         const el = root.querySelector(`#${sheetDomId(s.id)}`)
         if (el) observer.observe(el)
       }
@@ -88,7 +91,7 @@ export function useChartScroll(studentId) {
       root.removeEventListener('scroll', onScroll)
       observer?.disconnect()
     }
-  }, [studentId])
+  }, [studentId, sheets])
 
   return { scrollerRef, activeSheet, goToSheet, lifted }
 }

@@ -6,7 +6,7 @@
 // link - are explicit, audited server-side, and every consequential one has
 // its own confirm step. Confirmation is the ONLY path to "Confirmed";
 // nothing here (or anywhere) confirms automatically.
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import DetailDrawer from '../ui/DetailDrawer'
 import StudentAvatar from '../StudentAvatar'
 import NgrpStatusPill from './NgrpStatusPill'
@@ -20,9 +20,16 @@ import { displayName } from '../../lib/utils'
 import { shiftBadge } from '../../lib/shiftStatus'
 import { RESIDENT_SHIFTS } from '../../lib/ngrp/ngrpReflectionForm'
 import { useNgrpSurface } from '../../lib/ngrp/ngrpSurface'
-import StudentDocumentsDrawer from '../documents/StudentDocumentsDrawer'
-import { useStudentDocuments } from '../../lib/documents/studentDocumentsClient'
-import { checklistSummary } from '../../lib/documents/documentChecklist'
+import { StudentDocumentsBody } from '../documents/StudentDocumentsDrawer'
+// APPLICANT-CHART-1: the applicant is the Student Profiles binder with the application's
+// sheets: the same rings, plate, tabs, tints and scroll behaviour, read from the same files.
+import '../student/studentChart.css'
+import { APPLICANT_SHEETS, sheetDomId } from '../student/chartSheets'
+import { useChartScroll } from '../student/useChartScroll'
+import { getStudentLegalDisplayName } from '../../lib/studentNameFormatters'
+import DataSheet, { Missing } from '../shared/DataSheet'
+import { useNgrpSupport } from '../../lib/ngrp/useNgrpData'
+import { supportActivity } from '../../lib/ngrp/ngrpSupportActivities'
 
 const F = 'Plus Jakarta Sans, sans-serif'
 const fmt = ts => {
@@ -40,16 +47,14 @@ const smallBtn = (primary = false, danger = false) => ({
   ...(danger ? { border: '1px solid #FECACA' } : {}),
 })
 
-function Section({ title, tint, children, right }) {
+// APPLICANT-CHART-1: a section is part of the sheet, not a box on it, exactly as in the
+// student chart (`.sc-sheet .sp-section.sp-card` and its `.sp-section-hdr`). A section draws no
+// tint: the sheet carries the colour.
+function Section({ title, children, right }) {
   return (
-    <section style={{ background: tint, borderRadius: 12, padding: '13px 15px', marginBottom: 10 }}>
-      <h3 style={{
-        margin: '0 0 10px', fontSize: 11, fontWeight: 700, color: 'var(--text-secondary, #6b7280)',
-        textTransform: 'uppercase', letterSpacing: '0.06em',
-        paddingBottom: 8, borderBottom: '1px solid rgba(0,0,0,0.045)',
-        display: 'flex', alignItems: 'center', gap: 8,
-      }}>
-        <span style={{ flex: 1 }}>{title}</span>
+    <section className="sp-section sp-card">
+      <h3 className="sp-section-hdr" style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', rowGap: 6, margin: 0 }}>
+        <span style={{ flex: 1, textTransform: 'uppercase', letterSpacing: '0.1em', fontSize: 11 }}>{title}</span>
         {right}
       </h3>
       {children}
@@ -60,8 +65,8 @@ function Section({ title, tint, children, right }) {
 function Row({ label, children }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10, padding: '4px 0', fontSize: 12.5 }}>
-      <span style={{ color: '#6B7785', flexShrink: 0 }}>{label}</span>
-      <span style={{ fontWeight: 600, color: 'var(--raven, #191919)', textAlign: 'right', minWidth: 0 }}>{children}</span>
+      <span style={{ color: 'var(--text-caption)', flexShrink: 0 }}>{label}</span>
+      <span style={{ fontWeight: 600, color: 'var(--text-heading)', textAlign: 'right', minWidth: 0 }}>{children}</span>
     </div>
   )
 }
@@ -85,8 +90,8 @@ function FormLifecycle({ row }) {
             border: '2px solid #fff', background: i <= reached ? '#2F7D5C' : '#E5E7EB',
             boxShadow: `0 0 0 1px ${i <= reached ? '#2F7D5C' : '#D1D5DB'}`,
           }} />
-          <div style={{ fontSize: 10, fontWeight: 700, color: i <= reached ? '#1F3219' : '#9CA3AF' }}>{s.label}</div>
-          <div style={{ fontSize: 9, color: '#9CA3AF' }}>{fmt(s.at) || '—'}</div>
+          <div style={{ fontSize: 10, fontWeight: 700, color: i <= reached ? 'var(--text-heading)' : 'var(--text-caption)' }}>{s.label}</div>
+          <div style={{ fontSize: 9, color: 'var(--text-caption)' }}>{fmt(s.at) || '—'}</div>
         </div>
       ))}
     </div>
@@ -94,7 +99,7 @@ function FormLifecycle({ row }) {
 }
 
 const REQ_GLYPHS = { met: '✓', not_met: '✗', conditional: '◔', unknown: '·' }
-const REQ_COLORS = { met: '#166534', not_met: '#991B1B', conditional: '#92400E', unknown: '#6B7280' }
+const REQ_COLORS = { met: 'var(--aspire-ok)', not_met: 'var(--aspire-bad)', conditional: 'var(--aspire-warn)', unknown: 'var(--text-caption)' }
 
 // A compact read-only render of a submitted revision for staff review.
 function RevisionSummary({ payload }) {
@@ -129,8 +134,8 @@ function RevisionSummary({ payload }) {
     <div style={{ marginTop: 8 }}>
       {rows.map(([label, v]) => (
         <div key={label} style={{ display: 'flex', gap: 10, fontSize: 12, padding: '3px 0', borderBottom: '1px dashed rgba(0,0,0,0.05)' }}>
-          <span style={{ color: '#6B7785', flexShrink: 0, minWidth: 120 }}>{label}</span>
-          <span style={{ color: '#191919', overflowWrap: 'anywhere' }}>{v}</span>
+          <span style={{ color: 'var(--text-caption)', flexShrink: 0, minWidth: 120 }}>{label}</span>
+          <span style={{ color: 'var(--text-heading)', overflowWrap: 'anywhere' }}>{v}</span>
         </div>
       ))}
     </div>
@@ -152,11 +157,11 @@ function OverrideDialog({ open, onClose, onSubmit, busy }) {
       }}>
         <div style={{ padding: '14px 18px', borderBottom: '1px solid #F3F4F6', fontSize: 15, fontWeight: 700 }}>Override eligibility</div>
         <div style={{ padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13 }}>
-          <p style={{ margin: 0, fontSize: 12, color: '#6B7785' }}>
+          <p style={{ margin: 0, fontSize: 12, color: 'var(--text-caption)' }}>
             The calculated result is never overwritten - the override becomes the effective result and
             is recorded with your name and timestamp.
           </p>
-          <label style={{ fontSize: 11.5, fontWeight: 600, color: '#4A5560' }}>Replacement result
+          <label style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--text-caption)' }}>Replacement result
             <select value={result} onChange={e => setResult(e.target.value)} style={{ display: 'block', width: '100%', marginTop: 4, height: 34, padding: '0 8px', border: '1px solid rgba(29,37,103,0.14)', borderRadius: 8, fontFamily: F, fontSize: 13 }}>
               <option value="eligible">Eligible</option>
               <option value="conditionally_eligible">Conditionally Eligible</option>
@@ -164,7 +169,7 @@ function OverrideDialog({ open, onClose, onSubmit, busy }) {
               <option value="pending">Pending</option>
             </select>
           </label>
-          <label style={{ fontSize: 11.5, fontWeight: 600, color: '#4A5560' }}>Reason category
+          <label style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--text-caption)' }}>Reason category
             <select value={category} onChange={e => setCategory(e.target.value)} style={{ display: 'block', width: '100%', marginTop: 4, height: 34, padding: '0 8px', border: '1px solid rgba(29,37,103,0.14)', borderRadius: 8, fontFamily: F, fontSize: 13 }}>
               <option value="documentation_verified">Documentation verified outside the form</option>
               <option value="requirement_waived">Requirement waived</option>
@@ -172,7 +177,7 @@ function OverrideDialog({ open, onClose, onSubmit, busy }) {
               <option value="other">Other</option>
             </select>
           </label>
-          <label style={{ fontSize: 11.5, fontWeight: 600, color: '#4A5560' }}>Narrative note (required)
+          <label style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--text-caption)' }}>Narrative note (required)
             <textarea value={note} onChange={e => setNote(e.target.value)} style={{ display: 'block', width: '100%', marginTop: 4, minHeight: 70, padding: 8, border: '1px solid rgba(29,37,103,0.14)', borderRadius: 8, fontFamily: F, fontSize: 13, boxSizing: 'border-box' }} />
           </label>
         </div>
@@ -224,27 +229,27 @@ function InterviewSection({ row, canManage, onSave }) {
   const needsTime = status === 'scheduled' && !at
 
   return (
-    <Section title="Interview" tint="rgba(150,120,150,0.06)">
+    <Section title="Interview">
       <Row label="Status"><NgrpStatusPill config={INTERVIEW_STATES} value={row.interview_status} srPrefix="Interview" /></Row>
       {row.interview_at && <Row label="Held">{fmt(row.interview_at)}</Row>}
       {canManage && (
         <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 7 }}>
           <label style={{ display: 'block' }}>
-            <span style={{ fontSize: 11, fontWeight: 600, color: '#4A5560' }}>Interview state</span>
+            <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-caption)' }}>Interview state</span>
             <select style={field} value={status} onChange={e => setStatus(e.target.value)}>
               {Object.entries(INTERVIEW_STATES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
             </select>
           </label>
           {KEEPS_TIME.includes(status) && (
             <label style={{ display: 'block' }}>
-              <span style={{ fontSize: 11, fontWeight: 600, color: '#4A5560' }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-caption)' }}>
                 Date and time{status === 'scheduled' ? '' : ' (optional)'}
               </span>
               <input type="datetime-local" style={{ ...field, borderColor: needsTime ? '#B3282D' : field.border }}
                 value={at} onChange={e => setAt(e.target.value)} />
             </label>
           )}
-          {needsTime && <p style={{ margin: 0, fontSize: 11, color: '#B3282D' }}>A scheduled interview needs a date and time.</p>}
+          {needsTime && <p style={{ margin: 0, fontSize: 11, color: 'var(--aspire-bad)' }}>A scheduled interview needs a date and time.</p>}
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
             <button
               type="button"
@@ -259,7 +264,7 @@ function InterviewSection({ row, canManage, onSave }) {
               {busy ? 'Saving…' : 'Save interview'}
             </button>
           </div>
-          <p style={{ margin: 0, fontSize: 11, color: '#9CA3AF' }}>
+          <p style={{ margin: 0, fontSize: 11, color: 'var(--text-caption)' }}>
             No interview rubric or score is stored anywhere in ASPIRE.
           </p>
         </div>
@@ -286,9 +291,9 @@ function UnitChoicesSection({ row, canManage, onSave }) {
   const paired = row.assigned_unit || null
 
   return (
-    <Section title="Unit Choices" tint="rgba(212,184,138,0.10)">
+    <Section title="Unit Choices">
       {preferences.length === 0 ? (
-        <p style={{ margin: 0, fontSize: 12, color: '#9CA3AF' }}>
+        <p style={{ margin: 0, fontSize: 12, color: 'var(--text-caption)' }}>
           Ranked choices arrive with the submitted Transition Form. The ASPIRE team can set them here.
         </p>
       ) : preferences.map((u, i) => (
@@ -299,12 +304,12 @@ function UnitChoicesSection({ row, canManage, onSave }) {
           }}>{i + 1}</span>
           <span style={{ fontWeight: 600 }}>{u}</span>
           {paired && u.toLowerCase() === paired.toLowerCase() && (
-            <span style={{ fontSize: 10.5, color: '#2F7D5C', fontWeight: 700 }}>interviewing</span>
+            <span style={{ fontSize: 10.5, color: 'var(--aspire-ok)', fontWeight: 700 }}>interviewing</span>
           )}
         </div>
       ))}
       {source === 'staff' && (
-        <p style={{ margin: '6px 0 0', fontSize: 11, color: '#6B7785' }}>
+        <p style={{ margin: '6px 0 0', fontSize: 11, color: 'var(--text-caption)' }}>
           Set by the ASPIRE team{row.unit_preferences_set_at ? ` on ${fmtDay(row.unit_preferences_set_at)}` : ''}.
           {submitted.length > 0 && ` They asked for ${submitted.join(', ')}.`}
         </p>
@@ -314,9 +319,9 @@ function UnitChoicesSection({ row, canManage, onSave }) {
         <Row label="Paired with">
           {paired
             ? <span>{paired}</span>
-            : <span style={{ fontWeight: 400, color: '#6b7280' }}>Not paired yet</span>}
+            : <span style={{ fontWeight: 400, color: 'var(--text-caption)' }}>Not paired yet</span>}
         </Row>
-        <p style={{ margin: '2px 0 0', fontSize: 11, color: '#9CA3AF' }}>
+        <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--text-caption)' }}>
           Pairing happens on the placement board, in the Residency tab. It means that unit will
           interview them; it is not a hire.
         </p>
@@ -326,7 +331,7 @@ function UnitChoicesSection({ row, canManage, onSave }) {
         <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 7 }}>
           {[0, 1, 2].map(i => (
             <label key={i} style={{ display: 'block' }}>
-              <span style={{ fontSize: 11, fontWeight: 600, color: '#4A5560' }}>Choice {i + 1}</span>
+              <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-caption)' }}>Choice {i + 1}</span>
               <input
                 style={field}
                 value={form[i]}
@@ -350,7 +355,7 @@ function UnitChoicesSection({ row, canManage, onSave }) {
               {busy ? 'Saving…' : 'Save choices'}
             </button>
           </div>
-          <p style={{ margin: 0, fontSize: 11, color: '#9CA3AF' }}>
+          <p style={{ margin: 0, fontSize: 11, color: 'var(--text-caption)' }}>
             Clearing every box restores the ranking the alumnus submitted. Their answer is never
             overwritten.
           </p>
@@ -382,7 +387,7 @@ function PoolSection({ row, canManage, actions }) {
 
   return (
     <Section
-      title="Applicant Pool" tint="rgba(150,120,150,0.06)"
+      title="Applicant Pool"
       right={canManage && !removed && Boolean(actions.setNotProceeding) && !open ? (
         <button type="button" style={{ ...smallBtn(), height: 24, padding: '0 9px', fontSize: 11 }}
           onClick={() => setOpen(true)}>Not proceeding…</button>
@@ -393,15 +398,15 @@ function PoolSection({ row, canManage, actions }) {
       {removed ? (
         <>
           <Row label="Reason">
-            <span style={{ fontWeight: 400, color: '#5A6170' }}>
+            <span style={{ fontWeight: 400, color: 'var(--text-caption)' }}>
               {NOT_PROCEEDING_REASONS[row.not_proceeding_reason]?.label || 'Recorded before reasons were kept'}
             </span>
           </Row>
           {row.not_proceeding_note && (
-            <p style={{ margin: '4px 0 0', fontSize: 12, color: '#5A6170', whiteSpace: 'pre-wrap' }}>{row.not_proceeding_note}</p>
+            <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--text-caption)', whiteSpace: 'pre-wrap' }}>{row.not_proceeding_note}</p>
           )}
           {row.not_proceeding_at && <Row label="Recorded">{fmt(row.not_proceeding_at)}</Row>}
-          <p style={{ margin: '6px 0 0', fontSize: 11, color: '#9CA3AF' }}>
+          <p style={{ margin: '6px 0 0', fontSize: 11, color: 'var(--text-caption)' }}>
             They are out of the pool and no longer count as an applicant. Their submitted form and
             eligibility result are untouched.
           </p>
@@ -415,16 +420,16 @@ function PoolSection({ row, canManage, actions }) {
           )}
         </>
       ) : decision.inPool ? (
-        <p style={{ margin: '4px 0 0', fontSize: 11.5, color: '#6B7785', lineHeight: 1.5 }}>
+        <p style={{ margin: '4px 0 0', fontSize: 11.5, color: 'var(--text-caption)', lineHeight: 1.5 }}>
           They submitted the Transition Form, said they are interested, and their eligibility result
           admits them, so they are on the placement board automatically. Nobody confirms this.
         </p>
       ) : (
         <>
-          <p style={{ margin: '4px 0 0', fontSize: 11.5, color: '#6B7785', lineHeight: 1.5 }}>
+          <p style={{ margin: '4px 0 0', fontSize: 11.5, color: 'var(--text-caption)', lineHeight: 1.5 }}>
             Not in the pool yet:
           </p>
-          <ul style={{ margin: '4px 0 0', paddingLeft: 18, fontSize: 11.5, color: '#6B7785', lineHeight: 1.5 }}>
+          <ul style={{ margin: '4px 0 0', paddingLeft: 18, fontSize: 11.5, color: 'var(--text-caption)', lineHeight: 1.5 }}>
             {decision.reasons.map((r, i) => <li key={i}>{r}</li>)}
           </ul>
         </>
@@ -433,16 +438,16 @@ function PoolSection({ row, canManage, actions }) {
       {canManage && open && !removed && (
         <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 7 }}>
           <label style={{ display: 'block' }}>
-            <span style={{ fontSize: 11, fontWeight: 600, color: '#4A5560' }}>Why are they not proceeding?</span>
+            <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-caption)' }}>Why are they not proceeding?</span>
             <select style={field} value={reason} onChange={e => setReason(e.target.value)}>
               {NOT_PROCEEDING_REASON_KEYS.map(k => (
                 <option key={k} value={k}>{NOT_PROCEEDING_REASONS[k].label}</option>
               ))}
             </select>
           </label>
-          <p style={{ margin: 0, fontSize: 11, color: '#9CA3AF' }}>{NOT_PROCEEDING_REASONS[reason].hint}</p>
+          <p style={{ margin: 0, fontSize: 11, color: 'var(--text-caption)' }}>{NOT_PROCEEDING_REASONS[reason].hint}</p>
           <label style={{ display: 'block' }}>
-            <span style={{ fontSize: 11, fontWeight: 600, color: '#4A5560' }}>
+            <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-caption)' }}>
               Note{reason === REASON_REQUIRING_NOTE ? '' : ' (optional)'}
             </span>
             <textarea
@@ -509,9 +514,9 @@ function OutcomeSection({ row, canManage, onSave }) {
     : null
 
   return (
-    <Section title="Residency Outcome" tint="rgba(110,150,135,0.075)">
+    <Section title="Residency Outcome">
       {!inPlay ? (
-        <p style={{ margin: 0, fontSize: 12, color: '#9CA3AF' }}>
+        <p style={{ margin: 0, fontSize: 12, color: 'var(--text-caption)' }}>
           There is no offer or hire to record: this alumnus is not in the Applicant Pool.
         </p>
       ) : (
@@ -526,7 +531,7 @@ function OutcomeSection({ row, canManage, onSave }) {
                   ? <Row label="Offer accepted">{fmt(o.offer_accepted_at)}</Row>
                   : o.offer_extended_at
                     ? <Row label="Offer extended">{fmt(o.offer_extended_at)}</Row>
-                    : <Row label="Status"><span style={{ fontWeight: 400, color: '#9CA3AF' }}>Nothing recorded yet</span></Row>}
+                    : <Row label="Status"><span style={{ fontWeight: 400, color: 'var(--text-caption)' }}>Nothing recorded yet</span></Row>}
           {o.residency_start_date && <Row label="Residency starts">{o.residency_start_date}</Row>}
           {o.shift && <Row label="Shift">{shiftBadge(o.shift).label}</Row>}
           {o.cs_email && <Row label="Cedars-Sinai email">{o.cs_email}</Row>}
@@ -545,20 +550,20 @@ function OutcomeSection({ row, canManage, onSave }) {
                 ['offer_declined_at', 'Declined the offer'],
               ].map(([k, label]) => (
                 <label key={k} style={{ display: 'block' }}>
-                  <span style={{ fontSize: 11, fontWeight: 600, color: '#4A5560' }}>{label}</span>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-caption)' }}>{label}</span>
                   <input type="datetime-local" style={field} value={form[k]} onChange={e => set(k, e.target.value)} />
                 </label>
               ))}
               <label style={{ display: 'block' }}>
-                <span style={{ fontSize: 11, fontWeight: 600, color: '#4A5560' }}>Hired into unit</span>
+                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-caption)' }}>Hired into unit</span>
                 <input style={field} value={form.hired_unit} onChange={e => set('hired_unit', e.target.value)} placeholder="Unit name" />
               </label>
               <label style={{ display: 'block' }}>
-                <span style={{ fontSize: 11, fontWeight: 600, color: '#4A5560' }}>Residency start date</span>
+                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-caption)' }}>Residency start date</span>
                 <input type="date" style={field} value={form.residency_start_date} onChange={e => set('residency_start_date', e.target.value)} />
               </label>
               <label style={{ display: 'block' }}>
-                <span style={{ fontSize: 11, fontWeight: 600, color: '#4A5560' }}>Shift</span>
+                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-caption)' }}>Shift</span>
                 <select style={field} value={form.shift} onChange={e => set('shift', e.target.value)}>
                   <option value="">Not recorded yet</option>
                   {RESIDENT_SHIFTS.map(s => <option key={s} value={s}>{shiftBadge(s).label}</option>)}
@@ -568,11 +573,11 @@ function OutcomeSection({ row, canManage, onSave }) {
                   2026-09-11). Optional: until the account exists, the personal
                   email is the backup. The school address is never used. */}
               <label style={{ display: 'block' }}>
-                <span style={{ fontSize: 11, fontWeight: 600, color: '#4A5560' }}>Cedars-Sinai email</span>
+                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-caption)' }}>Cedars-Sinai email</span>
                 <input type="email" style={field} value={form.cs_email} maxLength={200}
                   onChange={e => set('cs_email', e.target.value)} placeholder="first.last@cshs.org" />
               </label>
-              {problem && <p style={{ margin: 0, fontSize: 11, color: '#B3282D' }}>{problem}</p>}
+              {problem && <p style={{ margin: 0, fontSize: 11, color: 'var(--aspire-bad)' }}>{problem}</p>}
               <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                 <button
                   type="button"
@@ -597,7 +602,7 @@ function OutcomeSection({ row, canManage, onSave }) {
                   {busy ? 'Saving…' : 'Save outcome'}
                 </button>
               </div>
-              <p style={{ margin: 0, fontSize: 11, color: '#9CA3AF' }}>
+              <p style={{ margin: 0, fontSize: 11, color: 'var(--text-caption)' }}>
                 A recorded hire is durable employment history. It is what excludes this alumnus from
                 a later residency cohort, and it can never be deleted, only corrected.
               </p>
@@ -628,7 +633,7 @@ const FEEDBACK_READINESS = [
   ['explanation', 'Endorsement explanation'],
   ['bestFitEnvironment', 'Best-fit environment'],
 ]
-const feedbackMuted = { margin: '0 0 8px', fontSize: 12, color: '#6B7785', lineHeight: 1.45, fontFamily: F }
+const feedbackMuted = { margin: '0 0 8px', fontSize: 12, color: 'var(--text-caption)', lineHeight: 1.45, fontFamily: F }
 const feedbackNoteInput = {
   width: '100%', boxSizing: 'border-box', height: 30, padding: '0 10px', marginBottom: 8,
   borderRadius: 'var(--aspire-radius-control)', border: '1px solid rgba(29,37,103,0.15)',
@@ -645,8 +650,8 @@ function FeedbackText({ label, text }) {
   if (!text) return null
   return (
     <div style={{ padding: '5px 0', fontSize: 12.5 }}>
-      <div style={{ color: '#6B7785', marginBottom: 2 }}>{label}</div>
-      <div style={{ color: 'var(--raven, #191919)', whiteSpace: 'pre-wrap', lineHeight: 1.45 }}>{text}</div>
+      <div style={{ color: 'var(--text-caption)', marginBottom: 2 }}>{label}</div>
+      <div style={{ color: 'var(--text-heading)', whiteSpace: 'pre-wrap', lineHeight: 1.45 }}>{text}</div>
     </div>
   )
 }
@@ -654,7 +659,7 @@ function FeedbackText({ label, text }) {
 function FeedbackEntry({ entry, first }) {
   return (
     <div style={first ? undefined : { borderTop: '1px solid rgba(0,0,0,0.06)', marginTop: 10, paddingTop: 10 }}>
-      <div style={{ fontSize: 12.5, fontWeight: 700, color: '#1D2567', marginBottom: 4 }}>
+      <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--color-accent-primary)', marginBottom: 4 }}>
         {[entry.period || 'Preceptor feedback', fmtDay(entry.submittedAt)].filter(Boolean).join(' · ')}
       </div>
       {entry.rotationUnit && <Row label="Unit">{entry.rotationUnit}</Row>}
@@ -662,7 +667,7 @@ function FeedbackEntry({ entry, first }) {
       {entry.competencies.filter(c => c.ratingLabel).map(c => (
         <div key={c.key}>
           <Row label={c.label}>{c.ratingLabel}</Row>
-          {c.comment && <p style={{ margin: '0 0 4px', fontSize: 12, color: '#4A5560', whiteSpace: 'pre-wrap' }}>{c.comment}</p>}
+          {c.comment && <p style={{ margin: '0 0 4px', fontSize: 12, color: 'var(--text-caption)', whiteSpace: 'pre-wrap' }}>{c.comment}</p>}
         </div>
       ))}
       <FeedbackText label="Strengths observed" text={entry.narrative.strengths} />
@@ -685,7 +690,6 @@ function PreceptorFeedbackSection({ row, feedback, actions }) {
   if (!feedback?.ready || !feedback.audience || !row.candidate_id) return null
   const { entry, canDecide } = feedback
   const run = async (fn) => { setBusy(true); try { await fn() } finally { setBusy(false) } }
-  const tint = 'rgba(96,120,170,0.055)'
 
   if (feedback.audience === 'talent_acquisition') {
     const req = entry?.request || null
@@ -716,7 +720,7 @@ function PreceptorFeedbackSection({ row, feedback, actions }) {
             </button>
           )}
           {viewState === 'error' && (
-            <p style={{ ...feedbackMuted, color: '#B3282D', margin: '6px 0 0' }}>The feedback could not be opened. Try again.</p>
+            <p style={{ ...feedbackMuted, color: 'var(--aspire-bad)', margin: '6px 0 0' }}>The feedback could not be opened. Try again.</p>
           )}
         </>
       )
@@ -742,14 +746,14 @@ function PreceptorFeedbackSection({ row, feedback, actions }) {
         </>
       )
     }
-    return <Section title="Preceptor Feedback" tint={tint}>{body}</Section>
+    return <Section title="Preceptor Feedback">{body}</Section>
   }
 
   // The ASPIRE team: what is on file, who asked, and who has viewed it.
   const requests = entry?.requests || []
   const count = entry?.count || 0
   return (
-    <Section title="Preceptor Feedback" tint={tint}>
+    <Section title="Preceptor Feedback">
       <p style={feedbackMuted}>
         {count
           ? `${count} preceptor feedback submission${count === 1 ? '' : 's'} on file.`
@@ -761,7 +765,7 @@ function PreceptorFeedbackSection({ row, feedback, actions }) {
       {requests.map(req => (
         <div key={req.id} style={{ padding: '6px 0', borderTop: '1px solid rgba(0,0,0,0.045)' }}>
           <Row label={req.requesterName || 'Talent Acquisition'}>{FEEDBACK_STATUS[req.status] || req.status}</Row>
-          <div style={{ fontSize: 11.5, color: '#6B7785' }}>
+          <div style={{ fontSize: 11.5, color: 'var(--text-caption)' }}>
             {[
               `Requested ${fmtDay(req.requestedAt)}`,
               req.views
@@ -800,32 +804,44 @@ function PreceptorFeedbackSection({ row, feedback, actions }) {
   )
 }
 
-// STUDENT-DOCUMENTS-1: the application documents, summarised, with the way into the
-// Documents drawer. The staff app only: Talent Acquisition never sees a student's files
-// (the endpoint refuses them too).
-function DocumentsSection({ row, toast, cycle, initialOpen = false }) {
+// STUDENT-DOCUMENTS-1 / APPLICANT-CHART-1: the application documents, inline on the
+// Documents sheet: the same body the Documents drawer shows. The staff app only: Talent
+// Acquisition never sees a student's files (the sheet is not in its binder, and the endpoint
+// refuses them too).
+function DocumentsSection({ row, toast, cycle }) {
   const { staffApp } = useNgrpSurface()
-  const studentId = row.student?.id || null
-  const docs = useStudentDocuments(studentId, { enabled: staffApp })
-  const [open, setOpen] = useState(initialOpen)
-  if (!staffApp || docs.status === 'error') return null
-  const summary = checklistSummary(docs.types, docs.documents, { resumeOnRecord: docs.resumeOnRecord })
+  if (!staffApp) return null
+  return <StudentDocumentsBody student={row.student} toast={toast} cycle={cycle} showWho={false} />
+}
+
+// APPLICANT-CHART-1: the support this alumnus has had, from the same entries Residency >
+// Support counts. Read-only here; Support is where it is recorded.
+function SupportSection({ row, cycle }) {
+  const support = useNgrpSupport(cycle?.id)
+  const sid = row.student?.id || row.id
+  const mine = (support.entries || [])
+    .filter(e => e.student_id === sid && !e.voided_at)
+    .sort((a, b) => String(b.occurred_on || '').localeCompare(String(a.occurred_on || '')))
+  const columns = [
+    { key: 'activity', label: 'Activity', min: 140, grow: 1.4, priority: 1, render: e => supportActivity(e.activity)?.label || e.activity },
+    { key: 'date', label: 'Date', min: 96, grow: 0.8, priority: 1, render: e => entryDay(e.occurred_on) || <Missing /> },
+    { key: 'how', label: 'Recorded', min: 120, grow: 1, priority: 2, render: e => (e.source === 'outreach' ? 'From an Outreach send' : e.mentor_name ? `With ${e.mentor_name}` : 'Logged by the team') },
+    { key: 'note', label: 'Note', min: 140, grow: 1.6, priority: 3, render: e => e.note || <Missing /> },
+  ]
   return (
-    <Section
-      title="Documents" tint="rgba(96,120,170,0.055)"
-      right={docs.status === 'ok' ? <button type="button" style={{ ...smallBtn(), height: 24, padding: '0 9px', fontSize: 11 }} onClick={() => setOpen(true)}>Open Documents</button> : null}
-    >
-      {docs.status === 'loading' && <p style={{ margin: 0, fontSize: 12, color: '#6B7785' }}>Loading…</p>}
-      {docs.status === 'unprovisioned' && <p style={{ margin: 0, fontSize: 12, color: '#6B7785' }}>Documents switch on once the documents update is applied.</p>}
-      {docs.status === 'ok' && (
-        <>
-          <Row label="Required on file">{summary.onFile} of {summary.required}</Row>
-          {summary.missing.length > 0 && <Row label="Missing">{summary.missing.join(', ')}</Row>}
-        </>
+    <Section title="Support Activity">
+      {support.status === 'loading' ? <p style={{ margin: 0, fontSize: 12, color: 'var(--text-caption)' }}>Loading…</p> : (
+        <DataSheet level="inline" columns={columns} rows={mine} rowKey={e => e.id} defaultSort={null}
+          aria-label="Support activity" emptyMessage="No support recorded yet. Taking part is optional and never affects eligibility." />
       )}
-      <StudentDocumentsDrawer open={open} student={row.student} subline={row.student?.aspire_cohort} cycle={cycle} onClose={() => setOpen(false)} toast={toast} />
     </Section>
   )
+}
+// A support date is a calendar day ('2026-10-05'), read as local, never as UTC midnight.
+const entryDay = d => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(d || ''))
+  if (!m) return ''
+  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
 export default function ApplicantDrawer(props) {
@@ -857,6 +873,21 @@ function ApplicantDrawerBody({
     else setReviewState('error')
   }
 
+  // APPLICANT-CHART-1: the binder's sheets. The Residency Portal (Talent Acquisition) has
+  // no Documents sheet: it never sees a student's files.
+  const { staffApp } = useNgrpSurface()
+  const sheets = useMemo(() => APPLICANT_SHEETS.filter(x => staffApp || x.id !== 'documents'), [staffApp])
+  const titleOf = id => sheets.find(x => x.id === id)?.title || ''
+  const tintOf = id => sheets.find(x => x.id === id)?.tint
+  const {
+    scrollerRef: chartScrollerRef, activeSheet: chartSheet,
+    goToSheet: goToChartSheet, lifted: chartLifted,
+  } = useChartScroll(s?.id, sheets)
+  // A link that asks for the documents (?docs=1, Needs you) opens the binder at that sheet.
+  useEffect(() => {
+    if (initialDocsOpen && staffApp) goToChartSheet('documents')
+  }, [initialDocsOpen, staffApp, goToChartSheet])
+
   const guarded = async (fn) => { setBusy(true); try { await fn() } finally { setBusy(false); setConfirming(null) } }
 
   const confirmBar = (kind, text, run, danger = false) => (
@@ -873,14 +904,15 @@ function ApplicantDrawerBody({
     <DetailDrawer
       open={open}
       onClose={onClose}
-      title={`${displayName(s)} · NGRP`}
+      title={`${displayName(s)} · Applicant`}
+      width={1080}
       /* RESIDENCY-ROSTER-1: "Confirm Application" is gone. Confirmation became
          automatic, so a button claiming to do it would be theatre: the pool
          rule has already decided, and the Applicant Pool section says what it
          decided and why. Sending the form is the only action left down here. */
       footer={canManage ? (
         <>
-          {gateNote && <span style={{ marginRight: 'auto', fontSize: 11, color: '#9CA3AF' }}>{gateNote}</span>}
+          {gateNote && <span style={{ marginRight: 'auto', fontSize: 11, color: 'var(--text-caption)' }}>{gateNote}</span>}
           {/* Only where a send action exists: sending runs through ASPIRE Connect,
               so the Residency Portal (and any host without it) shows no Send button. */}
           {!gateNote && actions.sendForm && (
@@ -892,190 +924,240 @@ function ApplicantDrawerBody({
         </>
       ) : null}
     >
-      {/* Identity hero - canonical ASPIRE student record */}
-      <div style={{
-        background: 'linear-gradient(160deg, #dceff8 0%, #f0f6fb 55%, #ffffff 100%)',
-        borderRadius: 12, padding: '20px 16px 16px', textAlign: 'center', marginBottom: 12,
-      }}>
-        <StudentAvatar student={s} size={72} style={{ margin: '0 auto 10px', border: '4px solid #fff', boxShadow: '0 4px 18px rgba(29,37,103,0.16)' }} />
-        <div style={{ fontSize: 20, fontWeight: 700, color: '#1D2567', lineHeight: 1.2 }}>{displayName(s)}</div>
-        <div style={{ fontSize: 12.5, color: '#6b7280', marginTop: 3 }}>
-          {[s.school, s.program_type].filter(Boolean).join(' · ')}
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginTop: 9, flexWrap: 'wrap' }}>
-          {s.aspire_cohort && (
-            <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: '#EDF0F7', color: '#4A5D8F' }}>
-              ASPIRE · {s.aspire_cohort}
-            </span>
-          )}
-          <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: '#f0fdf4', color: '#14532d', border: '1px solid #4ade80' }}>
-            ASPIRE Completed
-          </span>
-          {cycle && (
-            <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: '#EDEEF4', color: '#1D2567' }}>
-              {cycle.name}
-            </span>
-          )}
+      {/* APPLICANT-CHART-1 (Owner, 2026-10-05): the Student Profiles binder (rings, plate,
+          die-cut tabs, tinted sheets, the same scroll spy) holding the application's
+          sheets. Every section below is the one this drawer always had, moved onto a
+          sheet; nothing about what it shows or saves changed. */}
+      <div className="ac-chart">
+        <div className="sc-binder material-leather-black material-forestack material-forestack-right">
+          <div className="sc-rings" aria-hidden="true">
+            <i className="sc-ring" /><i className="sc-ring" /><i className="sc-ring" />
+            <i className="sc-ring" /><i className="sc-ring" />
+          </div>
+          <div className="sc-paper">
+            <div className="sr-only" role="status" aria-live="polite">
+              {displayName(s)}, {titleOf(chartSheet)}
+            </div>
+            <div className={`sc-plate${chartLifted ? ' sc-plate-lifted' : ''}`}>
+              <div className="sc-plate-id">
+                <StudentAvatar student={s} size={72}
+                  style={{ border: '3px solid var(--aspire-page)', boxShadow: '0 2px 10px rgba(29,37,103,0.16)', fontSize: '22px' }} />
+                <div className="sc-plate-head">
+                  <h1 className="sc-plate-name">{getStudentLegalDisplayName(s)}</h1>
+                  <div className="sc-plate-school">{[s.school, s.program_type].filter(Boolean).join(' · ')}</div>
+                  <div className="sc-plate-chips">
+                    {s.aspire_cohort && (
+                      <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: '#EDF0F7', color: '#4A5D8F' }}>
+                        ASPIRE · {s.aspire_cohort}
+                      </span>
+                    )}
+                    <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: '#f0fdf4', color: '#14532d', border: '1px solid #4ade80' }}>
+                      ASPIRE Completed
+                    </span>
+                    {cycle && (
+                      <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: '#EDEEF4', color: '#1D2567' }}>
+                        {cycle.name}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="sc-main">
+              <div className="sc-scroller" ref={chartScrollerRef}>
+              <section className="sc-sheet" id={sheetDomId('applicant')} data-sheet="applicant" data-tint={tintOf('applicant')} aria-label={titleOf('applicant')}>
+                <h2 className="sc-sheet-title">{titleOf('applicant')}</h2>
+                <Section title="Contact" right={<span style={{ fontSize: 10.5, color: 'var(--text-caption)', textTransform: 'none', letterSpacing: 0 }}>From the student record</span>}>
+                  <Row label="Personal email">{s.personal_email || '—'}</Row>
+                  <Row label="School email">{s.school_email || '—'}</Row>
+                </Section>
+                <Section title="Residency Interest">
+                  <Row label="Interest"><NgrpStatusPill config={INTEREST_STATES} value={row.interest} /></Row>
+                  {row.interest === 'no_response' && (
+                    <p style={{ margin: '4px 0 0', fontSize: 11, color: 'var(--text-caption)' }}>
+                      No response yet - a neutral state, not a decline.
+                    </p>
+                  )}
+                </Section>
+
+                <Section
+                  title="Eligibility"
+                  right={canManage && provisioned ? (
+                    <button type="button" style={{ ...smallBtn(), height: 24, padding: '0 9px', fontSize: 11 }} onClick={() => setOverrideOpen(true)}>Override…</button>
+                  ) : null}
+                >
+                  <Row label="Calculated result">
+                    <NgrpStatusPill config={ELIGIBILITY_STATES} value={row.eligibility_calculated} />
+                  </Row>
+                  {overridden && (
+                    <>
+                      <Row label="Effective result (staff override)">
+                        <NgrpStatusPill config={ELIGIBILITY_STATES} value={elig} />
+                      </Row>
+                      <Row label="Override reason">
+                        <span style={{ fontWeight: 400, color: 'var(--text-caption)' }}>{row.eligibility_override_reason || '—'}</span>
+                      </Row>
+                      {row.eligibility_overridden_at && (
+                        <Row label={`Overridden${row.eligibility_overridden_by_name ? ` by ${row.eligibility_overridden_by_name}` : ''}`}>
+                          {fmt(row.eligibility_overridden_at)}
+                        </Row>
+                      )}
+                    </>
+                  )}
+                  {reasons.length > 0 ? (
+                    <div style={{ marginTop: 6 }}>
+                      {reasons.map((r, i) => (
+                        <div key={i} style={{
+                          display: 'flex', gap: 8, alignItems: 'baseline', fontSize: 12,
+                          padding: '5px 0', borderBottom: i < reasons.length - 1 ? '1px dashed rgba(0,0,0,0.06)' : 'none',
+                        }}>
+                          <span aria-hidden="true" style={{ flexShrink: 0, width: 14, textAlign: 'center', color: REQ_COLORS[r.status] || (r.met ? 'var(--aspire-ok)' : 'var(--aspire-warn)'), fontWeight: 700 }}>
+                            {REQ_GLYPHS[r.status] || (r.met ? '✓' : '·')}
+                          </span>
+                          <span style={{ color: 'var(--text-caption)', flex: 1 }}>
+                            {r.label}{r.detail ? <span style={{ color: 'var(--text-caption)' }}> - {r.detail}</span> : null}
+                          </span>
+                          {r.deadline && <span style={{ color: 'var(--aspire-warn)', fontWeight: 600, whiteSpace: 'nowrap' }}>due {r.deadline}</span>}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p style={{ margin: '4px 0 0', fontSize: 11, color: 'var(--text-caption)' }}>
+                      Requirement detail appears once a submitted form has been evaluated for this cycle.
+                    </p>
+                  )}
+                  <p style={{ margin: '8px 0 0', fontSize: 11, color: 'var(--text-caption)' }}>
+                    Optional support participation never affects eligibility. An eligible result is not an
+                    official application.
+                  </p>
+                </Section>
+              </section>
+              <section className="sc-sheet" id={sheetDomId('application')} data-sheet="application" data-tint={tintOf('application')} aria-label={titleOf('application')}>
+                <h2 className="sc-sheet-title">{titleOf('application')}</h2>
+                <Section
+                  title="Transition Form"
+                  right={canManage && hasForm && provisioned && actions.revokeLink ? (
+                    confirming === 'revoke'
+                      ? confirmBar('revoke', 'Revoke the live link? The alumnus loses access until a resend.', async () => { await actions.revokeLink?.(row) }, true)
+                      : <button type="button" style={{ ...smallBtn(false, true), height: 24, padding: '0 9px', fontSize: 11 }} onClick={() => setConfirming('revoke')}>Revoke link</button>
+                  ) : null}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                    <NgrpStatusPill config={FORM_STATES} value={row.form_status} srPrefix="Transition Form" />
+                    {row.form_status === 'revised' && (row.form_revision_count || 0) > 0 && (
+                      <span style={{ fontSize: 11, color: 'var(--text-caption)' }}>
+                        Revision {row.form_revision_count} · latest {fmt(row.form_revised_at) || '—'}
+                      </span>
+                    )}
+                  </div>
+                  <FormLifecycle row={row} />
+                  <p style={{ margin: '6px 0 0', fontSize: 11, color: 'var(--text-caption)' }}>
+                    Alumni can revise a submitted form until the cycle deadline
+                    {cycle?.application_deadline ? ` (${cycle.application_deadline})` : ''}. Sending the form
+                    records “Transition Form Sent” - it is not an invitation to apply.
+                  </p>
+                  {hasSubmission && (
+                    <div style={{ marginTop: 10 }}>
+                      {reviewState === 'idle' && (
+                        <button type="button" style={smallBtn()} onClick={loadReview}>Review submitted form</button>
+                      )}
+                      {reviewState === 'loading' && <span style={{ fontSize: 12, color: 'var(--text-caption)', fontFamily: F }}>Loading submission…</span>}
+                      {reviewState === 'error' && <span style={{ fontSize: 12, color: 'var(--aspire-bad)', fontFamily: F }}>The submission could not load - try again.</span>}
+                      {reviewState === 'ready' && review?.latestRevision && (
+                        <>
+                          <Row label={`Revision ${review.latestRevision.revision_number}`}>{fmt(review.latestRevision.submitted_at)}</Row>
+                          <RevisionSummary payload={review.latestRevision.payload} />
+                        </>
+                      )}
+                    </div>
+                  )}
+                </Section>
+
+                <UnitChoicesSection
+                  row={row}
+                  canManage={canManage && provisioned && Boolean(actions.setPreferences)}
+                  onSave={prefsToSave => actions.setPreferences?.(row, prefsToSave)}
+                />
+
+                <PoolSection
+                  row={row}
+                  canManage={canManage && provisioned}
+                  actions={actions}
+                />
+              </section>
+              {sheets.some(x => x.id === 'documents') && (
+                <section className="sc-sheet" id={sheetDomId('documents')} data-sheet="documents" data-tint={tintOf('documents')} aria-label={titleOf('documents')}>
+                  <h2 className="sc-sheet-title">{titleOf('documents')}</h2>
+                  <DocumentsSection row={row} toast={toast} cycle={cycle} />
+                </section>
+              )}
+              <section className="sc-sheet" id={sheetDomId('support')} data-sheet="support" data-tint={tintOf('support')} aria-label={titleOf('support')}>
+                <h2 className="sc-sheet-title">{titleOf('support')}</h2>
+                <SupportSection row={row} cycle={cycle} />
+              </section>
+              <section className="sc-sheet" id={sheetDomId('interview')} data-sheet="interview" data-tint={tintOf('interview')} aria-label={titleOf('interview')}>
+                <h2 className="sc-sheet-title">{titleOf('interview')}</h2>
+                {/* NGRP-INTERVIEW-HIRE-1: the interview record, editable here rather than
+                    on the board, because this drawer is already where one person's record
+                    is edited and a second editing surface would be a second truth.
+                    WORKFLOW state, so it writes to ngrp_candidates.
+                    NO RUBRIC AND NO SCORE, by explicit Owner decision: who was
+                    interviewed and what came of it, never how they were graded. */}
+                <InterviewSection
+                  row={row}
+                  canManage={canManage && provisioned}
+                  onSave={fields => actions.setInterview?.(row, fields)}
+                />
+
+                <PreceptorFeedbackSection row={row} feedback={feedback} actions={actions} />
+              </section>
+              <section className="sc-sheet" id={sheetDomId('hiring')} data-sheet="hiring" data-tint={tintOf('hiring')} aria-label={titleOf('hiring')}>
+                <h2 className="sc-sheet-title">{titleOf('hiring')}</h2>
+                {/* The DURABLE employment record, in its own table with RESTRICT foreign
+                    keys and DELETE revoked even from service_role. Only an applicant on
+                    the official list can carry one. */}
+                <OutcomeSection
+                  row={row}
+                  canManage={canManage && provisioned}
+                  onSave={fields => actions.setOutcome?.(row, fields)}
+                />
+              </section>
+              <section className="sc-sheet" id={sheetDomId('activity')} data-sheet="activity" data-tint={tintOf('activity')} aria-label={titleOf('activity')}>
+                <h2 className="sc-sheet-title">{titleOf('activity')}</h2>
+                <Section title="Activity">
+                  {row.candidate_id ? (
+                    <>
+                      {formTimestamp(row) && <Row label="Latest form activity">{fmt(formTimestamp(row))}</Row>}
+                      {reviewState === 'ready' && (review?.tokens || []).length > 0 && (
+                        <Row label="Latest link">
+                          <span style={{ fontWeight: 400, color: 'var(--text-caption)' }}>
+                            #{review.tokens[0].token_hash_prefix} · issued {fmt(review.tokens[0].created_at)}
+                            {review.tokens[0].revoked_at ? ' · revoked' : ''}
+                          </span>
+                        </Row>
+                      )}
+                    </>
+                  ) : (
+                    <p style={{ margin: 0, fontSize: 12, color: 'var(--text-caption)' }}>
+                      No NGRP activity yet for this cycle. A candidate record is created with the first
+                      NGRP action (for example, sending the Transition Form).
+                    </p>
+                  )}
+                </Section>
+              </section>
+              </div>
+              <nav className="sc-index" aria-label="Applicant chart sections">
+                {sheets.map(x => (
+                  <button key={x.id} type="button" className="sc-tab" data-sheet={x.id} data-tint={x.tint}
+                    aria-current={chartSheet === x.id} onClick={() => goToChartSheet(x.id)}>
+                    {x.label}
+                  </button>
+                ))}
+              </nav>
+            </div>
+          </div>
         </div>
       </div>
-
-      <Section
-        title="Transition Form" tint="rgba(96,120,170,0.055)"
-        right={canManage && hasForm && provisioned && actions.revokeLink ? (
-          confirming === 'revoke'
-            ? confirmBar('revoke', 'Revoke the live link? The alumnus loses access until a resend.', async () => { await actions.revokeLink?.(row) }, true)
-            : <button type="button" style={{ ...smallBtn(false, true), height: 24, padding: '0 9px', fontSize: 11 }} onClick={() => setConfirming('revoke')}>Revoke link</button>
-        ) : null}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-          <NgrpStatusPill config={FORM_STATES} value={row.form_status} srPrefix="Transition Form" />
-          {row.form_status === 'revised' && (row.form_revision_count || 0) > 0 && (
-            <span style={{ fontSize: 11, color: '#6B7785' }}>
-              Revision {row.form_revision_count} · latest {fmt(row.form_revised_at) || '—'}
-            </span>
-          )}
-        </div>
-        <FormLifecycle row={row} />
-        <p style={{ margin: '6px 0 0', fontSize: 11, color: '#9CA3AF' }}>
-          Alumni can revise a submitted form until the cycle deadline
-          {cycle?.application_deadline ? ` (${cycle.application_deadline})` : ''}. Sending the form
-          records “Transition Form Sent” - it is not an invitation to apply.
-        </p>
-        {hasSubmission && (
-          <div style={{ marginTop: 10 }}>
-            {reviewState === 'idle' && (
-              <button type="button" style={smallBtn()} onClick={loadReview}>Review submitted form</button>
-            )}
-            {reviewState === 'loading' && <span style={{ fontSize: 12, color: '#6B7785', fontFamily: F }}>Loading submission…</span>}
-            {reviewState === 'error' && <span style={{ fontSize: 12, color: '#B3282D', fontFamily: F }}>The submission could not load - try again.</span>}
-            {reviewState === 'ready' && review?.latestRevision && (
-              <>
-                <Row label={`Revision ${review.latestRevision.revision_number}`}>{fmt(review.latestRevision.submitted_at)}</Row>
-                <RevisionSummary payload={review.latestRevision.payload} />
-              </>
-            )}
-          </div>
-        )}
-      </Section>
-
-      <DocumentsSection row={row} toast={toast} cycle={cycle} initialOpen={initialDocsOpen} />
-
-      <Section title="Residency Interest" tint="rgba(96,120,170,0.055)">
-        <Row label="Interest"><NgrpStatusPill config={INTEREST_STATES} value={row.interest} /></Row>
-        {row.interest === 'no_response' && (
-          <p style={{ margin: '4px 0 0', fontSize: 11, color: '#9CA3AF' }}>
-            No response yet - a neutral state, not a decline.
-          </p>
-        )}
-      </Section>
-
-      <Section
-        title="Eligibility" tint="rgba(110,150,135,0.075)"
-        right={canManage && provisioned ? (
-          <button type="button" style={{ ...smallBtn(), height: 24, padding: '0 9px', fontSize: 11 }} onClick={() => setOverrideOpen(true)}>Override…</button>
-        ) : null}
-      >
-        <Row label="Calculated result">
-          <NgrpStatusPill config={ELIGIBILITY_STATES} value={row.eligibility_calculated} />
-        </Row>
-        {overridden && (
-          <>
-            <Row label="Effective result (staff override)">
-              <NgrpStatusPill config={ELIGIBILITY_STATES} value={elig} />
-            </Row>
-            <Row label="Override reason">
-              <span style={{ fontWeight: 400, color: '#5A6170' }}>{row.eligibility_override_reason || '—'}</span>
-            </Row>
-            {row.eligibility_overridden_at && (
-              <Row label={`Overridden${row.eligibility_overridden_by_name ? ` by ${row.eligibility_overridden_by_name}` : ''}`}>
-                {fmt(row.eligibility_overridden_at)}
-              </Row>
-            )}
-          </>
-        )}
-        {reasons.length > 0 ? (
-          <div style={{ marginTop: 6 }}>
-            {reasons.map((r, i) => (
-              <div key={i} style={{
-                display: 'flex', gap: 8, alignItems: 'baseline', fontSize: 12,
-                padding: '5px 0', borderBottom: i < reasons.length - 1 ? '1px dashed rgba(0,0,0,0.06)' : 'none',
-              }}>
-                <span aria-hidden="true" style={{ flexShrink: 0, width: 14, textAlign: 'center', color: REQ_COLORS[r.status] || (r.met ? '#166534' : '#92400e'), fontWeight: 700 }}>
-                  {REQ_GLYPHS[r.status] || (r.met ? '✓' : '·')}
-                </span>
-                <span style={{ color: '#5A6170', flex: 1 }}>
-                  {r.label}{r.detail ? <span style={{ color: '#9CA3AF' }}> - {r.detail}</span> : null}
-                </span>
-                {r.deadline && <span style={{ color: '#92400E', fontWeight: 600, whiteSpace: 'nowrap' }}>due {r.deadline}</span>}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p style={{ margin: '4px 0 0', fontSize: 11, color: '#9CA3AF' }}>
-            Requirement detail appears once a submitted form has been evaluated for this cycle.
-          </p>
-        )}
-        <p style={{ margin: '8px 0 0', fontSize: 11, color: '#9CA3AF' }}>
-          Optional support participation never affects eligibility. An eligible result is not an
-          official application.
-        </p>
-      </Section>
-
-      <UnitChoicesSection
-        row={row}
-        canManage={canManage && provisioned && Boolean(actions.setPreferences)}
-        onSave={prefsToSave => actions.setPreferences?.(row, prefsToSave)}
-      />
-
-      <PoolSection
-        row={row}
-        canManage={canManage && provisioned}
-        actions={actions}
-      />
-
-      {/* NGRP-INTERVIEW-HIRE-1: the interview record, editable here rather than
-          on the board, because this drawer is already where one person's record
-          is edited and a second editing surface would be a second truth.
-          WORKFLOW state, so it writes to ngrp_candidates.
-          NO RUBRIC AND NO SCORE, by explicit Owner decision: who was
-          interviewed and what came of it, never how they were graded. */}
-      <InterviewSection
-        row={row}
-        canManage={canManage && provisioned}
-        onSave={fields => actions.setInterview?.(row, fields)}
-      />
-
-      {/* The DURABLE employment record, in its own table with RESTRICT foreign
-          keys and DELETE revoked even from service_role. Only an applicant on
-          the official list can carry one. */}
-      <OutcomeSection
-        row={row}
-        canManage={canManage && provisioned}
-        onSave={fields => actions.setOutcome?.(row, fields)}
-      />
-
-      <PreceptorFeedbackSection row={row} feedback={feedback} actions={actions} />
-
-      <Section title="Activity" tint="rgba(120,124,134,0.05)">
-        {row.candidate_id ? (
-          <>
-            {formTimestamp(row) && <Row label="Latest form activity">{fmt(formTimestamp(row))}</Row>}
-            {reviewState === 'ready' && (review?.tokens || []).length > 0 && (
-              <Row label="Latest link">
-                <span style={{ fontWeight: 400, color: '#6B7785' }}>
-                  #{review.tokens[0].token_hash_prefix} · issued {fmt(review.tokens[0].created_at)}
-                  {review.tokens[0].revoked_at ? ' · revoked' : ''}
-                </span>
-              </Row>
-            )}
-          </>
-        ) : (
-          <p style={{ margin: 0, fontSize: 12, color: '#9CA3AF' }}>
-            No NGRP activity yet for this cycle. A candidate record is created with the first
-            NGRP action (for example, sending the Transition Form).
-          </p>
-        )}
-      </Section>
 
       <OverrideDialog
         open={overrideOpen}

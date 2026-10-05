@@ -25,5 +25,19 @@ export const CHART_SHEETS = [
 
 export const FIRST_SHEET = CHART_SHEETS[0].id
 
+// APPLICANT-CHART-1 (Owner, 2026-10-05): Residency > Profiles & Interest opens the SAME binder
+// with the application's sheets. Each borrows a Student Profiles sheet's tint (`tint`), so no
+// new colour exists; studentChart.css maps them. Order: who they are, their application, what
+// is on file, the support they had, the interview, the outcome, and everything that happened.
+export const APPLICANT_SHEETS = [
+  { id: 'applicant',   label: 'Applicant',   title: 'Applicant',   tint: 'profile' },
+  { id: 'application', label: 'Application', title: 'Application', tint: 'placement' },
+  { id: 'documents',   label: 'Documents',   title: 'Documents',   tint: 'documents' },
+  { id: 'support',     label: 'Support',     title: 'Support',     tint: 'hours' },
+  { id: 'interview',   label: 'Interview',   title: 'Interview',   tint: 'background' },
+  { id: 'hiring',      label: 'Hiring',      title: 'Hiring',      tint: 'evaluations' },
+  { id: 'activity',    label: 'Activity',    title: 'Activity',    tint: 'notes' },
+]
+
 /** The DOM id a sheet and its tab agree on. One definition, so a click cannot miss. */
 export const sheetDomId = (id) => `sc-sheet-${id}`

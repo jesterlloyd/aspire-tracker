@@ -292,6 +292,21 @@
 .sc-sheet[data-sheet="evaluations"] { background: var(--aspire-sheet-evaluations); }
 .sc-sheet[data-sheet="notes"]       { background: var(--aspire-sheet-notes); }
 
+/* APPLICANT-CHART-1: Residency's Applicant chart is this binder with its own sheets
+   (APPLICANT_SHEETS in chartSheets.js). Each borrows one of these tints by name
+   (`data-tint`), so it reads the same tokens in both themes and no new colour exists. */
+.sc-sheet[data-tint="profile"]     { background: var(--aspire-sheet-profile); }
+.sc-sheet[data-tint="background"]  { background: var(--aspire-sheet-background); }
+.sc-sheet[data-tint="placement"]   { background: var(--aspire-sheet-placement); }
+.sc-sheet[data-tint="hours"]       { background: var(--aspire-sheet-hours); }
+.sc-sheet[data-tint="documents"]   { background: var(--aspire-sheet-documents); }
+.sc-sheet[data-tint="evaluations"] { background: var(--aspire-sheet-evaluations); }
+.sc-sheet[data-tint="notes"]       { background: var(--aspire-sheet-notes); }
+/* Activity is that binder's last sheet, so it carries the last sheet's rule. */
+.sc-sheet[data-sheet="activity"] { border-bottom: none; min-height: 60vh; }
+/* In a drawer the binder takes the drawer body's height (Student Profiles measures it). */
+.ac-chart { height: 100%; min-height: 520px; }
+
 .sc-sheet-title {
   font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
   font-size: 18px;
@@ -592,6 +607,15 @@
 .sc-tab[data-sheet="documents"]   { background: var(--aspire-sheet-documents); }
 .sc-tab[data-sheet="evaluations"] { background: var(--aspire-sheet-evaluations); }
 .sc-tab[data-sheet="notes"]       { background: var(--aspire-sheet-notes); }
+/* APPLICANT-CHART-1: the Applicant chart's tabs, by borrowed tint (before Modern's rules,
+   which make every tab plain and must still win). */
+.sc-tab[data-tint="profile"]     { background: var(--aspire-sheet-profile); }
+.sc-tab[data-tint="background"]  { background: var(--aspire-sheet-background); }
+.sc-tab[data-tint="placement"]   { background: var(--aspire-sheet-placement); }
+.sc-tab[data-tint="hours"]       { background: var(--aspire-sheet-hours); }
+.sc-tab[data-tint="documents"]   { background: var(--aspire-sheet-documents); }
+.sc-tab[data-tint="evaluations"] { background: var(--aspire-sheet-evaluations); }
+.sc-tab[data-tint="notes"]       { background: var(--aspire-sheet-notes); }
 .sc-tab:hover { z-index: 3; box-shadow: -4px 2px 7px rgba(24, 32, 63, 0.26); }
 /* The current tab does NOT slide (Owner, 2026-09-18). It used to travel 6px, and since the
    scroll spy changes which tab is current as you read, the whole rail twitched the entire
@@ -681,6 +705,7 @@
   .sc-plate { padding: 12px 14px; }
   .sc-plate-name { font-size: 20px; }
   .sc-sheet[data-sheet="notes"] { min-height: 0; }
+  .sc-sheet[data-sheet="activity"] { min-height: 0; }
 }
 
 /* The chart's pages are TINTED, not white, so the app's quietest greys lose a little
@@ -850,3 +875,4 @@
   color: var(--color-accent-primary, #1D2567);
   box-shadow: 0 3px 8px rgba(29, 37, 103, 0.10);
 }
+

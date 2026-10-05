@@ -259,5 +259,8 @@ test('the endpoint: staff readers, Owner/Admin writers, never Talent Acquisition
   const upload = panel.indexOf("signAndUploadStaffFile({ studentId: student.id, kind: 'resume', file })")
   assert.ok(keep > -1 && keep < upload, 'the chart keeps the record résumé before it uploads')
   const drawer = readFileSync(join(root, 'src/components/ngrp/ApplicantDrawer.jsx'), 'utf8')
-  assert.match(drawer, /if \(!staffApp \|\| docs\.status === 'error'\) return null/, 'the Residency Portal never shows documents')
+  // APPLICANT-CHART-1 (this commit): the documents are a sheet of the Applicant chart; the
+  // Residency Portal's binder has no Documents sheet and the section renders nothing there.
+  assert.match(drawer, /APPLICANT_SHEETS\.filter\(x => staffApp \|\| x\.id !== 'documents'\)/, 'the Residency Portal has no Documents sheet')
+  assert.match(drawer, /function DocumentsSection\(\{ row, toast, cycle \}\) \{\n  const \{ staffApp \} = useNgrpSurface\(\)\n  if \(!staffApp\) return null/, 'the Residency Portal never shows documents')
 })

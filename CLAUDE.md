@@ -1935,6 +1935,30 @@ could not be clicked. Now:
   Portal (`uploaded_via: 'portal'`). `openingLine` in resumeReviewModel.js, added by `composeDraft`
   for the drawer and the Outreach handoff alike, and skipped when Keith's body already thanks them.
 
+## The applicant is the student's binder (APPLICANT-CHART-1, 2026-10-05)
+
+Residency > Profiles & Interest opens each applicant in the Student Profiles binder, in a drawer
+over the roster (Owner chose A over a split view). Owner: "do not invent new things - rather,
+reuse". Reference: `docs/mockups/applicant-chart.html` (its own tabs and colours were NOT built;
+the real chart's are).
+
+- **Same parts, same files**: `.sc-binder` and its rings, the `.sc-plate`, the die-cut `.sc-index`
+  tabs and `useChartScroll` (which now takes a sheet list), all from `src/components/student/`.
+  The seven sheets are `APPLICANT_SHEETS` in `chartSheets.js`: Applicant, Application, Documents,
+  Support, Interview, Hiring, Activity. Each borrows a Student Profiles tint by name (`data-tint`),
+  so no colour is new; the tab rules sit BEFORE Modern's, which must still make every tab plain.
+- **Every section the drawer had is on a sheet, unchanged in what it shows or saves**; `Section`
+  is now the chart's `sp-section sp-card` (part of the page, not a box). Contact (personal and
+  school email) is read from the student record. Documents is `StudentDocumentsBody`, the
+  Documents drawer's own body, inline. Support lists that alumnus's live entries from the same
+  query Residency > Support counts. The Residency Portal has no Documents sheet.
+- **Inks are theme tokens now** (`--text-caption`, `--text-heading`, `--aspire-ok/warn/bad`): the
+  drawer's literal greys measured 2.3 to 2.5:1 on white and failed on the dark sheets. Swept every
+  text node in all four style and theme combinations: one failure left, the shared
+  "Not Scheduled" pill (4.39:1), which is the app-wide pill and was left alone.
+- **Not built, on purpose**: an Employment section (Cedars-Sinai email) waits for its own build;
+  Town Hall and Bootcamp attendance sheets and the Advising log are next.
+
 ## Settings groups, one breadcrumb, the staff menu in portals (NAV-POLISH-1, 2026-10-02)
 
 - **The Settings rail is four groups** (Owner): Personal (General), Administration (Users &
