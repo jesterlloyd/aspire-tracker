@@ -98,6 +98,7 @@ function DraftBox({ review, student, sender, canWrite, toast, onSaved, cycle, ve
   const composed = composeDraft({
     body, score: review.score, readiness: review.readiness, includeScore,
     bullets: review.full_report?.rewritten_bullets || [], includeBullets, sender: sender || {},
+    uploadedVia: version?.uploaded_via || null,
   })
   const save = (patch) => { if (canWrite) saveResumeDraft(review.id, patch).then(r => { if (!r.ok) toast?.error?.('Draft not saved', 'Your change shows here but was not saved.') }) }
 

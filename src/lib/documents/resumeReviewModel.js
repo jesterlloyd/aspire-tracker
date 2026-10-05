@@ -125,19 +125,31 @@ export function bulletsSection(bullets = []) {
   return ['A few rewritten bullets you can adapt:', ...rows.map(b => `- ${b.rewrite}`)].join('\n')
 }
 
+// RESUME-DRAFT-OPENING-1 (Owner, 2026-10-05): the email opens by thanking them for the résumé
+// and saying what was done with it, before any feedback. "Sending" when it reached the team,
+// "uploading" when they put it in the Student Portal themselves (the version's uploaded_via).
+export function openingLine(uploadedVia = null) {
+  return `Thank you for ${uploadedVia === 'portal' ? 'uploading' : 'sending'} your résumé. I've reviewed it and run it against our ASPIRE résumé rubric. Here is my feedback.`
+}
+// Keith may already thank them; the opening is then not added a second time.
+const THANKS = /^thank you for (sending|uploading|sharing|submitting)\b/i
+const GREETING = /^(hi|hello|dear|good (morning|afternoon|evening))\b/i
+
 export function signOff({ name, credentials } = {}) {
   const who = [name, credentials].map(x => String(x || '').trim()).filter(Boolean).join(', ')
   return who ? `Warmly,\n${who}` : 'Warmly,'
 }
 
-// The email: Keith's body (greeting, then their strengths, then the priorities), with the readiness
+// The email: Keith's body (greeting, the opening line, then their strengths, then the priorities), with the readiness
 // sentence AFTER their strengths when "Include readiness" is on (RESUME-FEEDBACK-1: the strengths
 // come first, never a verdict), the rewritten bullets when that box is on, the line to their full
 // feedback when there is a link, and the reviewer's own sign-off. Each box changes only its part.
-export function composeDraft({ body = '', score = null, readiness = null, includeScore = false, bullets = [], includeBullets = false, portalUrl = null, sender = {} } = {}) {
+export function composeDraft({ body = '', score = null, readiness = null, includeScore = false, bullets = [], includeBullets = false, portalUrl = null, sender = {}, uploadedVia = null } = {}) {
   const paras = String(body).trim().split(/\n{2,}/).filter(Boolean)
   const out = [...paras]
   if (includeScore && readiness) out.splice(Math.min(2, out.length), 0, scoreSentence(score, readiness))
+  // The opening goes right after the greeting (first, when there is none).
+  if (!paras.some(p => THANKS.test(p.trim()))) out.splice(GREETING.test(out[0] || '') ? 1 : 0, 0, openingLine(uploadedVia))
   if (includeBullets) {
     const b = bulletsSection(bullets)
     if (b) out.push(b)

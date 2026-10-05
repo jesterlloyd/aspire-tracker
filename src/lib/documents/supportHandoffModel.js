@@ -34,6 +34,7 @@ export function resumeReviewHandoff({ review, student, cycle, version, includeSc
       body: composeDraft({
         body: body ?? review.draft_body ?? '', score: review.score, readiness: review.readiness,
         includeScore, bullets: review.full_report?.rewritten_bullets || [], includeBullets, sender: {},
+        uploadedVia: version?.uploaded_via || null,
         // RESUME-FEEDBACK-1: sending shares their full feedback in the portal, so the email says where.
         portalUrl: appUrl('/portal/residency'),
       }),

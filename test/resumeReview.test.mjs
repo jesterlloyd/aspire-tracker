@@ -66,8 +66,10 @@ test('the draft: strengths first, readiness in words after them, the feedback li
   const full = composeDraft({ body, score: 58, readiness: 'Needs Improvement', includeScore: true, bullets, includeBullets: true, portalUrl: 'https://aspireintelligence.app/portal/residency', sender })
   const parts = full.split('\n\n')
   assert.equal(parts[0], 'Hi Maya,')
-  assert.equal(parts[1], 'Your practicum section is clear.', 'the strengths come before any verdict')
-  assert.equal(parts[2], 'On the ASPIRE résumé rubric, your résumé reads as Needs Improvement for now.')
+  // RESUME-DRAFT-OPENING-1 (this commit): the thank-you and what was done come right after the greeting.
+  assert.equal(parts[1], "Thank you for sending your résumé. I've reviewed it and run it against our ASPIRE résumé rubric. Here is my feedback.")
+  assert.equal(parts[2], 'Your practicum section is clear.', 'the strengths come before any verdict')
+  assert.equal(parts[3], 'On the ASPIRE résumé rubric, your résumé reads as Needs Improvement for now.')
   assert.doesNotMatch(full, /\b58\b|of 100/, 'never the number')
   assert.match(parts.at(-3), /^A few rewritten bullets/)
   assert.match(parts.at(-2), /in the Student Portal under Residency: https:\/\/aspireintelligence\.app\/portal\/residency$/)
@@ -79,6 +81,17 @@ test('the draft: strengths first, readiness in words after them, the feedback li
   assert.equal(copyScoreLine({ name: 'Ortiz, Maya', score: 72, readiness: 'Competitive', when: 'Oct 4, 2026' }), 'Ortiz, Maya · Résumé score 72/100 (Competitive), Oct 4, 2026')
   assert.equal(scoreChange([{ score: 78 }, { score: 64 }]), 14)
   assert.equal(scoreChange([{ score: 78 }]), null)
+})
+
+// RESUME-DRAFT-OPENING-1 (Owner, 2026-10-05): "Thank you for sending (or uploading if they uploaded)".
+test('the opening thanks them for sending, or uploading when they used the portal, and never twice', () => {
+  const body = 'Hi Maya,\n\nYour practicum section is clear.'
+  assert.match(composeDraft({ body }).split('\n\n')[1], /^Thank you for sending your résumé\./)
+  assert.match(composeDraft({ body, uploadedVia: 'portal' }).split('\n\n')[1], /^Thank you for uploading your résumé\./)
+  assert.match(composeDraft({ body, uploadedVia: 'staff' }), /Thank you for sending/)
+  const keithThanked = 'Hi Maya,\n\nThank you for sharing your résumé with me.\n\nYour practicum section is clear.'
+  assert.equal((composeDraft({ body: keithThanked }).match(/Thank you for/g) || []).length, 1, 'no second thank-you')
+  assert.match(composeDraft({ body: 'Your practicum section is clear.' }), /^Thank you for sending/, 'no greeting: the opening leads')
 })
 
 test('highlights only exact quotes; a stale scoring row reads as failed; the tracker\'s current step', () => {

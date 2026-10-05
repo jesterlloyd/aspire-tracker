@@ -1929,6 +1929,12 @@ could not be clicked. Now:
 - **Score again** on a scored résumé, after a confirm: a new review of the same file; the earlier
   one stays in the review's score history. The server always allowed it; the screen did not.
 
+- **The draft opens with a thank-you** (RESUME-DRAFT-OPENING-1, Owner, 2026-10-05): right after
+  the greeting, "Thank you for sending your résumé. I've reviewed it and run it against our ASPIRE
+  résumé rubric. Here is my feedback." It says "uploading" when the version came from the Student
+  Portal (`uploaded_via: 'portal'`). `openingLine` in resumeReviewModel.js, added by `composeDraft`
+  for the drawer and the Outreach handoff alike, and skipped when Keith's body already thanks them.
+
 ## Settings groups, one breadcrumb, the staff menu in portals (NAV-POLISH-1, 2026-10-02)
 
 - **The Settings rail is four groups** (Owner): Personal (General), Administration (Users &
