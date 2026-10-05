@@ -1908,6 +1908,27 @@ what a student would do with that. Now:
   unsent review reads "Shared when sent" (never its scoring date) and the bar says nothing is
   shared until it is sent. The card is white paper with pinned ink in both apps and themes.
 
+## By Alumnus says where the résumé stands (RESUME-WORKSPACE-1, 2026-10-05)
+
+Owner: the list made you click "Upload" to see a résumé that was already on file, and the score
+could not be clicked. Now:
+
+- **One Résumé column, in words**: No résumé, Not scored, Scoring, the score with its readiness
+  and the Keith mark, or that plus "Sent Oct 5". It is the CURRENT résumé's state: a newer upload
+  Keith has not read is Not scored. Rules: `src/lib/documents/resumeStatusModel.js`; the server
+  builds the map (`lib/server/resumeStatus.js`, read by `api/ngrp-support.js` `summary` as
+  `resumes`, never for Talent Acquisition; null on a read failure, which shows a dash). The
+  separate Score column and the Résumé Review date column are gone for the ASPIRE team; Talent
+  Acquisition keeps the date column.
+- **The cell opens the résumé screen**: `StudentDocumentsDrawer only="resume"`, the résumé, its
+  versions, the score and the review, and no checklist. The applicant drawer in Profiles &
+  Interest still opens the whole Documents drawer.
+- **The name opens the applicant** in Profiles & Interest (`/ngrp/profiles?student=<id>`).
+- **A filter makes it a work queue**: All, No résumé, Needs score, Scored not sent, Sent, each with
+  its count. On a phone the row scrolls rather than clipping.
+- **Score again** on a scored résumé, after a confirm: a new review of the same file; the earlier
+  one stays in the review's score history. The server always allowed it; the screen did not.
+
 ## Settings groups, one breadcrumb, the staff menu in portals (NAV-POLISH-1, 2026-10-02)
 
 - **The Settings rail is four groups** (Owner): Personal (General), Administration (Users &

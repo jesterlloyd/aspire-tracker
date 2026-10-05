@@ -236,8 +236,8 @@ export function useNgrpSupport(cycleId, { enabled = true } = {}) {
     // MENTORSHIP-1: false until migration 20260920000000 adds the session columns.
     sessionDetailsProvisioned: ready && query.data.sessionDetailsProvisioned !== false,
     today: ready ? query.data.today : null,
-    // RESUME-REVIEW-1: { [studentId]: { score, readiness } }, the ASPIRE team only.
-    scores: ready ? (query.data.scores || {}) : {},
+    // RESUME-WORKSPACE-1: null when the server could not read them (the column shows a dash).
+    resumes: ready ? (query.data.resumes === undefined ? {} : query.data.resumes) : {},
     refetch: query.refetch,
   }
 }

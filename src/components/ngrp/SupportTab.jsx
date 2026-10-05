@@ -13,6 +13,7 @@
 // the recorded entries (src/lib/ngrp/ngrpSupportView.js). A wrong entry is
 // voided, never deleted.
 import { Fragment, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Plus, Eye, ExternalLink, MessageSquare } from 'lucide-react'
 import { KPICell } from '../KPIBand'
 import DetailDrawer from '../ui/DetailDrawer'
@@ -20,6 +21,8 @@ import DataSheet, { Pill, Missing } from '../shared/DataSheet'
 import './supportLog.css'
 import StudentDocumentsDrawer from '../documents/StudentDocumentsDrawer'
 import KeithMark from '../keith/KeithMark'
+import SegmentedPicker from '../shared/SegmentedPicker'
+import { RESUME_FILTERS, matchesResumeFilter, resumeSortValue } from '../../lib/documents/resumeStatusModel'
 import { useNgrpSurface } from '../../lib/ngrp/ngrpSurface'
 import StudentAvatar from '../StudentAvatar'
 // RESIDENCY-REFLECTION-1: the same drawer Profiles & Interest uses to preview
@@ -308,46 +311,78 @@ function ActivityCell({ cell }) {
 }
 
 function BeforePanel({ cycle, rows, support, toast }) {
+  const navigate = useNavigate()
   const [logging, setLogging] = useState(false)
-  // STUDENT-DOCUMENTS-1: an alumnus's Documents open here, in Residency, so the staff
-  // app's cohort never changes to reach someone from a past cohort.
+  // STUDENT-DOCUMENTS-1: an alumnus's résumé opens here, in Residency, so the staff app's
+  // cohort never changes to reach someone from a past cohort.
   const { staffApp } = useNgrpSurface()
   const canDocs = staffApp && support.canRecord
-  const [docsFor, setDocsFor] = useState(null)
+  const [resumeFor, setResumeFor] = useState(null)
+  const [filter, setFilter] = useState('all')
   const view = useMemo(() => beforeResidency(rows, support.entries), [rows, support.entries])
   const entries = support.entries.filter(e => supportActivity(e.activity)?.phase === 'before')
-  // RESUME-REVIEW-1: the latest Keith score, the ASPIRE team only (Talent Acquisition gets none).
-  const scoreColumn = {
-    key: 'score', label: 'Score', title: 'Latest résumé score', min: 64, grow: 0.5, align: 'right', priority: 3,
-    sortValue: t => support.scores?.[t.row.student?.id || t.row.id]?.score ?? null,
+  // RESUME-WORKSPACE-1 (Owner, 2026-10-05): one Résumé column says where each alumnus's résumé
+  // stands, in words, and opens the résumé. It replaced an Outreach-date column that read
+  // "Upload" for a résumé already on file, and a Score column that could not be clicked.
+  // The ASPIRE team only; Talent Acquisition keeps the plain Résumé Review date.
+  const resumes = canDocs ? support.resumes : null
+  const statusOf = t => resumes?.[t.row.student?.id || t.row.id] || null
+  const counts = useMemo(() => {
+    const c = Object.fromEntries(RESUME_FILTERS.map(f => [f.key, 0]))
+    for (const t of view.rows) for (const f of RESUME_FILTERS) if (matchesResumeFilter(resumes?.[t.row.student?.id || t.row.id], f.key)) c[f.key] += 1
+    return c
+  }, [view.rows, resumes])
+  const shown = resumes ? view.rows.filter(t => matchesResumeFilter(statusOf(t), filter)) : view.rows
+
+  const resumeColumn = {
+    key: 'resume', label: 'Résumé', title: 'Résumé status', min: 170, grow: 1.4, priority: 2,
+    sortValue: t => resumeSortValue(statusOf(t)),
     render: (t) => {
-      const sc = support.scores?.[t.row.student?.id || t.row.id]
-      return sc
-        ? <span className="sl-cell" title={sc.readiness}>{sc.provenanceId && <KeithMark provenanceId={sc.provenanceId} />}{sc.score}</span>
-        : dash
+      const st = statusOf(t)
+      const who = displayName(t.row.student)
+      if (!st) return dash
+      const sentDay = st.key === 'sent' ? (t.cells.resume_review?.last || st.sentAt) : null
+      return (
+        <button type="button" className="ngrp-linkbtn sl-cellbtn sl-resume" onClick={() => setResumeFor(t.row)}
+          aria-label={`${who}: ${st.key === 'scored' || st.key === 'sent' ? `${st.score} of 100, ${st.readiness}${sentDay ? `, sent ${fmtDay(sentDay)}` : ', not sent'}` : st.label}. Open résumé`}>
+          {st.key === 'scored' || st.key === 'sent' ? (
+            <span className="sl-cell">
+              {st.provenanceId && <KeithMark provenanceId={st.provenanceId} />}
+              <b className="sl-score">{st.score}</b>
+              <Pill tone={st.readiness === 'Highly Competitive' ? 'ok' : st.readiness === 'Competitive' ? 'info' : 'warn'}>{st.readiness}</Pill>
+              {sentDay && <span className="sl-sent"><MessageSquare size={13} aria-hidden="true" className="sl-cell-icon" />Sent {fmtDay(sentDay)}</span>}
+            </span>
+          ) : <Pill tone={st.tone}>{st.key === 'scoring' ? 'Scoring…' : st.label}</Pill>}
+        </button>
+      )
     },
   }
   const shortLabel = { town_hall: 'Town Hall', interview_bootcamp: 'Bootcamp', placement_advising: 'Advising', resume_review: 'Résumé' }
   const columns = [
     { key: 'name', label: 'Alumnus', min: 170, grow: 2.2, priority: 1,
-      sortValue: t => displayName(t.row.student), render: t => <Name row={t.row} /> },
+      sortValue: t => displayName(t.row.student),
+      // The name opens the applicant in Profiles & Interest (?student=, as Needs you links it).
+      render: t => (staffApp
+        ? <button type="button" className="ngrp-linkbtn sl-namebtn" onClick={() => navigate(`/ngrp/profiles?student=${encodeURIComponent(t.row.student?.id || t.row.id)}`)}
+            aria-label={`Open ${displayName(t.row.student)} in Profiles & Interest`}><Name row={t.row} /></button>
+        : <Name row={t.row} />) },
     { key: 'form', label: 'Form', min: 92, grow: 0.8, priority: 2,
       sortValue: t => ['Submitted', 'Pending', 'Not sent'].indexOf(t.form.label), render: t => <Pill tone={t.form.tone}>{t.form.label}</Pill> },
-    ...view.activities.map((a, i) => ({
-      key: a.key, label: shortLabel[a.key] || a.label, title: a.label, min: 96, grow: 0.8, align: 'right', priority: i === 0 ? 2 : 3,
-      sortValue: t => t.cells[a.key].last,
-      render: (t) => {
-        if (a.key !== 'resume_review' || !canDocs) return <ActivityCell cell={t.cells[a.key]} />
-        // The Résumé column opens the alumnus's Documents; with no review yet it says Upload.
-        const who = displayName(t.row.student)
-        return t.cells[a.key].count > 0
-          ? <button type="button" className="ngrp-linkbtn sl-cellbtn" onClick={() => setDocsFor(t.row)} aria-label={`${who}: résumé reviewed ${fmtDay(t.cells[a.key].last)}. Open documents`}><ActivityCell cell={t.cells[a.key]} /></button>
-          : <button type="button" className="ngrp-linkbtn sl-cellbtn" onClick={() => setDocsFor(t.row)} aria-label={`Upload a résumé for ${who}`}>Upload</button>
-      },
-    })),
+    ...view.activities
+      .filter(a => !(resumes && a.key === 'resume_review'))
+      .map((a, i) => ({
+        key: a.key, label: shortLabel[a.key] || a.label, title: a.label, min: 96, grow: 0.8, align: 'right', priority: i === 0 ? 2 : 3,
+        sortValue: t => t.cells[a.key].last,
+        render: t => <ActivityCell cell={t.cells[a.key]} />,
+      })),
   ]
-  // The Score column sits right after Résumé.
-  columns.splice(columns.findIndex(c => c.key === 'resume_review') + 1, 0, scoreColumn)
+  if (resumes) columns.splice(2, 0, resumeColumn)
+  const toolbar = resumes ? (
+    <div className="sl-filter">
+      <SegmentedPicker size="sm" ariaLabel="Show alumni by résumé status" value={filter} onChange={setFilter}
+        options={RESUME_FILTERS.map(f => ({ value: f.key, label: `${f.label} ${counts[f.key]}` }))} />
+    </div>
+  ) : null
   return (
     <>
       <section className="snap" aria-label="Support before residency snapshot" style={{ margin: '14px 0' }}>
@@ -375,15 +410,15 @@ function BeforePanel({ cycle, rows, support, toast }) {
 
       <section className="snap ngrp-glance-panel sl-sheet" aria-label="Support by alumnus">
         <DataSheet level="plain" title="By Alumnus" caption="Most recent date for each activity. The transition form never blocks a support entry."
-          columns={columns} rows={view.rows} rowKey={t => t.row.id} defaultSort={{ key: 'name', dir: 'asc' }}
-          emptyMessage="No alumni in this residency cohort yet." />
+          toolbar={toolbar} columns={columns} rows={shown} rowKey={t => t.row.id} defaultSort={{ key: 'name', dir: 'asc' }}
+          emptyMessage={view.rows.length ? 'No alumni match this filter.' : 'No alumni in this residency cohort yet.'} />
       </section>
 
       <RecentEntries entries={entries} rows={rows} canRecord={support.canRecord} onChanged={support.refetch} toast={toast} />
 
       {canDocs && (
-        <StudentDocumentsDrawer open={Boolean(docsFor)} student={docsFor?.student} subline={docsFor?.student?.aspire_cohort} cycle={cycle}
-          onClose={() => setDocsFor(null)} toast={toast} />
+        <StudentDocumentsDrawer only="resume" open={Boolean(resumeFor)} student={resumeFor?.student} subline={resumeFor?.student?.aspire_cohort} cycle={cycle}
+          onClose={() => { setResumeFor(null); support.refetch() }} toast={toast} />
       )}
     </>
   )

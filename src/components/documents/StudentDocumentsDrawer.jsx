@@ -32,6 +32,7 @@ import { reviewState } from '../../lib/documents/resumeReviewModel'
 import { detectDocumentDate, readPdfText } from '../../lib/documents/documentDates'
 import { writeLaunchContext } from '../../lib/connect/launchContext'
 import { documentRequestHandoff, outreachHandoffPath } from '../../lib/documents/supportHandoffModel'
+import { confirmDialog } from '../shared/confirmDialog'
 
 const firstName = s => s?.preferred_first_name || s?.first_name || displayName(s)
 const extBadge = name => String(name || '').split('.').pop().toUpperCase().slice(0, 4) || 'FILE'
@@ -275,6 +276,14 @@ function ResumeCard({ student, doc, resumeOnRecord, canWrite, onPick, toast, rev
         {(current || onRecordOnly) && (
           <div className="sd-scorerow">
             {scored && <button type="button" className="sd-btn sd-btn-pri" onClick={() => onOpenReview(currentReview.id)}>Open review</button>}
+            {/* RESUME-WORKSPACE-1: score the same file again, e.g. after the rubric or the draft
+                changed. A new review; the earlier one stays in the review's score history. */}
+            {scored && canScore && (
+              <button type="button" className="sd-btn" onClick={async () => {
+                const ok = await confirmDialog(`Score ${firstName(student)}'s résumé again? Keith reads the same file fresh and writes a new score and draft. The current review stays in its score history.`, { confirmLabel: 'Score again' })
+                if (ok) onScore(current?.id || null)
+              }}>Score again</button>
+            )}
             {!scored && state !== 'scoring' && canScore && (
               <button type="button" className="sd-btn sd-btn-pri" onClick={() => onScore(current?.id || null)}>
                 {state === 'failed' ? 'Retry scoring' : 'Score now'}
@@ -333,7 +342,12 @@ function ResumeCard({ student, doc, resumeOnRecord, canWrite, onPick, toast, rev
 }
 
 // ── The drawer ───────────────────────────────────────────────────────────────
-export default function StudentDocumentsDrawer({ open, student, onClose, toast, subline = null, cycle = null }) {
+// RESUME-WORKSPACE-1 (Owner, 2026-10-05): `only="resume"` is the résumé screen Support opens:
+// the résumé, its versions, Keith's score and the review, and nothing else. The checklist of
+// application documents belongs to the applicant (Profiles & Interest), which opens this
+// drawer whole.
+export default function StudentDocumentsDrawer({ open, student, onClose, toast, subline = null, cycle = null, only = null }) {
+  const resumeOnly = only === 'resume'
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const docs = useStudentDocuments(student?.id, { enabled: open })
@@ -412,7 +426,7 @@ export default function StudentDocumentsDrawer({ open, student, onClose, toast, 
   ]
 
   return (
-    <DetailDrawer open={open} onClose={close} title={`Documents · ${displayName(student)}`} width={1040} trapFocus>
+    <DetailDrawer open={open} onClose={close} title={`${resumeOnly ? 'Résumé' : 'Documents'} · ${displayName(student)}`} width={resumeOnly ? 920 : 1040} trapFocus>
       <div className="sd-root">
         <div className="sd-who">
           <FileText size={16} aria-hidden="true" />
@@ -447,7 +461,7 @@ export default function StudentDocumentsDrawer({ open, student, onClose, toast, 
               reviewFor={id => latestByVersion.get(id) || null} canScore={docs.canScore && !scoring} scoring={Boolean(scoring)}
               onScore={versionId => score(versionId)} onOpenReview={setReviewOpen} />
 
-            <section className="sd-card sd-pad" aria-labelledby="sd-check-title">
+            {!resumeOnly && <section className="sd-card sd-pad" aria-labelledby="sd-check-title">
               <div className="sd-checkhead">
                 <div>
                   <h3 id="sd-check-title" className="sd-h2">Application Documents</h3>
@@ -466,7 +480,7 @@ export default function StudentDocumentsDrawer({ open, student, onClose, toast, 
               <DataSheet level="plain" columns={columns} rows={rows} rowKey={r => r.type.key} defaultSort={null}
                 aria-label="Application documents" emptyMessage="No document types are set up." />
               <p className="sd-note">Replacing a document moves the old file to its version history. For a transcript or a card, enter the date from the file and confirm it.</p>
-            </section>
+            </section>}
           </>
         ))}
       </div>

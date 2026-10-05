@@ -37,6 +37,7 @@ import { loadApplicantsPayload, isMissingNgrpTable, isMissingNgrpColumn } from '
 import { TALENT_ACQUISITION, narrowPayloadForTalentAcquisition } from '../lib/server/ngrpTalentAcquisition.js'
 import { validateSupportEntry, validateAttendance, validateMentor, validateVoid, validateUndo } from '../lib/server/ngrpSupport.js'
 import { enrollStudents, writeGroupEntries } from '../lib/server/ngrpSupportLog.js'
+import { loadResumeStatuses } from '../lib/server/resumeStatus.js'
 import { generateToken } from '../lib/server/evaluation/tokens.js'
 import { emailBaseUrl } from '../lib/server/appUrl.js'
 import { buildReflectionEmail } from '../lib/server/email/ngrpReflectionEmail.js'
@@ -185,16 +186,10 @@ export default async function handler(req, res) {
           }
         }
       }
-      // RESUME-REVIEW-1: each alumnus's latest Keith score, for By Alumnus. The ASPIRE team only:
-      // Talent Acquisition never sees a score. Absent until 20261105000000.
-      let scores = {}
-      if (!isTA && studentIds.length) {
-        const rv = await db.from('resume_reviews').select('student_id, score, readiness, status, scored_at, provenance_id')
-          .in('student_id', studentIds).in('status', ['scored', 'sent']).order('scored_at', { ascending: false })
-        if (!rv.error) {
-          for (const r of rv.data || []) if (!scores[r.student_id]) scores[r.student_id] = { score: r.score, readiness: r.readiness, provenanceId: r.provenance_id || null }
-        }
-      }
+      // RESUME-WORKSPACE-1: each alumnus's résumé status for By Alumnus (the current résumé's
+      // state, and its Keith score once scored). The ASPIRE team only: Talent Acquisition never
+      // sees a score. null when a read failed, so the column shows a dash.
+      const resumes = isTA ? {} : await loadResumeStatuses(db, studentIds)
 
       return res.status(200).json({
         provisioned: true,
@@ -204,7 +199,7 @@ export default async function handler(req, res) {
         mentors,
         sessionDetailsProvisioned,
         reflections: { provisioned: reflectionsProvisioned, runs, periods },
-        scores,
+        resumes,
       })
     }
 

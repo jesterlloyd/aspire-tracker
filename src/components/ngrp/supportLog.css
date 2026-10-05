@@ -64,3 +64,19 @@
 /* SUPPORT-OUTREACH-1: a Résumé Review date logged by an Outreach send carries a message icon. */
 .sl-cell { display: inline-flex; align-items: center; gap: 5px; }
 .sl-cell-icon { color: var(--color-accent-primary, #1D2567); flex: none; }
+
+/* RESUME-WORKSPACE-1: the name opens the applicant; the Résumé cell opens the résumé.
+   Both are whole-cell buttons, so they drop the link underline and read as the row. One class
+   stronger than .ngrp-linkbtn, which may load after this sheet. */
+.ngrp-linkbtn.sl-namebtn { display: block; width: 100%; text-align: left; font-weight: inherit; text-decoration: none; cursor: pointer; border-radius: var(--aspire-radius-control); }
+.ngrp-linkbtn.sl-namebtn:hover .ov-unit-name { text-decoration: underline; text-underline-offset: 2px; }
+.ngrp-linkbtn.sl-resume { text-decoration: none; text-align: left; font-weight: 400; cursor: pointer; border-radius: var(--aspire-radius-control); }
+.ngrp-linkbtn.sl-resume:hover .sl-score { text-decoration: underline; text-underline-offset: 2px; }
+.sl-score { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text-heading); }
+.sl-sent { display: inline-flex; align-items: center; gap: 4px; color: var(--text-caption); font-size: 12px; white-space: nowrap; }
+/* On a phone the five filters are wider than the card: the row scrolls rather than clipping
+   the last ones out of reach (a rail that scrolls beats a word you cannot read). */
+.sl-filter { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+.sl-filter > [role="group"] { flex: none; }
+.sl-filter button { white-space: nowrap; }
+.sl-sheet .ds-toolbar { min-width: 0; max-width: 100%; }
