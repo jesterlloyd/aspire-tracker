@@ -11,10 +11,12 @@
 import { useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Copy, RefreshCw, Send } from 'lucide-react'
+import { Copy, RefreshCw, Send, Eye } from 'lucide-react'
 import DetailDrawer from '../ui/DetailDrawer'
 import { Pill } from '../shared/DataSheet'
 import KeithMark from '../keith/KeithMark'
+import ResumeFeedbackCard from './ResumeFeedbackCard'
+import { studentFeedback } from '../../lib/documents/studentFeedbackModel'
 import { displayName } from '../../lib/utils'
 import {
   getResumeReview, reviseResumeDraft, saveResumeDraft, openStudentDocumentVersion, studentDocumentsKey, reviewErrorText,
@@ -187,7 +189,21 @@ export default function ResumeReviewDrawer({ open, reviewId, student, reviews = 
   const review = q.data || null
   const version = versions.find(v => v.id === review?.document_version_id) || null
   const [live, setLive] = useState('')
+  const [previewing, setPreviewing] = useState(false)
   const titleRef = useRef(null)
+  // RESUME-FEEDBACK-PREVIEW-1: exactly what the alumnus sees on their Residency tab, from the same
+  // component and the same words-only shape. For a review not sent yet, what WILL be shared if
+  // it is sent, compared with the last review that was shared before it.
+  const preview = useMemo(() => {
+    if (!q.data) return null
+    const r = q.data
+    const at = r.sent_at || new Date().toISOString()
+    const before = reviews
+      .filter(x => x.status === 'sent' && x.id !== r.id && x.sent_at && x.sent_at < at)
+      .sort((a, b) => String(b.sent_at).localeCompare(String(a.sent_at)))[0] || null
+    // Not sent yet: no date to show, so the card reads "Shared when sent", never the scoring date.
+    return studentFeedback([{ ...r, sent_at: r.sent_at || null, scored_at: r.sent_at ? r.scored_at : null }, before].filter(Boolean))
+  }, [q.data, reviews])
   const history = useMemo(() => {
     const versionDay = id => versions.find(v => v.id === id)?.uploaded_at
     return reviews.filter(r => ['scored', 'sent'].includes(r.status)).map(r => ({ ...r, at: r.scored_at || versionDay(r.document_version_id) }))
@@ -206,7 +222,7 @@ export default function ResumeReviewDrawer({ open, reviewId, student, reviews = 
   const refresh = () => queryClient.invalidateQueries({ queryKey: studentDocumentsKey(student.id) })
 
   return (
-    <DetailDrawer open={open} onClose={onClose} title={`${displayName(student)}${student.aspire_cohort ? ` · ${student.aspire_cohort}` : ''}`} width={1180} trapFocus>
+    <DetailDrawer open={open} onClose={() => { setPreviewing(false); onClose() }} title={`${displayName(student)}${student.aspire_cohort ? ` · ${student.aspire_cohort}` : ''}`} width={1180} trapFocus>
       <div className="rr-root">
         {q.isPending && <p className="rr-muted" aria-live="polite">Loading the review…</p>}
         {q.isError && <p className="rr-error" role="alert">The review could not load. <button type="button" className="rr-link" onClick={() => q.refetch()}>Try again</button></p>}
@@ -227,7 +243,21 @@ export default function ResumeReviewDrawer({ open, reviewId, student, reviews = 
 
             {state === 'failed' && <p className="rr-error" role="alert">This review did not finish ({review.error_reason || 'unknown'}). Close this and choose Retry on the résumé.</p>}
 
-            {['scored', 'sent'].includes(state) && (
+            {['scored', 'sent'].includes(state) && previewing && (
+              <div className="rr-preview">
+                <div className="rr-preview-bar">
+                  <p>
+                    {state === 'sent'
+                      ? `This is what ${firstName(student)} sees on their Residency tab in the Student Portal.`
+                      : `This is what ${firstName(student)} will see on their Residency tab once you send the review. Nothing is shared until then.`}
+                  </p>
+                  <button type="button" className="rr-btn rr-btn-sm" onClick={() => setPreviewing(false)}>Back to the review</button>
+                </div>
+                <ResumeFeedbackCard fb={preview} />
+              </div>
+            )}
+
+            {['scored', 'sent'].includes(state) && !previewing && (
               <div className="rr-two">
                 <div className="rr-left">
                   <div className="rr-sheet" aria-label="The résumé text Keith read. Highlights mark the top fixes.">
@@ -266,7 +296,12 @@ export default function ResumeReviewDrawer({ open, reviewId, student, reviews = 
                   <section className="rr-box" aria-labelledby="rr-score-title">
                     <div className="rr-boxh">
                       <h3 id="rr-score-title" className="rr-titlemark">{review.provenance_id && <KeithMark provenanceId={review.provenance_id} />}Score</h3>
-                      <button type="button" className="rr-btn rr-btn-sm" onClick={copyScore} aria-label="Copy the score as one line">Copy score</button>
+                      <span className="rr-btnrow">
+                        <button type="button" className="rr-btn rr-btn-sm" onClick={() => setPreviewing(true)}>
+                          <Eye size={13} aria-hidden="true" /> Preview what {firstName(student)} sees
+                        </button>
+                        <button type="button" className="rr-btn rr-btn-sm" onClick={copyScore} aria-label="Copy the score as one line">Copy score</button>
+                      </span>
                     </div>
                     <div className="rr-pad">
                       <div className="rr-scorehead">

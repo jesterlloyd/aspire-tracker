@@ -1886,7 +1886,7 @@ The Owner read a sent review email ("Your résumé scored 58 of 100 ... three ch
 what a student would do with that. Now:
 
 - **Sending the review shares it.** A review with status `sent` appears on the alumnus's
-  Residency tab as Résumé Feedback (`ResumeFeedback` in `StudentResidency.jsx`, shape from
+  Residency tab as Résumé Feedback (`ResumeFeedbackCard` in `src/components/documents/`, shape from
   `studentFeedback` in `src/lib/documents/studentFeedbackModel.js`, read by `resumeFeedback`
   in `lib/server/alumnusResidency.js`). Copying a draft shares nothing.
 - **Words, never the number** (Owner: "show words not the number"): the six areas are Strong
@@ -1902,6 +1902,11 @@ what a student would do with that. Now:
   for new reviews) and reads "your résumé reads as Competitive for now", placed after the
   strengths; Open in Outreach adds a line linking to `/portal/residency`. Copy draft has no
   link, because copying shares nothing.
+- **Staff preview the same card** (RESUME-FEEDBACK-PREVIEW-1, 2026-10-05): the review drawer's
+  "Preview what [name] sees" renders `ResumeFeedbackCard` from the same `studentFeedback` call,
+  against the review shared before this one, so the portal and the preview cannot drift. An
+  unsent review reads "Shared when sent" (never its scoring date) and the bar says nothing is
+  shared until it is sent. The card is white paper with pinned ink in both apps and themes.
 
 ## Settings groups, one breadcrumb, the staff menu in portals (NAV-POLISH-1, 2026-10-02)
 

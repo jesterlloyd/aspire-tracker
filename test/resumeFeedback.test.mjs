@@ -58,3 +58,15 @@ test('only a SENT review is shared, and the portal reads nothing else of it', as
   assert.match(drawer, /Include readiness/)
   assert.match(read('lib/server/resumeReview.js'), /status: 'scored', include_score: false/, 'the readiness sentence starts off')
 })
+
+test('one card for both places: the portal and the staff preview render the same component', () => {
+  const portal = read('src/portal/StudentResidency.jsx')
+  const drawer = read('src/components/documents/ResumeReviewDrawer.jsx')
+  assert.match(portal, /import ResumeFeedbackCard from '\.\.\/components\/documents\/ResumeFeedbackCard'/)
+  assert.match(drawer, /import ResumeFeedbackCard from '\.\/ResumeFeedbackCard'/)
+  assert.match(drawer, /studentFeedback\(\[\{ \.\.\.r, sent_at: r\.sent_at \|\| null, scored_at: r\.sent_at \? r\.scored_at : null \}, before\]/, 'the preview is the same words-only shape')
+  assert.match(drawer, /Nothing is shared until then/)
+  // A review not sent yet carries no shared date, so the card says "Shared when sent".
+  const unsent = studentFeedback([{ ...review([8, 7, 7, 8, 7, 8]), sent_at: null, scored_at: null }])
+  assert.equal(unsent.shared_at, null)
+})

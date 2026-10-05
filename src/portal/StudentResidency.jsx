@@ -21,6 +21,7 @@ import { formWords, supportSummary, upcomingResidencyEvents, dayLabel, rangeLabe
 import { useRegisterPortalRefresh } from './PortalRefresh'
 import { useReportPortalFailure, ACCESS_FAILURE } from './portalAccessSignal'
 import './studentResidency.css'
+import ResumeFeedbackCard from '../components/documents/ResumeFeedbackCard'
 
 const CHIP = { ok: 'ptl-chip ptl-chip-ok', warn: 'ptl-chip ptl-chip-wait', off: 'ptl-chip ptl-chip-soft' }
 
@@ -103,104 +104,6 @@ function UploadPanel({ type, row, onDone, onCancel }) {
   )
 }
 
-// ── RESUME-FEEDBACK-1: Keith's review, as words, once it was sent to them ────
-const LEVEL_CHIP = { strong: 'ptl-chip ptl-chip-ok', solid: 'ptl-chip ptl-chip-ok', developing: 'ptl-chip ptl-chip-wait', needs_work: 'ptl-chip ptl-chip-wait' }
-const READINESS_CHIP = { 'Highly Competitive': 'ptl-chip ptl-chip-ok', Competitive: 'ptl-chip ptl-chip-soft', 'Needs Improvement': 'ptl-chip ptl-chip-wait' }
-const CHECKLIST = [['before_submitting', 'Before you apply'], ['consider_adding', 'Consider adding'], ['do_not_include', 'Leave out'], ['interview_prep', 'For your interview']]
-
-function ResumeFeedback({ fb }) {
-  return (
-    <section className="ptl-card sr-feedback" aria-labelledby="sr-feedback-title">
-      <h3 id="sr-feedback-title" className="ptl-card-title">Résumé Feedback</h3>
-      <p className="ptl-muted sr-fb-when">
-        Shared {shortDay(fb.shared_at)}{fb.previous_shared_at ? ` · changes are since ${shortDay(fb.previous_shared_at)}` : ''}
-      </p>
-
-      <div className="sr-fb-ready">
-        <span className={READINESS_CHIP[fb.readiness] || 'ptl-chip ptl-chip-soft'}>{fb.readiness}</span>
-        {fb.readiness_was && <span className="ptl-muted">was {fb.readiness_was}</span>}
-        {fb.meaning && <p>{fb.meaning}</p>}
-        {fb.next && <p className="ptl-muted">{fb.next}</p>}
-      </div>
-
-      {fb.strengths.length > 0 && (
-        <>
-          <h4 className="sr-fb-h">What is working</h4>
-          <ul className="sr-fb-list">{fb.strengths.map((t, i) => <li key={i}>{t}</li>)}</ul>
-        </>
-      )}
-
-      <h4 className="sr-fb-h">Your six areas</h4>
-      <ul className="sr-fb-areas">
-        {fb.areas.map(a => (
-          <li key={a.key}>
-            <div className="sr-fb-area-head">
-              <b>{a.label}</b>
-              <span className="sr-fb-level">
-                {a.was && <span className={`sr-fb-was sr-fb-${a.direction}`}>{a.was} →</span>}
-                <span className={LEVEL_CHIP[a.levelKey] || 'ptl-chip ptl-chip-soft'}>{a.level}</span>
-              </span>
-            </div>
-            {a.note && <p className="ptl-muted">{a.note}</p>}
-          </li>
-        ))}
-      </ul>
-
-      {fb.priorities.length > 0 && (
-        <>
-          <h4 className="sr-fb-h">Start here</h4>
-          <ol className="sr-fb-list">{fb.priorities.map((t, i) => <li key={i}>{t}</li>)}</ol>
-        </>
-      )}
-      {fb.missing.length > 0 && (
-        <p className="ptl-notice ptl-notice-warn">Please add to your résumé: {fb.missing.join(', ')}. Your ASPIRE team will never fill these in for you.</p>
-      )}
-
-      {fb.bullets.length > 0 && (
-        <details className="sr-fb-more">
-          <summary>Rewritten bullets you can adapt ({fb.bullets.length})</summary>
-          <ul className="sr-fb-bullets">
-            {fb.bullets.map((b, i) => (
-              <li key={i}>
-                {b.original && <span className="sr-fb-orig"><span className="sr-hidden">Your line: </span>{b.original}</span>}
-                <span><span className="sr-hidden">Try: </span>{b.rewrite}</span>
-              </li>
-            ))}
-          </ul>
-          <p className="ptl-muted">Anything in [brackets] is a detail only you can fill in, such as your unit or hours.</p>
-        </details>
-      )}
-      {fb.sections.length > 0 && (
-        <details className="sr-fb-more">
-          <summary>Section by section</summary>
-          <ul className="sr-fb-list">{fb.sections.map((x, i) => <li key={i}><b>{x.section}.</b> {x.comment}</li>)}</ul>
-        </details>
-      )}
-      {fb.keywords.length > 0 && (
-        <details className="sr-fb-more">
-          <summary>Words to weave in</summary>
-          <p className="sr-fb-keys">{fb.keywords.map(k => <span key={k} className="ptl-chip ptl-chip-soft">{k}</span>)}</p>
-        </details>
-      )}
-      {fb.recruiter && (
-        <details className="sr-fb-more">
-          <summary>What a recruiter notices first</summary>
-          <p>{fb.recruiter}</p>
-        </details>
-      )}
-      {CHECKLIST.some(([k]) => fb.checklist[k].length) && (
-        <details className="sr-fb-more">
-          <summary>Checklist</summary>
-          {CHECKLIST.filter(([k]) => fb.checklist[k].length).map(([k, label]) => (
-            <div key={k}><h5 className="sr-fb-h5">{label}</h5><ul className="sr-fb-list">{fb.checklist[k].map((t, i) => <li key={i}>{t}</li>)}</ul></div>
-          ))}
-        </details>
-      )}
-      <p className="ptl-muted sr-foot">Upload your next version under Application Documents whenever it is ready, and your ASPIRE team will review it again.</p>
-    </section>
-  )
-}
-
 export default function StudentResidency({ active }) {
   const [state, setState] = useState({ phase: 'loading', data: null })
   const [events, setEvents] = useState({ loading: true, list: [] })
@@ -274,7 +177,7 @@ export default function StudentResidency({ active }) {
         <UploadPanel type={uploadType} row={rows.find(r => r.type.key === uploadType.key)} onDone={done} onCancel={() => setUploading(null)} />
       )}
 
-      {data.feedback && <ResumeFeedback fb={data.feedback} />}
+      {data.feedback && <ResumeFeedbackCard fb={data.feedback} />}
 
       <section className="ptl-card" aria-labelledby="sr-dates">
         <h3 id="sr-dates" className="ptl-card-title">Key Dates</h3>

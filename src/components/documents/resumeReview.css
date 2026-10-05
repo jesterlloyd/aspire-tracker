@@ -142,3 +142,8 @@
 
 /* The Keith mark sits before a title it speaks for, as on receipts and comment themes. */
 .rr-titlemark { display: inline-flex; align-items: center; gap: 8px; }
+
+/* RESUME-FEEDBACK-PREVIEW-1: the alumnus's card, as they see it, above a one-line explanation. */
+.rr-preview { display: flex; flex-direction: column; gap: 12px; max-width: 760px; }
+.rr-preview-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border-radius: var(--aspire-radius-control, 10px); background: var(--color-bg-hover, rgba(29,37,103,0.04)); }
+.rr-preview-bar p { margin: 0; font-size: 13px; color: var(--text-heading, #191919); flex: 1 1 260px; }
