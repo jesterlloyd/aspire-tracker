@@ -163,8 +163,10 @@ test('the migration adds no columns, because both homes already existed', () => 
 // ── One drawer, two surfaces ─────────────────────────────────────────────────
 
 test('both surfaces open the SAME drawer, so a record has one place it is edited', () => {
+  // RESIDENCY-SPLIT-1 (this commit): Profiles & Interest opens the same component embedded
+  // in its split view (ApplicantChart), the board as a drawer; one module either way.
   for (const [name, src] of [['profiles', profiles], ['board', board]]) {
-    assert.match(src, /import ApplicantDrawer from '\.\/ApplicantDrawer'/, name)
+    assert.match(src, /import (ApplicantDrawer|\{ ApplicantChart \}) from '\.\/ApplicantDrawer'/, name)
     assert.match(src, /setInterview: \(r, fields\) =>/, name)
     assert.match(src, /setOutcome: \(r, fields\) =>/, name)
   }

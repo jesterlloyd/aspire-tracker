@@ -1960,6 +1960,26 @@ the real chart's are).
 - **Not built, on purpose**: an Employment section (Cedars-Sinai email) waits for its own build;
   Town Hall and Bootcamp attendance sheets and the Advising log are next.
 
+## Profiles & Interest is a split view (RESIDENCY-SPLIT-1, 2026-10-05)
+
+Owner: follow the internship profile view, "list in the left, open profile by default on the
+right", with the status table as its own tab "like the CS-Link Access tab". So Residency >
+Profiles & Interest is now **Profiles | Application Status** (`?view=status`), above the same
+KPI cards:
+
+- **Profiles** is Student Profiles' split, reused class for class: `.profiles-toolbar` (pinned,
+  measured by `useChartViewport` through `PinnedSplitFrame`, which mounts only once the roster
+  has loaded because the hook measures on mount), `.profiles-slide-container`,
+  `.profiles-list-narrow` with `.pl-row` rows (who / ranked units / Form and Status pills), and
+  `.profiles-panel-slide` holding `ApplicantChart`, the Applicant chart embedded (no drawer). The
+  chosen alumnus, else the first in the list, is always open; choosing one writes `?student=`.
+  Interest and Eligibility moved onto the plate; Send / Resend Transition Form sits there too.
+- **Application Status** is the roster table exactly as it was, with the checkboxes and bulk
+  Send Transition Form. Clicking a name opens that alumnus in Profiles.
+- The Interview Board still opens the same component as a drawer (`ApplicantDrawer`).
+- The neutral NgrpStatusPill ("Not Sent", "Not in Pool", "Not Scheduled") measures 4.39:1
+  everywhere it appears; it is the shared pill and was left for its own fix.
+
 ## Settings groups, one breadcrumb, the staff menu in portals (NAV-POLISH-1, 2026-10-02)
 
 - **The Settings rail is four groups** (Owner): Personal (General), Administration (Users &

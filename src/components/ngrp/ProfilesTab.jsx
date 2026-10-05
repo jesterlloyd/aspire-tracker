@@ -31,7 +31,10 @@ import { FilterKPICard } from '../KPIBand'
 import StudentAvatar from '../StudentAvatar'
 import EmptyState from '../EmptyState'
 import NgrpStatusPill from './NgrpStatusPill'
-import ApplicantDrawer from './ApplicantDrawer'
+import { ApplicantChart } from './ApplicantDrawer'
+import SegmentedPicker from '../shared/SegmentedPicker'
+// RESIDENCY-SPLIT-1: the Student Profiles split view and its pinned toolbar, reused.
+import { useChartViewport } from '../student/useChartViewport'
 import PreceptorFeedbackChip from './PreceptorFeedbackChip'
 // NGRP-TRANSITION-PREVIEW-1: the same drawer the Automations and Survey previews use.
 // It lives under connect/ by history rather than by coupling (its own header notes the
@@ -100,6 +103,74 @@ const FEEDBACK_DECISION_TOAST = {
   revoked: ['Access withdrawn', 'The requester can no longer view this preceptor feedback.'],
 }
 
+// RESIDENCY-SPLIT-1: the pinned toolbar and the split under it, measured the way Student
+// Profiles measures them. Mounted only once the roster has loaded, because the hook
+// measures its bar once, on mount.
+function PinnedSplitFrame({ children }) {
+  const { barRef, chartHeight, toolbarTop } = useChartViewport()
+  return (
+    <div className="ngrp-split-frame" style={{
+      '--profiles-chart-h': chartHeight ? `${chartHeight}px` : undefined,
+      '--profiles-toolbar-top': `${toolbarTop}px`,
+    }}>
+      {children(barRef)}
+    </div>
+  )
+}
+
+// RESIDENCY-SPLIT-1: one alumnus in the left list, drawn as a Student Profiles list row
+// (`.pl-row`, the same three columns): who they are, the units they ranked, and where
+// their application stands.
+function AlumniListRow({ row, selected, onSelect, feedbackEntry }) {
+  const s = row.student
+  const name = displayName(s)
+  const { preferences } = effectivePreferences(row)
+  const status = rosterStatus(row)
+  return (
+    <div className={`pl-row${selected ? ' pl-selected' : ''}`} role="button" tabIndex={0}
+      aria-current={selected ? 'true' : undefined} aria-label={`Open the applicant chart for ${name}`}
+      style={{ alignItems: 'flex-start', padding: '11px 14px', display: 'grid', gridTemplateColumns: '40% 28% 32%', gap: 6 }}
+      onClick={() => onSelect(row.id)}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(row.id) } }}>
+      <div style={{ display: 'flex', gap: 9, minWidth: 0, alignItems: 'flex-start' }}>
+        <StudentAvatar student={s} size={48} style={{ flexShrink: 0, marginTop: 1 }} />
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-heading,#191919)', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={name}>{name}</div>
+          {(s.school || s.program_type) && (
+            <div style={{ fontSize: 10.5, color: 'var(--text-caption,#6b7280)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {[s.school, s.program_type].filter(Boolean).join(' · ')}
+            </div>
+          )}
+          {s.aspire_cohort && (
+            <span style={{ display: 'inline-block', fontSize: 9, fontWeight: 700, color: '#4A5D8F', background: '#EDF0F7', borderRadius: 8, padding: '1px 6px', marginTop: 3 }}>
+              {s.aspire_cohort}
+            </span>
+          )}
+          <PreceptorFeedbackChip entry={feedbackEntry} />
+        </div>
+      </div>
+      <div style={{ minWidth: 0, paddingTop: 3 }}>
+        {preferences.length > 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            {preferences.map((p, i) => (
+              <div key={p} style={{ display: 'flex', gap: 3, alignItems: 'baseline' }}>
+                <span style={{ fontSize: 8, fontWeight: 700, color: 'var(--text-caption,#6b7280)', width: 16, flexShrink: 0 }}>{['1st', '2nd', '3rd'][i] || `${i + 1}th`}</span>
+                <span style={{ fontSize: 10.5, fontWeight: 600, color: 'var(--text-heading,#191919)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <span style={{ fontSize: 9.5, color: 'var(--text-caption,#6b7280)', fontStyle: 'italic' }}>None ranked</span>
+        )}
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 3, paddingTop: 3, minWidth: 0 }}>
+        <NgrpStatusPill config={FORM_SENT_STATES} value={formSentState(row)} srPrefix="Transition Form" />
+        <NgrpStatusPill config={ROSTER_STATUSES} value={status} srPrefix="Status" />
+      </div>
+    </div>
+  )
+}
+
 export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) {
   const navigate = useNavigate()
   // Sending runs through ASPIRE Connect, which only the staff app has.
@@ -131,6 +202,12 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
     ;['kpi', 'q', 'cohort', 'school'].forEach(k => next.delete(k))
     setSearchParams(next, { replace: true })
   }
+
+  // RESIDENCY-SPLIT-1 (Owner, 2026-10-05): Profiles (the list with the chart open beside it,
+  // as Student Profiles) or Application Status (the full table, where bulk send lives), as
+  // Student Profiles' Profiles | CS-Link Access. In the URL, like every filter here.
+  const view = searchParams.get('view') === 'status' ? 'status' : 'profiles'
+  const changeView = v => setParam('view', v, 'profiles')
 
   const [selected, setSelected] = useState(() => new Set())
   const [drawerRowId, setDrawerRowId] = useState(null)
@@ -261,6 +338,18 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
     ? allRows.find(r => r.id === drawerRowId)
     : linkedCandidate ? allRows.find(r => r.candidate_id === linkedCandidate)
       : linkedStudent ? allRows.find(r => r.id === linkedStudent) : null) || null
+  // The split always has someone open: the chosen alumnus, else the first in the list.
+  const shownRowId = drawerRow?.id || filteredRows[0]?.id || null
+  const shownRow = allRows.find(r => r.id === shownRowId) || null
+  // Choosing someone writes ?student= (shareable, survives a refresh) and drops a one-time
+  // ?candidate= or ?docs= deep link, which has done its job.
+  const selectRow = (id, { toProfiles = false } = {}) => {
+    setDrawerRowId(id)
+    const next = new URLSearchParams(searchParams)
+    next.delete('candidate'); next.delete('docs'); next.set('student', id)
+    if (toProfiles) next.delete('view')
+    setSearchParams(next, { replace: true })
+  }
 
   const runFeedback = useCallback(async (action, extra, successTitle, successBody) => {
     const res = await postNgrpPreceptorFeedback(action, extra)
@@ -358,6 +447,10 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
         </div>
       ) : (
         <>
+          <div style={{ padding: '0 0 12px' }}>
+            <SegmentedPicker ariaLabel="Profiles & Interest views" value={view} onChange={changeView}
+              options={[{ value: 'profiles', label: 'Profiles' }, { value: 'status', label: 'Application Status' }]} />
+          </div>
           <div className="ngrp-kpis" role="group" aria-label="Roster filters">
             {KPI_DEFS.map(k => (
               <FilterKPICard
@@ -373,50 +466,147 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
             ))}
           </div>
 
-          <div className="ngrp-toolbar">
-            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-              <Search size={12} strokeWidth={2.2} aria-hidden="true" style={{ position: 'absolute', left: 9, color: '#9CA3AF' }} />
-              <input
-                type="search"
-                value={query}
-                onChange={e => setParam('q', e.target.value)}
-                placeholder="Search alumni"
-                aria-label="Search alumni by name or school"
-                style={{ ...selectStyle, cursor: 'text', paddingLeft: 28, minWidth: 190 }}
-              />
-            </div>
-            {/* Every cohort MAPPED to the cycle is listed - including one with
-                zero completed students - because the option list comes from the
-                cycle's source-cohort mapping, not from the loaded rows. */}
-            <select value={activeCohortFilter} onChange={e => setParam('cohort', e.target.value)} aria-label="Filter by source ASPIRE cohort" style={selectStyle}>
-              <option value="">All ASPIRE Cohorts</option>
-              {sourceCohorts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
-            <select value={activeSchoolFilter} onChange={e => setParam('school', e.target.value)} aria-label="Filter by school" style={selectStyle}>
-              <option value="">All Schools</option>
-              {schoolOptions.map(sc => <option key={sc} value={sc}>{sc}</option>)}
-            </select>
-            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#6B7785' }}>
-              Sort
-              <select value={sortKey} onChange={e => setParam('sort', e.target.value, 'priority')} aria-label="Sort roster" style={selectStyle}>
-                {SORT_OPTIONS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+          <PinnedSplitFrame>{barRef => (
+            <>
+            <div className="profiles-toolbar ngrp-split-toolbar" ref={barRef}>
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                <Search size={12} strokeWidth={2.2} aria-hidden="true" style={{ position: 'absolute', left: 9, color: '#9CA3AF' }} />
+                <input
+                  type="search"
+                  value={query}
+                  onChange={e => setParam('q', e.target.value)}
+                  placeholder="Search alumni"
+                  aria-label="Search alumni by name or school"
+                  style={{ ...selectStyle, cursor: 'text', paddingLeft: 28, minWidth: 190 }}
+                />
+              </div>
+              {/* Every cohort MAPPED to the cycle is listed - including one with
+                  zero completed students - because the option list comes from the
+                  cycle's source-cohort mapping, not from the loaded rows. */}
+              <select value={activeCohortFilter} onChange={e => setParam('cohort', e.target.value)} aria-label="Filter by source ASPIRE cohort" style={selectStyle}>
+                <option value="">All ASPIRE Cohorts</option>
+                {sourceCohorts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
-            </label>
-            <span style={{ fontSize: 12, color: '#6B7785' }} aria-live="polite">
-              {filteredRows.length} of {allRows.length} alumni
-            </span>
-            {hasFilters && (
-              <button type="button" onClick={clearFilters} style={{
-                display: 'inline-flex', alignItems: 'center', gap: 5, height: 26, padding: '0 10px',
-                borderRadius: 7, border: '1px solid rgba(29,37,103,0.15)', background: '#F0F3FF',
-                color: '#1D2567', fontSize: 11, fontWeight: 600, fontFamily: 'Plus Jakarta Sans, sans-serif', cursor: 'pointer',
-              }}>
-                <X size={11} strokeWidth={2.5} aria-hidden="true" />
-                Clear filters
-              </button>
-            )}
-          </div>
-
+              <select value={activeSchoolFilter} onChange={e => setParam('school', e.target.value)} aria-label="Filter by school" style={selectStyle}>
+                <option value="">All Schools</option>
+                {schoolOptions.map(sc => <option key={sc} value={sc}>{sc}</option>)}
+              </select>
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#6B7785' }}>
+                Sort
+                <select value={sortKey} onChange={e => setParam('sort', e.target.value, 'priority')} aria-label="Sort roster" style={selectStyle}>
+                  {SORT_OPTIONS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+                </select>
+              </label>
+              <span style={{ fontSize: 12, color: '#6B7785' }} aria-live="polite">
+                {filteredRows.length} of {allRows.length} alumni
+              </span>
+              {hasFilters && (
+                <button type="button" onClick={clearFilters} style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 5, height: 26, padding: '0 10px',
+                  borderRadius: 7, border: '1px solid rgba(29,37,103,0.15)', background: '#F0F3FF',
+                  color: '#1D2567', fontSize: 11, fontWeight: 600, fontFamily: 'Plus Jakarta Sans, sans-serif', cursor: 'pointer',
+                }}>
+                  <X size={11} strokeWidth={2.5} aria-hidden="true" />
+                  Clear filters
+                </button>
+              )}
+            </div>
+            {view === 'profiles' ? (
+              <div className="profiles-slide-container">
+                <div className="profiles-list-narrow">
+                  <div style={{ position: 'sticky', top: 0, zIndex: 5, background: 'var(--color-bg-elevated,#f9fafb)', borderBottom: '1px solid var(--border-card,rgba(29,37,103,0.08))', padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-heading,#191919)', lineHeight: 1.2 }}>Alumni Roster</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-caption,#6b7280)', marginTop: 2 }}>
+                        {filteredRows.length} of {allRows.length} alumni shown · KPI cards work as quick filters
+                      </div>
+                    </div>
+                    {shownRow && (
+                      <div style={{ fontSize: 11, color: 'var(--text-caption,#6b7280)', textAlign: 'right', flexShrink: 0, marginLeft: 8 }}>
+                        Selected: <span style={{ color: 'var(--color-accent-primary,#1D2567)', fontWeight: 600 }}>{displayName(shownRow.student)}</span>
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+                    {filteredRows.length === 0 ? (
+                      <EmptyState compact heading="No alumni match the current filters"
+                        subtext="Adjust the filters above, or clear them to see every completed alumnus in the cohort's participating ASPIRE cohorts." />
+                    ) : (
+                      <div className="pl-list">
+                        {filteredRows.map(r => (
+                          <AlumniListRow key={r.id} row={r} selected={r.id === shownRowId}
+                            onSelect={id => selectRow(id)} feedbackEntry={feedback.byStudent[r.student?.id]} />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                {/* No key: the panel holds still when the reader turns to another alumnus;
+                    the chart inside is keyed on the row (Student Profiles' rule). */}
+                <div className="profiles-panel-slide">
+                  {shownRow ? (
+                <ApplicantChart
+                  row={shownRow}
+                  cycle={cycle}
+                  canManage={canManage}
+                  provisioned={transitionProvisioned}
+                  initialDocsOpen={Boolean(linkedStudent && openDocs && !drawerRowId)}
+                  toast={toast}
+                  feedback={shownRow ? {
+                    entry: feedback.byStudent[shownRow.student?.id] || null,
+                    audience: feedback.audience,
+                    canDecide: feedback.canDecide,
+                    ready: feedback.status === 'ready' || feedback.status === 'stale',
+                  } : null}
+                  actions={{
+                    sendForm: canSendForms ? r => launchSend([r]) : undefined,
+                    review: r => postNgrpManage('candidate_review', { candidate_id: r.candidate_id }),
+                    // RESIDENCY-ROSTER-1: the roster is informational; every action on a
+                    // person lives in their drawer (Owner). Confirmation is gone from
+                    // both, because it happens on its own now.
+                    setNotProceeding: (r, fields) => runManage('not_proceeding_set', { candidate_id: r.candidate_id, ...fields },
+                      'Recorded as Not Proceeding', `${displayName(r.student)} has left the Applicant Pool. Their form and eligibility stay on record.`),
+                    reinstate: r => runManage('application_reinstate', { candidate_id: r.candidate_id },
+                      'Back in consideration', `${displayName(r.student)} returns to the Applicant Pool if they still meet it.`),
+                    setPreferences: (r, preferences) => runManage('unit_preferences_set', { candidate_id: r.candidate_id, preferences },
+                      preferences.length ? 'Choices updated' : 'Choices restored',
+                      preferences.length
+                        ? `${displayName(r.student)}'s ranked choices now come from the ASPIRE team.`
+                        : `${displayName(r.student)}'s own ranked choices are effective again.`),
+                    override: (r, fields) => runManage('eligibility_override', { candidate_id: r.candidate_id, ...fields },
+                      'Eligibility overridden', 'The calculated result is preserved beside the override.'),
+                    revokeLink: canSendForms ? (r => runManage('token_revoke', { candidate_id: r.candidate_id },
+                      'Link revoked', 'The live Transition Form link no longer works. Use Resend to issue a new one.')) : undefined,
+                    // NGRP-INTERVIEW-HIRE-1: recorded in this drawer from both surfaces,
+                    // so one person's record has exactly one place it is edited.
+                    setInterview: (r, fields) => runManage('interview_set', { candidate_id: r.candidate_id, ...fields },
+                      'Interview recorded', `${displayName(r.student)}'s interview state is saved.`),
+                    setOutcome: (r, fields) => runManage('outcome_set', { candidate_id: r.candidate_id, ...fields },
+                      'Outcome recorded', `${displayName(r.student)}'s residency outcome is saved.`),
+                    // RESIDENCY-PORTAL-2b: request (Talent Acquisition), decide (the Owner), view (the requester).
+                    requestFeedback: (r, note) => runFeedback('request', { candidate_id: r.candidate_id, note },
+                      'Request sent', 'The ASPIRE team will review your request to view the preceptor feedback.'),
+                    decideFeedback: async (req, decision, note) => {
+                      const res = await runFeedback('decide', { request_id: req.id, decision, expected_status: req.status, note })
+                      if (res) {
+                        const [title, body] = FEEDBACK_DECISION_TOAST[decision] || ['Saved', '']
+                        toast?.success?.(title, `${body} ${res.emailed
+                          ? 'They have been emailed.'
+                          : 'The email to them could not be sent, so please let them know directly.'}`)
+                      }
+                      return res
+                    },
+                    viewFeedback: req => postNgrpPreceptorFeedback('view', { request_id: req.id }),
+                  }}
+                />
+                  ) : (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-caption,#6b7280)', fontSize: 13, padding: 40, textAlign: 'center' }}>
+                      No alumnus selected. Choose one from the list.
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
           <div className="ngrp-roster">
             <div className="ngrp-roster-head">
               <span style={{ fontSize: 13, fontWeight: 700 }}>Alumni Roster</span>
@@ -512,11 +702,11 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                     return (
                       <tr
                         key={r.id}
-                        className={drawerRowId === r.id ? 'sel' : undefined}
+                        className={shownRowId === r.id ? 'sel' : undefined}
                         tabIndex={0}
-                        onClick={() => setDrawerRowId(r.id)}
-                        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDrawerRowId(r.id) } }}
-                        aria-label={`Open details for ${displayName(s)}`}
+                        onClick={() => selectRow(r.id, { toProfiles: true })}
+                        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectRow(r.id, { toProfiles: true }) } }}
+                        aria-label={`Open ${displayName(s)} in Profiles`}
                       >
                         <td className="ngrp-cb" onClick={e => e.stopPropagation()}>
                           <input
@@ -629,6 +819,9 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
               </div>
             )}
           </div>
+            )}
+            </>
+          )}</PinnedSplitFrame>
         </>
       )}
 
@@ -714,69 +907,6 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
         </>
       )}
 
-      <ApplicantDrawer
-        open={Boolean(drawerRow)}
-        row={drawerRow}
-        cycle={cycle}
-        canManage={canManage}
-        provisioned={transitionProvisioned}
-        onClose={() => {
-          setDrawerRowId(null)
-          if (linkedCandidate || linkedStudent || openDocs) {
-            const next = new URLSearchParams(searchParams)
-            next.delete('candidate'); next.delete('student'); next.delete('docs')
-            setSearchParams(next, { replace: true })
-          }
-        }}
-        initialDocsOpen={Boolean(linkedStudent && openDocs && !drawerRowId)}
-        toast={toast}
-        feedback={drawerRow ? {
-          entry: feedback.byStudent[drawerRow.student?.id] || null,
-          audience: feedback.audience,
-          canDecide: feedback.canDecide,
-          ready: feedback.status === 'ready' || feedback.status === 'stale',
-        } : null}
-        actions={{
-          sendForm: canSendForms ? r => launchSend([r]) : undefined,
-          review: r => postNgrpManage('candidate_review', { candidate_id: r.candidate_id }),
-          // RESIDENCY-ROSTER-1: the roster is informational; every action on a
-          // person lives in their drawer (Owner). Confirmation is gone from
-          // both, because it happens on its own now.
-          setNotProceeding: (r, fields) => runManage('not_proceeding_set', { candidate_id: r.candidate_id, ...fields },
-            'Recorded as Not Proceeding', `${displayName(r.student)} has left the Applicant Pool. Their form and eligibility stay on record.`),
-          reinstate: r => runManage('application_reinstate', { candidate_id: r.candidate_id },
-            'Back in consideration', `${displayName(r.student)} returns to the Applicant Pool if they still meet it.`),
-          setPreferences: (r, preferences) => runManage('unit_preferences_set', { candidate_id: r.candidate_id, preferences },
-            preferences.length ? 'Choices updated' : 'Choices restored',
-            preferences.length
-              ? `${displayName(r.student)}'s ranked choices now come from the ASPIRE team.`
-              : `${displayName(r.student)}'s own ranked choices are effective again.`),
-          override: (r, fields) => runManage('eligibility_override', { candidate_id: r.candidate_id, ...fields },
-            'Eligibility overridden', 'The calculated result is preserved beside the override.'),
-          revokeLink: canSendForms ? (r => runManage('token_revoke', { candidate_id: r.candidate_id },
-            'Link revoked', 'The live Transition Form link no longer works. Use Resend to issue a new one.')) : undefined,
-          // NGRP-INTERVIEW-HIRE-1: recorded in this drawer from both surfaces,
-          // so one person's record has exactly one place it is edited.
-          setInterview: (r, fields) => runManage('interview_set', { candidate_id: r.candidate_id, ...fields },
-            'Interview recorded', `${displayName(r.student)}'s interview state is saved.`),
-          setOutcome: (r, fields) => runManage('outcome_set', { candidate_id: r.candidate_id, ...fields },
-            'Outcome recorded', `${displayName(r.student)}'s residency outcome is saved.`),
-          // RESIDENCY-PORTAL-2b: request (Talent Acquisition), decide (the Owner), view (the requester).
-          requestFeedback: (r, note) => runFeedback('request', { candidate_id: r.candidate_id, note },
-            'Request sent', 'The ASPIRE team will review your request to view the preceptor feedback.'),
-          decideFeedback: async (req, decision, note) => {
-            const res = await runFeedback('decide', { request_id: req.id, decision, expected_status: req.status, note })
-            if (res) {
-              const [title, body] = FEEDBACK_DECISION_TOAST[decision] || ['Saved', '']
-              toast?.success?.(title, `${body} ${res.emailed
-                ? 'They have been emailed.'
-                : 'The email to them could not be sent, so please let them know directly.'}`)
-            }
-            return res
-          },
-          viewFeedback: req => postNgrpPreceptorFeedback('view', { request_id: req.id }),
-        }}
-      />
     </div>
   )
 }

@@ -849,8 +849,18 @@ export default function ApplicantDrawer(props) {
   return <ApplicantDrawerBody key={props.row.id} {...props} />
 }
 
+// RESIDENCY-SPLIT-1 (Owner, 2026-10-05): the same chart, open in Profiles & Interest's split
+// view instead of a drawer, as Student Profiles keeps its binder open beside the list. The
+// Interview Board still opens it as a drawer. Keyed on the row, so a new alumnus is a fresh
+// record (the container around it does not move).
+export function ApplicantChart(props) {
+  if (!props.row) return null
+  return <ApplicantDrawerBody key={props.row.id} {...props} open embedded />
+}
+
 function ApplicantDrawerBody({
   open, row, cycle, canManage, provisioned, onClose, actions = {}, feedback = null, toast = null, initialDocsOpen = false,
+  embedded = false,
 }) {
   const [review, setReview] = useState(null)
   const [reviewState, setReviewState] = useState('idle')
@@ -900,30 +910,25 @@ function ApplicantDrawerBody({
     ) : null
   )
 
-  return (
-    <DetailDrawer
-      open={open}
-      onClose={onClose}
-      title={`${displayName(s)} · Applicant`}
-      width={1080}
-      /* RESIDENCY-ROSTER-1: "Confirm Application" is gone. Confirmation became
-         automatic, so a button claiming to do it would be theatre: the pool
-         rule has already decided, and the Applicant Pool section says what it
-         decided and why. Sending the form is the only action left down here. */
-      footer={canManage ? (
-        <>
-          {gateNote && <span style={{ marginRight: 'auto', fontSize: 11, color: 'var(--text-caption)' }}>{gateNote}</span>}
-          {/* Only where a send action exists: sending runs through ASPIRE Connect,
-              so the Residency Portal (and any host without it) shows no Send button. */}
-          {!gateNote && actions.sendForm && (
-            <button type="button" style={smallBtn()} disabled={!provisioned}
-              onClick={() => actions.sendForm(row)}>
-              {hasForm ? 'Resend Form' : 'Send Transition Form'}
-            </button>
-          )}
-        </>
-      ) : null}
-    >
+  // RESIDENCY-SPLIT-1: the Send / Resend button. In a drawer it is the footer; embedded in
+  // Profiles & Interest's split view it sits on the name plate, where Student Profiles keeps
+  // its own actions.
+  const footerNode = canManage ? (
+    <>
+      {gateNote && <span style={{ marginRight: 'auto', fontSize: 11, color: 'var(--text-caption)' }}>{gateNote}</span>}
+      {/* Only where a send action exists: sending runs through ASPIRE Connect,
+          so the Residency Portal (and any host without it) shows no Send button. */}
+      {!gateNote && actions.sendForm && (
+        <button type="button" style={smallBtn()} disabled={!provisioned}
+          onClick={() => actions.sendForm(row)}>
+          {hasForm ? 'Resend Form' : 'Send Transition Form'}
+        </button>
+      )}
+    </>
+  ) : null
+
+  const chart = (
+    <>
       {/* APPLICANT-CHART-1 (Owner, 2026-10-05): the Student Profiles binder (rings, plate,
           die-cut tabs, tinted sheets, the same scroll spy) holding the application's
           sheets. Every section below is the one this drawer always had, moved onto a
@@ -959,7 +964,12 @@ function ApplicantDrawerBody({
                         {cycle.name}
                       </span>
                     )}
+                    {/* RESIDENCY-SPLIT-1: Interest and Eligibility read on the plate, as GPA
+                        and CS-Link do on a student's. */}
+                    <NgrpStatusPill config={INTEREST_STATES} value={row.interest} srPrefix="Interest" />
+                    <NgrpStatusPill config={ELIGIBILITY_STATES} value={elig} srPrefix="Eligibility" />
                   </div>
+                  {embedded && footerNode && <div className="sc-plate-acts ac-plate-acts">{footerNode}</div>}
                 </div>
               </div>
             </div>
@@ -1161,6 +1171,22 @@ function ApplicantDrawerBody({
         onClose={() => setOverrideOpen(false)}
         onSubmit={fields => guarded(async () => { await actions.override?.(row, fields); setOverrideOpen(false) })}
       />
+    </>
+  )
+  if (embedded) return chart
+  return (
+    <DetailDrawer
+      open={open}
+      onClose={onClose}
+      title={`${displayName(s)} · Applicant`}
+      width={1080}
+      /* RESIDENCY-ROSTER-1: "Confirm Application" is gone. Confirmation became
+         automatic, so a button claiming to do it would be theatre: the pool
+         rule has already decided, and the Applicant Pool section says what it
+         decided and why. Sending the form is the only action left down here. */
+      footer={footerNode}
+    >
+      {chart}
     </DetailDrawer>
   )
 }
