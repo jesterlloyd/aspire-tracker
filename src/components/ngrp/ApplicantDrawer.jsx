@@ -967,10 +967,6 @@ function ApplicantDrawerBody({
               <div className="sc-scroller" ref={chartScrollerRef}>
               <section className="sc-sheet" id={sheetDomId('applicant')} data-sheet="applicant" data-tint={tintOf('applicant')} aria-label={titleOf('applicant')}>
                 <h2 className="sc-sheet-title">{titleOf('applicant')}</h2>
-                <Section title="Contact" right={<span style={{ fontSize: 10.5, color: 'var(--text-caption)', textTransform: 'none', letterSpacing: 0 }}>From the student record</span>}>
-                  <Row label="Personal email">{s.personal_email || '—'}</Row>
-                  <Row label="School email">{s.school_email || '—'}</Row>
-                </Section>
                 <Section title="Residency Interest">
                   <Row label="Interest"><NgrpStatusPill config={INTEREST_STATES} value={row.interest} /></Row>
                   {row.interest === 'no_response' && (

@@ -1948,8 +1948,9 @@ the real chart's are).
   Support, Interview, Hiring, Activity. Each borrows a Student Profiles tint by name (`data-tint`),
   so no colour is new; the tab rules sit BEFORE Modern's, which must still make every tab plain.
 - **Every section the drawer had is on a sheet, unchanged in what it shows or saves**; `Section`
-  is now the chart's `sp-section sp-card` (part of the page, not a box). Contact (personal and
-  school email) is read from the student record. Documents is `StudentDocumentsBody`, the
+  is now the chart's `sp-section sp-card` (part of the page, not a box). There is NO Contact
+  section: the Residency payload strips emails to `has_email` (`sanitizeStudent`), so one would
+  only ever read "—" (shipped that way in 10b8da81, removed the same day). Documents is `StudentDocumentsBody`, the
   Documents drawer's own body, inline. Support lists that alumnus's live entries from the same
   query Residency > Support counts. The Residency Portal has no Documents sheet.
 - **Inks are theme tokens now** (`--text-caption`, `--text-heading`, `--aspire-ok/warn/bad`): the
