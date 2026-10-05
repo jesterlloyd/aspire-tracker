@@ -159,7 +159,10 @@ test('the handoff model: chip, note, claim and the sent message', () => {
   const review = { id: REVIEW, score: 72, readiness: 'Competitive', draft_subject: 'Feedback on your résumé', draft_body: 'Hi Maya,\n\nGood start.', full_report: { rewritten_bullets: [] } }
   const h = resumeReviewHandoff({ review, student, cycle: { id: CYCLE, name: 'Winter 2027' }, version: { id: VER, file_name: 'a.pdf' }, includeScore: true, includeBullets: false })
   assert.equal(h.cycleId, CYCLE)
-  assert.match(h.draft.body, /scored 72 of 100/)
+  // RESUME-FEEDBACK-1 (this commit): readiness in words, and the link to the full feedback.
+  assert.match(h.draft.body, /reads as Competitive for now/)
+  assert.doesNotMatch(h.draft.body, /\b72\b/)
+  assert.match(h.draft.body, /Student Portal under Residency: https:\/\/aspireintelligence\.app\/portal\/residency/)
   assert.ok(h.draft.body.endsWith('Warmly,'), 'Outreach adds the sender\'s signature; the draft does not repeat it')
   assert.deepEqual(h.documents, [{ versionId: VER, fileName: 'a.pdf' }])
   assert.deepEqual(supportRefFor(h), { kind: 'resume_review', cycle_id: CYCLE, resume_review_id: REVIEW })

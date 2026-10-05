@@ -154,7 +154,7 @@ function DraftBox({ review, student, sender, canWrite, toast, onSaved, cycle, ve
           <div className="rr-draft" aria-label="Draft email as it will be copied">{composed}</div>
         )}
         <div className="rr-toggles">
-          <label><input type="checkbox" checked={includeScore} onChange={e => { setIncludeScore(e.target.checked); save({ include_score: e.target.checked }) }} /> Include score</label>
+          <label><input type="checkbox" checked={includeScore} onChange={e => { setIncludeScore(e.target.checked); save({ include_score: e.target.checked }) }} /> Include readiness</label>
           <label><input type="checkbox" checked={includeBullets} disabled={!(review.full_report?.rewritten_bullets || []).length}
             onChange={e => { setIncludeBullets(e.target.checked); save({ include_bullets: e.target.checked }) }} /> Add rewritten bullets</label>
           {canWrite && <button type="button" className="rr-link" onClick={() => setEditing(v => !v)}>{editing ? 'Done editing' : 'Edit text'}</button>}
@@ -163,7 +163,7 @@ function DraftBox({ review, student, sender, canWrite, toast, onSaved, cycle, ve
       <div className="rr-foot">
         <span className="rr-muted">
           {canHandoff
-            ? `Opens a pre-filled Outreach message to ${firstName(student)}. Sending it logs Résumé Review with the date. Copying does not.`
+            ? `Opens a pre-filled Outreach message to ${firstName(student)} with a link to their full feedback. Sending it shares that feedback in their Student Portal (in words, never the number) and logs Résumé Review with the date. Copying does neither.`
             : 'Copying the draft does not log Résumé Review as support.'}
         </span>
         <span className="rr-btnrow">

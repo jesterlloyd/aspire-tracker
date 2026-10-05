@@ -106,8 +106,18 @@ export function parseReview(json) {
 
 // ── The draft email ─────────────────────────────────────────────────────────
 
-export const scoreSentence = (score, readiness) =>
-  (score == null ? '' : `Your résumé scored ${score} of 100 on the ASPIRE résumé rubric${readiness ? ` (${readiness})` : ''}.`)
+// RESUME-FEEDBACK-1 (Owner, 2026-10-05: "show words, not the number"): the optional sentence
+// names their readiness in words. A student never reads a score out of 100.
+export const scoreSentence = (score, readiness) => {
+  if (!readiness) return ''
+  return readiness === 'Highly Competitive'
+    ? 'On the ASPIRE résumé rubric, your résumé reads as Highly Competitive.'
+    : `On the ASPIRE résumé rubric, your résumé reads as ${readiness} for now.`
+}
+
+// Where their full feedback is: the Student Portal's Residency tab, shared when this is sent.
+export const portalFeedbackLine = (url) =>
+  `Your full feedback, with what is working in each area, rewritten bullets you can adapt and a checklist for before you apply, is in the Student Portal under Residency: ${url}`
 
 export function bulletsSection(bullets = []) {
   const rows = bullets.filter(b => b?.rewrite)
@@ -120,17 +130,19 @@ export function signOff({ name, credentials } = {}) {
   return who ? `Warmly,\n${who}` : 'Warmly,'
 }
 
-// The email the reviewer copies: Keith's body, with the score sentence after the greeting
-// paragraph when "Include score" is on, the rewritten bullets before the sign-off when that
-// box is on, and the reviewer's own sign-off. Toggling either box changes only its own part.
-export function composeDraft({ body = '', score = null, readiness = null, includeScore = true, bullets = [], includeBullets = false, sender = {} } = {}) {
+// The email: Keith's body (greeting, then their strengths, then the priorities), with the readiness
+// sentence AFTER their strengths when "Include readiness" is on (RESUME-FEEDBACK-1: the strengths
+// come first, never a verdict), the rewritten bullets when that box is on, the line to their full
+// feedback when there is a link, and the reviewer's own sign-off. Each box changes only its part.
+export function composeDraft({ body = '', score = null, readiness = null, includeScore = false, bullets = [], includeBullets = false, portalUrl = null, sender = {} } = {}) {
   const paras = String(body).trim().split(/\n{2,}/).filter(Boolean)
   const out = [...paras]
-  if (includeScore && score != null) out.splice(Math.min(1, out.length), 0, scoreSentence(score, readiness))
+  if (includeScore && readiness) out.splice(Math.min(2, out.length), 0, scoreSentence(score, readiness))
   if (includeBullets) {
     const b = bulletsSection(bullets)
     if (b) out.push(b)
   }
+  if (portalUrl) out.push(portalFeedbackLine(portalUrl))
   out.push(signOff(sender))
   return out.join('\n\n')
 }

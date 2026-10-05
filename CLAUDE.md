@@ -1880,6 +1880,29 @@ Owner/Admin preview shows Shift Log. `src/portal/StudentResidency.jsx`, endpoint
 - `residencyEligible` in PortalApp is declared ABOVE the command bar that reads it; a const
   read before its declaration takes the whole portal down (the 2026-10-04 incident's cousin).
 
+## Résumé feedback is shared in words (RESUME-FEEDBACK-1, 2026-10-05)
+
+The Owner read a sent review email ("Your résumé scored 58 of 100 ... three changes") and asked
+what a student would do with that. Now:
+
+- **Sending the review shares it.** A review with status `sent` appears on the alumnus's
+  Residency tab as Résumé Feedback (`ResumeFeedback` in `StudentResidency.jsx`, shape from
+  `studentFeedback` in `src/lib/documents/studentFeedbackModel.js`, read by `resumeFeedback`
+  in `lib/server/alumnusResidency.js`). Copying a draft shares nothing.
+- **Words, never the number** (Owner: "show words not the number"): the six areas are Strong
+  (9 to 10), Solid (7 to 8), Developing (5 to 6), Needs work (below 5); readiness is its word,
+  what it means, and what the next level asks. A sentence in Keith's notes that states a score
+  is dropped whole and a bracketed "(8/10)" removed (`stripScores`); a test sweeps the shape.
+- **The change since the last shared review**: "ASPIRE Positioning: Developing → Solid" and
+  "Competitive, was Needs Improvement" (Owner: "yes!").
+- What it shows: strengths first, the six areas with Keith's reason, where to start, what is
+  missing, rewritten bullets (placeholders explained), section notes, words to weave in, what
+  a recruiter notices, a checklist. Never the draft, staff edits, résumé text, provenance or score.
+- **The email leads with strengths.** The optional sentence is "Include readiness" (starts off
+  for new reviews) and reads "your résumé reads as Competitive for now", placed after the
+  strengths; Open in Outreach adds a line linking to `/portal/residency`. Copy draft has no
+  link, because copying shares nothing.
+
 ## Settings groups, one breadcrumb, the staff menu in portals (NAV-POLISH-1, 2026-10-02)
 
 - **The Settings rail is four groups** (Owner): Personal (General), Administration (Users &

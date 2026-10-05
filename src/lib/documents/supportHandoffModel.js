@@ -7,6 +7,7 @@
 import { LAUNCH_KINDS } from '../connect/launchContext.js'
 import { composeDraft } from './resumeReviewModel.js'
 import { displayName } from '../utils.js'
+import { appUrl } from '../appUrl.js'
 
 const first = s => s?.preferred_first_name || s?.first_name || ''
 
@@ -33,6 +34,8 @@ export function resumeReviewHandoff({ review, student, cycle, version, includeSc
       body: composeDraft({
         body: body ?? review.draft_body ?? '', score: review.score, readiness: review.readiness,
         includeScore, bullets: review.full_report?.rewritten_bullets || [], includeBullets, sender: {},
+        // RESUME-FEEDBACK-1: sending shares their full feedback in the portal, so the email says where.
+        portalUrl: appUrl('/portal/residency'),
       }),
     },
     documents: version ? [{ versionId: version.id, fileName: version.file_name }] : [],

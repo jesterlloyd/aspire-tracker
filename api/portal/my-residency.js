@@ -23,7 +23,7 @@ import { verifyPortalCaller, hasActiveRoleGrant, getActiveStudentLinks, getServi
 import {
   DOCUMENTS_BUCKET, isMissingTable, loadTypes, uploadPath, finishUpload, openVersion,
 } from '../../lib/server/studentDocuments.js'
-import { cycleForStudent, keyDates, transitionFormStatus, supportReceived, alumnusDocuments, openRequests } from '../../lib/server/alumnusResidency.js'
+import { cycleForStudent, keyDates, transitionFormStatus, supportReceived, alumnusDocuments, openRequests, resumeFeedback } from '../../lib/server/alumnusResidency.js'
 import { extsFor, DOCUMENT_MAX_BYTES } from '../../src/lib/documents/documentChecklist.js'
 
 const ACTIONS = new Set(['status', 'summary', 'upload_start', 'upload_finish', 'open'])
@@ -73,6 +73,9 @@ export default async function handler(req, res) {
       if (docs.error && documentsProvisioned) return internal(res)
       const form = await transitionFormStatus(db, { cycleId: c.cycle?.id || null, studentId: student.id })
       if (form.error) return internal(res)
+      // RESUME-FEEDBACK-1: before 20261105000000 there are no reviews; nothing to show.
+      const fb = await resumeFeedback(db, student.id)
+      const feedback = fb.error ? null : fb.feedback
       let requests = []
       if (documentsProvisioned) {
         const r = await openRequests(db, { studentId: student.id, documents: docs.documents, types: docs.types })
@@ -88,6 +91,7 @@ export default async function handler(req, res) {
         documentsProvisioned,
         documents: documentsProvisioned ? { types: docs.types, documents: docs.documents, resumeOnRecord: docs.resumeOnRecord } : null,
         requests,
+        feedback,
       })
     }
 

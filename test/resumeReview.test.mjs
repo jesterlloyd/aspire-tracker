@@ -56,19 +56,26 @@ test('parseReview stores the rubric\'s score, not the model\'s, and keeps exactl
   assert.throws(() => parseReview({ categories: { ats: { score: 8 } }, top_fixes: [], draft: {} }), /missing category/)
 })
 
-test('the draft: score sentence after the greeting, bullets before the sign-off, each box only its own part', () => {
+// RESUME-FEEDBACK-1 (2026-10-05, this commit): the email leads with the strengths; the optional
+// sentence names readiness in WORDS after them, never a number; a link to the full feedback
+// precedes the sign-off when the message is opened in Outreach.
+test('the draft: strengths first, readiness in words after them, the feedback link, the sign-off', () => {
   const body = 'Hi Maya,\n\nYour practicum section is clear.\n\n1. Name the unit.'
   const sender = { name: 'Jester Lloyd Bautista', credentials: 'PhD, MSN, RN' }
   const bullets = [{ original: 'Helped nurses', rewrite: 'Collaborated with RNs under preceptor guidance.' }]
-  const full = composeDraft({ body, score: 72, readiness: 'Competitive', includeScore: true, bullets, includeBullets: true, sender })
+  const full = composeDraft({ body, score: 58, readiness: 'Needs Improvement', includeScore: true, bullets, includeBullets: true, portalUrl: 'https://aspireintelligence.app/portal/residency', sender })
   const parts = full.split('\n\n')
   assert.equal(parts[0], 'Hi Maya,')
-  assert.equal(parts[1], scoreSentence(72, 'Competitive'))
-  assert.match(parts.at(-2), /^A few rewritten bullets/)
+  assert.equal(parts[1], 'Your practicum section is clear.', 'the strengths come before any verdict')
+  assert.equal(parts[2], 'On the ASPIRE résumé rubric, your résumé reads as Needs Improvement for now.')
+  assert.doesNotMatch(full, /\b58\b|of 100/, 'never the number')
+  assert.match(parts.at(-3), /^A few rewritten bullets/)
+  assert.match(parts.at(-2), /in the Student Portal under Residency: https:\/\/aspireintelligence\.app\/portal\/residency$/)
   assert.equal(parts.at(-1), 'Warmly,\nJester Lloyd Bautista, PhD, MSN, RN')
-  const bare = composeDraft({ body, score: 72, includeScore: false, bullets, includeBullets: false, sender })
-  assert.doesNotMatch(bare, /scored/)
-  assert.doesNotMatch(bare, /rewritten bullets/)
+  const bare = composeDraft({ body, score: 58, readiness: 'Needs Improvement', bullets, sender })
+  assert.doesNotMatch(bare, /reads as/, 'the readiness sentence is off unless chosen')
+  assert.doesNotMatch(bare, /rewritten bullets|Student Portal/)
+  assert.equal(scoreSentence(90, 'Highly Competitive'), 'On the ASPIRE résumé rubric, your résumé reads as Highly Competitive.')
   assert.equal(copyScoreLine({ name: 'Ortiz, Maya', score: 72, readiness: 'Competitive', when: 'Oct 4, 2026' }), 'Ortiz, Maya · Résumé score 72/100 (Competitive), Oct 4, 2026')
   assert.equal(scoreChange([{ score: 78 }, { score: 64 }]), 14)
   assert.equal(scoreChange([{ score: 78 }]), null)
