@@ -13,6 +13,10 @@
 //   open         { version_id }                                   -> a 60 s link
 //   keep_record_resume { student_id } -> the chart's Replace calls this BEFORE it uploads, so
 //                  the file on the record becomes a version instead of being overwritten.
+//   RESUME-REVIEW-1 (Phase 3): review_start { student_id, version_id? } scores a résumé version
+//                  with Keith (Owner, Admin; no version_id = the current résumé, adopting the
+//                  record's file as a version first); review_get { review_id } (read roles);
+//                  review_draft { review_id, style } and review_save { review_id, ... } (writers).
 //
 // Nothing here deletes a version (the table has no DELETE grant). Before migration
 // 20261104000000 every action answers { provisioned: false }, and the chart's Replace
@@ -23,20 +27,21 @@ import { normalizeStaffRole } from '../src/lib/permissions.js'
 import { isUuid } from '../lib/server/studentFiles.js'
 import {
   DOCUMENTS_BUCKET, isMissingTable, loadTypes, loadStudentDocuments, uploadPath,
-  finishUpload, openVersion, keepBeforeRecordReplace,
+  finishUpload, openVersion, keepBeforeRecordReplace, adoptRecordResume,
 } from '../lib/server/studentDocuments.js'
+import { listReviews, getReview, scoreResumeVersion, reviseDraft, saveDraft, scoringAvailability } from '../lib/server/resumeReview.js'
 import { extsFor, DOCUMENT_MAX_BYTES } from '../src/lib/documents/documentChecklist.js'
 
 const READ_ROLES = new Set(['owner', 'admin', 'co-lead'])
 const WRITE_ROLES = new Set(['owner', 'admin'])
-const WRITES = new Set(['upload_start', 'upload_finish', 'keep_record_resume'])
-const ACTIONS = new Set(['list', 'open', ...WRITES])
+const WRITES = new Set(['upload_start', 'upload_finish', 'keep_record_resume', 'review_start', 'review_draft', 'review_save'])
+const ACTIONS = new Set(['list', 'open', 'review_get', ...WRITES])
 
 const unprovisioned = res => res.status(200).json({ provisioned: false })
 const internal = res => res.status(500).json({ error: 'internal_error' })
 
 async function loadStudent(db, id) {
-  const { data, error } = await db.from('students').select('id, cohort_id, resume_url').eq('id', id).maybeSingle()
+  const { data, error } = await db.from('students').select('id, cohort_id, resume_url, first_name, preferred_first_name, aspire_cohort').eq('id', id).maybeSingle()
   if (error) return { error }
   return { student: data || null }
 }
@@ -70,6 +75,21 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, url: o.url, file_name: o.fileName })
     }
 
+    // RESUME-REVIEW-1: one review, with the text Keith read (for the preview), and the draft.
+    if (action === 'review_get' || action === 'review_draft' || action === 'review_save') {
+      if (!isUuid(body.review_id)) return res.status(422).json({ error: 'invalid_review_id' })
+      const g = await getReview(db, body.review_id)
+      if (g.error) return isMissingTable(g.error) ? unprovisioned(res) : internal(res)
+      if (!g.review) return res.status(404).json({ error: 'not_found' })
+      if (action === 'review_get') return res.status(200).json({ ok: true, review: g.review })
+      if (action === 'review_save') {
+        const sv = await saveDraft(db, { review: g.review, subject: body.subject, body: body.body, includeScore: body.include_score, includeBullets: body.include_bullets })
+        return sv.ok ? res.status(200).json({ ok: true }) : res.status(sv.status).json({ error: sv.error })
+      }
+      const rv = await reviseDraft(db, { review: g.review, style: body.style, actor: caller.profile })
+      return rv.ok ? res.status(200).json({ ok: true, draft: rv.draft }) : res.status(rv.status).json({ error: rv.error })
+    }
+
     if (!isUuid(body.student_id)) return res.status(422).json({ error: 'invalid_student_id' })
     const s = await loadStudent(db, body.student_id)
     if (s.error) return internal(res)
@@ -79,9 +99,20 @@ export default async function handler(req, res) {
     if (action === 'list') {
       const l = await loadStudentDocuments(db, student.id)
       if (l.error) return isMissingTable(l.error) ? unprovisioned(res) : internal(res)
+      // Reviews arrive with 20261105000000; before it the drawer shows no scores.
+      const r = await listReviews(db, student.id)
+      const reviewsProvisioned = !r.error
+      if (r.error && !isMissingTable(r.error)) return internal(res)
+      const scoring = WRITE_ROLES.has(role) && reviewsProvisioned ? await scoringAvailability(db, caller.profile) : { available: false }
+      // The draft is signed by the person reading it: their Connect signature name and
+      // credentials, else their account name.
+      const me = await db.from('user_profiles').select('full_name, connect_signature').eq('id', caller.profile.id).maybeSingle()
+      const cs = me.data?.connect_signature && typeof me.data.connect_signature === 'object' ? me.data.connect_signature : {}
+      const sender = { name: String(cs.display_name || me.data?.full_name || '').trim(), credentials: String(cs.credentials || '').trim() }
       return res.status(200).json({
         provisioned: true, canWrite: WRITE_ROLES.has(role),
         types: l.types, documents: l.documents, resumeOnRecord: l.resumeOnRecord,
+        reviews: r.reviews || [], reviewsProvisioned, canScore: scoring.available === true, scoringBlocked: scoring.reason || null, sender,
       })
     }
 
@@ -89,6 +120,22 @@ export default async function handler(req, res) {
       const k = await keepBeforeRecordReplace(db, storage, { student, actorId, nowIso })
       if (k.error) return isMissingTable(k.error) ? unprovisioned(res) : res.status(502).json({ error: 'keep_failed' })
       return res.status(200).json({ ok: true, provisioned: true, kept: k.kept })
+    }
+
+    if (action === 'review_start') {
+      let versionId = isUuid(body.version_id) ? body.version_id : null
+      if (!versionId) {
+        const a = await adoptRecordResume(db, storage, { student, actorId, nowIso })
+        if (a.error) return isMissingTable(a.error) ? unprovisioned(res) : res.status(502).json({ error: 'keep_failed' })
+        if (a.notFound) return res.status(404).json({ error: 'no_resume' })
+        versionId = a.versionId
+      }
+      const sc = await scoreResumeVersion(db, storage, { student, versionId, actor: caller.profile, nowIso })
+      if (!sc.ok) {
+        if (sc.cause && isMissingTable(sc.cause)) return unprovisioned(res)
+        return res.status(sc.status || 500).json({ error: sc.error, review: sc.review || null })
+      }
+      return res.status(200).json({ ok: true, review: sc.review })
     }
 
     const t = await loadTypes(db)

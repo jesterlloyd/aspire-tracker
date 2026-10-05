@@ -1782,6 +1782,39 @@ before it the drawer says so and the chart's Replace behaves as it always did.
   Student Portal mirror (after). A deleted student's document files are removed by
   `student-file-cleanup`'s `delete_student`, best-effort.
 
+## Keith reviews résumés (RESUME-REVIEW-1, 2026-10-05)
+
+Phase 3 of the résumé review build. `review-resume` is the SECOND Keith Skill that reads one
+student's résumé (after `resume-interview-questions`), behind the same gates: the version must
+be this student's résumé, `authorizeStudentResumeAccess` must pass, the bytes are extracted
+server-side, contact details are redacted before Keith reads them, and the run goes through
+`runKeithSkill` (on/off switch, roles, schema, usage, metadata-only audit, provenance).
+Server: `lib/server/resumeReview.js` behind `api/student-documents.js` (`review_*` actions).
+Screen: `src/components/documents/ResumeReviewDrawer.jsx`. Rules: `src/lib/documents/resumeReviewModel.js`.
+Instructions: `skills/review-resume/SKILL.md`, seeded by `20261105000000_resume_reviews.sql`
+(Owner-gated) and held equal to it by a test.
+
+- **The score is the rubric's** (Owner: "rubric-based and objective"). Keith scores six
+  categories 0 to 10; the composite (sum x 10 / 6, rounded) and the readiness (Highly
+  Competitive at 80+ with none below 6, Needs Improvement below 65 or any category at 3 or
+  below, else Competitive) are COMPUTED by `parseReview`, never the model's. The model's own
+  number is kept as `model_score` for comparison and not shown.
+- **Résumés only** (Owner, 2026-10-04). Keith reads no transcript, card or letter. A dated
+  document's date is pre-filled WITHOUT AI when the picked PDF has text
+  (`src/lib/documents/documentDates.js`, read in the browser); staff still confirm it.
+- **Who**: running a score (a paid call) is Owner and Admin (`allowed_roles`); reading scores,
+  reports and drafts is Owner, Admin and Co-Lead. Never Talent Acquisition, never the portal.
+- **The quality route refuses `temperature`.** Do not add one to this Skill's route.
+- **A row is written as 'scoring' before Keith is asked**, so closing the drawer loses nothing;
+  a row still 'scoring' after 4 minutes reads as failed with Retry. An off Skill, a refused
+  role or another student's version writes no row. The scoring steps after "Uploaded and
+  filed" advance by elapsed time (one request does all of it); the panel says "usually under
+  a minute".
+- **The draft is composed, not stored whole**: Keith's body, the score sentence after the
+  greeting (Include score), the rewritten bullets (Add rewritten bullets) and the reader's
+  own sign-off (Connect signature name and credentials). Copying never logs support.
+  Open in Outreach and the send-time log are Phase 4.
+
 ## Settings groups, one breadcrumb, the staff menu in portals (NAV-POLISH-1, 2026-10-02)
 
 - **The Settings rail is four groups** (Owner): Personal (General), Administration (Users &

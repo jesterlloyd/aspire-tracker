@@ -49,9 +49,40 @@ export function useStudentDocuments(studentId, { enabled = true } = {}) {
     documents: data?.documents || [],
     resumeOnRecord: Boolean(data?.resumeOnRecord),
     canWrite: data?.canWrite === true,
+    // RESUME-REVIEW-1: Keith's reviews (newest first, no résumé text), whether this person may
+    // run one now, and how their draft is signed.
+    reviews: data?.reviews || [],
+    reviewsProvisioned: data?.reviewsProvisioned === true,
+    canScore: data?.canScore === true,
+    scoringBlocked: data?.scoringBlocked || null,
+    sender: data?.sender || null,
     refetch: query.refetch,
   }
 }
+
+// ── RESUME-REVIEW-1 ──────────────────────────────────────────────────────────
+// Scoring takes up to about a minute. The request carries on if the drawer is closed; the
+// review row is written as 'scoring' first, so the Documents tab shows it either way.
+export const startResumeReview = ({ studentId, versionId = null }) =>
+  post('review_start', { student_id: studentId, ...(versionId ? { version_id: versionId } : {}) })
+export const getResumeReview = reviewId => post('review_get', { review_id: reviewId })
+export const reviseResumeDraft = (reviewId, style) => post('review_draft', { review_id: reviewId, style })
+export const saveResumeDraft = (reviewId, patch) => post('review_save', { review_id: reviewId, ...patch })
+
+export const REVIEW_ERRORS = {
+  skill_off: 'Keith’s Review Résumé skill is off. Turn it on in Settings > Keith > Skills.',
+  skill_denied: 'Only the Owner or an Admin can run a résumé review.',
+  invalid_output: 'Keith’s review did not come back complete, so nothing was saved. Try again.',
+  rate_limited: 'Keith is busy right now. Try again in a minute.',
+  upstream_timeout: 'The review took too long. Try again.',
+  upstream_error: 'Keith could not finish the review. Try again.',
+  file_unavailable: 'The résumé file could not be read. Try again.',
+  unreadable_no_text_layer: 'That PDF is a scan with no text, so it cannot be scored. Upload a text PDF or a Word file.',
+  unreadable_legacy_doc_unsupported: 'Old .doc files cannot be read. Save it as .docx or PDF and upload again.',
+  no_resume: 'There is no résumé on file to score.',
+  keep_failed: 'The résumé on the record could not be kept as a version, so it was not scored. Try again.',
+}
+export const reviewErrorText = r => REVIEW_ERRORS[r?.error] || (String(r?.error || '').startsWith('unreadable_') ? 'The résumé text could not be read, so it was not scored.' : 'The review did not finish. Try again.')
 
 // Sign, upload straight to storage, then let the server check and file it.
 export async function uploadStudentDocument({ studentId, docType, file, docDate = null, dateConfirmed = false }) {
