@@ -124,6 +124,19 @@
 @media (min-width: 1024px) {
   .ptl-main { width: 94vw; max-width: 1500px; padding: var(--aspire-page-top, 24px) 0 40px; }
 }
+/* RESIDENCY-PORTAL-WIDTH-1 (Owner, 2026-10-05: "mimic the staff app? wider, much preferred"). The
+   Residency Portal renders the staff Residency workspace, whose cards carry their own 20px side
+   margins and 16px top margin, so it takes the staff app's .app-main column exactly.
+   It follows .app-main's steps at every width (index.css: 140px of side room, 96 from 1440,
+   48 from 1024, 32 on phones) and sets only top and side padding, so a phone keeps the bottom
+   tab bar's room. */
+.ptl-main.ptl-main-app {
+  width: min(100% - 140px, 1580px); max-width: none;
+  padding-top: calc(var(--aspire-page-top, 24px) - var(--aspire-gap-card, 16px)); padding-left: 0; padding-right: 0;
+}
+@media (max-width: 1440px) { .ptl-main.ptl-main-app { width: min(100% - 96px, 1580px); } }
+@media (max-width: 1024px) { .ptl-main.ptl-main-app { width: min(100% - 48px, 1580px); } }
+@media (max-width: 768px) { .ptl-main.ptl-main-app { width: min(100% - 32px, 1580px); padding-top: 12px; } }
 
 .ptl-footer {
   text-align: center; padding: 18px; font-size: 12px; color: #9ca3af;

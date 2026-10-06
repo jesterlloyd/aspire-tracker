@@ -8,6 +8,7 @@
 //
 // Phase 4 adds Open in Outreach (and logging Résumé Review on send). Until then the draft is
 // copied, and copying never logs support.
+import Tooltip from '../ui/Tooltip'
 import { useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -268,7 +269,7 @@ export default function ResumeReviewDrawer({ open, reviewId, student, reviews = 
                   <div className="rr-sheet" aria-label="The résumé text Keith read. Highlights mark the top fixes.">
                     <span className="rr-stamp" aria-hidden="true">SCORED {review.score}</span>
                     {runs.map((r, i) => (r.fix
-                      ? <mark key={i} className="rr-hl" title={`Fix ${r.fix}`}>{r.text}<sup>{r.fix}</sup></mark>
+                      ? <Tooltip key={i} label={`Fix ${r.fix}`} applyAriaLabel={false}><mark className="rr-hl">{r.text}<sup>{r.fix}</sup></mark></Tooltip>
                       : <span key={i}>{r.text}</span>))}
                   </div>
                   <p className="rr-muted rr-small">Contact details were removed before Keith read it.</p>
@@ -323,11 +324,13 @@ export default function ResumeReviewDrawer({ open, reviewId, student, reviews = 
                         {CATEGORIES.map(c => {
                           const v = review.categories?.[c.key]?.score ?? 0
                           return (
-                            <div key={c.key} className="rr-cat" title={review.categories?.[c.key]?.note || undefined}>
+                            <Tooltip key={c.key} label={review.categories?.[c.key]?.note || ''} disabled={!review.categories?.[c.key]?.note} applyAriaLabel={false} placement="top">
+                            <div className="rr-cat">
                               <span>{c.label}</span>
                               <span className="rr-bar" aria-hidden="true"><i className={v <= LOW_CATEGORY ? 'rr-low' : ''} style={{ width: `${v * 10}%` }} /></span>
                               <b>{v}/10</b>
                             </div>
+                            </Tooltip>
                           )
                         })}
                       </div>

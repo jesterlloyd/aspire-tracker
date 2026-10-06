@@ -906,6 +906,7 @@ export default function PortalApp() {
         roleLabel={staffMenu.roleLabel}
         portalUserActionsEnabled={!staffPreview}
         weeklyDigest={residencyDigest}
+        mainWidth="app"
         nav={<ResidencyNav tab={residencyRoute.tab} onNavigate={goResidencyTab} />}
         utilityLayer={staffPreview ? <StaffPreviewUtilities portalName="Residency Portal" section={residencyRoute.tab} /> : null}>
         {/* Joint ownership (Owner): Talent Acquisition manages residency records and cohort

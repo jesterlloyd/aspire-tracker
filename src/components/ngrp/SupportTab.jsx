@@ -12,6 +12,7 @@
 // Every number derives from the same roster rows the Profiles tab renders and
 // the recorded entries (src/lib/ngrp/ngrpSupportView.js). A wrong entry is
 // voided, never deleted.
+import Tooltip from '../ui/Tooltip'
 import { Fragment, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Eye, ExternalLink, MessageSquare } from 'lucide-react'
@@ -673,10 +674,10 @@ function StartPanel({ cycle, rows, support, toast }) {
           </div>
           {/* Always available: reading what the email says should not require
               starting a real resident first. The preview is synthetic. */}
+          <Tooltip label="Preview the reflection email">
           <button
             type="button"
             onClick={() => setShowEmailPreview(true)}
-            title="Preview the reflection email"
             aria-label="Preview the reflection email"
             style={{
               width: 28, height: 28, flexShrink: 0, display: 'inline-flex',
@@ -686,12 +687,13 @@ function StartPanel({ cycle, rows, support, toast }) {
           >
             <Eye size={15} />
           </button>
+          </Tooltip>
           {/* RESIDENCY-REFLECTION-3: the form itself, as a sample, for demos. */}
+          <Tooltip label="Open a sample of the form">
           <a
             href={SAMPLE_PATH}
             target="_blank"
             rel="noopener"
-            title="Open a sample of the form"
             aria-label="Open a sample of the form"
             style={{
               width: 28, height: 28, flexShrink: 0, display: 'inline-flex',
@@ -701,6 +703,7 @@ function StartPanel({ cycle, rows, support, toast }) {
           >
             <ExternalLink size={15} />
           </a>
+          </Tooltip>
         </div>
         {view.residents.length === 0 ? (
           <p className="ngrp-glance-empty">No residents yet. Alumni appear here once their hire is recorded on the placement board.</p>

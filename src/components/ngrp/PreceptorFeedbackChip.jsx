@@ -1,6 +1,7 @@
 // RESIDENCY-PORTAL-2b: the roster's preceptor feedback indicator. It says only
 // that feedback is on file (or, for the ASPIRE team, that someone asked to see
 // it). Reading it happens in the applicant drawer, by request.
+import Tooltip from '../ui/Tooltip'
 import { MessageSquareText } from 'lucide-react'
 
 function feedbackIndicator(entry) {
@@ -15,8 +16,8 @@ export default function PreceptorFeedbackChip({ entry }) {
   if (!kind) return null
   const requested = kind === 'requested'
   return (
+    <Tooltip label={requested ? 'Talent Acquisition asked to view the preceptor feedback' : 'Preceptor feedback is on file'} applyAriaLabel={false}>
     <span
-      title={requested ? 'Talent Acquisition asked to view the preceptor feedback' : 'Preceptor feedback is on file'}
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 3, verticalAlign: 'top',
         fontSize: 9, fontWeight: 700, borderRadius: 999, padding: '1px 6px', marginTop: 2, marginLeft: 4,
@@ -27,5 +28,6 @@ export default function PreceptorFeedbackChip({ entry }) {
       <MessageSquareText size={10} aria-hidden="true" />
       {requested ? 'Feedback requested' : 'Preceptor feedback'}
     </span>
+    </Tooltip>
   )
 }

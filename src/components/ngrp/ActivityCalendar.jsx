@@ -16,6 +16,7 @@
 //
 // SCOPED BY DISPLAY, NOT BY FETCH. There is no cycle_id on an event, and
 // inventing one would fork the events model for this tab alone.
+import Tooltip from '../ui/Tooltip'
 import { useState, useMemo, useCallback } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useLocation } from 'react-router-dom'
@@ -49,10 +50,10 @@ const longDate = d => new Date(`${d}T00:00:00`).toLocaleDateString('en-US', { we
 
 function AddEventButton({ onClick, style }) {
   return (
+    <Tooltip label="Add a custom ASPIRE event" applyAriaLabel={false}>
     <button
       type="button"
       onClick={onClick}
-      title="Add a custom ASPIRE event"
       className="pl-ghost pl-ghost-event"
       style={{
         height: 32, padding: '0 14px', borderRadius: 9,
@@ -66,6 +67,7 @@ function AddEventButton({ onClick, style }) {
       </svg>
       Add Event
     </button>
+    </Tooltip>
   )
 }
 
@@ -77,9 +79,9 @@ function ShiftMark({ mark }) {
   const color = shiftColor(mark.shift)
   const badge = shiftBadge(mark.shift)
   return (
+    <Tooltip label={`${mark.name} · ${mark.shift ? badge.label : 'shift not recorded'}`} applyAriaLabel={false}>
     <span
       className="ngrp-shift-mark"
-      title={`${mark.name} · ${mark.shift ? badge.label : 'shift not recorded'}`}
       // The shift's colour is the EDGE, and the words are the paper's ink. Colouring the
       // text the same hue as its own 10% tint can only ever be low contrast: measured
       // 3.73:1 on forest paper. The event chips beside it already work this way.
@@ -87,6 +89,7 @@ function ShiftMark({ mark }) {
     >
       {firstNameOf(mark.name) || mark.name} {mark.shift ? badge.label.split(' ')[0] : ''}
     </span>
+    </Tooltip>
   )
 }
 
@@ -343,9 +346,11 @@ export default function ActivityCalendar({ cycle, canManage: canManageCohort }) 
               ))}
             </CanonicalCalendarTodayPanel>
             <div className="pl-legend">
-              <span title="An event is coloured by its type: Workshop, Town Hall, Bootcamp and the rest.">
-                <i aria-hidden="true" style={{ background: 'rgba(71,85,105,0.14)', borderLeft: '3px solid #475569' }} />Residency event
-              </span>
+              <Tooltip label="An event is coloured by its type: Workshop, Town Hall, Bootcamp and the rest." applyAriaLabel={false}>
+                <span>
+                  <i aria-hidden="true" style={{ background: 'rgba(71,85,105,0.14)', borderLeft: '3px solid #475569' }} />Residency event
+                </span>
+              </Tooltip>
               <span><i aria-hidden="true" style={{ background: 'rgba(29,37,103,0.10)', borderLeft: '3px solid #1D2567' }} />Resident working</span>
               <span><i aria-hidden="true" style={{ background: '#FEF3C7', borderLeft: '3px solid #D97706' }} />US holiday</span>
             </div>
@@ -374,7 +379,7 @@ export default function ActivityCalendar({ cycle, canManage: canManageCohort }) 
                       they are context nobody scheduled, and reading as another
                       event is exactly the confusion the colour prevents. */}
                   {holidaysOn(date).map(h => (
-                    <span key={h.name} className="ngrp-holiday-chip" title={`${h.name} · US Holiday`}>{h.name}</span>
+                    <Tooltip key={h.name} label={`${h.name} · US Holiday`} applyAriaLabel={false}><span className="ngrp-holiday-chip">{h.name}</span></Tooltip>
                   ))}
                   {marksOn(date).slice(0, 3).map(m => <ShiftMark key={m.candidate_id} mark={m} />)}
                   {marksOn(date).length > 3 && (

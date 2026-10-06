@@ -6,6 +6,7 @@
 // link - are explicit, audited server-side, and every consequential one has
 // its own confirm step. Confirmation is the ONLY path to "Confirmed";
 // nothing here (or anywhere) confirms automatically.
+import Tooltip from '../ui/Tooltip'
 import { useEffect, useState } from 'react'
 import DetailDrawer from '../ui/DetailDrawer'
 import StudentAvatar from '../StudentAvatar'
@@ -819,10 +820,11 @@ function PacketButton({ row, cycle, review, toast }) {
       : r.fileName)
   }
   return (
-    <button type="button" style={smallBtn()} disabled={busy} onClick={run}
-      title="One PDF: a summary, the submitted Transition Form and the application documents">
-      {busy ? 'Preparing packet…' : 'Download Packet'}
-    </button>
+    <Tooltip label="One PDF: a summary, the submitted Transition Form and the application documents" applyAriaLabel={false}>
+      <button type="button" style={smallBtn()} disabled={busy} onClick={run}>
+        {busy ? 'Preparing packet…' : 'Download Packet'}
+      </button>
+    </Tooltip>
   )
 }
 

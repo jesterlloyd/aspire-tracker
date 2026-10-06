@@ -620,7 +620,9 @@ test('ROOM 5: the pinned stack is the chrome PLUS the toolbar', () => {
   // .top-section is position:sticky, so it never leaves. Measuring only the toolbar put
   // it behind the header and hid the binder's first 40px.
   assert.match(vp, /\.top-section/)
-  assert.match(vp, /getComputedStyle\(chrome\)\.position === 'sticky'/)
+  // RESIDENCY-PORTAL-WIDTH-1: the portals' sticky chrome (.ptl-topsection) counts too.
+  assert.match(vp, /getComputedStyle\(el\)\.position === 'sticky'/)
+  assert.match(vp, /'\.top-section, \.ptl-topsection'/)
   assert.match(vp, /chromeH \+ bar\.getBoundingClientRect\(\)\.height \+ margins/)
   const tab = read('src/components/StudentProfilesTab.jsx')
   assert.match(tab, /--profiles-toolbar-top/)

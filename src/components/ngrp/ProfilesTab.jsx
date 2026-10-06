@@ -23,6 +23,7 @@
 // 4. Alumni hired through an EARLIER NGRP cycle are excluded server-side; a
 //    prior application without a hire never excludes anyone.
 // 5. Raw emails never reach the browser - rows carry has_email only.
+import Tooltip from '../ui/Tooltip'
 import { useMemo, useState, useCallback, useEffect, useRef } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { Search, Send, GraduationCap, X, Eye, Download, List, LayoutGrid } from 'lucide-react'
@@ -137,7 +138,9 @@ function AlumniListRow({ row, selected, onSelect, feedbackEntry }) {
       <div style={{ display: 'flex', gap: 9, minWidth: 0, alignItems: 'flex-start' }}>
         <StudentAvatar student={s} size={48} style={{ flexShrink: 0, marginTop: 1 }} />
         <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-heading,#191919)', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={name}>{name}</div>
+          <Tooltip label={name} applyAriaLabel={false}>
+            <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-heading,#191919)', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
+          </Tooltip>
           {(s.school || s.program_type) && (
             <div style={{ fontSize: 10.5, color: 'var(--text-caption,#6b7280)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {[s.school, s.program_type].filter(Boolean).join(' · ')}
@@ -170,7 +173,7 @@ function AlumniListRow({ row, selected, onSelect, feedbackEntry }) {
         <NgrpStatusPill config={ROSTER_STATUSES} value={status} srPrefix="Status" />
         {/* RESIDENCY-FLAG-1: the chart ribbon's mark, as on a student's row. */}
         {flagged && (
-          <span title="Flagged for follow up" style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--aspire-red-editorial,#B3282D)', whiteSpace: 'nowrap' }}>
+          <span style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--aspire-red-editorial,#B3282D)', whiteSpace: 'nowrap' }}>
             <span aria-hidden="true">⚑</span> Flagged for follow up
           </span>
         )}
@@ -674,11 +677,11 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                 <span style={{ fontSize: 11, color: '#9CA3AF' }}>
                   {cycle.name} · {sourceCohorts.length} participating cohort{sourceCohorts.length === 1 ? '' : 's'} · sorted by {SORT_OPTIONS.find(o => o.key === sortKey)?.label.toLowerCase()}
                 </span>
+                <Tooltip label="Every alumnus on this roster with their latest Transition Form answers. Preceptor feedback is never included." applyAriaLabel={false}>
                 <button
                   type="button"
                   onClick={onExport}
                   disabled={exporting}
-                  title="Every alumnus on this roster with their latest Transition Form answers. Preceptor feedback is never included."
                   style={{
                     height: 28, flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 6,
                     padding: '0 10px', border: '1px solid #1D2567', background: '#1D2567', color: '#fff',
@@ -689,13 +692,14 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                   <Download size={13} aria-hidden="true" />
                   {exporting ? 'Preparing CSV…' : 'Download CSV'}
                 </button>
+                </Tooltip>
                 {/* Always available, and deliberately NOT inside the bulk-selection bar:
                     reading what the email says should not require selecting a real
                     alumnus first. The preview is synthetic and sends nothing. */}
+                <Tooltip label="Preview the Transition Form email">
                 <button
                   type="button"
                   onClick={() => setShowEmailPreview(true)}
-                  title="Preview the Transition Form email"
                   aria-label="Preview the Transition Form email"
                   style={{
                     width: 28, height: 28, flexShrink: 0, display: 'inline-flex',
@@ -705,6 +709,7 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                 >
                   <Eye size={15} />
                 </button>
+                </Tooltip>
               </span>
             </div>
             <div className="ngrp-roster-scroll">
@@ -943,10 +948,12 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
               }}>
                 Cancel
               </button>
+              {/* Disabled, so the reason's tooltip hangs on a wrapper. */}
+              <Tooltip label="Requires the pending NGRP migration" disabled={transitionProvisioned} applyAriaLabel={false}>
+              <span style={{ display: 'inline-flex' }}>
               <button
                 type="button"
                 disabled={!transitionProvisioned || (sendReview.send.length + sendReview.resend.length) === 0}
-                title={transitionProvisioned ? undefined : 'Requires the pending NGRP migration'}
                 onClick={() => {
                   const rows = [...sendReview.send, ...sendReview.resend]
                   setSendReview(null)
@@ -962,6 +969,8 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
               >
                 Continue in Connect ({sendReview.send.length + sendReview.resend.length})
               </button>
+              </span>
+              </Tooltip>
             </div>
           </div>
         </>

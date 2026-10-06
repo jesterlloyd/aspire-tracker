@@ -6,6 +6,7 @@
 // inside the header's Scope dropdown, which sits in a positioned, clipped band;
 // a fixed child of that band is still clipped by it, so the dialog has to leave
 // the tree entirely. (Same lesson the masthead city picker learned.)
+import Tooltip from '../ui/Tooltip'
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { F, labelStyle, btn } from '../../lib/ngrp/ngrpCohortForm'
@@ -53,15 +54,20 @@ export function Card({ title, dirty, onSave, onDiscard, saving, children, footNo
                   button on a long page; in the settings modal there are six of
                   them, and a row of full-strength primary buttons that do
                   nothing reads as a broken form. */}
+              {/* A disabled button fires no pointer events, so the reason's tooltip hangs on a
+                  wrapper. */}
+              <Tooltip label={saveDisabledReason || ''} disabled={!saveDisabledReason} applyAriaLabel={false}>
+              <span style={{ display: 'inline-flex' }}>
               <button
                 type="button"
                 style={{ ...btn(true), ...(!dirty || saving || saveDisabledReason ? { background: '#C7CBD6', cursor: 'default' } : null) }}
                 disabled={!dirty || saving || Boolean(saveDisabledReason)}
-                title={saveDisabledReason || undefined}
                 onClick={onSave}
               >
                 {saving ? 'Saving…' : 'Save'}
               </button>
+              </span>
+              </Tooltip>
             </>
           )}
         </div>

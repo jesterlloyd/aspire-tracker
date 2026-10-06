@@ -241,6 +241,9 @@ export default function PortalShell({
   command = null,
   onRestartTour,
   weeklyDigest = null,
+  // RESIDENCY-PORTAL-WIDTH-1: 'app' gives the page the staff app's column (.app-main) instead of
+  // the portals' narrower one. The Residency Portal is the staff Residency workspace mounted here.
+  mainWidth = 'portal',
   children,
 }) {
   const [organization, setOrganization] = useState(null)
@@ -322,7 +325,7 @@ export default function PortalShell({
           {nav}
         </div>
         {utilityLayer}
-        <main className="ptl-main">{children}</main>
+        <main className={`ptl-main${mainWidth === 'app' ? ' ptl-main-app' : ''}`}>{children}</main>
         <footer className="ptl-footer">
           {organization?.display_name || 'Cedars-Sinai'} · ASPIRE Intelligence
         </footer>

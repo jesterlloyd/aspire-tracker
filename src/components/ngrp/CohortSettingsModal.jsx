@@ -17,6 +17,7 @@
 //
 // The editor REMOUNTS on a server-row change (the cohort-key remount pattern):
 // state initializers read props, so no sync-setState effect exists anywhere.
+import Tooltip from '../ui/Tooltip'
 import { useState, useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Plus, Trash2, X, Lock } from 'lucide-react'
@@ -380,7 +381,7 @@ function CohortSettingsEditor({ data, aspireCohorts, toast, invalidate, refetch 
                         {/* The catalog description is a tooltip rather than a
                             second line: it disambiguates 5 SCCT from 6 SCCT
                             without making every tile two lines tall. */}
-                        <span className="ngrp-unittile-name" title={desc || undefined}>{u.unit_name}</span>
+                        <Tooltip label={desc || ''} disabled={!desc} applyAriaLabel={false}><span className="ngrp-unittile-name">{u.unit_name}</span></Tooltip>
                       </label>
                       {u.is_active && (
                         <input

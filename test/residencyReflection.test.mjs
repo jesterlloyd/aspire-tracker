@@ -643,7 +643,7 @@ test('RESIDENCY-REFLECTION-3: #sample renders the real form with an in-memory en
   assert.match(page, /nothing you type is saved/)
   // The two doors: Support > During residency and the Automations card.
   const tab = read('src/components/ngrp/SupportTab.jsx')
-  assert.match(tab, /href=\{SAMPLE_PATH\}\s+target="_blank"\s+rel="noopener"\s+title="Open a sample of the form"/)
+  assert.match(tab, /<Tooltip label="Open a sample of the form">\s*<a\s+href=\{SAMPLE_PATH\}\s+target="_blank"\s+rel="noopener"/)
   const auto = read('src/components/connect/AutomationView.jsx')
   assert.match(auto, /sampleHref: SAMPLE_PATH, sampleLabel: 'Open a sample of the form'/)
   assert.match(auto, /\{card\.sampleHref && \(/)

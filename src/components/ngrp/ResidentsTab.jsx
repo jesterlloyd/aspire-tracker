@@ -14,6 +14,7 @@
 // edited in one place, the applicant binder's Hiring sheet (ResidentDetailsSection, the editor
 // that used to sit here); a name here opens that sheet in Profiles & Interest, switching the
 // residency cohort when an Aggregate row belongs to another one.
+import Tooltip from '../ui/Tooltip'
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useNgrpSurface } from '../../lib/ngrp/ngrpSurface'
@@ -53,10 +54,12 @@ function Affiliation({ resident }) {
     return <span data-testid="resident-affiliated" style={pill('#DCEBDD', '#2D4A2B')}>At Cedars-Sinai</span>
   }
   return (
-    <span data-testid="resident-separated" title={resident.separation_reason || undefined}>
+    <Tooltip label={resident.separation_reason || ''} disabled={!resident.separation_reason} applyAriaLabel={false}>
+    <span data-testid="resident-separated">
       <span style={pill('#ECECEC', '#4B5563')}>Separated</span>
       <Muted> {fmtDate(resident.separated_at)}</Muted>
     </span>
+    </Tooltip>
   )
 }
 

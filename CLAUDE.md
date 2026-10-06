@@ -2162,3 +2162,21 @@ unit. `src/lib/ngrp/applicantPacketModel.js` decides what is in it (pure, tested
   ngrp-manage, roster-checked. Migration `20261109000000_applicant_packet_audit.sql` widens the
   CHECK (Owner-gated); before it the packet still downloads and only the log line waits.
 - `src/lib/pdf/pdfText.js` (`safe`, `wrap`) is now shared with Forms' filed PDFs.
+
+## Residency tooltips and the Residency Portal's column (2026-10-05)
+
+- **RESIDENCY-TOOLTIPS-1 (Owner).** Residency and its document drawers use the canonical
+  `Tooltip` (`src/components/ui/Tooltip.jsx`), never an element's `title`. Where the trigger has
+  visible text, pass `applyAriaLabel={false}` so the tooltip does not replace its accessible name;
+  a button that can be disabled hangs its tooltip on a wrapping span (a disabled button fires no
+  pointer events). `test/residencyPortalPolish.test.mjs` fails on an HTML element with `title=`
+  in `src/components/ngrp/` or the two document drawers.
+- **RESIDENCY-PORTAL-WIDTH-1 (Owner: "mimic the staff app? wider, much preferred").** The
+  Residency Portal passes `mainWidth="app"` to PortalShell, so its `<main>` is `.ptl-main-app`:
+  `.app-main`'s column at every width (140px of side room, 96 from 1440, 48 from 1024, 32 on
+  phones). Other portals keep their narrower column.
+- **The pinned split works in a portal now.** `useChartViewport` counts `.ptl-topsection` as
+  sticky chrome (it only knew `.top-section`, so the search bar pinned over the portal header),
+  and leaves room for whatever the page draws below the chart's tab (the portal footer and
+  padding pushed the split 77px under the bar). Measured in a harness: bar at 112 under a 112px
+  header, split at 170 at the end of the scroll.

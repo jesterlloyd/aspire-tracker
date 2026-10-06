@@ -24,13 +24,19 @@ const MIN_CHART_H = 420
 const BOTTOM_GAP = 12
 
 /** The height of whatever is pinned above this page's own content. */
+// RESIDENCY-PORTAL-WIDTH-1: the portals' pinned chrome is `.ptl-topsection` (header plus
+// section nav), not the staff app's `.top-section`. Looking for the staff one alone put the
+// Residency Portal's pinned search bar at top 0, over the portal's own header.
+const CHROME_SELECTOR = '.top-section, .ptl-topsection'
+
+function stickyChrome() {
+  if (typeof document === 'undefined') return null
+  return [...document.querySelectorAll(CHROME_SELECTOR)].find(el => getComputedStyle(el).position === 'sticky') || null
+}
+
 function stickyChromeHeight() {
-  if (typeof document === 'undefined') return 0
-  const chrome = document.querySelector('.top-section')
-  if (chrome && getComputedStyle(chrome).position === 'sticky') {
-    return Math.round(chrome.getBoundingClientRect().height)
-  }
-  return 0
+  const chrome = stickyChrome()
+  return chrome ? Math.round(chrome.getBoundingClientRect().height) : 0
 }
 
 export function useChartViewport() {
@@ -49,7 +55,15 @@ export function useChartViewport() {
       const style = window.getComputedStyle(bar)
       const margins = parseFloat(style.marginTop || 0) + parseFloat(style.marginBottom || 0)
       const pinned = chromeH + bar.getBoundingClientRect().height + margins
-      const next = Math.max(MIN_CHART_H, Math.round(window.innerHeight - pinned - BOTTOM_GAP))
+      // RESIDENCY-PORTAL-WIDTH-1: whatever the page draws BELOW the chart's tab (a portal's
+      // footer and bottom padding) is still scrolled to, and it pushed the split up under the
+      // pinned bar by exactly that much (77px in the Residency Portal). The chart leaves room
+      // for it, so the page's last scroll position puts the split right under the bar. The
+      // staff app draws nothing there, so its gap stays BOTTOM_GAP.
+      const tab = bar.parentElement
+      const docH = document.documentElement.scrollHeight
+      const trailing = tab ? Math.max(0, Math.round(docH - (tab.getBoundingClientRect().bottom + window.scrollY))) : 0
+      const next = Math.max(MIN_CHART_H, Math.round(window.innerHeight - pinned - Math.max(BOTTOM_GAP, trailing)))
       setChartHeight(prev => (prev === next ? prev : next))
       setToolbarTop(prev => (prev === chromeH ? prev : chromeH))
       setChartTop(prev => (prev === pinned ? prev : pinned))
@@ -60,7 +74,7 @@ export function useChartViewport() {
     const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null
     ro?.observe(bar)
     // The chrome can change height too (a wrapped nav on a narrow window).
-    const chrome = document.querySelector('.top-section')
+    const chrome = stickyChrome()
     if (chrome && ro) ro.observe(chrome)
     return () => { window.removeEventListener('resize', measure); ro?.disconnect() }
   }, [])
