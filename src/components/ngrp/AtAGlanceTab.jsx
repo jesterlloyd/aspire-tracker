@@ -15,6 +15,12 @@
 // the SAME derived rows the Profiles roster renders (src/lib/ngrp/ngrpGlanceView.js)
 // - so this page can never disagree with the tabs it summarizes.
 import { useMemo, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import NeedsYou from '../home/NeedsYou'
+import '../home/home.css'
+import { residencyDocsGroup } from '../../lib/home/needsYouModel'
+import { interviewsGroup, offersGroup, flaggedGroup } from '../../lib/ngrp/residencyNeedsModel'
+import { loadDocumentActivity } from '../../lib/documents/studentDocumentsClient'
 import { useNavigate } from 'react-router-dom'
 import { ngrpPath } from '../../lib/ngrp/ngrpTabs'
 import { useNgrpSurface } from '../../lib/ngrp/ngrpSurface'
@@ -297,6 +303,20 @@ export default function AtAGlanceTab({ cycle, cyclesCount, canManage, onEditCoho
   const unitGroups = useMemo(() => hiringUnitGroups(data?.units || [], rows), [data, rows])
   const schools = useMemo(() => applicantsBySchool(rows), [rows])
 
+  // RESIDENCY-NEEDS-1 (Owner, 2026-10-05): what needs you, first, for the ASPIRE team and Talent
+  // Acquisition alike. The roster groups read the rows already loaded; documents are their own
+  // query, so a slow or failed one never blocks the rest (the home's rule).
+  const docs = useQuery({ queryKey: ['residency_doc_activity'], queryFn: loadDocumentActivity, staleTime: 120_000, enabled: Boolean(cycle?.id) })
+  const [nowMs] = useState(() => Date.now())
+  const rosterLoad = applicants.status === 'error' ? 'error' : applicants.payload ? 'ready' : 'loading'
+  const needsSources = [
+    { key: 'residencyInterviews', status: rosterLoad, retry: applicants.refetch, group: interviewsGroup(rows, { now: nowMs, base }) },
+    { key: 'residencyOffers', status: rosterLoad, retry: applicants.refetch, group: offersGroup(rows, { now: nowMs, base }) },
+    { key: 'residencyFlagged', status: rosterLoad, retry: applicants.refetch, group: flaggedGroup(rows, { base }) },
+    { key: 'residencyDocs', status: docs.isError ? 'error' : docs.data ? 'ready' : 'loading', retry: docs.refetch,
+      group: docs.data ? residencyDocsGroup({ ...docs.data, now: nowMs, base }) : null },
+  ]
+
   // ── Access + loading states ────────────────────────────────────────────────
   if (!canManage) {
     return (
@@ -404,6 +424,12 @@ export default function AtAGlanceTab({ cycle, cyclesCount, canManage, onEditCoho
           )}
         </div>
       )}
+
+      {/* .hm-page carries the home's pill and paper tokens; ngrp.css takes its page padding back. */}
+      <div className="hm-page ngrp-needs" style={{ marginTop: 'var(--aspire-gap-card)' }}>
+        <NeedsYou sources={needsSources} onNavigate={to => navigate(to)}
+          caughtUpText="No interviews to record, offers waiting, flags or new documents right now." />
+      </div>
 
       <ResidencySnapshot snap={snap} band={band} cycleName={serverCycle.name} />
 

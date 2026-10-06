@@ -629,3 +629,7 @@
    Student Profiles' .pl-list keeps 120px under its rows for the floating launchers; here the
    list card sits clear of them, so the end of the list is the end of the scroll. */
 .pl-list.ngrp-pl-list { padding-bottom: 8px; }
+
+/* RESIDENCY-NEEDS-1: the staff home's Needs you, on Residency's At a Glance. .hm-page gives it
+   the home's tokens; this sits in the workspace's own column, so the home's page padding goes. */
+.hm-page.ngrp-needs { padding: 0; }

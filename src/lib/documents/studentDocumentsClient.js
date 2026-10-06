@@ -30,6 +30,14 @@ async function post(action, payload = {}) {
 
 export const studentDocumentsKey = studentId => ['student_documents', studentId]
 
+// RESIDENCY-NEEDS-1: alumni's portal uploads and completed files, for Residency's Needs you. The
+// same `activity` the staff home reads, without the home's loaders (the portal never needs them).
+export async function loadDocumentActivity() {
+  const r = await post('activity')
+  if (!r.ok) throw new Error(r.error || 'document_activity_failed')
+  return { uploads: r.uploads || [], completions: r.completions || [] }
+}
+
 export function useStudentDocuments(studentId, { enabled = true } = {}) {
   const query = useQuery({
     queryKey: studentDocumentsKey(studentId),

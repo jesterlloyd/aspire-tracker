@@ -29,7 +29,7 @@ import { knownDate } from './cyclePhase.js'
 export const ROWS_PER_GROUP = 3
 const DAY = 86400000
 
-export const GROUP_ORDER = Object.freeze(['signatures', 'messages', 'reviewRelease', 'formsDocs', 'interviews', 'placement', 'budget', 'knowledge', 'residencyDocs'])
+export const GROUP_ORDER = Object.freeze(['signatures', 'messages', 'reviewRelease', 'formsDocs', 'interviews', 'placement', 'budget', 'knowledge', 'residencyInterviews', 'residencyOffers', 'residencyFlagged', 'residencyDocs'])
 
 /** "Today", "2d", "9d": how long a row has been waiting. */
 export function ageLabel(iso, now = Date.now()) {
@@ -49,7 +49,8 @@ const plural = (count, one, many = `${one}s`) => `${count} ${count === 1 ? one :
 const shortDate = (iso) => (iso ? new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '')
 const shortTime = (d) => d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
 
-function finish(group) {
+// Exported for RESIDENCY-NEEDS-1's groups, which build the same shape.
+export function finish(group) {
   if (!group.rows.length && !group.count) return null
   const sorted = sortByAge(group.rows)
   return { ...group, rows: sorted.slice(0, ROWS_PER_GROUP), allRows: sorted, total: group.rows.length }
@@ -82,7 +83,9 @@ export function knowledgeGroup({ waiting = [], now = Date.now() } = {}) {
 // ── Residency documents (RESIDENCY-TAB-1) ───────────────────────────────────────
 
 /** An alumnus's Documents, opened in Residency > Profiles (no cohort switch). */
-export const alumnusDocumentsPath = studentId => `/ngrp/profiles?student=${encodeURIComponent(studentId)}&docs=1`
+// RESIDENCY-NEEDS-1: `base` is the Residency surface's ('/ngrp' in the staff app, the portal's
+// own base in the Residency Portal), so a row never leaves the app it was clicked in.
+export const alumnusDocumentsPath = (studentId, base = '/ngrp') => `${base}/profiles?student=${encodeURIComponent(studentId)}&docs=1`
 
 /**
  * What alumni did in the Student Portal's Residency tab that the team acts on: a new résumé to
@@ -90,15 +93,17 @@ export const alumnusDocumentsPath = studentId => `/ngrp/profiles?student=${encod
  * became complete. Navigation only; scoring stays in Documents.
  * @param uploads, completions rows from /api/student-documents `activity`
  */
-export function residencyDocsGroup({ uploads = [], completions = [], now = Date.now() } = {}) {
-  const name = p => [p.first_name, p.last_name].filter(Boolean).join(' ') || 'An alumnus'
+export function residencyDocsGroup({ uploads = [], completions = [], now = Date.now(), base = '/ngrp' } = {}) {
+  // RESIDENCY-NEEDS-1: "Last, First" (preferred first name already applied by the server), as
+  // every roster and every other Residency row reads.
+  const name = p => [p.last_name, p.first_name].filter(Boolean).join(', ') || 'An alumnus'
   const uploadRows = (uploads || []).map(u => ({
     id: `resume:${u.version_id}`, chip: 'Score now',
     title: `${name(u)} · uploaded a new résumé`,
     meta: [u.cohort, `uploaded ${shortDate(u.uploaded_at)}`].filter(Boolean).join(' · '),
     pill: { text: 'Score now', tone: 'plum' },
     ageMs: Math.max(0, now - new Date(u.uploaded_at || now).getTime()),
-    to: alumnusDocumentsPath(u.student_id),
+    to: alumnusDocumentsPath(u.student_id, base),
   }))
   const completeRows = (completions || []).map(c => ({
     id: `complete:${c.student_id}`, chip: 'Review',
@@ -106,14 +111,14 @@ export function residencyDocsGroup({ uploads = [], completions = [], now = Date.
     meta: [c.cohort, `last upload ${shortDate(c.completed_at)}`].filter(Boolean).join(' · '),
     pill: { text: 'Complete', tone: 'green' },
     ageMs: Math.max(0, now - new Date(c.completed_at || now).getTime()),
-    to: alumnusDocumentsPath(c.student_id),
+    to: alumnusDocumentsPath(c.student_id, base),
   }))
   const rows = [...uploadRows, ...completeRows]
   const pills = [
     uploadRows.length ? { text: plural(uploadRows.length, 'résumé', 'résumés') + ' to score', tone: 'plum' } : null,
     completeRows.length ? { text: `${plural(completeRows.length, 'file')} complete`, tone: 'green' } : null,
   ].filter(Boolean)
-  return finish({ key: 'residencyDocs', name: 'Residency Documents', sub: 'From alumni in the Student Portal', pills, rows, open: { label: 'Open Support', to: '/ngrp/support/before' }, count: rows.length })
+  return finish({ key: 'residencyDocs', name: 'Residency Documents', sub: 'From alumni in the Student Portal', pills, rows, open: { label: 'Open Support', to: `${base}/support/before` }, count: rows.length })
 }
 
 // ── Program Budget (AC-RENEW-1) ─────────────────────────────────────────────────

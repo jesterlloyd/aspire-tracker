@@ -7,18 +7,19 @@
 // a decision (table canon §2). Paired banding is the sheet's own `--band`.
 
 import { useState } from 'react'
-import { PenLine, MessageSquare, Send, ListChecks, CalendarDays, Kanban, Check, BookOpen, FileText } from 'lucide-react'
+import { PenLine, MessageSquare, Send, ListChecks, CalendarDays, Kanban, Check, BookOpen, FileText, Flag, Handshake } from 'lucide-react'
 import HomeCard, { CardLink } from './HomeCard'
 import { orderGroups, needsYouSummary, filterChips, nextFilter, visibleGroups, rowsFor } from '../../lib/home/needsYouModel'
 
-const ICON = { signatures: PenLine, messages: MessageSquare, reviewRelease: Send, formsDocs: ListChecks, interviews: CalendarDays, placement: Kanban, knowledge: BookOpen, residencyDocs: FileText }
-const NAMES = { signatures: 'Signatures', messages: 'Messages', reviewRelease: 'Review & Release', formsDocs: 'Forms and documents', interviews: 'Interviews', placement: 'Placement and rotation', knowledge: 'Knowledge Center', residencyDocs: 'Residency Documents' }
+const ICON = { signatures: PenLine, messages: MessageSquare, reviewRelease: Send, formsDocs: ListChecks, interviews: CalendarDays, placement: Kanban, knowledge: BookOpen, residencyDocs: FileText, residencyInterviews: CalendarDays, residencyOffers: Handshake, residencyFlagged: Flag }
+const NAMES = { signatures: 'Signatures', messages: 'Messages', reviewRelease: 'Review & Release', formsDocs: 'Forms and documents', interviews: 'Interviews', placement: 'Placement and rotation', knowledge: 'Knowledge Center', residencyDocs: 'Residency Documents', residencyInterviews: 'Interviews', residencyOffers: 'Offers', residencyFlagged: 'Flagged' }
 
 export function Pill({ tone = 'grey', children, className = '' }) {
   return <span className={`hm-pill hm-pill-${tone} ${className}`.trim()}>{children}</span>
 }
 
-export default function NeedsYou({ sources = [], onNavigate, updatedLabel = 'just now', order }) {
+// RESIDENCY-NEEDS-1: `caughtUpText` lets Residency name its own areas when all is clear.
+export default function NeedsYou({ sources = [], onNavigate, updatedLabel = 'just now', order, caughtUpText = 'Nothing across signatures, messages, forms, surveys, interviews or placement needs you right now.' }) {
   const [filter, setFilter] = useState('all')
   const [live, setLive] = useState('')
 
@@ -58,7 +59,7 @@ export default function NeedsYou({ sources = [], onNavigate, updatedLabel = 'jus
         <div className="hm-caught" role="status">
           <div className="hm-caught-ok" aria-hidden="true"><Check size={22} /></div>
           <h3>All caught up</h3>
-          <p>Nothing across signatures, messages, forms, surveys, interviews or placement needs you right now.</p>
+          <p>{caughtUpText}</p>
         </div>
       ) : (
         <div className="hm-groups" data-count={Math.min(3, shown.length + (filter === 'all' ? loading.length + failed.length : 0))}>

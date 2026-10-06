@@ -2034,6 +2034,20 @@ then we will just have a log of who did what". HR has to want to use this, so it
   support_logged, support_voided, followup_flagged, followup_unflagged, document_uploaded,
   resume_scored; the migration's CHECK and `NGRP_AUDIT_EVENTS` must match (a test compares them).
 
+## Residency opens on what needs you (RESIDENCY-NEEDS-1, 2026-10-05)
+
+Phase 2 of making Residency worth HR's time. Residency's At a Glance, for the ASPIRE team and
+Talent Acquisition alike, opens (under the masthead, above the snapshot) on the staff home's own
+`NeedsYou` component, wrapped in `.hm-page.ngrp-needs` for the home's tokens with its page
+padding taken back. Four groups, built in `src/lib/ngrp/residencyNeedsModel.js` on the home's
+`finish` shape: **Interviews** (scheduled this week, and past ones with no result: "Result due"),
+**Offers** (extended, no answer; "Follow up" after 7 days), **Flagged** (the shared residency
+flag), and **Residency Documents** (`residencyDocsGroup`, now taking the surface `base`). Every
+row opens that alumnus in Profiles & Interest on the surface it was clicked in. The roster groups
+read rows already loaded; documents are their own query (`loadDocumentActivity` in the documents
+client), so the portal never downloads the staff home's loaders. Document rows now read
+"Last, First" on the staff home too. Swept light and dark: zero failures.
+
 ## Settings groups, one breadcrumb, the staff menu in portals (NAV-POLISH-1, 2026-10-02)
 
 - **The Settings rail is four groups** (Owner): Personal (General), Administration (Users &
