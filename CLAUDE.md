@@ -2220,3 +2220,26 @@ wording, so a unit leader must never see its answers (the alumnus can revise unt
 and agree then). A draft saved before the change shows the box unticked. The binder's Review, the
 packet and the CSV show the second consent beside the first. No migration: it lives in the
 revision payload.
+
+## Residency interviews (NGRP-INTERVIEWS-1, in phases from 2026-10-05)
+
+Owner decisions: unit leaders interview the applicants Talent Acquisition paired with their unit,
+from an Interviews tab in the Unit Leader Portal with an internship interviewer's abilities (open
+times, see their interviewees, score with the rubric). Each interviewer sees only their own rubric
+in full; the ASPIRE team and Talent Acquisition see every rubric and the panel result in the
+binder. The panel result fills the binder's interview result; offer and hire stay with Talent
+Acquisition. The unit opens times; Talent Acquisition or the alumnus books through a link
+(provisional). Layout copies the internship Interviews tab: today's tiles on interview days, the
+calendar, then the results table, each row opening the rubric book.
+
+- **The rubric is the Owner's NGRP scoring sheet**, transcribed in `src/lib/ngrp/ngrpRubric.js`
+  (pure, tested): Clinical Judgment, Professional Presence, Goal Alignment, five questions each plus
+  Other, scored 1 to 5; composite 3 to 15; ranges 13-15 and 10-12 Recommend, 7-9 Recommend with
+  Reservations, 3-6 Do Not Recommend at This Time; any domain at 1 or 2 is a "closer look". The
+  panel AVERAGES completed composites (the sheet's rule, not the internship's majority vote) and
+  flags divergence of 4 points or a split recommendation. Never renumber a question key.
+- **Phase 1 tables** (`20261111000000_ngrp_interviews.sql`, Owner-gated, server-only):
+  `ngrp_interview_rubrics` (UNIQUE candidate + interviewer, which the internship table lacks;
+  composite GENERATED from the three scores; completed requires every score and a recommendation;
+  no DELETE), `ngrp_interview_blocks` and `ngrp_interview_slots` (one booked slot per applicant per
+  cohort). Eight `interview_*` audit types for Residency Activity. A PGlite test runs the migration.
