@@ -33,8 +33,9 @@ test('MODE 2: the column and its CHECK match the code; the save works on both si
 
 test('MODE 3: shown in the binder only where it can be stored, on the board, in the CSV and the packet', () => {
   const chart = read('src/components/ngrp/ApplicantDrawer.jsx')
-  assert.match(chart, /modeAvailable && KEEPS_TIME\.includes\(status\) && \(/)
-  assert.match(chart, /\.\.\.\(modeAvailable \? \{ interview_mode: KEEPS_TIME\.includes\(status\) \? mode : '' \} : \{\}\)/)
+  // Owner, 2026-10-05: offered in every state, not only once an interview is booked.
+  assert.match(chart, /\{modeAvailable && \(\s*<label/)
+  assert.match(chart, /\.\.\.\(modeAvailable \? \{ interview_mode: mode \} : \{\}\)/)
   assert.match(read('src/components/ngrp/ProfilesTab.jsx'), /interviewModeAvailable=\{payload\?\.interviewModeProvisioned === true\}/)
   assert.match(read('src/components/ngrp/InterviewBoard.jsx'), /interviewModeAvailable=\{applicants\.payload\?\.interviewModeProvisioned === true\}/)
   assert.match(read('src/components/ngrp/InterviewBoard.jsx'), /INTERVIEW_MODE_LABELS\[row\.interview_mode\]/)

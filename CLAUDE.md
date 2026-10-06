@@ -2185,6 +2185,12 @@ unit. `src/lib/ngrp/applicantPacketModel.js` decides what is in it (pure, tested
   and leaves room for whatever the page draws below the chart's tab (the portal footer and
   padding pushed the split 77px under the bar). Measured in a harness: bar at 112 under a 112px
   header, split at 170 at the end of the scroll.
+- **RESIDENCY-PORTAL-SCROLL-2.** That was not enough on a short window: at 1000 x 645 (the Owner's)
+  the header, a wrapped search bar and the footer plus padding left the split under its 420px floor,
+  so the page scrolled it under the bar again. A page on `mainWidth="app"` now has no footer and no
+  bottom padding, as the staff app has neither. Measured against the staff app in a harness with the
+  real nesting at 1000 x 650: bar 120 vs 118, split 212-638 vs 210-638.
+- **The interview Format is offered in every state** (Owner): it is often known before the time.
 
 ## Interview format (INTERVIEW-MODE-1, 2026-10-05)
 

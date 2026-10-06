@@ -26,3 +26,9 @@ test('WIDTH 1: the Residency Portal takes the staff app\'s column, and the pinne
   assert.match(read('src/portal/PortalApp.jsx'), /weeklyDigest=\{residencyDigest\}\s*\n\s*mainWidth="app"/)
   assert.match(read('src/components/student/useChartViewport.js'), /const CHROME_SELECTOR = '\.top-section, \.ptl-topsection'/)
 })
+
+test('SCROLL 2: a page in the staff app\'s column has no footer or bottom padding, as the staff app has none', () => {
+  const shell = read('src/portal/PortalShell.jsx')
+  assert.match(shell, /\{mainWidth !== 'app' && \(\s*<footer className="ptl-footer">/)
+  assert.match(read('src/portal/portal.css'), /\.ptl-main\.ptl-main-app \{[^}]*padding-bottom: 0;/)
+})

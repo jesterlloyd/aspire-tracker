@@ -215,7 +215,9 @@ function InterviewSection({ row, canManage, onSave, modeAvailable = false }) {
     <Section title="Interview">
       <Row label="Status"><NgrpStatusPill config={INTERVIEW_STATES} value={row.interview_status} srPrefix="Interview" /></Row>
       {row.interview_at && <Row label="Held">{fmt(row.interview_at)}</Row>}
-      {row.interview_mode && <Row label="Format">{INTERVIEW_MODE_LABELS[row.interview_mode] || row.interview_mode}</Row>}
+      {(row.interview_mode || modeAvailable) && (
+        <Row label="Format">{row.interview_mode ? INTERVIEW_MODE_LABELS[row.interview_mode] || row.interview_mode : <span style={{ fontWeight: 400, color: 'var(--text-caption)' }}>Not recorded</span>}</Row>
+      )}
       {canManage && (
         <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 7 }}>
           <label style={{ display: 'block' }}>
@@ -233,7 +235,9 @@ function InterviewSection({ row, canManage, onSave, modeAvailable = false }) {
                 value={at} onChange={e => setAt(e.target.value)} />
             </label>
           )}
-          {modeAvailable && KEEPS_TIME.includes(status) && (
+          {/* INTERVIEW-MODE-1 (Owner, 2026-10-05): in every state, not only once one is booked:
+              "virtual" is often known before the time is. */}
+          {modeAvailable && (
             <label style={{ display: 'block' }}>
               <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-caption)' }}>Format (optional)</span>
               <select style={field} value={mode} onChange={e => setMode(e.target.value)}>
@@ -252,8 +256,8 @@ function InterviewSection({ row, canManage, onSave, modeAvailable = false }) {
                 setBusy(true)
                 await onSave({
                   status, interview_at: KEEPS_TIME.includes(status) ? fromLocalInput(at) : null,
-                  // Sent only where it can be stored; a state that never happened clears it.
-                  ...(modeAvailable ? { interview_mode: KEEPS_TIME.includes(status) ? mode : '' } : {}),
+                  // Sent only where it can be stored.
+                  ...(modeAvailable ? { interview_mode: mode } : {}),
                 })
                 setBusy(false)
               }}

@@ -326,9 +326,15 @@ export default function PortalShell({
         </div>
         {utilityLayer}
         <main className={`ptl-main${mainWidth === 'app' ? ' ptl-main-app' : ''}`}>{children}</main>
-        <footer className="ptl-footer">
-          {organization?.display_name || 'Cedars-Sinai'} · ASPIRE Intelligence
-        </footer>
+        {/* RESIDENCY-PORTAL-SCROLL-2: a page in the staff app's column is a staff page, and the
+            staff app has no footer. Under the Residency Portal's pinned split the footer and the
+            bottom padding took 95px a short window could not spare (at 645px of height the split
+            hit its 420px floor and the page scrolled it under the pinned bar). */}
+        {mainWidth !== 'app' && (
+          <footer className="ptl-footer">
+            {organization?.display_name || 'Cedars-Sinai'} · ASPIRE Intelligence
+          </footer>
+        )}
       </div>
      </PortalHeaderSlotsContext.Provider>
     </PortalRefreshProvider>

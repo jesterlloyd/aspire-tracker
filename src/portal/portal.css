@@ -142,6 +142,8 @@
 .ptl-main.ptl-main-app {
   width: min(100% - 140px, 1580px); max-width: none;
   padding-top: calc(var(--aspire-page-top, 24px) - var(--aspire-gap-card, 16px)); padding-left: 0; padding-right: 0;
+  /* .app-main has no bottom padding and the staff app no footer (RESIDENCY-PORTAL-SCROLL-2). */
+  padding-bottom: 0;
 }
 @media (max-width: 1440px) { .ptl-main.ptl-main-app { width: min(100% - 96px, 1580px); } }
 @media (max-width: 1024px) { .ptl-main.ptl-main-app { width: min(100% - 48px, 1580px); } }
