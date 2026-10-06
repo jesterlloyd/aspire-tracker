@@ -614,6 +614,7 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                   initialDocsOpen={Boolean(linkedStudent && openDocs && !drawerRowId)}
                   initialSheet={(linkedStudent || linkedCandidate) && !drawerRowId ? linkedSheet : null}
                   followUp={canManage ? { available: payload?.followUpFlagProvisioned === true, onSet: setFollowUp } : null}
+                  interviewModeAvailable={payload?.interviewModeProvisioned === true}
                   toast={toast}
                   feedback={shownRow ? {
                     entry: feedback.byStudent[shownRow.student?.id] || null,

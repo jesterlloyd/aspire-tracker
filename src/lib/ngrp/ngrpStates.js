@@ -102,6 +102,10 @@ export const APPLICATION_STATES = {
 }
 
 // ── Interview ────────────────────────────────────────────────────────────────
+// INTERVIEW-MODE-1 (Owner, 2026-10-05): how an interview was held, optional ("good data to have";
+// most are virtual). lib/server/ngrpPlanning.js INTERVIEW_MODES and the column's CHECK list the keys.
+export const INTERVIEW_MODE_LABELS = Object.freeze({ in_person: 'In person', virtual: 'Virtual' })
+
 export const INTERVIEW_STATES = {
   not_scheduled:      { label: 'Not Scheduled',      family: 'mute', icon: 'dash' },
   scheduled:          { label: 'Scheduled',          family: 'wait', icon: 'clock' },

@@ -2180,3 +2180,20 @@ unit. `src/lib/ngrp/applicantPacketModel.js` decides what is in it (pure, tested
   and leaves room for whatever the page draws below the chart's tab (the portal footer and
   padding pushed the split 77px under the bar). Measured in a harness: bar at 112 under a 112px
   header, split at 170 at the end of the scroll.
+
+## Interview format (INTERVIEW-MODE-1, 2026-10-05)
+
+Owner: Residency already pairs applicants with units (Interview Board) and records results (the
+binder's Interview and Hiring sheets), so interview day needs only how it was held: **In person or
+Virtual**, optional. `ngrp_candidates.interview_mode` (NULL, `in_person`, `virtual`), added by
+Owner-gated `20261110000000_interview_mode.sql`; `INTERVIEW_MODES` (server) and
+`INTERVIEW_MODE_LABELS` (`src/lib/ngrp/ngrpStates.js`) list the same values.
+
+- The binder's Interview section offers **Format (optional)** beside the date for the states that
+  keep a time; a state that never happened clears it. The choice shows only once the roster read
+  reports `interviewModeProvisioned`; before the migration every interview still saves
+  (`interview_set` retries without the column and answers `modeNotEnabled`).
+- It reads on the Interview Board chip ("Completed · Virtual"), in the roster CSV (Interview,
+  Interview Date in Pacific time, Interview Format) and in the applicant packet's Interview line.
+- Next, its own project: an Interviews tab in the Unit Leader Portal (unit leaders run the
+  interviews), reusing the internship's booking calendar and rubric book. Mockup first.

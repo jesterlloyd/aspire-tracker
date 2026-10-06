@@ -23,7 +23,7 @@
 import { useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useNgrpPlanning, useNgrpApplicants, postNgrpManage } from '../../lib/ngrp/useNgrpData'
-import { deriveApplicantRows, effectiveEligibility, ELIGIBILITY_STATES, INTERVIEW_STATES } from '../../lib/ngrp/ngrpStates'
+import { deriveApplicantRows, effectiveEligibility, ELIGIBILITY_STATES, INTERVIEW_STATES, INTERVIEW_MODE_LABELS } from '../../lib/ngrp/ngrpStates'
 import { displayName } from '../../lib/utils'
 import { UNIT_CATALOG } from '../../lib/unitCatalog'
 import { KPICell } from '../KPIBand'
@@ -136,7 +136,11 @@ function IntervieweeNote({
                   ? <span className="pb-chip pb-chip-ready-review">Offer extended</span>
                   : null}
             {row.interview_status && row.interview_status !== 'not_scheduled' && (
-              <span className="pb-chip">{INTERVIEW_STATES[row.interview_status]?.label || row.interview_status}</span>
+              <span className="pb-chip">
+                {INTERVIEW_STATES[row.interview_status]?.label || row.interview_status}
+                {/* INTERVIEW-MODE-1: how it was held, when recorded. */}
+                {row.interview_mode && INTERVIEW_MODE_LABELS[row.interview_mode] ? ` · ${INTERVIEW_MODE_LABELS[row.interview_mode]}` : ''}
+              </span>
             )}
             {pickRank && (
               <span className={`pb-chip pb-chip-rank-${RANK_TONE[pickRank]}`} data-testid="interviewee-pick-chip">
@@ -586,6 +590,7 @@ export default function InterviewBoard({ cycle, canManage, toast }) {
 
       <ApplicantDrawer
         open={Boolean(drawerRow)}
+        interviewModeAvailable={applicants.payload?.interviewModeProvisioned === true}
         row={drawerRow}
         cycle={cycle}
         canManage={canManage}

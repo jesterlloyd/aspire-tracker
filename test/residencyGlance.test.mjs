@@ -134,10 +134,13 @@ test('the roster reads the assigned unit and interview back (they were written b
   // assigned unit and interview back rather than falling all the way to the base.
   // RESIDENCY-FLAG-1 (this commit) put the follow-up flag on top as the newest group, so
   // the first miss drops only the flag and the roster keeps everything else.
+  // INTERVIEW-MODE-1 put interview_mode on top in the same way: the first miss drops only it,
+  // and the flag tier below still reads everything else.
   const cand = selects.filter(s => s.name === 'ngrp_candidates')
   assert.equal(cand.length, 2)
-  assert.match(cand[0].cols, /flagged_for_followup/)
-  assert.doesNotMatch(cand[1].cols, /flagged_for_followup/)
+  assert.match(cand[0].cols, /flagged_for_followup, interview_mode/)
+  assert.doesNotMatch(cand[1].cols, /interview_mode/)
+  assert.match(cand[1].cols, /flagged_for_followup/)
   assert.match(cand[1].cols, /not_proceeding_reason/)
   assert.match(cand[1].cols, /assigned_unit/)
 })

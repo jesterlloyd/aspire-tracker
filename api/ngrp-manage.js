@@ -548,21 +548,32 @@ export default async function handler(req, res) {
       const v = validateInterviewPayload(body)
       if (!v.ok) return invalid(res, v.errors)
       if (candidate.interview_status === v.interview.interview_status
-          && (candidate.interview_at || null) === v.interview.interview_at) {
+          && (candidate.interview_at || null) === v.interview.interview_at
+          && (v.interview.interview_mode === undefined || (candidate.interview_mode ?? null) === v.interview.interview_mode)) {
         return res.status(200).json({ ok: true, idempotent: true })
       }
-      const upd = await db.from('ngrp_candidates').update({
-        ...v.interview,
+      const write = fields => db.from('ngrp_candidates').update({
+        ...fields,
         interview_recorded_by_profile_id: actorId,
         interview_recorded_at: nowIso,
       }).eq('id', candidateId)
+      let upd = await write(v.interview)
+      // INTERVIEW-MODE-1: before 20261110000000 adds interview_mode, the interview still saves;
+      // only the mode waits, and the answer says so.
+      let modeNotEnabled = false
+      if (upd.error && isMissingNgrpColumn(upd.error) && v.interview.interview_mode !== undefined) {
+        const rest = { ...v.interview }
+        delete rest.interview_mode
+        upd = await write(rest)
+        modeNotEnabled = !upd.error
+      }
       if (upd.error) return isMissingNgrpColumn(upd.error) ? unprovisioned(res) : internal(res)
       await recordNgrpAudit(db, {
         eventType: 'interview_recorded',
         cycleId: cycle.id, candidateId, studentId: candidate.student_id, actorProfileId: actorId,
-        metadata: { interview_status: v.interview.interview_status },
+        metadata: { interview_status: v.interview.interview_status, ...(v.interview.interview_mode ? { interview_mode: v.interview.interview_mode } : {}) },
       })
-      return res.status(200).json({ ok: true, interview: v.interview })
+      return res.status(200).json({ ok: true, interview: v.interview, ...(modeNotEnabled ? { modeNotEnabled: true } : {}) })
     }
 
     // The DURABLE employment record. Deliberately a different table from the

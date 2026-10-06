@@ -13,7 +13,7 @@ import StudentAvatar from '../StudentAvatar'
 import NgrpStatusPill from './NgrpStatusPill'
 import {
   FORM_STATES, INTEREST_STATES, ELIGIBILITY_STATES, ROSTER_STATUSES,
-  INTERVIEW_STATES, effectiveEligibility, formTimestamp,
+  INTERVIEW_STATES, INTERVIEW_MODE_LABELS, effectiveEligibility, formTimestamp,
   rosterStatus, poolDecision, isInApplicantPool, effectivePreferences, formPreferences,
   NOT_PROCEEDING_REASONS, NOT_PROCEEDING_REASON_KEYS, REASON_REQUIRING_NOTE,
 } from '../../lib/ngrp/ngrpStates'
@@ -202,17 +202,20 @@ const field = {
 // one; the states meaning it never happened drop it.
 const KEEPS_TIME = ['scheduled', 'completed', 'decision_recorded', 'no_show']
 
-function InterviewSection({ row, canManage, onSave }) {
+function InterviewSection({ row, canManage, onSave, modeAvailable = false }) {
   const [status, setStatus] = useState(row.interview_status || 'not_scheduled')
   const [at, setAt] = useState(toLocalInput(row.interview_at))
+  const [mode, setMode] = useState(row.interview_mode || '')
   const [busy, setBusy] = useState(false)
   const dirty = status !== (row.interview_status || 'not_scheduled') || at !== toLocalInput(row.interview_at)
+    || (modeAvailable && mode !== (row.interview_mode || ''))
   const needsTime = status === 'scheduled' && !at
 
   return (
     <Section title="Interview">
       <Row label="Status"><NgrpStatusPill config={INTERVIEW_STATES} value={row.interview_status} srPrefix="Interview" /></Row>
       {row.interview_at && <Row label="Held">{fmt(row.interview_at)}</Row>}
+      {row.interview_mode && <Row label="Format">{INTERVIEW_MODE_LABELS[row.interview_mode] || row.interview_mode}</Row>}
       {canManage && (
         <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 7 }}>
           <label style={{ display: 'block' }}>
@@ -230,6 +233,15 @@ function InterviewSection({ row, canManage, onSave }) {
                 value={at} onChange={e => setAt(e.target.value)} />
             </label>
           )}
+          {modeAvailable && KEEPS_TIME.includes(status) && (
+            <label style={{ display: 'block' }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-caption)' }}>Format (optional)</span>
+              <select style={field} value={mode} onChange={e => setMode(e.target.value)}>
+                <option value="">Not recorded</option>
+                {Object.entries(INTERVIEW_MODE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              </select>
+            </label>
+          )}
           {needsTime && <p style={{ margin: 0, fontSize: 11, color: 'var(--aspire-bad)' }}>A scheduled interview needs a date and time.</p>}
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
             <button
@@ -238,7 +250,11 @@ function InterviewSection({ row, canManage, onSave }) {
               disabled={!dirty || needsTime || busy}
               onClick={async () => {
                 setBusy(true)
-                await onSave({ status, interview_at: KEEPS_TIME.includes(status) ? fromLocalInput(at) : null })
+                await onSave({
+                  status, interview_at: KEEPS_TIME.includes(status) ? fromLocalInput(at) : null,
+                  // Sent only where it can be stored; a state that never happened clears it.
+                  ...(modeAvailable ? { interview_mode: KEEPS_TIME.includes(status) ? mode : '' } : {}),
+                })
                 setBusy(false)
               }}
             >
@@ -873,7 +889,7 @@ export function ApplicantChart(props) {
 function ApplicantDrawerBody({
   open, row, cycle, canManage, provisioned, onClose, actions = {}, feedback = null, toast = null, initialDocsOpen = false,
   initialSheet = null,
-  embedded = false, followUp = null,
+  embedded = false, followUp = null, interviewModeAvailable = false,
 }) {
   const [review, setReview] = useState(null)
   const [reviewState, setReviewState] = useState('idle')
@@ -1185,6 +1201,7 @@ function ApplicantDrawerBody({
                 <InterviewSection
                   row={row}
                   canManage={canManage && provisioned}
+                  modeAvailable={interviewModeAvailable}
                   onSave={fields => actions.setInterview?.(row, fields)}
                 />
 

@@ -10,7 +10,7 @@
 // deliberately left out because the packet is made to be passed on: Keith's résumé score and
 // review (an internal rubric), and preceptor feedback (released only by request, to one person).
 import {
-  INTEREST_STATES, ELIGIBILITY_STATES, FORM_STATES, INTERVIEW_STATES,
+  INTEREST_STATES, ELIGIBILITY_STATES, FORM_STATES, INTERVIEW_STATES, INTERVIEW_MODE_LABELS,
   effectiveEligibility, effectivePreferences,
 } from './ngrpStates.js'
 import { supportActivity } from './ngrpSupportActivities.js'
@@ -103,7 +103,7 @@ export function packetSummary({ row, cycle, profile = null, support = [], revisi
         ['Transition Form', [label(FORM_STATES, row?.form_status), day(row?.form_revised_at || row?.form_submitted_at)].filter(Boolean).join(' ')],
         ['Unit choices', prefs.map((u, i) => `${i + 1}. ${u}`).join(' · ')],
         ['Paired with', row?.assigned_unit || ''],
-        ['Interview', [label(INTERVIEW_STATES, row?.interview_status), day(row?.interview_at)].filter(Boolean).join(', ')],
+        ['Interview', [label(INTERVIEW_STATES, row?.interview_status), day(row?.interview_at), INTERVIEW_MODE_LABELS[row?.interview_mode]].filter(Boolean).join(', ')],
         ...(o?.offer_extended_at ? [['Offer extended', day(o.offer_extended_at)]] : []),
         ...(o?.offer_accepted_at ? [['Offer accepted', day(o.offer_accepted_at)]] : []),
         ...(o?.hired_at ? [['Hired', [day(o.hired_at), o.hired_unit].filter(Boolean).join(' · ')]] : []),

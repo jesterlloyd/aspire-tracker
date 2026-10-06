@@ -143,5 +143,7 @@ export default async function handler(req, res) {
     // RESIDENCY-FLAG-1: the ASPIRE team's follow-up flag; Talent Acquisition never gets it.
     // RESIDENCY-FLAG-1 + RESIDENCY-TA-1: one shared flag, the ASPIRE team's and Talent Acquisition's.
     followUpFlagProvisioned: payload.followUpFlagProvisioned === true,
+    // INTERVIEW-MODE-1: in person or virtual can be recorded once 20261110000000 runs.
+    interviewModeProvisioned: payload.interviewModeProvisioned === true,
   })
 }
