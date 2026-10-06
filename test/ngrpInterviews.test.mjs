@@ -100,3 +100,37 @@ test('MIGRATION 2: on real Postgres: one rubric per interviewer, a generated com
   await assert.rejects(db.exec("INSERT INTO public.ngrp_audit_events (event_type) VALUES ('not_a_type')"), /check/i)
   await db.close()
 })
+
+// ── Phase 2: results in the binder ───────────────────────────────────────────
+import { loadPanelSummaries } from '../lib/server/ngrpInterviewRubrics.js'
+import { buildResidencyCsv } from '../lib/server/ngrpResidencyExport.js'
+
+const fakeDb = (rows, error = null) => ({ from: () => ({ select: () => ({ eq: () => Promise.resolve({ data: rows, error }) }) }) })
+
+test('PHASE 2 1: the roster carries each applicant\'s panel, and a missing table is "not enabled"', async () => {
+  const c = (cand, cj, pp, ga, rec, status = 'completed') => ({ candidate_id: cand, status, cj_score: cj, pp_score: pp, ga_score: ga, individual_recommendation: rec })
+  const r = await loadPanelSummaries(fakeDb([c('a', 5, 4, 4, 'recommend'), c('a', 4, 4, 4, 'recommend'), c('a', 1, 1, 1, null, 'in_progress'), c('b', 3, 2, 3, 'recommend_with_reservations')]), 'cy')
+  assert.equal(r.provisioned, true)
+  assert.deepEqual(r.byCandidate.get('a'), { completed: 2, in_progress: 1, average: 12.5, recommendation: 'recommend', range: 'Strong / Competent', diverged: false, closer_look: [] })
+  assert.deepEqual(r.byCandidate.get('b').closer_look, ['pp'])
+  const missing = await loadPanelSummaries(fakeDb(null, { code: '42P01', message: 'relation does not exist' }), 'cy')
+  assert.equal(missing.provisioned, false)
+})
+
+test('PHASE 2 2: the binder, the board and the CSV read the panel; the roster never fails for it', () => {
+  const lib = read('lib/server/ngrpApplicants.js')
+  assert.match(lib, /try \{\s*const p = await loadPanelSummaries\(db, cycleId\)/)
+  assert.match(lib, /rubricsProvisioned: panels\.provisioned === true/)
+  assert.match(read('api/ngrp-workspace.js'), /if \(action === 'rubrics'\)/)
+  assert.match(read('src/components/ngrp/InterviewBoard.jsx'), /data-testid="interviewee-panel-chip"/)
+  const csv = buildResidencyCsv({
+    cycle: { name: 'W27' }, students: [{ id: 's1', first_name: 'A', last_name: 'B', status: 'Completed' }],
+    candidates: [{ id: 'c1', student_id: 's1', interview_panel: { completed: 2, average: 12.5, recommendation: 'recommend' } }],
+    revisionsByAssignment: new Map(),
+  }).csv
+  const [head, row] = csv.replace(/^﻿/, '').split(/\r?\n/)
+  const cols = head.split(','), cells = row.split(',')
+  assert.equal(cells[cols.indexOf('Panel Composite')], '12.5')
+  assert.equal(cells[cols.indexOf('Panel Recommendation')], 'Recommend')
+  assert.equal(cells[cols.indexOf('Rubrics Completed')], '2')
+})

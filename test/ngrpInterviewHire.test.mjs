@@ -197,8 +197,11 @@ test('no rubric and no score, anywhere', () => {
   for (const [name, src] of [['drawer', drawer], ['board', board], ['api', manageApi], ['migration', migration]]) {
     assert.doesNotMatch(src, /(score|rubric)\s*[:=]/i, name)
   }
-  // And the drawer says so where someone would look for the field.
-  assert.match(drawer, /No interview rubric or score is stored anywhere in ASPIRE/)
+  // NGRP-INTERVIEWS-1 (Owner, 2026-10-05) retired "No interview rubric or score is stored anywhere
+  // in ASPIRE": unit leaders now score with the NGRP rubric. The interview RECORD above still
+  // carries no score; rubrics live in their own table and reach the binder through their section.
+  assert.doesNotMatch(drawer, /No interview rubric or score is stored anywhere in ASPIRE/)
+  assert.match(drawer, /<InterviewRubricsSection row=\{row\} cycle=\{cycle\} provisioned=\{rubricsAvailable\} \/>/)
   // A hire is durable and is said to be.
   assert.match(drawer, /can never be deleted, only corrected/)
 })

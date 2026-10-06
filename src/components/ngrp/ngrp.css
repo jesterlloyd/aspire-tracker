@@ -633,3 +633,17 @@
 /* RESIDENCY-NEEDS-1: the staff home's Needs you, on Residency's At a Glance. .hm-page gives it
    the home's tokens; this sits in the workspace's own column, so the home's page padding goes. */
 .hm-page.ngrp-needs { padding: 0; }
+
+/* NGRP-INTERVIEWS-1 Phase 2: the internship rubric cards inside the applicant binder. Their own rule
+   pairs a fixed light card with fixed dark ink; the binder's dark sheets redefine that ink, so here
+   the card, its rules and its button follow the theme too (a colour pair travels together). */
+.ngrp-rubrics .rub-rubric-card { background: var(--surface-subtle, rgba(29,37,103,0.03)); border-color: var(--border-subtle, rgba(29,37,103,0.10)); }
+.ngrp-rubrics .rub-rc-name, .ngrp-rubrics .rub-rc-comments { color: var(--text-heading); }
+.ngrp-rubrics .rub-rc-date, .ngrp-rubrics .rub-rc-scores, .ngrp-rubrics .rub-avg-display { color: var(--text-caption); }
+.ngrp-rubrics .rub-rc-score { color: var(--text-heading); }
+.ngrp-rubrics .rub-avg-display { border-top-color: var(--border-subtle, rgba(29,37,103,0.10)); }
+.ngrp-rubrics .btn-outline-modal { color: var(--text-heading); border-color: var(--border-subtle, rgba(29,37,103,0.2)); background: transparent; }
+[data-theme="dark"] .ngrp-rubrics .rub-rubric-card { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.12); }
+[data-theme="dark"] .ngrp-rubrics .rub-avg-display { border-top-color: rgba(255,255,255,0.12); }
+[data-theme="dark"] .ngrp-rubrics .btn-outline-modal { border-color: rgba(255,255,255,0.25); }
+

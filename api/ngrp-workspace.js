@@ -17,6 +17,8 @@
 //                                   roster as a CSV, built here (RESIDENCY-PORTAL-3)
 //   locate { candidate_id }    -> { provisioned, cycle_id }: the residency
 //                                   cohort an applicant belongs to
+//   rubrics { cycle_id, candidate_id } -> { provisioned, rubrics }: every interview rubric for
+//                                   one applicant (NGRP-INTERVIEWS-1)
 //   profile { cycle_id, student_id } -> { provisioned, student, contactShared,
 //                                   personal, editable }: one alumnus's contact and
 //                                   personal details for the chart's Profile sheet
@@ -34,9 +36,10 @@ import { TALENT_ACQUISITION, narrowPayloadForTalentAcquisition } from '../lib/se
 import { buildResidencyCsv, fetchLatestRevisions } from '../lib/server/ngrpResidencyExport.js'
 import { serviceDbForRequest } from '../lib/server/demoScope.js'
 import { loadApplicantProfile } from '../lib/server/ngrpApplicantProfile.js'
+import { loadCandidateRubrics } from '../lib/server/ngrpInterviewRubrics.js'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const ACTIONS = new Set(['cycles', 'applicants', 'export', 'locate', 'profile'])
+const ACTIONS = new Set(['cycles', 'applicants', 'export', 'locate', 'profile', 'rubrics'])
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store')
@@ -88,6 +91,20 @@ export default async function handler(req, res) {
   // action === 'applicants' | 'export' | 'profile'
   const cycleId = typeof body.cycle_id === 'string' ? body.cycle_id : null
   if (!cycleId || !UUID.test(cycleId)) return res.status(422).json({ error: 'invalid_cycle_id' })
+
+  // NGRP-INTERVIEWS-1 Phase 2: every interview rubric for one applicant, for the binder. The ASPIRE
+  // team and Talent Acquisition see every rubric in full (Owner, 2026-10-05); unit leaders never
+  // read through here.
+  if (action === 'rubrics') {
+    const candidateId = typeof body.candidate_id === 'string' && UUID.test(body.candidate_id) ? body.candidate_id : null
+    if (!candidateId) return res.status(422).json({ error: 'invalid_candidate_id' })
+    const cand = await db.from('ngrp_candidates').select('id, cycle_id').eq('id', candidateId).maybeSingle()
+    if (cand.error) return isMissingNgrpTable(cand.error) ? res.status(200).json({ provisioned: false }) : res.status(500).json({ error: 'internal_error' })
+    if (!cand.data || cand.data.cycle_id !== cycleId) return res.status(404).json({ error: 'candidate_not_found' })
+    const r = await loadCandidateRubrics(db, { cycleId, candidateId })
+    if (r.error) return res.status(500).json({ error: 'internal_error' })
+    return res.status(200).json({ provisioned: r.provisioned, rubrics: r.rubrics })
+  }
 
   // RESIDENCY-APPLICANT-PROFILE-1: the one place a residency read carries an alumnus's emails,
   // phone and personal details, and only for an alumnus on this cohort's roster. What each
@@ -145,5 +162,6 @@ export default async function handler(req, res) {
     followUpFlagProvisioned: payload.followUpFlagProvisioned === true,
     // INTERVIEW-MODE-1: in person or virtual can be recorded once 20261110000000 runs.
     interviewModeProvisioned: payload.interviewModeProvisioned === true,
+    rubricsProvisioned: payload.rubricsProvisioned === true,
   })
 }

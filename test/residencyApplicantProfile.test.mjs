@@ -47,5 +47,6 @@ test('PROFILE 3: the Profile sheet holds the details; Interest and Eligibility s
   assert.match(application, /<Section title="Residency Interest">/)
   assert.match(application, /title="Eligibility"/)
   const endpoint = readFileSync(new URL('../api/ngrp-workspace.js', import.meta.url), 'utf8')
-  assert.match(endpoint, /'profile'\]\)/)
+  // NGRP-INTERVIEWS-1 added 'rubrics' after it.
+  assert.match(endpoint, /const ACTIONS = new Set\(\[[^\]]*'profile'/)
 })

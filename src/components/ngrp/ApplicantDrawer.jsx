@@ -24,7 +24,9 @@ import { StudentDocumentsBody } from '../documents/StudentDocumentsDrawer'
 import FlagRibbon from '../rubric/FlagRibbon'
 import ApplicantProfileSheet from './ApplicantProfileSheet'
 import ResidentDetailsSection from './ResidentDetailsSection'
+import InterviewRubricsSection from './InterviewRubricsSection'
 import { transitionSummaryRows } from '../../lib/ngrp/transitionSummary'
+import { recommendationLabel } from '../../lib/ngrp/ngrpRubric'
 import { downloadApplicantPacket } from '../../lib/ngrp/applicantPacketClient'
 // APPLICANT-CHART-1: the applicant is the Student Profiles binder with the application's
 // sheets: the same rings, plate, tabs, tints and scroll behaviour, read from the same files.
@@ -215,6 +217,12 @@ function InterviewSection({ row, canManage, onSave, modeAvailable = false }) {
     <Section title="Interview">
       <Row label="Status"><NgrpStatusPill config={INTERVIEW_STATES} value={row.interview_status} srPrefix="Interview" /></Row>
       {row.interview_at && <Row label="Held">{fmt(row.interview_at)}</Row>}
+      {/* NGRP-INTERVIEWS-1: the panel's result reads here, from the completed rubrics. */}
+      {row.interview_panel?.completed > 0 && (
+        <Row label="Panel result">
+          {row.interview_panel.average?.toFixed?.(1) ?? row.interview_panel.average}/15 · {recommendationLabel(row.interview_panel.recommendation)}
+        </Row>
+      )}
       {(row.interview_mode || modeAvailable) && (
         <Row label="Format">{row.interview_mode ? INTERVIEW_MODE_LABELS[row.interview_mode] || row.interview_mode : <span style={{ fontWeight: 400, color: 'var(--text-caption)' }}>Not recorded</span>}</Row>
       )}
@@ -265,8 +273,10 @@ function InterviewSection({ row, canManage, onSave, modeAvailable = false }) {
               {busy ? 'Saving…' : 'Save interview'}
             </button>
           </div>
+          {/* NGRP-INTERVIEWS-1 (Owner, 2026-10-05) retired "No interview rubric or score is stored
+              anywhere in ASPIRE": unit leaders now score with the NGRP rubric. */}
           <p style={{ margin: 0, fontSize: 11, color: 'var(--text-caption)' }}>
-            No interview rubric or score is stored anywhere in ASPIRE.
+            Scores come from the interviewers' rubrics, below. The offer and hire are recorded on the Hiring sheet.
           </p>
         </div>
       )}
@@ -893,7 +903,7 @@ export function ApplicantChart(props) {
 function ApplicantDrawerBody({
   open, row, cycle, canManage, provisioned, onClose, actions = {}, feedback = null, toast = null, initialDocsOpen = false,
   initialSheet = null,
-  embedded = false, followUp = null, interviewModeAvailable = false,
+  embedded = false, followUp = null, interviewModeAvailable = false, rubricsAvailable = false,
 }) {
   const [review, setReview] = useState(null)
   const [reviewState, setReviewState] = useState('idle')
@@ -1208,6 +1218,8 @@ function ApplicantDrawerBody({
                   modeAvailable={interviewModeAvailable}
                   onSave={fields => actions.setInterview?.(row, fields)}
                 />
+                {/* NGRP-INTERVIEWS-1 Phase 2: every interviewer's rubric and the panel result. */}
+                <InterviewRubricsSection row={row} cycle={cycle} provisioned={rubricsAvailable} />
 
                 <PreceptorFeedbackSection row={row} feedback={feedback} actions={actions} />
               </section>

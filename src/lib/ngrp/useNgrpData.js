@@ -252,3 +252,14 @@ export async function fetchApplicantProfile(cycleId, studentId) {
     return { ok: false, status: err.status || 0 }
   }
 }
+
+// NGRP-INTERVIEWS-1 Phase 2: every interview rubric for one applicant, for the binder.
+// { ok, provisioned, rubrics } or { ok: false }.
+export async function fetchCandidateRubrics(cycleId, candidateId) {
+  try {
+    const body = await authedPost('/api/ngrp-workspace', 'rubrics', { cycle_id: cycleId, candidate_id: candidateId })
+    return { ok: true, provisioned: body?.provisioned !== false, rubrics: body?.rubrics || [] }
+  } catch (err) {
+    return { ok: false, status: err.status || 0 }
+  }
+}

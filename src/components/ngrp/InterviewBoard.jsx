@@ -24,6 +24,7 @@ import { useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useNgrpPlanning, useNgrpApplicants, postNgrpManage } from '../../lib/ngrp/useNgrpData'
 import { deriveApplicantRows, effectiveEligibility, ELIGIBILITY_STATES, INTERVIEW_STATES, INTERVIEW_MODE_LABELS } from '../../lib/ngrp/ngrpStates'
+import { recommendationLabel } from '../../lib/ngrp/ngrpRubric'
 import { displayName } from '../../lib/utils'
 import { UNIT_CATALOG } from '../../lib/unitCatalog'
 import { KPICell } from '../KPIBand'
@@ -140,6 +141,12 @@ function IntervieweeNote({
                 {INTERVIEW_STATES[row.interview_status]?.label || row.interview_status}
                 {/* INTERVIEW-MODE-1: how it was held, when recorded. */}
                 {row.interview_mode && INTERVIEW_MODE_LABELS[row.interview_mode] ? ` · ${INTERVIEW_MODE_LABELS[row.interview_mode]}` : ''}
+              </span>
+            )}
+            {/* NGRP-INTERVIEWS-1: the panel's average and recommendation, once a rubric is complete. */}
+            {row.interview_panel?.completed > 0 && (
+              <span className="pb-chip" data-testid="interviewee-panel-chip">
+                {Number(row.interview_panel.average).toFixed(1)}/15 · {recommendationLabel(row.interview_panel.recommendation)}
               </span>
             )}
             {pickRank && (
@@ -591,6 +598,7 @@ export default function InterviewBoard({ cycle, canManage, toast }) {
       <ApplicantDrawer
         open={Boolean(drawerRow)}
         interviewModeAvailable={applicants.payload?.interviewModeProvisioned === true}
+        rubricsAvailable={applicants.payload?.rubricsProvisioned === true}
         row={drawerRow}
         cycle={cycle}
         canManage={canManage}

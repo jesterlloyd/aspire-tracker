@@ -2243,3 +2243,14 @@ calendar, then the results table, each row opening the rubric book.
   composite GENERATED from the three scores; completed requires every score and a recommendation;
   no DELETE), `ngrp_interview_blocks` and `ngrp_interview_slots` (one booked slot per applicant per
   cohort). Eight `interview_*` audit types for Residency Activity. A PGlite test runs the migration.
+- **Phase 2: results in the binder.** `loadApplicantsPayload` attaches each applicant's
+  `interview_panel` (completed, in progress, average, recommendation, range, diverged, closer look)
+  from `lib/server/ngrpInterviewRubrics.js`, and the roster never fails for it (a secondary read in a
+  try). `ngrp-workspace` `rubrics` returns one applicant's full rubrics to the ASPIRE team and Talent
+  Acquisition. The binder's Interview sheet shows a Panel result row and the Interview Rubrics
+  section (`InterviewRubricsSection.jsx`): the internship book's `rub-rubric-card` cards with View
+  for the questions asked and notes, the average with the sheet's range, and the divergence and
+  closer-look notes. Inside the binder those cards follow the theme (`.ngrp-rubrics` in ngrp.css),
+  because the binder's dark sheets redefine the internship card's fixed ink. The Interview Board chip
+  and the roster CSV (Rubrics Completed, Panel Composite, Panel Recommendation) read the panel too.
+
