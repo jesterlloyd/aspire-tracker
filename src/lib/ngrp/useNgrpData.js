@@ -55,7 +55,7 @@ export async function postNgrpManage(action, payload = {}) {
     const body = await authedPost('/api/ngrp-manage', action, payload)
     return { ok: true, ...body }
   } catch (err) {
-    return { ok: false, status: err.status || 0, error: err.message, errors: err.body?.errors || [] }
+    return { ok: false, status: err.status || 0, error: err.message, errors: err.body?.errors || [], message: err.body?.message || null }
   }
 }
 
@@ -262,4 +262,17 @@ export async function fetchCandidateRubrics(cycleId, candidateId) {
   } catch (err) {
     return { ok: false, status: err.status || 0 }
   }
+}
+
+// NGRP-INTERVIEWS-1 Phase 4: Residency > Interview Schedule, every unit's times and bookings in one
+// residency cohort. { provisioned, units, interviewees, blocks, slots }
+export function useInterviewSchedule(cycleId) {
+  return useQuery({
+    queryKey: ['ngrp_workspace', 'schedule', cycleId],
+    queryFn: () => postNgrp('schedule', { cycle_id: cycleId }),
+    enabled: Boolean(cycleId),
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
+    retry: noAuthRetry,
+  })
 }

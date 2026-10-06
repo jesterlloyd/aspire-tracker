@@ -46,7 +46,7 @@ test('only Support and Residency carry sub-tabs, and each has a default', () => 
   assert.deepEqual(ngrpSubTabs('support').map(s => s.id), ['before', 'start', 'during'])
   // RESIDENTS-1 (Owner, 2026-09-14): the board | Residents | Activity. INTERVIEW-BOARD-1
   // renamed the first one to Interview Board; its id is unchanged.
-  assert.deepEqual(ngrpSubTabs('residency').map(s => s.id), ['board', 'residents', 'activity'])
+  assert.deepEqual(ngrpSubTabs('residency').map(s => s.id), ['board', 'schedule', 'residents', 'activity']) // NGRP-INTERVIEWS-1 Phase 4 added Interview Schedule after Interview Board.
   for (const id of ['overview', 'profiles', 'evaluation']) {
     assert.deepEqual(ngrpSubTabs(id), [], `${id} has none`)
     assert.equal(defaultSubTab(id), null)

@@ -31,6 +31,7 @@
 // conflated with "no cycles configured" or an ordinary error.
 import { getServiceDb } from './lib/portalAuth.js'
 import { verifyNgrpCaller } from './lib/ngrpAuth.js'
+import { loadSchedule } from '../lib/server/ngrpInterviewSchedule.js'
 import { fetchCycles, fetchSourceCohortsForCycles, loadApplicantsPayload, isMissingNgrpTable } from '../lib/server/ngrpApplicants.js'
 import { TALENT_ACQUISITION, narrowPayloadForTalentAcquisition } from '../lib/server/ngrpTalentAcquisition.js'
 import { buildResidencyCsv, fetchLatestRevisions } from '../lib/server/ngrpResidencyExport.js'
@@ -39,7 +40,7 @@ import { loadApplicantProfile } from '../lib/server/ngrpApplicantProfile.js'
 import { loadCandidateRubrics } from '../lib/server/ngrpInterviewRubrics.js'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const ACTIONS = new Set(['cycles', 'applicants', 'export', 'locate', 'profile', 'rubrics'])
+const ACTIONS = new Set(['cycles', 'applicants', 'export', 'locate', 'profile', 'rubrics', 'schedule'])
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store')
@@ -104,6 +105,16 @@ export default async function handler(req, res) {
     const r = await loadCandidateRubrics(db, { cycleId, candidateId })
     if (r.error) return res.status(500).json({ error: 'internal_error' })
     return res.status(200).json({ provisioned: r.provisioned, rubrics: r.rubrics })
+  }
+
+  // NGRP-INTERVIEWS-1 Phase 4: Residency > Interview Schedule, every unit's times and bookings in
+  // one residency cohort, for the ASPIRE team and Talent Acquisition alike.
+  if (action === 'schedule') {
+    const r = await loadSchedule(db, { cycleId })
+    if (r.state === 'unprovisioned') return res.status(200).json({ provisioned: false })
+    if (r.state === 'not_found') return res.status(404).json({ error: 'cycle_not_found' })
+    if (r.state !== 'ok') return res.status(500).json({ error: 'internal_error' })
+    return res.status(200).json({ provisioned: r.provisioned, units: r.units, interviewees: r.interviewees, blocks: r.blocks, slots: r.slots })
   }
 
   // RESIDENCY-APPLICANT-PROFILE-1: the one place a residency read carries an alumnus's emails,

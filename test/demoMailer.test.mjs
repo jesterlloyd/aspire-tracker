@@ -179,6 +179,8 @@ test('a send site either builds its client through the mailer, or is handed one'
     // FORMS-PHASE3: handed createMailer() by api/form-staff.js, api/form-respond.js and
     // api/cron/form-maintenance.js (asserted below).
     join('lib', 'server', 'forms', 'engine.js'),
+    // NGRP-INTERVIEWS-1 Phase 4: handed createMailer() by api/ngrp-manage.js (asserted below).
+    join('lib', 'server', 'ngrpInterviewSchedule.js'),
   ])
 
   const unaccounted = []
@@ -254,6 +256,15 @@ test('the forms engine is only ever handed a mailer built by createMailer', () =
     }
   }
   assert.deepEqual(importers.sort(), callers.map(c => join(...c.split('/'))).sort())
+})
+
+// NGRP-INTERVIEWS-1 Phase 4: the interview schedule sends its notices through the mailer the
+// Residency manage endpoint hands it; the workspace endpoint imports it only to read.
+test('the interview schedule is only ever handed a mailer built by createMailer', () => {
+  const src = readFileSync(join(root, 'api/ngrp-manage.js'), 'utf8')
+  assert.match(src, /import \{ createMailer \} from '[./]+lib\/server\/email\/mailer\.js'/)
+  assert.equal((src.match(/mailer: createMailer\(\)/g) || []).length, 2, 'book and cancel both pass createMailer()')
+  assert.doesNotMatch(readFileSync(join(root, 'api/ngrp-workspace.js'), 'utf8'), /mailer/)
 })
 
 // OUTREACH-FORM-BUTTON-1: the Outreach form-button module imports the forms engine to make

@@ -55,6 +55,16 @@ import {
 import { recordNgrpAudit } from '../lib/server/ngrpAudit.js'
 import { validateResidentDetails } from '../src/lib/ngrp/ngrpResidents.js'
 import { serviceDbForRequest } from '../lib/server/demoScope.js'
+import {
+  openScheduleTimes, removeScheduleTimes, blockScheduleSlot, bookInterview, cancelInterview,
+} from '../lib/server/ngrpInterviewSchedule.js'
+import { createMailer } from '../lib/server/email/mailer.js'
+
+// NGRP-INTERVIEWS-1 Phase 4 (Owner, 2026-10-06): HR adds times and books the interviewees, so
+// these are both audiences' (the ASPIRE team and Talent Acquisition), like the board's pairing.
+const SCHEDULE_ACTIONS = Object.freeze([
+  'schedule_open_times', 'schedule_remove_times', 'schedule_slot_block', 'schedule_book', 'schedule_cancel',
+])
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 // DEFECT FIXED 2026-09-12 (RESIDENCY-ROSTER-1): assign_unit, interview_set and
@@ -79,6 +89,8 @@ const ACTIONS = new Set([
   'activity_log',
   // APPLICANT-PACKET-1
   'packet_downloaded',
+  // NGRP-INTERVIEWS-1 Phase 4: Residency > Interview Schedule
+  ...SCHEDULE_ACTIONS,
 ])
 const ELIGIBILITY_VOCAB = ['pending', 'eligible', 'conditionally_eligible', 'not_eligible']
 const OVERRIDE_CATEGORIES = ['documentation_verified', 'requirement_waived', 'data_correction', 'other']
@@ -412,6 +424,23 @@ export default async function handler(req, res) {
         eventType: 'packet_downloaded', cycleId, candidateId: cand?.id || null, studentId, actorProfileId: actorId,
       })
       return res.status(200).json({ ok: true, logged })
+    }
+
+    // ── NGRP-INTERVIEWS-1 Phase 4: Residency > Interview Schedule ──────────────
+    if (SCHEDULE_ACTIONS.includes(action)) {
+      const cycleId = typeof body.cycle_id === 'string' && UUID.test(body.cycle_id) ? body.cycle_id : null
+      if (!cycleId) return res.status(422).json({ error: 'invalid_cycle_id' })
+      const profile = caller.profile
+      let r
+      if (action === 'schedule_open_times') r = await openScheduleTimes(db, { cycleId, profile, input: body })
+      else if (action === 'schedule_remove_times') r = await removeScheduleTimes(db, { cycleId, profile, blockId: body.block_id })
+      else if (action === 'schedule_slot_block') {
+        if (typeof body.blocked !== 'boolean') return res.status(422).json({ error: 'invalid_request' })
+        r = await blockScheduleSlot(db, { cycleId, profile, slotId: body.slot_id, blocked: body.blocked })
+      } else if (action === 'schedule_book') r = await bookInterview(db, { cycleId, profile, slotId: body.slot_id, candidateId: body.candidate_id, mailer: createMailer(), nowIso })
+      else r = await cancelInterview(db, { cycleId, profile, slotId: body.slot_id, mailer: createMailer(), nowIso })
+      const { status, ...rest } = r
+      return res.status(status).json(status === 200 ? { ok: true, ...rest } : rest)
     }
 
     // ── candidate-scoped actions ────────────────────────────────────────────

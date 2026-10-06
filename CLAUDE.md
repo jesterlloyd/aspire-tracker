@@ -2274,3 +2274,28 @@ calendar, then the results table, each row opening the rubric book.
 - **Unit Leader nav (UNIT-NAV-ALPHA-1, Owner, 2026-10-06)**: Home reads At a Glance and stays first;
   every other tab is alphabetical through `alphabetizeNav` (Capacity, Evaluation, Interviews,
   Messages, Placement Requests, Preceptors). Phase 4 (booking by link) is provisional.
+- **Phase 4: Residency > Interview Schedule** (Owner, 2026-10-06: "the unit leaders can put their
+  availability (time), since the interviews are only scheduled for 2 days each time. HR can add the
+  times too and then HR books the interviewees"). A sub-tab after Interview Board (`schedule`),
+  `InterviewScheduleTab.jsx`, for the ASPIRE team and Talent Acquisition alike, over one residency
+  cohort. **One calendar for both places**: `InterviewTimesCalendar.jsx` (calendar, day panel,
+  legend, `OpenTimesModal`) is the Unit Leader tab's own, moved out of `UnitInterviewsWorkspace`,
+  and both screens draw it; its helpers and colours live in `src/lib/ngrp/interviewScheduleModel.js`.
+  Open Times offers the cohort's active participating units (`ngrp_cycle_units`); opening, blocking
+  and removing call Phase 3's own functions for the row's one unit, so HR and a unit leader change
+  times by one set of rules. **Book** on an open time lists the applicants paired with that unit
+  (`bookingChoices`); booking one who holds a time MOVES them (the old time opens again; a failed
+  claim puts them back), and an interview with a result (completed, decision, withdrew, no
+  interview, no show) is changed in the binder, never from here. A booking writes the binder's
+  interview (scheduled, the time, the span's format); **Cancel** opens the time and clears the
+  binder only while it still holds that time. Server: `lib/server/ngrpInterviewSchedule.js`,
+  reads through `ngrp-workspace` `schedule`, writes through `ngrp-manage` `schedule_*`. No SQL.
+- **Every booking, move and cancel is emailed** (Owner chose alumnus + unit): the applicant at
+  their residency address (`residencyRecipient`: the Transition Form's preferred email, else
+  personal) and every unit leader with an active `unit_leader` grant and an active unit scope for
+  that unit, each with an .ics (`lib/server/email/ngrpInterviewEmail.js`). One UID per applicant
+  per cohort, so a move updates the same calendar event and a cancel cancels it (`METHOD:CANCEL`).
+  From noreply, reply-to ngrp@cshs.org, through `createMailer()` (the demo guard), each send a
+  `notification_log` row of type `ngrp_interview_notice`. A notice never fails the booking; the
+  toast says who was emailed and who was not (`noticeSummary`). There is no self-booking by the
+  alumnus: HR books.

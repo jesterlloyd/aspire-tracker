@@ -18,6 +18,7 @@ import AtAGlanceTab from './AtAGlanceTab'
 import ProfilesTab from './ProfilesTab'
 import ActivityCalendar from './ActivityCalendar'
 import InterviewBoard from './InterviewBoard'
+import InterviewScheduleTab from './InterviewScheduleTab'
 import ResidentsTab from './ResidentsTab'
 import SupportTab from './SupportTab'
 import { useNgrpSurface } from '../../lib/ngrp/ngrpSurface'
@@ -163,6 +164,10 @@ export default function NgrpWorkspace({ cyclesStatus, cyclesCount, cycle, canMan
 
         {tab === 'residency' && subTab === 'board' && (
           <InterviewBoard cycle={cycle} canManage={canManage} toast={toast} />
+        )}
+        {/* NGRP-INTERVIEWS-1 Phase 4: unit leaders and HR add times; HR books the paired applicants. */}
+        {tab === 'residency' && subTab === 'schedule' && (
+          <InterviewScheduleTab cycle={cycle} canManage={canManage} toast={toast} />
         )}
         {/* RESIDENTS-1: the hired new grads and the retention tracker. */}
         {tab === 'residency' && subTab === 'residents' && (
