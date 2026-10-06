@@ -45,6 +45,8 @@ export const EVENT_LABELS = Object.freeze({
   followup_unflagged: 'Removed the follow-up flag',
   document_uploaded: 'Uploaded a document',
   resume_scored: 'Scored the résumé',
+  // APPLICANT-PACKET-1
+  packet_downloaded: 'Downloaded the applicant packet',
 })
 
 export const eventLabel = type => EVENT_LABELS[type] || String(type || '').replace(/_/g, ' ')
@@ -54,7 +56,7 @@ export const ACTION_GROUPS = Object.freeze([
   Object.freeze({ key: 'all', label: 'All actions', types: null }),
   Object.freeze({ key: 'support', label: 'Support', types: ['support_logged', 'support_voided'] }),
   Object.freeze({ key: 'flags', label: 'Flags', types: ['followup_flagged', 'followup_unflagged'] }),
-  Object.freeze({ key: 'documents', label: 'Documents and résumés', types: ['document_uploaded', 'resume_scored'] }),
+  Object.freeze({ key: 'documents', label: 'Documents and résumés', types: ['document_uploaded', 'resume_scored', 'packet_downloaded'] }),
   Object.freeze({ key: 'application', label: 'Application', types: ['form_sent', 'form_opened', 'form_submitted', 'form_revised', 'token_revoked', 'token_resent', 'eligibility_calculated', 'eligibility_overridden', 'application_confirmed', 'application_withdrawn', 'unit_preferences_set', 'not_proceeding_recorded', 'application_reinstated'] }),
   Object.freeze({ key: 'hiring', label: 'Interviews and hiring', types: ['unit_assigned', 'unit_assignment_cleared', 'interview_recorded', 'offer_extended', 'offer_accepted', 'offer_declined', 'hire_recorded', 'not_selected'] }),
 ])

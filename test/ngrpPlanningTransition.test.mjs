@@ -1168,7 +1168,10 @@ test('complete: ranked preferences require exactly three DISTINCT active units, 
   assert.ok(noHrConsent.errors.some(e => e.field === 'attestation.consent_hr_share'))
   assert.equal(vs(form()).payload.attestation.consent_hr_share, true)
   assert.match(formPage, /sharing my responses on this form with Cedars-Sinai Talent Acquisition/)
-  assert.match(drawerUi, /Consent to share with Talent Acquisition/)
+  // APPLICANT-PACKET-1 moved the drawer's revision rows into transitionSummary.js, which the
+  // drawer and the applicant packet both print.
+  assert.match(read('src/lib/ngrp/transitionSummary.js'), /Consent to share with Talent Acquisition/)
+  assert.match(drawerUi, /transitionSummaryRows\(payload\)/)
   // every alumni-facing sentence names the same team (never "Human Resources")
   assert.match(formPage, /for the ASPIRE team and\s+Cedars-Sinai Talent Acquisition/)
   assert.match(read('lib/server/email/ngrpTransitionEmail.js'), /ASPIRE team and Cedars-Sinai Talent Acquisition can/)

@@ -77,6 +77,8 @@ const ACTIONS = new Set([
   'followup_flag_set',
   // RESIDENCY-TA-1
   'activity_log',
+  // APPLICANT-PACKET-1
+  'packet_downloaded',
 ])
 const ELIGIBILITY_VOCAB = ['pending', 'eligible', 'conditionally_eligible', 'not_eligible']
 const OVERRIDE_CATEGORIES = ['documentation_verified', 'requirement_waived', 'data_correction', 'other']
@@ -391,6 +393,25 @@ export default async function handler(req, res) {
         cycleId, candidateId: cand.id, studentId, actorProfileId: actorId,
       })
       return res.status(200).json({ ok: true, flagged: body.flagged, candidate_id: cand.id })
+    }
+
+    // APPLICANT-PACKET-1: a packet is built in the browser from files this caller could already
+    // open one by one, so this writes nothing but the line in Settings > Residency Activity: who
+    // downloaded whose packet. Both audiences; only an alumnus on this cohort's roster.
+    if (action === 'packet_downloaded') {
+      const cycleId = typeof body.cycle_id === 'string' && UUID.test(body.cycle_id) ? body.cycle_id : null
+      const studentId = typeof body.student_id === 'string' && UUID.test(body.student_id) ? body.student_id : null
+      if (!cycleId || !studentId) return res.status(422).json({ error: 'invalid_request' })
+      const payload = await loadApplicantsPayload(db, cycleId)
+      if (payload.state === 'unprovisioned') return unprovisioned(res)
+      if (payload.state === 'cycle_not_found') return res.status(404).json({ error: 'cycle_not_found' })
+      if (payload.state !== 'ok') return internal(res)
+      if (!(payload.students || []).some(st => st.id === studentId)) return res.status(404).json({ error: 'not_on_roster' })
+      const cand = (payload.candidates || []).find(c => c.student_id === studentId) || null
+      const logged = await recordNgrpAudit(db, {
+        eventType: 'packet_downloaded', cycleId, candidateId: cand?.id || null, studentId, actorProfileId: actorId,
+      })
+      return res.status(200).json({ ok: true, logged })
     }
 
     // ── candidate-scoped actions ────────────────────────────────────────────

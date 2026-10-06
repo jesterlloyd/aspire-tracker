@@ -2139,3 +2139,26 @@ it load (a ResizeObserver, two seconds or until the reader scrolls): a single sm
 Calendar"): it holds program events, US holidays and residents' working days, and is named for
 them, as Internship's Activity became Shift Log for its shifts. Not Shift Log: shifts are its
 smaller half and come from the reflection tool, not a log. The route id stays `activity`.
+
+## The applicant packet (APPLICANT-PACKET-1, 2026-10-05)
+
+Adoption phase 4. Every applicant binder has **Download Packet** on its name plate (beside Send
+Transition Form, for the ASPIRE team and Talent Acquisition alike): one PDF to hand to a hiring
+unit. `src/lib/ngrp/applicantPacketModel.js` decides what is in it (pure, tested),
+`applicantPacketPdf.js` draws it with pdf-lib, `applicantPacketClient.js` gathers and saves it.
+
+- **Built in the browser.** Each file is fetched through the Documents drawer's own `list` and
+  `open` actions, so it is checked against the caller exactly as opening it would be; nothing is
+  copied into storage and no serverless response limit applies. pdf-lib loads only on press.
+- **Order:** a summary page (who, contact only when the Profile sheet would show it, interest,
+  eligibility, form, unit choices, pairing, interview, offer and hire, residency preparation,
+  and "In This Packet" with each part's pages), the submitted Transition Form (the same
+  `transitionSummaryRows` the binder's Review shows), then each document's CURRENT file in the
+  checklist's order: PDF pages copied, a JPEG or PNG on a page of its own. A Word file, a missing
+  document or a file that will not load is named in the list instead of failing the packet.
+- **Left out on purpose:** Keith's score and review (an internal rubric) and preceptor feedback
+  (released only by request). A test holds the model free of both.
+- **Logged:** `packet_downloaded` in Settings > Residency Activity (Documents and résumés), via
+  ngrp-manage, roster-checked. Migration `20261109000000_applicant_packet_audit.sql` widens the
+  CHECK (Owner-gated); before it the packet still downloads and only the log line waits.
+- `src/lib/pdf/pdfText.js` (`safe`, `wrap`) is now shared with Forms' filed PDFs.

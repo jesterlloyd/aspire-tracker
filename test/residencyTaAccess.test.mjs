@@ -38,7 +38,10 @@ test('Keith marks: Talent Acquisition sees résumé reviews, nothing else, and o
 
 test('the log: the migration allows exactly what the code writes, and every type has words', () => {
   const mig = read('supabase/migrations/20261108000000_residency_ta_access.sql')
-  const check = mig.slice(mig.indexOf('CHECK (event_type IN ('), mig.indexOf("));", mig.indexOf('CHECK (event_type IN (')))
+  // APPLICANT-PACKET-1 (20261109000000) rebuilt the CHECK with packet_downloaded; the newest
+  // migration that sets it is the one that must equal the code's list.
+  const latest = read('supabase/migrations/20261109000000_applicant_packet_audit.sql')
+  const check = latest.slice(latest.indexOf('CHECK (event_type IN ('), latest.indexOf("));", latest.indexOf('CHECK (event_type IN (')))
   const inSql = [...check.matchAll(/'([a-z_]+)'/g)].map(m => m[1]).sort()
   assert.deepEqual(inSql, [...NGRP_AUDIT_EVENTS].sort())
   for (const t of NGRP_AUDIT_EVENTS) assert.ok(EVENT_LABELS[t], `${t} has a label`)

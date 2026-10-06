@@ -23,6 +23,8 @@ import { StudentDocumentsBody } from '../documents/StudentDocumentsDrawer'
 import FlagRibbon from '../rubric/FlagRibbon'
 import ApplicantProfileSheet from './ApplicantProfileSheet'
 import ResidentDetailsSection from './ResidentDetailsSection'
+import { transitionSummaryRows } from '../../lib/ngrp/transitionSummary'
+import { downloadApplicantPacket } from '../../lib/ngrp/applicantPacketClient'
 // APPLICANT-CHART-1: the applicant is the Student Profiles binder with the application's
 // sheets: the same rings, plate, tabs, tints and scroll behaviour, read from the same files.
 import '../student/studentChart.css'
@@ -103,35 +105,11 @@ function FormLifecycle({ row }) {
 const REQ_GLYPHS = { met: '✓', not_met: '✗', conditional: '◔', unknown: '·' }
 const REQ_COLORS = { met: 'var(--aspire-ok)', not_met: 'var(--aspire-bad)', conditional: 'var(--aspire-warn)', unknown: 'var(--text-caption)' }
 
-// A compact read-only render of a submitted revision for staff review.
+// A compact read-only render of a submitted revision for staff review. The rows are
+// transitionSummaryRows (APPLICANT-PACKET-1), which the applicant packet prints too.
 function RevisionSummary({ payload }) {
   if (!payload) return null
-  const rows = []
-  const push = (label, v) => { if (v !== undefined && v !== null && v !== '') rows.push([label, String(v)]) }
-  push('Preferred email', payload.identity?.preferred_email)
-  push('Preferred phone', payload.identity?.preferred_phone)
-  push('CS employment', payload.identity?.cs_employment_status?.replace(/_/g, ' '))
-  push('Degree', payload.education?.degree_type)
-  push('Completion date', payload.education?.completion_date)
-  push('GPA', payload.education?.gpa)
-  push('US accredited', payload.education?.us_accredited === true ? 'Yes' : payload.education?.us_accredited === false ? 'No' : undefined)
-  push('Precepted unit', payload.aspire?.precepted_unit === 'Other'
-    ? `Other: ${payload.aspire?.precepted_unit_other || 'not named'}`
-    : payload.aspire?.precepted_unit)
-  push('ASPIRE shifts', payload.aspire?.rotation_shifts)
-  push('Prior NGRP application', payload.aspire?.prior_ngrp_applied === true ? `Yes${payload.aspire?.prior_ngrp_details ? ` - ${payload.aspire.prior_ngrp_details}` : ''}` : payload.aspire?.prior_ngrp_applied === false ? 'No' : undefined)
-  push('CA RN license', payload.licensure?.ca_rn_status)
-  push('License #', payload.licensure?.license_number)
-  push('NCLEX scheduled', payload.licensure?.nclex_scheduled_date)
-  push('Paid RN months', payload.licensure?.paid_rn_months)
-  push('BLS', payload.licensure?.bls_status ? `${payload.licensure.bls_status}${payload.licensure.bls_issuer ? ` (${payload.licensure.bls_issuer})` : ''}${payload.licensure.bls_expiration ? ` exp ${payload.licensure.bls_expiration}` : ''}` : undefined)
-  if (payload.licensure?.acls_required) push('ACLS', payload.licensure?.acls_status || 'required, not reported')
-  push('Interest', payload.residency_interest?.interest?.replace(/_/g, ' '))
-  push('Interest statement', payload.residency_interest?.interest_statement)
-  push('Strengths', payload.residency_interest?.strengths_statement)
-  const ready = Object.entries(payload.readiness || {}).filter(([, v]) => v === true).map(([k]) => k.replace(/_/g, ' '))
-  if (ready.length) push('Readiness checked', ready.join(', '))
-  push('Consent to share with Talent Acquisition', payload.attestation?.consent_hr_share === true ? 'Yes' : 'Not given (submitted before this consent existed)')
+  const rows = transitionSummaryRows(payload)
   return (
     <div style={{ marginTop: 8 }}>
       {rows.map(([label, v]) => (
@@ -818,6 +796,36 @@ function DocumentsSection({ row, toast, cycle }) {
 
 // APPLICANT-CHART-1: the support this alumnus has had, from the same entries Residency >
 // Support counts. Read-only here; Support is where it is recorded.
+// APPLICANT-PACKET-1 (Owner, adoption phase 4): one PDF to hand to a hiring unit, for the ASPIRE
+// team and Talent Acquisition alike. Built in the browser from what this binder already reads;
+// the model (src/lib/ngrp/applicantPacketModel.js) says what is in it and what is left out.
+function PacketButton({ row, cycle, review, toast }) {
+  const support = useNgrpSupport(cycle?.id)
+  const [busy, setBusy] = useState(false)
+  const sid = row.student?.id || row.id
+  const run = async () => {
+    setBusy(true)
+    const mine = (support.entries || []).filter(e => e.student_id === sid)
+    const r = await downloadApplicantPacket({ row, cycle, support: mine, review })
+    setBusy(false)
+    if (!r.ok) {
+      toast?.error?.('Packet not made', r.error === 'documents_unavailable'
+        ? 'Their documents could not be read. Try again in a moment.'
+        : 'The packet could not be put together. Try again in a moment.')
+      return
+    }
+    toast?.success?.('Packet downloaded', r.skipped
+      ? `${r.fileName}. ${r.skipped === 1 ? 'One file' : `${r.skipped} files`} could not be added; the packet's list says which.`
+      : r.fileName)
+  }
+  return (
+    <button type="button" style={smallBtn()} disabled={busy} onClick={run}
+      title="One PDF: a summary, the submitted Transition Form and the application documents">
+      {busy ? 'Preparing packet…' : 'Download Packet'}
+    </button>
+  )
+}
+
 function SupportSection({ row, cycle }) {
   const support = useNgrpSupport(cycle?.id)
   const sid = row.student?.id || row.id
@@ -957,19 +965,21 @@ function ApplicantDrawerBody({
   // RESIDENCY-SPLIT-1: the Send / Resend button. In a drawer it is the footer; embedded in
   // Profiles & Interest's split view it sits on the name plate, where Student Profiles keeps
   // its own actions.
-  const footerNode = canManage ? (
+  const footerNode = (
     <>
-      {gateNote && <span style={{ marginRight: 'auto', fontSize: 11, color: 'var(--text-caption)' }}>{gateNote}</span>}
+      {canManage && gateNote && <span style={{ marginRight: 'auto', fontSize: 11, color: 'var(--text-caption)' }}>{gateNote}</span>}
       {/* Only where a send action exists: sending runs through ASPIRE Connect,
           so the Residency Portal (and any host without it) shows no Send button. */}
-      {!gateNote && actions.sendForm && (
+      {canManage && !gateNote && actions.sendForm && (
         <button type="button" style={smallBtn()} disabled={!provisioned}
           onClick={() => actions.sendForm(row)}>
           {hasForm ? 'Resend Form' : 'Send Transition Form'}
         </button>
       )}
+      {/* APPLICANT-PACKET-1: anyone who can open this binder can download its packet. */}
+      <PacketButton row={row} cycle={cycle} review={actions.review || null} toast={toast} />
     </>
-  ) : null
+  )
 
   const chart = (
     <>

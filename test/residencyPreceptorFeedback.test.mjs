@@ -204,7 +204,9 @@ test('the roster and drawer: an indicator, a deep link, and the section', () => 
   // what this pins, and it is unchanged: a send action must exist, and the
   // pending-migration note still suppresses it.
   assert.match(drawer, /actions\.sendForm && \(/, 'the send gate is untouched')
-  assert.match(drawer, /\{!gateNote && actions\.sendForm/)
+  // APPLICANT-PACKET-1: the footer now always renders (Download Packet is for everyone), so the
+  // send button carries canManage itself.
+  assert.match(drawer, /\{canManage && !gateNote && actions\.sendForm/)
 })
 
 test('the notification link switches to the applicant\'s residency cohort first', () => {

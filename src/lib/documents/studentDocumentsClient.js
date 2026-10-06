@@ -138,3 +138,25 @@ export const UPLOAD_ERRORS = {
   no_cohort: 'This student has no cohort on file, so a résumé cannot be saved.',
 }
 export const uploadErrorText = r => UPLOAD_ERRORS[r?.error] || 'The upload did not finish. Try again.'
+
+// APPLICANT-PACKET-1: the list and one file's bytes, for the packet built in the browser. Both go
+// through the same `list` and `open` actions as the Documents drawer, so each file is checked
+// against this caller exactly as opening it would be. Never throw.
+export async function loadStudentDocumentList(studentId) {
+  const r = await post('list', { student_id: studentId })
+  if (!r.ok) return r
+  if (r.provisioned === false) return { ok: true, types: [], documents: [] }
+  return { ok: true, types: r.types || [], documents: r.documents || [] }
+}
+
+export async function fetchStudentDocumentBytes(versionId) {
+  const r = await post('open', { version_id: versionId })
+  if (!r.ok || !r.url) return { ok: false, error: r.error || 'not_found' }
+  try {
+    const res = await fetch(r.url)
+    if (!res.ok) return { ok: false, error: 'download_failed' }
+    return { ok: true, bytes: new Uint8Array(await res.arrayBuffer()) }
+  } catch {
+    return { ok: false, error: 'network_error' }
+  }
+}
