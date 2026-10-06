@@ -70,6 +70,12 @@ const AUTOMATION_CARDS = [
     desc: 'Sends each resident their next bi-weekly NGRP Clinical Orientation Progress and Reflection Tool, by secure link, the Friday before it opens. Period 1 is sent by the Start button on Residency > Support.',
     // RESIDENCY-REFLECTION-3: the form itself, as a sample, beside the email eye.
     sampleHref: SAMPLE_PATH, sampleLabel: 'Open a sample of the form' },
+  // RESIDENCY-DIGEST-1. Opt-in per person: only Talent Acquisition members who turned on
+  // Weekly digest email in the Residency Portal's profile menu receive it.
+  { id: 'residency_weekly_digest', title: 'Residency Weekly Digest',
+    cron_name: 'residency-weekly-digest', automation_key: 'residency_weekly_digest',
+    scope: 'Talent Acquisition (opt-in)', schedule: 'Mondays · 8:00 AM PT', hasGlobalSetting: true,
+    desc: 'Emails Talent Acquisition members who turned it on what needs attention in Residency: interviews, offers waiting, flagged alumni and new application documents. Quiet weeks send nothing.' },
 ]
 
 // Friendly labels for the numeric counts crons record in cron_runs.details (counts only - no PII).

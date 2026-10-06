@@ -32,11 +32,16 @@ export const APPEARANCE_COLOR_MODE = 'appearance.colorMode'
 // BUDGET-FIXES-1 item 2.1 (Owner, 2026-09-29): the Program Budget's "How this works" steps, folded
 // unless the person opened them.
 export const BUDGET_HOW_IT_WORKS = 'budget.howItWorks'
+// RESIDENCY-DIGEST-1 (Owner, 2026-10-05): Talent Acquisition's weekly Residency digest email is
+// opt-in ("they have to activate in the app somewhere"), switched in the Residency Portal's
+// profile menu. Off until they turn it on. The cron reads it server-side with preferenceValue.
+export const RESIDENCY_DIGEST = 'notifications.residencyDigest'
 
 export const USER_PREFERENCES = Object.freeze({
   [APPEARANCE_STYLE]: Object.freeze({ values: Object.freeze(['classic', 'modern']), fallback: 'classic' }),
   [APPEARANCE_COLOR_MODE]: Object.freeze({ values: Object.freeze(['light', 'dark', 'system']), fallback: 'light' }),
   [BUDGET_HOW_IT_WORKS]: Object.freeze({ values: Object.freeze(['closed', 'open']), fallback: 'closed' }),
+  [RESIDENCY_DIGEST]: Object.freeze({ values: Object.freeze(['off', 'on']), fallback: 'off' }),
 })
 
 const UNDEFINED_COLUMN = '42703'

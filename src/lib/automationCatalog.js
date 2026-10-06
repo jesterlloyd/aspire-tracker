@@ -81,6 +81,13 @@ export const AUTOMATION_CATALOG = Object.freeze([
     automationKey: 'resident_reflections',
     maxAgeHours: 192,
   },
+  {
+    // RESIDENCY-DIGEST-1. Mondays; a week plus slack, like the other weekly runs.
+    id: 'residency_weekly_digest',
+    cronName: 'residency-weekly-digest',
+    automationKey: 'residency_weekly_digest',
+    maxAgeHours: 192,
+  },
 ])
 
 /** Cron names the Automations dashboard monitors. The runs query filters to these. */

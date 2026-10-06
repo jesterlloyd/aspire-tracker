@@ -46,7 +46,8 @@ export function sortByAge(rows) {
 
 const n = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0)
 const plural = (count, one, many = `${one}s`) => `${count} ${count === 1 ? one : many}`
-const shortDate = (iso) => (iso ? new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '')
+// RESIDENCY-DIGEST-1: Pacific, so a server-built digest names the same day the screen does.
+const shortDate = (iso) => (iso ? new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'America/Los_Angeles' }) : '')
 const shortTime = (d) => d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
 
 // Exported for RESIDENCY-NEEDS-1's groups, which build the same shape.

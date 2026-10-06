@@ -25,6 +25,8 @@ import { lazyReload } from '../lib/lazyReload'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
+import { useUserPreference } from '../hooks/useUserPreference'
+import { RESIDENCY_DIGEST } from '../lib/userPreferences'
 import PortalShell from './PortalShell'
 import PortalUtilityLayer from './PortalUtilityLayer'
 import FeedbackPanel from '../components/FeedbackPanel'
@@ -211,6 +213,11 @@ export default function PortalApp() {
   const ownerAdmin = userProfile?.is_active !== false && ['owner', 'admin'].includes(userProfile?.role)
   const previewRole = ownerAdmin ? portalKeyFromPath(location.pathname) : null
   const staffPreview = Boolean(previewRole)
+  // RESIDENCY-DIGEST-1: Talent Acquisition's opt-in weekly digest, switched in the profile menu.
+  // A per-person preference (user_profiles.ui_preferences), read by the Monday cron. Declared
+  // here, above every early return (rules of hooks; see the 2026-10-04 portal incident).
+  const [digestPref, setDigestPref] = useUserPreference(RESIDENCY_DIGEST)
+  const residencyDigest = { on: digestPref === 'on', onToggle: next => setDigestPref(next ? 'on' : 'off') }
   const [access, setAccess]   = useState(null)   // { roles, student_ids, unit_keys, school_keys }
   const [loading, setLoading] = useState(true)
   // PORTAL-ACCESS-STATE: the access lookup failing is its own state, kept apart
@@ -898,6 +905,7 @@ export default function PortalApp() {
         portalSwitcher={staffMenu.portalSwitcher}
         roleLabel={staffMenu.roleLabel}
         portalUserActionsEnabled={!staffPreview}
+        weeklyDigest={residencyDigest}
         nav={<ResidencyNav tab={residencyRoute.tab} onNavigate={goResidencyTab} />}
         utilityLayer={staffPreview ? <StaffPreviewUtilities portalName="Residency Portal" section={residencyRoute.tab} /> : null}>
         {/* Joint ownership (Owner): Talent Acquisition manages residency records and cohort

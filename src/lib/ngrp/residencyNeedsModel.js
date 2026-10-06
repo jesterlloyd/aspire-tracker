@@ -9,7 +9,9 @@ import { finish } from '../home/needsYouModel.js'
 import { displayName } from '../utils.js'
 
 const DAY = 86_400_000
-const shortDay = iso => new Date(iso).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+// RESIDENCY-DIGEST-1: Pacific, so the weekly digest (built on a UTC server) names the same day
+// the portal does. Every viewer is in Pacific time, so the screen is unchanged.
+const shortDay = iso => new Date(iso).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'America/Los_Angeles' })
 const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`
 const profilePath = (base, studentId) => `${base}/profiles?student=${encodeURIComponent(studentId)}`
 

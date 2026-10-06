@@ -7,7 +7,7 @@
 import { useState, useRef, useEffect } from 'react'
 import {
   ChevronDown, ChevronRight, ExternalLink, Camera, UserRound, LogOut, RotateCcw, House,
-  Settings, Check, GraduationCap, Building2, School, HeartHandshake, BriefcaseBusiness, Globe,
+  Settings, Check, Mail, GraduationCap, Building2, School, HeartHandshake, BriefcaseBusiness, Globe,
 } from 'lucide-react'
 import { PORTAL_LINKS } from '../lib/portalLinks'
 import { supabase } from '../lib/supabase'
@@ -47,7 +47,7 @@ const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(naviga
 function ProfileMenu({
   userName, roleLabel, profileImageUrl, onEditProfile, onProfile, onChangePhoto,
   publicSiteUrl = '/', mainAppUrl, settingsUrl, portalSwitcher = null,
-  onRestartTour, portalUserActionsEnabled = true,
+  onRestartTour, portalUserActionsEnabled = true, weeklyDigest = null,
 }) {
   const { signOut } = useAuth()
   const [open, setOpen] = useState(false)
@@ -78,7 +78,7 @@ function ProfileMenu({
   // Up, Down, Home and End through the items (an inert current portal is skipped).
   const onMenuKeyDown = (e) => {
     if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) return
-    const items = [...(menuRef.current?.querySelectorAll('[role="menuitem"]:not([aria-disabled="true"])') || [])]
+    const items = [...(menuRef.current?.querySelectorAll('[role="menuitem"]:not([aria-disabled="true"]), [role="menuitemcheckbox"]') || [])]
     if (!items.length) return
     e.preventDefault()
     const i = items.indexOf(document.activeElement)
@@ -137,6 +137,16 @@ function ProfileMenu({
       <button key="tour" role="menuitem" type="button" className="ptl-menu-item" onClick={() => { close(); onRestartTour() }}><RotateCcw size={15} /> Restart Welcome Tour</button>
     ),
   ].filter(Boolean)
+  // RESIDENCY-DIGEST-1: an opt-in email, switched here (Owner: "they have to activate in the app
+  // somewhere"). A checkbox item, so the menu stays open and the word beside it changes.
+  const digestItem = portalUserActionsEnabled && weeklyDigest ? (
+    <button role="menuitemcheckbox" aria-checked={weeklyDigest.on} type="button" className="ptl-menu-item"
+            title="Every Monday morning: interviews, offers waiting, flagged alumni and new documents. Quiet weeks send nothing."
+            onClick={() => weeklyDigest.onToggle(!weeklyDigest.on)}>
+      <Mail size={15} /> Weekly digest email
+      <span className="ptl-menu-kbd" aria-hidden="true">{weeklyDigest.on ? 'On' : 'Off'}</span>
+    </button>
+  ) : null
   const external = publicSiteUrl !== '/'
 
   return (
@@ -186,6 +196,7 @@ function ProfileMenu({
             </div>
           )}
           {personal.length > 0 && <div className="ptl-menu-group" role="none">{personal}</div>}
+          {digestItem && <div className="ptl-menu-group" role="none">{digestItem}</div>}
           <div className="ptl-menu-group" role="none">
             {staff && mainAppUrl && (
               <a role="menuitem" className="ptl-menu-item" href={mainAppUrl}>
@@ -229,6 +240,7 @@ export default function PortalShell({
   utilityLayer = null,
   command = null,
   onRestartTour,
+  weeklyDigest = null,
   children,
 }) {
   const [organization, setOrganization] = useState(null)
@@ -303,7 +315,8 @@ export default function PortalShell({
                 onEditProfile={onEditProfile} onProfile={onProfile} onChangePhoto={onChangePhoto}
                 publicSiteUrl={publicSiteUrl} mainAppUrl={mainAppUrl} settingsUrl={settingsUrl}
                 portalSwitcher={portalSwitcher}
-                portalUserActionsEnabled={portalUserActionsEnabled} onRestartTour={onRestartTour} />
+                portalUserActionsEnabled={portalUserActionsEnabled} weeklyDigest={weeklyDigest}
+                onRestartTour={onRestartTour} />
             </div>
           </header>
           {nav}

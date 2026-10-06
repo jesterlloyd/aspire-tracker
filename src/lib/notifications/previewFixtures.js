@@ -25,6 +25,7 @@ import { buildClockoutReminderEmail } from './templates/clockoutReminder.js';
 // RESIDENCY-REFLECTION-1: the one fixture the Support tab also renders, so the
 // Automations card and the Start button preview the same email.
 import { NGRP_REFLECTION_PREVIEW } from '../ngrp/reflectionPreviewFixture.js';
+import { RESIDENCY_DIGEST_PREVIEW } from '../ngrp/residencyDigestPreviewFixture.js';
 import { SURVEY_NAMES } from '../evaluation/surveyNames.js';
 
 // ── Safe synthetic data (never real) ─────────────────────────────────────────
@@ -179,6 +180,9 @@ export const AUTOMATION_PREVIEW_FIXTURES = {
   // period (explains the About you section) versus a later one (names its
   // opening Monday). Defined once in src/lib/ngrp/reflectionPreviewFixture.js.
   resident_reflections: NGRP_REFLECTION_PREVIEW,
+
+  // RESIDENCY-DIGEST-1: fake alumni through the same model and builder the Monday cron uses.
+  residency_weekly_digest: RESIDENCY_DIGEST_PREVIEW,
 };
 
 // Convenience accessor used by the card UI.

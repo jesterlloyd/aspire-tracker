@@ -56,6 +56,11 @@ const KNOWN_AUTOMATIONS = [
   { key: 'resident_reflections', label: 'Resident Reflections',
     description: 'Sends each resident their next bi-weekly NGRP Clinical Orientation Progress and Reflection Tool, by secure link, on the Friday before it opens.',
     defaultEnabled: true },
+  // RESIDENCY-DIGEST-1. Default On, matching api/cron/residency-weekly-digest.js; it still
+  // reaches only the Talent Acquisition members who turned it on in the Residency Portal.
+  { key: 'residency_weekly_digest', label: 'Residency Weekly Digest',
+    description: 'Emails Talent Acquisition members who turned it on what needs attention in Residency each Monday morning.',
+    defaultEnabled: true },
 ];
 const META_BY_KEY = new Map(KNOWN_AUTOMATIONS.map(a => [a.key, a]));
 

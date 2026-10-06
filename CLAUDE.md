@@ -2097,3 +2097,26 @@ the top of the Application sheet.
   birth, gender or GPA, never an edit. The sheet says why when contact is not shared yet.
 - **No SSN** on this read for anyone; the residency has no use for it.
 
+
+## Talent Acquisition's weekly digest (RESIDENCY-DIGEST-1, 2026-10-05)
+
+Owner: the weekly digest is optional, "they have to activate in the app somewhere". The
+Residency Portal has no ASPIRE Connect, so the switch is **Weekly digest email** in its profile
+menu (a `menuitemcheckbox` in `ProfileMenu`, On / Off beside it, the menu stays open). It is the
+per-person preference `notifications.residencyDigest` (`RESIDENCY_DIGEST` in
+`src/lib/userPreferences.js`, fallback `off`), stored in `user_profiles.ui_preferences`, which a
+person can write on their own row. No SQL. PortalApp declares the hook above every return.
+
+- **The content is Residency's Needs you.** `src/lib/ngrp/residencyDigestModel.js` builds the
+  sections from the SAME groups At a Glance shows (`interviewsGroup`, `offersGroup`,
+  `flaggedGroup`, `residencyDocsGroup`) over every residency cohort in Planning or Active, with
+  Residency Portal links. Up to 8 rows a group, then "and N more". Dates are Pacific (the two
+  models' day formatters now pass `timeZone`, so a UTC server names the same day as the screen).
+- **The cron** is `api/cron/residency-weekly-digest.js`, Mondays 15:00 UTC (8 AM PDT, 7 AM PST).
+  Recipients: an active `talent_acquisition` grant, an active profile with an email, the switch
+  on. A quiet week sends nothing. Once a week: anyone sent one in the last 5 days is skipped, and
+  a failed dedupe read stops the run. `?dryRun=1` sends and logs nothing. Logged in
+  `notification_log` as `residency_weekly_digest`, reply-to ngrp@cshs.org.
+- **Connect > Automations lists it** (Residency Weekly Digest, default On) so the team can pause
+  it and see its runs; the card's preview renders fake alumni through the same model and
+  `lib/server/email/residencyDigestEmail.js`.

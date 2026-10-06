@@ -138,6 +138,10 @@
     {
       "path": "/api/cron/resident-reflections",
       "schedule": "0 2,3,4 * * 6"
+    },
+    {
+      "path": "/api/cron/residency-weekly-digest",
+      "schedule": "0 15 * * 1"
     }
   ],
   "functions": {
@@ -159,6 +163,7 @@
     "api/unit-form-submit.js":            { "maxDuration": 15 },
     "api/cron/teams-invite-reminders.js": { "maxDuration": 60 },
     "api/cron/resident-reflections.js":   { "maxDuration": 60 },
+    "api/cron/residency-weekly-digest.js": { "maxDuration": 60 },
     "api/cron/interview-reminders.js":             { "maxDuration": 60 },
     "api/cron/coordinator-weekly-digest.js":       { "maxDuration": 60 },
     "api/cron/evaluation-reminders.js":            { "maxDuration": 300 },
