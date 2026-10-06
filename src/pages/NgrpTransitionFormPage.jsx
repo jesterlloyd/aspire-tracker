@@ -29,7 +29,7 @@ const EMPTY_PAYLOAD = {
   },
   residency_interest: { interest: null, unit_preferences: ['', '', ''], interest_statement: '', strengths_statement: '' },
   readiness: {},
-  attestation: { accurate: false, consent_followup: false, consent_hr_share: false },
+  attestation: { accurate: false, consent_followup: false, consent_hr_share: false, consent_unit_share: false },
 }
 
 function mergePayload(base) {
@@ -299,8 +299,8 @@ export default function NgrpTransitionFormPage() {
             <p className="ngrpf-note">Welcome back - your saved draft was restored.</p>
           )}
           <p className="ngrpf-note" style={{ background: '#F9FAFB', border: '1px solid #EFEDE8', color: '#4A5560' }}>
-            This form records your information and residency interest for the ASPIRE team and
-            Cedars-Sinai Talent Acquisition. Completing
+            This form records your information and residency interest for the ASPIRE team,
+            Cedars-Sinai Talent Acquisition and the hiring units that interview you. Completing
             it is not an application to the residency program.
           </p>
 
@@ -489,10 +489,14 @@ export default function NgrpTransitionFormPage() {
                 onChange={e => update('attestation', 'consent_followup', e.target.checked)} />
               <span>I consent to the ASPIRE team following up with me about the residency pathway. <span className="req">*</span></span>
             </label>
+            {/* UNIT-SHARE-CONSENT-1 (Owner, 2026-10-05): widened to the hiring units that interview
+                the alumnus, whose Unit Leader Portal shows paired applicants. One box records both
+                keys; a draft saved before the wider wording shows it unticked, so the alumnus
+                agrees to the sentence they can read. */}
             <label className="ngrpf-check">
-              <input type="checkbox" checked={p.attestation.consent_hr_share === true}
-                onChange={e => update('attestation', 'consent_hr_share', e.target.checked)} />
-              <span>I consent to the ASPIRE team sharing my responses on this form with Cedars-Sinai Talent Acquisition for the New Graduate RN Residency Program. <span className="req">*</span></span>
+              <input type="checkbox" checked={p.attestation.consent_hr_share === true && p.attestation.consent_unit_share === true}
+                onChange={e => { update('attestation', 'consent_hr_share', e.target.checked); update('attestation', 'consent_unit_share', e.target.checked) }} />
+              <span>I consent to the ASPIRE team sharing my responses on this form with Cedars-Sinai Talent Acquisition and with the hiring units that interview me for the New Graduate RN Residency Program. <span className="req">*</span></span>
             </label>
           </section>
 

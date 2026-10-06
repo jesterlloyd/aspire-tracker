@@ -424,7 +424,7 @@ const COMPLETE_FORM = {
     bls_status: 'active', bls_issuer: 'AHA', bls_expiration: '2027-06-01', acls_required: false,
   },
   residency_interest: { interest: 'interested', unit_preferences: ['5 SCCT', 'NICU', '6 South'] },
-  attestation: { accurate: true, consent_followup: true, consent_hr_share: true },
+  attestation: { accurate: true, consent_followup: true, consent_hr_share: true, consent_unit_share: true },
 }
 const UNITS3 = ['5 SCCT', 'NICU', '6 South']
 const form = (over = {}) => {
@@ -1167,13 +1167,17 @@ test('complete: ranked preferences require exactly three DISTINCT active units, 
   assert.equal(noHrConsent.ok, false)
   assert.ok(noHrConsent.errors.some(e => e.field === 'attestation.consent_hr_share'))
   assert.equal(vs(form()).payload.attestation.consent_hr_share, true)
-  assert.match(formPage, /sharing my responses on this form with Cedars-Sinai Talent Acquisition/)
+  assert.match(formPage, /sharing my responses on this form with Cedars-Sinai Talent Acquisition and with the hiring units that interview me/)
+  // UNIT-SHARE-CONSENT-1: the wider wording is its own recorded answer, required with the first.
+  const noUnitConsent = vs(form({ attestation: { consent_unit_share: false } }))
+  assert.equal(noUnitConsent.ok, false)
+  assert.equal(vs(form()).payload.attestation.consent_unit_share, true)
   // APPLICANT-PACKET-1 moved the drawer's revision rows into transitionSummary.js, which the
   // drawer and the applicant packet both print.
   assert.match(read('src/lib/ngrp/transitionSummary.js'), /Consent to share with Talent Acquisition/)
   assert.match(drawerUi, /transitionSummaryRows\(payload\)/)
   // every alumni-facing sentence names the same team (never "Human Resources")
-  assert.match(formPage, /for the ASPIRE team and\s+Cedars-Sinai Talent Acquisition/)
+  assert.match(formPage, /for the ASPIRE team,\s+Cedars-Sinai Talent Acquisition and the hiring units that interview you/)
   assert.match(read('lib/server/email/ngrpTransitionEmail.js'), /ASPIRE team and Cedars-Sinai Talent Acquisition can/)
   assert.doesNotMatch(formPage, /Human Resources/)
   // precepted unit is picked from the catalog (or Other + a name); shifts are whole numbers

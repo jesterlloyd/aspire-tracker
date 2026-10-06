@@ -32,5 +32,7 @@ export function transitionSummaryRows(payload) {
   const ready = Object.entries(payload.readiness || {}).filter(([, v]) => v === true).map(([k]) => k.replace(/_/g, ' '))
   if (ready.length) push('Readiness checked', ready.join(', '))
   push('Consent to share with Talent Acquisition', payload.attestation?.consent_hr_share === true ? 'Yes' : 'Not given (submitted before this consent existed)')
+  // UNIT-SHARE-CONSENT-1: the wider wording (hiring units that interview them), since 2026-10-05.
+  push('Consent to share with interviewing units', payload.attestation?.consent_unit_share === true ? 'Yes' : 'Not given (submitted before this consent existed)')
   return rows
 }

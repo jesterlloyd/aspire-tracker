@@ -62,7 +62,7 @@ test('PACKET 3: the PDF is the summary, the form, then each file\'s own pages; a
     revision: { revision_number: 1, submitted_at: '2026-10-01T18:00:00Z', payload: { identity: { preferred_phone: '555' }, education: { degree_type: 'BSN' } } },
     support: [{ activity: 'town_hall', occurred_on: '2026-09-20' }],
   })
-  assert.equal(summary.form.rows.length, 3, 'two answers and the consent line')
+  assert.equal(summary.form.rows.length, 4, 'two answers and the two consent lines (UNIT-SHARE-CONSENT-1 added the units one)')
   const out = await buildApplicantPacket({ summary, files: new Map([['v2', pdfBytes], ['p1', png]]) })
   const back = await PDFDocument.load(out)
   assert.equal(back.getPageCount(), 1 + 1 + 3 + 1, 'summary, form, three résumé pages, one image page')

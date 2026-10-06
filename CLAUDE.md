@@ -2202,3 +2202,15 @@ Owner-gated `20261110000000_interview_mode.sql`; `INTERVIEW_MODES` (server) and
   Interview Date in Pacific time, Interview Format) and in the applicant packet's Interview line.
 - Next, its own project: an Interviews tab in the Unit Leader Portal (unit leaders run the
   interviews), reusing the internship's booking calendar and rubric book. Mockup first.
+
+## Consent covers interviewing units (UNIT-SHARE-CONSENT-1, 2026-10-05)
+
+Owner: widen the Transition Form's consent so the hiring units that interview an alumnus may see
+their answers (the Unit Leader Portal will list applicants paired with a unit). The one box now
+reads "...with Cedars-Sinai Talent Acquisition and with the hiring units that interview me..." and
+records BOTH `attestation.consent_hr_share` and a new `attestation.consent_unit_share`; both are
+required to submit. A revision without `consent_unit_share` was submitted under the narrower
+wording, so a unit leader must never see its answers (the alumnus can revise until the deadline
+and agree then). A draft saved before the change shows the box unticked. The binder's Review, the
+packet and the CSV show the second consent beside the first. No migration: it lives in the
+revision payload.
