@@ -2008,6 +2008,32 @@ KPI cards:
   Residency tab. Internship still restores its own; a return path from Connect or the Catalog is
   its own navigation and still goes back.
 
+## Talent Acquisition works in Residency (RESIDENCY-TA-1, 2026-10-05)
+
+Owner: "the residency portal account can access - they should be able to log, flag, etc. and
+then we will just have a log of who did what". HR has to want to use this, so it works for them.
+
+- **Every alumnus, not form submitters only.** `narrowPayloadForTalentAcquisition` keeps the
+  whole roster (it adds the pipeline counts); the submitted-only gates in ngrp-workspace `locate`
+  and ngrp-manage's candidate actions are gone. The CSV export follows.
+- **What they do now**: log support and attendance and remove entries THEY logged
+  (`TA_WRITES` in ngrp-support); pull the one shared follow-up flag; see, open, upload and
+  replace documents; read Keith's scores, reports and drafts and run a score. All for alumni
+  (status Completed) only: `api/student-documents.js` proves the grant, checks every student,
+  version and review it touches, and acts as role `talent_acquisition`, which Keith's
+  `authorizeStudentResumeAccess` scopes to alumni (`ALUMNI_SCOPED_ROLES`) and the `review-resume`
+  Skill lists once `20261108000000_residency_ta_access.sql` runs. Their Keith marks show too
+  (`provenanceCards` with `talentAcquisition`, résumé reviews of alumni only).
+- **What stays with the ASPIRE team**: sending (Open in Outreach and Request need ASPIRE Connect,
+  which the portal has not; both hide on `canSendForms`), revoking form links, the mentor
+  assignment, the reflection tool and reading residents' answers.
+- **Settings > Residency Activity** (Owner and Admin, Program group): `ngrp_audit_events`, newest
+  first, with who (name and team), action, alumnus, detail and cohort; filters by person, action
+  group and alumnus; Export CSV of what is shown; one population (demo or real). Rows come from
+  ngrp-manage `activity_log`; words from `src/lib/ngrp/residencyActivityModel.js`. New event types:
+  support_logged, support_voided, followup_flagged, followup_unflagged, document_uploaded,
+  resume_scored; the migration's CHECK and `NGRP_AUDIT_EVENTS` must match (a test compares them).
+
 ## Settings groups, one breadcrumb, the staff menu in portals (NAV-POLISH-1, 2026-10-02)
 
 - **The Settings rail is four groups** (Owner): Personal (General), Administration (Users &

@@ -606,7 +606,7 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                   canManage={canManage}
                   provisioned={transitionProvisioned}
                   initialDocsOpen={Boolean(linkedStudent && openDocs && !drawerRowId)}
-                  followUp={canManage && canSendForms ? { available: payload?.followUpFlagProvisioned === true, onSet: setFollowUp } : null}
+                  followUp={canManage ? { available: payload?.followUpFlagProvisioned === true, onSet: setFollowUp } : null}
                   toast={toast}
                   feedback={shownRow ? {
                     entry: feedback.byStudent[shownRow.student?.id] || null,

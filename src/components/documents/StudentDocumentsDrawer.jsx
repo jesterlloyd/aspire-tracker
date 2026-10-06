@@ -33,6 +33,7 @@ import { detectDocumentDate, readPdfText } from '../../lib/documents/documentDat
 import { writeLaunchContext } from '../../lib/connect/launchContext'
 import { documentRequestHandoff, outreachHandoffPath } from '../../lib/documents/supportHandoffModel'
 import { confirmDialog } from '../shared/confirmDialog'
+import { useNgrpSurface } from '../../lib/ngrp/ngrpSurface'
 
 const firstName = s => s?.preferred_first_name || s?.first_name || displayName(s)
 const extBadge = name => String(name || '').split('.').pop().toUpperCase().slice(0, 4) || 'FILE'
@@ -361,6 +362,8 @@ export default function StudentDocumentsDrawer({ open, student, onClose, toast, 
 // already says whose they are). One body, two hosts; nothing about it is copied.
 export function StudentDocumentsBody({ student, toast, subline = null, cycle = null, only = null, showWho = true }) {
   const resumeOnly = only === 'resume'
+  // RESIDENCY-TA-1: Request opens ASPIRE Connect, which only the staff app has.
+  const { canSendForms } = useNgrpSurface()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const docs = useStudentDocuments(student?.id, { enabled: Boolean(student) })
@@ -425,7 +428,7 @@ export function StudentDocumentsBody({ student, toast, subline = null, cycle = n
       render: r => (
         <span className="sd-rowacts">
           {r.hasFile && <button type="button" className="sd-btn sd-btn-sm" onClick={() => view(r)} aria-label={`View ${r.type.label}`}>View</button>}
-          {!r.hasFile && docs.canWrite && cycle?.id && r.status.key !== 'not_yet' && (
+          {!r.hasFile && docs.canWrite && canSendForms && cycle?.id && r.status.key !== 'not_yet' && (
             <button type="button" className="sd-btn sd-btn-sm" onClick={() => request(r.type)} aria-label={`Request ${r.type.label} from ${firstName(student)}`}>Request</button>
           )}
           {docs.canWrite && (

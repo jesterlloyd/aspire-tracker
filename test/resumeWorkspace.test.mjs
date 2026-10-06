@@ -86,16 +86,18 @@ test('before the documents or review tables exist the column still works; any ot
   assert.deepEqual(await loadResumeStatuses(fakeDb({}), [], NOW), {})
 })
 
-test('the summary sends one résumé status map, never to Talent Acquisition', () => {
+// RESIDENCY-TA-1 (Owner, 2026-10-05) changed this: Talent Acquisition sees scores too.
+test('the summary sends one résumé status map to both audiences', () => {
   const api = readFileSync(new URL('../api/ngrp-support.js', import.meta.url), 'utf8')
-  assert.match(api, /const resumes = isTA \? \{\} : await loadResumeStatuses\(db, studentIds\)/)
+  assert.match(api, /const resumes = await loadResumeStatuses\(db, studentIds\)/)
   assert.doesNotMatch(api, /scores\[r\.student_id\]/, 'the old score-only map is gone')
 })
 
 test('By Alumnus: one Résumé cell that opens the résumé, a name that opens the applicant, a filter', () => {
   const src = readFileSync(new URL('../src/components/ngrp/SupportTab.jsx', import.meta.url), 'utf8')
   assert.match(src, /<StudentDocumentsDrawer only="resume"/)
-  assert.match(src, /navigate\(`\/ngrp\/profiles\?student=\$\{encodeURIComponent/)
+  // RESIDENCY-TA-1: by the surface's base, so the Residency Portal's link stays in the portal.
+  assert.match(src, /navigate\(`\$\{base\}\/profiles\?student=\$\{encodeURIComponent/)
   assert.match(src, /onClick=\{\(\) => setResumeFor\(t\.row\)\}/)
   assert.match(src, /RESUME_FILTERS\.map/)
   assert.doesNotMatch(src, /scoreColumn|support\.scores|aria-label=\{`Upload a résumé for/, 'no separate Score column, no misleading Upload')

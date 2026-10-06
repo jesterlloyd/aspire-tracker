@@ -27,6 +27,7 @@ import {
 import { shortDay } from '../../lib/documents/documentChecklist'
 import { writeLaunchContext } from '../../lib/connect/launchContext'
 import { resumeReviewHandoff, outreachHandoffPath } from '../../lib/documents/supportHandoffModel'
+import { useNgrpSurface } from '../../lib/ngrp/ngrpSurface'
 import './resumeReview.css'
 
 const firstName = s => s?.preferred_first_name || s?.first_name || displayName(s)
@@ -122,7 +123,10 @@ function DraftBox({ review, student, sender, canWrite, toast, onSaved, cycle, ve
 
   // SUPPORT-OUTREACH-1: the draft as it reads here, the résumé attached, tagged to this
   // alumnus. Sending it from Outreach logs Résumé Review with the send date.
-  const canHandoff = canWrite && Boolean(cycle?.id) && Boolean(version)
+  // RESIDENCY-TA-1: Open in Outreach needs ASPIRE Connect, which the Residency Portal has not;
+  // Talent Acquisition reads and copies the draft, and the ASPIRE team sends it.
+  const { canSendForms } = useNgrpSurface()
+  const canHandoff = canWrite && canSendForms && Boolean(cycle?.id) && Boolean(version)
   const openInOutreach = () => {
     const ctx = writeLaunchContext(resumeReviewHandoff({ review, student, cycle, version, includeScore, includeBullets, subject, body }))
     if (!ctx) { toast?.error?.('Could not open Outreach', 'This browser blocked the hand-off. Copy the draft instead.'); return }

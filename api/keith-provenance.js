@@ -11,7 +11,9 @@
 // keith_provenance is deny-all at the RLS layer (no policy, no authenticated grant); this endpoint
 // reads it with the service role.
 
-import { verifyPortalCaller, getServiceDb } from './lib/portalAuth.js'
+import { verifyPortalCaller, getServiceDb, hasActiveRoleGrant } from './lib/portalAuth.js'
+import { TALENT_ACQUISITION } from '../lib/server/ngrpTalentAcquisition.js'
+import { isStaffViewer } from '../src/lib/keith/provenanceModel.js'
 import { can } from '../lib/server/access.js'
 import { provenanceCards, MAX_IDS } from '../lib/server/keith/provenanceCards.js'
 import { shadowAgreement } from '../lib/server/keith/runKeithSkill.js'
@@ -44,7 +46,9 @@ export function createKeithProvenanceHandler({ verifyCaller = verifyPortalCaller
     try {
       if (body.action === 'cards') {
         if (!Array.isArray(body.ids) || body.ids.length > MAX_IDS) return invalid(res, 'ids', `Send up to ${MAX_IDS} ids.`)
-        return res.status(200).json({ records: await provenanceCards(db, caller.profile, body.ids) })
+        // RESIDENCY-TA-1: a Talent Acquisition account sees the marks on alumni's résumé reviews.
+        const talentAcquisition = !isStaffViewer(caller.profile) && await hasActiveRoleGrant(db, caller.profile.id, TALENT_ACQUISITION)
+        return res.status(200).json({ records: await provenanceCards(db, caller.profile, body.ids, { talentAcquisition }) })
       }
       if (body.action === 'agreement') {
         if (!(caller.profile?.is_owner === true || can(caller.profile, 'keith_chat') && String(caller.profile?.role || '').toLowerCase() === 'admin')) {

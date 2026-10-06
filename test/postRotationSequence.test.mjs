@@ -458,7 +458,10 @@ test('the release endpoint reads Support before the gate, as the secondary sourc
   assert.match(src, /if \(!supErr\) supportRows = sup \|\| \[\];/, 'a failed Support read leaves the ledger alone to decide')
   assert.match(src, /aspirePrerequisites\(rawAssignments \|\| \[\], activityRows, REQUIRED_ACTIVITY_KEYS, supportRows\)/)
   const api = read('api/ngrp-support.js')
-  assert.match(api, /const TEAM_ONLY = new Set\(\[\.\.\.WRITES, 'reflection_view', 'entries_for_students'\]\)/)
+  // RESIDENCY-TA-1 (Owner, 2026-10-05): Talent Acquisition now logs support and attendance and
+  // removes its own entries; the mentor, the reflection tool and the answers stay team-only.
+  assert.match(api, /const TEAM_ONLY = new Set\(\[\.\.\.\[\.\.\.WRITES\]\.filter\(a => !TA_WRITES\.has\(a\)\), 'reflection_view', 'entries_for_students'\]\)/)
+  assert.match(api, /const TA_WRITES = new Set\(\['record', 'record_attendance', 'void', 'void_batch'\]\)/)
   assert.match(api, /\.in\('activity', \['resume_review', 'town_hall', 'interview_bootcamp'\]\)\s*\.is\('voided_at', null\)/)
   const loader = read('src/lib/evaluation/reviewQueueLoaders.js')
   assert.match(loader, /postNgrpSupport\('entries_for_students', \{ student_ids: studentIds \}\)/)

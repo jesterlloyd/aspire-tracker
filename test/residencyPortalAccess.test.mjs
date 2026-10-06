@@ -34,15 +34,16 @@ const PAYLOAD = {
   excludedPriorHires: 0,
 }
 
-test('the roster is narrowed to alumni who submitted the form, regardless of eligibility', () => {
+// RESIDENCY-TA-1 (Owner, 2026-10-05) changed this: Talent Acquisition sees and works with EVERY alumnus.
+test('Talent Acquisition sees every alumnus (it was form submitters only)', () => {
   assert.equal(TALENT_ACQUISITION, 'talent_acquisition')
   assert.deepEqual([...SUBMITTED_FORM_STATUSES], ['submitted', 'revised'])
   assert.equal(hasSubmittedForm('revised'), true)
   assert.equal(hasSubmittedForm('opened'), false)
   assert.equal(hasSubmittedForm(undefined), false)
   const view = narrowPayloadForTalentAcquisition(PAYLOAD)
-  assert.deepEqual(view.students.map(s => s.id), ['s-submitted', 's-revised'])
-  assert.deepEqual(view.candidates.map(c => c.id), ['k1', 'k2'])
+  assert.deepEqual(view.students.map(s => s.id), PAYLOAD.students.map(s => s.id))
+  assert.deepEqual(view.candidates.map(c => c.id), PAYLOAD.candidates.map(c => c.id))
   // everything that is not a person passes through unchanged
   assert.equal(view.cycle, PAYLOAD.cycle)
   assert.equal(view.sourceCohorts, PAYLOAD.sourceCohorts)
@@ -77,15 +78,13 @@ test('the one Residency access check admits an active Talent Acquisition grant a
   assert.doesNotMatch(read('api/ngrp-transition-send.js'), /verifyNgrpCaller|talent_acquisition/)
 })
 
-test('endpoints narrow Talent Acquisition: submitted-only roster, 404 for anyone else, no form links', () => {
+// RESIDENCY-TA-1 (Owner, 2026-10-05) changed this: Talent Acquisition sees and works with EVERY alumnus.
+test('endpoints give Talent Acquisition the whole roster, and still no form links', () => {
   const ws = read('api/ngrp-workspace.js')
   assert.match(ws, /caller\.audience === TALENT_ACQUISITION \? narrowPayloadForTalentAcquisition\(payload\) : payload/)
   assert.match(ws, /students: view\.students,\s+candidates: view\.candidates,/)
   const manage = read('api/ngrp-manage.js')
-  const gate = manage.indexOf('if (isTalentAcquisition) {')
-  assert.ok(gate > manage.indexOf("const { candidate, cycle } = ctx"), 'the gate runs before every candidate action')
-  assert.ok(gate < manage.indexOf("if (action === 'candidate_review')"))
-  assert.match(manage, /if \(!hasSubmittedForm\(submittedCheck\.assignment\?\.status\)\) return res\.status\(404\)\.json\(\{ error: 'candidate_not_found' \}\)/)
+  assert.doesNotMatch(manage, /submittedCheck/, 'no submitted-only gate before candidate actions')
   assert.match(manage, /if \(action === 'token_revoke'\) \{\s+\/\/[^\n]*\n\s+if \(isTalentAcquisition\) return res\.status\(403\)/)
 })
 

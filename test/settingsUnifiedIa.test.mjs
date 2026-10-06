@@ -40,11 +40,12 @@ test('the rail is the brief\'s six destinations plus Organization, in order, for
   // PROGRAM-BUDGET A3 (2026-09-27) added Program Budget after Community Benefit (Owner decision: /settings/budget).
   // NAV-POLISH-1 (Owner, 2026-10-02): Keith AI joins Administration; Community Benefit and
   // Budget Tracker are the Program group after it.
-  assert.deepEqual(railKeys(OWNER), ['general', 'accounts', 'organization', 'keith', 'communityBenefit', 'programBudget', 'demoMode', 'preceptorParity'])
+  // RESIDENCY-TA-1 (Owner, 2026-10-05) added Residency Activity after Budget Tracker (Owner and Admin).
+  assert.deepEqual(railKeys(OWNER), ['general', 'accounts', 'organization', 'keith', 'communityBenefit', 'programBudget', 'residencyActivity', 'demoMode', 'preceptorParity'])
   assert.deepEqual(visibleSections(OWNER).map(s => s.label),
     // BUDGET-TRACKER-1 changed this (Owner, 2026-09-30): Program Budget is now labelled Budget Tracker.
     // TOPBAR-PROFILE-1 (2026-10-02): Accounts & Access is Users & Access.
-    ['General', 'Users & Access', 'Organization', 'Keith AI', 'Community Benefit', 'Budget Tracker', 'Demo Mode', 'Preceptor Parity'])
+    ['General', 'Users & Access', 'Organization', 'Keith AI', 'Community Benefit', 'Budget Tracker', 'Residency Activity', 'Demo Mode', 'Preceptor Parity'])
 })
 
 // NAV-POLISH-1 (Owner, 2026-10-02) changed this: four groups.
@@ -69,7 +70,8 @@ test('Profile, Appearance, Tours & Help and About left the rail for General', ()
 
 test('every role keeps the gates it had', () => {
   // PROGRAM-BUDGET A3 (2026-09-27) added Program Budget after Community Benefit (Owner decision: /settings/budget).
-  assert.deepEqual(railKeys(ADMIN), ['general', 'accounts', 'keith', 'communityBenefit', 'programBudget'])
+  // RESIDENCY-TA-1 (Owner, 2026-10-05) added Residency Activity after Budget Tracker (Owner and Admin).
+  assert.deepEqual(railKeys(ADMIN), ['general', 'accounts', 'keith', 'communityBenefit', 'programBudget', 'residencyActivity'])
   assert.deepEqual(railKeys(STAFF), ['general'])
   const s = section
   for (const k of ['accounts', 'communityBenefit', 'programBudget', 'keith', 'keithKnowledge', 'keithSkills', 'keithUsage']) {

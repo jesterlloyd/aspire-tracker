@@ -37,7 +37,7 @@
 // status somebody had to set by hand.
 import { getServiceDb } from './lib/portalAuth.js'
 import { verifyNgrpCaller } from './lib/ngrpAuth.js'
-import { TALENT_ACQUISITION, hasSubmittedForm } from '../lib/server/ngrpTalentAcquisition.js'
+import { TALENT_ACQUISITION } from '../lib/server/ngrpTalentAcquisition.js'
 import {
   validateCyclePayload, validateSourceCohortIds, validateCycleUnits,
   openReadiness, validateStatusTransition, FORM_ACTIVE_STATUSES,
@@ -47,6 +47,8 @@ import {
 import { poolDecision, NOT_PROCEEDING } from '../lib/server/ngrpPool.js'
 import { isMissingNgrpTable, isMissingNgrpSchema, isMissingNgrpColumn, loadApplicantsPayload } from '../lib/server/ngrpApplicants.js'
 import { enrollStudents } from '../lib/server/ngrpSupportLog.js'
+import { loadResidencyActivity } from '../lib/server/residencyActivity.js'
+import { populationOf } from '../lib/server/demoScope.js'
 import {
   liveAssignmentForCandidate, revokeTokensById, recalculateEligibility,
 } from '../lib/server/ngrpTransition.js'
@@ -73,6 +75,8 @@ const ACTIONS = new Set([
   'resident_details_set',
   // RESIDENCY-FLAG-1
   'followup_flag_set',
+  // RESIDENCY-TA-1
+  'activity_log',
 ])
 const ELIGIBILITY_VOCAB = ['pending', 'eligible', 'conditionally_eligible', 'not_eligible']
 const OVERRIDE_CATEGORIES = ['documentation_verified', 'requirement_waived', 'data_correction', 'other']
@@ -352,13 +356,23 @@ export default async function handler(req, res) {
       }
     }
 
+    // ── RESIDENCY-TA-1: Settings > Residency Activity, who did what. Owner and Admin only. ──
+    if (action === 'activity_log') {
+      const isAdmin = caller.profile.is_owner === true || String(caller.profile.role || '').toLowerCase() === 'admin'
+      if (isTalentAcquisition || !isAdmin) return res.status(403).json({ error: 'owner_or_admin_only' })
+      const before = typeof body.before === 'string' && !Number.isNaN(Date.parse(body.before)) ? body.before : null
+      const a = await loadResidencyActivity(db, { limit: body.limit, before, demo: populationOf(req) })
+      if (a.error) return isMissingNgrpTable(a.error) ? unprovisioned(res) : internal(res)
+      return res.status(200).json({ ok: true, rows: a.rows, nextBefore: a.nextBefore, more: a.more })
+    }
+
     // ── RESIDENCY-FLAG-1: the follow-up flag on an alumnus's residency record ──
     // By STUDENT and cycle, because an alumnus with no Transition Form has no candidate row
     // yet: one on this cycle's roster (the server's roster, never the request's) is enrolled
     // first, exactly as Support's logging does. The ASPIRE team only. Before migration
     // 20261107000000 the column is absent and this answers 409 not_enabled.
     if (action === 'followup_flag_set') {
-      if (isTalentAcquisition) return res.status(403).json({ error: 'aspire_team_only' })
+      // RESIDENCY-TA-1: Talent Acquisition flags too (one shared flag), and the log says who.
       const cycleId = typeof body.cycle_id === 'string' && UUID.test(body.cycle_id) ? body.cycle_id : null
       const studentId = typeof body.student_id === 'string' && UUID.test(body.student_id) ? body.student_id : null
       if (!cycleId || !studentId || typeof body.flagged !== 'boolean') return res.status(422).json({ error: 'invalid_request' })
@@ -372,6 +386,10 @@ export default async function handler(req, res) {
       const cand = e.byStudent.get(studentId)
       const upd = await db.from('ngrp_candidates').update({ flagged_for_followup: body.flagged }).eq('id', cand.id)
       if (upd.error) return isMissingNgrpColumn(upd.error) ? res.status(409).json({ error: 'not_enabled' }) : internal(res)
+      await recordNgrpAudit(db, {
+        eventType: body.flagged ? 'followup_flagged' : 'followup_unflagged',
+        cycleId, candidateId: cand.id, studentId, actorProfileId: actorId,
+      })
       return res.status(200).json({ ok: true, flagged: body.flagged, candidate_id: cand.id })
     }
 
@@ -405,11 +423,8 @@ export default async function handler(req, res) {
     // RESIDENCY-PORTAL-2: Talent Acquisition works only with alumni who submitted
     // the Transition Form (Owner). Anyone else answers exactly like a missing
     // candidate, so this endpoint never confirms who else is in the cohort.
-    if (isTalentAcquisition) {
-      const submittedCheck = await liveAssignmentForCandidate(db, candidateId)
-      if (submittedCheck.error) return isMissingNgrpTable(submittedCheck.error) ? unprovisioned(res) : internal(res)
-      if (!hasSubmittedForm(submittedCheck.assignment?.status)) return res.status(404).json({ error: 'candidate_not_found' })
-    }
+    // RESIDENCY-TA-1 (Owner, 2026-10-05): Talent Acquisition works with every alumnus now; it
+    // was form submitters only. Sending and revoking links stay the ASPIRE team's below.
 
     if (action === 'candidate_review') {
       const live = await liveAssignmentForCandidate(db, candidateId)

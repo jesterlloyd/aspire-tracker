@@ -37,6 +37,7 @@ import { loadApplicantsPayload, isMissingNgrpTable, isMissingNgrpColumn } from '
 import { TALENT_ACQUISITION, narrowPayloadForTalentAcquisition } from '../lib/server/ngrpTalentAcquisition.js'
 import { validateSupportEntry, validateAttendance, validateMentor, validateVoid, validateUndo } from '../lib/server/ngrpSupport.js'
 import { enrollStudents, writeGroupEntries } from '../lib/server/ngrpSupportLog.js'
+import { recordNgrpAudit } from '../lib/server/ngrpAudit.js'
 import { loadResumeStatuses } from '../lib/server/resumeStatus.js'
 import { generateToken } from '../lib/server/evaluation/tokens.js'
 import { emailBaseUrl } from '../lib/server/appUrl.js'
@@ -62,8 +63,20 @@ const ACTIONS = new Set(['summary', 'residents', 'record', 'record_attendance', 
 const WRITES = new Set(['record', 'record_attendance', 'void', 'void_batch', 'set_mentor', 'reflection_start', 'reflection_stop'])
 // Reading a resident's answers is the ASPIRE team's until the Owner decides
 // how sharing works; it is a read, so it needs no manage capability.
-const TEAM_ONLY = new Set([...WRITES, 'reflection_view', 'entries_for_students'])
+// RESIDENCY-TA-1 (Owner, 2026-10-05): Talent Acquisition logs support and attendance, and
+// removes entries it logged. The mentor assignment and the reflection tool stay the ASPIRE
+// team's, as does reading a resident's answers.
+const TA_WRITES = new Set(['record', 'record_attendance', 'void', 'void_batch'])
+const TEAM_ONLY = new Set([...[...WRITES].filter(a => !TA_WRITES.has(a)), 'reflection_view', 'entries_for_students'])
 const ENTRIES = 'ngrp_support_entries'
+// RESIDENCY-TA-1: who did what, one row per alumnus touched, for Settings > Residency Activity.
+async function auditEntries(db, eventType, entryIds, actorId) {
+  if (!entryIds?.length) return
+  const r = await db.from('ngrp_support_entries').select('id, cycle_id, candidate_id, student_id, activity').in('id', entryIds)
+  for (const e of r.data || []) {
+    await recordNgrpAudit(db, { eventType, cycleId: e.cycle_id, candidateId: e.candidate_id, studentId: e.student_id, actorProfileId: actorId, metadata: { activity: e.activity } })
+  }
+}
 const MENTORS = 'ngrp_resident_mentors'
 const FROM = 'ASPIRE at Cedars-Sinai <noreply@aspire-program.com>'
 const ENTRY_FIELDS = 'id, cycle_id, candidate_id, student_id, activity, occurred_on, note, mentor_name, event_id, recorded_at'
@@ -189,11 +202,12 @@ export default async function handler(req, res) {
       // RESUME-WORKSPACE-1: each alumnus's résumé status for By Alumnus (the current résumé's
       // state, and its Keith score once scored). The ASPIRE team only: Talent Acquisition never
       // sees a score. null when a read failed, so the column shows a dash.
-      const resumes = isTA ? {} : await loadResumeStatuses(db, studentIds)
+      // RESIDENCY-TA-1: Talent Acquisition sees the résumé status and score too.
+      const resumes = await loadResumeStatuses(db, studentIds)
 
       return res.status(200).json({
         provisioned: true,
-        canRecord: !isTA,
+        canRecord: true,
         today,
         entries,
         mentors,
@@ -351,6 +365,7 @@ export default async function handler(req, res) {
         if (isMissingNgrpColumn(ins.error)) return res.status(200).json({ provisioned: false, error: 'session_details_unavailable' })
         return isMissingNgrpTable(ins.error) ? unprovisioned(res) : internal(res)
       }
+      await auditEntries(db, 'support_logged', [ins.data?.id].filter(Boolean), actorId)
       return res.status(200).json({ ok: true, entry: ins.data })
     }
 
@@ -386,6 +401,7 @@ export default async function handler(req, res) {
         if (isMissingNgrpTable(w.error)) return unprovisioned(res)
         return res.status(500).json({ error: 'internal_error', created: w.created || 0, entryIds: w.entryIds || [] })
       }
+      await auditEntries(db, 'support_logged', w.entryIds, actorId)
       return res.status(200).json({ ok: true, created: w.created, alreadyRecorded: w.alreadyRecorded, entryIds: w.entryIds, enrolled })
     }
 
@@ -398,6 +414,7 @@ export default async function handler(req, res) {
         .in('id', v.entryIds).eq('recorded_by_profile_id', actorId).is('voided_at', null)
         .select('id')
       if (upd.error) return isMissingNgrpTable(upd.error) ? unprovisioned(res) : internal(res)
+      await auditEntries(db, 'support_voided', (upd.data || []).map(x => x.id), actorId)
       return res.status(200).json({ ok: true, voided: (upd.data || []).length })
     }
 
@@ -405,12 +422,15 @@ export default async function handler(req, res) {
     if (action === 'void') {
       const v = validateVoid(body)
       if (!v.ok) return invalid(res, v.errors)
-      const upd = await db.from(ENTRIES)
+      // Talent Acquisition removes only what it logged; the ASPIRE team any entry.
+      let q = db.from(ENTRIES)
         .update({ voided_at: new Date().toISOString(), voided_by_profile_id: actorId, void_reason: v.reason })
         .eq('id', v.entryId).is('voided_at', null)
-        .select('id').maybeSingle()
+      if (isTA) q = q.eq('recorded_by_profile_id', actorId)
+      const upd = await q.select('id').maybeSingle()
       if (upd.error) return isMissingNgrpTable(upd.error) ? unprovisioned(res) : internal(res)
       if (!upd.data) return res.status(404).json({ error: 'entry_not_found' })
+      await auditEntries(db, 'support_voided', [upd.data.id], actorId)
       return res.status(200).json({ ok: true })
     }
 

@@ -211,7 +211,8 @@ test('the notification link switches to the applicant\'s residency cohort first'
   const ws = read('api/ngrp-workspace.js')
   const locate = ws.slice(ws.indexOf("if (action === 'locate')"), ws.indexOf("// action === 'applicants' | 'export'"))
   assert.match(locate, /select\('id, cycle_id'\)/)
-  assert.match(locate, /if \(caller\.audience === TALENT_ACQUISITION\) \{[\s\S]*hasSubmittedForm\(live\.assignment\?\.status\)[\s\S]*404/)
+  // RESIDENCY-TA-1 (Owner, 2026-10-05): Talent Acquisition sees every alumnus, so the link finds anyone.
+  assert.doesNotMatch(locate, /hasSubmittedForm/)
   const tab = read('src/components/ngrp/ProfilesTab.jsx')
   assert.match(tab, /locateNgrpCandidate\(linkedCandidate\)\.then/)
   assert.match(tab, /if \(res\.ok && res\.cycle_id !== cycle\?\.id\) onSelectCycle\(res\.cycle_id\)/)

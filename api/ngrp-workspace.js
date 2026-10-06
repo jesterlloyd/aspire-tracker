@@ -26,8 +26,7 @@
 import { getServiceDb } from './lib/portalAuth.js'
 import { verifyNgrpCaller } from './lib/ngrpAuth.js'
 import { fetchCycles, fetchSourceCohortsForCycles, loadApplicantsPayload, isMissingNgrpTable } from '../lib/server/ngrpApplicants.js'
-import { liveAssignmentForCandidate } from '../lib/server/ngrpTransition.js'
-import { TALENT_ACQUISITION, hasSubmittedForm, narrowPayloadForTalentAcquisition } from '../lib/server/ngrpTalentAcquisition.js'
+import { TALENT_ACQUISITION, narrowPayloadForTalentAcquisition } from '../lib/server/ngrpTalentAcquisition.js'
 import { buildResidencyCsv, fetchLatestRevisions } from '../lib/server/ngrpResidencyExport.js'
 import { serviceDbForRequest } from '../lib/server/demoScope.js'
 
@@ -77,11 +76,7 @@ export default async function handler(req, res) {
     const cand = await db.from('ngrp_candidates').select('id, cycle_id').eq('id', candidateId).maybeSingle()
     if (cand.error) return isMissingNgrpTable(cand.error) ? res.status(200).json({ provisioned: false }) : res.status(500).json({ error: 'internal_error' })
     if (!cand.data) return res.status(404).json({ error: 'candidate_not_found' })
-    if (caller.audience === TALENT_ACQUISITION) {
-      const live = await liveAssignmentForCandidate(db, candidateId)
-      if (live.error) return res.status(500).json({ error: 'internal_error' })
-      if (!hasSubmittedForm(live.assignment?.status)) return res.status(404).json({ error: 'candidate_not_found' })
-    }
+    // RESIDENCY-TA-1: Talent Acquisition sees every alumnus now, so a link finds anyone.
     return res.status(200).json({ provisioned: true, cycle_id: cand.data.cycle_id })
   }
 
@@ -125,6 +120,7 @@ export default async function handler(req, res) {
     // disable themselves honestly instead of failing mid-flight.
     transitionProvisioned: payload.transitionProvisioned !== false,
     // RESIDENCY-FLAG-1: the ASPIRE team's follow-up flag; Talent Acquisition never gets it.
-    followUpFlagProvisioned: view === payload ? payload.followUpFlagProvisioned === true : false,
+    // RESIDENCY-FLAG-1 + RESIDENCY-TA-1: one shared flag, the ASPIRE team's and Talent Acquisition's.
+    followUpFlagProvisioned: payload.followUpFlagProvisioned === true,
   })
 }

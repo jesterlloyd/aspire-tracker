@@ -52,6 +52,9 @@ export const SETTINGS_SECTIONS = [
   { key: 'keith',      label: 'Keith AI',           path: '/settings/keith',      group: 'Administration', implemented: true, visible: r => r.isAdmin },
   { key: 'communityBenefit', label: 'Community Benefit', path: '/settings/community-benefit', group: 'Program', implemented: true, fullScreen: true, visible: r => r.isAdmin }, // NURSING-ACADEMICS-1: report + reporting inputs; Admin sees read-only, WRITES are Owner-only server-side
   { key: 'programBudget', label: 'Budget Tracker', path: '/settings/budget', group: 'Program', implemented: true, fullScreen: true, visible: r => r.isAdmin }, // PROGRAM-BUDGET (2026-09-27): Owner edits, Admin reads; api/budget-staff.js is the authority
+  // RESIDENCY-TA-1 (Owner, 2026-10-05): who did what in Residency, now that Talent Acquisition
+  // works there too. Owner and Admin; api/ngrp-manage.js `activity_log` is the authority.
+  { key: 'residencyActivity', label: 'Residency Activity', path: '/settings/residency-activity', group: 'Program', implemented: true, visible: r => r.isAdmin },
   // DEMO-MODE-1: Owner only, and grouped with Diagnostics because it is the other
   // switch that changes what every screen reports rather than changing the program
   // itself. Per user, per device; nothing here is a workspace setting.

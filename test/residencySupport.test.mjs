@@ -150,7 +150,10 @@ test('the endpoint: Talent Acquisition reads the narrowed roster and never write
   // RESIDENCY-REFLECTION-1 widened the team-only set to include reading a
   // resident's reflection; every write is still in it.
   // REVIEW-RELEASE-2: Review & Release's read of the three activities is the team's too.
-  assert.match(api, /const TEAM_ONLY = new Set\(\[\.\.\.WRITES, 'reflection_view', 'entries_for_students'\]\)/)
+  // RESIDENCY-TA-1 (Owner, 2026-10-05): Talent Acquisition now logs support and attendance and
+  // removes its own entries; the mentor, the reflection tool and the answers stay team-only.
+  assert.match(api, /const TEAM_ONLY = new Set\(\[\.\.\.\[\.\.\.WRITES\]\.filter\(a => !TA_WRITES\.has\(a\)\), 'reflection_view', 'entries_for_students'\]\)/)
+  assert.match(api, /const TA_WRITES = new Set\(\['record', 'record_attendance', 'void', 'void_batch'\]\)/)
   assert.match(api, /if \(TEAM_ONLY\.has\(action\) && isTA\) return res\.status\(403\)\.json\(\{ error: 'aspire_team_only' \}\)/)
   assert.match(api, /const view = isTA \? narrowPayloadForTalentAcquisition\(payload\) : payload/)
   assert.match(api, /\.is\('voided_at', null\)/)

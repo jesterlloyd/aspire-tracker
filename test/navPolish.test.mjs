@@ -14,14 +14,15 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const read = (p) => readFileSync(join(root, p), 'utf8')
 
 test('the rail is Personal, Administration, Program, Diagnostics, and an Admin sees what they saw before', () => {
+  // RESIDENCY-TA-1 (Owner, 2026-10-05) added Residency Activity after Budget Tracker (Owner and Admin).
   assert.deepEqual(SETTINGS_GROUPS, ['Personal', 'Administration', 'Program', 'Diagnostics'])
   const owner = visibleSections({ isOwner: true, isAdmin: true })
   assert.deepEqual(owner.map(s => `${s.group}:${s.key}`), [
     'Personal:general', 'Administration:accounts', 'Administration:organization', 'Administration:keith',
-    'Program:communityBenefit', 'Program:programBudget', 'Diagnostics:demoMode', 'Diagnostics:preceptorParity',
+    'Program:communityBenefit', 'Program:programBudget', 'Program:residencyActivity', 'Diagnostics:demoMode', 'Diagnostics:preceptorParity',
   ])
   assert.deepEqual(visibleSections({ isOwner: false, isAdmin: true }).map(s => s.key).sort(),
-    ['accounts', 'communityBenefit', 'general', 'keith', 'programBudget'])
+    ['accounts', 'communityBenefit', 'general', 'keith', 'programBudget', 'residencyActivity'])
   assert.deepEqual(visibleSections({ isOwner: false, isAdmin: false }).map(s => s.key), ['general'])
 })
 

@@ -303,7 +303,10 @@ test('Support > At the Start of Residency: Start sends period 1 after a confirm;
   assert.match(tab, /<th className="aspire-th">Reflections<\/th>/)
   assert.doesNotMatch(tab, /Send Check-in|RESIDENT_CHECKIN|WEEKLY_CHECKIN|Last Check-in|writeLaunchContext/)
   const api = read('api/ngrp-support.js')
-  assert.match(api, /const TEAM_ONLY = new Set\(\[\.\.\.WRITES, 'reflection_view', 'entries_for_students'\]\)/)
+  // RESIDENCY-TA-1 (Owner, 2026-10-05): Talent Acquisition now logs support and attendance and
+  // removes its own entries; the mentor, the reflection tool and the answers stay team-only.
+  assert.match(api, /const TEAM_ONLY = new Set\(\[\.\.\.\[\.\.\.WRITES\]\.filter\(a => !TA_WRITES\.has\(a\)\), 'reflection_view', 'entries_for_students'\]\)/)
+  assert.match(api, /const TA_WRITES = new Set\(\['record', 'record_attendance', 'void', 'void_batch'\]\)/)
   assert.match(api, /if \(TEAM_ONLY\.has\(action\) && isTA\) return res\.status\(403\)/)
   assert.match(api, /if \(!isHired\(outcome\.data\)\) return res\.status\(422\)\.json\(\{ error: 'not_a_resident' \}\)/)
   assert.match(api, /if \(periods\[0\]\?\.sent_at\) return res\.status\(409\)\.json\(\{ error: 'already_started' \}\)/, 'a failed first send is retried, a sent one is not duplicated')

@@ -315,8 +315,9 @@ function BeforePanel({ cycle, rows, support, toast }) {
   const [logging, setLogging] = useState(false)
   // STUDENT-DOCUMENTS-1: an alumnus's résumé opens here, in Residency, so the staff app's
   // cohort never changes to reach someone from a past cohort.
-  const { staffApp } = useNgrpSurface()
-  const canDocs = staffApp && support.canRecord
+  // RESIDENCY-TA-1: Talent Acquisition opens résumés here too (support.canRecord is true for both).
+  const { base } = useNgrpSurface()
+  const canDocs = support.canRecord
   const [resumeFor, setResumeFor] = useState(null)
   const [filter, setFilter] = useState('all')
   const view = useMemo(() => beforeResidency(rows, support.entries), [rows, support.entries])
@@ -362,10 +363,10 @@ function BeforePanel({ cycle, rows, support, toast }) {
     { key: 'name', label: 'Alumnus', min: 170, grow: 2.2, priority: 1,
       sortValue: t => displayName(t.row.student),
       // The name opens the applicant in Profiles & Interest (?student=, as Needs you links it).
-      render: t => (staffApp
-        ? <button type="button" className="ngrp-linkbtn sl-namebtn" onClick={() => navigate(`/ngrp/profiles?student=${encodeURIComponent(t.row.student?.id || t.row.id)}`)}
-            aria-label={`Open ${displayName(t.row.student)} in Profiles & Interest`}><Name row={t.row} /></button>
-        : <Name row={t.row} />) },
+      render: t => (
+        <button type="button" className="ngrp-linkbtn sl-namebtn" onClick={() => navigate(`${base}/profiles?student=${encodeURIComponent(t.row.student?.id || t.row.id)}`)}
+          aria-label={`Open ${displayName(t.row.student)} in Profiles & Interest`}><Name row={t.row} /></button>
+      ) },
     { key: 'form', label: 'Form', min: 92, grow: 0.8, priority: 2,
       sortValue: t => ['Submitted', 'Pending', 'Not sent'].indexOf(t.form.label), render: t => <Pill tone={t.form.tone}>{t.form.label}</Pill> },
     ...view.activities

@@ -20,6 +20,7 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useAuth } from '../../contexts/AuthContext'
+import { useNgrpSurface } from '../../lib/ngrp/ngrpSurface'
 import { accessibleName, cardView, isStaffViewer, markFor, BADGES } from '../../lib/keith/provenanceModel'
 import { useKeithProvenance } from './keithProvenanceStore'
 import './keithMark.css'
@@ -59,7 +60,7 @@ export function KeithGlyph({ state, size = 'sm' }) {
  * The mark for a record the caller already holds. Exported for the render tests; features use
  * <KeithMark provenanceId>. Still refuses a non-staff viewer and a state with no mark.
  */
-export function KeithMarkView({ record, size = 'sm', viewer }) {
+export function KeithMarkView({ record, size = 'sm', viewer, portalViewer = false }) {
   const [open, setOpen] = useState(false)
   const [pos, setPos] = useState(null)
   const btn = useRef(null)
@@ -103,7 +104,7 @@ export function KeithMarkView({ record, size = 'sm', viewer }) {
     }
   }, [open, hide, place])
 
-  if (!isStaffViewer(viewer) || !state || !view) return null
+  if (!(isStaffViewer(viewer) || portalViewer) || !state || !view) return null
 
   const leave = (e) => {
     if (pinned.current) return
@@ -159,8 +160,12 @@ export function KeithMarkView({ record, size = 'sm', viewer }) {
 /** The Keith mark for one provenance record. `size` is 'sm' (inline) or 'lg'. */
 export default function KeithMark({ provenanceId, size = 'sm' }) {
   const { userProfile } = useAuth() || {}
-  const staff = isStaffViewer(userProfile)
-  const record = useKeithProvenance(staff ? provenanceId : null)
-  if (!staff || !provenanceId || !record) return null
-  return <KeithMarkView record={record} size={size} viewer={userProfile} />
+  // RESIDENCY-TA-1: inside the Residency Portal (Talent Acquisition) the mark may show too; the
+  // server returns a record only for an alumnus's résumé review, so nothing else can appear.
+  const { staffApp } = useNgrpSurface()
+  const portalViewer = staffApp === false
+  const allowed = isStaffViewer(userProfile) || portalViewer
+  const record = useKeithProvenance(allowed ? provenanceId : null)
+  if (!allowed || !provenanceId || !record) return null
+  return <KeithMarkView record={record} size={size} viewer={userProfile} portalViewer={portalViewer} />
 }

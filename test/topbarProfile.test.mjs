@@ -58,7 +58,8 @@ test('every role reaches Profile; the rail carries the rename (and NAV-POLISH-1\
     assert.ok(childSections('general', flags).some(r => r.key === 'profile'))
   }
   assert.deepEqual(visibleSections({ isOwner: true, isAdmin: true }).map(s => s.label),
-    ['General', 'Users & Access', 'Organization', 'Keith AI', 'Community Benefit', 'Budget Tracker', 'Demo Mode', 'Preceptor Parity'])
+    // RESIDENCY-TA-1 (Owner, 2026-10-05) added Residency Activity after Budget Tracker.
+    ['General', 'Users & Access', 'Organization', 'Keith AI', 'Community Benefit', 'Budget Tracker', 'Residency Activity', 'Demo Mode', 'Preceptor Parity'])
 })
 
 test('old paths land where things live now', () => {

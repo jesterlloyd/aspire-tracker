@@ -249,18 +249,25 @@ test('the chart\'s Replace keeps the record file first, once, and then points at
   assert.deepEqual([c.ok, c.kept], [true, false], 'a record naming a file storage no longer has holds nothing to keep')
 })
 
-test('the endpoint: staff readers, Owner/Admin writers, never Talent Acquisition', () => {
+// RESIDENCY-TA-1 (Owner, 2026-10-05) changed this: Talent Acquisition reads and writes too, for
+// alumni only, every record it touches checked against the student's status.
+test('the endpoint: staff readers, Owner/Admin writers, and Talent Acquisition for alumni only', () => {
   const src = readFileSync(join(root, 'api/student-documents.js'), 'utf8')
   assert.match(src, /const READ_ROLES = new Set\(\['owner', 'admin', 'co-lead'\]\)/)
   assert.match(src, /const WRITE_ROLES = new Set\(\['owner', 'admin'\]\)/)
+  assert.match(src, /ta = await hasActiveRoleGrant\(supabaseAdmin, caller\.profile\.id, TALENT_ACQUISITION\)/)
+  assert.match(src, /if \(ta && s\.student\.status !== 'Completed'\) return res\.status\(404\)/)
+  assert.match(src, /if \(!\(await alumnus\(g\.review\.student_id\)\)\) return res\.status\(404\)/)
+  assert.match(src, /if \(!\(await alumnus\(d\.data\?\.student_id\)\)\) return res\.status\(404\)/)
   assert.doesNotMatch(src, /\.delete\(/, 'nothing here deletes a version row')
   const panel = readFileSync(join(root, 'src/components/StudentSidePanel.jsx'), 'utf8')
   const keep = panel.indexOf('await keepRecordResume(student.id)')
   const upload = panel.indexOf("signAndUploadStaffFile({ studentId: student.id, kind: 'resume', file })")
   assert.ok(keep > -1 && keep < upload, 'the chart keeps the record résumé before it uploads')
   const drawer = readFileSync(join(root, 'src/components/ngrp/ApplicantDrawer.jsx'), 'utf8')
-  // APPLICANT-CHART-1 (this commit): the documents are a sheet of the Applicant chart; the
-  // Residency Portal's binder has no Documents sheet and the section renders nothing there.
-  assert.match(drawer, /APPLICANT_SHEETS\.filter\(x => staffApp \|\| x\.id !== 'documents'\)/, 'the Residency Portal has no Documents sheet')
-  assert.match(drawer, /function DocumentsSection\(\{ row, toast, cycle \}\) \{\n  const \{ staffApp \} = useNgrpSurface\(\)\n  if \(!staffApp\) return null/, 'the Residency Portal never shows documents')
+  // RESIDENCY-TA-1: the Documents sheet is in both binders now; only Request (ASPIRE Connect)
+  // stays with the staff app.
+  assert.match(drawer, /const sheets = APPLICANT_SHEETS/)
+  const body = readFileSync(join(root, 'src/components/documents/StudentDocumentsDrawer.jsx'), 'utf8')
+  assert.match(body, /!r\.hasFile && docs\.canWrite && canSendForms && cycle\?\.id/)
 })

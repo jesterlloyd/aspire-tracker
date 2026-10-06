@@ -23,7 +23,9 @@
 // 20261104000000 every action answers { provisioned: false }, and the chart's Replace
 // goes ahead exactly as it did before.
 import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js'
-import { verifyPortalCaller } from './lib/portalAuth.js'
+import { verifyPortalCaller, hasActiveRoleGrant } from './lib/portalAuth.js'
+import { TALENT_ACQUISITION } from '../lib/server/ngrpTalentAcquisition.js'
+import { recordNgrpAudit } from '../lib/server/ngrpAudit.js'
 import { normalizeStaffRole } from '../src/lib/permissions.js'
 import { isUuid } from '../lib/server/studentFiles.js'
 import {
@@ -44,7 +46,7 @@ const unprovisioned = res => res.status(200).json({ provisioned: false })
 const internal = res => res.status(500).json({ error: 'internal_error' })
 
 async function loadStudent(db, id) {
-  const { data, error } = await db.from('students').select('id, cohort_id, resume_url, first_name, preferred_first_name, aspire_cohort').eq('id', id).maybeSingle()
+  const { data, error } = await db.from('students').select('id, cohort_id, resume_url, first_name, preferred_first_name, aspire_cohort, status').eq('id', id).maybeSingle()
   if (error) return { error }
   return { student: data || null }
 }
@@ -61,8 +63,24 @@ export default async function handler(req, res) {
   if (!caller.authenticated) return res.status(caller.status || 401).json({ error: caller.reason || 'unauthenticated' })
   if (caller.profile?.is_active === false) return res.status(403).json({ error: 'inactive_staff' })
   const role = normalizeStaffRole(String(caller.profile.role || '').toLowerCase())
-  if (!READ_ROLES.has(role)) return res.status(403).json({ error: 'forbidden' })
-  if (WRITES.has(action) && !WRITE_ROLES.has(role)) return res.status(403).json({ error: 'forbidden' })
+  // RESIDENCY-TA-1 (Owner, 2026-10-05): a Residency Portal (Talent Acquisition) account reads,
+  // uploads and scores too, for ALUMNI only (students at Completed: the residency roster). Its
+  // skill role is 'talent_acquisition', which Keith's résumé skills list once 20261108000000 runs.
+  let ta = false
+  if (!READ_ROLES.has(role)) {
+    ta = await hasActiveRoleGrant(supabaseAdmin, caller.profile.id, TALENT_ACQUISITION)
+    if (!ta) return res.status(403).json({ error: 'forbidden' })
+  }
+  const canWrite = ta || WRITE_ROLES.has(role)
+  if (WRITES.has(action) && !canWrite) return res.status(403).json({ error: 'forbidden' })
+  const actor = ta ? { ...caller.profile, role: 'talent_acquisition', is_owner: false } : caller.profile
+  // Every record a TA call touches must belong to an alumnus. Not found reads as not found.
+  const alumnus = async (studentId) => {
+    if (!ta) return true
+    if (!isUuid(studentId)) return false
+    const st = await supabaseAdmin.from('students').select('status').eq('id', studentId).maybeSingle()
+    return !st.error && st.data?.status === 'Completed'
+  }
 
   const db = supabaseAdmin
   const storage = supabaseAdmin.storage
@@ -79,6 +97,11 @@ export default async function handler(req, res) {
 
     if (action === 'open') {
       if (!isUuid(body.version_id)) return res.status(422).json({ error: 'invalid_version_id' })
+      if (ta) {
+        const v = await db.from('student_document_versions').select('document_id').eq('id', body.version_id).maybeSingle()
+        const d = v.data ? await db.from('student_documents').select('student_id').eq('id', v.data.document_id).maybeSingle() : { data: null }
+        if (!(await alumnus(d.data?.student_id))) return res.status(404).json({ error: 'not_found' })
+      }
       const o = await openVersion(db, storage, { versionId: body.version_id })
       if (o.error) return isMissingTable(o.error) ? unprovisioned(res) : internal(res)
       if (o.notFound) return res.status(404).json({ error: 'not_found' })
@@ -91,12 +114,13 @@ export default async function handler(req, res) {
       const g = await getReview(db, body.review_id)
       if (g.error) return isMissingTable(g.error) ? unprovisioned(res) : internal(res)
       if (!g.review) return res.status(404).json({ error: 'not_found' })
+      if (!(await alumnus(g.review.student_id))) return res.status(404).json({ error: 'not_found' })
       if (action === 'review_get') return res.status(200).json({ ok: true, review: g.review })
       if (action === 'review_save') {
-        const sv = await saveDraft(db, { review: g.review, subject: body.subject, body: body.body, includeScore: body.include_score, includeBullets: body.include_bullets, actor: caller.profile })
+        const sv = await saveDraft(db, { review: g.review, subject: body.subject, body: body.body, includeScore: body.include_score, includeBullets: body.include_bullets, actor })
         return sv.ok ? res.status(200).json({ ok: true }) : res.status(sv.status).json({ error: sv.error })
       }
-      const rv = await reviseDraft(db, { review: g.review, style: body.style, actor: caller.profile })
+      const rv = await reviseDraft(db, { review: g.review, style: body.style, actor })
       return rv.ok ? res.status(200).json({ ok: true, draft: rv.draft }) : res.status(rv.status).json({ error: rv.error })
     }
 
@@ -104,6 +128,7 @@ export default async function handler(req, res) {
     const s = await loadStudent(db, body.student_id)
     if (s.error) return internal(res)
     if (!s.student) return res.status(404).json({ error: 'not_found' })
+    if (ta && s.student.status !== 'Completed') return res.status(404).json({ error: 'not_found' })
     const student = s.student
 
     if (action === 'list') {
@@ -113,14 +138,14 @@ export default async function handler(req, res) {
       const r = await listReviews(db, student.id)
       const reviewsProvisioned = !r.error
       if (r.error && !isMissingTable(r.error)) return internal(res)
-      const scoring = WRITE_ROLES.has(role) && reviewsProvisioned ? await scoringAvailability(db, caller.profile) : { available: false }
+      const scoring = canWrite && reviewsProvisioned ? await scoringAvailability(db, actor) : { available: false }
       // The draft is signed by the person reading it: their Connect signature name and
       // credentials, else their account name.
       const me = await db.from('user_profiles').select('full_name, connect_signature').eq('id', caller.profile.id).maybeSingle()
       const cs = me.data?.connect_signature && typeof me.data.connect_signature === 'object' ? me.data.connect_signature : {}
       const sender = { name: String(cs.display_name || me.data?.full_name || '').trim(), credentials: String(cs.credentials || '').trim() }
       return res.status(200).json({
-        provisioned: true, canWrite: WRITE_ROLES.has(role),
+        provisioned: true, canWrite,
         types: l.types, documents: l.documents, resumeOnRecord: l.resumeOnRecord,
         reviews: r.reviews || [], reviewsProvisioned, canScore: scoring.available === true, scoringBlocked: scoring.reason || null, sender,
       })
@@ -140,11 +165,13 @@ export default async function handler(req, res) {
         if (a.notFound) return res.status(404).json({ error: 'no_resume' })
         versionId = a.versionId
       }
-      const sc = await scoreResumeVersion(db, storage, { student, versionId, actor: caller.profile, nowIso })
+      const sc = await scoreResumeVersion(db, storage, { student, versionId, actor, nowIso })
       if (!sc.ok) {
         if (sc.cause && isMissingTable(sc.cause)) return unprovisioned(res)
         return res.status(sc.status || 500).json({ error: sc.error, review: sc.review || null })
       }
+      // RESIDENCY-TA-1: who did what, for Settings > Residency Activity.
+      await recordNgrpAudit(db, { eventType: 'resume_scored', studentId: student.id, actorProfileId: actorId, metadata: { status: sc.review?.readiness || null } })
       return res.status(200).json({ ok: true, review: sc.review })
     }
 
@@ -175,6 +202,7 @@ export default async function handler(req, res) {
       if (f.cause && isMissingTable(f.cause)) return unprovisioned(res)
       return res.status(f.status || 500).json({ error: f.error })
     }
+    await recordNgrpAudit(db, { eventType: 'document_uploaded', studentId: student.id, actorProfileId: actorId, metadata: { doc_type: type.key } })
     return res.status(200).json({ ok: true, version: f.version, warning: f.warning || null })
   } catch {
     return internal(res)

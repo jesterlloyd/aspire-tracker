@@ -6,7 +6,7 @@
 // link - are explicit, audited server-side, and every consequential one has
 // its own confirm step. Confirmation is the ONLY path to "Confirmed";
 // nothing here (or anywhere) confirms automatically.
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import DetailDrawer from '../ui/DetailDrawer'
 import StudentAvatar from '../StudentAvatar'
 import NgrpStatusPill from './NgrpStatusPill'
@@ -19,7 +19,6 @@ import {
 import { displayName } from '../../lib/utils'
 import { shiftBadge } from '../../lib/shiftStatus'
 import { RESIDENT_SHIFTS } from '../../lib/ngrp/ngrpReflectionForm'
-import { useNgrpSurface } from '../../lib/ngrp/ngrpSurface'
 import { StudentDocumentsBody } from '../documents/StudentDocumentsDrawer'
 import FlagRibbon from '../rubric/FlagRibbon'
 // APPLICANT-CHART-1: the applicant is the Student Profiles binder with the application's
@@ -809,9 +808,9 @@ function PreceptorFeedbackSection({ row, feedback, actions }) {
 // Documents sheet: the same body the Documents drawer shows. The staff app only: Talent
 // Acquisition never sees a student's files (the sheet is not in its binder, and the endpoint
 // refuses them too).
+// RESIDENCY-TA-1 (Owner, 2026-10-05): Talent Acquisition sees and uploads them too, for
+// alumni (the endpoint scopes it); only the Connect-backed Request stays with the staff app.
 function DocumentsSection({ row, toast, cycle }) {
-  const { staffApp } = useNgrpSurface()
-  if (!staffApp) return null
   return <StudentDocumentsBody student={row.student} toast={toast} cycle={cycle} showWho={false} />
 }
 
@@ -884,10 +883,8 @@ function ApplicantDrawerBody({
     else setReviewState('error')
   }
 
-  // APPLICANT-CHART-1: the binder's sheets. The Residency Portal (Talent Acquisition) has
-  // no Documents sheet: it never sees a student's files.
-  const { staffApp } = useNgrpSurface()
-  const sheets = useMemo(() => APPLICANT_SHEETS.filter(x => staffApp || x.id !== 'documents'), [staffApp])
+  // APPLICANT-CHART-1: the binder's sheets, the same seven in both apps since RESIDENCY-TA-1.
+  const sheets = APPLICANT_SHEETS
   const titleOf = id => sheets.find(x => x.id === id)?.title || ''
   const tintOf = id => sheets.find(x => x.id === id)?.tint
   const {
@@ -910,8 +907,8 @@ function ApplicantDrawerBody({
 
   // A link that asks for the documents (?docs=1, Needs you) opens the binder at that sheet.
   useEffect(() => {
-    if (initialDocsOpen && staffApp) goToChartSheet('documents')
-  }, [initialDocsOpen, staffApp, goToChartSheet])
+    if (initialDocsOpen) goToChartSheet('documents')
+  }, [initialDocsOpen, goToChartSheet])
 
   const guarded = async (fn) => { setBusy(true); try { await fn() } finally { setBusy(false); setConfirming(null) } }
 

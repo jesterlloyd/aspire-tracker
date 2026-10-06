@@ -129,11 +129,12 @@ test('latest revisions: only the current revision of each submitted form, in one
   assert.deepEqual(await fetchLatestRevisions(db, []), { byAssignment: new Map() })
 })
 
-test('Talent Acquisition exports only the narrowed roster; the endpoint builds after narrowing', () => {
+// RESIDENCY-TA-1 (Owner, 2026-10-05) changed this: Talent Acquisition sees and works with EVERY alumnus.
+test('Talent Acquisition exports the roster it sees; the endpoint builds from that view', () => {
   const view = narrowPayloadForTalentAcquisition({ students: STUDENTS, candidates: CANDIDATES })
   const { csv } = buildResidencyCsv({ cycle: CYCLE, students: view.students, candidates: view.candidates })
-  assert.equal(csv.trim().split('\n').length, 2, 'header plus the one submitter')
-  assert.ok(!csv.includes('Zed'))
+  const all = buildResidencyCsv({ cycle: CYCLE, students: STUDENTS, candidates: CANDIDATES }).csv
+  assert.equal(csv, all, 'the same rows the ASPIRE team exports')
   const ws = read('api/ngrp-workspace.js')
   const narrowAt = ws.indexOf('narrowPayloadForTalentAcquisition(payload)')
   const exportAt = ws.indexOf("if (action === 'export')")

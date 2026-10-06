@@ -26,7 +26,7 @@ import { useEffect, useCallback, Fragment } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   Settings, Users, HandCoins, Sparkles, Presentation, Scale, BadgeInfo, Monitor, UserRound, Info, Building2,
-  FileText, BarChart3, ChevronRight, Wallet,
+  FileText, BarChart3, ChevronRight, Wallet, History,
 } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import {
@@ -42,6 +42,7 @@ import KnowledgeCenterPanel from './KnowledgeCenterPanel'
 import KeithSkillsPanel from './KeithSkillsPanel'
 import KeithUsagePanel from './KeithUsagePanel'
 import PreceptorParityPanel from './PreceptorParityPanel'
+import ResidencyActivityPanel from './ResidencyActivityPanel'
 import DemoModePanel from './DemoModePanel'
 import CommunityBenefitPanel from './CommunityBenefitPanel'
 import ProgramBudgetPanel from './ProgramBudgetPanel'
@@ -59,7 +60,7 @@ import './settingsShell.css'
 // old rail, the rows' from the old General and Keith lists.
 const SECTION_ICONS = {
   general: Settings, accounts: Users, organization: Building2, communityBenefit: HandCoins, programBudget: Wallet, keith: KeithIcon,
-  demoMode: Presentation, preceptorParity: Scale,
+  demoMode: Presentation, preceptorParity: Scale, residencyActivity: History,
   about: BadgeInfo, appearance: Monitor, profile: UserRound, tours: Info,
   keithKnowledge: FileText, keithSkills: Sparkles, keithUsage: BarChart3,
 }
@@ -241,6 +242,7 @@ export default function SettingsShell({ backPath = '/aggregate', backLabel = 'At
           {currentKey === 'keithSkills'    && <KeithSkillsPanel />}
           {currentKey === 'keithUsage'     && <KeithUsagePanel />}
           {currentKey === 'preceptorParity' && <PreceptorParityPanel />}
+          {currentKey === 'residencyActivity' && <ResidencyActivityPanel />}
           {currentKey === 'demoMode' && <DemoModePanel />}
         </div>
       </div>
