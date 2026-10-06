@@ -1948,9 +1948,9 @@ the real chart's are).
   Support, Interview, Hiring, Activity. Each borrows a Student Profiles tint by name (`data-tint`),
   so no colour is new; the tab rules sit BEFORE Modern's, which must still make every tab plain.
 - **Every section the drawer had is on a sheet, unchanged in what it shows or saves**; `Section`
-  is now the chart's `sp-section sp-card` (part of the page, not a box). There is NO Contact
-  section: the Residency payload strips emails to `has_email` (`sanitizeStudent`), so one would
-  only ever read "—" (shipped that way in 10b8da81, removed the same day). Documents is `StudentDocumentsBody`, the
+  is now the chart's `sp-section sp-card` (part of the page, not a box). The roster
+  payload still strips emails to `has_email` (`sanitizeStudent`); contact details reach the
+  chart only through its own `profile` read (RESIDENCY-APPLICANT-PROFILE-1, below). Documents is `StudentDocumentsBody`, the
   Documents drawer's own body, inline. Support lists that alumnus's live entries from the same
   query Residency > Support counts. The Residency Portal has no Documents sheet.
 - **Inks are theme tokens now** (`--text-caption`, `--text-heading`, `--aspire-ok/warn/bad`): the
@@ -2076,3 +2076,24 @@ client), so the portal never downloads the staff home's loaders. Document rows n
   switch read through `getComputedStyle` can report the old ink. Inject
   `*{transition:none!important}` before a contrast sweep. Locally, portal previews and the
   forms API cannot run (Vite serves `api/` files as text); check those on the live site.
+
+## The applicant's Profile sheet is the student's (RESIDENCY-APPLICANT-PROFILE-1, 2026-10-05)
+
+Owner: put the applicant's information on the Profile sheet "similar to what is in Student
+Profiles > Profile tab", reusing what exists. `src/components/ngrp/ApplicantProfileSheet.jsx`
+draws Contact Information and Personal Information with StudentSidePanel's own markup and
+classes (`sp-section-hdr`, `sp-field`, `sp-copyrow`, `sp-input`, the "Saved" badge) and saves
+through the same writers (`updateContact`, `updateProfile` to `/api/student-update`, whose role
+gates still decide). Residency Interest and Eligibility, Override included, moved unchanged to
+the top of the Application sheet.
+
+- **The roster still carries no emails.** One alumnus's details come from `/api/ngrp-workspace`
+  `profile { cycle_id, student_id }`, which checks the alumnus is on that cohort's roster
+  (Completed, from a source cohort) and shapes the answer in `lib/server/ngrpApplicantProfile.js`.
+- **The ASPIRE team** sees contact and personal details; contact edits follow `student_manage`,
+  name, date of birth, gender and GPA follow admin level, exactly as in Student Profiles.
+- **Talent Acquisition** sees names always, and contact details only once the alumnus has
+  submitted the Transition Form (the consent to share with Talent Acquisition); never date of
+  birth, gender or GPA, never an edit. The sheet says why when contact is not shared yet.
+- **No SSN** on this read for anyone; the residency has no use for it.
+

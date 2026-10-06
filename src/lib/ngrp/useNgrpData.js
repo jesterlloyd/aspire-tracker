@@ -241,3 +241,14 @@ export function useNgrpSupport(cycleId, { enabled = true } = {}) {
     refetch: query.refetch,
   }
 }
+
+// RESIDENCY-APPLICANT-PROFILE-1: one alumnus's contact and personal details for the applicant
+// chart's Profile sheet. { ok, student, contactShared, personal, editable } or { ok: false }.
+export async function fetchApplicantProfile(cycleId, studentId) {
+  try {
+    const body = await authedPost('/api/ngrp-workspace', 'profile', { cycle_id: cycleId, student_id: studentId })
+    return body?.provisioned === false || !body?.student ? { ok: false } : { ok: true, ...body }
+  } catch (err) {
+    return { ok: false, status: err.status || 0 }
+  }
+}

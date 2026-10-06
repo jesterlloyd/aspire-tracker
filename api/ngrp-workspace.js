@@ -17,6 +17,10 @@
 //                                   roster as a CSV, built here (RESIDENCY-PORTAL-3)
 //   locate { candidate_id }    -> { provisioned, cycle_id }: the residency
 //                                   cohort an applicant belongs to
+//   profile { cycle_id, student_id } -> { provisioned, student, contactShared,
+//                                   personal, editable }: one alumnus's contact and
+//                                   personal details for the chart's Profile sheet
+//                                   (RESIDENCY-APPLICANT-PROFILE-1)
 //
 // The roster contract (multi-cohort resolution, Completed-only, identity from
 // students, prior-hire exclusion, email stripping) lives in
@@ -29,9 +33,10 @@ import { fetchCycles, fetchSourceCohortsForCycles, loadApplicantsPayload, isMiss
 import { TALENT_ACQUISITION, narrowPayloadForTalentAcquisition } from '../lib/server/ngrpTalentAcquisition.js'
 import { buildResidencyCsv, fetchLatestRevisions } from '../lib/server/ngrpResidencyExport.js'
 import { serviceDbForRequest } from '../lib/server/demoScope.js'
+import { loadApplicantProfile } from '../lib/server/ngrpApplicantProfile.js'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const ACTIONS = new Set(['cycles', 'applicants', 'export', 'locate'])
+const ACTIONS = new Set(['cycles', 'applicants', 'export', 'locate', 'profile'])
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store')
@@ -80,9 +85,25 @@ export default async function handler(req, res) {
     return res.status(200).json({ provisioned: true, cycle_id: cand.data.cycle_id })
   }
 
-  // action === 'applicants' | 'export'
+  // action === 'applicants' | 'export' | 'profile'
   const cycleId = typeof body.cycle_id === 'string' ? body.cycle_id : null
   if (!cycleId || !UUID.test(cycleId)) return res.status(422).json({ error: 'invalid_cycle_id' })
+
+  // RESIDENCY-APPLICANT-PROFILE-1: the one place a residency read carries an alumnus's emails,
+  // phone and personal details, and only for an alumnus on this cohort's roster. What each
+  // audience gets is decided in lib/server/ngrpApplicantProfile.js.
+  if (action === 'profile') {
+    const studentId = typeof body.student_id === 'string' && UUID.test(body.student_id) ? body.student_id : null
+    if (!studentId) return res.status(422).json({ error: 'invalid_student_id' })
+    const result = await loadApplicantProfile(db, { cycleId, studentId, audience: caller.audience, profile: caller.profile })
+    if (result.state === 'unprovisioned') return res.status(200).json({ provisioned: false })
+    if (result.state === 'not_found') return res.status(404).json({ error: 'student_not_found' })
+    if (result.state !== 'ok') return res.status(500).json({ error: 'internal_error' })
+    return res.status(200).json({
+      provisioned: true, student: result.student, contactShared: result.contactShared,
+      personal: result.personal, editable: result.editable,
+    })
+  }
 
   const payload = await loadApplicantsPayload(db, cycleId)
   if (payload.state === 'unprovisioned') return res.status(200).json({ provisioned: false })

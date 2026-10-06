@@ -21,6 +21,7 @@ import { shiftBadge } from '../../lib/shiftStatus'
 import { RESIDENT_SHIFTS } from '../../lib/ngrp/ngrpReflectionForm'
 import { StudentDocumentsBody } from '../documents/StudentDocumentsDrawer'
 import FlagRibbon from '../rubric/FlagRibbon'
+import ApplicantProfileSheet from './ApplicantProfileSheet'
 // APPLICANT-CHART-1: the applicant is the Student Profiles binder with the application's
 // sheets: the same rings, plate, tabs, tints and scroll behaviour, read from the same files.
 import '../student/studentChart.css'
@@ -1002,6 +1003,13 @@ function ApplicantDrawerBody({
               <div className="sc-scroller" ref={chartScrollerRef}>
               <section className="sc-sheet" id={sheetDomId('applicant')} data-sheet="applicant" data-tint={tintOf('applicant')} aria-label={titleOf('applicant')}>
                 <h2 className="sc-sheet-title">{titleOf('applicant')}</h2>
+                {/* RESIDENCY-APPLICANT-PROFILE-1 (Owner, 2026-10-05): the alumnus's Contact and
+                    Personal Information, as on Student Profiles' Profile sheet. Interest and
+                    Eligibility moved to the Application sheet, unchanged. */}
+                <ApplicantProfileSheet cycleId={cycle?.id} studentId={s.id} toast={toast} />
+              </section>
+              <section className="sc-sheet" id={sheetDomId('application')} data-sheet="application" data-tint={tintOf('application')} aria-label={titleOf('application')}>
+                <h2 className="sc-sheet-title">{titleOf('application')}</h2>
                 <Section title="Residency Interest">
                   <Row label="Interest"><NgrpStatusPill config={INTEREST_STATES} value={row.interest} /></Row>
                   {row.interest === 'no_response' && (
@@ -1062,9 +1070,6 @@ function ApplicantDrawerBody({
                     official application.
                   </p>
                 </Section>
-              </section>
-              <section className="sc-sheet" id={sheetDomId('application')} data-sheet="application" data-tint={tintOf('application')} aria-label={titleOf('application')}>
-                <h2 className="sc-sheet-title">{titleOf('application')}</h2>
                 <Section
                   title="Transition Form"
                   right={canManage && hasForm && provisioned && actions.revokeLink ? (
