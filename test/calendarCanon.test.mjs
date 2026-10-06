@@ -105,7 +105,9 @@ test('calendar bookings use the approved pastel palette', () => {
     assert.match(legend, new RegExp(color), `missing pastel ${color}`)
   }
   assert.match(foundation, /color \? tint\(color, 0\.18\)/, 'typed events use a pastel tint')
-  assert.match(foundation, /color: color \|\| \(live \? '#24694F' : '#283665'\)/, 'event text uses its darker accent')
+  // NGRP-INTERVIEWS-1 Phase 3: an optional `ink` lets a planner caller keep text on --paper-ink;
+  // without it, event text still uses its darker accent.
+  assert.match(foundation, /color: ink \|\| color \|\| \(live \? '#24694F' : '#283665'\)/, 'event text uses its darker accent')
   assert.match(foundation, /live \? '#E7F7EF' : '#E8EDFF'/, 'activity chips use pastel state fills')
 })
 

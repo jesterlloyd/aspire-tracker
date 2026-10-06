@@ -31,7 +31,7 @@ test('the unit selector renders only on Home, Students, and Preceptors', () => {
 
 test('the nav still exposes Placement Requests and Capacity as destinations', () => {
   // Removing the switcher must not remove the tabs themselves.
-  assert.match(chrome, /const DESKTOP_KEYS = \['home', 'preceptors', 'messages', 'evaluations', 'placements', 'capacity'\]/)
+  assert.match(chrome, /const DESKTOP_KEYS = \['home', 'capacity', 'evaluations', 'interviews', 'messages', 'placements', 'preceptors'\]/)
   assert.match(portalCode, /view === 'placements'\s+&& <PlacementScreen/)
   assert.match(portalCode, /view === 'capacity'\s+&& <CapacityScreen/)
 })

@@ -58,8 +58,9 @@ test('every workflow still has a nav entry after the Phase 1 restructure', () =>
   // 8de00b0a (Standardize navigation icons and labels): the words come from
   // src/lib/navigationCanon.js. "Evaluations" became the app-wide "Evaluation" there.
   for (const [key, label] of [
-    ['home', 'Home'], ['preceptors', 'Preceptors'], ['messages', 'Messages'], ['evaluation', 'Evaluation'],
-    ['placementRequests', 'Placement Requests'], ['capacity', 'Capacity'],
+    // UNIT-NAV-ALPHA-1 (Owner, 2026-10-06): the landing tab reads At a Glance; Interviews is new.
+    ['atAGlance', 'At a Glance'], ['preceptors', 'Preceptors'], ['messages', 'Messages'], ['evaluation', 'Evaluation'],
+    ['placementRequests', 'Placement Requests'], ['capacity', 'Capacity'], ['interviews', 'Interviews'],
   ]) {
     assert.ok(chrome.includes(`label: NAV_LABELS.${key},`), `nav must include ${label}`)
     assert.ok(canon.includes(`${key}: '${label}',`), `${key} reads ${label}`)

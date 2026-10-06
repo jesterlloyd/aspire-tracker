@@ -13,7 +13,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { MoreHorizontal } from 'lucide-react'
 import { formatUnread, unreadLabel } from '../../lib/messages/messagesConstants'
-import { NAV_ICONS, NAV_LABELS } from '../../lib/navigationCanon'
+import { NAV_ICONS, NAV_LABELS, alphabetizeNav } from '../../lib/navigationCanon'
 import { ALL_UNITS } from './unitLeaderApi'
 import SegmentedTabs from '../../components/ui/SegmentedTabs'
 import { PortalNavRefresh } from '../PortalRefresh'
@@ -23,16 +23,21 @@ const srOnly = {
   overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap', border: 0,
 }
 
-// Section order is the product's, not alphabetical. Not exported: it is consumed
-// only by UnitLeaderNav below, and exporting a non-component breaks fast refresh.
-const SECTIONS = [
-  { key: 'home',          label: NAV_LABELS.home,              Icon: NAV_ICONS.home },
+// UNIT-NAV-ALPHA-1 (Owner, 2026-10-06: "the unit leader tabs are now so many, maybe alphabetize
+// them and change home to At a Glance"): the landing section first, named At a Glance (its key and
+// route stay 'home', so links keep working), then every other section alphabetically by the label
+// the reader sees, through the same alphabetizeNav the NE&L portal uses. Not exported: consumed only
+// by UnitLeaderNav below, and exporting a non-component breaks fast refresh.
+const LANDING = { key: 'home', label: NAV_LABELS.atAGlance, Icon: NAV_ICONS.atAGlance }
+const SECTIONS = [LANDING, ...alphabetizeNav([
   { key: 'preceptors',    label: NAV_LABELS.preceptors,        Icon: NAV_ICONS.preceptors },
   { key: 'messages',      label: NAV_LABELS.messages,           Icon: NAV_ICONS.messages },
   { key: 'evaluations',   label: NAV_LABELS.evaluation,         Icon: NAV_ICONS.evaluation },
   { key: 'placements',    label: NAV_LABELS.placementRequests,  Icon: NAV_ICONS.placementRequests },
   { key: 'capacity',      label: NAV_LABELS.capacity,           Icon: NAV_ICONS.capacity },
-]
+  // NGRP-INTERVIEWS-1: residency interviews for the applicants paired with the unit.
+  { key: 'interviews',    label: NAV_LABELS.interviews,         Icon: NAV_ICONS.interviews },
+])]
 
 /**
  * Section navigation. Real route changes are handled by the caller, so back,
@@ -45,9 +50,11 @@ const SECTIONS = [
  */
 // Desktop/tablet uses the complete work-oriented navigation. At the existing phone
 // breakpoint, CSS hides the three less-frequent destinations and reveals More.
-const DESKTOP_KEYS = ['home', 'preceptors', 'messages', 'evaluations', 'placements', 'capacity']
+// UNIT-NAV-ALPHA-1: explicit, in SECTIONS' order (At a Glance, then alphabetical by label); a test
+// holds these equal to SECTIONS so the two can never drift.
+const DESKTOP_KEYS = ['home', 'capacity', 'evaluations', 'interviews', 'messages', 'placements', 'preceptors']
 const MOBILE_PRIMARY_KEYS = ['home', 'preceptors', 'messages']
-const MOBILE_MORE_KEYS = ['evaluations', 'placements', 'capacity']
+const MOBILE_MORE_KEYS = ['capacity', 'evaluations', 'interviews', 'placements']
 
 // WELCOME-TOUR-PORTALS-1: NavItem is used ONLY by the main bar below (UnitLeaderNav);
 // the More bottom sheet (MoreSheet) renders its own buttons directly, so the

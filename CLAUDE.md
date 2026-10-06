@@ -2254,3 +2254,23 @@ calendar, then the results table, each row opening the rubric book.
   because the binder's dark sheets redefine the internship card's fixed ink. The Interview Board chip
   and the roster CSV (Rubrics Completed, Panel Composite, Panel Recommendation) read the panel too.
 
+- **Phase 3: the Unit Leader Portal's Interviews tab** (`src/portal/unit/UnitInterviewsWorkspace.jsx`,
+  server `lib/server/ngrpUnitInterviews.js` behind `api/portal/unit-interviews.js`). Listed: only the
+  applicants Talent Acquisition paired with the leader's units, plus a no-names count of those who
+  ranked the unit first. A booked slot shows a name only when that applicant is paired with the
+  unit. The rubric book (`NgrpRubricBook.jsx`) is the internship's `rubricBook.css` markup holding
+  the NGRP sheet; an interviewer reads and writes ONLY their own row (upsert on candidate +
+  interviewer), and the applicant page shows Transition Form answers only under
+  `consent_unit_share`. Completing stamps `completed_at`, audits, and moves the candidate's
+  `interview_status` to completed on the first completion. Opening times cuts a span into slots in
+  Pacific time (DST-correct); removing a span with a booking, or blocking a booked slot, is a 409.
+  An Owner/Admin preview reads and never writes (403 `preview_read_only`). No new SQL.
+- **Calendar chips keep paper ink here.** `CanonicalActivityChip` takes an optional `ink`; this tab
+  passes `var(--paper-ink)` so the type colour is the wash and the rule (planner rule 3), and the
+  day panel's Block, Reopen and Remove are the planner's own `.pl-ghost`. The "Interviews Today"
+  heading pins its ink on `.ptl-unit-page .mast-live-head`, because the portal page is cream in both
+  themes while `--chart-ink` follows the staff theme (1.03:1 in dark, 4.05:1 subtitle in light).
+  Swept light and dark: zero failures but the shared `.ptl-muted` (4.29) and `.ir-wl-th` (4.37).
+- **Unit Leader nav (UNIT-NAV-ALPHA-1, Owner, 2026-10-06)**: Home reads At a Glance and stays first;
+  every other tab is alphabetical through `alphabetizeNav` (Capacity, Evaluation, Interviews,
+  Messages, Placement Requests, Preceptors). Phase 4 (booking by link) is provisional.

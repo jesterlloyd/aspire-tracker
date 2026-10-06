@@ -10,9 +10,12 @@
 // ASPIRE keeps final authority for placements, capacity review, and preceptor
 // confirmation. Every Unit Leader action is presented as recorded, never as decided.
 //
-// Excluded by construction, not by filtering: interview rubrics, readiness survey
-// answers, certificates, uploaded onboarding documents, internal staff notes, and
+// Excluded by construction, not by filtering: INTERNSHIP interview rubrics, readiness
+// survey answers, certificates, uploaded onboarding documents, internal staff notes, and
 // private support narratives are never requested by any call in this file.
+// NGRP-INTERVIEWS-1 (Owner, 2026-10-05) adds ONE rubric surface, deliberately: the Interviews
+// tab, where a unit leader writes and reads only their OWN residency (NGRP) rubric for applicants
+// paired with their unit (api/portal/unit-interviews.js).
 
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
@@ -61,6 +64,8 @@ const UnitLeaderPreceptorManager = lazyReload(() => import('./unit/UnitLeaderPre
 // UL-EVAL: the Evaluations workspace is lazy-loaded like the other heavy screens, so its
 // chunk (and the shared reporting components) download only when a Unit Leader opens the tab.
 const UnitEvaluationsWorkspace = lazyReload(() => import('./unit/UnitEvaluationsWorkspace'), 'UnitEvaluationsWorkspace')
+// NGRP-INTERVIEWS-1 Phase 3: residency interviews for the applicants paired with the unit.
+const UnitInterviewsWorkspace = lazyReload(() => import('./unit/UnitInterviewsWorkspace'), 'UnitInterviewsWorkspace')
 
 // A stable empty array so StudentRoster can call the photo hook with no work when a parent
 // already supplies resolved photos (one batch for the whole Home instead of two).
@@ -248,6 +253,11 @@ export default function UnitLeaderPortal({ view = 'home', onNavigate, threadId, 
         {view === 'evaluations' && (
           <Suspense fallback={<LoadingState label="Loading evaluations" />}>
             <UnitEvaluationsWorkspace unitKeys={unitKeys} />
+          </Suspense>
+        )}
+        {view === 'interviews' && (
+          <Suspense fallback={<LoadingState label="Loading interviews" />}>
+            <UnitInterviewsWorkspace unitKey={unitKey} />
           </Suspense>
         )}
         {view === 'preceptors' && <PreceptorScreen unitKey={unitKey} unitKeys={unitKeys} refreshRoster={roster.refresh} />}

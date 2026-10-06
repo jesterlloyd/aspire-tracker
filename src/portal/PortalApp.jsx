@@ -111,6 +111,8 @@ function threadIdFromPath(pathname) {
 const UNIT_SECTIONS = new Set([
   'home', 'messages', 'evaluations', 'placements', 'capacity', 'students',
   'preceptors', 'profile', 'concern',
+  // NGRP-INTERVIEWS-1
+  'interviews',
 ])
 // Report a Concern is no longer a section. It was always a Messages conversation with
 // destination 'aspire', so the retained route hands off to Messages with the concern

@@ -173,7 +173,7 @@ test('the roster returns shift and rotation window, both approved fields', () =>
 
 // ── 6. More corrected ───────────────────────────────────────────────────────
 test('mobile More contains exactly Evaluations, Placement Requests, and Capacity', () => {
-  assert.match(chromeCode, /const MOBILE_MORE_KEYS = \['evaluations', 'placements', 'capacity'\]/)
+  assert.match(chromeCode, /const MOBILE_MORE_KEYS = \['capacity', 'evaluations', 'interviews', 'placements'\]/)
   const m = /const MOBILE_MORE_KEYS = \[([^\]]*)\]/.exec(chromeCode)
   assert.ok(!m[1].includes('notifications'), 'Notification Preferences is not in More')
   assert.ok(!m[1].includes('profile'), 'Profile is not in More')

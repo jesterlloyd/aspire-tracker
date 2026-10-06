@@ -367,7 +367,7 @@ export function CanonicalHolidayChip({ name, observed = false }) {
  * already draws an ASPIRE event: the colour comes from the event's TYPE. Passing none
  * keeps the exact navy-on-wash chip every current caller renders.
  */
-export function CanonicalActivityChip({ label, live = false, secondary = null, ordinal = null, ariaLabel = null, color = null }) {
+export function CanonicalActivityChip({ label, live = false, secondary = null, ordinal = null, ariaLabel = null, color = null, ink = null }) {
   const tint = (hex, a) => {
     const h = String(hex).replace('#', '')
     const n = parseInt(h.length === 3 ? h.split('').map(c => c + c).join('') : h, 16)
@@ -376,7 +376,8 @@ export function CanonicalActivityChip({ label, live = false, secondary = null, o
   const base = {
     display: 'inline-flex', alignItems: 'center', gap: 3, maxWidth: '100%',
     background: color ? tint(color, 0.18) : (live ? '#E7F7EF' : '#E8EDFF'),
-    color: color || (live ? '#24694F' : '#283665'),
+    // `ink` lets a planner caller keep the text on --paper-ink (colour is a shape, never the ink).
+    color: ink || color || (live ? '#24694F' : '#283665'),
     borderLeft: color ? `3px solid ${color}` : undefined,
     boxShadow: live ? 'inset 0 0 0 1px #B9E8CF' : 'none',
     fontSize: 9, fontWeight: 700, letterSpacing: '0.02em',

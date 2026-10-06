@@ -186,7 +186,7 @@ test('the Student Portal avatar menu keeps its own profile route, now labeled My
 
 // ── More ────────────────────────────────────────────────────────────────────
 test('mobile More holds exactly Evaluations, Placement Requests, and Capacity', () => {
-  assert.match(chromeCode, /const MOBILE_MORE_KEYS = \['evaluations', 'placements', 'capacity'\]/)
+  assert.match(chromeCode, /const MOBILE_MORE_KEYS = \['capacity', 'evaluations', 'interviews', 'placements'\]/)
   const m = /const MOBILE_MORE_KEYS = \[([^\]]*)\]/.exec(chromeCode)
   assert.ok(!m[1].includes('profile'), 'Profile must not appear in More')
   assert.ok(!m[1].includes('notifications'), 'Notification Preferences must not appear in More')

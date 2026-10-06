@@ -111,9 +111,10 @@ test('P0-6: unread polling runs for the unit-leader branch', () => {
 
 test('P0-7: six desktop destinations and four mobile slots with accessible More', async (t) => {
   await t.test('desktop and mobile sets are explicit and ordered', () => {
-    assert.match(chrome, /DESKTOP_KEYS = \['home', 'preceptors', 'messages', 'evaluations', 'placements', 'capacity'\]/)
+    // UNIT-NAV-ALPHA-1 (Owner, 2026-10-06): At a Glance first, the rest alphabetical, Interviews added.
+    assert.match(chrome, /DESKTOP_KEYS = \['home', 'capacity', 'evaluations', 'interviews', 'messages', 'placements', 'preceptors'\]/)
     assert.match(chrome, /MOBILE_PRIMARY_KEYS = \['home', 'preceptors', 'messages'\]/)
-    assert.match(chrome, /MOBILE_MORE_KEYS = \['evaluations', 'placements', 'capacity'\]/)
+    assert.match(chrome, /MOBILE_MORE_KEYS = \['capacity', 'evaluations', 'interviews', 'placements'\]/)
     assert.match(css, /\.ptl-nav-mobile-more \{ display: none; \}/)
     assert.match(css, /@media \(max-width: 760px\)[\s\S]*?\.ptl-nav-mobile-more \{ display: inline-flex; \}/)
   })

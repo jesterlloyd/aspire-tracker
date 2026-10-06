@@ -40,7 +40,7 @@ const evalsCode    = stripJs(evals)
 
 // ── Locked navigation ──────────────────────────────────────────────────────
 test('desktop navigation promotes Preceptors and preserves the locked order', () => {
-  assert.match(chromeCode, /const DESKTOP_KEYS = \['home', 'preceptors', 'messages', 'evaluations', 'placements', 'capacity'\]/)
+  assert.match(chromeCode, /const DESKTOP_KEYS = \['home', 'capacity', 'evaluations', 'interviews', 'messages', 'placements', 'preceptors'\]/)
 })
 
 test('Students is absent from navigation but remains a supported deep link', () => {
@@ -51,7 +51,7 @@ test('Students is absent from navigation but remains a supported deep link', () 
 
 test('mobile More holds Evaluations, Placement Requests, and Capacity', () => {
   assert.match(chromeCode,
-    /const MOBILE_MORE_KEYS = \['evaluations', 'placements', 'capacity'\]/)
+    /const MOBILE_MORE_KEYS = \['capacity', 'evaluations', 'interviews', 'placements'\]/)
 })
 
 test('responsive membership is CSS-driven at the existing mobile breakpoint', () => {

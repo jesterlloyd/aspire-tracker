@@ -2695,3 +2695,8 @@ img.ptl-detail-photo {
   .ptl-na-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .ptl-na-table-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+/* NGRP-INTERVIEWS-1 Phase 3: the tile heading sits on the portal's fixed cream page, but reads the
+   staff app's --chart-ink / --chart-ink-soft, which are tuned for the staff surface (the subtitle
+   measured 4.05:1 here in light, and dark lifts the title to near-white, 1.03:1). The ink travels
+   with the fixed surface, so the portal pins it in both themes. The tiles below keep the theme. */
+.ptl-unit-page .mast-live-head { --chart-ink: #0E1428; --chart-ink-soft: #4b5563; }
