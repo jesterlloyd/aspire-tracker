@@ -21,13 +21,14 @@ const gate = read('docs/security/OWNER_SQL_GATE.md')
 
 test('Residency reads Interview Board | Residents | Activity', () => {
   assert.deepEqual(ngrpSubTabs('residency').map(s => [s.id, s.label]), [
-    ['board', 'Interview Board'], ['residents', 'Residents'], ['activity', 'Activity'],
+    ['board', 'Interview Board'], ['residents', 'Residents'], ['activity', 'Calendar'],
   ])
 })
 
 test('one component serves both surfaces: the portal mounts the same workspace', () => {
   assert.match(workspace, /import ResidentsTab from '\.\/ResidentsTab'/)
-  assert.match(workspace, /tab === 'residency' && subTab === 'residents' && \(\s*<ResidentsTab cycle=\{cycle\} canManage=\{canManage\} toast=\{toast\} \/>/)
+  // RESIDENTS-ONE-RECORD-1: the tab only reads now, so it takes the cohort alone.
+  assert.match(workspace, /tab === 'residency' && subTab === 'residents' && \(\s*<ResidentsTab cycle=\{cycle\} \/>/)
   // PORTAL-SPLIT Phase 2: still the SAME workspace, now reached through the one
   // loader both the staff app and this portal use, so they share a chunk rather
   // than each holding a copy.
@@ -96,8 +97,14 @@ test('per cohort by default, Aggregate on demand', () => {
   for (const h of ['Resident', 'Unit', 'Shift', 'Hire Date', 'Position/Title', 'Preceptor', 'Email/Phone', 'Affiliation']) {
     assert.ok(tab.includes(`<th className="aspire-th">${h}</th>`), `column ${h}`)
   }
-  // Edit follows the workspace's manage capability.
-  assert.match(tab, /\{canManage && <th className="aspire-th aspire-th-right">/)
+  // RESIDENTS-ONE-RECORD-1 (Owner, 2026-10-05): no Edit here any more. A name opens the
+  // resident's binder at the Hiring sheet, where ResidentDetailsSection (the same editor,
+  // still gated on the workspace's manage capability) keeps their details.
+  assert.doesNotMatch(tab, /canManage|resident_details_set/)
+  assert.match(tab, /navigate\(residentRecordPath\(base, r\.candidate_id\)\)/)
+  const section = readFileSync(new URL('../src/components/ngrp/ResidentDetailsSection.jsx', import.meta.url), 'utf8')
+  assert.match(section, /postNgrpManage\('resident_details_set'/)
+  assert.match(section, /canManage && resident && !editing/)
 })
 
 test('the read action is reachable by both audiences and narrowed for Talent Acquisition', () => {

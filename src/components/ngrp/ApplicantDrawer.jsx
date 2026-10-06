@@ -22,6 +22,7 @@ import { RESIDENT_SHIFTS } from '../../lib/ngrp/ngrpReflectionForm'
 import { StudentDocumentsBody } from '../documents/StudentDocumentsDrawer'
 import FlagRibbon from '../rubric/FlagRibbon'
 import ApplicantProfileSheet from './ApplicantProfileSheet'
+import ResidentDetailsSection from './ResidentDetailsSection'
 // APPLICANT-CHART-1: the applicant is the Student Profiles binder with the application's
 // sheets: the same rings, plate, tabs, tints and scroll behaviour, read from the same files.
 import '../student/studentChart.css'
@@ -861,6 +862,7 @@ export function ApplicantChart(props) {
 
 function ApplicantDrawerBody({
   open, row, cycle, canManage, provisioned, onClose, actions = {}, feedback = null, toast = null, initialDocsOpen = false,
+  initialSheet = null,
   embedded = false, followUp = null,
 }) {
   const [review, setReview] = useState(null)
@@ -908,8 +910,37 @@ function ApplicantDrawerBody({
 
   // A link that asks for the documents (?docs=1, Needs you) opens the binder at that sheet.
   useEffect(() => {
-    if (initialDocsOpen) goToChartSheet('documents')
-  }, [initialDocsOpen, goToChartSheet])
+    // RESIDENTS-ONE-RECORD-1: ?sheet=hiring (a Residents row) opens the binder at that sheet.
+    const target = initialDocsOpen ? 'documents'
+      : initialSheet && sheets.some(x => x.id === initialSheet) ? initialSheet : null
+    if (!target) return undefined
+    goToChartSheet(target)
+    const root = chartScrollerRef.current
+    // A link OPENS at its sheet rather than scrolling through the record to it.
+    const jump = () => {
+      const el = root?.querySelector(`#${sheetDomId(target)}`)
+      // 'instant': the scroller's CSS is scroll-behavior smooth, which would animate every
+      // correction and fight the next one.
+      if (el) root.scrollTo({ top: el.offsetTop, behavior: 'instant' })
+    }
+    jump()
+    // The sheets above the target load their own data and grow after this jump, which left
+    // the binder short of it (measured: 1315 for a sheet at 2335). Hold the target in place
+    // while they settle, for two seconds or until the reader scrolls themselves.
+    if (!root || typeof ResizeObserver === 'undefined') return undefined
+    let held = true
+    const release = () => { held = false }
+    const ro = new ResizeObserver(() => { if (held) jump() })
+    root.querySelectorAll('.sc-sheet').forEach(el => ro.observe(el))
+    root.addEventListener('wheel', release, { passive: true })
+    root.addEventListener('touchstart', release, { passive: true })
+    root.addEventListener('keydown', release)
+    const timer = setTimeout(release, 2000)
+    return () => {
+      ro.disconnect(); clearTimeout(timer)
+      root.removeEventListener('wheel', release); root.removeEventListener('touchstart', release); root.removeEventListener('keydown', release)
+    }
+  }, [initialDocsOpen, initialSheet, sheets, goToChartSheet, chartScrollerRef])
 
   const guarded = async (fn) => { setBusy(true); try { await fn() } finally { setBusy(false); setConfirming(null) } }
 
@@ -1157,6 +1188,9 @@ function ApplicantDrawerBody({
                   canManage={canManage && provisioned}
                   onSave={fields => actions.setOutcome?.(row, fields)}
                 />
+                {/* RESIDENTS-ONE-RECORD-1: once hired, the resident's title, preceptor, phone
+                    and separation are kept here; Residency > Residents opens this sheet. */}
+                <ResidentDetailsSection row={row} cycle={cycle} canManage={canManage} toast={toast} />
               </section>
               <section className="sc-sheet" id={sheetDomId('activity')} data-sheet="activity" data-tint={tintOf('activity')} aria-label={titleOf('activity')}>
                 <h2 className="sc-sheet-title">{titleOf('activity')}</h2>

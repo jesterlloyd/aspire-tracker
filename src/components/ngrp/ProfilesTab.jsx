@@ -361,6 +361,9 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
   // Like ?candidate=, it opens when they are on the selected residency cohort's roster.
   const linkedStudent = searchParams.get('student')
   const openDocs = searchParams.get('docs') === '1'
+  // RESIDENTS-ONE-RECORD-1: ?sheet=<id> opens the linked alumnus's binder at that sheet
+  // (Residency > Residents links ?candidate=<id>&sheet=hiring).
+  const linkedSheet = searchParams.get('sheet')
   const drawerRow = (drawerRowId
     ? allRows.find(r => r.id === drawerRowId)
     : linkedCandidate ? allRows.find(r => r.candidate_id === linkedCandidate)
@@ -373,7 +376,7 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
   const selectRow = (id, { toProfiles = false } = {}) => {
     setDrawerRowId(id)
     const next = new URLSearchParams(searchParams)
-    next.delete('candidate'); next.delete('docs'); next.set('student', id)
+    next.delete('candidate'); next.delete('docs'); next.delete('sheet'); next.set('student', id)
     if (toProfiles) next.delete('view')
     setSearchParams(next, { replace: true })
   }
@@ -606,6 +609,7 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                   canManage={canManage}
                   provisioned={transitionProvisioned}
                   initialDocsOpen={Boolean(linkedStudent && openDocs && !drawerRowId)}
+                  initialSheet={(linkedStudent || linkedCandidate) && !drawerRowId ? linkedSheet : null}
                   followUp={canManage ? { available: payload?.followUpFlagProvisioned === true, onSet: setFollowUp } : null}
                   toast={toast}
                   feedback={shownRow ? {

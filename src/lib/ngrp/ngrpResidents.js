@@ -22,6 +22,12 @@ export const OTHER_TITLE = '__other__'
 
 export const RESIDENTS_SCOPES = Object.freeze({ COHORT: 'cohort', AGGREGATE: 'aggregate' })
 
+// RESIDENTS-ONE-RECORD-1: the record a Residents row opens, that resident's binder at the
+// Hiring sheet in Profiles & Interest. By candidate, so an Aggregate row from another residency
+// cohort switches the cohort first (ProfilesTab's ?candidate= lookup).
+export const residentRecordPath = (base, candidateId) =>
+  `${base}/profiles?candidate=${encodeURIComponent(candidateId)}&sheet=hiring`
+
 const text = (v, max) => {
   const s = typeof v === 'string' ? v.trim() : ''
   return s ? s.slice(0, max) : ''

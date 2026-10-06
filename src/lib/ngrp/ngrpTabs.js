@@ -35,7 +35,10 @@ export const NGRP_TABS = [
       { id: 'board',     label: 'Interview Board' },
       // RESIDENTS-1 (Owner, 2026-09-14): the hired new grads and the retention tracker.
       { id: 'residents', label: 'Residents' },
-      { id: 'activity',  label: 'Activity' },
+      // RESIDENCY-CALENDAR-1 (Owner, 2026-10-05): "Calendar", named for what it holds (program
+      // events, US holidays and residents' working days), as Internship's Activity became Shift
+      // Log for its shifts. The id stays 'activity': it is in bookmarks and the URL contract.
+      { id: 'activity',  label: 'Calendar' },
     ] },
   { id: 'evaluation', label: NAV_LABELS.evaluation },
 ]

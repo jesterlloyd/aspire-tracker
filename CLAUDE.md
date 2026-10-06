@@ -2120,3 +2120,22 @@ person can write on their own row. No SQL. PortalApp declares the hook above eve
 - **Connect > Automations lists it** (Residency Weekly Digest, default On) so the team can pause
   it and see its runs; the card's preview renders fake alumni through the same model and
   `lib/server/email/residencyDigestEmail.js`.
+
+## A resident is one record; Residency's calendar says Calendar (2026-10-05)
+
+**RESIDENTS-ONE-RECORD-1 (Owner).** Residency > Residents is the retention view (the four
+KPIs, this cohort or Aggregate, the table) and edits nothing. A resident's title, preceptor,
+phone and separation are kept on the applicant binder's **Hiring** sheet, in
+`ResidentDetailsSection.jsx`: the editor Residents had, moved unchanged in what it reads
+(the same `residents` query) and saves (`resident_details_set`), shown once the hire is recorded.
+A Residents name (Support > By Alumnus's `sl-namebtn`) opens
+`residentRecordPath(base, candidate_id)` = `profiles?candidate=<id>&sheet=hiring`; ProfilesTab's
+candidate lookup switches the residency cohort for an Aggregate row. `?sheet=<id>` opens any
+binder sheet. A deep-linked sheet is jumped to INSTANTLY and held in place while the sheets above
+it load (a ResizeObserver, two seconds or until the reader scrolls): a single smooth jump landed
+1,000px short once their data arrived.
+
+**RESIDENCY-CALENDAR-1 (Owner).** Residency's third sub-tab reads **Calendar** (title "Residency
+Calendar"): it holds program events, US holidays and residents' working days, and is named for
+them, as Internship's Activity became Shift Log for its shifts. Not Shift Log: shifts are its
+smaller half and come from the reflection tool, not a log. The route id stays `activity`.

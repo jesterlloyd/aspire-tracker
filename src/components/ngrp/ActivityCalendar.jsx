@@ -92,10 +92,10 @@ function ShiftMark({ mark }) {
 
 function DayModal({ date, events, holidays, marks = [], canManage, onAdd, onEdit, onClose }) {
   return (
-    <ModalShell label={`Activity on ${longDate(date)}`} onClose={onClose} width={560}>
+    <ModalShell label={`Calendar for ${longDate(date)}`} onClose={onClose} width={560}>
       <div style={{ flexShrink: 0, padding: '16px 20px', borderBottom: '1px solid #F3F4F6', display: 'flex', alignItems: 'center', gap: 12 }}>
         <div>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--paper-muted, #8B8F99)' }}>Activity</div>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--paper-muted, #8B8F99)' }}>Calendar</div>
           <div style={{ fontSize: 16, fontWeight: 700, color: '#1D2567', marginTop: 2 }}>{longDate(date)}</div>
         </div>
         {canManage && <AddEventButton onClick={onAdd} style={{ marginLeft: 'auto' }} />}
@@ -249,8 +249,8 @@ export default function ActivityCalendar({ cycle, canManage: canManageCohort }) 
       <CanonicalCalendarLayout
         // Classic uses the same approved slate planner as Interviews and Rotation.
         paper="slate"
-        title="Activity"
-        description={cycle?.name ? `Workshops, town halls and bootcamps across ${cycle.name}.` : 'Workshops, town halls and bootcamps.'}
+        title="Residency Calendar"
+        description={cycle?.name ? `Workshops, town halls, bootcamps and residents' working days across ${cycle.name}.` : "Workshops, town halls, bootcamps and residents' working days."}
         labelledBy="ngrp-activity-title"
         toolbar={
           /* CALENDAR-NAV-CANON: the three-slot toolbar every other ASPIRE calendar uses
