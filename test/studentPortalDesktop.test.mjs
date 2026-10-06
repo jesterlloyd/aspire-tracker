@@ -18,11 +18,12 @@ const portal = read('src/portal/StudentPortal.jsx')
 const css = read('src/portal/portal.css')
 
 test('desktop workspace and 12-column grid', async (t) => {
-  await t.test('the desktop workspace is fluid (94vw) with a large-screen cap >= ~1440px', () => {
-    assert.match(css, /@media \(min-width: 1024px\) \{[\s\S]*?\.ptl-main \{[^}]*width: 94vw/)
-    const capMatch = css.match(/@media \(min-width: 1024px\) \{[\s\S]*?\.ptl-main \{[^}]*max-width: (\d+)px/)
-    assert.ok(capMatch, 'desktop .ptl-main must set a max-width cap')
-    assert.ok(Number(capMatch[1]) >= 1440, `cap ${capMatch[1]}px must be at least 1440px`)
+  // PORTALS-WIDE-1 (Owner, 2026-10-05): every portal takes the staff app's column, fluid with
+  // side room and a large-screen cap of 1580px (it was 94vw capped at 1500px).
+  await t.test('the desktop workspace is fluid with a large-screen cap >= ~1440px', () => {
+    const capMatch = css.match(/@media \(min-width: 1024px\) \{\s*\.ptl-main \{ width: min\(100% - (\d+)px, (\d+)px\)/)
+    assert.ok(capMatch, 'desktop .ptl-main is fluid with a cap')
+    assert.ok(Number(capMatch[2]) >= 1440, `cap ${capMatch[2]}px must be at least 1440px`)
   })
 
   await t.test('no old restrictive 1020/1200 max-width remains on the primary workspace', () => {
@@ -32,7 +33,7 @@ test('desktop workspace and 12-column grid', async (t) => {
 
   await t.test('responsive side gutters remain (fluid vw width, not 100vw overflow)', () => {
     assert.doesNotMatch(css, /\.ptl-main \{[^}]*width: 100vw/)
-    assert.match(css, /width: 94vw/)
+    assert.match(css, /\.ptl-main \{ width: min\(100% - 180px, 1540px\)/)
   })
 
   await t.test('a purposeful 12-column grid with the specified spans', () => {

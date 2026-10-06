@@ -2171,6 +2171,11 @@ unit. `src/lib/ngrp/applicantPacketModel.js` decides what is in it (pure, tested
   a button that can be disabled hangs its tooltip on a wrapping span (a disabled button fires no
   pointer events). `test/residencyPortalPolish.test.mjs` fails on an HTML element with `title=`
   in `src/components/ngrp/` or the two document drawers.
+- **PORTALS-WIDE-1 (Owner, 2026-10-05: every portal like the staff app).** From 1024px up a
+  portal's cards land exactly where the staff app's `.snap` cards do: `.ptl-main` is `.app-main`'s
+  column less the cards' 40px (`min(100% - 180px, 1540px)`, `100% - 136px` from 1024 to 1440). It
+  was 94vw capped at 1500px. Measured against `.app-main > .snap` at 1920, 1440 and 1100: same left
+  edge and width. Top padding stays `--aspire-page-top`; phones and tablets are unchanged.
 - **RESIDENCY-PORTAL-WIDTH-1 (Owner: "mimic the staff app? wider, much preferred").** The
   Residency Portal passes `mainWidth="app"` to PortalShell, so its `<main>` is `.ptl-main-app`:
   `.app-main`'s column at every width (140px of side room, 96 from 1440, 48 from 1024, 32 on

@@ -43,7 +43,8 @@ test('the taskbar-to-tabs gap is reduced (compact, like the main app)', () => {
   // UI-CONSISTENCY-1: the top offset is the shared --aspire-page-top token (24px), the
   // same distance the staff app puts between its section nav and its first card.
   assert.match(css, /\.ptl-main \{ flex: 1; width: 100%; margin: 0 auto; padding: var\(--aspire-page-top, 24px\) 24px 40px; \}/)
-  assert.match(css, /\.ptl-main \{ width: 94vw; max-width: 1500px; padding: var\(--aspire-page-top, 24px\) 0 40px; \}/)
+  // PORTALS-WIDE-1: the desktop column is the staff app's (its cards land where the staff app's .snap cards do; it was 94vw capped at 1500px).
+  assert.match(css, /\.ptl-main \{ width: min\(100% - 180px, 1540px\); max-width: none; padding: var\(--aspire-page-top, 24px\) 0 40px; \}/)
   // Tabs keep their accessible 44px touch target (unchanged).
   assert.match(css, /\.ptl-nav-item \{[\s\S]*?min-height: 44px/)
 })

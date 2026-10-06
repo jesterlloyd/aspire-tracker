@@ -114,19 +114,28 @@
 
 /* ASPIRE-STUDENT-HOME: fluid desktop workspace. Mobile and tablet keep full
    width with comfortable side padding (no restrictive max-width). From 1024px
-   up the workspace becomes fluid (94vw) so large displays gain usable width,
-   capped at 1500px on very wide screens so text measures inside cards stay
-   readable. Per-card content widths are capped separately below. */
+   up the workspace is the staff app's column (PORTALS-WIDE-1, below). Per-card
+   content widths are capped separately below. */
 /* Top padding is the gap between the Nightfall taskbar and the first content (the nav tabs).
    Kept compact, like the main app where the tabs sit directly under the header band, while
    preserving readable separation and the 44px touch targets on the tabs themselves. */
 .ptl-main { flex: 1; width: 100%; margin: 0 auto; padding: var(--aspire-page-top, 24px) 24px 40px; }
+/* PORTALS-WIDE-1 (Owner, 2026-10-05: all portals like the staff app, for consistency). From
+   1024px up a portal's CARDS sit exactly where the staff app's do. The staff app's column is
+   .app-main (index.css: 140px of side room, 96 from 1440, capped at 1580px) and its cards (.snap)
+   sit 20px inside it; a portal's cards fill .ptl-main, so .ptl-main is that column less 40px.
+   It was 94vw capped at 1500px. Top padding stays --aspire-page-top because portal cards carry no
+   top margin of their own. Phones and tablets keep their own gutters. The Residency Portal, which
+   renders the staff workspace and its .snap cards, takes .app-main itself (.ptl-main-app). */
 @media (min-width: 1024px) {
-  .ptl-main { width: 94vw; max-width: 1500px; padding: var(--aspire-page-top, 24px) 0 40px; }
+  .ptl-main { width: min(100% - 180px, 1540px); max-width: none; padding: var(--aspire-page-top, 24px) 0 40px; }
+}
+@media (min-width: 1024px) and (max-width: 1440px) {
+  .ptl-main { width: min(100% - 136px, 1540px); }
 }
 /* RESIDENCY-PORTAL-WIDTH-1 (Owner, 2026-10-05: "mimic the staff app? wider, much preferred"). The
    Residency Portal renders the staff Residency workspace, whose cards carry their own 20px side
-   margins and 16px top margin, so it takes the staff app's .app-main column exactly.
+   margins and 16px top margin, so beyond the shared width it also takes .app-main's top padding.
    It follows .app-main's steps at every width (index.css: 140px of side room, 96 from 1440,
    48 from 1024, 32 on phones) and sets only top and side padding, so a phone keeps the bottom
    tab bar's room. */
