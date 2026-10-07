@@ -94,3 +94,21 @@ test('the canon is written where every session reads it', () => {
     assert.ok(doc.includes(must), `CLAUDE.md must state: ${must}`)
   }
 })
+
+// NAV-CANON-1 (2026-10-07): one tab size for every section nav. The staff chart-nav and the
+// portals' ptl-nav read the same tokens; neither may write its own number again.
+test('NAV-CANON-1: section navs read the shared tab size and inset tokens', () => {
+  const brand = readFileSync(new URL('../src/styles/aspireBrand.css', import.meta.url), 'utf8')
+  const chart = readFileSync(new URL('../src/styles/chartTokens.css', import.meta.url), 'utf8')
+  const portal = readFileSync(new URL('../src/portal/portal.css', import.meta.url), 'utf8')
+  for (const t of ['--aspire-nav-size: 17px', '--aspire-nav-size-tablet: 15px', '--aspire-nav-size-narrow: 14px', '--aspire-nav-tab-pad: 11px 16px', '--aspire-nav-inset: 32px']) {
+    assert.ok(brand.includes(t), t)
+  }
+  assert.match(chart, /\.chart-nav-tab \{[^}]*font-size: var\(--aspire-nav-size\);/)
+  assert.match(chart, /\.chart-nav-tab \{[^}]*padding: var\(--aspire-nav-tab-pad\);/)
+  assert.match(chart, /\.chart-nav \{[^}]*padding: 0 var\(--aspire-nav-inset\);/)
+  assert.match(portal, /\.ptl-nav-item \{[^}]*font-size: var\(--aspire-nav-size, 17px\);/)
+  assert.match(portal, /\.ptl-nav-item \{[^}]*padding: var\(--aspire-nav-tab-pad, 11px 16px\);/)
+  assert.match(portal, /\.ptl-nav \{[^}]*padding: 0 max\(var\(--aspire-nav-inset, 32px\)/)
+  assert.match(portal, /@media \(max-width: 1100px\) \{[\s\S]{0,400}?\.ptl-nav-item \{ font-size: var\(--aspire-nav-size-tablet, 15px\);/)
+})

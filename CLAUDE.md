@@ -2332,6 +2332,19 @@ calendar, then the results table, each row opening the rubric book.
   toast says who was emailed and who was not (`noticeSummary`). There is no self-booking by the
   alumnus: HR books.
 
+## Every section nav is one size (NAV-CANON-1, 2026-10-07)
+
+The Owner saw the Residency Portal's tabs smaller than the staff app's and asked what the canon was.
+There was none: the staff app's `.chart-nav-tab` (chartTokens.css) said 17px and every portal's
+`.ptl-nav-item` (portal.css) said 14px, and the only thing the two bars shared was the hairline. The
+staff values are now the canon, as tokens in `src/styles/aspireBrand.css`: `--aspire-nav-size` 17px,
+`-tablet` 15px at or below 1100px, `-narrow` 14px at or below 760px, the tab padding
+(`--aspire-nav-tab-pad*`) and the bar's side inset (`--aspire-nav-inset*`, 32px then 12px). Both
+rules read them, so all four portals (Student, Unit Leader, NE&L, Residency) now match the staff
+app, and a change to the size lands in one place. The portals' phone bottom bar (under 760px) is a
+different control and keeps its own 11.5px. `test/uiCanonRatchet.test.mjs` holds both rules to the
+tokens.
+
 ## The chart measures the elements, never the document (VIEWPORT-REVERT-1, 2026-10-07)
 
 `useChartViewport` sizes every pinned split: Student Profiles, Residency > Profiles & Interest

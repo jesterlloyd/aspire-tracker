@@ -230,7 +230,7 @@
   background: var(--bg-card, #FAFAF7);
   /* UI-CONSISTENCY-1: the one hairline every secondary nav shares (portal .ptl-nav reads it too). */
   border-bottom: 1px solid var(--aspire-nav-line);
-  padding: 0 32px;
+  padding: 0 var(--aspire-nav-inset);
   display: flex;
   align-items: stretch;
   font-family: var(--chart-sans);
@@ -240,12 +240,12 @@
 .chart-nav::-webkit-scrollbar { display: none; }
 .chart-nav-tab {
   position: relative;
-  padding: 11px 16px;
+  padding: var(--aspire-nav-tab-pad);
   height: 100%;
   border: none;
   background: none;
   font-family: var(--chart-sans);
-  font-size: 17px;
+  font-size: var(--aspire-nav-size);
   cursor: pointer;
   display: flex; align-items: center; gap: 7px;
   transition: color 0.15s, border-color 0.15s;
@@ -256,10 +256,10 @@
 .chart-nav-refresh { margin-left: auto; flex-shrink: 0; align-self: center; }
 
 @media (max-width: 1100px) {
-  .chart-nav { padding: 0 12px; }
-  .chart-nav-tab { font-size: 15px; padding: 10px 12px; }
+  .chart-nav { padding: 0 var(--aspire-nav-inset-tablet); }
+  .chart-nav-tab { font-size: var(--aspire-nav-size-tablet); padding: var(--aspire-nav-tab-pad-tablet); }
 }
 @media (max-width: 760px) {
   .chart-nav-refresh { display: none; }
-  .chart-nav-tab { font-size: 14px; padding: 10px 10px; }
+  .chart-nav-tab { font-size: var(--aspire-nav-size-narrow); padding: var(--aspire-nav-tab-pad-narrow); }
 }

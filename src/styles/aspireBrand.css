@@ -89,6 +89,18 @@
   --aspire-shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.08);
   --aspire-shadow-card: 0 1px 3px rgba(0, 0, 0, 0.06);
   --aspire-nav-line: rgba(29, 37, 103, 0.08);
+  /* NAV-CANON-1 (Owner, 2026-10-07): one tab size for every section nav, staff app and
+     portals alike. The staff app's chart-nav had 17px and the portals' ptl-nav 14px, with no
+     rule between them. The staff values are the canon; the two narrower steps follow. The
+     portals' phone bottom bar is a different control and keeps its own size. */
+  --aspire-nav-size: 17px;
+  --aspire-nav-size-tablet: 15px;   /* at or below 1100px */
+  --aspire-nav-size-narrow: 14px;   /* at or below 760px */
+  --aspire-nav-tab-pad: 11px 16px;
+  --aspire-nav-tab-pad-tablet: 10px 12px;
+  --aspire-nav-tab-pad-narrow: 10px 10px;
+  --aspire-nav-inset: 32px;         /* the bar's side inset */
+  --aspire-nav-inset-tablet: 12px;
 
   /* PLACEMENT-BOARD-FELT-1 (2026-09-17): materials. Blue felt, navy leather,
      cream leather and white paper, first worn by Rotation > Placement Board. The classes
