@@ -247,10 +247,12 @@ test('the calendar never implies a future shift is scheduled', () => {
   assert.match(calendarCode, /const future = ymd > today/)
   // Future days are marked via the shared CanonicalMonthCell's isFuture prop, which
   // dims the day number rather than filling the cell.
-  assert.match(calendarCode, /isFuture=\{future\}/)
+  // ONE-CALENDAR-1: only the Internship view dims the future; the Residency view's days ARE the future.
+  assert.match(calendarCode, /isFuture=\{!residency && future\}/)
   // Checked against COMMENT-STRIPPED code. The header legitimately says the UI must
   // never say "Schedule", and matching raw source flags that explanation as a label.
-  assert.ok(!/Schedule/.test(calendarCode),
+  // ONE-CALENDAR-1: the Residency view imports interviewScheduleModel, a module name, not a label.
+  assert.ok(!/Schedule/.test(calendarCode.replace(/^import [^\n]*\n/gm, '')),
     'the word Schedule must not appear as a rendered label')
 })
 
@@ -272,7 +274,8 @@ test('month navigation is unbounded, matching the main-app calendar', () => {
 test('a day cell selects every date but opens the day drawer only when activity exists', () => {
   assert.match(calendarCode, /const selectDate = \(ymd, day = byDay\.get\(ymd\) \|\| \[\]\) => \{/)
   assert.match(calendarCode, /setSelectedDate\(ymd\)/)
-  assert.match(calendarCode, /if \(day\.length > 0\) onSelectDay\?\.\(ymd, day\)/)
+  // ONE-CALENDAR-1: the Residency view has no shift drawer to open.
+  assert.match(calendarCode, /if \(!residency && day\.length > 0\) onSelectDay\?\.\(ymd, day\)/)
   assert.doesNotMatch(calendarCode, /disabled=\{day\.length === 0\}/)
   assert.match(portalCode, /<UnitShiftDayDrawer/)
 })

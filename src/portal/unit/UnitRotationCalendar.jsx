@@ -1,24 +1,29 @@
 // src/portal/unit/UnitRotationCalendar.jsx
 //
-// Unit Leader rotation activity calendar.
+// The Unit Leader's one calendar, on At a Glance.
 //
-// THIS IS A RECORD, NOT A SCHEDULE. ASPIRE has no scheduled-shift data: a shift
-// row is created when a student checks in, and a future shift_date is rejected by
-// the submit endpoint. The UI says "Rotation Activity", never "Schedule".
+// ONE-CALENDAR-1 (Owner, 2026-10-06: one calendar per portal, with an Internship | Residency
+// switch beside Month | Week). Internship is the rotation activity it always showed: the shifts
+// the unit's students logged, over the last 90 days. Residency is the unit's residency
+// interviews: the times the unit opened, the applicants Talent Acquisition booked into them, and
+// blocked times, with Open Times, Block, Reopen and Remove in the day panel. The Interviews tab
+// keeps the tiles, the results and the rubric, and no calendar of its own.
 //
-// PROPS ONLY. This component fetches nothing and knows no authorization. Shifts
-// arrive already scoped and already field-filtered by api/portal/unit-shift-activity.js.
+// THE INTERNSHIP VIEW IS A RECORD, NOT A SCHEDULE. ASPIRE has no scheduled-shift data: a shift
+// row is created when a student checks in, and a future shift_date is rejected by the submit
+// endpoint. The UI says "Rotation Activity", never "Schedule". The Residency view is a schedule.
 //
-// DATES ARE STRINGS. shift_date is TEXT in YYYY-MM-DD, written in Pacific time
-// at check-in. All comparison and grouping here is string-based against Pacific
-// "today", so a Unit Leader in any timezone sees the same day boundaries the
-// student did.
+// PROPS ONLY. This component fetches nothing and knows no authorization. Shifts arrive already
+// scoped and field-filtered by api/portal/unit-shift-activity.js; interview times by
+// api/portal/unit-interviews.js, and the writes the host hands in are that endpoint's.
 //
-// VISUAL PARITY. The toolbar, weekday header, and month grid are the shared
-// CanonicalCalendar* primitives the main-app Interviews calendar uses, so this
-// calendar and that one are one visual system, not two look-alikes. What differs is
-// only the content inside a cell (activity chips, never staff capacity controls) and
-// the toolbar's right side (empty, because a Unit Leader adds no events).
+// DATES ARE STRINGS. shift_date is TEXT in YYYY-MM-DD, written in Pacific time at check-in;
+// an interview time is a timestamp placed on its Pacific date. All grouping is string-based
+// against Pacific "today", so a Unit Leader in any timezone sees the same day boundaries.
+//
+// VISUAL PARITY. The toolbar, weekday header, month grid and Week view are the shared
+// CanonicalCalendar* primitives the main-app calendars use, so this calendar and those are one
+// visual system. What differs is only the content inside a cell.
 
 import { useMemo, useState } from 'react'
 import {
@@ -32,7 +37,15 @@ import {
   CanonicalHolidayChip,
   CanonicalActivityChip,
 } from '../../components/shared/CanonicalCalendarFoundation'
+import CanonicalWeekView from '../../components/shared/CanonicalWeekView'
+import SegmentedPicker from '../../components/shared/SegmentedPicker'
+import { confirmDialog } from '../../components/shared/confirmDialog'
+import {
+  OpenTimesModal, OpenTimesButton, DayAction, InterviewSlotRow, RemoveTimesAction, InterviewDayChips, InterviewLegend,
+} from '../../components/ngrp/InterviewTimesControls'
 import { pacificToday, monthGrid, monthLabel, groupByDay } from '../../lib/rotationCalendarDates'
+import { weekStartOf, weekTitle, addDaysYmd, pacificParts, hhmmOf, minutesOf } from '../../lib/calendarWeek'
+import { dayOf, slotWeekItem, longDate as longDateOf } from '../../lib/ngrp/interviewScheduleModel'
 // CALENDAR-HOLIDAY-CANON: pure client-side date math, no fetch and no persistence, so the
 // props-only contract above still holds. Context, never a record.
 import { getUsHolidaysForRange } from '../../lib/usHolidays'
@@ -42,6 +55,7 @@ import { ordinalWord } from '../../lib/ordinalWord'
 // Sunday-first, matching the main-app Interviews calendar week start. The main grid
 // uses the three-letter labels; the mini calendar uses the first letter of each.
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const SHIFT_COLORS = { done: '#1d2567', live: '#166534' }
 
 function initials(name) {
   const parts = String(name || '').trim().split(/\s+/).filter(Boolean)
@@ -90,11 +104,11 @@ function formatLongDate(ymd) {
   })
 }
 
-function UnitMiniCalendar({ cells, byDay, selectedDate, today, onSelectDate }) {
+function UnitMiniCalendar({ cells, byDay, selectedDate, today, onSelectDate, noun, residency }) {
   return (
     <div>
       <div className="canonical-calendar-kicker">Mini Calendar</div>
-      <div className="ptl-cal-mini-grid" role="grid" aria-label="Mini rotation activity calendar">
+      <div className="ptl-cal-mini-grid" role="grid" aria-label={residency ? 'Mini interview calendar' : 'Mini rotation activity calendar'}>
         {DOW.map(day => <div key={day} className="ptl-cal-mini-dow" role="columnheader">{day[0]}</div>)}
         {cells.map(({ ymd, inMonth }) => {
           const day = byDay.get(ymd) || []
@@ -111,7 +125,7 @@ function UnitMiniCalendar({ cells, byDay, selectedDate, today, onSelectDate }) {
                 isToday ? 'ptl-cal-mini-today' : '',
                 selected ? 'ptl-cal-mini-selected' : '',
               ].filter(Boolean).join(' ')}
-              aria-label={`${ymd}${day.length ? `, ${day.length} student activit${day.length === 1 ? 'y' : 'ies'}` : ', no student activity recorded'}`}
+              aria-label={`${ymd}${day.length ? `, ${day.length} ${noun}${day.length === 1 ? '' : 's'}` : `, no ${noun}s`}`}
               onClick={() => onSelectDate(ymd)}
             >
               <span>{Number(ymd.slice(8, 10))}</span>
@@ -149,21 +163,45 @@ function SelectedDayActivity({ shifts }) {
   )
 }
 
-export default function UnitRotationCalendar({ shifts = [], onSelectDay, loading = false }) {
+/**
+ * `interviews` is the Interviews endpoint's overview ({ slots, blocks, cycles, rankedFirst,
+ * rubricsProvisioned, preview, loading }) or null before it loads. `interviewActions` is
+ * { open(form), remove(block), toggle(slot) }, each resolving { ok, ... }, or null when the
+ * viewer may not write (an Owner/Admin preview).
+ */
+export default function UnitRotationCalendar({ shifts = [], onSelectDay, loading = false, interviews = null, interviewActions = null }) {
   const today = pacificToday()
+  const [mode, setMode] = useState('internship')
+  const [view, setView] = useState('month')
   const [cursor, setCursor] = useState(() => ({ y: Number(today.slice(0, 4)), m: Number(today.slice(5, 7)) - 1 }))
   const [selectedDate, setSelectedDate] = useState(today)
+  const [weekStart, setWeekStart] = useState(() => weekStartOf(today))
+  const [opening, setOpening] = useState(false)
+  const [notice, setNotice] = useState(null)
+  const residency = mode === 'residency'
 
   const byDay = useMemo(() => groupByDay(shifts), [shifts])
-  const cells = useMemo(() => monthGrid(cursor.y, cursor.m), [cursor])
-  const holidaysByDay = useMemo(() => {
-    if (!cells.length) return new Map()
-    const list = getUsHolidaysForRange(cells[0].ymd, cells[cells.length - 1].ymd)
+  const slots = useMemo(() => interviews?.slots || [], [interviews])
+  const blocks = useMemo(() => interviews?.blocks || [], [interviews])
+  const slotsByDay = useMemo(() => {
     const map = new Map()
+    for (const s of slots) { const d = dayOf(s.slot_at); map.set(d, [...(map.get(d) || []), s]) }
+    return map
+  }, [slots])
+  const cells = useMemo(() => monthGrid(cursor.y, cursor.m), [cursor])
+  const range = view === 'week' ? [weekStart, addDaysYmd(weekStart, 6)] : [cells[0].ymd, cells[cells.length - 1].ymd]
+  const holidaysByDay = useMemo(() => {
+    const list = getUsHolidaysForRange(range[0], range[1])
+    const map = new Map()
+    for (const h of list) map.set(h.date, [...(map.get(h.date) || [])], h)
     for (const h of list) map.set(h.date, [...(map.get(h.date) || []), h])
     return map
-  }, [cells])
+  }, [range[0], range[1]]) // eslint-disable-line react-hooks/exhaustive-deps
   const selectedShifts = byDay.get(selectedDate) || []
+  const selectedSlots = slotsByDay.get(selectedDate) || []
+  const selectedBlocks = blocks.filter(b => b.block_date === selectedDate)
+  const units = useMemo(() => [...new Set((interviews?.rankedFirst || []).map(r => r.unit))], [interviews])
+  const canOpen = Boolean(interviewActions) && interviews?.rubricsProvisioned !== false && (interviews?.cycles || []).length > 0
 
   // Navigation is unbounded in both directions, matching the main-app Interviews
   // calendar. The 90-day activity window bounds what DATA exists, never where the
@@ -171,47 +209,98 @@ export default function UnitRotationCalendar({ shifts = [], onSelectDay, loading
   // grid with the honest "no activity" note. No month change triggers a server
   // request, because all authorized activity for the window arrives in one fetch, so
   // there is no unbounded historical read and no fabricated forward schedule.
-  const monthHasActivity = cells.some(c => c.inMonth && byDay.has(c.ymd))
+  const monthHasActivity = cells.some(c => c.inMonth && (residency ? slotsByDay.has(c.ymd) : byDay.has(c.ymd)))
 
   const step = (delta) => {
+    if (view === 'week') {
+      const next = addDaysYmd(weekStart, 7 * delta)
+      setWeekStart(next)
+      setCursor({ y: Number(next.slice(0, 4)), m: Number(next.slice(5, 7)) - 1 })
+      return
+    }
     const d = new Date(Date.UTC(cursor.y, cursor.m + delta, 1))
     setCursor({ y: d.getUTCFullYear(), m: d.getUTCMonth() })
   }
-
+  const goTo = (ymd) => {
+    setSelectedDate(ymd)
+    setWeekStart(weekStartOf(ymd))
+    setCursor({ y: Number(ymd.slice(0, 4)), m: Number(ymd.slice(5, 7)) - 1 })
+  }
   const goToday = () => {
     setSelectedDate(today)
+    setWeekStart(weekStartOf(today))
     setCursor({ y: Number(today.slice(0, 4)), m: Number(today.slice(5, 7)) - 1 })
   }
-
   const selectDate = (ymd, day = byDay.get(ymd) || []) => {
     setSelectedDate(ymd)
-    if (day.length > 0) onSelectDay?.(ymd, day)
+    if (!residency && day.length > 0) onSelectDay?.(ymd, day)
   }
+
+  // The day panel's interview actions: what this viewer may do to a time.
+  const act = async (label, fn) => {
+    setNotice(null)
+    const r = await fn()
+    if (!r?.ok) setNotice(r?.error === 'has_bookings' ? 'Someone is booked into these times. Ask Talent Acquisition to move the booking first.' : r?.error === 'booked' ? 'That time is booked.' : `${label} did not go through. Try again in a moment.`)
+    return r
+  }
+  const slotActions = !interviewActions ? null : s => (s.booked ? null : (
+    <DayAction onClick={() => act('The change', () => interviewActions.toggle(s))}>{s.status === 'blocked' ? 'Reopen' : 'Block'}</DayAction>
+  ))
+  const removeBlock = async (b) => {
+    if (!(await confirmDialog(`Remove the open times on ${longDateOf(b.block_date)}?`, { confirmLabel: 'Remove Times', danger: true }))) return
+    act('The removal', () => interviewActions.remove(b))
+  }
+
+  // The Week view's rows. Internship: a shift from its check-in clock to its check-out (or
+  // its hours), and in the all-day row when it has no clock. Residency: the interview times.
+  const holidayItems = ymd => (holidaysByDay.get(ymd) || []).map(h => ({ id: `h-${h.name}`, label: h.name, color: '#D97706', title: `${h.name} · US Holiday` }))
+  const allDayOn = ymd => [
+    ...holidayItems(ymd),
+    ...(residency ? [] : (byDay.get(ymd) || []).filter(s => !pacificParts(s.checked_in_at)).map(s => ({ id: s.id, label: chipName(s), color: s.state === 'in_progress' ? SHIFT_COLORS.live : SHIFT_COLORS.done, title: chipExtras(s).ariaLabel }))),
+  ]
+  const timedOn = ymd => (residency
+    ? (slotsByDay.get(ymd) || []).map(s => slotWeekItem(s, { onClick: () => goTo(ymd) })).filter(Boolean)
+    : (byDay.get(ymd) || []).map(s => {
+      const start = pacificParts(s.checked_in_at)
+      if (!start) return null
+      const out = pacificParts(s.checked_out_at)
+      const end = out && out.date === start.date ? out.time : hhmmOf(minutesOf(start.time) + Math.round((Number(s.total_hours) || Number(s.expected_hours) || 8) * 60))
+      const live = s.state === 'in_progress'
+      return { id: s.id, start: start.time, end, label: chipName(s), sublabel: chipExtras(s).secondary || (live ? 'On shift now' : 'Completed shift'), color: live ? SHIFT_COLORS.live : SHIFT_COLORS.done, title: chipExtras(s).ariaLabel, onClick: () => goTo(ymd) }
+    }).filter(Boolean))
 
   const sidebar = (
     <CanonicalCalendarSidebar>
-      <UnitMiniCalendar cells={cells} byDay={byDay} selectedDate={selectedDate} today={today} onSelectDate={setSelectedDate} />
+      <UnitMiniCalendar cells={cells} byDay={residency ? slotsByDay : byDay} selectedDate={selectedDate} today={today} onSelectDate={goTo} noun={residency ? 'interview time' : 'student activity'} residency={residency} />
       <CanonicalCalendarTodayPanel
         kicker={selectedDate === today ? 'Today' : 'Selected day'}
         dateLabel={formatLongDate(selectedDate)}
-        summary={`${selectedShifts.length} student activit${selectedShifts.length === 1 ? 'y' : 'ies'} recorded`}
-        emptyLabel="No student activity recorded for this day."
+        summary={residency
+          ? (selectedSlots.length ? `${selectedSlots.filter(x => x.booked).length} scheduled · ${selectedSlots.filter(x => x.status === 'available').length} open` : null)
+          : `${selectedShifts.length} student activit${selectedShifts.length === 1 ? 'y' : 'ies'} recorded`}
+        emptyLabel={residency ? 'No interview times this day.' : 'No student activity recorded for this day.'}
       >
-        {selectedShifts.length > 0 && <SelectedDayActivity shifts={selectedShifts} />}
+        {!residency && selectedShifts.length > 0 && <SelectedDayActivity shifts={selectedShifts} />}
+        {residency && selectedSlots.map(s => <InterviewSlotRow key={s.id} slot={s} actions={slotActions ? slotActions(s) : null} />)}
+        {residency && interviewActions && selectedBlocks.map(b => <RemoveTimesAction key={b.id} block={b} onClick={() => removeBlock(b)} />)}
+        {residency && notice && <p role="alert" className="ptl-muted" style={{ margin: '8px 0 0', fontSize: 12 }}>{notice}</p>}
       </CanonicalCalendarTodayPanel>
       {/* The notepad closes with this surface's kinds, as the staff Rotation Activity
           planner does, and in the same words: the two calendars read the same records. */}
       <div className="pl-legend">
-        <span><i aria-hidden="true" style={{ background: '#e8eaf6', borderLeft: '3px solid #1d2567' }} />Completed shift</span>
-        <span><i aria-hidden="true" style={{ background: '#dcfce7', borderLeft: '3px solid #166534' }} />On shift now</span>
+        {residency ? <InterviewLegend /> : (
+          <>
+            <span><i aria-hidden="true" style={{ background: '#e8eaf6', borderLeft: '3px solid #1d2567' }} />Completed shift</span>
+            <span><i aria-hidden="true" style={{ background: '#dcfce7', borderLeft: '3px solid #166534' }} />On shift now</span>
+          </>
+        )}
         <span><i aria-hidden="true" style={{ background: '#FEF3C7', borderLeft: '3px solid #D97706' }} />US holiday</span>
       </div>
     </CanonicalCalendarSidebar>
   )
 
-  // Toolbar matches the main-app Interviews layout: previous and next grouped with
-  // Today on the left, the month/year centered, and an empty right side (a Unit
-  // Leader adds no events, so nothing lives where staff controls would).
+  // Toolbar matches the main-app Interviews layout: previous and next grouped with Today on
+  // the left, the month or week centered, and the switches on the right.
   const toolbar = (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%' }}>
       <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-start' }}>
@@ -219,51 +308,67 @@ export default function UnitRotationCalendar({ shifts = [], onSelectDay, loading
           onPrev={() => step(-1)}
           onNext={() => step(1)}
           onToday={goToday}
-          prevAriaLabel="Previous month"
-          nextAriaLabel="Next month"
+          prevAriaLabel={view === 'week' ? 'Previous week' : 'Previous month'}
+          nextAriaLabel={view === 'week' ? 'Next week' : 'Next month'}
         />
       </div>
-      <CanonicalCalendarMonthTitle ariaLive="polite">{monthLabel(cursor.y, cursor.m)}</CanonicalCalendarMonthTitle>
-      <div style={{ flex: 1 }} aria-hidden="true" />
+      <CanonicalCalendarMonthTitle ariaLive="polite">{view === 'week' ? weekTitle(weekStart) : monthLabel(cursor.y, cursor.m)}</CanonicalCalendarMonthTitle>
+      <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+        {residency && canOpen && <OpenTimesButton onClick={() => setOpening(true)} />}
+        <SegmentedPicker paper size="sm" ariaLabel="What the calendar shows" value={mode} onChange={setMode}
+          options={[{ value: 'internship', label: 'Internship' }, { value: 'residency', label: 'Residency' }]} />
+        <SegmentedPicker paper size="sm" ariaLabel="Calendar view" value={view} onChange={v => { if (v === 'week') setWeekStart(weekStartOf(selectedDate)); setView(v) }}
+          options={[{ value: 'month', label: 'Month' }, { value: 'week', label: 'Week' }]} />
+      </div>
     </div>
   )
 
+  const busy = residency ? Boolean(interviews?.loading) && !interviews?.slots : loading
+  const gridLabel = `${residency ? 'Residency interviews' : 'Rotation Activity'} for ${view === 'week' ? weekTitle(weekStart) : monthLabel(cursor.y, cursor.m)}`
+
   return (
+    <>
     <CanonicalCalendarLayout
-      // PLANNER-CALENDAR-1: tan, the shift paper. This shows the same shift records the
-      // staff Rotation > Activity calendar does, so it wears the same paper and a shift
-      // reads identically whether staff or a unit leader opens it.
-      paper="tan"
+      // PLANNER-CALENDAR-1: paper follows the subject. Tan is the shift paper, the same the
+      // staff Rotation > Shift Log calendar wears; slate is the interview paper.
+      paper={residency ? 'slate' : 'tan'}
       appearance="modern"
-      title="Rotation Activity"
+      title={residency ? 'Residency Interviews' : 'Rotation Activity'}
       titleVisuallyHidden
       labelledBy="ul-cal-title"
       sidebar={sidebar}
       toolbar={toolbar}
       footer={(
         <p className="ptl-muted" style={{ marginTop: 8, fontSize: 11.5 }}>
-          This shows shifts your students have actually logged, over the last 90 days.
-          ASPIRE does not hold a forward schedule, so upcoming shifts do not appear here.
+          {residency
+            ? 'Interview times your unit opened and the applicants Talent Acquisition booked into them. Score each interview on the Interviews tab.'
+            : 'This shows shifts your students have actually logged, over the last 90 days. ASPIRE does not hold a forward schedule, so upcoming shifts do not appear here.'}
         </p>
       )}
     >
-      {loading ? (
-        <p className="ptl-muted" role="status">Loading rotation activity</p>
+      {busy ? (
+        <p className="ptl-muted" role="status">{residency ? 'Loading interview times' : 'Loading rotation activity'}</p>
+      ) : view === 'week' ? (
+        // Shifts run 7 to 7, days and nights, so the Internship week shows 6 AM to midnight; the
+        // Residency week keeps the interview day.
+        <CanonicalWeekView weekStart={weekStart} today={today} selectedDate={selectedDate} allDayOn={allDayOn} timedOn={timedOn} onDayClick={goTo} ariaLabel={gridLabel}
+          startHour={residency ? 7 : 6} endHour={residency ? 20 : 24} />
       ) : (
         <>
-          <div className="pl-calbox" role="grid" aria-label={`Rotation Activity for ${monthLabel(cursor.y, cursor.m)}`}>
+          <div className="pl-calbox" role="grid" aria-label={gridLabel}>
             <CanonicalWeekdayHeader days={DOW} />
             <div className="pl-monthgrid" style={{ gridTemplateColumns: 'repeat(7, 1fr)', '--weeks': Math.ceil(cells.length / 7) }}>
               {cells.map(({ ymd, inMonth }) => {
                 const day = byDay.get(ymd) || []
+                const daySlots = slotsByDay.get(ymd) || []
                 const isToday = ymd === today
                 const selected = ymd === selectedDate
                 const future = ymd > today
                 const live = day.some(s => s.state === 'in_progress')
                 const dayHolidays = holidaysByDay.get(ymd) || []
-                const base = day.length === 0
-                  ? `${ymd}, no activity`
-                  : `${ymd}, ${day.length} shift${day.length === 1 ? '' : 's'}${live ? ', on shift now' : ''}`
+                const base = residency
+                  ? `${ymd}, ${daySlots.filter(s => s.booked).length} interviews, ${daySlots.filter(s => s.status === 'available').length} open`
+                  : day.length === 0 ? `${ymd}, no activity` : `${ymd}, ${day.length} shift${day.length === 1 ? '' : 's'}${live ? ', on shift now' : ''}`
                 const label = dayHolidays.length ? `${base}, ${dayHolidays.map(h => h.name).join(', ')}` : base
                 if (!inMonth) {
                   return <CanonicalMonthCell key={ymd} isOtherMonth />
@@ -274,22 +379,26 @@ export default function UnitRotationCalendar({ shifts = [], onSelectDay, loading
                     day={Number(ymd.slice(8, 10))}
                     isToday={isToday}
                     isSelected={selected}
-                    isFuture={future}
+                    isFuture={!residency && future}
                     ariaLabel={label}
                     onClick={() => selectDate(ymd, day)}
                   >
                     {dayHolidays.slice(0, 1).map(h => (
                       <CanonicalHolidayChip key={h.name} name={h.name} observed={h.observed} />
                     ))}
-                    {day.slice(0, 3).map(shift => (
-                      <CanonicalActivityChip
-                        key={shift.id}
-                        label={chipName(shift)}
-                        live={shift.state === 'in_progress'}
-                        {...chipExtras(shift)}
-                      />
-                    ))}
-                    {day.length > 3 && <span className="ptl-cal-more">+{day.length - 3}</span>}
+                    {residency ? <InterviewDayChips slots={daySlots} /> : (
+                      <>
+                        {day.slice(0, 3).map(shift => (
+                          <CanonicalActivityChip
+                            key={shift.id}
+                            label={chipName(shift)}
+                            live={shift.state === 'in_progress'}
+                            {...chipExtras(shift)}
+                          />
+                        ))}
+                        {day.length > 3 && <span className="ptl-cal-more">+{day.length - 3}</span>}
+                      </>
+                    )}
                   </CanonicalMonthCell>
                 )
               })}
@@ -298,12 +407,20 @@ export default function UnitRotationCalendar({ shifts = [], onSelectDay, loading
 
           {!monthHasActivity && (
             <p className="ptl-muted" style={{ marginTop: 10 }}>
-              No rotation activity recorded in {monthLabel(cursor.y, cursor.m)}.
+              {residency ? `No interview times in ${monthLabel(cursor.y, cursor.m)}.` : `No rotation activity recorded in ${monthLabel(cursor.y, cursor.m)}.`}
             </p>
           )}
-
         </>
       )}
     </CanonicalCalendarLayout>
+
+    {opening && interviewActions && (
+      <OpenTimesModal cycles={interviews?.cycles || []} units={units} defaultDate={selectedDate}
+        note="The span is cut into interview times. Talent Acquisition books the applicants into them."
+        save={interviewActions.open}
+        onClose={() => setOpening(false)}
+        onSaved={() => { setOpening(false) }} />
+    )}
+    </>
   )
 }

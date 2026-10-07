@@ -51,10 +51,11 @@ test('Unit Leader calendar renders mini calendar, Today panel, toolbar, and sele
 test('selected date and activity details stay synchronized without opening empty days', () => {
   assert.match(unitCalendarCode, /const selectedShifts = byDay\.get\(selectedDate\) \|\| \[\]/)
   assert.match(unitCalendarCode, /dateLabel=\{formatLongDate\(selectedDate\)\}/)
-  assert.match(unitCalendarCode, /summary=\{`\$\{selectedShifts\.length\} student activit/)
-  assert.match(unitCalendarCode, /emptyLabel="No student activity recorded for this day\."/)
+  // ONE-CALENDAR-1: the Internship view's summary; the Residency view counts interview times.
+  assert.match(unitCalendarCode, /: `\$\{selectedShifts\.length\} student activit/)
+  assert.match(unitCalendarCode, /'No student activity recorded for this day\.'/)
   assert.match(unitCalendarCode, /setSelectedDate\(ymd\)/)
-  assert.match(unitCalendarCode, /if \(day\.length > 0\) onSelectDay\?\.\(ymd, day\)/)
+  assert.match(unitCalendarCode, /if \(!residency && day\.length > 0\) onSelectDay\?\.\(ymd, day\)/)
 })
 
 test('Unit Leader Home filters calendar activity by authorized unit selection', () => {
@@ -105,8 +106,9 @@ test('responsive and accessible calendar shell guardrails are codified', () => {
   assert.match(sharedCss, /@media \(max-width: 760px\) \{[\s\S]*?\.canonical-calendar-shell \{[\s\S]*?grid-template-columns: 1fr/)
   assert.match(unitCalendar, /role="grid"/)
   assert.match(unitCalendar, /role="gridcell"/)
-  assert.match(unitCalendar, /aria-label=\{`Rotation Activity for/)
-  assert.match(unitCalendar, /aria-label="Mini rotation activity calendar"/)
+  assert.match(unitCalendar, /aria-label=\{gridLabel\}/)
+  assert.match(unitCalendar, /'Rotation Activity'\} for \$\{/)
+  assert.match(unitCalendar, /'Mini rotation activity calendar'/)
   // The shared month cell carries the main-grid focus ring; the mini keeps its own.
   assert.match(sharedCss, /\.canonical-month-cell:focus-visible/)
   assert.match(portalCss, /\.ptl-cal-mini-cell:focus-visible/)

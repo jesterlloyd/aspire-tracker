@@ -25,6 +25,7 @@ import { useRegisterPortalRefresh } from './PortalRefresh'
 import { PortalHeaderScope, PortalHeaderControls } from './PortalHeaderSlots'
 import SkylineCard from '../components/SkylineCard'
 import { useMastheadFeed, scrollToCalendar } from './shared/useMastheadFeed'
+import { fetchUnitInterviews, openInterviewTimes, removeInterviewTimes, setInterviewSlotBlocked } from './unit/unitInterviewsApi'
 import OnCampusNow from '../components/oncampus/OnCampusNow'
 import { buildLiveShiftDisplay } from '../lib/onCampusRows'
 import StatusLegendPopover from '../components/StatusLegendPopover'
@@ -294,6 +295,8 @@ function HomeScreen({ unitKey, students, cohortNarrowed = false, profile, accept
   // Rotation activity for the calendar. Server-bounded to a rolling 90 days and
   // server-filtered to safe fields; nothing here can widen either.
   const activity = useEndpoint(s => getShiftActivity({}, s), [])
+  // ONE-CALENDAR-1: the unit's residency interview times, for the calendar's Residency view.
+  const interviews = useEndpoint(() => fetchUnitInterviews(unitKey), [unitKey])
   const [dayOpen, setDayOpen] = useState(null)   // { ymd, shifts }
   // EVENT-AUDIENCE-2: flagged events ticked for Unit Leaders.
   const mastheadItems = useMastheadFeed('unit_leader')
@@ -301,8 +304,15 @@ function HomeScreen({ unitKey, students, cohortNarrowed = false, profile, accept
   // The shared portal Refresh re-fetches Home's three data paths: the roster (identity/hours), the
   // in-app feed, and the rotation calendar activity.
   useRegisterPortalRefresh(() => Promise.all([
-    refreshRoster?.(), alerts.refresh(), activity.refresh(),
+    refreshRoster?.(), alerts.refresh(), activity.refresh(), interviews.refresh(),
   ]))
+  const interviewData = interviews.data ? { ...interviews.data, loading: interviews.loading } : (interviews.loading ? { loading: true } : null)
+  // The writes are the Interviews endpoint's own; a preview gets none (the server refuses them too).
+  const interviewActions = interviews.data && !interviews.data.preview ? {
+    open: async f => { const r = await openInterviewTimes(f); if (r.ok) interviews.refresh(); return r.ok ? { ok: true, data: r.data } : { ok: false, errors: r.data?.errors, error: r.error } },
+    remove: async b => { const r = await removeInterviewTimes(b.id); if (r.ok) interviews.refresh(); return r },
+    toggle: async s => { const r = await setInterviewSlotBlocked(s.id, s.status !== 'blocked'); if (r.ok) interviews.refresh(); return r },
+  } : null
 
   const notifications = alerts.data?.notifications || []
   const shifts = activity.data?.shifts || []
@@ -410,6 +420,8 @@ function HomeScreen({ unitKey, students, cohortNarrowed = false, profile, accept
         <UnitRotationCalendar
           shifts={visibleShifts}
           loading={activity.loading}
+          interviews={interviewData}
+          interviewActions={interviewActions}
           onSelectDay={(ymd, dayShifts) => setDayOpen({ ymd, shifts: dayShifts })}
         />
       </Suspense>

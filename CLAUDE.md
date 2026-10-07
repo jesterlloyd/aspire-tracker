@@ -2274,22 +2274,34 @@ calendar, then the results table, each row opening the rubric book.
 - **Unit Leader nav (UNIT-NAV-ALPHA-1, Owner, 2026-10-06)**: Home reads At a Glance and stays first;
   every other tab is alphabetical through `alphabetizeNav` (Capacity, Evaluation, Interviews,
   Messages, Placement Requests, Preceptors). Phase 4 (booking by link) is provisional.
-- **Phase 4: Residency > Interview Schedule** (Owner, 2026-10-06: "the unit leaders can put their
-  availability (time), since the interviews are only scheduled for 2 days each time. HR can add the
-  times too and then HR books the interviewees"). A sub-tab after Interview Board (`schedule`),
-  `InterviewScheduleTab.jsx`, for the ASPIRE team and Talent Acquisition alike, over one residency
-  cohort. **One calendar for both places**: `InterviewTimesCalendar.jsx` (calendar, day panel,
-  legend, `OpenTimesModal`) is the Unit Leader tab's own, moved out of `UnitInterviewsWorkspace`,
-  and both screens draw it; its helpers and colours live in `src/lib/ngrp/interviewScheduleModel.js`.
-  Open Times offers the cohort's active participating units (`ngrp_cycle_units`); opening, blocking
-  and removing call Phase 3's own functions for the row's one unit, so HR and a unit leader change
-  times by one set of rules. **Book** on an open time lists the applicants paired with that unit
-  (`bookingChoices`); booking one who holds a time MOVES them (the old time opens again; a failed
-  claim puts them back), and an interview with a result (completed, decision, withdrew, no
-  interview, no show) is changed in the binder, never from here. A booking writes the binder's
-  interview (scheduled, the time, the span's format); **Cancel** opens the time and clears the
-  binder only while it still holds that time. Server: `lib/server/ngrpInterviewSchedule.js`,
-  reads through `ngrp-workspace` `schedule`, writes through `ngrp-manage` `schedule_*`. No SQL.
+- **Phase 4: the interview schedule, on the calendars that already exist** (ONE-CALENDAR-1, Owner,
+  2026-10-06: "why did you not use the Calendar in Calendar tab as the calendar for Interview
+  scheduling, the way we used only 1 calendar in the main app? ... end-user experience". A separate
+  Interview Schedule sub-tab and a second calendar on the Unit Leader's Interviews tab shipped for
+  about an hour and were taken out the same day; do not bring either back). "The unit leaders can
+  put their availability (time), since the interviews are only scheduled for 2 days each time. HR
+  can add the times too and then HR books the interviewees."
+  - **Residency > Calendar is the schedule.** `ActivityCalendar.jsx` reads `useInterviewSchedule`
+    beside the events, holidays and residents' working days: every unit's times as chips in the
+    month cells, in the day panel and the day modal as rows with the actions (Book, Block, Reopen,
+    Cancel, Remove), + Open Times beside Add Event, the three interview entries in the legend, and a
+    unit filter with the Paired Applicants sheet under the calendar. Booking lists the applicants
+    paired with that unit (`bookingChoices`); one who holds a time is MOVED; an interview with a
+    result is changed in the binder, never here. A booking writes the binder's interview
+    (scheduled, the time, the span's format); Cancel opens the time and clears the binder only
+    while it still holds that time. Talent Acquisition opens, books and cancels (the cohort's
+    `canManage`); Add Event stays the staff app's. Server: `lib/server/ngrpInterviewSchedule.js`,
+    reads through `ngrp-workspace` `schedule`, writes through `ngrp-manage` `schedule_*`. No SQL.
+  - **The Unit Leader's one calendar is on At a Glance** (`UnitRotationCalendar.jsx`), with
+    **Internship | Residency** beside **Month | Week**. Internship is the rotation activity it
+    always was (tan paper); Residency (slate) is the unit's interview times with Open Times in the
+    toolbar and Block, Reopen and Remove in the day panel, through the Interviews endpoint's own
+    writes, which `HomeScreen` loads (`fetchUnitInterviews`) and hands down as `interviewActions`
+    (null for an Owner/Admin preview). The Interviews tab keeps the tiles, the results and the
+    rubric, and draws no calendar.
+  - **One set of parts for both**: `src/components/ngrp/InterviewTimesControls.jsx` (the day-panel
+    row, the Remove action, the month chips, the legend entries, the Open Times dialog and its
+    button, the Book dialog), with the words and colours in `src/lib/ngrp/interviewScheduleModel.js`.
 - **Every booking, move and cancel is emailed** (Owner chose alumnus + unit): the applicant at
   their residency address (`residencyRecipient`: the Transition Form's preferred email, else
   personal) and every unit leader with an active `unit_leader` grant and an active unit scope for
@@ -2299,3 +2311,26 @@ calendar, then the results table, each row opening the rubric book.
   `notification_log` row of type `ngrp_interview_notice`. A notice never fails the booking; the
   toast says who was emailed and who was not (`noticeSummary`). There is no self-booking by the
   alumnus: HR books.
+
+## The planner has a Week view (ONE-CALENDAR-1, 2026-10-06)
+
+`src/components/shared/CanonicalWeekView.jsx` is the one Week view, with its arithmetic in
+`src/lib/calendarWeek.js` (pure, tested): seven Sunday-first columns, an all-day row for things
+with a date and no clock (holidays, all-day events, residents' working days, a shift with no
+check-in), and an hour grid for things with a start and an end. A host hands it `allDayOn(ymd)`
+and `timedOn(ymd)` and it draws nothing of its own. The Residency Calendar and the Unit Leader's
+calendar offer Month | Week through it (the Unit Leader's Internship week runs 6 AM to midnight,
+because shifts run 7 to 7; the interview weeks keep 7 AM to 8 PM). An item that starts before
+the first hour or ends after the last is clamped to the grid so its label stays in view.
+
+**The week opens on its first entry, never on 7 AM.** The main app's Interviews week (its own
+`WeekView` in `InterviewCalendar.jsx`, 140px an hour inside the planner's 560px box) opened at
+7 AM with a day of 9:30 interviews 350px below the fold, which the Owner read as "the week view
+is not showing schedules". Both week views now set their scroller to the first timed entry of
+the week (`weekScrollTop`), 8 AM when there is none; `test/calendarWeek.test.mjs` pins the
+numbers. The box is still the constant size the planner promises.
+
+Known and not changed: the Unit Leader's At a Glance calendar in dark mode (the modern-appearance
+shell) measured 44 failing text nodes before this change and the same after; its day numbers and
+the day panel's entries read white on the cream portal page. That is the portal's dark mode, a
+separate fix.

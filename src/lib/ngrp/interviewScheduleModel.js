@@ -2,6 +2,7 @@
 // into an open time, what the day says, and what the toast says about the emails that went.
 import { unitNameKey } from '../unitNameCanon.js'
 import { pacificDateString } from '../birthdayEligibility.js'
+import { pacificParts, hhmmOf, minutesOf } from '../calendarWeek.js'
 
 const keyOf = v => unitNameKey(v || '')
 const PT = { timeZone: 'America/Los_Angeles' }
@@ -65,4 +66,30 @@ export function noticeSummary(notices = []) {
   if (!leads.length) warn.push('No unit leader has portal access for this unit, so no one there was emailed.')
   else if (leads.some(n => !n.ok)) warn.push('A unit leader\'s email did not go.')
   return [sent, ...warn].filter(Boolean).join(' ')
+}
+
+/** The colour a time wears: booked, blocked, else open. */
+export function slotColor(slot) {
+  return slot.booked ? SLOT_COLORS.booked : slot.status === 'blocked' ? SLOT_COLORS.blocked : SLOT_COLORS.open
+}
+
+/** The day panel's word for a time: who is booked, else Blocked or Open. */
+export function slotStateWord(slot) {
+  return slot.booked ? (slot.booked_name || 'Booked') : slot.status === 'blocked' ? 'Blocked' : 'Open'
+}
+
+/**
+ * One interview time as the shared Week view draws it: on its Pacific date, from its Pacific
+ * start for its duration. `showUnit` puts the unit on the label for an every-unit calendar.
+ */
+export function slotWeekItem(slot, { showUnit = false, onClick = null } = {}) {
+  const p = pacificParts(slot.slot_at)
+  if (!p) return null
+  const who = slotStateWord(slot)
+  return {
+    id: slot.id, date: p.date, start: p.time, end: hhmmOf(minutesOf(p.time) + (slot.duration_minutes || 30)),
+    label: showUnit ? `${slot.unit_key} · ${who}` : who,
+    sublabel: slot.booked ? 'Interview' : slot.status === 'blocked' ? 'Blocked time' : 'Open time',
+    color: slotColor(slot), onClick,
+  }
 }

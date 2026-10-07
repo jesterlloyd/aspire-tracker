@@ -2,7 +2,7 @@
 // applicants; each booking, move and cancel follows into the binder and emails a calendar invite.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readFileSync, existsSync } from 'node:fs'
 import { bookInterview, cancelInterview, unitLeaderRecipients, scheduleInterviewees } from '../lib/server/ngrpInterviewSchedule.js'
 import { interviewNoticeEmail, interviewIcs } from '../lib/server/email/ngrpInterviewEmail.js'
 import { bookingChoices, scheduleCounts, noticeSummary } from '../src/lib/ngrp/interviewScheduleModel.js'
@@ -144,14 +144,26 @@ test('SCHED 8: the book list is the unit\'s paired applicants; a result locks th
   assert.match(noticeSummary([{ audience: 'alumnus', ok: false, reason: 'no_email' }]), /No email is on file.*No unit leader/)
 })
 
-test('SCHED 9: the tab, the endpoints and the shared calendar are wired', () => {
-  assert.ok(NGRP_TABS.find(t => t.id === 'residency').subTabs.some(s => s.id === 'schedule' && s.label === 'Interview Schedule'))
+test('SCHED 9: one calendar per portal: the schedule lives on the Residency Calendar and the Unit Leader\'s At a Glance', () => {
+  // ONE-CALENDAR-1 (Owner, 2026-10-06): no Interview Schedule sub-tab, no second calendar anywhere.
+  const subs = NGRP_TABS.find(t => t.id === 'residency').subTabs.map(s => s.id)
+  assert.deepEqual(subs, ['board', 'residents', 'activity'])
+  assert.equal(existsSync(new URL('../src/components/ngrp/InterviewScheduleTab.jsx', import.meta.url)), false)
+  assert.equal(existsSync(new URL('../src/components/ngrp/InterviewTimesCalendar.jsx', import.meta.url)), false)
   const manage = read('api/ngrp-manage.js')
   for (const a of ['schedule_open_times', 'schedule_remove_times', 'schedule_slot_block', 'schedule_book', 'schedule_cancel']) assert.match(manage, new RegExp(`'${a}'`))
   assert.match(manage, /\.\.\.SCHEDULE_ACTIONS/, 'listed in ACTIONS, or every call answers invalid_action')
   assert.match(read('api/ngrp-workspace.js'), /'schedule'\]\)/)
-  for (const f of ['src/components/ngrp/InterviewScheduleTab.jsx', 'src/portal/unit/UnitInterviewsWorkspace.jsx']) {
-    assert.match(read(f), /InterviewTimesCalendar/, `${f} draws the one shared calendar`)
-  }
-  assert.doesNotMatch(read('src/portal/unit/UnitInterviewsWorkspace.jsx'), /CanonicalCalendarLayout/, 'no second copy of the calendar')
+  // The Residency Calendar draws the times, books, and offers Month | Week.
+  const cal = read('src/components/ngrp/ActivityCalendar.jsx')
+  for (const p of [/useInterviewSchedule/, /InterviewDayChips/, /InterviewSlotRow/, /BookDialog/, /OpenTimesModal/, /CanonicalWeekView/, /schedule_book/, /schedule_cancel/]) assert.match(cal, p)
+  // The Unit Leader's one calendar switches Internship | Residency and Month | Week.
+  const ul = read('src/portal/unit/UnitRotationCalendar.jsx')
+  for (const p of [/value: 'internship'/, /value: 'residency'/, /CanonicalWeekView/, /InterviewDayChips/, /OpenTimesModal/, /RemoveTimesAction/]) assert.match(ul, p)
+  assert.match(read('src/portal/UnitLeaderPortal.jsx'), /interviewActions=\{interviewActions\}/, 'At a Glance hands the calendar the Interviews endpoint\'s writes')
+  // The Interviews tab has no calendar of its own.
+  const tab = read('src/portal/unit/UnitInterviewsWorkspace.jsx')
+  for (const p of [/CanonicalCalendarLayout/, /InterviewTimesCalendar/, /OpenTimesModal/, /pl-monthgrid/]) assert.doesNotMatch(tab, p)
+  // The main app's Interviews week lands on its first interview.
+  assert.match(read('src/components/InterviewCalendar.jsx'), /weekScrollTop\(/)
 })

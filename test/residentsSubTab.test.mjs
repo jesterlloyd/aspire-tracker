@@ -21,8 +21,7 @@ const gate = read('docs/security/OWNER_SQL_GATE.md')
 
 test('Residency reads Interview Board | Residents | Activity', () => {
   assert.deepEqual(ngrpSubTabs('residency').map(s => [s.id, s.label]), [
-    // NGRP-INTERVIEWS-1 Phase 4 added Interview Schedule after Interview Board.
-    ['board', 'Interview Board'], ['schedule', 'Interview Schedule'], ['residents', 'Residents'], ['activity', 'Calendar'],
+    ['board', 'Interview Board'], ['residents', 'Residents'], ['activity', 'Calendar'],
   ])
 })
 

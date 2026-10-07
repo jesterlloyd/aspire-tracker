@@ -102,7 +102,8 @@ test('every Unit Leader section registers its own active data path', () => {
   const ul = read('src/portal/UnitLeaderPortal.jsx')
   assert.match(ul, /import \{ useRegisterPortalRefresh \} from '\.\/PortalRefresh'/)
   // Home: roster + feed + calendar activity.
-  assert.match(ul, /useRegisterPortalRefresh\(\(\) => Promise\.all\(\[\s*refreshRoster\?\.\(\), alerts\.refresh\(\), activity\.refresh\(\),\s*\]\)\)/)
+  // ONE-CALENDAR-1: the calendar's Residency view adds the interview times to the refresh.
+  assert.match(ul, /useRegisterPortalRefresh\(\(\) => Promise\.all\(\[\s*refreshRoster\?\.\(\), alerts\.refresh\(\), activity\.refresh\(\), interviews\.refresh\(\),\s*\]\)\)/)
   // Students, Placement Requests, Capacity, Profile.
   assert.match(ul, /useRegisterPortalRefresh\(props\.refreshRoster\)/)      // Students
   assert.match(ul, /useRegisterPortalRefresh\(refresh\)/)                   // Placement Requests

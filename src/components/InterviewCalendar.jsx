@@ -44,6 +44,7 @@ import { getStudentPreferredFullName } from '../lib/studentNameFormatters'
 import SegmentedPicker from './shared/SegmentedPicker'
 import { CAPACITY_STATES, capacityState, slotStyle } from '../lib/interviewCalendarLegend'
 import { confirmDialog } from './shared/confirmDialog'
+import { weekScrollTop } from '../lib/calendarWeek'
 
 // Distinct ASPIRE-event chip - filled left-accent bar + type color (never looks like an interview
 // slot's pastel capacity card). Clicking opens the event modal (edit for owner/admin, else read-only).
@@ -1126,6 +1127,17 @@ function WeekView({ weekStart, slots, colorMap, onSlotClick, onEmptyClick, event
   const days  = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
   const todayStr = new Date().toLocaleDateString('en-CA')
 
+  // ONE-CALENDAR-1: the week opens on its first interview, not on 7 AM. At 140px an hour inside
+  // the planner's 560px box, 7 AM to 9 AM is all that showed, and a day of 9:30 interviews read
+  // as an empty week (Owner, 2026-10-06: "the week view... it's not showing schedules").
+  const scrollRef = useRef(null)
+  const weekDates = days.map(d => d.toLocaleDateString('en-CA'))
+  const firstStart = (slots || []).filter(s => weekDates.includes(s.slot_date)).map(s => String(s.slot_time || s.start_time || '').slice(0, 5)).filter(Boolean).sort()[0] || ''
+  useEffect(() => {
+    if (!scrollRef.current) return
+    scrollRef.current.scrollTop = weekScrollTop(firstStart ? [{ start: firstStart }] : [], { startHour: START_HOUR, hourHeight: HOUR_HEIGHT })
+  }, [weekStart, firstStart])
+
   const normalize = (s) => {
     const sT = s.slot_time || s.start_time || '00:00'
     return { ...s, _sT: sT, _eT: minutesToTimeStr(toMinutes(sT) + (s.duration_minutes || 30)), _status: getSlotStatus(s) }
@@ -1176,7 +1188,7 @@ function WeekView({ weekStart, slots, colorMap, onSlotClick, onEmptyClick, event
 
       {/* Scrollable body. It takes whatever the constant box has left after the day
           headers and the all-day row, instead of a fixed maxHeight. */}
-      <div className="pl-calbox-scroll">
+      <div className="pl-calbox-scroll" ref={scrollRef}>
         <div style={{ display:'grid', gridTemplateColumns:'52px repeat(7, 1fr)' }}>
           {/* Hour labels */}
           <div>

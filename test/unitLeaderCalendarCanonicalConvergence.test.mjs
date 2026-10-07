@@ -69,7 +69,8 @@ test('the Unit Leader toolbar groups previous, next, and Today with a centered t
   assert.match(unitCode, /onNext=\{\(\) => step\(1\)\}/)
   assert.match(unitCode, /onToday=\{goToday\}/)
   // The month/year title sits in the centre group via the shared title primitive.
-  assert.match(unitCode, /<CanonicalCalendarMonthTitle[^>]*>\{monthLabel\(cursor\.y, cursor\.m\)\}<\/CanonicalCalendarMonthTitle>/)
+  // ONE-CALENDAR-1: the Week view titles the week; the month keeps monthLabel.
+  assert.match(unitCode, /<CanonicalCalendarMonthTitle[^>]*>\{view === 'week' \? weekTitle\(weekStart\) : monthLabel\(cursor\.y, cursor\.m\)\}<\/CanonicalCalendarMonthTitle>/)
 })
 
 test('both calendars use a Sunday-first week start', () => {

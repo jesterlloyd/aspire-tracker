@@ -1,9 +1,12 @@
 // NGRP-INTERVIEWS-1 Phase 3 (Owner, 2026-10-05): the Unit Leader Portal's Interviews tab. "Copy the
 // table from internship - calendar on top, results table at the bottom, opens to the rubric.
 // Interviews today tiles at the very top." Built from the internship Interviews tab's own parts:
-// the Interviews Today tiles (OnCampusNow, shown only on a day with interviews), the planner
-// calendar (CanonicalCalendarFoundation, slate paper), the KPI filter cards (FilterKPICard) and the
-// worklist (`ir-worklist` rows), each row opening the NGRP rubric book.
+// the Interviews Today tiles (OnCampusNow, shown only on a day with interviews), the KPI filter
+// cards (FilterKPICard) and the worklist (`ir-worklist` rows), each row opening the NGRP rubric book.
+//
+// ONE-CALENDAR-1 (Owner, 2026-10-06): the calendar is NOT here. The unit's one calendar is on At a
+// Glance (Residency view), where times are opened, blocked and removed; this tab keeps the tiles,
+// the results and the rubric.
 //
 // A unit leader sees only the applicants Talent Acquisition paired with their unit, and only their
 // own rubric. Applicants who ranked the unit first show as a count, never by name. An Owner or Admin
@@ -11,18 +14,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import OnCampusNow from '../../components/oncampus/OnCampusNow'
 import { FilterKPICard } from '../../components/KPIBand'
-import InterviewTimesCalendar, { OpenTimesModal, OpenTimesButton, DayAction } from '../../components/ngrp/InterviewTimesCalendar'
-import { dayOf, timeOf, longDate } from '../../lib/ngrp/interviewScheduleModel'
-import { confirmDialog } from '../../components/shared/confirmDialog'
+import { dayOf, timeOf } from '../../lib/ngrp/interviewScheduleModel'
 import { useRegisterPortalRefresh } from '../PortalRefresh'
 import { recommendationLabel } from '../../lib/ngrp/ngrpRubric'
 import { INTERVIEW_MODE_LABELS } from '../../lib/ngrp/ngrpStates'
 import { pacificDateString } from '../../lib/birthdayEligibility'
 import UnitStudentAvatar from './UnitStudentAvatar'
 import NgrpRubricBook from './NgrpRubricBook'
-import {
-  fetchUnitInterviews, openInterviewTimes, removeInterviewTimes, setInterviewSlotBlocked,
-} from './unitInterviewsApi'
+import { fetchUnitInterviews } from './unitInterviewsApi'
 
 const REC_PILL = { recommend: ['#dcfce7', '#166534'], recommend_with_reservations: ['#fef3c7', '#92400e'], do_not_recommend: ['#fee2e2', '#991b1b'] }
 const PT = { timeZone: 'America/Los_Angeles' }
@@ -35,7 +34,6 @@ export default function UnitInterviewsWorkspace({ unitKey = null, toast = null }
   const [status, setStatus] = useState('loading')
   const [openId, setOpenId] = useState(null)
   const [filter, setFilter] = useState(null)
-  const [modal, setModal] = useState(false)
   const today = pacificDateString()
 
   const load = useCallback(async () => {
@@ -52,7 +50,6 @@ export default function UnitInterviewsWorkspace({ unitKey = null, toast = null }
   const preview = data?.preview === true
   const interviewees = useMemo(() => data?.interviewees || [], [data])
   const slots = useMemo(() => data?.slots || [], [data])
-  const units = useMemo(() => [...new Set([...(data?.rankedFirst || []).map(r => r.unit)])], [data])
   const byCandidate = useMemo(() => new Map(interviewees.map(i => [i.candidate_id, i])), [interviewees])
 
   if (openId) {
@@ -75,19 +72,6 @@ export default function UnitInterviewsWorkspace({ unitKey = null, toast = null }
     }
   })
 
-  // ── Calendar ──
-  const removeBlock = async (b) => {
-    if (!(await confirmDialog(`Remove the open times on ${longDate(b.block_date)}?`, { confirmLabel: 'Remove Times', danger: true }))) return
-    const r = await removeInterviewTimes(b.id)
-    if (!r.ok) { toast?.error?.('Not removed', r.error === 'has_bookings' ? 'Someone is booked into these times. Ask Talent Acquisition to move the booking first.' : 'The times could not be removed.'); return }
-    load()
-  }
-  const toggleSlot = async (s) => {
-    const r = await setInterviewSlotBlocked(s.id, s.status !== 'blocked')
-    if (!r.ok) { toast?.error?.('Not changed', 'That time could not be changed.'); return }
-    load()
-  }
-
   // ── Results ──
   const counts = {
     total: interviewees.length,
@@ -109,12 +93,6 @@ export default function UnitInterviewsWorkspace({ unitKey = null, toast = null }
       {preview && <p className="ptl-notice ptl-notice-warn" role="status">Preview: you see this tab as a unit leader does. Nothing can be saved from a preview.</p>}
       <OnCampusNow title="Interviews Today" sub={`${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', ...PT })} · ${tiles.length} scheduled`} rows={tiles} flush />
 
-      <InterviewTimesCalendar slots={slots} blocks={preview ? [] : (data?.blocks || [])} title="Interview Calendar" labelledBy="ul-iv-cal"
-        description="Your unit's residency interviews and the times you have opened."
-        toolbarAction={!preview && data?.rubricsProvisioned !== false && (data?.cycles || []).length > 0 ? <OpenTimesButton onClick={() => setModal(true)} /> : null}
-        slotActions={preview ? null : s => (s.booked ? null : <DayAction onClick={() => toggleSlot(s)}>{s.status === 'blocked' ? 'Reopen' : 'Block'}</DayAction>)}
-        onRemoveBlock={preview ? null : removeBlock} />
-
       <section>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
           <h3 className="ptl-card-title ptl-roster-heading" style={{ margin: 0 }}>Interview Results</h3>
@@ -123,6 +101,7 @@ export default function UnitInterviewsWorkspace({ unitKey = null, toast = null }
               {ranked.map(r => `${r.count} applicant${r.count === 1 ? '' : 's'} ranked ${r.unit} first`).join(' · ')}. Names appear once Talent Acquisition pairs them with you.
             </span>
           )}
+          <span className="ptl-muted" style={{ fontSize: 12.5 }}>Interview times are opened on At a Glance's calendar, in its Residency view.</span>
         </div>
         <div className="ir-kpis" style={{ display: 'grid', gap: 10, padding: '10px 0 12px', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}>
           <FilterKPICard value={counts.total} label="Paired With You" accent="nightfall" active={!filter} onClick={() => setFilter(null)} />
@@ -186,12 +165,6 @@ export default function UnitInterviewsWorkspace({ unitKey = null, toast = null }
         )}
       </section>
 
-      {modal && (
-        <OpenTimesModal cycles={data?.cycles || []} units={units} note="The span is cut into interview times. Talent Acquisition books the applicants into them."
-          save={async f => { const r = await openInterviewTimes(f); return r.ok ? { ok: true, data: r.data } : { ok: false, errors: r.data?.errors } }}
-          onClose={() => setModal(false)}
-          onSaved={(r, f) => { toast?.success?.('Times opened', `${r.data.slot_count} interview time${r.data.slot_count === 1 ? '' : 's'} on ${longDate(f.block_date)}.`); setModal(false); load() }} />
-      )}
     </div>
   )
 }

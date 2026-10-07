@@ -46,7 +46,7 @@ test('only Support and Residency carry sub-tabs, and each has a default', () => 
   assert.deepEqual(ngrpSubTabs('support').map(s => s.id), ['before', 'start', 'during'])
   // RESIDENTS-1 (Owner, 2026-09-14): the board | Residents | Activity. INTERVIEW-BOARD-1
   // renamed the first one to Interview Board; its id is unchanged.
-  assert.deepEqual(ngrpSubTabs('residency').map(s => s.id), ['board', 'schedule', 'residents', 'activity']) // NGRP-INTERVIEWS-1 Phase 4 added Interview Schedule after Interview Board.
+  assert.deepEqual(ngrpSubTabs('residency').map(s => s.id), ['board', 'residents', 'activity'])
   for (const id of ['overview', 'profiles', 'evaluation']) {
     assert.deepEqual(ngrpSubTabs(id), [], `${id} has none`)
     assert.equal(defaultSubTab(id), null)
@@ -208,10 +208,10 @@ test('the Activity calendar matches the Interviews calendar, part for part', () 
   // which an event-coloured chip would misrepresent.
   assert.match(activity, /import \{ getUsHolidaysForRange \} from '\.\.\/\.\.\/lib\/usHolidays'/)
   assert.match(interviews, /getUsHolidaysForRange/)
-  assert.match(activity, /className="ngrp-holiday-chip"/)
-  const holidayCss = read('src/components/ngrp/ngrp.css')
-  assert.match(holidayCss, /\.ngrp-holiday-chip \{[\s\S]{0,220}background: #FEF3C7/)
-  assert.match(holidayCss, /\.ngrp-holiday-chip \{[\s\S]{0,260}color: #92400E/)
+  // ONE-CALENDAR-1: the shared CanonicalHolidayChip (the Unit Leader calendar's), a fixed amber
+  // pair in both themes; the ngrp-holiday-chip span read black on the dark paper.
+  assert.match(activity, /<CanonicalHolidayChip key=\{h\.name\} name=\{h\.name\} observed=\{h\.observed\} \/>/)
+  assert.match(read('src/components/shared/CanonicalCalendarFoundation.jsx'), /export function CanonicalHolidayChip/)
   // Clicking a day opens a modal; hovering a day offers the add.
   assert.match(activity, /const openDay = date =>/)
   assert.match(activity, /\{dayOpen && \(/)
@@ -238,11 +238,13 @@ test('the month window is one range, used by both the fetch and the holidays', (
   assert.deepEqual(monthRange({ year: 2026, month: 0 }), { from: '2026-01-01', to: '2026-01-31' })
   // Both reads take the same window, so a holiday can never fall outside the
   // events it is shown beside.
-  assert.match(activity, /const \{ from, to \} = monthRange\(cursor\)/)
+  // ONE-CALENDAR-1: the Week view reads its own seven days; the month still reads monthRange(cursor).
+  assert.match(activity, /const \{ from, to \} = view === 'week' \? \{ from: weekStart, to: addDaysYmd\(weekStart, 6\) \} : monthRange\(cursor\)/)
   assert.match(activity, /getUsHolidaysForRange\(from, to\)/)
   assert.match(activity, /queryKey: \['ngrp_activity_events', from, to\]/)
   // Staff tabs stay mounted, so only the visible sub-tab fetches.
-  assert.match(activity, /enabled: location\.pathname\.startsWith\(`\$\{base\}\/residency\/activity`\)/)
+  assert.match(activity, /const onThisTab = location\.pathname\.startsWith\(`\$\{base\}\/residency\/activity`\)/)
+  assert.match(activity, /enabled: onThisTab,/)
 })
 
 test('the masthead sits in the same column, and therefore at the same height', () => {

@@ -339,7 +339,9 @@ test('ASPIRE is never written as "ASPIRE Program" in the changed files', () => {
   // CLAUDE.md keeps "ASPIRE Program" where it preserves exact source wording. The FY26 import
   // (PROGRAM-BUDGET A1, f4053bc8) copies the workbook verbatim: its filename and the item
   // "ASPIRE Program Shirts". Nothing else is excused.
-  const SOURCE_WORDING = new Set(['db/migrations/seed_program_budget_fy26.sql'])
+  // SURVEY-NAMING-CANON-V3's retired-alias map quotes the old instrument names it maps away from
+  // ("ASPIRE Program Experience Feedback"), which is exact historical wording.
+  const SOURCE_WORDING = new Set(['db/migrations/seed_program_budget_fy26.sql', 'supabase/migrations/20261026000002_survey_naming_canon_v3.sql'])
   for (const f of changed) {
     if (SOURCE_WORDING.has(f)) continue
     assert.doesNotMatch(read(f), /ASPIRE Program/, `${f} uses "ASPIRE Program"`)
