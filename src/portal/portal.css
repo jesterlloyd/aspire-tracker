@@ -2502,19 +2502,16 @@ img.ptl-detail-photo {
 /* NA-CONTACTS-POLISH-2: the two cards stretch to the SAME height. The row is
    the taller card's natural height, both capped at 68vh; whichever card's
    content exceeds that scrolls internally. */
-/* NA-CONTACTS-FILL-1 (Owner, 2026-10-07): the row is the rest of the window below the controls
-   (--na-directory-h, measured by useChartViewport in AcademicsContactsView); the 68vh cap is the
-   fallback for a first paint before the measurement lands. */
-.ptl-na-contact-directory { display: grid; grid-template-columns: minmax(300px, .85fr) minmax(420px, 1.35fr); gap: 16px; align-items: stretch; min-height: 520px; height: var(--na-directory-h, auto); }
+.ptl-na-contact-directory { display: grid; grid-template-columns: minmax(300px, .85fr) minmax(420px, 1.35fr); gap: 16px; align-items: stretch; min-height: 520px; }
 /* NA-CONTACTS-POLISH-5: the shell carries the card chrome and anchors the
    scrub indicator; the list inside it is the scroller. */
 .ptl-na-contact-list-shell {
-  position: relative; max-height: var(--na-directory-h, 68vh); background: #fff;
+  position: relative; max-height: 68vh; background: #fff;
   border: 1px solid rgba(29, 37, 103, 0.08); border-radius: 14px;
   box-shadow: 0 2px 10px rgba(29, 37, 103, 0.06);
   overflow: hidden;
 }
-.ptl-na-contact-list { height: 100%; max-height: var(--na-directory-h, 68vh); overflow-y: auto; }
+.ptl-na-contact-list { height: 100%; max-height: 68vh; overflow-y: auto; }
 /* Scrollbar-drag position indicator: same translucent gray as the overlay
    scrollbar thumb, floating at the list's center while scrubbing. */
 .ptl-na-scrub-indicator {
@@ -2539,7 +2536,7 @@ img.ptl-detail-photo {
 .ptl-na-contact-affiliation-line { max-width: 100%; font-size: 11.5px; color: var(--ptl-muted, #6b7280); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ptl-na-contact-row-role { display: inline-flex; max-width: 100%; padding: 2px 7px; border: 1px solid var(--ptl-na-role-border, #e5e7eb); border-radius: 4px; background: var(--ptl-na-role-bg, #f3f4f6); color: var(--ptl-na-role-color, #6b7280); font-size: 9px; font-weight: 700; letter-spacing: .055em; line-height: 1.35; text-transform: uppercase; white-space: normal; }
 .ptl-na-contact-detail {
-  padding: 0; background: #fff; min-height: 520px; max-height: var(--na-directory-h, 68vh);
+  padding: 0; background: #fff; min-height: 520px; max-height: 68vh;
   display: flex; flex-direction: column;
   border: 1px solid rgba(29, 37, 103, 0.08); border-radius: 16px;
   box-shadow: 0 4px 24px rgba(29, 37, 103, 0.10);
@@ -2681,8 +2678,7 @@ img.ptl-detail-photo {
   .ptl-na-contact-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ptl-na-table-controls { grid-template-columns: 1fr; }
   .ptl-na-table { min-width: 1080px; table-layout: auto; }
-  /* Stacked, the row is its content again (NA-CONTACTS-FILL-1 sizes the two-column row). */
-  .ptl-na-contact-directory { grid-template-columns: 1fr; height: auto; }
+  .ptl-na-contact-directory { grid-template-columns: 1fr; }
   .ptl-na-contact-list-shell, .ptl-na-contact-list { max-height: 360px; }
   /* Stacked mode: the detail grows with its content and the page scrolls -
      no nested scroll trap inside a phone-height card. */

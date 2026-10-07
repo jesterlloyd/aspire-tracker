@@ -2335,8 +2335,7 @@ calendar, then the results table, each row opening the rubric book.
 ## The chart measures the elements, never the document (VIEWPORT-REVERT-1, 2026-10-07)
 
 `useChartViewport` sizes every pinned split: Student Profiles, Residency > Profiles & Interest
-(and the Residency Portal's), Connect's address book and the Modern Contacts, and now the NE&L
-Portal's Contacts directory. The Owner found the Student Profiles split a third shorter than its
+(and the Residency Portal's), Connect's address book and the Modern Contacts. The Owner found the Student Profiles split a third shorter than its
 window with the KPI cards no longer scrolling away. RESIDENCY-PORTAL-WIDTH-1 had taught the hook to
 leave room for what a page draws below the chart (a portal's footer) by reading
 `document.scrollHeight - tab.bottom`, and the app shell's `min-height: 100vh` made the EMPTY space
@@ -2360,10 +2359,12 @@ Three things that shipped with it, same day:
   fixed 520px iframe under a scrolling panel while Modern expanded; a tall window showed a strip of the
   email. Both composers (send-to-one and bulk) now pass `outreach-preview-scroll outreach-preview-expand`
   in both styles, and the Classic sheet carries the same expand rules; 520px is the floor.
-- **NE&L Portal > Contacts takes the rest of the window** (NA-CONTACTS-FILL-1): the directory row was
-  its content's height capped at 68vh, so a short list left the lower third empty. The controls row is
-  the hook's bar and `--na-directory-h` sizes the row and both cards; the 68vh cap is the first-paint
-  fallback, and the stacked (narrow) layout is content-sized as before.
+- **NE&L Portal > Contacts was NOT changed in the end.** A first cut sized its directory with the
+  hook too (NA-CONTACTS-FILL-1); the Owner: "there was actually nothing wrong before ... now you just
+  ruined the scrolling". Reverted the same day. Its cards stay content-sized, capped at 68vh.
+- **The pinned toolbar sits under a portal's chrome** (PORTAL-TOOLBAR-Z-1): `.ptl-topsection` is
+  z-index 20, the same as `.profiles-toolbar`, and the toolbar came later in the document, so in the
+  Residency Portal it drew over the profile menu. `.ptl-page .profiles-toolbar` is 10 (ngrp.css).
 
 ## The planner has a Week view (ONE-CALENDAR-1, 2026-10-06)
 

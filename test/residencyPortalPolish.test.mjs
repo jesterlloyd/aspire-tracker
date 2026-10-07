@@ -32,3 +32,11 @@ test('SCROLL 2: a page in the staff app\'s column has no footer or bottom paddin
   assert.match(shell, /\{mainWidth !== 'app' && \(\s*<footer className="ptl-footer">/)
   assert.match(read('src/portal/portal.css'), /\.ptl-main\.ptl-main-app \{[^}]*padding-bottom: 0;/)
 })
+
+// PORTAL-TOOLBAR-Z-1 (2026-10-07): the pinned toolbar never draws over a portal's chrome or its menus.
+test('PORTAL-TOOLBAR-Z-1: the pinned toolbar sits under the portal chrome', () => {
+  const css = readFileSync(new URL('../src/components/ngrp/ngrp.css', import.meta.url), 'utf8')
+  const portal = readFileSync(new URL('../src/portal/portal.css', import.meta.url), 'utf8')
+  assert.match(css, /\.ptl-page \.profiles-toolbar \{ z-index: 10; \}/)
+  assert.match(portal, /\.ptl-topsection \{ position: sticky; top: 0; z-index: 20; \}/)
+})

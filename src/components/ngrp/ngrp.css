@@ -629,6 +629,11 @@
    Student Profiles' .pl-list keeps 120px under its rows for the floating launchers; here the
    list card sits clear of them, so the end of the list is the end of the scroll. */
 .pl-list.ngrp-pl-list { padding-bottom: 8px; }
+/* PORTAL-TOOLBAR-Z-1 (Owner, 2026-10-07): in the Residency Portal the pinned toolbar drew over
+   the profile menu. The staff chrome sits at z-index 200, so the toolbar's 20 is safely under it;
+   the portal chrome (.ptl-topsection) is ALSO 20, and the toolbar comes later in the document, so
+   it won. In a portal the toolbar sits below its chrome and every menu the chrome opens. */
+.ptl-page .profiles-toolbar { z-index: 10; }
 
 /* RESIDENCY-NEEDS-1: the staff home's Needs you, on Residency's At a Glance. .hm-page gives it
    the home's tokens; this sits in the workspace's own column, so the home's page padding goes. */
