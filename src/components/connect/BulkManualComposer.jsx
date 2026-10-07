@@ -1307,7 +1307,8 @@ export default function BulkManualComposer({
           title="Email Preview"
           padding={24}
           className="outreach-preview-panel"
-          bodyClassName={classicDesk ? '' : 'outreach-preview-scroll'}
+          /* PREVIEW-FILL-1: the bulk preview fills its column in both styles too. */
+          bodyClassName="outreach-preview-scroll outreach-preview-expand"
         >
 
           {recipients.length === 0 ? (
@@ -1340,12 +1341,12 @@ export default function BulkManualComposer({
                     <div style={{ padding: '16px 14px', fontSize: 12, color: '#dc2626', fontFamily: F }}>{preview.error}</div>
                   ) : preview.html ? (
                     <iframe
-                      className="outreach-preview-iframe"
+                      className="outreach-preview-iframe outreach-preview-iframe-expand"
                       title="Email Preview"
                       srcDoc={preview.html}
                       sandbox=""
                       referrerPolicy="no-referrer"
-                      style={{ width: '100%', height: 520, border: 'none', background: '#fff', display: 'block' }}
+                      style={{ width: '100%', height: '100%', border: 'none', background: '#fff', display: 'block' }}
                     />
                   ) : (
                     <div style={{ padding: '24px 14px', fontSize: 13, color: '#d1d5db', fontStyle: 'italic', fontFamily: F, textAlign: 'center' }}>

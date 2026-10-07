@@ -3514,7 +3514,10 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
               tone="preview"
               title="Email Preview"
               className="outreach-preview-panel"
-              bodyClassName={classicDesk ? '' : 'outreach-preview-scroll outreach-preview-expand'}
+              /* PREVIEW-FILL-1 (Owner, 2026-10-07): the Classic desk's preview was a fixed 520px
+                 iframe under a scrolling panel, so a tall window showed a narrow strip of the
+                 email and cut it off. Both styles now expand the preview to the column. */
+              bodyClassName="outreach-preview-scroll outreach-preview-expand"
             >
 
                 {/* Resolved recipient + source */}
@@ -3581,7 +3584,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
                       srcDoc={dmPreview.html}
                       sandbox=""
                       referrerPolicy="no-referrer"
-                      style={{ width: '100%', height: classicDesk ? 520 : '100%', border: 'none', background: '#fff', display: 'block' }}
+                      style={{ width: '100%', height: '100%', border: 'none', background: '#fff', display: 'block' }}
                     />
                   ) : (
                     <div style={{ padding: '24px 14px', fontSize: 13, color: '#d1d5db', fontStyle: 'italic', fontFamily: F, textAlign: 'center' }}>

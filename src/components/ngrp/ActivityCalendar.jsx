@@ -33,6 +33,7 @@ import { toLocalDateStr } from '../../lib/designTokens'
 import { eventOnDate, eventColor, eventTypeLabel, formatEventWhen, portalCanSeeEvent, localDateStr } from '../../lib/aspireEvents'
 import { getUsHolidaysForRange } from '../../lib/usHolidays'
 import AspireEventModal from '../AspireEventModal'
+import EmptyState from '../EmptyState'
 import { MiniCalendar } from '../CalendarSidebar'
 import {
   CanonicalCalendarLayout, CanonicalCalendarSidebar, CanonicalCalendarTodayPanel,
@@ -567,8 +568,14 @@ export default function ActivityCalendar({ cycle, canManage: canManageCohort, to
       </CanonicalCalendarLayout>
 
       {interviewsOn && (
-        <section className="snap" aria-label="Paired applicants" style={{ marginTop: 'var(--aspire-gap-card, 16px)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+        /* CALENDAR-TABLE-1 (Owner, 2026-10-07: "still looks buggy"): the internship Interviews
+           tab puts its KPI cards and worklist straight on the page, and the worklist IS the card.
+           This section used to wrap them in a `.snap` card that has no padding of its own, so the
+           heading, the cards and the muted sentence sat flush against a second card's edge, 20px
+           inside the calendar's. Now it is laid out as that tab is: a heading row, the cards, the
+           worklist, all on the page and as wide as the calendar above them. */
+        <section aria-label="Paired applicants" style={{ marginTop: 'var(--aspire-gap-card, 16px)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', padding: '0 2px' }}>
             <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--text-heading)' }}>Paired Applicants</h3>
             <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12.5, fontWeight: 600, color: 'var(--text-heading)' }}>
               Unit
@@ -588,7 +595,8 @@ export default function ActivityCalendar({ cycle, canManage: canManageCohort, to
             <FilterKPICard value={listCounts.held} label="Interviewed" accent="sage" active={listFilter === 'held'} onClick={() => toggleList('held')} />
           </div>
           {paired.length === 0 ? (
-            <p className="ngrp-glance-muted" style={{ margin: 0 }}>{interviewees.length ? 'No one is paired with this unit yet.' : 'No one is paired with a unit yet. Pair applicants on the Interview Board.'}</p>
+            <EmptyState compact heading={interviewees.length ? 'No one is paired with this unit yet' : 'No one is paired with a unit yet'}
+              subtext="Pair applicants with hiring units on the Interview Board; they appear here when you do." />
           ) : (
             <div className="ir-worklist">
               <div className="ir-wl-thead">

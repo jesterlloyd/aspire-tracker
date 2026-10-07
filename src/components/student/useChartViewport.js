@@ -39,6 +39,32 @@ function stickyChromeHeight() {
   return chrome ? Math.round(chrome.getBoundingClientRect().height) : 0
 }
 
+/**
+ * What the page draws BELOW the chart's tab (a portal's footer and bottom padding), measured
+ * from the elements themselves: every in-flow sibling after the tab, and every ancestor's
+ * bottom padding, up to <body>. VIEWPORT-REVERT-1 (Owner, 2026-10-07): the first version read
+ * `document.scrollHeight - tab.bottom`, and the app shell's `min-height: 100vh` made the EMPTY
+ * space under a short page count as trailing content. One measurement taken while the chart
+ * was short (a warmed-up tab is display:none, and reads as 0px tall) then locked it there: the
+ * split shrank until the page no longer scrolled, the KPI cards never scrolled away, and the
+ * binder lost a third of the window. Elements cannot lie about that.
+ */
+function trailingBelow(tab) {
+  let total = parseFloat(getComputedStyle(tab).marginBottom || 0)
+  let el = tab
+  while (el && el.parentElement && el !== document.body) {
+    for (let sib = el.nextElementSibling; sib; sib = sib.nextElementSibling) {
+      const cs = getComputedStyle(sib)
+      if (cs.display === 'none' || cs.position === 'fixed' || cs.position === 'absolute') continue
+      total += sib.getBoundingClientRect().height + parseFloat(cs.marginTop || 0) + parseFloat(cs.marginBottom || 0)
+    }
+    const pcs = getComputedStyle(el.parentElement)
+    total += parseFloat(pcs.paddingBottom || 0) + parseFloat(pcs.borderBottomWidth || 0)
+    el = el.parentElement
+  }
+  return Math.round(total)
+}
+
 export function useChartViewport() {
   const barRef = useRef(null)
   const [chartHeight, setChartHeight] = useState(null)
@@ -51,18 +77,21 @@ export function useChartViewport() {
 
     const measure = () => {
       const chromeH = stickyChromeHeight()
+      const barH = bar.getBoundingClientRect().height
+      // A hidden bar (a tab mounted by the warm-up but not shown) measures nothing true; keep
+      // the last real measurement and wait for the ResizeObserver to fire when it is shown.
+      if (!barH) return
       // The bar's margins count: they are the gap the chart starts after.
       const style = window.getComputedStyle(bar)
       const margins = parseFloat(style.marginTop || 0) + parseFloat(style.marginBottom || 0)
-      const pinned = chromeH + bar.getBoundingClientRect().height + margins
+      const pinned = chromeH + barH + margins
       // RESIDENCY-PORTAL-WIDTH-1: whatever the page draws BELOW the chart's tab (a portal's
       // footer and bottom padding) is still scrolled to, and it pushed the split up under the
       // pinned bar by exactly that much (77px in the Residency Portal). The chart leaves room
       // for it, so the page's last scroll position puts the split right under the bar. The
       // staff app draws nothing there, so its gap stays BOTTOM_GAP.
       const tab = bar.parentElement
-      const docH = document.documentElement.scrollHeight
-      const trailing = tab ? Math.max(0, Math.round(docH - (tab.getBoundingClientRect().bottom + window.scrollY))) : 0
+      const trailing = tab ? trailingBelow(tab) : 0
       const next = Math.max(MIN_CHART_H, Math.round(window.innerHeight - pinned - Math.max(BOTTOM_GAP, trailing)))
       setChartHeight(prev => (prev === next ? prev : next))
       setToolbarTop(prev => (prev === chromeH ? prev : chromeH))

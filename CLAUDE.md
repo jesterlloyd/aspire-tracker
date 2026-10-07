@@ -2332,6 +2332,39 @@ calendar, then the results table, each row opening the rubric book.
   toast says who was emailed and who was not (`noticeSummary`). There is no self-booking by the
   alumnus: HR books.
 
+## The chart measures the elements, never the document (VIEWPORT-REVERT-1, 2026-10-07)
+
+`useChartViewport` sizes every pinned split: Student Profiles, Residency > Profiles & Interest
+(and the Residency Portal's), Connect's address book and the Modern Contacts, and now the NE&L
+Portal's Contacts directory. The Owner found the Student Profiles split a third shorter than its
+window with the KPI cards no longer scrolling away. RESIDENCY-PORTAL-WIDTH-1 had taught the hook to
+leave room for what a page draws below the chart (a portal's footer) by reading
+`document.scrollHeight - tab.bottom`, and the app shell's `min-height: 100vh` made the EMPTY space
+under a short page count as trailing content; a warmed-up tab (display:none, 0px tall) took one
+measurement at the 420px floor and that locked it: the split shrank until the page stopped scrolling.
+`trailingBelow(tab)` now sums the in-flow siblings after the tab and every ancestor's bottom padding
+up to `<body>`, a hidden bar is never measured (`if (!barH) return`), and `test/studentChart.test.mjs`
+refuses `documentElement.scrollHeight` in the hook. Measured in a harness with the staff shell's
+shape (sticky chrome, min-height 100vh, hidden sibling tabs, a fixed launcher): split = window minus
+the pinned stack minus 12px, the KPI strip scrolls away, and the bar lands under the chrome at the
+end of the scroll; the portal shape (padding plus footer, 77px) still gets its 77.
+
+Three things that shipped with it, same day:
+
+- **Residency > Calendar's table is laid out as the internship Interviews tab's** (CALENDAR-TABLE-1):
+  the heading row, the KPI cards and the `ir-worklist` straight on the page, as wide as the calendar,
+  with the canonical `EmptyState` when no one is paired. It used to sit inside a `.snap` card, which
+  has no padding of its own, so everything was flush against a second card's edge 20px inside the
+  calendar's. That was what "looks weird" and "still looks buggy" meant.
+- **The Outreach preview fills its column in the Classic desk too** (PREVIEW-FILL-1). Classic kept a
+  fixed 520px iframe under a scrolling panel while Modern expanded; a tall window showed a strip of the
+  email. Both composers (send-to-one and bulk) now pass `outreach-preview-scroll outreach-preview-expand`
+  in both styles, and the Classic sheet carries the same expand rules; 520px is the floor.
+- **NE&L Portal > Contacts takes the rest of the window** (NA-CONTACTS-FILL-1): the directory row was
+  its content's height capped at 68vh, so a short list left the lower third empty. The controls row is
+  the hook's bar and `--na-directory-h` sizes the row and both cards; the 68vh cap is the first-paint
+  fallback, and the stacked (narrow) layout is content-sized as before.
+
 ## The planner has a Week view (ONE-CALENDAR-1, 2026-10-06)
 
 `src/components/shared/CanonicalWeekView.jsx` is the one Week view, with its arithmetic in

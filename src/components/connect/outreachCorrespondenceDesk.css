@@ -442,6 +442,31 @@
   min-height: 0;
   overflow-y: auto;
 }
+/* PREVIEW-FILL-1 (Owner, 2026-10-07): the Classic desk's preview fills its column the way
+   Modern's does. The panel is a flex column, its body scrolls, and the frame takes what is
+   left, never less than 520px (the old fixed height is now the floor). */
+.outreach-workspace-classic .outreach-preview-panel {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.outreach-workspace-classic .outreach-preview-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+.outreach-workspace-classic .outreach-preview-expand {
+  display: flex;
+  flex-direction: column;
+}
+.outreach-workspace-classic .outreach-preview-expand .outreach-preview-frame {
+  flex: 1 1 520px;
+  min-height: 520px;
+}
+.outreach-workspace-classic .outreach-preview-iframe-expand {
+  height: 100%;
+  min-height: 520px;
+}
 .outreach-workspace-classic .outreach-correspondence-letter > .outreach-draft-panel,
 .outreach-workspace-classic .outreach-bulk-draft-column > .outreach-draft-panel,
 .outreach-workspace-classic .outreach-bulk-survey-draft-column > .connect-panel {

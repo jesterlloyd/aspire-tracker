@@ -176,9 +176,16 @@ test('rich message editors fill the available draft space in both themes', () =>
 
 test('Modern direct preview expands its email viewport instead of leaving blank paper', () => {
   const outreach = read('src/components/connect/OutreachView.jsx')
+  const bulk = read('src/components/connect/BulkManualComposer.jsx')
   const css = read('src/components/connect/outreachCorrespondenceDesk.css')
 
-  assert.match(outreach, /bodyClassName=\{classicDesk \? '' : 'outreach-preview-scroll outreach-preview-expand'\}/)
+  // PREVIEW-FILL-1 (2026-10-07): the preview expands in BOTH styles; Classic got the same rules.
+  assert.match(outreach, /bodyClassName="outreach-preview-scroll outreach-preview-expand"/)
+  assert.match(bulk, /bodyClassName="outreach-preview-scroll outreach-preview-expand"/)
+  assert.doesNotMatch(outreach, /height: classicDesk \? 520/)
+  assert.doesNotMatch(bulk, /height: 520, border: 'none'/)
+  assert.match(css, /\.outreach-workspace-classic \.outreach-preview-expand \.outreach-preview-frame \{[\s\S]*flex: 1 1 520px;[\s\S]*min-height: 520px;/)
+  assert.match(css, /\.outreach-workspace-classic \.outreach-preview-iframe-expand \{[\s\S]*height: 100%;/)
   assert.match(outreach, /className="outreach-preview-frame"/)
   assert.match(outreach, /className="outreach-preview-iframe outreach-preview-iframe-expand"/)
   assert.match(css, /\.outreach-workspace-modern \.outreach-preview-expand \.outreach-preview-frame \{[\s\S]*flex: 1 1 520px;[\s\S]*min-height: 520px;/)

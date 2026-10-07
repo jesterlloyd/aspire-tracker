@@ -22,6 +22,7 @@ import {
 import { UNIT_SCOPE_OPTIONS } from '../../lib/portalScopeCatalog'
 import { SCHOOL_PICKER_OPTIONS, schoolPickerLabel } from '../../lib/schoolIdentity'
 import MultiScopePicker from '../../components/shared/MultiScopePicker'
+import { useChartViewport } from '../../components/student/useChartViewport'
 import { CONTACT_SCOPE_GROUPS, CONTACT_DIVISION_OPTIONS, contactMatchesScope, scopedCategoryOrder, scopeUnitSet } from '../../lib/contactScopeFilter'
 import { buildContactsCsv } from '../../lib/contactsCsv'
 import { downloadCSV } from '../../lib/utils'
@@ -477,6 +478,12 @@ function ContactEditorModal({ contact, saving, error, onClose, onSave }) {
 
 export default function AcademicsContactsView({ active = true }) {
   const [searchParams] = useSearchParams()
+  // NA-CONTACTS-FILL-1 (Owner, 2026-10-07: the directory "is using only half the screen"). The
+  // list and the record used to be capped at 68vh and sized by their content, so a short list
+  // left the lower third of the window empty. The directory now takes whatever the window has
+  // left below the controls row, measured by the same hook the student chart and the address
+  // book use (declared here, above every early return: PORTAL-HOOKS-310).
+  const { barRef: controlsRef, chartHeight: directoryHeight } = useChartViewport()
   const [contacts, setContacts] = useState([])
   const [selectedId, setSelectedId] = useState(null)
   const [search, setSearch] = useState('')
@@ -724,7 +731,7 @@ export default function AcademicsContactsView({ active = true }) {
   return (
     // NA-CONTACTS-POLISH-3: no heading block - the tab already says Contacts,
     // and Add contact lives in the controls row next to the search.
-    <section className="ptl-na-contacts" aria-label="Contacts">
+    <section className="ptl-na-contacts" aria-label="Contacts" style={{ '--na-directory-h': directoryHeight ? `${directoryHeight}px` : undefined }}>
       <div className="ptl-na-contact-kpis" role="group" aria-label="Filter contacts by category">
         {['All', ...categories].map(value => {
           const selected = activeCategory === value
@@ -751,7 +758,7 @@ export default function AcademicsContactsView({ active = true }) {
         })}
       </div>
 
-      <div className="ptl-na-contact-controls" role="group" aria-label="Search and manage contacts">
+      <div className="ptl-na-contact-controls" role="group" aria-label="Search and manage contacts" ref={controlsRef}>
         {canManageContacts && <button type="button" className="ptl-na-contact-editor-primary" onClick={() => { setMutationError(''); setEditorContact(null) }}><Plus size={15} /> Add contact</button>}
         <label className="ptl-na-contact-search" htmlFor="na-contact-search">
           <Search size={17} aria-hidden="true" />

@@ -623,7 +623,14 @@ test('ROOM 5: the pinned stack is the chrome PLUS the toolbar', () => {
   // RESIDENCY-PORTAL-WIDTH-1: the portals' sticky chrome (.ptl-topsection) counts too.
   assert.match(vp, /getComputedStyle\(el\)\.position === 'sticky'/)
   assert.match(vp, /'\.top-section, \.ptl-topsection'/)
-  assert.match(vp, /chromeH \+ bar\.getBoundingClientRect\(\)\.height \+ margins/)
+  assert.match(vp, /chromeH \+ barH \+ margins/)
+  // VIEWPORT-REVERT-1 (2026-10-07): the trailing space is measured from the elements below the
+  // tab, never from the document's scroll height (the shell's min-height: 100vh made the empty
+  // space under a short page count, and the split shrank until the page stopped scrolling).
+  assert.match(vp, /function trailingBelow\(tab\)/)
+  assert.doesNotMatch(vp, /documentElement\.scrollHeight/)
+  // A hidden bar (a warmed-up tab) is never measured.
+  assert.match(vp, /if \(!barH\) return/)
   const tab = read('src/components/StudentProfilesTab.jsx')
   assert.match(tab, /--profiles-toolbar-top/)
 })
