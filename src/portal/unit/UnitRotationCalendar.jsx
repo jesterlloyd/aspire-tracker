@@ -2,8 +2,8 @@
 //
 // The Unit Leader's one calendar, on At a Glance.
 //
-// ONE-CALENDAR-1 (Owner, 2026-10-06: one calendar per portal, with an Internship | Residency
-// switch beside Month | Week). Internship is the rotation activity it always showed: the shifts
+// ONE-CALENDAR-1 (Owner, 2026-10-06: one calendar per portal). `mode` is the host's choice (At a
+// Glance's Internship | Residency picker, ONE-CALENDAR-2). Internship is the rotation activity it always showed: the shifts
 // the unit's students logged, over the last 90 days. Residency is the unit's residency
 // interviews: the times the unit opened, the applicants Talent Acquisition booked into them, and
 // blocked times, with Open Times, Block, Reopen and Remove in the day panel. The Interviews tab
@@ -169,9 +169,8 @@ function SelectedDayActivity({ shifts }) {
  * { open(form), remove(block), toggle(slot) }, each resolving { ok, ... }, or null when the
  * viewer may not write (an Owner/Admin preview).
  */
-export default function UnitRotationCalendar({ shifts = [], onSelectDay, loading = false, interviews = null, interviewActions = null }) {
+export default function UnitRotationCalendar({ shifts = [], onSelectDay, loading = false, interviews = null, interviewActions = null, mode = 'internship' }) {
   const today = pacificToday()
-  const [mode, setMode] = useState('internship')
   const [view, setView] = useState('month')
   const [cursor, setCursor] = useState(() => ({ y: Number(today.slice(0, 4)), m: Number(today.slice(5, 7)) - 1 }))
   const [selectedDate, setSelectedDate] = useState(today)
@@ -315,9 +314,7 @@ export default function UnitRotationCalendar({ shifts = [], onSelectDay, loading
       <CanonicalCalendarMonthTitle ariaLive="polite">{view === 'week' ? weekTitle(weekStart) : monthLabel(cursor.y, cursor.m)}</CanonicalCalendarMonthTitle>
       <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
         {residency && canOpen && <OpenTimesButton onClick={() => setOpening(true)} />}
-        <SegmentedPicker paper size="sm" ariaLabel="What the calendar shows" value={mode} onChange={setMode}
-          options={[{ value: 'internship', label: 'Internship' }, { value: 'residency', label: 'Residency' }]} />
-        <SegmentedPicker paper size="sm" ariaLabel="Calendar view" value={view} onChange={v => { if (v === 'week') setWeekStart(weekStartOf(selectedDate)); setView(v) }}
+        <SegmentedPicker paper ariaLabel="Calendar view" value={view} onChange={v => { if (v === 'week') setWeekStart(weekStartOf(selectedDate)); setView(v) }}
           options={[{ value: 'month', label: 'Month' }, { value: 'week', label: 'Week' }]} />
       </div>
     </div>

@@ -26,7 +26,7 @@
 import Tooltip from '../ui/Tooltip'
 import { useState, useMemo, useCallback } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useNgrpSurface } from '../../lib/ngrp/ngrpSurface'
 import { supabase } from '../../lib/supabase'
 import { toLocalDateStr } from '../../lib/designTokens'
@@ -41,7 +41,8 @@ import {
 } from '../shared/CanonicalCalendarFoundation'
 import CanonicalWeekView from '../shared/CanonicalWeekView'
 import SegmentedPicker from '../shared/SegmentedPicker'
-import DataSheet from '../shared/DataSheet'
+import StudentAvatar from '../StudentAvatar'
+import { FilterKPICard } from '../KPIBand'
 import { confirmDialog } from '../shared/confirmDialog'
 import { F, inputStyle } from '../../lib/ngrp/ngrpCohortForm'
 import {
@@ -52,6 +53,7 @@ import { ModalShell } from './NgrpFormUi'
 // reflection calendars, shown here for the team.
 import { useNgrpApplicants, postNgrpSupport, useInterviewSchedule, postNgrpManage } from '../../lib/ngrp/useNgrpData'
 import { deriveApplicantRows, INTERVIEW_MODE_LABELS } from '../../lib/ngrp/ngrpStates'
+import { recommendationLabel } from '../../lib/ngrp/ngrpRubric'
 import { shiftBadge } from '../../lib/shiftStatus'
 import { displayName } from '../../lib/utils'
 import { firstNameOf } from '../../lib/greeting'
@@ -69,6 +71,10 @@ const longDate = d => new Date(`${d}T00:00:00`).toLocaleDateString('en-US', { we
 const pad = n => String(n).padStart(2, '0')
 const localHHMM = ts => { const d = new Date(ts); return `${pad(d.getHours())}:${pad(d.getMinutes())}` }
 const ALL = ''
+// The internship card's pill pairs (fixed ink on a fixed ground, both themes).
+const REC_PILL = { recommend: ['#dcfce7', '#166534'], recommend_with_reservations: ['#fef3c7', '#92400e'], do_not_recommend: ['#fee2e2', '#991b1b'] }
+// An interview that happened, by the binder's own vocabulary.
+const HELD = new Set(['completed', 'decision_recorded'])
 const ERRORS = {
   slot_taken: 'Someone else just took that time. Choose another.',
   slot_blocked: 'That time is blocked. Reopen it first.',
@@ -176,6 +182,7 @@ function DayModal({ date, events, holidays, marks = [], slotRows = null, canMana
 export default function ActivityCalendar({ cycle, canManage: canManageCohort, toast = null }) {
   const queryClient = useQueryClient()
   const location = useLocation()
+  const navigate = useNavigate()
   const { base, canEditEvents, eventAudience } = useNgrpSurface()
   // Managing the cohort is not authoring ASPIRE events: the surface decides the latter, so
   // Talent Acquisition sees no Add Event and cannot open an event for editing. Interview
@@ -193,6 +200,7 @@ export default function ActivityCalendar({ cycle, canManage: canManageCohort, to
   const [opening, setOpening] = useState(false)
   const [bookSlot, setBookSlot] = useState(null)
   const [busyId, setBusyId] = useState(null)
+  const [listFilter, setListFilter] = useState(null)
 
   const onThisTab = location.pathname.startsWith(`${base}/residency/activity`)
   const { from, to } = view === 'week' ? { from: weekStart, to: addDaysYmd(weekStart, 6) } : monthRange(cursor)
@@ -232,10 +240,11 @@ export default function ActivityCalendar({ cycle, canManage: canManageCohort, to
   // range. Names come from the roster rows this workspace already holds; the
   // schedule endpoint returns ids and dates only.
   const applicants = useNgrpApplicants(cycle?.id)
-  const nameByCandidate = useMemo(() => {
+  const rowByCandidate = useMemo(() => {
     const rows = deriveApplicantRows(applicants.payload?.students, applicants.payload?.candidates)
-    return new Map(rows.filter(r => r.candidate_id).map(r => [r.candidate_id, displayName(r.student)]))
+    return new Map(rows.filter(r => r.candidate_id).map(r => [r.candidate_id, r]))
   }, [applicants.payload])
+  const nameByCandidate = useMemo(() => new Map([...rowByCandidate].map(([id, r]) => [id, displayName(r.student)])), [rowByCandidate])
   const { data: schedule } = useQuery({
     queryKey: ['ngrp_activity_schedule', cycle?.id, from, to],
     queryFn: () => postNgrpSupport('schedule', { cycle_id: cycle.id, from, to }),
@@ -381,16 +390,23 @@ export default function ActivityCalendar({ cycle, canManage: canManageCohort, to
     ...slotsOn(date).map(s => slotWeekItem(s, { showUnit: !unit, onClick: () => goTo(date) })).filter(Boolean),
   ]
 
+  // ONE-CALENDAR-2 (Owner, 2026-10-06: "match the table below the internship calendar"): the
+  // internship Interviews tab's KPI cards and `ir-worklist` rows. A row opens the applicant in
+  // Profiles & Interest; the panel column reads the binder's interview_panel.
   const held = new Map(allSlots.filter(s => s.booked).map(s => [s.booked_candidate_id, s]))
-  const pairedRows = interviewees.filter(i => !unit || i.unit === unit)
-  const pairedColumns = [
-    { key: 'name', label: 'Applicant', min: 170, grow: 2.2, priority: 1, sortValue: i => nameOf(i), render: i => nameOf(i) },
-    { key: 'unit', label: 'Unit', min: 110, grow: 1.2, priority: 1, sortValue: i => i.unit, render: i => i.unit },
-    { key: 'choice', label: 'Their Choice', min: 96, grow: 0.8, priority: 3, sortValue: i => i.choice_rank || 99, render: i => (i.choice_rank ? `#${i.choice_rank}` : 'Not ranked') },
-    { key: 'when', label: 'Interview', min: 140, grow: 1.2, priority: 1, sortValue: i => held.get(i.candidate_id)?.slot_at || null,
-      render: i => (held.get(i.candidate_id) ? slotWhen(held.get(i.candidate_id).slot_at) : <span className="ngrp-glance-muted">Not booked</span>) },
-    { key: 'mode', label: 'Format', min: 90, grow: 0.8, priority: 2, sortValue: i => i.interview_mode || '', render: i => INTERVIEW_MODE_LABELS[i.interview_mode] || '' },
-  ]
+  const apptOf = i => held.get(i.candidate_id)?.slot_at || i.interview_at || null
+  const paired = interviewees.filter(i => !unit || i.unit === unit)
+  const listCounts = {
+    total: paired.length,
+    booked: paired.filter(i => !!apptOf(i)).length,
+    notBooked: paired.filter(i => !apptOf(i)).length,
+    held: paired.filter(i => HELD.has(i.interview_status)).length,
+  }
+  const listRows = paired
+    .filter(i => !listFilter || (listFilter === 'booked' ? !!apptOf(i) : listFilter === 'not_booked' ? !apptOf(i) : HELD.has(i.interview_status)))
+    .sort((a, b) => String(apptOf(a) || '9').localeCompare(String(apptOf(b) || '9')) || nameOf(a).localeCompare(nameOf(b)))
+  const toggleList = key => setListFilter(listFilter === key ? null : key)
+  const openApplicant = i => { const r = rowByCandidate.get(i.candidate_id); if (r?.student?.id) navigate(`${base}/profiles?student=${encodeURIComponent(r.student.id)}`) }
 
   return (
     <>
@@ -551,22 +567,85 @@ export default function ActivityCalendar({ cycle, canManage: canManageCohort, to
       </CanonicalCalendarLayout>
 
       {interviewsOn && (
-        <section className="snap ngrp-glance-panel" aria-label="Paired applicants" style={{ marginTop: 'var(--aspire-gap-card, 16px)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', marginBottom: 10 }}>
+        <section className="snap" aria-label="Paired applicants" style={{ marginTop: 'var(--aspire-gap-card, 16px)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+            <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--text-heading)' }}>Paired Applicants</h3>
             <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12.5, fontWeight: 600, color: 'var(--text-heading)' }}>
               Unit
-              <select style={{ ...inputStyle, width: 220 }} value={unit} onChange={e => setUnit(e.target.value)}>
+              <select style={{ ...inputStyle, width: 200, height: 30 }} value={unit} onChange={e => setUnit(e.target.value)}>
                 <option value={ALL}>All units</option>
                 {units.map(u => <option key={u} value={u}>{u}</option>)}
               </select>
             </label>
             <span style={{ fontSize: 12.5, color: 'var(--text-caption)' }}>
-              {counts.paired} paired · {counts.booked} booked · {counts.open} open time{counts.open === 1 ? '' : 's'}. Unit leaders open times on their own calendar; times opened here show there too.
+              {counts.open} open time{counts.open === 1 ? '' : 's'}. Unit leaders open times on their own calendar; times opened here show there too.
             </span>
           </div>
-          <DataSheet level="plain" title="Paired Applicants" caption="Everyone paired with a unit on the Interview Board, and their booked time."
-            columns={pairedColumns} rows={pairedRows} rowKey={i => i.candidate_id} defaultSort={{ key: 'when', dir: 'asc' }}
-            emptyMessage={interviewees.length ? 'No one is paired with this unit yet.' : 'No one is paired with a unit yet. Pair applicants on the Interview Board.'} />
+          <div className="ir-kpis" style={{ display: 'grid', gap: 10, padding: '10px 0 12px', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}>
+            <FilterKPICard value={listCounts.total} label="Paired" accent="nightfall" active={!listFilter} onClick={() => setListFilter(null)} />
+            <FilterKPICard value={listCounts.booked} label="Booked" accent="marina" active={listFilter === 'booked'} onClick={() => toggleList('booked')} />
+            <FilterKPICard value={listCounts.notBooked} label="Not Booked" accent="dawn" active={listFilter === 'not_booked'} onClick={() => toggleList('not_booked')} />
+            <FilterKPICard value={listCounts.held} label="Interviewed" accent="sage" active={listFilter === 'held'} onClick={() => toggleList('held')} />
+          </div>
+          {paired.length === 0 ? (
+            <p className="ngrp-glance-muted" style={{ margin: 0 }}>{interviewees.length ? 'No one is paired with this unit yet.' : 'No one is paired with a unit yet. Pair applicants on the Interview Board.'}</p>
+          ) : (
+            <div className="ir-worklist">
+              <div className="ir-wl-thead">
+                <div style={{ width: 6, flexShrink: 0 }} />
+                <div className="ir-wl-th ir-wl-col-student">Applicant</div>
+                <div className="ir-wl-th ir-wl-col-appt">Appointment</div>
+                <div className="ir-wl-th ir-wl-col-workflow">Their Choice</div>
+                <div className="ir-wl-th ir-wl-col-outcome">Panel</div>
+                <div className="ir-wl-th ir-wl-col-action">Action</div>
+              </div>
+              {listRows.map(i => {
+                const row = rowByCandidate.get(i.candidate_id)
+                const appt = apptOf(i)
+                const panel = row?.interview_panel || null
+                const pill = panel?.recommendation && REC_PILL[panel.recommendation]
+                return (
+                  <div key={i.candidate_id} className="ir-wl-row" role="button" tabIndex={0} aria-label={`Open ${nameOf(i)} in Profiles & Interest`}
+                    onClick={() => openApplicant(i)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openApplicant(i) } }}>
+                    <div className="ir-wl-flag-strip" style={{ background: 'transparent' }} />
+                    <div className="ir-wl-cell ir-wl-col-student">
+                      <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                        {row?.student ? <StudentAvatar student={row.student} size={40} /> : null}
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--color-text-primary)' }}>{nameOf(i)}</div>
+                          <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 2 }}>{[row?.student?.school, row?.student?.program_type].filter(Boolean).join(' · ')}</div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="ir-wl-cell ir-wl-col-appt">
+                      {appt ? (
+                        <>
+                          <div style={{ fontWeight: 600, fontSize: 12, color: 'var(--color-accent-primary)', whiteSpace: 'nowrap' }}>{slotWhen(appt)}</div>
+                          <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 3 }}>{INTERVIEW_MODE_LABELS[i.interview_mode] || 'Format not recorded'}</div>
+                        </>
+                      ) : <span style={{ fontSize: 12, color: 'var(--color-text-muted)', fontStyle: 'italic' }}>Not Booked</span>}
+                    </div>
+                    <div className="ir-wl-cell ir-wl-col-workflow">{i.choice_rank ? `#${i.choice_rank} choice` : 'Not ranked'}<div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>{i.unit}</div></div>
+                    <div className="ir-wl-cell ir-wl-col-outcome">
+                      {panel?.completed ? (
+                        <>
+                          <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--color-text-primary)' }}>{panel.average != null ? Number(panel.average).toFixed(1) : '–'}<span style={{ fontWeight: 400, color: 'var(--color-text-muted)', fontSize: 11 }}> / 15 · {panel.completed} rubric{panel.completed === 1 ? '' : 's'}</span></div>
+                          {pill && <span style={{ alignSelf: 'flex-start', display: 'inline-block', fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 4, background: pill[0], color: pill[1] }}>{recommendationLabel(panel.recommendation)}</span>}
+                        </>
+                      ) : <span style={{ fontSize: 12, color: 'var(--color-text-muted)', fontStyle: 'italic' }}>{panel?.in_progress ? 'Rubric in progress' : 'No rubric yet'}</span>}
+                    </div>
+                    <div className="ir-wl-cell ir-wl-col-action">
+                      {/* The internship worklist's own row action: a theme-token pill, readable in both themes. */}
+                      <button type="button" onClick={e => { e.stopPropagation(); openApplicant(i) }}
+                        style={{ display: 'inline-flex', alignItems: 'center', padding: '7px 14px', borderRadius: 999, border: '1px solid var(--color-border-default)', background: 'var(--color-bg-surface)', fontFamily: 'Plus Jakarta Sans,sans-serif', fontSize: 13, fontWeight: 500, color: 'var(--color-text-primary)', whiteSpace: 'nowrap', cursor: 'pointer' }}>
+                        Open Applicant
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </section>
       )}
 

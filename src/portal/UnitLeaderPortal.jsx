@@ -26,6 +26,8 @@ import { PortalHeaderScope, PortalHeaderControls } from './PortalHeaderSlots'
 import SkylineCard from '../components/SkylineCard'
 import { useMastheadFeed, scrollToCalendar } from './shared/useMastheadFeed'
 import { fetchUnitInterviews, openInterviewTimes, removeInterviewTimes, setInterviewSlotBlocked } from './unit/unitInterviewsApi'
+import SegmentedPicker from '../components/shared/SegmentedPicker'
+import UnitInterviewResults from './unit/UnitInterviewResults'
 import OnCampusNow from '../components/oncampus/OnCampusNow'
 import { buildLiveShiftDisplay } from '../lib/onCampusRows'
 import StatusLegendPopover from '../components/StatusLegendPopover'
@@ -297,6 +299,10 @@ function HomeScreen({ unitKey, students, cohortNarrowed = false, profile, accept
   const activity = useEndpoint(s => getShiftActivity({}, s), [])
   // ONE-CALENDAR-1: the unit's residency interview times, for the calendar's Residency view.
   const interviews = useEndpoint(() => fetchUnitInterviews(unitKey), [unitKey])
+  // ONE-CALENDAR-2 (Owner, 2026-10-06): Internship | Residency at the top left, as Student Profiles
+  // places its picker. Internship is the shift calendar over Your Students; Residency is the
+  // unit's interview times over its interview results.
+  const [mode, setMode] = useState('internship')
   const [dayOpen, setDayOpen] = useState(null)   // { ymd, shifts }
   // EVENT-AUDIENCE-2: flagged events ticked for Unit Leaders.
   const mastheadItems = useMastheadFeed('unit_leader')
@@ -416,8 +422,13 @@ function HomeScreen({ unitKey, students, cohortNarrowed = false, profile, accept
         </section>
       )}
 
+      <div style={{ padding: '0 0 4px' }}>
+        <SegmentedPicker ariaLabel="At a Glance views" value={mode} onChange={setMode}
+          options={[{ value: 'internship', label: 'Internship' }, { value: 'residency', label: 'Residency' }]} />
+      </div>
       <Suspense fallback={<LoadingState label="Loading rotation activity" />}>
         <UnitRotationCalendar
+          mode={mode}
           shifts={visibleShifts}
           loading={activity.loading}
           interviews={interviewData}
@@ -429,6 +440,10 @@ function HomeScreen({ unitKey, students, cohortNarrowed = false, profile, accept
       {/* Your Students, full width below. The Active-rotations and recent-threads cards
           are gone: the student table already represents active rotations, Messages
           has its own primary tab, and Capacity/Placement have dedicated routes. */}
+      {mode === 'residency' ? (
+        <UnitInterviewResults interviewees={interviews.data?.interviewees || []} slots={interviews.data?.slots || []} rankedFirst={interviews.data?.rankedFirst || []}
+          note="Scoring opens on the Interviews tab." onOpen={id => onNavigate?.(`interviews?candidate=${encodeURIComponent(id)}`)} />
+      ) : (
       <StudentRoster
         students={students}
         photos={photos}
@@ -437,6 +452,7 @@ function HomeScreen({ unitKey, students, cohortNarrowed = false, profile, accept
         refreshRoster={refreshRoster}
         heading="Your Students"
       />
+      )}
 
       {dayOpen && (
         <UnitShiftDayDrawer

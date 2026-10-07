@@ -147,7 +147,7 @@ test('SCHED 8: the book list is the unit\'s paired applicants; a result locks th
 test('SCHED 9: one calendar per portal: the schedule lives on the Residency Calendar and the Unit Leader\'s At a Glance', () => {
   // ONE-CALENDAR-1 (Owner, 2026-10-06): no Interview Schedule sub-tab, no second calendar anywhere.
   const subs = NGRP_TABS.find(t => t.id === 'residency').subTabs.map(s => s.id)
-  assert.deepEqual(subs, ['board', 'residents', 'activity'])
+  assert.deepEqual(subs, ['board', 'activity', 'residents'], 'ONE-CALENDAR-2: the Calendar follows the Interview Board')
   assert.equal(existsSync(new URL('../src/components/ngrp/InterviewScheduleTab.jsx', import.meta.url)), false)
   assert.equal(existsSync(new URL('../src/components/ngrp/InterviewTimesCalendar.jsx', import.meta.url)), false)
   const manage = read('api/ngrp-manage.js')
@@ -159,8 +159,13 @@ test('SCHED 9: one calendar per portal: the schedule lives on the Residency Cale
   for (const p of [/useInterviewSchedule/, /InterviewDayChips/, /InterviewSlotRow/, /BookDialog/, /OpenTimesModal/, /CanonicalWeekView/, /schedule_book/, /schedule_cancel/]) assert.match(cal, p)
   // The Unit Leader's one calendar switches Internship | Residency and Month | Week.
   const ul = read('src/portal/unit/UnitRotationCalendar.jsx')
-  for (const p of [/value: 'internship'/, /value: 'residency'/, /CanonicalWeekView/, /InterviewDayChips/, /OpenTimesModal/, /RemoveTimesAction/]) assert.match(ul, p)
-  assert.match(read('src/portal/UnitLeaderPortal.jsx'), /interviewActions=\{interviewActions\}/, 'At a Glance hands the calendar the Interviews endpoint\'s writes')
+  for (const p of [/mode = 'internship'/, /CanonicalWeekView/, /InterviewDayChips/, /OpenTimesModal/, /RemoveTimesAction/]) assert.match(ul, p)
+  // ONE-CALENDAR-2: the picker is At a Glance's, top left; Residency swaps the table for the results.
+  const home = read('src/portal/UnitLeaderPortal.jsx')
+  for (const p of [/value: 'internship'/, /value: 'residency'/, /mode=\{mode\}/, /interviewActions=\{interviewActions\}/, /<UnitInterviewResults/, /interviews\?candidate=/]) assert.match(home, p)
+  assert.match(read('src/portal/unit/UnitInterviewsWorkspace.jsx'), /searchParams\.get\('candidate'\)/)
+  // The Residency Calendar's table is the internship worklist, not a DataSheet.
+  assert.match(cal, /className="ir-worklist"/); assert.doesNotMatch(cal, /<DataSheet/)
   // The Interviews tab has no calendar of its own.
   const tab = read('src/portal/unit/UnitInterviewsWorkspace.jsx')
   for (const p of [/CanonicalCalendarLayout/, /InterviewTimesCalendar/, /OpenTimesModal/, /pl-monthgrid/]) assert.doesNotMatch(tab, p)

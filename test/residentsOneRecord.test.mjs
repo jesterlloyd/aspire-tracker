@@ -29,6 +29,6 @@ test('ONE RECORD 2: Resident Details appears once hired and reads the Residents 
 })
 
 test('CALENDAR 1: the sub-tab reads Calendar, its id stays activity', () => {
-  assert.deepEqual(ngrpSubTabs('residency').map(t => [t.id, t.label]), [['board', 'Interview Board'], ['residents', 'Residents'], ['activity', 'Calendar']])
+  assert.deepEqual(ngrpSubTabs('residency').map(t => [t.id, t.label]), [['board', 'Interview Board'], ['activity', 'Calendar'], ['residents', 'Residents']]) // ONE-CALENDAR-2 (Owner, 2026-10-06): the Calendar follows the Interview Board.
   assert.match(read('src/components/ngrp/ActivityCalendar.jsx'), /title="Residency Calendar"/)
 })

@@ -33,14 +33,16 @@ export const NGRP_TABS = [
       // that will INTERVIEW them, so it says so. The id is unchanged, because it is in
       // people's bookmarks and in the URL contract.
       { id: 'board',     label: 'Interview Board' },
-      // RESIDENTS-1 (Owner, 2026-09-14): the hired new grads and the retention tracker.
-      { id: 'residents', label: 'Residents' },
       // RESIDENCY-CALENDAR-1 (Owner, 2026-10-05): "Calendar", named for what it holds (program
       // events, US holidays and residents' working days), as Internship's Activity became Shift
       // Log for its shifts. The id stays 'activity': it is in bookmarks and the URL contract.
       // ONE-CALENDAR-1 (Owner, 2026-10-06): it is ALSO the interview schedule (open times,
       // bookings, blocked times); there is no separate Interview Schedule sub-tab.
+      // ONE-CALENDAR-2 (Owner, 2026-10-06): the Calendar follows the Interview Board, since it
+      // is where the paired applicants are booked; Residents comes after.
       { id: 'activity',  label: 'Calendar' },
+      // RESIDENTS-1 (Owner, 2026-09-14): the hired new grads and the retention tracker.
+      { id: 'residents', label: 'Residents' },
     ] },
   { id: 'evaluation', label: NAV_LABELS.evaluation },
 ]

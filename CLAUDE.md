@@ -2299,6 +2299,16 @@ calendar, then the results table, each row opening the rubric book.
     writes, which `HomeScreen` loads (`fetchUnitInterviews`) and hands down as `interviewActions`
     (null for an Owner/Admin preview). The Interviews tab keeps the tiles, the results and the
     rubric, and draws no calendar.
+  - **ONE-CALENDAR-2 (Owner, 2026-10-06, same day):** the Internship | Residency picker is At a
+    Glance's, at the top left above the calendar, where Student Profiles puts its picker; the
+    calendar takes `mode` as a prop and keeps only Month | Week inside. Internship is the shift
+    calendar over Your Students; Residency is the interview times over the unit's interview
+    results (`UnitInterviewResults.jsx`, the one table the Interviews tab also draws), whose
+    Open Rubric goes to `interviews?candidate=<id>`, which the Interviews tab reads on arrival.
+    Residency's sub-tabs are Interview Board, Calendar, Residents: the Calendar follows the board
+    that pairs the applicants it books. The Residency Calendar's table is the internship
+    Interviews tab's own KPI cards and `ir-worklist` rows (Applicant, Appointment, Their Choice,
+    Panel from the binder's `interview_panel`, Open Applicant), never a DataSheet.
   - **One set of parts for both**: `src/components/ngrp/InterviewTimesControls.jsx` (the day-panel
     row, the Remove action, the month chips, the legend entries, the Open Times dialog and its
     button, the Book dialog), with the words and colours in `src/lib/ngrp/interviewScheduleModel.js`.
