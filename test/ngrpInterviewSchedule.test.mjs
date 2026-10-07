@@ -159,10 +159,14 @@ test('SCHED 9: one calendar per portal: the schedule lives on the Residency Cale
   for (const p of [/useInterviewSchedule/, /InterviewDayChips/, /InterviewSlotRow/, /BookDialog/, /OpenTimesModal/, /CanonicalWeekView/, /schedule_book/, /schedule_cancel/]) assert.match(cal, p)
   // The Unit Leader's one calendar switches Internship | Residency and Month | Week.
   const ul = read('src/portal/unit/UnitRotationCalendar.jsx')
-  for (const p of [/mode = 'internship'/, /CanonicalWeekView/, /InterviewDayChips/, /OpenTimesModal/, /RemoveTimesAction/]) assert.match(ul, p)
+  for (const p of [/mode = 'internship'/, /CanonicalWeekView/, /InterviewDayChips/, /OpenTimesModal/, /RemoveTimesAction/, /cycleDateItems/, /eventOnDate/, /onRangeChange\?\.\(range\[0\], range\[1\]\)/]) assert.match(ul, p)
+  // ONE-CALENDAR-3: the Residency view shows the cohort's key dates (from the Interviews endpoint)
+  // and the ASPIRE events delivered to unit leaders (the portal feed, for the calendar's range).
+  assert.match(read('lib/server/ngrpUnitInterviews.js'), /interview_window_start: c\.interview_window_start/)
+  assert.match(read('src/portal/shared/useMastheadFeed.js'), /export function usePortalCalendarEvents/)
   // ONE-CALENDAR-2: the picker is At a Glance's, top left; Residency swaps the table for the results.
   const home = read('src/portal/UnitLeaderPortal.jsx')
-  for (const p of [/value: 'internship'/, /value: 'residency'/, /mode=\{mode\}/, /interviewActions=\{interviewActions\}/, /<UnitInterviewResults/, /interviews\?candidate=/]) assert.match(home, p)
+  for (const p of [/value: 'internship'/, /value: 'residency'/, /mode=\{mode\}/, /interviewActions=\{interviewActions\}/, /<UnitInterviewResults/, /interviews\?candidate=/, /usePortalCalendarEvents\('unit_leader', calRange/, /events=\{mode === 'residency' \? residencyEvents : \[\]\}/]) assert.match(home, p)
   assert.match(read('src/portal/unit/UnitInterviewsWorkspace.jsx'), /searchParams\.get\('candidate'\)/)
   // The Residency Calendar's table is the internship worklist, not a DataSheet.
   assert.match(cal, /className="ir-worklist"/); assert.doesNotMatch(cal, /<DataSheet/)

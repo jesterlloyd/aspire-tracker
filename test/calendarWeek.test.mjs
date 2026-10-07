@@ -43,3 +43,14 @@ test('WEEK 4: an interview time on the week grid is on its Pacific date, for its
   assert.equal(slotStateWord({ status: 'available', booked: false }), 'Open')
   assert.equal(slotWeekItem({ ...booked, slot_at: 'bad' }), null)
 })
+
+test('WEEK 5: a residency cohort\'s key dates are dated items for the unit leader\'s calendar (ONE-CALENDAR-3)', async () => {
+  const { cycleDateItems, KEY_DATE_COLOR } = await import('../src/lib/ngrp/interviewScheduleModel.js')
+  const items = cycleDateItems([{ id: 'c1', name: 'Winter 2027', application_open_date: '2026-10-03', application_deadline: '2026-10-14', interview_window_start: '2026-10-06', interview_window_end: '2026-10-07', residency_start_date: '2027-01-11T00:00:00+00:00', licensure_deadline: '2026-12-01' }])
+  assert.deepEqual(items.map(i => [i.date, i.label]), [
+    ['2026-10-03', 'Application opens'], ['2026-10-06', 'Interviews begin'], ['2026-10-07', 'Interviews end'], ['2026-10-14', 'Application deadline'], ['2027-01-11', 'Residency starts'],
+  ], 'sorted by date, the licensure deadline left to the alumnus, a timestamp read as its date')
+  assert.ok(items.every(i => i.color === KEY_DATE_COLOR && i.cycle === 'Winter 2027'))
+  assert.deepEqual(cycleDateItems([{ id: 'c2', name: 'X', interview_window_start: '2026-11-02', interview_window_end: '2026-11-02' }]).map(i => i.label), ['Interviews begin'], 'a one-day window is one item')
+  assert.deepEqual(cycleDateItems([]), [])
+})

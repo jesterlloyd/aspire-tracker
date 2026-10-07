@@ -2309,6 +2309,16 @@ calendar, then the results table, each row opening the rubric book.
     that pairs the applicants it books. The Residency Calendar's table is the internship
     Interviews tab's own KPI cards and `ir-worklist` rows (Applicant, Appointment, Their Choice,
     Panel from the binder's `interview_panel`, Open Applicant), never a DataSheet.
+  - **ONE-CALENDAR-3 (Owner, 2026-10-06):** the Residency view "should also show the residency
+    events: application, cohort start date, interview dates". So it draws the cohort's key dates
+    (`cycleDateItems` in `interviewScheduleModel.js` over the cycles the Interviews endpoint now
+    returns with their dates: Application opens, Application deadline, Interviews begin and end,
+    Residency starts; the licensure deadline is the alumnus's and stays off) and the ASPIRE
+    events delivered to unit leaders (`usePortalCalendarEvents('unit_leader', range)` in
+    `useMastheadFeed.js`, the masthead's own feed asked for the calendar's visible month or week,
+    which the calendar reports through `onRangeChange`). Both are chips in the cells, rows in the
+    day panel and the Week view's all-day row, in the Residency event grey with paper ink. The
+    calendar stays props-only: At a Glance fetches, the calendar draws.
   - **One set of parts for both**: `src/components/ngrp/InterviewTimesControls.jsx` (the day-panel
     row, the Remove action, the month chips, the legend entries, the Open Times dialog and its
     button, the Book dialog), with the words and colours in `src/lib/ngrp/interviewScheduleModel.js`.

@@ -93,3 +93,21 @@ export function slotWeekItem(slot, { showUnit = false, onClick = null } = {}) {
     color: slotColor(slot), onClick,
   }
 }
+
+// ONE-CALENDAR-3 (Owner, 2026-10-06: the Residency view "should also show the residency events:
+// application, cohort start date, interview dates"). A cohort's key dates as dated items, one
+// per date, in the Residency event grey. The interview window is its two ends.
+export const KEY_DATE_COLOR = '#475569'
+const ymdOnly = v => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v) ? v.slice(0, 10) : null)
+export function cycleDateItems(cycles = []) {
+  const out = []
+  for (const c of cycles || []) {
+    const push = (key, date, label) => { const d = ymdOnly(date); if (d) out.push({ id: `${c.id}-${key}`, date: d, label, cycle: c.name, color: KEY_DATE_COLOR }) }
+    push('application_open', c.application_open_date, 'Application opens')
+    push('application_deadline', c.application_deadline, 'Application deadline')
+    push('interviews_begin', c.interview_window_start, 'Interviews begin')
+    if (ymdOnly(c.interview_window_end) && ymdOnly(c.interview_window_end) !== ymdOnly(c.interview_window_start)) push('interviews_end', c.interview_window_end, 'Interviews end')
+    push('residency_start', c.residency_start_date, 'Residency starts')
+  }
+  return out.sort((a, b) => a.date.localeCompare(b.date))
+}

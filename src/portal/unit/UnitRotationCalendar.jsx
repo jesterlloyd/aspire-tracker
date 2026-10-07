@@ -25,7 +25,7 @@
 // CanonicalCalendar* primitives the main-app calendars use, so this calendar and those are one
 // visual system. What differs is only the content inside a cell.
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   CanonicalCalendarLayout,
   CanonicalCalendarSidebar,
@@ -45,7 +45,8 @@ import {
 } from '../../components/ngrp/InterviewTimesControls'
 import { pacificToday, monthGrid, monthLabel, groupByDay } from '../../lib/rotationCalendarDates'
 import { weekStartOf, weekTitle, addDaysYmd, pacificParts, hhmmOf, minutesOf } from '../../lib/calendarWeek'
-import { dayOf, slotWeekItem, longDate as longDateOf } from '../../lib/ngrp/interviewScheduleModel'
+import { dayOf, slotWeekItem, longDate as longDateOf, cycleDateItems, KEY_DATE_COLOR } from '../../lib/ngrp/interviewScheduleModel'
+import { eventOnDate, eventColor, eventTypeLabel, formatEventWhen } from '../../lib/aspireEvents'
 // CALENDAR-HOLIDAY-CANON: pure client-side date math, no fetch and no persistence, so the
 // props-only contract above still holds. Context, never a record.
 import { getUsHolidaysForRange } from '../../lib/usHolidays'
@@ -169,7 +170,12 @@ function SelectedDayActivity({ shifts }) {
  * { open(form), remove(block), toggle(slot) }, each resolving { ok, ... }, or null when the
  * viewer may not write (an Owner/Admin preview).
  */
-export default function UnitRotationCalendar({ shifts = [], onSelectDay, loading = false, interviews = null, interviewActions = null, mode = 'internship' }) {
+/**
+ * `events` are the ASPIRE events delivered to unit leaders for the visible range (the host fetches
+ * them; `onRangeChange(from, to)` tells it the range), drawn in the Residency view beside the
+ * cohort's key dates (`interviews.cycles`).
+ */
+export default function UnitRotationCalendar({ shifts = [], onSelectDay, loading = false, interviews = null, interviewActions = null, mode = 'internship', events = [], onRangeChange = null }) {
   const today = pacificToday()
   const [view, setView] = useState('month')
   const [cursor, setCursor] = useState(() => ({ y: Number(today.slice(0, 4)), m: Number(today.slice(5, 7)) - 1 }))
@@ -196,6 +202,19 @@ export default function UnitRotationCalendar({ shifts = [], onSelectDay, loading
     for (const h of list) map.set(h.date, [...(map.get(h.date) || []), h])
     return map
   }, [range[0], range[1]]) // eslint-disable-line react-hooks/exhaustive-deps
+  // ONE-CALENDAR-3: the cohort's key dates and the unit leader's ASPIRE events, by day.
+  const keyDates = useMemo(() => cycleDateItems(interviews?.cycles || []), [interviews])
+  const keyDatesOn = ymd => keyDates.filter(k => k.date === ymd)
+  const eventsOn = ymd => (events || []).filter(ev => eventOnDate(ev, ymd))
+  const residencyByDay = useMemo(() => {
+    const map = new Map()
+    const add = (d, x) => map.set(d, [...(map.get(d) || []), x])
+    for (const [d, list] of slotsByDay) for (const x of list) add(d, x)
+    for (const k of keyDates) add(k.date, k)
+    for (const ev of events || []) { const d = String(ev.start_at || '').slice(0, 10); if (d) add(d, ev) }
+    return map
+  }, [slotsByDay, keyDates, events])
+  useEffect(() => { onRangeChange?.(range[0], range[1]) }, [range[0], range[1]]) // eslint-disable-line react-hooks/exhaustive-deps
   const selectedShifts = byDay.get(selectedDate) || []
   const selectedSlots = slotsByDay.get(selectedDate) || []
   const selectedBlocks = blocks.filter(b => b.block_date === selectedDate)
@@ -208,7 +227,7 @@ export default function UnitRotationCalendar({ shifts = [], onSelectDay, loading
   // grid with the honest "no activity" note. No month change triggers a server
   // request, because all authorized activity for the window arrives in one fetch, so
   // there is no unbounded historical read and no fabricated forward schedule.
-  const monthHasActivity = cells.some(c => c.inMonth && (residency ? slotsByDay.has(c.ymd) : byDay.has(c.ymd)))
+  const monthHasActivity = cells.some(c => c.inMonth && (residency ? residencyByDay.has(c.ymd) : byDay.has(c.ymd)))
 
   const step = (delta) => {
     if (view === 'week') {
@@ -255,7 +274,10 @@ export default function UnitRotationCalendar({ shifts = [], onSelectDay, loading
   const holidayItems = ymd => (holidaysByDay.get(ymd) || []).map(h => ({ id: `h-${h.name}`, label: h.name, color: '#D97706', title: `${h.name} · US Holiday` }))
   const allDayOn = ymd => [
     ...holidayItems(ymd),
-    ...(residency ? [] : (byDay.get(ymd) || []).filter(s => !pacificParts(s.checked_in_at)).map(s => ({ id: s.id, label: chipName(s), color: s.state === 'in_progress' ? SHIFT_COLORS.live : SHIFT_COLORS.done, title: chipExtras(s).ariaLabel }))),
+    ...(residency ? [
+      ...keyDatesOn(ymd).map(k => ({ id: k.id, label: k.label, color: k.color, title: `${k.label} · ${k.cycle}` })),
+      ...eventsOn(ymd).map(ev => ({ id: `e-${ev.id}`, label: ev.title, color: eventColor(ev), title: `${eventTypeLabel(ev.event_type)} · ${formatEventWhen(ev)}` })),
+    ] : (byDay.get(ymd) || []).filter(s => !pacificParts(s.checked_in_at)).map(s => ({ id: s.id, label: chipName(s), color: s.state === 'in_progress' ? SHIFT_COLORS.live : SHIFT_COLORS.done, title: chipExtras(s).ariaLabel }))),
   ]
   const timedOn = ymd => (residency
     ? (slotsByDay.get(ymd) || []).map(s => slotWeekItem(s, { onClick: () => goTo(ymd) })).filter(Boolean)
@@ -270,16 +292,30 @@ export default function UnitRotationCalendar({ shifts = [], onSelectDay, loading
 
   const sidebar = (
     <CanonicalCalendarSidebar>
-      <UnitMiniCalendar cells={cells} byDay={residency ? slotsByDay : byDay} selectedDate={selectedDate} today={today} onSelectDate={goTo} noun={residency ? 'interview time' : 'student activity'} residency={residency} />
+      <UnitMiniCalendar cells={cells} byDay={residency ? residencyByDay : byDay} selectedDate={selectedDate} today={today} onSelectDate={goTo} noun={residency ? 'interview time' : 'student activity'} residency={residency} />
       <CanonicalCalendarTodayPanel
         kicker={selectedDate === today ? 'Today' : 'Selected day'}
         dateLabel={formatLongDate(selectedDate)}
         summary={residency
           ? (selectedSlots.length ? `${selectedSlots.filter(x => x.booked).length} scheduled · ${selectedSlots.filter(x => x.status === 'available').length} open` : null)
           : `${selectedShifts.length} student activit${selectedShifts.length === 1 ? 'y' : 'ies'} recorded`}
-        emptyLabel={residency ? 'No interview times this day.' : 'No student activity recorded for this day.'}
+        emptyLabel={residency ? 'Nothing on this day.' : 'No student activity recorded for this day.'}
       >
         {!residency && selectedShifts.length > 0 && <SelectedDayActivity shifts={selectedShifts} />}
+        {residency && keyDatesOn(selectedDate).map(k => (
+          <div key={k.id} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 0', fontSize: 13 }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: k.color }} aria-hidden="true" />
+            <span style={{ fontWeight: 600, color: 'var(--paper-ink)' }}>{k.label}</span>
+            <span style={{ color: 'var(--paper-muted)' }}>{k.cycle}</span>
+          </div>
+        ))}
+        {residency && eventsOn(selectedDate).map(ev => (
+          <div key={ev.id} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 0', fontSize: 13 }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: eventColor(ev) }} aria-hidden="true" />
+            <span style={{ fontWeight: 600, color: 'var(--paper-ink)' }}>{ev.title}</span>
+            <span style={{ color: 'var(--paper-muted)' }}>{eventTypeLabel(ev.event_type)} · {formatEventWhen(ev)}</span>
+          </div>
+        ))}
         {residency && selectedSlots.map(s => <InterviewSlotRow key={s.id} slot={s} actions={slotActions ? slotActions(s) : null} />)}
         {residency && interviewActions && selectedBlocks.map(b => <RemoveTimesAction key={b.id} block={b} onClick={() => removeBlock(b)} />)}
         {residency && notice && <p role="alert" className="ptl-muted" style={{ margin: '8px 0 0', fontSize: 12 }}>{notice}</p>}
@@ -287,7 +323,12 @@ export default function UnitRotationCalendar({ shifts = [], onSelectDay, loading
       {/* The notepad closes with this surface's kinds, as the staff Rotation Activity
           planner does, and in the same words: the two calendars read the same records. */}
       <div className="pl-legend">
-        {residency ? <InterviewLegend /> : (
+        {residency ? (
+          <>
+            <InterviewLegend />
+            <span><i aria-hidden="true" style={{ background: 'rgba(71,85,105,0.14)', borderLeft: `3px solid ${KEY_DATE_COLOR}` }} />Key date or event</span>
+          </>
+        ) : (
           <>
             <span><i aria-hidden="true" style={{ background: '#e8eaf6', borderLeft: '3px solid #1d2567' }} />Completed shift</span>
             <span><i aria-hidden="true" style={{ background: '#dcfce7', borderLeft: '3px solid #166534' }} />On shift now</span>
@@ -338,7 +379,7 @@ export default function UnitRotationCalendar({ shifts = [], onSelectDay, loading
       footer={(
         <p className="ptl-muted" style={{ marginTop: 8, fontSize: 11.5 }}>
           {residency
-            ? 'Interview times your unit opened and the applicants Talent Acquisition booked into them. Score each interview on the Interviews tab.'
+            ? "The residency cohort's key dates and events, the interview times your unit opened, and the applicants Talent Acquisition booked into them. Score each interview on the Interviews tab."
             : 'This shows shifts your students have actually logged, over the last 90 days. ASPIRE does not hold a forward schedule, so upcoming shifts do not appear here.'}
         </p>
       )}
@@ -364,7 +405,7 @@ export default function UnitRotationCalendar({ shifts = [], onSelectDay, loading
                 const live = day.some(s => s.state === 'in_progress')
                 const dayHolidays = holidaysByDay.get(ymd) || []
                 const base = residency
-                  ? `${ymd}, ${daySlots.filter(s => s.booked).length} interviews, ${daySlots.filter(s => s.status === 'available').length} open`
+                  ? `${ymd}, ${daySlots.filter(s => s.booked).length} interviews, ${daySlots.filter(s => s.status === 'available').length} open${[...keyDatesOn(ymd).map(k => k.label), ...eventsOn(ymd).map(ev => ev.title)].map(x => `, ${x}`).join('')}`
                   : day.length === 0 ? `${ymd}, no activity` : `${ymd}, ${day.length} shift${day.length === 1 ? '' : 's'}${live ? ', on shift now' : ''}`
                 const label = dayHolidays.length ? `${base}, ${dayHolidays.map(h => h.name).join(', ')}` : base
                 if (!inMonth) {
@@ -383,7 +424,13 @@ export default function UnitRotationCalendar({ shifts = [], onSelectDay, loading
                     {dayHolidays.slice(0, 1).map(h => (
                       <CanonicalHolidayChip key={h.name} name={h.name} observed={h.observed} />
                     ))}
-                    {residency ? <InterviewDayChips slots={daySlots} /> : (
+                    {residency ? (
+                      <>
+                        {keyDatesOn(ymd).map(k => <CanonicalActivityChip key={k.id} label={k.label} color={k.color} ink="var(--paper-ink)" />)}
+                        {eventsOn(ymd).slice(0, 2).map(ev => <CanonicalActivityChip key={ev.id} label={ev.title} color={eventColor(ev)} ink="var(--paper-ink)" />)}
+                        <InterviewDayChips slots={daySlots} />
+                      </>
+                    ) : (
                       <>
                         {day.slice(0, 3).map(shift => (
                           <CanonicalActivityChip
@@ -404,7 +451,7 @@ export default function UnitRotationCalendar({ shifts = [], onSelectDay, loading
 
           {!monthHasActivity && (
             <p className="ptl-muted" style={{ marginTop: 10 }}>
-              {residency ? `No interview times in ${monthLabel(cursor.y, cursor.m)}.` : `No rotation activity recorded in ${monthLabel(cursor.y, cursor.m)}.`}
+              {residency ? `Nothing in ${monthLabel(cursor.y, cursor.m)}.` : `No rotation activity recorded in ${monthLabel(cursor.y, cursor.m)}.`}
             </p>
           )}
         </>

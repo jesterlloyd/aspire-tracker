@@ -19,24 +19,43 @@ import { toLocalDateStr } from '../../lib/designTokens'
 import { MASTHEAD_WINDOW_DAYS, addDays, mastheadItems, holidayItems } from '../../lib/mastheadEvents'
 import { getUsHolidaysForRange } from '../../lib/usHolidays'
 
+/** The portal delivery endpoint for one role and one range. Fails quiet: an empty list. */
+export async function fetchPortalCalendarEvents({ from, to, role }) {
+  const { data: { session } } = await supabase.auth.getSession()
+  const token = session?.access_token
+  if (!token) return []
+  const res = await fetch('/api/portal/my-calendar-events', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ from, to, role }),
+  })
+  if (!res.ok) return []
+  const json = await res.json().catch(() => ({}))
+  return json.events || []
+}
+
+/**
+ * ONE-CALENDAR-3: the same feed for a calendar's visible range (a month or a week, well under
+ * the endpoint's 120-day cap). The Unit Leader's Residency view reads it.
+ */
+export function usePortalCalendarEvents(role, range, { enabled = true } = {}) {
+  const from = range?.[0] || null, to = range?.[1] || null
+  const { data: events = [] } = useQuery({
+    queryKey: ['portal_calendar_events', role, from, to],
+    queryFn: () => fetchPortalCalendarEvents({ from, to, role }),
+    enabled: enabled && !!role && !!from && !!to,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  })
+  return events
+}
+
 export function useMastheadFeed(role, { enabled = true } = {}) {
   const today = toLocalDateStr()
   const to = addDays(today, MASTHEAD_WINDOW_DAYS)
   const { data: events = [] } = useQuery({
     queryKey: ['portal_masthead_events', role, today, to],
-    queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      const token = session?.access_token
-      if (!token) return []
-      const res = await fetch('/api/portal/my-calendar-events', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ from: today, to, role }),
-      })
-      if (!res.ok) return []
-      const json = await res.json().catch(() => ({}))
-      return json.events || []
-    },
+    queryFn: () => fetchPortalCalendarEvents({ from: today, to, role }),
     enabled: enabled && !!role,
     staleTime: 60_000,
     refetchOnWindowFocus: false,

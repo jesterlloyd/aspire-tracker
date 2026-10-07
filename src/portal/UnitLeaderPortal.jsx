@@ -24,7 +24,7 @@ import PortalMessagesWorkspace from './messages/PortalMessagesWorkspace'
 import { useRegisterPortalRefresh } from './PortalRefresh'
 import { PortalHeaderScope, PortalHeaderControls } from './PortalHeaderSlots'
 import SkylineCard from '../components/SkylineCard'
-import { useMastheadFeed, scrollToCalendar } from './shared/useMastheadFeed'
+import { useMastheadFeed, usePortalCalendarEvents, scrollToCalendar } from './shared/useMastheadFeed'
 import { fetchUnitInterviews, openInterviewTimes, removeInterviewTimes, setInterviewSlotBlocked } from './unit/unitInterviewsApi'
 import SegmentedPicker from '../components/shared/SegmentedPicker'
 import UnitInterviewResults from './unit/UnitInterviewResults'
@@ -303,6 +303,10 @@ function HomeScreen({ unitKey, students, cohortNarrowed = false, profile, accept
   // places its picker. Internship is the shift calendar over Your Students; Residency is the
   // unit's interview times over its interview results.
   const [mode, setMode] = useState('internship')
+  // ONE-CALENDAR-3: the Residency view also shows the ASPIRE events delivered to unit leaders,
+  // for whatever month or week the calendar is on.
+  const [calRange, setCalRange] = useState(null)
+  const residencyEvents = usePortalCalendarEvents('unit_leader', calRange, { enabled: mode === 'residency' })
   const [dayOpen, setDayOpen] = useState(null)   // { ymd, shifts }
   // EVENT-AUDIENCE-2: flagged events ticked for Unit Leaders.
   const mastheadItems = useMastheadFeed('unit_leader')
@@ -433,6 +437,8 @@ function HomeScreen({ unitKey, students, cohortNarrowed = false, profile, accept
           loading={activity.loading}
           interviews={interviewData}
           interviewActions={interviewActions}
+          events={mode === 'residency' ? residencyEvents : []}
+          onRangeChange={(from, to) => setCalRange(r => (r && r[0] === from && r[1] === to ? r : [from, to]))}
           onSelectDay={(ymd, dayShifts) => setDayOpen({ ymd, shifts: dayShifts })}
         />
       </Suspense>

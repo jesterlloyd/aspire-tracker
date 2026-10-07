@@ -202,7 +202,11 @@ test('the staff endpoint validates the set and derives the legacy column from it
 
 test('every portal masthead asks as exactly the role it renders', () => {
   const feed = read(FEED)
-  assert.match(feed, /body: JSON\.stringify\(\{ from: today, to, role \}\)/)
+  // ONE-CALENDAR-3: the request moved into fetchPortalCalendarEvents, which the masthead calls
+  // with its own window and the Unit Leader's calendar with its visible range; the role still
+  // travels in the body as the caller's claim.
+  assert.match(feed, /body: JSON\.stringify\(\{ from, to, role \}\)/)
+  assert.match(feed, /queryFn: \(\) => fetchPortalCalendarEvents\(\{ from: today, to, role \}\)/)
   assert.match(feed, /if \(!res\.ok\) return \[\]/, 'a 403 is silence, not an error')
   assert.match(read('src/portal/StudentPortal.jsx'), /useMastheadFeed\('student', \{ enabled: !readOnlyPreview \}\)/)
   assert.match(read('src/portal/UnitLeaderPortal.jsx'), /useMastheadFeed\('unit_leader'\)/)
