@@ -37,7 +37,7 @@ const POLICY = {
   student: 'Releasing emails the student a link to the feedback survey. It re-checks hours on the server first.',
   caseyFinkPostRotation: 'Releasing emails the student the post-rotation Readiness for Practice survey. The Certificate of Completion unlocks only after the student submits it. There is no bulk release.',
   postRotation: 'Releasing emails the student the program feedback survey. Nothing downstream depends on it. The server also requires the required program activities to be recorded first.',
-  unitLeaderRelease: 'Releasing puts this response’s quantitative results in front of that unit’s leader in their portal, seven days after the rotation ends and once moderation is cleared. Nothing is emailed. A single-response result is not anonymous.',
+  unitLeaderRelease: 'Releasing puts this response’s ratings and fixed answers (never comments) in front of that unit’s leader in their portal, seven days after the rotation ends and once moderation is cleared. Nothing is emailed. A single-response result is not anonymous.',
 }
 
 const NODE_MARK = { done: '✓', this: 'Now', waiting: 'Waiting', fix: 'Fix' }
@@ -537,7 +537,7 @@ export function ReleaseConfirm({ item, workflow, releasing, onCancel, onConfirm 
           )}
           <p style={{ margin: 0, fontSize: 12.5, color: '#6b7280' }}>
             {workflow.key === 'unitLeaderRelease'
-              ? 'The unit leader sees quantitative results only, in their portal. The database re-checks moderation and the 7-day rule before releasing.'
+              ? 'The unit leader sees the ratings and fixed answers only, never comments, in their portal. The database re-checks moderation and the 7-day rule before releasing.'
               : reissue
                 ? 'This replaces the expired or revoked link, opens a new 28-day response window, and sends one new invitation. A completed response is never replaced.'
                 : 'Eligibility and the recipient are re-checked on the server before anything is sent.'}

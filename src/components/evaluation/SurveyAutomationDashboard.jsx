@@ -339,7 +339,7 @@ export default function SurveyAutomationDashboard({ cohortId, onTrackResponses, 
   const stackRelease = useCallback(async (stack) => {
     if (!stack || identityHold) return
     const n = stack.count
-    const ok = await confirmDialog(`Release ${n === 1 ? `this response` : `${n} responses`} to the ${stack.unit} leader? Each one is cleared from moderation and released. The leader sees only the numbers shown, never comments.${stack.single ? ' This is the only response from this unit, so the leader will know who wrote it.' : ''}`, { confirmLabel: n === 1 ? 'Release' : `Release ${n}` })
+    const ok = await confirmDialog(`Release ${n === 1 ? `this response` : `${n} responses`} to the ${stack.unit} leader? Each one is cleared from moderation and released. The leader sees only the ratings and fixed answers shown, never comments.${stack.single ? ' This is the only response from this unit, so the leader will know who wrote it.' : ''}`, { confirmLabel: n === 1 ? 'Release' : `Release ${n}` })
     if (!ok) return
     setBusyStackKey(stack.key); setNotice(null)
     try { reportRelease(await runClearAndRelease(stack.items), `the ${stack.unit} leader`) }
@@ -350,7 +350,7 @@ export default function SurveyAutomationDashboard({ cohortId, onTrackResponses, 
     if (!plan?.stacks?.length || identityHold) return
     const units = plan.stacks.map(s => `${s.unit} (${s.count})`).join(', ')
     const left = plan.leftOut.length ? ` Not included, because each is the only response from its unit: ${plan.leftOut.join(', ')}.` : ''
-    const ok = await confirmDialog(`Release ${plan.responses} responses to ${plan.stacks.length} unit leaders? Each response is cleared from moderation and released. Each leader sees only the numbers, never comments. ${units}.${left}`, { confirmLabel: `Release ${plan.responses}` })
+    const ok = await confirmDialog(`Release ${plan.responses} responses to ${plan.stacks.length} unit leaders? Each response is cleared from moderation and released. Each leader sees only the ratings and fixed answers, never comments. ${units}.${left}`, { confirmLabel: `Release ${plan.responses}` })
     if (!ok) return
     setBusyStackKey('all'); setNotice(null)
     try { reportRelease(await runClearAndRelease(plan.stacks.flatMap(s => s.items)), `${plan.stacks.length} unit leaders`) }
