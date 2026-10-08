@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Residency Portal: Connect and Catalog</title>
+<!-- TA-CONNECT-1 mockup (2026-10-07). Mirrors the real portal chrome (nightfall header, Connect icon,
+     the Connect page from PORTAL-CONNECT-2) and the real staff Outreach composer and Catalog list.
+     Static drawing only: four frames on one sheet. -->
+<style>
+  :root {
+    --nightfall: #1D2567; --navy: #1E2A6E; --cream: #F4F1EC; --card: #FFFFFF; --ink: #191919;
+    --ink-2: #232842; --muted: #5b6472; --line: #e3ded4; --line-soft: #eee9df; --rule: rgba(29,37,103,.10);
+    --ok: #166534; --ok-bg: #dcfce7; --info: #1d4ed8; --info-bg: #eff6ff; --mute: #4b5563; --mute-bg: #f3f4f6;
+    --priv: #5B21B6; --priv-bg: #EDE9FE; --amber: #92400e; --amber-bg: #fef3c7;
+    --sans: "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #E9E6DF; font-family: var(--sans); color: var(--ink); }
+  .sheet { max-width: 1480px; margin: 0 auto; padding: 32px 24px 64px; }
+  .sheet > h1 { font-size: 26px; margin: 0 0 6px; color: var(--nightfall); letter-spacing: -.02em; }
+  .sheet > p.lede { margin: 0 0 28px; color: var(--muted); font-size: 14px; max-width: 900px; line-height: 1.55; }
+  .frame-label { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 34px 0 10px; }
+  .frame-note { font-size: 13px; color: var(--muted); margin: -4px 0 12px; max-width: 980px; line-height: 1.5; }
+  .window { border-radius: 12px; overflow: hidden; box-shadow: 0 12px 34px rgba(20,24,60,.18); background: var(--cream); }
+
+  /* portal chrome */
+  .hdr { background: linear-gradient(90deg, #1D2567, #252f7a); color: #fff; height: 64px; display: flex; align-items: center; padding: 0 24px; gap: 14px; }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand .logo { width: 30px; height: 30px; border-radius: 50%; border: 3px solid #DC1E34; }
+  .brand b { font-size: 18px; display: block; line-height: 1.05; }
+  .brand small { font-size: 11px; color: rgba(255,255,255,.7); }
+  .hdr .grow { flex: 1; }
+  .search { background: #fff; color: #6b7280; border-radius: 8px; height: 36px; width: 230px; display: flex; align-items: center; padding: 0 12px; font-size: 13px; }
+  .scope { border: 1px solid rgba(255,255,255,.18); border-radius: 8px; height: 36px; display: flex; align-items: center; gap: 8px; padding: 0 12px; font-size: 13px; }
+  .scope i { width: 7px; height: 7px; border-radius: 50%; background: #E6A544; }
+  .scope span { color: rgba(255,255,255,.6); font-size: 11px; letter-spacing: .08em; }
+  .hicon { position: relative; width: 36px; height: 36px; border-radius: 8px; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.10); display: grid; place-items: center; color: rgba(255,255,255,.8); font-size: 15px; }
+  .hicon.on { background: rgba(255,255,255,.26); border-color: rgba(255,255,255,.5); color: #fff; }
+  .hicon.on::after { content: ""; position: absolute; bottom: -7px; left: 50%; transform: translateX(-50%); border: 5px solid transparent; border-top: 6px solid rgba(255,255,255,.92); border-bottom: 0; }
+  .pin { position: absolute; top: -6px; right: -6px; min-width: 17px; height: 17px; border-radius: 999px; background: #DC1E34; color: #fff; font-size: 10px; font-weight: 800; display: grid; place-items: center; padding: 0 4px; }
+  .who { font-size: 14px; font-weight: 600; }
+  .avatar { width: 36px; height: 36px; border-radius: 50%; background: #c9cee6; border: 2px solid rgba(255,255,255,.6); }
+  .tip { position: absolute; top: 44px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,.78); color: #fff; font-size: 11px; padding: 4px 8px; border-radius: 6px; white-space: nowrap; }
+
+  .nav { background: #fafaf7; border-bottom: 1px solid rgba(29,37,103,.08); height: 52px; display: flex; align-items: center; padding: 0 32px; gap: 26px; font-size: 17px; font-weight: 600; color: #6b6355; }
+  .nav .cur { color: var(--nightfall); box-shadow: inset 0 -2px 0 var(--nightfall); height: 100%; display: flex; align-items: center; }
+
+  .main { padding: 24px 70px 28px; }
+  .toprow { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .pill { display: inline-flex; align-items: center; gap: 8px; background: #fff; border: 1px solid var(--rule); border-radius: 999px; padding: 7px 14px; font-size: 14px; font-weight: 600; color: var(--ink); }
+  .ptitle h2 { margin: 0; font-size: 24px; letter-spacing: -.02em; color: var(--ink-2); }
+  .ptitle p { margin: 5px 0 0; font-size: 13px; color: var(--muted); }
+  .seg { display: inline-flex; border: 1px solid rgba(29,37,103,.10); border-radius: 10px; overflow: hidden; background: #fff; margin: 14px 0 16px; }
+  .seg b, .seg span { padding: 8px 16px; font-size: 13px; }
+  .seg b { background: var(--nightfall); color: #fff; }
+  .seg span { color: var(--ink-2); border-left: 1px solid rgba(29,37,103,.08); }
+  .seg .soon { color: #9aa0ad; }
+
+  .card { background: var(--card); border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+  .grid2 { display: grid; grid-template-columns: 360px 1fr; gap: 16px; }
+  .inbox { padding: 16px; }
+  .inbox h3 { margin: 0; font-size: 18px; color: var(--nightfall); display: flex; justify-content: space-between; align-items: center; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; border-radius: 10px; padding: 8px 14px; font-size: 13px; font-weight: 600; border: 1px solid var(--rule); background: #fff; color: var(--ink-2); }
+  .btn.primary { background: var(--nightfall); color: #fff; border-color: var(--nightfall); }
+  .btn.sm { padding: 5px 10px; font-size: 12px; }
+  .thread { border-top: 1px solid var(--line-soft); padding: 12px 4px; display: grid; grid-template-columns: 36px 1fr auto; gap: 10px; align-items: start; }
+  .thread.sel { background: #eef1fb; box-shadow: inset 3px 0 0 var(--nightfall); border-radius: 6px; }
+  .ini { width: 36px; height: 36px; border-radius: 50%; background: #e8eaf6; color: var(--nightfall); font-weight: 700; font-size: 12px; display: grid; place-items: center; }
+  .thread b { font-size: 13.5px; display: block; }
+  .thread small { font-size: 12px; color: var(--muted); display: block; margin-top: 2px; }
+  .thread time { font-size: 11px; color: var(--muted); }
+  .tag { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 999px; text-transform: uppercase; letter-spacing: .04em; margin-top: 5px; }
+  .tag.priv { background: var(--priv-bg); color: var(--priv); }
+  .tag.team { background: var(--info-bg); color: var(--info); }
+  .convo { padding: 18px 22px; display: flex; flex-direction: column; min-height: 420px; }
+  .convo header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid var(--line-soft); padding-bottom: 12px; }
+  .convo header b { font-size: 16px; color: var(--ink-2); }
+  .convo header small { display: block; font-size: 12px; color: var(--muted); margin-top: 3px; }
+  .bubble { max-width: 70%; padding: 10px 13px; border-radius: 12px; font-size: 13.5px; line-height: 1.45; margin-top: 14px; }
+  .bubble.them { background: #f3f4f6; color: var(--ink); }
+  .bubble.me { background: var(--nightfall); color: #fff; margin-left: auto; }
+  .bubble small { display: block; font-size: 11px; opacity: .75; margin-top: 4px; }
+  .composer { margin-top: auto; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; display: flex; justify-content: space-between; align-items: center; color: #8a8f99; font-size: 13px; }
+
+  .drawer-wrap { position: relative; }
+  .drawer { position: absolute; top: 0; right: 0; width: 470px; height: 100%; background: #fff; box-shadow: -12px 0 30px rgba(20,24,60,.18); border-radius: 12px 0 0 12px; padding: 22px; }
+  .drawer h3 { margin: 0 0 14px; font-size: 18px; color: var(--nightfall); }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+  .input { border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; font-size: 13.5px; color: var(--ink); background: #fff; }
+  .input.ph { color: #8a8f99; }
+  .choices { display: grid; gap: 8px; }
+  .choice { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; display: grid; grid-template-columns: 18px 1fr; gap: 10px; align-items: start; font-size: 13.5px; }
+  .choice.on { border-color: var(--nightfall); box-shadow: 0 0 0 1px var(--nightfall) inset; }
+  .radio { width: 16px; height: 16px; border-radius: 50%; border: 2px solid #9aa0ad; margin-top: 2px; }
+  .choice.on .radio { border: 5px solid var(--nightfall); }
+  .choice small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .note { font-size: 12px; color: var(--priv); background: var(--priv-bg); border-radius: 8px; padding: 8px 10px; line-height: 1.45; }
+  .results { border: 1px solid var(--line); border-radius: 10px; margin-top: 6px; overflow: hidden; }
+  .results div { padding: 8px 12px; font-size: 13px; border-top: 1px solid var(--line-soft); display: flex; justify-content: space-between; }
+  .results div:first-child { border-top: 0; background: #eef1fb; }
+  .results small { color: var(--muted); }
+
+  /* outreach */
+  .desk { display: grid; grid-template-columns: 330px 1fr 1fr; gap: 14px; }
+  .panel { padding: 18px; }
+  .panel h4 { margin: 0 0 4px; font-size: 13.5px; color: var(--nightfall); }
+  .panel .help { font-size: 11.5px; color: var(--muted); margin-bottom: 12px; }
+  .tabs3 { display: flex; border-bottom: 1px solid var(--line); margin-bottom: 10px; font-size: 13px; }
+  .tabs3 span { padding: 8px 12px; color: var(--muted); }
+  .tabs3 .on { color: var(--nightfall); font-weight: 700; box-shadow: inset 0 -2px 0 var(--nightfall); }
+  .rcpt { display: flex; gap: 8px; align-items: center; padding: 8px 4px; border-top: 1px solid var(--line-soft); font-size: 13px; }
+  .box { width: 15px; height: 15px; border-radius: 4px; border: 2px solid #9aa0ad; }
+  .box.on { background: var(--nightfall); border-color: var(--nightfall); }
+  .rcpt small { color: var(--muted); display: block; font-size: 11.5px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { background: #e8eaf6; color: var(--nightfall); border-radius: 999px; padding: 4px 10px; font-size: 12px; font-weight: 600; }
+  .mail { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; font-size: 13px; }
+  .mail .mh { background: var(--nightfall); color: #fff; padding: 14px 18px; display: flex; justify-content: space-between; font-weight: 700; }
+  .mail .mb { padding: 16px 18px; line-height: 1.55; color: var(--ink-2); }
+  .mail .cta { display: inline-block; background: #DC1E34; color: #fff; border-radius: 6px; padding: 8px 14px; font-weight: 700; margin: 6px 0; }
+  .meta { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+
+  /* catalog */
+  .cat { display: grid; grid-template-columns: 240px 1fr 380px; gap: 16px; }
+  .rail { padding: 14px; }
+  .rail .grp { font-size: 10px; letter-spacing: .13em; text-transform: uppercase; color: var(--muted); margin: 10px 6px 6px; font-weight: 700; }
+  .rail .row { padding: 8px 10px; border-radius: 8px; font-size: 13.5px; font-weight: 600; color: var(--ink-2); display: flex; justify-content: space-between; }
+  .rail .row.on { background: #eef1fb; color: var(--nightfall); }
+  .rail .row small { color: var(--muted); font-weight: 600; }
+  .list { padding: 6px 0; }
+  .item { display: grid; grid-template-columns: 34px 1fr 150px; gap: 12px; align-items: center; padding: 12px 18px; border-top: 1px solid var(--line-soft); }
+  .item:first-child { border-top: 0; }
+  .item.sel { background: #eef1fb; }
+  .ico { width: 34px; height: 40px; border-radius: 4px; display: grid; place-items: center; font-size: 10px; font-weight: 800; color: #fff; }
+  .item b { font-size: 13.5px; display: block; }
+  .item small { font-size: 12px; color: var(--muted); }
+  .kind { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 999px; text-transform: uppercase; letter-spacing: .04em; }
+  .detail { padding: 20px; }
+  .detail h3 { margin: 0 0 4px; font-size: 18px; color: var(--ink-2); }
+  .detail .sub { font-size: 12.5px; color: var(--muted); margin-bottom: 14px; }
+  .actions { display: grid; gap: 8px; margin: 14px 0 18px; }
+  .people { border-top: 1px solid var(--line-soft); padding-top: 12px; }
+  .person { display: flex; justify-content: space-between; font-size: 13px; padding: 7px 0; border-top: 1px solid var(--line-soft); }
+  .person:first-of-type { border-top: 0; }
+  .st { font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
+  .st.done { background: var(--ok-bg); color: var(--ok); }
+  .st.wait { background: var(--amber-bg); color: var(--amber); }
+  .st.over { background: #fee2e2; color: #991b1b; }
+  .lock { font-size: 12px; color: var(--muted); background: var(--mute-bg); border-radius: 8px; padding: 8px 10px; line-height: 1.45; }
+
+  .callouts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 14px; }
+  .callout { background: #fff; border-radius: 10px; padding: 12px 14px; font-size: 12.5px; line-height: 1.5; color: var(--ink-2); border-left: 3px solid var(--nightfall); }
+  .callout b { display: block; margin-bottom: 3px; color: var(--nightfall); }
+</style>
+</head>
+<body>
+<div class="sheet">
+  <h1>Residency Portal: Connect and Catalog</h1>
+  <p class="lede">Talent Acquisition gets the staff app's two communication apps in its own portal. ASPIRE Connect (header icon) holds Contacts, Messages and Outreach. Catalog (its own header icon, beside Connect) is the staff Catalog, ported. Everything below is the real component, drawn from the portal's side: same chrome as today's Residency Portal, same picker, same composer, same Catalog list.</p>
+
+  <!-- ============ FRAME 1: Messages, new private message ============ -->
+  <div class="frame-label">1 · Connect › Messages, starting a private message</div>
+  <p class="frame-note">The New Message drawer gains a <b>To</b> choice. "ASPIRE Team" is today's shared team inbox. "A unit leader" and "An alumnus" start a <b>private</b> conversation between HR and that one person: the ASPIRE team's staff inbox never lists it. Only people with an active portal account appear, because Messages lives in their portal.</p>
+  <div class="window">
+    <div class="hdr">
+      <div class="brand"><div class="logo"></div><div><b>ASPIRE</b><small>Residency Portal</small></div></div>
+      <div class="grow"></div>
+      <div class="search">Search</div>
+      <div class="scope"><i></i><span>SCOPE</span> Winter 2027</div>
+      <div class="hicon on">💬<span class="pin">2</span></div>
+      <div class="hicon">📚</div>
+      <div class="who">Dana Reyes</div><div class="avatar"></div>
+    </div>
+    <div class="main drawer-wrap">
+      <div class="toprow"><span class="pill">‹ Back to Profiles &amp; Interest</span><span class="pill">↻ Refresh</span></div>
+      <div class="ptitle"><h2>ASPIRE Connect</h2><p>Contacts, messages and outreach for the residency.</p></div>
+      <div class="seg"><span>Contacts</span><b>Messages · 2</b><span>Outreach</span><span class="soon">Automations (later)</span></div>
+      <div class="grid2">
+        <div class="card inbox">
+          <h3>Messages <span class="btn primary sm">+ New</span></h3>
+          <div class="thread sel"><div class="ini">AK</div><div><b>Alexis Kim</b><small>5 North · Interview times next week</small><span class="tag priv">🔒 Private</span></div><time>9:42</time></div>
+          <div class="thread"><div class="ini">ASP</div><div><b>ASPIRE Team</b><small>Transition Form question</small><span class="tag team">Team inbox</span></div><time>Mon</time></div>
+          <div class="thread"><div class="ini">EB</div><div><b>Emi Bayaraa</b><small>Alumna · Your interview on Oct 14</small><span class="tag priv">🔒 Private</span></div><time>Oct 3</time></div>
+        </div>
+        <div class="card convo">
+          <header><div><b>Alexis Kim</b><small>Unit Leader · 5 North</small></div><span class="tag priv">🔒 Private · only you and Alexis</span></header>
+          <div class="bubble me">Could 5 North open two more interview times on the 14th? Three applicants ranked you first.<small>Dana · 9:30</small></div>
+          <div class="bubble them">Yes, I'll add 1:00 and 1:30 now.<small>Alexis · 9:42</small></div>
+          <div class="composer">Write a reply… <span class="btn primary sm">Send</span></div>
+        </div>
+      </div>
+      <div class="drawer">
+        <h3>New Message</h3>
+        <div class="field"><label>To</label>
+          <div class="choices">
+            <div class="choice"><div class="radio"></div><div>ASPIRE Team<small>The team's shared inbox. Anyone on the ASPIRE team can answer.</small></div></div>
+            <div class="choice on"><div class="radio"></div><div>A unit leader<small>A private conversation with one unit leader.</small></div></div>
+            <div class="choice"><div class="radio"></div><div>An alumnus<small>A private conversation with one alumnus in this cohort's roster.</small></div></div>
+          </div>
+        </div>
+        <div class="field"><label>Unit leader</label>
+          <div class="input ph">Search by name or unit</div>
+          <div class="results"><div><span>Alexis Kim</span><small>5 North · Associate Director</small></div><div><span>Ben Ortiz</span><small>PACU · Director</small></div><div><span>Cara Lim <small>· no portal account</small></span><small>not listed: cannot receive Messages</small></div></div>
+        </div>
+        <div class="field"><label>Subject</label><div class="input">Interview times next week</div></div>
+        <div class="field"><label>Message</label><div class="input" style="height:74px">Could 5 North open two more interview times…</div></div>
+        <div class="note">🔒 Private. Only you and Alexis see this conversation. The ASPIRE team does not. Alexis gets an email that a message is waiting, with a link to their portal.</div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px"><span class="btn">Cancel</span><span class="btn primary">Send</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ FRAME 2: the unit leader's side ============ -->
+  <div class="frame-label">2 · The same conversation in the Unit Leader Portal</div>
+  <p class="frame-note">The unit leader's Messages lists it beside their ASPIRE Team threads, marked private and named for the HR person, and they reply in place. An alumnus sees the same in the Student Portal's Residency tab area. Neither can START a private thread with HR in this build: HR opens it, they answer it.</p>
+  <div class="window">
+    <div class="hdr">
+      <div class="brand"><div class="logo"></div><div><b>ASPIRE</b><small>Unit Leader Portal</small></div></div>
+      <div class="grow"></div><div class="search">Search</div><div class="who">Alexis Kim</div><div class="avatar"></div>
+    </div>
+    <div class="nav"><span>At a Glance</span><span>Capacity</span><span>Evaluation</span><span>Interviews</span><span class="cur">Messages</span><span>Placement Requests</span><span>Preceptors</span></div>
+    <div class="main">
+      <div class="grid2">
+        <div class="card inbox">
+          <h3>Messages <span class="btn primary sm">+ New</span></h3>
+          <div class="thread sel"><div class="ini">DR</div><div><b>Dana Reyes · Talent Acquisition</b><small>Interview times next week</small><span class="tag priv">🔒 Private</span></div><time>9:42</time></div>
+          <div class="thread"><div class="ini">ASP</div><div><b>ASPIRE Team</b><small>Capacity for Winter 2027</small><span class="tag team">Team inbox</span></div><time>Sep 30</time></div>
+          <div class="thread"><div class="ini">WB</div><div><b>Wynter Brown</b><small>Student · Shift on Friday</small></div><time>Sep 28</time></div>
+        </div>
+        <div class="card convo">
+          <header><div><b>Dana Reyes</b><small>Talent Acquisition · Residency</small></div><span class="tag priv">🔒 Private · only you and Dana</span></header>
+          <div class="bubble them">Could 5 North open two more interview times on the 14th? Three applicants ranked you first.<small>Dana · 9:30</small></div>
+          <div class="bubble me">Yes, I'll add 1:00 and 1:30 now.<small>You · 9:42</small></div>
+          <div class="composer">Write a reply… <span class="btn primary sm">Send</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ FRAME 3: Outreach ============ -->
+  <div class="frame-label">3 · Connect › Outreach</div>
+  <p class="frame-note">The staff composer, unchanged in shape: Recipients (Contacts, Alumni, Paste · Type), the Draft with To, CC and Subject, and the branded Email Preview. HR's lists are HR's: the contacts directory they already see in Contacts, and the alumni on the selected residency cohort's roster. Sent through Resend from noreply as "Dana Reyes via ASPIRE", replies to Dana.</p>
+  <div class="window">
+    <div class="hdr">
+      <div class="brand"><div class="logo"></div><div><b>ASPIRE</b><small>Residency Portal</small></div></div>
+      <div class="grow"></div><div class="search">Search</div><div class="scope"><i></i><span>SCOPE</span> Winter 2027</div>
+      <div class="hicon on">💬</div><div class="hicon">📚</div><div class="who">Dana Reyes</div><div class="avatar"></div>
+    </div>
+    <div class="main">
+      <div class="seg" style="margin-top:0"><span>Contacts</span><span>Messages</span><b>Outreach</b><span class="soon">Automations (later)</span></div>
+      <div class="desk">
+        <div class="card panel">
+          <h4>Recipients</h4><div class="help">Build one list from any source.</div>
+          <div class="tabs3"><span class="on">Alumni</span><span>Contacts</span><span>Paste · Type</span></div>
+          <div class="input ph" style="margin-bottom:8px">Search name or email</div>
+          <div class="rcpt"><div class="box on"></div><div>Bayaraa, Emi<small>saruulsanaab@gmail.com · Form submitted</small></div></div>
+          <div class="rcpt"><div class="box on"></div><div>Chung, Lauren<small>personal email · Form not sent</small></div></div>
+          <div class="rcpt"><div class="box"></div><div>Cline, Dylan<small>personal email · Interview scheduled</small></div></div>
+          <div class="rcpt"><div class="box on"></div><div>Cruz, Ivan<small>personal email · Form submitted</small></div></div>
+          <div style="font-size:12px;color:var(--muted);margin-top:10px">3 selected · alumni get their personal email</div>
+        </div>
+        <div class="card panel">
+          <h4>Draft</h4><div class="help">Send to one, or to many (up to 75 at a time).</div>
+          <div class="field"><label>To</label><div class="chips"><span class="chip">Emi Bayaraa</span><span class="chip">Lauren Chung</span><span class="chip">Ivan Cruz</span></div></div>
+          <div class="field"><label>CC</label><div class="input ph">Add a CC (one recipient only)</div></div>
+          <div class="field"><label>Subject</label><div class="input">Winter 2027 Residency: interview week</div></div>
+          <div class="field"><label>Message</label><div class="input" style="height:120px">Hi [First Name], interviews for the Winter 2027 residency run Oct 14 and 15…</div></div>
+          <div style="display:flex;gap:8px"><span class="btn">📎 Attach from Catalog</span><span class="btn">⊞ Button</span></div>
+        </div>
+        <div class="card panel">
+          <h4>Email Preview</h4><div class="meta">From: Dana Reyes via ASPIRE &lt;noreply@aspire-program.com&gt; · Reply-to: Dana Reyes</div>
+          <div class="mail"><div class="mh"><span>Cedars-Sinai</span><span>ASPIRE</span></div><div class="mb"><b>Winter 2027 Residency: interview week</b><br><br>Dear Emi,<br>Interviews for the Winter 2027 residency run Oct 14 and 15…<br><span class="cta">Choose an Interview Time</span><br>Dana Reyes<br><span style="color:var(--muted)">Talent Acquisition, Cedars-Sinai</span></div></div>
+          <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px"><span class="btn">Back to Draft</span><span class="btn primary">Continue to final review (3)</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ FRAME 4: Catalog ============ -->
+  <div class="frame-label">4 · Catalog (its own app, the header's second icon)</div>
+  <p class="frame-note">The staff Catalog in the portal's Modern drawing: categories on the left, the list, the detail panel. HR browses, opens, and sends. A file or link goes through Outreach; a form gets each person a personal link; a signature template goes out for signature. Adding, editing and deleting Catalog items stays with the ASPIRE team. Who received each form or signature request is tracked in the panel, as for staff.</p>
+  <div class="window">
+    <div class="hdr">
+      <div class="brand"><div class="logo"></div><div><b>ASPIRE</b><small>Residency Portal</small></div></div>
+      <div class="grow"></div><div class="search">Search</div><div class="scope"><i></i><span>SCOPE</span> Winter 2027</div>
+      <div class="hicon">💬</div><div class="hicon on">📚</div><div class="who">Dana Reyes</div><div class="avatar"></div>
+    </div>
+    <div class="main">
+      <div class="toprow"><span class="pill">‹ Back to At a Glance</span><span class="pill">↻ Refresh</span></div>
+      <div class="ptitle"><h2>ASPIRE Catalog</h2><p>18 resources · 3 forms · 2 signature templates</p></div>
+      <div class="cat" style="margin-top:16px">
+        <div class="card rail">
+          <div class="grp">Browse</div>
+          <div class="row">All items <small>23</small></div>
+          <div class="row">Pinned <small>4</small></div>
+          <div class="grp">Categories</div>
+          <div class="row on">Residency <small>7</small></div>
+          <div class="row">Onboarding <small>5</small></div>
+          <div class="row">Policies <small>6</small></div>
+          <div class="grp">Collect</div>
+          <div class="row">Forms <small>3</small></div>
+          <div class="row">Signature templates <small>2</small></div>
+        </div>
+        <div class="card list">
+          <div class="item"><div class="ico" style="background:#B3282D">PDF</div><div><b>Winter 2027 Residency Overview</b><small>Residency · Everyone · Updated Sep 30</small></div><span class="kind" style="background:var(--mute-bg);color:var(--mute)">File</span></div>
+          <div class="item sel"><div class="ico" style="background:#1D2567">FORM</div><div><b>Residency Interview Availability</b><small>Residency · Students · v2 published</small></div><span class="kind" style="background:var(--info-bg);color:var(--info)">Form</span></div>
+          <div class="item"><div class="ico" style="background:#5B21B6">SIGN</div><div><b>Residency Offer Acknowledgment</b><small>Residency · Students · 4 fields</small></div><span class="kind" style="background:var(--priv-bg);color:var(--priv)">Signature</span></div>
+          <div class="item"><div class="ico" style="background:#0F7A4D">LINK</div><div><b>Cedars-Sinai Careers: New Grad RN</b><small>Residency · Everyone</small></div><span class="kind" style="background:var(--mute-bg);color:var(--mute)">Link</span></div>
+        </div>
+        <div class="card detail">
+          <h3>Residency Interview Availability</h3>
+          <div class="sub">Form · v2 · personal link for each person</div>
+          <div class="actions"><span class="btn primary">Send form</span><span class="btn">Preview</span></div>
+          <div class="people">
+            <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Sent to 4 · 2 done</div>
+            <div class="person"><span>Emi Bayaraa</span><span class="st done">Done</span></div>
+            <div class="person"><span>Ivan Cruz</span><span class="st done">Done</span></div>
+            <div class="person"><span>Lauren Chung</span><span class="st wait">Waiting</span></div>
+            <div class="person"><span>Dylan Cline</span><span class="st over">Overdue</span></div>
+          </div>
+          <div class="lock" style="margin-top:14px">Editing this form, adding items and categories stay with the ASPIRE team.</div>
+        </div>
+      </div>
+      <div class="callouts">
+        <div class="callout"><b>Send (file or link)</b>Goes out through Outreach, from Dana, and is logged in the item's send history.</div>
+        <div class="callout"><b>Send form</b>Each person gets their own link; the answers file on their record as a PDF, exactly as for staff.</div>
+        <div class="callout"><b>Send for signature</b>Shown only while Signatures is switched on for the app (today it is off, pending Legal and IT).</div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
