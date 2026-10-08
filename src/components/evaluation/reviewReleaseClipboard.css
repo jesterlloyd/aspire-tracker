@@ -359,3 +359,47 @@
   .rq-node-toggle .rq-chev { transition: none; }
   .rq-spin { animation: none; }
 }
+
+/* ── Moderation stacks (MODERATION-STACKS-1, Owner, 2026-10-07) ──────────────────
+   The Unit Leader release groups moderation by unit, Apple-notification style. A stack is a
+   slip (.rq-card) holding several students; while closed, the sheets beneath peek out at the
+   bottom in Classic (Owner: "peek sheets fine"). Modern draws it flat. */
+.ms-sect-head { flex-wrap: wrap; align-items: center; }
+.ms-sect-tools { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.ms-sect-tools .rq-pbtn.go { margin-left: 0; }
+/* The sheets beneath are drawn as inset shadows (a negative spread keeps each one narrower
+   than the sheet above), so nothing behind the board can paint over them. */
+.ms-deck {
+  margin-bottom: 10px;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.26),
+    0 5px 0 -3px var(--aspire-paper-2), 0 6px 2px -3px rgba(0, 0, 0, 0.28),
+    0 10px 0 -6px var(--aspire-paper-2), 0 11px 2px -6px rgba(0, 0, 0, 0.24),
+    0 14px 16px rgba(0, 0, 0, 0.2);
+}
+:root[data-style="modern"] .ms-deck { margin-bottom: 0; box-shadow: 0 1px 1px rgba(0, 0, 0, 0.26), 0 7px 15px rgba(0, 0, 0, 0.24); }
+.ms-rows { list-style: none; margin: 0; padding: 6px 0; display: grid; gap: 2px; border-top: 1px solid var(--aspire-rule); border-bottom: 1px solid var(--aspire-rule); }
+.ms-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; align-items: center; padding: 4px 0; font-size: 13px; }
+.ms-row-who { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.ms-row-who small { font-weight: 400; color: var(--aspire-paper-muted); margin-left: 8px; }
+.ms-row-sees { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+/* A rating is a status pair: the word and the number, ink and tint together. */
+.ms-rating { font-size: 12px; padding: 1px 8px; border-radius: var(--aspire-radius-pill); white-space: nowrap; }
+.ms-rating b { font-family: var(--rr-mono); font-size: 11px; margin-left: 4px; }
+.ms-ok { background: var(--aspire-ok-soft); color: var(--aspire-ok); }
+.ms-warn { background: var(--aspire-warn-soft); color: var(--aspire-warn); }
+.ms-bad { background: var(--aspire-bad-soft); color: var(--aspire-bad); }
+.ms-plain { background: rgba(30, 42, 110, 0.06); color: var(--aspire-paper-ink); }
+[data-theme="dark"] .ms-plain { background: rgba(159, 176, 245, 0.1); }
+.ms-hold { background: none; border: 0; padding: 0 2px; font: 12px var(--rr-sans); color: var(--aspire-paper-muted); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.ms-hold:hover { color: var(--aspire-paper-ink); }
+.ms-hold:focus-visible { outline: 3px solid var(--rr-navy); outline-offset: 2px; }
+.ms-hold:disabled { opacity: 0.6; cursor: default; }
+.ms-note { margin: 0; font-size: 12px; color: var(--aspire-warn); }
+.ms-note-low { color: var(--aspire-paper-muted); }
+.ms-toggle { margin-left: 0; }
+@media (max-width: 560px) {
+  .ms-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .ms-row-sees { grid-column: 1 / -1; justify-content: flex-start; }
+  .ms-row-who small { display: block; margin-left: 0; }
+  .ms-hold { grid-row: 1; grid-column: 2; }
+}

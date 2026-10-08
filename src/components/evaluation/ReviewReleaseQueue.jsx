@@ -7,6 +7,7 @@ import { RELEASE_ROUTES } from '../../lib/evaluation/releaseRouting'
 import { ACTION_API } from '../../lib/unitEvaluationReleaseActions'
 import { fmtHours, recentSent, whenLabel, localToday, fmtDay } from '../../lib/evaluation/reviewQueueShape'
 import Tooltip from '../ui/Tooltip'
+import { buildModerationStacks, releaseAllPlan, leaderSees, isAwaitingModeration } from '../../lib/evaluation/moderationStacks'
 
 // REVIEW-RELEASE-1: the one queue component. Six workflows, three states, one shape.
 //
@@ -220,12 +221,70 @@ function Card({ item, workflow, busy, locked, leaving, highlighted, onRelease, o
   )
 }
 
-function Section({ title, caption, count, children }) {
+// MODERATION-STACKS-1 (Owner, 2026-10-07): the responses waiting on moderation for one unit,
+// as one stack. Closed, it says what the leader would see and offers one action; open, it lists
+// each student with a Hold. In Classic the sheets beneath peek out while it is closed (Owner:
+// "peek sheets fine"); Modern draws it flat. A single response is never anonymous: it stands
+// alone and is left out of Release all.
+function ModerationStack({ stack, busy, working, locked, onRelease, onHold }) {
+  const [open, setOpen] = useState(false)
+  const n = stack.count
+  const showRows = open || stack.single
+  return (
+    <article className={`rq-card rq-card-blocked ms-stack ${stack.single ? 'rq-band-soon' : 'rq-band-late'}${!showRows ? ' ms-deck' : ''}`}
+      data-item-id={stack.key} aria-label={`${stack.unit}, ${n} response${n === 1 ? '' : 's'} waiting on moderation`}>
+      <div className="rq-top">
+        <div className="rq-who">{stack.unit}
+          <small>{n} response{n === 1 ? '' : 's'}{stack.summary ? ` · what the leader sees: ${stack.summary}` : ''}</small>
+        </div>
+        <div className="rq-right">
+          {stack.single
+            ? <span className="rq-stamp rq-stamp-soon">Not anonymous</span>
+            : <span className="rq-stamp rq-stamp-late">{n} not moderated</span>}
+        </div>
+      </div>
+      {showRows && (
+        <ul className="ms-rows">
+          {stack.items.map(it => (
+            <li key={it.id} className="ms-row">
+              <span className="ms-row-who">{it.person.name}{it.row?.evaluated_preceptor && <small>preceptor {it.row.evaluated_preceptor}</small>}</span>
+              <span className="ms-row-sees">
+                {leaderSees(it.row).map(m => (
+                  <span key={m.path} className={`ms-rating ms-${m.tone}`}>{m.text}{m.path.endsWith('overall_rating') && <b>{m.value}</b>}</span>
+                ))}
+                {leaderSees(it.row).length === 0 && <span className="ms-rating ms-plain">No numbers to show</span>}
+              </span>
+              <button type="button" className="ms-hold" disabled={busy} onClick={() => onHold([it])}>Hold</button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {stack.single && <p className="ms-note">Only response from this unit: the leader will know who wrote it. Left out of Release all.</p>}
+      {!stack.single && stack.low && <p className="ms-note ms-note-low">Includes a Fair or Poor rating. Worth a look before releasing.</p>}
+      <div className="rq-actions">
+        <span className="rq-why">Releases to the {stack.unit} leader.{stack.single ? '' : ' Each response is cleared, then released.'}</span>
+        {!stack.single && (
+          <button type="button" className="rq-pbtn link ms-toggle" aria-expanded={open} onClick={() => setOpen(o => !o)}>
+            {open ? 'Hide' : 'Show'} {n} responses
+          </button>
+        )}
+        {!stack.single && <button type="button" className="rq-pbtn" disabled={busy} onClick={() => onHold(stack.items)}>Hold all</button>}
+        <button type="button" className="rq-pbtn go" disabled={busy || locked}
+          title={locked ? 'Releases are paused until you re-run detection.' : undefined}
+          onClick={() => onRelease(stack)}>
+          {working ? 'Working…' : stack.single ? 'Clear and release' : `Clear and release ${n}`}
+        </button>
+      </div>
+    </article>
+  )
+}
+
+function Section({ title, caption, count, children, tools = null }) {
   return (
     <section className="rq-section">
-      <div className="rq-sect-head">
+      <div className={`rq-sect-head${tools ? ' ms-sect-head' : ''}`}>
         <span>{title} ({count})</span>
-        {caption && <em>{caption}</em>}
+        {(caption || tools) && <span className="ms-sect-tools">{caption && <em>{caption}</em>}{tools}</span>}
       </div>
       <div className="rq-stack">{children}</div>
     </section>
@@ -236,7 +295,7 @@ export default function ReviewReleaseQueue({
   workflow, items = [], sent = [], detectedAtMs = 0, loading = false, error = null,
   busyItemId = null, releaseLocked = false, leavingItemId = null, notice = null, highlightItemId = null,
   onRerun, onRelease, onAction, onJump, onTrackResponses, onReadFeedback, onRecordActivity,
-  onWithhold, onUnwithhold,
+  onWithhold, onUnwithhold, onStackRelease, onStackHold, onReleaseAll, busyStackKey = null,
   tools, // { onPreviewSurvey, onPreviewEmail, onSendTest, testState, onOpenTest, onCopyTest }
 }) {
   // The policy paragraph is collapsed by default and collapses again on every workflow
@@ -248,6 +307,11 @@ export default function ReviewReleaseQueue({
 
   const ready = useMemo(() => items.filter(i => i.state === 'ready'), [items])
   const blocked = useMemo(() => items.filter(i => i.state === 'blocked'), [items])
+  // MODERATION-STACKS-1: on the Unit Leader release, moderation waits in one stack per unit.
+  const stacked = workflow?.key === 'unitLeaderRelease' && !!onStackRelease
+  const stacks = useMemo(() => (stacked ? buildModerationStacks(blocked) : []), [stacked, blocked])
+  const looseBlocked = useMemo(() => (stacked ? blocked.filter(i => !isAwaitingModeration(i)) : blocked), [stacked, blocked])
+  const plan = useMemo(() => releaseAllPlan(stacks), [stacks])
   const notEligible = useMemo(() => items.filter(i => i.state === 'notEligible'), [items])
   const recent = useMemo(() => recentSent(sent, 5), [sent])
 
@@ -338,10 +402,25 @@ export default function ReviewReleaseQueue({
           ? <div className="rq-empty">{loading ? 'Detecting…' : 'Nothing waiting on you here.'}</div>
           : ready.map(it => <Card key={it.id} {...cardProps(it)} />)}
       </Section>
+      {/* 6a. MODERATION-STACKS-1: moderation, one stack per unit, with Release all. */}
+      {stacks.length > 0 && (
+        <Section title="Needs moderation" count={stacks.reduce((n, s) => n + s.count, 0)}
+          caption={`${stacks.length} unit${stacks.length === 1 ? '' : 's'}, one stack each`}
+          tools={plan.stacks.length > 0 && (
+            <button type="button" className="rq-pbtn go" disabled={!!busyStackKey || releaseLocked} onClick={() => onReleaseAll?.(plan)}>
+              {busyStackKey === 'all' ? 'Releasing…' : `Release all ${plan.responses} in ${plan.stacks.length} unit${plan.stacks.length === 1 ? '' : 's'}`}
+            </button>
+          )}>
+          {stacks.map(s => (
+            <ModerationStack key={s.key} stack={s} busy={!!busyStackKey} working={busyStackKey === s.key || busyStackKey === 'all'} locked={releaseLocked}
+              onRelease={onStackRelease} onHold={onStackHold} />
+          ))}
+        </Section>
+      )}
       {/* 6. Blocked, omitted when empty. */}
-      {blocked.length > 0 && (
-        <Section title="Needs a fix or a reminder" caption="Something a person can do today" count={blocked.length}>
-          {blocked.map(it => <Card key={it.id} {...cardProps(it)} />)}
+      {looseBlocked.length > 0 && (
+        <Section title="Needs a fix or a reminder" caption="Something a person can do today" count={looseBlocked.length}>
+          {looseBlocked.map(it => <Card key={it.id} {...cardProps(it)} />)}
         </Section>
       )}
       {/* 7. Not yet eligible, collapsed. */}

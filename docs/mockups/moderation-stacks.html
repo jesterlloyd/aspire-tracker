@@ -1,0 +1,1900 @@
+<!doctype html>
+<html lang="en" data-theme="light" data-style="classic"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Moderation Stacks</title>
+<style>
+/* ==== src/styles/fonts.css (copied verbatim from the app) ==== */
+/* TYPOGRAPHY-1: the app's two self-hosted families, both SIL Open Font
+   License 1.1 (free for commercial use, embedding, and redistribution; the
+   OFL.txt beside each family is the license notice the OFL requires).
+   Loaded first from index.css so every surface (staff app, portals, public
+   site, login, charts) sees both families before any rule asks for them.
+
+   Sans  - Plus Jakarta Sans, variable weight 200..800 with true italics.
+           The operational face: body, UI, buttons, tables, charts.
+   Serif - Playfair Display, variable weight 400..900 with true italics.
+           The editorial face: public-site headlines, login title, chart route
+           titles, portal moment lines. Only ever reached through
+           --aspire-serif (src/styles/aspireBrand.css).
+
+   Files under public/fonts/<family>/ are subset to Latin, Latin Extended,
+   general punctuation, currency, and arrows (pyftsubset, WOFF2). Swapping a
+   family later is: new files here, the two tokens in aspireBrand.css, and
+   the preloads in index.html. test/typographyFonts.test.mjs pins that. */
+
+@font-face {
+  font-family: 'Plus Jakarta Sans';
+  src: url('https://aspireintelligence.app/fonts/plus-jakarta-sans/PlusJakartaSans-Variable.woff2') format('woff2');
+  font-weight: 200 800;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Plus Jakarta Sans';
+  src: url('https://aspireintelligence.app/fonts/plus-jakarta-sans/PlusJakartaSans-Italic-Variable.woff2') format('woff2');
+  font-weight: 200 800;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Playfair Display';
+  src: url('https://aspireintelligence.app/fonts/playfair-display/PlayfairDisplay-Variable.woff2') format('woff2');
+  font-weight: 400 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Playfair Display';
+  src: url('https://aspireintelligence.app/fonts/playfair-display/PlayfairDisplay-Italic-Variable.woff2') format('woff2');
+  font-weight: 400 900;
+  font-style: italic;
+  font-display: swap;
+}
+
+/* JetBrains Mono (SIL OFL 1.1): the mono face, added for the Review & Release clipboard
+   (REVIEW-RELEASE-2, Owner decision 2026-09-19). Same google/fonts source and the same
+   subset as the two families above. NOT preloaded: a face declaration is lazy, so the
+   file is fetched only by a screen that sets the face, and no other page pays for it. */
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('https://aspireintelligence.app/fonts/jetbrains-mono/JetBrainsMono-Variable.woff2') format('woff2');
+  font-weight: 100 800;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('https://aspireintelligence.app/fonts/jetbrains-mono/JetBrainsMono-Italic-Variable.woff2') format('woff2');
+  font-weight: 100 800;
+  font-style: italic;
+  font-display: swap;
+}
+/* Caveat (SIL OFL 1.1): the handwriting on the Catalog's library checkout card, Classic
+   style only (CATALOG-REVAMP-1, Owner decision 2026-09-23: self-hosted like the other
+   three, never loaded from Google Fonts). Same google/fonts source and the same subset.
+   Upright only (the family has no italic). NOT preloaded: only that card sets the face,
+   so the file is fetched the first time a Classic send history is drawn. */
+@font-face {
+  font-family: 'Caveat';
+  src: url('https://aspireintelligence.app/fonts/caveat/Caveat-Variable.woff2') format('woff2');
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ==== src/styles/theme.css (copied verbatim from the app) ==== */
+/* ================================================================
+   ASPIRE Intelligence - Theme Layer
+   Two-tier token system: palette tokens (raw colors) + semantic aliases
+   Switched via data-theme attribute on <html>
+   ================================================================ */
+
+/* ── Light mode (default) ──────────────────────────────────────── */
+:root,
+:root[data-theme="light"] {
+  /* Surfaces */
+  --color-bg-page:     #F4F1EC;
+  --color-bg-surface:  #FFFFFF;
+  --color-bg-elevated: #FFFFFF;
+  --color-bg-overlay:  rgba(15, 20, 25, 0.40);
+  --color-bg-input:    #FFFFFF;
+  --color-bg-hover:    rgba(29, 37, 103, 0.04);
+
+  /* Text */
+  --color-text-primary:   #191919;
+  --color-text-secondary: #4A5560;
+  --color-text-muted:     #6B7785;
+  --color-text-inverse:   #FFFFFF;
+  --color-text-placeholder: #9CA3AF;
+
+  /* Borders */
+  --color-border-subtle:  rgba(25, 25, 25, 0.06);
+  --color-border-default: rgba(25, 25, 25, 0.10);
+  --color-border-strong:  rgba(25, 25, 25, 0.18);
+
+  /* Brand accents */
+  --color-accent-primary:   #1D2567;   /* Nightfall */
+  --color-accent-hover:     #2C2C42;
+  --color-accent-secondary: #930045;   /* Chroma */
+  --color-accent-marina:    #4F6DA8;
+  --color-accent-lavender:  #B8B5D6;
+  --color-accent-nova:      #9FAFF8;
+  --on-navy:                #FFFFFF;
+
+  /* Status - success (sage / placed) */
+  --color-status-success:    #2D4A2B;
+  --color-status-success-bg: #C8D5C0;
+  --color-status-success-fg: #1F3219;
+
+  /* Status - warning (amber / pending) */
+  --color-status-warning:    #8B6914;
+  --color-status-warning-bg: #F4D9B6;
+  --color-status-warning-fg: #5C4509;
+
+  /* Status - danger (chroma / flag) */
+  --color-status-danger:    #930045;
+  --color-status-danger-bg: #F2D5E0;
+  --color-status-danger-fg: #5C0029;
+
+  /* Status - info (marina / neutral) */
+  --color-status-info:    #4F6DA8;
+  --color-status-info-bg: #D5DCEC;
+  --color-status-info-fg: #2C3E66;
+
+  /* Header */
+  --color-header-bg:   #1D2567;
+  --color-header-text: #FFFFFF;
+
+  /* Shadows */
+  --shadow-card:       0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-elevated:   0 8px 24px rgba(0, 0, 0, 0.12);
+
+  /* Gauge segments */
+  --gauge-segment-placed:   #C8D5C0;
+  --gauge-segment-awaiting: #D5DCEC;
+  --gauge-segment-over:     #F2D5E0;
+  --gauge-segment-base:     #EDEDEB;
+
+  /* Focus */
+  --color-focus-ring: #4F6DA8;
+
+  /* Messages stays a standard chat in both Classic and Modern style. */
+  --messages-bubble-in:       #EEF0F4;
+  --messages-bubble-in-ink:   #1F2937;
+  --messages-bubble-out:      #1D2567;
+  --messages-bubble-out-ink:  #FFFFFF;
+  --messages-soft-surface:    #F7F8FB;
+  /* MESSAGES-SIMPLIFY-1: Needs reply (red), Answered (green), neutral state
+     chips, the selected row, and the reaction badge and bar. Each ink is paired
+     with its own fill, in both themes. */
+  --messages-needs-ink:       #9E2A20;
+  --messages-needs-soft:      #FDECEA;
+  --messages-needs-line:      #F3C2BD;
+  --messages-needs-dot:       #C2362B;
+  --messages-ok-ink:          #256B35;
+  --messages-ok-soft:         #EAF5EC;
+  --messages-ok-line:         #BFE0C6;
+  --messages-neutral-ink:     #3B4060;
+  --messages-neutral-soft:    #EEF0F6;
+  --messages-neutral-line:    #D9DCEA;
+  --messages-row-selected:    #EBE8E2;
+  --messages-reaction-bg:     #FFFFFF;
+  --messages-reaction-in-bg:  #EEF1FB;
+  --messages-reaction-ring:   #F1EFEB;
+  --messages-reaction-picked: #DFE5FB;
+
+  /* ── Sheet family: printed-paper surfaces (RESPONSES-PACKET-1, table canon) ──
+     One paper for every DataSheet and results packet, and it is the SAME slate
+     paper the Review & Release clipboard reads (--aspire-paper, below): Owner
+     decision, 2026-09-20, one paper family for the app. The mockup's faintly
+     green sheet is not used. The planner's calendars redefine --paper on
+     .pl-planner[data-paper] and keep their own colours; a descendant definition
+     always wins for its subtree. */
+  --paper:        var(--aspire-paper);
+  --paper-2:      var(--aspire-paper-2);
+  --paper-ink:    var(--aspire-paper-ink);
+  --paper-muted:  var(--aspire-paper-muted);
+  --rule:         var(--aspire-rule);
+  /* The grid is present but never competes with the ink: about 40% lighter than the
+     mockup (Owner, 2026-09-20). */
+  --grid:         rgba(15, 122, 77, 0.05);
+  --grid-5:       rgba(15, 122, 77, 0.09);
+  /* The manila folder that frames a results sheet, and its ink. */
+  --folder:           #EAE1CA;
+  --folder-deep:      #DDD2B5;
+  --folder-edge:      rgba(90, 74, 34, 0.24);
+  --folder-ink:       #3A2E14;
+  --folder-ink-muted: #5E5030; /* 5.1:1 on --folder-deep; #6E5F3A measured 4.15 */
+  --band:         rgba(15, 122, 77, 0.045);
+  --hole:         #EDEAE2;
+  --hole-in:      #DAD5C8;
+  /* Distribution segments. down is AMBER, never red: green #0F7A4D against red
+     #A32A32 measures dE 4.2 under deuteranopia, so a red-green reader cannot
+     separate the two ends of the bar. Against amber it measures 7.0, which is
+     legal only with the secondary encoding the packet carries (texture, gaps,
+     direct count labels, a Table view). */
+  --up:           #0F7A4D;
+  --same:         #767D97;
+  --down:         #8F5A0A;
+  --on-seg:       #FFFFFF;
+  /* Status pills on paper: four tones, one word each. */
+  --pill-ok-bg:   #E1F3EA;  --pill-ok-fg:   #0F7A4D;
+  --pill-warn-bg: #FBEFD9;  --pill-warn-fg: #8F5A0A;
+  --pill-info-bg: #EFF3FB;  --pill-info-fg: #1E2A6E;
+  /* ── Paper, status, pressboard, tape (REVIEW-RELEASE-2) ────────────────
+     Theme-aware pairs: an ink and the surface it sits on change together.
+     Paper is the planner's slate paper, lifted here so the calendars and the
+     Review & Release clipboard read ONE definition. */
+  --aspire-paper:        #FDFCFA;
+  --aspire-paper-2:      #F6F5F2;
+  --aspire-paper-ink:    #1B2140;
+  --aspire-paper-muted:  #61667E;
+  --aspire-rule:         rgba(30, 42, 110, 0.12);
+  /* Status inks and their soft tints (the KPI card family, named once). */
+  --kpi-ink:             #1D2567;   /* a KPI figure on a card (DARK-SWEEP-1) */
+  --aspire-ok:           #0F7A4D;
+  --aspire-ok-soft:      #E1F3EA;
+  --aspire-warn:         #8F5A0A;
+  --aspire-warn-soft:    #FBEFD9;
+  --aspire-bad:          #A32A32;
+  --aspire-bad-soft:     #FBEAEC;
+  /* The clipboard's pressboard and its sent tape. */
+  --aspire-pressboard-a:   #554E43;
+  --aspire-pressboard-b:   #403A31;
+  --aspire-pressboard-c:   #332E27;
+  --aspire-pressboard-ink: #F1EBDE;
+  --aspire-tape:           #EFE9DA;
+  --aspire-tape-ink:       #3A3323;
+  --aspire-tape-muted:     #675E44; /* the mockup's #7A7052 measured 4.06:1 on the tape */
+  /* KEITH-FOUNDATION-1: Keith's own hue, for the mark's card and related surfaces (the orb image
+     looks the same in both themes). The launcher's white ring is light-mode only. */
+  --keith:                 #5B4FD0;
+  --keith-hi:              #B9B0FF;
+  --keith-soft:            #EEECFB;
+  --keith-launcher-ring:   0 0 0 2px rgba(255, 255, 255, 0.7);
+}
+
+/* ── Dark mode ─────────────────────────────────────────────────── */
+:root[data-theme="dark"] {
+  /* Legacy aliases. Several staff surfaces still consume the original palette names
+     instead of the newer semantic tokens. Keep those aliases theme-aware so older
+     tables and cards do not paint light paper on the dark application canvas. */
+  --pearl:       #171D24;
+  --sand:        #0F1419;
+  --sand-dark:   #252D37;
+  --raven:       #F2F5F8;
+  --border:      rgba(255, 255, 255, 0.16);
+  --border-lt:   rgba(255, 255, 255, 0.09);
+  --text-secondary: #AAB4C0;
+  --text-primary: #F2F5F8;
+  --bg-input: #202934;
+  --border-input: rgba(255, 255, 255, 0.16);
+  --color-link: #B7C5FF;
+  --nova:        #8FA9FF;
+  --nova-tint:   rgba(143, 169, 255, 0.18);
+  --marina:      #8FA9FF;
+
+  /* Shared table/card tokens are declared in aspireBrand.css, which loads after this
+     file. The higher-specificity dark selector keeps them dark without changing light mode. */
+  --aspire-card: #171D24;
+  --aspire-line: rgba(255, 255, 255, 0.12);
+  --aspire-line-soft: rgba(255, 255, 255, 0.07);
+  --aspire-ink: #F2F5F8;
+  --aspire-ink-soft: #AAB4C0;
+  --aspire-th-color: #AAB4C0;
+  --aspire-th-bg: #1C232D;
+  --aspire-th-bg-inset: #1C232D;
+  --aspire-th-color-inset: #AAB4C0;
+  --aspire-row-line: 1px solid rgba(255, 255, 255, 0.10);
+  --aspire-row-hover: #252D37;
+  --aspire-row-band: #1A2028;
+  --aspire-nav-line: rgba(255, 255, 255, 0.10);
+
+  /* SegmentedPicker inks (HOME-1, 2026-09-25). The picker paints the lifted accent in dark,
+     and white on #6B8EFF measured 3.03:1; its resting ink was a light-mode constant on the
+     dark input, 3.27:1. Light mode has no value here, so the picker renders what it did. */
+  --seg-active-ink: #0F1419;
+  --seg-rest-ink:   #AAB4C0;
+
+  /* Surfaces */
+  --color-bg-page:     #0F1419;
+  --color-bg-surface:  #171D24;
+  --color-bg-elevated: #1C232D;
+  --color-bg-overlay:  rgba(0, 0, 0, 0.60);
+  --color-bg-input:    #1C232D;
+  --color-bg-hover:    rgba(255, 255, 255, 0.05);
+
+  /* Text */
+  --color-text-primary:   #F2F5F8;
+  --color-text-secondary: #AAB4C0;
+  --color-text-muted:     #7B8794;
+  --color-text-inverse:   #0F1419;
+  --color-text-placeholder: #6B7785;
+
+  /* Borders */
+  --color-border-subtle:  rgba(255, 255, 255, 0.06);
+  --color-border-default: rgba(255, 255, 255, 0.10);
+  --color-border-strong:  rgba(255, 255, 255, 0.16);
+
+  /* Brand accents (lifted for legibility on dark) */
+  --color-accent-primary:   #6B8EFF;
+  --color-accent-hover:     #8FA9FF;
+  --color-accent-secondary: #E2569C;
+  --color-accent-marina:    #8FA9FF;
+  --color-accent-lavender:  #C7C2E8;
+  --color-accent-nova:      #B8C5FF;
+  --on-navy:                #12141C;
+
+  /* Status */
+  --color-status-success:    #6BBF6F;
+  --color-status-success-bg: rgba(107, 191, 111, 0.18);
+  --color-status-success-fg: #95D699;
+
+  --color-status-warning:    #E8B86A;
+  --color-status-warning-bg: rgba(232, 184, 106, 0.18);
+  --color-status-warning-fg: #F2C982;
+
+  --color-status-danger:    #E2569C;
+  --color-status-danger-bg: rgba(226, 86, 156, 0.18);
+  --color-status-danger-fg: #F08CB8;
+
+  --color-status-info:    #8FA9FF;
+  --color-status-info-bg: rgba(143, 169, 255, 0.18);
+  --color-status-info-fg: #ADBFFF;
+
+  /* Header */
+  --color-header-bg:   #0A0E14;
+  --color-header-text: #F2F5F8;
+
+  /* Shadows */
+  --shadow-card:       0 1px 3px rgba(0, 0, 0, 0.40);
+  --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.50);
+  --shadow-elevated:   0 8px 24px rgba(0, 0, 0, 0.60);
+
+  /* Gauge segments */
+  --gauge-segment-placed:   rgba(107, 191, 111, 0.55);
+  --gauge-segment-awaiting: rgba(143, 169, 255, 0.50);
+  --gauge-segment-over:     rgba(226, 86, 156, 0.50);
+  --gauge-segment-base:     rgba(255, 255, 255, 0.06);
+
+  /* Focus */
+  --color-focus-ring: #8FA9FF;
+
+  --messages-bubble-in:       #232A34;
+  --messages-bubble-in-ink:   #F2F5F8;
+  --messages-bubble-out:      #283A8A;
+  --messages-bubble-out-ink:  #FFFFFF;
+  --messages-soft-surface:    #1C232D;
+  --messages-needs-ink:       #FFC7CA;
+  --messages-needs-soft:      #4B2227;
+  --messages-needs-line:      #77343B;
+  --messages-needs-dot:       #F08A92;
+  --messages-ok-ink:          #BCE7C9;
+  --messages-ok-soft:         #173D2A;
+  --messages-ok-line:         #286243;
+  --messages-neutral-ink:     #D6DCE6;
+  --messages-neutral-soft:    #232A34;
+  --messages-neutral-line:    #3A4452;
+  --messages-row-selected:    #222B3A;
+  --messages-reaction-bg:     #2A3240;
+  --messages-reaction-in-bg:  #26305A;
+  --messages-reaction-ring:   #161B23;
+  --messages-reaction-picked: #34407A;
+
+  /* Sheet family, dark: the same slate paper as the clipboard. */
+  --paper:        var(--aspire-paper);
+  --paper-2:      var(--aspire-paper-2);
+  --paper-ink:    var(--aspire-paper-ink);
+  --paper-muted:  var(--aspire-paper-muted);
+  --rule:         var(--aspire-rule);
+  --grid:         rgba(60, 203, 138, 0.035);
+  --grid-5:       rgba(60, 203, 138, 0.065);
+  --folder:           #2B2619;
+  --folder-deep:      #211D13;
+  --folder-edge:      rgba(201, 178, 122, 0.24);
+  --folder-ink:       #EFE6CF;
+  --folder-ink-muted: #C4B68F;
+  --band:         rgba(60, 203, 138, 0.055);
+  --hole:         #12151F;
+  --hole-in:      #0C0E16;
+  --up:           #3CCB8A;
+  --same:         #9198B4;
+  --down:         #E6A544;
+  --on-seg:       #0E111C;
+  --pill-ok-bg:   #15372A;  --pill-ok-fg:   #3CCB8A;
+  --pill-warn-bg: #3A2C14;  --pill-warn-fg: #E6A544;
+  --pill-info-bg: #1E2540;  --pill-info-fg: #9FB0F5;
+  /* ── Paper, status, pressboard, tape (REVIEW-RELEASE-2), dark ──────────── */
+  --aspire-paper:        #1C1F2C;
+  --aspire-paper-2:      #191C28;
+  --aspire-paper-ink:    #E9EAF2;
+  --aspire-paper-muted:  #A0A4BC;
+  --aspire-rule:         rgba(159, 176, 245, 0.14);
+  --kpi-ink:             #E9EAF2;
+  --aspire-ok:           #3CCB8A;
+  --aspire-ok-soft:      #15372A;
+  --aspire-warn:         #E6A544;
+  --aspire-warn-soft:    #3A2C14;
+  --aspire-bad:          #F08A92;
+  --aspire-bad-soft:     #3A1B1F;
+  --aspire-pressboard-a:   #2E2A25;
+  --aspire-pressboard-b:   #24211C;
+  --aspire-pressboard-c:   #1B1815;
+  --aspire-pressboard-ink: #F1EBDE;
+  --aspire-tape:           #26231B;
+  --aspire-tape-ink:       #EDE4CF;
+  --aspire-tape-muted:     #A89C7E;
+  --keith:                 #A89EFF;
+  --keith-hi:              #D9D3FF;
+  --keith-soft:            #25224A;
+  --keith-launcher-ring:   0 0 0 0 transparent;
+}
+
+/* ── Semantic aliases (never rename; only values change per theme) */
+:root {
+  --bg-app:           var(--color-bg-page);
+  --bg-card:          var(--color-bg-surface);
+  --bg-card-elevated: var(--color-bg-elevated);
+  --bg-input:         var(--color-bg-input);
+  --bg-hover:         var(--color-bg-hover);
+
+  --text-heading:     var(--color-text-primary);
+  --text-body:        var(--color-text-primary);
+  --text-caption:     var(--color-text-secondary);
+  --text-muted:       var(--color-text-muted);
+
+  --border-card:      var(--color-border-subtle);
+  --border-divider:   var(--color-border-default);
+  --border-input:     var(--color-border-default);
+  --border-strong:    var(--color-border-strong);
+}
+
+/* ── Smooth theme transitions ─────────────────────────────────── */
+*,
+*::before,
+*::after {
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    fill 180ms ease,
+    stroke 180ms ease;
+}
+
+/* Opt-out for elements that should never transition */
+.no-theme-transition,
+.no-theme-transition * {
+  transition: none !important;
+}
+
+/* ── Dark mode: top-level structural overrides ─────────────────── */
+/* These cover elements that still use the legacy CSS vars */
+[data-theme="dark"] .app {
+  background: var(--color-bg-page);
+  color: var(--color-text-primary);
+}
+
+[data-theme="dark"] .app-main {
+  background: var(--color-bg-page);
+}
+
+[data-theme="dark"] body {
+  background: var(--color-bg-page);
+  color: var(--color-text-primary);
+}
+
+/* Surfaces that use var(--sand) or var(--pearl) */
+[data-theme="dark"] .aggregate-sticky-header,
+[data-theme="dark"] .overview-tab {
+  background: var(--color-bg-page);
+}
+
+[data-theme="dark"] .aggregate-scrollable-content {
+  background: var(--color-bg-page);
+}
+
+[data-theme="dark"] .aggregate-panel-hdr {
+  background: var(--color-bg-surface);
+  border-color: var(--color-border-default);
+  color: var(--color-text-primary);
+}
+
+[data-theme="dark"] .ov-panel-body {
+  background: var(--color-bg-surface);
+  border-color: var(--color-border-default);
+}
+
+[data-theme="dark"] .ov-group-row {
+  color: var(--color-text-primary);
+}
+
+[data-theme="dark"] .ov-group-row:hover {
+  background: var(--color-bg-hover);
+}
+
+[data-theme="dark"] .ov-group-name {
+  color: var(--color-text-primary);
+}
+
+[data-theme="dark"] .ov-group-badge {
+  background: var(--color-bg-elevated);
+  color: var(--color-text-secondary);
+}
+
+[data-theme="dark"] .ov-group-items {
+  background: var(--color-bg-elevated);
+  border-color: var(--color-border-subtle);
+}
+
+[data-theme="dark"] .ucr-row {
+  border-bottom-color: var(--color-border-subtle);
+}
+
+[data-theme="dark"] .ucr-row:hover {
+  background: var(--color-bg-hover);
+}
+
+[data-theme="dark"] .ov-unit-row,
+[data-theme="dark"] .ov-student-row {
+  background: transparent;
+  color: var(--color-text-primary);
+}
+
+[data-theme="dark"] .ov-panel-title {
+  color: var(--color-text-primary);
+}
+
+[data-theme="dark"] .ov-panel-sub {
+  color: var(--color-text-secondary);
+}
+
+[data-theme="dark"] .ov-expand-toggle button {
+  color: var(--color-text-secondary);
+}
+
+/* Modals and drawers */
+[data-theme="dark"] .modal-overlay {
+  background: var(--color-bg-overlay);
+}
+
+[data-theme="dark"] .modal-box,
+[data-theme="dark"] .modal-content {
+  background: var(--color-bg-surface);
+  border-color: var(--color-border-default);
+  color: var(--color-text-primary);
+}
+
+[data-theme="dark"] .modal-header {
+  border-bottom-color: var(--color-border-default);
+  color: var(--color-text-primary);
+}
+
+[data-theme="dark"] .modal-body {
+  color: var(--color-text-primary);
+}
+
+/* Full-screen panels (Student Profiles, Interview Room) */
+[data-theme="dark"] .profiles-full-container,
+[data-theme="dark"] .student-list-panel {
+  background: var(--color-bg-page);
+  color: var(--color-text-primary);
+}
+
+[data-theme="dark"] .student-row {
+  border-bottom-color: var(--color-border-subtle);
+}
+
+[data-theme="dark"] .row-header {
+  color: var(--color-text-primary);
+}
+
+[data-theme="dark"] .row-header:hover,
+[data-theme="dark"] .student-row:hover .row-header {
+  background: var(--color-bg-hover);
+}
+
+[data-theme="dark"] .list-meta {
+  background: var(--color-bg-elevated);
+  border-color: var(--color-border-subtle);
+  color: var(--color-text-secondary);
+}
+
+/* Inputs */
+[data-theme="dark"] input,
+[data-theme="dark"] select,
+[data-theme="dark"] textarea {
+  background: var(--color-bg-input);
+  border-color: var(--color-border-default);
+  color: var(--color-text-primary);
+}
+
+[data-theme="dark"] input::placeholder,
+[data-theme="dark"] textarea::placeholder {
+  color: var(--color-text-placeholder);
+}
+
+/* Public forms - always stay light */
+[data-theme-lock="light"] {
+  --color-bg-page:     #F4F1EC;
+  --color-bg-surface:  #FFFFFF;
+  --color-bg-elevated: #FFFFFF;
+  --color-text-primary:   #191919;
+  --color-text-secondary: #4A5560;
+  --color-text-muted:     #6B7785;
+  --color-border-subtle:  rgba(25, 25, 25, 0.06);
+  --color-border-default: rgba(25, 25, 25, 0.10);
+}
+
+/* ── Staff surfaces that still use local markup styles ─────────── */
+[data-theme="dark"] .preceptor-dir-table .am-row,
+[data-theme="dark"] .rotation-student-table,
+[data-theme="dark"] .rotation-student-table tr,
+[data-theme="dark"] .rotation-student-table tr[style*="background"],
+[data-theme="dark"] .rotation-student-coverage [style*="background: rgb(255, 255, 255)"],
+[data-theme="dark"] .accounts-directory > div[style*="background: rgb(255, 255, 255)"] {
+  background: var(--color-bg-surface) !important;
+}
+
+[data-theme="dark"] .rotation-student-coverage [style*="background: rgb(255, 250, 250)"],
+[data-theme="dark"] .rotation-activity-view [style*="background: rgb(251, 245, 232)"],
+[data-theme="dark"] .rotation-activity-view [style*="background: rgb(254, 243, 199)"] {
+  background: var(--color-status-warning-bg) !important;
+  border-color: var(--color-status-warning) !important;
+  color: var(--color-status-warning-fg) !important;
+}
+
+[data-theme="dark"] .preceptor-dir-table .am-td,
+[data-theme="dark"] .accounts-directory table td,
+[data-theme="dark"] .rotation-student-table td {
+  color: var(--color-text-primary) !important;
+  border-bottom-color: var(--color-border-subtle) !important;
+}
+
+[data-theme="dark"] .preceptor-dir-table .preceptor-dir-student,
+[data-theme="dark"] .preceptor-dir-table .preceptor-dir-empty,
+[data-theme="dark"] .preceptor-dir-table .preceptor-dir-context,
+[data-theme="dark"] .accounts-directory table td[style*="color"],
+[data-theme="dark"] .accounts-directory table td div[style*="color"],
+[data-theme="dark"] .rotation-student-table td div[style*="color"] {
+  color: var(--color-text-secondary) !important;
+}
+
+[data-theme="dark"] .accounts-directory input,
+[data-theme="dark"] .accounts-directory select,
+[data-theme="dark"] .rotation-activity-view select {
+  background: var(--color-bg-input) !important;
+  border-color: var(--color-border-default) !important;
+  color: var(--color-text-primary) !important;
+}
+
+[data-theme="dark"] .accounts-directory > div[style*="border: 1px solid rgb(236, 238, 242)"],
+[data-theme="dark"] .rotation-student-coverage [style*="border: 1px solid rgb(232, 228, 220)"],
+[data-theme="dark"] .rotation-activity-view [style*="border: 1px solid rgb(232, 228, 220)"] {
+  border-color: var(--color-border-default) !important;
+}
+
+/* ASPIRE Connect has several presentation-only panels whose local styles predate the
+   semantic theme layer. Restyle the app chrome and cards, while leaving email documents
+   inside their iframe previews untouched. */
+[data-theme="dark"] .connect-page .connect-panel,
+[data-theme="dark"] .connect-page .outreach-activity-register,
+[data-theme="dark"] .connect-page .outreach-preview-panel,
+[data-theme="dark"] .connect-page [style*="background: rgb(255, 255, 255)"],
+[data-theme="dark"] .connect-page [style*="background: rgb(255, 255, 255);"] {
+  background: var(--color-bg-surface) !important;
+  border-color: var(--color-border-default) !important;
+  color: var(--color-text-primary) !important;
+}
+
+[data-theme="dark"] .connect-page .connect-panel-title,
+[data-theme="dark"] .connect-page .outreach-dispatch-ledger h2 {
+  color: var(--color-text-primary) !important;
+}
+
+[data-theme="dark"] .connect-page .connect-panel-helper,
+[data-theme="dark"] .connect-page .outreach-dispatch-ledger p {
+  color: var(--color-text-secondary) !important;
+}
+
+/* Connect's classic contact profile intentionally uses a pale paper treatment in
+   light mode. In dark mode it needs a complete surface/ink pair, otherwise the
+   inherited dark page leaves nearly-white text on white cards and navy text on
+   pale cards. */
+[data-theme="dark"] .connect-page .connect-contact-profile-shell {
+  background: var(--color-bg-surface) !important;
+  border-color: var(--color-border-default) !important;
+}
+
+[data-theme="dark"] .connect-page .connect-contact-profile-hero {
+  background: linear-gradient(160deg, #23314a 0%, #1c2533 52%, #171d24 100%) !important;
+  border-bottom-color: var(--color-border-default) !important;
+}
+
+[data-theme="dark"] .connect-page .connect-contact-profile-hero h2,
+[data-theme="dark"] .connect-page .connect-contact-profile-hero strong,
+[data-theme="dark"] .connect-page .connect-contact-profile-hero > div[style*="color: rgb(55, 65, 81)"],
+[data-theme="dark"] .connect-page .connect-contact-profile-hero > div[style*="color: rgb(25, 25, 25)"] {
+  color: var(--color-text-primary) !important;
+}
+
+[data-theme="dark"] .connect-page .connect-contact-profile > div[style*="background: rgb(249, 250, 251)"],
+[data-theme="dark"] .connect-page .connect-contact-profile > div[style*="background: rgb(249, 250, 251);"] {
+  background: var(--color-bg-elevated) !important;
+  border-color: var(--color-border-default) !important;
+}
+
+[data-theme="dark"] .connect-page .connect-contact-profile [style*="color: rgb(55, 65, 81)"],
+[data-theme="dark"] .connect-page .connect-contact-profile [style*="color: rgb(25, 25, 25)"],
+[data-theme="dark"] .connect-page .connect-contact-profile [style*="color: rgb(107, 114, 128)"] {
+  color: var(--color-text-primary) !important;
+}
+
+[data-theme="dark"] .connect-page .connect-contact-profile [style*="color: rgb(156, 163, 175)"] {
+  color: var(--color-text-secondary) !important;
+}
+
+[data-theme="dark"] .connect-page .connect-contact-profile-shell a,
+[data-theme="dark"] .connect-page .outreach-dispatch-ledger a,
+[data-theme="dark"] .connect-page .preceptor-dir-contact a {
+  color: var(--color-link) !important;
+}
+
+/* Sent-history rows are audit records, not email documents. Keep the documents
+   in the preview drawer light, but give the ledger rows the same dark reading
+   order as the surrounding Connect page. */
+[data-theme="dark"] .connect-page .outreach-dispatch-ledger > div > div[style*="background: rgb(255, 255, 255)"],
+[data-theme="dark"] .connect-page .outreach-dispatch-ledger > div > div[style*="background: rgb(250, 250, 250)"],
+[data-theme="dark"] .connect-page .outreach-dispatch-ledger > div > div[style*="background: rgb(255, 255, 255);"] {
+  background: var(--color-bg-surface) !important;
+  border-color: var(--color-border-subtle) !important;
+}
+
+[data-theme="dark"] .connect-page .outreach-dispatch-ledger > div > div[style*="background: rgb(255, 255, 255)"] [style*="color: rgb(25, 25, 25)"],
+[data-theme="dark"] .connect-page .outreach-dispatch-ledger > div > div[style*="background: rgb(255, 255, 255)"] [style*="color: rgb(55, 65, 81)"],
+[data-theme="dark"] .connect-page .outreach-dispatch-ledger > div > div[style*="background: rgb(250, 250, 250)"] [style*="color: rgb(25, 25, 25)"],
+[data-theme="dark"] .connect-page .outreach-dispatch-ledger > div > div[style*="background: rgb(250, 250, 250)"] [style*="color: rgb(55, 65, 81)"] {
+  color: var(--color-text-primary) !important;
+}
+
+[data-theme="dark"] .connect-page .outreach-dispatch-ledger > div > div[style*="background: rgb(255, 255, 255)"] [style*="color: rgb(107, 114, 128)"],
+[data-theme="dark"] .connect-page .outreach-dispatch-ledger > div > div[style*="background: rgb(250, 250, 250)"] [style*="color: rgb(107, 114, 128)"] {
+  color: var(--color-text-secondary) !important;
+}
+
+[data-theme="dark"] .connect-page .outreach-dispatch-ledger > div > div[style*="background: rgb(255, 255, 255)"] > div[style*="background: rgb(252, 252, 251)"],
+[data-theme="dark"] .connect-page .outreach-dispatch-ledger > div > div[style*="background: rgb(250, 250, 250)"] > div[style*="background: rgb(252, 252, 251)"] {
+  background: var(--color-bg-elevated) !important;
+  border-color: var(--color-border-subtle) !important;
+}
+
+/* ==== src/styles/aspireBrand.css (copied verbatim from the app) ==== */
+/* ASPIRE-COMPASS: shared core brand tokens for every ASPIRE surface.
+   Layer 1 of the token structure:
+     1. this file        - core brand identity (colors, type, shape, focus)
+     2. publicSite.css   - public-site component tokens (scoped to .ps-root)
+     3. portal.css       - portal functional tokens (scoped to .ptl-page)
+     4. login.css        - login-page tokens (scoped to .lg-page)
+   Only custom properties live here, on :root, so importing this file can never
+   restyle an existing element. --cs-red (the count-badge red) remains defined
+   in src/index.css and is intentionally not redefined here. */
+
+:root {
+  /* Color identity */
+  --aspire-navy: #1D2567;
+  --aspire-navy-deep: #141a4d;
+  --aspire-navy-soft: #2a3480;
+  --aspire-navy-tint: #eef2fb;
+  --aspire-red-editorial: #B3282D;   /* accent red (public editorial voice)  */
+  --aspire-cream: #F4F1EC;
+  --aspire-card: #ffffff;
+  --aspire-line: #e3ded4;
+  --aspire-line-soft: #eee9df;
+  --aspire-ink: #232842;
+  --aspire-ink-soft: #6b7280;
+
+  /* Status palette (shared taxonomy) */
+  --aspire-ok-bg: #e7f4ec;
+  --aspire-ok-fg: #14532d;
+  --aspire-wait-bg: #fdf3e3;
+  --aspire-wait-fg: #92400e;
+  --aspire-err-bg: #fdecec;
+  --aspire-err-fg: #991b1b;
+
+
+  /* Typography */
+  --aspire-serif: 'Playfair Display', Georgia, 'Times New Roman', serif;
+  --aspire-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  /* The mono face (REVIEW-RELEASE-2): labels, stamps, hours and tape lines on the
+     Review & Release clipboard. Declared once here; the clipboard reads it. */
+  --aspire-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* Shape and focus.
+     UI-CONSISTENCY-1 (2026-09-03): the staff app now reads this file too. Until then
+     only the portal imported it, so every staff surface chose its own radius, gap and
+     edge, and nineteen distinct radii were in use. These are the values every card,
+     grid and table header on both halves of the app resolve to; change them here, not
+     in a component. The card radius moved 16 -> 12: sixteen reads bubbly on the dense
+     staff panels, eight reads clipped on the roomy portal cards, twelve looks right on
+     both. */
+  --aspire-radius-card: 12px;
+  --aspire-radius-control: 10px;
+  /* A pill (chips, count badges). Fully round at any height. */
+  --aspire-radius-pill: 999px;
+  /* The sheet family (table canon, RESPONSES-PACKET-1): a printed sheet's corner, the
+     plain sheet that sits inside a card, and a FILE tab's top corners (the packet's
+     instrument tabs). --aspire-radius-tab, below, is the student chart's die-cut index
+     tab and is a different shape. Read these; never restate the numbers. */
+  --aspire-radius-sheet: 3px;
+  --aspire-radius-sheet-plain: 8px;
+  --aspire-radius-filetab: 9px;
+  --aspire-focus-ring: 2px solid var(--aspire-navy);
+
+  /* Rhythm. One gap between sibling cards, one offset from a section nav to the first
+     card, one table-header size. A card has NO border: its edge is the shadow, so it
+     sits on the cream page as a surface rather than a boxed outline. */
+  --aspire-gap-card: 16px;
+  --aspire-page-top: 24px;
+  --aspire-th-size: 11px;
+  /* UI-CONSISTENCY-2: the table canon. Derived from the two tables the Owner named as
+     right (Evaluation > Responses, and the Alumni Roster): they agree on every value
+     below, so these are what every other table now reads. Letter-case is deliberately
+     NOT a token; both canon tables are right and they differ on it. */
+  --aspire-th-weight: 700;
+  --aspire-th-color: #6b7785;
+  --aspire-th-bg: #f9fafb;
+  --aspire-th-tracking: 0.06em;
+  --aspire-th-pad: 10px 12px;
+  --aspire-row-line: 1px solid #e5e7eb;
+  --aspire-row-hover: #eef2fb;
+  /* UI-CONSISTENCY-6 (Owner decisions, 2026-09-03, from a rendered comparison): a table that
+     sits INSIDE a padded card (Academic Partner Students, NEL Student Detail) wears the
+     navy-wash band with rounded top corners; the faint canon band read as unfinished when
+     it floated inside white padding. A table that IS the card (Unit Leader Your Students,
+     Evaluation > Responses) keeps --aspire-th-bg as its top edge. Even rows carry the
+     Evaluation > Responses banding everywhere; hover still wins. */
+  --aspire-th-bg-inset: #eef1f8;
+  --aspire-th-color-inset: #4b5675;
+  --aspire-row-band: #fafafa;
+  /* A clickable card lifts on hover; the shadow deepens, nothing changes colour. */
+  --aspire-shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --aspire-shadow-card: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --aspire-nav-line: rgba(29, 37, 103, 0.08);
+  /* NAV-CANON-1 (Owner, 2026-10-07): one tab size for every section nav, staff app and
+     portals alike. The staff app's chart-nav had 17px and the portals' ptl-nav 14px, with no
+     rule between them. The staff values are the canon; the two narrower steps follow. The
+     portals' phone bottom bar is a different control and keeps its own size. */
+  --aspire-nav-size: 17px;
+  --aspire-nav-size-tablet: 15px;   /* at or below 1100px */
+  --aspire-nav-size-narrow: 14px;   /* at or below 760px */
+  --aspire-nav-tab-pad: 11px 16px;
+  --aspire-nav-tab-pad-tablet: 10px 12px;
+  --aspire-nav-tab-pad-narrow: 10px 10px;
+  --aspire-nav-inset: 32px;         /* the bar's side inset */
+  --aspire-nav-inset-tablet: 12px;
+
+  /* PLACEMENT-BOARD-FELT-1 (2026-09-17): materials. Blue felt, navy leather,
+     cream leather and white paper, first worn by Rotation > Placement Board. The classes
+     that apply them live in src/styles/aspireMaterials.css; import that sheet where a
+     screen uses them. Structure still comes from the tokens above: a material changes
+     what a surface is made of, never its radius, gap or edge. Materials look the same
+     in light and dark mode; the page around them follows the theme.
+     Textures are inline SVG noise, so no image file ships.
+     Four Owner corrections on 2026-09-17, all pulling the same way - quieter:
+       1. the dashed stitching went; the gold piping already separated the pool header
+          from the material below it;
+       2. the pool header went FLAT nightfall with white ink, not textured leather;
+       3. the deep blue felt became a PALE board surface from the same tint family as
+          the KPI filter cards, its texture a whisper rather than a weave;
+       4. a unit board's own header went pastel too, because nightfall there repeated
+          the Student Pool / Unit Pool headers and out-weighed everything inside it.
+     Nightfall now means ONE thing on this board: a pool header. */
+  --aspire-board: #F7F9FD;
+  --aspire-board-deep: #F1F4FB;
+  --aspire-board-head: #DFE5F3;
+  --aspire-board-line: rgba(29, 37, 103, 0.22);
+  --aspire-leather-cream: #F4ECD8;
+  --aspire-leather-cream-deep: #E9DDC0;
+  --aspire-piping: #C9B27A;
+  --aspire-piping-deep: #8E7A45;
+  --aspire-on-navy: #FFFFFF;
+  --aspire-on-navy-soft: rgba(255, 255, 255, 0.78);
+  --aspire-on-navy-ok: #8BE3B6;
+  --aspire-on-cream-label: #5A4A22;
+  --aspire-on-board: #4A5560;
+  --aspire-on-board-strong: #1D2567;
+  /* The tan paper of anything about shifts (Rotation > Activity) and of what holds receipts
+     (RECEIPTS-REDESIGN-1). One definition, here because the portals' calendars need it too and they do not load theme.css:
+     plannerCalendar.css and budget.css both read these. */
+  --aspire-paper-tan:        #FBF3E2;
+  --aspire-paper-tan-2:      #F3E8D0;
+  --aspire-paper-tan-ink:    #3A2E1C;
+  --aspire-paper-tan-muted:  #7A6647;
+  --aspire-rule-tan:         rgba(120, 90, 40, 0.22);
+  --aspire-paper: #FFFFFF;
+  --aspire-paper-ink: #18203F;
+  --aspire-paper-ink-soft: #5E6480;
+  --aspire-shadow-note: 0 1px 2px rgba(16, 24, 64, 0.10), 0 6px 14px rgba(16, 24, 64, 0.12);
+  --aspire-shadow-note-lift: 0 2px 4px rgba(16, 24, 64, 0.12), 0 10px 22px rgba(16, 24, 64, 0.16);
+  /* Rank colours for pins and ribbons. White numbers sit on them, so each is the nearest
+     shade to the approved mockup that measures at least 4.5:1 against white (the mockup's
+     #14935E, #C07A12 and #8A90A2 measured 3.9, 3.5 and 3.2). The rank is always also
+     written as a number or a word; colour never carries it alone. */
+  --aspire-rank-first: #128756;
+  --aspire-rank-second: #A5690F;
+  --aspire-rank-third: #1E2A6E;
+  --aspire-rank-other: #717685;
+  /* CONTACTS-BOOK-3 (Owner, 2026-09-20): the app's two books are bound in ONE leather,
+     cognac: the Interview Rubric (RUBRIC-BOOK-1, which was tan until now) and the
+     Contacts address book (CONTACTS-BOOK-1, which was oxblood). The values are the
+     Owner's mockup (docs/mockups/contacts-book-mockup.html). Lift, base and deep are a
+     cover's fall of light. The dark-theme tones are in aspireMaterials.css, beside the
+     materials that read them.
+     BOOK-COVER-1 (Owner, 2026-09-21: "use the same exact cover you're using in address
+     book"): one leather was not enough, the two books are one COVER. The rubric gave up
+     its pebbled hide for the address book's fine grain, gilt rule, corner and boards, and
+     both read the four cover tokens below, so neither can drift from the other. */
+  --aspire-leather-cognac: #7A4A26;
+  --aspire-leather-cognac-lift: #9A6236;
+  --aspire-leather-cognac-deep: #5A351A;
+  /* The spine: where the cover folds. BOOK-FORE-1 (Owner, 2026-09-19) made it a darker
+     band of the same leather; BOOK-COVER-2 (Owner, 2026-09-21: "keep it for both but make
+     it subtle. it's meant to be a shadow or a crease when a book is folded") makes it a
+     SHADOW: three translucent steps of the leather's own darkest brown, so the grain and
+     the colour of whichever cover it lies on show through, in both themes, and it reads
+     as the leather turning rather than as a stripe painted across it. Both books wear it
+     (.material-book-spine). */
+  --aspire-book-spine-w: 28px;
+  --aspire-book-spine-edge: rgba(26, 12, 3, 0.07);
+  --aspire-book-spine: rgba(26, 12, 3, 0.18);
+  --aspire-book-spine-crease: rgba(26, 12, 3, 0.34);
+  --aspire-book-edge: rgba(60, 50, 34, 0.42);
+  --aspire-book-seam: rgba(20, 24, 36, 0.50);
+  --aspire-page: #FFFFFF;
+  --aspire-page-rule: #ECEEF4;
+  --aspire-page-band: #EEF1F8;
+  /* The ribbon sewn into the rubric's left page. White FLAG sits on it, so the
+     unpulled state is the lightest taupe that still measures 4.5:1 against white
+     (the mockup's #C9C2B4 measured 1.77). Pulled, it is the editorial red. */
+  --aspire-ribbon-idle: #7B7264;
+  /* The flag ribbon's shape, one set for all three (RIBBON-MOTION-1, Owner, 2026-09-30):
+     40px resting, 48px while pointed at ("you can pull this"), 92px pulled down. Wide
+     enough that FLAGGED has room either side instead of running edge to edge, and a notch
+     of fixed depth, so it keeps its shape at every height. */
+  --aspire-flag-ribbon-w: 60px;
+  --aspire-flag-ribbon-h: 40px;
+  --aspire-flag-ribbon-h-peek: 48px;
+  --aspire-flag-ribbon-h-on: 92px;
+  --aspire-flag-ribbon-notch: 10px;
+  /* The cover's corner and its boards, shared by both books (BOOK-COVER-1). A board is
+     the leather that shows: 15px above and below the pages, and 16px of leather outside
+     the page stack at each side, which is --aspire-book-stack-w thick. */
+  --aspire-radius-book: 8px;
+  --aspire-book-board: 15px;
+  --aspire-book-board-x: 16px;
+  --aspire-book-stack-w: 13px;
+  --aspire-radius-page: 4px;
+  /* STUDENT-CHART-1 (2026-09-18): the student chart is a black leather ring binder, the
+     second bound object in the app. It is not the rubric's tan book restyled: a binder
+     holds loose sheets that are added to and taken out, which is what a student record
+     is, and the rubric's book is written once and closed. The two share the leather
+     grammar (fine noise, a thin board, sharp paper) and nothing else.
+     The blacks are the mockup's, which measured well: white on #15161A is 16.9:1. */
+  --aspire-leather-black: #15161A;
+  --aspire-leather-black-lift: #2A2C33;
+  --aspire-leather-black-deep: #0D0E11;
+  --aspire-binder-ring: #9AA0AC;
+  --aspire-binder-ring-face: #E6E9EF;
+  --aspire-binder-ring-base: #6E7480;
+  --aspire-radius-binder: 16px;
+  /* CONTACTS-BOOK-1 (2026-09-20): ASPIRE Connect > Contacts can be read as an address
+     book, bound in the cognac above with a gilt edge, and since BOOK-COVER-1 so is the
+     rubric. The gilt rule on both covers reads only the hairline, which is the same in
+     both themes. */
+  --aspire-gilt: #C9A227;
+  --aspire-gilt-deep: #8F7318;
+  --aspire-gilt-hairline: rgba(201, 162, 39, 0.32);
+  /* The round gilt fastener is shared by Classic Evaluation and Student Profiles. */
+  --aspire-fastener-size: 12px;
+  --aspire-fastener-border: 1px solid var(--aspire-gilt-deep);
+  --aspire-fastener-gilt: radial-gradient(circle at 34% 28%, #fff7cc 0 10%, #e5ca61 24%, var(--aspire-gilt) 58%, var(--aspire-gilt-deep) 100%);
+  --aspire-fastener-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.62), 0 1px 2px rgba(5, 10, 43, 0.48);
+  /* The die-cut index tab's own corner: it is a tab, not a card or a control, and the
+     shape is part of what makes it read as one. A token so the ratchet stays honest. */
+  --aspire-radius-tab: 3px;
+  /* PLANNER-CALENDAR-1: a notepad ring, and the shadow it throws where it crosses the
+     paper's edge. Two values rather than one, because the shadow is only the ring's
+     lower half and squares off at the top. */
+  --aspire-radius-ring: 7px;
+  --aspire-radius-ring-shadow: 0 0 6px 6px;
+  /* One tint per index tab. Each sheet and its die-cut tab wear the same colour, which is
+     how a reader knows which tab belongs to what they are reading. Kept very pale so body
+     ink stays at full contrast on every one. These are the light values; this file is
+     theme-independent, so studentChart.css redefines them for dark exactly as
+     rubricBook.css does for the rubric's page. Both sets are measured, not estimated. */
+  --aspire-sheet-profile: #FFFFFF;
+  --aspire-sheet-background: #F6F3FA;
+  --aspire-sheet-placement: #EFF3FB;
+  --aspire-sheet-hours: #EFF6F1;
+  --aspire-sheet-documents: #FBF4E6;
+  --aspire-sheet-evaluations: #F2F0F8;
+  --aspire-sheet-notes: #F4F5F7;
+  --aspire-sheet-card: rgba(255, 255, 255, 0.70);
+  /* A sheet's heading is a HEADING, not a table header. The first build reached for
+     --aspire-th-color (#6b7785) and measured 4.04:1 behind an 18px bold title on the
+     palest tint, which is a fail: 18px bold is just under WCAG's large-text threshold,
+     so it owes the full 4.5. The app's navy owes 12.3:1 on the worst of the seven. */
+  --aspire-sheet-title: #1D2567;
+  /* Secondary line inside a sheet (a completion note, an empty state). Measured 6.44:1
+     on the worst of the seven tints; the chart lifts it for dark. */
+  --aspire-sheet-note: #4b5675;
+  --aspire-sheet-tab-ink: #4b5675;
+  --aspire-binder-rail: linear-gradient(-90deg, #DCDFE9, #E7E9F1);
+  --aspire-noise-fine: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.95' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .55 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  /* Pressboard (REVIEW-RELEASE-2): a finer, denser grain than the felt's, for the
+     clipboard's dark board. Values from the Owner's mockup: baseFrequency .85, 3 octaves,
+     alpha .55, blended soft-light over the board gradient. */
+  --aspire-noise-pressboard: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='p'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .55 0'/></filter><rect width='100%' height='100%' filter='url(%23p)'/></svg>");
+  --aspire-noise-grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='.045' numOctaves='4' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .35 0'/></filter><rect width='100%' height='100%' filter='url(%23g)'/></svg>");
+  /* CONTACTS-BOOK-1: the address book cover's grain, the mockup's exact values (baseFrequency 1.1,
+     2 octaves, alpha .5), blended soft-light. Finer than the hide on the rubric's tan cover:
+     a small book is a smoother skin. */
+  --aspire-noise-cognac: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='o'><feTurbulence type='fractalNoise' baseFrequency='1.1' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .5 0'/></filter><rect width='100%' height='100%' filter='url(%23o)'/></svg>");
+}
+
+/* ==== src/styles/aspireMaterials.css (copied verbatim from the app) ==== */
+/* PLACEMENT-BOARD-FELT-1: reusable material surfaces.
+   Every value is a token from aspireBrand.css. A material says what a surface is made
+   of; its corner, gap and edge still come from the card canon, so a felt card is a card.
+   Import this sheet from the screen that uses it (the Placement Board imports it through
+   src/components/placement/placementBoard.css); it is not part of the entry stylesheet.
+   The materials do not change with the theme. */
+
+/* ── Board surface: pale, lightly textured ─────────────────────────────────── */
+/* Owner, 2026-09-17: this was a deep blue felt. It read too heavy beside the rest of
+   the app, so the surface is now a pale tint from the same family as the KPI filter
+   cards, with the noise dropped to a soft-light whisper. White paper still sits on it,
+   with a lighter shadow to match. */
+.material-board {
+  background-color: var(--aspire-board);
+  background-image:
+    var(--aspire-noise-fine),
+    linear-gradient(var(--aspire-board), var(--aspire-board-deep));
+  background-blend-mode: soft-light, normal;
+  /* The inset hairline is what separates the board from its own header, now that
+     the two are both pastel and the gold piping is gone. */
+  box-shadow: inset 0 1px 0 rgba(29, 37, 103, 0.10), inset 0 2px 4px rgba(29, 37, 103, 0.05);
+  color: var(--aspire-on-board);
+}
+
+/* ── Pastel board header ───────────────────────────────────────────────────── */
+/* A unit board's own header. One step deeper than the board it caps, with nightfall
+   ink: it belongs to the board, not to the app chrome, and it carries no piping. */
+.material-board-head {
+  background: var(--aspire-board-head);
+  color: var(--aspire-on-board-strong);
+}
+.material-board-head .material-soft { color: var(--aspire-on-board); }
+.material-board-head .material-chip { color: var(--aspire-on-board-strong); }
+
+/* ── Flat nightfall, finished with gold piping ─────────────────────────────── */
+/* Owner, 2026-09-17: the textured leather header read too heavy above the felt and
+   the cream, so the header is flat nightfall with white ink. The gold piping stays:
+   it is what separates the header from the material below it. */
+.material-navy-flat {
+  position: relative;
+  background: var(--aspire-navy);
+  color: var(--aspire-on-navy);
+  padding-bottom: 14px;
+}
+/* The gold piping: a 3px strip directly below the header. */
+.material-navy-flat::before {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; bottom: -3px; height: 3px;
+  background: linear-gradient(var(--aspire-piping), var(--aspire-piping-deep));
+  pointer-events: none;
+  z-index: 1;
+}
+.material-navy-flat .material-soft { color: var(--aspire-on-navy-soft); }
+.material-navy-flat .material-ok   { color: var(--aspire-on-navy-ok); }
+/* Controls sit on the navy as white inlays. */
+.material-navy-flat select,
+.material-navy-flat input,
+.material-navy-flat button.material-inlay {
+  background-color: rgba(255, 255, 255, 0.92);
+  color: var(--aspire-paper-ink);
+  border: 1px solid rgba(0, 0, 0, 0.4);
+  border-radius: var(--aspire-radius-control);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* ── Cream leather ─────────────────────────────────────────────────────────── */
+.material-leather-cream {
+  background-color: var(--aspire-leather-cream);
+  background-image:
+    var(--aspire-noise-grain),
+    var(--aspire-noise-fine),
+    linear-gradient(var(--aspire-leather-cream), var(--aspire-leather-cream-deep));
+  background-blend-mode: soft-light, soft-light, normal;
+  box-shadow: inset 0 2px 6px rgba(80, 60, 20, 0.18);
+}
+.material-cream-label {
+  color: var(--aspire-on-cream-label);
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+/* ── White paper ───────────────────────────────────────────────────────────── */
+/* A plain rectangle with SHARP corners (Owner, 2026-09-17): a rounded sheet reads
+   as a card, and this is meant to read as paper. No folded corner either. Cards,
+   panels and controls keep the radius tokens; paper is the one square surface. */
+.paper-note {
+  background: var(--aspire-paper);
+  color: var(--aspire-paper-ink);
+  border: 0;
+  border-radius: 0;
+  box-shadow: var(--aspire-shadow-note);
+}
+.paper-note .material-soft { color: var(--aspire-paper-ink-soft); }
+
+/* ── Pins and ribbons ──────────────────────────────────────────────────────── */
+.material-pin {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 24px; height: 24px; padding: 0;
+  border: 0; border-radius: 50%;
+  color: #fff;
+  font: 700 12px/1 var(--aspire-sans);
+  box-shadow:
+    0 3px 4px rgba(0, 0, 0, 0.3),
+    inset -2px -2px 4px rgba(0, 0, 0, 0.25),
+    inset 2px 2px 3px rgba(255, 255, 255, 0.45);
+}
+.material-ribbon {
+  display: inline-block;
+  padding: 5px 10px 9px;
+  color: #fff;
+  font: 700 10px/1.2 ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  letter-spacing: 0.02em;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 82%, 0 100%);
+  white-space: nowrap;
+}
+.material-rank-first  { background-color: var(--aspire-rank-first); }
+.material-rank-second { background-color: var(--aspire-rank-second); }
+.material-rank-third  { background-color: var(--aspire-rank-third); }
+.material-rank-other  { background-color: var(--aspire-rank-other); }
+
+/* ── Black leather (a ring binder) ─────────────────────────────────────────── */
+/* STUDENT-CHART-1 (2026-09-18): the student chart's cover. The rubric's tan book is
+   written once and closed; a student record is added to and taken from for months, so
+   it is a binder, and the binder is black. Same finish discipline as the tan cover:
+   the fine noise only, no coarse grain (that read as wood), over a raking gradient so
+   one edge catches light the way a real cover does. The inset highlight along the top
+   is the leather's rolled edge, and the deep drop is the whole object standing off the
+   page. Rings are not drawn here: they are the binder's own elements. */
+.material-leather-black {
+  background-color: var(--aspire-leather-black);
+  background-image:
+    var(--aspire-noise-fine),
+    linear-gradient(145deg,
+      var(--aspire-leather-black-lift),
+      var(--aspire-leather-black) 45%,
+      var(--aspire-leather-black-deep) 75%,
+      var(--aspire-leather-black-lift));
+  background-blend-mode: soft-light, normal;
+  /* A shadow that HUGS the object (Owner, 2026-09-19: "there is a shadow at the bottom
+     of the chart on either side, it looks off on the right edge"). It was 34px of blur
+     thrown 16px down, which needs about fifty pixels of clearance to land in. The binder
+     gets none: `.profiles-detail-col` is `overflow-y: auto`, which clips both axes, so
+     the sides were cut off flush while the bottom was free to smear onto the page below.
+     A negative spread keeps the whole shadow under the leather, where no container can
+     crop half of it. */
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 1px 2px rgba(0, 0, 0, 0.45),
+    0 8px 16px -6px rgba(24, 32, 63, 0.34);
+}
+
+/* ── The flag ribbon (all three) ───────────────────────────────────────────── */
+/* RIBBON-MOTION-1 (Owner, 2026-09-30). The ribbon sewn into the rubric, the student chart
+   and the address book is one shape, defined here; each book's own rule only places it and
+   colours it. Three heights: resting, peeking while pointed at ("you can pull this"), and
+   pulled down when flagged. HEIGHT is what moves, never a transform: scaling would stretch
+   the notch and the word, and translating would lift the top off the leather it is sewn
+   into. The top stays put and the tail slides; the word sits just above the notch and
+   rides down with it. 0.28s reads as fabric being tugged.
+   This replaces RIBBON-CALM-1 (2026-09-18), which held the ribbon still on hover because
+   growing its PADDING moved the target out from under the pointer. Growing downward from a
+   pinned top keeps the pointer on it.
+   Classic only: Modern restyles the same button as a pill (rubricBook.css and
+   studentChart.css), so none of this reaches it. `:root:not([data-style='modern'])` also
+   makes these rules outrank each book's one-class rules in either load order. */
+:root:not([data-style='modern']) .material-flag-ribbon {
+  --flag-h: var(--aspire-flag-ribbon-h);
+  box-sizing: border-box;
+  width: var(--aspire-flag-ribbon-w);
+  /* A drag lengthens it too, so the finger pulls the tail, not the whole ribbon. */
+  height: calc(var(--flag-h) + var(--flag-pull, 0px));
+  /* 17px: at 12 the word sat low, nearly on the notch (Owner, 2026-09-30). */
+  padding: 0 0 17px 0.1em;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  font: 700 10px/1.2 ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - var(--aspire-flag-ribbon-notch)), 0 100%);
+  transition: height 0.28s ease, background 0.18s ease, box-shadow 0.18s ease;
+}
+:root:not([data-style='modern']) .material-flag-ribbon[aria-pressed='false']:hover:not(:disabled) {
+  --flag-h: var(--aspire-flag-ribbon-h-peek);
+}
+/* Flagged, it hangs. Pointing at it lifts its shadow (each book's :hover) and nothing else. */
+:root:not([data-style='modern']) .material-flag-ribbon[aria-pressed='true'] {
+  --flag-h: var(--aspire-flag-ribbon-h-on);
+}
+:root:not([data-style='modern']) .material-flag-ribbon.material-flag-ribbon-dragging { transition: none; }
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-style='modern']) .material-flag-ribbon { transition: none; }
+}
+/* Modern's pill kept the old drag feedback, a slide under the finger. */
+:root[data-style='modern'] .material-flag-ribbon-dragging { transform: translateY(var(--flag-pull, 0px)); }
+
+/* ── Cognac leather, fine grain (the cover of both books) ─────────────────── */
+/* BOOK-COVER-1 (Owner, 2026-09-21: "use the same exact cover you're using in address
+   book"): the Interview Rubric and the Contacts address book wear this one cover, with
+   the gilt rule below and the corner and boards from aspireBrand.css. The rubric's
+   pebbled hide (2026-09-19) is gone; one cover cannot have two grains.
+   CONTACTS-BOOK-1 (2026-09-20): ASPIRE Connect > Contacts, read as an address book. The
+   mockup's cover: a fine soft-light grain over a soft top highlight and a straight fall
+   from lift to deep. The two insets are the rolled top edge and the board's underside.
+   The deep drop is kept UNDER the book with a negative spread (the mockup's 0 22px 50px
+   needs fifty pixels of room, and the Contacts pane is a scroll container that gives it
+   ten), for the reason the black binder's shadow was pulled in. */
+.material-leather-cognac {
+  background-color: var(--aspire-leather-cognac);
+  background-image:
+    var(--aspire-noise-cognac),
+    radial-gradient(ellipse at 50% 0%, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0) 60%),
+    linear-gradient(180deg,
+      var(--aspire-leather-cognac-lift),
+      var(--aspire-leather-cognac) 55%,
+      var(--aspire-leather-cognac-deep));
+  background-blend-mode: soft-light, normal, normal;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.45),
+    0 2px 5px rgba(40, 22, 8, 0.35),
+    0 12px 20px -10px rgba(40, 22, 8, 0.3);
+}
+
+/* The gilt rule tooled into the cover, 7px in from its edge. It is its own element (a
+   span, first inside the cover) because a book's cover spends both of its pseudo-
+   elements on the page stack. It sits in the board, outside the stack, and whatever is
+   bound into the spread (the pages, the rubric's spine, a ribbon) paints over it. */
+.material-cover-tooling {
+  position: absolute;
+  inset: 7px;
+  border: 1px solid var(--aspire-gilt-hairline);
+  border-radius: calc(var(--aspire-radius-book) - 3px);
+  pointer-events: none;
+}
+
+/* Cognac in the dark, the mockup's dark tones. One definition, read by both books, so
+   the rubric and the address book darken together. Specific enough (0,2,0) to beat the
+   light values on :root whichever sheet loads first. The spine needs no dark values: it
+   is a translucent shadow, so it darkens with whatever leather is under it. */
+:root[data-theme='dark'] {
+  --aspire-leather-cognac: #442C18;
+  --aspire-leather-cognac-lift: #5A3A20;
+  --aspire-leather-cognac-deep: #2E1D10;
+}
+
+/* The spine: the fold of the cover, as a crease in the leather rather than a band on it
+   (BOOK-COVER-2). Symmetric, darkest on the fold line, fading to nothing on each board.
+   Each book places it on its own fold; this is only what it looks like. It carries no
+   z-index and comes first in its spread, so every page paints over it and it shows only
+   in the boards above and below the pages. */
+.material-book-spine {
+  pointer-events: none;
+  background-image: linear-gradient(90deg,
+    rgba(26, 12, 3, 0) 0%,
+    var(--aspire-book-spine-edge) 22%,
+    var(--aspire-book-spine) 40%,
+    var(--aspire-book-spine-crease) 50%,
+    var(--aspire-book-spine) 60%,
+    var(--aspire-book-spine-edge) 78%,
+    rgba(26, 12, 3, 0) 100%);
+}
+
+/* The clipboard clip (CLIP-1, Owner, 2026-09-26): the small spring clip that holds a sheet to a
+   clipboard. One look, used by Action Center, ASPIRE Connect > Outreach > Recipients and At a
+   Glance's Cohort Pulse and Placement. The HOST places it (position, offsets, display) and
+   decides when it shows; this rule is only what it is made of, so it sets no display (Action
+   Center hides its clip in Modern with display: none, and a display here would fight that by
+   load order). Markup: <span class="material-clipboard-clip" aria-hidden="true"><span /></span>.
+   Review & Release's 190px clamp across a whole pressboard is a different object. */
+.material-clipboard-clip {
+  width: 76px; height: 24px;
+  border: 1px solid #737780;
+  border-radius: var(--aspire-radius-sheet-plain) var(--aspire-radius-sheet-plain) var(--aspire-radius-sheet) var(--aspire-radius-sheet);
+  background: linear-gradient(180deg, #EEF0F3 0%, #C7CBD2 45%, #A9AEB7 100%);
+  box-shadow: inset 0 2px 2px rgba(255, 255, 255, .8), 0 3px 5px rgba(0, 0, 0, .28);
+  pointer-events: none;
+}
+.material-clipboard-clip > span {
+  position: absolute; top: 6px; left: 50%; width: 25px; height: 6px; translate: -50% 0;
+  border: 1px solid #898D95;
+  border-radius: var(--aspire-radius-sheet);
+  background: #E2E5E9;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, .14);
+}
+
+/* ==== src/styles/selectionRail.css (copied verbatim from the app) ==== */
+/* The left selection canon (REVIEW-RELEASE-1, 2026-09-19; shared by APPEARANCE-STYLE-1,
+   2026-09-21).
+
+   One rail, two screens: Evaluation > Review & Release and Settings. A surface card at its
+   own height, pinned under the app chrome; small mono uppercase group labels with a
+   hairline between groups; rows that are ink on nothing, a light surface on hover, and a
+   filled navy rounded rectangle with white ink when selected. The rules were Review &
+   Release's and moved here unchanged, so that screen renders exactly as before; the three
+   variables they read used to come from .rr-clipboard and are now defined on the rail
+   itself, with the same values.
+
+   A host sets its own layout around the rail (column width, where it stacks) and may add
+   what its rows carry (Settings adds an icon column), but it does not restyle the rail.
+   Change the look here and both screens change together, or it does not change.
+
+   ORDER-PROOF, OR IT IS WRONG IN PRODUCTION (SETTINGS-FIX-2, 2026-09-21). This sheet is its
+   own CSS chunk, and the build does NOT promise it loads before or after a host's sheet:
+   on the live site Settings' sheet loaded FIRST, so a host rule of equal specificity lost
+   to the canon and every Settings label slid to the right. So: every rule that must beat
+   the canon lives in THIS file after the rule it modifies (the 900px unpin, below), and
+   every host override carries one more class than the canon rule it overrides
+   (.rr-row-select.settings-rail-row). test/settingsUnifiedIa.test.mjs renders both load
+   orders and fails if they differ. */
+.rr-nav {
+  min-width: 0; margin-top: 14px; display: flex; flex-direction: column; gap: 2px; align-content: start;
+  /* Its own height, and it stays in view while the board scrolls: pinned just under the
+     sticky app chrome, the same offset every in-page sidebar uses. */
+  position: sticky; top: var(--app-chrome-height, 0px); align-self: start;
+  background: var(--color-bg-surface); border: 0; border-radius: var(--aspire-radius-card);
+  padding: 10px; box-shadow: var(--aspire-shadow-card);
+  --rr-mono: var(--aspire-mono);
+  --rr-sans: var(--aspire-sans);
+  --rr-navy: var(--color-accent-primary, var(--aspire-navy));
+}
+.rr-nav-group {
+  font-family: var(--rr-mono); font-size: 10px; letter-spacing: 0.13em; text-transform: uppercase;
+  /* NAV-POLISH-1: caption ink. --text-muted measured 4.06-4.37:1 at this 10px size. */
+  color: var(--text-caption); padding: 8px 10px 4px; margin: 0;
+}
+.rr-nav .rr-nav-group:not(:first-child) { margin-top: 6px; border-top: 1px solid var(--aspire-rule); padding-top: 12px; }
+.rr-row-select {
+  width: 100%; display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; text-align: left;
+  padding: 9px 10px; margin: 0; cursor: pointer; background: transparent; border: 0;
+  border-radius: var(--aspire-radius-control); font-family: var(--rr-sans); color: var(--text-heading);
+}
+.rr-row-select:hover { background: var(--color-bg-hover); }
+.rr-row-select.sel, .rr-row-select.sel:hover { background: var(--aspire-navy); color: #fff; }
+.rr-row-label { min-width: 0; font-size: 13.5px; font-weight: 600; line-height: 1.3; }
+.rr-row-label small { display: block; font-family: var(--rr-mono); font-size: 11.5px; font-weight: 400; color: var(--text-muted); }
+.rr-row-select.sel .rr-row-label small { color: rgba(255, 255, 255, 0.72); }
+.rr-row-select:focus-visible { outline: 3px solid var(--rr-navy); outline-offset: 2px; }
+/* Once a host stacks the rail above its content (both hosts do at 900px) the rail stops
+   pinning. Here, after the base rule, so no load order can undo it. */
+@media (max-width: 900px) {
+  .rr-nav { margin-top: 0; position: static; }
+}
+
+/* ==== src/components/evaluation/reviewReleaseClipboard.css (copied verbatim from the app) ==== */
+/* REVIEW-RELEASE-2 (Owner, 2026-09-19): Evaluation > Review & Release is a clipboard.
+ *
+ * Part 1 made it one queue; this sheet makes it look like the thing it is. The workspace
+ * is a dark pressboard with a steel clip on its top edge. Each person is a paper slip
+ * with a coloured band down its left, a stamp in the corner, a chain strip across the
+ * middle and its one action at the bottom. Slips that can be acted on sit on white;
+ * slips that are waiting on something sit one step back on the second paper. Everything
+ * sent from this board is on a perforated tape at the bottom. The rail beside it stays a
+ * surface card at its own height, pinned beneath the app chrome while the board scrolls
+ * (Owner, 2026-09-19, reversing the brief's "same height, not sticky").
+ *
+ * WHAT IS NOT HERE, BY DECISION. No stack under a slip: one student is one sheet, and it
+ * is already on a clipboard. No preview on a slip, and no tool row: the four tools are
+ * icon buttons on the board's head with the shared Tooltip (eye, square-arrow, paper
+ * plane, arrows), the canon from Residency > Support, so the head is a title with its
+ * timepoint as a smaller qualifier and one quiet line. No "new" and no old name.
+ *
+ * THE REQUIRED ACTIVITIES are recorded on the slip (Owner, 2026-09-20): the node in the
+ * chain is a chevron toggle, and the area it opens lists Résumé Review, Town Hall and
+ * Interview Bootcamp the way Residency > Support arranges them, with the date each
+ * happened, drawn from the ledger AND from Support's own entries.
+ *
+ * WHAT THIS SHEET OWNS AND WHAT IT READS. It owns presentation only: the queue's markup
+ * gained class hooks and lost its inline styles, and nothing about detection, release,
+ * reminders, permissions or logging lives here. It reads the app's tokens: corners come
+ * from the canon (card, control, pill), paper from the shared `--aspire-paper*` pair the
+ * planner also reads, status inks from `--aspire-ok/warn/bad`, the board and the tape
+ * from `--aspire-pressboard-*` and `--aspire-tape-*`, all theme-aware in theme.css. The
+ * three radii the brief needs that are not a card, a control or a pill are decorative
+ * chips on a card; they are named once at the top and read by var(), never restated.
+ *
+ * INK ON THE BOARD. The mockup set its muted board text at 45 to 62 percent of the ink.
+ * Measured against the board's mid tone that is 3.3:1 to 3.7:1, which fails AA for the
+ * small sizes it is set in. Every translucent ink here is at or above 78 percent, where
+ * it measures 5:1 or better against the board's lightest tone; the harness re-measures
+ * it in both themes.
+ *
+ * MOTION. A released slip slides right and fades (220ms) before the refetch removes it,
+ * and a jump target pulses an amber ring once. Under prefers-reduced-motion the slip
+ * simply disappears and the target wears a static ring while it is highlighted.
+ */
+
+
+/* ── Root ─────────────────────────────────────────────────────────────────── */
+.rr-clipboard {
+  /* Decorative chip radii, named once (the canon: no literal radii in rules). */
+  --rr-radius-stamp: 3px;
+  --rr-radius-badge: 4px;
+  --rr-radius-clip: 8px 8px 13px 13px;
+  --rr-mono: var(--aspire-mono);
+  --rr-sans: var(--aspire-sans);
+  /* Navy that stays readable in dark: the accent token flips to a light blue there. */
+  --rr-navy: var(--color-accent-primary, var(--aspire-navy));
+  /* Translucent inks on the pressboard, all measured at or above 4.7:1. */
+  --rr-board-ink-soft: rgba(241, 235, 222, 0.86);
+  --rr-board-ink-muted: rgba(241, 235, 222, 0.78);
+  padding: 4px 20px 28px;
+  font-family: var(--rr-sans);
+  color: var(--text-heading);
+}
+.rr-title { font-size: 18px; font-weight: 700; color: var(--rr-navy); margin: 0 0 2px; }
+.rr-summary { font-size: 12.5px; color: var(--color-text-secondary); margin: 0; line-height: 1.5; }
+.rr-summary b { font-size: 13.5px; color: var(--text-heading); }
+.rr-summary b.g { color: var(--aspire-ok); }
+.rr-summary b.a { color: var(--aspire-warn); }
+
+/* ── Two columns: rail and board, same top edge; the rail is pinned ─────────── */
+.rr-layout { display: grid; grid-template-columns: 270px minmax(0, 1fr); gap: 20px; align-items: start; }
+/* The rail itself (.rr-nav, .rr-nav-group, .rr-row-select, .rr-row-label) is the app's
+   left selection canon and lives in src/styles/selectionRail.css, which Settings wears
+   too (APPEARANCE-STYLE-1). Its rules moved there verbatim. */
+.rr-cnt { display: inline-flex; gap: 4px; }
+.rr-cnt i {
+  font-style: normal; font-family: var(--rr-mono); font-size: 10.5px; font-weight: 700; min-width: 20px; height: 20px;
+  border-radius: var(--aspire-radius-pill); display: grid; place-items: center; padding-inline: 5px; color: #fff;
+}
+.rr-cnt .r { background: var(--aspire-ok); }
+.rr-cnt .b { background: var(--aspire-warn); }
+[data-theme="dark"] .rr-cnt i { color: #0E111C; }
+
+/* ── The board ────────────────────────────────────────────────────────────── */
+.rq-board {
+  position: relative; margin-top: 14px; min-width: 0;
+  border-radius: var(--aspire-radius-card); padding: 44px 18px 18px; /* 44 leaves room under the clip */
+  background-color: var(--aspire-pressboard-b);
+  background-image:
+    var(--aspire-noise-pressboard),
+    linear-gradient(180deg, var(--aspire-pressboard-a), var(--aspire-pressboard-b) 58%, var(--aspire-pressboard-c));
+  background-blend-mode: soft-light, normal;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 2px 4px rgba(16, 20, 35, 0.3), 0 22px 48px rgba(16, 20, 35, 0.3);
+  color: var(--aspire-pressboard-ink);
+}
+
+/* The clip: decorative, aria-hidden, no pointer events. */
+.rq-clip {
+  position: absolute; top: -13px; left: 50%; translate: -50% 0; width: 190px; height: 38px; z-index: 2;
+  border-radius: var(--rr-radius-clip); pointer-events: none;
+  background: linear-gradient(180deg, #F4F6F9 0%, #CDD3DC 16%, #A2AAB6 48%, #E2E7ED 72%, #878E97 100%);
+  box-shadow: 0 4px 7px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.95), inset 0 -2px 3px rgba(0, 0, 0, 0.28);
+}
+.rq-clip::before {
+  content: ""; position: absolute; left: 14px; right: 14px; top: 23px; height: 2px;
+  border-radius: var(--aspire-radius-pill);
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.22), rgba(255, 255, 255, 0.5));
+}
+.rq-clip i {
+  position: absolute; top: 9px; width: 7px; height: 7px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff, #9198A2 60%, #5F656D);
+  box-shadow: inset 0 -1px 1px rgba(0, 0, 0, 0.3);
+}
+.rq-clip i:first-child { left: 22px; }
+.rq-clip i:last-child { right: 22px; }
+
+/* Board head: name and old name, two icon previews at the right, one quiet meta line,
+   a thin tool row, the policy. All ink on the board. */
+.rq { font-family: var(--rr-sans); color: var(--aspire-pressboard-ink); min-width: 0; }
+.rq-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
+.rq-head h2 { font-size: 19px; font-weight: 700; margin: 0; color: inherit; text-shadow: 0 1px 0 rgba(0, 0, 0, 0.4); min-width: 0; }
+/* The timepoint as a smaller qualifier beside the name (Owner, 2026-09-20). */
+.rq-title-q { display: inline-block; margin-left: 8px; vertical-align: 2px; font-family: var(--rr-mono); font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--rr-board-ink-muted); text-shadow: none; }
+.rq-head-icons { display: flex; gap: 4px; margin-left: auto; }
+/* The canon icon button (Residency > Support): 28px square, no chrome until hovered. */
+.rq-iconbtn {
+  width: 28px; height: 28px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
+  background: none; border: 0; padding: 0; cursor: pointer; border-radius: var(--aspire-radius-control);
+  color: var(--rr-board-ink-muted);
+}
+.rq-iconbtn:hover { background: rgba(255, 255, 255, 0.12); color: var(--aspire-pressboard-ink); }
+.rq-iconbtn:disabled { opacity: 0.5; cursor: default; }
+.rq-spin { animation: rq-spin 1s linear infinite; }
+@keyframes rq-spin { to { transform: rotate(360deg); } }
+.rq-meta-row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+.rq-meta-line { font-family: var(--rr-mono); font-size: 11px; line-height: 1.5; margin: 0; color: var(--rr-board-ink-muted); min-width: 0; }
+.rq-board .rr-tool-primary, .rq-board .rr-tool-secondary {
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 11px; cursor: pointer;
+  font-family: var(--rr-sans); font-size: 12.5px; font-weight: 600; border-radius: var(--aspire-radius-control);
+  background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.22); color: var(--aspire-pressboard-ink);
+}
+.rq-board .rr-tool-secondary:hover { background: rgba(255, 255, 255, 0.16); }
+.rq-board .rr-tool-primary { background: var(--aspire-pressboard-ink); color: #2C271F; border-color: transparent; font-weight: 700; }
+.rq-board .rr-tool-primary:hover { filter: brightness(1.04); }
+.rq-board .rr-tool-secondary:disabled { opacity: 0.6; cursor: default; }
+.rq-board .rr-tool-primary:focus-visible, .rq-board .rr-tool-secondary:focus-visible,
+.rq-board .rq-policy button:focus-visible, .rq-tape-head button:focus-visible, .rq-eligible summary:focus-visible, .rq-iconbtn:focus-visible {
+  outline: 3px solid #F4D9A6; outline-offset: 2px;
+}
+.rq-meta { margin-left: auto; font-family: var(--rr-mono); font-size: 11px; color: var(--rr-board-ink-muted); white-space: nowrap; }
+.rq-testnote {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; padding: 9px 12px;
+  font-size: 12.5px; border-radius: var(--aspire-radius-control);
+  background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.22); color: var(--aspire-pressboard-ink);
+}
+.rq-policy { font-size: 12px; color: var(--rr-board-ink-muted); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+.rq-policy button {
+  background: none; border: 0; padding: 0; cursor: pointer; font-family: var(--rr-sans); font-size: 12px;
+  color: var(--aspire-pressboard-ink); text-decoration: underline; text-underline-offset: 3px;
+}
+.rq-policy-more { flex-basis: 100%; color: var(--rr-board-ink-soft); padding: 6px 10px; border-left: 2px solid rgba(255, 255, 255, 0.3); }
+
+/* Notices sit on the board in the status pair (ink and soft tint travel together). */
+.rq-notice { font-size: 13px; line-height: 1.5; padding: 10px 14px; margin-bottom: 14px; border-radius: var(--aspire-radius-control); }
+.rq-notice.ok { background: var(--aspire-ok-soft); color: var(--aspire-ok); }
+.rq-notice.err { background: var(--aspire-bad-soft); color: var(--aspire-bad); }
+
+/* ── Sections ─────────────────────────────────────────────────────────────── */
+.rq-section { margin-bottom: 16px; }
+.rq-sect-head {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 10px;
+  font-family: var(--rr-mono); font-size: 10px; letter-spacing: 0.13em; text-transform: uppercase; color: var(--rr-board-ink-soft);
+}
+.rq-sect-head em { font-style: normal; font-family: var(--rr-sans); font-size: 11.5px; letter-spacing: 0; text-transform: none; color: var(--rr-board-ink-muted); }
+.rq-stack { display: grid; gap: 10px; }
+.rq-empty { font-size: 13px; color: var(--rr-board-ink-muted); padding: 10px 0; text-align: center; }
+
+/* ── Slips ────────────────────────────────────────────────────────────────── */
+.rq-card {
+  position: relative; min-width: 0; display: grid; gap: 8px;
+  background: var(--aspire-paper); color: var(--aspire-paper-ink); padding: 11px 14px 11px 18px;
+  border: 0; border-radius: 0; /* paper is the one square surface */
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.26), 0 7px 15px rgba(0, 0, 0, 0.24);
+  transition: transform 0.22s, opacity 0.22s;
+}
+/* The band: what state the slip is in, as a shape, never as the ink. */
+.rq-card::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; background: var(--rq-band, var(--aspire-ok)); }
+.rq-band-ok { --rq-band: var(--aspire-ok); }
+.rq-band-soon { --rq-band: var(--aspire-warn); }
+.rq-band-late { --rq-band: var(--aspire-bad); }
+/* Blocked reads one step back from Ready. */
+.rq-card-blocked { background: var(--aspire-paper-2); }
+/* Leaving (released): slides right and fades before the refetch removes it. */
+.rq-card-gone { transform: translateX(30px) rotate(1.2deg); opacity: 0; }
+/* A jump target: one amber pulse. */
+.rq-card-flash { animation: rq-flash 1.2s ease-out; }
+@keyframes rq-flash {
+  0% { box-shadow: 0 0 0 4px var(--aspire-warn), 0 7px 15px rgba(0, 0, 0, 0.24); }
+  100% { box-shadow: 0 1px 1px rgba(0, 0, 0, 0.26), 0 7px 15px rgba(0, 0, 0, 0.24); }
+}
+
+.rq-top { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: start; }
+.rq-who { font-size: 15px; font-weight: 700; min-width: 0; }
+.rq-who small { display: block; font-size: 12px; font-weight: 400; color: var(--aspire-paper-muted); }
+.rq-right { display: grid; gap: 4px; justify-items: end; }
+.rq-hours { font-family: var(--rr-mono); font-size: 11.5px; color: var(--aspire-paper-muted); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.rq-hours b { color: var(--aspire-paper-ink); font-weight: 600; }
+.rq-thr { display: block; font-size: 10px; }
+.rq-hours-none { font-family: var(--rr-mono); font-size: 10px; color: var(--aspire-paper-muted); }
+/* The stamp: mono, rotated, in the status ink. Full ink rather than the mockup's 80
+   percent, because at 9px the faded version measured under 4.5:1 on the paper. */
+.rq-stamp {
+  font-family: var(--rr-mono); font-size: 9px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase;
+  border: 1.5px solid currentColor; border-radius: var(--rr-radius-stamp); padding: 1px 5px;
+  rotate: -4deg; white-space: nowrap; justify-self: end;
+}
+.rq-stamp-ok { color: var(--aspire-ok); }
+.rq-stamp-soon { color: var(--aspire-warn); }
+.rq-stamp-late { color: var(--aspire-bad); }
+
+/* ── Chain strip ──────────────────────────────────────────────────────────── */
+.rq-chain {
+  display: flex; align-items: stretch; flex-wrap: wrap; row-gap: 6px; margin: 0; padding: 7px 0;
+  border-top: 1px solid var(--aspire-rule); border-bottom: 1px solid var(--aspire-rule);
+}
+.rq-node { display: grid; gap: 1px; padding: 0 10px 0 0; min-width: 0; flex: 1 1 150px; position: relative; }
+.rq-node + .rq-node { padding-left: 14px; }
+.rq-node + .rq-node::before { content: "\203A"; position: absolute; left: 1px; top: 2px; color: var(--aspire-paper-muted); font-size: 15px; line-height: 1; }
+.rq-node-k { font-family: var(--rr-mono); font-size: 9.5px; letter-spacing: 0.11em; text-transform: uppercase; color: var(--aspire-paper-muted); }
+.rq-node-v { font-size: 12.5px; color: var(--aspire-paper-ink); display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
+.rq-node-v i { font-style: normal; font-family: var(--rr-mono); font-size: 10px; padding: 0 5px; border-radius: var(--rr-radius-badge); }
+.rq-node-done .rq-node-v i { background: var(--aspire-ok-soft); color: var(--aspire-ok); }
+.rq-node-this .rq-node-v { font-weight: 700; }
+.rq-node-this .rq-node-v i { background: var(--rr-navy); color: #fff; }
+[data-theme="dark"] .rq-node-this .rq-node-v i { color: #0E111C; }
+.rq-node-next .rq-node-v { color: var(--aspire-paper-muted); }
+.rq-node-waiting .rq-node-v { color: var(--aspire-warn); font-weight: 700; }
+.rq-node-waiting .rq-node-v i { background: var(--aspire-warn-soft); color: var(--aspire-warn); }
+.rq-node-fix .rq-node-v { color: var(--aspire-bad); font-weight: 700; }
+.rq-node-fix .rq-node-v i { background: var(--aspire-bad-soft); color: var(--aspire-bad); }
+
+/* ── Required activities: the node is the expander, the area below records ─── */
+.rq-node-toggle {
+  display: inline-flex; align-items: center; gap: 3px; background: none; border: 0; padding: 0; cursor: pointer;
+  font-family: var(--rr-mono); font-size: 9.5px; letter-spacing: 0.11em; text-transform: uppercase; color: var(--aspire-paper-muted);
+}
+.rq-node-toggle .rq-chev { transition: rotate 0.15s; }
+.rq-node-toggle[aria-expanded="true"] .rq-chev { rotate: 90deg; }
+.rq-node-toggle:hover { color: var(--aspire-paper-ink); }
+.rq-node-toggle:focus-visible { outline: 3px solid var(--rr-navy); outline-offset: 2px; }
+/* Support's arrangement: mark, label, most recent date, the control. */
+.rq-acts { display: grid; gap: 6px; padding: 8px 0 4px; border-bottom: 1px solid var(--aspire-rule); }
+.rq-act { display: grid; grid-template-columns: 16px minmax(120px, 1fr) auto auto; gap: 8px; align-items: center; font-size: 12.5px; }
+.rq-act-mark { font-family: var(--rr-mono); color: var(--aspire-warn); }
+.rq-act.done .rq-act-mark { color: var(--aspire-ok); }
+.rq-act-label { font-weight: 600; }
+.rq-act-when { font-family: var(--rr-mono); font-size: 11px; color: var(--aspire-paper-muted); white-space: nowrap; }
+.rq-act.done .rq-act-when { color: var(--aspire-ok); }
+.rq-act-ctl { display: flex; gap: 6px; align-items: center; justify-content: flex-end; flex-wrap: wrap; }
+.rq-act-date, .rq-act-reason {
+  font-family: var(--rr-sans); font-size: 12px; padding: 3px 6px; border: 1px solid var(--aspire-rule);
+  border-radius: var(--aspire-radius-control); background: var(--aspire-paper); color: var(--aspire-paper-ink);
+}
+.rq-act-correct { grid-column: 2 / -1; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.rq-act-reason { flex: 1 1 200px; min-width: 0; }
+.rq-act-note { font-family: var(--rr-mono); font-size: 10.5px; color: var(--aspire-paper-muted); }
+.rq-act-msg { font-size: 12px; padding: 6px 10px; border-radius: var(--aspire-radius-control); }
+.rq-act-msg.ok { background: var(--aspire-ok-soft); color: var(--aspire-ok); }
+.rq-act-msg.err { background: var(--aspire-bad-soft); color: var(--aspire-bad); }
+.rq-act-foot { margin: 0; font-size: 11px; color: var(--aspire-paper-muted); }
+
+/* ── Actions row ──────────────────────────────────────────────────────────── */
+.rq-actions { display: flex; gap: 7px; align-items: center; flex-wrap: wrap; }
+.rq-why { font-size: 12.5px; color: var(--aspire-paper-muted); margin-right: auto; }
+.rq-pbtn {
+  background: rgba(30, 42, 110, 0.05); border: 1px solid var(--aspire-rule); border-radius: var(--aspire-radius-control);
+  padding: 4px 11px; font-size: 12px; font-family: var(--rr-sans); color: var(--aspire-paper-ink); cursor: pointer; white-space: nowrap;
+}
+.rq-pbtn:hover { border-color: var(--rr-navy); background: rgba(30, 42, 110, 0.09); }
+[data-theme="dark"] .rq-pbtn { background: rgba(159, 176, 245, 0.08); }
+[data-theme="dark"] .rq-pbtn:hover { background: rgba(159, 176, 245, 0.14); }
+.rq-pbtn:disabled { opacity: 0.6; cursor: default; }
+.rq-pbtn.go { margin-left: auto; background: var(--aspire-ok); border-color: var(--aspire-ok); color: #fff; font-weight: 700; padding-inline: 14px; }
+.rq-pbtn.go:hover { filter: brightness(1.08); }
+[data-theme="dark"] .rq-pbtn.go { color: #0E111C; }
+.rq-pbtn.link { background: none; border: 0; padding-inline: 2px; white-space: normal; text-align: left; color: var(--rr-navy); text-decoration: underline; text-underline-offset: 3px; }
+.rq-pbtn.link:hover { background: none; }
+.rq-pbtn:focus-visible { outline: 3px solid var(--rr-navy); outline-offset: 2px; }
+
+/* ── Not yet eligible ─────────────────────────────────────────────────────── */
+.rq-eligible {
+  background: rgba(255, 255, 255, 0.05); border: 1px dashed rgba(255, 255, 255, 0.22); border-radius: var(--aspire-radius-control);
+  color: var(--rr-board-ink-soft); font-size: 12.5px; margin-bottom: 16px;
+}
+.rq-eligible summary { padding: 8px 12px; cursor: pointer; list-style: none; display: flex; gap: 8px; align-items: center; }
+.rq-eligible summary::-webkit-details-marker { display: none; }
+.rq-eligible summary::before { content: "\203A"; display: inline-block; font-size: 15px; color: var(--rr-board-ink-muted); transition: rotate 0.15s; }
+.rq-eligible[open] summary::before { rotate: 90deg; }
+.rq-eligible ul { margin: 0; padding: 0 12px 10px 30px; columns: 2; column-gap: 20px; font-family: var(--rr-mono); font-size: 11px; color: var(--rr-board-ink-soft); }
+.rq-eligible li { padding: 2px 0; break-inside: avoid; }
+
+/* ── Sent tape ────────────────────────────────────────────────────────────── */
+.rq-tape {
+  position: relative; margin: 16px -18px -18px; padding: 10px 18px 12px;
+  background: var(--aspire-tape); color: var(--aspire-tape-ink);
+  border-radius: 0 0 var(--aspire-radius-card) var(--aspire-radius-card);
+  border-top: 2px dashed rgba(0, 0, 0, 0.18); /* the perforated tear line */
+}
+.rq-tape-head {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 4px;
+  font-family: var(--rr-mono); font-size: 10px; letter-spacing: 0.13em; text-transform: uppercase; color: var(--aspire-tape-muted);
+}
+.rq-tape-head button {
+  background: none; border: 0; padding: 0; cursor: pointer; font-family: var(--rr-sans); font-size: 12px;
+  text-transform: none; letter-spacing: 0; color: var(--aspire-tape-ink); text-decoration: underline; text-underline-offset: 3px;
+}
+.rq-tape-line {
+  display: grid; grid-template-columns: auto 1fr auto; gap: 12px; font-size: 12.5px; padding: 4px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08); font-variant-numeric: tabular-nums;
+}
+.rq-tape-line:last-child { border-bottom: 0; }
+.rq-tape-line .t, .rq-tape-line .r { font-family: var(--rr-mono); font-size: 11px; color: var(--aspire-tape-muted); white-space: nowrap; }
+.rq-tape-empty { font-size: 12.5px; color: var(--aspire-tape-muted); }
+[data-theme="dark"] .rq-tape { border-top-color: rgba(255, 255, 255, 0.14); }
+[data-theme="dark"] .rq-tape-line { border-bottom-color: rgba(255, 255, 255, 0.07); }
+/* AC-DISMISS-1: Put back on a "won't release" line, in the tape's own ink. */
+.rq-tape-undo { border: 0; padding: 0; background: none; color: inherit; font: inherit; text-decoration: underline; cursor: pointer; }
+.rq-tape-undo:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+
+/* ── Responsive ───────────────────────────────────────────────────────────── */
+/* Below 900px the rail stacks above the board and loses its top margin. The board never
+   scrolls sideways: its children shrink (min-width: 0) and its long lines wrap. */
+@media (max-width: 900px) {
+  .rr-layout { grid-template-columns: 1fr; }
+  /* The rail's own unpin lives with the rail (selectionRail.css): a rule here could lose
+     to it when the two sheets load in the other order. */
+}
+@media (max-width: 700px) {
+  .rq-eligible ul { columns: 1; }
+}
+@media (max-width: 640px) {
+  .rq-board .rr-tool-primary, .rq-board .rr-tool-secondary { flex: 1 1 auto; justify-content: center; }
+  .rq-meta { margin-left: 0; flex-basis: 100%; white-space: normal; }
+}
+@media (max-width: 520px) {
+  .rq-tape-line { grid-template-columns: auto 1fr; }
+  .rq-tape-line .r { grid-column: 1 / -1; white-space: normal; }
+  .rq-top { grid-template-columns: 1fr; }
+  .rq-right { justify-items: start; }
+  .rq-stamp { justify-self: start; }
+  .rq-hours { text-align: left; }
+  .rq-act { grid-template-columns: 16px 1fr; }
+  .rq-act-when, .rq-act-ctl { grid-column: 2; justify-content: flex-start; }
+}
+
+/* ── Reduced motion ───────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .rq-card { transition: none; }
+  .rq-card-gone { transform: none; }
+  .rq-card-flash { animation: none; box-shadow: 0 0 0 4px var(--aspire-warn), 0 7px 15px rgba(0, 0, 0, 0.24); }
+  .rq-eligible summary::before { transition: none; }
+  .rq-node-toggle .rq-chev { transition: none; }
+  .rq-spin { animation: none; }
+}
+
+/* ==== Mockup only: the proposed stack (would live in reviewReleaseClipboard.css) ==== */
+body { margin: 0; background: var(--app-bg, #F4F5F9); font-family: var(--aspire-sans); }
+.mock-bar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; padding:12px 20px; font: 600 12px var(--aspire-sans); color: var(--text-heading, #1D2567); }
+.mock-bar button { font: inherit; padding:5px 10px; border-radius: var(--aspire-radius-control); border:1px solid var(--aspire-rule); background: var(--aspire-paper); color: var(--aspire-paper-ink); cursor:pointer; }
+.mock-bar button[aria-pressed=true] { background: var(--aspire-navy, #1D2567); color:#fff; }
+.mock-bar p { margin:0 0 0 auto; font-weight:400; color: var(--text-caption, #5B6177); }
+.mock-wrap { max-width: 1180px; margin: 0 auto; padding: 0 20px 40px; }
+.ms-sect-tools { display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:flex-end; }
+.ms-sect-head { flex-wrap: wrap; align-items: center; }
+.ms-sect-tools .rq-pbtn.go { margin-left: 0; }
+.ms-stack { gap: 10px; }
+/* Apple's stack: the sheets beneath peek out at the bottom while the stack is closed. */
+.ms-deck { margin-bottom: 10px; }
+.ms-deck::after { content:""; position:absolute; left:8px; right:8px; bottom:-6px; height:6px; background: var(--aspire-paper-2); box-shadow: 0 2px 4px rgba(0,0,0,.22); z-index:-1; }
+:root[data-style="modern"] .ms-deck::after { display:none; }
+.ms-rows { list-style:none; margin:0; padding:6px 0; display:grid; gap:2px; border-top:1px solid var(--aspire-rule); border-bottom:1px solid var(--aspire-rule); }
+.ms-row { display:grid; grid-template-columns: minmax(0,1fr) auto auto; gap:10px; align-items:center; padding:4px 0; font-size:13px; }
+.ms-row-who { font-weight:600; min-width:0; }
+.ms-row-who small { font-weight:400; color: var(--aspire-paper-muted); margin-left:8px; }
+.ms-rating { font-size:12px; padding:1px 8px; border-radius: var(--aspire-radius-pill, 999px); white-space:nowrap; }
+.ms-rating b { font-family: var(--rr-mono); font-size:11px; margin-left:3px; }
+.ms-ok { background: var(--aspire-ok-soft); color: var(--aspire-ok); }
+.ms-warn { background: var(--aspire-warn-soft); color: var(--aspire-warn); }
+.ms-bad { background: var(--aspire-bad-soft); color: var(--aspire-bad); }
+.ms-block { background:none; border:0; padding:0 2px; font: 12px var(--rr-sans); color: var(--aspire-paper-muted); text-decoration: underline; cursor:pointer; }
+.ms-note { margin:0; font-size:12px; color: var(--aspire-warn); }
+.ms-note-low { color: var(--aspire-paper-muted); }
+.ms-toggle { margin-left: 0; }
+.ms-confirm { position: relative; max-width: 460px; margin: 26px auto 0; background: var(--aspire-paper); color: var(--aspire-paper-ink); border-radius: var(--aspire-radius-card); box-shadow: 0 10px 30px rgba(0,0,0,.3); font-family: var(--aspire-sans); }
+.ms-confirm h3 { margin:0; padding:16px 20px 0; font-size:17px; color: var(--text-heading, #1D2567); }
+.ms-confirm p { margin:8px 20px; font-size:13px; line-height:1.55; color: var(--aspire-paper-muted); }
+.ms-confirm ul { list-style:none; margin:8px 20px; padding:0; columns:2; column-gap:24px; font-size:12.5px; }
+.ms-confirm li { display:flex; justify-content:space-between; padding:2px 0; break-inside:avoid; }
+.ms-confirm li b { font-family: var(--rr-mono); }
+.ms-confirm footer { display:flex; gap:10px; justify-content:flex-end; padding:14px 20px; border-top:1px solid var(--aspire-rule); margin-top:10px; }
+.ms-caption { text-align:center; font: 12px var(--aspire-sans); color: var(--rr-board-ink-muted); margin: 18px 0 0; }
+</style></head>
+<body>
+<div class="mock-bar">Style <button data-k="style" data-v="classic" aria-pressed="true">Classic</button><button data-k="style" data-v="modern" aria-pressed="false">Modern</button>
+Mode <button data-k="theme" data-v="light" aria-pressed="true">Light</button><button data-k="theme" data-v="dark" aria-pressed="false">Dark</button>
+<p>Mockup: real unit counts from the live board (2026-10-07); names, preceptors and ratings are invented.</p></div>
+<div class="mock-wrap"><div class="rr-layout">
+<nav class="rr-nav" aria-label="Survey workflows"><p class="rr-nav-group">Unit leader release</p><button type="button" class="rr-row-select sel" aria-pressed="true"><span class="rr-row-label">Release Student's Feedback on Unit and Preceptor to Unit Leaders<small>to unit leader</small></span><span class="rr-cnt"><i class="b">41</i></span></button></nav>
+<div class="rr-workspace rq-board"><div class="rq">
+<div class="rq-head"><h2>Release Student's Feedback on Unit and Preceptor to Unit Leaders</h2></div>
+<div class="rq-meta-row"><p class="rq-meta-line">To unit leader · the Overall rating only, never comments · 7 days after the rotation ends</p><span class="rq-meta">Detected 10/7/2026, 8:20 PM</span></div>
+<section class="rq-section"><div class="rq-sect-head"><span>Ready to release (0)</span><em>Every prerequisite is done</em></div><div class="rq-stack"><div class="rq-empty">Nothing waiting on you here.</div></div></section>
+<section class="rq-section"><div class="rq-sect-head ms-sect-head"><span>Needs moderation (41 in 17 units)</span><span class="ms-sect-tools"><em>Each unit is one stack</em><button type="button" class="rq-pbtn go">Release all 38 in 14 units</button></span></div>
+<div class="rq-stack"><article class="rq-card rq-card-blocked ms-stack rq-band-late ms-deck">
+  <div class="rq-top"><div class="rq-who">PACU<small>5 responses · what the leader sees: Excellent 3 · Very good 1 · Good 1</small></div>
+  <div class="rq-right"><span class="rq-stamp rq-stamp-late">5 not moderated</span></div></div>
+  
+  <div class="rq-actions"><span class="rq-why">Releases to the PACU leader. Each response is cleared, then released.</span><button type="button" class="rq-pbtn link ms-toggle" aria-expanded="false">Show 5 responses</button><button type="button" class="rq-pbtn">Hold all</button><button type="button" class="rq-pbtn go">Clear and release 5</button></div>
+</article><article class="rq-card rq-card-blocked ms-stack rq-band-late ms-open">
+  <div class="rq-top"><div class="rq-who">6 NW<small>4 responses · what the leader sees: Excellent 1 · Very good 2 · Fair 1</small></div>
+  <div class="rq-right"><span class="rq-stamp rq-stamp-late">4 not moderated</span></div></div>
+  <ul class="ms-rows"><li class="ms-row"><span class="ms-row-who">Quinn Mock<small>Preceptor F.</small></span><span class="ms-rating ms-ok">Very good <b>4</b></span><button type="button" class="ms-block">Hold</button></li><li class="ms-row"><span class="ms-row-who">Taylor Testa<small>Preceptor G.</small></span><span class="ms-rating ms-ok">Very good <b>4</b></span><button type="button" class="ms-block">Hold</button></li><li class="ms-row"><span class="ms-row-who">Rowan Specimen<small>Preceptor H.</small></span><span class="ms-rating ms-ok">Excellent <b>5</b></span><button type="button" class="ms-block">Hold</button></li><li class="ms-row"><span class="ms-row-who">Emerson Sample<small>Preceptor I.</small></span><span class="ms-rating ms-bad">Fair <b>2</b></span><button type="button" class="ms-block">Hold</button></li></ul><p class="ms-note ms-note-low">Includes a Fair or Poor rating. Worth a look before releasing.</p>
+  <div class="rq-actions"><span class="rq-why">Releases to the 6 NW leader. Each response is cleared, then released.</span><button type="button" class="rq-pbtn link ms-toggle" aria-expanded="true">Hide 4 responses</button><button type="button" class="rq-pbtn">Hold all</button><button type="button" class="rq-pbtn go">Clear and release 4</button></div>
+</article><article class="rq-card rq-card-blocked ms-stack rq-band-late ms-deck">
+  <div class="rq-top"><div class="rq-who">8 South<small>4 responses · what the leader sees: Excellent 2 · Very good 1 · Good 1</small></div>
+  <div class="rq-right"><span class="rq-stamp rq-stamp-late">4 not moderated</span></div></div>
+  
+  <div class="rq-actions"><span class="rq-why">Releases to the 8 South leader. Each response is cleared, then released.</span><button type="button" class="rq-pbtn link ms-toggle" aria-expanded="false">Show 4 responses</button><button type="button" class="rq-pbtn">Hold all</button><button type="button" class="rq-pbtn go">Clear and release 4</button></div>
+</article><article class="rq-card rq-card-blocked ms-stack rq-band-late ms-deck">
+  <div class="rq-top"><div class="rq-who">5 South<small>3 responses · what the leader sees: Excellent 1 · Very good 2</small></div>
+  <div class="rq-right"><span class="rq-stamp rq-stamp-late">3 not moderated</span></div></div>
+  
+  <div class="rq-actions"><span class="rq-why">Releases to the 5 South leader. Each response is cleared, then released.</span><button type="button" class="rq-pbtn link ms-toggle" aria-expanded="false">Show 3 responses</button><button type="button" class="rq-pbtn">Hold all</button><button type="button" class="rq-pbtn go">Clear and release 3</button></div>
+</article><article class="rq-card rq-card-blocked ms-stack rq-band-late ms-deck">
+  <div class="rq-top"><div class="rq-who">6 NE<small>3 responses · what the leader sees: Excellent 1 · Very good 1 · Poor 1</small></div>
+  <div class="rq-right"><span class="rq-stamp rq-stamp-late">3 not moderated</span></div></div>
+  <p class="ms-note ms-note-low">Includes a Fair or Poor rating. Worth a look before releasing.</p>
+  <div class="rq-actions"><span class="rq-why">Releases to the 6 NE leader. Each response is cleared, then released.</span><button type="button" class="rq-pbtn link ms-toggle" aria-expanded="false">Show 3 responses</button><button type="button" class="rq-pbtn">Hold all</button><button type="button" class="rq-pbtn go">Clear and release 3</button></div>
+</article><article class="rq-card rq-card-blocked ms-stack rq-band-late ms-deck">
+  <div class="rq-top"><div class="rq-who">8 North<small>3 responses · what the leader sees: Excellent 2 · Good 1</small></div>
+  <div class="rq-right"><span class="rq-stamp rq-stamp-late">3 not moderated</span></div></div>
+  
+  <div class="rq-actions"><span class="rq-why">Releases to the 8 North leader. Each response is cleared, then released.</span><button type="button" class="rq-pbtn link ms-toggle" aria-expanded="false">Show 3 responses</button><button type="button" class="rq-pbtn">Hold all</button><button type="button" class="rq-pbtn go">Clear and release 3</button></div>
+</article><article class="rq-card rq-card-blocked ms-stack rq-band-late ms-deck">
+  <div class="rq-top"><div class="rq-who">4 North<small>2 responses · what the leader sees: Very good 2</small></div>
+  <div class="rq-right"><span class="rq-stamp rq-stamp-late">2 not moderated</span></div></div>
+  
+  <div class="rq-actions"><span class="rq-why">Releases to the 4 North leader. Each response is cleared, then released.</span><button type="button" class="rq-pbtn link ms-toggle" aria-expanded="false">Show 2 responses</button><button type="button" class="rq-pbtn">Hold all</button><button type="button" class="rq-pbtn go">Clear and release 2</button></div>
+</article><article class="rq-card rq-card-blocked ms-stack rq-band-late ms-deck">
+  <div class="rq-top"><div class="rq-who">5 SCCT<small>2 responses · what the leader sees: Excellent 2</small></div>
+  <div class="rq-right"><span class="rq-stamp rq-stamp-late">2 not moderated</span></div></div>
+  
+  <div class="rq-actions"><span class="rq-why">Releases to the 5 SCCT leader. Each response is cleared, then released.</span><button type="button" class="rq-pbtn link ms-toggle" aria-expanded="false">Show 2 responses</button><button type="button" class="rq-pbtn">Hold all</button><button type="button" class="rq-pbtn go">Clear and release 2</button></div>
+</article><article class="rq-card rq-card-blocked ms-stack rq-band-late ms-deck">
+  <div class="rq-top"><div class="rq-who">6 South<small>2 responses · what the leader sees: Very good 1 · Good 1</small></div>
+  <div class="rq-right"><span class="rq-stamp rq-stamp-late">2 not moderated</span></div></div>
+  
+  <div class="rq-actions"><span class="rq-why">Releases to the 6 South leader. Each response is cleared, then released.</span><button type="button" class="rq-pbtn link ms-toggle" aria-expanded="false">Show 2 responses</button><button type="button" class="rq-pbtn">Hold all</button><button type="button" class="rq-pbtn go">Clear and release 2</button></div>
+</article><article class="rq-card rq-card-blocked ms-stack rq-band-late ms-deck">
+  <div class="rq-top"><div class="rq-who">7 North<small>2 responses · what the leader sees: Excellent 1 · Very good 1</small></div>
+  <div class="rq-right"><span class="rq-stamp rq-stamp-late">2 not moderated</span></div></div>
+  
+  <div class="rq-actions"><span class="rq-why">Releases to the 7 North leader. Each response is cleared, then released.</span><button type="button" class="rq-pbtn link ms-toggle" aria-expanded="false">Show 2 responses</button><button type="button" class="rq-pbtn">Hold all</button><button type="button" class="rq-pbtn go">Clear and release 2</button></div>
+</article><article class="rq-card rq-card-blocked ms-stack rq-band-late ms-deck">
+  <div class="rq-top"><div class="rq-who">8 SCCT<small>2 responses · what the leader sees: Excellent 1 · Very good 1</small></div>
+  <div class="rq-right"><span class="rq-stamp rq-stamp-late">2 not moderated</span></div></div>
+  
+  <div class="rq-actions"><span class="rq-why">Releases to the 8 SCCT leader. Each response is cleared, then released.</span><button type="button" class="rq-pbtn link ms-toggle" aria-expanded="false">Show 2 responses</button><button type="button" class="rq-pbtn">Hold all</button><button type="button" class="rq-pbtn go">Clear and release 2</button></div>
+</article><article class="rq-card rq-card-blocked ms-stack rq-band-late ms-deck">
+  <div class="rq-top"><div class="rq-who">Labor &amp; Delivery<small>2 responses · what the leader sees: Excellent 1 · Very good 1</small></div>
+  <div class="rq-right"><span class="rq-stamp rq-stamp-late">2 not moderated</span></div></div>
+  
+  <div class="rq-actions"><span class="rq-why">Releases to the Labor &amp; Delivery leader. Each response is cleared, then released.</span><button type="button" class="rq-pbtn link ms-toggle" aria-expanded="false">Show 2 responses</button><button type="button" class="rq-pbtn">Hold all</button><button type="button" class="rq-pbtn go">Clear and release 2</button></div>
+</article><article class="rq-card rq-card-blocked ms-stack rq-band-late ms-deck">
+  <div class="rq-top"><div class="rq-who">NICU<small>2 responses · what the leader sees: Very good 1 · Good 1</small></div>
+  <div class="rq-right"><span class="rq-stamp rq-stamp-late">2 not moderated</span></div></div>
+  
+  <div class="rq-actions"><span class="rq-why">Releases to the NICU leader. Each response is cleared, then released.</span><button type="button" class="rq-pbtn link ms-toggle" aria-expanded="false">Show 2 responses</button><button type="button" class="rq-pbtn">Hold all</button><button type="button" class="rq-pbtn go">Clear and release 2</button></div>
+</article><article class="rq-card rq-card-blocked ms-stack rq-band-late ms-deck">
+  <div class="rq-top"><div class="rq-who">Pediatrics<small>2 responses · what the leader sees: Excellent 2</small></div>
+  <div class="rq-right"><span class="rq-stamp rq-stamp-late">2 not moderated</span></div></div>
+  
+  <div class="rq-actions"><span class="rq-why">Releases to the Pediatrics leader. Each response is cleared, then released.</span><button type="button" class="rq-pbtn link ms-toggle" aria-expanded="false">Show 2 responses</button><button type="button" class="rq-pbtn">Hold all</button><button type="button" class="rq-pbtn go">Clear and release 2</button></div>
+</article><article class="rq-card rq-card-blocked ms-stack rq-band-soon ms-single">
+  <div class="rq-top"><div class="rq-who">3 SCCT<small>1 response · what the leader sees: Very good 1</small></div>
+  <div class="rq-right"><span class="rq-stamp rq-stamp-soon">Not anonymous</span></div></div>
+  <ul class="ms-rows"><li class="ms-row"><span class="ms-row-who">Briar Testa<small>Preceptor S.</small></span><span class="ms-rating ms-ok">Very good <b>4</b></span><button type="button" class="ms-block">Hold</button></li></ul><p class="ms-note">Only response from this unit: the leader will know who wrote it. Left out of Release all.</p>
+  <div class="rq-actions"><span class="rq-why">Releases to the 3 SCCT leader.</span><button type="button" class="rq-pbtn">Hold all</button><button type="button" class="rq-pbtn go">Clear and release</button></div>
+</article><article class="rq-card rq-card-blocked ms-stack rq-band-soon ms-single">
+  <div class="rq-top"><div class="rq-who">4 South<small>1 response · what the leader sees: Very good 1</small></div>
+  <div class="rq-right"><span class="rq-stamp rq-stamp-soon">Not anonymous</span></div></div>
+  <ul class="ms-rows"><li class="ms-row"><span class="ms-row-who">Corey Specimen<small>Preceptor T.</small></span><span class="ms-rating ms-ok">Very good <b>4</b></span><button type="button" class="ms-block">Hold</button></li></ul><p class="ms-note">Only response from this unit: the leader will know who wrote it. Left out of Release all.</p>
+  <div class="rq-actions"><span class="rq-why">Releases to the 4 South leader.</span><button type="button" class="rq-pbtn">Hold all</button><button type="button" class="rq-pbtn go">Clear and release</button></div>
+</article><article class="rq-card rq-card-blocked ms-stack rq-band-soon ms-single">
+  <div class="rq-top"><div class="rq-who">Float Pool<small>1 response · what the leader sees: Excellent 1</small></div>
+  <div class="rq-right"><span class="rq-stamp rq-stamp-soon">Not anonymous</span></div></div>
+  <ul class="ms-rows"><li class="ms-row"><span class="ms-row-who">Devon Sample<small>Preceptor A.</small></span><span class="ms-rating ms-ok">Excellent <b>5</b></span><button type="button" class="ms-block">Hold</button></li></ul><p class="ms-note">Only response from this unit: the leader will know who wrote it. Left out of Release all.</p>
+  <div class="rq-actions"><span class="rq-why">Releases to the Float Pool leader.</span><button type="button" class="rq-pbtn">Hold all</button><button type="button" class="rq-pbtn go">Clear and release</button></div>
+</article></div></section>
+<p class="ms-caption">What Release all asks first:</p>
+<div class="ms-confirm" role="dialog" aria-label="Release all"><h3>Release 38 responses to 14 unit leaders?</h3>
+<p>Each response is cleared from moderation and released. Each leader sees only the Overall rating, never comments. The three single-response units are not included.</p>
+<ul><li><span>PACU</span><b>5</b></li><li><span>6 NW</span><b>4</b></li><li><span>8 South</span><b>4</b></li><li><span>5 South</span><b>3</b></li><li><span>6 NE</span><b>3</b></li><li><span>8 North</span><b>3</b></li><li><span>4 North</span><b>2</b></li><li><span>5 SCCT</span><b>2</b></li><li><span>6 South</span><b>2</b></li><li><span>7 North</span><b>2</b></li><li><span>8 SCCT</span><b>2</b></li><li><span>Labor &amp; Delivery</span><b>2</b></li><li><span>NICU</span><b>2</b></li><li><span>Pediatrics</span><b>2</b></li></ul>
+<footer><button type="button" class="rq-pbtn">Cancel</button><button type="button" class="rq-pbtn go">Release 38</button></footer></div>
+</div></div></div></div>
+<script>
+document.querySelectorAll('.mock-bar button').forEach(b => b.addEventListener('click', () => {
+  document.documentElement.dataset[b.dataset.k] = b.dataset.v;
+  document.querySelectorAll(`.mock-bar button[data-k="${b.dataset.k}"]`).forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+}));
+</script>
+</body></html>

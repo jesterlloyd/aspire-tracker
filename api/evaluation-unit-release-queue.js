@@ -17,7 +17,7 @@ import { verifyOwnerAdminCaller } from './lib/portalAuth.js'
 import { getUserScopedDb } from './lib/messagesAuth.js'
 import { APPROVED_INSTRUMENTS } from '../lib/server/unitEvaluations/config.js'
 import { validateQueueQuery } from '../lib/server/unitEvaluations/validation.js'
-import { serializeReviewQueueRow } from '../lib/server/unitEvaluations/serialize.js'
+import { serializeReviewQueueRow, leaderSeesFromResponses } from '../lib/server/unitEvaluations/serialize.js'
 import { populationDb } from '../lib/server/demoScope.js'
 
 const RELEASE_COLUMNS = [
@@ -80,10 +80,16 @@ export function createReviewQueueHandler({
       const responseIds = [...new Set(rels.map(r => r.response_id).filter(Boolean))]
       const nameByResponse = new Map()
       const outsidePopulation = new Set()
+      // MODERATION-STACKS-1: the allowlisted numbers each response would show its unit leader.
+      const slugByResponse = new Map(rels.map(r => [r.response_id, r.instrument_slug]))
+      const leaderSeesByResponse = new Map()
       if (responseIds.length > 0) {
         const respRes = await db.from('evaluation_responses')
-          .select('id, student_id').in('id', responseIds)
+          .select('id, student_id, responses').in('id', responseIds)
         if (respRes.error) return res.status(500).json({ error: 'internal_error' })
+        for (const r of respRes.data || []) {
+          leaderSeesByResponse.set(r.id, leaderSeesFromResponses(slugByResponse.get(r.id), r.responses))
+        }
         const studentByResponse = new Map((respRes.data || []).map(r => [r.id, r.student_id]))
         const studentIds = [...new Set([...studentByResponse.values()].filter(Boolean))]
         const nameByStudent = new Map()
@@ -117,7 +123,7 @@ export function createReviewQueueHandler({
 
       const rows = rels
         .filter(r => !outsidePopulation.has(r.response_id))
-        .map(r => serializeReviewQueueRow(r, nameByResponse.get(r.response_id), withheldAt.get(r.response_id)))
+        .map(r => serializeReviewQueueRow(r, nameByResponse.get(r.response_id), withheldAt.get(r.response_id), leaderSeesByResponse.get(r.response_id)))
       return res.status(200).json({ rows, withholdsEnabled })
     } catch {
       return res.status(500).json({ error: 'internal_error' })

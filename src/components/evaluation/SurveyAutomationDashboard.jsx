@@ -312,6 +312,68 @@ export default function SurveyAutomationDashboard({ cohortId, onTrackResponses, 
     if (res.ok) ulQueue.refetch()
   }, [ulQueue, setNotice])
 
+  // MODERATION-STACKS-1 (Owner, 2026-10-07): a stack clears and releases every response in it,
+  // one response at a time through the same two RPCs a slip uses (moderate cleared, then
+  // release), so the database still checks and logs each one. A refusal stops nothing else; the
+  // notice counts what went and names the first reason something did not.
+  const [busyStackKey, setBusyStackKey] = useState(null)
+  const runClearAndRelease = useCallback(async (list) => {
+    let released = 0
+    const refused = []
+    for (const item of list) {
+      if (item.row?.moderation_state !== 'cleared') {
+        const m = await postReleaseAction({ action: 'moderate', responseId: item.responseId, decision: 'cleared' })
+        if (!(m.ok && m.data?.ok)) { refused.push({ item, status: m.data?.status || m.error }); continue }
+      }
+      const r = await postReleaseAction({ action: 'release', responseId: item.responseId })
+      if (r.ok && r.data?.ok) released += 1
+      else refused.push({ item, status: r.data?.status || r.error })
+    }
+    return { released, refused }
+  }, [])
+  const reportRelease = useCallback(({ released, refused }, where) => {
+    const first = refused[0]
+    const why = first ? ` ${refused.length} not released: ${first.item.person.name}, ${ACTION_STATUS_MESSAGE[first.status] || 'that action could not be completed.'}` : ''
+    setNotice({ tone: refused.length && !released ? 'err' : 'ok', text: `Released ${released} to ${where}.${why}` })
+  }, [setNotice])
+  const stackRelease = useCallback(async (stack) => {
+    if (!stack || identityHold) return
+    const n = stack.count
+    const ok = await confirmDialog(`Release ${n === 1 ? `this response` : `${n} responses`} to the ${stack.unit} leader? Each one is cleared from moderation and released. The leader sees only the numbers shown, never comments.${stack.single ? ' This is the only response from this unit, so the leader will know who wrote it.' : ''}`, { confirmLabel: n === 1 ? 'Release' : `Release ${n}` })
+    if (!ok) return
+    setBusyStackKey(stack.key); setNotice(null)
+    try { reportRelease(await runClearAndRelease(stack.items), `the ${stack.unit} leader`) }
+    catch { setNotice({ tone: 'err', text: 'Network error. Re-run detection to see what was released.' }) }
+    finally { setBusyStackKey(null); ulQueue.refetch() }
+  }, [identityHold, runClearAndRelease, reportRelease, setNotice, ulQueue])
+  const releaseAll = useCallback(async (plan) => {
+    if (!plan?.stacks?.length || identityHold) return
+    const units = plan.stacks.map(s => `${s.unit} (${s.count})`).join(', ')
+    const left = plan.leftOut.length ? ` Not included, because each is the only response from its unit: ${plan.leftOut.join(', ')}.` : ''
+    const ok = await confirmDialog(`Release ${plan.responses} responses to ${plan.stacks.length} unit leaders? Each response is cleared from moderation and released. Each leader sees only the numbers, never comments. ${units}.${left}`, { confirmLabel: `Release ${plan.responses}` })
+    if (!ok) return
+    setBusyStackKey('all'); setNotice(null)
+    try { reportRelease(await runClearAndRelease(plan.stacks.flatMap(s => s.items)), `${plan.stacks.length} unit leaders`) }
+    catch { setNotice({ tone: 'err', text: 'Network error. Re-run detection to see what was released.' }) }
+    finally { setBusyStackKey(null); ulQueue.refetch() }
+  }, [identityHold, runClearAndRelease, reportRelease, setNotice, ulQueue])
+  const stackHold = useCallback(async (list) => {
+    if (!list?.length) return
+    const who = list.length === 1 ? `${list[0].person.name}'s response` : `these ${list.length} responses`
+    const ok = await confirmDialog(`Hold ${who}? Held responses stay off the unit leader's portal until you clear them. The hold is recorded.`, { confirmLabel: list.length === 1 ? 'Hold' : `Hold ${list.length}` })
+    if (!ok) return
+    setBusyStackKey('hold'); setNotice(null)
+    let held = 0
+    try {
+      for (const item of list) {
+        const r = await postReleaseAction({ action: 'moderate', responseId: item.responseId, decision: 'blocked' })
+        if (r.ok && r.data?.ok) held += 1
+      }
+      setNotice({ tone: held === list.length ? 'ok' : 'err', text: `Held ${held} of ${list.length}. A held response is listed under Needs a fix, where Clear moderation releases it again.` })
+    } catch { setNotice({ tone: 'err', text: 'Network error. Re-run detection to see what was held.' }) }
+    finally { setBusyStackKey(null); ulQueue.refetch() }
+  }, [setNotice, ulQueue])
+
   // Records or corrects ONE activity for ONE student. Never releases or sends anything.
   // REVIEW-RELEASE-2 (Owner, 2026-09-20): activities are recorded on the slip itself,
   // with the date they happened. The ledger endpoint refuses a future date, so today's
@@ -436,6 +498,10 @@ export default function SurveyAutomationDashboard({ cohortId, onTrackResponses, 
             onAction={onAction}
             onWithhold={withhold}
             onUnwithhold={unwithhold}
+            onStackRelease={stackRelease}
+            onStackHold={stackHold}
+            onReleaseAll={releaseAll}
+            busyStackKey={busyStackKey}
             onJump={onJump}
             onTrackResponses={onTrackResponses}
             tools={tools}

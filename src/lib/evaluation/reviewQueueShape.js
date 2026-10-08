@@ -40,6 +40,8 @@ export const BLOCKER_ACTIONS = Object.freeze(['remind', 'fix', 'jump', 'activity
  *   'elsewhere' a step behind: the prerequisite is on another workflow's clipboard and counted there
  *   'never'     can never be released; it needs a "won't release" decision, which is staff work
  *               only once that action exists (blocker.withhold)
+ *   'held'      a response someone chose to Hold in moderation (MODERATION-STACKS-1): a decision
+ *               already made, so it stays on the board without counting as work
  *   'staff'     everything else: a data fix, moderation, activities to record
  */
 export function blockerOwner(item) {
@@ -48,6 +50,7 @@ export function blockerOwner(item) {
   if (b.action === 'remind') return 'student'
   if (b.action === 'jump') return 'elsewhere'
   if (b.neverReleasable) return 'never'
+  if (b.action === 'moderate' && item.row?.moderation_state === 'blocked') return 'held'
   return 'staff'
 }
 

@@ -2484,3 +2484,27 @@ actions that never leave.
 - Migration `20261112000000_action_center_dismiss.sql` is Owner-gated; before it, notifications
   read as before with no x, and "won't release" is not offered. Checks:
   `db/audit/action_center_dismiss_checks.sql`.
+
+## Moderation is one stack per unit (MODERATION-STACKS-1, 2026-10-07)
+
+Evaluation > Review & Release > Release to Unit Leaders groups the responses waiting on moderation
+into one stack per unit, the way Apple groups notifications by app (Owner). Reference:
+`docs/mockups/moderation-stacks.html`. Rules: `src/lib/evaluation/moderationStacks.js` (pure).
+
+- **A stack shows what the leader would see**: each response's allowlisted numbers, which the queue
+  endpoint now reads from the response (`leaderSeesFromResponses`, the same `QUANTITATIVE_PATHS`
+  allowlist the portal uses, never text) and returns as `leader_sees`, to Owner and Admin only. The
+  overall rating is worded with the instrument's own anchors (Excellent to Poor).
+- **"Clear and release N" is the two existing RPCs per response** (moderate cleared, then release),
+  one response at a time, so the database still checks and logs each one; a refusal stops nothing
+  else and the notice names the first reason. **Release all** covers every stack with more than one
+  response; one confirmation lists the units and counts.
+- **A single response is never anonymous**: its stack stands alone, says "Not anonymous", and is
+  left out of Release all. **A Fair or Poor rating stays in** (Owner): the stack says "Worth a look"
+  and nothing more.
+- **Hold** is moderation blocked (Owner kept the word). A held response leaves the stack for Needs a
+  fix, where Clear moderation releases it again, and `blockerOwner` reads it as `held`, so it is not
+  counted in Needs you or the Action Center.
+- **The sheets beneath peek out in Classic** (Owner: "peek sheets fine"), drawn as layered
+  box-shadows because a pseudo-element under the card is painted over by the board. Modern draws
+  the stack as a plain card.
