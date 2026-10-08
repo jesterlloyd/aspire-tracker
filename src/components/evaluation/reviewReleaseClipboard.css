@@ -378,12 +378,16 @@
 }
 :root[data-style="modern"] .ms-deck { margin-bottom: 0; box-shadow: 0 1px 1px rgba(0, 0, 0, 0.26), 0 7px 15px rgba(0, 0, 0, 0.24); }
 .ms-rows { list-style: none; margin: 0; padding: 6px 0; display: grid; gap: 2px; border-top: 1px solid var(--aspire-rule); border-bottom: 1px solid var(--aspire-rule); }
-.ms-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; align-items: center; padding: 4px 0; font-size: 13px; }
-.ms-row-who { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
-.ms-row-who small { font-weight: 400; color: var(--aspire-paper-muted); margin-left: 8px; }
-.ms-row-sees { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+/* The name owns a column of its own (at least 12rem) and the answers share what is left, wrapping
+   inside it. An auto-sized answers column took the whole row as soon as a Preceptor's Assessment
+   brought four long phrases, and squeezed the name to one letter per line (fixed 2026-10-07). */
+.ms-row { display: grid; grid-template-columns: minmax(12rem, 1fr) minmax(0, 2fr) auto; gap: 6px 12px; align-items: start; padding: 6px 0; font-size: 13px; }
+.ms-row + .ms-row { border-top: 1px dashed var(--aspire-rule); }
+.ms-row-who { font-weight: 600; min-width: 0; }
+.ms-row-who small { display: block; font-weight: 400; color: var(--aspire-paper-muted); }
+.ms-row-sees { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; min-width: 0; }
 /* A rating is a status pair: the word and the number, ink and tint together. */
-.ms-rating { font-size: 12px; padding: 1px 8px; border-radius: var(--aspire-radius-pill); white-space: nowrap; }
+.ms-rating { font-size: 12px; padding: 1px 8px; border-radius: var(--aspire-radius-pill); max-width: 100%; }
 .ms-rating b { font-family: var(--rr-mono); font-size: 11px; margin-left: 4px; }
 .ms-ok { background: var(--aspire-ok-soft); color: var(--aspire-ok); }
 .ms-warn { background: var(--aspire-warn-soft); color: var(--aspire-warn); }
@@ -400,6 +404,5 @@
 @media (max-width: 560px) {
   .ms-row { grid-template-columns: minmax(0, 1fr) auto; }
   .ms-row-sees { grid-column: 1 / -1; justify-content: flex-start; }
-  .ms-row-who small { display: block; margin-left: 0; }
   .ms-hold { grid-row: 1; grid-column: 2; }
 }

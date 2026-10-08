@@ -85,3 +85,10 @@ test('a response with nothing the leader would see is named plainly in the stack
   const { items } = adaptUnitLeaderRelease({ rows: [row('PACU', 5), pp, { ...pp, response_id: '00000000-0000-4000-8000-0000000000ff' }], nowMs: NOW })
   assert.equal(buildModerationStacks(items)[0].summary, 'Excellent 1 · 2 with no numbers')
 })
+
+test('a stack row keeps a column for the name, so long answers never squeeze it to a letter a line', () => {
+  const css = read('src/components/evaluation/reviewReleaseClipboard.css')
+  assert.match(css, /\.ms-row \{ display: grid; grid-template-columns: minmax\(12rem, 1fr\) minmax\(0, 2fr\) auto;/)
+  assert.doesNotMatch(css, /\.ms-row-who \{[^}]*overflow-wrap: anywhere/)
+  assert.doesNotMatch(css, /\.ms-rating \{[^}]*white-space: nowrap/)
+})
