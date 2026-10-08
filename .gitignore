@@ -32,3 +32,6 @@ vendor-logos-source/
 # SIG_SEAL_P12_BASE64 and SIG_SEAL_P12_PASSPHRASE. See scripts/signatures/generate-seal-certificate.mjs.
 *.p12
 *.pfx
+
+# Supabase CLI link state (project ref, pooler URL)
+supabase/.temp/

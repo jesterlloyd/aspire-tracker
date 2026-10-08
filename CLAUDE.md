@@ -696,8 +696,23 @@ both.
 - Another session commits to `main` concurrently in the **same working tree**. Verify the
   baseline yourself, stage files **by name**, and for changes touching many files work in
   a `git worktree` off `origin/main` so their uncommitted work is never disturbed.
-- Never apply SQL. Migrations are Owner-gated through `docs/security/OWNER_SQL_GATE.md`;
-  verification queries go in `db/audit/`, numbered, one section at a time.
+- **SQL runs through the linked CLI, one approved file at a time** (SQL-CLI-1, Owner,
+  2026-10-08). The repo is linked to production (`supabase link`, ref `chhubyaxdhqoosglnwsn`;
+  link state in the git-ignored `supabase/.temp/`). Migrations are still Owner-gated; the
+  Owner approves in chat instead of pasting into the SQL editor. For every migration:
+  1. Run its PRE check (read-only, from `db/audit/`) with
+     `supabase db query --linked -f <file>` and show the result.
+  2. Show the exact SQL to be applied (the whole migration, inline).
+  3. Apply it with `supabase db query --linked -f supabase/migrations/<file>.sql` only after
+     an explicit yes in chat for THAT file. An approval never carries to the next file.
+  4. Run the POST check, show it, and record the migration as applied in
+     `docs/security/OWNER_SQL_GATE.md` (and the findings register when it closes a finding)
+     in the same sitting.
+  **Never `supabase db push`, `db reset`, `migration repair` or `db pull` against the linked
+  project**: the migrations were applied by hand, so the remote migration history does not
+  match `supabase/migrations/`, and `db push` would replay files already applied. Ad hoc
+  read-only queries are fine; any write outside an approved migration needs its own yes.
+  Verification queries still go in `db/audit/`, numbered, one section at a time.
 - Do not push without explicit approval.
 - Leave the untracked `" 2."` / `" 3."` duplicate files alone.
 - **`npm test` is green (7,536 of 7,536 on 2026-09-29; TEST-GREEN-1 set the rule on 2026-09-24); keep it that way.** Run it
