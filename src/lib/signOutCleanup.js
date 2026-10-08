@@ -43,6 +43,7 @@ export const STORAGE_KEY_REGISTRY = Object.freeze([
   { prefix: 'aspire_interviewers_v1', store: 'local', cls: 'clear', holds: 'the interviewer roster cache: names, emails, colours (InterviewersModal, AvailabilityManagerModal)' },
   { prefix: 'aspire.connect.contacts.lastContactId', store: 'local', cls: 'clear', holds: 'the id of the contact last opened in Connect' },
   { prefix: 'aspire.connect.lastTab', store: 'local', cls: 'clear', holds: 'which Connect tab was open (where you were)' },
+  { prefix: 'aspire.portal-connect.lastTab', store: 'local', cls: 'clear', holds: "which tab of a portal's ASPIRE Connect was open (where you were)" },
   { prefix: 'aspire.connect.launchContext.v1', store: 'session', cls: 'clear', holds: 'the recipient a screen handed to Outreach: student or contact id, name, email, cohort' },
   { prefix: 'aspire:studentPhotoCache:v1', store: 'session', cls: 'clear', holds: 'signed headshot URLs, scoped to the signed-in profile' },
   { prefix: 'aspire.portalFeedback.requestId.v1:', store: 'local', cls: 'clear', holds: 'the idempotency id of a portal feedback submission in progress' },

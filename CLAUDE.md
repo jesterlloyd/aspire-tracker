@@ -2332,6 +2332,44 @@ calendar, then the results table, each row opening the rubric book.
   toast says who was emailed and who was not (`noticeSummary`). There is no self-booking by the
   alumnus: HR books.
 
+## A portal has an ASPIRE Connect (PORTAL-CONNECT-1, 2026-10-07)
+
+Owner: "look at the tabs, they're getting so many. We can cluster the contacts and messages
+together to go inside the ASPIRE Connect app the way it is in the main staff app", for the NE&L
+Portal and the Residency Portal alike, with Outreach and Automations to follow for Residency.
+`src/portal/connect/PortalConnect.jsx` (rules in `portalConnectModel.js`) is the one shell:
+`PortalConnectHeaderButton` is the staff header's Connect icon drawn by the shared
+`ConnectIconButton` (`src/components/Header/ConnectIconButton.jsx`, the same 36px nightfall control,
+pin badge and caret as HeaderActions; change the look in both), portaled into the shell's
+`PortalHeaderControls` slot beside the scope picker; `PortalConnectPage` is the canonical
+`SegmentedPicker` reading Contacts | Messages above the open workspace, Contacts kept mounted and
+hidden as the NE&L sections always were.
+
+- **NE&L**: Contacts and Messages left the section nav (At a Glance, Budget Tracker, Community
+  Benefit, Evaluation remain, still alphabetized). Routes are `/portal/academics/connect/contacts`
+  and `/connect/messages[/:thread]`; the old `/portal/academics/contacts` and `/messages` still
+  resolve and are replaced on arrival (`naLegacyConnectPath`). The icon carries the unread count
+  and opens Messages when something waits, else the last tab used (`aspire.portal-connect.lastTab`,
+  in the sign-out registry). The floating Messages launcher stays everywhere but on Connect >
+  Messages (`messagesRoutes.js` lists the new prefix). The tour's Contacts and Messages steps are
+  one step on `[data-tour="portal-connect"]`.
+- **Residency**: the same icon and page at `/portal/residency/connect/*`; on it no workspace tab
+  is current (`ResidencyNav tab={null}`). Contacts is the NE&L directory ported as is: the server
+  lets a `talent_acquisition` grant READ it through `verifyPortalContactsReader`
+  (api/lib/nursingAcademicScope.js, the NE&L guard first, then the TA grant, view only), and the
+  avatar upload and every write keep the NE&L-only guard. **Messages for Talent Acquisition is not
+  built**: `api/lib/messagesAuth.js` admits four roles and who HR may message is an Owner decision,
+  so the page shows the prepared state the NE&L Portal showed before its capability was switched on.
+- **NE&L Contacts is LOCKED** (NA-CONTACTS-LOCK-1, Owner: "the panes are stuck or frozen, the
+  contents are scrollable"): `useLockedHeight` (useChartViewport.js, a callback ref because the
+  directory mounts after the loading state) gives the two-pane row exactly what the window has
+  left under its top edge less the footer, so the page never scrolls and only the list and the
+  record do; the KPI cards and the search row stay. Phones stack and scroll as before.
+- **A nested `.ptl-page` has no 100vh minimum** (NESTED-PAGE-1). PortalShell's wrapper is a
+  `.ptl-page` and every portal's root is another one inside `<main>`; the inner one inherited
+  `min-height: 100vh`, so every portal page scrolled by the chrome's height even when its content
+  fit. That was the "space at the bottom". `.ptl-page .ptl-page { min-height: 0 }`.
+
 ## Every section nav is one size (NAV-CANON-1, 2026-10-07)
 
 The Owner saw the Residency Portal's tabs smaller than the staff app's and asked what the canon was.

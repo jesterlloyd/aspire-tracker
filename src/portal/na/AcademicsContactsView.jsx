@@ -22,6 +22,7 @@ import {
 import { UNIT_SCOPE_OPTIONS } from '../../lib/portalScopeCatalog'
 import { SCHOOL_PICKER_OPTIONS, schoolPickerLabel } from '../../lib/schoolIdentity'
 import MultiScopePicker from '../../components/shared/MultiScopePicker'
+import { useLockedHeight } from '../../components/student/useChartViewport'
 import { CONTACT_SCOPE_GROUPS, CONTACT_DIVISION_OPTIONS, contactMatchesScope, scopedCategoryOrder, scopeUnitSet } from '../../lib/contactScopeFilter'
 import { buildContactsCsv } from '../../lib/contactsCsv'
 import { downloadCSV } from '../../lib/utils'
@@ -477,6 +478,11 @@ function ContactEditorModal({ contact, saving, error, onClose, onSave }) {
 
 export default function AcademicsContactsView({ active = true }) {
   const [searchParams] = useSearchParams()
+  // NA-CONTACTS-LOCK-1 (Owner, 2026-10-07): the two panes are locked below the chrome, the KPI
+  // cards and the search row above them stay, and only the list and the record scroll. The
+  // directory takes exactly what the window has left under its top edge, so the page never
+  // scrolls. Declared above every early return (PORTAL-HOOKS-310).
+  const { ref: directoryRef, height: directoryHeight } = useLockedHeight()
   const [contacts, setContacts] = useState([])
   const [selectedId, setSelectedId] = useState(null)
   const [search, setSearch] = useState('')
@@ -791,7 +797,7 @@ export default function AcademicsContactsView({ active = true }) {
         {mutationStatus && <span className="ptl-na-contact-save-status" role="status">{mutationStatus}</span>}
       </div>
 
-      <div className="ptl-na-contact-directory">
+      <div className="ptl-na-contact-directory" ref={directoryRef} style={{ '--na-directory-h': directoryHeight ? `${directoryHeight}px` : undefined }}>
         <div className="ptl-na-contact-list-shell">
           <div
             ref={listRef}

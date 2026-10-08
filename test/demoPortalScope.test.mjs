@@ -438,7 +438,8 @@ const OUTSIDE_THE_WRAPPER = {
 }
 
 test('every portal endpoint reading a scoped table is inside the boundary, or listed', () => {
-  const VIA = /verifyPortalUnitLeaderCaller|verifyPortalAcademicPartnerCaller|verifyPortalNursingAcademicCaller|serviceDbForRequest/
+  // PORTAL-CONNECT-1: verifyPortalContactsReader wraps the NE&L guard (same serviceDbForRequest boundary).
+  const VIA = /verifyPortalUnitLeaderCaller|verifyPortalAcademicPartnerCaller|verifyPortalNursingAcademicCaller|verifyPortalContactsReader|serviceDbForRequest/
   const scoped = new Set(DEMO_SCOPED_TABLES)
   const dir = join(root, 'api/portal')
   const strays = []

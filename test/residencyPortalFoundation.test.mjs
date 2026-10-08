@@ -123,7 +123,8 @@ test('portal app: a talent_acquisition branch mounts the Residency workspace aft
   assert.ok(na > 0 && ta > na, 'appended after nursing_academic so no existing experience changes')
   const branch = app.slice(ta, app.indexOf('<PortalAccessNotice', ta))
   assert.match(branch, /<ResidencyPortal /)
-  assert.match(branch, /<ResidencyNav tab=\{residencyRoute\.tab\}/)
+  // PORTAL-CONNECT-1 (2026-10-07): on the portal's Connect no workspace tab is current.
+  assert.match(branch, /<ResidencyNav tab=\{residencyConnect \? null : residencyRoute\.tab\}/)
   assert.doesNotMatch(branch, /PortalUtilityLayer/, 'no Messages or Send Feedback for this role yet')
   const portal = read('src/portal/residency/ResidencyPortal.jsx')
   assert.match(portal, /<NgrpSurfaceProvider value=\{RESIDENCY_PORTAL_SURFACE\}>/)

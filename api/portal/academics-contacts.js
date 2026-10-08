@@ -16,7 +16,7 @@
 // 20260829 for divisions).
 // preferred_contact_method is retired.
 
-import { verifyPortalNursingAcademicCaller } from '../lib/nursingAcademicScope.js'
+import { verifyPortalContactsReader } from '../lib/nursingAcademicScope.js'
 import { validateAvatarUrlChange } from '../lib/avatarImage.js'
 import { fetchAllRows } from '../lib/fetchAllRows.js'
 import {
@@ -278,7 +278,8 @@ function mutationError(res, err) {
 }
 
 export function createAcademicsContactsHandler({
-  verifyCaller = verifyPortalNursingAcademicCaller,
+  // PORTAL-CONNECT-1: a Talent Acquisition grant reads this directory too (view only).
+  verifyCaller = verifyPortalContactsReader,
   fetchContacts = readContacts,
   fetchContact = readContact,
   createContact = insertContact,

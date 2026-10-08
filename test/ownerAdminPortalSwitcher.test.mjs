@@ -155,7 +155,9 @@ test('portal-only identity actions stay suppressed while staff preview uses staf
   assert.match(portalApp, /<FeedbackPanel[\s\S]{0,220}activeTab=\{section\}[\s\S]{0,220}hidden=\{mobile && activeUtility === 'messages'\}/)
   assert.match(portalApp, /previewRole === 'student' \? '\/portal\/student\/messages'/)
   assert.match(portalApp, /staffPreview && key === 'messages'[\s\S]{0,120}navigate\('\/connect\/messages'\)/)
-  assert.match(portalApp, /messagesEnabled=\{staffPreview \|\| naMessagesEnabled\}/)
+  // PORTAL-CONNECT-1 (2026-10-07): Messages left the NE&L nav for the portal's Connect; a staff preview
+  // of it still goes to the staff Connect's Messages through goNaSection.
+  assert.match(portalApp, /if \(staffPreview && key === 'messages'\) \{\s*navigate\('\/connect\/messages'\)/)
   assert.match(portalApp, /portalUserActionsEnabled=\{!staffPreview\}/)
   assert.match(portalApp, /\{!staffPreview && photoDialog\}/)
   assert.match(portalApp, /usePortalHeadshotUrl\(\{ enabled: isStudent && !staffPreview/)

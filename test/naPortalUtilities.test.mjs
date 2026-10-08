@@ -134,8 +134,14 @@ test('the NA portal mounts capability-gated Messages: nav tab, route space, work
   const chrome = read('src/portal/na/NursingAcademicsChrome.jsx')
   // PROGRAM-BUDGET A3 (2026-09-27): Budget Tracker and Messages each join on their own server capability.
   // Where they SIT is no longer this expression's order: NA-NAV-ALPHA-1 alphabetizes the row (nursingAcademicsUi).
-  assert.match(chrome, /\.\.\.\(budgetEnabled \? \[BUDGET_SECTION\] : \[\]\), \.\.\.\(messagesEnabled \? \[MESSAGES_SECTION\] : \[\]\)/)
-  assert.match(chrome, /ptl-nav-badge/)
+  // PORTAL-CONNECT-1 (2026-10-07): Messages left the row for the portal's Connect; the unread count
+  // rides the header's Connect icon (PortalConnectHeaderButton) and the picker's Messages label.
+  assert.match(chrome, /\.\.\.\(budgetEnabled \? \[BUDGET_SECTION\] : \[\]\)\]\)\]/)
+  assert.doesNotMatch(chrome, /MESSAGES_SECTION|ptl-nav-badge/)
+  const connect = read('src/portal/connect/PortalConnect.jsx')
+  assert.match(connect, /badge=\{messagesEnabled \? unread : 0\}/)
+  assert.match(app, /\/portal\/academics\/connect\/messages|NA_CONNECT_PATH\}\/messages/)
+  assert.match(connect, /export function PortalConnectPage/)
   const portal = read('src/portal/na/NursingAcademicsPortal.jsx')
   assert.match(portal, /variant="nursing_academic"/)
   assert.match(portal, /This section is being prepared and is not active yet\./)

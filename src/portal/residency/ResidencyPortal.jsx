@@ -34,6 +34,9 @@ import {
   RESIDENCY_EXPERIENCE, residencyCohortLabel, cohortDotStatus, residencyLabelIsState,
 } from '../../lib/scopePickerLabels'
 import { PortalHeaderControls } from '../PortalHeaderSlots'
+import { EmptyState } from '../unit/UnitLeaderChrome'
+import AcademicsContactsView from '../na/AcademicsContactsView'
+import { PortalConnectHeaderButton, PortalConnectPage } from '../connect/PortalConnect'
 
 // PORTAL-SPLIT Phase 2: the same chunk the staff app loads, through the same
 // loader, fetched when this portal renders. While these were static imports the
@@ -46,7 +49,7 @@ const CreateCohortDialog  = lazyReload(ngrpPart('CreateCohortDialog'), 'CreateCo
 const EXPERIENCES = [RESIDENCY_EXPERIENCE]
 const stayInResidency = () => {}
 
-export default function ResidencyPortal({ canManage = false, onCommandPeople }) {
+export default function ResidencyPortal({ canManage = false, onCommandPeople, connectTab = null, onOpenConnect }) {
   const { user } = useAuth()
   const queryClient = useQueryClient()
   const { toasts, removeToast, toast } = useToast()
@@ -117,8 +120,23 @@ export default function ResidencyPortal({ canManage = false, onCommandPeople }) 
           cohortPane={<ResidencyCohortList {...residencyCohort} />}
         />
       </PortalHeaderControls>
+      {/* PORTAL-CONNECT-1 (Owner, 2026-10-07): the Residency Portal gets the same ASPIRE Connect
+          the NE&L Portal has: Contacts (the NE&L directory, ported; the server lets a Talent
+          Acquisition grant read it and never edit it) and Messages. Messaging for Talent
+          Acquisition has no server authorization yet (api/lib/messagesAuth.js admits four roles),
+          so Messages shows the prepared state the NE&L Portal showed before its capability was
+          switched on. Outreach and Automations come later, into this same page. */}
+      <PortalConnectHeaderButton active={Boolean(connectTab)} onOpen={onOpenConnect} />
       <div className="ptl-page ptl-residency-page">
         <h1 className="ptl-visually-hidden">Residency Portal</h1>
+        {connectTab ? (
+          <PortalConnectPage
+            tab={connectTab}
+            onNavigate={onOpenConnect}
+            contacts={<AcademicsContactsView active={connectTab === 'contacts'} />}
+            messages={<EmptyState title="Messages" detail="Secure messaging with the ASPIRE Team will live here. This section is being prepared and is not active yet." />}
+          />
+        ) : (
         <Suspense fallback={<div className="ptl-card" role="status">Loading residency workspace…</div>}>
           <NgrpWorkspace
             cyclesStatus={cyclesQuery.status}
@@ -131,6 +149,7 @@ export default function ResidencyPortal({ canManage = false, onCommandPeople }) 
             onSelectCycle={selectCycle}
           />
         </Suspense>
+        )}
       </div>
       <Suspense fallback={null}>
         {showSettings && activeCycle && (

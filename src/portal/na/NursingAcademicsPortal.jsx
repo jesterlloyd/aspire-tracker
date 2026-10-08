@@ -27,12 +27,15 @@ import CommunityBenefitView from './CommunityBenefitView'
 import AcademicsContactsView from './AcademicsContactsView'
 import AcademicsEvaluationView from './AcademicsEvaluationView'
 import { fetchAcademicsContacts } from './nursingAcademicsApi'
+import { PortalConnectHeaderButton, PortalConnectPage } from '../connect/PortalConnect'
 
 // NA-PORTAL-UTILITIES-1: Messages reuses the SAME canonical PortalMessagesWorkspace the other
 // portals use (variant='nursing_academic'). Enablement is the SERVER capability passed as
 // messagesEnabled (env flag AND applied DB migration), never a client constant; until the server
 // reports enabled, a pasted /portal/academics/messages link shows an honest prepared state.
-export default function NursingAcademicsPortal({ view = 'calendar', messagesEnabled = false, budgetEnabled = false, themesEnabled = false, threadId, onSelectThread, onBackToList, onCommandPeople }) {
+export default function NursingAcademicsPortal({ view = 'calendar', messagesEnabled = false, budgetEnabled = false, themesEnabled = false, threadId, onSelectThread, onBackToList, onCommandPeople, unread = 0, onOpenConnect }) {
+  // PORTAL-CONNECT-1: Contacts and Messages are this portal's ASPIRE Connect.
+  const onConnect = view === 'contacts' || view === 'messages'
   const { userProfile, user } = useAuth()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -57,7 +60,7 @@ export default function NursingAcademicsPortal({ view = 'calendar', messagesEnab
       onCommandPeople?.((res.data?.contacts || []).filter(c => c.is_active !== false).map(c => ({
         id: `na-contact:${c.id}`, kind: 'person', name: c.preferred_name || c.full_name,
         qualifier: [c.category || 'Contact', c.organization || c.school_name || c.unit_name || null].filter(Boolean).join(' · '),
-        to: `/portal/academics/contacts?contactId=${encodeURIComponent(c.id)}`,
+        to: `/portal/academics/connect/contacts?contactId=${encodeURIComponent(c.id)}`,
       })))
     }).catch(() => {})
     return () => { live = false }
@@ -65,12 +68,13 @@ export default function NursingAcademicsPortal({ view = 'calendar', messagesEnab
 
   useEffect(() => {
     const contactId = searchParams.get('contactId')
-    if (contactId && view !== 'contacts') navigate(`/portal/academics/contacts?contactId=${encodeURIComponent(contactId)}`, { replace: true })
+    if (contactId && view !== 'contacts') navigate(`/portal/academics/connect/contacts?contactId=${encodeURIComponent(contactId)}`, { replace: true })
   }, [navigate, searchParams, view])
 
   return (
     <div className="ptl-page ptl-na-page">
       <h1 className="ptl-visually-hidden">Nursing Education &amp; Leadership Portal</h1>
+      <PortalConnectHeaderButton active={onConnect} unread={unread} messagesEnabled={messagesEnabled} onOpen={onOpenConnect} />
       {/* Owner: the masthead greets ONCE, on the landing section only - the
           same shape every other portal has (Student/Unit Leader Home,
           Academic Partner Students). It used to sit above the section switch
@@ -91,8 +95,30 @@ export default function NursingAcademicsPortal({ view = 'calendar', messagesEnab
       <div style={{ display: view === 'community-benefit' ? 'block' : 'none' }}>
         <CommunityBenefitView active={view === 'community-benefit'} />
       </div>
-      <div style={{ display: view === 'contacts' ? 'block' : 'none' }}>
-        <AcademicsContactsView active={view === 'contacts'} />
+      {/* PORTAL-CONNECT-1: Contacts and Messages under one picker, as the staff Connect page.
+          Contacts stays mounted and hidden, as it always did. */}
+      <div style={{ display: onConnect ? 'block' : 'none' }}>
+        <PortalConnectPage
+          tab={view === 'messages' ? 'messages' : 'contacts'}
+          onNavigate={onOpenConnect}
+          unread={unread}
+          messagesEnabled={messagesEnabled}
+          contacts={<AcademicsContactsView active={view === 'contacts'} />}
+          messages={messagesEnabled ? (
+            <PortalMessagesWorkspace
+              active
+              variant="nursing_academic"
+              threadId={threadId}
+              onSelectThread={onSelectThread}
+              onBackToList={onBackToList}
+            />
+          ) : (
+            <EmptyState
+              title="Messages"
+              detail="Secure messaging with the ASPIRE Team will live here. This section is being prepared and is not active yet."
+            />
+          )}
+        />
       </div>
       {/* KEITH-THEMES-1: the Leadership view of Keith's comment themes, for a grant with
           evaluation_themes_access. Mounted only while open. */}
@@ -116,22 +142,6 @@ export default function NursingAcademicsPortal({ view = 'calendar', messagesEnab
       ) : (
         <EmptyState title="Budget Tracker" detail="The Budget Tracker has not been shared with your account." />
       ))}
-      {view === 'messages' && (
-        messagesEnabled ? (
-          <PortalMessagesWorkspace
-            active
-            variant="nursing_academic"
-            threadId={threadId}
-            onSelectThread={onSelectThread}
-            onBackToList={onBackToList}
-          />
-        ) : (
-          <EmptyState
-            title="Messages"
-            detail="Secure messaging with the ASPIRE Team will live here. This section is being prepared and is not active yet."
-          />
-        )
-      )}
     </div>
   )
 }

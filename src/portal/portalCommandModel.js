@@ -28,8 +28,8 @@ export function portalActionsFor(kind, { budgetEnabled = false, messagesEnabled 
   if (kind === 'nursing_academic') return [
     ...(budgetEnabled ? [action('expense', 'Search an Expense', 'NE&L Portal · Budget', '/portal/academics/budget', 'expense expenses budget receipt receipts concur')] : []),
     action('community-benefit', 'Open Community Benefit', 'NE&L Portal · Community Benefit', '/portal/academics/community-benefit', 'community benefit grant report'),
-    action('contacts', 'Find a Contact', 'NE&L Portal · Contacts', '/portal/academics/contacts', 'contact contacts directory'),
-    ...(messagesEnabled ? [action('messages', 'Open Messages', 'NE&L Portal · Messages', '/portal/academics/messages', 'message messages inbox')] : []),
+    action('contacts', 'Find a Contact', 'NE&L Portal · Contacts', '/portal/academics/connect/contacts', 'contact contacts directory'),
+    ...(messagesEnabled ? [action('messages', 'Open Messages', 'NE&L Portal · Messages', '/portal/academics/connect/messages', 'message messages inbox')] : []),
   ]
   if (kind === 'talent_acquisition') return [
     action('overview', 'Open At a Glance', 'Residency Portal · At a Glance', '/portal/residency/overview', 'overview home'),
@@ -37,7 +37,7 @@ export function portalActionsFor(kind, { budgetEnabled = false, messagesEnabled 
     action('interviews', 'Open Interviews', 'Residency Portal · Interviews', '/portal/residency/interviews', 'interview interviews interviewee schedule'),
     action('placement', 'Open Placement', 'Residency Portal · Placement', '/portal/residency/placement', 'placement placements unit match matching'),
     action('schools', 'Find a School', 'Residency Portal · Profiles', '/portal/residency/profiles', 'school schools university college'),
-    action('contacts', 'Find a Contact', 'Residency Portal · Contacts', '/connect/contacts?find=1', 'contact contacts directory email phone'),
+    action('contacts', 'Find a Contact', 'Residency Portal · Contacts', '/portal/residency/connect/contacts', 'contact contacts directory email phone'),
   ]
   return []
 }

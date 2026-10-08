@@ -69,7 +69,9 @@ test('verifyPortalNursingAcademicCaller checks the active nursing_academic grant
 test('all four portal endpoints authorize through the dedicated guard and never reuse staff endpoints', () => {
   for (const p of ['api/portal/academics-community-benefit.js', 'api/portal/academics-benefit-export.js', 'api/portal/academics-calendar.js', 'api/portal/academics-contacts.js']) {
     const src = read(p)
-    assert.match(src, /verifyPortalNursingAcademicCaller/, `${p} uses the guard`)
+    // PORTAL-CONNECT-1 (2026-10-07): academics-contacts reads through verifyPortalContactsReader,
+    // which IS the guard first and admits a Talent Acquisition grant as a reader only.
+    assert.match(src, /verifyPortalNursingAcademicCaller|verifyPortalContactsReader/, `${p} uses the guard`)
     assert.match(src, /no-store, private/, `${p} is never shared-cached`)
   }
 })
@@ -528,4 +530,19 @@ test('LinkedIn URL is writable through the editor grant, with the staff validati
     assert.equal(res.statusCode, 400)
     assert.deepEqual(res.body, { error: 'invalid_linkedin_url' })
   }
+})
+
+// PORTAL-CONNECT-1 (2026-10-07): the Residency Portal's Connect carries this directory. A Talent
+// Acquisition grant reads it (view only) through verifyPortalContactsReader; writes and the avatar
+// upload keep the nursing_academic-only guard.
+test('a Talent Acquisition grant reads the contacts directory and never edits it', () => {
+  const src = read('api/lib/nursingAcademicScope.js')
+  assert.match(src, /export async function verifyPortalContactsReader\(req\)/)
+  assert.match(src, /getActiveRoleGrant\(db, caller\.profile\.id, 'talent_acquisition'\)/)
+  assert.match(src, /contactsAccess: 'view', canManageContacts: false/)
+  // Only after the NE&L guard refused for the role, never for an unauthenticated caller.
+  assert.match(src, /first\.reason !== 'nursing_academic_role_required'\) return first/)
+  assert.match(read('api/portal/academics-contacts.js'), /verifyCaller = verifyPortalContactsReader/)
+  assert.match(read('api/portal/academics-contact-avatar.js'), /verifyCaller = verifyPortalNursingAcademicCaller/)
+  assert.doesNotMatch(read('api/portal/academics-contact-avatar.js'), /verifyPortalContactsReader/)
 })

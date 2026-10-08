@@ -681,15 +681,12 @@ function getNursingAcademicSteps(userProfile) {
       title: 'Community Benefit',
       content: 'Fiscal-year ASPIRE student activity and the estimated nursing community benefit, with a privacy-safe aggregate CSV export for fiscal reporting.',
     },
+    // PORTAL-CONNECT-1: Contacts and Messages are the portal's ASPIRE Connect, behind the header icon.
     {
-      target: '[data-tour="portal-nav-contacts"]',
-      title: 'Contacts',
-      content: 'Search and view active ASPIRE contacts. This directory is read-only: it lists who to reach, and does not send outreach.',
-    },
-    {
-      target: '[data-tour="portal-nav-messages"]',
-      title: 'Messages',
-      content: 'Send and receive secure messages with the ASPIRE team here. An unread badge shows when a new message is waiting.',
+      target: '[data-tour="portal-connect"]',
+      title: 'ASPIRE Connect',
+      content: 'Contacts and Messages live here, as they do in the main app. Contacts is the directory of who to reach; Messages is secure messaging with the ASPIRE team, and a badge on this icon shows when a message is waiting.',
+      placement: 'bottom-end',
     },
     portalFeedbackStep,
     portalMessagesLauncherStep,

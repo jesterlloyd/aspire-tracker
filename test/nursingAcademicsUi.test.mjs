@@ -25,7 +25,11 @@ const app = read('src/portal/PortalApp.jsx')
 test('the route namespace is /portal/academics with three sections, At a Glance default', () => {
   // PROGRAM-BUDGET A3 (2026-09-27) added the 'budget' section (the Program Budget tab, capability-gated).
   // KEITH-THEMES-1 (2026-09-29) added 'evaluation' (Keith's comment themes, per-person grant, gated the same way).
-  assert.match(app, /const NA_SECTIONS = new Set\(\['calendar', 'community-benefit', 'contacts', 'messages', 'budget', 'evaluation'\]\)/)
+  // PORTAL-CONNECT-1 (2026-10-07): 'contacts' and 'messages' are the portal's Connect, under
+  // /portal/academics/connect/*, and left the section set; their old paths still resolve.
+  assert.match(app, /const NA_SECTIONS = new Set\(\['calendar', 'community-benefit', 'budget', 'evaluation'\]\)/)
+  assert.match(app, /const NA_CONNECT_PATH = '\/portal\/academics\/connect'/)
+  assert.match(app, /function naLegacyConnectPath\(pathname\)/)
   assert.match(app, /\/portal\\\/academics\\\//)
   assert.match(app, /navigate\(`\/portal\/academics\/\$\{key\}`\)/)
   assert.match(app, /return 'calendar'/)
@@ -38,7 +42,9 @@ test('the nav uses the shared .ptl-nav language with stable tour anchors and ari
   assert.match(chrome, /PortalNavRefresh/)
   assert.match(chrome, /'calendar'[\s\S]{0,120}NAV_LABELS\.atAGlance/)
   assert.match(chrome, /'community-benefit'[\s\S]{0,120}NAV_LABELS\.communityBenefit/)
-  assert.match(chrome, /'contacts'[\s\S]{0,120}NAV_LABELS\.contacts/)
+  // PORTAL-CONNECT-1: Contacts is no longer a tab.
+  assert.doesNotMatch(chrome, /NAV_LABELS\.contacts/)
+  assert.doesNotMatch(chrome, /MESSAGES_SECTION/)
 })
 
 test('sections stay mounted and hide with display, matching the other portals', () => {
@@ -48,7 +54,10 @@ test('sections stay mounted and hide with display, matching the other portals', 
   // preserves month position, filters, and the loaded report across nav.
   assert.match(portal, /display: view === 'calendar' \? 'flex' : 'none'/)
   assert.match(portal, /display: view === 'community-benefit' \? 'block' : 'none'/)
-  assert.match(portal, /display: view === 'contacts' \? 'block' : 'none'/)
+  // PORTAL-CONNECT-1: Contacts stays mounted inside the Connect page, hidden the same way.
+  assert.match(portal, /display: onConnect \? 'block' : 'none'/)
+  assert.match(portal, /<PortalConnectPage/)
+  assert.match(read('src/portal/connect/PortalConnect.jsx'), /display: tab === 'contacts' \? 'block' : 'none'/)
   assert.match(portal, /SkylineCard/)
 })
 
@@ -310,7 +319,9 @@ test('Deactivate/Reactivate lives in a full-width bar at the card bottom, Connec
 
 test('the list and detail cards stretch to the same height, scrolling internally', () => {
   assert.match(css, /\.ptl-na-contact-directory \{ display: grid;[^}]*align-items: stretch;/)
-  assert.match(css, /\.ptl-na-contact-detail \{[\s\S]{0,200}?max-height: 68vh;/)
+  // NA-CONTACTS-LOCK-1 (2026-10-07): the cap is the locked row height, 68vh until it is measured.
+  assert.match(css, /\.ptl-na-contact-detail \{[\s\S]{0,200}?max-height: var\(--na-directory-h, 68vh\);/)
+  assert.match(css, /\.ptl-na-contact-directory \{[^}]*height: var\(--na-directory-h, auto\);/)
   assert.match(css, /\.ptl-na-contact-detail-body \{[^}]*flex: 1; overflow-y: auto;/)
   // Stacked mode releases the cap so the page scrolls naturally.
   assert.match(css, /\.ptl-na-contact-detail \{ max-height: none; min-height: 0; \}/)
@@ -356,6 +367,9 @@ test('the Contacts chrome is consolidated: no heading block, controls in one row
   assert.doesNotMatch(contacts, /Manage the ASPIRE contact directory/)
   assert.doesNotMatch(contacts, /of \{directoryContacts\.length\} contacts/)
   assert.match(contacts, /<section className="ptl-na-contacts" aria-label="Contacts">/)
+  // NA-CONTACTS-LOCK-1: the directory row carries the locked height, measured from elements.
+  assert.match(contacts, /useLockedHeight\(\)/)
+  assert.match(contacts, /className="ptl-na-contact-directory" ref=\{directoryRef\} style=\{\{ '--na-directory-h'/)
   // Add contact sits in the controls row between search and Copy visible emails.
   // NA-CONTACTS-SCOPE-2 order: Add contact, search, scope filter, copy, CSV.
   assert.match(contacts, /Add contact[\s\S]{0,1400}?ptl-na-contact-search[\s\S]{0,1400}?ptl-na-scope-filter[\s\S]{0,1400}?Copy visible emails[\s\S]{0,1400}?Download CSV/)
@@ -473,9 +487,10 @@ test('the section row is At a Glance, then every other tab in alphabetical order
   const { NAV_LABELS, alphabetizeNav } = await import('../src/lib/navigationCanon.js')
   const L = NAV_LABELS
   // Every optional tab on, handed over in the old product order.
-  const rest = [L.communityBenefit, L.contacts, L.evaluation, L.programBudgets, L.messages].map(label => ({ label }))
+  // PORTAL-CONNECT-1 (2026-10-07): Contacts and Messages left the row for the portal's Connect.
+  const rest = [L.communityBenefit, L.evaluation, L.programBudgets].map(label => ({ label }))
   assert.deepEqual([L.atAGlance, ...alphabetizeNav(rest).map(s => s.label)],
-    ['At a Glance', 'Budget Tracker', 'Community Benefit', 'Contacts', 'Evaluation', 'Messages'])
+    ['At a Glance', 'Budget Tracker', 'Community Benefit', 'Evaluation'])
   // A grant with fewer tabs keeps the same relative order, and the input is not mutated.
   assert.deepEqual(alphabetizeNav([{ label: L.contacts }, { label: L.communityBenefit }]).map(s => s.label), ['Community Benefit', 'Contacts'])
   assert.equal(rest[0].label, L.communityBenefit)

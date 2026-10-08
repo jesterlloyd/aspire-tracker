@@ -71,3 +71,26 @@ export async function verifyPortalNursingAcademicCaller(req) {
     canManageContacts: contactsAccess === 'manage',
   }
 }
+
+/**
+ * PORTAL-CONNECT-1 (Owner, 2026-10-07): the Residency Portal's Connect carries the NE&L contacts
+ * directory ("just porting it to them"). A Talent Acquisition grant may READ it, never edit it:
+ * same JWT check, same demo boundary, contactsAccess 'view'. Only academics-contacts asks for
+ * this; every other academics endpoint keeps the nursing_academic-only verifier above.
+ */
+export async function verifyPortalContactsReader(req) {
+  const first = await verifyPortalNursingAcademicCaller(req)
+  if (first.ok || first.reason !== 'nursing_academic_role_required') return first
+  const caller = await verifyPortalCaller(req)
+  if (!caller.authenticated) return first
+  let db
+  try { db = serviceDbForRequest(getServiceDb(), req) } catch { return { ok: false, status: 500, reason: 'server_misconfigured' } }
+  let grant
+  try {
+    grant = await getActiveRoleGrant(db, caller.profile.id, 'talent_acquisition')
+  } catch {
+    return { ok: false, status: 500, reason: 'grant_lookup_failed' }
+  }
+  if (!grant) return first
+  return { ok: true, db, profile: caller.profile, grant, contactsAccess: 'view', canManageContacts: false }
+}

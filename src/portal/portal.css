@@ -25,6 +25,13 @@
   max-width: 100%;
   overflow-x: clip;
 }
+/* NESTED-PAGE-1 (Owner, 2026-10-07: "I should not be able to scroll to see a space at the bottom").
+   PortalShell's outer wrapper is a .ptl-page, and every portal's own root is a .ptl-page too, nested
+   inside the shell's <main>. The inner one inherited the 100vh minimum, so each portal page was at
+   least a window tall BELOW the header and nav, and every portal scrolled by the chrome's height
+   even when its content fit. The outer shell keeps the minimum (it is what pins the footer down);
+   a nested page is as tall as its content. */
+.ptl-page .ptl-page { min-height: 0; }
 
 /* Global, consistent keyboard focus (the login page has the same contract).
    Individual components may still sharpen offsets, but nothing removes it. */
@@ -2274,6 +2281,10 @@ img.ptl-detail-photo {
    portal selector changes behavior. */
 
 .ptl-na-page { display: flex; flex-direction: column; gap: 16px; }
+/* PORTAL-CONNECT-1 (2026-10-07): a portal's ASPIRE Connect page: the Contacts | Messages picker,
+   then the open workspace. The picker is the canonical SegmentedPicker; nothing else is styled. */
+.ptl-connect { display: flex; flex-direction: column; gap: 16px; }
+.ptl-connect-picker { display: flex; align-items: center; }
 .ptl-na-page .mast { margin: 0; width: 100%; }
 /* The At A Glance section carries the masthead above the calendar, so it
    keeps the page's own column rhythm instead of butting them together. */
@@ -2508,16 +2519,20 @@ img.ptl-detail-photo {
 /* NA-CONTACTS-POLISH-2: the two cards stretch to the SAME height. The row is
    the taller card's natural height, both capped at 68vh; whichever card's
    content exceeds that scrolls internally. */
-.ptl-na-contact-directory { display: grid; grid-template-columns: minmax(300px, .85fr) minmax(420px, 1.35fr); gap: 16px; align-items: stretch; min-height: 520px; }
+/* NA-CONTACTS-LOCK-1 (Owner, 2026-10-07): the row is LOCKED to what the window has left under
+   it (--na-directory-h, measured by useLockedHeight in AcademicsContactsView), so the page never
+   scrolls; the list and the record scroll inside. The 68vh caps below are the first-paint
+   fallback before the measurement lands. */
+.ptl-na-contact-directory { display: grid; grid-template-columns: minmax(300px, .85fr) minmax(420px, 1.35fr); gap: 16px; align-items: stretch; min-height: 360px; height: var(--na-directory-h, auto); }
 /* NA-CONTACTS-POLISH-5: the shell carries the card chrome and anchors the
    scrub indicator; the list inside it is the scroller. */
 .ptl-na-contact-list-shell {
-  position: relative; max-height: 68vh; background: #fff;
+  position: relative; max-height: var(--na-directory-h, 68vh); background: #fff;
   border: 1px solid rgba(29, 37, 103, 0.08); border-radius: 14px;
   box-shadow: 0 2px 10px rgba(29, 37, 103, 0.06);
   overflow: hidden;
 }
-.ptl-na-contact-list { height: 100%; max-height: 68vh; overflow-y: auto; }
+.ptl-na-contact-list { height: 100%; max-height: var(--na-directory-h, 68vh); overflow-y: auto; }
 /* Scrollbar-drag position indicator: same translucent gray as the overlay
    scrollbar thumb, floating at the list's center while scrubbing. */
 .ptl-na-scrub-indicator {
@@ -2542,7 +2557,7 @@ img.ptl-detail-photo {
 .ptl-na-contact-affiliation-line { max-width: 100%; font-size: 11.5px; color: var(--ptl-muted, #6b7280); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ptl-na-contact-row-role { display: inline-flex; max-width: 100%; padding: 2px 7px; border: 1px solid var(--ptl-na-role-border, #e5e7eb); border-radius: 4px; background: var(--ptl-na-role-bg, #f3f4f6); color: var(--ptl-na-role-color, #6b7280); font-size: 9px; font-weight: 700; letter-spacing: .055em; line-height: 1.35; text-transform: uppercase; white-space: normal; }
 .ptl-na-contact-detail {
-  padding: 0; background: #fff; min-height: 520px; max-height: 68vh;
+  padding: 0; background: #fff; min-height: 360px; max-height: var(--na-directory-h, 68vh);
   display: flex; flex-direction: column;
   border: 1px solid rgba(29, 37, 103, 0.08); border-radius: 16px;
   box-shadow: 0 4px 24px rgba(29, 37, 103, 0.10);
@@ -2684,7 +2699,8 @@ img.ptl-detail-photo {
   .ptl-na-contact-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ptl-na-table-controls { grid-template-columns: 1fr; }
   .ptl-na-table { min-width: 1080px; table-layout: auto; }
-  .ptl-na-contact-directory { grid-template-columns: 1fr; }
+  /* Stacked, the row is its content again and the page scrolls (a phone has no room to lock). */
+  .ptl-na-contact-directory { grid-template-columns: 1fr; height: auto; }
   .ptl-na-contact-list-shell, .ptl-na-contact-list { max-height: 360px; }
   /* Stacked mode: the detail grows with its content and the page scrolls -
      no nested scroll trap inside a phone-height card. */

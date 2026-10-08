@@ -687,15 +687,14 @@ test('the Nursing Academics tour picks up the utilities that portal gained', () 
   // NA-PORTAL-UTILITIES-1: Messages tab plus both launchers. Each is capability
   // gated server-side; when a capability is off the element is absent and the
   // engine skips the step, so no new context key is needed here.
-  assert.ok(targets.includes('[data-tour="portal-nav-messages"]'))
+  // PORTAL-CONNECT-1 (2026-10-07): Contacts and Messages are behind the header's Connect icon.
+  assert.ok(targets.includes('[data-tour="portal-connect"]'))
+  assert.ok(!targets.includes('[data-tour="portal-nav-messages"]'))
+  assert.ok(!targets.includes('[data-tour="portal-nav-contacts"]'))
   assert.ok(targets.includes('[data-tour="feedback-button"]'))
   assert.ok(targets.includes('[data-tour="portal-messages-launcher"]'))
   assert.match(read('../src/portal/na/NursingAcademicsChrome.jsx'), /data-tour=\{`portal-nav-\$\{key\}`\}/)
-
-  // The Contacts step no longer claims this portal has no messaging.
-  const contacts = getTourSteps('nursing_academic', { userProfile: { full_name: 'Michael M' } })
-    .find(s => s.target === '[data-tour="portal-nav-contacts"]')
-  assert.doesNotMatch(contacts.content, /messaging/)
+  assert.match(read('../src/components/Header/ConnectIconButton.jsx'), /dataTour = 'portal-connect'/)
 })
 
 test('the tooltip gets one explicit, viewport-aware width on every step', () => {
