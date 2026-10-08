@@ -2360,11 +2360,24 @@ hidden as the NE&L sections always were.
   avatar upload and every write keep the NE&L-only guard. **Messages for Talent Acquisition is not
   built**: `api/lib/messagesAuth.js` admits four roles and who HR may message is an Owner decision,
   so the page shows the prepared state the NE&L Portal showed before its capability was switched on.
-- **NE&L Contacts is LOCKED** (NA-CONTACTS-LOCK-1, Owner: "the panes are stuck or frozen, the
-  contents are scrollable"): `useLockedHeight` (useChartViewport.js, a callback ref because the
-  directory mounts after the loading state) gives the two-pane row exactly what the window has
-  left under its top edge less the footer, so the page never scrolls and only the list and the
-  record do; the KPI cards and the search row stay. Phones stack and scroll as before.
+- **The page is drawn as the staff Connect is** (PORTAL-CONNECT-2, Owner, 2026-10-07, same day):
+  on Connect the shell draws NO section nav and NO footer (`PortalShell connectPage`, which also
+  drops the main's bottom padding); the page carries a back pill to the section the person came
+  from (its path rides the router state `from` into Connect and along its tabs and threads; a
+  pasted link goes home) and `PortalNavRefresh` on one row, then "ASPIRE Connect" with its line,
+  then the Contacts | Messages picker. The row and the title scroll away, the picker pins under
+  the nightfall header (`position: sticky; top` = the measured chrome, z-index 10 under the
+  chrome's 20), and the body below it is `useChartViewport`'s height: Contacts is LOCKED to it
+  (NA-CONTACTS-LOCK-1, Owner: "the panes are stuck or frozen, the contents are scrollable": the
+  section is a flex column filling the body, the KPI cards and search row keep their height, the
+  two panes take the rest and only the list and the record scroll); Messages keeps its own
+  scrolling at no less than that height. `.ptl-connect` keeps 12px under the body so the end of
+  the scroll puts the picker exactly under the header. NE&L keeps the page mounted hidden while
+  on other sections, so the hook takes a `remeasureKey` (`${active}:${tab}`) and measures again
+  when the page is shown: a hidden bar measured once would have left it with no height. Phones
+  stack the panes and scroll as before. Measured in a harness with the real shells at 1440x900
+  and 1000x700: picker top equals chrome bottom at the end of the scroll, body bottom is the
+  window less 12, the page scrolls only by the row and the title.
 - **A nested `.ptl-page` has no 100vh minimum** (NESTED-PAGE-1). PortalShell's wrapper is a
   `.ptl-page` and every portal's root is another one inside `<main>`; the inner one inherited
   `min-height: 100vh`, so every portal page scrolled by the chrome's height even when its content

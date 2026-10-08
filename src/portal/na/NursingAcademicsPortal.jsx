@@ -33,7 +33,7 @@ import { PortalConnectHeaderButton, PortalConnectPage } from '../connect/PortalC
 // portals use (variant='nursing_academic'). Enablement is the SERVER capability passed as
 // messagesEnabled (env flag AND applied DB migration), never a client constant; until the server
 // reports enabled, a pasted /portal/academics/messages link shows an honest prepared state.
-export default function NursingAcademicsPortal({ view = 'calendar', messagesEnabled = false, budgetEnabled = false, themesEnabled = false, threadId, onSelectThread, onBackToList, onCommandPeople, unread = 0, onOpenConnect }) {
+export default function NursingAcademicsPortal({ view = 'calendar', messagesEnabled = false, budgetEnabled = false, themesEnabled = false, threadId, onSelectThread, onBackToList, onCommandPeople, unread = 0, onOpenConnect, backPath, backLabel, onBack }) {
   // PORTAL-CONNECT-1: Contacts and Messages are this portal's ASPIRE Connect.
   const onConnect = view === 'contacts' || view === 'messages'
   const { userProfile, user } = useAuth()
@@ -99,10 +99,12 @@ export default function NursingAcademicsPortal({ view = 'calendar', messagesEnab
           Contacts stays mounted and hidden, as it always did. */}
       <div style={{ display: onConnect ? 'block' : 'none' }}>
         <PortalConnectPage
+          active={onConnect}
           tab={view === 'messages' ? 'messages' : 'contacts'}
           onNavigate={onOpenConnect}
           unread={unread}
           messagesEnabled={messagesEnabled}
+          backPath={backPath} backLabel={backLabel} onBack={onBack}
           contacts={<AcademicsContactsView active={view === 'contacts'} />}
           messages={messagesEnabled ? (
             <PortalMessagesWorkspace

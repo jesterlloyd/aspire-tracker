@@ -49,7 +49,7 @@ const CreateCohortDialog  = lazyReload(ngrpPart('CreateCohortDialog'), 'CreateCo
 const EXPERIENCES = [RESIDENCY_EXPERIENCE]
 const stayInResidency = () => {}
 
-export default function ResidencyPortal({ canManage = false, onCommandPeople, connectTab = null, onOpenConnect }) {
+export default function ResidencyPortal({ canManage = false, onCommandPeople, connectTab = null, onOpenConnect, backPath, backLabel, onBack }) {
   const { user } = useAuth()
   const queryClient = useQueryClient()
   const { toasts, removeToast, toast } = useToast()
@@ -133,6 +133,7 @@ export default function ResidencyPortal({ canManage = false, onCommandPeople, co
           <PortalConnectPage
             tab={connectTab}
             onNavigate={onOpenConnect}
+            backPath={backPath} backLabel={backLabel} onBack={onBack}
             contacts={<AcademicsContactsView active={connectTab === 'contacts'} />}
             messages={<EmptyState title="Messages" detail="Secure messaging with the ASPIRE Team will live here. This section is being prepared and is not active yet." />}
           />

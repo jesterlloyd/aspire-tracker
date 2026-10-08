@@ -55,7 +55,8 @@ test('the button shows busy/disabled state and the provider guards concurrent ru
 test('PortalShell provides the refresh context around the nav and children', () => {
   assert.match(shell, /import \{ PortalRefreshProvider \} from '\.\/PortalRefresh'/)
   // RESIDENCY-PORTAL-WIDTH-1: <main> may also carry ptl-main-app (the staff app's column).
-  assert.match(shell, /<PortalRefreshProvider>[\s\S]*\{nav\}[\s\S]*<main className=\{`ptl-main\$\{mainWidth === 'app' \? ' ptl-main-app' : ''\}`\}>\{children\}<\/main>[\s\S]*<\/PortalRefreshProvider>/)
+  // PORTAL-CONNECT-2 (2026-10-07): <main> may also carry ptl-main-connect (no bottom padding on a portal's Connect).
+  assert.match(shell, /<PortalRefreshProvider>[\s\S]*\{nav\}[\s\S]*<main className=\{`ptl-main\$\{mainWidth === 'app' \? ' ptl-main-app' : ''\}\$\{connectPage \? ' ptl-main-connect' : ''\}`\}>\{children\}<\/main>[\s\S]*<\/PortalRefreshProvider>/)
 })
 
 test('the Refresh action appears in all three portal navs', () => {

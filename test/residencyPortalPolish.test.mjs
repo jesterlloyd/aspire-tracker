@@ -29,7 +29,8 @@ test('WIDTH 1: the Residency Portal takes the staff app\'s column, and the pinne
 
 test('SCROLL 2: a page in the staff app\'s column has no footer or bottom padding, as the staff app has none', () => {
   const shell = read('src/portal/PortalShell.jsx')
-  assert.match(shell, /\{mainWidth !== 'app' && \(\s*<footer className="ptl-footer">/)
+  // PORTAL-CONNECT-2 (2026-10-07): a portal's Connect page has no footer either.
+  assert.match(shell, /\{mainWidth !== 'app' && !connectPage && \(\s*<footer className="ptl-footer">/)
   assert.match(read('src/portal/portal.css'), /\.ptl-main\.ptl-main-app \{[^}]*padding-bottom: 0;/)
 })
 

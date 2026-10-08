@@ -239,6 +239,10 @@ export default function PortalShell({
   nav = null,
   utilityLayer = null,
   command = null,
+  // PORTAL-CONNECT-2 (Owner, 2026-10-07): a portal's ASPIRE Connect is drawn like the staff app's:
+  // no section nav under the header (the page carries its own back pill and Refresh), no footer,
+  // and no bottom padding, so the window below the pinned picker is all Contacts.
+  connectPage = false,
   onRestartTour,
   weeklyDigest = null,
   // RESIDENCY-PORTAL-WIDTH-1: 'app' gives the page the staff app's column (.app-main) instead of
@@ -325,12 +329,12 @@ export default function PortalShell({
           {nav}
         </div>
         {utilityLayer}
-        <main className={`ptl-main${mainWidth === 'app' ? ' ptl-main-app' : ''}`}>{children}</main>
+        <main className={`ptl-main${mainWidth === 'app' ? ' ptl-main-app' : ''}${connectPage ? ' ptl-main-connect' : ''}`}>{children}</main>
         {/* RESIDENCY-PORTAL-SCROLL-2: a page in the staff app's column is a staff page, and the
             staff app has no footer. Under the Residency Portal's pinned split the footer and the
             bottom padding took 95px a short window could not spare (at 645px of height the split
             hit its 420px floor and the page scrolled it under the pinned bar). */}
-        {mainWidth !== 'app' && (
+        {mainWidth !== 'app' && !connectPage && (
           <footer className="ptl-footer">
             {organization?.display_name || 'Cedars-Sinai'} · ASPIRE Intelligence
           </footer>

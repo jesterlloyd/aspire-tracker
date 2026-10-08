@@ -319,9 +319,11 @@ test('Deactivate/Reactivate lives in a full-width bar at the card bottom, Connec
 
 test('the list and detail cards stretch to the same height, scrolling internally', () => {
   assert.match(css, /\.ptl-na-contact-directory \{ display: grid;[^}]*align-items: stretch;/)
-  // NA-CONTACTS-LOCK-1 (2026-10-07): the cap is the locked row height, 68vh until it is measured.
-  assert.match(css, /\.ptl-na-contact-detail \{[\s\S]{0,200}?max-height: var\(--na-directory-h, 68vh\);/)
-  assert.match(css, /\.ptl-na-contact-directory \{[^}]*height: var\(--na-directory-h, auto\);/)
+  // NA-CONTACTS-LOCK-1 / PORTAL-CONNECT-2 (2026-10-07): the row fills the Connect page's locked
+  // body by flex; the cards cap at the row.
+  assert.match(css, /\.ptl-na-contact-detail \{[\s\S]{0,200}?max-height: 100%;/)
+  assert.match(css, /\.ptl-na-contact-directory \{[^}]*flex: 1 1 auto;/)
+  assert.match(css, /\.ptl-connect-body > \.ptl-na-contacts \{ height: 100%; \}/)
   assert.match(css, /\.ptl-na-contact-detail-body \{[^}]*flex: 1; overflow-y: auto;/)
   // Stacked mode releases the cap so the page scrolls naturally.
   assert.match(css, /\.ptl-na-contact-detail \{ max-height: none; min-height: 0; \}/)
@@ -367,9 +369,13 @@ test('the Contacts chrome is consolidated: no heading block, controls in one row
   assert.doesNotMatch(contacts, /Manage the ASPIRE contact directory/)
   assert.doesNotMatch(contacts, /of \{directoryContacts\.length\} contacts/)
   assert.match(contacts, /<section className="ptl-na-contacts" aria-label="Contacts">/)
-  // NA-CONTACTS-LOCK-1: the directory row carries the locked height, measured from elements.
-  assert.match(contacts, /useLockedHeight\(\)/)
-  assert.match(contacts, /className="ptl-na-contact-directory" ref=\{directoryRef\} style=\{\{ '--na-directory-h'/)
+  // PORTAL-CONNECT-2: the Connect page measures the locked body (useChartViewport); the directory fills it.
+  assert.doesNotMatch(contacts, /useLockedHeight/)
+  assert.match(read("src/portal/connect/PortalConnect.jsx"), /useChartViewport\(`\$\{active\}:\$\{tab\}`\)/)
+  assert.match(read('src/portal/connect/PortalConnect.jsx'), /<BackButton label=\{`Back to \$\{backLabel\}`\}/)
+  assert.match(read('src/portal/connect/PortalConnect.jsx'), /<PortalNavRefresh/)
+  assert.match(read('src/portal/PortalApp.jsx'), /connectPage=\{naOnConnect\}/)
+  assert.match(read('src/portal/PortalApp.jsx'), /nav=\{naOnConnect \? null : <NursingAcademicsNav/)
   // Add contact sits in the controls row between search and Copy visible emails.
   // NA-CONTACTS-SCOPE-2 order: Add contact, search, scope filter, copy, CSV.
   assert.match(contacts, /Add contact[\s\S]{0,1400}?ptl-na-contact-search[\s\S]{0,1400}?ptl-na-scope-filter[\s\S]{0,1400}?Copy visible emails[\s\S]{0,1400}?Download CSV/)

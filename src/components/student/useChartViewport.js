@@ -15,7 +15,7 @@
 // chrome's height is 110px and the `--app-chrome-height` token says 112, and neither is
 // a number this file should be guessing at.
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 // The chart never gets less than this, however short the window. Below it the page
 // scrolls to reach the bottom of the binder, which beats crushing it.
@@ -65,7 +65,12 @@ function trailingBelow(tab) {
   return Math.round(total)
 }
 
-export function useChartViewport() {
+/**
+ * `remeasureKey`: a host whose bar is mounted hidden and shown later (a portal's Connect page
+ * stays mounted so Contacts keeps its state) changes this when the bar becomes visible, so the
+ * measurement runs again without waiting on a ResizeObserver frame.
+ */
+export function useChartViewport(remeasureKey = null) {
   const barRef = useRef(null)
   const [chartHeight, setChartHeight] = useState(null)
   const [toolbarTop, setToolbarTop] = useState(0)
@@ -106,46 +111,7 @@ export function useChartViewport() {
     const chrome = stickyChrome()
     if (chrome && ro) ro.observe(chrome)
     return () => { window.removeEventListener('resize', measure); ro?.disconnect() }
-  }, [])
+  }, [remeasureKey])
 
   return { barRef, chartHeight, toolbarTop, chartTop }
-}
-
-/**
- * NA-CONTACTS-LOCK-1 (Owner, 2026-10-07): a page that is LOCKED below the chrome. Nothing above
- * the element scrolls away (Student Profiles' rule hides its KPI cards; this one keeps them), the
- * element takes exactly what the window has left under its own top edge, less whatever the page
- * draws after it (a portal's footer), and the page itself never scrolls: only the element's
- * contents do. NE&L Portal > Contacts is the first host (the list and the record are its two
- * scrollers). Measured the same way the chart is, from elements, never from scrollHeight.
- */
-export function useLockedHeight(minHeight = 360, gap = BOTTOM_GAP) {
-  // A callback ref, not a ref object: the host mounts the element AFTER its loading state, so
-  // an effect keyed on mount would run once with no element and never again.
-  const [el, setEl] = useState(null)
-  const ref = useCallback(node => setEl(node), [])
-  const [height, setHeight] = useState(null)
-
-  useEffect(() => {
-    if (!el) return undefined
-    const measure = () => {
-      const rect = el.getBoundingClientRect()
-      if (!rect.height) return
-      const top = rect.top + window.scrollY
-      const next = Math.max(minHeight, Math.round(window.innerHeight - top - Math.max(gap, trailingBelow(el))))
-      setHeight(prev => (prev === next ? prev : next))
-    }
-    measure()
-    window.addEventListener('resize', measure)
-    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null
-    // The element's own size, and whatever sits above it in the page (a wrapped KPI row moves
-    // its top edge).
-    ro?.observe(el)
-    if (el.parentElement && ro) ro.observe(el.parentElement)
-    const chrome = stickyChrome()
-    if (chrome && ro) ro.observe(chrome)
-    return () => { window.removeEventListener('resize', measure); ro?.disconnect() }
-  }, [el, minHeight, gap])
-
-  return { ref, height }
 }

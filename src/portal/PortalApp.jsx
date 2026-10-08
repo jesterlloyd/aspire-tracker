@@ -58,7 +58,8 @@ import { AcademicPartnerNav } from './ap/AcademicPartnerChrome'
 import { NursingAcademicsNav } from './na/NursingAcademicsChrome'
 // RESIDENCY-PORTAL-1: the fifth portal experience (Cedars-Sinai Talent Acquisition).
 import { ResidencyNav } from './residency/ResidencyChrome'
-import { resolveNgrpPath, ngrpPath, RESIDENCY_PORTAL_BASE } from '../lib/ngrp/ngrpTabs'
+import { NAV_LABELS } from '../lib/navigationCanon'
+import { resolveNgrpPath, ngrpPath, RESIDENCY_PORTAL_BASE, NGRP_TABS } from '../lib/ngrp/ngrpTabs'
 import { canManageNgrp } from '../lib/ngrp/ngrpAccess'
 import PortalCohortLoginHint from './PortalCohortLoginHint'
 import PortalMessagesWorkspace from './messages/PortalMessagesWorkspace'
@@ -169,6 +170,7 @@ function naLegacyConnectPath(pathname) {
   const m = /^\/portal\/academics\/(contacts|messages)(\/[^/]+)?\/?$/.exec(pathname)
   return m ? `${NA_CONNECT_PATH}/${m[1]}${m[2] || ''}` : null
 }
+const NA_SECTION_LABELS = { calendar: NAV_LABELS.atAGlance, 'community-benefit': NAV_LABELS.communityBenefit, budget: NAV_LABELS.programBudgets, evaluation: NAV_LABELS.evaluation }
 // The Residency Portal's Connect lives beside the workspace's own tabs.
 const RESIDENCY_CONNECT_RE = /^\/portal\/residency\/connect(\/|$)/
 function residencyConnectTab(pathname) {
@@ -295,22 +297,32 @@ export default function PortalApp() {
   // NURSING-ACADEMICS-1 section routing.
   const naView = naViewFromPath(location.pathname)
   const naThreadId = naThreadIdFromPath(location.pathname)
+  // PORTAL-CONNECT-2: the Connect page's back pill returns to the section the person came from.
+  // The section's path rides the router state (`from`) into Connect and is carried along while
+  // they move between its tabs and threads; a pasted Connect link has none and goes home.
+  const naOnConnect = naView === 'contacts' || naView === 'messages'
+  const naFrom = (naOnConnect && location.state?.from) || null
   const goNaSection = useCallback((key) => {
     if (staffPreview && key === 'messages') {
       navigate('/connect/messages')
       return
     }
     // PORTAL-CONNECT-1: Contacts and Messages are the portal's Connect.
-    if (key === 'contacts' || key === 'messages') { navigate(`${NA_CONNECT_PATH}/${key}`); return }
+    if (key === 'contacts' || key === 'messages') {
+      navigate(`${NA_CONNECT_PATH}/${key}`, { state: { from: naOnConnect ? naFrom : location.pathname } })
+      return
+    }
     navigate(`/portal/academics/${key}`)
-  }, [navigate, staffPreview])
+  }, [navigate, staffPreview, naOnConnect, naFrom, location.pathname])
+  const naBackPath = naFrom || '/portal/academics/calendar'
+  const naBackLabel = NA_SECTION_LABELS[naViewFromPath(naBackPath)] || NAV_LABELS.atAGlance
   // A legacy NE&L Contacts or Messages path is replaced with its Connect path on arrival.
   const naLegacyPath = naLegacyConnectPath(location.pathname)
   useEffect(() => { if (naLegacyPath) navigate(naLegacyPath + location.search, { replace: true }) }, [naLegacyPath, location.search, navigate])
   const openApThread = useCallback((id) => navigate(`/portal/ap/messages/${id}`), [navigate])
   const apBackToList = useCallback(() => navigate('/portal/ap/messages'), [navigate])
-  const openNaThread = useCallback((id) => navigate(`${NA_CONNECT_PATH}/messages/${id}`), [navigate])
-  const naBackToList = useCallback(() => navigate(`${NA_CONNECT_PATH}/messages`), [navigate])
+  const openNaThread = useCallback((id) => navigate(`${NA_CONNECT_PATH}/messages/${id}`, { state: { from: naFrom } }), [navigate, naFrom])
+  const naBackToList = useCallback(() => navigate(`${NA_CONNECT_PATH}/messages`, { state: { from: naFrom } }), [navigate, naFrom])
   // RESIDENCY-PORTAL-1: the Residency Portal's sections are the workspace's own
   // routes under /portal/residency; the nav and the workspace read one resolver.
   const residencyRoute = resolveNgrpPath(location.pathname, RESIDENCY_PORTAL_BASE)
@@ -320,7 +332,13 @@ export default function PortalApp() {
   )
   // PORTAL-CONNECT-1: on the Residency Portal's Connect no workspace tab is current.
   const residencyConnect = residencyConnectTab(location.pathname)
-  const goResidencyConnect = useCallback((key) => navigate(`${RESIDENCY_PORTAL_BASE}/connect/${key}`), [navigate])
+  const residencyFrom = (residencyConnect && location.state?.from) || null
+  const goResidencyConnect = useCallback(
+    (key) => navigate(`${RESIDENCY_PORTAL_BASE}/connect/${key}`, { state: { from: residencyConnect ? residencyFrom : location.pathname } }),
+    [navigate, residencyConnect, residencyFrom, location.pathname],
+  )
+  const residencyBackPath = residencyFrom || `${RESIDENCY_PORTAL_BASE}/overview`
+  const residencyBackLabel = NGRP_TABS.find(t => t.id === resolveNgrpPath(residencyBackPath, RESIDENCY_PORTAL_BASE).tab)?.label || NAV_LABELS.atAGlance
 
   const isStudent = (access?.roles || []).includes('student')
   // UL-POLISH P0: the idle unread poll runs for Unit Leaders too, so the
@@ -886,7 +904,8 @@ export default function PortalApp() {
         portalSwitcher={staffMenu.portalSwitcher}
         roleLabel={staffMenu.roleLabel}
         portalUserActionsEnabled={!staffPreview}
-        nav={<NursingAcademicsNav view={naView} onNavigate={goNaSection} budgetEnabled={naBudgetEnabled} themesEnabled={naThemesEnabled} />}
+        connectPage={naOnConnect}
+        nav={naOnConnect ? null : <NursingAcademicsNav view={naView} onNavigate={goNaSection} budgetEnabled={naBudgetEnabled} themesEnabled={naThemesEnabled} />}
         utilityLayer={(
           staffPreview ? (
             <StaffPreviewUtilities portalName="Nursing Education & Leadership Portal" section={naView} />
@@ -906,7 +925,7 @@ export default function PortalApp() {
           <NursingAcademicsPortal view={naView}
             messagesEnabled={naMessagesEnabled} budgetEnabled={naBudgetEnabled} themesEnabled={naThemesEnabled}
             onCommandPeople={setCommandPeople}
-            unread={unread} onOpenConnect={goNaSection}
+            unread={unread} onOpenConnect={goNaSection} backPath={naBackPath} backLabel={naBackLabel} onBack={path => navigate(path)}
             threadId={naThreadId} onSelectThread={openNaThread} onBackToList={naBackToList} />
         </Suspense>
         {!staffPreview && photoDialog}
@@ -935,14 +954,16 @@ export default function PortalApp() {
         portalUserActionsEnabled={!staffPreview}
         weeklyDigest={residencyDigest}
         mainWidth="app"
-        nav={<ResidencyNav tab={residencyConnect ? null : residencyRoute.tab} onNavigate={goResidencyTab} />}
+        connectPage={Boolean(residencyConnect)}
+        nav={residencyConnect ? null : <ResidencyNav tab={residencyRoute.tab} onNavigate={goResidencyTab} />}
         utilityLayer={staffPreview ? <StaffPreviewUtilities portalName="Residency Portal" section={residencyConnect ? 'connect' : residencyRoute.tab} /> : null}>
         {/* Joint ownership (Owner): Talent Acquisition manages residency records and cohort
             settings alongside the ASPIRE team. A staff preview shows what that staff member
             may manage. The server decides either way. */}
         <Suspense fallback={<PortalLoading label="Loading the residency workspace" />}>
           <ResidencyPortal canManage={staffPreview ? canManageNgrp(userProfile) : true} onCommandPeople={setCommandPeople}
-            connectTab={residencyConnect} onOpenConnect={goResidencyConnect} />
+            connectTab={residencyConnect} onOpenConnect={goResidencyConnect}
+            backPath={residencyBackPath} backLabel={residencyBackLabel} onBack={path => navigate(path)} />
         </Suspense>
         {!staffPreview && photoDialog}
       </PortalShell>
