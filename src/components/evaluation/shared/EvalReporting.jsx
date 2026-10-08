@@ -88,6 +88,38 @@ export function EvalMetricAverages({ averages }) {
   )
 }
 
+/**
+ * UL-CHOICE-WORDS-1: the Preceptor's Assessment answers as words, one card per question, each
+ * phrase with how many released responses gave it (most first). Words only, no score: the
+ * phrases are not on a scale this screen may invent.
+ */
+export function EvalChoiceCounts({ counts }) {
+  const entries = Object.entries(counts || {})
+  if (entries.length === 0) return null
+  return (
+    <div style={{ display: 'grid', gap: 8, gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', fontFamily: F }}>
+      {entries.map(([path, byWord]) => (
+        <div key={path} style={{ padding: '12px 14px', borderRadius: 12, border: '1px solid #eef0f2', background: '#fff' }}>
+          <div style={{ fontSize: 11.5, fontWeight: 700, color: '#4A5560', display: 'flex', alignItems: 'center', gap: 6 }}>
+            {metricLabel(path)}
+            {metricKind(path) === 'context' && (
+              <span style={{ fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4, color: '#6b7280', border: '1px solid #e5e7eb', borderRadius: 6, padding: '1px 5px' }}>Context</span>
+            )}
+          </div>
+          <ul style={{ listStyle: 'none', margin: '6px 0 0', padding: 0, display: 'grid', gap: 3 }}>
+            {Object.entries(byWord).sort((a, b) => b[1] - a[1]).map(([word, n]) => (
+              <li key={word} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12.5, color: '#191919' }}>
+                <span>{word}</span>
+                <span style={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: '#0E1428' }}>{n}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 /** The anonymous quantitative response table. Rows carry no identifier; a click opens the modal. */
 export function EvalQuantTable({ responses, metricPaths, onOpen }) {
   return (

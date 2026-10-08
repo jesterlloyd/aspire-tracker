@@ -31,7 +31,10 @@ test('fmtMetric formats integers plainly and decimals to two places; blanks on n
   assert.equal(fmtMetric(4), '4')
   assert.equal(fmtMetric(4.5), '4.50')
   assert.equal(fmtMetric(null), '—')
-  assert.equal(fmtMetric('x'), '—')
+  // UL-CHOICE-WORDS-1 (2026-10-07) changed this: a Preceptor's Assessment answer arrives as its
+  // own fixed phrase (the server passes nothing else) and is shown as written; blank text is a dash.
+  assert.equal(fmtMetric('Yes, enthusiastically'), 'Yes, enthusiastically')
+  assert.equal(fmtMetric('  '), '—')
 })
 test('the no-approved-metrics message is the exact required copy', () => {
   assert.equal(NO_APPROVED_METRICS_MESSAGE,

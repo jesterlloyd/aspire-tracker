@@ -26,14 +26,15 @@ export function isAwaitingModeration(item) {
 export function leaderSees(row) {
   const values = row?.leader_sees || {}
   return instrumentMetricPaths(row?.instrument_slug)
-    .filter(path => typeof values[path] === 'number')
+    .filter(path => typeof values[path] === 'number' || typeof values[path] === 'string')
     .map(path => {
       const value = values[path]
       if (path === OVERALL) {
         return { path, label: metricLabel(path), value, text: `${OVERALL_RATING_WORDS[value] || fmtMetric(value)}`,
           tone: value >= 4 ? 'ok' : value === 3 ? 'warn' : 'bad' }
       }
-      return { path, label: metricLabel(path), value, text: `${metricLabel(path)} ${fmtMetric(value)}`, tone: 'plain' }
+      // UL-CHOICE-WORDS-1: a Preceptor's Assessment answer is its own phrase.
+      return { path, label: metricLabel(path), value, text: typeof value === 'string' ? `${metricLabel(path)}: ${value}` : `${metricLabel(path)} ${fmtMetric(value)}`, tone: 'plain' }
     })
 }
 

@@ -2508,3 +2508,17 @@ into one stack per unit, the way Apple groups notifications by app (Owner). Refe
 - **The sheets beneath peek out in Classic** (Owner: "peek sheets fine"), drawn as layered
   box-shadows because a pseudo-element under the card is painted over by the board. Modern draws
   the stack as a plain card.
+
+## Unit leaders see the preceptor's answers in words (UL-CHOICE-WORDS-1, 2026-10-07)
+
+Owner: "show answers as words". The Preceptor's Assessment stores its readiness and endorsement
+answers as fixed phrases, and the release gate passed numbers only, so a released preceptor
+response showed its unit leader nothing. Now a phrase passes **only when it is exactly one of the
+question's own options**: `evaluation_unit_choice_keys` in the database
+(`20261113000000_ul_eval_choice_answers.sql`, Owner-gated) and `CHOICE_OPTIONS` on the server
+(`lib/server/unitEvaluations/config.js`, read from `preceptor_progress_validation.js`; a test holds
+the two equal). `sanitizeQuantitative` keeps a listed phrase, `sanitizeChoiceCounts` shapes the
+summary's `choice_counts`, and `assertUnitLeaderShape` throws on any other string, so a typed
+comment can never reach a unit leader. The portal shows them as Preceptor Answers (each phrase with
+its count) and in the response table and modal as written; Review & Release's stacks show the same
+phrase. Never add a free-text path to either list.

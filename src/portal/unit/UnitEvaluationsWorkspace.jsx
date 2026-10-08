@@ -30,7 +30,7 @@ import {
   NO_APPROVED_METRICS_MESSAGE,
 } from '../../lib/unitEvaluationDisplay'
 import {
-  EvalKpiCard, EvalInstrumentCard, EvalPicker, EvalMetricAverages, EvalQuantTable,
+  EvalKpiCard, EvalInstrumentCard, EvalPicker, EvalMetricAverages, EvalChoiceCounts, EvalQuantTable,
   EvalEmpty, EvalNoMetrics,
 } from '../../components/evaluation/shared/EvalReporting'
 import EvalQuantModal from '../../components/evaluation/shared/EvalQuantModal'
@@ -170,8 +170,16 @@ export default function UnitEvaluationsWorkspace({ unitKeys = [] }) {
             />
           ) : (
             <>
-              <h3 className="ptl-card-title" style={{ margin: '4px 0 8px' }}>Quantitative Averages</h3>
-              <EvalMetricAverages averages={averages} />
+              {/* UL-CHOICE-WORDS-1: an instrument answered in words (the Preceptor's Assessment)
+                  has no averages, so its answers take that place under their own title. */}
+              {(Object.keys(averages).length > 0 || Object.keys(payload?.choice_counts || {}).length === 0) && <>
+                <h3 className="ptl-card-title" style={{ margin: '4px 0 8px' }}>Quantitative Averages</h3>
+                <EvalMetricAverages averages={averages} />
+              </>}
+              {Object.keys(payload?.choice_counts || {}).length > 0 && <>
+                <h3 className="ptl-card-title" style={{ margin: '16px 0 8px' }}>Preceptor Answers</h3>
+                <EvalChoiceCounts counts={payload.choice_counts} />
+              </>}
 
               <h3 className="ptl-card-title" style={{ margin: '20px 0 8px' }}>Individual Responses</h3>
               <EvalQuantTable responses={responses} metricPaths={metricPaths} onOpen={openRow} />

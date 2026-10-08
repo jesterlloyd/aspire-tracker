@@ -75,7 +75,7 @@ export default function EvalQuantModal({ response, instrumentSlug, timepointLabe
                     {metricLabel(p)}
                     {metricKind(p) === 'context' && <span style={{ marginLeft: 6, fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4, color: '#9ca3af' }}>Context</span>}
                   </dt>
-                  <dd style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#0E1428', fontVariantNumeric: 'tabular-nums' }}>{fmtMetric(response.quantitative[p])}</dd>
+                  <dd style={{ margin: 0, fontSize: typeof response.quantitative[p] === 'string' ? 14 : 18, fontWeight: 700, color: '#0E1428', fontVariantNumeric: 'tabular-nums' }}>{fmtMetric(response.quantitative[p])}</dd>
                 </div>
               ))}
             </dl>

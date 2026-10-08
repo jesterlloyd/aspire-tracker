@@ -60,8 +60,10 @@ export function instrumentLabel(slug) {
 export const NO_APPROVED_METRICS_MESSAGE =
   'Released responses are available, but no approved quantitative metrics are configured for display.'
 
-// Format a metric value for display: integers plain, others to 2 decimals.
+// Format a metric value for display: integers plain, others to 2 decimals. UL-CHOICE-WORDS-1:
+// a Preceptor's Assessment answer arrives as its own fixed phrase and is shown as written.
 export function fmtMetric(v) {
+  if (typeof v === 'string' && v.trim()) return v
   if (v === null || v === undefined || typeof v !== 'number' || !Number.isFinite(v)) return '—'
   return Number.isInteger(v) ? String(v) : v.toFixed(2)
 }
