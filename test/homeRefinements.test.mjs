@@ -359,3 +359,12 @@ test('CLASSIC DESK 4: the desk wears the mockup\'s colours, stitching over the l
   const i = css.indexOf('.hm-window-glass {')
   assert.doesNotMatch(css.slice(i, css.indexOf('}', i)), /inset 0 1px 0 rgba\(255, 255, 255|inset 0 0 0 1px rgba\(255, 255, 255/)
 })
+
+// CITY-TIME-1 (Owner, 2026-10-08): the banner hides the service's centre clock, so it asks
+// the service's caption for the chosen city's time beside its name ("Reine · 7:12 PM").
+test('CITY-TIME-1: the home banner shows the city time the service keeps hidden', () => {
+  const src = readFileSync(new URL('../src/components/home/HomeBanner.jsx', import.meta.url), 'utf8')
+  const rule = src.match(/const HIDE_SERVICE_CLOCK = ([\s\S]*?)\n\n/)?.[1] || ''
+  assert.match(rule, /\.mast-clock\{display:none!important\}/)
+  assert.match(rule, /\.wx-mast-localtime\{display:inline!important\}/)
+})

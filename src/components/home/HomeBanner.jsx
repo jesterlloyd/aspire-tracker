@@ -39,8 +39,13 @@ function useMinuteClock() {
 // corner and shadow: the banner's scenery layer is the ONE edge that rounds and clips, because
 // three stacked anti-aliased 12px curves (the navy fallback, the clip, the card's white face)
 // left a dark fringe at every corner (Owner, 2026-09-25: "shadows in the edges").
+// With the centre clock hidden and the launcher in the middle of the scene, the chosen
+// city's time had nowhere to show (Owner, 2026-10-08: "Reine • 10:00 AM?"), so the
+// service's caption carries it after the city's name, hidden unless a host asks: this
+// is the asking (.wx-mast-localtime, Skyline's SKYLINE-CITY-TIME-2).
 const HIDE_SERVICE_CLOCK = '.mast-greet,.mast-date,.mast-clock{display:none!important}'
   + '.mast{margin-top:0!important;border-radius:0!important;box-shadow:none!important}'
+  + '.wx-mast-localtime{display:inline!important}'
 
 // The glass's reflection travels as the page scrolls: the bands slide sideways by a share of
 // how far the window has moved. Any scroll container counts (capture), and nothing moves
