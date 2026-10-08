@@ -13,7 +13,7 @@
 
 /* global process */
 import { createClient } from '@supabase/supabase-js';
-import { verifyPortalCaller, getServiceDb } from './portalAuth.js';
+import { verifyPortalCaller, getServiceDb, hasActiveRoleGrant } from './portalAuth.js';
 import { verifyPortalUnitLeaderCaller } from './unitLeaderScope.js';
 import { verifyPortalAcademicPartnerCaller } from './schoolScope.js';
 import { verifyPortalNursingAcademicCaller } from './nursingAcademicScope.js';
@@ -120,6 +120,23 @@ export async function verifyPortalMessagesCaller(req) {
       ok: true,
       profile: asNursingAcademic.profile,
       actorKind: 'nursing_academic',
+      studentIds: [],
+      unitKeys: [],
+      schoolKeys: [],
+    };
+  }
+
+  // TA-MESSAGES-1: Talent Acquisition is admitted LAST, only when the caller is none of the other
+  // kinds, so no existing behavior changes. An ACTIVE talent_acquisition grant is the whole
+  // requirement (the role is org-wide, like Nursing Education & Leadership). The database stays
+  // fail-closed until 20261114000000 is applied: no row admits the role before it.
+  const asPortal = await verifyPortalCaller(req);
+  if (asPortal.authenticated
+      && await hasActiveRoleGrant(getServiceDb(), asPortal.profile.id, 'talent_acquisition')) {
+    return {
+      ok: true,
+      profile: asPortal.profile,
+      actorKind: 'talent_acquisition',
       studentIds: [],
       unitKeys: [],
       schoolKeys: [],

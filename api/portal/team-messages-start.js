@@ -25,6 +25,7 @@ import { validateBody, isUuid } from '../../lib/server/messages/validation.js';
 import { startGeneralTeamConversationForPortal } from '../../lib/server/messages/conversationService.js';
 import { resolveApMessagingCapability } from '../lib/apMessagingCapability.js';
 import { resolveNaMessagingCapability } from '../lib/naPortalUtilitiesCapability.js';
+import { isPrivateMessagingCapable } from '../lib/taMessagingCapability.js';
 
 // school_key is accepted only to carry an Academic Partner's selected school; it is ignored for
 // student / unit_leader callers (verified and consumed only on the academic_partner path below).
@@ -58,6 +59,11 @@ export default async function handler(req, res) {
     if (!naCapable) {
       return res.status(503).json({ error: 'messaging_not_enabled', reason: 'na_messaging_capability_unavailable' });
     }
+  }
+
+  // TA-MESSAGES-1: Talent Acquisition's ASPIRE Team thread exists once 20261114000000 is applied.
+  if (caller.actorKind === 'talent_acquisition' && !(await isPrivateMessagingCapable(getServiceDb()))) {
+    return res.status(503).json({ error: 'messaging_not_enabled', reason: 'ta_messaging_capability_unavailable' });
   }
 
   const parsed = readJsonBody(req);

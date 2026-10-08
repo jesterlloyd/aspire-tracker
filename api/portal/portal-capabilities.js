@@ -13,6 +13,7 @@
 import { verifyPortalCaller, getServiceDb } from '../lib/portalAuth.js'
 import { resolveApMessagingCapability } from '../lib/apMessagingCapability.js'
 import { resolveNaMessagingCapability, resolveNaFeedbackCapability } from '../lib/naPortalUtilitiesCapability.js'
+import { isPrivateMessagingCapable } from '../lib/taMessagingCapability.js'
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
@@ -32,20 +33,25 @@ export default async function handler(req, res) {
   let apMessaging
   let naMessaging
   let naFeedback
+  let privateMessaging
   try {
     const db = getServiceDb()
     apMessaging = await resolveApMessagingCapability(db)
     naMessaging = await resolveNaMessagingCapability(db)
     naFeedback = await resolveNaFeedbackCapability(db)
+    // TA-MESSAGES-1: private conversations and Talent Acquisition's Messages (database only).
+    privateMessaging = await isPrivateMessagingCapable(db)
   } catch {
     apMessaging = false
     naMessaging = false
     naFeedback = false
+    privateMessaging = false
   }
 
   return res.status(200).json({
     ap_messaging: apMessaging === true,
     na_messaging: naMessaging === true,
     na_feedback: naFeedback === true,
+    private_messaging: privateMessaging === true,
   })
 }

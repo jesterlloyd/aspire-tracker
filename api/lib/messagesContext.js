@@ -169,9 +169,39 @@ export async function classifyPortalConversations(db, conversations, viewerProfi
       ]));
     }
 
+    // TA-MESSAGES-1: a thread with Talent Acquisition on either side is PRIVATE and is named for
+    // the other person. Their names come only for conversations this caller already received.
+    const taCounterpartIds = new Set();
+    for (const parts of byConversation.values()) {
+      if (parts.some((p) => p.participant_role === 'talent_acquisition')) {
+        for (const p of parts) if (p.participant_profile_id !== viewerProfileId) taCounterpartIds.add(p.participant_profile_id);
+      }
+    }
+    let personName = new Map();
+    if (taCounterpartIds.size > 0) {
+      const { data: people } = await db.from('user_profiles').select('id, full_name').in('id', [...taCounterpartIds]);
+      personName = new Map((people || []).map((u) => [u.id, u.full_name || null]));
+    }
+
     return conversations.map((conversation) => {
       const parts = byConversation.get(conversation.id) || [];
       const hasOtherPortalParticipant = parts.some((p) => p.participant_profile_id !== viewerProfileId);
+      if (hasOtherPortalParticipant && parts.some((p) => p.participant_role === 'talent_acquisition')) {
+        const other = parts.find((p) => p.participant_profile_id !== viewerProfileId);
+        const roleWord = other?.participant_role === 'talent_acquisition' ? 'Talent Acquisition'
+          : other?.participant_role === 'unit_leader' ? 'Unit Leader' : 'Alumnus';
+        return {
+          ...conversation,
+          thread_kind: 'private',
+          is_private: true,
+          context_student_id: null,
+          context_student_name: null,
+          counterpart_name: personName.get(other?.participant_profile_id) || roleWord,
+          counterpart_role: roleWord,
+          context_label: `${personName.get(other?.participant_profile_id) || roleWord} · ${roleWord}`,
+          direct_student_name: null,
+        };
+      }
       const viewerPart = parts.find((p) => p.participant_profile_id === viewerProfileId) || parts[0] || null;
       const contextStudentId = viewerPart?.scope_student_id || relatedByConversation.get(conversation.id) || null;
       const contextStudentName = contextStudentId ? nameOf.get(contextStudentId) || null : null;
@@ -180,6 +210,8 @@ export async function classifyPortalConversations(db, conversations, viewerProfi
         return {
           ...conversation,
           thread_kind: 'direct_student',
+          // TA-MESSAGES-1 (Owner): the unit leader to student direct thread is private too.
+          is_private: true,
           context_student_id: contextStudentId,
           context_student_name: contextStudentName,
           context_label: contextStudentName || 'Student',
