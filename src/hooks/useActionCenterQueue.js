@@ -15,7 +15,7 @@ import {
 import { supabase } from '../lib/supabase'
 import { keithCheckin } from '../lib/keith/keithCheckinApi'
 import {
-  applySnoozes, firstNameFirst, normalizeHomeQueue, normalizeSupportQueue, sortQueue,
+  applySnoozes, firstNameFirst, isFinishedCohort, normalizeHomeQueue, normalizeSupportQueue, sortQueue,
 } from '../lib/actionCenter/queueModel'
 
 const WORKFLOWS = SURVEY_CATALOG.map(s => ({ key: s.key, label: s.label }))
@@ -82,12 +82,13 @@ export function useActionCenterQueue({ enabled = true, includeOtherCohorts = fal
   const qOther = useQuery({
     queryKey: ['action_center_other_cohorts', cohorts.map(c => c.id).join(','), cohortId, today],
     queryFn: async () => Promise.all(cohorts.filter(c => c.id !== cohortId).map(async cohort => {
+      const finished = isFinishedCohort(cohort)   // FINISHED-COHORTS-1: evaluations only
       const [studentRes, unitRes, communicationRes, rotationRes, interviewRes, reviewRes] = await Promise.all([
         supabase.from('students').select('*').eq('cohort_id', cohort.id),
         supabase.from('units').select('*').eq('cohort_id', cohort.id),
         supabase.from('communications').select('*').eq('cohort_id', cohort.id),
-        loadRotationWindows(cohort.id).catch(() => []),
-        loadTodaysInterviews(cohort.id, today).catch(() => null),
+        finished ? Promise.resolve(null) : loadRotationWindows(cohort.id).catch(() => []),
+        finished ? Promise.resolve(null) : loadTodaysInterviews(cohort.id, today).catch(() => null),
         canManage ? loadReviewQueues(cohort.id).catch(() => null) : Promise.resolve(null),
       ])
       return {
@@ -109,6 +110,8 @@ export function useActionCenterQueue({ enabled = true, includeOtherCohorts = fal
   const personalConversations = useMemo(() => qMessages.data || [], [qMessages.data])
   const unitById = useMemo(() => new Map(units.map(u => [u.id, u.unit_name])), [units])
 
+  // FINISHED-COHORTS-1: the cohort in scope, when it is finished, shows no placement or interviews.
+  const activeFinished = isFinishedCohort(cohorts.find(c => c.id === cohortId))
   const groups = useMemo(() => {
     const out = []
     if (qSig.data) out.push(signaturesGroup({ requests: qSig.data.requests, signers: qSig.data.signers, meId: qSig.data.me?.id || userProfile?.id, now }))
@@ -119,12 +122,12 @@ export function useActionCenterQueue({ enabled = true, includeOtherCohorts = fal
       items: qCat.data.items.filter(item => item.kind !== 'signature' || sigFlag.allowed),
       now,
     }))
-    if (qIv.data) out.push(interviewsGroup({
+    if (qIv.data && !activeFinished) out.push(interviewsGroup({
       slots: scopedSlots, students, communications,
       interviewerNameFor: slot => qIv.data?.blocksById?.[slot.block_id]?.interviewer_name || slot.interviewer_name || '',
       displayName: firstNameFirst, now,
     }))
-    if (qRot.data) out.push(placementGroup({
+    if (qRot.data && !activeFinished) out.push(placementGroup({
       students, units, rotations: qRot.data, schoolKey: schoolGroupKey,
       unitNameFor: id => unitById.get(id) || '', displayName: firstNameFirst, today, now,
     }))
@@ -132,7 +135,7 @@ export function useActionCenterQueue({ enabled = true, includeOtherCohorts = fal
     if (qKnowledge.data) out.push(knowledgeGroup({ waiting: qKnowledge.data.waiting, now }))
     if (qResidencyDocs.data) out.push(residencyDocsGroup({ ...qResidencyDocs.data, now }))
     return out.filter(Boolean)
-  }, [qSig.data, qMessages.data, qRR.data, qCat.data, qIv.data, qRot.data, qBudget.data, qKnowledge.data, qResidencyDocs.data, scopedSlots, personalConversations, students, communications, units, unitById, userProfile?.id, sigFlag.allowed, today, now])
+  }, [activeFinished, qSig.data, qMessages.data, qRR.data, qCat.data, qIv.data, qRot.data, qBudget.data, qKnowledge.data, qResidencyDocs.data, scopedSlots, personalConversations, students, communications, units, unitById, userProfile?.id, sigFlag.allowed, today, now])
 
   // KEITH-CHECKIN-1: Keith's sorts, the daily line and the shadow card. A failure here leaves the
   // support items exactly as they were; it never blocks them.
@@ -166,7 +169,7 @@ export function useActionCenterQueue({ enabled = true, includeOtherCohorts = fal
         displayName: firstNameFirst, now,
       }))
     }
-    otherGroups.push(placementGroup({
+    if (other.rotations) otherGroups.push(placementGroup({
       students: other.students, units: other.units, rotations: other.rotations,
       schoolKey: schoolGroupKey, unitNameFor: id => otherUnits.get(id) || '',
       displayName: firstNameFirst, today, now,

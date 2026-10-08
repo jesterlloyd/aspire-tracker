@@ -35,6 +35,16 @@ export const ACTION_CENTER_GROUP_ORDER = Object.freeze(
   Object.fromEntries(ACTION_CENTER_GROUPS.map((g, index) => [g.key, index])),
 )
 
+/**
+ * FINISHED-COHORTS-1 (Owner, 2026-10-08): a Completed or Archived cohort has nothing left to place
+ * or schedule, so the Action Center shows only its evaluations (surveys keep running after a
+ * rotation ends). Same test as cyclePhase's derivePhase.
+ */
+export function isFinishedCohort(cohort) {
+  const status = String(cohort?.status || '')
+  return status === 'Completed' || status === 'Archived' || !!cohort?.completed_at
+}
+
 export function firstNameFirst(person) {
   const first = String(person?.preferred_first_name || person?.first_name || '').trim()
   const last = String(person?.last_name || '').trim()
