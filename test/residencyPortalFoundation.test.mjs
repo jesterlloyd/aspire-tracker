@@ -126,7 +126,8 @@ test('portal app: a talent_acquisition branch mounts the Residency workspace aft
   // PORTAL-CONNECT-1 (2026-10-07): on the portal's Connect no workspace tab is current.
   // PORTAL-CONNECT-2: on the portal's Connect there is no section nav at all.
   assert.match(branch, /nav=\{residencyConnect \? null : <ResidencyNav tab=\{residencyRoute\.tab\}/)
-  assert.doesNotMatch(branch, /PortalUtilityLayer/, 'no Messages or Send Feedback for this role yet')
+  // TA-MESSAGES-1 (2026-10-07): the Messages launcher, once private messaging is on; still no Send Feedback.
+  assert.match(branch, /<PortalUtilityLayer[\s\S]{0,200}portalRole="talent_acquisition"[\s\S]{0,300}messagesAuthorized=\{taMessagesEnabled\}\s*feedbackAuthorized=\{false\}/)
   const portal = read('src/portal/residency/ResidencyPortal.jsx')
   assert.match(portal, /<NgrpSurfaceProvider value=\{RESIDENCY_PORTAL_SURFACE\}>/)
   assert.match(portal, /<NgrpWorkspace/)

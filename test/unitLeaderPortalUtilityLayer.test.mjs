@@ -39,7 +39,8 @@ test('utility layer mounts through PortalShell for Student, Unit Leader, and Aca
   assert.match(shell, /utilityLayer = null/)
   assert.match(shell, /\{utilityLayer\}/)
   assert.match(app, /import PortalUtilityLayer from '\.\/PortalUtilityLayer'/)
-  assert.equal((app.match(/<PortalUtilityLayer/g) || []).length, 4)
+  // TA-MESSAGES-1 (2026-10-07): the Residency Portal mounts it too (Messages only).
+  assert.equal((app.match(/<PortalUtilityLayer/g) || []).length, 5)
   const studentBranch = app.slice(app.indexOf("roles.includes('student')"), app.indexOf("roles.includes('unit_leader')"))
   const unitBranch = app.slice(app.indexOf("roles.includes('unit_leader')"), app.indexOf("roles.includes('academic_partner')"))
   const academicBranch = app.slice(app.indexOf("roles.includes('academic_partner')"))
@@ -163,7 +164,7 @@ test('matched corner behavior and accessibility are explicit', () => {
   assert.doesNotMatch(layer, /hidden=\{utilitiesHidden \|\| visiblePanel === 'messages'\}/)
   assert.doesNotMatch(layer, /messagesEnabled && !utilitiesHidden && visiblePanel !== 'feedback'/)
   assert.match(layer, /feedbackEnabled = feedbackAuthorized && \(isUnitLeaderPortal \|\| isStudentPortal/)
-  assert.match(layer, /messagesEnabled = messagesAuthorized && \(isUnitLeaderPortal \|\| isStudentPortal \|\| isAcademicPartnerPortal \|\| isNursingAcademicPortal\)/)
+  assert.match(layer, /messagesEnabled = messagesAuthorized && \(isUnitLeaderPortal \|\| isStudentPortal \|\| isAcademicPartnerPortal \|\| isNursingAcademicPortal \|\| isTalentAcquisitionPortal\)/)
   assert.match(layer, /const visiblePanel = suppressed \|\| onMessagesRoute \? null : activePanel/)
   assert.match(layerCode, /\[aria-modal="true"\]:not\(\.shared-feedback-panel\):not\(\.ptl-team-message-panel\)/)
   assert.match(layerCode, /INPUT', 'TEXTAREA', 'SELECT'/)

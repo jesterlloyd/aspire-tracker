@@ -7,6 +7,8 @@ const FULL_MESSAGES_PREFIXES = Object.freeze([
   '/portal/academics/messages',
   // PORTAL-CONNECT-1: the NE&L Portal's Messages moved under its Connect; the old path still resolves.
   '/portal/academics/connect/messages',
+  // TA-MESSAGES-1: the Residency Portal's Messages, under its Connect.
+  '/portal/residency/connect/messages',
 ])
 
 export function isFullMessagesPath(pathname) {

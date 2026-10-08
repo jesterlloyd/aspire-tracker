@@ -113,7 +113,7 @@ test('one shared message bubble presenter drives portal and staff perspectives',
 test('Unit Leader full Messages workspace uses available width without role regression', () => {
   assert.match(css, /\.ptl-msg-workspace \{ width: 100%; max-width: none;/)
   assert.match(css, /\.ptl-msg-split \{ display: grid; grid-template-columns: 360px 1fr/)
-  assert.match(portalWorkspace, /variant === 'unit_leader' \? UL_PORTAL_SUBTITLE : variant === 'academic_partner' \? AP_PORTAL_SUBTITLE : variant === 'nursing_academic' \? NA_PORTAL_SUBTITLE : PORTAL_SUBTITLE/)
+  assert.match(portalWorkspace, /variant === 'unit_leader' \? UL_PORTAL_SUBTITLE : variant === 'academic_partner' \? AP_PORTAL_SUBTITLE : variant === 'nursing_academic' \? NA_PORTAL_SUBTITLE : variant === 'talent_acquisition' \? TA_PORTAL_SUBTITLE : PORTAL_SUBTITLE/)
   assert.match(read('src/portal/messages/PortalMessagesInbox.jsx'), /direct_student_name/)
   assert.doesNotMatch(strip(app), /academic_partner[\s\S]{0,200}PortalMessagesWorkspace/)
 })

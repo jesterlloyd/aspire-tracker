@@ -5,7 +5,8 @@
 // who they send a message to." The ASPIRE team never sees them (the database enforces it).
 //
 //   GET  ?kind=unit_leader|student|talent_acquisition&q=   the picker's list for this caller
-//   POST { recipient_kind, recipient_profile_id, subject, body }   start one
+//   POST { to_kind, to_profile_id, subject, body }   start one (the browser's request helper
+//   refuses delivery-routing names like recipient_profile_id, and these are verified here anyway)
 //
 // Nothing about the recipient is trusted from the client: the profile id is re-resolved through
 // the same predicates the picker uses (lib/server/messages/privateRecipients.js), and the RPC
@@ -60,12 +61,12 @@ export default async function handler(req, res) {
 
   const parsed = readJsonBody(req)
   if (!parsed.ok) return res.status(parsed.status).json({ error: parsed.error })
-  const allowed = new Set(['recipient_kind', 'recipient_profile_id', 'subject', 'body'])
+  const allowed = new Set(['to_kind', 'to_profile_id', 'subject', 'body'])
   for (const k of Object.keys(parsed.body || {})) {
     if (!allowed.has(k)) return res.status(400).json({ error: 'unexpected_field', field: k })
   }
-  const kind = parsed.body.recipient_kind
-  const recipientId = parsed.body.recipient_profile_id
+  const kind = parsed.body.to_kind
+  const recipientId = parsed.body.to_profile_id
   if (!privateRecipientKinds(caller.actorKind).includes(kind)) return res.status(422).json({ error: 'invalid_recipient_kind' })
   if (!isUuid(recipientId)) return res.status(422).json({ error: 'invalid_recipient' })
   const subject = validateSubject(parsed.body.subject)

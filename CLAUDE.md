@@ -2332,6 +2332,47 @@ calendar, then the results table, each row opening the rubric book.
   toast says who was emailed and who was not (`noticeSummary`). There is no self-booking by the
   alumnus: HR books.
 
+## Private conversations, and Talent Acquisition in Messages (TA-MESSAGES-1, 2026-10-07)
+
+Owner: Talent Acquisition may message "anyone with a portal and messages": the ASPIRE Team (the
+shared inbox, as every portal does) and, PRIVATELY, one unit leader or one alumnus; "it should only
+be between the portal user and who they send a message to". Unit leaders and alumni can start one
+with HR too, and the existing unit leader to student direct threads became private as well.
+Migration `20261114000000_ta_private_messages.sql` (Owner-gated; PRE/POST in
+`db/audit/ta_private_messages_checks.sql`; run on PGlite by `test/taPrivateMessages.test.mjs`).
+
+- **A conversation says what it is**: `conversations.visibility`, 'team' or 'private', fixed at
+  creation (a trigger refuses a change). There is still no thread_kind column.
+- **Private means the ASPIRE team cannot see it, by every path**: `messages_staff_triage` returns no
+  row for it, and the staff list v5, needs-reply count v2 and thread v5/v6 all join triage; the staff
+  unread badge skips it; thread v6 returns NULL (a 404); the four staff read policies hide its rows;
+  five `trg_private_guard_*` triggers refuse a staff message, read pointer, reaction or archive and
+  any staff change (assignment, category, follow-up, status) to it. The older staff list/thread/count
+  versions are revoked from every client so no fallback routes around this. The staff home's Done
+  feed (`homeDoneThreads.js`) drops private threads too. **Every staff function runs as the owner
+  and bypasses row-level rules**, which is why the filter lives in triage and the guards, not RLS
+  alone; a new staff reader of conversations must filter `visibility <> 'private'`.
+- **Who may message whom** is one module, `lib/server/messages/privateRecipients.js`, read by the
+  picker's list AND the start check: HR to a unit leader (active grant and unit scope) or an
+  alumnus (a Completed student with an active Student Portal); a unit leader or an alumnus to HR.
+  Talent Acquisition is always on exactly one side (the RPC refuses otherwise). Endpoint
+  `api/portal/private-messages.js` (GET the list, POST `{ to_kind, to_profile_id, subject, body }`;
+  the browser's request helper refuses delivery-routing field names, which is why these are not
+  `recipient_*`). Email: the existing notice, event `private_message`, to the other person only.
+- **The New Message drawer has a To choice** only when the host passes `privateKinds`: Residency
+  Portal (unit leader, alumnus), Unit Leader Portal (Talent Acquisition), Student Portal for an
+  alumnus (Talent Acquisition), each behind the server's `private_messaging` capability. A
+  non-student portal's ASPIRE Team message now goes through `team-messages-start` (its first line is
+  the subject), the endpoint its role is admitted to; the drawer used to call the student-only
+  endpoint for every portal. A private thread carries a Private tag in the inbox and an "Only you and
+  X see this conversation" line in the thread.
+- **Talent Acquisition in Messages**: `verifyPortalMessagesCaller` admits the role LAST (an active
+  grant); the Residency Portal's Connect > Messages mounts the shared workspace
+  (`/portal/residency/connect/messages[/:thread]`), with the unread badge on the Connect icon and the
+  Messages launcher (no Send Feedback yet).
+- **Fixed on the way, same allow-lists**: mark-read admitted only students and staff, and reply,
+  archive and react did not list Nursing Education & Leadership; each now lists every portal kind.
+
 ## A portal has an ASPIRE Connect (PORTAL-CONNECT-1, 2026-10-07)
 
 Owner: "look at the tabs, they're getting so many. We can cluster the contacts and messages

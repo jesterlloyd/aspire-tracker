@@ -28,7 +28,8 @@ const startBlock = panel.match(/const startTeamConversation = async[\s\S]*?\n  }
 test('Student and Unit Leader mount the same docked ASPIRE Team Messages utility', () => {
   // Student, Unit Leader, and Academic Partner all mount PortalUtilityLayer; only Student and
   // Unit Leader are Messages-authorized, so only they get the docked ASPIRE Team Messages launcher.
-  assert.equal((app.match(/<PortalUtilityLayer/g) || []).length, 4)
+  // TA-MESSAGES-1 (2026-10-07): the Residency Portal mounts it too (Messages only).
+  assert.equal((app.match(/<PortalUtilityLayer/g) || []).length, 5)
   const studentBranch = app.slice(app.indexOf("roles.includes('student')"), app.indexOf("roles.includes('unit_leader')"))
   const unitBranch = app.slice(app.indexOf("roles.includes('unit_leader')"), app.indexOf("roles.includes('academic_partner')"))
   const academicBranch = app.slice(app.indexOf("roles.includes('academic_partner')"))
@@ -52,10 +53,10 @@ test('Student and Unit Leader mount the same docked ASPIRE Team Messages utility
   assert.match(layer, /isAcademicPartnerPortal = portalRole === 'academic_partner' && portalType === 'academic_partner'/)
   // Messages is gated on messagesAuthorized (Academic Partner is fail-closed behind AP_MESSAGING_ENABLED
   // until the Owner SQL gate lands), so all three kinds share the same launcher wiring.
-  assert.match(layer, /messagesEnabled = messagesAuthorized && \(isUnitLeaderPortal \|\| isStudentPortal \|\| isAcademicPartnerPortal \|\| isNursingAcademicPortal\)/)
+  assert.match(layer, /messagesEnabled = messagesAuthorized && \(isUnitLeaderPortal \|\| isStudentPortal \|\| isAcademicPartnerPortal \|\| isNursingAcademicPortal \|\| isTalentAcquisitionPortal\)/)
   assert.match(layer, /feedbackEnabled = feedbackAuthorized && \(isUnitLeaderPortal \|\| isStudentPortal \|\| isAcademicPartnerPortal \|\| isNursingAcademicPortal\)/)
   assert.match(layer, /noticeVisible = enabled && isUnitLeaderPortal/)
-  assert.match(layer, /variant=\{isUnitLeaderPortal \? 'unit_leader' : isAcademicPartnerPortal \? 'academic_partner' : isNursingAcademicPortal \? 'nursing_academic' : 'student'\}/)
+  assert.match(layer, /variant=\{isUnitLeaderPortal \? 'unit_leader' : isAcademicPartnerPortal \? 'academic_partner' : isNursingAcademicPortal \? 'nursing_academic' : isTalentAcquisitionPortal \? 'talent_acquisition' : 'student'\}/)
 })
 
 test('panel header and launch targets match the shared Messages spec', () => {

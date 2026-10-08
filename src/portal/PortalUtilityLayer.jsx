@@ -133,8 +133,10 @@ function PortalUtilityLayerContent({
   const isAcademicPartnerPortal = portalRole === 'academic_partner' && portalType === 'academic_partner'
   // NA-PORTAL-UTILITIES-1: the fourth portal kind, capability-gated on both launchers.
   const isNursingAcademicPortal = portalRole === 'nursing_academic' && portalType === 'nursing_academic'
+  // TA-MESSAGES-1: Talent Acquisition gets the Messages launcher (not Send Feedback, not yet).
+  const isTalentAcquisitionPortal = portalRole === 'talent_acquisition' && portalType === 'talent_acquisition'
   const feedbackEnabled = feedbackAuthorized && (isUnitLeaderPortal || isStudentPortal || isAcademicPartnerPortal || isNursingAcademicPortal)
-  const messagesEnabled = messagesAuthorized && (isUnitLeaderPortal || isStudentPortal || isAcademicPartnerPortal || isNursingAcademicPortal)
+  const messagesEnabled = messagesAuthorized && (isUnitLeaderPortal || isStudentPortal || isAcademicPartnerPortal || isNursingAcademicPortal || isTalentAcquisitionPortal)
   const noticeVisible = enabled && isUnitLeaderPortal && narrow && !onMessagesRoute && !storedDismissed && !sessionDismissed
 
   const dismissNotice = () => {
@@ -215,7 +217,7 @@ function PortalUtilityLayerContent({
           launcherRef={messagesRef}
           unread={unread}
           onOpenFullMessages={openFullMessages}
-          variant={isUnitLeaderPortal ? 'unit_leader' : isAcademicPartnerPortal ? 'academic_partner' : isNursingAcademicPortal ? 'nursing_academic' : 'student'}
+          variant={isUnitLeaderPortal ? 'unit_leader' : isAcademicPartnerPortal ? 'academic_partner' : isNursingAcademicPortal ? 'nursing_academic' : isTalentAcquisitionPortal ? 'talent_acquisition' : 'student'}
           schools={isAcademicPartnerPortal ? schools : []}
         />
       )}

@@ -36,6 +36,7 @@ import {
 import { PortalHeaderControls } from '../PortalHeaderSlots'
 import { EmptyState } from '../unit/UnitLeaderChrome'
 import AcademicsContactsView from '../na/AcademicsContactsView'
+import PortalMessagesWorkspace from '../messages/PortalMessagesWorkspace'
 import { PortalConnectHeaderButton, PortalConnectPage } from '../connect/PortalConnect'
 
 // PORTAL-SPLIT Phase 2: the same chunk the staff app loads, through the same
@@ -49,7 +50,7 @@ const CreateCohortDialog  = lazyReload(ngrpPart('CreateCohortDialog'), 'CreateCo
 const EXPERIENCES = [RESIDENCY_EXPERIENCE]
 const stayInResidency = () => {}
 
-export default function ResidencyPortal({ canManage = false, onCommandPeople, connectTab = null, onOpenConnect, backPath, backLabel, onBack }) {
+export default function ResidencyPortal({ canManage = false, onCommandPeople, connectTab = null, onOpenConnect, backPath, backLabel, onBack, messagesEnabled = false, unread = 0, threadId = null, onSelectThread, onBackToList }) {
   const { user } = useAuth()
   const queryClient = useQueryClient()
   const { toasts, removeToast, toast } = useToast()
@@ -126,16 +127,28 @@ export default function ResidencyPortal({ canManage = false, onCommandPeople, co
           Acquisition has no server authorization yet (api/lib/messagesAuth.js admits four roles),
           so Messages shows the prepared state the NE&L Portal showed before its capability was
           switched on. Outreach and Automations come later, into this same page. */}
-      <PortalConnectHeaderButton active={Boolean(connectTab)} onOpen={onOpenConnect} />
+      <PortalConnectHeaderButton active={Boolean(connectTab)} unread={unread} messagesEnabled={messagesEnabled} onOpen={onOpenConnect} />
       <div className="ptl-page ptl-residency-page">
         <h1 className="ptl-visually-hidden">Residency Portal</h1>
         {connectTab ? (
           <PortalConnectPage
             tab={connectTab}
             onNavigate={onOpenConnect}
+            unread={unread} messagesEnabled={messagesEnabled}
             backPath={backPath} backLabel={backLabel} onBack={onBack}
             contacts={<AcademicsContactsView active={connectTab === 'contacts'} />}
-            messages={<EmptyState title="Messages" detail="Secure messaging with the ASPIRE Team will live here. This section is being prepared and is not active yet." />}
+            // TA-MESSAGES-1: private conversations with unit leaders and alumni, and ASPIRE Team
+            // threads, once 20261114000000 is applied; the prepared state until then.
+            messages={messagesEnabled ? (
+              <PortalMessagesWorkspace
+                active
+                variant="talent_acquisition"
+                privateKinds={['unit_leader', 'student']}
+                threadId={threadId}
+                onSelectThread={onSelectThread}
+                onBackToList={onBackToList}
+              />
+            ) : <EmptyState title="Messages" detail="Secure messaging is being prepared and is not active yet." />}
           />
         ) : (
         <Suspense fallback={<div className="ptl-card" role="status">Loading residency workspace…</div>}>

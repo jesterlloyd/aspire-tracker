@@ -84,8 +84,8 @@ test('the AP Messages tab reuses the canonical workspace with the academic_partn
 test('the lower-right launcher + unread wiring is shared and AP-gated (no duplicate store)', () => {
   // The launcher mounts for AP only when the server capability is reported; the panel uses the
   // academic_partner variant. This is the SAME PortalTeamMessagesPanel + shared React-Query keys.
-  assert.match(layer, /messagesEnabled = messagesAuthorized && \(isUnitLeaderPortal \|\| isStudentPortal \|\| isAcademicPartnerPortal \|\| isNursingAcademicPortal\)/)
-  assert.match(layer, /variant=\{isUnitLeaderPortal \? 'unit_leader' : isAcademicPartnerPortal \? 'academic_partner' : isNursingAcademicPortal \? 'nursing_academic' : 'student'\}/)
+  assert.match(layer, /messagesEnabled = messagesAuthorized && \(isUnitLeaderPortal \|\| isStudentPortal \|\| isAcademicPartnerPortal \|\| isNursingAcademicPortal \|\| isTalentAcquisitionPortal\)/)
+  assert.match(layer, /variant=\{isUnitLeaderPortal \? 'unit_leader' : isAcademicPartnerPortal \? 'academic_partner' : isNursingAcademicPortal \? 'nursing_academic' : isTalentAcquisitionPortal \? 'talent_acquisition' : 'student'\}/)
   // The unread badge uses the canonical Cedars red token (shared with student/UL), not a new color.
   const css = read('src/portal/portal.css')
   assert.match(css, /\.ptl-team-message-badge[\s\S]*?background: var\(--cs-red, #DC1E34\)/)

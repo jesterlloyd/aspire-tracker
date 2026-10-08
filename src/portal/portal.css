@@ -1831,6 +1831,47 @@ img.ptl-detail-photo {
   text-transform: uppercase; color: var(--ptl-navy, #1D2567);
   margin-bottom: 2px;
 }
+/* TA-MESSAGES-1: private conversations. The tag and the notice are a fixed violet pair (the staff
+   app's manual-send chip), readable in both themes; the To choice and the person list are the
+   portal's own form language. */
+.ptl-msg-private-tag {
+  display: inline-flex; align-items: center; gap: 4px; padding: 1px 7px; border-radius: var(--aspire-radius-pill);
+  background: #EDE9FE; color: #5B21B6; font-size: 10px; font-weight: 800; letter-spacing: .04em;
+  text-transform: uppercase; vertical-align: 1px;
+}
+.ptl-msg-private-tag::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.ptl-msg-thread-private { display: flex; align-items: center; gap: 8px; margin-top: 4px; font-size: 12.5px; color: var(--text-caption, #5b6472); }
+.ptl-msg-private-note {
+  display: block; padding: 10px 12px; border-radius: var(--aspire-radius-control); background: #EDE9FE; color: #4C1D95;
+  font-size: 12.5px; line-height: 1.45;
+}
+.ptl-msg-to { border: 0; padding: 0; margin: 0 0 4px; display: grid; gap: 8px; }
+.ptl-msg-to legend { padding: 0; margin-bottom: 6px; }
+/* `.ptl-form label` is a flex column (0,1,1); the choice is a grid, so it carries one class more. */
+.ptl-form .ptl-msg-to-choice {
+  display: grid; flex-direction: row; font-weight: 400; grid-template-columns: 18px 1fr; gap: 10px; align-items: start; padding: 10px 12px;
+  border: 1px solid var(--ptl-line, #e3ded4); border-radius: var(--aspire-radius-control); cursor: pointer; background: #fff;
+}
+.ptl-msg-to-choice input { margin: 3px 0 0; accent-color: var(--ptl-navy, #1D2567); }
+.ptl-msg-to-choice b { display: block; font-size: 13.5px; color: #232842; }
+.ptl-msg-to-choice small { display: block; margin-top: 2px; font-size: 12px; color: #5b6472; }
+.ptl-msg-to-choice-on { border-color: var(--ptl-navy, #1D2567); box-shadow: inset 0 0 0 1px var(--ptl-navy, #1D2567); }
+.ptl-msg-people {
+  align-self: stretch; width: 100%; box-sizing: border-box;
+  margin-top: 8px; max-height: 220px; overflow-y: auto; border: 1px solid var(--ptl-line, #e3ded4);
+  border-radius: var(--aspire-radius-control); background: #fff;
+}
+.ptl-msg-people > .ptl-small, .ptl-msg-people > .ptl-form-error { padding: 10px 12px; }
+.ptl-msg-person {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 12px; width: 100%;
+  padding: 9px 12px; border: 0; border-top: 1px solid #eee9df; background: transparent; text-align: left;
+  font: inherit; cursor: pointer; color: #232842;
+}
+.ptl-msg-person:first-child { border-top: 0; }
+.ptl-msg-person b { font-size: 13px; }
+.ptl-msg-person small { font-size: 12px; color: #5b6472; text-align: right; }
+.ptl-msg-person:hover { background: #f7f8fc; }
+.ptl-msg-person-on { background: #eef1fb; box-shadow: inset 3px 0 0 var(--ptl-navy, #1D2567); }
 
 /* ============================================================================
    UL-POLISH P1: hierarchy and density

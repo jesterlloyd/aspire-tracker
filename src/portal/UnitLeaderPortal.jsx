@@ -122,7 +122,7 @@ function useEndpoint(loader, deps) {
   }
 }
 
-export default function UnitLeaderPortal({ view = 'home', onNavigate, threadId, onSelectThread, onBackToList, composeIntent = null, messagesEnabled = true, staffPreview = false, onCommandPeople }) {
+export default function UnitLeaderPortal({ view = 'home', onNavigate, threadId, onSelectThread, onBackToList, composeIntent = null, messagesEnabled = true, staffPreview = false, onCommandPeople, privateKinds = [] }) {
   const { userProfile } = useAuth()
   const [unitKey, setUnitKey] = useState(ALL_UNITS)
   const [cohortSel, setCohortSel] = useState(null)   // null => the resolved default (newest active)
@@ -276,6 +276,7 @@ export default function UnitLeaderPortal({ view = 'home', onNavigate, threadId, 
           <PortalMessagesWorkspace
             active
             variant="unit_leader"
+            privateKinds={privateKinds}
             threadId={threadId}
             onSelectThread={onSelectThread}
             onBackToList={onBackToList}

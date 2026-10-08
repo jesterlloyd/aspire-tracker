@@ -266,7 +266,10 @@ test('browser helper is adopted only by the shared docked ASPIRE Team composer',
   assert.doesNotMatch(portalClient.match(/export function startGeneralTeamConversation[\s\S]*?\n}/)?.[0] || '', /student_id|unit_key|role|profile_id|subject|category|destination/)
   assert.match(teamPanel, /startGeneralTeamConversation/)
   assert.match(teamPanel, /api\.startGeneralTeamConversation\(\{\s*\n\s*requestId: stableRequestId,\s*\n\s*body: normalized,\s*\n\s*\/\/[^\n]*\n\s*schoolKey: effectiveSchool \|\| undefined,\s*\n\s*\}\)/)
-  assert.doesNotMatch(newDrawer, /startGeneralTeamConversation/)
+  // TA-MESSAGES-1 (2026-10-07): the New Message drawer sends a non-student portal's ASPIRE Team
+  // message through this helper (the endpoint its role is admitted to); a student keeps messages-start.
+  assert.match(newDrawer, /variant === 'student'\s*\n?\s*\? await api\.startPortalConversation/)
+  assert.match(newDrawer, /api\.startGeneralTeamConversation\(\{ requestId: newRequestId\(\), body:/)
 })
 
 test('existing start endpoints are preserved and not repurposed', () => {

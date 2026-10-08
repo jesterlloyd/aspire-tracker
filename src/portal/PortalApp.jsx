@@ -177,6 +177,11 @@ function residencyConnectTab(pathname) {
   const m = /^\/portal\/residency\/connect\/(contacts|messages)/.exec(pathname)
   return RESIDENCY_CONNECT_RE.test(pathname) ? (m ? m[1] : 'contacts') : null
 }
+// TA-MESSAGES-1: /portal/residency/connect/messages/:threadId selects a thread.
+function residencyThreadIdFromPath(pathname) {
+  const m = /^\/portal\/residency\/connect\/messages\/([^/]+)\/?$/.exec(pathname)
+  return m ? m[1] : null
+}
 
 function useMobileUtilityLayout() {
   const [mobile, setMobile] = useState(false)
@@ -338,6 +343,9 @@ export default function PortalApp() {
     [navigate, residencyConnect, residencyFrom, location.pathname],
   )
   const residencyBackPath = residencyFrom || `${RESIDENCY_PORTAL_BASE}/overview`
+  const residencyThreadId = residencyThreadIdFromPath(location.pathname)
+  const openResidencyThread = useCallback((id) => navigate(`${RESIDENCY_PORTAL_BASE}/connect/messages/${id}`, { state: { from: residencyFrom } }), [navigate, residencyFrom])
+  const residencyBackToList = useCallback(() => navigate(`${RESIDENCY_PORTAL_BASE}/connect/messages`, { state: { from: residencyFrom } }), [navigate, residencyFrom])
   const residencyBackLabel = NGRP_TABS.find(t => t.id === resolveNgrpPath(residencyBackPath, RESIDENCY_PORTAL_BASE).tab)?.label || NAV_LABELS.atAGlance
 
   const isStudent = (access?.roles || []).includes('student')
@@ -364,6 +372,11 @@ export default function PortalApp() {
   const [apCapabilityResolved, setApCapabilityResolved] = useState(false)
   const apMessagesEnabled = isAcademicPartner && apMessagingCapable
   const naMessagesEnabled = isNursingAcademic && naMessagingCapable
+  // TA-MESSAGES-1: private conversations and Talent Acquisition's Messages, from the same endpoint
+  // (private_messaging: the 20261114000000 migration applied). Fail-closed until it says so.
+  const [privateMessagingCapable, setPrivateMessagingCapable] = useState(false)
+  const isTalentAcquisition = !isStudent && !isUnitLeader && !isAcademicPartner && !isNursingAcademic && (access?.roles || []).includes('talent_acquisition')
+  const taMessagesEnabled = isTalentAcquisition && privateMessagingCapable && !staffPreview
   const naFeedbackEnabled = isNursingAcademic && naFeedbackCapable
   // PROGRAM-BUDGET (2026-09-27): the Program Budget tab shows only when the server says this
   // grant carries budget_access (or the viewer is Owner/Admin previewing). Fail-closed.
@@ -445,7 +458,7 @@ export default function PortalApp() {
   }, [isStudent, refreshUserProfile])
   const onMessagesRoute = isFullMessagesPath(location.pathname)
   const unread = usePortalUnreadCount({
-    enabled: !staffPreview && (isStudent || isUnitLeader || apMessagesEnabled || naMessagesEnabled),
+    enabled: !staffPreview && (isStudent || isUnitLeader || apMessagesEnabled || naMessagesEnabled || taMessagesEnabled),
     intervalMs: onMessagesRoute ? PORTAL_ACTIVE_POLL_MS : PORTAL_IDLE_UNREAD_POLL_MS,
   })
 
@@ -525,7 +538,9 @@ export default function PortalApp() {
   useEffect(() => {
     // NA-PORTAL-UTILITIES-1: the same single capability fetch also serves the Nursing Education &
     // Leadership portal (na_messaging, na_feedback), so both roles read one canonical result.
-    if (staffPreview || (!isAcademicPartner && !isNursingAcademic)) return undefined
+    // TA-MESSAGES-1: every portal reads it now, for private_messaging (who may start a private
+    // conversation with Talent Acquisition, and Talent Acquisition's own Messages).
+    if (staffPreview || (!isAcademicPartner && !isNursingAcademic && !isTalentAcquisition && !isUnitLeader && !isStudent)) return undefined
     let cancelled = false
     ;(async () => {
       try {
@@ -540,6 +555,7 @@ export default function PortalApp() {
           setApMessagingCapable(data?.ap_messaging === true)
           setNaMessagingCapable(data?.na_messaging === true)
           setNaFeedbackCapable(data?.na_feedback === true)
+          setPrivateMessagingCapable(data?.private_messaging === true)
           // WELCOME-TOUR-PORTALS-1: the fetch settled, so the Academic Partner tour is now free to
           // decide whether its Messages step belongs in the sequence.
           setApCapabilityResolved(true)
@@ -550,7 +566,7 @@ export default function PortalApp() {
       }
     })()
     return () => { cancelled = true }
-  }, [isAcademicPartner, isNursingAcademic, staffPreview])
+  }, [isAcademicPartner, isNursingAcademic, staffPreview, isTalentAcquisition, isUnitLeader, isStudent])
 
   // WELCOME-TOUR-PORTALS-1: unmount-only cleanup for the auto-start timer below. Kept in its own
   // effect (empty deps) so a dependency change never cancels an already-armed timer; only real
@@ -747,6 +763,7 @@ export default function PortalApp() {
             threadId={threadId}
             onSelectThread={openThread}
             onBackToList={backToList}
+            privateKinds={residencyEligible && privateMessagingCapable ? ['talent_acquisition'] : []}
           />
         </div>}
         {staffPreview && studentView === 'messages' && (
@@ -817,6 +834,7 @@ export default function PortalApp() {
         )}>
         <Suspense fallback={<PortalLoading label="Loading your portal" />}>
           <UnitLeaderPortal
+            privateKinds={privateMessagingCapable ? ['talent_acquisition'] : []}
             view={unitView}
             composeIntent={unitHandoff}
             onNavigate={goUnitSection}
@@ -956,13 +974,28 @@ export default function PortalApp() {
         mainWidth="app"
         connectPage={Boolean(residencyConnect)}
         nav={residencyConnect ? null : <ResidencyNav tab={residencyRoute.tab} onNavigate={goResidencyTab} />}
-        utilityLayer={staffPreview ? <StaffPreviewUtilities portalName="Residency Portal" section={residencyConnect ? 'connect' : residencyRoute.tab} /> : null}>
+        utilityLayer={staffPreview ? <StaffPreviewUtilities portalName="Residency Portal" section={residencyConnect ? 'connect' : residencyRoute.tab} /> : (
+          // TA-MESSAGES-1: the Messages launcher, once private messaging is on. No Send Feedback yet.
+          <PortalUtilityLayer
+            enabled={taMessagesEnabled}
+            portalRole="talent_acquisition"
+            portalType="talent_acquisition"
+            profileId={userProfile?.id}
+            pathname={location.pathname}
+            unread={unread}
+            messagesAuthorized={taMessagesEnabled}
+            feedbackAuthorized={false}
+            onOpenMessages={() => goResidencyConnect('messages')}
+          />
+        )}>
         {/* Joint ownership (Owner): Talent Acquisition manages residency records and cohort
             settings alongside the ASPIRE team. A staff preview shows what that staff member
             may manage. The server decides either way. */}
         <Suspense fallback={<PortalLoading label="Loading the residency workspace" />}>
           <ResidencyPortal canManage={staffPreview ? canManageNgrp(userProfile) : true} onCommandPeople={setCommandPeople}
             connectTab={residencyConnect} onOpenConnect={goResidencyConnect}
+            messagesEnabled={taMessagesEnabled} unread={unread} threadId={residencyThreadId}
+            onSelectThread={openResidencyThread} onBackToList={residencyBackToList}
             backPath={residencyBackPath} backLabel={residencyBackLabel} onBack={path => navigate(path)} />
         </Suspense>
         {!staffPreview && photoDialog}

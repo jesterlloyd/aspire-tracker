@@ -168,3 +168,20 @@ export function portalSetMessageReaction({ messageId, reaction, signal } = {}) {
     signal,
   });
 }
+
+// TA-MESSAGES-1: PRIVATE conversations between Talent Acquisition and one unit leader or one
+// alumnus. The picker's list for a kind ('unit_leader' | 'student' | 'talent_acquisition'), and
+// the start. The server re-resolves the chosen person through the same rule the list uses.
+// Returns { kinds, recipients: [{ profile_id, kind, name, detail }] }.
+export function listPrivateRecipients({ kind, query, signal } = {}) {
+  return request('/api/portal/private-messages', { params: { kind, q: query || undefined }, signal });
+}
+
+// Returns 201 { conversation_id, message_id, created_at, thread_kind: 'private', recipient_name }.
+export function startPrivateConversation({ toKind, toProfileId, subject, body, signal } = {}) {
+  return request('/api/portal/private-messages', {
+    method: 'POST',
+    body: { to_kind: toKind, to_profile_id: toProfileId, subject, body },
+    signal,
+  });
+}

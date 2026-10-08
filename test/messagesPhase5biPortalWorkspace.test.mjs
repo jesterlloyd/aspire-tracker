@@ -59,7 +59,10 @@ test('API client', async (t) => {
       '/api/portal/messages-list', '/api/portal/messages-mark-read',
       '/api/portal/messages-react', '/api/portal/messages-reply',
       '/api/portal/messages-start', '/api/portal/messages-thread',
-      '/api/portal/messages-unread-count', '/api/portal/team-messages-start',
+      '/api/portal/messages-unread-count',
+      // TA-MESSAGES-1 (2026-10-07): private conversations (Talent Acquisition, Owner).
+      '/api/portal/private-messages',
+      '/api/portal/team-messages-start',
     ])
   })
 
@@ -321,7 +324,11 @@ test('New message', async (t) => {
     assert.match(newMsg, /<span className="ptl-field-label">To<\/span>/)
     assert.match(newMsg, /\{PORTAL_RECIPIENT_LABEL\}/)
     assert.doesNotMatch(strip(newMsg), /participant_profile_id|recipient_profile_id|recipient_email|recipient_kind/i)
-    assert.doesNotMatch(strip(newMsg), /messages-staff-options|searchParticipants|<input[^>]*search/i)
+    assert.doesNotMatch(strip(newMsg), /messages-staff-options|searchParticipants/i)
+    // TA-MESSAGES-1 (2026-10-07): a person picker exists ONLY for private conversations, only when
+    // the host passes privateKinds, and it lists what the server returns; with none, To stays fixed.
+    assert.match(newMsg, /privateKinds\.length === 0 \? \(/)
+    assert.match(newMsg, /api\.listPrivateRecipients\(\{ kind: to, query \}\)/)
   })
 
   await t.test('subject validation is trimmed, required, and 3 to 120', () => {
@@ -388,7 +395,8 @@ test('New message', async (t) => {
   })
 
   await t.test('the announcement is the server confirmation, never a delivery claim', () => {
-    assert.match(newMsg, /announce\?\.\(out\?\.confirmation \|\| PORTAL_SEND_CONFIRMATION\)/)
+    // TA-MESSAGES-1: a private send names its recipient instead of the ASPIRE Team.
+    assert.match(newMsg, /announce\?\.\(out\?\.confirmation \|\| \(isPrivate \? `Your private message was sent to \$\{person\?\.name \|\| 'them'\}\.` : PORTAL_SEND_CONFIRMATION\)\)/)
     assert.equal(PORTAL_SEND_CONFIRMATION, 'Your message was sent to the ASPIRE Team.')
     // The endpoint returns this exact string.
     assert.match(read('../api/portal/messages-start.js'), /confirmation: 'Your message was sent to the ASPIRE Team\.'/)
@@ -694,7 +702,7 @@ test('accessibility foundation', async (t) => {
     // stay byte-identical and remain the default branch.
     assert.match(thread, /variant === 'unit_leader' \? UL_PORTAL_NO_SELECTION : PORTAL_NO_SELECTION/)
     // The Academic Partner variant adds its own subtitle; the student string stays the default branch.
-    assert.match(workspace, /variant === 'unit_leader' \? UL_PORTAL_SUBTITLE : variant === 'academic_partner' \? AP_PORTAL_SUBTITLE : variant === 'nursing_academic' \? NA_PORTAL_SUBTITLE : PORTAL_SUBTITLE/)
+    assert.match(workspace, /variant === 'unit_leader' \? UL_PORTAL_SUBTITLE : variant === 'academic_partner' \? AP_PORTAL_SUBTITLE : variant === 'nursing_academic' \? NA_PORTAL_SUBTITLE : variant === 'talent_acquisition' \? TA_PORTAL_SUBTITLE : PORTAL_SUBTITLE/)
     // No response-time promise and no continuous-monitoring implication.
     for (const s of [PORTAL_SUBTITLE, PORTAL_NO_SELECTION, PORTAL_EMPTY_BODY]) {
       assert.doesNotMatch(s, /respond within|response time|24\/7|monitored|immediately/i)

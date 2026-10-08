@@ -21,7 +21,7 @@ import {
 } from '../../lib/messages/messagesConstants'
 import {
   PORTAL_EMPTY_TITLE, PORTAL_EMPTY_BODY, portalStatusIsClosed, portalStatusLabel,
-  mapPortalMessagesError, UL_THREAD_ASPIRE_LABEL, ulDirectThreadLabel,
+  mapPortalMessagesError, UL_THREAD_ASPIRE_LABEL, ulDirectThreadLabel, PRIVATE_TAG,
 } from '../../lib/messages/portalMessagesConstants'
 import RowActionsMenu from '../../components/shared/RowActionsMenu'
 // A refused load because access ended is handed to the shell, which shows the
@@ -195,11 +195,20 @@ export default function PortalMessagesInbox({
                   direct student threads and ASPIRE Team threads never look
                   interchangeable. direct_student_name comes from the caller's own
                   participant row server-side; students never receive the field. */}
-              {variant === 'unit_leader' && (
+              {/* TA-MESSAGES-1: a private thread names the other person and says it is private,
+                  in every portal; the unit leader's labels are otherwise unchanged. */}
+              {c.thread_kind === 'private' ? (
+                <div className="ptl-msg-row-context">
+                  {c.context_label} <span className="ptl-msg-private-tag">{PRIVATE_TAG}</span>
+                </div>
+              ) : variant === 'unit_leader' ? (
                 <div className="ptl-msg-row-context">
                   {c.direct_student_name ? ulDirectThreadLabel(c.direct_student_name) : UL_THREAD_ASPIRE_LABEL}
+                  {c.is_private && <> <span className="ptl-msg-private-tag">{PRIVATE_TAG}</span></>}
                 </div>
-              )}
+              ) : c.is_private ? (
+                <div className="ptl-msg-row-context"><span className="ptl-msg-private-tag">{PRIVATE_TAG}</span></div>
+              ) : null}
               <div className="ptl-msg-row-top">
                 <span className="ptl-msg-row-subject">{c.subject}</span>
                 {/* Unread is carried by the count itself and by text, never by

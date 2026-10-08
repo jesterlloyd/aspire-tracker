@@ -40,6 +40,25 @@ export const UL_THREAD_ASPIRE_LABEL = 'ASPIRE Team';
 export const ulDirectThreadLabel = (studentName) =>
   studentName ? `Direct · ${studentName}` : 'Direct · Student';
 
+// TA-MESSAGES-1: Talent Acquisition's inbox, and the private conversation words every portal shows.
+export const TA_PORTAL_SUBTITLE =
+  'Private conversations with unit leaders and alumni, and messages with the ASPIRE Team.';
+export const PRIVATE_TO_LABELS = Object.freeze({
+  team: 'ASPIRE Team',
+  unit_leader: 'A unit leader',
+  student: 'An alumnus',
+  talent_acquisition: 'Talent Acquisition',
+});
+export const PRIVATE_TO_HELP = Object.freeze({
+  team: "The team's shared inbox. Anyone on the ASPIRE team can answer.",
+  unit_leader: 'A private conversation with one unit leader.',
+  student: 'A private conversation with one alumnus.',
+  talent_acquisition: 'A private conversation with one person in Talent Acquisition.',
+});
+export const privateNotice = (name) =>
+  `Private. Only you and ${name || 'this person'} see this conversation. The ASPIRE team does not. They get an email that a message is waiting, with a link to their portal.`;
+export const PRIVATE_TAG = 'Private';
+
 export const PORTAL_EMPTY_TITLE = 'No messages yet';
 export const PORTAL_EMPTY_BODY =
   'Messages between you and the ASPIRE Team will appear here.';

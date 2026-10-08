@@ -12,11 +12,20 @@
 // There is NO recipient picker. The start endpoint accepts only subject,
 // category, and body; the server resolves the student from the verified JWT and
 // the ASPIRE Team is the implicit recipient.
+//
+// TA-MESSAGES-1 (Owner, 2026-10-07): when the host passes `privateKinds`, the drawer gains a To
+// choice. "ASPIRE Team" is the shared team inbox, exactly as before; a private kind (a unit
+// leader, an alumnus, Talent Acquisition) picks ONE person from the server's list and starts a
+// private conversation only the two of them see. The server re-resolves the person through the
+// same rule that built the list. A non-student portal's ASPIRE Team message goes through the
+// general team-thread endpoint (its first line is the subject), the one its role is admitted to.
 
 import { useEffect, useRef, useState } from 'react'
 import { useMessageDraft } from '../../lib/messages/useMessageDraft'
 import { X } from 'lucide-react'
-import { startPortalConversation } from '../../lib/messages/portalMessagesApiClient'
+import {
+  startPortalConversation, startGeneralTeamConversation, listPrivateRecipients, startPrivateConversation,
+} from '../../lib/messages/portalMessagesApiClient'
 import {
   MESSAGE_MAX_BODY_CHARS, SUBJECT_MAX_CHARS,
   normalizeBody, validateSubjectValue, validateBodyValue,
@@ -24,7 +33,14 @@ import {
 import {
   PORTAL_CATEGORY_OPTIONS, PORTAL_RECIPIENT_LABEL, PORTAL_SAFETY_NOTICE,
   PORTAL_SEND_CONFIRMATION, mapPortalMessagesError, mapPortalConflict,
+  PRIVATE_TO_LABELS, PRIVATE_TO_HELP, privateNotice,
 } from '../../lib/messages/portalMessagesConstants'
+
+const newRequestId = () => (globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID()
+  : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = Math.random() * 16 | 0
+    return (c === 'x' ? r : ((r & 0x3) | 0x8)).toString(16)
+  }))
 
 // The category select needs string values; null (Uncategorized) is carried as ''
 // and converted back at submission, so the browser never invents a sentinel the
@@ -32,11 +48,32 @@ import {
 const toCategory = (v) => (v === '' ? null : v)
 
 const NEW_DRAFT_TEXT = ['subject', 'body']
+// One object for the module: the person search effect depends on `api`, and a default rebuilt on
+// every render restarted (and cancelled) that search on every render.
+const DEFAULT_API = { startPortalConversation, startGeneralTeamConversation, listPrivateRecipients, startPrivateConversation }
 
 export default function PortalNewMessageDrawer({
   open, onClose, onSent, announce, returnFocusRef,
-  api = { startPortalConversation },
+  variant = 'student', privateKinds = [],
+  api = DEFAULT_API,
 }) {
+  const [to, setTo] = useState('team')
+  const [query, setQuery] = useState('')
+  const [people, setPeople] = useState({ kind: null, rows: [], loading: false, error: null })
+  const [person, setPerson] = useState(null)
+  const isPrivate = to !== 'team'
+  // The list for the chosen kind, re-asked as the search changes (debounced).
+  useEffect(() => {
+    if (!isPrivate) return undefined
+    let live = true
+    const t = setTimeout(() => {
+      setPeople((p) => ({ ...p, kind: to, loading: true, error: null }))
+      Promise.resolve(api.listPrivateRecipients({ kind: to, query }))
+        .then((out) => { if (live) setPeople({ kind: to, rows: out?.recipients || [], loading: false, error: null }) })
+        .catch((e) => { if (live) setPeople({ kind: to, rows: [], loading: false, error: e?.status === 409 ? 'Private messages are being prepared and are not active yet.' : mapPortalMessagesError(e?.status) }) })
+    }, query ? 250 : 0)
+    return () => { live = false; clearTimeout(t) }
+  }, [isPrivate, to, query, api])
   const panelRef = useRef(null)
   // Synchronous submit mutex. React state does not update until the next render,
   // so a `pending` state check alone lets repeated activations inside one tick
@@ -85,7 +122,7 @@ export default function PortalNewMessageDrawer({
   const subjectCheck = validateSubjectValue(subject)
   const bodyCheck = validateBodyValue(body)
   const normalized = normalizeBody(body)
-  const disabled = pending || !subjectCheck.ok || !bodyCheck.ok
+  const disabled = pending || !subjectCheck.ok || !bodyCheck.ok || (isPrivate && !person)
 
   async function submit(e) {
     e?.preventDefault?.()
@@ -94,21 +131,23 @@ export default function PortalNewMessageDrawer({
     // synchronously, so repeats within the same tick cannot slip through.
     if (submittingRef.current || pending) return
     if (!subjectCheck.ok || !bodyCheck.ok) return
+    if (isPrivate && !person) return
 
     submittingRef.current = true
     setPending(true)
     setErr(null)
     try {
-      const out = await api.startPortalConversation({
-        subject: subject.trim(),
-        category: toCategory(category),
-        body: normalized,
-      })
+      const out = isPrivate
+        ? await api.startPrivateConversation({ toKind: to, toProfileId: person.profile_id, subject: subject.trim(), body: normalized })
+        : variant === 'student'
+          ? await api.startPortalConversation({ subject: subject.trim(), category: toCategory(category), body: normalized })
+          // Every other portal's ASPIRE Team thread: the server takes the subject from the first line.
+          : await api.startGeneralTeamConversation({ requestId: newRequestId(), body: `${subject.trim()}\n\n${normalized}` })
       // Clear only after authoritative success.
       discard(); setTouched(false)
       // The server returns the confirmation copy; the constant is only a
       // fallback, so the announcement never contradicts the server.
-      announce?.(out?.confirmation || PORTAL_SEND_CONFIRMATION)
+      announce?.(out?.confirmation || (isPrivate ? `Your private message was sent to ${person?.name || 'them'}.` : PORTAL_SEND_CONFIRMATION))
       onSent?.(out)
       onClose?.()
     } catch (e2) {
@@ -139,10 +178,43 @@ export default function PortalNewMessageDrawer({
         </div>
 
         <form className="ptl-drawer-body ptl-form" onSubmit={submit}>
-          <div className="ptl-form-row">
-            <span className="ptl-field-label">To</span>
-            <div className="ptl-readonly-block">{PORTAL_RECIPIENT_LABEL}</div>
-          </div>
+          {privateKinds.length === 0 ? (
+            <div className="ptl-form-row">
+              <span className="ptl-field-label">To</span>
+              <div className="ptl-readonly-block">{PORTAL_RECIPIENT_LABEL}</div>
+            </div>
+          ) : (
+            <fieldset className="ptl-form-row ptl-msg-to">
+              <legend className="ptl-field-label">To</legend>
+              {['team', ...privateKinds].map((k) => (
+                <label key={k} className={`ptl-msg-to-choice${to === k ? ' ptl-msg-to-choice-on' : ''}`}>
+                  <input type="radio" name="ptl-newmsg-to" value={k} checked={to === k}
+                    onChange={() => { setTo(k); setPerson(null); setQuery('') }} />
+                  <span><b>{PRIVATE_TO_LABELS[k]}</b><small>{PRIVATE_TO_HELP[k]}</small></span>
+                </label>
+              ))}
+            </fieldset>
+          )}
+
+          {isPrivate && (
+            <div className="ptl-form-row">
+              <label className="ptl-label" htmlFor="ptl-newmsg-person">{PRIVATE_TO_LABELS[to].replace(/^(A|An) /, '').replace(/^./, (c) => c.toUpperCase())}</label>
+              <input id="ptl-newmsg-person" className="ptl-input ptl-input-full" value={query}
+                placeholder="Search by name" onChange={(e) => setQuery(e.target.value)} autoComplete="off" />
+              <div className="ptl-msg-people" role="listbox" aria-label="People you can message">
+                {people.loading && <div className="ptl-small">Loading…</div>}
+                {!people.loading && people.error && <div className="ptl-form-error">{people.error}</div>}
+                {!people.loading && !people.error && people.rows.length === 0 && <div className="ptl-small">No one matches. Only people with an active portal account can receive Messages.</div>}
+                {!people.loading && people.rows.map((r) => (
+                  <button key={r.profile_id} type="button" role="option" aria-selected={person?.profile_id === r.profile_id}
+                    className={`ptl-msg-person${person?.profile_id === r.profile_id ? ' ptl-msg-person-on' : ''}`}
+                    onClick={() => setPerson(r)}>
+                    <b>{r.name}</b><small>{r.detail}</small>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="ptl-form-row">
             <label className="ptl-label" htmlFor="ptl-newmsg-subject">Subject</label>
@@ -164,7 +236,7 @@ export default function PortalNewMessageDrawer({
             </div>
           </div>
 
-          <div className="ptl-form-row">
+          {variant === 'student' && !isPrivate && <div className="ptl-form-row">
             <label className="ptl-label" htmlFor="ptl-newmsg-category">Category (optional)</label>
             <select
               id="ptl-newmsg-category"
@@ -176,7 +248,7 @@ export default function PortalNewMessageDrawer({
                 <option key={o.label} value={o.value ?? ''}>{o.label}</option>
               ))}
             </select>
-          </div>
+          </div>}
 
           <div className="ptl-form-row">
             <label className="ptl-label" htmlFor="ptl-newmsg-body">Message</label>
@@ -198,7 +270,9 @@ export default function PortalNewMessageDrawer({
             </div>
           </div>
 
-          <p className="ptl-compose-note ptl-msg-safety">{PORTAL_SAFETY_NOTICE}</p>
+          {isPrivate
+            ? <p className="ptl-compose-note ptl-msg-private-note">{privateNotice(person?.name)}</p>
+            : <p className="ptl-compose-note ptl-msg-safety">{PORTAL_SAFETY_NOTICE}</p>}
 
           {err && <p className="ptl-form-error" role="alert">{err}</p>}
 

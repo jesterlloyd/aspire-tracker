@@ -104,7 +104,7 @@ test('the utility layer enables Feedback for the Academic Partner, and Messages 
   assert.match(layer, /feedbackEnabled = feedbackAuthorized && \(isUnitLeaderPortal \|\| isStudentPortal \|\| isAcademicPartnerPortal \|\| isNursingAcademicPortal\)/)
   // Messages is gated on messagesAuthorized (AP is fail-closed behind AP_MESSAGING_ENABLED), so with
   // the flag off the AP launcher never mounts, exactly as before.
-  assert.match(layer, /messagesEnabled = messagesAuthorized && \(isUnitLeaderPortal \|\| isStudentPortal \|\| isAcademicPartnerPortal \|\| isNursingAcademicPortal\)/)
+  assert.match(layer, /messagesEnabled = messagesAuthorized && \(isUnitLeaderPortal \|\| isStudentPortal \|\| isAcademicPartnerPortal \|\| isNursingAcademicPortal \|\| isTalentAcquisitionPortal\)/)
   assert.match(layer, /if \(!enabled \|\| \(!isUnitLeaderPortal && !isStudentPortal && !isAcademicPartnerPortal && !isNursingAcademicPortal\)\) return null/)
   // The docked Messages panel mounts only where Messages is enabled, so AP never instantiates it.
   assert.match(layer, /\{messagesEnabled && \(\s*\n\s*<PortalTeamMessagesPanel/)

@@ -18,7 +18,7 @@ import {
   PORTAL_THREAD_LIMIT_DEFAULT,
 } from '../../lib/messages/portalThreadState'
 import {
-  PORTAL_NO_SELECTION, UL_PORTAL_NO_SELECTION, portalStatusIsClosed, portalStatusLabel, mapPortalMessagesError,
+  PORTAL_NO_SELECTION, UL_PORTAL_NO_SELECTION, PRIVATE_TAG, portalStatusIsClosed, portalStatusLabel, mapPortalMessagesError,
 } from '../../lib/messages/portalMessagesConstants'
 // MESSAGES-LIFECYCLE-PHASE3A-REACTIONS
 import { applyOptimisticReaction } from '../../lib/messages/reactionConstants'
@@ -201,6 +201,13 @@ export default function PortalMessagesThread({
             status chip and the category is staff filing, so neither is shown;
             a closed thread still says so. */}
         <h3 className="ptl-msg-thread-subject">{conversation?.subject}</h3>
+        {/* TA-MESSAGES-1: a private thread says who it is with and that no one else sees it. */}
+        {conversation?.is_private && (
+          <div className="ptl-msg-thread-private">
+            <span className="ptl-msg-private-tag">{PRIVATE_TAG}</span>
+            <span>Only you and {conversation.counterpart_name || conversation.direct_student_name || 'this person'} see this conversation.</span>
+          </div>
+        )}
         {closed && (
           <div className="ptl-msg-thread-meta">
             <span className="ptl-chip ptl-chip-soft">{portalStatusLabel(conversation?.status)}</span>
