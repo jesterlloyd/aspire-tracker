@@ -79,3 +79,9 @@ test('the board and dashboard: stacks, Hold, Release all, through the existing p
   const css = read('src/components/evaluation/reviewReleaseClipboard.css')
   assert.match(css, /:root\[data-style="modern"\] \.ms-deck \{ margin-bottom: 0; box-shadow: 0 1px 1px/)
 })
+
+test('a response with nothing the leader would see is named plainly in the stack summary', () => {
+  const pp = row('PACU', null, { instrument_slug: 'preceptor_progress', leader_sees: {} })
+  const { items } = adaptUnitLeaderRelease({ rows: [row('PACU', 5), pp, { ...pp, response_id: '00000000-0000-4000-8000-0000000000ff' }], nowMs: NOW })
+  assert.equal(buildModerationStacks(items)[0].summary, 'Excellent 1 · 2 with no numbers')
+})

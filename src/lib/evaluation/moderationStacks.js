@@ -43,17 +43,21 @@ export function isLowRating(row) {
   return typeof v === 'number' && v <= 2
 }
 
+// Preceptor's Assessment answers are stored as words, and the leader allowlist passes numbers
+// only, so those responses show the leader nothing (found live, 2026-10-07). Say so plainly.
 function summaryOf(items) {
   const counts = new Map()
-  let other = 0
+  let other = 0, none = 0
   for (const it of items) {
     const v = it.row?.leader_sees?.[OVERALL]
     if (typeof v === 'number') counts.set(v, (counts.get(v) || 0) + 1)
-    else other += 1
+    else if (leaderSees(it.row).length) other += 1
+    else none += 1
   }
   const parts = [...counts.entries()].sort((a, b) => b[0] - a[0])
     .map(([v, n]) => `${OVERALL_RATING_WORDS[v] || v} ${n}`)
-  if (other) parts.push(`${other} with ${other === 1 ? 'its' : 'their'} own measures`)
+  if (other) parts.push(`${other} with other measures`)
+  if (none) parts.push(`${none} with no numbers`)
   return parts.join(' · ')
 }
 
