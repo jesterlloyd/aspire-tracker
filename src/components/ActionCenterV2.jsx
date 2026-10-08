@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import { manageStaffConversation } from '../lib/messages/messagesApiClient'
 import { completionStatus } from '../lib/catalog/catalogModel'
-import { chipCounts, groupQueue } from '../lib/actionCenter/queueModel'
+import { chipCounts, groupQueue, dismissKey, DISMISS_DAYS } from '../lib/actionCenter/queueModel'
 import { formStaff } from './forms/formsApi'
 import { sigStaff } from './signatures/sigApi'
 import StaffNotificationsPanel from './StaffNotificationsPanel'
@@ -29,6 +29,11 @@ function nextMonday() {
   d.setDate(d.getDate() + days)
   d.setHours(8, 0, 0, 0)
   return d
+}
+
+// Built like nextMorning so nothing reads the clock while rendering.
+function inAWeek() {
+  return nextMorning(7)
 }
 
 function withQuery(path, key, value) {
@@ -143,6 +148,33 @@ export default function ActionCenterV2({
       })
     } catch {
       toast?.error?.('Could not snooze', 'Nothing changed. Try again after the Action Center update is applied.')
+    } finally { setBusy(null) }
+  }
+
+  // AC-DISMISS-1: hidden until the item changes (its state signature is in the key), or for
+  // DISMISS_DAYS at most. Undo removes exactly that row.
+  const dismiss = async item => {
+    setBusy(`${item.key}:dismiss`)
+    const key = dismissKey(item)
+    const until = nextMorning(DISMISS_DAYS)
+    try {
+      const { error } = await supabase.from('action_snoozes').upsert({
+        user_id: userProfile.id, item_key: key, snoozed_until: until.toISOString(),
+      }, { onConflict: 'user_id,item_key' })
+      if (error) throw error
+      selectNextFocus(item.key)
+      setSnoozing(null)
+      setAnnouncement(`${item.title} dismissed.`)
+      invalidate()
+      toast?.info?.('Dismissed', `${item.title} comes back only if something about it changes.`, {
+        duration: 5000,
+        action: { label: 'Undo', onClick: async () => {
+          try { await removeSnooze(key); setAnnouncement(`${item.title} is back.`) }
+          catch { toast?.error?.('Undo failed', 'The item is still dismissed.') }
+        } },
+      })
+    } catch {
+      toast?.error?.('Could not dismiss', 'Nothing changed. Please try again.')
     } finally { setBusy(null) }
   }
 
@@ -313,17 +345,47 @@ export default function ActionCenterV2({
               {busy === `${item.key}:${action.key}` ? 'Working…' : action.label}
             </button>
           ))}
+          {!item.urgent && (
+            <button type="button" className="ac2-action" disabled={busy?.startsWith(`${item.key}:`)}
+              aria-label={`Dismiss ${item.title} until it changes`}
+              onClick={event => { event.stopPropagation(); dismiss(item) }}>
+              {busy === `${item.key}:dismiss` ? 'Working…' : 'Dismiss'}
+            </button>
+          )}
           {snoozing === item.key && (
             <div className="ac2-snooze" role="group" aria-label={`Snooze ${item.title} until`}>
               <span>Snooze until:</span>
               <button type="button" onClick={() => snooze(item, nextMorning(1))}>Tomorrow 8 AM</button>
               <button type="button" onClick={() => snooze(item, nextMonday())}>Monday 8 AM</button>
+              <button type="button" onClick={() => snooze(item, inAWeek())}>In a week</button>
               <button type="button" onClick={() => setSnoozing(null)}>Cancel</button>
             </div>
           )}
         </div>
       </article>
     )
+  }
+
+  // AC-DISMISS-1: notifications leave the list for good (with Undo); Clear read takes every read one.
+  const hasRead = (notifications.items || []).some(row => row.in_app_read_at)
+  const undoNotifications = ids => ({ label: 'Undo', onClick: async () => {
+    try { await notifications.restore?.(ids); setAnnouncement('Notifications restored.') }
+    catch { toast?.error?.('Undo failed', 'They are still dismissed.') }
+  } })
+  const dismissNotification = async row => {
+    try {
+      const ids = await notifications.dismiss?.([row.id])
+      setAnnouncement('Notification dismissed.')
+      toast?.info?.('Dismissed', 'The notification is gone from this list.', { duration: 5000, action: undoNotifications(ids) })
+    } catch { toast?.error?.('Could not dismiss', 'Nothing changed. Please try again.') }
+  }
+  const clearRead = async () => {
+    try {
+      const ids = await notifications.dismiss?.(null)
+      if (!ids?.length) return
+      setAnnouncement(`${ids.length} read notification${ids.length === 1 ? '' : 's'} cleared.`)
+      toast?.info?.('Cleared', `${ids.length} read notification${ids.length === 1 ? '' : 's'} cleared.`, { duration: 5000, action: undoNotifications(ids) })
+    } catch { toast?.error?.('Could not clear', 'Nothing changed. Please try again.') }
   }
 
   const switchTab = next => { setTab(next); requestAnimationFrame(() => document.getElementById(`ac2-tab-${next}`)?.focus()) }
@@ -388,9 +450,15 @@ export default function ActionCenterV2({
         {tab === 'notifications' && (
           <section id="ac2-panel-notifications" role="tabpanel" aria-labelledby="ac2-tab-notifications" className="ac2-body">
             <div className="ac2-clip material-clipboard-clip" aria-hidden="true"><span /></div>
-            <div className="ac2-notif-head"><span>{unread} unread</span>{unread > 0 && <button type="button" className="ac2-mark-all" onClick={() => notifications.markRead?.(null)}>Mark all read</button>}</div>
+            <div className="ac2-notif-head"><span>{unread} unread</span>
+              <span className="ac2-notif-tools">
+                {unread > 0 && <button type="button" className="ac2-mark-all" onClick={() => notifications.markRead?.(null)}>Mark all read</button>}
+                {notifications.dismissible && hasRead && <button type="button" className="ac2-mark-all" onClick={clearRead}>Clear read</button>}
+              </span>
+            </div>
             <StaffNotificationsPanel items={notifications.items || []} unreadCount={unread} isLoading={notifications.isLoading} isError={notifications.isError}
-              onMarkRead={notifications.markRead} onMarkAllRead={() => notifications.markRead?.(null)} onNavigateDestination={onNavigateNotificationDestination} hideHeader />
+              onMarkRead={notifications.markRead} onMarkAllRead={() => notifications.markRead?.(null)} onNavigateDestination={onNavigateNotificationDestination} hideHeader
+              onDismiss={notifications.dismissible ? dismissNotification : null} />
           </section>
         )}
         <div className="sr-only" aria-live="polite">{announcement}</div>

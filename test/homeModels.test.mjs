@@ -140,10 +140,11 @@ test('NEEDS 4: Review & Release rows are workflows, ready before blocked, openin
     w2: { items: [{ state: 'ready', since: '2026-09-20' }, { state: 'notEligible' }] },
     w3: { items: [{ state: 'notEligible' }] },
   } })
-  assert.deepEqual(g.pills, [{ text: '1 ready', tone: 'green' }, { text: '2 blocked', tone: 'amber' }])
+  // AC-DISMISS-1 (2026-10-07): only blocked slips the team can fix count, and they read "to fix".
+  assert.deepEqual(g.pills, [{ text: '1 ready', tone: 'green' }, { text: '2 to fix', tone: 'amber' }])
   assert.equal(g.rows[0].title, 'Preceptor Midpoint')
   assert.equal(g.rows[0].to, '/evaluation?workflow=w2')
-  assert.equal(g.rows[1].pill.text, 'Blocked')
+  assert.equal(g.rows[1].pill.text, 'To fix')
   assert.equal(g.count, 3)
 })
 

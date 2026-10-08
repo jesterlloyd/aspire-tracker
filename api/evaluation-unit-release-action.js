@@ -51,6 +51,11 @@ export function createReleaseActionHandler({
     } catch {
       return res.status(500).json({ error: 'internal_error' })
     }
+    // AC-DISMISS-1: before 20261112000000 the withhold RPCs do not exist yet.
+    if (error && (action === 'withhold' || action === 'unwithhold')
+      && (String(error.code) === 'PGRST202' || String(error.code) === '42883')) {
+      return res.status(409).json({ error: 'not_enabled', status: 'not_enabled', ok: false })
+    }
     if (error) return res.status(500).json({ error: 'internal_error' })
 
     const status = data && typeof data === 'object' ? data.status : null

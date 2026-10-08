@@ -32,6 +32,32 @@ export const NODE_STATUSES = Object.freeze(['done', 'this', 'next', 'waiting', '
 export const BLOCKER_ACTIONS = Object.freeze(['remind', 'fix', 'jump', 'activity', 'moderate'])
 
 /** Anything older than this is stamped late, whatever the blocker (Owner brief, section 3). */
+/**
+ * AC-DISMISS-1 (Owner, 2026-10-07): whose move a blocked slip is waiting on. Needs you and
+ * the Action Center list only the slips that are the team's to fix; the clipboard still shows
+ * every one.
+ *   'student'   the student has a survey to finish; the reminder ledger is already nudging them
+ *   'elsewhere' a step behind: the prerequisite is on another workflow's clipboard and counted there
+ *   'never'     can never be released; it needs a "won't release" decision, which is staff work
+ *               only once that action exists (blocker.withhold)
+ *   'staff'     everything else: a data fix, moderation, activities to record
+ */
+export function blockerOwner(item) {
+  const b = item?.blocker
+  if (!b) return 'staff'
+  if (b.action === 'remind') return 'student'
+  if (b.action === 'jump') return 'elsewhere'
+  if (b.neverReleasable) return 'never'
+  return 'staff'
+}
+
+/** A blocked slip the team can act on now. */
+export function needsStaff(item) {
+  if (item?.state !== 'blocked') return false
+  const owner = blockerOwner(item)
+  return owner === 'staff' || (owner === 'never' && !!item.blocker?.withhold)
+}
+
 export const LATE_AFTER_DAYS = 7
 
 const DAY_MS = 24 * 60 * 60 * 1000

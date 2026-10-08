@@ -145,7 +145,7 @@ function Stamp({ stamp }) {
 // is amber, a data fix or a wait older than seven days is red (the adapters decide the
 // tone; the slip only wears it). One student, one sheet: no stack under it (Owner,
 // 2026-09-19, "it's single student and it's in a clipboard already").
-function Card({ item, workflow, busy, locked, leaving, highlighted, onRelease, onAction, onJump, onReadFeedback, onRecordActivity }) {
+function Card({ item, workflow, busy, locked, leaving, highlighted, onRelease, onAction, onJump, onReadFeedback, onRecordActivity, onWithhold }) {
   const ready = item.state === 'ready'
   const b = item.blocker
   const tone = item.stamp?.tone === 'ok' ? 'ok' : item.stamp?.tone === 'late' ? 'late' : 'soon'
@@ -205,6 +205,10 @@ function Card({ item, workflow, busy, locked, leaving, highlighted, onRelease, o
               {b?.action === 'activity' && (
                 <button type="button" className="rq-pbtn" aria-expanded={actsOpen} onClick={() => setActsOpen(o => !o)}>{actsOpen ? 'Hide activities' : 'Record activities'}</button>
               )}
+              {/* AC-DISMISS-1: a response that can never be released is decided, not left here. */}
+              {b?.withhold && (
+                <button type="button" className="rq-pbtn" disabled={busy} onClick={() => onWithhold?.(item)}>Mark as won't release</button>
+              )}
               {b?.action === 'moderate' && (
                 <button type="button" className="rq-pbtn" disabled={busy} onClick={() => onAction(item)}>Clear moderation</button>
               )}
@@ -232,6 +236,7 @@ export default function ReviewReleaseQueue({
   workflow, items = [], sent = [], detectedAtMs = 0, loading = false, error = null,
   busyItemId = null, releaseLocked = false, leavingItemId = null, notice = null, highlightItemId = null,
   onRerun, onRelease, onAction, onJump, onTrackResponses, onReadFeedback, onRecordActivity,
+  onWithhold, onUnwithhold,
   tools, // { onPreviewSurvey, onPreviewEmail, onSendTest, testState, onOpenTest, onCopyTest }
 }) {
   // The policy paragraph is collapsed by default and collapses again on every workflow
@@ -267,7 +272,7 @@ export default function ReviewReleaseQueue({
 
   const cardProps = (it) => ({
     item: it, workflow: survey, busy: busyItemId === it.id, locked: releaseLocked, leaving: leavingItemId === it.id,
-    highlighted: highlightItemId === it.id, onRelease, onAction, onJump, onReadFeedback, onRecordActivity,
+    highlighted: highlightItemId === it.id, onRelease, onAction, onJump, onReadFeedback, onRecordActivity, onWithhold,
   })
 
   return (
@@ -352,7 +357,8 @@ export default function ReviewReleaseQueue({
           </ul>
         </details>
       )}
-      {/* 8. The sent tape. Owner, 2026-09-19: no Undo on it; sends are synchronous. */}
+      {/* 8. The sent tape. Owner, 2026-09-19: no Undo on it; sends are synchronous. A "won't
+          release" line (AC-DISMISS-1) is a decision, not a send, so it can be put back. */}
       <div className="rq-sent rq-tape">
         <div className="rq-tape-head">
           <span className="rq-sent-label-classic">Sent from this clipboard</span>
@@ -365,7 +371,9 @@ export default function ReviewReleaseQueue({
             <div key={line.id} className="rq-tape-line">
               <span className="t">{whenLabel(line.at)}</span>
               <span className="d">{line.who}{line.step ? ` · ${line.step}` : ''}</span>
-              <span className="r">{line.recipient}{line.submission ? ` · ${line.submission}` : ''}</span>
+              <span className="r">{line.recipient}{line.submission ? ` · ${line.submission}` : ''}
+                {line.withheld && onUnwithhold && <> · <button type="button" className="rq-tape-undo" onClick={() => onUnwithhold(line)}>Put back</button></>}
+              </span>
             </div>
           ))}
       </div>

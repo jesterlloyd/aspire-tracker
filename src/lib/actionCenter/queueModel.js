@@ -2,6 +2,23 @@ import { isKeithRule, isKeithClose, requestTypeOfRule, wouldLine, openRequestLab
 
 const DAY = 86_400_000
 
+// AC-DISMISS-1 (Owner, 2026-10-07): Dismiss hides an item until it CHANGES. It is a snooze row
+// whose key is the item's key plus its state signature, so the same item in a new state (a new
+// message, more hours logged, a different count) is a different key and comes straight back.
+// It lapses after DISMISS_DAYS like any snooze, so nothing is hidden for good by accident.
+export const DISMISS_DAYS = 90
+export const DISMISS_SEP = '@'
+
+export function dismissKey(item) {
+  return `${item.key}${DISMISS_SEP}${item.sig || ''}`
+}
+
+/** Every non-urgent item can be snoozed and dismissed; an urgent one is decided, never hidden. */
+function withHide(actions, urgent = false) {
+  if (urgent || actions.some(a => a.key === 'snooze')) return actions
+  return [...actions, { key: 'snooze', label: 'Snooze' }]
+}
+
 export const ACTION_CENTER_GROUPS = Object.freeze([
   { key: 'signatures', label: 'Signatures', icon: 'S' },
   { key: 'messages', label: 'Messages', icon: 'M' },
@@ -46,7 +63,7 @@ function homeGroupKey(key) {
 function stateText(row) {
   const text = row?.pill?.text || ''
   // A renewal says when it falls due, not how long it has waited (AC-RENEW-1).
-  return /^(Your turn|Blocked|No slot|Unplaced|Renews today|Score now|Complete)$/i.test(text) || /^\d+ ready$/i.test(text) || /^In \d+ days?$/i.test(text) || /^(Due in \d+ days?|Due today|Past due|No receipt|Close month)$/i.test(text) ? text : null
+  return /^(Your turn|Blocked|To fix|No slot|Unplaced|Renews today|Score now|Complete)$/i.test(text) || /^\d+ ready$/i.test(text) || /^In \d+ days?$/i.test(text) || /^(Due in \d+ days?|Due today|Past due|No receipt|Close month)$/i.test(text) ? text : null
 }
 
 function actionsFor({ group, row, student }) {
@@ -70,8 +87,8 @@ function actionsFor({ group, row, student }) {
     ]
   }
   if (group === 'review-release') {
-    return row?.pill?.text === 'Blocked'
-      ? [{ key: 'open', label: 'Open', primary: true }]
+    return row?.pill?.text === 'Blocked' || row?.pill?.text === 'To fix'
+      ? [{ key: 'open', label: 'Open', primary: true }, { key: 'snooze', label: 'Snooze' }]
       : [{ key: 'open', label: 'Release', primary: true }, { key: 'snooze', label: 'Snooze' }]
   }
   if (group === 'forms') return [
@@ -134,7 +151,8 @@ export function normalizeHomeQueue({ groups = [], conversations = [], students =
         quote: conversation?.latest_preview || null,
         age, ageLabel: stateText(row) || agePill(age, now),
         personal, cohort: personal ? null : cohortId,
-        actions: actionsFor({ group, row, student }),
+        actions: withHide(actionsFor({ group, row, student })),
+        sig: conversation ? `${conversation.last_message_at || ''}` : (row.sig ?? `${row.pill?.text || ''}|${row.meta || ''}`),
         href: row.to, urgent: false, source: row, conversation, student,
       })
     }
@@ -195,7 +213,8 @@ export function normalizeSupportQueue({ logs = [], events = [], students = [], k
       meta: log.shift_date ? `Check-in reply · ${new Date(`${log.shift_date}T12:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : 'Check-in reply',
       quote: reply, age: event.created_at, ageLabel: agePill(event.created_at, now),
       personal: true, cohort: null, urgent,
-      actions: actionsFor({ group: 'messages', row }),
+      actions: withHide(actionsFor({ group: 'messages', row }), urgent),
+      sig: String(event.id),   // a new reply is a new event, so it comes back
       href: `/rotation/activity?student=${encodeURIComponent(log.student_id)}&shift=${encodeURIComponent(log.id)}`,
       studentId: log.student_id, shiftLogId: log.id, source: row,
       keith: keithEvent && sort
@@ -230,7 +249,7 @@ export function applySnoozes(items = [], snoozes = [], now = Date.now()) {
   const hidden = new Set(snoozes
     .filter(s => new Date(s.snoozed_until).getTime() > now)
     .map(s => s.item_key))
-  return items.filter(item => !hidden.has(item.key))
+  return items.filter(item => !hidden.has(item.key) && !(item.urgent !== true && hidden.has(dismissKey(item))))
 }
 
 export function groupQueue(items = []) {

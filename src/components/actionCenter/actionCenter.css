@@ -64,6 +64,14 @@
 .ac2-auto-row { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 8px; padding: 9px 12px; border: 1px solid var(--ac-line); border-top: 0; background: var(--ac-surface); font-size: 10.5px; }
 .ac2-auto-row q { overflow-wrap: anywhere; color: var(--ac-muted); }
 .ac2-notif-head { display: flex; justify-content: space-between; align-items: center; padding: 0 2px 8px; color: var(--ac-muted); font-size: 11px; }
+/* AC-DISMISS-1: the two list tools, and a quiet x per notification that sharpens on hover or focus. */
+.ac2-notif-tools { display: inline-flex; gap: 10px; }
+.ac2-notif-dismiss { flex: none; display: grid; place-items: center; width: 28px; height: 28px; margin: 7px 8px 0 0; padding: 0; border: 0; border-radius: var(--aspire-radius-control); background: transparent; color: var(--color-text-secondary, #6b7280); cursor: pointer; opacity: .55; }
+.ac2-notif-dismiss svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.ac2-notif-row:hover .ac2-notif-dismiss, .ac2-notif-dismiss:focus-visible { opacity: 1; }
+.ac2-notif-dismiss:hover { background: rgba(29,37,103,.07); color: var(--color-text-primary, #1f2937); }
+.ac2-notif-dismiss:focus-visible { outline: 2px solid var(--ac-navy); outline-offset: 1px; }
+@media (hover: none) { .ac2-notif-dismiss { opacity: 1; } }
 
 :root[data-style="classic"] .ac2-body {
   padding-top: 40px;

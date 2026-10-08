@@ -47,7 +47,9 @@ test('config: every RPC status is mapped and lifecycle actions map to the four R
     'not_yet_eligible', 'not_moderated']) {
     assert.ok(RPC_STATUS[s], `status ${s} mapped`)
   }
-  assert.deepEqual(Object.keys(LIFECYCLE_ACTIONS).sort(), ['moderate', 'release', 'rerelease', 'revoke'])
+  // AC-DISMISS-1 (2026-10-07) added withhold / unwithhold: "won't release" for a response that can never be released.
+  assert.deepEqual(Object.keys(LIFECYCLE_ACTIONS).sort(), ['moderate', 'release', 'rerelease', 'revoke', 'unwithhold', 'withhold'])
+  assert.ok(RPC_STATUS.releasable && RPC_STATUS.releasable.ok === false)
 })
 
 // ── validation ───────────────────────────────────────────────────────────────

@@ -551,7 +551,7 @@ export function adaptAspireFeedback({
  * then release, seven days after the rotation ends. There is no email and no named
  * recipient; a unit leader sees it in their portal. The chain says exactly that.
  */
-export function adaptUnitLeaderRelease({ rows, nowMs }) {
+export function adaptUnitLeaderRelease({ rows, nowMs, withholdsEnabled = false }) {
   const workflowId = 'unitLeaderRelease'
   const items = []
   const sent = []
@@ -578,13 +578,26 @@ export function adaptUnitLeaderRelease({ rows, nowMs }) {
       continue
     }
     if (rowIsReadOnly(r)) {
+      // AC-DISMISS-1: a response marked "won't release" leaves the board for the tape, where
+      // it can be put back; one that is not marked yet offers the mark.
+      if (r.withheld_at) {
+        sent.push({
+          id: r.response_id, workflowId, at: r.withheld_at, who: r.student_name || 'Student',
+          step: r.unit_key || null, recipient: "won't release", submission: null, completedAt: r.withheld_at,
+          withheld: true, responseId: r.response_id,
+        })
+        continue
+      }
       const why = r.release_state === 'ineligible' ? 'Ineligible for release'
         : !r.evaluated_preceptor ? 'No preceptor on the response'
         : !r.eligible_at ? 'No eligibility date' : 'Legacy response'
       items.push({
         ...base, state: 'blocked', stamp: stamp('late', why),
         chain: [node('before', 'fix', 'Response', why), node('this', 'next', thisLabel, 'Cannot release'), after],
-        blocker: { text: `${why}. This response cannot be released.`, action: 'fix', target: { kind: 'response' } },
+        blocker: {
+          text: `${why}. This response cannot be released.`, action: 'fix', target: { kind: 'response' },
+          neverReleasable: true, withhold: !!withholdsEnabled,
+        },
       })
       continue
     }

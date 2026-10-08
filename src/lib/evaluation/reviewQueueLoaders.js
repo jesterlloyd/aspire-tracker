@@ -188,5 +188,5 @@ export async function loadUnitLeaderQueue(signal) {
     err.status = res.status
     throw err
   }
-  return { rows: res.data?.rows || [], detectedAtMs: Date.now() }
+  return { rows: res.data?.rows || [], withholdsEnabled: !!res.data?.withholdsEnabled, detectedAtMs: Date.now() }
 }

@@ -92,7 +92,8 @@ test('drawer and schema carry the accessibility, snooze, classification, and not
   for (const type of ['message_assigned', 'signed_copy_returned', 'calendar_event_changed', 'evaluation_window_opened', 'followed_message_resolved']) {
     assert.match(migration, new RegExp(type))
   }
-  assert.match(read('api/webhooks/resend.js'), /outreach_delivered/)
+  // AC-DISMISS-1 (2026-10-07) retired the sender's "Outreach delivered" notice; the webhook writes none.
+  assert.doesNotMatch(read('api/webhooks/resend.js'), /staff_notifications/)
   assert.match(read('src/components/connect/messages/MessagesWorkspace.jsx'), /linkedConversationId[\s\S]*focusLinkedReply/)
   assert.match(read('src/components/connect/messages/ThreadActions.jsx'), /autoFocus=\{focusOnMount\}/)
   assert.match(backfill, /ROLLBACK;/)

@@ -99,10 +99,26 @@ export function createReviewQueueHandler({
         }
       }
 
+      // AC-DISMISS-1: which responses were marked "won't release". The table arrives with
+      // 20261112000000; before it (or on any read failure) nothing is withheld and the board
+      // says the action is not enabled, so a failure here never takes the queue down.
+      const withheldAt = new Map()
+      let withholdsEnabled = false
+      if (responseIds.length > 0) {
+        try {
+          const wRes = await db.from('evaluation_release_withholds')
+            .select('response_id, withheld_at').in('response_id', responseIds).is('undone_at', null)
+          if (!wRes.error) {
+            withholdsEnabled = true
+            for (const w of wRes.data || []) withheldAt.set(w.response_id, w.withheld_at)
+          }
+        } catch { /* not enabled */ }
+      }
+
       const rows = rels
         .filter(r => !outsidePopulation.has(r.response_id))
-        .map(r => serializeReviewQueueRow(r, nameByResponse.get(r.response_id)))
-      return res.status(200).json({ rows })
+        .map(r => serializeReviewQueueRow(r, nameByResponse.get(r.response_id), withheldAt.get(r.response_id)))
+      return res.status(200).json({ rows, withholdsEnabled })
     } catch {
       return res.status(500).json({ error: 'internal_error' })
     }

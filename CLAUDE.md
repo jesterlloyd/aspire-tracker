@@ -2439,3 +2439,35 @@ Known and not changed: the Unit Leader's At a Glance calendar in dark mode (the 
 shell) measured 44 failing text nodes before this change and the same after; its day numbers and
 the day panel's entries read white on the cream portal page. That is the portal's dark mode, a
 separate fix.
+
+## The Action Center can dismiss (AC-DISMISS-1, 2026-10-07)
+
+Owner: a way to dismiss notifications and actions, not only snooze them, and an end to the
+actions that never leave.
+
+- **Dismiss is "until it changes", never "forever".** An Action Center item is derived from live
+  state, and some keys are broad (`rr:<workflow>` is every release of that workflow), so a
+  permanent dismissal would hide future work. Dismiss writes an `action_snoozes` row keyed
+  `<item key>@<sig>` for `DISMISS_DAYS` (90); `applySnoozes` hides an item when its key OR its
+  dismiss key is snoozed. `sig` is set by `normalizeHomeQueue` (a row's own `sig`, else its pill
+  and meta; a conversation's last message) and `normalizeSupportQueue` (the latest event). **A row
+  whose words count down every day must set `sig`**, or its dismissal lasts a day: renewals (the
+  date), Concur (deadline, receipt, late), messages (last message, flag), behind on hours (hours
+  logged). No SQL. Urgent items are never dismissed. Every other item also gets Snooze, with In a
+  week beside Tomorrow and Monday.
+- **A blocked slip counts as work only when the team can act on it**: `needsStaff` in
+  `reviewQueueShape.js`, read by Needs you and so by the Action Center. Not counted: a student still
+  finishing a survey (`remind`, the reminders already run), a step behind (`jump`, counted on its
+  own clipboard), and a response that can never be released until "won't release" exists. The
+  clipboard still shows every slip. The words are "to fix", not "blocked by a prerequisite".
+- **Won't release** (Unit Leader release only): a response `rowIsReadOnly` says can never be released
+  offers Mark as won't release (confirmDialog) and moves to the tape, where Put back undoes it. The
+  record is `evaluation_release_withholds`, written only by `ul_eval_withhold_response` /
+  `ul_eval_unwithhold_response`, which refuse a releasable row; an undo stamps `undone_at` and the
+  row stays. The guarded `evaluation_response_unit_release` table is untouched.
+- **Notifications**: an x per row (a sibling of the row's button) and Clear read (read ones only),
+  both with Undo, through `dismiss_staff_notifications` / `restore_staff_notifications` (the caller's
+  own rows; a dismissed one is also read). The webhook no longer writes "Outreach delivered" notices.
+- Migration `20261112000000_action_center_dismiss.sql` is Owner-gated; before it, notifications
+  read as before with no x, and "won't release" is not offered. Checks:
+  `db/audit/action_center_dismiss_checks.sql`.

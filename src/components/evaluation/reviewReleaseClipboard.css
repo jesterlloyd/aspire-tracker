@@ -320,6 +320,9 @@
 .rq-tape-empty { font-size: 12.5px; color: var(--aspire-tape-muted); }
 [data-theme="dark"] .rq-tape { border-top-color: rgba(255, 255, 255, 0.14); }
 [data-theme="dark"] .rq-tape-line { border-bottom-color: rgba(255, 255, 255, 0.07); }
+/* AC-DISMISS-1: Put back on a "won't release" line, in the tape's own ink. */
+.rq-tape-undo { border: 0; padding: 0; background: none; color: inherit; font: inherit; text-decoration: underline; cursor: pointer; }
+.rq-tape-undo:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
 
 /* ── Responsive ───────────────────────────────────────────────────────────── */
 /* Below 900px the rail stacks above the board and loses its top margin. The board never

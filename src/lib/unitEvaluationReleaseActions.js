@@ -71,6 +71,8 @@ export const ACTION_API = Object.freeze({
 // Human-readable copy for each server refusal status, shown verbatim-safe in the console.
 export const ACTION_STATUS_MESSAGE = Object.freeze({
   success: 'Done.',
+  releasable: 'This response can still be released, so it stays on the board.',
+  not_enabled: "Won't release is not switched on yet (its database update has not been applied).",
   no_change: 'No change was needed.',
   not_authorized: 'Only an active Owner or Admin can do that.',
   not_found: 'That response could not be found.',

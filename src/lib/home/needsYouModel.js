@@ -5,7 +5,9 @@
 // tracker, today's interview slots, the cohort's students) and returns one GROUP:
 //
 //   { key, name, sub, pills: [{ text, tone }], rows: [ROW], open: { label, to }, count }
-//   ROW = { id, title, meta, pill: { text, tone }, ageMs, to }
+//   ROW = { id, title, meta, pill: { text, tone }, ageMs, to, sig? }
+//   sig (AC-DISMISS-1): what has to change for a dismissed row to come back. Rows whose words
+//   count down every day set it; the rest use their pill and meta.
 //
 // Rules the builders keep, from the build prompt and the table canon:
 //   - A row is NAVIGATION. It carries `to`, the screen where the decision lives, and
@@ -25,6 +27,7 @@ import { hoursPace } from '../clinicalHours.js'
 import { EXITED_STATUSES } from '../placementCoverage.js'
 import { slotStartDate } from '../interviewsToday.js'
 import { knownDate } from './cyclePhase.js'
+import { needsStaff } from '../evaluation/reviewQueueShape.js'
 
 export const ROWS_PER_GROUP = 3
 const DAY = 86400000
@@ -153,6 +156,7 @@ export function budgetGroup({ renewals = [], receipts = [], concur = [], missing
     title: `${r.name} · ${usd(r.amount)}`,
     meta: [`Renews ${ymdText(r.date)}`, r.days === 0 ? 'today' : `in ${plural(r.days, 'day')}`, r.paymentLabel].filter(Boolean).join(' · '),
     pill: { text: r.days === 0 ? 'Renews today' : `In ${plural(r.days, 'day')}`, tone: r.days <= 7 ? 'red' : 'amber' },
+    sig: `renews ${r.date}`,
     ageMs: Math.max(0, 46 - n(r.days)) * DAY,
     to: '/settings/budget?tab=subscriptions',
   }))
@@ -171,6 +175,7 @@ export function budgetGroup({ renewals = [], receipts = [], concur = [], missing
     title: `${c.item || c.vendor || 'Expense'} · ${usd(c.amount)}`,
     meta: ['Personal (Concur), still Recorded', `submit by ${ymdText(c.deadline)}`, !c.hasReceipt && n(c.amount) > 25 ? 'no receipt on file (required over $25)' : null].filter(Boolean).join(' · '),
     pill: { text: c.daysLeft < 0 ? 'Past due' : c.daysLeft === 0 ? 'Due today' : `Due in ${plural(c.daysLeft, 'day')}`, tone: c.daysLeft <= 7 ? 'red' : 'amber' },
+    sig: `${c.deadline}|${c.hasReceipt ? 'receipt' : 'none'}|${c.daysLeft < 0 ? 'late' : 'open'}`,
     ageMs: Math.max(0, 61 - n(c.daysLeft)) * DAY,
     to: '/settings/budget?tab=sheet',
   }))
@@ -219,6 +224,7 @@ export function messagesGroup({ conversations = [], now = Date.now() } = {}) {
       title: `${who} · ${c.subject || 'No subject'}`,
       meta: wrote,
       pill: { text: ageLabel(c.last_message_at, now), tone: 'amber' },
+      sig: `${c.last_message_at || ''}|${c.follow_up_flagged ? 'flag' : ''}`,
       ageMs,
       to: `/connect/messages?conversation=${encodeURIComponent(c.id)}`,
     })
@@ -279,23 +285,26 @@ export function reviewReleaseGroup({ queues = {}, workflows = [], now = Date.now
   let ready = 0, blocked = 0
   for (const w of workflows || []) {
     const items = queues?.[w.key]?.items || []
+    // AC-DISMISS-1 (Owner, 2026-10-07): only a blocked slip the team can act on counts. A
+    // student still finishing a survey (the reminders already run), a step behind (counted on
+    // its own clipboard) and a response not yet markable as "won't release" stay on the board.
     const r = items.filter(i => i.state === 'ready').length
-    const b = items.filter(i => i.state === 'blocked').length
+    const b = items.filter(needsStaff).length
     if (!r && !b) continue
     ready += r; blocked += b
     const oldest = items
-      .filter(i => i.state === 'ready' || i.state === 'blocked')
+      .filter(i => i.state === 'ready' || needsStaff(i))
       .map(i => new Date(i.since || i.sinceIso || 0).getTime())
       .filter(Number.isFinite)
     const ageMs = oldest.length ? now - Math.min(...oldest) : 0
     const meta = r
-      ? `${plural(r, 'student')} ready to release${b ? ` · ${b} blocked` : ''}`
-      : `${plural(b, 'student')} blocked by a prerequisite`
+      ? `${plural(r, 'student')} ready to release${b ? ` · ${b} to fix` : ''}`
+      : `${plural(b, 'student')} to fix before release`
     rows.push({
       id: `rr:${w.key}`,
       title: w.label,
       meta,
-      pill: r ? { text: `${r} ready`, tone: 'green' } : { text: 'Blocked', tone: 'amber' },
+      pill: r ? { text: `${r} ready`, tone: 'green' } : { text: 'To fix', tone: 'amber' },
       // Ready before blocked, then by age: a release that can happen now leads.
       ageMs: (r ? DAY * 3650 : 0) + Math.max(0, ageMs),
       to: `/evaluation?workflow=${encodeURIComponent(w.key)}`,
@@ -303,7 +312,7 @@ export function reviewReleaseGroup({ queues = {}, workflows = [], now = Date.now
   }
   const pills = []
   if (ready) pills.push({ text: `${ready} ready`, tone: 'green' })
-  if (blocked) pills.push({ text: `${blocked} blocked`, tone: 'amber' })
+  if (blocked) pills.push({ text: `${blocked} to fix`, tone: 'amber' })
   return finish({
     key: 'reviewRelease', name: 'Review & Release', sub: 'Survey workflows', pills, rows,
     open: { label: 'Open Review & Release', to: '/evaluation?workflow=caseyFinkPreRotation' }, count: ready + blocked,
@@ -458,6 +467,7 @@ export function placementGroup({
       title: `${displayName(s)} · ${unitNameFor(s.matched_unit_id) || s.school || ''}`.replace(/ · $/, ''),
       meta: `${Math.round(n(s.approved_hours))} of ${Math.round(n(s.hours_required))} h · about ${Math.round(pace.deficit)} h behind pace`,
       pill: { text: 'Behind', tone: 'amber' },
+      sig: `${Math.round(n(s.approved_hours))} h`,   // logging hours brings it back; the daily pace drift does not
       ageMs: Math.round(pace.deficit) * DAY,   // the further behind, the older it reads
       to: `/students?student=${encodeURIComponent(s.id)}`,
     })

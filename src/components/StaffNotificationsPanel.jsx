@@ -58,7 +58,7 @@ function relTime(iso) {
 
 export default function StaffNotificationsPanel({
   items = [], unreadCount = 0, isLoading, isError, onMarkRead, onMarkAllRead,
-  onNavigateDestination, hideHeader = false,
+  onNavigateDestination, hideHeader = false, onDismiss = null,
 }) {
   const grouped = items.reduce((out, row) => {
     const when = new Date(row.created_at)
@@ -121,16 +121,18 @@ export default function StaffNotificationsPanel({
               ? `${row.old_value || '(none)'} → ${row.new_value || '(none)'}`
               : null
             return (
+              <div key={row.id} className="ac2-notif-row" style={{
+                display: 'flex', alignItems: 'flex-start',
+                borderBottom: '1px solid rgba(0,0,0,0.05)',
+                background: unread ? 'rgba(29,37,103,0.035)' : 'transparent',
+              }}>
               <div
-                key={row.id}
                 role={behavior.interactive ? 'button' : undefined}
                 tabIndex={behavior.interactive ? 0 : undefined}
                 onClick={behavior.interactive ? behavior.activate : undefined}
                 onKeyDown={behavior.interactive ? behavior.onKeyDown : undefined}
                 style={{
-                  display: 'flex', gap: 10, padding: '11px 16px',
-                  borderBottom: '1px solid rgba(0,0,0,0.05)',
-                  background: unread ? 'rgba(29,37,103,0.035)' : 'transparent',
+                  display: 'flex', gap: 10, padding: '11px 4px 11px 16px', flex: 1, minWidth: 0,
                   cursor: behavior.interactive ? 'pointer' : 'default',
                 }}
               >
@@ -174,6 +176,14 @@ export default function StaffNotificationsPanel({
                     </div>
                   )}
                 </div>
+              </div>
+              {/* AC-DISMISS-1: a sibling of the row's button, never inside it. */}
+              {onDismiss && (
+                <button type="button" className="ac2-notif-dismiss" aria-label={`Dismiss ${labelFor(row)}`}
+                  onClick={() => onDismiss(row)}>
+                  <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 6l8 8M14 6l-8 8" /></svg>
+                </button>
+              )}
               </div>
             )
           })}

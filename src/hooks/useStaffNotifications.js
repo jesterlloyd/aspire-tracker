@@ -27,17 +27,28 @@ export function useStaffNotifications({ enabled = true } = {}) {
   const query = useQuery({
     queryKey,
     queryFn: async () => {
-      if (!profileId) return { items: [], unreadCount: 0 }
-      const { data, error } = await supabase
-        .from('staff_notifications')
-        .select(SELECT_COLS)
-        .eq('recipient_profile_id', profileId)
-        .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
-        .order('created_at', { ascending: false })
-        .limit(MAX_ROWS)
+      if (!profileId) return { items: [], unreadCount: 0, dismissible: false }
+      // AC-DISMISS-1: a dismissed notification is not listed. dismissed_at arrives with
+      // 20261112000000; before it the column is absent (42703) and the list reads as it always
+      // did, with no Dismiss offered.
+      const read = (withDismiss) => {
+        let q = supabase
+          .from('staff_notifications')
+          .select(SELECT_COLS)
+          .eq('recipient_profile_id', profileId)
+          .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
+        if (withDismiss) q = q.is('dismissed_at', null)
+        return q.order('created_at', { ascending: false }).limit(MAX_ROWS)
+      }
+      let dismissible = true
+      let { data, error } = await read(true)
+      if (error && String(error.code) === '42703') {
+        dismissible = false
+        ;({ data, error } = await read(false))
+      }
       if (error) throw error
       const items = data || []
-      return { items, unreadCount: items.filter(i => !i.in_app_read_at).length }
+      return { items, unreadCount: items.filter(i => !i.in_app_read_at).length, dismissible }
     },
     enabled: enabled && !!profileId,
     staleTime: 15_000,
@@ -64,8 +75,39 @@ export function useStaffNotifications({ enabled = true } = {}) {
     }
   }, [qc, profileId]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // AC-DISMISS-1: dismiss specific ids, or (null) every READ notification ("Clear read"). The RPC
+  // scopes to the caller and also marks a dismissed one read. Returns the ids it hid, for Undo.
+  const dismiss = useCallback(async (ids) => {
+    const list = Array.isArray(ids) ? ids.filter(Boolean) : (ids ? [ids] : null)
+    if (list && list.length === 0) return []
+    const prev = qc.getQueryData(queryKey)
+    const hidden = (prev?.items || []).filter(i => (list ? list.includes(i.id) : !!i.in_app_read_at)).map(i => i.id)
+    qc.setQueryData(queryKey, (cur) => {
+      if (!cur) return cur
+      const items = cur.items.filter(i => !hidden.includes(i.id))
+      return { ...cur, items, unreadCount: items.filter(i => !i.in_app_read_at).length }
+    })
+    const { error } = await supabase.rpc('dismiss_staff_notifications', { p_ids: list })
+    if (error) {
+      qc.invalidateQueries({ queryKey })
+      throw error
+    }
+    return hidden
+  }, [qc, profileId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const restore = useCallback(async (ids) => {
+    const list = (Array.isArray(ids) ? ids : [ids]).filter(Boolean)
+    if (!list.length) return
+    const { error } = await supabase.rpc('restore_staff_notifications', { p_ids: list })
+    qc.invalidateQueries({ queryKey })
+    if (error) throw error
+  }, [qc, profileId]) // eslint-disable-line react-hooks/exhaustive-deps
+
   return {
     items: query.data?.items || [],
+    dismissible: query.data?.dismissible === true,
+    dismiss,
+    restore,
     unreadCount: query.data?.unreadCount || 0,
     isLoading: query.isLoading,
     isError: query.isError,

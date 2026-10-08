@@ -34,6 +34,8 @@ test('the Program Budget group lists renewals soonest first, and hides itself wh
   assert.deepEqual(g.rows[1], {
     id: 'renew:a', chip: 'Renew', title: 'Survey platform · $600.00', meta: 'Renews Oct 15, 2026 · in 18 days · P-card',
     pill: { text: 'In 18 days', tone: 'amber' }, ageMs: 28 * 86400000, to: '/settings/budget?tab=subscriptions',
+    // AC-DISMISS-1 (2026-10-07): a dismissed renewal returns when its date changes, not as the days count down.
+    sig: 'renews 2026-10-15',
   })
   assert.equal(g.rows[0].pill.tone, 'red', 'a week or less is red')
   assert.equal(Y.budgetGroup({ renewals: [] }), null)

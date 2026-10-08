@@ -10,6 +10,7 @@ import ReviewReleaseQueue, { ReleaseConfirm, ModerateConfirm } from './ReviewRel
 import { SURVEY_CATALOG, SURVEY_WORKFLOWS, surveyByKey } from '../../lib/evaluation/surveyCatalog'
 import { RELEASE_ROUTES } from '../../lib/evaluation/releaseRouting'
 import { postReleaseAction } from '../../lib/evaluationReviewApi'
+import { confirmDialog } from '../shared/confirmDialog'
 import { ACTION_API, ACTION_STATUS_MESSAGE } from '../../lib/unitEvaluationReleaseActions'
 import { loadCohortEvidence, loadUnitLeaderQueue } from '../../lib/evaluation/reviewQueueLoaders'
 import { buildQueues } from '../../lib/evaluation/reviewQueueBuild'
@@ -288,6 +289,29 @@ export default function SurveyAutomationDashboard({ cohortId, onTrackResponses, 
     if (res.ok) ulQueue.refetch()
   }
 
+  // AC-DISMISS-1 (Owner, 2026-10-07): a Unit Leader response that can never be released is
+  // marked "won't release" (a record beside the release row, which is untouched) and leaves the
+  // board for the tape, where Put back undoes it.
+  const withhold = useCallback(async (item) => {
+    if (!item?.responseId) return
+    const ok = await confirmDialog(`Mark ${item.person.name}'s response as won't release? It leaves Review & Release and Needs you. You can put it back from the tape below the board.`, { confirmLabel: "Mark won't release" })
+    if (!ok) return
+    setBusyItemId(item.id); setNotice(null)
+    const res = await postReleaseAction({ action: 'withhold', responseId: item.responseId })
+    const status = res.data?.status || res.error
+    setNotice({ tone: res.ok && res.data?.ok ? 'ok' : 'err', text: `${item.person.name}: ${status === 'success' ? "marked won't release." : ACTION_STATUS_MESSAGE[status] || 'That action could not be completed.'}` })
+    setBusyItemId(null)
+    if (res.ok) { await leave(item.id); ulQueue.refetch().finally(() => setLeavingId(null)) }
+  }, [ulQueue, setNotice, leave])
+  const unwithhold = useCallback(async (line) => {
+    if (!line?.responseId) return
+    setNotice(null)
+    const res = await postReleaseAction({ action: 'unwithhold', responseId: line.responseId })
+    const status = res.data?.status || res.error
+    setNotice({ tone: res.ok && res.data?.ok ? 'ok' : 'err', text: `${line.who}: ${status === 'success' ? 'back on the board.' : ACTION_STATUS_MESSAGE[status] || 'That action could not be completed.'}` })
+    if (res.ok) ulQueue.refetch()
+  }, [ulQueue, setNotice])
+
   // Records or corrects ONE activity for ONE student. Never releases or sends anything.
   // REVIEW-RELEASE-2 (Owner, 2026-09-20): activities are recorded on the slip itself,
   // with the date they happened. The ledger endpoint refuses a future date, so today's
@@ -410,6 +434,8 @@ export default function SurveyAutomationDashboard({ cohortId, onTrackResponses, 
             onRerun={rerun}
             onRelease={(item) => { setNotice(null); setConfirmItem(item) }}
             onAction={onAction}
+            onWithhold={withhold}
+            onUnwithhold={unwithhold}
             onJump={onJump}
             onTrackResponses={onTrackResponses}
             tools={tools}

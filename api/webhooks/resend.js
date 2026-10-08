@@ -59,40 +59,9 @@ async function reconcileMessageDelivery(supabase, resendEmailId, eventType) {
   }
 }
 
-// ACTION-CENTER-1: delivery is an in-app fact for the staff member who sent it.
-// A bulk send shares one batch correlation across recipient rows, so the first
-// delivered webhook creates the one summary and later deliveries are idempotent.
-async function emitOutreachDelivered(supabase, logRow) {
-  if (!['direct_message_sent', 'bulk_message_sent'].includes(logRow?.notification_type)) return;
-  const senderId = logRow?.metadata?.sent_by_user_id;
-  if (!senderId) return;
-  try {
-    const { data: recipient } = await supabase.from('user_profiles')
-      .select('id,email,is_active').eq('id', senderId).maybeSingle();
-    if (!recipient || recipient.is_active === false || !String(recipient.email || '').trim()) return;
-    const batchId = logRow.notification_type === 'bulk_message_sent' ? logRow?.metadata?.batch_id : null;
-    const correlationId = batchId ? `outreach-delivered:batch:${batchId}` : `outreach-delivered:direct:${logRow.id}`;
-    const subject = batchId
-      ? `Bulk outreach delivered: ${logRow.subject || 'Untitled message'}`
-      : `Outreach delivered: ${logRow.subject || 'Untitled message'}`;
-    const { error } = await supabase.from('staff_notifications').insert({
-      correlation_id: correlationId,
-      recipient_profile_id: recipient.id,
-      recipient_email: recipient.email,
-      event_type: 'outreach_delivered',
-      actor_name: 'Delivery service',
-      actor_role: 'system',
-      subject,
-      dest_url: '/connect/outreach',
-      queue_status: 'suppressed',
-    });
-    if (error && String(error.code) !== '23505') throw error;
-  } catch (err) {
-    // Best effort: webhook reconciliation remains authoritative even if the
-    // optional in-app notification cannot be written.
-    if (String(err?.code) !== '23505') console.error('[resend-webhook] outreach notification failed (non-fatal):', err?.message);
-  }
-}
+// AC-DISMISS-1 (Owner, 2026-10-07): a delivered outreach no longer writes an "Outreach
+// delivered" notification for its sender. A receipt for every send buried the notifications that
+// needed reading; Sent History still shows each delivery. Rows already written stay listable.
 
 let cachedDb = null;
 function defaultDb() {
@@ -301,8 +270,6 @@ export function createResendWebhookHandler({
 
       console.log(`[resend-webhook] ${type} for ${resendEmailId} applied:`, decided ? Object.keys(decided) : 'no status change');
     }
-
-    if (type === 'email.delivered' && decided?.status === 'delivered') await emitOutreachDelivered(supabase, logRow);
 
     return res.status(200).json({ success: true, handled: true, changed: !!decided });
   } catch (err) {

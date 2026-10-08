@@ -34,7 +34,7 @@ export function buildQueues(evidence, ulQueue) {
     })
   }
   if (ulQueue) {
-    out.unitLeaderRelease = adaptUnitLeaderRelease({ rows: ulQueue.rows, nowMs: ulQueue.detectedAtMs })
+    out.unitLeaderRelease = adaptUnitLeaderRelease({ rows: ulQueue.rows, nowMs: ulQueue.detectedAtMs, withholdsEnabled: !!ulQueue.withholdsEnabled })
   }
   return out
 }
