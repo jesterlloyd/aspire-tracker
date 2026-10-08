@@ -68,7 +68,7 @@ export const MATCH_RANK_CONFIG = {
   second:       { label: '2nd choice match',        color: '#7C5A1F', bg: '#FCEFD4', border: '#B5895A' },
   third:        { label: '3rd choice match',        color: '#1E2A6E', bg: '#FFFFFF', border: '#1E2A6E' },
   other:        { label: 'Other placement',         color: '#6b7280', bg: '#f9fafb', border: '#e5e7eb' },
-  not_recorded: { label: 'Match rank not recorded', color: '#6b7280', bg: '#f3f4f6', border: '#e5e7eb' },
+  not_recorded: { label: 'Match rank not recorded', color: '#4b5563', bg: '#f3f4f6', border: '#e5e7eb' },
 }
 
 // PLACEMENT-BOARD-FELT-1: the value createMatch STORES, decided once at the

@@ -1082,7 +1082,7 @@ export default function BulkManualComposer({
                     <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 3, alignItems: 'center' }}>
                       <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3, background: badgeBg, color: badgeColor, fontFamily: F }}>{emailTypeLabel(studentEmailSrc)}</span>
                       {s.school && <span style={{ fontSize: 9, color: '#9ca3af', fontFamily: F }}>{s.school}</span>}
-                      {s.status && <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3, background: '#f3f4f6', color: '#6b7280', fontFamily: F }}>{s.status}</span>}
+                      {s.status && <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3, background: '#f3f4f6', color: '#4b5563', fontFamily: F }}>{s.status}</span>}
                     </div>
                   </div>
                 </div>
@@ -1486,7 +1486,7 @@ export default function BulkManualComposer({
                   return (
                     <div>
                       <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
-                        {[['Total', s.total, '#6b7280', '#f3f4f6'], ['Sent', s.sent, '#2F7D5C', '#EEF7F0'], ['Skipped', s.skipped, '#8B5E1A', '#FBF5E8'], ['Failed', s.failed, '#b91c1c', '#fef2f2']].map(([lbl, n, col, bg]) => (
+                        {[['Total', s.total, '#4b5563', '#f3f4f6'], ['Sent', s.sent, '#2F7D5C', '#EEF7F0'], ['Skipped', s.skipped, '#8B5E1A', '#FBF5E8'], ['Failed', s.failed, '#b91c1c', '#fef2f2']].map(([lbl, n, col, bg]) => (
                           <span key={lbl} style={{ fontSize: 11, fontWeight: 700, color: col, background: bg, padding: '4px 10px', borderRadius: 999, fontFamily: F }}>{lbl}: {n}</span>
                         ))}
                       </div>

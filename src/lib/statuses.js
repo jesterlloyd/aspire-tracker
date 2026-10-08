@@ -1,5 +1,5 @@
 export const ASPIRE_STATUSES = [
-  { value: 'Pending Outreach',    label: 'Pending Outreach',    color: '#6b7280', bg: '#f3f4f6', order: 1 },
+  { value: 'Pending Outreach',    label: 'Pending Outreach',    color: '#4b5563', bg: '#f3f4f6', order: 1 },
   { value: 'Form Sent',           label: 'Form Sent',           color: '#1d4ed8', bg: '#eff6ff', order: 2 },
   { value: 'Form Received',       label: 'Form Received',       color: '#0e7490', bg: '#dceff8', order: 3 },
   { value: 'Interview Scheduled', label: 'Interview Scheduled', color: '#5b21b6', bg: '#ede9fe', order: 4 },

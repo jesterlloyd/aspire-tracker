@@ -171,7 +171,7 @@ const HEALTH_TONES = {
   // AUTOMATION-MONITORING-1: "No recent runs" - a monitoring concern, not a
   // failure, so amber rather than the error red.
   warn:    { dot: '#92400e', bg: '#fffbeb', color: '#92400e', border: '#fde68a' },
-  neutral: { dot: '#9ca3af', bg: '#f3f4f6', color: '#6b7280', border: '#e5e7eb' },
+  neutral: { dot: '#9ca3af', bg: '#f3f4f6', color: '#4b5563', border: '#e5e7eb' },
   paused:  { dot: '#94a3b8', bg: '#f1f5f9', color: '#475569', border: '#cbd5e1' },
 }
 

@@ -267,7 +267,7 @@ function MessageDrawer({ detail, onClose, onRetry }) {
           ) : message ? (
             <>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
-                <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 4, background: isManual ? '#EDE9FE' : '#f3f4f6', color: isManual ? '#5B21B6' : '#6b7280', border: `1px solid ${isManual ? '#C4B5FD' : '#e5e7eb'}`, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 4, background: isManual ? '#EDE9FE' : '#f3f4f6', color: isManual ? '#5B21B6' : '#4b5563', border: `1px solid ${isManual ? '#C4B5FD' : '#e5e7eb'}`, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                   {isManual ? 'Manual' : 'System'}
                 </span>
                 <span style={{ fontSize: 11, fontWeight: 600, color: NAVY }}>{messageTypeLabel(message.notification_type)}</span>
@@ -639,7 +639,7 @@ export default function SentHistory() {
                       {row.recipient_display_category && <span style={catChipStyle(row.recipient_display_category)}>{row.recipient_display_category}</span>}
                       {row.recipient_display_school && <span style={{ fontSize: 11, color: '#6b7280' }}>{row.recipient_display_school}</span>}
                       {isInternal && (
-                        <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 4, background: '#f3f4f6', color: '#6b7280', border: '1px solid #e5e7eb', textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>
+                        <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 4, background: '#f3f4f6', color: '#4b5563', border: '1px solid #e5e7eb', textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>
                           Internal/System
                         </span>
                       )}

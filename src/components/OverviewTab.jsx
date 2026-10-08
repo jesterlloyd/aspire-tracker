@@ -813,7 +813,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
           return (a.first_name || '').toLowerCase().localeCompare((b.first_name || '').toLowerCase())
         }).map(s => {
           const ovDispType = s.status === 'Not Proceeding' ? s.active_disposition?.disposition_type : null
-          const statusCfg  = ASPIRE_STATUS_CONFIG[s.status] || { bg:'#f3f4f6', text:'#6b7280', border:'#d1d5db' }
+          const statusCfg  = ASPIRE_STATUS_CONFIG[s.status] || { bg:'#f3f4f6', text:'#4b5563', border:'#d1d5db' }
           const placedUnit = s.matched_unit_id ? unitNameFor(s.matched_unit_id) : null
           const isPending  = s.status === 'Pending Outreach'
           const req = parseFloat(s.hours_required || 0)

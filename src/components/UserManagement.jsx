@@ -65,7 +65,7 @@ function ProfileCard({ user, online, onOpen }) {
       </div>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
         <span style={{ background: rb.bg, color: rb.text, fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 20 }}>{displayRole(user)}</span>
-        {isInactive && <span style={{ background: '#F3F4F6', color: '#6B7280', fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 20 }}>Inactive</span>}
+        {isInactive && <span style={{ background: '#F3F4F6', color: '#4B5563', fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 20 }}>Inactive</span>}
         {/* Interviewer-access badge - shown only when it ADDS meaning (not when the role badge already
             reads "Interviewer"), so there's never a duplicate Interviewer badge. */}
         {user.can_conduct_interviews && displayRole(user) !== 'Interviewer' && (

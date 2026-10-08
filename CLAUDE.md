@@ -2448,10 +2448,24 @@ is not showing schedules". Both week views now set their scroller to the first t
 the week (`weekScrollTop`), 8 AM when there is none; `test/calendarWeek.test.mjs` pins the
 numbers. The box is still the constant size the planner promises.
 
-Known and not changed: the Unit Leader's At a Glance calendar in dark mode (the modern-appearance
-shell) measured 44 failing text nodes before this change and the same after; its day numbers and
-the day panel's entries read white on the cream portal page. That is the portal's dark mode, a
-separate fix.
+**The Unit Leader's At a Glance in dark mode is clean** (UL-DARK-1, 2026-10-07). The cause was one
+pattern three times: a surface that follows the theme holding light-mode literal inks. The Modern
+calendar shell turns dark but the portal's calendar primitives kept #374151 day numbers, a navy
+name and #6b7280 notes; `plannerCalendar.css` now repoints those to the sheet's tokens under
+`[data-theme="dark"] .canonical-calendar-modern`, exactly as planner rule 5 does for the planner
+skin. The roster card (`--ptl-card`, dark in dark mode) had #191919 and #6b7280 inks; in dark they
+read `--text-heading` / `--text-caption`. The masthead's empty line sits on the fixed cream page and
+is pinned like its head. Swept every text node on the whole home (calendar Month and Week,
+Internship and Residency, roster, interview results), transitions off: dark 0 failures, lowest
+4.56:1. Light is unchanged except the shared inks below; its only failures are the mini calendar's
+deliberately faint weekday letters, out-of-month and future numbers.
+
+**Three shared near-misses fixed the same day:** the grey pill pair (GREY-PILL-1: `#6b7280` on
+`#f3f4f6`, 4.39:1, in 28 files, now `#4b5563`, 6.87:1; `PILL_FAMILIES.mute` and every other place
+that pairs the two); the table header ink (TH-INK-1: `--aspire-th-color` `#6b7785` to `#5f6b78`,
+5.20:1 on the header band, and the dark worklist header reads that token instead of
+`--color-text-muted`); and the portal's quiet text (PTL-MUTED-1: `.ptl-muted` `#6b7280` to
+`#5b6472`, 5.31:1 on cream).
 
 ## The Action Center can dismiss (AC-DISMISS-1, 2026-10-07)
 

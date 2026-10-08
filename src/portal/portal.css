@@ -282,7 +282,8 @@
 }
 .ptl-btn-sm { padding: 7px 14px; font-size: 12.5px; }
 
-.ptl-muted { color: #6b7280; font-size: 13.5px; line-height: 1.6; }
+/* PTL-MUTED-1 (2026-10-07): #6b7280 was 4.29:1 on the cream page; #5b6472 is 5.31:1 there, 5.98:1 on white. */
+.ptl-muted { color: #5b6472; font-size: 13.5px; line-height: 1.6; }
 .ptl-small { font-size: 12.5px; margin-top: 6px; }
 
 /* PHASE3-UNIT-PORTAL: roster table and participation form */
@@ -2569,7 +2570,7 @@ img.ptl-detail-photo {
 .ptl-na-contact-row-copy { min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 3px; }
 .ptl-na-contact-row-copy strong { font-size: 13.5px; }
 .ptl-na-contact-affiliation-line { max-width: 100%; font-size: 11.5px; color: var(--ptl-muted, #6b7280); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ptl-na-contact-row-role { display: inline-flex; max-width: 100%; padding: 2px 7px; border: 1px solid var(--ptl-na-role-border, #e5e7eb); border-radius: 4px; background: var(--ptl-na-role-bg, #f3f4f6); color: var(--ptl-na-role-color, #6b7280); font-size: 9px; font-weight: 700; letter-spacing: .055em; line-height: 1.35; text-transform: uppercase; white-space: normal; }
+.ptl-na-contact-row-role { display: inline-flex; max-width: 100%; padding: 2px 7px; border: 1px solid var(--ptl-na-role-border, #e5e7eb); border-radius: 4px; background: var(--ptl-na-role-bg, #f3f4f6); color: var(--ptl-na-role-color, #4b5563); font-size: 9px; font-weight: 700; letter-spacing: .055em; line-height: 1.35; text-transform: uppercase; white-space: normal; }
 .ptl-na-contact-detail {
   padding: 0; background: #fff; min-height: 360px; max-height: 100%;
   display: flex; flex-direction: column;
@@ -2637,7 +2638,7 @@ img.ptl-detail-photo {
 }
 .ptl-na-copy-value:hover { background: #eef1fb; color: var(--nightfall, #1D2567); }
 .ptl-na-copy-value-copied, .ptl-na-copy-value-copied:hover { color: #2f7d5c; }
-.ptl-na-readonly-note { display: inline-flex; align-items: center; gap: 6px; margin: 0; padding: 7px 10px; border-radius: 8px; background: #f3f4f6; color: #6b7280; font-size: 11.5px; font-weight: 700; }
+.ptl-na-readonly-note { display: inline-flex; align-items: center; gap: 6px; margin: 0; padding: 7px 10px; border-radius: 8px; background: #f3f4f6; color: #4b5563; font-size: 11.5px; font-weight: 700; }
 .ptl-na-contact-empty { margin: 0; padding: 28px; text-align: center; font-size: 12.5px; color: var(--ptl-muted, #6b7280); }
 .ptl-na-contact-editor-primary, .ptl-na-contact-editor-secondary { min-height: 38px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 14px; border-radius: 8px; font-family: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
 .ptl-na-contact-editor-primary { border: 1px solid var(--nightfall, #1D2567); background: var(--nightfall, #1D2567); color: #fff; }
@@ -2737,3 +2738,13 @@ img.ptl-detail-photo {
    measured 4.05:1 here in light, and dark lifts the title to near-white, 1.03:1). The ink travels
    with the fixed surface, so the portal pins it in both themes. The tiles below keep the theme. */
 .ptl-unit-page .mast-live-head { --chart-ink: #0E1428; --chart-ink-soft: #4b5563; }
+/* UL-DARK-1 (2026-10-07): the empty "No students ... on shift right now" line sits on the same
+   cream page, below the head, and read --chart-ink-soft at 3.25:1 in dark. Pinned the same way. */
+.ptl-unit-page .mast-live > .mast-live-empty { color: #4b5563; }
+/* UL-DARK-1: the roster card follows the theme (--ptl-card is --aspire-card, dark in dark mode)
+   while its inks were light-mode literals (#191919 names and cells, #6b7280 schools): 1.04 to
+   3.51:1. The pair travels together: in dark the inks read the theme too. Light is untouched. */
+[data-theme="dark"] .ptl-stu-table td,
+[data-theme="dark"] .ptl-stu-name,
+[data-theme="dark"] .ptl-prec-name { color: var(--text-heading); }
+[data-theme="dark"] .ptl-stu-school { color: var(--text-caption); }

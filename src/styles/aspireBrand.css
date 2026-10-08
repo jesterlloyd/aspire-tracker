@@ -70,7 +70,9 @@
      below, so these are what every other table now reads. Letter-case is deliberately
      NOT a token; both canon tables are right and they differ on it. */
   --aspire-th-weight: 700;
-  --aspire-th-color: #6b7785;
+  /* TH-INK-1 (2026-10-07): #6b7785 measured 4.37:1 on --aspire-th-bg and 4.56:1 on white, under
+     the 4.5 an 11px label needs; one step darker in the same slate is 5.20:1 and 5.44:1. */
+  --aspire-th-color: #5f6b78;
   --aspire-th-bg: #f9fafb;
   --aspire-th-tracking: 0.06em;
   --aspire-th-pad: 10px 12px;

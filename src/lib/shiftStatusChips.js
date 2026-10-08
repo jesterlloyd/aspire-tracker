@@ -19,7 +19,7 @@ export const SHIFT_STATUS_STYLES = Object.freeze({
 
 /** { bg, text, label } for a status, with a neutral fallback that echoes the raw value. */
 export function shiftStatusChip(status) {
-  return SHIFT_STATUS_STYLES[status] || { bg: '#F3F4F6', text: '#6B7280', label: status || '-' }
+  return SHIFT_STATUS_STYLES[status] || { bg: '#F3F4F6', text: '#4B5563', label: status || '-' }
 }
 
 /** Shifts that carry a read-only "Pending review" note in the Details column. */

@@ -213,7 +213,7 @@ export default function AccountProfileModal({ user, isCurrentUser, online, onSav
             <div style={{ fontSize: 13, color: '#6b7280', marginTop: 2 }}>{user.email}</div>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'center', marginTop: 12 }}>
               <span style={{ background: rb.bg, color: rb.text, fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20 }}>{displayRole(user)}</span>
-              <span style={{ background: isInactive ? '#F3F4F6' : '#EDF7F0', color: isInactive ? '#6B7280' : '#166534', fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20 }}>{isInactive ? 'Inactive' : 'Active'}</span>
+              <span style={{ background: isInactive ? '#F3F4F6' : '#EDF7F0', color: isInactive ? '#4B5563' : '#166534', fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20 }}>{isInactive ? 'Inactive' : 'Active'}</span>
               {user.can_conduct_interviews && displayRole(user) !== 'Interviewer' && (
                 <span title="Interviewer access" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: '#E0E7FF', color: '#3730A3', fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20 }}>
                   Interviewer <span style={{ width: 8, height: 8, borderRadius: '50%', background: user.interviewer_color || DEFAULT_COLOR }} />

@@ -14,7 +14,7 @@ export const STAGE_TOKENS = Object.freeze({
   completed: { bg: '#f0fdf4', text: '#14532d', border: '#4ade80', label: 'Recently completed' },
 })
 
-const NEUTRAL = { bg: '#f3f4f6', text: '#6b7280', border: '#d1d5db', label: '' }
+const NEUTRAL = { bg: '#f3f4f6', text: '#4b5563', border: '#d1d5db', label: '' }
 
 export function stageToken(bucket) {
   return STAGE_TOKENS[bucket] || { ...NEUTRAL }

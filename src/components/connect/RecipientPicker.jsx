@@ -35,7 +35,7 @@ function catChipStyle(category) {
 }
 
 function statusChipStyle(status) {
-  const cfg = ASPIRE_STATUS_CONFIG[status] || { bg: '#f3f4f6', text: '#6b7280', border: '#d1d5db' }
+  const cfg = ASPIRE_STATUS_CONFIG[status] || { bg: '#f3f4f6', text: '#4b5563', border: '#d1d5db' }
   return {
     display: 'inline-block', fontSize: 9, fontWeight: 700, padding: '1px 6px',
     borderRadius: 10, background: cfg.bg, color: cfg.text,

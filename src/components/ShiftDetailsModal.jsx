@@ -98,7 +98,7 @@ export default function ShiftDetailsModal({ shift, onClose }) {
 
   if (!shift) return null
 
-  const s = STATUS_STYLES[shift.status] || { bg: '#F3F4F6', text: '#6B7280', label: shift.status || '-' }
+  const s = STATUS_STYLES[shift.status] || { bg: '#F3F4F6', text: '#4B5563', label: shift.status || '-' }
   const submitted = fmtTimestamp(shift.submitted_at)
   const reviewedAt = fmtTimestamp(shift.reviewed_at)
 

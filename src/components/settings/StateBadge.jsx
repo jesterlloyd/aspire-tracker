@@ -10,7 +10,7 @@ export const GOVERNANCE_STATE_STYLES = {
   draft:      { label: 'Draft',      bg: '#eef2fb', color: '#1D2567', dot: '#6b7fd7' },
   active:     { label: 'Active',     bg: '#EDF2E2', color: '#166534', dot: '#3f9142' },
   deprecated: { label: 'Deprecated', bg: '#FEF3C7', color: '#78350F', dot: '#d08700' },
-  archived:   { label: 'Archived',   bg: '#f3f4f6', color: '#6b7280', dot: '#9ca3af' },
+  archived:   { label: 'Archived',   bg: '#f3f4f6', color: '#4b5563', dot: '#9ca3af' },
 }
 
 export default function StateBadge({ state }) {

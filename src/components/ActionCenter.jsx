@@ -412,7 +412,7 @@ function ItemCard({
               <span style={{ fontSize: 11, color: '#374151', fontWeight: 500, whiteSpace: 'nowrap' }}>Mark complete?</span>
               <div style={{ display: 'flex', gap: 4 }}>
                 <button onClick={onCancelConfirm}
-                  style={{ padding: '4px 8px', fontSize: 11, fontWeight: 600, background: '#f3f4f6', border: 'none', borderRadius: 6, cursor: 'pointer', color: '#6b7280', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
+                  style={{ padding: '4px 8px', fontSize: 11, fontWeight: 600, background: '#f3f4f6', border: 'none', borderRadius: 6, cursor: 'pointer', color: '#4b5563', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
                   Cancel
                 </button>
                 <button onClick={onConfirm} disabled={isActioning}

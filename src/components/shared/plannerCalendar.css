@@ -168,6 +168,29 @@
 }
 [data-theme="dark"] .canonical-calendar-modern .canonical-calendar-empty,
 [data-theme="dark"] .canonical-calendar-modern .ptl-cal-today-list li { background: #1D2330; }
+/* UL-DARK-1 (2026-10-07): the Modern shell turns dark, but the portal's calendar primitives
+   paint LIGHT-MODE literals (#374151 day numbers, a navy name, #6b7280 notes): 1.13 to 3.56:1 on
+   the dark sheet, 36 text nodes on the Unit Leader's At a Glance. Planner rule 5, applied to the
+   Modern shell in dark exactly as the planner skin applies it: the portal inks read the sheet's
+   own tokens, and the selected and today marks keep their meaning. Light mode is untouched. */
+[data-theme="dark"] .canonical-calendar-modern {
+  --ptl-ink: var(--paper-ink);
+  --ptl-muted: var(--paper-muted);
+  --ptl-line: var(--rule);
+}
+[data-theme="dark"] .canonical-calendar-modern .ptl-cal-mini-dow,
+[data-theme="dark"] .canonical-calendar-modern .ptl-cal-mini-out,
+[data-theme="dark"] .canonical-calendar-modern .ptl-cal-more,
+[data-theme="dark"] .canonical-calendar-modern .ptl-cal-legend,
+[data-theme="dark"] .canonical-calendar-modern .ptl-cal-today-list small,
+[data-theme="dark"] .canonical-calendar-modern .ptl-muted { color: var(--paper-muted); }
+[data-theme="dark"] .canonical-calendar-modern .ptl-cal-mini-cell,
+[data-theme="dark"] .canonical-calendar-modern .ptl-cal-today-list b { color: var(--paper-ink); }
+[data-theme="dark"] .canonical-calendar-modern .ptl-cal-mini-cell:hover { background: rgba(159, 176, 245, 0.12); }
+[data-theme="dark"] .canonical-calendar-modern .ptl-cal-mini-today { background: rgba(159, 176, 245, 0.12); color: var(--paper-ink); box-shadow: inset 0 0 0 1px rgba(159, 176, 245, 0.45); }
+[data-theme="dark"] .canonical-calendar-modern .ptl-cal-mini-selected { background: #2B3573; color: #fff; }
+[data-theme="dark"] .canonical-calendar-modern .pl-nav-btn,
+[data-theme="dark"] .canonical-calendar-modern .pl-nav-today { color: var(--paper-ink) !important; }
 
 @media (max-width: 960px) {
   .canonical-calendar-shell.canonical-calendar-modern { grid-template-columns: 1fr; }

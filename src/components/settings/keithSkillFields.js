@@ -12,7 +12,7 @@ export const KEITH_SKILL_STATES = ['draft', 'active', 'deprecated', 'archived']
 // the table; the drawer carries the "not running" language.
 export const ENABLED_STYLES = {
   yes: { label: 'Yes', bg: '#EDF2E2', color: '#166534', dot: '#3f9142' },
-  no:  { label: 'No',  bg: '#f3f4f6', color: '#6b7280', dot: '#9ca3af' },
+  no:  { label: 'No',  bg: '#f3f4f6', color: '#4b5563', dot: '#9ca3af' },
 }
 
 // data_classification pill. Confidential uses the chroma accent so it separates from

@@ -309,7 +309,7 @@ export default function RecipientProfileCard({
           {sStatus && (
             <span style={{
               fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4,
-              background: '#f3f4f6', color: '#6b7280', border: '1px solid #e5e7eb',
+              background: '#f3f4f6', color: '#4b5563', border: '1px solid #e5e7eb',
               fontFamily: F, textTransform: 'uppercase', letterSpacing: '0.06em',
             }}>
               {sStatus}

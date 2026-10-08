@@ -27,7 +27,7 @@ export const PORTAL_STATUS_STYLES = {
   active:    { label: 'Active',    bg: '#EDF2E2', color: '#166534', dot: '#3f9142' },
   scheduled: { label: 'Scheduled', bg: '#eef2fb', color: '#1D2567', dot: '#6b7fd7' },
   expired:   { label: 'Expired',   bg: '#FEF3C7', color: '#78350F', dot: '#d08700' },
-  revoked:   { label: 'Revoked',   bg: '#f3f4f6', color: '#6b7280', dot: '#9ca3af' },
+  revoked:   { label: 'Revoked',   bg: '#f3f4f6', color: '#4b5563', dot: '#9ca3af' },
   // ACCOUNTS-ACCESS-DIRECTORY-2: server-derived status for grants whose auth
   // user has not accepted their invitation yet. Matches the interviewer gold
   // badge family; not produced by derivePortalStatus (see note below).

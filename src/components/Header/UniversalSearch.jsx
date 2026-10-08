@@ -67,7 +67,7 @@ export default function UniversalSearch({
                   <div style={{ padding:'8px 12px', fontSize:11, fontWeight:600, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.05em', background:'var(--sand)' }}>Students</div>
                   {searchResults.students.map((s, i) => {
                     const isAct = searchActiveIdx === i
-                    const cfg = ASPIRE_STATUS_CONFIG[s.status] || { bg:'#f3f4f6', text:'#6b7280', border:'#d1d5db' }
+                    const cfg = ASPIRE_STATUS_CONFIG[s.status] || { bg:'#f3f4f6', text:'#4b5563', border:'#d1d5db' }
                     return (
                       <div key={s.id} onClick={() => handleSearchResult({ type:'student', data:s })}
                         style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', cursor:'pointer', background: isAct ? 'var(--sand)' : 'transparent' }}

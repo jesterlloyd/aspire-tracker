@@ -39,7 +39,10 @@ export const PILL_FAMILIES = {
   wait: { bg: '#fef3c7', text: '#92400e', border: '#fcd34d' },
   info: { bg: '#eff6ff', text: '#1d4ed8', border: '#bfdbfe' },
   err:  { bg: '#fee2e2', text: '#991b1b', border: '#fca5a5' },
-  mute: { bg: '#f3f4f6', text: '#6b7280', border: '#d1d5db' },
+  // GREY-PILL-1 (2026-10-07): the neutral ink is gray-600, not gray-500. #6b7280 on this fill
+  // measured 4.39:1 ("Not Sent", "Not in Pool", "Not Scheduled"); #4b5563 is 6.87:1. Every pill
+  // that pairs the grey fill with grey text in the app moved with it.
+  mute: { bg: '#f3f4f6', text: '#4b5563', border: '#d1d5db' },
 }
 
 // ── Transition Form ──────────────────────────────────────────────────────────

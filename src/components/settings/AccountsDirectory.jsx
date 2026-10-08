@@ -46,7 +46,7 @@ const STAFF_ROLES = new Set(['owner', 'admin', 'co-lead', 'co_lead', 'interviewe
 
 const STAFF_STATUS_STYLES = {
   active:   { label: 'Active',   bg: '#EDF2E2', color: '#166534', dot: '#3f9142' },
-  disabled: { label: 'Disabled', bg: '#f3f4f6', color: '#6b7280', dot: '#9ca3af' },
+  disabled: { label: 'Disabled', bg: '#f3f4f6', color: '#4b5563', dot: '#9ca3af' },
 }
 
 function useIsNarrow(bp = 720) {

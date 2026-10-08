@@ -27,7 +27,7 @@ export const COHORT_STATUS_TONE = Object.freeze({
   Completed: Object.freeze({ dot: '#E39A9E', halo: 'rgba(227,154,158,0.22)', bg: '#fbe9ea', color: '#9b3b41' }),
   Archived:  Object.freeze({ dot: '#9ca3af', halo: 'none',                   bg: '#f3f4f6', color: '#9ca3af' }),
 })
-export const NEUTRAL_TONE = Object.freeze({ dot: '#9ca3af', halo: 'none', bg: '#f3f4f6', color: '#6b7280' })
+export const NEUTRAL_TONE = Object.freeze({ dot: '#9ca3af', halo: 'none', bg: '#f3f4f6', color: '#4b5563' })
 
 /**
  * DEMO-MODE-1: the demo cohort's tone.

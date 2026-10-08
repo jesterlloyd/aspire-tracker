@@ -3,7 +3,7 @@
 // caller supplies a colorMap ({ [value]: { label, bg, color, dot } }); domain
 // color maps live near their domain code (e.g. settings/StateBadge for the
 // governance lifecycle states). Unknown values fall back to a neutral gray pill.
-const FALLBACK = { bg: '#f3f4f6', color: '#6b7280', dot: '#9ca3af' }
+const FALLBACK = { bg: '#f3f4f6', color: '#4b5563', dot: '#9ca3af' }
 
 export default function StatusBadge({ value, colorMap = {}, dot = true }) {
   const s = colorMap[value] || { label: value || 'Unknown', ...FALLBACK }

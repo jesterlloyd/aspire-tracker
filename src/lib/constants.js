@@ -192,7 +192,7 @@ export const ASPIRE_STATUSES = [
 ]
 
 export const ASPIRE_STATUS_CONFIG = {
-  'Pending Outreach':   { bg: '#f3f4f6', text: '#6b7280',  border: '#d1d5db' },
+  'Pending Outreach':   { bg: '#f3f4f6', text: '#4b5563',  border: '#d1d5db' },
   'Form Sent':          { bg: '#eff6ff', text: '#1d4ed8',  border: '#bfdbfe' },
   'Form Received':      { bg: '#dbeafe', text: '#1e40af',  border: '#93c5fd' },
   'Interview Scheduled':{ bg: '#ede9fe', text: '#5b21b6',  border: '#c4b5fd' },

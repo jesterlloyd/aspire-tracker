@@ -4080,7 +4080,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
                           {s.school && <span style={{ fontSize: 9, color: '#9ca3af', fontFamily: F }}>{s.school}</span>}
                           <span style={{
                             fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 'var(--aspire-radius-control)',
-                            background: '#f3f4f6', color: '#6b7280', fontFamily: F,
+                            background: '#f3f4f6', color: '#4b5563', fontFamily: F,
                           }}>{s.status}</span>
                           {hasAssign && <span style={{
                             fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 'var(--aspire-radius-control)',
@@ -4092,7 +4092,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
                           }}>Ready to reissue</span>}
                           {isPostRotationBulk && !postEligibility?.actionable && !hasAssign && postEligibility?.reason && <span title={postEligibility.reason} style={{
                             fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3,
-                            background: '#f3f4f6', color: '#6b7280', fontFamily: F,
+                            background: '#f3f4f6', color: '#4b5563', fontFamily: F,
                           }}>Not eligible</span>}
                         </div>
                       </div>

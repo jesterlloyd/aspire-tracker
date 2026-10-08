@@ -683,7 +683,7 @@ function ContactContext({ contact, navigate, commHistory, loadingComm, linkedStu
                   <span>{s.last_name}, {s.first_name}</span>
                   <span style={{
                     fontSize: 9, fontWeight: 600, padding: '1px 5px', borderRadius: 4,
-                    background: '#f3f4f6', color: '#6b7280', fontFamily: F,
+                    background: '#f3f4f6', color: '#4b5563', fontFamily: F,
                   }}>
                     {s.status || '-'}
                   </span>
