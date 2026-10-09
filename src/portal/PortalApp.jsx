@@ -224,7 +224,7 @@ function StaffPreviewUtilities({ portalName, section }) {
         activeTab={section}
         cohortName={`${portalName} preview`}
         isAuthenticated
-        hidden={mobile && activeUtility === 'messages'}
+        hidden={mobile && (activeUtility === 'messages' || isFullMessagesPath(location.pathname))}
         open={activeUtility === 'feedback'}
         onOpenChange={handleFeedbackOpenChange}
       />

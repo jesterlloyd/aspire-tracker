@@ -933,6 +933,33 @@
   .ptl-msg-noselect { min-height: 240px; justify-content: center; }
 }
 
+/* PORTAL-PHONE-MESSAGES-1: a phone's open thread is a column the height of the screen
+   (set in px by PortalMessagesWorkspace): the messages scroll, the reply box stays at the
+   foot just above the bottom bar. */
+@media (max-width: 760px) {
+  .ptl-msg-pane-thread-phone { min-height: 0; }
+  .ptl-msg-pane-thread-phone .ptl-msg-thread { flex: 1; min-height: 0; }
+  /* position: relative keeps the bubbles' screen-reader labels (absolutely positioned)
+     inside the clip; without it they escaped and the page scrolled past the bottom bar. */
+  .ptl-msg-pane-thread-phone .ptl-msg-scroll { position: relative; flex: 1; min-height: 0; max-height: none; overflow-y: auto; }
+  .ptl-msg-pane-thread-phone .ptl-msg-composer { flex-shrink: 0; }
+}
+
+/* PORTAL-PHONE-MESSAGES-1: the phone's compose button, drawn like the Messages shortcut. */
+.ptl-msg-compose {
+  flex-shrink: 0;
+  width: 48px; height: 48px; padding: 0;
+  border: 0; border-radius: 50%; background: transparent; cursor: pointer;
+  box-shadow: 0 4px 16px rgba(29, 37, 103, 0.35);
+}
+.ptl-msg-compose img { display: block; pointer-events: none; }
+.ptl-msg-compose:active { transform: scale(0.95); }
+.ptl-msg-compose:focus-visible { outline: 3px solid #93c5fd; outline-offset: 3px; }
+@media (max-width: 760px) {
+  .ptl-msg-head.ptl-msg-head-phone { flex-direction: row; align-items: flex-start; }
+  .ptl-msg-head.ptl-msg-head-phone .ptl-msg-head-actions { width: auto; }
+}
+
 /* Tablet: keep the split while it stays usable, on a narrower list. */
 @media (max-width: 1000px) {
   .ptl-msg-split { grid-template-columns: 300px 1fr; gap: 14px; }

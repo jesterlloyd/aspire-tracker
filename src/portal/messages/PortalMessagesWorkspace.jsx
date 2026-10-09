@@ -11,7 +11,7 @@
 // this component's gate in devtools would reveal an empty shell whose every
 // request fails.
 
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { MessageSquarePlus } from 'lucide-react'
 import PortalMessagesInbox from './PortalMessagesInbox'
@@ -163,10 +163,37 @@ export default function PortalMessagesWorkspace({
   // always shown, because the list and thread share one screen.
   const showHead = !narrow || mobileView === 'list'
 
+  // PORTAL-PHONE-MESSAGES-1 (Owner, 2026-10-08): on a phone an open thread fills the
+  // screen down to the bottom bar, the messages scroll inside it, and the reply box sits at
+  // its foot, as in a chat app. The height is the window less what sits above the pane and
+  // the room the page keeps for the bottom bar (main's own bottom padding), so the page
+  // itself does not scroll. Desktop keeps its 560px column.
+  const phoneThread = narrow && showThread && Boolean(selectedId)
+  const threadPaneRef = useRef(null)
+  const [phoneThreadH, setPhoneThreadH] = useState(null)
+  useLayoutEffect(() => {
+    if (!phoneThread) return undefined
+    const measure = () => {
+      const pane = threadPaneRef.current
+      if (!pane) return
+      const top = pane.getBoundingClientRect().top + window.scrollY
+      const main = pane.closest('main')
+      const keep = main ? parseFloat(getComputedStyle(main).paddingBottom) || 0 : 0
+      setPhoneThreadH(Math.max(320, Math.round(window.innerHeight - top - keep)))
+    }
+    measure()
+    window.addEventListener('resize', measure)
+    window.addEventListener('orientationchange', measure)
+    return () => {
+      window.removeEventListener('resize', measure)
+      window.removeEventListener('orientationchange', measure)
+    }
+  }, [phoneThread, selectedId])
+
   return (
     <section className="ptl-card ptl-section ptl-msg-workspace">
       {showHead && (
-        <div className="ptl-section-head ptl-msg-head">
+        <div className={`ptl-section-head ptl-msg-head${narrow ? ' ptl-msg-head-phone' : ''}`}>
           <div className="ptl-msg-head-text">
             <h1 className="ptl-section-title">Messages</h1>
             <p className="ptl-muted ptl-msg-subtitle">{variant === 'unit_leader' ? UL_PORTAL_SUBTITLE : variant === 'academic_partner' ? AP_PORTAL_SUBTITLE : variant === 'nursing_academic' ? NA_PORTAL_SUBTITLE : variant === 'talent_acquisition' ? TA_PORTAL_SUBTITLE : PORTAL_SUBTITLE}</p>
@@ -178,14 +205,29 @@ export default function PortalMessagesWorkspace({
                 <span style={srOnly}>{unreadLabel(unread)}</span>
               </span>
             )}
-            <button
-              ref={newBtnRef}
-              type="button"
-              className="ptl-btn ptl-msg-btn ptl-msg-new"
-              onClick={() => setNewOpen(true)}
-            >
-              <MessageSquarePlus size={15} aria-hidden="true" /> New message
-            </button>
+            {/* PORTAL-PHONE-MESSAGES-1 (Owner, 2026-10-08): on a phone, New message is a
+                compose button drawn like the Messages shortcut (same circle, same navy), at
+                the top right of the heading. It opens the same New message drawer. */}
+            {narrow ? (
+              <button
+                ref={newBtnRef}
+                type="button"
+                className="ptl-msg-compose"
+                onClick={() => setNewOpen(true)}
+                aria-label="New message"
+              >
+                <img src="/brand/messages-compose.png" alt="" aria-hidden="true" draggable="false" width={48} height={48} />
+              </button>
+            ) : (
+              <button
+                ref={newBtnRef}
+                type="button"
+                className="ptl-btn ptl-msg-btn ptl-msg-new"
+                onClick={() => setNewOpen(true)}
+              >
+                <MessageSquarePlus size={15} aria-hidden="true" /> New message
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -252,7 +294,11 @@ export default function PortalMessagesWorkspace({
         )}
 
         {showThread && (
-          <div className="ptl-msg-pane ptl-msg-pane-thread">
+          <div
+            ref={threadPaneRef}
+            className={`ptl-msg-pane ptl-msg-pane-thread${phoneThread ? ' ptl-msg-pane-thread-phone' : ''}`}
+            style={phoneThread && phoneThreadH ? { height: phoneThreadH } : undefined}
+          >
             <PortalMessagesThread
               variant={variant}
               conversationId={selectedId}

@@ -138,7 +138,7 @@ test('mobile rhythm', async (t) => {
     // stays one tap away through Back.
     const ws = read('../src/portal/messages/PortalMessagesWorkspace.jsx')
     assert.match(ws, /const showHead = !narrow \|\| mobileView === 'list'/)
-    assert.match(ws, /\{showHead && \(\s*\n\s*<div className="ptl-section-head ptl-msg-head">/)
+    assert.match(ws, /\{showHead && \(\s*\n\s*<div className=\{`ptl-section-head ptl-msg-head\$\{narrow \? ' ptl-msg-head-phone' : ''\}`\}>/ /* PORTAL-PHONE-MESSAGES-1 added the phone class */)
     // Desktop always shows it, because the list and thread share one screen.
     assert.match(ws, /const showList = !narrow \|\| mobileView === 'list'/)
   })

@@ -158,7 +158,7 @@ test('matched corner behavior and accessibility are explicit', () => {
   assert.match(layer, /visiblePanel === 'messages'/)
   assert.match(layer, /current === 'messages' \? null : 'messages'/)
   assert.match(layer, /hidden=\{feedbackLauncherHidden\}/)
-  assert.match(layer, /const feedbackLauncherHidden = utilitiesHidden \|\| \(mobile && visiblePanel === 'messages'\)/)
+  assert.match(layer, /const feedbackLauncherHidden = utilitiesHidden \|\| \(mobile && \(visiblePanel === 'messages' \|\| onMessagesRoute\)\)/ /* PORTAL-PHONE-MESSAGES-1: also off the Messages screen on a phone */)
   assert.match(layer, /!mobile \|\| visiblePanel !== 'feedback'/)
   assert.match(layer, /\{messagesLauncherVisible && \(/)
   assert.doesNotMatch(layer, /hidden=\{utilitiesHidden \|\| visiblePanel === 'messages'\}/)

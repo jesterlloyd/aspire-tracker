@@ -161,7 +161,9 @@ function PortalUtilityLayerContent({
 
   const utilitiesHidden = suppressed
   const visiblePanel = suppressed || onMessagesRoute ? null : activePanel
-  const feedbackLauncherHidden = utilitiesHidden || (mobile && visiblePanel === 'messages')
+  // PORTAL-PHONE-MESSAGES-1 (Owner, 2026-10-08): on a phone, Send Feedback stays off the
+  // Messages screen, where a second chat-like button reads as part of Messages.
+  const feedbackLauncherHidden = utilitiesHidden || (mobile && (visiblePanel === 'messages' || onMessagesRoute))
   const messagesLauncherVisible = messagesEnabled
     && !utilitiesHidden
     && !onMessagesRoute
