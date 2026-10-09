@@ -108,10 +108,26 @@ export function threadBanner(conversation, latestMessage, viewer, now = new Date
   if (conversation?.follow_up_flagged) {
     return { kind: 'needs', label: 'Needs reply · flagged for follow-up' }
   }
+  // MSG-WAITING-1 (Owner, 2026-10-09): staff wrote last, so the team is waiting on
+  // the participant. "No reply needed" read as if nobody expected an answer, which
+  // was wrong for a message staff started and are waiting on. Staff-only: no
+  // portal draws this banner.
+  if (latestMessage?.author_role === 'staff') {
+    const them = firstName(conversation?.participant_name) || 'them'
+    const sender = latestMessage.author_name || conversation?.handled_by_name || ''
+    const days = ageInDays(latestMessage.created_at, now)
+    const when = days === null ? '' : ` ${ago(days)}`
+    return {
+      kind: 'waiting',
+      label: sender ? `Waiting for ${them} to reply · ${sender} wrote${when}` : `Waiting for ${them} to reply`,
+      short: `Waiting for ${them} to reply`,
+    }
+  }
+  // A participant wrote last and staff reacted: acknowledged without a reply.
   const name = handledByName(conversation, latestMessage, viewer)
   return {
     kind: 'answered',
-    label: name ? `Answered by ${name} · no reply needed` : 'Answered · no reply needed',
+    label: name ? `Answered by ${name}` : 'Answered',
   }
 }
 

@@ -651,7 +651,8 @@ body { min-height: 100vh; }
   border-color: var(--messages-ok-line, #bfe0c6);
   color: var(--messages-ok-ink, #256b35);
 }
-.messages-status-banner--done {
+.messages-status-banner--done,
+.messages-status-banner--waiting {
   background: var(--messages-neutral-soft, #eef0f6);
   border-color: var(--messages-neutral-line, #d9dcea);
   color: var(--messages-neutral-ink, #3b4060);
@@ -720,7 +721,8 @@ body { min-height: 100vh; }
 }
 .messages-status-line--needs { color: var(--messages-needs-ink, #9e2a20); }
 .messages-status-line--answered { color: var(--messages-ok-ink, #256b35); }
-.messages-status-line--done { color: var(--messages-neutral-ink, #3b4060); }
+.messages-status-line--done,
+.messages-status-line--waiting { color: var(--messages-neutral-ink, #3b4060); }
 .messages-composer-hint--compact { flex-wrap: nowrap; }
 .messages-composer-hint--compact > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* MESSAGE-DRAFTS-1: the quiet note that a draft is kept, with its way out. */

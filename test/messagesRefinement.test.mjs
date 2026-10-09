@@ -66,10 +66,13 @@ test('the banner updates itself: waiting, flagged, answered, done', () => {
   assert.deepEqual(threadBanner({ status: 'open' }, student, null, now), { kind: 'needs', label: 'Needs reply · they wrote 3 days ago' })
   const reacted = { ...student, reactions: [{ key: 'acknowledge', count: 1, mine: true }] }
   const viewer = { id: 'me', full_name: 'Jester Lloyd Bautista' }
-  assert.deepEqual(threadBanner({ status: 'open' }, reacted, viewer, now), { kind: 'answered', label: 'Answered by Jester Lloyd Bautista · no reply needed' })
+  assert.deepEqual(threadBanner({ status: 'open' }, reacted, viewer, now), { kind: 'answered', label: 'Answered by Jester Lloyd Bautista' })
   const staff = { author_role: 'staff', created_at: '2026-09-20T12:00:00Z' }
   assert.deepEqual(threadBanner({ status: 'open', follow_up_flagged: true }, staff, viewer, now), { kind: 'needs', label: 'Needs reply · flagged for follow-up' })
-  assert.deepEqual(threadBanner({ status: 'open', handled_by_name: 'Krystal Rodriguez' }, staff, viewer, now), { kind: 'answered', label: 'Answered by Krystal Rodriguez · no reply needed' })
+  // MSG-WAITING-1: staff wrote last, so the team waits on the participant; never "no reply needed".
+  assert.deepEqual(threadBanner({ status: 'open', handled_by_name: 'Krystal Rodriguez', participant_name: 'Wynter Brown' }, staff, viewer, now), { kind: 'waiting', label: 'Waiting for Wynter to reply · Krystal Rodriguez wrote 1 day ago', short: 'Waiting for Wynter to reply' })
+  assert.deepEqual(threadBanner({ status: 'open', participant_name: 'Wynter Brown' }, { ...staff, author_name: 'Jester Lloyd Bautista', created_at: '2026-09-21T10:00:00Z' }, viewer, now), { kind: 'waiting', label: 'Waiting for Wynter to reply · Jester Lloyd Bautista wrote today', short: 'Waiting for Wynter to reply' })
+  assert.equal(threadBanner({ status: 'open' }, staff, viewer, now).short, 'Waiting for them to reply')
   assert.equal(threadBanner({ status: 'resolved' }, student, viewer, now).label, 'Done · moved out of your list. It reopens if the student writes again.')
   assert.equal(threadBanner({ status: 'open' }, { author_role: 'student', created_at: '2026-09-21T09:00:00Z' }, null, now).label, 'Needs reply · they wrote today')
 })
