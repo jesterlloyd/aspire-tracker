@@ -205,20 +205,9 @@ export default function PortalMessagesWorkspace({
                 <span style={srOnly}>{unreadLabel(unread)}</span>
               </span>
             )}
-            {/* PORTAL-PHONE-MESSAGES-1 (Owner, 2026-10-08): on a phone, New message is a
-                compose button drawn like the Messages shortcut (same circle, same navy), at
-                the top right of the heading. It opens the same New message drawer. */}
-            {narrow ? (
-              <button
-                ref={newBtnRef}
-                type="button"
-                className="ptl-msg-compose"
-                onClick={() => setNewOpen(true)}
-                aria-label="New message"
-              >
-                <img src="/brand/messages-compose.png" alt="" aria-hidden="true" draggable="false" width={48} height={48} />
-              </button>
-            ) : (
+            {/* PORTAL-COMPOSE-FAB-1 (Owner, 2026-10-08): on a phone, New message is the
+                floating compose button below, in the Messages shortcut's corner. */}
+            {!narrow && (
               <button
                 ref={newBtnRef}
                 type="button"
@@ -321,6 +310,25 @@ export default function PortalMessagesWorkspace({
           </div>
         )}
       </div>
+
+      {/* PORTAL-COMPOSE-FAB-1 (Owner, 2026-10-08): on a phone the compose button stands
+          where the Messages shortcut stands on every other screen (that shortcut is
+          hidden on Messages), drawn like it, on the list only: in a thread the reply
+          box owns the bottom of the screen. It opens the same New message drawer. */}
+      {narrow && showHead && (
+        <>
+          <div className="ptl-msg-compose-space" aria-hidden="true" />
+          <button
+            ref={newBtnRef}
+            type="button"
+            className="ptl-msg-compose ptl-msg-compose-fab"
+            onClick={() => setNewOpen(true)}
+            aria-label="New message"
+          >
+            <img src="/brand/messages-compose.png" alt="" aria-hidden="true" draggable="false" width={52} height={52} />
+          </button>
+        </>
+      )}
 
       {/* Mounted only while open, so each open starts from a clean form while a
           failed submit still preserves what was typed. */}

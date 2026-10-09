@@ -30,7 +30,11 @@ test('1. a phone thread is the screen\'s height and its messages scroll inside i
 
 test('2. on a phone New message is the compose button, opening the same drawer', () => {
   assert.ok(existsSync(new URL('../public/brand/messages-compose.png', import.meta.url)))
-  assert.match(workspace, /\{narrow \? \(\s*\n\s*<button\s*\n\s*ref=\{newBtnRef\}\s*\n\s*type="button"\s*\n\s*className="ptl-msg-compose"\s*\n\s*onClick=\{\(\) => setNewOpen\(true\)\}\s*\n\s*aria-label="New message"/)
+  // PORTAL-COMPOSE-FAB-1 moved the button from the heading to the Messages shortcut's corner,
+  // on the list only (showHead), so the heading keeps the button for wider screens alone.
+  assert.match(workspace, /\{narrow && showHead && \([\s\S]*?className="ptl-msg-compose ptl-msg-compose-fab"\s*\n\s*onClick=\{\(\) => setNewOpen\(true\)\}\s*\n\s*aria-label="New message"/)
+  assert.match(workspace, /\{!narrow && \(\s*\n\s*<button\s*\n\s*ref=\{newBtnRef\}/)
+  assert.match(css, /\.ptl-msg-compose\.ptl-msg-compose-fab \{[^}]*position: fixed;[^}]*right: max\(24px, env\(safe-area-inset-right\)\);[^}]*bottom: calc\(82px \+ env\(safe-area-inset-bottom\)\);/)
   assert.match(workspace, /src="\/brand\/messages-compose\.png"/)
   assert.match(workspace, /className="ptl-btn ptl-msg-btn ptl-msg-new"/, 'wider screens keep the New message button')
 })

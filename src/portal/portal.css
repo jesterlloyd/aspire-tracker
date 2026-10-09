@@ -955,6 +955,14 @@
 .ptl-msg-compose img { display: block; pointer-events: none; }
 .ptl-msg-compose:active { transform: scale(0.95); }
 .ptl-msg-compose:focus-visible { outline: 3px solid #93c5fd; outline-offset: 3px; }
+/* PORTAL-COMPOSE-FAB-1: the Messages shortcut's own corner and size on a phone. */
+.ptl-msg-compose.ptl-msg-compose-fab {
+  position: fixed; z-index: 1000;
+  width: 52px; height: 52px;
+  right: max(24px, env(safe-area-inset-right));
+  bottom: calc(82px + env(safe-area-inset-bottom));
+}
+.ptl-msg-compose-space { height: 64px; }
 @media (max-width: 760px) {
   .ptl-msg-head.ptl-msg-head-phone { flex-direction: row; align-items: flex-start; }
   .ptl-msg-head.ptl-msg-head-phone .ptl-msg-head-actions { width: auto; }
