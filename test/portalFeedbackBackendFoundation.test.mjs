@@ -24,6 +24,7 @@ import {
 } from '../lib/server/portalFeedback/deliveryLogic.js';
 import { buildPortalFeedbackEmail } from '../lib/server/portalFeedback/emailContent.js';
 import { submitPortalFeedback } from '../lib/server/portalFeedback/submissionService.js';
+import { processClaimedPortalFeedbackDelivery } from '../lib/server/portalFeedback/deliveryService.js';
 import { createPortalFeedbackSubmitHandler } from '../api/portal/feedback-submit.js';
 import { validatePortalFeedbackClientPayload } from '../src/lib/portalFeedbackValidation.js';
 
@@ -374,6 +375,36 @@ test('submission and delivery services', async (t) => {
     const safe = sanitizePortalFeedbackError('failed https://x.test/t Bearer abc');
     assert.doesNotMatch(safe, /https?:\/\//);
     assert.doesNotMatch(safe, /Bearer abc/);
+  });
+
+  // FEEDBACK-LOOP-1: the final write was refused (next_retry_at NOT NULL vs the
+  // terminal rule) and never checked, so one student's feedback emailed daily.
+  await t.test('a refused final write still counts the attempt, so the row cannot loop', async () => {
+    const writes = [];
+    const db = {
+      from: (table) => ({
+        select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { id: 'sub-1', submission_type: 'feedback', message: 'Hi' }, error: null }) }) }),
+        update: (values) => ({
+          eq: async () => {
+            writes.push({ table, values });
+            return writes.length === 1 ? { error: { message: 'violates check constraint' } } : { error: null };
+          },
+        }),
+      }),
+    };
+    const resend = { emails: { send: async () => ({ data: { id: 'email-1' }, error: null }) } };
+    const out = await processClaimedPortalFeedbackDelivery(db, resend, { id: 'd1', submission_id: 'sub-1', attempt_count: 0, max_attempts: 5, idempotency_key: 'k' });
+    assert.equal(out.deliveryStatus, 'finalize_failed');
+    assert.equal(writes.length, 2);
+    assert.equal(writes[0].values.delivery_status, 'sent');
+    assert.equal(writes[0].values.next_retry_at, null);
+    assert.deepEqual(Object.keys(writes[1].values).sort(), ['attempt_count', 'last_attempt_at', 'last_error_code', 'updated_at']);
+    assert.equal(writes[1].values.attempt_count, 1);
+  });
+
+  await t.test('the sent state is writable: next_retry_at may be NULL', () => {
+    const fix = read('../supabase/migrations/20261115000000_portal_feedback_sent_state.sql');
+    assert.match(fix, /ALTER COLUMN next_retry_at DROP NOT NULL/);
   });
 });
 
