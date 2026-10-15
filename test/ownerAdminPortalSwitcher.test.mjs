@@ -152,7 +152,8 @@ test('Student preview is selected inside the portal and remains read-only', () =
 test('portal-only identity actions stay suppressed while staff preview uses staff utilities', () => {
   assert.match(portalApp, /function StaffPreviewUtilities/)
   assert.match(portalApp, /<MainMessagesLauncher[\s\S]{0,220}portalPreview[\s\S]{0,220}keepLauncherVisible/)
-  assert.match(portalApp, /<FeedbackPanel[\s\S]{0,220}activeTab=\{section\}[\s\S]{0,220}hidden=\{mobile && \(activeUtility === 'messages' \|\| isFullMessagesPath\(location\.pathname\)\)\}/ /* PORTAL-PHONE-MESSAGES-1: also off the Messages screen on a phone */)
+  // FEEDBACK-MENU-1 (2026-10-14) changed this: the preview's panel has no launcher; the menu opens it.
+  assert.match(portalApp, /<FeedbackPanel[\s\S]{0,220}activeTab=\{section\}[\s\S]{0,220}\n\s+hidden\n\s+open=\{activeUtility === 'feedback'\}/)
   assert.match(portalApp, /previewRole === 'student' \? '\/portal\/student\/messages'/)
   assert.match(portalApp, /staffPreview && key === 'messages'[\s\S]{0,120}navigate\('\/connect\/messages'\)/)
   // PORTAL-CONNECT-1 (2026-10-07): Messages left the NE&L nav for the portal's Connect; a staff preview

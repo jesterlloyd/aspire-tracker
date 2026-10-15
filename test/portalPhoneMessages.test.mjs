@@ -39,7 +39,10 @@ test('2. on a phone New message is the compose button, opening the same drawer',
   assert.match(workspace, /className="ptl-btn ptl-msg-btn ptl-msg-new"/, 'wider screens keep the New message button')
 })
 
+// FEEDBACK-MENU-1 (2026-10-14) changed this: there is no Feedback launcher in either layer at all
+// (Send Feedback is a profile-menu item), so it is off the phone Messages screen and every other.
 test('3. Send Feedback stays off the Messages screen on a phone, in both launcher layers', () => {
-  assert.match(layer, /const feedbackLauncherHidden = utilitiesHidden \|\| \(mobile && \(visiblePanel === 'messages' \|\| onMessagesRoute\)\)/)
-  assert.match(app, /hidden=\{mobile && \(activeUtility === 'messages' \|\| isFullMessagesPath\(location\.pathname\)\)\}/)
+  assert.match(layer, /<PortalFeedbackPanel[\s\S]*?\n\s+hidden\n/)
+  assert.doesNotMatch(layer, /feedbackLauncherHidden/)
+  assert.match(app, /<FeedbackPanel[\s\S]*?\n\s+hidden\n\s+open=\{activeUtility === 'feedback'\}/)
 })
