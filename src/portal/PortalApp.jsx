@@ -20,6 +20,7 @@
 // because the view derives from the location instead of transient state.
 
 import { useState, useEffect, useCallback, useRef, Suspense } from 'react'
+import { onOpenFeedback } from '../lib/feedbackBus'
 import { postMyResidency } from '../lib/myResidencyApi'
 import { lazyReload } from '../lib/lazyReload'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -209,6 +210,9 @@ function StaffPreviewUtilities({ portalName, section }) {
   const handleFeedbackOpenChange = useCallback((open) => {
     setActiveUtility(current => open ? 'feedback' : current === 'feedback' ? null : current)
   }, [])
+  // FEEDBACK-MENU-1 (Owner, 2026-10-14): no Feedback launcher in a preview either; the profile
+  // menu's Send Feedback opens this panel, as it does for the portal's own users.
+  useEffect(() => onOpenFeedback(() => setActiveUtility('feedback')), [])
   return (
     <>
       {!isFullMessagesPath(location.pathname) && (
@@ -224,7 +228,7 @@ function StaffPreviewUtilities({ portalName, section }) {
         activeTab={section}
         cohortName={`${portalName} preview`}
         isAuthenticated
-        hidden={mobile && (activeUtility === 'messages' || isFullMessagesPath(location.pathname))}
+        hidden
         open={activeUtility === 'feedback'}
         onOpenChange={handleFeedbackOpenChange}
       />

@@ -26,7 +26,7 @@ import { useEffect, useCallback, Fragment } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   Settings, Users, HandCoins, Sparkles, Presentation, Scale, BadgeInfo, Monitor, UserRound, Info, Building2,
-  FileText, BarChart3, ChevronRight, Wallet, History,
+  FileText, BarChart3, ChevronRight, Wallet, History, MessageSquarePlus,
 } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import {
@@ -53,6 +53,7 @@ import SettingsPageHeader from './SettingsPageHeader'
 import { KeithIcon, KeithLockup } from '../keith/KeithBrand'
 import Breadcrumb from '../shared/Breadcrumb'
 import { confirmLeave } from '../../lib/unsavedChanges'
+import { openFeedback } from '../../lib/feedbackBus'
 import '../../styles/selectionRail.css'
 import './settingsShell.css'
 
@@ -69,6 +70,25 @@ const SECTION_ICONS = {
 const LIST_PAGE_COPY = {
   general: 'Settings that are yours alone. They follow you to any device.',
   keith: 'Govern what Keith knows, what Keith can do, and what it costs.',
+}
+
+// FEEDBACK-MENU-1 (Owner, 2026-10-14): rows on a list page that open something instead of a
+// page. Send Feedback lives here now that the floating launcher is gone; it opens the same
+// panel StaffApp has always mounted, so what it sends and to whom is unchanged. It is not a
+// settings section: it has no route, so a deep link cannot land on it.
+const LIST_PAGE_ACTIONS = {
+  general: [
+    { key: 'feedback', label: 'Send Feedback', sub: 'Report a bug, suggest a feature, or ask a question', icon: MessageSquarePlus, after: 'tours', run: openFeedback },
+  ],
+}
+
+function withActions(parentKey, rows) {
+  const out = rows.map(row => ({ ...row, run: null }))
+  for (const action of LIST_PAGE_ACTIONS[parentKey] || []) {
+    const at = out.findIndex(row => row.key === action.after)
+    out.splice(at < 0 ? out.length : at + 1, 0, action)
+  }
+  return out
 }
 
 // The drill-ins that bring no heading of their own; the shell titles them with their
@@ -117,16 +137,17 @@ function SettingsListPage({ section, rows, navigate }) {
       <SettingsPageHeader id={headingId} title={section.key === 'keith' ? <KeithLockup /> : section.label} subtitle={LIST_PAGE_COPY[section.key]} />
       <SurfaceCard as="ul" className="settings-list" padding={0} aria-label={section.label}>
         {rows.map(row => {
-          const Icon = SECTION_ICONS[row.key]
+          const Icon = row.icon || SECTION_ICONS[row.key]
           return (
             <li key={row.key}>
-              <button type="button" className="settings-list-row" onClick={() => navigate(row.path)}>
+              <button type="button" className="settings-list-row" onClick={() => (row.run ? row.run() : navigate(row.path))}
+                      aria-haspopup={row.run ? 'dialog' : undefined}>
                 {Icon && <Icon size={16} strokeWidth={2} aria-hidden="true" className="settings-list-ic" />}
                 <span className="settings-list-text">
                   {row.label}
                   {row.sub && <small>{row.sub}</small>}
                 </span>
-                <ChevronRight size={16} strokeWidth={2} aria-hidden="true" className="settings-list-chev" />
+                {!row.run && <ChevronRight size={16} strokeWidth={2} aria-hidden="true" className="settings-list-chev" />}
               </button>
             </li>
           )
@@ -228,7 +249,7 @@ export default function SettingsShell({ backPath = '/aggregate', backLabel = 'At
             bounded only by the .app-main 1580px shell. */}
         <div className="settings-content">
           {isListPage && (
-            <SettingsListPage section={current} rows={childSections(currentKey, roleFlags)} navigate={navigate} />
+            <SettingsListPage section={current} rows={withActions(currentKey, childSections(currentKey, roleFlags))} navigate={navigate} />
           )}
           {shellTitle && <SettingsPageHeader title={shellTitle} subtitle={current.sub} />}
           {currentKey === 'appearance' && <AppearancePanel />}

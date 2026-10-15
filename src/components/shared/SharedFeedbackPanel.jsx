@@ -74,6 +74,9 @@ export default function SharedFeedbackPanel({
     if (onOpenChange) onOpenChange(next)
     else setUncontrolledOpen(next)
   }
+  // FEEDBACK-MENU-1: with no launcher on screen the panel opens from a menu or Settings, so it
+  // sits in the middle of the window like any other dialog instead of over a missing button.
+  const placement = hidden ? 'center' : side
   const tabLabel = activeTab
     ? activeTab.charAt(0).toUpperCase() + activeTab.slice(1).replace(/-/g, ' ')
     : 'Unknown tab'
@@ -144,7 +147,7 @@ export default function SharedFeedbackPanel({
         <>
           <div className="shared-feedback-backdrop" onClick={() => setOpen(false)} />
           <section
-            className={`shared-feedback-panel shared-feedback-panel-${side}`}
+            className={`shared-feedback-panel shared-feedback-panel-${placement}`}
             role="dialog"
             aria-modal="true"
             aria-labelledby="shared-feedback-title"

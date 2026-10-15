@@ -481,7 +481,9 @@ test('staff Rotation step names all three subtabs and never says matching board'
   }
 })
 
-test('every portal tour walks the Send Feedback launcher via the shared anchor', () => {
+// FEEDBACK-MENU-1 (2026-10-14) changed this: Send Feedback is a profile-menu item, so no tour points at a launcher and
+// every portal's profile-menu step names it instead.
+test('no portal tour walks a Feedback launcher; the profile-menu step names Send Feedback', () => {
   const profile = { full_name: 'Alex Rivera' }
   for (const [exp, ctx] of [
     ['student', { userProfile: profile }],
@@ -489,12 +491,12 @@ test('every portal tour walks the Send Feedback launcher via the shared anchor',
     ['academic_partner', { userProfile: profile, apMessagesEnabled: false }],
     ['academic_partner', { userProfile: profile, apMessagesEnabled: true }],
   ]) {
-    const targets = getTourSteps(exp, ctx).map(s => s.target)
-    assert.ok(targets.includes('[data-tour="feedback-button"]'), `${exp} includes the feedback launcher`)
+    const steps = getTourSteps(exp, ctx)
+    assert.ok(!steps.some(s => s.target === '[data-tour="feedback-button"]'), `${exp} has no feedback launcher step`)
+    const menu = steps.find(s => s.target === '[data-tour="portal-profile-menu"]')
+    assert.match(String(menu.content), /send feedback/, `${exp} names Send Feedback in the profile menu`)
   }
-  // The anchor is the one SharedFeedbackPanel already hardcodes - no duplicate anchor invented.
-  const sharedFeedback = read('../src/components/shared/SharedFeedbackPanel.jsx')
-  assert.match(sharedFeedback, /data-tour="feedback-button"/)
+  assert.match(read('../src/portal/PortalShell.jsx'), /<MessageSquarePlus size=\{15\} \/> Send Feedback/)
 })
 
 test('the Messages shortcut step follows the same authorization as the Messages surface', () => {
@@ -524,9 +526,10 @@ test('launcher steps sit before the profile-menu step in every portal set', () =
     ['academic_partner', { userProfile: profile, apMessagesEnabled: true }],
   ]) {
     const targets = getTourSteps(exp, ctx).map(s => s.target)
-    const fb = targets.indexOf('[data-tour="feedback-button"]')
+    // FEEDBACK-MENU-1: the Messages launcher is the one launcher left.
+    const launcher = targets.indexOf('[data-tour="portal-messages-launcher"]')
     const menu = targets.indexOf('[data-tour="portal-profile-menu"]')
-    assert.ok(fb > -1 && menu > -1 && fb < menu, `${exp} orders feedback before the profile menu`)
+    assert.ok(launcher > -1 && menu > -1 && launcher < menu, `${exp} orders the launcher before the profile menu`)
   }
 })
 
@@ -691,7 +694,7 @@ test('the Nursing Academics tour picks up the utilities that portal gained', () 
   assert.ok(targets.includes('[data-tour="portal-connect"]'))
   assert.ok(!targets.includes('[data-tour="portal-nav-messages"]'))
   assert.ok(!targets.includes('[data-tour="portal-nav-contacts"]'))
-  assert.ok(targets.includes('[data-tour="feedback-button"]'))
+  assert.ok(!targets.includes('[data-tour="feedback-button"]')) // FEEDBACK-MENU-1: in the profile menu now
   assert.ok(targets.includes('[data-tour="portal-messages-launcher"]'))
   assert.match(read('../src/portal/na/NursingAcademicsChrome.jsx'), /data-tour=\{`portal-nav-\$\{key\}`\}/)
   assert.match(read('../src/components/Header/ConnectIconButton.jsx'), /dataTour = 'portal-connect'/)

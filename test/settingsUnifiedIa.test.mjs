@@ -142,9 +142,10 @@ test('General lists Profile, Appearance, Tours & Help, About, with the approved 
 test('a list row is a real button with an icon, a title, a line and a chevron', () => {
   const page = shell.slice(shell.indexOf('function SettingsListPage'), shell.indexOf('function SettingsCrumb'))
   assert.match(page, /<SurfaceCard as="ul" className="settings-list" padding=\{0\} aria-label=\{section\.label\}>/)
-  assert.match(page, /<button type="button" className="settings-list-row" onClick=\{\(\) => navigate\(row\.path\)\}>/)
+  // FEEDBACK-MENU-1 (2026-10-14) changed this: an action row (Send Feedback) runs instead of navigating and has no chevron.
+  assert.match(page, /<button type="button" className="settings-list-row" onClick=\{\(\) => \(row\.run \? row\.run\(\) : navigate\(row\.path\)\)\}/)
   assert.match(page, /\{row\.sub && <small>\{row\.sub\}<\/small>\}/)
-  assert.match(page, /<ChevronRight [^>]*aria-hidden="true" className="settings-list-chev" \/>/)
+  assert.match(page, /\{!row\.run && <ChevronRight [^>]*aria-hidden="true" className="settings-list-chev" \/>\}/)
   assert.match(shellCss, /\.settings-list-row:focus-visible \{[^}]*outline: 3px solid var\(--color-accent-primary/)
 })
 

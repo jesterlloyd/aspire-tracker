@@ -214,9 +214,11 @@ test('At a Glance keeps Keith, Messages and Feedback while hiding only the heade
   // BUDGET-V2 item 10 (Owner, 2026-09-29, commit budget-v2-p4): Program Budget also hides Messages and
   // Feedback (keithOnly); the Keith orb stays.
   assert.match(app, /<MainMessagesLauncher hidden=\{keithOnly\} keepLauncherVisible \/>/)
-  assert.match(app, /isAuthenticated=\{true\}\n\s+hidden=\{keithOnly\}/)
+  // FEEDBACK-MENU-1 (2026-10-14) changed this: Feedback left the floating stack for Settings > General.
+  assert.match(app, /isAuthenticated=\{true\}\n\s+hidden\n\s+open=\{feedbackOpen\}/)
   const tour = read('src/lib/onboardingTours.js')
-  for (const anchor of ['global-search', 'keith-orb', 'main-messages-launcher', 'feedback-button']) {
+  assert.doesNotMatch(tour, /target: '\[data-tour="feedback-button"\]'/)
+  for (const anchor of ['global-search', 'keith-orb', 'main-messages-launcher']) {
     assert.match(tour, new RegExp(`target: '\\[data-tour="${anchor}"\\]'`), anchor)
   }
 })

@@ -58,5 +58,6 @@ test('staff and portal launchers use the same route rule without hiding Feedback
   assert.match(utilityLayer, /feedbackEnabled && \(/)
   assert.match(portalApp, /const onMessagesRoute = isFullMessagesPath\(location\.pathname\)/)
   assert.match(staffApp, /<Keith[\s\S]*?hideLauncher=\{false\}/)
-  assert.match(staffApp, /<FeedbackPanel[\s\S]*?hidden=\{keithOnly\}/)
+  // FEEDBACK-MENU-1 (2026-10-14) changed this: Feedback opens from Settings > General, never from a launcher.
+  assert.match(staffApp, /<FeedbackPanel[\s\S]*?\n\s+hidden\n\s+open=\{feedbackOpen\}/)
 })

@@ -60,6 +60,7 @@ import Keith from '../components/Keith'
 import MainMessagesLauncher from '../components/MainMessagesLauncher'
 import { isFullMessagesPath } from '../lib/messages/messagesRoutes'
 import FeedbackPanel from '../components/FeedbackPanel'
+import { onOpenFeedback } from '../lib/feedbackBus'
 import { logEvent, eventExists } from '../lib/logEvent'
 import { useToast } from '../hooks/useToast'
 import { useAppearanceSync } from '../hooks/useAppearance'
@@ -235,6 +236,8 @@ function MainApp({ onLogout }) {
   const [acPendingFollowups, setAcPendingFollowups] = useState([])
   const [acActiveDispoIds,   setAcActiveDispoIds]   = useState([])
   const [tourRunning,      setTourRunning]      = useState(false)
+  const [feedbackOpen,     setFeedbackOpen]     = useState(false)
+  useEffect(() => onOpenFeedback(() => setFeedbackOpen(true)), [])
   // PORTAL-SPLIT Phase 2: the five ASPIRE tabs used to mount together at boot,
   // which is why switching between them is instant and their state survives.
   // Interviews and Evaluation are their own chunks now, so they mount on first
@@ -266,8 +269,8 @@ function MainApp({ onLogout }) {
   // Declared AFTER activeTab on purpose: reading a const above its declaration throws
   // (temporal dead zone) and took the whole staff app down on the first preview.
   const hideHomeSearch = activeTab === 'overview' && !tourRunning
-  // BUDGET-V2 item 10 (Owner, 2026-09-29: "Keith only"): on Program Budget the Messages dock and the
-  // Feedback launcher step aside; the Keith orb stays. Every other screen keeps all three.
+  // BUDGET-V2 item 10 (Owner, 2026-09-29: "Keith only"): on Program Budget the Messages dock steps
+  // aside; the Keith orb stays. (There is no Feedback launcher any more: FEEDBACK-MENU-1.)
   const keithOnly = location.pathname.startsWith('/settings/budget') && !tourRunning
 
   // Adjusted during render rather than in an effect: the tab has to be mounted
@@ -1838,14 +1841,18 @@ function MainApp({ onLogout }) {
       />
       {/* MESSAGES-AUTOSCROLL-1: the canonical Messages shortcut, directly above
           the Keith orb in the lower-right stack (self-gated to owner/admin).
-          At a Glance keeps the same Keith, Messages and Feedback shortcuts as the
+          At a Glance keeps the same Keith and Messages shortcuts as the
           rest of the app. Program Budget remains the only local shortcut exception. */}
       {!isFullMessagesPath(location.pathname) && <MainMessagesLauncher hidden={keithOnly} keepLauncherVisible />}
+      {/* FEEDBACK-MENU-1 (Owner, 2026-10-14): no floating launcher any more; Settings > General's
+          Send Feedback row opens this panel through feedbackBus. */}
       <FeedbackPanel
         activeTab={activeTab}
         cohortName={activeCohort?.name}
         isAuthenticated={true}
-        hidden={keithOnly}
+        hidden
+        open={feedbackOpen}
+        onOpenChange={setFeedbackOpen}
       />
       <ToastContainer toasts={toasts} removeToast={removeToast} />
       {/* The tour renders null unless it is running, so mounting it only while

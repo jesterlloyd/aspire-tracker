@@ -284,11 +284,8 @@ const staffMessagesDock = {
   content: 'The round button above Keith opens a docked Messages panel over whatever you are working on: the same inbox, threads, and New message action as ASPIRE Connect, without leaving the page. Your unread count sits on the button.',
 };
 
-const staffFeedback = {
-  target: '[data-tour="feedback-button"]',
-  title: 'Share Feedback',
-  content: 'Found a bug or have a suggestion? Tap here to send it directly to the program leads.',
-};
+// FEEDBACK-MENU-1 (Owner, 2026-10-14): the Feedback launcher is gone (Settings > General >
+// Send Feedback now), so the staff tour has no Feedback step.
 
 // WELCOME-TOUR-PORTALS-1: WS2.4 removed the user-menu tour restart, so this step
 // no longer claims it lives there - restarting now happens from Settings > Tours
@@ -341,10 +338,9 @@ function getStaffSteps(userProfile) {
       staffCatalog,
       staffActionCenter,
       staffUserMenu,
-      // lower-right dock: Messages, then Keith, then Feedback
+      // lower-right dock: Messages, then Keith
       staffMessagesDock,
       staffKeith,
-      staffFeedback,
       staffFinish,
     ];
   }
@@ -365,7 +361,6 @@ function getStaffSteps(userProfile) {
       staffCatalog,
       staffUserMenu,
       staffKeith,
-      staffFeedback,
       staffFinish,
     ];
   }
@@ -396,11 +391,9 @@ function getStaffSteps(userProfile) {
 // Both lean on the engine's missing-target skip when a launcher is not
 // rendered (Messages unauthorized, or the launchers suppressed on a route).
 
-const portalFeedbackStep = {
-  target: '[data-tour="feedback-button"]',
-  title: 'Send Feedback',
-  content: 'Found a bug or have a suggestion? The feedback button in the lower corner sends it straight to the ASPIRE team, with your current section attached.',
-};
+// FEEDBACK-MENU-1 (Owner, 2026-10-14): Send Feedback moved into the profile menu (a student
+// took the floating button for Messages), so the profile-menu step names it and there is
+// no Feedback launcher step.
 
 const portalMessagesLauncherStep = {
   target: '[data-tour="portal-messages-launcher"]',
@@ -452,14 +445,13 @@ function getStudentSteps(userProfile) {
       title: 'Shift Log',
       content: 'Check in at the start of a shift, check out at the end, and log a past shift, without leaving the portal or typing your school email. Logging opens once you are Placed and in an Active Rotation. To edit, delete, or request a correction on a logged shift, use its three-dot actions menu in Rotation Progress on Home.',
     },
-    portalFeedbackStep,
     portalMessagesLauncherStep,
     {
       target: '[data-tour="portal-profile-menu"]',
       title: 'Your Profile',
       // PROFILE-MENU-AVATARS-1: the student menu now reads My Profile and adds
       // Change Photo; the copy names exactly what the menu offers.
-      content: 'Open My Profile, change your photo, restart this tour, or sign out.',
+      content: 'Open My Profile, change your photo, restart this tour, send feedback to the ASPIRE team, or sign out.',
       placement: 'bottom-end',
       spotlightPadding: 6,
       disableBeacon: true,
@@ -526,7 +518,6 @@ function getUnitLeaderSteps(userProfile) {
       title: 'Capacity',
       content: "Submit and update your unit's clinical placement capacity for a cohort.",
     },
-    portalFeedbackStep,
     portalMessagesLauncherStep,
     {
       // WELCOME-TOUR-MASTHEAD-1 correction: this step used to target
@@ -549,7 +540,7 @@ function getUnitLeaderSteps(userProfile) {
       // The Unit Leader menu opens a Profile SECTION (onProfile), it has no
       // inline edit action, so the copy says open, not edit.
       // PROFILE-MENU-AVATARS-1: Change Photo joined the menu.
-      content: 'Open your Profile, change your photo, restart this tour, or sign out.',
+      content: 'Open your Profile, change your photo, restart this tour, send feedback to the ASPIRE team, or sign out.',
       placement: 'bottom-end',
       spotlightPadding: 6,
       disableBeacon: true,
@@ -613,7 +604,6 @@ function getAcademicPartnerSteps(userProfile, apMessagesEnabled) {
   // Feedback is server-authorized for every Academic Partner; the Messages
   // shortcut launcher exists only under the same fail-closed capability that
   // gates the Messages tab above.
-  steps.push(portalFeedbackStep);
   if (apMessagesEnabled === true) steps.push(portalMessagesLauncherStep);
 
   steps.push(
@@ -631,7 +621,7 @@ function getAcademicPartnerSteps(userProfile, apMessagesEnabled) {
       // onEditProfile is wired): change your photo, the public-site link, the
       // tour restart, and sign out. The copy matches exactly those actions
       // (PROFILE-MENU-AVATARS-1 added Change Photo).
-      content: 'Change your photo, visit the ASPIRE public site, restart this tour, or sign out.',
+      content: 'Change your photo, visit the ASPIRE public site, restart this tour, send feedback to the ASPIRE team, or sign out.',
       placement: 'bottom-end',
       spotlightPadding: 6,
       disableBeacon: true,
@@ -688,12 +678,11 @@ function getNursingAcademicSteps(userProfile) {
       content: 'Contacts and Messages live here, as they do in the main app. Contacts is the directory of who to reach; Messages is secure messaging with the ASPIRE team, and a badge on this icon shows when a message is waiting.',
       placement: 'bottom-end',
     },
-    portalFeedbackStep,
     portalMessagesLauncherStep,
     {
       target: '[data-tour="portal-profile-menu"]',
       title: 'Your Profile',
-      content: 'Change your photo, visit the ASPIRE public site, restart this tour, or sign out.',
+      content: 'Change your photo, visit the ASPIRE public site, restart this tour, send feedback to the ASPIRE team, or sign out.',
       placement: 'bottom-end',
       spotlightPadding: 6,
       disableBeacon: true,

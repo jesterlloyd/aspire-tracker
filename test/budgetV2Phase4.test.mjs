@@ -146,6 +146,7 @@ test('the Summary, the tabs, the copy and the floating buttons follow the mockup
   const app = read('src/staff/StaffApp.jsx')
   assert.match(app, /const keithOnly = location\.pathname\.startsWith\('\/settings\/budget'\) && !tourRunning/)
   assert.match(app, /<MainMessagesLauncher hidden=\{keithOnly\} keepLauncherVisible \/>/)
-  assert.match(app, /hidden=\{keithOnly\}\n\s+\/>/, 'Feedback steps aside too')
+  // FEEDBACK-MENU-1 (2026-10-14) changed this: there is no Feedback launcher anywhere, so nothing to step aside.
+  assert.match(app, /<FeedbackPanel[\s\S]*?\n\s+hidden\n/, 'Feedback has no launcher')
   assert.match(app, /hideLauncher=\{false\}/, 'the Keith orb stays on Program Budget')
 })

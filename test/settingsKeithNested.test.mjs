@@ -58,7 +58,7 @@ test('/settings/keith is the Keith list page, not a redirect', () => {
   assert.doesNotMatch(shell, /path === '\/settings\/keith'\)/)
   assert.equal(LEGACY_SETTINGS_REDIRECTS['/settings/keith'], undefined)
   assert.match(shell, /const isListPage = currentKey === 'general' \|\| currentKey === 'keith'/)
-  assert.match(shell, /<SettingsListPage section=\{current\} rows=\{childSections\(currentKey, roleFlags\)\} navigate=\{navigate\} \/>/)
+  assert.match(shell, /<SettingsListPage section=\{current\} rows=\{withActions\(currentKey, childSections\(currentKey, roleFlags\)\)\} navigate=\{navigate\} \/>/)
 })
 
 test('the rows are alphabetical, in the registry, for Owner and Admin', () => {

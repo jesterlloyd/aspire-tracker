@@ -3,6 +3,7 @@ import MessagesShortcutIcon from '../components/messages/MessagesShortcutIcon'
 import PortalFeedbackPanel from './PortalFeedbackPanel'
 import PortalTeamMessagesPanel from './PortalTeamMessagesPanel'
 import { isFullMessagesPath } from '../lib/messages/messagesRoutes'
+import { onOpenFeedback } from '../lib/feedbackBus'
 
 const NOTICE_DAYS = 30
 const NOTICE_COPY = 'This portal is optimized for desktop use. For the best experience, open it on a laptop or larger screen.'
@@ -111,7 +112,6 @@ function PortalUtilityLayerContent({
   const [activePanel, setActivePanel] = useState(null)
   const [sessionDismissedKey, setSessionDismissedKey] = useState(null)
   const [storedDismissedKey, setStoredDismissedKey] = useState(null)
-  const feedbackRef = useRef(null)
   const messagesRef = useRef(null)
   const narrow = useNarrowViewport()
   const mobile = useMobileViewport()
@@ -148,6 +148,12 @@ function PortalUtilityLayerContent({
     setActivePanel(next ? 'feedback' : null)
   }, [])
 
+  // FEEDBACK-MENU-1 (Owner, 2026-10-14): a student took the floating Feedback button for
+  // Messages and sent a message as feedback. There is no Feedback launcher now; the profile
+  // menu's Send Feedback opens this panel through feedbackBus, and only where feedback is on.
+  const feedbackOn = enabled && feedbackEnabled
+  useEffect(() => (feedbackOn ? onOpenFeedback(() => setActivePanel('feedback')) : undefined), [feedbackOn])
+
   const openMessages = useCallback(() => {
     setActivePanel(current => (current === 'messages' ? null : 'messages'))
   }, [])
@@ -160,10 +166,10 @@ function PortalUtilityLayerContent({
   if (!enabled || (!isUnitLeaderPortal && !isStudentPortal && !isAcademicPartnerPortal && !isNursingAcademicPortal)) return null
 
   const utilitiesHidden = suppressed
-  const visiblePanel = suppressed || onMessagesRoute ? null : activePanel
-  // PORTAL-PHONE-MESSAGES-1 (Owner, 2026-10-08): on a phone, Send Feedback stays off the
-  // Messages screen, where a second chat-like button reads as part of Messages.
-  const feedbackLauncherHidden = utilitiesHidden || (mobile && (visiblePanel === 'messages' || onMessagesRoute))
+  // Feedback opens from the menu, so it may open on the full Messages page too; only the
+  // Messages dock stands down there. (PORTAL-PHONE-MESSAGES-1 kept the Feedback launcher off the
+  // phone Messages screen; with no launcher at all, that now holds everywhere.)
+  const visiblePanel = suppressed || (onMessagesRoute && activePanel === 'messages') ? null : activePanel
   const messagesLauncherVisible = messagesEnabled
     && !utilitiesHidden
     && !onMessagesRoute
@@ -182,8 +188,7 @@ function PortalUtilityLayerContent({
         <PortalFeedbackPanel
           open={visiblePanel === 'feedback'}
           onOpenChange={openFeedback}
-          hidden={feedbackLauncherHidden}
-          launcherRef={feedbackRef}
+          hidden
           pathname={pathname}
           section={section}
           portalType={isStudentPortal ? 'student' : isAcademicPartnerPortal ? 'academic_partner' : isNursingAcademicPortal ? 'nursing_academic' : 'unit_leader'}

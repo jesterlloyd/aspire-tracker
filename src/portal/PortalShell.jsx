@@ -8,6 +8,7 @@ import { useState, useRef, useEffect } from 'react'
 import {
   ChevronDown, ChevronRight, ExternalLink, Camera, UserRound, LogOut, RotateCcw, House,
   Settings, Check, Mail, GraduationCap, Building2, School, HeartHandshake, BriefcaseBusiness, Globe,
+  MessageSquarePlus,
 } from 'lucide-react'
 import { PORTAL_LINKS } from '../lib/portalLinks'
 import { supabase } from '../lib/supabase'
@@ -15,6 +16,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { PortalRefreshProvider } from './PortalRefresh'
 import { PortalHeaderSlotsContext } from './PortalHeaderSlots'
 import PortalCommandBar from './PortalCommandBar'
+import { openFeedback, useFeedbackAvailable } from '../lib/feedbackBus'
 
 // PORTAL-SWITCHER-1: the same icon per portal as the staff UserMenu, so a portal is
 // recognizable from either menu. The labels and paths come from the shared list.
@@ -37,7 +39,8 @@ function initials(name) {
 //      An Owner or Admin's identity opens their Profile in the main app instead.
 //   2. staff only (NAV-POLISH-1): Settings with Cmd+, / Ctrl+,, then Preview as, the
 //      portals with the one in view checked and inert.
-//   3. the person's own actions: Change Photo, Restart Welcome Tour (and, for an Owner or
+//   3. the person's own actions: Change Photo, Restart Welcome Tour, Send Feedback (FEEDBACK-MENU-1,
+//      where the portal's feedback panel is mounted) (and, for an Owner or
 //      Admin who also holds a real portal grant, their portal profile), as each is wired.
 //   4. the way out: Main App (staff), Public site, Sign out.
 // Arrows, Home and End move through it; Escape closes it. The email stays out: no staff or
@@ -50,6 +53,7 @@ function ProfileMenu({
   onRestartTour, portalUserActionsEnabled = true, weeklyDigest = null,
 }) {
   const { signOut } = useAuth()
+  const feedbackAvailable = useFeedbackAvailable()
   const [open, setOpen] = useState(false)
   const [failedImageUrl, setFailedImageUrl] = useState(null)
   const btnRef = useRef(null)
@@ -135,6 +139,11 @@ function ProfileMenu({
     // WELCOME-TOUR-PORTALS-1: only when the portal wires a restart handler.
     portalUserActionsEnabled && onRestartTour && (
       <button key="tour" role="menuitem" type="button" className="ptl-menu-item" onClick={() => { close(); onRestartTour() }}><RotateCcw size={15} /> Restart Welcome Tour</button>
+    ),
+    // FEEDBACK-MENU-1 (Owner, 2026-10-14): the floating Feedback button is gone (a student took it
+    // for Messages); this is where Send Feedback lives, shown only where the panel can open.
+    feedbackAvailable && (
+      <button key="feedback" role="menuitem" type="button" className="ptl-menu-item" aria-haspopup="dialog" data-tour="portal-send-feedback" onClick={() => { close(); openFeedback() }}><MessageSquarePlus size={15} /> Send Feedback</button>
     ),
   ].filter(Boolean)
   // RESIDENCY-DIGEST-1: an opt-in email, switched here (Owner: "they have to activate in the app

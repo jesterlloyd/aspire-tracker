@@ -3614,6 +3614,16 @@ button.ir-wl-th { background: transparent; border: 0; text-align: left; cursor: 
 }
 .shared-feedback-panel-left { left: max(24px, env(safe-area-inset-left)); }
 .shared-feedback-panel-right { right: max(24px, env(safe-area-inset-right)); }
+/* FEEDBACK-MENU-1: opened from Settings or the profile menu, with no launcher to sit above.
+   Two classes so it also beats the phone rule below, which places the launcher's panel.
+   Centred by inset + auto margins, not a transform, so feedbackSlideIn still animates. */
+.shared-feedback-panel.shared-feedback-panel-center {
+  inset: 0;
+  margin: auto;
+  height: fit-content;
+  width: min(420px, calc(100vw - 32px));
+  max-height: min(760px, calc(100vh - 48px));
+}
 .shared-feedback-head {
   background: linear-gradient(135deg, #930045, #6d0033);
   padding: 16px 20px;

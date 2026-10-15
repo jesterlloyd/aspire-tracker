@@ -2523,6 +2523,31 @@ that pairs the two); the table header ink (TH-INK-1: `--aspire-th-color` `#6b778
 `--color-text-muted`); and the portal's quiet text (PTL-MUTED-1: `.ptl-muted` `#6b7280` to
 `#5b6472`, 5.31:1 on cream).
 
+## Send Feedback is a menu item, not a button (FEEDBACK-MENU-1, 2026-10-14)
+
+A student took the floating Feedback button (lower left) for Messages (lower right) and sent a
+message as feedback. Owner: hide it everywhere. No surface renders a Feedback launcher now; the
+panel (`SharedFeedbackPanel`, unchanged in what it sends and to whom) is mounted `hidden` and opens
+through `src/lib/feedbackBus.js` (`openFeedback`, `onOpenFeedback`, `useFeedbackAvailable`).
+
+- **Staff**: Settings > General's **Send Feedback** row, after Tours & Help. It is a list-page
+  ACTION (`LIST_PAGE_ACTIONS` in `SettingsShell.jsx`), not a settings section: no route, no chevron.
+- **Portals** (and an Owner/Admin preview, `StaffPreviewUtilities` in PortalApp): **Send Feedback** in the profile menu's personal group, shown only while a portal's
+  panel has registered (`PortalUtilityLayer` registers where `feedbackEnabled`), so Talent
+  Acquisition, or a portal with feedback off, never sees an item that does nothing. It opens on
+  the full Messages page too; only the Messages dock stands down there.
+- A panel with no launcher is centred (`.shared-feedback-panel-center`), not parked over the
+  corner where the button was. The tours have no Feedback step; each portal's profile-menu step
+  names it. Do not bring the launcher back without the Owner.
+
+**The delivery loop it surfaced** (FEEDBACK-LOOP-1, migration `20261115000000`, APPLIED
+2026-10-14): `portal_feedback_deliveries.next_retry_at` was NOT NULL while the terminal CHECK
+required it NULL for sent, so no delivery could be saved as sent. The worker never checked that
+write, stale recovery requeued the row every ten minutes, and Resend's 24-hour idempotency window
+let one copy through daily. The worker now counts the attempt when its final write is refused,
+so a row that keeps failing stops at `max_attempts`. Any outbox worker's final write must check
+its error.
+
 ## The Action Center can dismiss (AC-DISMISS-1, 2026-10-07)
 
 Owner: a way to dismiss notifications and actions, not only snooze them, and an end to the
