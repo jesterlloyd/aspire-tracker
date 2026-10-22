@@ -15,6 +15,19 @@ for (const [name, px] of Object.entries(sizes)) {
   await rounded.clone().resize(px, px, { kernel: 'lanczos3' }).png({ compressionLevel: 9 }).toFile(`${out}/${name}`);
 }
 await flat.clone().resize(180, 180, { kernel: 'lanczos3' }).png({ compressionLevel: 9 }).toFile(`${out}/apple-touch-icon.png`);
+// Home-screen app icons (APP-ICON-4): OPAQUE and at plain paths with no query string, the way
+// Cardfold's are (it installs with its icon on the Owner's iPhone; ASPIRE's transparent,
+// query-stringed manifest icons installed as the letter A on a real device). A new path is
+// the cache-bust: rename the folder, never add ?v=.
+const { mkdirSync } = await import('node:fs');
+mkdirSync(`${out}/app-icon`, { recursive: true });
+for (const px of [180, 192, 512]) {
+  await flat.clone().resize(px, px, { kernel: 'lanczos3' }).png({ compressionLevel: 9 }).toFile(`${out}/app-icon/aspire-${px}.png`);
+}
+// Maskable: the mark inside the central 80% safe zone on a black square.
+const inner = await sharp(src).flatten({ background: '#000000' }).resize(410, 410, { kernel: 'lanczos3' }).png().toBuffer();
+await sharp({ create: { width: 512, height: 512, channels: 3, background: '#000000' } })
+  .composite([{ input: inner, left: 51, top: 51 }]).removeAlpha().png({ compressionLevel: 9 }).toFile(`${out}/app-icon/aspire-maskable-512.png`);
 // favicon.ico: PNG-compressed entries at 16, 32 and 48.
 const entries = [];
 for (const px of [16, 32, 48]) entries.push({ px, buf: await rounded.clone().resize(px, px, { kernel: 'lanczos3' }).png().toBuffer() });
