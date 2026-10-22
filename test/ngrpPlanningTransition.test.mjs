@@ -67,7 +67,11 @@ const formPage     = read('src/pages/NgrpTransitionFormPage.jsx')
 // ── Mutable mock db with transactional rpc handlers ─────────────────────────
 let idSeq = 0
 const nextId = () => `00000000-0000-4000-8000-9${String(++idSeq).padStart(11, '0')}`
-const nowIso = () => new Date().toISOString()
+// The fake database's clock is FROZEN inside the fixture cycle's window (it closes
+// 2026-10-15 Pacific). It used to read the real clock, so every submit and autosave
+// started answering NGRP_CLOSED on 2026-10-16 (found by APP-ICON-1's test run, d9ad41f8).
+const FAKE_NOW = '2026-10-01T17:00:00.000Z'
+const nowIso = () => FAKE_NOW
 
 function applyFilters(rows, filters) {
   return filters.reduce((acc, f) => {
