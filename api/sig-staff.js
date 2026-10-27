@@ -18,6 +18,7 @@
 //   draft_save / draft_delete
 //   remind { id } / remind_bulk { bulk_id } / void { id, reason }
 //   delegation { id, signer_id, approve }
+//   reassign_to_me { id, signer_id, notify? } -> the caller takes an unsigned step; quiet unless notify
 //   self_sign { id, password, values, typed_name, agree }
 //   zip_bulk { bulk_id } / csv_bulk { bulk_id } / verify_seal { id }
 
@@ -31,7 +32,7 @@ import { populationOf } from '../lib/server/demoScope.js'
 import { clientContext } from '../lib/server/signatures/tokens.js'
 import {
   EngineError, flagState, flagAllows, loadSettings, loadBundle, createAndSend, remind, voidRequest,
-  decideDelegation, staffSign, DOC_BUCKET, ORG_ID,
+  decideDelegation, reassignToStaff, staffSign, DOC_BUCKET, ORG_ID,
 } from '../lib/server/signatures/engine.js'
 import { verifySealedPdf } from '../lib/server/signatures/verifySeal.js'
 import { assignableCategorySlugs, cleanAudience } from './lib/catalogCategories.js'
@@ -222,6 +223,12 @@ async function act(db, body, { profile, ctx, isDemo }) {
     }
     case 'void': needId(); await voidRequest(db, { requestId: id, reason: body.reason, actor: profile.full_name, ctx, mailer }); return { ok: true }
     case 'delegation': needId(); await decideDelegation(db, { requestId: id, signerId: body.signer_id, approve: body.approve === true, actor: profile.full_name, ctx, appUrl, mailer }); return { ok: true }
+    case 'reassign_to_me': {
+      needId()
+      if (!UUID.test(body.signer_id || '')) throw new EngineError('invalid', 'Missing signer.')
+      const out = await reassignToStaff(db, { requestId: id, signerId: body.signer_id, profile, actor: profile.full_name, ctx, notify: body.notify === true, appUrl, mailer })
+      return { ok: true, signer_id: out.signerId }
+    }
     case 'self_sign': {
       needId()
       const passwordVerified = await checkPassword(profile.email, body.password)

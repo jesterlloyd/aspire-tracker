@@ -411,6 +411,7 @@ const EVENT_WORDS = {
   routed: 'Routed to the next signer', declined: 'Declined', voided: 'Voided', expired: 'Expired',
   reminder_sent: 'Reminder sent', delegation_requested: 'Asked to reassign to someone else',
   delegation_approved: 'Reassignment approved by the sender', delegation_rejected: 'Reassignment declined by the sender',
+  reassigned: 'Step reassigned by the sender',
   paper_copy_requested: 'Paper copy requested', content_timestamped: 'Signed pages timestamped (RFC 3161)',
   sealed: 'Document sealed and certificate appended', seal_failed: 'Sealing failed, will retry',
   copies_sent: 'Completed copy emailed', filed_to_record: 'Filed to the record',
@@ -423,6 +424,7 @@ export function describeEvent(e) {
   if (e.type === 'signed' && d.fields != null) return `${base} ${d.fields} field${d.fields === 1 ? '' : 's'} (${d.kind || 'typed'} signature)`
   if ((e.type === 'declined' || e.type === 'voided') && d.reason) return `${base}: "${d.reason}"`
   if (e.type === 'routed' && d.to) return `${base}: ${d.to}`
+  if (e.type === 'reassigned' && d.to) return `${base}: ${d.from || 'the signer'} to ${d.to}${d.email_sent ? '' : ', no email sent, signs in the app'}`
   if (e.type === 'content_timestamped' && d.serial) return `${base}, serial ${d.serial}`
   if (e.type === 'sealed' && d.sha256) return `${base}, SHA-256 ${d.sha256.slice(0, 12)}...`
   if (e.type === 'copies_sent' && d.recipients != null) {

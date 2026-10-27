@@ -2617,3 +2617,19 @@ summary's `choice_counts`, and `assertUnitLeaderShape` throws on any other strin
 comment can never reach a unit leader. The portal shows them as Preceptor Answers (each phrase with
 its count) and in the response table and modal as written; Review & Release's stacks show the same
 phrase. Never add a free-text path to either list.
+
+## The sender can take a signing step (REASSIGN-1, 2026-10-27)
+
+The Confidentiality form's Witness step went to a director who did not want to sign each one
+(Owner: leave it blank, or the program lead signs). Now a sender moves an unsigned step to
+their own account: Signature requests > a signer card > **Reassign to me** (`sig-staff`
+`reassign_to_me`, `reassignToStaff` in the engine). The old row is `replaced` and its link
+dies; the new row keeps the role, order, colour and fields and belongs to the caller's
+account, so it reads "Your turn" and is signed with Sign now. **Nothing is emailed**: the
+new row is marked as told, so `notifyTurn` stays quiet, and the clock never reminds the
+sender of their own step (`remind` with `auto` skips `sender_id`'s row; a person pressing
+Remind still sends). Earlier signers' rows and events are not touched; the completion
+copies still go to every signer and CC. A staff account is matched to a signer email
+without regard to case (the Owner's is `First.Last@cshs.org`, which the lower-cased lookup
+never found). The template's second role is Program Lead, fixed to the Owner
+(`db/maintenance/sig_template_program_lead_20261027.sql`, Owner-gated).

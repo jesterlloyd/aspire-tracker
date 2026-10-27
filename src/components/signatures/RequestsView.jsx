@@ -11,6 +11,7 @@ import {
   formatInZone, describeEvent, summarizeAgent, fieldLabel, isAutoField, autoFieldValue,
 } from '../../lib/signatures/sigModel'
 import { sigStaff, sigStaffDownload } from './sigApi'
+import { confirmDialog } from '../shared/confirmDialog.jsx'
 import PdfPages from './PdfPages'
 
 const short = (iso) => iso ? new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''
@@ -236,7 +237,7 @@ function RequestDetail({ r, bundle, me, parent, parentCount, onBack, act, setMod
         {!bundle ? <p className="sg-hint">Loading…</p> : (
           <>
             <p className="sg-h3">Signers{signers.length > 1 ? (r.signing_order === 'parallel' ? ', any order' : ', in order') : ''}</p>
-            {signers.map(s => <SignerCard key={s.id} s={s} r={r} tz={tz} act={act} />)}
+            {signers.map(s => <SignerCard key={s.id} s={s} r={r} tz={tz} act={act} me={me} />)}
             <p className="sg-h3">Audit trail</p>
             <div className="sg-auditwrap">
               <table className="sg-audit">
@@ -254,9 +255,18 @@ function RequestDetail({ r, bundle, me, parent, parentCount, onBack, act, setMod
   )
 }
 
-function SignerCard({ s, r, tz, act }) {
+// REASSIGN-1: the sender can take an unsigned step as their own. Nothing is emailed; the
+// step then shows as "Your turn" here and is signed with Sign now.
+async function reassignToMe(s, r, act) {
+  const yes = await confirmDialog(`Reassign ${s.name}'s step to you? Their signing link stops working. No email is sent; you sign it here with Sign now.`, { confirmLabel: 'Reassign to me' })
+  if (!yes) return
+  await act(() => sigStaff('reassign_to_me', { id: r.id, signer_id: s.id }), 'Reassigned to you. No email was sent; it is your turn to sign.')
+}
+
+function SignerCard({ s, r, tz, act, me }) {
   const label = s.status === 'replaced' ? 'Replaced' : s.declined_at ? 'Declined' : s.signed_at ? (s.recipient_type === 'viewer' ? 'Viewed' : 'Signed') : s.notified_at ? 'Waiting' : 'Not sent yet'
   const cls = s.declined_at ? 'declined' : s.signed_at ? 'completed' : s.notified_at ? 'sent' : 'draft'
+  const canTake = !!me && !isFinal(r.status) && r.status !== 'draft' && s.recipient_type === 'signer' && s.status !== 'replaced' && !s.signed_at && !s.declined_at && s.user_profile_id !== me.id
   return (
     <div className="sg-signer">
       <div className="sg-top">
@@ -273,6 +283,7 @@ function SignerCard({ s, r, tz, act }) {
         </ul>
       )}
       {s.paper_copy_requested_at && <p className="sg-note">Asked for a paper copy on {formatInZone(s.paper_copy_requested_at, tz)}. Send one at no cost.</p>}
+      {canTake && <span className="sg-row"><button type="button" className="sg-btn sg-sm" onClick={() => reassignToMe(s, r, act)}>Reassign to me</button></span>}
       {s.delegation?.status === 'pending' && (
         <div className="sg-note">
           <span>Asked to reassign to {s.delegation.name} ({s.delegation.email}){s.delegation.reason ? `: "${s.delegation.reason}"` : ''}.</span>
@@ -361,11 +372,11 @@ function SelfSignModal({ id, me, onClose, onDone }) {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState(null)
   useEffect(() => {
-    sigStaff('get', { id }).then(x => { setB(x); const mine = x.signers.find(s => s.user_profile_id === me?.id); setTyped(mine?.name || '') }).catch(e => setErr(e.message))
+    sigStaff('get', { id }).then(x => { setB(x); const mine = x.signers.find(s => s.user_profile_id === me?.id && s.recipient_type === 'signer' && s.status !== 'replaced'); setTyped(mine?.name || '') }).catch(e => setErr(e.message))
     sigStaff('doc_url', { id }).then(x => setUrl(x.url)).catch(() => {})
   }, [id, me])
   if (!b) return <Modal title="Sign" onClose={onClose}><p className="sg-hint">{err || 'Loading…'}</p></Modal>
-  const mine = b.signers.find(s => s.user_profile_id === me?.id && s.status !== 'replaced')
+  const mine = b.signers.find(s => s.user_profile_id === me?.id && s.recipient_type === 'signer' && s.status !== 'replaced')
   const people = b.signers.filter(s => s.recipient_type === 'signer' && s.status !== 'replaced')
   const myFields = b.request.fields.filter(f => f.role === mine?.role_key)
   const inputs = myFields.filter(f => !isAutoField(f) && !['sig', 'ini'].includes(f.type))

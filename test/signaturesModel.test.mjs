@@ -96,3 +96,10 @@ test('a send names every role the To field does not fill; a saved person is only
   assert.doesNotMatch(modal, /in Edit fields first/)
   assert.match(modal, /fixed: slots\.map\(/)
 })
+
+test('REASSIGN-1: a reassigned step reads in words, and says when no email went out', async () => {
+  const { describeEvent } = await import('../src/lib/signatures/sigModel.js')
+  assert.equal(describeEvent({ type: 'reassigned', details: { from: 'Michael Balot', to: 'Jester Lloyd Bautista', email_sent: false } }),
+    'Step reassigned by the sender: Michael Balot to Jester Lloyd Bautista, no email sent, signs in the app')
+  assert.equal(describeEvent({ type: 'reassigned', details: { from: 'A', to: 'B', email_sent: true } }), 'Step reassigned by the sender: A to B')
+})

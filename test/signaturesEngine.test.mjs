@@ -262,3 +262,60 @@ test('delegation waits for the sender, then the new signer takes the same role',
   assert.ok(successor.notified_at)
   await assert.rejects(E.resolveLink(w.db, linkTokenFor(s1.id, 1)), /not valid/)
 })
+
+// ── REASSIGN-1 (Owner, 2026-10-27): the sender takes an unsigned step, quietly ───────
+
+test('reassign to staff: the step moves, the old link dies, earlier signers are untouched, nothing is emailed', async () => {
+  const w = await world()
+  // The second step is an outside witness with no account, as the Confidentiality form had.
+  const { requestIds: [id] } = await send(w, { fixed: [{ name: 'Michael Witness', email: 'witness@cshs.org', roleKey: 'r2' }] })
+  let b = await E.loadBundle(w.db, id)
+  const student = b.signers.find(s => s.role_key === 'r1')
+  const witness = b.signers.find(s => s.role_key === 'r2')
+  assert.equal(witness.user_profile_id, null)
+  const sentBefore = w.mailer.sent.length
+  const studentRowBefore = JSON.stringify(student)
+
+  // A signed step cannot be taken; neither can a CC or a replaced row.
+  await assert.rejects(E.reassignToStaff(w.db, { requestId: id, signerId: randomUUID(), profile: w.staff, actor: 'Lead', ctx }), /cannot be reassigned/)
+
+  const { signerId } = await E.reassignToStaff(w.db, { requestId: id, signerId: witness.id, profile: w.staff, actor: 'Jester Lead', ctx, appUrl: 'https://aspire.test', mailer: w.mailer })
+  b = await E.loadBundle(w.db, id)
+  const old = b.signers.find(s => s.id === witness.id)
+  const mine = b.signers.find(s => s.id === signerId)
+  assert.equal(old.status, 'replaced')
+  assert.equal(mine.role_key, 'r2'); assert.equal(mine.order_index, witness.order_index); assert.equal(mine.color, witness.color)
+  assert.equal(mine.user_profile_id, w.staff.id); assert.equal(mine.email, 'lead@cshs.org')
+  assert.ok(mine.notified_at, 'marked as told so the turn path never emails')
+  assert.equal(w.mailer.sent.length, sentBefore, 'no email to anyone')
+  assert.equal(JSON.stringify(b.signers.find(s => s.id === student.id)), studentRowBefore, 'the student row is byte for byte the same')
+  const ev = b.events.find(e => e.type === 'reassigned')
+  assert.deepEqual({ from: ev.details.from, to: ev.details.to, email_sent: ev.details.email_sent }, { from: 'Michael Witness', to: 'Jester Lead', email_sent: false })
+  await assert.rejects(E.resolveLink(w.db, linkTokenFor(witness.id, 1)), /not valid/, 'the witness link is dead')
+  await assert.rejects(E.resolveLink(w.db, linkTokenFor(signerId, 1)), /inside ASPIRE/, 'the staff row has no link path')
+  // Taking it twice is refused.
+  await assert.rejects(E.reassignToStaff(w.db, { requestId: id, signerId, profile: w.staff, actor: 'Lead', ctx }), /already yours/)
+  // Once the student has signed, the turn is the staff member's, and notifyTurn still sends nothing.
+  const sentNow = w.mailer.sent.length
+  await E.notifyTurn(w.db, id, { appUrl: 'https://aspire.test', mailer: w.mailer, ctx })
+  assert.equal(w.mailer.sent.length, sentNow)
+})
+
+test('the clock never reminds the sender of their own step; a person still can', async () => {
+  const w = await world()
+  // The sender is the first and only signer, so the current turn is theirs at once.
+  const { requestIds: [id] } = await send(w, { people: [{ name: 'Jester Lead', email: 'lead@cshs.org', roleKey: 'r1' }], fixed: [], roles: [ROLES[0]], fields: FIELDS.filter(f => f.role !== 'r2') })
+  const before = w.mailer.sent.length
+  assert.equal(await E.remind(w.db, { requestId: id, actor: 'System', appUrl: 'https://aspire.test', mailer: w.mailer, auto: true }), 0)
+  assert.equal(w.mailer.sent.length, before, 'automatic: nothing sent to the sender')
+  assert.equal(await E.remind(w.db, { requestId: id, actor: 'Admin', appUrl: 'https://aspire.test', mailer: w.mailer }), 1)
+  assert.equal(w.mailer.sent.length, before + 1, 'a person pressing Remind still sends')
+})
+
+test('a staff account is matched to a signer whatever the case of the stored email', async () => {
+  const w = await world()
+  await w.pg.query(`UPDATE user_profiles SET email = 'Jester.Lead@CSHS.org' WHERE id = $1`, [w.staff.id])
+  const { requestIds: [id] } = await send(w, { fixed: [{ name: 'Jester Lead', email: 'jester.lead@cshs.org', roleKey: 'r2' }] })
+  const b = await E.loadBundle(w.db, id)
+  assert.equal(b.signers.find(s => s.role_key === 'r2').user_profile_id, w.staff.id)
+})
