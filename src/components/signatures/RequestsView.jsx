@@ -6,6 +6,7 @@
 // about a request (timeline, audit trail, seal) comes from `get`, which reads the append-only
 // event log.
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import {
   TRACKER_FILTERS, REQUEST_STATUS, trackerCounts, bulkCounts, bulkProgressLabel, currentTurn, isFinal,
   formatInZone, describeEvent, summarizeAgent, fieldLabel, isAutoField, autoFieldValue,
@@ -26,9 +27,13 @@ export default function RequestsView({ focusId, notify, onContinueDraft, onResen
   const [detail, setDetail] = useState(null)
   const [modal, setModal] = useState(null)
 
+  const queryClient = useQueryClient()
   const load = useCallback(async () => {
     try { setData(await sigStaff('list')); setError(null) } catch (e) { setError(e.message) }
-  }, [])
+    // Needs you and the Action Center read the same list under this key (30s stale): a sign,
+    // reassign, void or reminder here is in them at once, not on their next clock.
+    queryClient.invalidateQueries({ queryKey: ['home_signatures'] })
+  }, [queryClient])
   useEffect(() => { load() }, [load])
 
   const signersOf = useMemo(() => {

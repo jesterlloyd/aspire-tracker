@@ -103,3 +103,12 @@ test('REASSIGN-1: a reassigned step reads in words, and says when no email went 
     'Step reassigned by the sender: Michael Balot to Jester Lloyd Bautista, no email sent, signs in the app')
   assert.equal(describeEvent({ type: 'reassigned', details: { from: 'A', to: 'B', email_sent: true } }), 'Step reassigned by the sender: A to B')
 })
+
+test('SELF-SIGN-SESSION-1: the password check never revokes the signer\'s own browser session, and a write here refreshes Needs you', () => {
+  const root = join(dirname(fileURLToPath(import.meta.url)), '..')
+  const api = readFileSync(join(root, 'api/sig-staff.js'), 'utf8')
+  assert.match(api, /signOut\(\{ scope: 'local' \}\)/, 'the throwaway client signs out locally')
+  assert.doesNotMatch(api, /signOut\(\)/, 'a bare signOut() is global and logs the person out everywhere')
+  const view = readFileSync(join(root, 'src/components/signatures/RequestsView.jsx'), 'utf8')
+  assert.match(view, /invalidateQueries\(\{ queryKey: \['home_signatures'\] \}\)/)
+})

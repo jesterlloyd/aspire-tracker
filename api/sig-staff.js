@@ -280,7 +280,10 @@ async function checkPassword(email, password) {
   const client = createClient(process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL, process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY,
     { auth: { persistSession: false, autoRefreshToken: false } })
   const { data, error } = await client.auth.signInWithPassword({ email, password })
-  if (!error && data?.session) { await client.auth.signOut().catch(() => {}); return true }
+  // SELF-SIGN-SESSION-1 (2026-10-27): drop only THIS throwaway client's session. The default
+  // scope is 'global', which revokes every session the person holds, so each in-app
+  // signature logged the Owner out of the browser and every next request read Unauthorized.
+  if (!error && data?.session) { await client.auth.signOut({ scope: 'local' }).catch(() => {}); return true }
   return false
 }
 
