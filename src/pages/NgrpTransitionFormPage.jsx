@@ -136,6 +136,7 @@ export default function NgrpTransitionFormPage({ preview = null }) {
   const [submitting, setSubmitting] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const saveTimer = useRef(null)
+  const sessionRef = useRef(null)
   const dirtyRef = useRef(false)
   const errorSummaryRef = useRef(null)
 
@@ -150,20 +151,50 @@ export default function NgrpTransitionFormPage({ preview = null }) {
     const res = await fetch('/api/ngrp-transition', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action, token: initial.rawToken, ...extra }),
+      body: JSON.stringify({ action, token: initial.rawToken, session: sessionRef.current, ...extra }),
     })
     let body = null
     try { body = await res.json() } catch { /* non-JSON */ }
     return { status: res.status, body }
   }, [initial.rawToken])
 
-  // Load once.
+  // TRANSITION-FORM-CODE-1: the form opens only after a one-time code sent to the alumnus's
+  // own email. The session lives in memory: a reload means reopening the link and a new code.
+  const [codeState, setCodeState] = useState({ maskedEmail: null, sent: false, sending: false, checking: false, code: '', error: '' })
+  const [loadNonce, setLoadNonce] = useState(0)
+  const sendCode = async () => {
+    setCodeState(c => ({ ...c, sending: true, error: '' }))
+    const { status, body } = await post('send_code')
+    setCodeState(c => ({ ...c, sending: false, sent: status === 200, maskedEmail: body?.maskedEmail || c.maskedEmail,
+      error: status === 200 ? '' : (body?.error || 'The code could not be sent. Try again in a minute.') }))
+  }
+  const verifyCode = async () => {
+    setCodeState(c => ({ ...c, checking: true, error: '' }))
+    const { status, body } = await post('verify_code', { code: codeState.code })
+    if (status === 200 && body?.session) {
+      sessionRef.current = body.session
+      setCodeState(c => ({ ...c, checking: false, code: '' }))
+      setView('loading')
+      setLoadNonce(n => n + 1)
+      return
+    }
+    setCodeState(c => ({ ...c, checking: false, error: body?.error || 'That code did not work. Try again.' }))
+  }
+
+  // Load (again after a code is verified).
   useEffect(() => {
     if (!initial.valid) return
     let cancelled = false
     ;(async () => {
       const { status, body } = await post('load')
       if (cancelled) return
+      if (status === 200 && body?.state === 'verify') {
+        setCodeState(c => ({ ...c, maskedEmail: body.maskedEmail || null }))
+        setMeta(m => ({ ...m, cycleName: body.cycleName }))
+        setView('verify')
+        return
+      }
+      if (status === 200 && body?.state === 'closed' && !body.cycleName) { setView('closed'); return }
       if (status === 200 && body) {
         setMeta(body)
         setPayload(mergePayload(body.base || {
@@ -178,7 +209,7 @@ export default function NgrpTransitionFormPage({ preview = null }) {
       else setView('error')
     })()
     return () => { cancelled = true }
-  }, [initial.valid, post])
+  }, [initial.valid, post, loadNonce])
 
   // Quiet debounced autosave: updates the single active draft only.
   const scheduleSave = useCallback((nextPayload) => {
@@ -189,6 +220,7 @@ export default function NgrpTransitionFormPage({ preview = null }) {
       if (!dirtyRef.current) return
       dirtyRef.current = false
       const { status } = await post('save_draft', { payload: nextPayload })
+      if (status === 401) { setView('verify'); return }
       if (status === 200) {
         setSavedLine(`Draft saved ${new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`)
       }
@@ -231,10 +263,49 @@ export default function NgrpTransitionFormPage({ preview = null }) {
     const { status, body } = await post('submit', { payload })
     setSubmitting(false)
     if (status === 200 && body?.success) { setMeta(m => ({ ...m, revisionNumber: body.revisionNumber })); setView('thank_you'); return }
+    if (status === 401) { setView('verify'); return }
     if (status === 422) { showErrors(body?.errors || [{ message: 'Please review the required fields and try again.' }]); return }
     if (status === 410) { setErrorMessage(body?.error || 'The window for this Transition Form has closed.'); setView('closed_late'); return }
     if (status === 429) { showErrors([{ message: 'Too many requests - wait a minute and try again. Your draft is saved.' }]); return }
     showErrors([{ message: 'Something went wrong. Your draft is saved - please try again.' }])
+  }
+
+  // ── The one-time code ───────────────────────────────────────────────────────
+  if (view === 'verify') {
+    const where = codeState.maskedEmail ? `your email, ${codeState.maskedEmail}` : 'the email address the ASPIRE team has for you'
+    return (
+      <div className="ngrpf-page">
+        <div className="ngrpf-state">
+          <h1>Confirm it is you</h1>
+          <p>
+            {meta?.cycleName ? `Your ${meta.cycleName} NGRP Transition Form` : 'Your NGRP Transition Form'} is personal to you.
+            To open it, we will send a one-time code to {where}.
+          </p>
+          {!codeState.sent ? (
+            <button type="button" className="ngrpf-submit" style={{ marginTop: 18 }} onClick={sendCode} disabled={codeState.sending}>
+              {codeState.sending ? 'Sending…' : 'Email me a code'}
+            </button>
+          ) : (
+            <form onSubmit={e => { e.preventDefault(); verifyCode() }} style={{ marginTop: 18, textAlign: 'left' }}>
+              <div className="ngrpf-field">
+                <label htmlFor="otp">Enter the 6-digit code we emailed you</label>
+                <input id="otp" inputMode="numeric" autoComplete="one-time-code" maxLength={6} autoFocus
+                  value={codeState.code} onChange={e => setCodeState(c => ({ ...c, code: e.target.value.replace(/\D/g, '').slice(0, 6) }))} />
+              </div>
+              <button type="submit" className="ngrpf-submit" style={{ marginTop: 12 }} disabled={codeState.checking || codeState.code.length !== 6}>
+                {codeState.checking ? 'Checking…' : 'Open my form'}
+              </button>
+              <button type="button" onClick={sendCode} disabled={codeState.sending}
+                style={{ marginTop: 10, background: 'none', border: 'none', color: '#1D2567', fontWeight: 600, fontFamily: F, fontSize: 13.5, cursor: 'pointer', textDecoration: 'underline' }}>
+                {codeState.sending ? 'Sending…' : 'Send a new code'}
+              </button>
+            </form>
+          )}
+          {codeState.error && <p className="ngrpf-error" role="alert" style={{ marginTop: 10 }}>{codeState.error}</p>}
+          <p style={{ marginTop: 16, fontSize: 12.5 }}>No longer have that email? Contact the ASPIRE team at aspire@cshs.org.</p>
+        </div>
+      </div>
+    )
   }
 
   // ── Non-form states ─────────────────────────────────────────────────────────
