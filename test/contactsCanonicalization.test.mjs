@@ -408,7 +408,7 @@ function makeHandler(overrides = {}) {
 test('portal create normalizes a legacy category to canonical and derives the Cedars-Sinai affiliation', async () => {
   const { handler, created } = makeHandler()
   const res = makeRes()
-  await handler({ method: 'POST', body: { full_name: 'Akal Khalsa', category: 'Unit Leadership', role: 'Assistant Nurse Manager', unit_name: '3 North' } }, res)
+  await handler({ method: 'POST', body: { full_name: 'Akal Khalsa', category: 'Unit Leadership', role: 'Assistant Nurse Manager', unit_name: 'Postpartum' } }, res)
   assert.equal(res.statusCode, 201)
   assert.equal(created[0].category, 'Unit Leader')
   assert.equal(created[0].organization, CSMC_AFFILIATION)

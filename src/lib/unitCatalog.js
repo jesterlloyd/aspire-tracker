@@ -33,7 +33,9 @@ export const UNIT_CATALOG = [
   { name: '8 South',           description: 'General Surgery, Plastics, Trauma',                  division: 'Surgical',        defaultEligible: true  },
 
   // Women & Children
-  { name: '3 North',           description: 'Postpartum, Mother-Baby',                            division: "Women & Children", defaultEligible: true  },
+  // UNIT-RENAME-POSTPARTUM-1 (Owner, 2026-10-29): formerly '3 North'; stored rows were renamed
+  // by db/maintenance/rename_3_north_postpartum_20261029.sql.
+  { name: 'Postpartum',        description: 'Mother-Baby',                                        division: "Women & Children", defaultEligible: true  },
   { name: 'Labor & Delivery',  description: 'Labor and Delivery, Maternal Fetal Care Unit',       division: "Women & Children", defaultEligible: true  },
   { name: 'NICU',              description: 'Neonatal Intensive Care Unit',                        division: "Women & Children", defaultEligible: true  },
   { name: 'Pediatrics',        description: 'Pediatric Acute Care, ages 0 to 21',                 division: "Women & Children", defaultEligible: true  },
@@ -68,6 +70,13 @@ export const DIVISION_ORDER = [
   'Capacity Management',
   'Emergency',
 ];
+
+// UNIT-LABELS-1 (Owner, 2026-10-29): a unit in a dropdown says what it is, "8 SCCT - Neuroscience
+// ICU (Neuro ICU)". The value stays the bare name; a unit not in the catalog shows its name alone.
+export function unitOptionLabel(name) {
+  const d = getUnit(name)?.description
+  return d ? `${name} - ${d}` : name
+}
 
 export function getUnit(name) {
   if (!name) return null;

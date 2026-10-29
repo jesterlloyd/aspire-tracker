@@ -60,7 +60,7 @@ export const NURSING_EXECUTIVE_LEADERSHIP = [
     email: 'Michelle.Souza@cshs.org',
     role: "Executive Director, Women and Children's Services",
     scope: "Women & Children division",
-    related_units: ['3 North', 'Labor & Delivery', 'NICU', 'Pediatrics', 'PICU'],
+    related_units: ['Postpartum', 'Labor & Delivery', 'NICU', 'Pediatrics', 'PICU'],
   },
   {
     full_name: 'Heidi High',

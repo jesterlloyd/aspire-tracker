@@ -144,14 +144,15 @@ test('Units are straight alphanumeric across the catalog, so floors read togethe
   const units = CONTACT_SCOPE_GROUPS.find(g => g.label === 'Units').options.map(o => o.value)
   // The reported complaint: 3 North / 3 SCCT / 3 South Short Stay were split
   // across three division blocks, and 6 NE / 6 NW led the SCCTs.
+  // UNIT-RENAME-POSTPARTUM-1 (this commit): 3 North became Postpartum, a named unit.
   assert.deepEqual(units.slice(0, 6), [
-    '3 North', '3 SCCT', '3 South Short Stay', '4 North', '4 SCCT', '4 South',
+    '3 SCCT', '3 South Short Stay', '4 North', '4 SCCT', '4 South', '5 North',
   ])
-  assert.deepEqual(units.slice(9, 13), ['6 NE', '6 NW', '6 SCCT', '6 South'])
+  assert.deepEqual(units.slice(8, 12), ['6 NE', '6 NW', '6 SCCT', '6 South'])
   // Numbered units sort ahead of named ones; named ones are alphabetical.
-  assert.deepEqual(units.slice(-10), [
+  assert.deepEqual(units.slice(-11), [
     'ACU/CDU', 'Emergency Department', 'Float Pool', 'Labor & Delivery', 'NICU',
-    'Operating Room', 'PACU', 'Pediatrics', 'PICU', 'Transfer Center',
+    'Operating Room', 'PACU', 'Pediatrics', 'PICU', 'Postpartum', 'Transfer Center',
   ])
   // Numeric-aware, not lexicographic: a hypothetical 10 would follow 9, not 1.
   assert.ok(units.indexOf('8 SCCT') > units.indexOf('7 SCCT'))

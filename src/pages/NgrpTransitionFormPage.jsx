@@ -9,7 +9,7 @@
 // "draft restored" toast (a single static line notes a restored draft once).
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { formReadinessChecklist } from '../../lib/server/ngrpEligibility.js'
-import { DIVISION_ORDER, getUnitsByDivision, ACLS_REQUIRED_UNITS } from '../lib/unitCatalog.js'
+import { DIVISION_ORDER, getUnitsByDivision, ACLS_REQUIRED_UNITS, unitOptionLabel } from '../lib/unitCatalog.js'
 
 // The ASPIRE placement units, grouped the way the org chart groups them. The
 // server accepts only these names or 'Other', so answers stay comparable.
@@ -371,7 +371,7 @@ export default function NgrpTransitionFormPage({ preview = null }) {
                   <option value="">Select a unit…</option>
                   {DIVISION_ORDER.filter(d => UNITS_BY_DIVISION[d]).map(d => (
                     <optgroup key={d} label={d}>
-                      {UNITS_BY_DIVISION[d].map(u => <option key={u.name} value={u.name}>{u.name}, {u.description}</option>)}
+                      {UNITS_BY_DIVISION[d].map(u => <option key={u.name} value={u.name}>{unitOptionLabel(u.name)}</option>)}
                     </optgroup>
                   ))}
                   <option value="Other">Other</option>
@@ -469,11 +469,16 @@ export default function NgrpTransitionFormPage({ preview = null }) {
                     <label htmlFor={`pref${i}`}>Ranked unit preference {i + 1} <span className="req">*</span></label>
                     <select id={`pref${i}`} value={p.residency_interest.unit_preferences[i]} onChange={e => updatePref(i, e.target.value)}>
                       <option value="">Select a unit…</option>
-                      {units.map(u => <option key={u} value={u}>{u}</option>)}
+                      {units.map(u => <option key={u} value={u}>{unitOptionLabel(u)}</option>)}
                     </select>
                   </div>
                 ))}
                 {prefDupes && <p className="ngrpf-error ngrpf-field full">Each ranked unit must be different.</p>}
+                <p className="ngrpf-hint ngrpf-field full">
+                  You will interview with one unit only, not all three. Ranking three choices gives
+                  Talent Acquisition room to pair you with a unit that has an open position if your
+                  first choice fills.
+                </p>
               </>)}
               {p.residency_interest.interest && p.residency_interest.interest !== 'not_interested' && (<>
                 <div className="ngrpf-field full"><label htmlFor="is">Why are you interested in these units / this residency?</label>
