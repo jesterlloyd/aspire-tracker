@@ -34,6 +34,7 @@ import {
   RESIDENCY_EXPERIENCE, residencyCohortLabel, cohortDotStatus, residencyLabelIsState,
 } from '../../lib/scopePickerLabels'
 import { PortalHeaderControls } from '../PortalHeaderSlots'
+import { useRegisterPortalRefresh } from '../PortalRefresh'
 import { EmptyState } from '../unit/UnitLeaderChrome'
 import AcademicsContactsView from '../na/AcademicsContactsView'
 import PortalMessagesWorkspace from '../messages/PortalMessagesWorkspace'
@@ -90,6 +91,15 @@ export default function ResidencyPortal({ canManage = false, onCommandPeople, co
     }))
     onCommandPeople?.([...people, ...residentPeople, ...schools])
   }, [applicants.payload, residents.residents, onCommandPeople])
+  // RESIDENCY-REFRESH-1: the workspace reads through React Query, so Refresh
+  // refetches every Residency query at once. Nothing registered before, which
+  // left the button disabled on every tab. Connect's pages own their own.
+  useRegisterPortalRefresh(() => Promise.all([
+    queryClient.invalidateQueries({ queryKey: ['ngrp_workspace'] }),
+    queryClient.invalidateQueries({ queryKey: ['ngrp_activity_events'] }),
+    queryClient.invalidateQueries({ queryKey: ['ngrp_activity_schedule'] }),
+    queryClient.invalidateQueries({ queryKey: ['residency_doc_activity'] }),
+  ]), !connectTab)
   const selectCycle = (id) => {
     setCyclePref(id)
     try {
