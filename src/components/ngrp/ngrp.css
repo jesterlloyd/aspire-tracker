@@ -274,9 +274,13 @@
 /* Responsive column collapse: the columns that leave first are the ones the
    drawer restates. Alumnus, Eligibility and Status always remain, because
    Status is the column the whole roster is read for. */
-@media (max-width: 1240px) { .ngrp-table .ngrp-col-form    { display: none; } .ngrp-table { min-width: 880px; } }
-@media (max-width: 1080px) { .ngrp-table .ngrp-col-interest{ display: none; } .ngrp-table { min-width: 760px; } }
-@media (max-width: 900px)  { .ngrp-table .ngrp-col-choices { display: none; } .ngrp-table { min-width: 620px; } }
+/* INTEREST-ELIGIBILITY-1: the narrower the window, the fewer columns, least-needed first. */
+.ngrp-cellmute { font-size: 12px; color: var(--text-caption); }
+.ngrp-cellval { font-size: 12.5px; font-weight: 600; color: var(--text-heading); }
+.ngrp-gpa { display: inline-block; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: var(--aspire-radius-pill); font-variant-numeric: tabular-nums; }
+@media (max-width: 1240px) { .ngrp-table .ngrp-col-gpa        { display: none; } .ngrp-table { min-width: 880px; } }
+@media (max-width: 1080px) { .ngrp-table .ngrp-col-employment { display: none; } .ngrp-table { min-width: 760px; } }
+@media (max-width: 900px)  { .ngrp-table .ngrp-col-choices, .ngrp-table .ngrp-col-form { display: none; } .ngrp-table { min-width: 620px; } }
 
 @media (prefers-reduced-motion: reduce) {
   .ngrp-table tbody tr { transition: none; }

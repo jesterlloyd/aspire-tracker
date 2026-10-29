@@ -47,8 +47,12 @@ import PreceptorFeedbackChip from './PreceptorFeedbackChip'
 import AutomationEmailPreviewDrawer from '../connect/AutomationEmailPreviewDrawer'
 import { transitionPreviewFor } from '../../lib/ngrp/transitionPreviewFixture'
 import { transitionFormPreview } from '../../lib/ngrp/transitionFormPreview'
+import SortHeader from '../shared/SortHeader'
+import { sortRows } from '../shared/dataSheetSort'
+import { LICENSE_LABELS, NOT_REPORTED, employmentOf, gpaOf, gpaBand, interestColumns } from '../../lib/ngrp/interestEligibilityModel'
+import { GPA_BAND_COLORS } from '../../lib/constants'
 import {
-  FORM_SENT_STATES, INTEREST_STATES, ELIGIBILITY_STATES, ROSTER_STATUSES,
+  FORM_SENT_STATES, ELIGIBILITY_STATES, ROSTER_STATUSES,
   KPI_DEFS, SORT_OPTIONS,
   deriveApplicantRows, sortApplicantRows, effectiveEligibility, formTimestamp,
   formSentState, rosterStatus, effectivePreferences, NOT_PROCEEDING_REASONS,
@@ -185,13 +189,15 @@ function AlumniListRow({ row, selected, onSelect, feedbackEntry }) {
   )
 }
 
+const COLUMN_LABELS = { alumnus: 'Alumnus', form: 'Form', license: 'CA RN License', employment: 'CS Employee', gpa: 'GPA', eligibility: 'Eligibility', choices: 'Top Choices', status: 'Status' }
+
 // TRANSITION-FORM-PREVIEW-1: the public form page itself, loaded only when a preview opens.
 const NgrpTransitionFormPage = lazyReload(() => import('../../pages/NgrpTransitionFormPage'), 'NgrpTransitionFormPage')
 
 export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) {
   const navigate = useNavigate()
   // Sending runs through ASPIRE Connect, which only the staff app has.
-  const { canSendForms } = useNgrpSurface()
+  const { canSendForms, staffApp } = useNgrpSurface()
   const { status, payload, dataUpdatedAt, refetch } = useNgrpApplicants(cycle?.id)
   // RESIDENCY-PORTAL-2b: feedback on file and requests to view it, by student.
   const feedback = useNgrpPreceptorFeedback(cycle?.id)
@@ -276,6 +282,13 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
   const activeSchoolFilter = schoolOptions.includes(schoolFilter) ? schoolFilter : ''
 
   const activeKpi = KPI_DEFS.find(k => k.key === kpiFilter) || KPI_DEFS[0]
+  const [colSort, setColSort] = useState(null)
+  const sortColumns = useMemo(() => interestColumns({
+    effectiveEligibility, rosterStatus, statusOrder: Object.keys(ROSTER_STATUSES),
+  }), [])
+  const onColumnSort = key => setColSort(prev => (
+    prev?.key === key ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' }
+  ))
   const filteredRows = useMemo(() => {
     const q = query.trim().toLowerCase()
     const rows = allRows.filter(r => {
@@ -288,8 +301,11 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
       }
       return true
     })
-    return sortApplicantRows(rows, sortKey, { cohortOrder })
-  }, [allRows, activeKpi, activeCohortFilter, activeSchoolFilter, query, sortKey, cohortOrder])
+    const ordered = sortApplicantRows(rows, sortKey, { cohortOrder })
+    // INTEREST-ELIGIBILITY-1: a column header, once clicked, sorts the table; choosing
+    // from the Sort menu hands the order back to it.
+    return colSort ? sortRows(ordered, sortColumns, colSort) : ordered
+  }, [allRows, activeKpi, activeCohortFilter, activeSchoolFilter, query, sortKey, cohortOrder, colSort, sortColumns])
 
   const hasFilters = kpiFilter !== 'all' || query || activeCohortFilter || activeSchoolFilter
 
@@ -498,7 +514,7 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
         <>
           <div style={{ padding: '0 0 12px' }}>
             <SegmentedPicker ariaLabel="Profiles & Interest views" value={view} onChange={changeView}
-              options={[{ value: 'profiles', label: 'Profiles' }, { value: 'interest', label: 'Interest' }]} />
+              options={[{ value: 'profiles', label: 'Profiles' }, { value: 'interest', label: 'Interest & Eligibility' }]} />
           </div>
           <div className="ngrp-kpis" role="group" aria-label="Roster filters">
             {KPI_DEFS.map(k => (
@@ -542,7 +558,7 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
               </select>
               <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#6B7785' }}>
                 Sort
-                <select value={sortKey} onChange={e => setParam('sort', e.target.value, 'priority')} aria-label="Sort roster" style={selectStyle}>
+                <select value={sortKey} onChange={e => { setColSort(null); setParam('sort', e.target.value, 'priority') }} aria-label="Sort roster" style={selectStyle}>
                   {SORT_OPTIONS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
                 </select>
               </label>
@@ -693,7 +709,7 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
               <span style={{ fontSize: 13, fontWeight: 700 }}>Alumni Roster</span>
               <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
                 <span style={{ fontSize: 11, color: '#9CA3AF' }}>
-                  {cycle.name} · {sourceCohorts.length} participating cohort{sourceCohorts.length === 1 ? '' : 's'} · sorted by {SORT_OPTIONS.find(o => o.key === sortKey)?.label.toLowerCase()}
+                  {cycle.name} · {sourceCohorts.length} participating cohort{sourceCohorts.length === 1 ? '' : 's'} · sorted by {colSort ? COLUMN_LABELS[colSort.key].toLowerCase() : SORT_OPTIONS.find(o => o.key === sortKey)?.label.toLowerCase()}
                 </span>
                 <Tooltip label="Every alumnus on this roster with their latest Transition Form answers. Preceptor feedback is never included." applyAriaLabel={false}>
                 <button
@@ -768,18 +784,24 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                         applicant wants; and Application became Status, which
                         carries the whole arc now that confirmation is
                         automatic. */}
-                    <th scope="col">Alumnus</th>
-                    <th scope="col" className="ngrp-col-form">Form</th>
-                    <th scope="col" className="ngrp-col-interest">Interest</th>
-                    <th scope="col">Eligibility</th>
-                    <th scope="col" className="ngrp-col-choices">Top Choices</th>
-                    <th scope="col">Status</th>
+                    {/* INTEREST-ELIGIBILITY-1 (Owner, 2026-10-29): every column sorts; Interest
+                        gave way to licensure, CS employment and GPA (most alumni are interested,
+                        and a not-interested answer still shows under Top Choices). GPA is the
+                        ASPIRE team's only. */}
+                    <SortHeader thClassName="" sortKey="alumnus" sortBy={colSort?.key} sortDir={colSort?.dir} onSort={onColumnSort}>Alumnus</SortHeader>
+                    <SortHeader thClassName="ngrp-col-form" sortKey="form" sortBy={colSort?.key} sortDir={colSort?.dir} onSort={onColumnSort}>Form</SortHeader>
+                    <SortHeader thClassName="" sortKey="license" sortBy={colSort?.key} sortDir={colSort?.dir} onSort={onColumnSort}>CA RN License</SortHeader>
+                    <SortHeader thClassName="ngrp-col-employment" sortKey="employment" sortBy={colSort?.key} sortDir={colSort?.dir} onSort={onColumnSort}>CS Employee</SortHeader>
+                    {staffApp && <SortHeader thClassName="ngrp-col-gpa" sortKey="gpa" sortBy={colSort?.key} sortDir={colSort?.dir} onSort={onColumnSort}>GPA</SortHeader>}
+                    <SortHeader thClassName="" sortKey="eligibility" sortBy={colSort?.key} sortDir={colSort?.dir} onSort={onColumnSort}>Eligibility</SortHeader>
+                    <SortHeader thClassName="ngrp-col-choices" sortKey="choices" sortBy={colSort?.key} sortDir={colSort?.dir} onSort={onColumnSort}>Top Choices</SortHeader>
+                    <SortHeader thClassName="" sortKey="status" sortBy={colSort?.key} sortDir={colSort?.dir} onSort={onColumnSort}>Status</SortHeader>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredRows.length === 0 && (
                     <tr>
-                      <td colSpan={canSelect ? 7 : 6} style={{ padding: 0 }}>
+                      <td colSpan={(canSelect ? 1 : 0) + (staffApp ? 8 : 7)} style={{ padding: 0 }}>
                         <EmptyState
                           compact
                           heading="No alumni match the current filters"
@@ -794,6 +816,8 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                     const ts = formTimestamp(r)
                     const { preferences, source: prefSource } = effectivePreferences(r)
                     const status = rosterStatus(r)
+                    const employment = employmentOf(r)
+                    const gpa = gpaOf(r)
                     const paired = status === 'awaiting_decision' ? r.assigned_unit : null
                     const npReason = status === 'not_proceeding'
                       ? NOT_PROCEEDING_REASONS[r.not_proceeding_reason]?.label
@@ -843,7 +867,23 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                           <NgrpStatusPill config={FORM_SENT_STATES} value={formSentState(r)} srPrefix="Transition Form" />
                           {ts && <div className="ngrp-cellsub">{relTime(ts)}</div>}
                         </td>
-                        <td className="ngrp-col-interest"><NgrpStatusPill config={INTEREST_STATES} value={r.interest} srPrefix="Interest" /></td>
+                        <td>
+                          {LICENSE_LABELS[r.form_rn_status]
+                            ? <NgrpStatusPill config={LICENSE_LABELS} value={r.form_rn_status} srPrefix="CA RN license" />
+                            : <span className="ngrp-cellmute">{NOT_REPORTED}</span>}
+                        </td>
+                        <td className="ngrp-col-employment">
+                          {employment
+                            ? <><span className="ngrp-cellval">{employment.label}</span>{employment.detail && <div className="ngrp-cellsub">{employment.detail}</div>}</>
+                            : <span className="ngrp-cellmute">{NOT_REPORTED}</span>}
+                        </td>
+                        {staffApp && (
+                          <td className="ngrp-col-gpa">
+                            {gpa == null
+                              ? <span className="ngrp-cellmute">None on file</span>
+                              : <span className="ngrp-gpa" style={GPA_BAND_COLORS[gpaBand(gpa)] ? { background: GPA_BAND_COLORS[gpaBand(gpa)].bg, color: GPA_BAND_COLORS[gpaBand(gpa)].color } : undefined}>{gpa.toFixed(2)}</span>}
+                          </td>
+                        )}
                         <td>
                           <NgrpStatusPill config={ELIGIBILITY_STATES} value={effectiveEligibility(r)} srPrefix="Eligibility" />
                           {overridden && <div className="ngrp-cellsub">staff override · see details</div>}
@@ -853,7 +893,7 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                             the one deciding whether to interview them. */}
                         <td className="ngrp-col-choices">
                           {preferences.length === 0
-                            ? <span style={{ fontSize: 12, color: '#9CA3AF' }}>None ranked</span>
+                            ? <span className="ngrp-cellmute">{r.interest === 'not_interested' ? 'Not interested' : r.interest === 'undecided' ? 'Undecided' : 'None ranked'}</span>
                             : (
                               <div className="ngrp-choices">
                                 {preferences.map((u, i) => (

@@ -40,7 +40,8 @@ test('the ribbon and the row mark mirror Student Profiles', () => {
 })
 
 test('Profiles | Interest, Alumni Cohort View, and a Grid', () => {
-  assert.match(tab, /\{ value: 'profiles', label: 'Profiles' \}, \{ value: 'interest', label: 'Interest' \}/)
+  // INTEREST-ELIGIBILITY-1 renamed the second tab; the value and the URL stay 'interest'.
+  assert.match(tab, /\{ value: 'profiles', label: 'Profiles' \}, \{ value: 'interest', label: 'Interest & Eligibility' \}/)
   assert.match(tab, /\['interest', 'status'\]\.includes\(searchParams\.get\('view'\)\)/, 'an old ?view=status link still opens Interest')
   assert.match(tab, />Alumni Cohort View</)
   assert.match(tab, /alumni'\} shown · KPI cards work as quick filters/)
