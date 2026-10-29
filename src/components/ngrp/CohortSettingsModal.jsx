@@ -29,7 +29,7 @@ import {
   F, inputStyle, btn, errText,
   cycleBasics, rulesOf, benchmarksOf,
   unitRoster, unitRosterByDivision, unitsToSave, unitsMissingSpots, unitDescription,
-  checklistExtrasOf, buildChecklist,
+  checklistExtrasOf, buildChecklist, conditionalRules,
 } from '../../lib/ngrp/ngrpCohortForm'
 import { Field, Card, ConfirmDialog, ModalShell } from './NgrpFormUi'
 import SeasonMark from '../Header/scope/SeasonMark'
@@ -155,7 +155,7 @@ function CohortSettingsEditor({ data, aspireCohorts, toast, invalidate, refetch 
       completion_window_months: Number(rules.completion_window_months),
       require_accreditation: rules.require_accreditation,
       nclex_exception_enabled: rules.nclex_exception_enabled,
-      conditional: { license: { enabled: rules.nclex_exception_enabled, deadline: rules.license_deadline_override || null } },
+      conditional: conditionalRules(rules, serverCycle?.qualification_rules, basics.residency_start_date),
     },
     application_checklist: buildChecklist(DEFAULT_APPLICATION_CHECKLIST, extras),
     retention_benchmarks: {
@@ -434,6 +434,11 @@ function CohortSettingsEditor({ data, aspireCohorts, toast, invalidate, refetch 
             <input type="checkbox" checked={rules.nclex_exception_enabled}
               onChange={e => setRules(r => ({ ...r, nclex_exception_enabled: e.target.checked }))} style={{ accentColor: '#1D2567', width: 15, height: 15 }} />
             <span><b>NCLEX exception:</b> a scheduled NCLEX on or before the licensure deadline makes an otherwise-passing applicant <i>Conditionally Eligible</i>.</span>
+          </label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontFamily: F, cursor: 'pointer' }}>
+            <input type="checkbox" checked={rules.acls_by_start}
+              onChange={e => setRules(r => ({ ...r, acls_by_start: e.target.checked }))} style={{ accentColor: '#1D2567', width: 15, height: 15 }} />
+            <span><b>ACLS by residency start:</b> an applicant ranking a unit that requires ACLS, without it yet, is <i>Conditionally Eligible</i> until the residency start date{basics.residency_start_date ? '' : ' (set a residency start date above)'}.</span>
           </label>
           <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontFamily: F, cursor: 'pointer' }}>
             <input type="checkbox" checked={rules.require_accreditation}

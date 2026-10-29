@@ -51,6 +51,21 @@ export const rulesOf = c => {
     require_accreditation: r.require_accreditation === true,
     nclex_exception_enabled: r.nclex_exception_enabled !== false,
     license_deadline_override: r.conditional?.license?.deadline || '',
+    // COHORT-ACLS-RULE-1 (Owner, 2026-10-29): ACLS is usually needed by the start date.
+    acls_by_start: r.conditional?.acls?.enabled === true,
+  }
+}
+
+// COHORT-ACLS-RULE-1: the stored `conditional` block. The licensure rule comes from its own
+// fields, ACLS from its checkbox (deadline = the residency start date, the date it is due by),
+// and BLS, which this screen does not edit, is kept exactly as stored. Before this, saving the
+// card rewrote the block with licensure only, so any ACLS or BLS rule was silently dropped.
+export function conditionalRules(rules, stored, residencyStartDate) {
+  const prev = stored?.conditional || {}
+  return {
+    license: { enabled: rules.nclex_exception_enabled, deadline: rules.license_deadline_override || null },
+    acls: { enabled: rules.acls_by_start === true, deadline: rules.acls_by_start ? (residencyStartDate || null) : null },
+    ...(prev.bls ? { bls: prev.bls } : {}),
   }
 }
 
