@@ -53,3 +53,12 @@ test('the tab is Interest & Eligibility, every header sorts, GPA is staff only',
   }
   assert.match(tab, /\{staffApp && <SortHeader thClassName="ngrp-col-gpa"/)
 })
+
+test('the caption names a sorted column readably, acronyms intact', () => {
+  const tab = read('src/components/ngrp/ProfilesTab.jsx')
+  assert.match(tab, /gpa: 'GPA'/)
+  assert.match(tab, /license: 'CA RN license'/)
+  assert.match(tab, /employment: 'CS employee'/)
+  assert.match(tab, /sorted by \{colSort \? COLUMN_CAPTIONS\[colSort\.key\] :/)
+  assert.doesNotMatch(tab, /COLUMN_CAPTIONS\[colSort\.key\]\.toLowerCase/)
+})

@@ -189,7 +189,8 @@ function AlumniListRow({ row, selected, onSelect, feedbackEntry }) {
   )
 }
 
-const COLUMN_LABELS = { alumnus: 'Alumnus', form: 'Form', license: 'CA RN License', employment: 'CS Employee', gpa: 'GPA', eligibility: 'Eligibility', choices: 'Top Choices', status: 'Status' }
+// How the roster caption names a sorted column: sentence case, acronyms kept ("sorted by GPA").
+const COLUMN_CAPTIONS = { alumnus: 'alumnus', form: 'form', license: 'CA RN license', employment: 'CS employee', gpa: 'GPA', eligibility: 'eligibility', choices: 'top choices', status: 'status' }
 
 // TRANSITION-FORM-PREVIEW-1: the public form page itself, loaded only when a preview opens.
 const NgrpTransitionFormPage = lazyReload(() => import('../../pages/NgrpTransitionFormPage'), 'NgrpTransitionFormPage')
@@ -709,7 +710,7 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
               <span style={{ fontSize: 13, fontWeight: 700 }}>Alumni Roster</span>
               <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
                 <span style={{ fontSize: 11, color: '#9CA3AF' }}>
-                  {cycle.name} · {sourceCohorts.length} participating cohort{sourceCohorts.length === 1 ? '' : 's'} · sorted by {colSort ? COLUMN_LABELS[colSort.key].toLowerCase() : SORT_OPTIONS.find(o => o.key === sortKey)?.label.toLowerCase()}
+                  {cycle.name} · {sourceCohorts.length} participating cohort{sourceCohorts.length === 1 ? '' : 's'} · sorted by {colSort ? COLUMN_CAPTIONS[colSort.key] : SORT_OPTIONS.find(o => o.key === sortKey)?.label.toLowerCase()}
                 </span>
                 <Tooltip label="Every alumnus on this roster with their latest Transition Form answers. Preceptor feedback is never included." applyAriaLabel={false}>
                 <button
