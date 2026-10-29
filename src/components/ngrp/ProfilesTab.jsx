@@ -347,7 +347,7 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
       cohortId: null,
       templateKey: 'ngrp_transition_form_invitation',
       source: 'ngrp_applicants',
-      returnPath: `/ngrp/applicants${window.location.search || ''}`,
+      returnPath: `/ngrp/profiles${window.location.search || ''}`,
       studentIds: rows.map(r => r.id),
     })
     if (!ctx) { toast?.error?.('Send unavailable', 'The send could not be prepared in this browser.'); return }

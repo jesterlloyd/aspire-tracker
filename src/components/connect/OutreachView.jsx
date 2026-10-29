@@ -17,6 +17,7 @@ import RecipientPicker from './RecipientPicker'
 import SentHistory from './SentHistory'
 import ContactAutocomplete from './ContactAutocomplete'
 import BulkManualComposer from './BulkManualComposer'
+import NgrpTransitionSendPanel from './NgrpTransitionSendPanel'
 import { readLaunchContext, clearLaunchContext, LAUNCH_KINDS } from '../../lib/connect/launchContext'
 import { handoffChip, supportRefFor, sentMessage } from '../../lib/documents/supportHandoffModel'
 import RichTextEditor from './RichTextEditor'
@@ -426,6 +427,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
   // student it was written for; a different recipient leaves it inert. Everything in it is a
   // claim the server re-verifies before any send.
   const supportLaunch = (launchCtx && launchCtx.kind === LAUNCH_KINDS.SUPPORT_HANDOFF) ? launchCtx : null
+  const ngrpTransitionLaunch = launchCtx?.kind === LAUNCH_KINDS.NGRP_TRANSITION_FORM
   const activeSupport = (supportLaunch
     && recipientType === 'student'
     && studentId
@@ -3902,7 +3904,13 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
           Calls /api/evaluation-bulk-invitations for generate_only.
           No email. No Resend. Generated surveyUrls live in React state only.
       ═══════════════════════════════════════════════════════════════════ */}
-      {recipientMode === 'bulk' && bulkMsgType !== 'survey_invitation' && (
+      {/* TRANSITION-SEND-RESTORE-1 (2026-10-29): the Transition Form is not in the template
+          library (395f8cd6 took it out on purpose), but its launch from Residency > Profiles &
+          Interest still lands here, and with the panel gone it landed on nothing. A Transition
+          Form launch now opens its own server-minted panel in place of the bulk composers. */}
+      {recipientMode === 'bulk' && ngrpTransitionLaunch && <NgrpTransitionSendPanel />}
+
+      {recipientMode === 'bulk' && !ngrpTransitionLaunch && bulkMsgType !== 'survey_invitation' && (
         <BulkManualComposer
           bulkMsgType={bulkMsgType}
           students={students}
@@ -3916,7 +3924,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
         />
       )}
 
-      {recipientMode === 'bulk' && bulkMsgType === 'survey_invitation' && (
+      {recipientMode === 'bulk' && !ngrpTransitionLaunch && bulkMsgType === 'survey_invitation' && (
         <div className="outreach-bulk-survey-layout" style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'flex-start' }}>
 
           {/* ── Bulk Zone 1: Student Audience Picker ─────────────────── */}

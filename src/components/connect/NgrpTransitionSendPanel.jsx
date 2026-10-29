@@ -108,7 +108,7 @@ export default function NgrpTransitionSendPanel({ renderTypeSelector }) {
   }
 
   const returnToApplicants = () => {
-    const path = ctx?.returnPath || '/ngrp/applicants'
+    const path = ctx?.returnPath || '/ngrp/profiles?view=interest'
     clearLaunchContext()
     navigate(path)
   }
@@ -117,9 +117,11 @@ export default function NgrpTransitionSendPanel({ renderTypeSelector }) {
 
   return (
     <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-      <div style={{ flex: '0 0 300px', minWidth: 260 }}>
-        {renderTypeSelector ? renderTypeSelector('student') : null}
-      </div>
+      {renderTypeSelector && (
+        <div style={{ flex: '0 0 300px', minWidth: 260 }}>
+          {renderTypeSelector('student')}
+        </div>
+      )}
 
       <div style={{ flex: '1 1 480px', minWidth: 360, display: 'flex', flexDirection: 'column', gap: 14 }}>
         <ConnectPanel
@@ -130,7 +132,7 @@ export default function NgrpTransitionSendPanel({ renderTypeSelector }) {
         >
           {!ctx && (
             <p style={{ margin: 0, fontSize: 13, color: '#4a5560', fontFamily: F, lineHeight: 1.6 }}>
-              This secure invitation starts from <strong>Residency → Applicants</strong>: select the
+              This secure invitation starts from <strong>Residency → Profiles &amp; Interest</strong>: select the
               completed alumni there and choose <strong>Send Transition Form</strong>. Each recipient
               receives one personal, secure link minted on the server - there is no editable message
               body or manual recipient entry for this template.
@@ -147,7 +149,7 @@ export default function NgrpTransitionSendPanel({ renderTypeSelector }) {
           )}
           {ctx && previewState === 'error' && (
             <p style={{ margin: 0, fontSize: 13, color: '#991b1b', fontFamily: F }}>
-              The selection could not be verified. Nothing was sent - return to Applicants and try again.
+              The selection could not be verified. Nothing was sent - return to Profiles & Interest and try again.
             </p>
           )}
           {ctx && previewState === 'not_ready' && (
@@ -285,7 +287,7 @@ export default function NgrpTransitionSendPanel({ renderTypeSelector }) {
                 }}
               >
                 <ArrowLeft size={13} strokeWidth={2.2} aria-hidden="true" />
-                {result ? 'Return to Applicants' : 'Cancel and return to Applicants'}
+                {result ? 'Return to Profiles & Interest' : 'Cancel and return to Profiles & Interest'}
               </button>
             </div>
           )}

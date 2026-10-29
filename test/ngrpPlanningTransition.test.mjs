@@ -1419,12 +1419,18 @@ test('regression: alumni never confirm or assign themselves; preferences never b
   assert.match(drawerUi, /Nobody confirms this/)
 })
 
-test('regression: transition-form delivery remains outside the Outreach template library', () => {
+test('regression: transition-form delivery stays outside the template library but its launch opens the panel', () => {
   assert.match(launchCtx, /NGRP_TRANSITION_FORM: 'ngrp_transition_form'/)
   assert.match(applicantsUi, /kind: LAUNCH_KINDS\.NGRP_TRANSITION_FORM/)
-  assert.match(applicantsUi, /returnPath: `\/ngrp\/applicants\$\{window\.location\.search \|\| ''\}`/)
+  // TRANSITION-SEND-RESTORE-1: back to the live tab, not the retired /ngrp/applicants.
+  assert.match(applicantsUi, /returnPath: `\/ngrp\/profiles\$\{window\.location\.search \|\| ''\}`/)
   assert.doesNotMatch(registry, /key: 'ngrp_transition_form_invitation'/)
-  assert.doesNotMatch(outreachView, /NgrpTransitionSendPanel/)
+  // TRANSITION-SEND-RESTORE-1: 395f8cd6 removed the panel with the template and left the
+  // launch landing on nothing. The launch, not the library, now opens it.
+  assert.match(outreachView, /const ngrpTransitionLaunch = launchCtx\?\.kind === LAUNCH_KINDS\.NGRP_TRANSITION_FORM/)
+  assert.match(outreachView, /recipientMode === 'bulk' && ngrpTransitionLaunch && <NgrpTransitionSendPanel \/>/)
+  assert.match(outreachView, /recipientMode === 'bulk' && !ngrpTransitionLaunch && bulkMsgType !== 'survey_invitation'/)
+  assert.match(outreachView, /recipientMode === 'bulk' && !ngrpTransitionLaunch && bulkMsgType === 'survey_invitation'/)
   assert.doesNotMatch(sendPanel, /[Ii]nvited to [Aa]pply/)
   assert.match(sendPanel, /not an invitation to apply/)
 })
