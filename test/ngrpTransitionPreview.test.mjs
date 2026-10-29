@@ -91,7 +91,8 @@ test('no cohort in scope degrades to a generic phrase, never a made-up cohort', 
 
 test('ApplicantsTab passes the live cohort and memoizes it', () => {
   const tab = read(TAB)
-  assert.match(tab, /transitionPreviewFor\(cycle\?\.name\), \[cycle\?\.name\]\)/)
+  // PREVIEW-CLOSE-DATE-1 (this commit) added the cohort's deadline beside its name.
+  assert.match(tab, /transitionPreviewFor\(cycle\?\.name, cycle\?\.application_deadline\),\s*\[cycle\?\.name, cycle\?\.application_deadline\]/)
   assert.match(tab, /entry=\{transitionPreview\}/)
   // A fresh object every parent render would re-render the email on every keystroke in
   // the search box above it.
@@ -139,7 +140,8 @@ test('the drawer footer tells the truth about a hand-sent email', () => {
   const tab = read(TAB)
   assert.match(tab, /footNote="[^"]*sent by hand, never on a schedule/)
   // And it no longer claims the whole preview is synthetic, because the cohort is real.
-  assert.match(tab, /footNote="The recipient and link are synthetic; the cohort name is your live one/)
+  // PREVIEW-CLOSE-DATE-1: and the close date is live too.
+  assert.match(tab, /footNote="The recipient and link are synthetic; the cohort name and close date are your live ones/)
   const drawer = read('src/components/connect/AutomationEmailPreviewDrawer.jsx')
   assert.match(drawer, /footNote = null/, 'defaulted, so existing callers are unchanged')
   assert.match(drawer, /footNote \|\| 'This preview uses synthetic data and is rendered with the same template the automation sends\.'/)
@@ -149,4 +151,12 @@ test('no em dash in anything this change added', () => {
   // The character below is the em dash, written as an escape so this file has none.
   const EM = String.fromCharCode(0x2014)
   for (const f of [BUILDER, FIXTURE]) assert.ok(!read(f).includes(EM), `${f} contains an em dash`)
+})
+
+test('PREVIEW-CLOSE-DATE-1: the close date is the cohort deadline, else the sample', () => {
+  const live = transitionPreviewFor('Winter 2027', '2026-11-11').render('with_close').html
+  assert.match(live, /November 11, 2026/)
+  assert.doesNotMatch(live, /November 5, 2026/)
+  assert.match(transitionPreviewFor('Winter 2027', null).render('with_close').html, /November 5, 2026/)
+  assert.doesNotMatch(transitionPreviewFor('Winter 2027', '2026-11-11').render('no_close').html, /November 11, 2026/)
 })

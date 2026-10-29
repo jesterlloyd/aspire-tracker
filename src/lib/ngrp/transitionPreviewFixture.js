@@ -19,6 +19,7 @@
 // be able to show one even by accident.
 
 import { buildTransitionEmail } from '../../../lib/server/email/ngrpTransitionEmail.js'
+import { effectiveFormClose } from '../../../lib/server/ngrpTransition.js'
 
 // Obviously-fake and obviously-not-a-token. Anyone screenshotting this preview is
 // sharing a placeholder, not a live link.
@@ -36,11 +37,19 @@ const SAMPLE_CLOSE = '2026-11-06T07:59:59.999Z'
 // cycle.name; only this fixture ever froze one.
 const FALLBACK_CYCLE_NAME = 'the upcoming residency cohort'
 
-// Build a preview entry for a REAL residency cohort. The cohort name is the one piece of
-// live data here, and it is not sensitive - it is already on screen behind the drawer.
-// Everything that identifies a person stays synthetic, and the URL stays a visible fake.
-export function transitionPreviewFor(cycleName) {
+// Build a preview entry for a REAL residency cohort. The cohort name and its close date
+// are the live data here, and neither is sensitive - both are already on screen behind
+// the drawer. Everything that identifies a person stays synthetic, and the URL stays a
+// visible fake.
+//
+// PREVIEW-CLOSE-DATE-1 (Owner, 2026-10-29): the close date is the one a send without a
+// per-send date uses, Pacific end of day on the cohort's application deadline
+// (effectiveFormClose, the send's own rule). The sample date read as the real deadline and
+// disagreed with the form. It is used only when the cohort has no deadline yet, so the
+// "has a close date" half stays reviewable.
+export function transitionPreviewFor(cycleName, applicationDeadline = null) {
   const name = String(cycleName || '').trim() || FALLBACK_CYCLE_NAME
+  const close = effectiveFormClose({ application_deadline: applicationDeadline }, null) || SAMPLE_CLOSE
   return {
     recipientType: 'Completed ASPIRE alum',
     variants: [
@@ -51,7 +60,7 @@ export function transitionPreviewFor(cycleName) {
       student: SAMPLE_STUDENT,
       cycle: { name },
       url: SAMPLE_URL,
-      closeText: variant === 'no_close' ? null : SAMPLE_CLOSE,
+      closeText: variant === 'no_close' ? null : close,
     }),
   }
 }

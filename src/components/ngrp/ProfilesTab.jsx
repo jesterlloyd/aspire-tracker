@@ -354,7 +354,10 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
 
   // Stable identity: AutomationEmailPreviewDrawer memoizes its render on `entry`, so a
   // fresh object each parent render would re-render the email on every keystroke above.
-  const transitionPreview = useMemo(() => transitionPreviewFor(cycle?.name), [cycle?.name])
+  const transitionPreview = useMemo(
+    () => transitionPreviewFor(cycle?.name, cycle?.application_deadline),
+    [cycle?.name, cycle?.application_deadline],
+  )
 
   // Staff review/decision actions (drawer). Each is explicit, audited
   // server-side, and refreshes the roster quietly on success.
@@ -927,7 +930,7 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
         <AutomationEmailPreviewDrawer
           title="NGRP Transition Form"
           entry={transitionPreview}
-          footNote="The recipient and link are synthetic; the cohort name is your live one. Rendered with the same template the send uses. The Transition Form is sent by hand, never on a schedule."
+          footNote="The recipient and link are synthetic; the cohort name and close date are your live ones (a send can set its own close date). Rendered with the same template the send uses. The Transition Form is sent by hand, never on a schedule."
           onClose={() => setShowEmailPreview(false)}
         />
       )}
