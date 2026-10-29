@@ -10,7 +10,7 @@
 // person is synthetic, matching the email preview's Jordan Avery, and there is no token.
 
 import { effectiveFormClose } from '../../../lib/server/ngrpTransition.js'
-import { validateApplicationChecklist } from '../../../lib/server/ngrpEligibility.js'
+import { formReadinessChecklist } from '../../../lib/server/ngrpEligibility.js'
 
 const SAMPLE = {
   studentName: 'Jordan',
@@ -37,7 +37,7 @@ export function transitionFormPreview({ cycle = null, units = [] } = {}) {
     cycleName: cycle?.name || '',
     closeAt: cycle ? effectiveFormClose(cycle, null) : null,
     units: activeUnits,
-    checklist: validateApplicationChecklist(cycle?.application_checklist),
+    checklist: formReadinessChecklist(cycle?.application_checklist),
     // The prefill a first open gets (api/ngrp-transition.js `load`, no draft yet).
     base: {
       identity: { preferred_email: SAMPLE.email },

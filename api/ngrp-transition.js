@@ -24,7 +24,7 @@ import { bucketKey, extractClientIp } from '../lib/server/evaluation/rate_limit.
 import {
   resolveTokenAssignment, validateSubmission, submitRevision, effectiveFormClose,
 } from '../lib/server/ngrpTransition.js'
-import { validateApplicationChecklist } from '../lib/server/ngrpEligibility.js'
+import { formReadinessChecklist } from '../lib/server/ngrpEligibility.js'
 import { recordNgrpAudit } from '../lib/server/ngrpAudit.js'
 
 const LINK_INVALID = 'This form link is no longer valid.'
@@ -76,7 +76,7 @@ export default async function handler(req, res) {
       .eq('cycle_id', cycle.id).eq('is_active', true).order('display_order')
     if (unitsRes.error) return res.status(500).json({ error: 'Internal error' })
     const activeUnitNames = (unitsRes.data || []).map(u => u.unit_name)
-    const checklist = validateApplicationChecklist(cycle.application_checklist)
+    const checklist = formReadinessChecklist(cycle.application_checklist)
 
     // ── load ─────────────────────────────────────────────────────────────────
     if (action === 'load') {

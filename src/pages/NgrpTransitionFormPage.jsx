@@ -8,8 +8,8 @@
 // quiet behavior - the autosave line updates in place, and there is never a
 // "draft restored" toast (a single static line notes a restored draft once).
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { DEFAULT_APPLICATION_CHECKLIST } from '../../lib/server/ngrpEligibility.js'
-import { DIVISION_ORDER, getUnitsByDivision } from '../lib/unitCatalog.js'
+import { formReadinessChecklist } from '../../lib/server/ngrpEligibility.js'
+import { DIVISION_ORDER, getUnitsByDivision, ACLS_REQUIRED_UNITS } from '../lib/unitCatalog.js'
 
 // The ASPIRE placement units, grouped the way the org chart groups them. The
 // server accepts only these names or 'Other', so answers stay comparable.
@@ -77,6 +77,7 @@ const CSS = `
   .ngrpf-check { display: flex; align-items: flex-start; gap: 10px; padding: 9px 0; font-size: 13.5px; cursor: pointer; min-height: 44px; }
   .ngrpf-check input { width: 17px; height: 17px; margin-top: 2px; accent-color: #1D2567; flex-shrink: 0; }
   .ngrpf-static { background: #F9FAFB; border: 1px solid #EFEDE8; border-radius: var(--aspire-radius-control); padding: 9px 11px; font-size: 13.5px; color: #4A5560; }
+  .ngrpf-hint { margin: 2px 0 0; font-size: 12.5px; line-height: 1.5; color: #4A5560; }
   .ngrpf-error { color: #B3282D; font-size: 12.5px; margin: 4px 0 0; }
   .ngrpf-submitrow { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
   .ngrpf-submit { min-height: 52px; width: 100%; border: none; border-radius: 10px; background: #1D2567; color: #fff; font-family: ${F}; font-size: 15.5px; font-weight: 700; cursor: pointer; }
@@ -263,7 +264,9 @@ export default function NgrpTransitionFormPage({ preview = null }) {
   // ── The form ────────────────────────────────────────────────────────────────
   const p = payload
   const units = meta?.units || []
-  const checklist = meta?.checklist?.length ? meta.checklist : DEFAULT_APPLICATION_CHECKLIST
+  const checklist = meta?.checklist?.length ? meta.checklist : formReadinessChecklist(null)
+  // TRANSITION-FORM-ACLS-1: name the units that need ACLS, from this cohort's hiring units.
+  const aclsUnits = units.length ? ACLS_REQUIRED_UNITS.filter(u => units.includes(u)) : [...ACLS_REQUIRED_UNITS]
   // The close instant is Pacific end-of-day; format it in America/Los_Angeles
   // so the page shows the SAME calendar date staff configured.
   const closeDate = meta?.closeAt ? new Date(meta.closeAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'America/Los_Angeles' }) : null
@@ -425,8 +428,12 @@ export default function NgrpTransitionFormPage({ preview = null }) {
               <div className="ngrpf-field full">
                 <label className="ngrpf-check">
                   <input type="checkbox" checked={p.licensure.acls_required} onChange={e => update('licensure', 'acls_required', e.target.checked)} />
-                  <span>A unit I intend to rank requires ACLS</span>
+                  <span>I plan to rank a unit that requires ACLS</span>
                 </label>
+                <p className="ngrpf-hint">
+                  {aclsUnits.length > 0 && <>The critical care units require ACLS: {aclsUnits.join(', ')}. </>}
+                  It is usually needed by your residency start date, not to apply.
+                </p>
               </div>
               {p.licensure.acls_required && (<>
                 <div className="ngrpf-field"><label>ACLS</label>
@@ -451,7 +458,11 @@ export default function NgrpTransitionFormPage({ preview = null }) {
                   {opt('residency_interest', 'interest', 'interested', 'Interested')}
                   {opt('residency_interest', 'interest', 'undecided', 'Undecided')}
                   {opt('residency_interest', 'interest', 'not_interested', 'Not interested')}
-                </div></div>
+                </div>
+                {!interested && (
+                  <p className="ngrpf-hint">Choose Interested to rank your top three hiring units.</p>
+                )}
+              </div>
               {interested && (<>
                 {[0, 1, 2].map(i => (
                   <div className="ngrpf-field" key={i}>

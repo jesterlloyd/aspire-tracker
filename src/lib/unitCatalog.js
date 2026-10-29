@@ -52,6 +52,11 @@ export const UNIT_CATALOG = [
   { name: 'Transfer Center',   description: 'Patient Transfer Center, Capacity and Throughput',    division: 'Capacity Management', defaultEligible: false },
 ];
 
+// TRANSITION-FORM-ACLS-1 (Owner, 2026-10-29): the units whose residents need ACLS. The
+// Critical Care division less 3 SCCT, which the Owner noted is a telemetry stepdown and not
+// critical care. A residency need, usually due by the start date rather than to apply.
+export const ACLS_REQUIRED_UNITS = Object.freeze(['6 NE', '6 NW', '4 SCCT', '5 SCCT', '6 SCCT', '7 SCCT', '8 SCCT'])
+
 // Division display order for dropdowns
 export const DIVISION_ORDER = [
   'Critical Care',

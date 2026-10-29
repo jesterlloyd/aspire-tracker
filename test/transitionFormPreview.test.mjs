@@ -62,3 +62,39 @@ test('the page renders the whole form, with the preview note and Submit off', as
     await vite.close()
   }
 })
+
+test('TRANSITION-FORM-READINESS-1: Online application stays official but is not on the form', async () => {
+  const { formReadinessChecklist, DEFAULT_APPLICATION_CHECKLIST } = await import('../lib/server/ngrpEligibility.js')
+  assert.ok(DEFAULT_APPLICATION_CHECKLIST.some(i => i.key === 'online_application'), 'still an official requirement')
+  assert.deepEqual(formReadinessChecklist(null).map(i => i.key), ['resume', 'personal_statement', 'transcript', 'recommendation_letters'])
+  const stored = [...DEFAULT_APPLICATION_CHECKLIST, { key: 'extra_1', label: 'Cover letter', required: true }]
+  assert.deepEqual(formReadinessChecklist(stored).map(i => i.key).slice(-1), ['extra_1'])
+  assert.ok(!formReadinessChecklist(stored).some(i => i.key === 'online_application'))
+  const { validateSubmission } = await import('../lib/server/ngrpTransition.js')
+  const r = validateSubmission({ readiness: { online_application: true, resume: true } }, { checklist: stored, requireComplete: false })
+  assert.equal('online_application' in r.payload.readiness, false)
+  assert.equal(r.payload.readiness.resume, true)
+  assert.match(read('api/ngrp-transition.js'), /const checklist = formReadinessChecklist\(cycle\.application_checklist\)/)
+})
+
+test('TRANSITION-FORM-ACLS-1: the form names this cohort\'s ACLS units and points at the rankings', async () => {
+  const { ACLS_REQUIRED_UNITS } = await import('../src/lib/unitCatalog.js')
+  assert.ok(!ACLS_REQUIRED_UNITS.includes('3 SCCT'), '3 SCCT is not critical care (Owner)')
+  const React = (await import('react')).default
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  const { createServer } = await import('vite')
+  const vite = await createServer({ server: { middlewareMode: true, hmr: false, ws: false }, appType: 'custom', logLevel: 'error' })
+  try {
+    const { default: Page } = await vite.ssrLoadModule('/src/pages/NgrpTransitionFormPage.jsx')
+    const preview = transitionFormPreview({
+      cycle: { name: 'Winter 2027', application_deadline: '2026-11-11' },
+      units: ['6 NE', '3 SCCT', '5 SCCT', '4 North'].map(unit_name => ({ unit_name, is_active: true })),
+    })
+    const html = renderToStaticMarkup(React.createElement(Page, { preview }))
+    assert.match(html, /The critical care units require ACLS: 6 NE, 5 SCCT\. It is usually needed by your residency start date, not to apply\./)
+    assert.match(html, /Choose Interested to rank your top three hiring units\./)
+    assert.doesNotMatch(html, /Online application/)
+  } finally {
+    await vite.close()
+  }
+})
