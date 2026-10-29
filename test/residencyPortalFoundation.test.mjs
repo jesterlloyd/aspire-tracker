@@ -104,7 +104,11 @@ test('surface: the portal hides the staff-only send action; the staff app is the
   assert.equal(RESIDENCY_PORTAL_SURFACE.canSendForms, false)
   assert.equal(RESIDENCY_PORTAL_SURFACE.base, RESIDENCY_PORTAL_BASE)
   const profiles = read('src/components/ngrp/ProfilesTab.jsx')
-  assert.match(profiles, /canManage && canSendForms && selected\.size > 0/)
+  // RESIDENCY-TA-SELECT-1 (this commit) folded the gate into canSelect, which also hides the
+  // selection checkboxes on a surface that cannot send.
+  assert.match(profiles, /const canSelect = canManage && canSendForms/)
+  assert.match(profiles, /canSelect && selected\.size > 0/)
+  assert.match(profiles, /\{canSelect && \(\s*<th scope="col" className="ngrp-cb">/)
   assert.match(profiles, /sendForm: canSendForms \? r => launchSend\(\[r\]\) : undefined/)
   // RESIDENCY-ROSTER-1 retired the Confirm Application button beside it, so the
   // send button now sits directly under the gateNote check. The GATE is what

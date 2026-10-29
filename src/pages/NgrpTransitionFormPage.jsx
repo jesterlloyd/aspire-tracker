@@ -116,14 +116,19 @@ const preventImplicitSubmit = e => {
   }
 }
 
-export default function NgrpTransitionFormPage() {
+// TRANSITION-FORM-PREVIEW-1: `preview` is the load response a real link would get, built
+// from sample data by the staff screen (src/lib/ngrp/transitionFormPreview.js). With it the
+// page reads no token, calls no endpoint and leaves the address bar alone: nothing typed is
+// saved and Submit is off. It is the same component, so the preview cannot drift from the form.
+export default function NgrpTransitionFormPage({ preview = null }) {
   const [initial] = useState(() => {
+    if (preview) return { rawToken: null, valid: false, preview: true }
     const match = TOKEN_PATTERN.exec(window.location.hash)
     return { rawToken: match ? match[1] : null, valid: !!match }
   })
-  const [view, setView] = useState(initial.valid ? 'loading' : 'invalid')
-  const [meta, setMeta] = useState(null)
-  const [payload, setPayload] = useState(() => structuredClone(EMPTY_PAYLOAD))
+  const [view, setView] = useState(initial.preview ? 'form' : initial.valid ? 'loading' : 'invalid')
+  const [meta, setMeta] = useState(preview)
+  const [payload, setPayload] = useState(() => preview ? mergePayload(preview.base) : structuredClone(EMPTY_PAYLOAD))
   const [restoredDraft, setRestoredDraft] = useState(false)
   const [savedLine, setSavedLine] = useState('')
   const [errors, setErrors] = useState([])
@@ -136,9 +141,9 @@ export default function NgrpTransitionFormPage() {
   useEffect(() => {
     const m = document.createElement('meta'); m.name = 'referrer'; m.content = 'no-referrer'; document.head.appendChild(m)
     const s = document.createElement('style'); s.id = 'ngrpf-css'; s.textContent = CSS; document.head.appendChild(s)
-    window.history.replaceState(null, '', window.location.pathname)
+    if (!initial.preview) window.history.replaceState(null, '', window.location.pathname)
     return () => { document.head.removeChild(m); const el = document.getElementById('ngrpf-css'); if (el) document.head.removeChild(el) }
-  }, [])
+  }, [initial.preview])
 
   const post = useCallback(async (action, extra = {}) => {
     const res = await fetch('/api/ngrp-transition', {
@@ -176,6 +181,7 @@ export default function NgrpTransitionFormPage() {
 
   // Quiet debounced autosave: updates the single active draft only.
   const scheduleSave = useCallback((nextPayload) => {
+    if (initial.preview) return
     dirtyRef.current = true
     clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(async () => {
@@ -186,7 +192,7 @@ export default function NgrpTransitionFormPage() {
         setSavedLine(`Draft saved ${new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`)
       }
     }, 1500)
-  }, [post])
+  }, [post, initial.preview])
   useEffect(() => () => clearTimeout(saveTimer.current), [])
 
   const update = (section, field, value) => {
@@ -217,7 +223,7 @@ export default function NgrpTransitionFormPage() {
   }
 
   const submit = async () => {
-    if (submitting) return
+    if (submitting || initial.preview) return
     setSubmitting(true)
     setErrors([])
     clearTimeout(saveTimer.current)
@@ -289,6 +295,11 @@ export default function NgrpTransitionFormPage() {
           </p>
         </div>
         <form className="ngrpf-card" onKeyDown={preventImplicitSubmit} onSubmit={e => { e.preventDefault(); submit() }}>
+          {initial.preview && (
+            <p className="ngrpf-note" role="note">
+              Preview with sample data. This is exactly what an alumnus sees; nothing you type here is saved, and Submit is turned off.
+            </p>
+          )}
           {isRevise && (
             <p className="ngrpf-note">
               You submitted this form {meta?.submittedAt ? `on ${new Date(meta.submittedAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}` : 'previously'}.
@@ -519,10 +530,10 @@ export default function NgrpTransitionFormPage() {
           )}
 
           <div className="ngrpf-submitrow">
-            <button type="submit" className="ngrpf-submit" disabled={submitting}>
+            <button type="submit" className="ngrpf-submit" disabled={submitting || initial.preview}>
               {submitting ? 'Submitting…' : isRevise ? 'Submit revision' : 'Submit Transition Form'}
             </button>
-            <div className="ngrpf-saved" aria-live="polite">{savedLine}</div>
+            <div className="ngrpf-saved" aria-live="polite">{initial.preview ? 'Preview only: nothing is submitted.' : savedLine}</div>
           </div>
         </form>
       </div>

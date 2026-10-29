@@ -24,9 +24,11 @@
 //    prior application without a hire never excludes anyone.
 // 5. Raw emails never reach the browser - rows carry has_email only.
 import Tooltip from '../ui/Tooltip'
-import { useMemo, useState, useCallback, useEffect, useRef } from 'react'
+import { Suspense, useMemo, useState, useCallback, useEffect, useRef } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
-import { Search, Send, GraduationCap, X, Eye, Download, List, LayoutGrid } from 'lucide-react'
+import { Search, Send, GraduationCap, X, Eye, Download, List, LayoutGrid, FileText } from 'lucide-react'
+import { lazyReload } from '../../lib/lazyReload'
+import DetailDrawer from '../ui/DetailDrawer'
 import StudentCard from '../StudentCard'
 import { writeLaunchContext, LAUNCH_KINDS } from '../../lib/connect/launchContext'
 import { FilterKPICard } from '../KPIBand'
@@ -44,13 +46,14 @@ import PreceptorFeedbackChip from './PreceptorFeedbackChip'
 // this follows the existing practice rather than moving a component three surfaces use.
 import AutomationEmailPreviewDrawer from '../connect/AutomationEmailPreviewDrawer'
 import { transitionPreviewFor } from '../../lib/ngrp/transitionPreviewFixture'
+import { transitionFormPreview } from '../../lib/ngrp/transitionFormPreview'
 import {
   FORM_SENT_STATES, INTEREST_STATES, ELIGIBILITY_STATES, ROSTER_STATUSES,
   KPI_DEFS, SORT_OPTIONS,
   deriveApplicantRows, sortApplicantRows, effectiveEligibility, formTimestamp,
   formSentState, rosterStatus, effectivePreferences, NOT_PROCEEDING_REASONS,
 } from '../../lib/ngrp/ngrpStates'
-import { useNgrpApplicants, postNgrpManage, useNgrpPreceptorFeedback, postNgrpPreceptorFeedback, fetchNgrpRosterCsv, locateNgrpCandidate } from '../../lib/ngrp/useNgrpData'
+import { useNgrpApplicants, useNgrpPlanning, postNgrpManage, useNgrpPreceptorFeedback, postNgrpPreceptorFeedback, fetchNgrpRosterCsv, locateNgrpCandidate } from '../../lib/ngrp/useNgrpData'
 import { useNgrpSurface } from '../../lib/ngrp/ngrpSurface'
 import { displayName, downloadCSV } from '../../lib/utils'
 
@@ -182,6 +185,9 @@ function AlumniListRow({ row, selected, onSelect, feedbackEntry }) {
   )
 }
 
+// TRANSITION-FORM-PREVIEW-1: the public form page itself, loaded only when a preview opens.
+const NgrpTransitionFormPage = lazyReload(() => import('../../pages/NgrpTransitionFormPage'), 'NgrpTransitionFormPage')
+
 export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) {
   const navigate = useNavigate()
   // Sending runs through ASPIRE Connect, which only the staff app has.
@@ -230,6 +236,13 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
   // NGRP-TRANSITION-PREVIEW-1: renders a synthetic copy of the invitation. No network,
   // no recipient, no token; it cannot send anything.
   const [showEmailPreview, setShowEmailPreview] = useState(false)
+  // TRANSITION-FORM-PREVIEW-1: the form page on sample data, with this cohort's own units,
+  // checklist and close date. Planning is read only while the preview is open.
+  const [showFormPreview, setShowFormPreview] = useState(false)
+  const formPlanning = useNgrpPlanning(cycle?.id || null, { enabled: showFormPreview && Boolean(cycle?.id) })
+  // RESIDENCY-TA-SELECT-1 (Owner, 2026-10-29): selection exists only to send the form, so a
+  // surface that cannot send shows no checkboxes. It looked as though Talent Acquisition could.
+  const canSelect = canManage && canSendForms
   // RESIDENCY-PORTAL-3: Download CSV, as on the Community Benefit tab: the
   // server builds the file from the roster this caller may see.
   const [exporting, setExporting] = useState(false)
@@ -712,12 +725,27 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                   <Eye size={15} />
                 </button>
                 </Tooltip>
+                <Tooltip label="Preview the Transition Form">
+                <button
+                  type="button"
+                  onClick={() => setShowFormPreview(true)}
+                  aria-label="Preview the Transition Form"
+                  style={{
+                    width: 28, height: 28, flexShrink: 0, display: 'inline-flex',
+                    alignItems: 'center', justifyContent: 'center', background: 'none',
+                    border: 'none', borderRadius: 8, cursor: 'pointer', color: '#9ca3af', padding: 0,
+                  }}
+                >
+                  <FileText size={15} />
+                </button>
+                </Tooltip>
               </span>
             </div>
             <div className="ngrp-roster-scroll">
               <table className="ngrp-table">
                 <thead>
                   <tr>
+                    {canSelect && (
                     <th scope="col" className="ngrp-cb">
                       <input
                         type="checkbox"
@@ -726,6 +754,7 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                         aria-label={allVisibleSelected ? 'Deselect all visible alumni' : 'Select all visible alumni'}
                       />
                     </th>
+                    )}
                     {/* RESIDENCY-ROSTER-1 (Owner, 2026-09-12): the SAME six
                         columns in the staff app and the Residency Portal.
                         Assigned Unit, Interview and Last Updated are gone (all
@@ -747,7 +776,7 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                 <tbody>
                   {filteredRows.length === 0 && (
                     <tr>
-                      <td colSpan={7} style={{ padding: 0 }}>
+                      <td colSpan={canSelect ? 7 : 6} style={{ padding: 0 }}>
                         <EmptyState
                           compact
                           heading="No alumni match the current filters"
@@ -775,6 +804,7 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                         onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectRow(r.id, { toProfiles: true }) } }}
                         aria-label={`Open ${displayName(s)} in Profiles`}
                       >
+                        {canSelect && (
                         <td className="ngrp-cb" onClick={e => e.stopPropagation()}>
                           <input
                             type="checkbox"
@@ -783,6 +813,7 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                             aria-label={`Select ${displayName(s)}`}
                           />
                         </td>
+                        )}
                         <td>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 210 }}>
                             <StudentAvatar student={s} size={40} />
@@ -848,7 +879,7 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
               </table>
             </div>
 
-            {canManage && canSendForms && selected.size > 0 && (
+            {canSelect && selected.size > 0 && (
               <div className="ngrp-selbar" role="region" aria-label="Bulk actions">
                 <span style={{ fontSize: 13, fontWeight: 700 }}>
                   {visibleSelected.length} selected
@@ -899,6 +930,25 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
           footNote="The recipient and link are synthetic; the cohort name is your live one. Rendered with the same template the send uses. The Transition Form is sent by hand, never on a schedule."
           onClose={() => setShowEmailPreview(false)}
         />
+      )}
+
+      {showFormPreview && (
+        <DetailDrawer open title="NGRP Transition Form · Preview" width={820} trapFocus onClose={() => setShowFormPreview(false)}>
+          <div data-theme-lock="light" style={{ margin: '-18px -20px' }}>
+            {formPlanning.status === 'loading'
+              ? <p style={{ padding: 24, color: 'var(--text-caption)', fontSize: 13 }}>Loading this cohort's units…</p>
+              : (
+                <Suspense fallback={null}>
+                  <NgrpTransitionFormPage
+                    preview={transitionFormPreview({
+                      cycle: formPlanning.data?.cycle || cycle,
+                      units: formPlanning.data?.units || [],
+                    })}
+                  />
+                </Suspense>
+              )}
+          </div>
+        </DetailDrawer>
       )}
 
       {sendReview && (
