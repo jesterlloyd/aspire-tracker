@@ -33,7 +33,7 @@ import { buildTransitionEmail } from '../lib/server/email/ngrpTransitionEmail.js
 import {
   classifySendRecipients, sendOneTransitionForm, liveAssignmentForCandidate, parseFormCloseDate,
 } from '../lib/server/ngrpTransition.js'
-import { isMissingNgrpTable, sanitizeStudent } from '../lib/server/ngrpApplicants.js'
+import { isMissingNgrpTable, sanitizeStudent, fetchAddedStudentIds } from '../lib/server/ngrpApplicants.js'
 // NGRP-TRANSITION-COPY-2: alumni are addressed at their PERSONAL email. The shared
 // routing canon already says so for exactly this population, and classifySendRecipients
 // only ever passes Completed students, so every recipient here is in that branch.
@@ -59,12 +59,15 @@ async function resolveSelection(db, cycle, studentIds) {
   const maps = await db.from('ngrp_cycle_source_cohorts').select('cohort_id').eq('cycle_id', cycle.id)
   if (maps.error) return { error: maps.error }
   const cohortIds = (maps.data || []).map(m => m.cohort_id)
-  if (!cohortIds.length) return { students: [], outOfScope: studentIds }
-  const rows = await db.from('students')
+  // ADD-ALUMNUS-1: an alumnus added to this residency cohort by hand is in scope too.
+  const added = await fetchAddedStudentIds(db, cycle.id)
+  if (added.error) return { error: added.error }
+  if (!cohortIds.length && !added.ids.length) return { students: [], outOfScope: studentIds }
+  const fetched = await db.from('students')
     .select('id, cohort_id, first_name, last_name, preferred_first_name, name, school, program_type, aspire_cohort, status, school_email, personal_email, headshot_url, updated_at, rotation:cohort_school_rotation_id ( rotation_end_date ), residency_outcomes:ngrp_residency_outcomes ( hired_at, separated_at, cs_email )')
     .in('id', studentIds)
-    .in('cohort_id', cohortIds)
-  if (rows.error) return { error: rows.error }
+  if (fetched.error) return { error: fetched.error }
+  const rows = { data: (fetched.data || []).filter(r => cohortIds.includes(r.cohort_id) || added.ids.includes(r.id)) }
   const found = new Set((rows.data || []).map(r => r.id))
   return {
     students: (rows.data || []).map(r => ({
