@@ -121,7 +121,7 @@ export default function AddAlumnusDrawer({ cycle, cohorts = [], onClose, onAdded
                 <div style={{ fontSize: 13, fontWeight: 700 }}>{s.last_name}, {s.preferred_first_name || s.first_name}</div>
                 <div style={note}>{[s.cohort, s.school, s.personal_email].filter(Boolean).join(' · ')}</div>
               </div>
-              <button type="button" style={btn(true)} disabled={busyId === s.id} onClick={() => addExisting(s)}>
+              <button type="button" style={{ ...btn(true), ...(busyId === s.id ? { opacity: 0.45, cursor: 'not-allowed' } : null) }} disabled={busyId === s.id} onClick={() => addExisting(s)}>
                 {busyId === s.id ? 'Adding…' : 'Add'}
               </button>
             </div>
@@ -192,7 +192,8 @@ export default function AddAlumnusDrawer({ cycle, cohorts = [], onClose, onAdded
           )}
 
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <button type="button" style={btn(true)} disabled={!canCreate || saving} onClick={() => createNew(false)}>
+            <button type="button" style={{ ...btn(true), ...(!canCreate || saving ? { opacity: 0.45, cursor: 'not-allowed' } : null) }}
+              disabled={!canCreate || saving} onClick={() => createNew(false)}>
               {saving ? 'Adding…' : then === 'invite' ? 'Add and send the portal link' : 'Add to roster'}
             </button>
           </div>
