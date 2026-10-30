@@ -52,7 +52,7 @@ const ELIGIBILITY_RANK = { eligible: 0, conditionally_eligible: 1, pending: 2, n
 const lastFirst = s => `${s?.last_name || ''} ${s?.preferred_first_name || s?.first_name || ''}`.trim().toLowerCase()
 
 // Columns that sort. A null sorts last in both directions (dataSheetSort's rule).
-export function interestColumns({ effectiveEligibility, rosterStatus, statusOrder = [] }) {
+export function interestColumns({ effectiveEligibility }) {
   return [
     { key: 'alumnus', sortValue: r => lastFirst(r.student) },
     { key: 'form', sortValue: r => FORM_RANK[r.form_status] ?? null },
@@ -60,7 +60,59 @@ export function interestColumns({ effectiveEligibility, rosterStatus, statusOrde
     { key: 'employment', sortValue: r => EMPLOYMENT_RANK[r.form_cs_employment] ?? null },
     { key: 'gpa', sortValue: r => gpaOf(r) },
     { key: 'eligibility', sortValue: r => ELIGIBILITY_RANK[effectiveEligibility(r)] ?? null },
+    // INTEREST-ELIGIBILITY-2: Status left the table (Owner); Precepted Unit joined it.
+    { key: 'precepted', sortValue: r => (preceptedUnitOf(r) || '').toLowerCase() || null },
     { key: 'choices', sortValue: r => (r.unit_preference_1 || '').toLowerCase() || null },
-    { key: 'status', sortValue: r => { const i = statusOrder.indexOf(rosterStatus(r)); return i < 0 ? null : i } },
   ]
+}
+
+// ── INTEREST-ELIGIBILITY-2 (Owner, 2026-10-29) ───────────────────────────────
+
+// The unit they precepted on: the ASPIRE placement on their record, else what they wrote on
+// the form. The record wins because it is what the program arranged.
+export function preceptedUnitOf(row) {
+  return row?.student?.precepted_unit || row?.form_precepted_unit || null
+}
+
+const keyOf = u => String(u || '').trim().toLowerCase()
+
+// The Internship > Rotation rule, on the residency's own numbers (the rubric book's
+// prefRows): per hiring unit, how many positions are still open and how many alumni rank it
+// 1st, 2nd and 3rd. Open = the unit's positions less those already offered or hired there.
+// High demand = more first choices than it can take, by two (the same threshold).
+// Someone Not Proceeding is not counted. A unit with no position count shows no seat chip.
+export function unitDemand(rows, units, { preferencesOf, isActive = () => true }) {
+  const out = new Map()
+  for (const u of units || []) {
+    if (!u?.unit_name || u.is_active === false) continue
+    out.set(keyOf(u.unit_name), {
+      unit: u.unit_name,
+      capacity: Number.isInteger(u.capacity) ? u.capacity : null,
+      taken: 0, d1: 0, d2: 0, d3: 0,
+    })
+  }
+  for (const r of rows || []) {
+    const o = r?.outcome
+    const at = o?.hired_unit && (o.hired_at || (o.offer_extended_at && !o.offer_declined_at)) ? out.get(keyOf(o.hired_unit)) : null
+    if (at) at.taken += 1
+    if (!isActive(r)) continue
+    ;(preferencesOf(r) || []).slice(0, 3).forEach((u, i) => {
+      const d = out.get(keyOf(u)); if (d) d[`d${i + 1}`] += 1
+    })
+  }
+  for (const d of out.values()) {
+    d.open = d.capacity == null ? null : Math.max(0, d.capacity - d.taken)
+    d.highDemand = d.open != null && d.d1 >= d.open + 2
+  }
+  return out
+}
+
+export const demandFor = (demand, unit) => demand?.get(keyOf(unit)) || null
+
+// The seat chip's words, exactly as the rubric book says them.
+export function seatLabel(d) {
+  if (!d || d.open == null) return null
+  if (d.open > 1) return { text: `${d.open} open`, tone: 'open' }
+  if (d.open === 1) return { text: '1 left', tone: 'left' }
+  return { text: 'Full', tone: 'full' }
 }

@@ -274,12 +274,24 @@
 /* Responsive column collapse: the columns that leave first are the ones the
    drawer restates. Alumnus, Eligibility and Status always remain, because
    Status is the column the whole roster is read for. */
+/* INTEREST-ELIGIBILITY-2: a value and its small line underneath stay centred on the value, so
+   every pill in a row sits on one line whether or not it has a sub-line. */
+.ngrp-stack { position: relative; display: inline-flex; flex-direction: column; }
+.ngrp-stack > .ngrp-cellsub { position: absolute; top: 100%; left: 0; margin-top: 2px; white-space: nowrap; }
+.ngrp-openbtn { background: none; border: 0; padding: 0; margin: 0; cursor: pointer; font: inherit; color: inherit; text-align: left; border-radius: 50%; }
+.ngrp-openname { display: block; font-size: 13px; font-weight: 700; line-height: 1.25; border-radius: var(--aspire-radius-control); }
+.ngrp-openname:hover { text-decoration: underline; }
+.ngrp-openbtn:focus-visible { outline: 2px solid var(--color-accent-primary, #1D2567); outline-offset: 2px; }
+.ngrp-seat { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: var(--aspire-radius-pill); font-size: 10px; font-weight: 700; line-height: 16px; white-space: nowrap; }
+.ngrp-seat-open { background: var(--aspire-ok-soft, #E1F3EA); color: var(--aspire-ok, #0F7A4D); }
+.ngrp-seat-left, .ngrp-seat-demand { background: var(--aspire-warn-soft, #FBEFD9); color: var(--aspire-warn, #8F5A0A); }
+.ngrp-seat-full { background: var(--aspire-bad-soft, #FBEAEC); color: var(--aspire-bad, #A32A32); }
 /* INTEREST-ELIGIBILITY-1: the narrower the window, the fewer columns, least-needed first. */
 .ngrp-cellmute { font-size: 12px; color: var(--text-caption); }
 .ngrp-cellval { font-size: 12.5px; font-weight: 600; color: var(--text-heading); }
 .ngrp-gpa { display: inline-block; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: var(--aspire-radius-pill); font-variant-numeric: tabular-nums; }
 @media (max-width: 1240px) { .ngrp-table .ngrp-col-gpa        { display: none; } .ngrp-table { min-width: 880px; } }
-@media (max-width: 1080px) { .ngrp-table .ngrp-col-employment { display: none; } .ngrp-table { min-width: 760px; } }
+@media (max-width: 1080px) { .ngrp-table .ngrp-col-employment, .ngrp-table .ngrp-col-precepted { display: none; } .ngrp-table { min-width: 760px; } }
 @media (max-width: 900px)  { .ngrp-table .ngrp-col-choices, .ngrp-table .ngrp-col-form { display: none; } .ngrp-table { min-width: 620px; } }
 
 @media (prefers-reduced-motion: reduce) {

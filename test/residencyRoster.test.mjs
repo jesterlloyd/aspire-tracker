@@ -167,7 +167,8 @@ test('ONE trimmed table, rendered by ONE component, in both surfaces', () => {
   // INTEREST-ELIGIBILITY-1 (the commit that changed this): every header is a SortHeader, and
   // Interest gave way to CA RN License, CS Employee and (staff only) GPA.
   const headers = [...roster.matchAll(/<SortHeader [^>]*sortKey="[a-z]+"[^>]*>([^<]+)<\/SortHeader>/g)].map(m => m[1])
-  assert.deepEqual(headers, ['Alumnus', 'Form', 'CA RN License', 'CS Employee', 'GPA', 'Eligibility', 'Top Choices', 'Status'])
+  // INTEREST-ELIGIBILITY-2: Status left the table and Precepted Unit joined it (Owner).
+  assert.deepEqual(headers, ['Alumnus', 'Form', 'CA RN License', 'CS Employee', 'GPA', 'Eligibility', 'Precepted Unit', 'Top Choices'])
   // Matched as RENDERED HEADERS, not as bare words: the comment above the table
   // names the retired columns to say why they went, and a looser regex would
   // match that prose and pass or fail for the wrong reason.

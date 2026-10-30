@@ -49,13 +49,13 @@ import { transitionPreviewFor } from '../../lib/ngrp/transitionPreviewFixture'
 import { transitionFormPreview } from '../../lib/ngrp/transitionFormPreview'
 import SortHeader from '../shared/SortHeader'
 import { sortRows } from '../shared/dataSheetSort'
-import { LICENSE_LABELS, NOT_REPORTED, employmentOf, gpaOf, gpaBand, interestColumns } from '../../lib/ngrp/interestEligibilityModel'
+import { LICENSE_LABELS, NOT_REPORTED, employmentOf, gpaOf, gpaBand, interestColumns, preceptedUnitOf, unitDemand, demandFor, seatLabel } from '../../lib/ngrp/interestEligibilityModel'
 import { GPA_BAND_COLORS } from '../../lib/constants'
 import {
   FORM_SENT_STATES, ELIGIBILITY_STATES, ROSTER_STATUSES,
   KPI_DEFS, SORT_OPTIONS,
   deriveApplicantRows, sortApplicantRows, effectiveEligibility, formTimestamp,
-  formSentState, rosterStatus, effectivePreferences, NOT_PROCEEDING_REASONS,
+  formSentState, rosterStatus, effectivePreferences,
 } from '../../lib/ngrp/ngrpStates'
 import { useNgrpApplicants, useNgrpPlanning, postNgrpManage, useNgrpPreceptorFeedback, postNgrpPreceptorFeedback, fetchNgrpRosterCsv, locateNgrpCandidate } from '../../lib/ngrp/useNgrpData'
 import { useNgrpSurface } from '../../lib/ngrp/ngrpSurface'
@@ -190,7 +190,7 @@ function AlumniListRow({ row, selected, onSelect, feedbackEntry }) {
 }
 
 // How the roster caption names a sorted column: sentence case, acronyms kept ("sorted by GPA").
-const COLUMN_CAPTIONS = { alumnus: 'alumnus', form: 'form', license: 'CA RN license', employment: 'CS employee', gpa: 'GPA', eligibility: 'eligibility', choices: 'top choices', status: 'status' }
+const COLUMN_CAPTIONS = { alumnus: 'alumnus', form: 'form', license: 'CA RN license', employment: 'CS employee', gpa: 'GPA', eligibility: 'eligibility', precepted: 'precepted unit', choices: 'top choices' }
 
 // TRANSITION-FORM-PREVIEW-1: the public form page itself, loaded only when a preview opens.
 const NgrpTransitionFormPage = lazyReload(() => import('../../pages/NgrpTransitionFormPage'), 'NgrpTransitionFormPage')
@@ -266,6 +266,14 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
   const allRows = useMemo(
     () => deriveApplicantRows(payload?.students || [], payload?.candidates || []),
     [payload])
+  // INTEREST-ELIGIBILITY-2: each hiring unit's open positions and how many rank it, for the
+  // Top Choices chips (the Internship > Rotation rule, see unitDemand). Shares the planning
+  // query the form preview already uses.
+  const unitsPlanning = useNgrpPlanning(cycle?.id || null, { enabled: view === 'interest' && Boolean(cycle?.id) })
+  const demand = useMemo(() => unitDemand(allRows, unitsPlanning.data?.units, {
+    preferencesOf: r => effectivePreferences(r).preferences,
+    isActive: r => rosterStatus(r) !== 'not_proceeding',
+  }), [allRows, unitsPlanning.data])
 
   // Cohort Timeline order from the mapped source cohorts (start_date order,
   // resolved server-side from the cohorts table).
@@ -284,9 +292,7 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
 
   const activeKpi = KPI_DEFS.find(k => k.key === kpiFilter) || KPI_DEFS[0]
   const [colSort, setColSort] = useState(null)
-  const sortColumns = useMemo(() => interestColumns({
-    effectiveEligibility, rosterStatus, statusOrder: Object.keys(ROSTER_STATUSES),
-  }), [])
+  const sortColumns = useMemo(() => interestColumns({ effectiveEligibility }), [])
   const onColumnSort = key => setColSort(prev => (
     prev?.key === key ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' }
   ))
@@ -795,8 +801,8 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                     <SortHeader thClassName="ngrp-col-employment" sortKey="employment" sortBy={colSort?.key} sortDir={colSort?.dir} onSort={onColumnSort}>CS Employee</SortHeader>
                     {staffApp && <SortHeader thClassName="ngrp-col-gpa" sortKey="gpa" sortBy={colSort?.key} sortDir={colSort?.dir} onSort={onColumnSort}>GPA</SortHeader>}
                     <SortHeader thClassName="" sortKey="eligibility" sortBy={colSort?.key} sortDir={colSort?.dir} onSort={onColumnSort}>Eligibility</SortHeader>
+                    <SortHeader thClassName="ngrp-col-precepted" sortKey="precepted" sortBy={colSort?.key} sortDir={colSort?.dir} onSort={onColumnSort}>Precepted Unit</SortHeader>
                     <SortHeader thClassName="ngrp-col-choices" sortKey="choices" sortBy={colSort?.key} sortDir={colSort?.dir} onSort={onColumnSort}>Top Choices</SortHeader>
-                    <SortHeader thClassName="" sortKey="status" sortBy={colSort?.key} sortDir={colSort?.dir} onSort={onColumnSort}>Status</SortHeader>
                   </tr>
                 </thead>
                 <tbody>
@@ -820,17 +826,14 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                     const employment = employmentOf(r)
                     const gpa = gpaOf(r)
                     const paired = status === 'awaiting_decision' ? r.assigned_unit : null
-                    const npReason = status === 'not_proceeding'
-                      ? NOT_PROCEEDING_REASONS[r.not_proceeding_reason]?.label
-                      : null
                     return (
+                      // INTEREST-ELIGIBILITY-2 (Owner): a row click selects the row; the photo
+                      // and name open the alumnus in Profiles.
                       <tr
                         key={r.id}
-                        className={shownRowId === r.id ? 'sel' : undefined}
-                        tabIndex={0}
-                        onClick={() => selectRow(r.id, { toProfiles: true })}
-                        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectRow(r.id, { toProfiles: true }) } }}
-                        aria-label={`Open ${displayName(s)} in Profiles`}
+                        className={canSelect && selected.has(r.id) ? 'sel' : undefined}
+                        onClick={canSelect ? () => toggleRow(r.id) : undefined}
+                        style={canSelect ? { cursor: 'pointer' } : undefined}
                       >
                         {canSelect && (
                         <td className="ngrp-cb" onClick={e => e.stopPropagation()}>
@@ -844,9 +847,13 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                         )}
                         <td>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 210 }}>
-                            <StudentAvatar student={s} size={40} />
+                            <button type="button" className="ngrp-openbtn" aria-label={`Open ${displayName(s)} in Profiles`}
+                              onClick={e => { e.stopPropagation(); selectRow(r.id, { toProfiles: true }) }}>
+                              <StudentAvatar student={s} size={40} />
+                            </button>
                             <div style={{ minWidth: 0 }}>
-                              <div style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.25 }}>{displayName(s)}</div>
+                              <button type="button" className="ngrp-openbtn ngrp-openname"
+                                onClick={e => { e.stopPropagation(); selectRow(r.id, { toProfiles: true }) }}>{displayName(s)}</button>
                               <div style={{ fontSize: 10.5, color: '#6b7280', lineHeight: 1.35 }}>
                                 {[s.school, s.program_type].filter(Boolean).join(' · ')}
                               </div>
@@ -865,8 +872,10 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                         {/* Whether WE sent the form, not where it got to. The
                             lifecycle is in the drawer. */}
                         <td className="ngrp-col-form">
-                          <NgrpStatusPill config={FORM_SENT_STATES} value={formSentState(r)} srPrefix="Transition Form" />
-                          {ts && <div className="ngrp-cellsub">{relTime(ts)}</div>}
+                          <span className="ngrp-stack">
+                            <NgrpStatusPill config={FORM_SENT_STATES} value={formSentState(r)} srPrefix="Transition Form" />
+                            {ts && <span className="ngrp-cellsub">{relTime(ts)}</span>}
+                          </span>
                         </td>
                         <td>
                           {LICENSE_LABELS[r.form_rn_status]
@@ -875,7 +884,7 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                         </td>
                         <td className="ngrp-col-employment">
                           {employment
-                            ? <><span className="ngrp-cellval">{employment.label}</span>{employment.detail && <div className="ngrp-cellsub">{employment.detail}</div>}</>
+                            ? <span className="ngrp-stack"><span className="ngrp-cellval">{employment.label}</span>{employment.detail && <span className="ngrp-cellsub">{employment.detail}</span>}</span>
                             : <span className="ngrp-cellmute">{NOT_REPORTED}</span>}
                         </td>
                         {staffApp && (
@@ -886,8 +895,15 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                           </td>
                         )}
                         <td>
-                          <NgrpStatusPill config={ELIGIBILITY_STATES} value={effectiveEligibility(r)} srPrefix="Eligibility" />
-                          {overridden && <div className="ngrp-cellsub">staff override · see details</div>}
+                          <span className="ngrp-stack">
+                            <NgrpStatusPill config={ELIGIBILITY_STATES} value={effectiveEligibility(r)} srPrefix="Eligibility" />
+                            {overridden && <span className="ngrp-cellsub">staff override · see details</span>}
+                          </span>
+                        </td>
+                        <td className="ngrp-col-precepted">
+                          {preceptedUnitOf(r)
+                            ? <span className="ngrp-cellval">{preceptedUnitOf(r)}</span>
+                            : <span className="ngrp-cellmute">Not on file</span>}
                         </td>
                         {/* All three ranked choices in one column (Owner). The
                             unit they are paired with is marked, because that is
@@ -897,24 +913,25 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                             ? <span className="ngrp-cellmute">{r.interest === 'not_interested' ? 'Not interested' : r.interest === 'undecided' ? 'Undecided' : 'None ranked'}</span>
                             : (
                               <div className="ngrp-choices">
-                                {preferences.map((u, i) => (
-                                  <span
-                                    key={u}
-                                    className={`ngrp-choice${paired && u.toLowerCase() === paired.toLowerCase() ? ' ngrp-choice-on' : ''}`}
-                                  >
-                                    <span className="ngrp-choice-rank" aria-hidden="true">{i + 1}</span>
-                                    <span className="sr-only">Choice {i + 1}: </span>
-                                    {u}
-                                  </span>
-                                ))}
+                                {preferences.map((u, i) => {
+                                  const d = demandFor(demand, u)
+                                  const seat = seatLabel(d)
+                                  return (
+                                    <span
+                                      key={u}
+                                      className={`ngrp-choice${paired && u.toLowerCase() === paired.toLowerCase() ? ' ngrp-choice-on' : ''}`}
+                                    >
+                                      <span className="ngrp-choice-rank" aria-hidden="true">{i + 1}</span>
+                                      <span className="sr-only">Choice {i + 1}: </span>
+                                      {u}
+                                      {seat && <span className={`ngrp-seat ngrp-seat-${seat.tone}`}>{seat.text}</span>}
+                                      {d?.highDemand && <span className="ngrp-seat ngrp-seat-demand">High demand</span>}
+                                    </span>
+                                  )
+                                })}
                               </div>
                             )}
                           {prefSource === 'staff' && <div className="ngrp-cellsub">set by the ASPIRE team</div>}
-                        </td>
-                        <td>
-                          <NgrpStatusPill config={ROSTER_STATUSES} value={status} srPrefix="Status" />
-                          {paired && <div className="ngrp-cellsub">{paired} interviews them</div>}
-                          {npReason && <div className="ngrp-cellsub">{npReason}</div>}
                         </td>
                       </tr>
                     )

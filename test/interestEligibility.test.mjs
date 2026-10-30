@@ -2,7 +2,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { licenseOf, employmentOf, gpaOf, interestColumns, LICENSE_LABELS } from '../src/lib/ngrp/interestEligibilityModel.js'
+import { licenseOf, employmentOf, gpaOf, interestColumns, LICENSE_LABELS, preceptedUnitOf, unitDemand, demandFor, seatLabel } from '../src/lib/ngrp/interestEligibilityModel.js'
 import { sortRows } from '../src/components/shared/dataSheetSort.js'
 import { narrowPayloadForTalentAcquisition } from '../lib/server/ngrpTalentAcquisition.js'
 
@@ -20,7 +20,7 @@ test('licensure, employment and GPA read as words, and nothing reported is null'
 })
 
 test('every column sorts, and an unreported value sorts last both ways', () => {
-  const cols = interestColumns({ effectiveEligibility: r => r.e || 'pending', rosterStatus: r => r.st, statusOrder: ['not_in_pool', 'in_pool'] })
+  const cols = interestColumns({ effectiveEligibility: r => r.e || 'pending' })
   const rows = [
     { id: 'a', student: { last_name: 'Cruz', cumulative_gpa: 3.1 }, form_rn_status: null },
     { id: 'b', student: { last_name: 'Abe', cumulative_gpa: 3.9 }, form_rn_status: 'active' },
@@ -30,7 +30,7 @@ test('every column sorts, and an unreported value sorts last both ways', () => {
   assert.deepEqual(sortRows(rows, cols, { key: 'gpa', dir: 'desc' }).map(r => r.id), ['b', 'a', 'c'])
   assert.deepEqual(sortRows(rows, cols, { key: 'license', dir: 'asc' }).map(r => r.id), ['b', 'c', 'a'])
   assert.deepEqual(sortRows(rows, cols, { key: 'license', dir: 'desc' }).map(r => r.id), ['c', 'b', 'a'])
-  assert.deepEqual(cols.map(c => c.key), ['alumnus', 'form', 'license', 'employment', 'gpa', 'eligibility', 'choices', 'status'])
+  assert.deepEqual(cols.map(c => c.key), ['alumnus', 'form', 'license', 'employment', 'gpa', 'eligibility', 'precepted', 'choices'])
 })
 
 test('Talent Acquisition never receives a GPA', () => {
@@ -40,7 +40,7 @@ test('Talent Acquisition never receives a GPA', () => {
 
 test('the server attaches what the latest form reported, and the record GPA', () => {
   const src = read('lib/server/ngrpApplicants.js')
-  assert.match(src, /'cumulative_gpa, school_email, personal_email'/)
+  assert.match(src, /'cumulative_gpa, matched_unit_id, school_email, personal_email'/)
   assert.match(src, /form_rn_status: row\.payload\?\.licensure\?\.ca_rn_status \|\| null/)
   assert.match(src, /form_cs_employment: row\.payload\?\.identity\?\.cs_employment_status \|\| null/)
 })
@@ -48,7 +48,7 @@ test('the server attaches what the latest form reported, and the record GPA', ()
 test('the tab is Interest & Eligibility, every header sorts, GPA is staff only', () => {
   const tab = read('src/components/ngrp/ProfilesTab.jsx')
   assert.match(tab, /label: 'Interest & Eligibility'/)
-  for (const k of ['alumnus', 'form', 'license', 'employment', 'gpa', 'eligibility', 'choices', 'status']) {
+  for (const k of ['alumnus', 'form', 'license', 'employment', 'gpa', 'eligibility', 'precepted', 'choices']) {
     assert.match(tab, new RegExp(`<SortHeader[^>]*sortKey="${k}"`), k)
   }
   assert.match(tab, /\{staffApp && <SortHeader thClassName="ngrp-col-gpa"/)
@@ -61,4 +61,40 @@ test('the caption names a sorted column readably, acronyms intact', () => {
   assert.match(tab, /employment: 'CS employee'/)
   assert.match(tab, /sorted by \{colSort \? COLUMN_CAPTIONS\[colSort\.key\] :/)
   assert.doesNotMatch(tab, /COLUMN_CAPTIONS\[colSort\.key\]\.toLowerCase/)
+})
+
+test('INTEREST-ELIGIBILITY-2: precepted unit, and the Rotation seat rule on residency numbers', () => {
+  assert.equal(preceptedUnitOf({ student: { precepted_unit: '6 NE' }, form_precepted_unit: '4 North' }), '6 NE', 'the placement wins')
+  assert.equal(preceptedUnitOf({ student: {}, form_precepted_unit: '4 North' }), '4 North')
+  assert.equal(preceptedUnitOf({ student: {} }), null)
+  const units = [
+    { unit_name: '4 North', capacity: 2, is_active: true },
+    { unit_name: '8 SCCT', capacity: 1, is_active: true },
+    { unit_name: 'NICU', capacity: null, is_active: true },
+    { unit_name: 'Retired', capacity: 3, is_active: false },
+  ]
+  const p = (...u) => ({ prefs: u })
+  const rows = [
+    p('4 North', '8 SCCT'), p('4 North'), p('4 North'), p('4 north'),
+    { prefs: ['8 SCCT'], np: true },
+    { prefs: [], outcome: { hired_unit: '8 SCCT', hired_at: '2026-10-01' } },
+  ]
+  const d = unitDemand(rows, units, { preferencesOf: r => r.prefs, isActive: r => !r.np })
+  const n = demandFor(d, '4 North')
+  assert.deepEqual([n.d1, n.open, n.highDemand], [4, 2, true], '4 first choices >= 2 open + 2')
+  const s = demandFor(d, '8 scct')
+  assert.deepEqual([s.d1, s.d2, s.open, s.highDemand], [0, 1, 0, false], 'Not Proceeding not counted; a hire takes a seat')
+  assert.deepEqual(seatLabel(n), { text: '2 open', tone: 'open' })
+  assert.deepEqual(seatLabel(s), { text: 'Full', tone: 'full' })
+  assert.deepEqual(seatLabel({ open: 1 }), { text: '1 left', tone: 'left' })
+  assert.equal(seatLabel(demandFor(d, 'NICU')), null, 'no position count, no chip')
+  assert.equal(demandFor(d, 'Retired'), null)
+})
+
+test('INTEREST-ELIGIBILITY-2: a row click selects; the photo and name open Profiles', () => {
+  const tab = read('src/components/ngrp/ProfilesTab.jsx')
+  assert.match(tab, /onClick=\{canSelect \? \(\) => toggleRow\(r\.id\) : undefined\}/)
+  assert.doesNotMatch(tab, /<tr[^>]*onClick=\{\(\) => selectRow\(r\.id, \{ toProfiles: true \}\)\}/)
+  assert.equal((tab.match(/className="ngrp-openbtn[^"]*"/g) || []).length, 2)
+  assert.match(tab, /<span className="ngrp-stack">\s*<NgrpStatusPill config=\{FORM_SENT_STATES\}/)
 })
