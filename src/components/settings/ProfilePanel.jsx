@@ -24,7 +24,7 @@ import { supabase } from '../../lib/supabase'
 import { getAvatarUrl } from '../../lib/getAvatar'
 import { useMyAvatar } from '../../hooks/useMyAvatar'
 import { setUnsavedChanges, confirmLeave } from '../../lib/unsavedChanges'
-import { connectSignatureImagePath, CONNECT_SIGNATURE_DEFAULT_AFFILIATION } from '../../lib/connectSignatureAssets'
+import { connectSignatureImagePath, CONNECT_SIGNATURE_DEFAULT_AFFILIATION, signatureTitleLines } from '../../lib/connectSignatureAssets'
 import SurfaceCard from '../ui/SurfaceCard'
 import SettingsPageHeader from './SettingsPageHeader'
 import './profilePanel.css'
@@ -105,6 +105,15 @@ export default function ProfilePanel() {
     setStatus(null)
   }
 
+  // SIG-TITLE-2: the two title boxes edit one stored field, line by line. Raw (untrimmed)
+  // while typing, so a space between words is never eaten; signatureTitleLines tidies on save.
+  const titleLines = [...String(form.title || '').split(/\r?\n/), '', ''].slice(0, 2)
+  const setTitleLine = (i, v) => {
+    const next = [...titleLines]
+    next[i] = v.replace(/[\r\n]/g, ' ')
+    set('title', next[1] ? `${next[0]}\n${next[1]}` : next[0])
+  }
+
   const handleSave = async () => {
     const name = form.display_name.trim()
     if (!name) { setStatus({ ok: false, msg: 'Display name is required.' }); return }
@@ -114,7 +123,7 @@ export default function ProfilePanel() {
     const p_signature = {
       display_name:      signatureDisplayName,
       credentials:       form.credentials.trim(),
-      title:             form.title.trim(),
+      title:             signatureTitleLines(form.title).join('\n'),
       department:        form.department.trim(),
       phone:             form.phone.trim(),
       signature_enabled: !!form.signature_enabled,
@@ -191,8 +200,13 @@ export default function ProfilePanel() {
                 onChange={e => set('credentials', e.target.value)} />
             </Field>
             <Field id="pf-title" label="Title">
-              <input id="pf-title" className="pf-input" value={form.title} maxLength={120} placeholder="e.g. ASPIRE Co-Lead"
-                autoComplete="organization-title" onChange={e => set('title', e.target.value)} />
+              <input id="pf-title" className="pf-input" value={titleLines[0]} maxLength={59} placeholder="e.g. Nursing Professional Development Practitioner"
+                autoComplete="organization-title" onChange={e => setTitleLine(0, e.target.value)} />
+            </Field>
+            {/* SIG-TITLE-2: a second title line, stored in the same field after a line break. */}
+            <Field id="pf-title2" label="Second Title Line (optional)">
+              <input id="pf-title2" className="pf-input" value={titleLines[1]} maxLength={59} placeholder="e.g. ASPIRE Lead"
+                onChange={e => setTitleLine(1, e.target.value)} />
             </Field>
             <Field id="pf-dept" label="Department">
               <input id="pf-dept" className="pf-input" value={form.department} maxLength={160} placeholder={CONNECT_SIGNATURE_DEFAULT_AFFILIATION}
@@ -231,7 +245,7 @@ export default function ProfilePanel() {
                   <img src={sigImagePath} alt="" aria-hidden="true" width={160} height={60} className="pf-preview-hand" />
                 )}
                 <div><strong className="pf-preview-name">{previewName}{form.credentials.trim() ? `, ${form.credentials.trim()}` : ''}</strong></div>
-                {form.title.trim() && <div>{form.title.trim()}</div>}
+                {signatureTitleLines(form.title).map(t => <div key={t}>{t}</div>)}
                 <div>{affiliation}</div>
                 {email && (
                   <div className="pf-preview-contact"><a href={`mailto:${email}`}>{email}</a>{form.phone.trim() ? ` | Office: ${form.phone.trim()}` : ''}</div>

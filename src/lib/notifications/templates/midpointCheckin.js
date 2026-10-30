@@ -38,8 +38,9 @@ export function buildMidpointCheckinEmail({ firstName, approvedHours, hoursRequi
 <p style="margin:24px 0 6px;font-size:14px;color:${RAVEN};">Kind regards,</p>
 <img src="${JESTER_SIGNATURE_GIF}" alt="Jester Lloyd Bautista" width="160" height="60" style="display:block;width:160px;max-width:160px;height:auto;border:0;margin:6px 0 0;" />
 <p style="margin:0;font-size:14px;color:${RAVEN};line-height:1.6;">
-  <strong style="color:${CS_RED};">Jester Lloyd Bautista, PhD, MSN, RN, NPD-BC, CCRN, SCRN</strong>
+  <strong style="color:${CS_RED};">Jester Lloyd Bautista, PhD, MSN, RN, FNP-BC, NPD-BC, CCRN, SCRN</strong>
   <span style="display:block;">Nursing Professional Development Practitioner</span>
+  <span style="display:block;">ASPIRE Lead</span>
   <span style="display:block;">Geri &amp; Richard Brawerman Nursing Institute</span>
   <span style="display:block;margin-top:2px;"><a href="mailto:jesterlloyd.bautista@cshs.org" style="color:${NAVY};text-decoration:none;">jesterlloyd.bautista@cshs.org</a> | Office: 310-248-8964</span>
 </p>`;

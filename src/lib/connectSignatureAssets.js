@@ -17,6 +17,15 @@ export function connectSignatureImagePath(email) {
   return CONNECT_SIGNATURE_IMAGE_PATHS[String(email || '').trim().toLowerCase()] || null
 }
 
+// SIG-TITLE-2 (Owner, 2026-10-29): a title may run to two lines ("Nursing Professional
+// Development Practitioner" then "ASPIRE Lead"). The account's one `title` field holds them
+// separated by a line break, so no column changed; every renderer splits it here.
+export const SIGNATURE_TITLE_LINES = 2
+
+export function signatureTitleLines(title) {
+  return String(title || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean).slice(0, SIGNATURE_TITLE_LINES)
+}
+
 // The institute line every Connect signature falls back to when the sender has
 // not set a Department - the exact line the renderer has always printed.
 export const CONNECT_SIGNATURE_DEFAULT_AFFILIATION = 'Geri & Richard Brawerman Nursing Institute'
