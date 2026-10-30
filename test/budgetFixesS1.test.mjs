@@ -77,7 +77,7 @@ test('Undo puts the estimate back on the row and recomputes the plan from the re
   const aug = await receipt(db, owner, { date: '2026-08-29', total: 35, name: 'aug.pdf' })
   await R.acceptReceipt(db, owner, { id: aug.id, draft: aug.draft, attachCharge: true, today: TODAY })
   assert.equal(await subAmount(pg, supa), 31.76)
-  await R.undoReceipt(db, owner, { id: aug.id })
+  await R.undoReceipt(db, owner, { id: aug.id, today: TODAY })
   assert.deepEqual((await rows(pg, supa)).filter(r => r.state === 'posted').map(r => r.a), [28.52, 17.5, 17.5])
   assert.equal(await subAmount(pg, supa), 28.52, 'one receipt left: its amount')
   assert.ok((await history(pg)).some(x => x.message === 'Supabase Pro charge on Aug 29, 2026 put back to $17.50 est.; its receipt was undone.'))
