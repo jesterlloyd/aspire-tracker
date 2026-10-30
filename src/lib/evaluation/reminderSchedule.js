@@ -127,6 +127,35 @@ export function reminderNumberForAge(days) {
   return n;
 }
 
+/**
+ * When the weekly cron runs: Tuesdays at 16:00 UTC (vercel.json `0 16 * * 2`,
+ * which a test holds equal). A reminder is owed on a DAY, but it is only sent on a
+ * run, so the first reminder for a survey sent on a Wednesday goes out 13 days later.
+ */
+export const REMINDER_RUN_UTC = Object.freeze({ weekday: 2, hour: 16 });
+
+/**
+ * The next weekly run that will actually send this assignment a reminder, as an ISO
+ * string, or null when none remains. A run sends when the survey has been out 7 to 27
+ * whole days and its window is still open; runs are a week apart and each owed band is
+ * a week wide, so every run in that span sends the next number and none is skipped.
+ */
+export function nextReminderRunAt({ sentAt, expiresAt = null, nowMs = Date.now() }) {
+  const sent = sentAt ? new Date(sentAt).getTime() : NaN;
+  if (!Number.isFinite(sent)) return null;
+  const expires = expiresAt ? new Date(expiresAt).getTime() : NaN;
+  const start = new Date(nowMs);
+  let run = Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate(), REMINDER_RUN_UTC.hour);
+  run += ((REMINDER_RUN_UTC.weekday - start.getUTCDay() + 7) % 7) * 86400000;
+  if (run <= nowMs) run += 7 * 86400000;
+  for (; ; run += 7 * 86400000) {
+    if (Number.isFinite(expires) && run >= expires) return null;
+    const days = Math.floor((run - sent) / 86400000);
+    if (days >= RESPONSE_WINDOW_DAYS) return null;
+    if (reminderNumberForAge(days)) return new Date(run).toISOString();
+  }
+}
+
 /** The workflow for an instrument slug, or null when the instrument is not covered. */
 export function workflowForSlug(slug) {
   return REMINDER_WORKFLOWS[String(slug || '')] || null;

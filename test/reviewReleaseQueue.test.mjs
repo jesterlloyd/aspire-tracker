@@ -36,7 +36,7 @@ import {
 } from '../src/lib/evaluation/reviewQueueAdapters.js'
 import { ITEM_STATES, NODE_STATUSES, BLOCKER_ACTIONS, countsOf, sumCounts, whenLabel, submissionLabel } from '../src/lib/evaluation/reviewQueueShape.js'
 import { ASPIRE_STATUSES } from '../src/lib/constants.js'
-import { REMINDER_WORKFLOWS, REMINDER_DAY_OFFSETS } from '../src/lib/evaluation/reminderSchedule.js'
+import { REMINDER_WORKFLOWS } from '../src/lib/evaluation/reminderSchedule.js'
 import { getEvaluationPreviewFixture } from '../src/lib/evaluation/evaluationPreviewFixtures.js'
 import { buildCaseyFinkPreRotationInvitationEmail } from '../lib/server/evaluation/caseyFinkPreRotationEmailTemplates.js'
 
@@ -269,7 +269,7 @@ test('adapters: Casey-Fink post-rotation waits, jumps, or is ready, per the prer
   assert.equal(by.s1.chain[0].detail, 'Submitted Sep 17')
   assert.equal(by.s3.state, 'blocked'); assert.equal(by.s3.blocker.action, 'remind')
   assert.equal(by.s3.stamp.text, 'Waiting 6d'); assert.equal(by.s3.stamp.tone, 'soon')
-  assert.match(by.s3.blocker.text, /Ethan has had the feedback survey for 6 days\. Next reminder Sep 20\./)
+  assert.match(by.s3.blocker.text, /Ethan has had the feedback survey for 6 days\. Next reminder Sep 22\./)
   assert.equal(by.s5.state, 'blocked'); assert.equal(by.s5.blocker.action, 'jump')
   assert.deepEqual(by.s5.blocker.target, { workflowId: 'student', itemId: 'q:s5', label: "Release Student's Feedback on Unit and Preceptor for Sofia first" })
   assert.equal(by.s5.chain[0].status, 'waiting'); assert.equal(by.s5.chain[0].detail, 'Not released yet')
@@ -283,10 +283,16 @@ test('a prerequisite older than 7 days stamps late; the next reminder follows th
   })
   assert.equal(items[0].stamp.tone, 'late')
   assert.equal(items[0].stamp.text, 'Waiting 9d')
-  // 7 days have passed, so the next owed reminder is day 14.
-  assert.equal(nextReminderAt(feedbackSent, NOW), daysAgo(9 - REMINDER_DAY_OFFSETS[1]))
+  // REMINDER-DATE-1: the date is the Tuesday 16:00 UTC run that sends, never sent + 7/14/21.
+  // Sent Thu Sep 10; the Sep 15 run sees day 4, so the first reminder goes Tue Sep 22.
+  assert.equal(nextReminderAt(feedbackSent, NOW), '2026-09-22T16:00:00.000Z')
   assert.equal(nextReminderAt(asg({ sent_at: daysAgo(30) }), NOW), null, 'nothing remains after the window closes')
-  assert.equal(nextReminderAt(asg({ sent_at: daysAgo(22) }), NOW), null, 'nothing remains after the last reminder')
+  // Sent Fri Aug 28: day 25 on Sep 22 still owes the third reminder.
+  assert.equal(nextReminderAt(asg({ sent_at: daysAgo(22) }), NOW), '2026-09-22T16:00:00.000Z')
+  // Sent Tue Aug 25 before the run: reminders went Sep 1, 8 and 15, and Sep 22 is day 28.
+  assert.equal(nextReminderAt(asg({ sent_at: '2026-08-25T15:00:00Z' }), NOW), null, 'nothing remains after the last reminder')
+  // An expires_at before the next run wins over the day count.
+  assert.equal(nextReminderAt(asg({ sent_at: daysAgo(9), expires_at: '2026-09-22T00:00:00Z' }), NOW), null)
 })
 
 test('adapters: ASPIRE feedback is blocked on activities with a record action, never a fake Ready', () => {
@@ -380,7 +386,7 @@ test('adapters: ASPIRE feedback lists its Not-yet students, jumps to feedback fi
   const today = asg({ student_id: 's5', ...inst('student_preceptor_eval'), timepoint: 'post_rotation', status: 'sent', sent_at: daysAgo(0) })
   const [waiting] = run(['s5'], new Map([['s5', [today]]]))
   assert.equal(waiting.stamp.text, 'Sent today'); assert.equal(waiting.stamp.tone, 'soon')
-  assert.match(waiting.blocker.text, /^Sofia received the feedback survey today\. Next reminder Sep 26\.$/)
+  assert.match(waiting.blocker.text, /^Sofia received the feedback survey today\. Next reminder Sep 29\.$/)
   assert.equal(waiting.chain[1].detail, 'Waits on feedback')
 })
 

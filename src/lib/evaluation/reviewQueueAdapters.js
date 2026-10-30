@@ -23,7 +23,7 @@ import { classifyCaseyFinkPostRotationCohort } from './caseyFinkPostRotationDueD
 import { classifyCaseyFinkPreRotationCohort } from './caseyFinkPreRotationDueDetection.js'
 import { classifyPostRotationCohort } from './postRotationCertDueDetection.js'
 import { caseyFinkPrerequisite, aspirePrerequisites, slugOf, STEP_SLUGS } from './postRotationSequence.js'
-import { REMINDER_DAY_OFFSETS, RESPONSE_WINDOW_DAYS } from './reminderSchedule.js'
+import { nextReminderRunAt } from './reminderSchedule.js'
 import { availableActions, rowIsReadOnly, isEligibleNow } from '../unitEvaluationReleaseActions.js'
 import { surveyName } from './surveyNames.js'
 import {
@@ -32,25 +32,17 @@ import {
 
 const FEEDBACK_NAME = surveyName('student_preceptor_eval')
 
-const DAY_MS = 24 * 60 * 60 * 1000
-
 // ── Shared helpers ─────────────────────────────────────────────────────────────
 
 /**
- * When the NEXT scheduled reminder for a live assignment is due, from the ledger's own
- * rule (7, 14, 21 days after the original send, inside a 28-day window). The Owner chose
- * not to add a manual Remind yet, so a waiting card says when the system will nudge.
+ * When the NEXT reminder for a live assignment will actually go out: the next Tuesday
+ * run that owes one (REMINDER-DATE-1, 2026-10-29). It used to print the owed DAY (sent
+ * + 7, 14, 21), which named dates no reminder was sent on. The Owner chose not to add a
+ * manual Remind yet, so a waiting card says when the system will nudge.
  * Returns an ISO string, or null when no reminder remains.
  */
 export function nextReminderAt(assignment, nowMs = Date.now()) {
-  const sentAt = assignment?.sent_at ? new Date(assignment.sent_at).getTime() : NaN
-  if (!Number.isFinite(sentAt)) return null
-  if (nowMs - sentAt >= RESPONSE_WINDOW_DAYS * DAY_MS) return null
-  for (const days of REMINDER_DAY_OFFSETS) {
-    const at = sentAt + days * DAY_MS
-    if (at > nowMs) return new Date(at).toISOString()
-  }
-  return null
+  return nextReminderRunAt({ sentAt: assignment?.sent_at, expiresAt: assignment?.expires_at, nowMs })
 }
 
 /** The Before node for a prerequisite that was SENT but not submitted. */

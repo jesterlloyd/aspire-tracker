@@ -8,10 +8,12 @@
 
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import {
   REMINDER_DAY_OFFSETS, RESPONSE_WINDOW_DAYS, LIVE_STATUSES, REMINDER_WORKFLOWS,
   CERTIFICATE_KINDS, SKIP_REASONS, daysSince, reminderNumberForAge, workflowForSlug,
   certificateKindFor, classifyAssignment, selectReminderCandidates, tallyReasons,
+  REMINDER_RUN_UTC, nextReminderRunAt,
 } from '../src/lib/evaluation/reminderSchedule.js'
 
 const NOW = new Date('2026-08-15T17:00:00.000Z')
@@ -233,4 +235,44 @@ test('selection never emits a candidate outside 1-3', () => {
   })
   assert.ok(candidates.length > 0)
   for (const c of candidates) assert.ok([1, 2, 3].includes(c.reminder_number), String(c.reminder_number))
+})
+
+// REMINDER-DATE-1 (2026-10-29): the date a card names is the run that sends.
+
+test('the run constant matches the weekly cron in vercel.json', () => {
+  const vercel = JSON.parse(readFileSync(new URL('../vercel.json', import.meta.url), 'utf8'))
+  const entry = vercel.crons.find(c => c.path === '/api/cron/evaluation-reminders')
+  assert.equal(entry.schedule, `0 ${REMINDER_RUN_UTC.hour} * * ${REMINDER_RUN_UTC.weekday}`)
+})
+
+test('nextReminderRunAt follows the Tuesday runs, not sent + 7/14/21', () => {
+  // Joshua Dela Cruz's post-rotation Casey-Fink: sent Wed Oct 7 03:51 UTC. Oct 13 is day 6,
+  // so the real reminders went Oct 20 and Oct 27, and the third goes Nov 3 (day 27).
+  const sentAt = '2026-10-07T03:51:55.936Z'
+  const expiresAt = '2026-11-04T03:51:55.936Z'
+  const at = (iso) => nextReminderRunAt({ sentAt, expiresAt, nowMs: Date.parse(iso) })
+  assert.equal(at('2026-10-08T00:00:00Z'), '2026-10-20T16:00:00.000Z')
+  assert.equal(at('2026-10-20T16:00:00Z'), '2026-10-27T16:00:00.000Z', 'a run at this instant has already happened')
+  assert.equal(at('2026-10-29T00:00:00Z'), '2026-11-03T16:00:00.000Z')
+  assert.equal(at('2026-11-03T17:00:00Z'), null, 'no run falls inside the window after the third')
+  // James Mason: sent Mon Oct 19 06:58 UTC; Oct 20 is day 1, so the first went Oct 27.
+  assert.equal(nextReminderRunAt({ sentAt: '2026-10-19T06:58:41.682Z', nowMs: Date.parse('2026-10-19T08:00:00Z') }),
+    '2026-10-27T16:00:00.000Z')
+  assert.equal(nextReminderRunAt({ sentAt: null, nowMs: Date.parse('2026-10-19T08:00:00Z') }), null)
+})
+
+test('every run between day 7 and day 27 sends, so three reminders always fit', () => {
+  for (let h = 0; h < 7 * 24; h += 5) {
+    const sent = Date.parse('2026-10-04T00:00:00Z') + h * 3600000
+    let now = sent; const runs = []
+    for (let next; (next = nextReminderRunAt({ sentAt: new Date(sent).toISOString(), nowMs: now })); now = Date.parse(next)) {
+      runs.push(next)
+      assert.equal(classifyAssignment({
+        assignment: { status: 'sent', sent_at: new Date(sent).toISOString() },
+        instrument: { slug: 'casey_fink_readiness_2024', permission_status: 'authorized' },
+        now: new Date(next),
+      }).reminderNumber, runs.length)
+    }
+    assert.equal(runs.length, 3)
+  }
 })
