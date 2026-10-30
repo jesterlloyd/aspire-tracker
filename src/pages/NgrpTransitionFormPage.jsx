@@ -16,6 +16,12 @@ import { DIVISION_ORDER, getUnitsByDivision, ACLS_REQUIRED_UNITS, unitOptionLabe
 const UNITS_BY_DIVISION = getUnitsByDivision()
 
 const TOKEN_PATTERN = /^#t=([A-Za-z0-9_-]{43})$/
+// TRANSITION-FORM-RELOAD-1: the link's token leaves the address bar on load, so a reload used to
+// read "Link not available" and the app's own "Refresh" could never recover the form. The token
+// and the verified session are kept for this TAB only (sessionStorage), so Refresh reopens it.
+const TAB_KEY = 'ngrpf-tab'
+const tabRead = () => { try { return JSON.parse(sessionStorage.getItem(TAB_KEY) || 'null') } catch { return null } }
+const tabWrite = v => { try { sessionStorage.setItem(TAB_KEY, JSON.stringify(v)) } catch { /* private mode: no reload recovery */ } }
 const F = "'Plus Jakarta Sans', system-ui, sans-serif"
 
 const EMPTY_PAYLOAD = {
@@ -125,7 +131,14 @@ export default function NgrpTransitionFormPage({ preview = null }) {
   const [initial] = useState(() => {
     if (preview) return { rawToken: null, valid: false, preview: true }
     const match = TOKEN_PATTERN.exec(window.location.hash)
-    return { rawToken: match ? match[1] : null, valid: !!match }
+    const kept = tabRead()
+    if (match) {
+      // A fresh link wins; its session carries over only when it is the same link.
+      tabWrite({ t: match[1], s: kept?.t === match[1] ? kept.s || null : null })
+      return { rawToken: match[1], valid: true, session: kept?.t === match[1] ? kept.s || null : null }
+    }
+    if (kept?.t && /^[A-Za-z0-9_-]{43}$/.test(kept.t)) return { rawToken: kept.t, valid: true, session: kept.s || null }
+    return { rawToken: null, valid: false }
   })
   const [view, setView] = useState(initial.preview ? 'form' : initial.valid ? 'loading' : 'invalid')
   const [meta, setMeta] = useState(preview)
@@ -136,15 +149,19 @@ export default function NgrpTransitionFormPage({ preview = null }) {
   const [submitting, setSubmitting] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const saveTimer = useRef(null)
-  const sessionRef = useRef(null)
+  const sessionRef = useRef(initial.session || null)
   const dirtyRef = useRef(false)
   const errorSummaryRef = useRef(null)
 
   useEffect(() => {
     const m = document.createElement('meta'); m.name = 'referrer'; m.content = 'no-referrer'; document.head.appendChild(m)
     const s = document.createElement('style'); s.id = 'ngrpf-css'; s.textContent = CSS; document.head.appendChild(s)
+    // TRANSITION-FORM-IOS-1: iPhone browsers turn email addresses, phone numbers and dates in
+    // page text into links, rewriting text React still owns; switching screens then failed
+    // with "The object can not be found here." Ask WebKit not to, for this page.
+    const fd = document.createElement('meta'); fd.name = 'format-detection'; fd.content = 'telephone=no, email=no, address=no, date=no'; document.head.appendChild(fd)
     if (!initial.preview) window.history.replaceState(null, '', window.location.pathname)
-    return () => { document.head.removeChild(m); const el = document.getElementById('ngrpf-css'); if (el) document.head.removeChild(el) }
+    return () => { m.remove(); fd.remove(); document.getElementById('ngrpf-css')?.remove() }
   }, [initial.preview])
 
   const post = useCallback(async (action, extra = {}) => {
@@ -173,6 +190,7 @@ export default function NgrpTransitionFormPage({ preview = null }) {
     const { status, body } = await post('verify_code', { code: codeState.code })
     if (status === 200 && body?.session) {
       sessionRef.current = body.session
+      tabWrite({ t: initial.rawToken, s: body.session })
       setCodeState(c => ({ ...c, checking: false, code: '' }))
       setView('loading')
       setLoadNonce(n => n + 1)
@@ -272,14 +290,17 @@ export default function NgrpTransitionFormPage({ preview = null }) {
 
   // ── The one-time code ───────────────────────────────────────────────────────
   if (view === 'verify') {
-    const where = codeState.maskedEmail ? `your email, ${codeState.maskedEmail}` : 'the email address the ASPIRE team has for you'
+    // TRANSITION-FORM-IOS-1: each screen has its own key, so moving between them replaces the
+    // whole screen instead of patching text a phone may have rewritten; addresses are elements.
     return (
-      <div className="ngrpf-page">
+      <div className="ngrpf-page" key="verify">
         <div className="ngrpf-state">
           <h1>Confirm it is you</h1>
           <p>
             {meta?.cycleName ? `Your ${meta.cycleName} NGRP Transition Form` : 'Your NGRP Transition Form'} is personal to you.
-            To open it, we will send a one-time code to {where}.
+            To open it, we will send a one-time code to {codeState.maskedEmail
+              ? <>your email, <span className="ngrpf-nolink">{codeState.maskedEmail}</span></>
+              : <span>the email address the ASPIRE team has for you</span>}.
           </p>
           {!codeState.sent ? (
             <button type="button" className="ngrpf-submit" style={{ marginTop: 18 }} onClick={sendCode} disabled={codeState.sending}>
@@ -302,7 +323,7 @@ export default function NgrpTransitionFormPage({ preview = null }) {
             </form>
           )}
           {codeState.error && <p className="ngrpf-error" role="alert" style={{ marginTop: 10 }}>{codeState.error}</p>}
-          <p style={{ marginTop: 16, fontSize: 12.5 }}>No longer have that email? Contact the ASPIRE team at aspire@cshs.org.</p>
+          <p style={{ marginTop: 16, fontSize: 12.5 }}>No longer have that email? Contact the ASPIRE team at <a href="mailto:aspire@cshs.org">aspire@cshs.org</a>.</p>
         </div>
       </div>
     )
@@ -323,7 +344,7 @@ export default function NgrpTransitionFormPage({ preview = null }) {
       thank_you:    ['Thank you!', `Your Transition Form has been ${meta?.revisionNumber > 1 ? 'updated' : 'submitted'}. The ASPIRE team will review your information and follow up about next steps. You can revise it from the same link until the window closes.`],
     }[view] || ['', '']
     return (
-      <div className="ngrpf-page">
+      <div className="ngrpf-page" key={view}>
         <div className="ngrpf-state" role="status">
           <h1>{stateCopy[0]}</h1>
           <p>{stateCopy[1]}</p>
@@ -358,7 +379,7 @@ export default function NgrpTransitionFormPage({ preview = null }) {
   )
 
   return (
-    <div className="ngrpf-page">
+    <div className="ngrpf-page" key="form">
       <div className="ngrpf-shell">
         <div className="ngrpf-mast">
           <h1>NGRP Transition Form</h1>

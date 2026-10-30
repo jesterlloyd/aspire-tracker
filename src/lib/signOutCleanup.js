@@ -94,6 +94,7 @@ export const STORAGE_KEY_REGISTRY = Object.freeze([
   { prefix: 'aspire-form-draft:', store: 'local', cls: 'public', holds: 'a respondent\'s in-progress answers on a personal form link, keyed by the link token' },
   { prefix: 'aspire-form-token', store: 'session', cls: 'public', holds: 'the form link token, moved out of the address bar' },
   { prefix: 'aspire-sign-token', store: 'session', cls: 'public', holds: 'the signing link token, moved out of the address bar' },
+  { prefix: 'ngrpf-tab', store: 'session', cls: 'public', holds: 'the Transition Form link token and its verified one-time-code session, for this tab (TRANSITION-FORM-RELOAD-1)' },
 
   // ── auth: the session, owned by supabase-js ──────────────────────────────────
   { prefix: 'aspire-intelligence-auth', store: 'local', cls: 'auth', holds: 'the Supabase session; removed by supabase.auth.signOut()' },

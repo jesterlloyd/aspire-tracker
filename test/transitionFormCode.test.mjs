@@ -70,3 +70,23 @@ test('without a session the endpoint shows nothing and changes nothing', () => {
   assert.match(api, /return res\.status\(200\)\.json\(\{ state: 'verify', maskedEmail: maskEmail\(routed\.email\), cycleName: cycle\.name \}\)/)
   assert.match(api, /bucketKey\('ngrp_transition_verify_link', tokenHash\)/)
 })
+
+test('TRANSITION-FORM-IOS-1: each screen replaces the last, and nothing on the code screen is bare address text', () => {
+  const page = read('src/pages/NgrpTransitionFormPage.jsx')
+  assert.match(page, /<div className="ngrpf-page" key="verify">/)
+  assert.match(page, /<div className="ngrpf-page" key=\{view\}>/)
+  assert.match(page, /<div className="ngrpf-page" key="form">/)
+  assert.match(page, /fd\.name = 'format-detection'; fd\.content = 'telephone=no, email=no, address=no, date=no'/)
+  assert.match(page, /<a href="mailto:aspire@cshs\.org">aspire@cshs\.org<\/a>/)
+  assert.match(page, /<span className="ngrpf-nolink">\{codeState\.maskedEmail\}<\/span>/)
+})
+
+test('TRANSITION-FORM-RELOAD-1: a reload in the same tab reopens the form instead of "Link not available"', () => {
+  const page = read('src/pages/NgrpTransitionFormPage.jsx')
+  assert.match(page, /const TAB_KEY = 'ngrpf-tab'/)
+  assert.match(page, /sessionStorage\.getItem\(TAB_KEY\)/)
+  assert.match(page, /if \(kept\?\.t && \/\^\[A-Za-z0-9_-\]\{43\}\$\/\.test\(kept\.t\)\) return \{ rawToken: kept\.t, valid: true, session: kept\.s \|\| null \}/)
+  assert.match(page, /tabWrite\(\{ t: initial\.rawToken, s: body\.session \}\)/)
+  assert.match(page, /const sessionRef = useRef\(initial\.session \|\| null\)/)
+  assert.doesNotMatch(page, /localStorage/, 'per tab only')
+})
