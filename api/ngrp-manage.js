@@ -54,7 +54,10 @@ import {
 } from '../lib/server/ngrpTransition.js'
 import { recordNgrpAudit } from '../lib/server/ngrpAudit.js'
 import { validateResidentDetails } from '../src/lib/ngrp/ngrpResidents.js'
-import { serviceDbForRequest } from '../lib/server/demoScope.js'
+import { serviceDbForRequest, demoScopeFromRequest } from '../lib/server/demoScope.js'
+import {
+  validateProfile, studentColumnsFrom, searchAlumni, findMatches, ensurePastCohort, addToRoster, removeFromRoster,
+} from '../lib/server/ngrpAddedAlumni.js'
 import {
   openScheduleTimes, removeScheduleTimes, blockScheduleSlot, bookInterview, cancelInterview,
 } from '../lib/server/ngrpInterviewSchedule.js'
@@ -89,6 +92,8 @@ const ACTIONS = new Set([
   'activity_log',
   // APPLICANT-PACKET-1
   'packet_downloaded',
+  // ADD-ALUMNUS-1
+  'alumni_search', 'alumni_add', 'alumni_create', 'alumni_remove', 'alumni_invited',
   // NGRP-INTERVIEWS-1 Phase 4: Residency > Interview Schedule
   ...SCHEDULE_ACTIONS,
 ])
@@ -405,6 +410,89 @@ export default async function handler(req, res) {
         cycleId, candidateId: cand.id, studentId, actorProfileId: actorId,
       })
       return res.status(200).json({ ok: true, flagged: body.flagged, candidate_id: cand.id })
+    }
+
+    // ── ADD-ALUMNUS-1: Add alumnus (Owner and Admin only) ──────────────────
+    if (action.startsWith('alumni_')) {
+      if (isTalentAcquisition || !['owner', 'admin'].includes(caller.profile.role)) {
+        return res.status(403).json({ error: 'owner_or_admin_only' })
+      }
+      const cycleId = typeof body.cycle_id === 'string' && UUID.test(body.cycle_id) ? body.cycle_id : null
+      if (!cycleId) return res.status(422).json({ error: 'invalid_request' })
+      const payload = await loadApplicantsPayload(db, cycleId)
+      if (payload.state === 'unprovisioned') return unprovisioned(res)
+      if (payload.state === 'cycle_not_found') return res.status(404).json({ error: 'cycle_not_found' })
+      if (payload.state !== 'ok') return internal(res)
+      if (payload.addedProvisioned === false) return res.status(409).json({ error: 'not_enabled' })
+      const onRoster = new Set((payload.students || []).map(st => st.id))
+      const studentId = typeof body.student_id === 'string' && UUID.test(body.student_id) ? body.student_id : null
+
+      if (action === 'alumni_search') {
+        const r = await searchAlumni(db, { query: body.query, excludeIds: [...onRoster] })
+        if (r.error) return internal(res)
+        return res.status(200).json({ results: r.results })
+      }
+
+      if (action === 'alumni_add') {
+        if (!studentId) return res.status(422).json({ error: 'invalid_request' })
+        if (onRoster.has(studentId)) return res.status(409).json({ error: 'already_on_roster' })
+        const st = await db.from('students').select('id, status').eq('id', studentId).maybeSingle()
+        if (st.error) return internal(res)
+        if (!st.data || st.data.status !== 'Completed') return res.status(404).json({ error: 'not_a_completed_alumnus' })
+        const a = await addToRoster(db, { cycleId, studentId, actorId })
+        if (a.error) return internal(res)
+        if (!a.already) await recordNgrpAudit(db, { eventType: 'alumnus_added', cycleId, studentId, actorProfileId: actorId })
+        return res.status(200).json({ ok: true, student_id: studentId })
+      }
+
+      if (action === 'alumni_create') {
+        const v = validateProfile(body.profile)
+        if (!v.ok) return res.status(422).json({ error: 'validation_failed', errors: v.errors })
+        // The cohort the Owner picks, or a past cohort named here.
+        let cohort = null
+        if (typeof body.cohort_id === 'string' && UUID.test(body.cohort_id)) {
+          const c = await db.from('cohorts').select('id, name').eq('id', body.cohort_id).maybeSingle()
+          if (c.error) return internal(res)
+          cohort = c.data
+        } else if (typeof body.new_cohort_name === 'string') {
+          const c = await ensurePastCohort(db, { name: body.new_cohort_name, isDemo: demoScopeFromRequest(req) === true })
+          if (c.invalid) return res.status(422).json({ error: 'validation_failed', errors: [{ field: 'cohort', message: 'Name the cohort, for example Fall 2025.' }] })
+          if (c.error) return internal(res)
+          cohort = c.cohort
+        }
+        if (!cohort) return res.status(422).json({ error: 'validation_failed', errors: [{ field: 'cohort', message: 'Choose their ASPIRE cohort.' }] })
+        // Never a second record for someone already here, unless the Owner says it is a different person.
+        if (body.confirm_new !== true) {
+          const m = await findMatches(db, v.profile)
+          if (m.error) return internal(res)
+          if (m.matches.length) return res.status(409).json({ error: 'possible_match', matches: m.matches })
+        }
+        const row = { ...studentColumnsFrom(v.profile), cohort_id: cohort.id, aspire_cohort: cohort.name, status: 'Completed' }
+        if (demoScopeFromRequest(req) === true) row.is_demo = true
+        const ins = await db.from('students').insert(row).select('id').single()
+        if (ins.error) return internal(res)
+        const a = await addToRoster(db, { cycleId, studentId: ins.data.id, actorId })
+        if (a.error) return internal(res)
+        await recordNgrpAudit(db, { eventType: 'alumnus_added', cycleId, studentId: ins.data.id, actorProfileId: actorId })
+        return res.status(200).json({ ok: true, student_id: ins.data.id, cohort })
+      }
+
+      if (action === 'alumni_remove') {
+        if (!studentId) return res.status(422).json({ error: 'invalid_request' })
+        const r = await removeFromRoster(db, { cycleId, studentId, actorId, nowIso })
+        if (r.error) return internal(res)
+        if (!r.removed) return res.status(404).json({ error: 'not_added_by_hand' })
+        await recordNgrpAudit(db, { eventType: 'alumnus_removed', cycleId, studentId, actorProfileId: actorId })
+        return res.status(200).json({ ok: true })
+      }
+
+      if (action === 'alumni_invited') {
+        // The invitation itself is /api/invite-portal-user (the Student Portal's own); this is
+        // the Residency Activity line saying who invited whom.
+        if (!studentId || !onRoster.has(studentId)) return res.status(404).json({ error: 'not_on_roster' })
+        const logged = await recordNgrpAudit(db, { eventType: 'alumnus_invited', cycleId, studentId, actorProfileId: actorId })
+        return res.status(200).json({ ok: true, logged })
+      }
     }
 
     // APPLICANT-PACKET-1: a packet is built in the browser from files this caller could already

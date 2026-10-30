@@ -26,7 +26,10 @@
 import Tooltip from '../ui/Tooltip'
 import { Suspense, useMemo, useState, useCallback, useEffect, useRef } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
-import { Search, Send, GraduationCap, X, Eye, Download, List, LayoutGrid, FileText } from 'lucide-react'
+import { Search, Send, GraduationCap, X, Eye, Download, List, LayoutGrid, FileText, UserPlus } from 'lucide-react'
+import { useAuth } from '../../contexts/AuthContext'
+import { confirmDialog } from '../shared/confirmDialog'
+import AddAlumnusDrawer from './AddAlumnusDrawer'
 import { lazyReload } from '../../lib/lazyReload'
 import DetailDrawer from '../ui/DetailDrawer'
 import StudentCard from '../StudentCard'
@@ -250,6 +253,10 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
   // RESIDENCY-TA-SELECT-1 (Owner, 2026-10-29): selection exists only to send the form, so a
   // surface that cannot send shows no checkboxes. It looked as though Talent Acquisition could.
   const canSelect = canManage && canSendForms
+  // ADD-ALUMNUS-1: Owner and Admin add alumni from outside the participating cohorts.
+  const { userProfile } = useAuth()
+  const canAddAlumni = staffApp && ['owner', 'admin'].includes(userProfile?.role)
+  const [showAddAlumnus, setShowAddAlumnus] = useState(false)
   // RESIDENCY-PORTAL-3: Download CSV, as on the Community Benefit tab: the
   // server builds the file from the roster this caller may see.
   const [exporting, setExporting] = useState(false)
@@ -315,6 +322,14 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
   }, [allRows, activeKpi, activeCohortFilter, activeSchoolFilter, query, sortKey, cohortOrder, colSort, sortColumns])
 
   const hasFilters = kpiFilter !== 'all' || query || activeCohortFilter || activeSchoolFilter
+
+  const removeAdded = async (r) => {
+    if (!(await confirmDialog(`Remove ${displayName(r.student)} from the ${cycle.name} roster? Their record and any form answers stay; they just leave this roster.`, { confirmLabel: 'Remove from roster', danger: true }))) return
+    const res = await postNgrpManage('alumni_remove', { cycle_id: cycle.id, student_id: r.student.id })
+    if (!res.ok) { toast?.error?.('Not removed', 'Please try again.'); return }
+    toast?.success?.('Removed from the roster', `${displayName(r.student)} is no longer on the ${cycle.name} roster.`)
+    refetch()
+  }
 
   const toggleRow = id => setSelected(prev => {
     const next = new Set(prev)
@@ -718,6 +733,18 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                 <span style={{ fontSize: 11, color: '#9CA3AF' }}>
                   {cycle.name} · {sourceCohorts.length} participating cohort{sourceCohorts.length === 1 ? '' : 's'} · sorted by {colSort ? COLUMN_CAPTIONS[colSort.key] : SORT_OPTIONS.find(o => o.key === sortKey)?.label.toLowerCase()}
                 </span>
+                {canAddAlumni && payload?.addedProvisioned !== false && (
+                  <button type="button" onClick={() => setShowAddAlumnus(true)}
+                    style={{
+                      height: 28, flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 6,
+                      padding: '0 10px', border: '1px solid #1D2567', background: '#fff', color: '#1D2567',
+                      borderRadius: 'var(--aspire-radius-control)', fontFamily: 'inherit', fontSize: 11.5,
+                      fontWeight: 700, cursor: 'pointer',
+                    }}>
+                    <UserPlus size={13} aria-hidden="true" />
+                    Add Alumnus
+                  </button>
+                )}
                 <Tooltip label="Every alumnus on this roster with their latest Transition Form answers. Preceptor feedback is never included." applyAriaLabel={false}>
                 <button
                   type="button"
@@ -865,6 +892,16 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                                   {s.aspire_cohort}
                                 </span>
                               )}
+                              {s.added_to_roster && (
+                                <span className="ngrp-added">
+                                  Added
+                                  {canAddAlumni && (
+                                    <button type="button" className="ngrp-added-remove"
+                                      onClick={e => { e.stopPropagation(); removeAdded(r) }}
+                                      aria-label={`Remove ${displayName(s)} from the roster`}>Remove</button>
+                                  )}
+                                </span>
+                              )}
                               <PreceptorFeedbackChip entry={feedback.byStudent[s.id]} />
                             </div>
                           </div>
@@ -990,6 +1027,16 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
           entry={transitionPreview}
           footNote="The recipient and link are synthetic; the cohort name and close date are your live ones (a send can set its own close date). Rendered with the same template the send uses. The Transition Form is sent by hand, never on a schedule."
           onClose={() => setShowEmailPreview(false)}
+        />
+      )}
+
+      {showAddAlumnus && (
+        <AddAlumnusDrawer
+          cycle={cycle}
+          cohorts={(unitsPlanning.data?.aspireCohorts || []).filter(c => !(c.name || '').toLowerCase().includes('demo'))}
+          toast={toast}
+          onAdded={() => refetch()}
+          onClose={() => setShowAddAlumnus(false)}
         />
       )}
 

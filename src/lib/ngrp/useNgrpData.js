@@ -55,7 +55,8 @@ export async function postNgrpManage(action, payload = {}) {
     const body = await authedPost('/api/ngrp-manage', action, payload)
     return { ok: true, ...body }
   } catch (err) {
-    return { ok: false, status: err.status || 0, error: err.message, errors: err.body?.errors || [], message: err.body?.message || null }
+    // ADD-ALUMNUS-1: a 409 possible_match carries the records it matched.
+    return { ok: false, status: err.status || 0, error: err.message, code: err.body?.error || null, errors: err.body?.errors || [], message: err.body?.message || null, matches: err.body?.matches || null }
   }
 }
 

@@ -78,7 +78,8 @@ test('PACKET 4: the button is on every binder, and the download is logged for Re
   assert.equal(EVENT_LABELS.packet_downloaded, 'Downloaded the applicant packet')
   const manage = read('api/ngrp-manage.js')
   // NGRP-INTERVIEWS-1 Phase 4 lists the schedule actions after it.
-  assert.match(manage, /'packet_downloaded',\n(?:\s*\/\/[^\n]*\n\s*\.\.\.SCHEDULE_ACTIONS,\n)?\]\)/)
+  // ADD-ALUMNUS-1 added its actions after packet_downloaded; the action is still listed.
+  assert.match(manage, /'packet_downloaded',\n/)
   assert.match(manage, /eventType: 'packet_downloaded'/)
   assert.match(read('src/lib/ngrp/applicantPacketClient.js'), /postNgrpManage\('packet_downloaded'/)
   assert.match(read('src/lib/ngrp/applicantPacketClient.js'), /await import\('\.\/applicantPacketPdf'\)/, 'pdf-lib loads only on press')

@@ -38,3 +38,10 @@
   .sr-acts .ptl-btn { margin: 6px 6px 0 0; min-height: 44px; }
   .sr-link, .sr-check, .sr-request .ptl-btn, .sr-actions .ptl-btn, .sr-drop .ptl-btn { min-height: 44px; }
 }
+
+/* ADD-ALUMNUS-1: the application profile card. */
+.sr-pgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; }
+.sr-pfield { display: flex; flex-direction: column; min-width: 0; }
+.sr-pstatic { min-height: 36px; display: flex; align-items: center; font-size: 13.5px; color: #374151; }
+.sr-perror { font-size: 12.5px; color: #A32A32; }
+@media (max-width: 640px) { .sr-pgrid { grid-template-columns: minmax(0, 1fr); } }

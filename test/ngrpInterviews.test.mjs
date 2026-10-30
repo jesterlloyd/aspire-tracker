@@ -57,9 +57,12 @@ test('RUBRIC 4: the server check refuses a bad score or question and an incomple
 })
 
 test('MIGRATION 1: the audit CHECK equals the code\'s list, and every type has words', () => {
-  const check = MIG.slice(MIG.indexOf('CHECK (event_type IN ('), MIG.indexOf("));", MIG.indexOf('CHECK (event_type IN (')))
-  const inSql = [...check.replace(/--[^\n]*/g, '').matchAll(/'([a-z_]+)'/g)].map(m => m[1]).sort()
-  assert.deepEqual(inSql, [...NGRP_AUDIT_EVENTS].sort())
+  // ADD-ALUMNUS-1 (20261116000000) rebuilt the CHECK with the alumnus types; the newest one
+  // must equal the code's list, and this migration's must be all of it but those three.
+  const LATEST = readFileSync(new URL('../supabase/migrations/20261116000000_ngrp_added_alumni.sql', import.meta.url), 'utf8')
+  const typesIn = sql => { const c = sql.slice(sql.indexOf('CHECK (event_type IN ('), sql.indexOf("));", sql.indexOf('CHECK (event_type IN ('))); return [...c.replace(/--[^\n]*/g, '').matchAll(/'([a-z_]+)'/g)].map(m => m[1]).sort() }
+  assert.deepEqual(typesIn(LATEST), [...NGRP_AUDIT_EVENTS].sort())
+  assert.deepEqual(typesIn(MIG), [...NGRP_AUDIT_EVENTS].filter(t => !t.startsWith('alumnus_')).sort())
   for (const t of NGRP_AUDIT_EVENTS) assert.ok(EVENT_LABELS[t], `${t} has a label`)
   assert.match(MIG, /'recommend', 'recommend_with_reservations', 'do_not_recommend'/)
 })

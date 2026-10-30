@@ -16,6 +16,7 @@
 //   upload_start  { doc_type, file_name, size }           -> a signed upload path
 //   upload_finish { doc_type, path, file_name, doc_date?, date_confirmed? } -> filed, via 'portal'
 //   open          { version_id }                          -> a 60 s link, own versions only
+//   profile_save  { profile }  -> ADD-ALUMNUS-1: their application profile, on their own record
 // Uploads go through lib/server/studentDocuments.js, the staff path: replacing never deletes, a
 // résumé is kept from the record first, a dated document needs the date confirmed.
 import process from 'node:process'
@@ -25,20 +26,37 @@ import {
 } from '../../lib/server/studentDocuments.js'
 import { cycleForStudent, keyDates, transitionFormStatus, supportReceived, alumnusDocuments, openRequests, resumeFeedback } from '../../lib/server/alumnusResidency.js'
 import { extsFor, DOCUMENT_MAX_BYTES } from '../../src/lib/documents/documentChecklist.js'
+import { validateProfile, studentColumnsFrom } from '../../lib/server/ngrpAddedAlumni.js'
 
-const ACTIONS = new Set(['status', 'summary', 'upload_start', 'upload_finish', 'open'])
+const ACTIONS = new Set(['status', 'summary', 'upload_start', 'upload_finish', 'open', 'profile_save'])
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const internal = res => res.status(500).json({ error: 'internal_error' })
 
 // The alumnus among the caller's links: a Completed student. With several, the most recent.
 async function resolveAlumnus(db, links) {
   const { data, error } = await db.from('students')
-    .select('id, cohort_id, status, resume_url, first_name, preferred_first_name, updated_at')
+    .select('id, cohort_id, status, resume_url, first_name, last_name, preferred_first_name, personal_email, phone, school, program_type, estimated_graduation_date, unit, aspire_cohort, matched_unit_id, updated_at')
     .in('id', links)
   if (error) return { error }
   const done = (data || []).filter(s => s.status === 'Completed')
     .sort((a, b) => String(b.updated_at || '').localeCompare(String(a.updated_at || '')))
   return { student: done[0] || null }
+}
+
+async function applicationProfile(db, student) {
+  let placementUnit = null
+  if (student.matched_unit_id) {
+    const u = await db.from('units').select('unit_name').eq('id', student.matched_unit_id).maybeSingle()
+    if (!u.error) placementUnit = u.data?.unit_name || null
+  }
+  return {
+    first_name: student.first_name || '', last_name: student.last_name || '',
+    preferred_first_name: student.preferred_first_name || '', personal_email: student.personal_email || '',
+    phone: student.phone || '', school: student.school || '', program_type: student.program_type || '',
+    estimated_graduation_date: student.estimated_graduation_date || '',
+    precepted_unit: placementUnit || (student.unit || ''), precepted_from_placement: Boolean(placementUnit),
+    aspire_cohort: student.aspire_cohort || '',
+  }
 }
 
 export default async function handler(req, res) {
@@ -92,7 +110,29 @@ export default async function handler(req, res) {
         documents: documentsProvisioned ? { types: docs.types, documents: docs.documents, resumeOnRecord: docs.resumeOnRecord } : null,
         requests,
         feedback,
+        // ADD-ALUMNUS-1: the application profile, theirs to keep current. The ASPIRE cohort and
+        // a precepted unit from their ASPIRE placement are the program's, and read-only here.
+        profile: await applicationProfile(db, student),
       })
+    }
+
+    if (action === 'profile_save') {
+      const v = validateProfile(body.profile)
+      if (!v.ok) return res.status(422).json({ error: 'validation_failed', errors: v.errors })
+      const cols = studentColumnsFrom(v.profile)
+      if (student.matched_unit_id) delete cols.unit
+      const upd = await db.from('students').update(cols).eq('id', student.id)
+      if (upd.error) return internal(res)
+      try {
+        await db.from('activity_logs').insert({
+          user_id: profileId, user_name: auth.profile.full_name || 'Student', user_role: 'student',
+          action_type: 'student_application_profile_self_update', entity_type: 'student', entity_id: String(student.id),
+          cohort_id: student.cohort_id || null,
+          description: 'Student updated their application profile from the Student Portal (Residency).',
+          metadata: { source: 'portal_residency' },
+        })
+      } catch { /* the save stands; the audit line is best effort, as for uploads */ }
+      return res.status(200).json({ ok: true })
     }
 
     if (action === 'open') {

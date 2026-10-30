@@ -901,8 +901,10 @@ test('send: endpoint gates - no request-body recipients, typed confirmation, cap
   assert.match(sendApi, /already_sent_in_batch/)
   assert.ok(sendApi.indexOf('verifyPortalCaller(req)') < sendApi.indexOf('getServiceDb()'))
   assert.match(sendApi, /can\(caller\.profile, 'ngrp_manage'\)/)
-  // recipients resolve from the db (mapped cohorts + Completed), never the request
-  assert.match(sendApi, /\.in\('cohort_id', cohortIds\)/)
+  // recipients resolve from the db (mapped cohorts + Completed), never the request.
+  // ADD-ALUMNUS-1: or an alumnus added to the residency cohort by hand.
+  assert.match(sendApi, /cohortIds\.includes\(r\.cohort_id\) \|\| added\.ids\.includes\(r\.id\)/)
+  assert.match(sendApi, /fetchAddedStudentIds\(db, cycle\.id\)/)
   // send copy discipline: the user-facing phrase "Invited to Apply" never appears
   assert.doesNotMatch(sendApi, /Invited to Apply/)
   assert.match(transitionEmail, /not an application to the/)

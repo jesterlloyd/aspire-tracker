@@ -40,7 +40,7 @@ test('Talent Acquisition never receives a GPA', () => {
 
 test('the server attaches what the latest form reported, and the record GPA', () => {
   const src = read('lib/server/ngrpApplicants.js')
-  assert.match(src, /'cumulative_gpa, matched_unit_id, school_email, personal_email'/)
+  assert.match(src, /'cumulative_gpa, matched_unit_id, unit, school_email, personal_email'/)
   assert.match(src, /form_rn_status: row\.payload\?\.licensure\?\.ca_rn_status \|\| null/)
   assert.match(src, /form_cs_employment: row\.payload\?\.identity\?\.cs_employment_status \|\| null/)
 })

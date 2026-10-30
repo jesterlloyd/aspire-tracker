@@ -41,7 +41,8 @@ test('the log: the migration allows exactly what the code writes, and every type
   // APPLICANT-PACKET-1 (20261109000000) rebuilt the CHECK with packet_downloaded; the newest
   // migration that sets it is the one that must equal the code's list.
   // NGRP-INTERVIEWS-1 (20261111000000) rebuilt it again with the interview types.
-  const latest = read('supabase/migrations/20261111000000_ngrp_interviews.sql')
+  // ADD-ALUMNUS-1 (20261116000000) rebuilt it with the alumnus types.
+  const latest = read('supabase/migrations/20261116000000_ngrp_added_alumni.sql')
   const check = latest.slice(latest.indexOf('CHECK (event_type IN ('), latest.indexOf("));", latest.indexOf('CHECK (event_type IN (')))
   const inSql = [...check.matchAll(/'([a-z_]+)'/g)].map(m => m[1]).sort()
   assert.deepEqual(inSql, [...NGRP_AUDIT_EVENTS].sort())

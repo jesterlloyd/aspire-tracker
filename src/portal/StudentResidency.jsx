@@ -22,6 +22,7 @@ import { useRegisterPortalRefresh } from './PortalRefresh'
 import { useReportPortalFailure, ACCESS_FAILURE } from './portalAccessSignal'
 import './studentResidency.css'
 import ResumeFeedbackCard from '../components/documents/ResumeFeedbackCard'
+import ApplicationProfileCard from './ApplicationProfileCard'
 
 const CHIP = { ok: 'ptl-chip ptl-chip-ok', warn: 'ptl-chip ptl-chip-wait', off: 'ptl-chip ptl-chip-soft' }
 
@@ -178,6 +179,8 @@ export default function StudentResidency({ active }) {
       )}
 
       {data.feedback && <ResumeFeedbackCard fb={data.feedback} />}
+
+      {data.profile && <ApplicationProfileCard key={JSON.stringify(data.profile)} profile={data.profile} onSaved={load} />}
 
       <section className="ptl-card" aria-labelledby="sr-dates">
         <h3 id="sr-dates" className="ptl-card-title">Key Dates</h3>

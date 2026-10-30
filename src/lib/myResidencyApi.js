@@ -18,7 +18,7 @@ export async function postMyResidency(action, payload = {}) {
       body: JSON.stringify({ action, ...payload }),
     })
     const body = await res.json().catch(() => ({}))
-    if (!res.ok) return { ok: false, status: res.status, error: body.error || `http_${res.status}` }
+    if (!res.ok) return { ok: false, status: res.status, error: body.error || `http_${res.status}`, errors: body.errors || [] }
     return { ok: true, ...body }
   } catch {
     return { ok: false, status: 0, error: 'network_error' }

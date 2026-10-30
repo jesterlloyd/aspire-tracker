@@ -286,6 +286,12 @@
 .ngrp-seat-open { background: var(--aspire-ok-soft, #E1F3EA); color: var(--aspire-ok, #0F7A4D); }
 .ngrp-seat-left, .ngrp-seat-demand { background: var(--aspire-warn-soft, #FBEFD9); color: var(--aspire-warn, #8F5A0A); }
 .ngrp-seat-full { background: var(--aspire-bad-soft, #FBEAEC); color: var(--aspire-bad, #A32A32); }
+/* ADD-ALUMNUS-1: an alumnus added by hand, outside the participating cohorts. */
+.ngrp-added { display: inline-flex; align-items: center; gap: 6px; margin: 2px 0 0 4px; padding: 1px 6px; border-radius: var(--aspire-radius-pill); font-size: 9px; font-weight: 700; background: var(--aspire-warn-soft, #FBEFD9); color: var(--aspire-warn, #8F5A0A); }
+.ngrp-added-remove { background: none; border: 0; padding: 0; font: inherit; color: inherit; text-decoration: underline; cursor: pointer; }
+.ngrp-add-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px solid var(--color-border-subtle, #eceef3); border-radius: var(--aspire-radius-control); }
+.ngrp-add-match { padding: 12px; border-radius: var(--aspire-radius-control); background: var(--aspire-warn-soft, #FBEFD9); }
+.ngrp-add-error { margin: 0; font-size: 12px; color: var(--aspire-bad, #A32A32); }
 /* INTEREST-ELIGIBILITY-1: the narrower the window, the fewer columns, least-needed first. */
 .ngrp-cellmute { font-size: 12px; color: var(--text-caption); }
 .ngrp-cellval { font-size: 12.5px; font-weight: 600; color: var(--text-heading); }
