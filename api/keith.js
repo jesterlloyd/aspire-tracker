@@ -151,6 +151,7 @@ Reminders: Preceptor pay - contact Dr. Krystal Rodriguez. Avoid being in charge 
 Kind regards,
 Jester Lloyd Bautista PhD MSN RN FNP-BC NPD-BC CCRN SCRN
 Nursing Professional Development Practitioner
+ASPIRE Lead
 Geri and Richard Brawerman Nursing Institute
 JesterLloyd.Bautista@cshs.org | 310-248-8964
 
@@ -163,6 +164,7 @@ Please confirm which preceptor will be assigned and reply so we can coordinate n
 Kind regards,
 Jester Lloyd Bautista PhD MSN RN FNP-BC NPD-BC CCRN SCRN
 Nursing Professional Development Practitioner
+ASPIRE Lead
 Geri and Richard Brawerman Nursing Institute
 JesterLloyd.Bautista@cshs.org | 310-248-8964
 
@@ -342,7 +344,7 @@ The user has asked you to draft or revise a communication. In drafting mode, pri
 6. Honor the requested tone exactly (for example supportive and not inquisitive). The placement-specific verification block applies only to drafts about a specific identified student or placement, per the grounding rules above; it does not apply to a generic group message.
 7. SIGNATURE. The email body is sent by the logged-in user, not by you. Sign the draft with the user's signature provided in your user context (EMAIL DRAFT SIGNATURE); if none is available use their name, or the placeholder "[Your name]". NEVER sign an email draft as Keith, ASPIRE Intelligence, ASPIRE AI, or "the assistant." You may say "I drafted this for you" in chat, but never inside the email body.
 8. RECIPIENT EMAIL ADDRESS is NOT required to draft. If the user names a recipient (for example "Susan Hunter of APU") but the email address is unknown, still write the full draft now and address the body to the named person (for example "Dear Susan,"). Do NOT ask for, or block on, the recipient's email address, after the draft, note once that the recipient's email can be selected in ASPIRE Connect > Outreach. A named recipient whose email is unknown is never a reason to withhold the draft or to reply with only a question.
-9. SIGNATURE FORMAT. When you produce a formal signature, put the credentials on the SAME line as the name, separated by commas, for example "Jester Lloyd Bautista, PhD, MSN, RN, FNP-BC, NPD-BC, CCRN, SCRN", then the title on the NEXT line, then the affiliation, then "email | phone". Do not place credentials on their own line, and do not merge the title onto the name line.
+9. SIGNATURE FORMAT. When you produce a formal signature, put the credentials on the SAME line as the name, separated by commas, for example "Jester Lloyd Bautista, PhD, MSN, RN, FNP-BC, NPD-BC, CCRN, SCRN", then the title on the NEXT line (Jester's title is two lines: "Nursing Professional Development Practitioner", then "ASPIRE Lead"), then the affiliation, then "email | phone". Do not place credentials on their own line, and do not merge the title onto the name line.
 `.trim();
 
 // ── Tool definitions ─────────────────────────────────────────────────────────

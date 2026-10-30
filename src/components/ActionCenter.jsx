@@ -226,12 +226,14 @@ function describeMissedWeek(s) {
 const SIG = `Warm regards,
 Jester Lloyd Bautista, PhD, MSN, RN, FNP-BC, NPD-BC, CCRN, SCRN
 Nursing Professional Development Practitioner
+ASPIRE Lead
 Geri and Richard Brawerman Nursing Institute
 JesterLloyd.Bautista@cshs.org | 310-248-8964`
 
 const KR_SIG = `Kind regards,
 Jester Lloyd Bautista, PhD, MSN, RN, FNP-BC, NPD-BC, CCRN, SCRN
 Nursing Professional Development Practitioner
+ASPIRE Lead
 Geri and Richard Brawerman Nursing Institute
 JesterLloyd.Bautista@cshs.org | 310-248-8964`
 

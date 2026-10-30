@@ -26,6 +26,7 @@ export function aspireHandwrittenSignature(closing = 'Kind regards,') {
 <p style="margin:0;font-size:14px;color:${RAVEN};line-height:1.6;">
   <strong style="color:${CS_RED};">Jester Lloyd Bautista, PhD, MSN, RN, FNP-BC, NPD-BC, CCRN, SCRN</strong>
   <span style="display:block;">Nursing Professional Development Practitioner</span>
+  <span style="display:block;">ASPIRE Lead</span>
   <span style="display:block;">Geri &amp; Richard Brawerman Nursing Institute</span>
   <span style="display:block;margin-top:2px;"><a href="mailto:jesterlloyd.bautista@cshs.org" style="color:${NAVY};text-decoration:none;">jesterlloyd.bautista@cshs.org</a> | Office: 310-248-8964</span>
 </p>`;
