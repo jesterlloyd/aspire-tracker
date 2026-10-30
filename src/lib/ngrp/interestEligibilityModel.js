@@ -32,6 +32,79 @@ export function licenseOf(row) {
   return LICENSE_LABELS[row?.form_rn_status] || null
 }
 
+// ── ELIGIBILITY-SUBTITLES-1 (Owner, 2026-10-30) ──────────────────────────────
+// The line under a pill, the way Form shows when it was received: the license number for a
+// licensed alumnus, the NCLEX date for one still to sit it, and why an alumnus is or is not
+// eligible. Every word comes from the form and the stored eligibility reasons; nothing is
+// recalculated here.
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+export function shortDate(ymd) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(ymd || ''))
+  if (!m) return null
+  const mon = MONTHS[Number(m[2]) - 1]
+  return mon ? `${mon} ${Number(m[3])}, ${m[1]}` : null
+}
+
+export function licenseDetail(row) {
+  if (row?.form_rn_status === 'active') {
+    const n = String(row.form_rn_license_number || '').trim()
+    return n ? `License ${n}` : null
+  }
+  if (row?.form_rn_status === 'pending') {
+    const d = shortDate(row.form_nclex_date)
+    return d ? `NCLEX ${d}` : 'NCLEX not yet scheduled'
+  }
+  return null
+}
+
+// A requirement's short reason, by its code and status (computeEligibility's rows).
+function reasonWords(r) {
+  const due = shortDate(r.deadline)
+  switch (r.code) {
+    case 'license': {
+      const nclex = /NCLEX scheduled (\d{4}-\d{2}-\d{2})/.exec(r.detail || '')
+      if (r.status === 'conditional') return nclex ? `NCLEX scheduled ${shortDate(nclex[1])}` : 'NCLEX scheduled'
+      if (r.status === 'not_met') {
+        if (/after the licensure deadline/.test(r.detail || '')) return 'NCLEX after the license deadline'
+        if (/no NCLEX date/.test(r.detail || '')) return 'NCLEX not yet scheduled'
+        return 'No active RN license'
+      }
+      return 'License status not reported'
+    }
+    case 'experience': return r.status === 'not_met' ? 'Too much paid RN experience' : 'RN experience not reported'
+    case 'gpa': return r.status === 'not_met' ? 'GPA below the minimum' : 'GPA not reported'
+    case 'completion_window':
+      if (r.status === 'not_met') return 'Completed outside the window'
+      return /application date/.test(r.detail || '') ? 'Cohort dates not set' : 'Completion date not reported'
+    case 'bls':
+      if (r.status === 'conditional') return due ? `BLS due ${due}` : 'BLS due'
+      return r.status === 'not_met' ? 'BLS not active' : 'BLS not reported'
+    case 'acls':
+      if (r.status === 'conditional') return due ? `ACLS due ${due}` : 'ACLS due'
+      return r.status === 'not_met' ? 'ACLS needed, not active' : 'ACLS not reported'
+    case 'accreditation': return r.status === 'not_met' ? 'Program not accredited' : 'Accreditation not confirmed'
+    default: return r.label || null
+  }
+}
+
+const REASON_STATUS = { not_eligible: 'not_met', conditionally_eligible: 'conditional', pending: 'unknown' }
+
+// Why the pill reads what it reads. A staff override says so; otherwise the requirements that
+// decided the result, the first one in words and the rest counted.
+export function eligibilityDetail(row, effective) {
+  if (row?.eligibility_effective) return 'Staff override'
+  if (effective === 'eligible') return 'Requirements complete'
+  const want = REASON_STATUS[effective]
+  if (!want) return null
+  const reasons = Array.isArray(row?.eligibility_reasons) ? row.eligibility_reasons : []
+  if (!reasons.length) return effective === 'pending' ? 'Awaiting the Transition Form' : null
+  const hits = reasons.filter(r => (r.status || (r.met ? 'met' : 'not_met')) === want)
+  if (!hits.length) return null
+  const first = reasonWords(hits[0])
+  return hits.length > 1 ? `${first} +${hits.length - 1} more` : first
+}
+
 export function employmentOf(row) {
   return EMPLOYMENT_LABELS[row?.form_cs_employment] || null
 }

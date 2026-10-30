@@ -98,3 +98,34 @@ test('INTEREST-ELIGIBILITY-2: a row click selects; the photo and name open Profi
   assert.equal((tab.match(/className="ngrp-openbtn[^"]*"/g) || []).length, 2)
   assert.match(tab, /<span className="ngrp-stack">\s*<NgrpStatusPill config=\{FORM_SENT_STATES\}/)
 })
+
+// ELIGIBILITY-SUBTITLES-1 (Owner, 2026-10-30): the line under the license and eligibility pills.
+import { licenseDetail, eligibilityDetail, shortDate } from '../src/lib/ngrp/interestEligibilityModel.js'
+import { computeEligibility } from '../lib/server/ngrpEligibility.js'
+
+test('the license line is the number when licensed and the NCLEX date when ahead', () => {
+  assert.equal(licenseDetail({ form_rn_status: 'active', form_rn_license_number: '95123456' }), 'License 95123456')
+  assert.equal(licenseDetail({ form_rn_status: 'active' }), null)
+  assert.equal(licenseDetail({ form_rn_status: 'pending', form_nclex_date: '2026-11-12' }), 'NCLEX Nov 12, 2026')
+  assert.equal(licenseDetail({ form_rn_status: 'pending' }), 'NCLEX not yet scheduled')
+  assert.equal(licenseDetail({ form_rn_status: 'none' }), null)
+  assert.equal(shortDate('nope'), null)
+})
+
+test('the eligibility line says why, from the stored reasons', () => {
+  const cycle = { application_deadline: '2026-12-01', licensure_deadline: '2027-01-15' }
+  const base = { ca_rn_status: 'active', paid_rn_months: 0, gpa: 3.5, completion_date: '2026-08-01', bls_status: 'active' }
+  const row = facts => ({ eligibility_reasons: computeEligibility({ cycle, facts }).reasons })
+  const res = facts => computeEligibility({ cycle, facts }).result
+
+  assert.equal(eligibilityDetail(row(base), res(base)), 'Requirements complete')
+  const sched = { ...base, ca_rn_status: 'pending', nclex_scheduled_date: '2026-12-10' }
+  assert.equal(res(sched), 'conditionally_eligible')
+  assert.equal(eligibilityDetail(row(sched), res(sched)), 'NCLEX scheduled Dec 10, 2026')
+  const none = { ...base, ca_rn_status: 'pending' }
+  assert.equal(eligibilityDetail(row(none), res(none)), 'NCLEX not yet scheduled')
+  const two = { ...none, gpa: 2.5 }
+  assert.equal(eligibilityDetail(row(two), res(two)), 'NCLEX not yet scheduled +1 more')
+  assert.equal(eligibilityDetail({ eligibility_effective: 'eligible' }, 'eligible'), 'Staff override')
+  assert.equal(eligibilityDetail({}, 'pending'), 'Awaiting the Transition Form')
+})

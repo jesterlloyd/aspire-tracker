@@ -52,7 +52,7 @@ import { transitionPreviewFor } from '../../lib/ngrp/transitionPreviewFixture'
 import { transitionFormPreview } from '../../lib/ngrp/transitionFormPreview'
 import SortHeader from '../shared/SortHeader'
 import { sortRows } from '../shared/dataSheetSort'
-import { LICENSE_LABELS, NOT_REPORTED, employmentOf, gpaOf, gpaBand, interestColumns, preceptedUnitOf, unitDemand, demandFor, seatLabel } from '../../lib/ngrp/interestEligibilityModel'
+import { LICENSE_LABELS, NOT_REPORTED, employmentOf, licenseDetail, eligibilityDetail, gpaOf, gpaBand, interestColumns, preceptedUnitOf, unitDemand, demandFor, seatLabel } from '../../lib/ngrp/interestEligibilityModel'
 import { GPA_BAND_COLORS } from '../../lib/constants'
 import {
   FORM_SENT_STATES, ELIGIBILITY_STATES, ROSTER_STATUSES,
@@ -846,7 +846,6 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                   )}
                   {filteredRows.map(r => {
                     const s = r.student
-                    const overridden = Boolean(r.eligibility_effective)
                     const ts = formTimestamp(r)
                     const { preferences, source: prefSource } = effectivePreferences(r)
                     const status = rosterStatus(r)
@@ -916,7 +915,10 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                         </td>
                         <td>
                           {LICENSE_LABELS[r.form_rn_status]
-                            ? <NgrpStatusPill config={LICENSE_LABELS} value={r.form_rn_status} srPrefix="CA RN license" />
+                            ? <span className="ngrp-stack">
+                                <NgrpStatusPill config={LICENSE_LABELS} value={r.form_rn_status} srPrefix="CA RN license" />
+                                {licenseDetail(r) && <span className="ngrp-cellsub">{licenseDetail(r)}</span>}
+                              </span>
                             : <span className="ngrp-cellmute">{NOT_REPORTED}</span>}
                         </td>
                         <td className="ngrp-col-employment">
@@ -934,7 +936,7 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                         <td>
                           <span className="ngrp-stack">
                             <NgrpStatusPill config={ELIGIBILITY_STATES} value={effectiveEligibility(r)} srPrefix="Eligibility" />
-                            {overridden && <span className="ngrp-cellsub">staff override · see details</span>}
+                            {eligibilityDetail(r, effectiveEligibility(r)) && <span className="ngrp-cellsub">{eligibilityDetail(r, effectiveEligibility(r))}</span>}
                           </span>
                         </td>
                         <td className="ngrp-col-precepted">
