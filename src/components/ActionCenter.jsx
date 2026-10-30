@@ -224,13 +224,13 @@ function describeMissedWeek(s) {
 
 // ── Email builders ────────────────────────────────────────────
 const SIG = `Warm regards,
-Jester Lloyd Bautista, PhD, MSN, RN, NPD-BC, CCRN, SCRN
+Jester Lloyd Bautista, PhD, MSN, RN, FNP-BC, NPD-BC, CCRN, SCRN
 Nursing Professional Development Practitioner
 Geri and Richard Brawerman Nursing Institute
 JesterLloyd.Bautista@cshs.org | 310-248-8964`
 
 const KR_SIG = `Kind regards,
-Jester Lloyd Bautista, PhD, MSN, RN, NPD-BC, CCRN, SCRN
+Jester Lloyd Bautista, PhD, MSN, RN, FNP-BC, NPD-BC, CCRN, SCRN
 Nursing Professional Development Practitioner
 Geri and Richard Brawerman Nursing Institute
 JesterLloyd.Bautista@cshs.org | 310-248-8964`

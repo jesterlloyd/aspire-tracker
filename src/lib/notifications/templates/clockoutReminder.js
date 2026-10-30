@@ -24,7 +24,7 @@ export function clockoutReminderText(firstName) {
     'If you are still on shift, no action is needed at this time.',
     '',
     'Kind regards,',
-    'Jester Lloyd Bautista, PhD, MSN, RN, NPD-BC, CCRN, SCRN',
+    'Jester Lloyd Bautista, PhD, MSN, RN, FNP-BC, NPD-BC, CCRN, SCRN',
     'Nursing Professional Development Practitioner',
     'Geri & Richard Brawerman Nursing Institute',
     'jesterlloyd.bautista@cshs.org | Office: 310-248-8964',

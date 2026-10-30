@@ -2,7 +2,7 @@
 // Import into any template file; one update here changes all sends.
 
 export const JESTER_SIGNATURE = {
-  fullName:    'Jester Lloyd Bautista, PhD, MSN, RN, NPD-BC, CCRN, SCRN',
+  fullName:    'Jester Lloyd Bautista, PhD, MSN, RN, FNP-BC, NPD-BC, CCRN, SCRN',
   title:       'ASPIRE Lead',
   affiliation: 'Brawerman Nursing Institute, Cedars-Sinai',
   email:       'JesterLloyd.Bautista@cshs.org',

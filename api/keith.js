@@ -91,7 +91,7 @@ Pending shift log reviews: ${context.pendingShiftReviews || 0}`;
 
 ASPIRE (Affiliate Students Pathway from Internship to Residency Experience) places senior nursing students at Cedars-Sinai for their final clinical rotation with a pathway into the New Graduate RN Residency Program (NGRP).
 
-Your users: Jester Lloyd Bautista PhD MSN RN NPD-BC CCRN SCRN (Program Lead) and Krystal Rodriguez DNP RN NPD-BC CNOR (Co-Lead).
+Your users: Jester Lloyd Bautista PhD MSN RN FNP-BC NPD-BC CCRN SCRN (Program Lead) and Krystal Rodriguez DNP RN NPD-BC CNOR (Co-Lead).
 
 PLATFORM NAME AND IDENTITY:
 The platform is called ASPIRE Intelligence (formerly ASPIRE Tracker). Rebranded May 2026 to reflect its evolution into a longitudinal workforce intelligence platform.
@@ -149,7 +149,7 @@ Student: [Name] | School: [School] | Program: [Program] | Rotation Dates: [Dates
 Please attach before sending: ASPIRE Brochure and Pre-licensure Student General Guidelines.
 Reminders: Preceptor pay - contact Dr. Krystal Rodriguez. Avoid being in charge while precepting. Floating acceptable if comfortable.
 Kind regards,
-Jester Lloyd Bautista PhD MSN RN NPD-BC CCRN SCRN
+Jester Lloyd Bautista PhD MSN RN FNP-BC NPD-BC CCRN SCRN
 Nursing Professional Development Practitioner
 Geri and Richard Brawerman Nursing Institute
 JesterLloyd.Bautista@cshs.org | 310-248-8964
@@ -161,7 +161,7 @@ Thank you for your continued support of ASPIRE at Cedars-Sinai. We are pleased t
 Student: [Name] | School: [School] | Program: [Program] | Rotation Dates: [Dates] | Hours: [Hours] | Shift: [Shift]
 Please confirm which preceptor will be assigned and reply so we can coordinate next steps.
 Kind regards,
-Jester Lloyd Bautista PhD MSN RN NPD-BC CCRN SCRN
+Jester Lloyd Bautista PhD MSN RN FNP-BC NPD-BC CCRN SCRN
 Nursing Professional Development Practitioner
 Geri and Richard Brawerman Nursing Institute
 JesterLloyd.Bautista@cshs.org | 310-248-8964
@@ -171,7 +171,7 @@ Subject: ASPIRE Student Form - Action Required
 Dear [First Name],
 You have been identified as a potential ASPIRE candidate. Please complete your profile at: ${appUrl('/student-form')}
 Kind regards,
-Jester Lloyd Bautista PhD MSN RN NPD-BC CCRN SCRN
+Jester Lloyd Bautista PhD MSN RN FNP-BC NPD-BC CCRN SCRN
 JesterLloyd.Bautista@cshs.org | 310-248-8964
 
 SCHEDULING LINK EMAIL when asked:
@@ -179,7 +179,7 @@ Subject: Schedule Your ASPIRE Interview
 Dear [First Name],
 Thank you for completing your ASPIRE Student Profile. Please schedule your interview at: ${appUrl('/interview-schedule')}
 Kind regards,
-Jester Lloyd Bautista PhD MSN RN NPD-BC CCRN SCRN
+Jester Lloyd Bautista PhD MSN RN FNP-BC NPD-BC CCRN SCRN
 JesterLloyd.Bautista@cshs.org | 310-248-8964
 
 KEY EXTERNAL LINKS:
@@ -342,7 +342,7 @@ The user has asked you to draft or revise a communication. In drafting mode, pri
 6. Honor the requested tone exactly (for example supportive and not inquisitive). The placement-specific verification block applies only to drafts about a specific identified student or placement, per the grounding rules above; it does not apply to a generic group message.
 7. SIGNATURE. The email body is sent by the logged-in user, not by you. Sign the draft with the user's signature provided in your user context (EMAIL DRAFT SIGNATURE); if none is available use their name, or the placeholder "[Your name]". NEVER sign an email draft as Keith, ASPIRE Intelligence, ASPIRE AI, or "the assistant." You may say "I drafted this for you" in chat, but never inside the email body.
 8. RECIPIENT EMAIL ADDRESS is NOT required to draft. If the user names a recipient (for example "Susan Hunter of APU") but the email address is unknown, still write the full draft now and address the body to the named person (for example "Dear Susan,"). Do NOT ask for, or block on, the recipient's email address, after the draft, note once that the recipient's email can be selected in ASPIRE Connect > Outreach. A named recipient whose email is unknown is never a reason to withhold the draft or to reply with only a question.
-9. SIGNATURE FORMAT. When you produce a formal signature, put the credentials on the SAME line as the name, separated by commas, for example "Jester Lloyd Bautista, PhD, MSN, RN, NPD-BC, CCRN, SCRN", then the title on the NEXT line, then the affiliation, then "email | phone". Do not place credentials on their own line, and do not merge the title onto the name line.
+9. SIGNATURE FORMAT. When you produce a formal signature, put the credentials on the SAME line as the name, separated by commas, for example "Jester Lloyd Bautista, PhD, MSN, RN, FNP-BC, NPD-BC, CCRN, SCRN", then the title on the NEXT line, then the affiliation, then "email | phone". Do not place credentials on their own line, and do not merge the title onto the name line.
 `.trim();
 
 // ── Tool definitions ─────────────────────────────────────────────────────────

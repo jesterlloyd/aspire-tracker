@@ -93,7 +93,7 @@ test('the handwritten GIF signature, matching every comparable secure-link email
   const { html } = render()
   assert.match(html, /signature-jester\.gif/)
   assert.match(html, /Kind regards,/)
-  assert.match(html, /Jester Lloyd Bautista, PhD, MSN, RN, NPD-BC, CCRN, SCRN/)
+  assert.match(html, /Jester Lloyd Bautista, PhD, MSN, RN, FNP-BC, NPD-BC, CCRN, SCRN/)
   assert.match(html, /Nursing Professional Development Practitioner/)
   assert.match(html, /Geri &amp; Richard Brawerman Nursing Institute/)
   assert.match(html, /Office: 310-248-8964/)
