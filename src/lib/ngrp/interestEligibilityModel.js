@@ -11,6 +11,7 @@
 
 import { gpaBand } from '../constants.js'
 import { preceptedUnitsOfRow } from './preceptedUnits.js'
+import { scoreSortValue } from './candidateScoreModel.js'
 
 // NgrpStatusPill's config shape.
 export const LICENSE_LABELS = Object.freeze({
@@ -144,7 +145,7 @@ export function interestColumns({ effectiveEligibility, gpaValue = gpaOf }) {
     { key: 'precepted', sortValue: r => (preceptedUnitOf(r) || '').toLowerCase() || null },
     { key: 'choices', sortValue: r => (r.unit_preference_1 || '').toLowerCase() || null },
     // CANDIDATE-SCORE-1: scored applicants by score; Not eligible and unscored sort last.
-    { key: 'fit', sortValue: r => (r.candidate_score?.ineligible ? null : (r.candidate_score?.score ?? null)) },
+    { key: 'fit', sortValue: r => scoreSortValue(r.candidate_score) },
   ]
 }
 

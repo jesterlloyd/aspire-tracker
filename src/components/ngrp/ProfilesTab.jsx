@@ -1003,7 +1003,7 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                         <td className="ngrp-col-fit">
                           <span className="ngrp-stack">
                             <CandidateFitChip score={r.candidate_score} onOpen={() => setScoreRowId(r.id)} />
-                            {r.candidate_score?.score != null && <span className="ngrp-cellsub">{r.candidate_score.basedOn} of 4 factors</span>}
+                            {r.candidate_score?.score != null && <span className="ngrp-cellsub">{r.candidate_score.basedOn} of 4 factors{r.candidate_score.provisional ? ' · provisional' : ''}</span>}
                           </span>
                         </td>
                       </tr>

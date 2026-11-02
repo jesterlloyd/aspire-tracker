@@ -235,7 +235,9 @@ test('Talent Acquisition and the ASPIRE team see the Keith mark on an assessment
 // ── The screens ───────────────────────────────────────────────────────────────
 test('the table sorts by Fit, the binder and the board read the one score, and the endpoint has room to run', () => {
   const fit = interestColumns({ effectiveEligibility: () => 'eligible' }).find(c => c.key === 'fit')
-  assert.equal(fit.sortValue({ candidate_score: { score: 82 } }), 82)
+  // FIT-RULES-2: a complete score sorts above every provisional one (fitRules.test.mjs).
+  assert.equal(fit.sortValue({ candidate_score: { score: 82 } }), 1082)
+  assert.equal(fit.sortValue({ candidate_score: { score: 82, provisional: true } }), 82)
   assert.equal(fit.sortValue({ candidate_score: { score: 82, ineligible: true } }), null, 'Not eligible sorts with the unscored')
   const tab = read('src/components/ngrp/ProfilesTab.jsx')
   assert.match(tab, /sortKey="fit"[^>]*>Fit<\/SortHeader>/)

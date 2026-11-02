@@ -233,6 +233,10 @@ export const KPI_DEFS = [
   // status somebody had to set by hand.
   { key: 'pool',       label: 'In the Applicant Pool',  sub: 'Ready to be paired',     accent: 'marina',
     match: r => isInApplicantPool(r) },
+  // FIT-RULES-2 (Owner, 2026-11-02): the candidate score's top band, provisional scores included
+  // (the roster says which are), never an ineligible applicant.
+  { key: 'strong_fit', label: 'Strong Fit',            sub: 'Fit score 80 or more',   accent: 'chroma',
+    match: r => r.candidate_score?.band === 'strong' && r.candidate_score.ineligible !== true },
 ]
 
 // ── Sorting ──────────────────────────────────────────────────────────────────

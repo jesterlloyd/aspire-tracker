@@ -4,14 +4,18 @@
 // Keith rates only the statements (three 0 to 10 ratings) and writes the reasons; this module turns
 // every rating into points. Pure: the server builds the score with it and the screens print it.
 //
-//   Unit fit           20  rotated in a unit they ranked: 1st 20, 2nd 15, 3rd 10
+//   Unit fit           20  rotated in a unit they ranked: 1st 20, 2nd 15, 3rd 10. FIT-RULES-2:
+//                          when no unit they rotated in is hiring this cohort, 10 (neutral), or 15
+//                          if they ranked a close relative of it; a hiring rotation unit they
+//                          passed over is 0
 //   Preceptor feedback 30  the six competency ratings from the latest feedback, scaled
 //   Résumé             25  Keith's latest résumé composite, scaled
 //   Statement          25  Keith's three statement ratings, summed and scaled
 //
 // A factor with nothing on file is left out and the rest are scaled to 100, so a missing piece
 // never counts as a low one; the score says how many factors it stands on. Fewer than two is not
-// enough to score. Eligibility is a gate, not points: an ineligible applicant reads Not eligible.
+// enough to score. FIT-RULES-2 (Owner, 2026-11-02): a score on fewer than all four is PROVISIONAL,
+// labelled so and ranked below every complete score, so two strong factors never outrank four. Eligibility is a gate, not points: an ineligible applicant reads Not eligible.
 // Preceptor feedback counts only once the Transition Form is submitted, the consent that shares
 // it (FEEDBACK-CONSENT-1), so the ASPIRE team and Talent Acquisition always see the same number.
 import { unitNameKey } from '../unitNameCanon.js'
@@ -39,6 +43,18 @@ export const NOT_ELIGIBLE = 'Not eligible'
 
 const round1 = n => Math.round(n * 10) / 10
 const ORDINAL = ['1st', '2nd', '3rd']
+export const UNIT_FIT_NOT_HIRING = 10
+export const UNIT_FIT_RELATED = 15
+
+// FIT-RULES-2: units that train for the same patients. A rotation in one prepares for the others,
+// so ranking a relative of a unit that is not hiring is close to ranking the unit itself. A unit
+// belongs to a family when its name matches; add a family here, never a guess at the call site.
+export const UNIT_FAMILIES = Object.freeze([
+  { key: 'pediatrics', label: 'pediatric', match: /pediatric|peds|picu|nicu/i },
+  { key: 'maternal', label: 'maternal and newborn', match: /labor|delivery|l\s*&\s*d|postpartum|antepartum|mother|newborn|nicu/i },
+])
+export const familiesOf = unit => UNIT_FAMILIES.filter(f => f.match.test(String(unit || ''))).map(f => f.key)
+const related = (a, b) => familiesOf(a).some(k => familiesOf(b).includes(k))
 
 // The units they were placed in for ASPIRE, by any record of it. PRECEPTED-UNITS-1: the record
 // and the form may each name several units, so either may be a list.
@@ -51,15 +67,28 @@ export function rotatedUnits({ preceptedUnit = null, formPreceptedUnit = null, f
   return [...out.values()]
 }
 
-export function unitFitFactor(preferences = [], rotated = []) {
+/**
+ * @param hiring  the units hiring this cohort (names), or null when unknown: unknown reads as
+ *                hiring, the rule before FIT-RULES-2.
+ */
+export function unitFitFactor(preferences = [], rotated = [], hiring = null) {
   const ranked = (preferences || []).filter(Boolean).slice(0, 3)
   if (!ranked.length) return { points: null, detail: 'No units ranked yet' }
   const keys = new Set(rotated.map(unitNameKey))
   const hit = ranked.findIndex(u => keys.has(unitNameKey(u)))
-  if (hit === -1) {
-    return { points: 0, detail: rotated.length ? `Rotated in ${rotated.join(', ')}, which they did not rank` : 'No ASPIRE unit on record' }
+  if (hit !== -1) return { points: UNIT_FIT_POINTS[hit], detail: `Rotated in ${ranked[hit]}, their ${ORDINAL[hit]} choice` }
+  if (!rotated.length) return { points: 0, detail: 'No ASPIRE unit on record' }
+  const hiringKeys = hiring ? new Set(hiring.map(unitNameKey)) : null
+  const passedOver = rotated.filter(u => !hiringKeys || hiringKeys.has(unitNameKey(u)))
+  if (passedOver.length) {
+    return { points: 0, detail: `Rotated in ${passedOver.join(', ')}, which is hiring and they did not rank` }
   }
-  return { points: UNIT_FIT_POINTS[hit], detail: `Rotated in ${ranked[hit]}, their ${ORDINAL[hit]} choice` }
+  const closed = `${rotated.join(', ')} ${rotated.length === 1 ? 'is' : 'are'} not hiring this cohort`
+  const near = ranked.findIndex(u => rotated.some(r => related(r, u)))
+  if (near !== -1) {
+    return { points: UNIT_FIT_RELATED, detail: `${closed}; they ranked ${ranked[near]}, a related unit, ${ORDINAL[near]}` }
+  }
+  return { points: UNIT_FIT_NOT_HIRING, detail: `${closed}, so it counts as neutral` }
 }
 
 // Ratings run 1 to 5 and 1 is "Not Observed / Unable to Assess", which is left out of every mean
@@ -106,7 +135,7 @@ export function bandFor(score) {
 // statementRatings, eligibility }.
 export function candidateScore(input = {}) {
   const parts = {
-    unit_fit: unitFitFactor(input.preferences, input.rotated || []),
+    unit_fit: unitFitFactor(input.preferences, input.rotated || [], input.hiring ?? null),
     feedback: feedbackFactor(input.ratings, { consent: input.consent !== false }),
     resume: resumeFactor(input.resumeComposite),
     statement: statementFactor(input.statementRatings),
@@ -116,19 +145,20 @@ export function candidateScore(input = {}) {
   const basedOn = counted.length
   const ineligible = input.eligibility === 'not_eligible'
   if (basedOn < MIN_FACTORS) {
-    return { score: null, band: null, label: ineligible ? NOT_ELIGIBLE : NOT_ENOUGH, basedOn, factors, ineligible }
+    return { score: null, band: null, label: ineligible ? NOT_ELIGIBLE : NOT_ENOUGH, basedOn, factors, ineligible, provisional: false }
   }
   const points = counted.reduce((a, f) => a + f.points, 0)
   const possible = counted.reduce((a, f) => a + f.max, 0)
   const score = Math.round((points / possible) * 100)
   const band = bandFor(score)
-  return { score, band: band.key, label: ineligible ? NOT_ELIGIBLE : band.label, basedOn, factors, ineligible }
+  return { score, band: band.key, label: ineligible ? NOT_ELIGIBLE : band.label, basedOn, factors, ineligible, provisional: basedOn < FACTORS.length }
 }
 
-export const basedOnLine = s => (s?.basedOn != null ? `Based on ${s.basedOn} of ${FACTORS.length} factors` : '')
+export const basedOnLine = s => (s?.basedOn != null ? `Based on ${s.basedOn} of ${FACTORS.length} factors${s.provisional ? ', so provisional' : ''}` : '')
 
-// Sort key for the Fit column: scored applicants by score, then the unscored.
-export const scoreSortValue = s => (s?.score == null ? null : s.score)
+// Sort key for the Fit column: every complete score above every provisional one (FIT-RULES-2),
+// each by score; the unscored and the ineligible last.
+export const scoreSortValue = s => (s?.score == null || s.ineligible ? null : s.score + (s.provisional ? 0 : 1000))
 
 // CANDIDATE-SCORE-2: Keith had a hand in this score when he rated the statement or scored the
 // résumé it counts. The Fit chip shows his orb exactly then.

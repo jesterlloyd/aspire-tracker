@@ -2852,3 +2852,24 @@ Candidate Score dialog's shell (`useDialogKeys`).
   returns the shaped feedback with no event; the 'viewed' events stay the record of what Talent
   Acquisition opened (FEEDBACK-CONSENT-1), and each TA open from the chip logs one, exactly like the
   binder's View Feedback. The dialog fetches once per open (`loadFeedback` is a stable callback).
+
+## Fit knows who is hiring (FIT-RULES-2, 2026-11-02)
+
+Owner: Alison Curd rotated in Pediatrics, which is not hiring this cohort, and ranked PICU; she should
+not get 0 for unit fit. And two strong factors should not outrank four. The rules stay in
+`src/lib/ngrp/candidateScoreModel.js`; the server reads the cohort's hiring list (`hiringUnitsFor`: the
+active `ngrp_cycle_units`, capacity is never 0) and passes it in.
+
+- **Unit fit**: a ranked rotation unit is 20 / 15 / 10 as before. Otherwise, a rotation unit that IS
+  hiring and was passed over is 0. When none of their rotation units is hiring: 15 if they ranked a
+  related unit (`UNIT_FAMILIES`: pediatric, maternal and newborn; add a family there, never a guess at a
+  call site), else 10, neutral. A failed hiring read scores by the old rule. The hiring list is not in
+  Keith's fingerprint: it is the app's rule, not something he read.
+- **Provisional** (Owner chose "keep scaling, flag it" over counting a missing factor at half or zero):
+  the arithmetic is unchanged, but a score on fewer than four factors carries `provisional: true`, says
+  so ("3 of 4 factors · provisional", "Based on 3 of 4 factors, so provisional"), and `scoreSortValue`
+  ranks every complete score above every provisional one.
+- **The Excel carries the Fit** after the form's own columns: Fit Score, Fit, Fit Based On, and each
+  factor's points or "Not counted".
+- **Strong Fit is the seventh KPI card** (80 or more, provisional included, never ineligible). Profiles
+  and Interest & Eligibility share one set of cards and one `?kpi=` filter, so it filters both.

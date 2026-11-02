@@ -154,7 +154,7 @@ function IntervieweeNote({
             {/* CANDIDATE-SCORE-1: the score that helps decide who to pair. Words, never colour alone. */}
             {row.candidate_score?.score != null && !row.candidate_score.ineligible && (
               <span className="pb-chip ngrp-fitchip" data-testid="interviewee-fit-chip">
-                Fit {row.candidate_score.score} · {row.candidate_score.label}
+                Fit {row.candidate_score.score} · {row.candidate_score.label}{row.candidate_score.provisional ? ' · provisional' : ''}
                 {/* CANDIDATE-SCORE-2: Keith's orb when he had a hand in the score. */}
                 {keithContributed(row.candidate_score) && <KeithGlyph />}
               </span>

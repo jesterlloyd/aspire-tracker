@@ -94,7 +94,10 @@ test("the GPA is the form's, as a number, and the record's GPA never reaches the
 })
 
 test('no student-record emails, no ids, no preceptor feedback', () => {
-  const blob = JSON.stringify(build())
+  // FIT-RULES-2 (2026-11-02): the Fit columns name the score's Preceptor Feedback FACTOR (its
+  // points, which the score dialog already shows both audiences). That header is the one allowed
+  // mention; no feedback content may reach the file.
+  const blob = JSON.stringify(build()).replace('Fit: Preceptor Feedback (of 30)', '')
   for (const leak of ['ace@school.edu', 'ace@home.com', 'bea@school.edu', 'bea@home.com', 'k1', '"a1"', 'cy1', 'preceptor', 'Preceptor']) {
     assert.ok(!blob.includes(leak), `leaked ${leak}`)
   }
