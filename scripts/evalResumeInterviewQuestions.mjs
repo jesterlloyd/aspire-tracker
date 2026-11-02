@@ -17,6 +17,7 @@
 //
 // Result on 2026-08-05 with claude-haiku-4-5-20251001 at temperature 0.2:
 // 27/27 checks passed.
+// Result on 2026-11-01 with claude-haiku-5-5 at low effort: 27/27 (KEITH-MODELS-5-5).
 import { readFileSync } from 'node:fs'
 import { redactContactDetails, truncateForInference } from '../lib/server/keith/resumeRedaction.js'
 import { resolveRoute } from '../lib/server/keith/modelRouting.js'

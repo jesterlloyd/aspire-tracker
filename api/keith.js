@@ -18,7 +18,7 @@ import { classifyIntent, INTENTS, isExplicitEmailDrafting, preferGovernedRouting
 import { can as canAccess, keithContextScope, allowsContextSection } from '../lib/server/access.js';
 import { answerPersonContactQuery, CONTACTS_ROLE_DENIED } from '../lib/server/keith/contactsLookup.js';
 import { placementFor } from '../lib/server/keith/studentPlacement.js';
-import { resolveRoute, resolveChatSelection, modelRequestParams, MODEL_DECLINED_MESSAGE, DEFAULT_ROUTE as DEFAULT_ROUTE_NAME } from '../lib/server/keith/modelRouting.js';
+import { resolveRoute, resolveChatSelection, requestNamesOpus, modelRequestParams, MODEL_DECLINED_MESSAGE, DEFAULT_ROUTE as DEFAULT_ROUTE_NAME } from '../lib/server/keith/modelRouting.js';
 import { consumeRateLimit, rateLimitMessage, limiterUnavailableMessage, WEIGHT_CHAT, WEIGHT_SKILL } from '../lib/server/keith/rateLimit.js';
 import { recordKeithUsage, recordSkillInvocation, OUTCOMES } from '../lib/server/keith/usageLog.js';
 import { buildContactLine, allowsFieldInDefaultContext } from '../lib/server/keith/contextMinimization.js';
@@ -666,7 +666,7 @@ async function runToolLoop(initialMessages, systemPrompt, tools, supabase, activ
     };
     if (tools && tools.length > 0) payload.tools = tools;
 
-    const response = await callAnthropicWithRetry(payload, { timeRemaining });
+    const response = await callAnthropicWithRetry(payload, { timeRemaining, callTimeoutMs: route.callTimeoutMs });
     // [keith-tokens]: PII-free token instrumentation from the model usage block.
     const usage = response?.usage || {};
     totalUsage.input  += Number.isInteger(usage.input_tokens) ? usage.input_tokens : 0;
@@ -817,7 +817,22 @@ export default async function handler(req, res) {
   // PII-free: which context scope this caller received, for observability.
   console.log('[keith-access]', { request_id: requestId, scope: keithContextScope(auth) });
 
-  const deadline = Date.now() + KEITH_TOTAL_DEADLINE_MS;
+  // KEITH-MODELS-5-5: Opus is the Owner's alone. A request from anyone else that
+  // names it, in any field, is refused here, before context or a model call.
+  if (requestNamesOpus(req.body) && auth.isOwner !== true) {
+    console.log('[keith-model] opus refused', { request_id: requestId, role: auth.role });
+    return res.status(403).json({ error: 'model_not_allowed', response: 'That model is not available for your account.' });
+  }
+
+  // KEITH-MODEL-SELECT-1: resolve the caller's chat model selection against the
+  // server allowlist. `chat_model` is a closed abstraction (auto|haiku|sonnet|opus);
+  // an unknown value or an unauthorized Sonnet request falls back to Auto.
+  const chatSelection = resolveChatSelection(req.body?.chat_model, { role: auth.role, isOwner: auth.isOwner });
+  if (chatSelection.downgraded) {
+    console.log('[keith-model]', { request_id: requestId, requested: String(req.body?.chat_model || ''), resolved: chatSelection.selection, downgraded: true });
+  }
+
+  const deadline = Date.now() + (chatSelection.route.deadlineMs || KEITH_TOTAL_DEADLINE_MS);
   const timeRemaining = () => deadline - Date.now();
 
   // KEITH-SLASH-SKILLS-1: the composer's "/" menu asks for the caller's
@@ -1588,14 +1603,6 @@ Be transparent: after forming a recommendation, briefly note which tools you use
     });
   }
 
-  // KEITH-MODEL-SELECT-1: resolve the caller's chat model selection against the
-  // server allowlist. `chat_model` is a closed abstraction (auto|haiku|sonnet);
-  // an unknown value or an unauthorized Sonnet request falls back to Auto.
-  const chatSelection = resolveChatSelection(req.body?.chat_model, { role: auth.role, isOwner: auth.isOwner });
-  if (chatSelection.downgraded) {
-    console.log('[keith-model]', { request_id: requestId, requested: String(req.body?.chat_model || ''), resolved: chatSelection.selection, downgraded: true });
-  }
-
   try {
     const { text, toolCalls, usage } = await runToolLoop(
       anthropicMessages,
@@ -1638,18 +1645,18 @@ Be transparent: after forming a recommendation, briefly note which tools you use
 }
 
 async function callAnthropicWithRetry(payload, options = {}) {
-  const { maxRetries = 1, baseDelayMs = 800, timeRemaining } = options;
+  const { maxRetries = 1, baseDelayMs = 800, timeRemaining, callTimeoutMs = KEITH_ANTHROPIC_TIMEOUT_MS } = options;
   let lastError = null;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     // Before a retry (not first attempt), check deadline
-    if (attempt > 0 && timeRemaining && timeRemaining() <= KEITH_ANTHROPIC_TIMEOUT_MS + 1000) {
+    if (attempt > 0 && timeRemaining && timeRemaining() <= callTimeoutMs + 1000) {
       console.warn('[keith] skipping retry, insufficient time remaining');
       break;
     }
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), KEITH_ANTHROPIC_TIMEOUT_MS);
+    const timeoutId = setTimeout(() => controller.abort(), callTimeoutMs);
 
     try {
       const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -1690,7 +1697,7 @@ async function callAnthropicWithRetry(payload, options = {}) {
       clearTimeout(timeoutId);
       if (err.name === 'AbortError') {
         console.warn(`[keith] Anthropic call timed out on attempt ${attempt + 1}`);
-        if (attempt === maxRetries || (timeRemaining && timeRemaining() <= KEITH_ANTHROPIC_TIMEOUT_MS + 1000)) {
+        if (attempt === maxRetries || (timeRemaining && timeRemaining() <= callTimeoutMs + 1000)) {
           lastError = { message: 'Anthropic call timed out', errorType: 'timeout' };
           break;
         }

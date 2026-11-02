@@ -2113,6 +2113,37 @@ the top of the Application sheet.
 - **No SSN** on this read for anyone; the residency has no use for it.
 
 
+## Keith's models (KEITH-MODELS-5-5, 2026-11-01)
+
+Three models, named in one file, `lib/server/keith/modelRouting.js`. No request body ever names one.
+
+| Route | Model | Effort | Serves |
+|---|---|---|---|
+| `default` | `claude-haiku-5-5` | low | Auto and Haiku in chat, the everyday skills |
+| `quality` | `claude-sonnet-5-5` | low (a skill may raise it) | Sonnet in chat (Owner, Admin), enrichment, the skills seeded on it |
+| `owner_opus` | `claude-opus-5-5` | medium | Opus in chat, the Owner alone |
+
+- **Opus cannot be reached by a Skill or a cron, because it is not in `ROUTES`.** `isKnownRoute` validates
+  skill rows and `resolveRoute` serves every skill, so a name outside that table falls to the default. The
+  `keith_skills.model_route` CHECK says the same. Do not move it into `ROUTES`.
+- **A non-Owner who names Opus is refused, not downgraded**: `requestNamesOpus` reads `chat_model`, `model`
+  and `model_route`, and `api/keith.js` answers 403 before context or a model call. `is_owner` decides, never
+  the role word. A test fails if a file under `api/`, `lib/` or `src/` other than the routing and price
+  tables names the Opus id.
+- **All three refuse `temperature`, so `modelRequestParams` never sends one.** Depth is `effort`. A skill's
+  consistency comes from its schema and its parse, which drop a bad answer.
+- **Thinking counts toward `max_tokens`** and cannot be assumed away on any of them. A cap sized only for a
+  short answer can be spent before any text, so short skills use `SHORT_ANSWER_CAP` (1,500). Read content by
+  `type`, and send the assistant's `content` back whole in the tool loop: a thinking block is an empty string
+  with a signature, and it must not be filtered out.
+- **Opus has its own clock**: 45 s a call and 55 s a request, where the others keep 18 s and 25 s. That is why
+  `vercel.json` gives `api/keith.js` 60 s and the browser waits 58 s for Opus only.
+- **A price row outlives its route** (`modelPricing.js`): Haiku 4.5 and Sonnet 4.5 keep theirs so history
+  still prices. Haiku 5.5's dearer card for prompts over 100,000 tokens is not applied, because a usage row
+  totals a chat's rounds and cannot say which card a call was on; no row has passed 100,000 even as a total.
+- Refusals are new on Haiku at this version (`stop_reason: "refusal"`, no server-side fallback), and all three
+  paths handle them: chat shows `MODEL_DECLINED_MESSAGE`, a skill returns `model_declined`.
+
 ## Talent Acquisition's weekly digest (RESIDENCY-DIGEST-1, 2026-10-05)
 
 Owner: the weekly digest is optional, "they have to activate in the app somewhere". The

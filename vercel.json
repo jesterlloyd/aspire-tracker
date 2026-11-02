@@ -151,7 +151,7 @@
   "functions": {
     "api/connect-send-bulk-message.js":   { "maxDuration": 60 },
     "api/app-icon.js": { "includeFiles": "public/app-icon/**" },
-    "api/keith.js":                       { "maxDuration": 30 },
+    "api/keith.js":                       { "maxDuration": 60 },
     "api/student-documents.js":           { "maxDuration": 150 },
     "api/portal/my-residency.js":         { "maxDuration": 30 },
     "api/knowledge-enrich.js":            { "maxDuration": 300 },

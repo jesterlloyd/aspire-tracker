@@ -37,7 +37,7 @@ const caller = (role, extra = {}) => ({ profileId: 'p-1', role, isOwner: role ==
 // ── P0: server-authoritative model routing ───────────────────────────────────
 
 test('the model is chosen by the server, never by the request', () => {
-  assert.equal(resolveRoute(DEFAULT_ROUTE).model, 'claude-haiku-4-5-20251001')
+  assert.equal(resolveRoute(DEFAULT_ROUTE).model, 'claude-haiku-5-5')
   // KEITH-SONNET-5-5 moved the quality route off the retiring Sonnet 4.5.
   assert.equal(resolveRoute(QUALITY_ROUTE).model, 'claude-sonnet-5-5')
   // An unknown route degrades DOWN to the default; it never escalates.
@@ -54,22 +54,20 @@ test('a model-bearing request body is detectable as tampering', () => {
   }
 })
 
-// KEITH-SONNET-5-5 changed this test: it used to require temperature 0.2 on
-// every route, but Sonnet 5.5 refuses `temperature` with a 400. Sampling is
-// still explicit on every route; the quality route says null and sets effort.
-test('sampling is explicit on every route, and never sent to a model that refuses it', () => {
-  assert.equal(resolveRoute(DEFAULT_ROUTE).temperature, 0.2)
+// KEITH-MODELS-5-5 changed this test: it required temperature 0.2 on the default
+// route, but Haiku 5.5 refuses `temperature` with a 400, as Sonnet 5.5 does.
+test('no route sends a temperature, and a stale override cannot bring one back', () => {
+  assert.equal(resolveRoute(DEFAULT_ROUTE).temperature, null)
   assert.equal(resolveRoute(QUALITY_ROUTE).temperature, null)
   assert.equal(resolveRoute(QUALITY_ROUTE).effort, 'low')
 
   assert.deepEqual(modelRequestParams(resolveRoute(DEFAULT_ROUTE)),
-    { model: 'claude-haiku-4-5-20251001', max_tokens: 2048, temperature: 0.2 })
+    { model: 'claude-haiku-5-5', max_tokens: 4096, output_config: { effort: 'low' } })
   assert.deepEqual(modelRequestParams(resolveRoute(QUALITY_ROUTE)),
     { model: 'claude-sonnet-5-5', max_tokens: 2048, output_config: { effort: 'low' } })
-  // A skill override that forces temperature 0 (skillDefs.js does) keeps it on
-  // Haiku and drops it on Sonnet 5.5, where it would be a 400.
+  // An override that forces temperature 0 would be a 400 on every model here.
   const force0 = (r) => ({ ...r, temperature: 0 })
-  assert.equal(modelRequestParams(force0(resolveRoute(DEFAULT_ROUTE))).temperature, 0)
+  assert.equal('temperature' in modelRequestParams(force0(resolveRoute(DEFAULT_ROUTE))), false)
   assert.equal('temperature' in modelRequestParams(force0(resolveRoute(QUALITY_ROUTE))), false)
 
   // And every request builder takes its model fields from that one function.
@@ -78,7 +76,7 @@ test('sampling is explicit on every route, and never sent to a model that refuse
     assert.match(src, /\.\.\.modelRequestParams\(/, `${p} builds its body from modelRequestParams`)
     assert.doesNotMatch(src, /temperature: route\.temperature/, `${p} must not send temperature by hand`)
   }
-  assert.doesNotMatch(read('api/keith.js'), /model: 'claude-haiku-4-5-20251001'/, 'the model id must not be hardcoded at the call site')
+  assert.doesNotMatch(read('api/keith.js'), /model: 'claude-haiku-5-5'/, 'the model id must not be hardcoded at the call site')
 })
 
 // ── P0: the base-Keith privacy boundary ──────────────────────────────────────

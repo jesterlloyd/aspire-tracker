@@ -18,6 +18,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
+import { execSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
@@ -27,8 +28,7 @@ import {
 } from '../lib/server/keith/queryIntent.js'
 import { retrieveGovernedKnowledge, isRoutingDirectoryEntry, _internals } from '../lib/server/keith/knowledgeRetrieval.js'
 import {
-  resolveChatSelection, allowedChatSelections, resolveRoute, requestNamesModel,
-  DEFAULT_ROUTE, QUALITY_ROUTE, CHAT_SELECTIONS,
+  resolveChatSelection, allowedChatSelections, resolveRoute, requestNamesModel, DEFAULT_ROUTE, QUALITY_ROUTE, CHAT_SELECTIONS, requestNamesOpus, OWNER_OPUS_ROUTE, isKnownRoute, ROUTE_NAMES, modelRequestParams,
 } from '../lib/server/keith/modelRouting.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -196,8 +196,55 @@ test('Sonnet is allowlisted server-side: Owner/Admin only, others downgrade', ()
   assert.deepEqual(allowedChatSelections({ role: 'admin', isOwner: false }), ['auto', 'haiku', 'sonnet'])
 })
 
+// KEITH-MODELS-5-5
+test('Opus 5.5 is the Owner\'s alone, and only in chat', () => {
+  const owner = resolveChatSelection('opus', { role: 'owner', isOwner: true })
+  assert.equal(owner.model, 'claude-opus-5-5')
+  assert.equal(owner.downgraded, false)
+  assert.equal('temperature' in modelRequestParams(owner.route), false)
+  assert.deepEqual(allowedChatSelections({ role: 'owner', isOwner: true }), ['auto', 'haiku', 'sonnet', 'opus'])
+
+  // An Admin is not the Owner, even with the role word 'owner' on a non-owner account.
+  for (const caller of [{ role: 'admin', isOwner: false }, { role: 'owner', isOwner: false }, { role: 'interviewer', isOwner: false }, {}]) {
+    const r = resolveChatSelection('opus', caller)
+    assert.equal(r.downgraded, true)
+    assert.notEqual(r.model, 'claude-opus-5-5')
+    assert.equal(allowedChatSelections(caller).includes('opus'), false)
+  }
+
+  // No skill or cron can reach it: skills resolve through the route table, and it is not there.
+  assert.equal(isKnownRoute(OWNER_OPUS_ROUTE), false, 'a skill row naming it fails validation')
+  assert.equal(ROUTE_NAMES.includes(OWNER_OPUS_ROUTE), false)
+  assert.equal(resolveRoute(OWNER_OPUS_ROUTE).route, DEFAULT_ROUTE)
+  assert.equal(resolveRoute('claude-opus-5-5').model, resolveRoute(DEFAULT_ROUTE).model)
+  for (const p of ['api', 'lib', 'src']) {
+    for (const f of execSync(`git grep -l "claude-opus-5-5" -- ${p} || true`, { encoding: 'utf8' }).split('\n').filter(Boolean)) {
+      assert.ok(['lib/server/keith/modelRouting.js', 'lib/server/keith/modelPricing.js'].includes(f), `${f} must not name the Opus model`)
+    }
+  }
+
+  // The handler refuses a non-Owner who names it anywhere, before context or a model call.
+  for (const body of [{ chat_model: 'opus' }, { chat_model: 'claude-opus-5-5' }, { model: 'claude-opus-5-5' }, { model_route: 'owner_opus' }]) {
+    assert.equal(requestNamesOpus(body), true, JSON.stringify(body))
+  }
+  assert.equal(requestNamesOpus({ chat_model: 'sonnet' }), false)
+  assert.equal(requestNamesOpus(undefined), false)
+  const gate = handler.indexOf("requestNamesOpus(req.body) && auth.isOwner !== true")
+  assert.ok(gate > 0)
+  assert.ok(gate < handler.indexOf('skills_catalog'), 'the refusal comes before every other branch')
+  assert.match(handler.slice(gate, gate + 300), /status\(403\)/)
+  assert.match(handler, /callTimeoutMs: route\.callTimeoutMs/)
+  assert.equal(JSON.parse(readFileSync('vercel.json', 'utf8')).functions['api/keith.js'].maxDuration, 60)
+})
+
+test('nothing still calls Haiku 4.5; only the price row names it, for history', () => {
+  const grep = (args) => execSync(`git grep -l ${args} || true`, { encoding: 'utf8' }).split('\n').filter(Boolean)
+  assert.deepEqual(grep('claude-haiku-4-5 -- api lib src'), ['lib/server/keith/modelPricing.js'])
+  assert.deepEqual(grep('"Haiku 4.5" -- src'), [], 'no screen offers it')
+})
+
 test('the selection is an abstraction: no client model id, tamper guard intact', () => {
-  assert.deepEqual(Object.keys(CHAT_SELECTIONS).sort(), ['auto', 'haiku', 'sonnet'])
+  assert.deepEqual(Object.keys(CHAT_SELECTIONS).sort(), ['auto', 'haiku', 'opus', 'sonnet'])
   assert.equal(requestNamesModel({ chat_model: 'sonnet' }), false, 'chat_model is the sanctioned field')
   assert.equal(requestNamesModel({ model: 'claude-opus-5' }), true, 'raw model keys are still tampering')
   // The handler honors the resolved route and records the truth.

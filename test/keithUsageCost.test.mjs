@@ -65,6 +65,16 @@ test('Sonnet 5.5 is priced, and the retired Sonnet 4.5 keeps its row for history
   assert.equal(estimateCostUsd(SONNET, 1_000_000, 1_000_000), 18)
 })
 
+test('KEITH-MODELS-5-5: Haiku 5.5 and Opus 5.5 are priced, and Haiku 4.5 rows still are', () => {
+  assert.equal(estimateCostUsd('claude-haiku-5-5', 1_000_000, 1_000_000), 0.6)
+  assert.equal(estimateCostUsd('claude-opus-5-5', 1_000_000, 1_000_000), 24)
+  assert.equal(modelLabel('claude-haiku-5-5'), 'Claude Haiku 5.5')
+  assert.equal(modelLabel('claude-opus-5-5'), 'Claude Opus 5.5')
+  // A request served by Haiku 4.5 before the switch keeps its label and its old rate.
+  assert.equal(estimateCostUsd(HAIKU, 1_000_000, 1_000_000), 6)
+  assert.equal(modelLabel(HAIKU), 'Claude Haiku 4.5')
+})
+
 test('an unknown model is NEVER priced as another model', () => {
   assert.equal(priceForModel('claude-sonnet-5'), null)
   assert.equal(estimateCostUsd('claude-sonnet-5', 5000, 1000), null)

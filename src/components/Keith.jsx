@@ -13,6 +13,7 @@ import { findSlashToken, filterSkills, applySlashSelection } from '../lib/slashP
 import KeithOrbVideo from './keith/KeithOrbVideo';
 
 const KEITH_CLIENT_TIMEOUT_MS   = 28000;
+const KEITH_OPUS_CLIENT_TIMEOUT_MS = 58000;
 const KEITH_PREFETCH_CEILING_MS = 5000;
 
 // `hideLauncher` supports shells that provide another Keith entry point while keeping the
@@ -29,19 +30,25 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
   const [showTooltip, setShowTooltip] = useState(false);
   const [messagesOpen, setMessagesOpen] = useState(false);
   const [toolExpanded, setToolExpanded] = useState({});
-  // KEITH-MODEL-SELECT-1: user model selection (auto | haiku | sonnet). The
+  // KEITH-MODEL-SELECT-1: user model selection (auto | haiku | sonnet | opus). The
   // server enforces the allowlist; this control only offers what the role may
   // use, and the choice persists per user.
   const modelStorageKey = `keith-model-${userProfile?.id || 'anon'}`;
   const [chatModel, setChatModel] = useState(() => {
     try {
       const v = localStorage.getItem(`keith-model-${userProfile?.id || 'anon'}`);
-      return ['auto', 'haiku', 'sonnet'].includes(v) ? v : 'auto';
+      return ['auto', 'haiku', 'sonnet', 'opus'].includes(v) ? v : 'auto';
     } catch { return 'auto'; }
   });
   const sonnetAllowed = userProfile?.is_owner === true || String(userProfile?.role || '').toLowerCase() === 'admin';
-  const modelChoices = sonnetAllowed ? ['auto', 'haiku', 'sonnet'] : ['auto', 'haiku'];
-  const MODEL_LABELS = { auto: 'Auto', haiku: 'Haiku 4.5', sonnet: 'Sonnet 5.5' };
+  const modelChoices = [
+    'auto', 'haiku',
+    ...(sonnetAllowed ? ['sonnet'] : []),
+    ...(userProfile?.is_owner === true ? ['opus'] : []),
+  ];
+  const MODEL_LABELS = { auto: 'Auto', haiku: 'Haiku 5.5', sonnet: 'Sonnet 5.5', opus: 'Opus 5.5' };
+  // A stored choice this account may not use is never sent: the server refuses Opus outright.
+  const sentModel = modelChoices.includes(chatModel) ? chatModel : 'auto';
   const pickModel = (value) => {
     const v = modelChoices.includes(value) ? value : 'auto';
     setChatModel(v);
@@ -355,7 +362,7 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
     }
 
     const abortController = new AbortController();
-    const clientTimeoutId = setTimeout(() => abortController.abort(), KEITH_CLIENT_TIMEOUT_MS);
+    const clientTimeoutId = setTimeout(() => abortController.abort(), sentModel === 'opus' ? KEITH_OPUS_CLIENT_TIMEOUT_MS : KEITH_CLIENT_TIMEOUT_MS);
 
     try {
       try {
@@ -377,7 +384,7 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
             messages: conversationHistory,
             liveData,
             cohortName,
-            chat_model: chatModel,
+            chat_model: sentModel,
             ...(skillSlug ? { skill_slug: skillSlug } : {}),
             userProfile: userProfile ? {
               full_name: userProfile.full_name,
@@ -980,10 +987,10 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
                 {cohortName || 'No cohort'}
               </span>
               {/* KEITH-MODEL-SELECT-1: Auto keeps Keith's normal routing; the
-                  server enforces who may choose Sonnet. */}
+                  server enforces who may choose Sonnet and Opus. */}
               <select
                 aria-label="Model"
-                value={chatModel}
+                value={sentModel}
                 onChange={e => pickModel(e.target.value)}
                 style={{
                   marginLeft: 'auto', flexShrink: 0,

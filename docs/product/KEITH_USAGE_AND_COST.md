@@ -102,12 +102,15 @@ cost = (input_tokens × input_rate + output_tokens × output_rate) / 1,000,000
 
 Rates, per million tokens, from
 `https://platform.claude.com/docs/en/docs/about-claude/pricing` retrieved
-**2026-08-06** (recorded as `PRICING_AS_OF` in the module):
+**2026-11-01** (recorded as `PRICING_AS_OF` in the module):
 
 | Model | Input | Output |
 | --- | --- | --- |
-| Claude Haiku 4.5 (`claude-haiku-4-5-20251001`) | $1 | $5 |
-| Claude Sonnet 4.5 (`claude-sonnet-4-5-20250929`) | $3 | $15 |
+| Claude Haiku 5.5 (`claude-haiku-5-5`), prompts up to 100,000 tokens | $0.10 | $0.50 |
+| Claude Sonnet 5.5 (`claude-sonnet-5-5`) | $2 | $10 |
+| Claude Opus 5.5 (`claude-opus-5-5`), Owner chat only | $4 | $20 |
+| Claude Haiku 4.5 (`claude-haiku-4-5-20251001`), history | $1 | $5 |
+| Claude Sonnet 4.5 (`claude-sonnet-4-5-20250929`), history | $3 | $15 |
 
 Rules that make the number honest rather than merely plausible:
 

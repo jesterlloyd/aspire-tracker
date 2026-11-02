@@ -3,7 +3,7 @@
  * Phase 1: Static knowledge responses (current)
  * Phase 2: Live Supabase data context (pass cohort data to generateResponse)
  * Phase 3: AI-powered responses via Vercel API route at /api/keith.js
- *   - POST { messages, context } → Anthropic claude-haiku-4-5-20251001
+ *   - POST { messages, context } → Anthropic claude-haiku-5-5
  *     (the model id lives in api/keith.js; keep this comment in step with it)
  *   - API key stored as ANTHROPIC_API_KEY in Vercel environment (server-side only)
  *   - Never expose API key in VITE_ prefixed variables
