@@ -125,7 +125,8 @@ test('panel geometry mirrors the corner-drawer convention and clears Keith\'s or
   assert.match(dock, /aria-label="Messages"/)
   assert.match(keith, /const \[messagesOpen, setMessagesOpen\] = useState\(false\)/)
   assert.match(keith, /setMessagesOpen\(source === 'main-messages'\)/)
-  assert.match(keith, /right: messagesOpen && !isOpen \? '96px' : '24px'/)
+  // RESIDENCY-KEITH-2: Keith.jsx hands the offset to the shared KeithChatShell.
+  assert.match(keith, /launcherRight=\{messagesOpen && !isOpen \? '96px' : '24px'\}/)
 })
 
 test('the Connect workspace keeps the shared implementation and the portals stay intact', () => {

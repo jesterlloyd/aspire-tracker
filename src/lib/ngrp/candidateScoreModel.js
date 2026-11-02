@@ -127,3 +127,7 @@ export const basedOnLine = s => (s?.basedOn != null ? `Based on ${s.basedOn} of 
 
 // Sort key for the Fit column: scored applicants by score, then the unscored.
 export const scoreSortValue = s => (s?.score == null ? null : s.score)
+
+// CANDIDATE-SCORE-2: Keith had a hand in this score when he rated the statement or scored the
+// résumé it counts. The Fit chip shows his orb exactly then.
+export const keithContributed = s => Boolean(s?.assessment?.provenanceId || s?.resumeProvenanceId)

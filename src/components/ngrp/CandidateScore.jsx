@@ -2,10 +2,11 @@
 // Interest & Eligibility table, the Interview Board cards and the binder's Application sheet, and
 // the section that explains it. The number is the app's (src/lib/ngrp/candidateScoreModel.js),
 // worked out on the server for every applicant; Keith only rates the statements and says why.
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useQuery } from '@tanstack/react-query'
-import KeithMark from '../keith/KeithMark'
-import { STATEMENT_CATEGORIES, basedOnLine } from '../../lib/ngrp/candidateScoreModel'
+import KeithMark, { KeithGlyph } from '../keith/KeithMark'
+import { STATEMENT_CATEGORIES, basedOnLine, keithContributed } from '../../lib/ngrp/candidateScoreModel'
 import { postNgrpCandidateAssess } from '../../lib/ngrp/useNgrpData'
 
 const fmtDay = ts => (ts ? new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '')
@@ -18,10 +19,37 @@ const FAIL_WORDS = {
   timed_out: 'The last assessment did not finish.',
 }
 
-/** The score as a chip: "82 Strong fit", or the reason there is none. */
-export function CandidateFitChip({ score, compact = false, withMark = true }) {
+/**
+ * The score as a chip: "82 Strong fit", or the reason there is none.
+ *
+ * CANDIDATE-SCORE-2 (Owner, 2026-11-02: "where is the Keith icon ... clicking there will reveal a
+ * modal that shows the score details"). With `onOpen` the chip is one button that opens the score's
+ * details, and it carries the Keith orb whenever Keith contributed. The orb inside it is the
+ * decorative glyph, because a button cannot hold the mark's own button; the details carry the
+ * marks themselves, beside the factors Keith read.
+ */
+export function CandidateFitChip({ score, compact = false, withMark = true, onOpen = null }) {
   if (!score) return <span className="ngrp-cellmute">Not scored</span>
   const band = score.ineligible ? 'none' : (score.band || 'none')
+  if (onOpen) {
+    const words = score.score == null
+      ? `Candidate score: ${score.label}. Show score details`
+      : `Candidate score ${score.score} of 100, ${score.label}. Show score details`
+    return (
+      <button
+        type="button"
+        className="ngrp-fitbtn"
+        aria-label={words}
+        onClick={e => { e.stopPropagation(); onOpen() }}
+        onKeyDown={e => e.stopPropagation()}
+      >
+        {score.score == null
+          ? <span className="ngrp-cellmute">{score.label}</span>
+          : <span className={`ngrp-fit ngrp-fit-${band}`}><b>{score.score}</b>{!compact && <span>{score.label}</span>}</span>}
+        {keithContributed(score) && <KeithGlyph />}
+      </button>
+    )
+  }
   const mark = withMark && score.assessment?.provenanceId ? <KeithMark provenanceId={score.assessment.provenanceId} /> : null
   if (score.score == null) {
     return <span className="ngrp-fitwrap"><span className="ngrp-cellmute">{score.label}</span>{mark}</span>
@@ -77,7 +105,12 @@ export function CandidateScoreSection({ row, cycleId, available = false, onChang
         <div className="ngrp-score-factors">
           {score.factors.map(f => (
             <div key={f.key} className="ngrp-score-factor">
-              <span className="ngrp-score-name">{f.label}</span>
+              <span className="ngrp-score-name">
+                {f.label}
+                {/* The two factors Keith reads carry his mark: the résumé he scored, the statement he rated. */}
+                {f.points != null && f.key === 'resume' && score.resumeProvenanceId && <KeithMark provenanceId={score.resumeProvenanceId} />}
+                {f.points != null && f.key === 'statement' && a?.provenanceId && <KeithMark provenanceId={a.provenanceId} />}
+              </span>
               <span className="ngrp-score-pts">{f.points == null ? 'Not counted' : `${Math.round(f.points)} of ${f.max}`}</span>
               <span className="ngrp-score-detail">{f.detail}</span>
             </div>
@@ -130,5 +163,64 @@ export function CandidateScoreSection({ row, cycleId, available = false, onChang
         </div>
       )}
     </Section>
+  )
+}
+
+// The dialog's own section and button: the dialog's head already says "Candidate Score", so the
+// section only places the Assess button above what it explains.
+function DialogSection({ right, children }) {
+  return (
+    <div className="ngrp-scoredlg-body">
+      {right && <div className="ngrp-scoredlg-acts">{right}</div>}
+      {children}
+    </div>
+  )
+}
+const dialogBtn = (primary = false) => ({
+  height: 30, padding: '0 12px', borderRadius: 'var(--aspire-radius-control)', fontFamily: 'inherit', fontSize: 12,
+  fontWeight: 600, cursor: 'pointer', border: primary ? 'none' : '1px solid rgba(29,37,103,0.15)',
+  background: primary ? '#1D2567' : '#fff', color: primary ? '#fff' : '#1D2567',
+})
+
+/**
+ * CANDIDATE-SCORE-2: the score's details in a dialog, opened from a Fit chip. It is the binder's
+ * Candidate Score section, unchanged in what it shows or runs, so the two cannot disagree.
+ */
+export function CandidateScoreDialog({ row, name, cycleId, available = false, onChanged, onClose }) {
+  const ref = useRef(null)
+  useEffect(() => {
+    const back = document.activeElement
+    const box = ref.current
+    box?.querySelector('[data-autofocus]')?.focus()
+    const onKey = (e) => {
+      if (e.key === 'Escape') { e.stopPropagation(); onClose(); return }
+      if (e.key !== 'Tab' || !box) return
+      const items = [...box.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')]
+        .filter(el => !el.disabled && el.offsetParent !== null)
+      if (!items.length) return
+      const first = items[0]; const last = items[items.length - 1]
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus() }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus() }
+    }
+    document.addEventListener('keydown', onKey, true)
+    return () => { document.removeEventListener('keydown', onKey, true); back?.focus?.() }
+  }, [onClose])
+
+  if (!row) return null
+  return createPortal(
+    <div className="ngrp-scoredlg-scrim" onMouseDown={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div ref={ref} className="ngrp-scoredlg" role="dialog" aria-modal="true" aria-labelledby="ngrp-scoredlg-title">
+        <div className="ngrp-scoredlg-head">
+          <div>
+            <h2 id="ngrp-scoredlg-title">Candidate Score</h2>
+            {name && <p>{name}</p>}
+          </div>
+          <button type="button" className="ngrp-scoredlg-close" aria-label="Close" data-autofocus onClick={onClose}>×</button>
+        </div>
+        <CandidateScoreSection row={row} cycleId={cycleId} available={available} onChanged={onChanged}
+          Section={DialogSection} smallBtn={dialogBtn} />
+      </div>
+    </div>,
+    document.body,
   )
 }

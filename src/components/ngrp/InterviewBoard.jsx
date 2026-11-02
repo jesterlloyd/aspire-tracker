@@ -26,6 +26,8 @@ import { useNgrpPlanning, useNgrpApplicants, postNgrpManage } from '../../lib/ng
 import { deriveApplicantRows, effectiveEligibility, ELIGIBILITY_STATES, INTERVIEW_STATES, INTERVIEW_MODE_LABELS } from '../../lib/ngrp/ngrpStates'
 import { recommendationLabel } from '../../lib/ngrp/ngrpRubric'
 import { displayName } from '../../lib/utils'
+import { keithContributed } from '../../lib/ngrp/candidateScoreModel'
+import { KeithGlyph } from '../keith/KeithMark'
 import { UNIT_CATALOG } from '../../lib/unitCatalog'
 import { KPICell } from '../KPIBand'
 import StudentAvatar from '../StudentAvatar'
@@ -151,8 +153,10 @@ function IntervieweeNote({
             )}
             {/* CANDIDATE-SCORE-1: the score that helps decide who to pair. Words, never colour alone. */}
             {row.candidate_score?.score != null && !row.candidate_score.ineligible && (
-              <span className="pb-chip" data-testid="interviewee-fit-chip">
+              <span className="pb-chip ngrp-fitchip" data-testid="interviewee-fit-chip">
                 Fit {row.candidate_score.score} · {row.candidate_score.label}
+                {/* CANDIDATE-SCORE-2: Keith's orb when he had a hand in the score. */}
+                {keithContributed(row.candidate_score) && <KeithGlyph />}
               </span>
             )}
             {pickRank && (

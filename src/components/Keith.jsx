@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Tooltip from './ui/Tooltip';
 import { useQueryClient } from '@tanstack/react-query';
 import { greetingFor, capabilityLineFor, chipsFor, hasSeenWelcome, markWelcomeSeen } from '../lib/keithWelcome';
 import { useAuth } from '../contexts/AuthContext';
@@ -10,7 +9,7 @@ import { allowedActions, matchActions } from '../lib/home/launcherModel';
 import { renderMarkdownLite } from '../lib/keithMarkdown';
 import { paletteSummary } from '../lib/skillSummary';
 import { findSlashToken, filterSkills, applySlashSelection } from '../lib/slashPalette';
-import KeithOrbVideo from './keith/KeithOrbVideo';
+import KeithChatShell, { KeithWelcome, KeithChips, KeithMessage, KeithTyping, KeithFooter, KeithRetry } from './keith/KeithChatShell';
 
 const KEITH_CLIENT_TIMEOUT_MS   = 28000;
 const KEITH_OPUS_CLIENT_TIMEOUT_MS = 58000;
@@ -27,7 +26,6 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
   const [input,       setInput]       = useState('');
   const [isTyping,    setIsTyping]    = useState(false);
   const [copiedId,    setCopiedId]    = useState(null);
-  const [showTooltip, setShowTooltip] = useState(false);
   const [messagesOpen, setMessagesOpen] = useState(false);
   const [toolExpanded, setToolExpanded] = useState({});
   // KEITH-MODEL-SELECT-1: user model selection (auto | haiku | sonnet | opus). The
@@ -475,12 +473,9 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  // KEITH-FOUNDATION-1: the animated orb (KeithOrbVideo) replaced the CSS lens (KEITH-ORB-1). It
-  // plays once on the first load of a session and once on hover or focus, loops while Keith is
-  // working (isTyping: from the send until the reply has finished), and otherwise rests on its poster.
-  // The header orb loops at the same time. Reduced motion shows the poster only.
-  const orb = (size, thinking, replay = 0) => <KeithOrbVideo size={size} working={thinking} replay={replay} />;
-
+  // KEITH-FOUNDATION-1: the animated orb (KeithOrbVideo) plays once on the first load of a session
+  // and once on hover or focus, loops while Keith is working (isTyping), and otherwise rests on its
+  // poster. It is drawn by KeithChatShell, with the rest of the chat (RESIDENCY-KEITH-2).
   const formatText = (text) => {
     return text.split('\n').map((line, i) => (
       <span key={i}>{line}{i < text.split('\n').length - 1 && <br />}</span>
@@ -488,545 +483,226 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
   };
 
   return (
-    <>
-      {/* Tooltip - sits to the LEFT of the orb (MESSAGES-AUTOSCROLL-1: the
-          Messages shortcut now occupies the space directly above Keith, so the
-          tooltip no longer floats up into it). */}
-      {showTooltip && !isOpen && (
-        <div style={{
-          position: 'fixed',
-          bottom: '38px',
-          right: messagesOpen ? '168px' : '96px',
-          background: 'var(--aspire-tooltip-bg, rgba(9, 12, 28, 0.94))',
-          color: 'var(--aspire-tooltip-fg, #ffffff)',
-          fontFamily: 'var(--aspire-tooltip-font-family, Plus Jakarta Sans, sans-serif)',
-          fontSize: 'var(--aspire-tooltip-font-size, 12px)',
-          fontWeight: 'var(--aspire-tooltip-font-weight, 500)',
-          lineHeight: 'var(--aspire-tooltip-line-height, 1.2)',
-          padding: 'var(--aspire-tooltip-padding, 6px 12px)',
-          borderRadius: 'var(--aspire-tooltip-radius, 8px)',
-          border: '1px solid var(--aspire-tooltip-border, transparent)',
-          whiteSpace: 'nowrap',
-          zIndex: 1001,
-          pointerEvents: 'none',
-          boxShadow: 'var(--aspire-tooltip-shadow, 0 4px 14px rgba(0,0,0,0.45))',
-        }}>
-          Ask Keith
-        </div>
-      )}
-
-      {/* Floating button. A host may hide the closed launcher when it provides another
-          Keith entry point; the launcher returns while the drawer is open so Keith can
-          always be put away from the same control. */}
-      {(!hideLauncher || isOpen) && (
-      <button
-        data-tour="keith-orb"
-        onClick={() => {
-          const next = !isOpen;
-          if (next) announceFloatingPanelOpen('keith'); // UI-0.5: closes an open UserMenu
-          setIsOpen(next);
-        }}
-        aria-label="Ask Keith"
-        style={{
-          position: 'fixed',
-          bottom: '24px',
-          right: messagesOpen && !isOpen ? '96px' : '24px',
-          width: '60px',
-          height: '60px',
-          borderRadius: '50%',
-          background: 'none',
-          border: 'none',
-          cursor: 'pointer',
-          padding: '0',
-          zIndex: 1000,
-          transition: 'transform 0.2s ease',
-          transform: isOpen ? 'scale(0.95)' : 'scale(1)',
-        }}
-        onMouseEnter={e => { setShowTooltip(true); replayOrb(); if (!isOpen) e.currentTarget.style.transform = 'scale(1.08)'; }}
-        onFocus={replayOrb}
-        onMouseLeave={e => { setShowTooltip(false); if (!isOpen) e.currentTarget.style.transform = isOpen ? 'scale(0.95)' : 'scale(1)'; }}
-      >
-        {/* Orb - loops while a reply is in flight. The ring is a token: white in light mode, none in dark. */}
-        <div className="keith-launcher-orb" style={{
-          width: '60px', height: '60px', borderRadius: '50%',
-          boxShadow: isOpen
-            ? '0 0 0 2px rgba(139,92,246,0.55), 0 0 22px rgba(99,102,241,0.55), 0 6px 20px rgba(0,0,0,0.35)'
-            : '0 6px 18px rgba(20,24,80,0.45), var(--keith-launcher-ring)',
-          transition: 'box-shadow 0.3s ease',
-        }}>
-          {orb(60, isTyping, orbReplay)}
-        </div>
-      </button>
-      )}
-
-      {/* Drawer */}
-      {isOpen && (
-        <>
-          {/* Backdrop */}
-          <div
-            onClick={() => { rememberWelcomed(); setIsOpen(false); }}
-            style={{
-              position: 'fixed', inset: 0,
-              background: 'rgba(0,0,0,0.15)',
-              zIndex: 998,
-            }}
-          />
-
-          {/* Drawer panel */}
-          <div style={{
-            position: 'fixed',
-            bottom: '96px',
-            right: 'max(12px, min(24px, calc(100vw - 412px)))',
-            width: 'min(400px, calc(100vw - 24px))',
-            // KEITH-CHAT-UX-1: taller, responsive height. Caps at 720px on large screens and shrinks
-            // with the viewport, always leaving ~160px of vertical clearance (bottom offset + top gap)
-            // so the panel never covers the app header. minHeight is itself capped to the same
-            // available space so it can never force overflow on short screens.
-            height: 'min(720px, calc(100vh - 160px))',
-            minHeight: 'min(360px, calc(100vh - 160px))',
-            background: '#ffffff',
-            borderRadius: '16px',
-            boxShadow: '0 8px 32px rgba(29,37,103,0.18)',
-            display: 'flex',
-            flexDirection: 'column',
-            overflow: 'hidden',
-            zIndex: 999,
-            animation: 'keithSlideIn 0.2s ease',
-          }}>
-
-            {/* Header */}
-            <div style={{
-              background: '#1d2567',
-              padding: '16px 20px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-              flexShrink: 0,
+    <KeithChatShell
+      open={isOpen}
+      busy={isTyping}
+      replay={orbReplay}
+      onReplay={replayOrb}
+      onToggle={() => {
+        const next = !isOpen;
+        if (next) announceFloatingPanelOpen('keith'); // UI-0.5: closes an open UserMenu
+        setIsOpen(next);
+      }}
+      onClose={() => { rememberWelcomed(); setIsOpen(false); }}
+      onNew={() => setMessages([])}
+      hideLauncher={hideLauncher}
+      launcherProps={{ 'data-tour': 'keith-orb' }}
+      launcherRight={messagesOpen && !isOpen ? '96px' : '24px'}
+      tooltipRight={messagesOpen ? '168px' : '96px'}
+      listRef={listRef}
+      onListScroll={handleListScroll}
+      endRef={messagesEndRef}
+      inputOverlay={<>
+        {/* KEITH-SLASH-SKILLS-1: the Skills menu. Rendered while the user
+            is SEARCHING for a command; a committed selection closes it.
+            ArrowUp/Down + Enter, or click, selects. */}
+        {slashMenuOpen && skillCatalog !== null && (
+          slashMatches.length > 0 ? (
+            <div role="listbox" aria-label="Skills" style={{
+              position: 'absolute', bottom: '100%', left: 16, right: 16,
+              marginBottom: 4, background: '#ffffff',
+              border: '1px solid #e0e7ff', borderRadius: 10,
+              boxShadow: '0 6px 24px rgba(29,37,103,0.16)',
+              maxHeight: 180, overflowY: 'auto', zIndex: 5,
             }}>
-              {/* Header orb - loops with the launcher while a reply is in flight. */}
-              <div style={{ flexShrink: 0, borderRadius: '50%', boxShadow: '0 0 0 1px rgba(99,102,241,0.45), 0 0 8px rgba(99,102,241,0.28)' }}>
-                {orb(36, isTyping)}
-              </div>
-              {/* KEITH-FOUNDATION-1: the Keith AI wordmark (public/brand/keith-lockup.png), set as text in
-                  white because the header is navy in both themes and the artwork's ink is navy. */}
-              <div className="keith-wordmark" aria-label="Keith AI">
-                <span className="keith-wordmark-name" aria-hidden="true">Keith</span>
-                <span className="keith-wordmark-ai" aria-hidden="true">AI</span>
-              </div>
-              <Tooltip label="New conversation" placement="bottom">
-              <button
-                onClick={() => setMessages([])}
-                style={{
-                  marginLeft: 'auto',
-                  background: 'none', border: 'none',
-                  color: 'rgba(255,255,255,0.55)', cursor: 'pointer',
-                  padding: '4px 8px', fontSize: '13px',
-                  fontFamily: 'Plus Jakarta Sans', borderRadius: '6px',
-                  transition: 'color 0.15s ease',
-                }}
-                onMouseEnter={e => e.currentTarget.style.color = 'rgba(255,255,255,0.9)'}
-                onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.55)'}
-              >↺ New</button>
-              </Tooltip>
-              <button
-                onClick={() => { rememberWelcomed(); setIsOpen(false); }}
-                aria-label="Close Keith"
-                style={{
-                  background: 'none', border: 'none',
-                  color: 'rgba(255,255,255,0.65)', cursor: 'pointer',
-                  fontSize: '18px', lineHeight: 1, padding: '4px',
-                }}
-              >×</button>
-            </div>
-
-            {/* Messages */}
-            <div ref={listRef} onScroll={handleListScroll} style={{
-              flex: 1, overflowY: 'auto',
-              padding: '16px',
-              display: 'flex', flexDirection: 'column', gap: '12px',
-              minHeight: 0,
-            }}>
-              {/* Welcome: greeting + one sentence, lighter on return visits. */}
-              <div style={{
-                background: '#f0f4ff',
-                border: '1px solid #e0e7ff',
-                borderRadius: '12px 12px 12px 4px',
-                padding: '12px 14px',
-                maxWidth: '90%',
-              }}>
-                <div style={{ fontFamily: 'Plus Jakarta Sans', fontSize: '14px', fontWeight: 600, color: '#1d2567' }}>
-                  {greeting}
-                </div>
-                <div style={{ fontFamily: 'Plus Jakarta Sans', fontSize: '12.5px', color: '#374151', lineHeight: 1.55, marginTop: 3 }}>
-                  {returning
-                    ? <>Ask anything, or type <span style={{ fontFamily: 'ui-monospace, monospace' }}>/</span> to use a Skill.</>
-                    : <>{capabilityLine} Ask anything, or type <span style={{ fontFamily: 'ui-monospace, monospace' }}>/</span> to use a Skill.</>}
-                </div>
-              </div>
-
-              {/* Suggested prompts - role-aware, at most four, empty state only */}
-              {messages.length === 0 && chips.length > 0 && (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '4px' }}>
-                  {chips.map((label, i) => (
-                    <button
-                      key={i}
-                      disabled={isTyping}
-                      onClick={() => handleSend(label)}
-                      style={{
-                        background: '#f9fafb',
-                        border: '1px solid #e5e7eb',
-                        borderRadius: '20px',
-                        padding: '5px 12px',
-                        fontFamily: 'Plus Jakarta Sans',
-                        fontSize: '12px',
-                        color: '#374151',
-                        cursor: isTyping ? 'default' : 'pointer',
-                        opacity: isTyping ? 0.45 : 1,
-                        transition: 'all 0.15s ease',
-                        whiteSpace: 'nowrap',
-                        pointerEvents: isTyping ? 'none' : 'auto',
-                      }}
-                      onMouseEnter={e => {
-                        e.currentTarget.style.background = '#eff6ff';
-                        e.currentTarget.style.borderColor = '#bfdbfe';
-                        e.currentTarget.style.color = '#1d4ed8';
-                      }}
-                      onMouseLeave={e => {
-                        e.currentTarget.style.background = '#f9fafb';
-                        e.currentTarget.style.borderColor = '#e5e7eb';
-                        e.currentTarget.style.color = '#374151';
-                      }}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {/* Conversation messages */}
-              {messages.map(msg => (
-                <div key={msg.id} style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: msg.role === 'user' ? 'flex-end' : 'flex-start',
-                  gap: '6px',
-                }}>
-                  <div style={{
-                    background: msg.role === 'user' ? '#1d2567' : '#f0f4ff',
-                    border: msg.role === 'user' ? 'none' : '1px solid #e0e7ff',
-                    borderRadius: msg.role === 'user' ? '12px 12px 4px 12px' : '12px 12px 12px 4px',
-                    padding: '10px 14px',
-                    maxWidth: '88%',
-                  }}>
+              {slashMatches.map((s, i) => (
+                <div
+                  key={s.slug}
+                  role="option"
+                  aria-selected={i === slashIndex}
+                  onMouseDown={e => { e.preventDefault(); chooseSkill(s); }}
+                  onMouseEnter={() => setSlashIndex(i)}
+                  style={{
+                    padding: '8px 12px', cursor: 'pointer',
+                    background: i === slashIndex ? '#eef2ff' : 'transparent',
+                  }}
+                >
+                  <div style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 12.5, fontWeight: 600, color: '#1d2567' }}>/{s.slug}</div>
+                  {/* SKILL-PALETTE-1: one concise line, derived at render
+                      time. The stored description, trigger guidance,
+                      instructions and references are untouched, and the
+                      detail drawer still shows the full text. */}
+                  {paletteSummary(s) && (
                     <div style={{
-                      fontFamily: 'Plus Jakarta Sans', fontSize: '13px', lineHeight: 1.6,
-                      color: msg.role === 'user' ? '#ffffff' : '#374151',
-                      whiteSpace: 'pre-wrap',
-                    }}>
-                      {/* KEITH-CHAT-UX-1: Keith replies render as safe Markdown (React elements only);
-                          user messages stay plain text. */}
-                      {msg.role === 'keith' ? renderMarkdownLite(msg.text) : formatText(msg.text)}
-                    </div>
-                    {/* KEITH-REFRESH-1: only real Keith answers carry a badge;
-                        the prototype-era fallback label is retired. */}
-                    {msg.role === 'keith' && msg.isAI && (
-                      <div style={{ fontSize: '9px', color: '#166534', marginTop: '2px', paddingLeft: '2px' }}>
-                        ✦ Keith
-                      </div>
-                    )}
-
-                    {/* Tool calls disclosure */}
-                    {msg.tool_calls && msg.tool_calls.length > 0 && (
-                      <div style={{ marginTop: 6 }}>
-                        <button
-                          onClick={() => setToolExpanded(p => ({ ...p, [msg.id]: !p[msg.id] }))}
-                          style={{
-                            background: 'none', border: 'none', cursor: 'pointer',
-                            fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 10,
-                            color: '#1D2567', padding: '2px 0', display: 'flex',
-                            alignItems: 'center', gap: 4, opacity: 0.75,
-                          }}
-                        >
-                          <span>{toolExpanded[msg.id] ? '▾' : '▸'}</span>
-                          <span>Looked at: {msg.tool_calls.map(t => t.tool).join(', ')}</span>
-                        </button>
-                        {toolExpanded[msg.id] && (
-                          <div style={{
-                            marginTop: 4, padding: '6px 10px',
-                            background: 'rgba(29,37,103,0.04)',
-                            borderRadius: 6, borderLeft: '2px solid #1D2567',
-                            display: 'flex', flexDirection: 'column', gap: 3,
-                          }}>
-                            {msg.tool_calls.map((tc, i) => (
-                              <div key={i} style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 10, color: '#475467' }}>
-                                <span style={{ fontWeight: 600, color: '#1D2567' }}>{tc.tool}</span>
-                                {': '}
-                                {tc.result_summary}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Copy button for email drafts */}
-                  {/* Retry button for transient errors */}
-                  {msg.canRetry && (
-                    <button
-                      onClick={() => handleSend(msg.retryText)}
-                      style={{
-                        background: '#fff7ed', border: '1px solid #fed7aa',
-                        borderRadius: '8px', padding: '4px 10px',
-                        fontFamily: 'Plus Jakarta Sans', fontSize: '11px',
-                        color: '#c2410c', cursor: 'pointer',
-                      }}
-                    >
-                      ↺ Try again
-                    </button>
+                      fontFamily: 'Plus Jakarta Sans', fontSize: 11, color: '#6b7280', marginTop: 1,
+                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    }}>{paletteSummary(s)}</div>
                   )}
-
-                  {msg.hasCopy && (
-                    <button
-                      onClick={() => handleCopy(msg.id, msg.text)}
-                      style={{
-                        background: copiedId === msg.id ? '#dcfce7' : '#f9fafb',
-                        border: `1px solid ${copiedId === msg.id ? '#86efac' : '#e5e7eb'}`,
-                        borderRadius: '8px',
-                        padding: '4px 10px',
-                        fontFamily: 'Plus Jakarta Sans', fontSize: '11px',
-                        color: copiedId === msg.id ? '#166534' : '#6b7280',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      {copiedId === msg.id ? '✓ Copied' : 'Copy Email'}
-                    </button>
-                  )}
-
-                  {/* Navigation actions (LAUNCHER-2: a reply can carry more than one way there) */}
-                  {[msg.action, ...(msg.actions || [])].filter(Boolean).map((a, ai) => (
-                    <button
-                      key={ai}
-                      type="button"
-                      onClick={() => handleAction(a)}
-                      style={{
-                        background: '#eff6ff',
-                        border: '1px solid #bfdbfe',
-                        borderRadius: '8px',
-                        padding: '4px 10px',
-                        fontFamily: 'Plus Jakarta Sans', fontSize: '11px',
-                        color: '#1d4ed8',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      → {a.label}
-                    </button>
-                  ))}
                 </div>
               ))}
+            </div>
+          ) : (
+            <div style={{
+              position: 'absolute', bottom: '100%', left: 16, right: 16, marginBottom: 4,
+              background: '#ffffff', border: '1px solid #e0e7ff', borderRadius: 10,
+              boxShadow: '0 6px 24px rgba(29,37,103,0.16)', padding: '8px 12px',
+              fontFamily: 'Plus Jakarta Sans', fontSize: 11.5, color: '#6b7280', zIndex: 5,
+            }}>
+              {skillCatalog.length === 0 ? 'No Skills are available to your role.' : 'No Skill matches. Keep typing or press Escape.'}
+            </div>
+          )
+        )}
+      </>}
+      input={{
+        ref: inputRef,
+        value: input,
+        onChange: e => {
+          const v = e.target.value;
+          const c = e.target.selectionStart ?? v.length;
+          setInput(v);
+          setCaretPos(c);
+          setSlashIndex(0);
+          // A token starting anywhere in the message needs the
+          // catalogue, not only one at position 0.
+          const tok = findSlashToken(v, c);
+          if (tok) ensureSkillCatalog();
+          // An Escape dismissal lasts as long as the token it closed;
+          // once that token is gone, the next "/" opens the menu again.
+          else setSlashDismissedAt(null);
+        },
+        // Clicking or arrowing through the text moves the palette with
+        // the caret, so the menu tracks the token being edited.
+        onSelect: e => setCaretPos(e.target.selectionStart ?? 0),
+        onKeyUp: e => setCaretPos(e.target.selectionStart ?? 0),
+        onKeyDown: e => {
+          // Escape dismisses the menu in EVERY open state, including
+          // "no matches" (it previously fell through and closed the
+          // whole panel), and never fires once the menu is closed. It
+          // dismisses ONLY the menu: it used to clear the composer,
+          // which mid-sentence would delete the caller's message.
+          if (slashMenuOpen && e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setSlashDismissedAt(slashToken.start); return; }
+          if (slashMenuOpen && slashMatches.length > 0) {
+            if (e.key === 'ArrowDown') { e.preventDefault(); setSlashIndex(i => (i + 1) % slashMatches.length); return; }
+            if (e.key === 'ArrowUp') { e.preventDefault(); setSlashIndex(i => (i - 1 + slashMatches.length) % slashMatches.length); return; }
+            if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); chooseSkill(slashMatches[Math.min(slashIndex, slashMatches.length - 1)]); return; }
+          }
+          if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
+        },
+        placeholder: 'Ask anything, or type / for a Skill…',
+        canSend: Boolean(input.trim()) && !isTyping,
+        onSend: () => handleSend(),
+      }}
+      footer={
+        <KeithFooter
+          label={cohortName || 'No cohort'}
+          models={modelChoices}
+          value={sentModel}
+          onChange={pickModel}
+          labels={MODEL_LABELS}
+        />
+      }
+    >
+      {/* Welcome: greeting + one sentence, lighter on return visits. */}
+      <KeithWelcome title={greeting}>
+        {returning
+          ? <>Ask anything, or type <span style={{ fontFamily: 'ui-monospace, monospace' }}>/</span> to use a Skill.</>
+          : <>{capabilityLine} Ask anything, or type <span style={{ fontFamily: 'ui-monospace, monospace' }}>/</span> to use a Skill.</>}
+      </KeithWelcome>
 
-              {/* Typing indicator */}
-              {isTyping && (
-                <div style={{
-                  background: '#f0f4ff',
-                  border: '1px solid #e0e7ff',
-                  borderRadius: '12px 12px 12px 4px',
-                  padding: '10px 14px',
-                  width: 'fit-content',
-                }}>
-                  <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                    {[0, 1, 2].map(i => (
-                      <div key={i} style={{
-                        width: '6px', height: '6px', borderRadius: '50%',
-                        background: '#9faff8',
-                        animation: `keithDot 1.2s ease infinite ${i * 0.2}s`,
-                      }} />
-                    ))}
-                  </div>
+      {/* Suggested prompts - role-aware, at most four, empty state only */}
+      {messages.length === 0 && <KeithChips chips={chips} disabled={isTyping} onPick={handleSend} />}
+
+      {/* Conversation messages */}
+      {messages.map(msg => (
+        <KeithMessage
+          key={msg.id}
+          fromUser={msg.role === 'user'}
+          ai={msg.role === 'keith' && msg.isAI}
+          // KEITH-CHAT-UX-1: Keith replies render as safe Markdown (React elements only);
+          // user messages stay plain text.
+          body={msg.role === 'keith' ? renderMarkdownLite(msg.text) : formatText(msg.text)}
+          inside={<>
+              {/* Tool calls disclosure */}
+              {msg.tool_calls && msg.tool_calls.length > 0 && (
+                <div style={{ marginTop: 6 }}>
+                  <button
+                    onClick={() => setToolExpanded(p => ({ ...p, [msg.id]: !p[msg.id] }))}
+                    style={{
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 10,
+                      color: '#1D2567', padding: '2px 0', display: 'flex',
+                      alignItems: 'center', gap: 4, opacity: 0.75,
+                    }}
+                  >
+                    <span>{toolExpanded[msg.id] ? '▾' : '▸'}</span>
+                    <span>Looked at: {msg.tool_calls.map(t => t.tool).join(', ')}</span>
+                  </button>
+                  {toolExpanded[msg.id] && (
+                    <div style={{
+                      marginTop: 4, padding: '6px 10px',
+                      background: 'rgba(29,37,103,0.04)',
+                      borderRadius: 6, borderLeft: '2px solid #1D2567',
+                      display: 'flex', flexDirection: 'column', gap: 3,
+                    }}>
+                      {msg.tool_calls.map((tc, i) => (
+                        <div key={i} style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 10, color: '#475467' }}>
+                          <span style={{ fontWeight: 600, color: '#1D2567' }}>{tc.tool}</span>
+                          {': '}
+                          {tc.result_summary}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
+          </>}
+          after={<>
+            {/* Copy button for email drafts */}
+            {/* Retry button for transient errors */}
+            {msg.canRetry && <KeithRetry onClick={() => handleSend(msg.retryText)} />}
 
-              <div ref={messagesEndRef} />
-            </div>
-
-            {/* Input */}
-            <div style={{
-              padding: '12px 16px',
-              borderTop: '1px solid #f3f4f6',
-              display: 'flex',
-              gap: '8px',
-              flexShrink: 0,
-              position: 'relative',
-            }}>
-              {/* KEITH-SLASH-SKILLS-1: the Skills menu. Rendered while the user
-                  is SEARCHING for a command; a committed selection closes it.
-                  ArrowUp/Down + Enter, or click, selects. */}
-              {slashMenuOpen && skillCatalog !== null && (
-                slashMatches.length > 0 ? (
-                  <div role="listbox" aria-label="Skills" style={{
-                    position: 'absolute', bottom: '100%', left: 16, right: 16,
-                    marginBottom: 4, background: '#ffffff',
-                    border: '1px solid #e0e7ff', borderRadius: 10,
-                    boxShadow: '0 6px 24px rgba(29,37,103,0.16)',
-                    maxHeight: 180, overflowY: 'auto', zIndex: 5,
-                  }}>
-                    {slashMatches.map((s, i) => (
-                      <div
-                        key={s.slug}
-                        role="option"
-                        aria-selected={i === slashIndex}
-                        onMouseDown={e => { e.preventDefault(); chooseSkill(s); }}
-                        onMouseEnter={() => setSlashIndex(i)}
-                        style={{
-                          padding: '8px 12px', cursor: 'pointer',
-                          background: i === slashIndex ? '#eef2ff' : 'transparent',
-                        }}
-                      >
-                        <div style={{ fontFamily: 'Plus Jakarta Sans', fontSize: 12.5, fontWeight: 600, color: '#1d2567' }}>/{s.slug}</div>
-                        {/* SKILL-PALETTE-1: one concise line, derived at render
-                            time. The stored description, trigger guidance,
-                            instructions and references are untouched, and the
-                            detail drawer still shows the full text. */}
-                        {paletteSummary(s) && (
-                          <div style={{
-                            fontFamily: 'Plus Jakarta Sans', fontSize: 11, color: '#6b7280', marginTop: 1,
-                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                          }}>{paletteSummary(s)}</div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div style={{
-                    position: 'absolute', bottom: '100%', left: 16, right: 16, marginBottom: 4,
-                    background: '#ffffff', border: '1px solid #e0e7ff', borderRadius: 10,
-                    boxShadow: '0 6px 24px rgba(29,37,103,0.16)', padding: '8px 12px',
-                    fontFamily: 'Plus Jakarta Sans', fontSize: 11.5, color: '#6b7280', zIndex: 5,
-                  }}>
-                    {skillCatalog.length === 0 ? 'No Skills are available to your role.' : 'No Skill matches. Keep typing or press Escape.'}
-                  </div>
-                )
-              )}
-              <input
-                ref={inputRef}
-                value={input}
-                onChange={e => {
-                  const v = e.target.value;
-                  const c = e.target.selectionStart ?? v.length;
-                  setInput(v);
-                  setCaretPos(c);
-                  setSlashIndex(0);
-                  // A token starting anywhere in the message needs the
-                  // catalogue, not only one at position 0.
-                  const tok = findSlashToken(v, c);
-                  if (tok) ensureSkillCatalog();
-                  // An Escape dismissal lasts as long as the token it closed;
-                  // once that token is gone, the next "/" opens the menu again.
-                  else setSlashDismissedAt(null);
-                }}
-                // Clicking or arrowing through the text moves the palette with
-                // the caret, so the menu tracks the token being edited.
-                onSelect={e => setCaretPos(e.target.selectionStart ?? 0)}
-                onKeyUp={e => setCaretPos(e.target.selectionStart ?? 0)}
-                onKeyDown={e => {
-                  // Escape dismisses the menu in EVERY open state, including
-                  // "no matches" (it previously fell through and closed the
-                  // whole panel), and never fires once the menu is closed. It
-                  // dismisses ONLY the menu: it used to clear the composer,
-                  // which mid-sentence would delete the caller's message.
-                  if (slashMenuOpen && e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setSlashDismissedAt(slashToken.start); return; }
-                  if (slashMenuOpen && slashMatches.length > 0) {
-                    if (e.key === 'ArrowDown') { e.preventDefault(); setSlashIndex(i => (i + 1) % slashMatches.length); return; }
-                    if (e.key === 'ArrowUp') { e.preventDefault(); setSlashIndex(i => (i - 1 + slashMatches.length) % slashMatches.length); return; }
-                    if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); chooseSkill(slashMatches[Math.min(slashIndex, slashMatches.length - 1)]); return; }
-                  }
-                  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
-                }}
-                placeholder="Ask anything, or type / for a Skill…"
-                style={{
-                  flex: 1,
-                  border: '1px solid #e5e7eb',
-                  borderRadius: '20px',
-                  padding: '8px 14px',
-                  fontFamily: 'Plus Jakarta Sans', fontSize: '13px',
-                  color: '#374151',
-                  outline: 'none',
-                  background: '#f9fafb',
-                }}
-                onFocus={e => { e.currentTarget.style.borderColor = '#9faff8'; e.currentTarget.style.background = '#ffffff'; }}
-                onBlur={e => { e.currentTarget.style.borderColor = '#e5e7eb'; e.currentTarget.style.background = '#f9fafb'; }}
-              />
+            {msg.hasCopy && (
               <button
-                onClick={() => handleSend()}
-                disabled={!input.trim() || isTyping}
+                onClick={() => handleCopy(msg.id, msg.text)}
                 style={{
-                  background: (input.trim() && !isTyping) ? '#1d2567' : '#e5e7eb',
-                  border: 'none',
-                  borderRadius: '50%',
-                  width: '36px', height: '36px',
-                  cursor: (input.trim() && !isTyping) ? 'pointer' : 'default',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  flexShrink: 0,
-                  transition: 'background 0.15s ease',
+                  background: copiedId === msg.id ? '#dcfce7' : '#f9fafb',
+                  border: `1px solid ${copiedId === msg.id ? '#86efac' : '#e5e7eb'}`,
+                  borderRadius: '8px',
+                  padding: '4px 10px',
+                  fontFamily: 'Plus Jakarta Sans', fontSize: '11px',
+                  color: copiedId === msg.id ? '#166534' : '#6b7280',
+                  cursor: 'pointer',
                 }}
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="22" y1="2" x2="11" y2="13"/>
-                  <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-                </svg>
+                {copiedId === msg.id ? '✓ Copied' : 'Copy Email'}
               </button>
-            </div>
+            )}
 
-            {/* Footer: current sources + the model control. */}
-            <div style={{
-              padding: '4px 16px 10px',
-              display: 'flex', alignItems: 'center', gap: 8,
-              fontFamily: 'Plus Jakarta Sans', fontSize: '10px', color: '#9ca3af',
-            }}>
-              <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {cohortName || 'No cohort'}
-              </span>
-              {/* KEITH-MODEL-SELECT-1: Auto keeps Keith's normal routing; the
-                  server enforces who may choose Sonnet and Opus. */}
-              <select
-                aria-label="Model"
-                value={sentModel}
-                onChange={e => pickModel(e.target.value)}
+            {/* Navigation actions (LAUNCHER-2: a reply can carry more than one way there) */}
+            {[msg.action, ...(msg.actions || [])].filter(Boolean).map((a, ai) => (
+              <button
+                key={ai}
+                type="button"
+                onClick={() => handleAction(a)}
                 style={{
-                  marginLeft: 'auto', flexShrink: 0,
-                  fontFamily: 'Plus Jakarta Sans', fontSize: '10px', color: '#6b7280',
-                  border: '1px solid #e5e7eb', borderRadius: 6,
-                  background: '#f9fafb', padding: '2px 4px', cursor: 'pointer',
+                  background: '#eff6ff',
+                  border: '1px solid #bfdbfe',
+                  borderRadius: '8px',
+                  padding: '4px 10px',
+                  fontFamily: 'Plus Jakarta Sans', fontSize: '11px',
+                  color: '#1d4ed8',
+                  cursor: 'pointer',
                 }}
               >
-                {modelChoices.map(m => <option key={m} value={m}>{MODEL_LABELS[m]}</option>)}
-              </select>
-            </div>
-          </div>
-        </>
-      )}
+                → {a.label}
+              </button>
+            ))}
+          </>}
+        />
+      ))}
 
-      {/* Launcher orb, wordmark and panel animation. */}
-      <style>{`
-        .keith-orb-video {
-          position: relative; display: block; overflow: hidden; border-radius: 50%;
-          background: #070918;
-        }
-        .keith-orb-video video, .keith-orb-video img {
-          display: block; width: 100%; height: 100%; object-fit: cover; transform: scale(1.04);
-        }
-        .keith-wordmark { display: flex; flex-direction: column; line-height: 1; gap: 3px; }
-        .keith-wordmark-name { font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800; font-size: 19px; letter-spacing: -0.01em; color: #FFFFFF; }
-        .keith-wordmark-ai { font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; font-size: 11px; letter-spacing: 0.06em; color: rgba(255,255,255,0.78); }
-        @keyframes keithSlideIn {
-          from { opacity: 0; transform: translateY(12px) scale(0.97); }
-          to { opacity: 1; transform: translateY(0) scale(1); }
-        }
-        @keyframes keithDot {
-          0%, 60%, 100% { opacity: 0.3; transform: scale(0.8); }
-          30% { opacity: 1; transform: scale(1); }
-        }
-      `}</style>
-    </>
+      {/* Typing indicator */}
+      {isTyping && <KeithTyping />}
+    </KeithChatShell>
   );
 }

@@ -11,10 +11,10 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { PGlite } from '@electric-sql/pglite'
 import {
-  candidateScore, unitFitFactor, feedbackFactor, resumeFactor, statementFactor, rotatedUnits, bandFor, NOT_ENOUGH, NOT_ELIGIBLE,
+  candidateScore, unitFitFactor, feedbackFactor, resumeFactor, statementFactor, rotatedUnits, bandFor, NOT_ENOUGH, NOT_ELIGIBLE, keithContributed,
 } from '../src/lib/ngrp/candidateScoreModel.js'
 import { parseAssessment } from '../src/lib/ngrp/candidateAssessmentModel.js'
-import { scoreInputs, loadCandidateScores, assessCandidate } from '../lib/server/ngrpCandidateScores.js'
+import { scoreInputs, loadCandidateScores, assessCandidate, resumeProvenanceFor } from '../lib/server/ngrpCandidateScores.js'
 import { SKILL_DEFS } from '../lib/server/keith/skillDefs.js'
 import { canSeeEntity } from '../lib/server/keith/provenanceCards.js'
 import { interestColumns } from '../src/lib/ngrp/interestEligibilityModel.js'
@@ -239,11 +239,42 @@ test('the table sorts by Fit, the binder and the board read the one score, and t
   assert.equal(fit.sortValue({ candidate_score: { score: 82, ineligible: true } }), null, 'Not eligible sorts with the unscored')
   const tab = read('src/components/ngrp/ProfilesTab.jsx')
   assert.match(tab, /sortKey="fit"[^>]*>Fit<\/SortHeader>/)
-  assert.match(tab, /<CandidateFitChip score=\{r\.candidate_score\} \/>/)
+  // CANDIDATE-SCORE-2: the Fit cell's chip opens the score's details.
+  assert.match(tab, /<CandidateFitChip score=\{r\.candidate_score\} onOpen=\{\(\) => setScoreRowId\(r\.id\)\} \/>/)
   assert.match(tab, /assessmentsAvailable=\{payload\?\.assessmentsProvisioned === true\}/)
   assert.match(read('src/components/ngrp/ApplicantDrawer.jsx'), /<CandidateScoreSection row=\{row\}/)
   const board = read('src/components/ngrp/InterviewBoard.jsx')
   assert.match(board, /data-testid="interviewee-fit-chip"/)
   assert.doesNotMatch(board, /No interview\s+rubric or score is stored/)
   assert.equal(JSON.parse(read('vercel.json')).functions['api/ngrp-candidate-assess.js'].maxDuration, 60)
+})
+
+// ── CANDIDATE-SCORE-2 (Owner, 2026-11-02: "where is the Keith icon ... clicking there will reveal a
+// modal that shows the score details") ──────────────────────────────────────────
+test('Keith contributed when he rated the statement or scored the résumé the score counts', () => {
+  assert.equal(keithContributed(null), false)
+  assert.equal(keithContributed({ score: 60 }), false, 'unit fit and feedback alone are the app\'s')
+  assert.equal(keithContributed({ assessment: { provenanceId: 'p1' } }), true)
+  assert.equal(keithContributed({ resumeProvenanceId: 'r1' }), true)
+  // The résumé's mark rides only when the résumé is counted.
+  assert.equal(resumeProvenanceFor({ resumeComposite: 72 }, { provenanceId: 'r1' }), 'r1')
+  assert.equal(resumeProvenanceFor({ resumeComposite: null }, { provenanceId: 'r1' }), null)
+  assert.equal(resumeProvenanceFor({ resumeComposite: 72 }, null), null)
+})
+
+test('the Fit chip is one button with the Keith orb, and opens the binder\'s own section in a dialog', () => {
+  const ui = read('src/components/ngrp/CandidateScore.jsx')
+  assert.match(ui, /className="ngrp-fitbtn"/)
+  assert.match(ui, /onClick=\{e => \{ e\.stopPropagation\(\); onOpen\(\) \}\}/, 'the row behind it does not open the answers too')
+  assert.match(ui, /\{keithContributed\(score\) && <KeithGlyph \/>\}/, 'the decorative orb inside the button, never a button in a button')
+  assert.match(ui, /Show score details/)
+  assert.match(ui, /role="dialog" aria-modal="true"/)
+  assert.match(ui, /createPortal\(/)
+  assert.match(ui, /<CandidateScoreSection row=\{row\}/, 'the dialog is the binder\'s section, so the two cannot disagree')
+  assert.match(ui, /f\.key === 'resume' && score\.resumeProvenanceId && <KeithMark/)
+  assert.match(ui, /f\.key === 'statement' && a\?\.provenanceId && <KeithMark/)
+  const tab = read('src/components/ngrp/ProfilesTab.jsx')
+  assert.match(tab, /<CandidateScoreDialog/)
+  assert.match(tab, /available=\{payload\?\.assessmentsProvisioned === true\}/)
+  assert.match(read('src/components/ngrp/InterviewBoard.jsx'), /keithContributed\(row\.candidate_score\) && <KeithGlyph \/>/)
 })

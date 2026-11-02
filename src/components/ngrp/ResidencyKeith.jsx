@@ -1,21 +1,19 @@
-// RESIDENCY-KEITH-1 (Owner, 2026-11-01): Keith chat in the Residency Portal. The header gets the
-// Keith control beside ASPIRE Connect (the lower right belongs to Messages); it opens a side drawer
-// that talks to /api/keith-residency, which reads only the open cohort's applicants and writes
-// nothing (lib/server/keith/residencyChat.js). Haiku or Sonnet; no Keith settings here. The
-// conversation lives in this tab only and starts over when the cohort changes.
+// RESIDENCY-KEITH-1 (Owner, 2026-11-01): Keith chat in the Residency Portal. It talks to
+// /api/keith-residency, which reads only the open cohort's applicants and writes nothing
+// (lib/server/keith/residencyChat.js). Haiku or Sonnet; no Keith settings here. The conversation
+// lives in this tab only and starts over when the cohort changes.
+//
+// RESIDENCY-KEITH-2 (Owner, 2026-11-02: "why not reuse what was already existing?"): it is the staff
+// app's Keith, drawn by the same KeithChatShell (orb in the lower right corner, the panel above it,
+// the navy head, the input row, the model in the footer). Only the conversation and the endpoint are
+// its own. portal.css moves the portal's Messages launcher up above the orb, as in the staff app.
 import { useEffect, useRef, useState } from 'react'
-import { Send } from 'lucide-react'
-import Tooltip from '../ui/Tooltip'
-import DetailDrawer from '../ui/DetailDrawer'
-import SegmentedPicker from '../shared/SegmentedPicker'
+import KeithChatShell, { KeithWelcome, KeithChips, KeithMessage, KeithTyping, KeithFooter, KeithRetry } from '../keith/KeithChatShell'
 import { renderMarkdownLite } from '../../lib/keithMarkdown'
 import { postNgrpKeith } from '../../lib/ngrp/useNgrpData'
-import { ORB_SRC } from '../keith/KeithMark'
 
-const MODELS = [
-  { value: 'haiku', label: 'Haiku 5.5', title: 'Quick answers' },
-  { value: 'sonnet', label: 'Sonnet 5.5', title: 'Deeper reading and comparisons' },
-]
+const MODELS = ['haiku', 'sonnet']
+const MODEL_LABELS = { haiku: 'Haiku 5.5', sonnet: 'Sonnet 5.5' }
 const STARTERS = [
   'Who are the strongest fits for 6 NE?',
   'Which applicants have not submitted the Transition Form?',
@@ -26,95 +24,103 @@ const FAIL_WORDS = {
   timeout: 'That took too long. Try a narrower question.',
   cycle_not_found: 'This residency cohort could not be read.',
 }
+// Below 760px the portal's bottom bar takes the lowest 58px, so the orb and the panel sit above it.
+const PHONE = '(max-width: 760px)'
 
-export function ResidencyKeithButton({ open, onClick }) {
-  const rest = open ? 'rgba(255,255,255,0.26)' : 'rgba(255,255,255,0.06)'
-  return (
-    <Tooltip label="Keith" placement="bottom">
-      <button
-        type="button"
-        aria-label="Ask Keith about this cohort's applicants"
-        aria-expanded={open}
-        onClick={onClick}
-        className="ngrp-keith-btn"
-        style={{
-          background: rest,
-          border: `1px solid ${open ? 'rgba(255,255,255,0.50)' : 'rgba(255,255,255,0.10)'}`,
-        }}
-      >
-        <img src={ORB_SRC} alt="" width={20} height={20} draggable="false" />
-      </button>
-    </Tooltip>
-  )
+function usePhone() {
+  const [phone, setPhone] = useState(() => typeof window !== 'undefined' && !!window.matchMedia?.(PHONE).matches)
+  useEffect(() => {
+    const mq = window.matchMedia?.(PHONE)
+    if (!mq) return undefined
+    const on = () => setPhone(mq.matches)
+    mq.addEventListener?.('change', on)
+    return () => mq.removeEventListener?.('change', on)
+  }, [])
+  return phone
 }
 
-export function ResidencyKeithPanel({ open, onClose, cycle }) {
+export default function ResidencyKeith({ cycle }) {
+  const [open, setOpen] = useState(false)
   const [model, setModel] = useState('haiku')
   const [messages, setMessages] = useState([])
   const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState(null)
+  const [replay, setReplay] = useState(0)
   const endRef = useRef(null)
+  const inputRef = useRef(null)
+  const phone = usePhone()
   const cycleId = cycle?.id || null
 
   // A new cohort is a new conversation: answers about one roster never carry into another.
   const [forCycle, setForCycle] = useState(cycleId)
-  if (forCycle !== cycleId) { setForCycle(cycleId); setMessages([]); setError(null) }
+  if (forCycle !== cycleId) { setForCycle(cycleId); setMessages([]) }
 
-  useEffect(() => { endRef.current?.scrollIntoView?.({ block: 'end' }) }, [messages, busy])
+  useEffect(() => { endRef.current?.scrollIntoView?.({ block: 'end' }) }, [messages, busy, open])
+  useEffect(() => {
+    if (!open) return undefined
+    inputRef.current?.focus()
+    const onKey = (e) => { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [open])
 
-  const ask = async (text) => {
+  // A retry passes the conversation before the question that failed, so it is asked once.
+  const ask = async (text, before = messages) => {
     const q = String(text || '').trim()
     if (!q || busy || !cycleId) return
-    const next = [...messages, { role: 'user', content: q }]
-    setMessages(next); setDraft(''); setBusy(true); setError(null)
+    const history = before.filter(m => !m.failed).map(({ role, content }) => ({ role, content }))
+    const next = [...history, { role: 'user', content: q }]
+    setMessages([...before, { role: 'user', content: q }]); setDraft(''); setBusy(true)
     const res = await postNgrpKeith('chat', { cycle_id: cycleId, chat_model: model, messages: next })
     setBusy(false)
     if (res.ok && res.answer) setMessages(m => [...m, { role: 'assistant', content: res.answer }])
-    else setError(FAIL_WORDS[res.code] || 'Keith could not answer. Try again.')
+    else setMessages(m => [...m, { role: 'assistant', failed: true, retry: q, content: FAIL_WORDS[res.code] || 'Keith could not answer. Try again.' }])
   }
 
   return (
-    <DetailDrawer open={open} title="Keith" width={480} onClose={onClose}>
-      <div className="ngrp-keith">
-        <div className="ngrp-keith-bar">
-          <SegmentedPicker options={MODELS} value={model} onChange={setModel} ariaLabel="Keith model" size="sm" />
-          {messages.length > 0 && (
-            <button type="button" className="ngrp-linkbtn" onClick={() => { setMessages([]); setError(null) }}>New chat</button>
-          )}
-        </div>
-        <p className="ngrp-keith-scope">
-          Keith reads {cycle?.name ? `${cycle.name}'s` : 'this cohort’s'} applicants: their forms, candidate scores,
-          résumé reviews, shared preceptor feedback and interviews. Read only. Check anything that matters against the record.
-        </p>
-        <div className="ngrp-keith-log" aria-live="polite">
-          {messages.length === 0 && (
-            <div className="ngrp-keith-starters">
-              {STARTERS.map(s => (
-                <button key={s} type="button" className="ngrp-keith-starter" onClick={() => ask(s)} disabled={busy || !cycleId}>{s}</button>
-              ))}
-            </div>
-          )}
-          {messages.map((m, i) => (
-            <div key={i} className={`ngrp-keith-msg ngrp-keith-${m.role}`}>
-              {m.role === 'assistant' ? renderMarkdownLite(m.content) : m.content}
-            </div>
-          ))}
-          {busy && <div className="ngrp-keith-msg ngrp-keith-assistant ngrp-keith-wait" role="status">Reading the roster…</div>}
-          {error && <p className="ngrp-keith-error" role="alert">{error}</p>}
-          <div ref={endRef} />
-        </div>
-        <form className="ngrp-keith-input" onSubmit={e => { e.preventDefault(); ask(draft) }}>
-          <textarea
-            value={draft} rows={2} maxLength={4000}
-            onChange={e => setDraft(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); ask(draft) } }}
-            placeholder="Ask about this cohort's applicants"
-            aria-label="Ask Keith"
-          />
-          <button type="submit" aria-label="Send" disabled={busy || !draft.trim() || !cycleId}><Send size={15} /></button>
-        </form>
-      </div>
-    </DetailDrawer>
+    <KeithChatShell
+      open={open}
+      busy={busy}
+      replay={replay}
+      onReplay={() => setReplay(n => n + 1)}
+      onToggle={() => setOpen(o => !o)}
+      onClose={() => setOpen(false)}
+      onNew={() => setMessages([])}
+      launcherBottom={phone ? '82px' : '24px'}
+      panelBottom={phone ? '154px' : '96px'}
+      panelHeightGap={phone ? '218px' : '160px'}
+      endRef={endRef}
+      input={{
+        ref: inputRef,
+        value: draft,
+        maxLength: 4000,
+        onChange: e => setDraft(e.target.value),
+        onKeyDown: e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); ask(draft) } },
+        placeholder: "Ask about this cohort's applicants…",
+        canSend: Boolean(draft.trim()) && !busy && Boolean(cycleId),
+        onSend: () => ask(draft),
+      }}
+      footer={<KeithFooter label={cycle?.name || 'No cohort'} models={MODELS} value={model} onChange={setModel} labels={MODEL_LABELS} />}
+    >
+      <KeithWelcome title="Ask Keith about your applicants">
+        Keith reads {cycle?.name ? `${cycle.name}'s` : 'this cohort’s'} applicants: their forms, candidate
+        scores, résumé reviews, shared preceptor feedback and interviews. Read only. Check anything that
+        matters against the record.
+      </KeithWelcome>
+
+      {messages.length === 0 && <KeithChips chips={STARTERS} disabled={busy || !cycleId} onPick={ask} />}
+
+      {messages.map((m, i) => (
+        <KeithMessage
+          key={i}
+          fromUser={m.role === 'user'}
+          ai={m.role === 'assistant' && !m.failed}
+          body={m.role === 'assistant' && !m.failed ? renderMarkdownLite(m.content) : m.content}
+          after={m.failed && <KeithRetry onClick={() => ask(m.retry, messages.slice(0, i - 1))} disabled={busy} />}
+        />
+      ))}
+
+      {busy && <KeithTyping />}
+    </KeithChatShell>
   )
 }

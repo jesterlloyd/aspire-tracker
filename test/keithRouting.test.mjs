@@ -393,16 +393,24 @@ test('the launcher agrees with the resolved role model: no orb for Viewer', () =
 // this test held move with it: the orb is state-bearing (it loops while a reply is in flight, in the
 // launcher and the header alike) and reduced motion stills it.
 test('the orb is state-bearing, and respects reduced motion', () => {
-  assert.match(keithUi, /import KeithOrbVideo from '\.\/keith\/KeithOrbVideo'/)
+  // RESIDENCY-KEITH-2: the orb is drawn by the shared KeithChatShell, which Keith.jsx renders with
+  // its working state and replay counter.
+  const shell = readFileSync(new URL('../src/components/keith/KeithChatShell.jsx', import.meta.url), 'utf8')
+  assert.match(keithUi, /import KeithChatShell/)
+  assert.match(keithUi, /busy=\{isTyping\}/)
+  assert.match(keithUi, /replay=\{orbReplay\}/)
+  assert.match(shell, /import KeithOrbVideo from '\.\/KeithOrbVideo'/)
   assert.doesNotMatch(keithUi, /keith-orb-drift|keith-orb-core|keith-orb-lens/, 'the CSS lens is retired')
   assert.doesNotMatch(keithUi, /keithSpin|keithGlow|keithPulse/, 'the prototype swirl is retired')
-  assert.match(keithUi, /orb\(60, isTyping, orbReplay\)/)
-  assert.match(keithUi, /orb\(36, isTyping\)/)
+  assert.match(shell, /orb\(60, busy, replay\)/)
+  assert.match(shell, /orb\(36, busy\)/)
   const video = readFileSync(new URL('../src/components/keith/KeithOrbVideo.jsx', import.meta.url), 'utf8')
   assert.match(video, /prefers-reduced-motion: reduce/)
   assert.match(video, /still \|\| !visible\s*\n?\s*\? <img src=\{ORB_ANIM\.poster\}/, 'reduced motion renders the poster, never the video')
 })
 
 test('the panel adapts below 440px viewports', () => {
-  assert.match(keithUi, /width: 'min\(400px, calc\(100vw - 24px\)\)'/)
+  // RESIDENCY-KEITH-2: the panel lives in the shared shell.
+  const shell = readFileSync(new URL('../src/components/keith/KeithChatShell.jsx', import.meta.url), 'utf8')
+  assert.match(shell, /width: 'min\(400px, calc\(100vw - 24px\)\)'/)
 })

@@ -116,7 +116,9 @@ test('the chat handler decides after the answer, on both paths, and logs no text
 test('At a Glance shows the Keith orb while his drawer is open, and hides it when closed', () => {
   // KEITH-ORB-HOME-1 (Owner, 2026-09-30): HOME-1 hid the orb on At a Glance; opened from the
   // launcher, the drawer then had no orb to put it away with.
-  assert.match(read('src/components/Keith.jsx'), /\{\(!hideLauncher \|\| isOpen\) && \(/)
+  // RESIDENCY-KEITH-2 moved the launcher into the shared KeithChatShell; Keith.jsx hands it the flag.
+  assert.match(read('src/components/Keith.jsx'), /hideLauncher=\{hideLauncher\}/)
+  assert.match(read('src/components/keith/KeithChatShell.jsx'), /\{\(!hideLauncher \|\| open\) && \(/)
 })
 
 // ── The app's change history ─────────────────────────────────────────────────────

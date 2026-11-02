@@ -4,7 +4,7 @@
 //   - preceptor feedback reaches the chat only once the Transition Form is submitted;
 //   - Talent Acquisition sees the form's GPA, never the record's;
 //   - the tool loop sends the assistant's content back whole, and stops at its deadline;
-//   - the portal header carries the Keith control and the drawer, with no Keith settings.
+//   - the staff app's Keith shell, in the lower right corner, with no Keith settings (RESIDENCY-KEITH-2).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
@@ -119,14 +119,37 @@ test('a refusal is answered with the declined message, and a spent deadline stop
   assert.deepEqual([late.ok, late.reason], [false, 'timeout'])
 })
 
-test('the Residency Portal header carries Keith, with Haiku | Sonnet and no settings', () => {
+// RESIDENCY-KEITH-2 (Owner, 2026-11-02: "why not reuse what was already existing?"): the portal's
+// Keith is the staff app's Keith, drawn by one shared shell; only the endpoint and the conversation
+// are its own.
+test('the Residency Portal draws the staff Keith shell, with Haiku | Sonnet and no settings', () => {
   const portal = read('src/portal/residency/ResidencyPortal.jsx')
-  assert.match(portal, /<ResidencyKeithButton/)
-  assert.match(portal, /<ResidencyKeithPanel open=\{keithOpen\}/)
+  assert.match(portal, /<ResidencyKeith cycle=\{activeCycle\} \/>/)
+  assert.doesNotMatch(portal, /ResidencyKeithButton|ResidencyKeithPanel/, 'the header control is retired')
   const ui = read('src/components/ngrp/ResidencyKeith.jsx')
-  assert.match(ui, /value: 'haiku'/)
-  assert.match(ui, /value: 'sonnet'/)
+  assert.match(ui, /from '\.\.\/keith\/KeithChatShell'/)
+  assert.match(ui, /<KeithChatShell/)
+  assert.match(ui, /postNgrpKeith\('chat'/, 'it talks to /api/keith-residency, never /api/keith')
+  assert.doesNotMatch(ui, /\/api\/keith['"`]/)
+  assert.match(ui, /const MODELS = \['haiku', 'sonnet'\]/)
   assert.doesNotMatch(ui, /opus/i)
   assert.doesNotMatch(ui, /\/settings/, 'no link into Keith settings')
   assert.match(ui, /Read only\./)
+})
+
+test('the staff Keith is drawn by the same shell, and the shell names no endpoint', () => {
+  const staff = read('src/components/Keith.jsx')
+  assert.match(staff, /import KeithChatShell, \{[^}]*\} from '\.\/keith\/KeithChatShell'/)
+  assert.match(staff, /<KeithChatShell/)
+  const shell = read('src/components/keith/KeithChatShell.jsx')
+  assert.doesNotMatch(shell, /fetch\(|['"`]\/api\//, 'the shell draws; each host keeps its own endpoint')
+  assert.match(shell, /data-keith-launcher=""/)
+  assert.match(shell, /data-keith-panel=""/)
+})
+
+test('a portal moves its Messages launcher above Keith, one corner panel at a time', () => {
+  const css = read('src/portal/portal.css')
+  assert.match(css, /body:has\(\[data-keith-launcher\]\) \.ptl-team-message-launcher-wrap \{\s*right: max\(28px, env\(safe-area-inset-right\)\);\s*bottom: calc\(96px/)
+  assert.match(css, /body:has\(\[data-keith-panel\]\) \.ptl-team-message-launcher-wrap \{ display: none; \}/)
+  assert.match(css, /body:has\(\.ptl-team-message-launcher-wrap\.is-open\) \[data-keith-launcher\] \{ display: none !important; \}/)
 })

@@ -52,7 +52,7 @@ import AutomationEmailPreviewDrawer from '../connect/AutomationEmailPreviewDrawe
 import { transitionPreviewFor } from '../../lib/ngrp/transitionPreviewFixture'
 import { transitionFormPreview } from '../../lib/ngrp/transitionFormPreview'
 import SortHeader from '../shared/SortHeader'
-import { CandidateFitChip } from './CandidateScore'
+import { CandidateFitChip, CandidateScoreDialog } from './CandidateScore'
 import { sortRows } from '../shared/dataSheetSort'
 import { LICENSE_LABELS, NOT_REPORTED, employmentOf, licenseDetail, eligibilityDetail, gpaOf, formGpaOf, gpaBand, interestColumns, cohortFilterOptions, preceptedUnitOf, unitDemand, demandFor, seatLabel } from '../../lib/ngrp/interestEligibilityModel'
 import { GPA_BAND_COLORS } from '../../lib/constants'
@@ -247,6 +247,8 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
   const [drawerRowId, setDrawerRowId] = useState(null)
   // ROW-ANSWERS-1: whose Transition Form answers are open over the Interest table.
   const [answersRowId, setAnswersRowId] = useState(null)
+  // CANDIDATE-SCORE-2: whose score details are open, from the Fit column's chip.
+  const [scoreRowId, setScoreRowId] = useState(null)
   const [sendReview, setSendReview] = useState(null)
   // NGRP-TRANSITION-PREVIEW-1: renders a synthetic copy of the invitation. No network,
   // no recipient, no token; it cannot send anything.
@@ -993,7 +995,7 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                         </td>
                         <td className="ngrp-col-fit">
                           <span className="ngrp-stack">
-                            <CandidateFitChip score={r.candidate_score} />
+                            <CandidateFitChip score={r.candidate_score} onOpen={() => setScoreRowId(r.id)} />
                             {r.candidate_score?.score != null && <span className="ngrp-cellsub">{r.candidate_score.basedOn} of 4 factors</span>}
                           </span>
                         </td>
@@ -1093,6 +1095,20 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
           onClose={() => setAnswersRowId(null)}
         />
       )}
+
+      {scoreRowId && allRows.some(r => r.id === scoreRowId) && (() => {
+        const row = allRows.find(r => r.id === scoreRowId)
+        return (
+          <CandidateScoreDialog
+            row={row}
+            name={displayName(row.student)}
+            cycleId={cycle?.id}
+            available={payload?.assessmentsProvisioned === true}
+            onChanged={() => refetch()}
+            onClose={() => setScoreRowId(null)}
+          />
+        )
+      })()}
 
       {sendReview && (
         <>

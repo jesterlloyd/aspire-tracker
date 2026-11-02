@@ -126,7 +126,9 @@ test('the launcher sits directly above the 60px Keith orb, canonical visuals', (
   assert.match(app, /<MainMessagesLauncher hidden=\{keithOnly\} keepLauncherVisible \/>/)
   assert.ok(app.indexOf('<MainMessagesLauncher') > app.indexOf('<Keith'))
   assert.match(launcher, /if \(hidden && !open\) return null/)
-  assert.match(read('src/components/Keith.jsx'), /bottom: '38px',\n {10}right: messagesOpen \? '168px' : '96px',/)
+  // RESIDENCY-KEITH-2: the tooltip is the shared KeithChatShell's, 14px above the launcher's 24px.
+  assert.match(read('src/components/Keith.jsx'), /tooltipRight=\{messagesOpen \? '168px' : '96px'\}/)
+  assert.match(read('src/components/keith/KeithChatShell.jsx'), /bottom: `calc\(\$\{launcherBottom\} \+ 14px\)`,\n {10}right: tooltipRight,/)
 })
 
 test('portal launcher uses the same supplied shortcut artwork', () => {

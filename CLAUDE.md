@@ -2752,15 +2752,32 @@ up by the APP (`src/lib/ngrp/candidateScoreModel.js`, pure), never by the model:
   Keith is asked; an inputs fingerprint marks an assessment "changed since" when what it read changes.
   `ngrp_candidate_assessments` and the skill seed are `20261118000000_ngrp_candidate_assessments.sql`
   (Owner-gated); before it the score stands on three factors and Assess is not offered.
+- **The Fit chip opens the score** (CANDIDATE-SCORE-2, Owner, 2026-11-02): in Interest & Eligibility
+  it is one button (`onOpen`) that opens `CandidateScoreDialog`, which is the binder's
+  `CandidateScoreSection` in a dialog, so the two cannot disagree. It stops the click, so the row's
+  Transition Form answers do not open as well. The chip carries Keith's orb whenever Keith had a hand
+  in the number (`keithContributed`: an assessment, or the résumé score it counts, whose provenance
+  the server attaches as `resumeProvenanceId`). Inside a button the orb is the decorative
+  `KeithGlyph`; the interactive `KeithMark` sits beside the Résumé and Statement factors in the
+  details. The Interview Board's Fit chip carries the glyph too.
 
 ## Keith in the Residency Portal (RESIDENCY-KEITH-1, 2026-11-02)
 
 Owner: give Keith chat (Haiku and Sonnet) to the Residency Portal, with no Keith settings there, to
 help Talent Acquisition pick whom to pair for interviews, and to answer general questions the way
-any assistant would. The header's Keith control (`ResidencyKeithButton`, beside ASPIRE Connect,
-shown once a cohort is open) opens `ResidencyKeithPanel` in a `DetailDrawer`; both are in
-`src/components/ngrp/ResidencyKeith.jsx`. Server: `api/keith-residency.js` (60 s) over
-`lib/server/keith/residencyChat.js`.
+any assistant would. Server: `api/keith-residency.js` (60 s) over `lib/server/keith/residencyChat.js`.
+
+- **It is the staff app's Keith** (RESIDENCY-KEITH-2, Owner, 2026-11-02: "why not reuse what was
+  already existing?"). `src/components/keith/KeithChatShell.jsx` draws the one Keith chat: the orb in
+  the lower right, its tooltip, the panel with the navy head, the message bubbles, chips, typing dots,
+  input row and the footer's model select. `Keith.jsx` (staff, `/api/keith`) and
+  `src/components/ngrp/ResidencyKeith.jsx` (portal, `/api/keith-residency`) both render it and keep
+  only their own conversation and endpoint; the shell names no endpoint (a test holds it). The portal
+  mounts it once a cohort is open. Change the look in the shell and both get it.
+- **One corner panel at a time in a portal.** The shell marks itself `data-keith-launcher` and
+  `data-keith-panel`; portal.css moves `.ptl-team-message-launcher-wrap` up above the orb (96px,
+  where the staff app stacks it), opens its panel above that, hides it while Keith is open, and hides
+  the orb while Messages is open. Below 760px the orb sits at 82px, above the bottom bar.
 
 - **Read only, one cohort.** Two tools, `list_applicants` and `get_applicant`, over the roster the
   workspace already shows this caller (`loadApplicantsPayload`, narrowed for Talent Acquisition).
