@@ -26,6 +26,7 @@ import FlagRibbon from '../rubric/FlagRibbon'
 import ApplicantProfileSheet from './ApplicantProfileSheet'
 import ResidentDetailsSection from './ResidentDetailsSection'
 import InterviewRubricsSection from './InterviewRubricsSection'
+import { CandidateScoreSection } from './CandidateScore'
 import { transitionSummaryRows } from '../../lib/ngrp/transitionSummary'
 import { recommendationLabel } from '../../lib/ngrp/ngrpRubric'
 import { downloadApplicantPacket } from '../../lib/ngrp/applicantPacketClient'
@@ -899,6 +900,7 @@ function ApplicantDrawerBody({
   open, row, cycle, canManage, provisioned, onClose, actions = {}, feedback = null, toast = null, initialDocsOpen = false,
   initialSheet = null,
   embedded = false, followUp = null, interviewModeAvailable = false, rubricsAvailable = false,
+  assessmentsAvailable = false, onScoreChanged,
 }) {
   const [review, setReview] = useState(null)
   const [reviewState, setReviewState] = useState('idle')
@@ -1078,6 +1080,9 @@ function ApplicantDrawerBody({
               </section>
               <section className="sc-sheet" id={sheetDomId('application')} data-sheet="application" data-tint={tintOf('application')} aria-label={titleOf('application')}>
                 <h2 className="sc-sheet-title">{titleOf('application')}</h2>
+                {/* CANDIDATE-SCORE-1: first on the sheet, because pairing for an interview starts here. */}
+                <CandidateScoreSection row={row} cycleId={cycle?.id} available={assessmentsAvailable}
+                  onChanged={onScoreChanged} Section={Section} smallBtn={smallBtn} />
                 <Section title="Residency Interest">
                   <Row label="Interest"><NgrpStatusPill config={INTEREST_STATES} value={row.interest} /></Row>
                   {row.interest === 'no_response' && (

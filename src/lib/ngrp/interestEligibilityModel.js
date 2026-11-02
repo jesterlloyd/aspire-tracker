@@ -142,6 +142,8 @@ export function interestColumns({ effectiveEligibility, gpaValue = gpaOf }) {
     // INTEREST-ELIGIBILITY-2: Status left the table (Owner); Precepted Unit joined it.
     { key: 'precepted', sortValue: r => (preceptedUnitOf(r) || '').toLowerCase() || null },
     { key: 'choices', sortValue: r => (r.unit_preference_1 || '').toLowerCase() || null },
+    // CANDIDATE-SCORE-1: scored applicants by score; Not eligible and unscored sort last.
+    { key: 'fit', sortValue: r => (r.candidate_score?.ineligible ? null : (r.candidate_score?.score ?? null)) },
   ]
 }
 

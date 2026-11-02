@@ -172,7 +172,9 @@ test('applicants sort by what still needs doing, never against each other', () =
   assert.ok(added.length > 0)
   for (const col of added) assert.doesNotMatch(col, /score|rubric/i, col)
   // And it says so out loud, because the absence is the promise.
-  assert.match(board, /No interview\s+rubric or score is stored anywhere in ASPIRE/)
+  // CANDIDATE-SCORE-1 (the commit that changed this): the footnote said nothing was scored, which
+  // NGRP-INTERVIEWS-1's rubrics had already made untrue. It now says the score never decides.
+  assert.match(board, /The Fit score helps\s+decide who to pair; it never decides an interview or a hire\./)
 })
 
 // ── The write path ───────────────────────────────────────────────────────────

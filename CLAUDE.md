@@ -2721,3 +2721,34 @@ is submitted (else 404) and writes a `viewed` event keyed to that assignment BEF
 feedback. The ASPIRE team sees those views ("Viewed by ... N times, last ...") beside the request
 history. Before submission the panel says it opens once they submit. The request flow is not offered
 any more; an approved request still opens, and pending ones can still be decided.
+
+## The candidate score (CANDIDATE-SCORE-1, 2026-11-02)
+
+Owner: help Talent Acquisition choose who to pair with which unit for an interview, "rubric math,
+Keith explains". One number per applicant, out of 100, from four factors with fixed points, added
+up by the APP (`src/lib/ngrp/candidateScoreModel.js`, pure), never by the model:
+
+| Factor | Points | Reads |
+|---|---|---|
+| Unit fit | 20 | rotated in a unit they ranked: 1st 20, 2nd 15, 3rd 10, else 0 (`unitNameKey`) |
+| Preceptor feedback | 30 | the six competency ratings of the LATEST feedback; 1 (Not Observed) left out, 2 is 0, 5 is all |
+| Résumé | 25 | Keith's composite for the CURRENT résumé (`resumeStatus`) |
+| Statement | 25 | Keith's three 0 to 10 ratings: specific, connects to Cedars-Sinai and the unit, reflects on ASPIRE |
+
+- A factor with nothing on file is left out and the rest scale to 100 ("based on N of 4 factors");
+  under two reads "Not enough to score". Bands: 80+ Strong fit, 65-79 Good fit, below Developing.
+  An ineligible applicant reads Not eligible and sorts last. The interview is not a factor.
+- **Feedback counts only once the Transition Form is submitted**, for everyone, so the ASPIRE
+  team and Talent Acquisition always see the same number (FEEDBACK-CONSENT-1).
+- The server attaches `candidate_score` to every roster candidate (`lib/server/ngrpCandidateScores.js`,
+  a secondary read: a failure shows no scores, never no roster). It shows as the Fit column in
+  Interest & Eligibility (sortable), the Candidate Score section first on the binder's Application
+  sheet, and a "Fit 82 · Strong fit" chip on Interview Board cards.
+- **Keith's part** is the `assess-candidate` Skill (`skills/assess-candidate/SKILL.md`, quality route,
+  Owner, Admin and Talent Acquisition), run per applicant from the binder through
+  `api/ngrp-candidate-assess.js` (60 s). It needs a submitted form, reads the allowlisted feedback shape
+  and Keith's own résumé review (never the file), and returns the three ratings, a summary, strengths,
+  things to weigh, interview focus and a pairing recommendation. A row is written as 'assessing' before
+  Keith is asked; an inputs fingerprint marks an assessment "changed since" when what it read changes.
+  `ngrp_candidate_assessments` and the skill seed are `20261118000000_ngrp_candidate_assessments.sql`
+  (Owner-gated); before it the score stands on three factors and Assess is not offered.

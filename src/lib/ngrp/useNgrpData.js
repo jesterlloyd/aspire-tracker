@@ -141,6 +141,17 @@ export async function postNgrpPreceptorFeedback(action, payload = {}) {
   }
 }
 
+// CANDIDATE-SCORE-1: Keith's assessment of one applicant. The same { ok } shape; `code` is the
+// server's reason (skill_off, form_not_submitted, not_enabled, ...).
+export async function postNgrpCandidateAssess(action, payload = {}) {
+  try {
+    const body = await authedPost('/api/ngrp-candidate-assess', action, payload)
+    return { ok: true, ...body }
+  } catch (err) {
+    return { ok: false, status: err.status || 0, error: err.message, code: err.body?.error || null }
+  }
+}
+
 // Who has feedback on file and where each request stands, keyed by student id.
 // Empty (and the feature hidden) until migration 20260912000000 is applied.
 export function useNgrpPreceptorFeedback(cycleId, { enabled = true } = {}) {

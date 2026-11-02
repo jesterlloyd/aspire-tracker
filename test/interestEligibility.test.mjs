@@ -30,7 +30,8 @@ test('every column sorts, and an unreported value sorts last both ways', () => {
   assert.deepEqual(sortRows(rows, cols, { key: 'gpa', dir: 'desc' }).map(r => r.id), ['b', 'a', 'c'])
   assert.deepEqual(sortRows(rows, cols, { key: 'license', dir: 'asc' }).map(r => r.id), ['b', 'c', 'a'])
   assert.deepEqual(sortRows(rows, cols, { key: 'license', dir: 'desc' }).map(r => r.id), ['c', 'b', 'a'])
-  assert.deepEqual(cols.map(c => c.key), ['alumnus', 'form', 'license', 'employment', 'gpa', 'eligibility', 'precepted', 'choices'])
+  // CANDIDATE-SCORE-1 (the commit that changed this): Fit joined the table.
+  assert.deepEqual(cols.map(c => c.key), ['alumnus', 'form', 'license', 'employment', 'gpa', 'eligibility', 'precepted', 'choices', 'fit'])
 })
 
 test("Talent Acquisition never receives the record's GPA", () => {

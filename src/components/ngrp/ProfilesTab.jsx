@@ -52,6 +52,7 @@ import AutomationEmailPreviewDrawer from '../connect/AutomationEmailPreviewDrawe
 import { transitionPreviewFor } from '../../lib/ngrp/transitionPreviewFixture'
 import { transitionFormPreview } from '../../lib/ngrp/transitionFormPreview'
 import SortHeader from '../shared/SortHeader'
+import { CandidateFitChip } from './CandidateScore'
 import { sortRows } from '../shared/dataSheetSort'
 import { LICENSE_LABELS, NOT_REPORTED, employmentOf, licenseDetail, eligibilityDetail, gpaOf, formGpaOf, gpaBand, interestColumns, cohortFilterOptions, preceptedUnitOf, unitDemand, demandFor, seatLabel } from '../../lib/ngrp/interestEligibilityModel'
 import { GPA_BAND_COLORS } from '../../lib/constants'
@@ -195,7 +196,7 @@ function AlumniListRow({ row, selected, onSelect, feedbackEntry }) {
 }
 
 // How the roster caption names a sorted column: sentence case, acronyms kept ("sorted by GPA").
-const COLUMN_CAPTIONS = { alumnus: 'alumnus', form: 'form', license: 'CA RN license', employment: 'CS employee', gpa: 'GPA', eligibility: 'eligibility', precepted: 'precepted unit', choices: 'top choices' }
+const COLUMN_CAPTIONS = { alumnus: 'alumnus', form: 'form', license: 'CA RN license', employment: 'CS employee', gpa: 'GPA', eligibility: 'eligibility', precepted: 'precepted unit', choices: 'top choices', fit: 'candidate score' }
 
 // TRANSITION-FORM-PREVIEW-1: the public form page itself, loaded only when a preview opens.
 const NgrpTransitionFormPage = lazyReload(() => import('../../pages/NgrpTransitionFormPage'), 'NgrpTransitionFormPage')
@@ -675,6 +676,8 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                   followUp={canManage ? { available: payload?.followUpFlagProvisioned === true, onSet: setFollowUp } : null}
                   interviewModeAvailable={payload?.interviewModeProvisioned === true}
                   rubricsAvailable={payload?.rubricsProvisioned === true}
+                  assessmentsAvailable={payload?.assessmentsProvisioned === true}
+                  onScoreChanged={() => refetch()}
                   toast={toast}
                   feedback={shownRow ? {
                     entry: feedback.byStudent[shownRow.student?.id] || null,
@@ -836,12 +839,13 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                     <SortHeader thClassName="" sortKey="eligibility" sortBy={colSort?.key} sortDir={colSort?.dir} onSort={onColumnSort}>Eligibility</SortHeader>
                     <SortHeader thClassName="ngrp-col-precepted" sortKey="precepted" sortBy={colSort?.key} sortDir={colSort?.dir} onSort={onColumnSort}>Precepted Unit</SortHeader>
                     <SortHeader thClassName="ngrp-col-choices" sortKey="choices" sortBy={colSort?.key} sortDir={colSort?.dir} onSort={onColumnSort}>Top Choices</SortHeader>
+                    <SortHeader thClassName="ngrp-col-fit" sortKey="fit" sortBy={colSort?.key} sortDir={colSort?.dir} onSort={onColumnSort}>Fit</SortHeader>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredRows.length === 0 && (
                     <tr>
-                      <td colSpan={(canSelect ? 1 : 0) + 8} style={{ padding: 0 }}>
+                      <td colSpan={(canSelect ? 1 : 0) + 9} style={{ padding: 0 }}>
                         <EmptyState
                           compact
                           heading="No alumni match the current filters"
@@ -986,6 +990,12 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                               </div>
                             )}
                           {prefSource === 'staff' && <div className="ngrp-cellsub">set by the ASPIRE team</div>}
+                        </td>
+                        <td className="ngrp-col-fit">
+                          <span className="ngrp-stack">
+                            <CandidateFitChip score={r.candidate_score} />
+                            {r.candidate_score?.score != null && <span className="ngrp-cellsub">{r.candidate_score.basedOn} of 4 factors</span>}
+                          </span>
                         </td>
                       </tr>
                     )

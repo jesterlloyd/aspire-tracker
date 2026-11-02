@@ -688,3 +688,33 @@
 [data-theme="dark"] .ngrp-rubrics .rub-avg-display { border-top-color: rgba(255,255,255,0.12); }
 [data-theme="dark"] .ngrp-rubrics .btn-outline-modal { border-color: rgba(255,255,255,0.25); }
 
+
+/* CANDIDATE-SCORE-1: the candidate score. The number and the band word are always printed,
+   so colour never carries the meaning alone. Strong is filled, Good is an outline, Developing is
+   the warn pair. Each ink sits on its own soft tint (a pair), or on the surface for the outline. */
+.ngrp-fitwrap { display: inline-flex; align-items: center; gap: 6px; }
+.ngrp-fit { display: inline-flex; align-items: baseline; gap: 5px; font-size: 11.5px; font-weight: 600; white-space: nowrap;
+  padding: 2px 8px; border-radius: var(--aspire-radius-pill); font-variant-numeric: tabular-nums; }
+.ngrp-fit b { font-size: 12.5px; font-weight: 800; }
+.ngrp-fit-strong { background: var(--aspire-ok-soft); color: var(--aspire-ok); }
+.ngrp-fit-good { box-shadow: inset 0 0 0 1px var(--aspire-ok); color: var(--aspire-ok); }
+.ngrp-fit-developing { background: var(--aspire-warn-soft); color: var(--aspire-warn); }
+.ngrp-fit-none { color: var(--text-caption); }
+@media (max-width: 1240px) { .ngrp-table .ngrp-col-fit .ngrp-fit span { display: none; } }
+
+.ngrp-score-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 2px 0 8px; }
+.ngrp-score-head .ngrp-cellsub { margin-top: 0; font-size: 11px; color: var(--text-caption); }
+.ngrp-score-factors { display: flex; flex-direction: column; }
+.ngrp-score-factor { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 10px; padding: 5px 0;
+  border-bottom: 1px dashed rgba(0, 0, 0, 0.06); font-size: 12.5px; }
+.ngrp-score-name { font-weight: 600; color: var(--text-heading); }
+.ngrp-score-pts { font-weight: 700; color: var(--text-heading); font-variant-numeric: tabular-nums; text-align: right; }
+.ngrp-score-detail { grid-column: 1 / -1; font-size: 11.5px; color: var(--text-caption); line-height: 1.4; }
+.ngrp-score-note { margin: 8px 0 0; font-size: 11.5px; color: var(--text-caption); line-height: 1.45; }
+.ngrp-score-bad { color: var(--aspire-bad); }
+.ngrp-score-warn { color: var(--aspire-warn); }
+.ngrp-assess { margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(0, 0, 0, 0.07); }
+.ngrp-assess-title { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 700; color: var(--text-heading); }
+.ngrp-assess-h { margin: 10px 0 2px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-caption); }
+.ngrp-assess-p { margin: 4px 0 0; font-size: 12.5px; line-height: 1.5; color: var(--text-heading); }
+.ngrp-assess-list { margin: 2px 0 0; padding-left: 18px; font-size: 12.5px; line-height: 1.5; color: var(--text-heading); }

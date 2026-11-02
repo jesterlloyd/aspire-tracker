@@ -153,6 +153,7 @@
     "api/app-icon.js": { "includeFiles": "public/app-icon/**" },
     "api/keith.js":                       { "maxDuration": 60 },
     "api/student-documents.js":           { "maxDuration": 150 },
+    "api/ngrp-candidate-assess.js":       { "maxDuration": 60 },
     "api/portal/my-residency.js":         { "maxDuration": 30 },
     "api/knowledge-enrich.js":            { "maxDuration": 300 },
     "api/keith-knowledge-check.js":       { "maxDuration": 300 },

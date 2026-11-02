@@ -149,6 +149,12 @@ function IntervieweeNote({
                 {Number(row.interview_panel.average).toFixed(1)}/15 · {recommendationLabel(row.interview_panel.recommendation)}
               </span>
             )}
+            {/* CANDIDATE-SCORE-1: the score that helps decide who to pair. Words, never colour alone. */}
+            {row.candidate_score?.score != null && !row.candidate_score.ineligible && (
+              <span className="pb-chip" data-testid="interviewee-fit-chip">
+                Fit {row.candidate_score.score} · {row.candidate_score.label}
+              </span>
+            )}
             {pickRank && (
               <span className={`pb-chip pb-chip-rank-${RANK_TONE[pickRank]}`} data-testid="interviewee-pick-chip">
                 #{pickRank} pick
@@ -591,14 +597,16 @@ export default function InterviewBoard({ cycle, canManage, toast }) {
       <p className="pb-footnote">
         Pairing an interviewee with a unit means that unit will <b>interview</b> them. It is not a
         hire: the hire is recorded in the applicant drawer, the same one Profiles &amp; Interest
-        opens, once Talent Acquisition confirms the person accepted and started. No interview
-        rubric or score is stored anywhere in ASPIRE.
+        opens, once Talent Acquisition confirms the person accepted and started. The Fit score helps
+        decide who to pair; it never decides an interview or a hire.
       </p>
 
       <ApplicantDrawer
         open={Boolean(drawerRow)}
         interviewModeAvailable={applicants.payload?.interviewModeProvisioned === true}
         rubricsAvailable={applicants.payload?.rubricsProvisioned === true}
+        assessmentsAvailable={applicants.payload?.assessmentsProvisioned === true}
+        onScoreChanged={() => applicants.refetch?.()}
         row={drawerRow}
         cycle={cycle}
         canManage={canManage}
