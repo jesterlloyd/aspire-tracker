@@ -148,9 +148,11 @@ test('Talent Acquisition downloads from the roster it sees; the endpoint builds 
 })
 
 test('Download Excel replaced Download CSV, for both audiences', () => {
+  // APPLICANT-SHEET-1 (2026-11-02): the table's button is Sheet now, and Download Excel lives in
+  // the Sheet (src/components/ngrp/ApplicantSheet.jsx), exporting what the Sheet shows.
   const tab = read('src/components/ngrp/ProfilesTab.jsx')
-  assert.match(tab, /if \(res\.ok && res\.xlsx\) saveXlsx\(res\)/)
-  assert.match(tab, /\{exporting \? 'Preparing Excel…' : 'Download Excel'\}/)
-  assert.ok(!/Download CSV|downloadCSV/.test(tab))
+  assert.ok(!/Download CSV|downloadCSV|Download Excel'\}/.test(tab))
+  const sheet = read('src/components/ngrp/ApplicantSheet.jsx')
+  assert.match(sheet, /\{downloading \? 'Preparing Excel…' : 'Download Excel'\}/)
   assert.match(read('src/lib/ngrp/useNgrpData.js'), /authedPost\('\/api\/ngrp-workspace', 'export', \{ cycle_id: cycleId \}\)/)
 })

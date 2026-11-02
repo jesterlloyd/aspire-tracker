@@ -62,6 +62,7 @@ import {
   openScheduleTimes, removeScheduleTimes, blockScheduleSlot, bookInterview, cancelInterview,
 } from '../lib/server/ngrpInterviewSchedule.js'
 import { createMailer } from '../lib/server/email/mailer.js'
+import { saveApplicantSheetLayout, saveApplicantSheetCells, sheetColumnKeys } from '../lib/server/ngrpApplicantSheet.js'
 
 // NGRP-INTERVIEWS-1 Phase 4 (Owner, 2026-10-06): HR adds times and books the interviewees, so
 // these are both audiences' (the ASPIRE team and Talent Acquisition), like the board's pairing.
@@ -96,6 +97,8 @@ const ACTIONS = new Set([
   'alumni_search', 'alumni_add', 'alumni_create', 'alumni_remove', 'alumni_invited',
   // NGRP-INTERVIEWS-1 Phase 4: Residency > Interview Schedule
   ...SCHEDULE_ACTIONS,
+  // APPLICANT-SHEET-1
+  'sheet_layout', 'sheet_cells',
 ])
 const ELIGIBILITY_VOCAB = ['pending', 'eligible', 'conditionally_eligible', 'not_eligible']
 const OVERRIDE_CATEGORIES = ['documentation_verified', 'requirement_waived', 'data_correction', 'other']
@@ -410,6 +413,20 @@ export default async function handler(req, res) {
         cycleId, candidateId: cand.id, studentId, actorProfileId: actorId,
       })
       return res.status(200).json({ ok: true, flagged: body.flagged, candidate_id: cand.id })
+    }
+
+    // ── APPLICANT-SHEET-1: the shared applicant Sheet ──────────────────────
+    // One sheet per residency cohort, arranged and marked by the ASPIRE team and Talent
+    // Acquisition alike. A row must be this cohort's applicant; a submitted answer is never
+    // written. 409 not_enabled before 20261119000000.
+    if (action === 'sheet_layout' || action === 'sheet_cells') {
+      const cycleId = typeof body.cycle_id === 'string' && UUID.test(body.cycle_id) ? body.cycle_id : null
+      if (!cycleId) return res.status(422).json({ error: 'invalid_request' })
+      const r = action === 'sheet_layout'
+        ? await saveApplicantSheetLayout(db, { cycleId, layout: body.layout, columnKeys: sheetColumnKeys(), profileId: actorId })
+        : await saveApplicantSheetCells(db, { cycleId, updates: body.updates, profileId: actorId })
+      if (r.error) return res.status(r.status || 500).json({ error: r.error })
+      return res.status(200).json({ ok: true, ...r })
     }
 
     // ── ADD-ALUMNUS-1: Add alumnus (Owner and Admin only) ──────────────────

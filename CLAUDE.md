@@ -2873,3 +2873,25 @@ active `ngrp_cycle_units`, capacity is never 0) and passes it in.
   factor's points or "Not counted".
 - **Strong Fit is the seventh KPI card** (80 or more, provisional included, never ineligible). Profiles
   and Interest & Eligibility share one set of cards and one `?kpi=` filter, so it filters both.
+
+## The applicants are a shared Sheet (APPLICANT-SHEET-1, 2026-11-02)
+
+Owner: replace Download Excel on Interest & Eligibility with a Sheet, so Talent Acquisition can
+sort, highlight, colour and classify applicants in the app; Download Excel appears only in the
+Sheet. **One shared sheet per residency cohort** (Owner chose it over per-person sheets): the
+ASPIRE team and Talent Acquisition mark the same one, in the staff app and the Residency Portal.
+
+- **The grid is the Forms Answers grid** (`EditableSheet`), mounted by
+  `src/components/ngrp/ApplicantSheet.jsx` at `?view=interest&sheet=1`, lazily, in place of the
+  roster. `.ngrp-sheet` names the `--ctl-*` tokens the grid reads, with Budget Tracker's values.
+- **The rows are the Excel's**: `transitionWorkbookRows` (submitted forms only, from the roster the
+  caller sees, so Talent Acquisition's GPA is the form's) with `withIds`, shaped by
+  `lib/server/ngrpApplicantSheet.js`. The name is the lead; a column's key is a hash of its header
+  (`columnKey`), so adding a column never moves anyone's highlights.
+- **A submitted answer is never written.** Only formats (fill, ink, bold...) on any cell, and values
+  in the team's own columns (Tier, Pair with, Notes), in `ngrp_sheet_cells` keyed by candidate; the
+  layout in `ngrp_sheet_views`. Both server-only, from Owner-gated `20261119000000_ngrp_applicant_sheet.sql`;
+  before it the Sheet is view-only and says so. Reads: ngrp-workspace `sheet`, `sheet_xlsx`.
+  Writes: ngrp-manage `sheet_layout`, `sheet_cells`, both audiences, a row checked against the cohort.
+- **Download Excel is the view** (`applicantSheetXlsx`): the rows, columns, order, highlights and
+  grouping shown; answers are inline strings, numbers stay numbers. The old `export` action stays.

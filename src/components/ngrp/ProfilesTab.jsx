@@ -26,7 +26,7 @@
 import Tooltip from '../ui/Tooltip'
 import { Suspense, useMemo, useState, useCallback, useEffect, useRef } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
-import { Search, Send, GraduationCap, X, Eye, Download, List, LayoutGrid, FileText, UserPlus } from 'lucide-react'
+import { Search, Send, GraduationCap, X, Eye, Sheet, List, LayoutGrid, FileText, UserPlus } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { confirmDialog } from '../shared/confirmDialog'
 import AddAlumnusDrawer from './AddAlumnusDrawer'
@@ -64,10 +64,11 @@ import {
   deriveApplicantRows, sortApplicantRows, effectiveEligibility, formTimestamp,
   formSentState, rosterStatus, effectivePreferences,
 } from '../../lib/ngrp/ngrpStates'
-import { useNgrpApplicants, useNgrpPlanning, postNgrpManage, useNgrpPreceptorFeedback, postNgrpPreceptorFeedback, fetchNgrpTransitionWorkbook, locateNgrpCandidate } from '../../lib/ngrp/useNgrpData'
+import { useNgrpApplicants, useNgrpPlanning, postNgrpManage, useNgrpPreceptorFeedback, postNgrpPreceptorFeedback, locateNgrpCandidate } from '../../lib/ngrp/useNgrpData'
 import { useNgrpSurface } from '../../lib/ngrp/ngrpSurface'
 import { displayName } from '../../lib/utils'
-import { saveXlsx } from '../budget/budgetApi'
+// APPLICANT-SHEET-1: the grid is large, so it loads only when the Sheet opens.
+const ApplicantSheet = lazyReload(() => import('./ApplicantSheet'), 'ApplicantSheet')
 
 const relTime = ts => {
   if (!ts) return '—'
@@ -269,17 +270,9 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
   const { userProfile } = useAuth()
   const canAddAlumni = staffApp && ['owner', 'admin'].includes(userProfile?.role)
   const [showAddAlumnus, setShowAddAlumnus] = useState(false)
-  // TRANSITION-EXCEL-1: the submitted answers as a workbook. The server builds it from the
-  // roster this caller may see.
-  const [exporting, setExporting] = useState(false)
-  const onExport = async () => {
-    if (!cycle || exporting) return
-    setExporting(true)
-    const res = await fetchNgrpTransitionWorkbook(cycle.id)
-    setExporting(false)
-    if (res.ok && res.xlsx) saveXlsx(res)
-    else toast?.error?.('Export failed', 'The Excel file could not be generated right now. Please try again shortly.')
-  }
+  // APPLICANT-SHEET-1 (Owner, 2026-11-02): Sheet replaced Download Excel on the table. The
+  // submitted answers open in the cohort's shared Sheet (?sheet=1), and Download Excel lives there.
+  const sheetOpen = view === 'interest' && searchParams.get('sheet') === '1'
 
   const sourceCohorts = useMemo(() => payload?.sourceCohorts || [], [payload])
   const allRows = useMemo(
@@ -567,6 +560,12 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
             ))}
           </div>
 
+          {/* APPLICANT-SHEET-1: the Sheet takes the roster's place; Download Excel lives in it. */}
+          {sheetOpen ? (
+            <Suspense fallback={<p className="ngrp-sheet-msg" style={{ marginTop: 'var(--aspire-gap-card)' }}>Opening the Sheet…</p>}>
+              <ApplicantSheet cycle={cycle} toast={toast} onClose={() => setParam('sheet', '')} />
+            </Suspense>
+          ) : (
           <PinnedSplitFrame>{barRef => (
             <>
             <div className="profiles-toolbar ngrp-split-toolbar" ref={barRef}>
@@ -762,20 +761,19 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                     Add Alumnus
                   </button>
                 )}
-                <Tooltip label="Every submitted Transition Form, one row per alumnus, with the answers that matter for review. Preceptor feedback is never included." applyAriaLabel={false}>
+                <Tooltip label="Every submitted Transition Form in a sheet you can sort, highlight and classify. The whole residency team shares it; download it from there." applyAriaLabel={false}>
                 <button
                   type="button"
-                  onClick={onExport}
-                  disabled={exporting}
+                  onClick={() => setParam('sheet', '1')}
                   style={{
                     height: 28, flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 6,
                     padding: '0 10px', border: '1px solid #1D2567', background: '#1D2567', color: '#fff',
                     borderRadius: 'var(--aspire-radius-control)', fontFamily: 'inherit', fontSize: 11.5,
-                    fontWeight: 700, cursor: exporting ? 'default' : 'pointer', opacity: exporting ? 0.6 : 1,
+                    fontWeight: 700, cursor: 'pointer',
                   }}
                 >
-                  <Download size={13} aria-hidden="true" />
-                  {exporting ? 'Preparing Excel…' : 'Download Excel'}
+                  <Sheet size={13} aria-hidden="true" />
+                  Sheet
                 </button>
                 </Tooltip>
                 {/* Always available, and deliberately NOT inside the bulk-selection bar:
@@ -1054,6 +1052,7 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
             )}
             </>
           )}</PinnedSplitFrame>
+          )}
         </>
       )}
 

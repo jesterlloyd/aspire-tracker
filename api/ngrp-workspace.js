@@ -23,6 +23,10 @@
 //                                   personal, editable }: one alumnus's contact and
 //                                   personal details for the chart's Profile sheet
 //                                   (RESIDENCY-APPLICANT-PROFILE-1)
+//   sheet { cycle_id }         -> { provisioned, columns, rows, layout, editable }: the submitted
+//                                   answers as the shared applicant Sheet (APPLICANT-SHEET-1)
+//   sheet_xlsx { cycle_id, row_ids?, column_keys?, group_by? } -> { provisioned, xlsx, fileName }:
+//                                   what the Sheet shows, as Excel
 //
 // The roster contract (multi-cohort resolution, Completed-only, identity from
 // students, prior-hire exclusion, email stripping) lives in
@@ -39,9 +43,10 @@ import { buildTransitionWorkbook, fetchLatestRevisions } from '../lib/server/ngr
 import { serviceDbForRequest } from '../lib/server/demoScope.js'
 import { loadApplicantProfile } from '../lib/server/ngrpApplicantProfile.js'
 import { loadCandidateRubrics } from '../lib/server/ngrpInterviewRubrics.js'
+import { loadApplicantSheet, applicantSheetXlsx } from '../lib/server/ngrpApplicantSheet.js'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const ACTIONS = new Set(['cycles', 'applicants', 'export', 'locate', 'profile', 'rubrics', 'schedule'])
+const ACTIONS = new Set(['cycles', 'applicants', 'export', 'locate', 'profile', 'rubrics', 'schedule', 'sheet', 'sheet_xlsx'])
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store')
@@ -152,6 +157,24 @@ export default async function handler(req, res) {
       revisionsByAssignment: revisions.byAssignment,
     })
     return res.status(200).json({ provisioned: true, fileName, xlsx: Buffer.from(bytes).toString('base64') })
+  }
+
+  // APPLICANT-SHEET-1: the same answers as the shared Sheet, and the Sheet's view as Excel.
+  if (action === 'sheet' || action === 'sheet_xlsx') {
+    const revisions = await fetchLatestRevisions(db, view.candidates)
+    if (revisions.error) return res.status(500).json({ error: 'internal_error' })
+    const sheet = await loadApplicantSheet(db, { cycleId, view, revisions: revisions.byAssignment })
+    if (sheet.error) return res.status(500).json({ error: 'internal_error' })
+    if (action === 'sheet') {
+      return res.status(200).json({ provisioned: true, columns: sheet.columns, rows: sheet.rows, layout: sheet.layout, editable: sheet.editable })
+    }
+    const list = (v, n) => (Array.isArray(v) ? v.filter(x => typeof x === 'string').slice(0, n) : null)
+    const bytes = applicantSheetXlsx(sheet, {
+      rowIds: list(body.row_ids, 5000), columnKeys: list(body.column_keys, 200),
+      ...('group_by' in body ? { groupBy: typeof body.group_by === 'string' ? body.group_by : null } : {}),
+    })
+    const name = String(payload.cycle?.name || 'Cohort').replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim()
+    return res.status(200).json({ provisioned: true, fileName: `Applicants - ${name}.xlsx`, xlsx: Buffer.from(bytes).toString('base64') })
   }
 
   return res.status(200).json({

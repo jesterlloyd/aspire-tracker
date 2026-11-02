@@ -153,7 +153,8 @@ test('SCHED 9: one calendar per portal: the schedule lives on the Residency Cale
   const manage = read('api/ngrp-manage.js')
   for (const a of ['schedule_open_times', 'schedule_remove_times', 'schedule_slot_block', 'schedule_book', 'schedule_cancel']) assert.match(manage, new RegExp(`'${a}'`))
   assert.match(manage, /\.\.\.SCHEDULE_ACTIONS/, 'listed in ACTIONS, or every call answers invalid_action')
-  assert.match(read('api/ngrp-workspace.js'), /'schedule'\]\)/)
+  // APPLICANT-SHEET-1 listed 'sheet' and 'sheet_xlsx' after it, so this checks membership, not position.
+  assert.match(read('api/ngrp-workspace.js'), /const ACTIONS = new Set\(\[[^\]]*'schedule'[^\]]*\]\)/)
   // The Residency Calendar draws the times, books, and offers Month | Week.
   const cal = read('src/components/ngrp/ActivityCalendar.jsx')
   for (const p of [/useInterviewSchedule/, /InterviewDayChips/, /InterviewSlotRow/, /BookDialog/, /OpenTimesModal/, /CanonicalWeekView/, /schedule_book/, /schedule_cancel/]) assert.match(cal, p)

@@ -194,6 +194,14 @@ export async function fetchNgrpTransitionWorkbook(cycleId) {
   }
 }
 
+// APPLICANT-SHEET-1: the submitted answers as the cohort's shared Sheet, and what the Sheet
+// shows as Excel. Both throw, so the Sheet can say what failed.
+export const fetchApplicantSheet = cycleId => authedPost('/api/ngrp-workspace', 'sheet', { cycle_id: cycleId })
+export const fetchApplicantSheetXlsx = (cycleId, view) => authedPost('/api/ngrp-workspace', 'sheet_xlsx', {
+  cycle_id: cycleId, ...(view ? { row_ids: view.rowIds, column_keys: view.columnKeys, group_by: view.groupBy } : {}),
+})
+export const saveApplicantSheet = (action, payload) => authedPost('/api/ngrp-manage', action, payload)
+
 // The residency cohort an applicant belongs to. { ok, cycle_id } or { ok: false }.
 export async function locateNgrpCandidate(candidateId) {
   try {

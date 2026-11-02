@@ -742,3 +742,28 @@
 .ngrp-assess-h { margin: 10px 0 2px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-caption); }
 .ngrp-assess-p { margin: 4px 0 0; font-size: 12.5px; line-height: 1.5; color: var(--text-heading); }
 .ngrp-assess-list { margin: 2px 0 0; padding-left: 18px; font-size: 12.5px; line-height: 1.5; color: var(--text-heading); }
+
+/* APPLICANT-SHEET-1 (Owner, 2026-11-02): Interest & Eligibility's Sheet. The grid is the Forms
+   Answers grid (forms.css), which reads the Catalog's --ctl-* tokens from its host; this is its
+   third host, with Budget Tracker's values (theme-aware, the two fixed pairs redefined for dark). */
+.ngrp-sheet {
+  --ctl-surface: var(--color-bg-surface); --ctl-surface-2: var(--color-bg-hover); --ctl-ink: var(--text-heading);
+  --ctl-muted: var(--text-caption); --ctl-faint: var(--text-caption); --ctl-line: var(--color-border-default);
+  --ctl-line-2: var(--color-border-subtle); --ctl-navy: var(--color-accent-primary); --ctl-navy-bar: var(--aspire-navy);
+  --ctl-navy-soft: #EDF1FA; --ctl-on-navy: #FFFFFF; --ctl-green: var(--aspire-ok); --ctl-amber: var(--aspire-warn);
+  --ctl-amber-soft: var(--aspire-warn-soft); --ctl-red: var(--aspire-bad); --ctl-mono: var(--aspire-mono);
+  display: flex; flex-direction: column; gap: 12px; min-width: 0;
+  margin-top: var(--aspire-gap-card);
+}
+[data-theme="dark"] .ngrp-sheet { --ctl-navy-soft: #1E2540; --ctl-on-navy: #0E111C; }
+.ngrp-sheet-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.ngrp-sheet-title { font-size: 15px; font-weight: 700; color: var(--text-heading); }
+.ngrp-sheet-title small { margin-left: 6px; font-size: 12px; font-weight: 500; color: var(--text-caption); }
+.ngrp-sheet-dl {
+  margin-left: auto; height: 32px; display: inline-flex; align-items: center; gap: 6px; padding: 0 12px;
+  border: 1px solid var(--aspire-navy); background: var(--aspire-navy); color: #fff;
+  border-radius: var(--aspire-radius-control); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer;
+}
+.ngrp-sheet-dl:disabled { opacity: 0.6; cursor: default; }
+.ngrp-sheet-dl:focus-visible { outline: var(--aspire-focus-ring); outline-offset: 2px; }
+.ngrp-sheet-msg { margin: 0; font-size: 13px; color: var(--text-caption); }
