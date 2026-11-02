@@ -4,6 +4,7 @@
 // for people records). Reusable for KT-3a-2b / KT-3b. z-index matches the existing
 // governance drawers (UserManagement/Interviewers: 1999 panel / 1998 backdrop).
 import { useEffect, useRef } from 'react'
+import { bodyPortal } from '../../lib/bodyPortal'
 import { X } from 'lucide-react'
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
@@ -44,7 +45,11 @@ export default function DetailDrawer({ open, title, onClose, footer, width = 580
   const ref = useRef(null)
   useModalFocus(open && trapFocus, ref, onClose)
   if (!open) return null
-  return (
+  // DRAWER-PORTAL-1 (2026-11-01): drawn on <body>. The applicant binder's paper is
+  // `position: relative; z-index: 1`, a stacking context, so a drawer opened from its Documents
+  // sheet could not rise above the pinned search bar: the résumé review drew under the toolbar
+  // and the flag ribbon. A z-index inside someone else's stacking context means nothing.
+  return bodyPortal(
     <>
       <div
         onClick={onClose}
@@ -96,3 +101,4 @@ export default function DetailDrawer({ open, title, onClose, footer, width = 580
     </>
   )
 }
+

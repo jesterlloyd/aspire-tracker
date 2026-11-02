@@ -9,6 +9,7 @@
 import Tooltip from '../ui/Tooltip'
 import { useEffect, useState } from 'react'
 import DetailDrawer from '../ui/DetailDrawer'
+import { bodyPortal } from '../../lib/bodyPortal'
 import StudentAvatar from '../StudentAvatar'
 import NgrpStatusPill from './NgrpStatusPill'
 import {
@@ -130,7 +131,8 @@ function OverrideDialog({ open, onClose, onSubmit, busy }) {
   const [category, setCategory] = useState('documentation_verified')
   const [note, setNote] = useState('')
   if (!open) return null
-  return (
+  // DRAWER-PORTAL-1: on <body>, or it paints under the pinned toolbar (see DetailDrawer).
+  return bodyPortal(
     <>
       <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(15,20,25,0.40)', zIndex: 2098 }} />
       <div role="dialog" aria-modal="true" aria-label="Override eligibility" style={{
