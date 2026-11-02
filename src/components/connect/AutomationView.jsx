@@ -76,6 +76,11 @@ const AUTOMATION_CARDS = [
     cron_name: 'residency-weekly-digest', automation_key: 'residency_weekly_digest',
     scope: 'Talent Acquisition (opt-in)', schedule: 'Mondays · 8:00 AM PT', hasGlobalSetting: true,
     desc: 'Emails Talent Acquisition members who turned it on what needs attention in Residency: interviews, offers waiting, flagged alumni and new application documents. Quiet weeks send nothing.' },
+  // TRANSITION-REMINDER-1. Stops by itself per alumnus on submission, and when the form closes.
+  { id: 'ngrp_transition_reminders', title: 'Transition Form Reminders',
+    cron_name: 'ngrp-transition-reminders', automation_key: 'ngrp_transition_reminders',
+    scope: 'Alumni sent the form', schedule: 'Daily · 8:00 AM PT', hasGlobalSetting: true,
+    desc: 'Sends the Transition Form again each morning to alumni who were sent it and have not submitted. It stops once their response is in or the form closes. Alumni who were never sent the form get nothing.' },
 ]
 
 // Friendly labels for the numeric counts crons record in cron_runs.details (counts only - no PII).

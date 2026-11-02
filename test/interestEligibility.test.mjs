@@ -33,7 +33,7 @@ test('every column sorts, and an unreported value sorts last both ways', () => {
   assert.deepEqual(cols.map(c => c.key), ['alumnus', 'form', 'license', 'employment', 'gpa', 'eligibility', 'precepted', 'choices'])
 })
 
-test('Talent Acquisition never receives a GPA', () => {
+test("Talent Acquisition never receives the record's GPA", () => {
   const out = narrowPayloadForTalentAcquisition({ students: [{ id: 's', status: 'Completed', cumulative_gpa: 3.4 }], candidates: [] })
   assert.equal('cumulative_gpa' in out.students[0], false)
 })
@@ -45,13 +45,18 @@ test('the server attaches what the latest form reported, and the record GPA', ()
   assert.match(src, /form_cs_employment: row\.payload\?\.identity\?\.cs_employment_status \|\| null/)
 })
 
-test('the tab is Interest & Eligibility, every header sorts, GPA is staff only', () => {
+// TRANSITION-EXCEL-1 (Owner, 2026-11-01): Talent Acquisition now has the GPA column, showing the
+// GPA on the form. The record's GPA stays with the ASPIRE team.
+test("the tab is Interest & Eligibility, every header sorts, and each audience reads its own GPA", () => {
   const tab = read('src/components/ngrp/ProfilesTab.jsx')
   assert.match(tab, /label: 'Interest & Eligibility'/)
   for (const k of ['alumnus', 'form', 'license', 'employment', 'gpa', 'eligibility', 'precepted', 'choices']) {
     assert.match(tab, new RegExp(`<SortHeader[^>]*sortKey="${k}"`), k)
   }
-  assert.match(tab, /\{staffApp && <SortHeader thClassName="ngrp-col-gpa"/)
+  assert.match(tab, /<SortHeader thClassName="ngrp-col-gpa"/)
+  assert.match(tab, /const gpa = staffApp \? gpaOf\(r\) : formGpaOf\(r\)/)
+  assert.match(tab, /gpaValue: staffApp \? gpaOf : formGpaOf/)
+  assert.match(read('lib/server/ngrpApplicants.js'), /form_gpa: row\.payload\?\.education\?\.gpa \?\? null/)
 })
 
 test('the caption names a sorted column readably, acronyms intact', () => {

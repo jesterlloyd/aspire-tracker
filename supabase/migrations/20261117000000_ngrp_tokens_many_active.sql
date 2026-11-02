@@ -1,0 +1,11 @@
+-- TRANSITION-REMINDER-1 (Owner, 2026-11-01): the Transition Form goes out again each day until it
+-- is submitted. A raw link is never stored, so each reminder carries a new one, and the older links
+-- must keep working: otherwise last week's email is dead, and so is the page of anyone mid-form when
+-- the reminder goes out. So an assignment may now hold several active links.
+--
+-- Nothing else changes. ngrp_activate_token_tx (a hand send) still revokes every other link of the
+-- assignment, staff revoke still acts on every active link, and only an active link opens the form.
+-- Every link still needs the one-time code sent to the alumnus's own address.
+--
+-- PRE and POST: db/audit/ngrp_tokens_many_active_checks.sql
+DROP INDEX IF EXISTS public.ngrp_tokens_one_active;

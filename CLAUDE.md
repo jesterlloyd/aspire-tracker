@@ -2633,3 +2633,35 @@ copies still go to every signer and CC. A staff account is matched to a signer e
 without regard to case (the Owner's is `First.Last@cshs.org`, which the lower-cased lookup
 never found). The template's second role is Program Lead, fixed to the Owner
 (`db/maintenance/sig_template_program_lead_20261027.sql`, Owner-gated).
+
+## The Transition Form is sent until it is answered (TRANSITION-REMINDER-1, 2026-11-01)
+
+Owner: "resend the transition form email daily until they complete it. stop sending the reminder
+email once the response is in." `api/cron/ngrp-transition-reminders.js` runs at 16:00 UTC (8 AM PST,
+9 AM PDT); the rules are `reminderTargets` in `lib/server/ngrpTransitionReminders.js` (pure). A form
+that was delivered, has no revision and has not closed gets `buildTransitionReminderEmail`, logged in
+`notification_log` as `ngrp_transition_form_reminder` with no audit event per email. Not reminded:
+never sent, revoked, a closed application, or a link already issued in the last 20 hours.
+Connect > Automations can pause it.
+
+- **A reminder adds a link and revokes nothing.** A raw token is never stored, so each reminder needs
+  a new one. Going through `sendOneTransitionForm` would revoke the earlier links, killing last week's
+  email and the page of anyone mid-form. So it inserts an active token directly, which
+  `20261117000000_ngrp_tokens_many_active.sql` allows by dropping `ngrp_tokens_one_active`. Before that
+  migration the insert is refused with 23505 and the run stops before mailing anyone.
+- **A staff revoke sticks.** Revoke leaves the assignment live, so an assignment with no active link
+  is skipped, or the job would hand back a new link the next morning. A hand send still revokes every
+  other link, and revoke still acts on every active one.
+
+## Download Excel replaced Download CSV (TRANSITION-EXCEL-1, 2026-11-01)
+
+Residency > Interest & Eligibility's download is the submitted answers as a workbook, shaped like the
+Microsoft Forms export Talent Acquisition works from: `buildTransitionWorkbook` in
+`lib/server/ngrpResidencyExport.js`, one row per latest revision, oldest first, first three columns
+frozen (`freezeCols` in `lib/server/sheet/xlsx.js`), every answer an inline string. Questions this
+form never asks are left out rather than left blank, and Third Choice is added. The roster CSV is gone,
+including its interview, panel and status columns.
+
+**GPA, by audience** (Owner, 2026-11-01): the file and Talent Acquisition's GPA column read `form_gpa`,
+what the alumnus wrote on the form and agreed to share. The ASPIRE team's column still reads the
+record's `cumulative_gpa`, which `narrowPayloadForTalentAcquisition` still strips.

@@ -5,8 +5,9 @@
 //
 // Licensure and Cedars-Sinai employment are what the alumnus reported on their latest
 // submitted Transition Form (composeCandidateLifecycle attaches them); before a form is
-// submitted there is nothing to show, which reads "Not reported". GPA is the student record's
-// cumulative GPA, which the roster carries for the ASPIRE team only.
+// submitted there is nothing to show, which reads "Not reported". The ASPIRE team's GPA is the
+// student record's cumulative GPA, which the roster carries for them only; Talent Acquisition's is
+// the one the alumnus wrote on the form, which they agreed to share (Owner, 2026-11-01).
 
 import { gpaBand } from '../constants.js'
 
@@ -114,6 +115,11 @@ export function gpaOf(row) {
   return row?.student?.cumulative_gpa == null || row?.student?.cumulative_gpa === '' || !Number.isFinite(n) ? null : n
 }
 
+export function formGpaOf(row) {
+  const n = Number(row?.form_gpa)
+  return row?.form_gpa == null || row?.form_gpa === '' || !Number.isFinite(n) ? null : n
+}
+
 export { gpaBand }
 
 // Sort ranks: the order a column reads in ascending, best-known first where it matters.
@@ -125,13 +131,13 @@ const ELIGIBILITY_RANK = { eligible: 0, conditionally_eligible: 1, pending: 2, n
 const lastFirst = s => `${s?.last_name || ''} ${s?.preferred_first_name || s?.first_name || ''}`.trim().toLowerCase()
 
 // Columns that sort. A null sorts last in both directions (dataSheetSort's rule).
-export function interestColumns({ effectiveEligibility }) {
+export function interestColumns({ effectiveEligibility, gpaValue = gpaOf }) {
   return [
     { key: 'alumnus', sortValue: r => lastFirst(r.student) },
     { key: 'form', sortValue: r => FORM_RANK[r.form_status] ?? null },
     { key: 'license', sortValue: r => LICENSE_RANK[r.form_rn_status] ?? null },
     { key: 'employment', sortValue: r => EMPLOYMENT_RANK[r.form_cs_employment] ?? null },
-    { key: 'gpa', sortValue: r => gpaOf(r) },
+    { key: 'gpa', sortValue: r => gpaValue(r) },
     { key: 'eligibility', sortValue: r => ELIGIBILITY_RANK[effectiveEligibility(r)] ?? null },
     // INTEREST-ELIGIBILITY-2: Status left the table (Owner); Precepted Unit joined it.
     { key: 'precepted', sortValue: r => (preceptedUnitOf(r) || '').toLowerCase() || null },

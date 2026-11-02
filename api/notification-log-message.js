@@ -66,6 +66,7 @@ export const UNSUPPORTED_REASONS = Object.freeze({
   // NGRP-RELEASE-2: the Transition Form invitation carries a per-recipient
   // secure link - same posture as every other secure-link type above.
   ngrp_transition_form_sent:      'secure_link_email',
+  ngrp_transition_form_reminder:  'secure_link_email',
   evaluation_survey_test_sent:    'secure_link_email',
   casey_fink_post_rotation_request_sent: 'secure_link_email',
   post_rotation_evaluation_request_sent: 'secure_link_email',

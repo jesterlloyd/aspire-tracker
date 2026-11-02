@@ -1338,6 +1338,7 @@ test('db: V1 verification examines EXACTLY the release-2 tables - never a LIKE p
   }
 })
 
+// TRANSITION-REMINDER-1 dropped ngrp_tokens_one_active in 20261117000000; this reads the original file.
 test('db: constraints make bad states unrepresentable - one live assignment, ONE ACTIVE token, numbered revisions, coherence', () => {
   assert.match(migration, /ngrp_assignments_one_live[\s\S]*?\(candidate_id\)[\s\S]*?WHERE revoked_at IS NULL/)
   assert.match(migration, /ngrp_tokens_one_active[\s\S]*?\(assignment_id\)[\s\S]*?WHERE status = 'active'/)

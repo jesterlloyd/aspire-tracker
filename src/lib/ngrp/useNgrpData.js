@@ -162,12 +162,12 @@ export function useNgrpPreceptorFeedback(cycleId, { enabled = true } = {}) {
   }
 }
 
-// RESIDENCY-PORTAL-3: the Alumni Roster as a CSV, built server-side from the
-// roster this caller may see. { ok, csv, filename } or { ok: false }.
-export async function fetchNgrpRosterCsv(cycleId) {
+// TRANSITION-EXCEL-1: the submitted Transition Form answers as a workbook, built server-side
+// from the roster this caller may see. { ok, fileName, xlsx } or { ok: false }.
+export async function fetchNgrpTransitionWorkbook(cycleId) {
   try {
     const body = await authedPost('/api/ngrp-workspace', 'export', { cycle_id: cycleId })
-    return body?.provisioned === false ? { ok: false } : { ok: true, csv: body?.csv, filename: body?.filename }
+    return body?.provisioned === false ? { ok: false } : { ok: true, fileName: body?.fileName, xlsx: body?.xlsx }
   } catch (err) {
     return { ok: false, status: err.status || 0 }
   }

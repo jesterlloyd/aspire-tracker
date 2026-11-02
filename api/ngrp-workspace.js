@@ -34,7 +34,8 @@ import { verifyNgrpCaller } from './lib/ngrpAuth.js'
 import { loadSchedule } from '../lib/server/ngrpInterviewSchedule.js'
 import { fetchCycles, fetchSourceCohortsForCycles, loadApplicantsPayload, isMissingNgrpTable } from '../lib/server/ngrpApplicants.js'
 import { TALENT_ACQUISITION, narrowPayloadForTalentAcquisition } from '../lib/server/ngrpTalentAcquisition.js'
-import { buildResidencyCsv, fetchLatestRevisions } from '../lib/server/ngrpResidencyExport.js'
+import { Buffer } from 'node:buffer'
+import { buildTransitionWorkbook, fetchLatestRevisions } from '../lib/server/ngrpResidencyExport.js'
 import { serviceDbForRequest } from '../lib/server/demoScope.js'
 import { loadApplicantProfile } from '../lib/server/ngrpApplicantProfile.js'
 import { loadCandidateRubrics } from '../lib/server/ngrpInterviewRubrics.js'
@@ -141,19 +142,16 @@ export default async function handler(req, res) {
   // Transition Form, plus the cohort-wide counts At a Glance shows.
   const view = caller.audience === TALENT_ACQUISITION ? narrowPayloadForTalentAcquisition(payload) : payload
 
-  // RESIDENCY-PORTAL-3: the roster as a CSV. Built from the view above, so it
-  // holds exactly the rows this caller's roster shows, plus each alumnus's
-  // latest Transition Form answers.
+  // TRANSITION-EXCEL-1: the submitted answers as a workbook. Built from the view above, so it
+  // can hold only alumni this caller's roster shows.
   if (action === 'export') {
     const revisions = await fetchLatestRevisions(db, view.candidates)
     if (revisions.error) return res.status(500).json({ error: 'internal_error' })
-    return res.status(200).json({
-      provisioned: true,
-      ...buildResidencyCsv({
-        cycle: payload.cycle, students: view.students, candidates: view.candidates,
-        revisionsByAssignment: revisions.byAssignment,
-      }),
+    const { bytes, fileName } = buildTransitionWorkbook({
+      cycle: payload.cycle, students: view.students, candidates: view.candidates,
+      revisionsByAssignment: revisions.byAssignment,
     })
+    return res.status(200).json({ provisioned: true, fileName, xlsx: Buffer.from(bytes).toString('base64') })
   }
 
   return res.status(200).json({

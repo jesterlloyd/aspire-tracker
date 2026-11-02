@@ -106,7 +106,6 @@ test('MIGRATION 2: on real Postgres: one rubric per interviewer, a generated com
 
 // ── Phase 2: results in the binder ───────────────────────────────────────────
 import { loadPanelSummaries } from '../lib/server/ngrpInterviewRubrics.js'
-import { buildResidencyCsv } from '../lib/server/ngrpResidencyExport.js'
 
 const fakeDb = (rows, error = null) => ({ from: () => ({ select: () => ({ eq: () => Promise.resolve({ data: rows, error }) }) }) })
 
@@ -126,14 +125,5 @@ test('PHASE 2 2: the binder, the board and the CSV read the panel; the roster ne
   assert.match(lib, /rubricsProvisioned: panels\.provisioned === true/)
   assert.match(read('api/ngrp-workspace.js'), /if \(action === 'rubrics'\)/)
   assert.match(read('src/components/ngrp/InterviewBoard.jsx'), /data-testid="interviewee-panel-chip"/)
-  const csv = buildResidencyCsv({
-    cycle: { name: 'W27' }, students: [{ id: 's1', first_name: 'A', last_name: 'B', status: 'Completed' }],
-    candidates: [{ id: 'c1', student_id: 's1', interview_panel: { completed: 2, average: 12.5, recommendation: 'recommend' } }],
-    revisionsByAssignment: new Map(),
-  }).csv
-  const [head, row] = csv.replace(/^﻿/, '').split(/\r?\n/)
-  const cols = head.split(','), cells = row.split(',')
-  assert.equal(cells[cols.indexOf('Panel Composite')], '12.5')
-  assert.equal(cells[cols.indexOf('Panel Recommendation')], 'Recommend')
-  assert.equal(cells[cols.indexOf('Rubrics Completed')], '2')
+  // TRANSITION-EXCEL-1 replaced the roster CSV, and its panel columns, with the answers workbook.
 })

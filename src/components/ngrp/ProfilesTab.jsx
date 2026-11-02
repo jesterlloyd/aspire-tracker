@@ -52,7 +52,7 @@ import { transitionPreviewFor } from '../../lib/ngrp/transitionPreviewFixture'
 import { transitionFormPreview } from '../../lib/ngrp/transitionFormPreview'
 import SortHeader from '../shared/SortHeader'
 import { sortRows } from '../shared/dataSheetSort'
-import { LICENSE_LABELS, NOT_REPORTED, employmentOf, licenseDetail, eligibilityDetail, gpaOf, gpaBand, interestColumns, preceptedUnitOf, unitDemand, demandFor, seatLabel } from '../../lib/ngrp/interestEligibilityModel'
+import { LICENSE_LABELS, NOT_REPORTED, employmentOf, licenseDetail, eligibilityDetail, gpaOf, formGpaOf, gpaBand, interestColumns, preceptedUnitOf, unitDemand, demandFor, seatLabel } from '../../lib/ngrp/interestEligibilityModel'
 import { GPA_BAND_COLORS } from '../../lib/constants'
 import {
   FORM_SENT_STATES, ELIGIBILITY_STATES, ROSTER_STATUSES,
@@ -60,9 +60,10 @@ import {
   deriveApplicantRows, sortApplicantRows, effectiveEligibility, formTimestamp,
   formSentState, rosterStatus, effectivePreferences,
 } from '../../lib/ngrp/ngrpStates'
-import { useNgrpApplicants, useNgrpPlanning, postNgrpManage, useNgrpPreceptorFeedback, postNgrpPreceptorFeedback, fetchNgrpRosterCsv, locateNgrpCandidate } from '../../lib/ngrp/useNgrpData'
+import { useNgrpApplicants, useNgrpPlanning, postNgrpManage, useNgrpPreceptorFeedback, postNgrpPreceptorFeedback, fetchNgrpTransitionWorkbook, locateNgrpCandidate } from '../../lib/ngrp/useNgrpData'
 import { useNgrpSurface } from '../../lib/ngrp/ngrpSurface'
-import { displayName, downloadCSV } from '../../lib/utils'
+import { displayName } from '../../lib/utils'
+import { saveXlsx } from '../budget/budgetApi'
 
 const relTime = ts => {
   if (!ts) return '—'
@@ -257,16 +258,16 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
   const { userProfile } = useAuth()
   const canAddAlumni = staffApp && ['owner', 'admin'].includes(userProfile?.role)
   const [showAddAlumnus, setShowAddAlumnus] = useState(false)
-  // RESIDENCY-PORTAL-3: Download CSV, as on the Community Benefit tab: the
-  // server builds the file from the roster this caller may see.
+  // TRANSITION-EXCEL-1: the submitted answers as a workbook. The server builds it from the
+  // roster this caller may see.
   const [exporting, setExporting] = useState(false)
   const onExport = async () => {
     if (!cycle || exporting) return
     setExporting(true)
-    const res = await fetchNgrpRosterCsv(cycle.id)
+    const res = await fetchNgrpTransitionWorkbook(cycle.id)
     setExporting(false)
-    if (res.ok && res.csv) downloadCSV(res.csv, res.filename)
-    else toast?.error?.('Export failed', 'The CSV could not be generated right now. Please try again shortly.')
+    if (res.ok && res.xlsx) saveXlsx(res)
+    else toast?.error?.('Export failed', 'The Excel file could not be generated right now. Please try again shortly.')
   }
 
   const sourceCohorts = useMemo(() => payload?.sourceCohorts || [], [payload])
@@ -299,7 +300,7 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
 
   const activeKpi = KPI_DEFS.find(k => k.key === kpiFilter) || KPI_DEFS[0]
   const [colSort, setColSort] = useState(null)
-  const sortColumns = useMemo(() => interestColumns({ effectiveEligibility }), [])
+  const sortColumns = useMemo(() => interestColumns({ effectiveEligibility, gpaValue: staffApp ? gpaOf : formGpaOf }), [staffApp])
   const onColumnSort = key => setColSort(prev => (
     prev?.key === key ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' }
   ))
@@ -745,7 +746,7 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                     Add Alumnus
                   </button>
                 )}
-                <Tooltip label="Every alumnus on this roster with their latest Transition Form answers. Preceptor feedback is never included." applyAriaLabel={false}>
+                <Tooltip label="Every submitted Transition Form, one row per alumnus, with the answers that matter for review. Preceptor feedback is never included." applyAriaLabel={false}>
                 <button
                   type="button"
                   onClick={onExport}
@@ -758,7 +759,7 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                   }}
                 >
                   <Download size={13} aria-hidden="true" />
-                  {exporting ? 'Preparing CSV…' : 'Download CSV'}
+                  {exporting ? 'Preparing Excel…' : 'Download Excel'}
                 </button>
                 </Tooltip>
                 {/* Always available, and deliberately NOT inside the bulk-selection bar:
@@ -820,13 +821,13 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                         automatic. */}
                     {/* INTEREST-ELIGIBILITY-1 (Owner, 2026-10-29): every column sorts; Interest
                         gave way to licensure, CS employment and GPA (most alumni are interested,
-                        and a not-interested answer still shows under Top Choices). GPA is the
-                        ASPIRE team's only. */}
+                        and a not-interested answer still shows under Top Choices). The ASPIRE team reads
+                        the record's GPA; Talent Acquisition reads the one on the form (Owner, 2026-11-01). */}
                     <SortHeader thClassName="" sortKey="alumnus" sortBy={colSort?.key} sortDir={colSort?.dir} onSort={onColumnSort}>Alumnus</SortHeader>
                     <SortHeader thClassName="ngrp-col-form" sortKey="form" sortBy={colSort?.key} sortDir={colSort?.dir} onSort={onColumnSort}>Form</SortHeader>
                     <SortHeader thClassName="" sortKey="license" sortBy={colSort?.key} sortDir={colSort?.dir} onSort={onColumnSort}>CA RN License</SortHeader>
                     <SortHeader thClassName="ngrp-col-employment" sortKey="employment" sortBy={colSort?.key} sortDir={colSort?.dir} onSort={onColumnSort}>CS Employee</SortHeader>
-                    {staffApp && <SortHeader thClassName="ngrp-col-gpa" sortKey="gpa" sortBy={colSort?.key} sortDir={colSort?.dir} onSort={onColumnSort}>GPA</SortHeader>}
+                    <SortHeader thClassName="ngrp-col-gpa" sortKey="gpa" sortBy={colSort?.key} sortDir={colSort?.dir} onSort={onColumnSort}>GPA</SortHeader>
                     <SortHeader thClassName="" sortKey="eligibility" sortBy={colSort?.key} sortDir={colSort?.dir} onSort={onColumnSort}>Eligibility</SortHeader>
                     <SortHeader thClassName="ngrp-col-precepted" sortKey="precepted" sortBy={colSort?.key} sortDir={colSort?.dir} onSort={onColumnSort}>Precepted Unit</SortHeader>
                     <SortHeader thClassName="ngrp-col-choices" sortKey="choices" sortBy={colSort?.key} sortDir={colSort?.dir} onSort={onColumnSort}>Top Choices</SortHeader>
@@ -835,7 +836,7 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                 <tbody>
                   {filteredRows.length === 0 && (
                     <tr>
-                      <td colSpan={(canSelect ? 1 : 0) + (staffApp ? 8 : 7)} style={{ padding: 0 }}>
+                      <td colSpan={(canSelect ? 1 : 0) + 8} style={{ padding: 0 }}>
                         <EmptyState
                           compact
                           heading="No alumni match the current filters"
@@ -850,7 +851,7 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                     const { preferences, source: prefSource } = effectivePreferences(r)
                     const status = rosterStatus(r)
                     const employment = employmentOf(r)
-                    const gpa = gpaOf(r)
+                    const gpa = staffApp ? gpaOf(r) : formGpaOf(r)
                     const paired = status === 'awaiting_decision' ? r.assigned_unit : null
                     return (
                       // INTEREST-ELIGIBILITY-2 (Owner): a row click selects the row; the photo
@@ -926,13 +927,11 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                             ? <span className="ngrp-stack"><span className="ngrp-cellval">{employment.label}</span>{employment.detail && <span className="ngrp-cellsub">{employment.detail}</span>}</span>
                             : <span className="ngrp-cellmute">{NOT_REPORTED}</span>}
                         </td>
-                        {staffApp && (
-                          <td className="ngrp-col-gpa">
-                            {gpa == null
-                              ? <span className="ngrp-cellmute">None on file</span>
-                              : <span className="ngrp-gpa" style={GPA_BAND_COLORS[gpaBand(gpa)] ? { background: GPA_BAND_COLORS[gpaBand(gpa)].bg, color: GPA_BAND_COLORS[gpaBand(gpa)].color } : undefined}>{gpa.toFixed(2)}</span>}
-                          </td>
-                        )}
+                        <td className="ngrp-col-gpa">
+                          {gpa == null
+                            ? <span className="ngrp-cellmute">{staffApp ? 'None on file' : NOT_REPORTED}</span>
+                            : <span className="ngrp-gpa" style={GPA_BAND_COLORS[gpaBand(gpa)] ? { background: GPA_BAND_COLORS[gpaBand(gpa)].bg, color: GPA_BAND_COLORS[gpaBand(gpa)].color } : undefined}>{gpa.toFixed(2)}</span>}
+                        </td>
                         <td>
                           <span className="ngrp-stack">
                             <NgrpStatusPill config={ELIGIBILITY_STATES} value={effectiveEligibility(r)} srPrefix="Eligibility" />

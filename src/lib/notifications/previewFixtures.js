@@ -26,6 +26,7 @@ import { buildClockoutReminderEmail } from './templates/clockoutReminder.js';
 // Automations card and the Start button preview the same email.
 import { NGRP_REFLECTION_PREVIEW } from '../ngrp/reflectionPreviewFixture.js';
 import { RESIDENCY_DIGEST_PREVIEW } from '../ngrp/residencyDigestPreviewFixture.js';
+import { buildTransitionReminderEmail } from '../../../lib/server/email/ngrpTransitionEmail.js';
 import { SURVEY_NAMES } from '../evaluation/surveyNames.js';
 
 // ── Safe synthetic data (never real) ─────────────────────────────────────────
@@ -183,6 +184,17 @@ export const AUTOMATION_PREVIEW_FIXTURES = {
 
   // RESIDENCY-DIGEST-1: fake alumni through the same model and builder the Monday cron uses.
   residency_weekly_digest: RESIDENCY_DIGEST_PREVIEW,
+
+  // TRANSITION-REMINDER-1: the builder the daily cron sends, with a visibly fake link.
+  ngrp_transition_reminders: {
+    recipientType: 'Alumni sent the form',
+    render: () => buildTransitionReminderEmail({
+      student: { first_name: MOCK.firstName },
+      cycle: { name: 'Winter 2027' },
+      url: 'https://aspireintelligence.app/ngrp/transition#t=SAMPLE-PREVIEW-LINK',
+      closeText: '2026-11-12T07:59:59.999Z',
+    }),
+  },
 };
 
 // Convenience accessor used by the card UI.

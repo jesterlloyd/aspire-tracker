@@ -22,7 +22,6 @@ import {
 } from '../lib/server/ngrpPool.js'
 import { placeableRows, placementSummary } from '../src/lib/ngrp/ngrpPlacement.js'
 import { validateNotProceedingPayload, validateUnitPreferencesPayload, validateOutcomePayload } from '../lib/server/ngrpPlanning.js'
-import { buildResidencyCsv } from '../lib/server/ngrpResidencyExport.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const read = p => readFileSync(join(here, '..', p), 'utf8')
@@ -213,20 +212,7 @@ test('At a Glance shows the same states, counted', () => {
   assert.match(glance, /rosterStatus\(row\)/, 'the roster Status, not a second vocabulary')
 })
 
-test('the CSV says what the screen says', () => {
-  const { csv } = buildResidencyCsv({
-    cycle: { name: 'January 2027', application_checklist: [] },
-    students: [{ id: 's1', first_name: 'Maya', last_name: 'Lin', school: 'CSUN' }],
-    candidates: [{ student_id: 's1', ...ready({ assigned_unit: '5 SCCT', staff_unit_preferences: ['7 North'] }) }],
-  })
-  const [header, row] = csv.split('\n')
-  assert.ok(header.includes('Status'), 'the roster Status column')
-  assert.ok(header.includes('Choice 1') && header.includes('Choice 3'))
-  assert.ok(header.includes('Paired Unit (Interviewing)'))
-  assert.ok(!header.includes(',Application,'), 'the retired Application column is gone')
-  assert.ok(row.includes('Awaiting Decision'), row)
-  assert.ok(row.includes('7 North') && row.includes('ASPIRE team'), 'the choices in force, and who set them')
-})
+// TRANSITION-EXCEL-1 replaced the roster CSV, and its Status and Choice columns, with the answers workbook.
 
 test('the migration is additive, transactional, and rewrites exactly one thing', () => {
   const sql = code(read('supabase/migrations/20260916000000_ngrp_not_proceeding_choices_outcome.sql'))

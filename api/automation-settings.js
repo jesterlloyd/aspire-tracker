@@ -61,6 +61,10 @@ const KNOWN_AUTOMATIONS = [
   { key: 'residency_weekly_digest', label: 'Residency Weekly Digest',
     description: 'Emails Talent Acquisition members who turned it on what needs attention in Residency each Monday morning.',
     defaultEnabled: true },
+  // TRANSITION-REMINDER-1. Default On, matching api/cron/ngrp-transition-reminders.js.
+  { key: 'ngrp_transition_reminders', label: 'Transition Form Reminders',
+    description: 'Sends the Transition Form again each morning to alumni who were sent it and have not submitted, until they submit or the form closes.',
+    defaultEnabled: true },
 ];
 const META_BY_KEY = new Map(KNOWN_AUTOMATIONS.map(a => [a.key, a]));
 

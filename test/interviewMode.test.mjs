@@ -4,7 +4,6 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { validateInterviewPayload, INTERVIEW_MODES } from '../lib/server/ngrpPlanning.js'
 import { INTERVIEW_MODE_LABELS } from '../src/lib/ngrp/ngrpStates.js'
-import { buildResidencyCsv } from '../lib/server/ngrpResidencyExport.js'
 import { packetSummary } from '../src/lib/ngrp/applicantPacketModel.js'
 
 const read = p => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8')
@@ -31,7 +30,7 @@ test('MODE 2: the column and its CHECK match the code; the save works on both si
   assert.match(read('api/ngrp-workspace.js'), /interviewModeProvisioned: payload\.interviewModeProvisioned === true/)
 })
 
-test('MODE 3: shown in the binder only where it can be stored, on the board, in the CSV and the packet', () => {
+test('MODE 3: shown in the binder only where it can be stored, on the board and in the packet', () => {
   const chart = read('src/components/ngrp/ApplicantDrawer.jsx')
   // Owner, 2026-10-05: offered in every state, not only once an interview is booked.
   assert.match(chart, /\{modeAvailable && \(\s*<label/)
@@ -39,17 +38,7 @@ test('MODE 3: shown in the binder only where it can be stored, on the board, in 
   assert.match(read('src/components/ngrp/ProfilesTab.jsx'), /interviewModeAvailable=\{payload\?\.interviewModeProvisioned === true\}/)
   assert.match(read('src/components/ngrp/InterviewBoard.jsx'), /interviewModeAvailable=\{applicants\.payload\?\.interviewModeProvisioned === true\}/)
   assert.match(read('src/components/ngrp/InterviewBoard.jsx'), /INTERVIEW_MODE_LABELS\[row\.interview_mode\]/)
-  const csv = buildResidencyCsv({
-    cycle: { name: 'Winter 2027' },
-    students: [{ id: 's1', first_name: 'A', last_name: 'B', status: 'Completed' }],
-    candidates: [{ id: 'c1', student_id: 's1', interview_status: 'completed', interview_at: '2026-12-11T01:30:00Z', interview_mode: 'in_person' }],
-    revisionsByAssignment: new Map(),
-  }).csv
-  const [head, row] = csv.replace(/^﻿/, '').split(/\r?\n/)
-  const cols = head.split(',')
-  const cells = row.split(',')
-  assert.equal(cells[cols.indexOf('Interview Format')], 'In person')
-  assert.equal(cells[cols.indexOf('Interview Date')], '2026-12-10', 'the Pacific day of a 5:30 PM interview')
+  // TRANSITION-EXCEL-1 replaced the roster CSV, and its interview columns, with the answers workbook.
   const s = packetSummary({ row: { student: {}, interview_status: 'completed', interview_at: '2026-12-10T18:00:00Z', interview_mode: 'virtual' }, cycle: null, documents: [] })
   assert.match(s.sections.find(x => x.heading === 'Application').rows.find(([l]) => l === 'Interview')[1], /Virtual$/)
 })

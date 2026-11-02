@@ -1,7 +1,8 @@
-// RESIDENCY-PORTAL-3: the Alumni Roster CSV (Owner decision 8, modeled on the
-// Community Benefit export). Built server-side from the roster the caller may
-// already see; every Transition Form answer; no student-record emails, no ids,
-// no preceptor feedback; spreadsheet formulas neutralized.
+// TRANSITION-EXCEL-1 (Owner, 2026-11-01): the Transition Form answers as Excel, shaped like the
+// Microsoft Forms export Talent Acquisition already works from. This replaced the roster CSV
+// (RESIDENCY-PORTAL-3), and this file's CSV tests with it, in the same commit. Built server-side
+// from the roster the caller may see; submitted responses only; the form's GPA, never the record's;
+// no student-record emails, ids or preceptor feedback.
 // Run: node --test test/residencyRosterExport.test.mjs
 
 import test from 'node:test'
@@ -9,9 +10,9 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
+import { Buffer } from 'node:buffer'
 
-import { buildResidencyCsv, csvEscape, fetchLatestRevisions } from '../lib/server/ngrpResidencyExport.js'
-import { narrowPayloadForTalentAcquisition } from '../lib/server/ngrpTalentAcquisition.js'
+import { buildTransitionWorkbook, transitionWorkbookRows, fetchLatestRevisions, FROZEN_COLUMNS } from '../lib/server/ngrpResidencyExport.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const read = p => readFileSync(join(here, '..', p), 'utf8')
@@ -22,7 +23,7 @@ const FORM = {
   aspire: { aspire_cohort: 'Fall 2026', precepted_unit: 'Other', precepted_unit_other: '=HYPERLINK("x")', rotation_shifts: 12, prior_ngrp_applied: false, prior_ngrp_details: '' },
   licensure: { ca_rn_status: 'pending', license_number: '', nclex_scheduled_date: '2027-01-10', paid_rn_months: 0, bls_status: 'active', bls_issuer: 'AHA', bls_expiration: '2028-01-01', acls_required: false, acls_status: null, acls_issuer: '', acls_expiration: null },
   residency_interest: { interest: 'interested', unit_preferences: ['5 North', '6 South'], interest_statement: 'I want to stay, "truly".', strengths_statement: 'Calm,\nsteady.' },
-  readiness: { resume: true, references: false },
+  readiness: { resume: true, recommendation_letters: false },
   attestation: { accurate: true, consent_followup: true, consent_hr_share: true },
 }
 const CYCLE = {
@@ -37,73 +38,79 @@ const CANDIDATES = [
   { id: 'k1', student_id: 's1', assignment_id: 'a1', form_status: 'submitted', form_submitted_at: '2026-09-10T18:00:00Z', form_revision_count: 1, eligibility_calculated: 'eligible', application_status: 'not_confirmed' },
 ]
 
-// A real CSV reader: quoted fields may hold commas, doubled quotes, and newlines.
-const parseCsv = text => {
-  const rows = []; let row = []; let cur = ''; let q = false
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i]
-    if (q) { if (ch === '"' && text[i + 1] === '"') { cur += '"'; i++ } else if (ch === '"') q = false; else cur += ch }
-    else if (ch === '"') q = true
-    else if (ch === ',') { row.push(cur); cur = '' }
-    else if (ch === '\n') { row.push(cur); rows.push(row); row = []; cur = '' }
-    else cur += ch
-  }
-  if (cur || row.length) { row.push(cur); rows.push(row) }
-  return rows
-}
+const build = (over = {}) => transitionWorkbookRows({
+  students: STUDENTS, candidates: CANDIDATES, revisionsByAssignment: new Map([['a1', FORM]]), ...over,
+})
+const cellOf = ({ header, rows }, rowIndex, h) => rows[rowIndex][header.findIndex(x => x.startsWith(h))]
 
-test('every form answer, the cohort checklist, and the roster status, one row per alumnus', () => {
-  const { csv, filename } = buildResidencyCsv({
-    cycle: CYCLE, students: STUDENTS, candidates: CANDIDATES, revisionsByAssignment: new Map([['a1', FORM]]),
+test('submitted responses only, one row per alumnus, oldest first with the Id counting them', () => {
+  const later = { id: 'k2', student_id: 's2', assignment_id: 'a2', form_status: 'revised', form_submitted_at: '2026-09-01T18:00:00Z', form_revised_at: '2026-09-11T18:00:00Z', form_revision_count: 2 }
+  const notIn = { id: 'k3', student_id: 's3', assignment_id: 'a3', form_status: 'in_progress', form_revision_count: 0 }
+  const t = build({
+    students: [...STUDENTS, { id: 's3', first_name: 'Cy', last_name: 'Noform', status: 'Completed' }],
+    candidates: [later, ...CANDIDATES, notIn],
+    revisionsByAssignment: new Map([['a1', FORM], ['a2', FORM]]),
   })
-  assert.equal(filename, 'aspire-residency-winter-2027-residency.csv')
-  const records = parseCsv(csv)
-  assert.equal(records.length, 3, 'header plus two alumni, the multi-line answer intact')
-  const header = records[0]
-  for (const h of ['Student', 'Transition Form', 'Eligibility', 'Preferred Email', 'GPA', 'Precepted Unit (Other)',
-    'Unit Preference 1', 'Interest Statement', 'Readiness: Resume uploaded', 'Readiness: Two references',
-    'Consent to Share with Talent Acquisition']) {
-    assert.ok(header.includes(h), h)
+  assert.equal(t.rows.length, 2, 'an unsubmitted form is not a row')
+  assert.equal(cellOf(t, 0, 'Full Legal Name'), 'Capati, Ace')
+  assert.deepEqual(cellOf(t, 0, 'Id'), { n: 1 })
+  assert.equal(cellOf(t, 1, 'Full Legal Name'), 'Zed, Bea', 'a revision dates from when it was revised')
+  assert.deepEqual(cellOf(t, 1, 'Id'), { n: 2 })
+})
+
+test('the sample order and its answers; Third Choice added; questions the form never asked left out', () => {
+  const t = build()
+  assert.deepEqual(t.header.slice(0, 3), ['Id', 'Completion time', 'Full Legal Name (Last Name, First Name)'])
+  assert.equal(FROZEN_COLUMNS, 3)
+  assert.equal(cellOf(t, 0, 'Completion time'), '9/10/2026 11:00 AM', 'Pacific')
+  assert.equal(cellOf(t, 0, 'Phone Number'), '555-0100')
+  assert.equal(cellOf(t, 0, 'Email Address'), 'ace@example.com')
+  assert.equal(cellOf(t, 0, 'Are you currently employed'), 'Yes, per diem')
+  assert.equal(cellOf(t, 0, 'Date of Graduation'), '12/15/2026')
+  assert.equal(cellOf(t, 0, 'Unit where you completed'), '=HYPERLINK("x")', 'an Other unit reads what they wrote')
+  assert.deepEqual(cellOf(t, 0, 'ASPIRE shifts'), { n: 12 })
+  assert.equal(cellOf(t, 0, 'Have you passed the NCLEX-RN?'), 'No')
+  assert.equal(cellOf(t, 0, 'Have you scheduled your NCLEX?'), 'Yes')
+  assert.equal(cellOf(t, 0, 'Scheduled Test Date'), '1/10/2027')
+  assert.equal(cellOf(t, 0, 'First Choice Unit'), '5 North')
+  assert.equal(cellOf(t, 0, 'Second Choice Unit'), '6 South')
+  assert.ok(t.header.includes('Third Choice Unit'))
+  assert.equal(cellOf(t, 0, 'Why are you interested'), 'I want to stay, "truly".')
+  const i = h => t.header.findIndex(x => x.endsWith(h))
+  assert.equal(t.rows[0][i('Updated professional résumé (within the last 3 months)')], 'Yes')
+  assert.equal(t.rows[0][i('At least two letters of recommendation')], 'No')
+  assert.equal(t.rows[0][i('Current BLS certification')], 'Yes')
+  assert.equal(t.rows[0][i('RN license (if applicable)')], 'N/A')
+  assert.equal(t.rows[0][i('Your cumulative GPA 3.0 or above')], 'Yes')
+  for (const gone of ['What unit/department?', 'Role/Position', 'License Issuance Date', 'Interim Permit', 'Have you completed your nursing program?']) {
+    assert.ok(!t.header.some(h => h.includes(gone)), gone)
   }
-  const col = h => header.indexOf(h)
-  const ace = records[1]
-  assert.equal(ace[col('Student')], 'Ace Capati', 'name order puts Ace first')
-  assert.equal(ace[col('Transition Form')], 'submitted')
-  assert.equal(ace[col('Submitted')], '2026-09-10')
-  assert.equal(ace[col('Eligibility')], 'eligible')
-  assert.equal(ace[col('Preferred Email')], 'ace@example.com')
-  assert.equal(ace[col('Cedars-Sinai Employment')], 'per diem')
-  assert.equal(ace[col('US Accredited')], 'Yes')
-  assert.equal(ace[col('Unit Preference 2')], '6 South')
-  assert.equal(ace[col('Strengths Statement')], 'Calm,\nsteady.')
-  assert.equal(ace[col('Readiness: Resume uploaded')], 'Yes')
-  assert.equal(ace[col('Readiness: Two references')], 'No')
-  assert.equal(ace[col('Consent to Share with Talent Acquisition')], 'Yes')
-  const bea = records[2]
-  assert.equal(bea[col('Transition Form')], 'not sent', 'staff rosters include alumni without a form')
-  assert.equal(bea[col('Preferred Email')], '')
+})
+
+test("the GPA is the form's, as a number, and the record's GPA never reaches the file", () => {
+  const t = build({ students: STUDENTS.map(s => ({ ...s, cumulative_gpa: 2.1 })) })
+  assert.deepEqual(cellOf(t, 0, 'Cumulative GPA'), { n: 3.6 })
+  assert.ok(!JSON.stringify(t).includes('2.1'))
 })
 
 test('no student-record emails, no ids, no preceptor feedback', () => {
-  const { csv } = buildResidencyCsv({
-    cycle: CYCLE, students: STUDENTS, candidates: CANDIDATES, revisionsByAssignment: new Map([['a1', FORM]]),
-  })
-  for (const leak of ['ace@school.edu', 'ace@home.com', 'bea@school.edu', 'bea@home.com', 'k1', 'a1', 'cy1', 'preceptor', 'Preceptor']) {
-    assert.ok(!csv.includes(leak), `leaked ${leak}`)
+  const blob = JSON.stringify(build())
+  for (const leak of ['ace@school.edu', 'ace@home.com', 'bea@school.edu', 'bea@home.com', 'k1', '"a1"', 'cy1', 'preceptor', 'Preceptor']) {
+    assert.ok(!blob.includes(leak), `leaked ${leak}`)
   }
 })
 
-test('formulas are neutralized and quoting is correct (the Community Benefit rule)', () => {
-  assert.equal(csvEscape('=HYPERLINK("x")'), `"'=HYPERLINK(""x"")"`)
-  assert.equal(csvEscape('+1'), "'+1")
-  assert.equal(csvEscape('a,b'), '"a,b"')
-  assert.equal(csvEscape(3.6), '3.6')
-  assert.equal(csvEscape(null), '')
-  const { csv } = buildResidencyCsv({
-    cycle: CYCLE, students: STUDENTS, candidates: CANDIDATES, revisionsByAssignment: new Map([['a1', FORM]]),
+test('a real .xlsx: answers are text and cannot run, the name columns are frozen, the file names the cohort', () => {
+  const { bytes, fileName } = buildTransitionWorkbook({
+    cycle: { name: 'Winter 2027 / Residency' }, students: STUDENTS, candidates: CANDIDATES, revisionsByAssignment: new Map([['a1', FORM]]),
   })
-  assert.ok(csv.includes(`"'=HYPERLINK(""x"")"`))
-  assert.ok(csv.includes('"Calm,\nsteady."'))
+  assert.equal(fileName, 'ASPIRE to NGRP Transition Form - Winter 2027 Residency.xlsx')
+  assert.equal(bytes.subarray(0, 2).toString(), 'PK')
+  const xml = Buffer.from(bytes).toString('utf8')
+  assert.match(xml, /xSplit="3" topLeftCell="D2"/)
+  assert.ok(!/<f>/.test(xml), 'no formula anywhere')
+  assert.match(xml, /t="inlineStr"><is><t xml:space="preserve">=HYPERLINK\(&quot;x&quot;\)/, 'the formula-looking answer is an inline string')
+  assert.match(xml, /<v>3\.6<\/v>/)
 })
 
 test('latest revisions: only the current revision of each submitted form, in one read', async () => {
@@ -129,22 +136,18 @@ test('latest revisions: only the current revision of each submitted form, in one
   assert.deepEqual(await fetchLatestRevisions(db, []), { byAssignment: new Map() })
 })
 
-// RESIDENCY-TA-1 (Owner, 2026-10-05) changed this: Talent Acquisition sees and works with EVERY alumnus.
-test('Talent Acquisition exports the roster it sees; the endpoint builds from that view', () => {
-  const view = narrowPayloadForTalentAcquisition({ students: STUDENTS, candidates: CANDIDATES })
-  const { csv } = buildResidencyCsv({ cycle: CYCLE, students: view.students, candidates: view.candidates })
-  const all = buildResidencyCsv({ cycle: CYCLE, students: STUDENTS, candidates: CANDIDATES }).csv
-  assert.equal(csv, all, 'the same rows the ASPIRE team exports')
+test('Talent Acquisition downloads from the roster it sees; the endpoint builds from that view', () => {
   const ws = read('api/ngrp-workspace.js')
   const narrowAt = ws.indexOf('narrowPayloadForTalentAcquisition(payload)')
   const exportAt = ws.indexOf("if (action === 'export')")
   assert.ok(narrowAt > 0 && exportAt > narrowAt, 'export runs on the narrowed view')
-  assert.match(ws, /buildResidencyCsv\(\{\s*cycle: payload\.cycle, students: view\.students, candidates: view\.candidates,/)
+  assert.match(ws, /buildTransitionWorkbook\(\{\s*cycle: payload\.cycle, students: view\.students, candidates: view\.candidates,/)
 })
 
-test('the roster header offers Download CSV to both audiences', () => {
+test('Download Excel replaced Download CSV, for both audiences', () => {
   const tab = read('src/components/ngrp/ProfilesTab.jsx')
-  assert.match(tab, /downloadCSV\(res\.csv, res\.filename\)/)
-  assert.match(tab, /\{exporting \? 'Preparing CSV…' : 'Download CSV'\}/)
+  assert.match(tab, /if \(res\.ok && res\.xlsx\) saveXlsx\(res\)/)
+  assert.match(tab, /\{exporting \? 'Preparing Excel…' : 'Download Excel'\}/)
+  assert.ok(!/Download CSV|downloadCSV/.test(tab))
   assert.match(read('src/lib/ngrp/useNgrpData.js'), /authedPost\('\/api\/ngrp-workspace', 'export', \{ cycle_id: cycleId \}\)/)
 })

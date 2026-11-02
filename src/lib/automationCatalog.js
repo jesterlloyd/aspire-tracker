@@ -88,6 +88,13 @@ export const AUTOMATION_CATALOG = Object.freeze([
     automationKey: 'residency_weekly_digest',
     maxAgeHours: 192,
   },
+  {
+    // TRANSITION-REMINDER-1. Daily.
+    id: 'ngrp_transition_reminders',
+    cronName: 'ngrp-transition-reminders',
+    automationKey: 'ngrp_transition_reminders',
+    maxAgeHours: 48,
+  },
 ])
 
 /** Cron names the Automations dashboard monitors. The runs query filters to these. */
