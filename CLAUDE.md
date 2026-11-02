@@ -2710,3 +2710,14 @@ unit choices; those stay out of `transitionSummaryRows` because the Unit Leader 
 **The cohort filter is `cohortFilterOptions`**: the mapped source cohorts, then the cohort of anyone
 added by hand (ADD-ALUMNUS-1), who is on the roster without their cohort being mapped. A mapped cohort
 with nobody on the roster stays listed.
+
+## Talent Acquisition reads preceptor feedback under the form's consent (FEEDBACK-CONSENT-1, 2026-11-02)
+
+Owner: "Since students agree to share to talent acquisition, NGRP portal gains the preceptor
+feedback access." Once an alumnus has submitted the Transition Form (`hasSubmittedForm`), Talent
+Acquisition opens their preceptor feedback directly from the binder, with no request: the summary's
+TA entry is `{ available, canView, request }`, and `view { candidate_id }` checks the live assignment
+is submitted (else 404) and writes a `viewed` event keyed to that assignment BEFORE returning the
+feedback. The ASPIRE team sees those views ("Viewed by ... N times, last ...") beside the request
+history. Before submission the panel says it opens once they submit. The request flow is not offered
+any more; an approved request still opens, and pending ones can still be decided.

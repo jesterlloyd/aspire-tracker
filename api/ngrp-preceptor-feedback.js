@@ -15,6 +15,10 @@
 //             expected_status, note? }       2026-09-11), checked here and again
 //                                            in the database
 //   view    { request_id }                -> the requester only, while approved
+//   view    { candidate_id }              -> Talent Acquisition, once the alumnus has
+//                                            submitted the Transition Form, whose
+//                                            consent shares their record with them
+//                                            (FEEDBACK-CONSENT-1, Owner, 2026-11-01)
 //
 // The two ngrp_preceptor_feedback_* tables are server-only (service_role).
 // A missing table or function reads as { provisioned: false } so the feature
@@ -130,6 +134,25 @@ export default async function handler(req, res) {
         viewEvents = events.data || []
       }
 
+      // FEEDBACK-CONSENT-1: a submitted form is the consent. The ASPIRE team also sees the
+      // views made under it, which are the 'viewed' events that name no request.
+      const consentCandidateIds = new Set(candidates.filter(c => hasSubmittedForm(c.form_status)).map(c => c.id))
+      let consentEvents = []
+      let viewerNames = new Map()
+      if (!isTA && candidateIds.length) {
+        const ev = await db.from(EVENTS).select('request_id, candidate_id, actor_profile_id, created_at')
+          .eq('event_type', 'viewed').in('candidate_id', candidateIds)
+        if (ev.error) return internal(res)
+        const requestIds = new Set(requests.map(r => r.id))
+        consentEvents = (ev.data || []).filter(e => !requestIds.has(e.request_id))
+        const ids = [...new Set(consentEvents.map(e => e.actor_profile_id))]
+        if (ids.length) {
+          const p = await db.from('user_profiles').select('id, full_name').in('id', ids)
+          if (p.error) return internal(res)
+          viewerNames = new Map((p.data || []).map(x => [x.id, x.full_name]))
+        }
+      }
+
       return res.status(200).json({
         provisioned: true,
         audience: isTA ? TALENT_ACQUISITION : 'staff',
@@ -143,6 +166,9 @@ export default async function handler(req, res) {
           requests,
           requesterNames,
           viewEvents,
+          consentCandidateIds,
+          consentEvents,
+          viewerNames,
         }),
       })
     }
@@ -210,6 +236,36 @@ export default async function handler(req, res) {
     // Only the person who asked, only for the applicant they asked about, only
     // while the request is approved. Anything else reads as not found.
     if (!isTA) return res.status(403).json({ error: 'talent_acquisition_only' })
+
+    // FEEDBACK-CONSENT-1: by candidate, under the alumnus's own consent. The event's
+    // request_id names what authorized the view, here the Transition Form assignment that
+    // carries the consent (the column has no foreign key, by design, so the record
+    // outlives what it names).
+    if (body.candidate_id !== undefined && body.request_id === undefined) {
+      const candidateId = uuidOf(body.candidate_id)
+      if (!candidateId) return res.status(422).json({ error: 'invalid_candidate_id' })
+      const cand = await db.from('ngrp_candidates').select('id, student_id').eq('id', candidateId).maybeSingle()
+      if (cand.error) return missing(cand.error) ? unprovisioned(res) : internal(res)
+      if (!cand.data) return res.status(404).json({ error: 'candidate_not_found' })
+      const live = await liveAssignmentForCandidate(db, candidateId)
+      if (live.error) return internal(res)
+      if (!live.assignment?.id || !hasSubmittedForm(live.assignment.status)) return res.status(404).json({ error: 'candidate_not_found' })
+      const fb = await feedbackRows(db, [cand.data.student_id], 'timepoint, responses, submitted_at')
+      if (fb.error) return internal(res)
+      const rows = fb.data || []
+      // Recorded BEFORE anything is returned, as under a request.
+      const logged = await db.from(EVENTS).insert({
+        request_id: live.assignment.id,
+        candidate_id: candidateId,
+        student_id: cand.data.student_id,
+        actor_profile_id: caller.profile.id,
+        event_type: 'viewed',
+        response_count: rows.length,
+      })
+      if (logged.error) return internal(res)
+      return res.status(200).json({ ok: true, feedback: shapePreceptorFeedback(rows) })
+    }
+
     const requestId = uuidOf(body.request_id)
     if (!requestId) return res.status(422).json({ error: 'invalid_request_id' })
     const r = await db.from(REQUESTS)

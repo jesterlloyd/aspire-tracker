@@ -720,7 +720,8 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                       }
                       return res
                     },
-                    viewFeedback: req => postNgrpPreceptorFeedback('view', { request_id: req.id }),
+                    // FEEDBACK-CONSENT-1: { candidate_id } under consent, { request_id } under an approval.
+                    viewFeedback: target => postNgrpPreceptorFeedback('view', target),
                   }}
                 />
                   ) : (

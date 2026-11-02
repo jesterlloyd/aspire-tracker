@@ -110,7 +110,8 @@ test('the roster summary: Talent Acquisition gets existence and its own request 
   assert.equal(ta.s1.count, undefined, 'Talent Acquisition does not get the count')
   assert.equal(ta.s1.request.id, 'r-mine', 'the newest of the caller\'s own requests')
   assert.ok(!JSON.stringify(ta).includes('robert') && !JSON.stringify(ta).includes('r-other'), 'never another requester')
-  assert.deepEqual(ta.s2, { available: true, request: null })
+  // FEEDBACK-CONSENT-1: no consent passed here, so nothing opens without a request.
+  assert.deepEqual(ta.s2, { available: true, canView: false, request: null })
 
   const staff = buildFeedbackSummary({
     ...base,
@@ -195,7 +196,8 @@ test('the roster and drawer: an indicator, a deep link, and the section', () => 
   const tab = read('src/components/ngrp/ProfilesTab.jsx')
   assert.match(tab, /<PreceptorFeedbackChip entry=\{feedback\.byStudent\[s\.id\]\} \/>/)
   assert.match(tab, /searchParams\.get\('candidate'\)/)
-  assert.match(tab, /viewFeedback: req => postNgrpPreceptorFeedback\('view', \{ request_id: req\.id \}\)/)
+  // FEEDBACK-CONSENT-1: the section passes { candidate_id } or { request_id }.
+  assert.match(tab, /viewFeedback: target => postNgrpPreceptorFeedback\('view', target\)/)
   const drawer = read('src/components/ngrp/ApplicantDrawer.jsx')
   assert.match(drawer, /<PreceptorFeedbackSection row=\{row\} feedback=\{feedback\} actions=\{actions\} \/>/)
   assert.match(drawer, /title="Preceptor Feedback"/)
@@ -238,4 +240,34 @@ test('Admins can decide too: the widened function matches the API and the notifi
   const access = read('lib/server/access.js')
   assert.match(access, /return c\.isOwner \|\| c\.role === 'admin' \|\| c\.role === 'owner'/)
   assert.match(read('api/ngrp-preceptor-feedback.js'), /canDecide: !isTA && isAdminLevel\(caller\.profile\)/)
+})
+
+// FEEDBACK-CONSENT-1 (Owner, 2026-11-01): the Transition Form's consent shares the record with
+// Talent Acquisition, so a submitted form opens the feedback with no request, and the ASPIRE team
+// sees each of those views.
+test('a submitted Transition Form lets Talent Acquisition open feedback, and staff see the views', () => {
+  const students = [{ id: 's1' }, { id: 's2' }]
+  const candidates = [{ id: 'k1', student_id: 's1' }, { id: 'k2', student_id: 's2' }]
+  const base = { students, candidates, responseStudentIds: ['s1', 's2'], consentCandidateIds: new Set(['k1']) }
+  const ta = buildFeedbackSummary({ ...base, talentAcquisition: true, callerId: 'me' })
+  assert.equal(ta.s1.canView, true, 'submitted: opens')
+  assert.equal(ta.s2.canView, false, 'not submitted: does not open, and there is no request to make')
+  const staff = buildFeedbackSummary({
+    ...base,
+    consentEvents: [
+      { candidate_id: 'k1', actor_profile_id: 'me', created_at: '2026-11-01T10:00:00Z' },
+      { candidate_id: 'k1', actor_profile_id: 'me', created_at: '2026-11-02T09:00:00Z' },
+    ],
+    viewerNames: new Map([['me', 'Jenn TA']]),
+  })
+  assert.deepEqual(staff.s1.consentViews, { count: 2, lastViewedAt: '2026-11-02T09:00:00Z', viewers: ['Jenn TA'] })
+  assert.equal(staff.s2.consentViews.count, 0)
+
+  const api = read('api/ngrp-preceptor-feedback.js')
+  const consent = api.slice(api.indexOf("if (body.candidate_id !== undefined"), api.lastIndexOf('const requestId = uuidOf(body.request_id)'))
+  assert.match(consent, /if \(!live\.assignment\?\.id \|\| !hasSubmittedForm\(live\.assignment\.status\)\) return res\.status\(404\)/)
+  assert.ok(consent.indexOf('if (logged.error) return internal(res)') < consent.indexOf('shapePreceptorFeedback(rows)'), 'logged before it is returned')
+  assert.ok(api.indexOf("if (!isTA) return res.status(403).json({ error: 'talent_acquisition_only' })\n\n    // FEEDBACK-CONSENT-1") > 0, 'Talent Acquisition only')
+  const drawer = read('src/components/ngrp/ApplicantDrawer.jsx')
+  assert.doesNotMatch(drawer, /Request to View/, 'no request button any more')
 })

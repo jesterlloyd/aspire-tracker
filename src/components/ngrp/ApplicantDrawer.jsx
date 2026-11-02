@@ -629,8 +629,10 @@ function OutcomeSection({ row, canManage, onSave }) {
 
 // RESIDENCY-PORTAL-2b: preceptor feedback, released one applicant at a time.
 // Not every preceptor submits it, so Talent Acquisition sees only whether it
-// exists. To read it they ask; the Owner approves; only the person who asked
-// can then open it, for this applicant, and every opening is recorded. The
+// exists. FEEDBACK-CONSENT-1 (Owner, 2026-11-01): once the alumnus submits the
+// Transition Form, whose consent shares their record with Talent Acquisition, it
+// opens without a request; before that it cannot be opened at all. Requests made
+// before this change still read and can still be decided. Every opening is recorded. The
 // shaped view (lib/server/ngrpPreceptorFeedback.js) never carries the
 // preceptor's confidential comments to the ASPIRE team or the attestation.
 const FEEDBACK_STATUS = {
@@ -694,7 +696,6 @@ function FeedbackEntry({ entry, first }) {
 }
 
 function PreceptorFeedbackSection({ row, feedback, actions }) {
-  const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
   const [viewState, setViewState] = useState('idle') // idle | loading | ready | error
   const [entries, setEntries] = useState([])
@@ -706,23 +707,24 @@ function PreceptorFeedbackSection({ row, feedback, actions }) {
 
   if (feedback.audience === 'talent_acquisition') {
     const req = entry?.request || null
+    const target = entry?.canView ? { candidate_id: row.candidate_id } : (req?.status === 'approved' ? { request_id: req.id } : null)
     const open = async () => {
       setViewState('loading')
-      const res = await actions.viewFeedback?.(req)
+      const res = await actions.viewFeedback?.(target)
       if (res?.ok) { setEntries(res.feedback || []); setViewState('ready') } else setViewState('error')
     }
     let body
     if (!entry?.available) {
       body = <p style={feedbackMuted}>No preceptor feedback is on file for this alumnus.</p>
-    } else if (req?.status === 'pending') {
-      body = <p style={feedbackMuted}>You asked to view it on {fmtDay(req.requestedAt)}. The ASPIRE team will review your request.</p>
-    } else if (req?.status === 'approved') {
+    } else if (target) {
       body = (
         <>
           <p style={feedbackMuted}>
-            Approved for you on {fmtDay(req.decidedAt)}. Each time you open it, the ASPIRE team can see that you did.
+            {entry.canView
+              ? 'Shared with you because this alumnus agreed to it when they submitted the Transition Form. Each time you open it, the ASPIRE team can see that you did.'
+              : `Approved for you on ${fmtDay(req.decidedAt)}. Each time you open it, the ASPIRE team can see that you did.`}
           </p>
-          {req.decisionNote && <p style={feedbackMuted}>Note from the ASPIRE team: {req.decisionNote}</p>}
+          {!entry.canView && req?.decisionNote && <p style={feedbackMuted}>Note from the ASPIRE team: {req.decisionNote}</p>}
           {viewState === 'ready' ? (
             entries.length
               ? entries.map((e, i) => <FeedbackEntry key={i} entry={e} first={i === 0} />)
@@ -739,24 +741,10 @@ function PreceptorFeedbackSection({ row, feedback, actions }) {
       )
     } else {
       body = (
-        <>
-          <p style={feedbackMuted}>
-            {req?.status === 'declined' && `Your request on ${fmtDay(req.requestedAt)} was not approved. `}
-            {req?.status === 'revoked' && `Your access was withdrawn on ${fmtDay(req.decidedAt)}. `}
-            A preceptor submitted feedback for this alumnus. Ask the ASPIRE team to let you view it.
-          </p>
-          {req?.decisionNote && <p style={feedbackMuted}>Note from the ASPIRE team: {req.decisionNote}</p>}
-          <input
-            type="text" value={note} maxLength={500} onChange={e => setNote(e.target.value)}
-            placeholder="Reason (optional)" aria-label="Reason for the request (optional)" style={feedbackNoteInput}
-          />
-          <button
-            type="button" style={smallBtn(true)} disabled={busy}
-            onClick={() => run(async () => { const res = await actions.requestFeedback?.(row, note.trim() || null); if (res) setNote('') })}
-          >
-            {busy ? 'Sending…' : 'Request to View'}
-          </button>
-        </>
+        <p style={feedbackMuted}>
+          A preceptor submitted feedback for this alumnus. It opens here once they submit the Transition Form,
+          where they agree to share their record with Talent Acquisition.
+        </p>
       )
     }
     return <Section title="Preceptor Feedback">{body}</Section>
@@ -772,9 +760,13 @@ function PreceptorFeedbackSection({ row, feedback, actions }) {
           ? `${count} preceptor feedback submission${count === 1 ? '' : 's'} on file.`
           : 'No preceptor feedback is on file for this alumnus.'}
       </p>
-      {requests.length === 0 && count > 0 && (
-        <p style={feedbackMuted}>Talent Acquisition has not asked to view it.</p>
-      )}
+      {count > 0 && (() => {
+        // FEEDBACK-CONSENT-1: opened under the alumnus's Transition Form consent, with no request.
+        const cv = entry?.consentViews
+        return cv?.count
+          ? <p style={feedbackMuted}>Viewed by {cv.viewers.join(', ') || 'Talent Acquisition'} {cv.count} time{cv.count === 1 ? '' : 's'}, last {fmt(cv.lastViewedAt)}.</p>
+          : (requests.length === 0 ? <p style={feedbackMuted}>Talent Acquisition has not viewed it.</p> : null)
+      })()}
       {requests.map(req => (
         <div key={req.id} style={{ padding: '6px 0', borderTop: '1px solid rgba(0,0,0,0.045)' }}>
           <Row label={req.requesterName || 'Talent Acquisition'}>{FEEDBACK_STATUS[req.status] || req.status}</Row>
@@ -787,6 +779,7 @@ function PreceptorFeedbackSection({ row, feedback, actions }) {
             ].filter(Boolean).join(' · ')}
           </div>
           {req.note && <p style={{ ...feedbackMuted, margin: '4px 0 0' }}>Reason: {req.note}</p>}
+          {req.decisionNote && <p style={feedbackMuted}>Note from the ASPIRE team: {req.decisionNote}</p>}
           {canDecide && (req.status === 'pending' || req.status === 'approved') && (() => {
             const decide = decision => run(() => actions.decideFeedback?.(req, decision, (decisionNotes[req.id] || '').trim() || null))
             return (
