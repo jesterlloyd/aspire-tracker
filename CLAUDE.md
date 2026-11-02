@@ -2752,3 +2752,24 @@ up by the APP (`src/lib/ngrp/candidateScoreModel.js`, pure), never by the model:
   Keith is asked; an inputs fingerprint marks an assessment "changed since" when what it read changes.
   `ngrp_candidate_assessments` and the skill seed are `20261118000000_ngrp_candidate_assessments.sql`
   (Owner-gated); before it the score stands on three factors and Assess is not offered.
+
+## Keith in the Residency Portal (RESIDENCY-KEITH-1, 2026-11-02)
+
+Owner: give Keith chat (Haiku and Sonnet) to the Residency Portal, with no Keith settings there, to
+help Talent Acquisition pick whom to pair for interviews, and to answer general questions the way
+any assistant would. The header's Keith control (`ResidencyKeithButton`, beside ASPIRE Connect,
+shown once a cohort is open) opens `ResidencyKeithPanel` in a `DetailDrawer`; both are in
+`src/components/ngrp/ResidencyKeith.jsx`. Server: `api/keith-residency.js` (60 s) over
+`lib/server/keith/residencyChat.js`.
+
+- **Read only, one cohort.** Two tools, `list_applicants` and `get_applicant`, over the roster the
+  workspace already shows this caller (`loadApplicantsPayload`, narrowed for Talent Acquisition).
+  No internship students, contacts, staff, settings or other cohorts, and no write of any kind (a
+  test sweeps the module for one). Preceptor feedback is read only once the Transition Form is
+  submitted (FEEDBACK-CONSENT-1); Talent Acquisition sees the form's GPA, never the record's.
+- **Haiku or Sonnet, never Opus.** `chatRouteFor` maps anything else to Haiku and gives a turn at
+  least 4,096 tokens; the endpoint answers 403 to a request that names Opus, before the rate limit.
+- **Same budget and log as the staff chat**: `consumeRateLimit` (chat weight) and a
+  `keith_requests` row with intent `residency_chat`, so it appears in Settings > Keith > Usage & Cost.
+- **The candidate score is reported, never recomputed** (the system prompt says so), and the
+  conversation is the browser tab's: it starts over when the cohort changes, and nothing is stored.

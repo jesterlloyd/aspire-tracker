@@ -39,6 +39,7 @@ import { EmptyState } from '../unit/UnitLeaderChrome'
 import AcademicsContactsView from '../na/AcademicsContactsView'
 import PortalMessagesWorkspace from '../messages/PortalMessagesWorkspace'
 import { PortalConnectHeaderButton, PortalConnectPage } from '../connect/PortalConnect'
+import { ResidencyKeithButton, ResidencyKeithPanel } from '../../components/ngrp/ResidencyKeith'
 
 // PORTAL-SPLIT Phase 2: the same chunk the staff app loads, through the same
 // loader, fetched when this portal renders. While these were static imports the
@@ -65,6 +66,8 @@ export default function ResidencyPortal({ canManage = false, onCommandPeople, co
     } catch { return null }
   })
   const [showSettings, setShowSettings] = useState(false)
+  // RESIDENCY-KEITH-1: Keith chat over this cohort's applicants, opened from the header.
+  const [keithOpen, setKeithOpen] = useState(false)
   const [showNewCohort, setShowNewCohort] = useState(false)
 
   const activeCycle = resolveSelectedCycle(cyclesQuery.cycles, cyclePref)
@@ -130,7 +133,9 @@ export default function ResidencyPortal({ canManage = false, onCommandPeople, co
           cohortLabelDimmed={residencyLabelIsState(residencyCohort)}
           cohortPane={<ResidencyCohortList {...residencyCohort} />}
         />
+        {activeCycle && <ResidencyKeithButton open={keithOpen} onClick={() => setKeithOpen(o => !o)} />}
       </PortalHeaderControls>
+      <ResidencyKeithPanel open={keithOpen} onClose={() => setKeithOpen(false)} cycle={activeCycle} />
       {/* PORTAL-CONNECT-1 (Owner, 2026-10-07): the Residency Portal gets the same ASPIRE Connect
           the NE&L Portal has: Contacts (the NE&L directory, ported; the server lets a Talent
           Acquisition grant read it and never edit it) and Messages. Messaging for Talent

@@ -152,6 +152,16 @@ export async function postNgrpCandidateAssess(action, payload = {}) {
   }
 }
 
+// RESIDENCY-KEITH-1: Keith chat over the open cohort's applicants (read only).
+export async function postNgrpKeith(action, payload = {}) {
+  try {
+    const body = await authedPost('/api/keith-residency', action, payload)
+    return { ok: true, ...body }
+  } catch (err) {
+    return { ok: false, status: err.status || 0, error: err.message, code: err.body?.error || null }
+  }
+}
+
 // Who has feedback on file and where each request stands, keyed by student id.
 // Empty (and the feature hidden) until migration 20260912000000 is applied.
 export function useNgrpPreceptorFeedback(cycleId, { enabled = true } = {}) {
