@@ -194,7 +194,8 @@ test('the Owner/Admin notification links to the applicant and nowhere else', () 
 
 test('the roster and drawer: an indicator, a deep link, and the section', () => {
   const tab = read('src/components/ngrp/ProfilesTab.jsx')
-  assert.match(tab, /<PreceptorFeedbackChip entry=\{feedback\.byStudent\[s\.id\]\} \/>/)
+  // FEEDBACK-MODAL-1 (2026-11-02): the chip opens the latest feedback (feedbackModal.test.mjs).
+  assert.match(tab, /<PreceptorFeedbackChip entry=\{feedback\.byStudent\[s\.id\]\}\s+onOpen=/)
   assert.match(tab, /searchParams\.get\('candidate'\)/)
   // FEEDBACK-CONSENT-1: the section passes { candidate_id } or { request_id }.
   assert.match(tab, /viewFeedback: target => postNgrpPreceptorFeedback\('view', target\)/)
@@ -267,7 +268,11 @@ test('a submitted Transition Form lets Talent Acquisition open feedback, and sta
   const consent = api.slice(api.indexOf("if (body.candidate_id !== undefined"), api.lastIndexOf('const requestId = uuidOf(body.request_id)'))
   assert.match(consent, /if \(!live\.assignment\?\.id \|\| !hasSubmittedForm\(live\.assignment\.status\)\) return res\.status\(404\)/)
   assert.ok(consent.indexOf('if (logged.error) return internal(res)') < consent.indexOf('shapePreceptorFeedback(rows)'), 'logged before it is returned')
-  assert.ok(api.indexOf("if (!isTA) return res.status(403).json({ error: 'talent_acquisition_only' })\n\n    // FEEDBACK-CONSENT-1") > 0, 'Talent Acquisition only')
+  // FEEDBACK-MODAL-1 (2026-11-02): the ASPIRE team now opens it too, in its own branch that writes
+  // no event; the consent branch below it is Talent Acquisition's alone.
+  const staffView = api.slice(api.indexOf('if (!isTA) {\n      if (!isAdminLevel'), api.indexOf("if (body.candidate_id !== undefined"))
+  assert.ok(staffView.length > 0, 'the staff branch comes first')
+  assert.doesNotMatch(staffView, /ngrp_preceptor_feedback_events|logged/, 'a staff open is not a Talent Acquisition view')
   const drawer = read('src/components/ngrp/ApplicantDrawer.jsx')
   assert.doesNotMatch(drawer, /Request to View/, 'no request button any more')
 })

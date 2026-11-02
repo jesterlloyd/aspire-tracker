@@ -19,6 +19,8 @@
 //                                            submitted the Transition Form, whose
 //                                            consent shares their record with them
 //                                            (FEEDBACK-CONSENT-1, Owner, 2026-11-01)
+//   view    { candidate_id }              -> Owner and Admin, no event written
+//                                            (FEEDBACK-MODAL-1, 2026-11-02)
 //
 // The two ngrp_preceptor_feedback_* tables are server-only (service_role).
 // A missing table or function reads as { provisioned: false } so the feature
@@ -233,9 +235,24 @@ export default async function handler(req, res) {
     }
 
     // ── view ────────────────────────────────────────────────────────────────
-    // Only the person who asked, only for the applicant they asked about, only
-    // while the request is approved. Anything else reads as not found.
-    if (!isTA) return res.status(403).json({ error: 'talent_acquisition_only' })
+    // FEEDBACK-MODAL-1 (Owner, 2026-11-02): the roster's Preceptor feedback chip opens the
+    // feedback. Owner and Admin already read it in Evaluation (the same people who decide
+    // requests), so their view needs no consent and writes no 'viewed' event: those events record
+    // what Talent Acquisition opened. The rest of the ASPIRE team sees the chip, not the content.
+    if (!isTA) {
+      if (!isAdminLevel(caller.profile)) return res.status(403).json({ error: 'owner_required' })
+      const candidateId = uuidOf(body.candidate_id)
+      if (!candidateId || body.request_id !== undefined) return res.status(422).json({ error: 'invalid_candidate_id' })
+      const cand = await db.from('ngrp_candidates').select('id, student_id').eq('id', candidateId).maybeSingle()
+      if (cand.error) return missing(cand.error) ? unprovisioned(res) : internal(res)
+      if (!cand.data) return res.status(404).json({ error: 'candidate_not_found' })
+      const fb = await feedbackRows(db, [cand.data.student_id], 'timepoint, responses, submitted_at')
+      if (fb.error) return internal(res)
+      return res.status(200).json({ ok: true, feedback: shapePreceptorFeedback(fb.data || []) })
+    }
+
+    // Talent Acquisition: only the person who asked, only for the applicant they asked about,
+    // only while the request is approved. Anything else reads as not found.
 
     // FEEDBACK-CONSENT-1: by candidate, under the alumnus's own consent. The event's
     // request_id names what authorized the view, here the Transition Form assignment that

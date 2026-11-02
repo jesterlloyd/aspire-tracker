@@ -76,6 +76,10 @@
       "schedule": "*/10 * * * *"
     },
     {
+      "path": "/api/cron/keith-residency-auto",
+      "schedule": "5-59/10 * * * *"
+    },
+    {
       "path": "/api/cron/form-maintenance",
       "schedule": "45 * * * *"
     },
@@ -159,6 +163,7 @@
     "api/knowledge-enrich.js":            { "maxDuration": 300 },
     "api/keith-knowledge-check.js":       { "maxDuration": 300 },
     "api/cron/keith-knowledge-check.js":  { "maxDuration": 300 },
+    "api/cron/keith-residency-auto.js":   { "maxDuration": 300 },
     "api/cron/photo-thumbs.js":           { "maxDuration": 120 },
     "api/invite-user.js":                 { "maxDuration": 10 },
     "api/manage-interviewers.js":         { "maxDuration": 10 },

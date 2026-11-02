@@ -2,19 +2,20 @@
 // Interest & Eligibility table, the Interview Board cards and the binder's Application sheet, and
 // the section that explains it. The number is the app's (src/lib/ngrp/candidateScoreModel.js),
 // worked out on the server for every applicant; Keith only rates the statements and says why.
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useQuery } from '@tanstack/react-query'
 import KeithMark, { KeithGlyph } from '../keith/KeithMark'
 import { STATEMENT_CATEGORIES, basedOnLine, keithContributed } from '../../lib/ngrp/candidateScoreModel'
 import { postNgrpCandidateAssess } from '../../lib/ngrp/useNgrpData'
+import { useDialogKeys } from './useDialogKeys'
 
 const fmtDay = ts => (ts ? new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '')
 
 const FAIL_WORDS = {
   skill_off: 'Assess Candidate is switched off in Settings > Keith > Skills.',
   skill_denied: 'Your account cannot run Assess Candidate.',
-  form_not_submitted: 'Keith assesses an applicant once they submit the Transition Form.',
+  form_not_submitted: 'Keith assesses an applicant on his own once they submit the Transition Form.',
   not_enabled: 'Assessments are available once the pending database update is applied.',
   timed_out: 'The last assessment did not finish.',
 }
@@ -136,7 +137,7 @@ export function CandidateScoreSection({ row, cycleId, available = false, onChang
             <KeithMark provenanceId={a.provenanceId} />
             <span>Keith&rsquo;s Read{a.assessedAt ? `, ${fmtDay(a.assessedAt)}` : ''}</span>
           </div>
-          {a.stale && <p className="ngrp-score-note ngrp-score-warn">Something Keith read has changed since. Assess again for a current read.</p>}
+          {a.stale && <p className="ngrp-score-note ngrp-score-warn">Something Keith read has changed since. He will read it again within about 10 minutes, or Assess Again now.</p>}
           {a.summary && <p className="ngrp-assess-p">{a.summary}</p>}
           {a.recommendation && (
             <>
@@ -188,23 +189,7 @@ const dialogBtn = (primary = false) => ({
  */
 export function CandidateScoreDialog({ row, name, cycleId, available = false, onChanged, onClose }) {
   const ref = useRef(null)
-  useEffect(() => {
-    const back = document.activeElement
-    const box = ref.current
-    box?.querySelector('[data-autofocus]')?.focus()
-    const onKey = (e) => {
-      if (e.key === 'Escape') { e.stopPropagation(); onClose(); return }
-      if (e.key !== 'Tab' || !box) return
-      const items = [...box.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')]
-        .filter(el => !el.disabled && el.offsetParent !== null)
-      if (!items.length) return
-      const first = items[0]; const last = items[items.length - 1]
-      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus() }
-      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus() }
-    }
-    document.addEventListener('keydown', onKey, true)
-    return () => { document.removeEventListener('keydown', onKey, true); back?.focus?.() }
-  }, [onClose])
+  useDialogKeys(ref, onClose)
 
   if (!row) return null
   return createPortal(

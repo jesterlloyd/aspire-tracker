@@ -672,7 +672,7 @@ function FeedbackText({ label, text }) {
   )
 }
 
-function FeedbackEntry({ entry, first }) {
+export function FeedbackEntry({ entry, first }) {
   return (
     <div style={first ? undefined : { borderTop: '1px solid rgba(0,0,0,0.06)', marginTop: 10, paddingTop: 10 }}>
       <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--color-accent-primary)', marginBottom: 4 }}>

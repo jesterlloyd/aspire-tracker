@@ -44,6 +44,8 @@ import SegmentedPicker from '../shared/SegmentedPicker'
 // RESIDENCY-SPLIT-1: the Student Profiles split view and its pinned toolbar, reused.
 import { useChartViewport } from '../student/useChartViewport'
 import PreceptorFeedbackChip from './PreceptorFeedbackChip'
+import PreceptorFeedbackDialog from './PreceptorFeedbackDialog'
+import { chipOpens } from '../../lib/ngrp/feedbackPick'
 // NGRP-TRANSITION-PREVIEW-1: the same drawer the Automations and Survey previews use.
 // It lives under connect/ by history rather than by coupling (its own header notes the
 // shared extraction as debt); Evaluation already imports it across in the same way, so
@@ -136,7 +138,7 @@ function PinnedSplitFrame({ children }) {
 // RESIDENCY-SPLIT-1: one alumnus in the left list, drawn as a Student Profiles list row
 // (`.pl-row`, the same three columns): who they are, the units they ranked, and where
 // their application stands.
-function AlumniListRow({ row, selected, onSelect, feedbackEntry }) {
+function AlumniListRow({ row, selected, onSelect, feedbackEntry, onOpenFeedback }) {
   const s = row.student
   const flagged = row.flagged_for_followup === true
   const name = displayName(s)
@@ -164,7 +166,7 @@ function AlumniListRow({ row, selected, onSelect, feedbackEntry }) {
               {s.aspire_cohort}
             </span>
           )}
-          <PreceptorFeedbackChip entry={feedbackEntry} />
+          <PreceptorFeedbackChip entry={feedbackEntry} onOpen={onOpenFeedback ? () => onOpenFeedback(row.id) : undefined} />
         </div>
       </div>
       <div style={{ minWidth: 0, paddingTop: 3 }}>
@@ -208,6 +210,7 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
   const { status, payload, dataUpdatedAt, refetch } = useNgrpApplicants(cycle?.id)
   // RESIDENCY-PORTAL-2b: feedback on file and requests to view it, by student.
   const feedback = useNgrpPreceptorFeedback(cycle?.id)
+  const loadFeedback = useCallback(target => postNgrpPreceptorFeedback('view', target), [])
   const refetchFeedback = feedback.refetch
   // False until migration 20260904000000 is applied - the roster still works
   // with neutral defaults, but send/review actions disable themselves.
@@ -249,6 +252,8 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
   const [answersRowId, setAnswersRowId] = useState(null)
   // CANDIDATE-SCORE-2: whose score details are open, from the Fit column's chip.
   const [scoreRowId, setScoreRowId] = useState(null)
+  // FEEDBACK-MODAL-1: the row whose Preceptor feedback chip was opened.
+  const [feedbackRowId, setFeedbackRowId] = useState(null)
   const [sendReview, setSendReview] = useState(null)
   // NGRP-TRANSITION-PREVIEW-1: renders a synthetic copy of the invitation. No network,
   // no recipient, no token; it cannot send anything.
@@ -657,7 +662,8 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                         <div className="pl-list ngrp-pl-list">
                           {filteredRows.map(r => (
                             <AlumniListRow key={r.id} row={r} selected={r.id === shownRowId}
-                              onSelect={id => selectRow(id)} feedbackEntry={feedback.byStudent[r.student?.id]} />
+                              onSelect={id => selectRow(id)} feedbackEntry={feedback.byStudent[r.student?.id]}
+                              onOpenFeedback={r.candidate_id && chipOpens(feedback.byStudent[r.student?.id], feedback) ? setFeedbackRowId : undefined} />
                           ))}
                         </div>
                       )
@@ -924,7 +930,8 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                                   )}
                                 </span>
                               )}
-                              <PreceptorFeedbackChip entry={feedback.byStudent[s.id]} />
+                              <PreceptorFeedbackChip entry={feedback.byStudent[s.id]}
+                                onOpen={r.candidate_id && chipOpens(feedback.byStudent[s.id], feedback) ? () => setFeedbackRowId(r.id) : undefined} />
                             </div>
                           </div>
                         </td>
@@ -1106,6 +1113,20 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
             available={payload?.assessmentsProvisioned === true}
             onChanged={() => refetch()}
             onClose={() => setScoreRowId(null)}
+          />
+        )
+      })()}
+
+      {feedbackRowId && allRows.some(r => r.id === feedbackRowId) && (() => {
+        const row = allRows.find(r => r.id === feedbackRowId)
+        return (
+          <PreceptorFeedbackDialog
+            row={row}
+            name={displayName(row.student)}
+            entry={feedback.byStudent[row.student?.id]}
+            audience={feedback.audience}
+            onLoad={loadFeedback}
+            onClose={() => setFeedbackRowId(null)}
           />
         )
       })()}

@@ -2812,3 +2812,43 @@ rules are `src/lib/ngrp/preceptedUnits.js` (pure); no migration.
 - **CS employment Other carries its words** (CS-EMPLOYMENT-OTHER-1, Owner, same day):
   `identity.cs_employment_other`, required on submit when Other is picked, kept only with Other, shown as
   "Other: ..." by `csEmploymentText` in the Review, packet and export.
+
+## Keith scores on his own (KEITH-AUTO-1, 2026-11-02)
+
+Owner: score every new résumé, whoever uploaded it (staff, Talent Acquisition or the alumnus), and
+assess the Transition Form's statements on every submit and revision, on Sonnet as before. The sweep is
+`lib/server/keith/residencyAutoRun.js`, run by `api/cron/keith-residency-auto.js` every 10 minutes
+(`5-59/10`, 300 s), over the residency cohorts in Planning or Active (`digestCycles`), REAL rows only.
+
+- **Résumés first**: the CURRENT résumé of every alumnus on a roster whose status is Not scored. A file
+  that lives only on the record is adopted as a version first (`adoptRecordResume`), as the drawer's
+  Score does. **Then statements**: a submitted form with no assessment, or one "changed since" (the
+  fingerprint). An applicant whose résumé is being scored, or was left for the next run, waits, so
+  Keith reads both.
+- **It runs as `system`.** `scoreResumeVersion`, `assessCandidate` and both availability checks take
+  `{ system: true }`: no caller to authorize, the Skill's off switch still applies, and usage logs as
+  role 'system'. Pausing it is the Skills' own switches (Settings > Keith > Skills: review-resume,
+  assess-candidate), as for KEITH-CHECKIN-1's sweep. There is no Automations card.
+- **Never a loop of paid calls**: an unreadable or missing file, a refused Skill or an unsubmitted form
+  is never retried (`PERMANENT`); any other failure waits `RETRY_AFTER_MS` (6 h), at most `MAX_TRIES`
+  (3) per file; a run stops at `MAX_CALLS` (6) or 240 s and the rest go next run. `cron_runs.details`
+  holds counts only.
+- The Fit chip's orb follows (`keithContributed`), and the empty factor lines say Keith reads it
+  "within about 10 minutes".
+
+## The Preceptor feedback chip opens it (FEEDBACK-MODAL-1, 2026-11-02)
+
+Residency > Profiles & Interest, both the Profiles list and Interest & Eligibility: the Preceptor feedback
+chip is a button (`onOpen`; it stops the click so the row does not open too) that opens
+`PreceptorFeedbackDialog`: the latest End of Rotation, else the latest Midpoint, else the latest of any
+(`latestFeedback` in `src/lib/ngrp/feedbackPick.js`), drawn with the binder's own `FeedbackEntry` in the
+Candidate Score dialog's shell (`useDialogKeys`).
+
+- **Who opens it** is `chipOpens(entry, feedback)`: Owner and Admin (`canDecide`, the people who read it
+  in Evaluation) when any is on file; Talent Acquisition when it is on file, and before the form is
+  submitted the dialog says why and fetches nothing (`feedbackTarget` returns null). Everyone else on the
+  ASPIRE team sees the chip, not the content.
+- **A staff open writes nothing.** `view { candidate_id }` from Owner or Admin checks the candidate and
+  returns the shaped feedback with no event; the 'viewed' events stay the record of what Talent
+  Acquisition opened (FEEDBACK-CONSENT-1), and each TA open from the chip logs one, exactly like the
+  binder's View Feedback. The dialog fetches once per open (`loadFeedback` is a stable callback).

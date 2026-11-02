@@ -719,6 +719,9 @@
   color: var(--text-caption, #4B5563); border-radius: var(--aspire-radius-control); }
 .ngrp-scoredlg-close:hover { background: var(--color-bg-hover, #F3F4F6); }
 .ngrp-scoredlg-close:focus-visible { outline: 2px solid var(--color-accent-primary, #1D2567); outline-offset: 1px; }
+/* FEEDBACK-MODAL-1: the roster's Preceptor feedback chip, as a button. */
+.ngrp-fbchip:focus-visible { outline: 2px solid var(--color-accent-primary, #1D2567); outline-offset: 1px; }
+.ngrp-fbchip:hover { filter: brightness(0.96); }
 .ngrp-scoredlg-acts { display: flex; justify-content: flex-end; margin-bottom: 6px; }
 .ngrp-score-name { display: inline-flex; align-items: center; gap: 6px; }
 .pb-chip.ngrp-fitchip { display: inline-flex; align-items: center; gap: 5px; }

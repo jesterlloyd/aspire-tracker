@@ -74,7 +74,7 @@ export function feedbackFactor(ratings = [], { consent = true } = {}) {
 
 export function resumeFactor(composite) {
   const n = Number(composite)
-  if (composite == null || !Number.isFinite(n)) return { points: null, detail: 'Résumé not scored yet' }
+  if (composite == null || !Number.isFinite(n)) return { points: null, detail: 'Résumé not scored yet. Keith scores each new résumé within about 10 minutes.' }
   const c = Math.max(0, Math.min(100, n))
   return { points: round1((c / 100) * 25), detail: `Résumé scored ${Math.round(c)} of 100` }
 }
@@ -92,7 +92,8 @@ export function cleanStatementRatings(raw) {
 
 export function statementFactor(ratings) {
   const r = cleanStatementRatings(ratings)
-  if (!r) return { points: null, detail: 'Not assessed by Keith yet' }
+  // KEITH-AUTO-1: Keith reads the statements on his own after each submit and revision.
+  if (!r) return { points: null, detail: 'Not assessed yet. Keith reads the statements within about 10 minutes of a submit or revision.' }
   const sum = STATEMENT_CATEGORIES.reduce((a, { key }) => a + r[key], 0)
   return { points: round1((sum / 30) * 25), detail: `Keith rated it ${sum} of 30` }
 }
