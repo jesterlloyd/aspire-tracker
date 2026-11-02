@@ -96,9 +96,14 @@ test('INTEREST-ELIGIBILITY-2: precepted unit, and the Rotation seat rule on resi
   assert.equal(demandFor(d, 'Retired'), null)
 })
 
-test('INTEREST-ELIGIBILITY-2: a row click selects; the photo and name open Profiles', () => {
+// ROW-ANSWERS-1 changed this: a row click used to select. Only the tick box selects now.
+test('a row click opens the answers; the tick box selects; the photo and name open Profiles', () => {
   const tab = read('src/components/ngrp/ProfilesTab.jsx')
-  assert.match(tab, /onClick=\{canSelect \? \(\) => toggleRow\(r\.id\) : undefined\}/)
+  assert.doesNotMatch(tab, /<tr[^>]*onClick=\{canSelect/)
+  assert.match(tab, /<tr[\s\S]{0,500}setAnswersRowId\(r\.id\)/)
+  assert.match(tab, /className="ngrp-cb" onClick=\{e => e\.stopPropagation\(\)\}/)
+  assert.match(tab, /onChange=\{\(\) => toggleRow\(r\.id\)\}/)
+  assert.match(tab, /e\.target\.closest\('a, button, input, label, select'\)/)
   assert.doesNotMatch(tab, /<tr[^>]*onClick=\{\(\) => selectRow\(r\.id, \{ toProfiles: true \}\)\}/)
   assert.equal((tab.match(/className="ngrp-openbtn[^"]*"/g) || []).length, 2)
   assert.match(tab, /<span className="ngrp-stack">\s*<NgrpStatusPill config=\{FORM_SENT_STATES\}/)
@@ -133,4 +138,46 @@ test('the eligibility line says why, from the stored reasons', () => {
   assert.equal(eligibilityDetail(row(two), res(two)), 'NCLEX not yet scheduled +1 more')
   assert.equal(eligibilityDetail({ eligibility_effective: 'eligible' }, 'eligible'), 'Staff override')
   assert.equal(eligibilityDetail({}, 'pending'), 'Awaiting the Transition Form')
+})
+
+// ROW-ANSWERS-1 (Owner, 2026-11-01): the row's Transition Form drawer, and the cohort filter.
+import { cohortFilterOptions } from '../src/lib/ngrp/interestEligibilityModel.js'
+import { transitionAnswerRows, transitionSummaryRows, submittedLine, noAnswersLine } from '../src/lib/ngrp/transitionSummary.js'
+
+test('the cohort filter adds the cohort of anyone added by hand, once, after the mapped ones', () => {
+  const source = [{ id: 'f', name: 'Fall 2026' }, { id: 's', name: 'Summer 2026' }]
+  const row = (cohort_id, aspire_cohort) => ({ student: { cohort_id, aspire_cohort } })
+  assert.deepEqual(cohortFilterOptions(source, [
+    row('f', 'Fall 2026'), row('sp', 'Spring 2026'), row('sp', 'Spring 2026'), row(null, null), row('x', null),
+  ]).map(c => c.name), ['Fall 2026', 'Summer 2026', 'Spring 2026'])
+  assert.deepEqual(cohortFilterOptions(source, []), source, 'a mapped cohort with nobody in it stays listed')
+  const tab = read('src/components/ngrp/ProfilesTab.jsx')
+  assert.match(tab, /cohortOptions\.map\(c => <option/)
+  assert.match(tab, /activeCohortFilter = cohortOptions\.some/, 'a chosen added cohort is not treated as stale')
+})
+
+test('the drawer lists the shared answers plus ranked choices, which unit leaders never read', () => {
+  const payload = { residency_interest: { interest: 'very_interested', unit_preferences: ['6 NE', '', '4 South'] } }
+  const rows = transitionAnswerRows(payload)
+  assert.deepEqual(rows[0], ['Ranked unit choices', '1. 6 NE, 2. 4 South'])
+  assert.deepEqual(rows.slice(1), transitionSummaryRows(payload))
+  assert.ok(!transitionSummaryRows(payload).some(([k]) => k === 'Ranked unit choices'))
+  assert.deepEqual(transitionAnswerRows(null), [])
+  assert.doesNotMatch(read('lib/server/ngrpUnitInterviews.js'), /transitionAnswerRows/)
+})
+
+test('a row with no answers says why, in Pacific dates', () => {
+  assert.match(noAnswersLine({ candidate_id: null }), /has not been sent/)
+  assert.match(noAnswersLine({ candidate_id: 'c', form_status: 'not_sent' }), /has not been sent/)
+  assert.equal(noAnswersLine({ candidate_id: 'c', form_status: 'opened', form_sent_at: '2026-10-30T02:00:00Z' }),
+    'No answers yet. The form was sent Oct 29, 2026 and has not been submitted.')
+  assert.equal(submittedLine({ revision_number: 2, submitted_at: '2026-10-30T02:00:00Z' }), 'Revision 2 · submitted Oct 29, 2026')
+})
+
+test('the drawer reads only the review the binder already reads, and only with a candidate', () => {
+  const d = read('src/components/ngrp/TransitionAnswersDrawer.jsx')
+  assert.match(d, /postNgrpManage\('candidate_review', \{ candidate_id: row\.candidate_id \}\)/)
+  assert.match(d, /form_revision_count/)
+  assert.match(d, /trapFocus/)
+  assert.doesNotMatch(d, /tokens|token_hash/)
 })

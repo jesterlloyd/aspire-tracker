@@ -181,6 +181,20 @@
   background: var(--sand, #F4F1EC);
   box-shadow: inset 4px 0 0 var(--nightfall, #1D2567);
 }
+/* ROW-ANSWERS-1: the Transition Form answers drawer. One column of labels, one of values. */
+.ngrp-answers-head { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
+.ngrp-answers-name { font-size: 15px; font-weight: 700; color: var(--text-heading); width: 100%; }
+.ngrp-answers-when, .ngrp-answers-note { font-size: 12.5px; color: var(--text-caption); }
+.ngrp-answers-note { margin: 0; line-height: 1.5; }
+.ngrp-answers { display: grid; grid-template-columns: minmax(120px, 190px) minmax(0, 1fr); margin: 0; font-size: 13px; line-height: 1.45; }
+.ngrp-answers dt, .ngrp-answers dd { margin: 0; padding: 8px 0; border-bottom: var(--aspire-row-line); }
+.ngrp-answers dt { color: var(--text-caption); padding-right: 14px; }
+.ngrp-answers dd { color: var(--text-heading); overflow-wrap: anywhere; white-space: pre-wrap; }
+@media (max-width: 520px) {
+  .ngrp-answers { grid-template-columns: minmax(0, 1fr); }
+  .ngrp-answers dt { border-bottom: 0; padding-bottom: 0; }
+  .ngrp-answers dd { padding-top: 2px; }
+}
 .ngrp-table .ngrp-cb { width: 34px; padding-right: 0; }
 .ngrp-table input[type="checkbox"] {
   width: 15px;

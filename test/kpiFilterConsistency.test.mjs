@@ -29,7 +29,8 @@ test('Evaluation ignores instrument and timepoint selections absent from the cur
 })
 
 test('NGRP applicant KPI filters ignore cohort and school values from another cycle', () => {
-  assert.match(applicants, /const activeCohortFilter = sourceCohorts\.some\(c => c\.id === cohortFilter\) \? cohortFilter : ''/)
+  // ROW-ANSWERS-1: the options are the mapped cohorts plus the cohorts of alumni added by hand.
+  assert.match(applicants, /const activeCohortFilter = cohortOptions\.some\(c => c\.id === cohortFilter\) \? cohortFilter : ''/)
   assert.match(applicants, /const activeSchoolFilter = schoolOptions\.includes\(schoolFilter\) \? schoolFilter : ''/)
   assert.match(applicants, /r\.student\.cohort_id !== activeCohortFilter/)
   assert.match(applicants, /r\.student\.school !== activeSchoolFilter/)

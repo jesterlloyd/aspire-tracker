@@ -178,7 +178,9 @@ test('scope: no mapped cohorts is its own distinct empty result, not an error', 
 
 test('scope: the internal ASPIRE cohort filter narrows by cohort_id from the mapping, not from loaded students', () => {
   assert.match(applicants, /r\.student\.cohort_id !== activeCohortFilter/)
-  assert.match(applicants, /sourceCohorts\.map\(c => <option key=\{c\.id\} value=\{c\.id\}>\{c\.name\}<\/option>\)/)
+  // ROW-ANSWERS-1: every mapped cohort stays listed; cohortFilterOptions appends hand-added alumni's.
+  assert.match(applicants, /cohortOptions\.map\(c => <option key=\{c\.id\} value=\{c\.id\}>\{c\.name\}<\/option>\)/)
+  assert.match(applicants, /cohortFilterOptions\(sourceCohorts, allRows\)/)
   assert.doesNotMatch(applicants, /students=\{students\}/)
 })
 

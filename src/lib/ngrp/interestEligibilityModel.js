@@ -147,6 +147,19 @@ export function interestColumns({ effectiveEligibility, gpaValue = gpaOf }) {
 
 // ── INTEREST-ELIGIBILITY-2 (Owner, 2026-10-29) ───────────────────────────────
 
+// ROW-ANSWERS-1 (Owner, 2026-11-01): the cohort filter lists the participating cohorts, plus the
+// cohort of anyone added by hand (ADD-ALUMNUS-1), who is on the roster without their cohort being
+// mapped. Without this, Spring 2026's four alumni could be seen and never filtered to.
+export function cohortFilterOptions(sourceCohorts, rows) {
+  const listed = new Set((sourceCohorts || []).map(c => c.id))
+  const added = new Map()
+  for (const { student: s } of rows || []) {
+    if (s?.cohort_id && s.aspire_cohort && !listed.has(s.cohort_id)) added.set(s.cohort_id, s.aspire_cohort)
+  }
+  const extra = [...added].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name))
+  return [...(sourceCohorts || []), ...extra]
+}
+
 // The unit they precepted on: the ASPIRE placement on their record, else what they wrote on
 // the form. The record wins because it is what the program arranged.
 export function preceptedUnitOf(row) {

@@ -2696,3 +2696,17 @@ including its interview, panel and status columns.
 **GPA, by audience** (Owner, 2026-11-01): the file and Talent Acquisition's GPA column read `form_gpa`,
 what the alumnus wrote on the form and agreed to share. The ASPIRE team's column still reads the
 record's `cumulative_gpa`, which `narrowPayloadForTalentAcquisition` still strips.
+
+## A row in Interest & Eligibility opens the answers (ROW-ANSWERS-1, 2026-11-01)
+
+Residency > Profiles & Interest > Interest & Eligibility: anywhere in a row (or Enter or Space on
+a focused row) opens `TransitionAnswersDrawer`, that alumnus's latest Transition Form answers,
+read-only, through the binder's own `candidate_review`, so Talent Acquisition has it too. The photo
+and the name open the alumnus in Profiles, the tick box selects, and selecting text opens nothing.
+A row with no answers still opens and says why (`noAnswersLine`): not sent yet, or sent on a date and
+not submitted. The rows are `transitionAnswerRows`, which is `transitionSummaryRows` plus the ranked
+unit choices; those stay out of `transitionSummaryRows` because the Unit Leader Portal reads that list.
+
+**The cohort filter is `cohortFilterOptions`**: the mapped source cohorts, then the cohort of anyone
+added by hand (ADD-ALUMNUS-1), who is on the roster without their cohort being mapped. A mapped cohort
+with nobody on the roster stays listed.

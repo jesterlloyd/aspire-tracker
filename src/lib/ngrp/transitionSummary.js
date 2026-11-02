@@ -36,3 +36,33 @@ export function transitionSummaryRows(payload) {
   push('Consent to share with interviewing units', payload.attestation?.consent_unit_share === true ? 'Yes' : 'Not given (submitted before this consent existed)')
   return rows
 }
+
+// ROW-ANSWERS-1 (Owner, 2026-11-01): what Interest & Eligibility's row drawer lists. It is the list
+// above plus the ranked unit choices. Those stay out of transitionSummaryRows on purpose, because
+// the Unit Leader Portal reads that list and a unit is not shown where else someone ranked.
+export function transitionAnswerRows(payload) {
+  if (!payload) return []
+  const units = payload.residency_interest?.unit_preferences
+  const ranked = Array.isArray(units) ? units.filter(Boolean) : []
+  return [
+    ...(ranked.length ? [['Ranked unit choices', ranked.map((u, i) => `${i + 1}. ${u}`).join(', ')]] : []),
+    ...transitionSummaryRows(payload),
+  ]
+}
+
+const pacificDay = iso => {
+  const d = iso ? new Date(iso) : null
+  if (!d || Number.isNaN(d.getTime())) return null
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'America/Los_Angeles' })
+}
+
+// The drawer's line above the answers, and its whole body when there are none.
+export function submittedLine(revision) {
+  const day = pacificDay(revision?.submitted_at)
+  return [`Revision ${revision?.revision_number ?? 1}`, day && `submitted ${day}`].filter(Boolean).join(' · ')
+}
+export function noAnswersLine(row) {
+  if (!row?.candidate_id || row.form_status === 'not_sent') return 'The Transition Form has not been sent yet, so there are no answers to show.'
+  const sent = pacificDay(row.form_sent_at)
+  return `No answers yet. The form was ${sent ? `sent ${sent}` : 'sent'} and has not been submitted.`
+}

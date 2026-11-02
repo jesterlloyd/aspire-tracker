@@ -30,6 +30,7 @@ import { Search, Send, GraduationCap, X, Eye, Download, List, LayoutGrid, FileTe
 import { useAuth } from '../../contexts/AuthContext'
 import { confirmDialog } from '../shared/confirmDialog'
 import AddAlumnusDrawer from './AddAlumnusDrawer'
+import TransitionAnswersDrawer from './TransitionAnswersDrawer'
 import { lazyReload } from '../../lib/lazyReload'
 import DetailDrawer from '../ui/DetailDrawer'
 import StudentCard from '../StudentCard'
@@ -52,7 +53,7 @@ import { transitionPreviewFor } from '../../lib/ngrp/transitionPreviewFixture'
 import { transitionFormPreview } from '../../lib/ngrp/transitionFormPreview'
 import SortHeader from '../shared/SortHeader'
 import { sortRows } from '../shared/dataSheetSort'
-import { LICENSE_LABELS, NOT_REPORTED, employmentOf, licenseDetail, eligibilityDetail, gpaOf, formGpaOf, gpaBand, interestColumns, preceptedUnitOf, unitDemand, demandFor, seatLabel } from '../../lib/ngrp/interestEligibilityModel'
+import { LICENSE_LABELS, NOT_REPORTED, employmentOf, licenseDetail, eligibilityDetail, gpaOf, formGpaOf, gpaBand, interestColumns, cohortFilterOptions, preceptedUnitOf, unitDemand, demandFor, seatLabel } from '../../lib/ngrp/interestEligibilityModel'
 import { GPA_BAND_COLORS } from '../../lib/constants'
 import {
   FORM_SENT_STATES, ELIGIBILITY_STATES, ROSTER_STATUSES,
@@ -217,7 +218,7 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
   const [searchParams, setSearchParams] = useSearchParams()
   const kpiFilter    = KPI_DEFS.some(k => k.key === searchParams.get('kpi')) ? searchParams.get('kpi') : 'all'
   const query        = searchParams.get('q') || ''
-  const cohortFilter = searchParams.get('cohort') || ''   // cohort_id of a mapped source cohort
+  const cohortFilter = searchParams.get('cohort') || ''   // cohort_id from cohortFilterOptions
   const schoolFilter = searchParams.get('school') || ''
   const sortKey      = SORT_OPTIONS.some(o => o.key === searchParams.get('sort')) ? searchParams.get('sort') : 'priority'
   const setParam = (key, value, defaultValue = '') => {
@@ -243,6 +244,8 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
 
   const [selected, setSelected] = useState(() => new Set())
   const [drawerRowId, setDrawerRowId] = useState(null)
+  // ROW-ANSWERS-1: whose Transition Form answers are open over the Interest table.
+  const [answersRowId, setAnswersRowId] = useState(null)
   const [sendReview, setSendReview] = useState(null)
   // NGRP-TRANSITION-PREVIEW-1: renders a synthetic copy of the invitation. No network,
   // no recipient, no token; it cannot send anything.
@@ -295,7 +298,9 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
   // URL filters can outlive the residency cycle that supplied their options.
   // Fail back to the visible All option instead of letting a stale cohort or
   // school continue to empty the roster behind a newly clicked KPI card.
-  const activeCohortFilter = sourceCohorts.some(c => c.id === cohortFilter) ? cohortFilter : ''
+  // ROW-ANSWERS-1: the participating cohorts, plus the cohort of anyone added by hand.
+  const cohortOptions = useMemo(() => cohortFilterOptions(sourceCohorts, allRows), [sourceCohorts, allRows])
+  const activeCohortFilter = cohortOptions.some(c => c.id === cohortFilter) ? cohortFilter : ''
   const activeSchoolFilter = schoolOptions.includes(schoolFilter) ? schoolFilter : ''
 
   const activeKpi = KPI_DEFS.find(k => k.key === kpiFilter) || KPI_DEFS[0]
@@ -568,12 +573,11 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                   style={{ ...selectStyle, cursor: 'text', paddingLeft: 28, minWidth: 190 }}
                 />
               </div>
-              {/* Every cohort MAPPED to the cycle is listed - including one with
-                  zero completed students - because the option list comes from the
-                  cycle's source-cohort mapping, not from the loaded rows. */}
+              {/* Every cohort MAPPED to the cycle is listed, including one with zero completed
+                  students, and so is the cohort of anyone added by hand (cohortFilterOptions). */}
               <select value={activeCohortFilter} onChange={e => setParam('cohort', e.target.value)} aria-label="Filter by source ASPIRE cohort" style={selectStyle}>
                 <option value="">All ASPIRE Cohorts</option>
-                {sourceCohorts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                {cohortOptions.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
               <select value={activeSchoolFilter} onChange={e => setParam('school', e.target.value)} aria-label="Filter by school" style={selectStyle}>
                 <option value="">All Schools</option>
@@ -854,13 +858,24 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                     const gpa = staffApp ? gpaOf(r) : formGpaOf(r)
                     const paired = status === 'awaiting_decision' ? r.assigned_unit : null
                     return (
-                      // INTEREST-ELIGIBILITY-2 (Owner): a row click selects the row; the photo
-                      // and name open the alumnus in Profiles.
+                      // ROW-ANSWERS-1 (Owner, 2026-11-01): a row click opens the Transition Form
+                      // answers; the photo and name open the alumnus in Profiles, and only the
+                      // tick box selects. Selecting text in a row is not a click on it.
                       <tr
                         key={r.id}
                         className={canSelect && selected.has(r.id) ? 'sel' : undefined}
-                        onClick={canSelect ? () => toggleRow(r.id) : undefined}
-                        style={canSelect ? { cursor: 'pointer' } : undefined}
+                        tabIndex={0}
+                        aria-haspopup="dialog"
+                        onClick={e => {
+                          if (e.target.closest('a, button, input, label, select')) return
+                          if (window.getSelection?.()?.toString()) return
+                          setAnswersRowId(r.id)
+                        }}
+                        onKeyDown={e => {
+                          if (e.target !== e.currentTarget || (e.key !== 'Enter' && e.key !== ' ')) return
+                          e.preventDefault()
+                          setAnswersRowId(r.id)
+                        }}
                       >
                         {canSelect && (
                         <td className="ngrp-cb" onClick={e => e.stopPropagation()}>
@@ -1058,6 +1073,14 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
               )}
           </div>
         </DetailDrawer>
+      )}
+
+      {answersRowId && allRows.some(r => r.id === answersRowId) && (
+        <TransitionAnswersDrawer
+          key={answersRowId}
+          row={allRows.find(r => r.id === answersRowId)}
+          onClose={() => setAnswersRowId(null)}
+        />
       )}
 
       {sendReview && (
