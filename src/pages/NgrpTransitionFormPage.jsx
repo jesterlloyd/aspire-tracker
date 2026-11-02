@@ -183,6 +183,11 @@ export default function NgrpTransitionFormPage({ preview = null }) {
     })
     let body = null
     try { body = await res.json() } catch { /* non-JSON */ }
+    // TRANSITION-SESSION-1: every verified answer carries a renewed session; keep the newest.
+    if (res.ok && action !== 'verify_code' && typeof body?.session === 'string') {
+      sessionRef.current = body.session
+      tabWrite({ t: initial.rawToken, s: body.session })
+    }
     return { status: res.status, body }
   }, [initial.rawToken])
 

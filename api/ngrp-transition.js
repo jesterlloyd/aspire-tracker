@@ -72,7 +72,8 @@ export default async function handler(req, res) {
     p_window_seconds: limits.window,
     p_max_per_window: limits.max,
   })
-  if (rlError || allowed !== true) return res.status(429).json({ error: 'Too many requests' })
+  // TRANSITION-SESSION-1: say what to do, not just what happened (Jorge Velasco, 2026-11-02).
+  if (rlError || allowed !== true) return res.status(429).json({ error: 'Too many tries in a short time. Wait 10 minutes, then send one code and use the newest one.' })
 
   const tokenHash = hashToken(token)
   const nowIso = new Date().toISOString()
@@ -123,6 +124,14 @@ export default async function handler(req, res) {
       if (!routed) return res.status(500).json({ error: 'Internal error' })
       return res.status(200).json({ state: 'verify', maskedEmail: maskEmail(routed.email), cycleName: cycle.name })
     }
+
+    // TRANSITION-SESSION-1 (2026-11-02): the session slides. Every verified request (load, each
+    // autosave, submit) hands back a fresh two-hour session, so someone still typing is never
+    // signed out mid-form; two hours of silence still ends it. Jorge Velasco's 2-hour session
+    // expired while he was writing, and his repeated code requests then hit the limiter.
+    const renewed = issueSession(assignment.id, tokenHash)
+    const json = res.json.bind(res)
+    res.json = obj => json(res.statusCode < 400 && obj && typeof obj === 'object' && !Array.isArray(obj) ? { ...obj, session: renewed } : obj)
 
     // Active units + checklist come from the CYCLE's configuration.
     const unitsRes = await supabaseAdmin.from('ngrp_cycle_units')
