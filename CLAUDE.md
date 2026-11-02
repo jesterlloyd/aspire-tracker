@@ -2790,3 +2790,25 @@ any assistant would. Server: `api/keith-residency.js` (60 s) over `lib/server/ke
   `keith_requests` row with intent `residency_chat`, so it appears in Settings > Keith > Usage & Cost.
 - **The candidate score is reported, never recomputed** (the system prompt says so), and the
   conversation is the browser tab's: it starts over when the cohort changes, and nothing is stored.
+
+## An alumnus can precept on several units (PRECEPTED-UNITS-1, 2026-11-02)
+
+Owner: Emi Bayaraa rotated in PACU and 6 NE, the form took one unit and the roster read only the
+primary placement, so Talent Acquisition saw her ranking a unit she "had not" precepted on. The
+rules are `src/lib/ngrp/preceptedUnits.js` (pure); no migration.
+
+- **The record lists every placement**: `placementUnitsByStudent` (`lib/server/ngrpPlacementUnits.js`)
+  reads `student_unit_assignments`, not removed, primary first, and the roster student carries
+  `precepted_units` (`precepted_unit` stays the primary for older readers). A failed read shows the
+  primary alone, as before. The Student Portal's application profile shows the same list.
+- **The form takes up to `MAX_PRECEPTED_UNITS` (4)**: `aspire.precepted_units`, one select per row with
+  "+ Add another unit", a unit already picked disabled in the other rows, 'Other' named once in
+  `precepted_unit_other`. The server keeps catalog names only and writes `precepted_unit` as the
+  first. A revision or draft from before the list reads as a list of one (`formUnitPicks`), so nobody
+  has to revise.
+- **The record still wins** in the Interest & Eligibility column (`preceptedUnitOf`, now "PACU, 6 NE");
+  the form's list shows only when the record has none. Unit fit (`rotatedUnits`), the binder Review and
+  packet ("Precepted units"), the Excel export and Keith's residency chat (`rotatedUnits`) read every unit.
+- **CS employment Other carries its words** (CS-EMPLOYMENT-OTHER-1, Owner, same day):
+  `identity.cs_employment_other`, required on submit when Other is picked, kept only with Other, shown as
+  "Other: ..." by `csEmploymentText` in the Review, packet and export.

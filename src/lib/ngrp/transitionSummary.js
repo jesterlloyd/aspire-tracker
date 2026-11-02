@@ -3,6 +3,7 @@
 // APPLICANT-PACKET-1: a submitted Transition Form revision as label / value rows, in the order
 // staff read them. One rule for the applicant chart's "Review submitted form" and the applicant
 // packet's Transition Form page, so the two can never list different answers. Pure.
+import { csEmploymentText, formPreceptedUnitsText } from './preceptedUnits.js'
 
 export function transitionSummaryRows(payload) {
   if (!payload) return []
@@ -10,14 +11,13 @@ export function transitionSummaryRows(payload) {
   const push = (label, v) => { if (v !== undefined && v !== null && v !== '') rows.push([label, String(v)]) }
   push('Preferred email', payload.identity?.preferred_email)
   push('Preferred phone', payload.identity?.preferred_phone)
-  push('CS employment', payload.identity?.cs_employment_status?.replace(/_/g, ' '))
+  push('CS employment', csEmploymentText(payload.identity))
   push('Degree', payload.education?.degree_type)
   push('Completion date', payload.education?.completion_date)
   push('GPA', payload.education?.gpa)
   push('US accredited', payload.education?.us_accredited === true ? 'Yes' : payload.education?.us_accredited === false ? 'No' : undefined)
-  push('Precepted unit', payload.aspire?.precepted_unit === 'Other'
-    ? `Other: ${payload.aspire?.precepted_unit_other || 'not named'}`
-    : payload.aspire?.precepted_unit)
+  // PRECEPTED-UNITS-1: every unit they precepted on.
+  push('Precepted units', formPreceptedUnitsText(payload.aspire))
   push('ASPIRE shifts', payload.aspire?.rotation_shifts)
   push('Prior NGRP application', payload.aspire?.prior_ngrp_applied === true ? `Yes${payload.aspire?.prior_ngrp_details ? ` - ${payload.aspire.prior_ngrp_details}` : ''}` : payload.aspire?.prior_ngrp_applied === false ? 'No' : undefined)
   push('CA RN license', payload.licensure?.ca_rn_status)

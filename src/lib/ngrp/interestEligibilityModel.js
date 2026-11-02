@@ -10,6 +10,7 @@
 // the one the alumnus wrote on the form, which they agreed to share (Owner, 2026-11-01).
 
 import { gpaBand } from '../constants.js'
+import { preceptedUnitsOfRow } from './preceptedUnits.js'
 
 // NgrpStatusPill's config shape.
 export const LICENSE_LABELS = Object.freeze({
@@ -162,10 +163,12 @@ export function cohortFilterOptions(sourceCohorts, rows) {
   return [...(sourceCohorts || []), ...extra]
 }
 
-// The unit they precepted on: the ASPIRE placement on their record, else what they wrote on
-// the form. The record wins because it is what the program arranged.
+// The units they precepted on: the ASPIRE placements on their record, else what they wrote on
+// the form. The record wins because it is what the program arranged. PRECEPTED-UNITS-1: every
+// unit, not only the primary placement ("PACU, 6 NE").
 export function preceptedUnitOf(row) {
-  return row?.student?.precepted_unit || row?.form_precepted_unit || null
+  const units = preceptedUnitsOfRow(row)
+  return units.length ? units.join(', ') : null
 }
 
 const keyOf = u => String(u || '').trim().toLowerCase()

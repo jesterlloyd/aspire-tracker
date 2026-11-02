@@ -10,6 +10,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { formReadinessChecklist } from '../../lib/server/ngrpEligibility.js'
 import { DIVISION_ORDER, getUnitsByDivision, ACLS_REQUIRED_UNITS, unitOptionLabel } from '../lib/unitCatalog.js'
+import { formUnitPicks, MAX_PRECEPTED_UNITS } from '../lib/ngrp/preceptedUnits.js'
 
 // The ASPIRE placement units, grouped the way the org chart groups them. The
 // server accepts only these names or 'Other', so answers stay comparable.
@@ -25,9 +26,9 @@ const tabWrite = v => { try { sessionStorage.setItem(TAB_KEY, JSON.stringify(v))
 const F = "'Plus Jakarta Sans', system-ui, sans-serif"
 
 const EMPTY_PAYLOAD = {
-  identity: { preferred_email: '', preferred_phone: '', cs_employment_status: null },
+  identity: { preferred_email: '', preferred_phone: '', cs_employment_status: null, cs_employment_other: '' },
   education: { school: '', program: '', degree_type: '', completion_date: '', gpa: '', us_accredited: null },
-  aspire: { aspire_cohort: '', precepted_unit: '', precepted_unit_other: '', rotation_shifts: '', prior_ngrp_applied: null, prior_ngrp_details: '' },
+  aspire: { aspire_cohort: '', precepted_units: [''], precepted_unit_other: '', rotation_shifts: '', prior_ngrp_applied: null, prior_ngrp_details: '' },
   licensure: {
     ca_rn_status: null, license_number: '', nclex_scheduled_date: '', paid_rn_months: '',
     bls_status: null, bls_issuer: '', bls_expiration: '',
@@ -48,6 +49,10 @@ function mergePayload(base) {
   }
   const prefs = base?.residency_interest?.unit_preferences
   out.residency_interest.unit_preferences = [prefs?.[0] || '', prefs?.[1] || '', prefs?.[2] || '']
+  // PRECEPTED-UNITS-1: a draft saved before the list keeps its one unit as the first row.
+  const picks = formUnitPicks(base?.aspire)
+  out.aspire.precepted_units = picks.length ? picks : ['']
+  delete out.aspire.precepted_unit
   return out
 }
 
@@ -74,6 +79,11 @@ const CSS = `
   .ngrpf-field textarea { min-height: 96px; resize: vertical; }
   .ngrpf-field input:focus, .ngrpf-field select:focus, .ngrpf-field textarea:focus { outline: 2px solid #4F6DA8; outline-offset: 1px; }
   .ngrpf-opts { display: flex; flex-wrap: wrap; gap: 8px; }
+  .ngrpf-unitrow { display: flex; gap: 8px; align-items: center; }
+  .ngrpf-unitrow select { flex: 1 1 auto; }
+  .ngrpf-unitremove, .ngrpf-unitadd { font-family: ${F}; font-size: 13px; font-weight: 600; color: #1D2567; background: #fff; border: 1px solid #d1d5db; border-radius: var(--aspire-radius-control); padding: 8px 12px; min-height: 40px; cursor: pointer; }
+  .ngrpf-unitadd { align-self: flex-start; border-style: dashed; }
+  .ngrpf-unitremove:focus-visible, .ngrpf-unitadd:focus-visible { outline: 2px solid #4F6DA8; outline-offset: 2px; }
   .ngrpf-opt { display: flex; align-items: center; gap: 7px; border: 1px solid #d1d5db; border-radius: var(--aspire-radius-control); padding: 8px 14px; min-height: 44px; font-size: 13.5px; cursor: pointer; background: #fff; }
   /* Same treatment as the Student Form's weekday buttons: a picked option turns
      Nightfall. The focus ring sits outside, so it stays visible on navy. */
@@ -101,6 +111,7 @@ const FIELD_TO_INPUT_ID = {
   'identity.preferred_email': 'pe',
   'education.completion_date': 'cd',
   'education.gpa': 'gpa',
+  'identity.cs_employment_other': 'cso',
   'aspire.precepted_unit_other': 'puo',
   'aspire.rotation_shifts': 'rs',
   'licensure.license_number': 'ln',
@@ -249,6 +260,15 @@ export default function NgrpTransitionFormPage({ preview = null }) {
   const update = (section, field, value) => {
     setPayload(prev => {
       const next = { ...prev, [section]: { ...prev[section], [field]: value } }
+      scheduleSave(next)
+      return next
+    })
+  }
+  // PRECEPTED-UNITS-1: one row per unit they precepted on, up to MAX_PRECEPTED_UNITS.
+  const updateUnits = (fn) => {
+    setPayload(prev => {
+      const units = fn([...prev.aspire.precepted_units])
+      const next = { ...prev, aspire: { ...prev.aspire, precepted_units: units.length ? units : [''] } }
       scheduleSave(next)
       return next
     })
@@ -428,6 +448,10 @@ export default function NgrpTransitionFormPage({ preview = null }) {
                   {opt('identity', 'cs_employment_status', 'full_time', 'Full time')}
                   {opt('identity', 'cs_employment_status', 'other', 'Other')}
                 </div></div>
+              {p.identity.cs_employment_status === 'other' && (
+                <div className="ngrpf-field full"><label htmlFor="cso">Describe your Cedars-Sinai employment <span className="req">*</span></label>
+                  <input id="cso" maxLength={120} placeholder="For example: unit secretary, patient care tech, volunteer" value={p.identity.cs_employment_other || ''} onChange={e => update('identity', 'cs_employment_other', e.target.value)} /></div>
+              )}
             </div>
           </section>
 
@@ -458,19 +482,34 @@ export default function NgrpTransitionFormPage({ preview = null }) {
           <section className="ngrpf-sec">
             <h2>3 · ASPIRE experience</h2>
             <div className="ngrpf-grid">
-              <div className="ngrpf-field"><label htmlFor="pu">Precepted unit</label>
-                <select id="pu" value={p.aspire.precepted_unit} onChange={e => update('aspire', 'precepted_unit', e.target.value)}>
-                  <option value="">Select a unit…</option>
-                  {DIVISION_ORDER.filter(d => UNITS_BY_DIVISION[d]).map(d => (
-                    <optgroup key={d} label={d}>
-                      {UNITS_BY_DIVISION[d].map(u => <option key={u.name} value={u.name}>{unitOptionLabel(u.name)}</option>)}
-                    </optgroup>
-                  ))}
-                  <option value="Other">Other</option>
-                </select></div>
+              <div className="ngrpf-field full" role="group" aria-labelledby="pu-l">
+                <label id="pu-l" htmlFor="pu0">Precepted unit(s)</label>
+                <p className="ngrpf-hint">If you rotated on more than one unit, add each one.</p>
+                {p.aspire.precepted_units.map((u, i) => (
+                  <div key={i} className="ngrpf-unitrow">
+                    <select id={`pu${i}`} aria-label={`Precepted unit ${i + 1}`} value={u} onChange={e => updateUnits(list => { list[i] = e.target.value; return list })}>
+                      <option value="">Select a unit…</option>
+                      {DIVISION_ORDER.filter(d => UNITS_BY_DIVISION[d]).map(d => (
+                        <optgroup key={d} label={d}>
+                          {UNITS_BY_DIVISION[d].map(n => (
+                            <option key={n.name} value={n.name} disabled={n.name !== u && p.aspire.precepted_units.includes(n.name)}>{unitOptionLabel(n.name)}</option>
+                          ))}
+                        </optgroup>
+                      ))}
+                      <option value="Other" disabled={u !== 'Other' && p.aspire.precepted_units.includes('Other')}>Other</option>
+                    </select>
+                    {p.aspire.precepted_units.length > 1 && (
+                      <button type="button" className="ngrpf-unitremove" aria-label={`Remove precepted unit ${i + 1}`} onClick={() => updateUnits(list => list.filter((_, j) => j !== i))}>Remove</button>
+                    )}
+                  </div>
+                ))}
+                {p.aspire.precepted_units.length < MAX_PRECEPTED_UNITS && (
+                  <button type="button" className="ngrpf-unitadd" onClick={() => updateUnits(list => [...list, ''])}>+ Add another unit</button>
+                )}
+              </div>
               <div className="ngrpf-field"><label htmlFor="rs">Shifts completed in your ASPIRE rotation</label>
                 <input id="rs" type="number" min="0" step="1" inputMode="numeric" value={p.aspire.rotation_shifts} onChange={e => update('aspire', 'rotation_shifts', e.target.value)} /></div>
-              {p.aspire.precepted_unit === 'Other' && (
+              {p.aspire.precepted_units.includes('Other') && (
                 <div className="ngrpf-field full"><label htmlFor="puo">Which unit? <span className="req">*</span></label>
                   <input id="puo" value={p.aspire.precepted_unit_other} onChange={e => update('aspire', 'precepted_unit_other', e.target.value)} /></div>
               )}

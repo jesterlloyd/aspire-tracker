@@ -1199,7 +1199,8 @@ test('complete: ranked preferences require exactly three DISTINCT active units, 
   assert.ok(vs(form({ aspire: { rotation_shifts: -1 } })).errors.some(e => e.field === 'aspire.rotation_shifts'))
   assert.equal(vs(form({ aspire: { rotation_shifts: '' } })).ok, true, 'shifts stay optional')
   assert.match(formPage, /getUnitsByDivision\(\)/)
-  assert.match(formPage, /<option value="Other">Other<\/option>/)
+  // PRECEPTED-UNITS-1 made the Other option one row of a list, so it carries a disabled rule.
+  assert.match(formPage, /<option value="Other" disabled=\{[^}]+\}>Other<\/option>/)
   assert.doesNotMatch(formPage, /rotation_hours/)
   // and the public page maps field errors to inputs with an accessible summary
   assert.match(formPage, /FIELD_TO_INPUT_ID/)

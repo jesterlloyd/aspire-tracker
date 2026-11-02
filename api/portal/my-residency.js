@@ -27,6 +27,7 @@ import {
 import { cycleForStudent, keyDates, transitionFormStatus, supportReceived, alumnusDocuments, openRequests, resumeFeedback } from '../../lib/server/alumnusResidency.js'
 import { extsFor, DOCUMENT_MAX_BYTES } from '../../src/lib/documents/documentChecklist.js'
 import { validateProfile, studentColumnsFrom } from '../../lib/server/ngrpAddedAlumni.js'
+import { placementUnitsByStudent } from '../../lib/server/ngrpPlacementUnits.js'
 
 const ACTIONS = new Set(['status', 'summary', 'upload_start', 'upload_finish', 'open', 'profile_save'])
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -49,6 +50,9 @@ async function applicationProfile(db, student) {
     const u = await db.from('units').select('unit_name').eq('id', student.matched_unit_id).maybeSingle()
     if (!u.error) placementUnit = u.data?.unit_name || null
   }
+  // PRECEPTED-UNITS-1: every placement on the record, not only the primary ("PACU, 6 NE").
+  const placed = (await placementUnitsByStudent(db, [student.id])).get(student.id) || []
+  if (placed.length) placementUnit = placed.join(', ')
   return {
     first_name: student.first_name || '', last_name: student.last_name || '',
     preferred_first_name: student.preferred_first_name || '', personal_email: student.personal_email || '',

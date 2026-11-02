@@ -40,10 +40,11 @@ export const NOT_ELIGIBLE = 'Not eligible'
 const round1 = n => Math.round(n * 10) / 10
 const ORDINAL = ['1st', '2nd', '3rd']
 
-// The units they were placed in for ASPIRE, by any record of it.
+// The units they were placed in for ASPIRE, by any record of it. PRECEPTED-UNITS-1: the record
+// and the form may each name several units, so either may be a list.
 export function rotatedUnits({ preceptedUnit = null, formPreceptedUnit = null, feedbackUnits = [] } = {}) {
   const out = new Map()
-  for (const u of [preceptedUnit, formPreceptedUnit, ...(feedbackUnits || [])]) {
+  for (const u of [preceptedUnit, formPreceptedUnit, feedbackUnits].flat(2)) {
     const k = unitNameKey(u)
     if (k && !out.has(k)) out.set(k, String(u).trim())
   }
