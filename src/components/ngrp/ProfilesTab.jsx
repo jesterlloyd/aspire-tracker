@@ -400,8 +400,10 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
   // Stable identity: AutomationEmailPreviewDrawer memoizes its render on `entry`, so a
   // fresh object each parent render would re-render the email on every keystroke above.
   const transitionPreview = useMemo(
-    () => transitionPreviewFor(cycle?.name, cycle?.application_deadline),
-    [cycle?.name, cycle?.application_deadline],
+    () => transitionPreviewFor(cycle?.name, cycle?.application_deadline, {
+      applicationOpenDate: cycle?.application_open_date, residencyStartDate: cycle?.residency_start_date,
+    }),
+    [cycle?.name, cycle?.application_deadline, cycle?.application_open_date, cycle?.residency_start_date],
   )
 
   // Staff review/decision actions (drawer). Each is explicit, audited
@@ -710,7 +712,10 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                     override: (r, fields) => runManage('eligibility_override', { candidate_id: r.candidate_id, ...fields },
                       'Eligibility overridden', 'The calculated result is preserved beside the override.'),
                     revokeLink: canSendForms ? (r => runManage('token_revoke', { candidate_id: r.candidate_id },
-                      'Link revoked', 'The live Transition Form link no longer works. Use Resend to issue a new one.')) : undefined,
+                      'Link revoked', 'The live Transition Form link no longer works. Use Send a New Link to issue a new one.')) : undefined,
+                    // TRANSITION-PORTAL-1: this alumnus's own close date; nothing is emailed.
+                    extendDeadline: canSendForms ? ((r, closeDate) => runManage('form_deadline_set', { candidate_id: r.candidate_id, close_date: closeDate },
+                      'Deadline changed', `${displayName(r.student)} can edit the Transition Form until the new date.`)) : undefined,
                     // NGRP-INTERVIEW-HIRE-1: recorded in this drawer from both surfaces,
                     // so one person's record has exactly one place it is edited.
                     setInterview: (r, fields) => runManage('interview_set', { candidate_id: r.candidate_id, ...fields },

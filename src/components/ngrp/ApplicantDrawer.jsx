@@ -56,6 +56,52 @@ const smallBtn = (primary = false, danger = false) => ({
   ...(danger ? { border: '1px solid #FECACA' } : {}),
 })
 
+// TRANSITION-PORTAL-1: this alumnus's own close date. The live assignment's deadline_at wins;
+// without one the cohort's application deadline applies (effectiveFormClose on the server).
+const PACIFIC_DAY = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit' })
+const closeDay = ts => {
+  if (!ts) return ''
+  const d = new Date(ts)
+  return Number.isNaN(d.getTime()) ? '' : PACIFIC_DAY.format(d)
+}
+const longDay = ymd => {
+  if (!ymd) return null
+  const [y, m, d] = ymd.split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-US', { timeZone: 'UTC', month: 'long', day: 'numeric', year: 'numeric' })
+}
+
+function FormDeadline({ row, cycle, onSave }) {
+  const own = closeDay(row.form_deadline_at)
+  const current = own || cycle?.application_deadline || ''
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState(current)
+  const [saving, setSaving] = useState(false)
+  const today = PACIFIC_DAY.format(new Date())
+  const words = current
+    ? <>They can open and edit it until <strong>{longDay(current)}</strong>{own && own !== cycle?.application_deadline ? ' (their own date)' : ''}.</>
+    : <>It stays open until the cohort closes.</>
+  return (
+    <div style={{ margin: '6px 0 0', fontSize: 11, color: 'var(--text-caption)', fontFamily: F }}>
+      <span>{words} </span>
+      {onSave && !editing && (
+        <button type="button" style={{ ...smallBtn(), height: 24, padding: '0 9px', fontSize: 11, marginLeft: 4 }} onClick={() => { setValue(current); setEditing(true) }}>Extend Deadline</button>
+      )}
+      {onSave && editing && (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginLeft: 4 }}>
+          <input type="date" aria-label="New close date" value={value} min={today}
+            onChange={e => setValue(e.target.value)}
+            style={{ height: 24, fontSize: 11, fontFamily: F, padding: '0 6px', borderRadius: 'var(--aspire-radius-control)', border: '1px solid rgba(29,37,103,0.2)' }} />
+          <button type="button" disabled={!value || value < today || saving} style={{ ...smallBtn(true), height: 24, padding: '0 9px', fontSize: 11 }}
+            onClick={async () => { setSaving(true); const res = await onSave(row, value); setSaving(false); if (res) setEditing(false) }}>
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+          <button type="button" style={{ ...smallBtn(), height: 24, padding: '0 9px', fontSize: 11 }} onClick={() => setEditing(false)}>Cancel</button>
+        </span>
+      )}
+    </div>
+  )
+}
+
 // APPLICANT-CHART-1: a section is part of the sheet, not a box on it, exactly as in the
 // student chart (`.sc-sheet .sp-section.sp-card` and its `.sp-section-hdr`). A section draws no
 // tint: the sheet carries the colour.
@@ -1002,7 +1048,7 @@ function ApplicantDrawerBody({
       {canManage && !gateNote && actions.sendForm && (
         <button type="button" style={smallBtn()} disabled={!provisioned}
           onClick={() => actions.sendForm(row)}>
-          {hasForm ? 'Resend Form' : 'Send Transition Form'}
+          {hasForm ? 'Send a New Link' : 'Send Transition Form'}
         </button>
       )}
       {/* APPLICANT-PACKET-1: anyone who can open this binder can download its packet. */}
@@ -1160,10 +1206,13 @@ function ApplicantDrawerBody({
                     )}
                   </div>
                   <FormLifecycle row={row} />
+                  {hasForm && (
+                    <FormDeadline row={row} cycle={cycle}
+                      onSave={canManage && provisioned && actions.extendDeadline ? actions.extendDeadline : null} />
+                  )}
                   <p style={{ margin: '6px 0 0', fontSize: 11, color: 'var(--text-caption)' }}>
-                    Alumni can revise a submitted form until the cycle deadline
-                    {cycle?.application_deadline ? ` (${cycle.application_deadline})` : ''}. Sending the form
-                    records “Transition Form Sent” - it is not an invitation to apply.
+                    Alumni can revise a submitted form until that date, here by link or in the Student
+                    Portal. Sending the form records “Transition Form Sent” - it is not an invitation to apply.
                   </p>
                   {hasSubmission && (
                     <div style={{ marginTop: 10 }}>

@@ -21,6 +21,8 @@
 //   application_confirm     { candidate_id }          -> legacy explicit confirm
 //   application_withdraw    { candidate_id }          -> legacy; superseded by not_proceeding_set
 //   token_revoke            { candidate_id }          -> revoke live link (no resend)
+//   form_deadline_set       { candidate_id, close_date } -> TRANSITION-PORTAL-1: this alumnus's own close
+//                                                         date (Pacific end of day); no email is sent
 //   assign_unit             { candidate_id, unit }    -> PAIR with the unit that will interview them
 //   interview_set           { candidate_id, ... }     -> the interview record
 //   outcome_set             { candidate_id, ... }     -> the durable offer/hire record
@@ -50,7 +52,7 @@ import { enrollStudents } from '../lib/server/ngrpSupportLog.js'
 import { loadResidencyActivity } from '../lib/server/residencyActivity.js'
 import { populationOf } from '../lib/server/demoScope.js'
 import {
-  liveAssignmentForCandidate, revokeTokensById, recalculateEligibility,
+  liveAssignmentForCandidate, revokeTokensById, recalculateEligibility, parseFormCloseDate,
 } from '../lib/server/ngrpTransition.js'
 import { recordNgrpAudit } from '../lib/server/ngrpAudit.js'
 import { validateResidentDetails } from '../src/lib/ngrp/ngrpResidents.js'
@@ -81,7 +83,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const ACTIONS = new Set([
   'planning', 'cycle_create', 'cycle_update', 'cycle_set_active', 'sources_set', 'units_set',
   'candidate_review', 'eligibility_recalculate', 'eligibility_override',
-  'application_confirm', 'application_withdraw', 'token_revoke',
+  'application_confirm', 'application_withdraw', 'token_revoke', 'form_deadline_set',
   'assign_unit', 'interview_set', 'outcome_set',
   // RESIDENCY-ROSTER-1
   'not_proceeding_set', 'application_reinstate', 'unit_preferences_set',
@@ -910,6 +912,25 @@ export default async function handler(req, res) {
         await recordNgrpAudit(db, { eventType: 'token_revoked', cycleId: cycle.id, candidateId, studentId: candidate.student_id, assignmentId: live.assignment.id, actorProfileId: actorId, metadata: { token_hash_prefix: t.token_hash_prefix } })
       }
       return res.status(200).json({ ok: true, revoked: ids.length })
+    }
+
+    // TRANSITION-PORTAL-1 (Owner, 2026-11-02): one alumnus's own deadline, without a new email.
+    // The form (link and portal alike) enforces assignment.deadline_at through effectiveFormClose
+    // and inside the save and submit transactions, so this one write moves both doors. Jorge
+    // Velasco's assignment closed on Nov 2 while his cohort's closed on Nov 11.
+    if (action === 'form_deadline_set') {
+      if (isTalentAcquisition) return res.status(403).json({ error: 'staff_only_action' })
+      const parsed = parseFormCloseDate(body.close_date, new Date().toISOString())
+      if (parsed.error || !parsed.closeAt) return invalid(res, [{ field: 'close_date', message: parsed.error === 'form_close_date_in_past' ? 'Choose a date that has not passed.' : 'Choose a valid date.' }])
+      const live = await liveAssignmentForCandidate(db, candidateId)
+      if (live.error) return isMissingNgrpTable(live.error) ? unprovisioned(res) : internal(res)
+      if (!live.assignment || live.assignment.status === 'pending') return res.status(409).json({ error: 'no_live_assignment' })
+      const upd = await db.from('ngrp_transition_assignments')
+        .update({ deadline_at: parsed.closeAt }).eq('id', live.assignment.id).select('deadline_at').maybeSingle()
+      if (upd.error || !upd.data) return internal(res)
+      // Before 20261120000000 the CHECK refuses this event; the deadline still stands.
+      await recordNgrpAudit(db, { eventType: 'form_deadline_extended', cycleId: cycle.id, candidateId, studentId: candidate.student_id, assignmentId: live.assignment.id, actorProfileId: actorId, metadata: { close_date: String(body.close_date) } })
+      return res.status(200).json({ ok: true, deadline_at: upd.data.deadline_at })
     }
 
     return res.status(400).json({ error: 'invalid_action' })

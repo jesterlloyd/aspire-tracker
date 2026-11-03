@@ -24,7 +24,7 @@ import { createMailer } from '../lib/server/email/mailer.js';
 import { getServiceDb, verifyPortalCaller } from './lib/portalAuth.js'
 import { can } from '../lib/server/access.js'
 import { generateToken } from '../lib/server/evaluation/tokens.js'
-import { emailBaseUrl } from '../lib/server/appUrl.js'
+import { emailBaseUrl, appUrl } from '../lib/server/appUrl.js'
 // NGRP-TRANSITION-PREVIEW-1: the email itself moved to lib/server/email/
 // ngrpTransitionEmail.js so the in-app preview renders the SAME builder this endpoint
 // sends. A preview that re-implements the copy is a second template that drifts, and
@@ -39,7 +39,8 @@ import { isMissingNgrpTable, sanitizeStudent, fetchAddedStudentIds } from '../li
 // only ever passes Completed students, so every recipient here is in that branch.
 import { getStudentBulkEmailRoute } from '../src/lib/studentBulkEmail.js'
 import { openReadiness } from '../lib/server/ngrpPlanning.js'
-import { serviceDbForRequest } from '../lib/server/demoScope.js'
+import { serviceDbForRequest, populationOf } from '../lib/server/demoScope.js'
+import { ensureStudentPortalAccess } from '../lib/server/ngrpPortalAccess.js'
 
 const CONFIRMATION = 'SEND MESSAGES'
 const MAX_RECIPIENTS = 75
@@ -64,7 +65,7 @@ async function resolveSelection(db, cycle, studentIds) {
   if (added.error) return { error: added.error }
   if (!cohortIds.length && !added.ids.length) return { students: [], outOfScope: studentIds }
   const fetched = await db.from('students')
-    .select('id, cohort_id, first_name, last_name, preferred_first_name, name, school, program_type, aspire_cohort, status, school_email, personal_email, headshot_url, updated_at, rotation:cohort_school_rotation_id ( rotation_end_date ), residency_outcomes:ngrp_residency_outcomes ( hired_at, separated_at, cs_email )')
+    .select('id, cohort_id, is_demo, first_name, last_name, preferred_first_name, name, school, program_type, aspire_cohort, status, school_email, personal_email, headshot_url, updated_at, rotation:cohort_school_rotation_id ( rotation_end_date ), residency_outcomes:ngrp_residency_outcomes ( hired_at, separated_at, cs_email )')
     .in('id', studentIds)
   if (fetched.error) return { error: fetched.error }
   const rows = { data: (fetched.data || []).filter(r => cohortIds.includes(r.cohort_id) || added.ids.includes(r.id)) }
@@ -217,6 +218,8 @@ export default async function handler(req, res) {
   }
 
   const results = { sent: [], skipped: [], failed: [], warnings: [] }
+  const demo = populationOf(req)
+  const portalGranted = new Set()
   for (const s of classified.skipped) {
     results.skipped.push({ student_id: s.student.id, reason: s.reason })
   }
@@ -263,7 +266,25 @@ export default async function handler(req, res) {
       formCloseAt,
       generateToken,
       sendEmail,
-      buildEmail: buildTransitionEmail,
+      // TRANSITION-PORTAL-1: open the Student Portal (reactivate or create, through the end of
+      // the residency start month) right before this email goes out, and say so in it. A demo
+      // never creates accounts. A failure is a warning: the form link still works.
+      buildEmail: async (args) => {
+        let portal = null
+        if (!demo && !student.is_demo) {
+          const access = await ensureStudentPortalAccess(getServiceDb(), {
+            student, email: student.email, cycle, actorProfileId: actorId,
+            fullName: student.name || `${student.first_name || ''} ${student.last_name || ''}`.trim(),
+          })
+          if (access.ok) {
+            portal = { ...access, signInUrl: appUrl('/portal/residency?form=1') }
+            portalGranted.add(student.id)
+          } else {
+            results.warnings.push({ student_id: student.id, warning: access.reason })
+          }
+        }
+        return buildTransitionEmail({ ...args, portal })
+      },
       baseUrl,
       batchId,
     })
@@ -338,7 +359,7 @@ export default async function handler(req, res) {
     // The form_sent / token_resent audit event is written INSIDE
     // ngrp_activate_token_tx, in the same transaction that activated the
     // link - the endpoint deliberately does not write a second one.
-    results.sent.push({ student_id: student.id, resent: outcome.outcome === 'resent' })
+    results.sent.push({ student_id: student.id, resent: outcome.outcome === 'resent', portal: portalGranted.has(student.id) })
   }
 
   return res.status(200).json({

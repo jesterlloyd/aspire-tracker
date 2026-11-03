@@ -10,6 +10,7 @@ import { Link } from 'react-router-dom';
 import { Eye, EyeOff, MailCheck } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { appUrl } from '../lib/appUrl';
+import { ACTIVATION_PAGE_SENTENCE } from '../../lib/server/activationLifetime.js';
 import '../styles/aspireBrand.css';
 import './login.css';
 import BackButton from '../components/BackButton';
@@ -37,6 +38,9 @@ export default function Login() {
   const [loading, setLoading]       = useState(false);
   const [error, setError]           = useState('');
   const [showForgot, setShowForgot] = useState(false);
+  // TRANSITION-PORTAL-1: the same request, landing on the activation screen instead of the reset
+  // screen, for someone whose invitation link expired before they set a password.
+  const [activation, setActivation] = useState(false);
   const [resetSent, setResetSent]   = useState(false);
 
   const handleLogin = async (e) => {
@@ -58,7 +62,7 @@ export default function Login() {
     // exists); only a transport failure surfaces separately.
     try {
       await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: appUrl('/auth/reset-password'),
+        redirectTo: appUrl(activation ? '/auth/activate' : '/auth/reset-password'),
       });
       setResetSent(true);
     } catch {
@@ -141,8 +145,11 @@ export default function Login() {
                 </form>
 
                 <div className="lg-form-links">
-                  <button onClick={() => setShowForgot(true)} className="lg-linkbtn">
+                  <button onClick={() => { setActivation(false); setShowForgot(true); }} className="lg-linkbtn">
                     Forgot your password?
+                  </button>
+                  <button onClick={() => { setActivation(true); setShowForgot(true); }} className="lg-linkbtn">
+                    Email me a new activation link
                   </button>
                 </div>
               </>
@@ -150,16 +157,18 @@ export default function Login() {
               <div className="lg-reset-done" role="status">
                 <div className="lg-reset-done-icon" aria-hidden="true"><MailCheck size={34} /></div>
                 <h2>Check your email</h2>
-                <p>If an ASPIRE account uses {email}, a reset link is on its way.</p>
+                <p>If an ASPIRE account uses {email}, {activation ? 'a new activation link' : 'a reset link'} is on its way.{activation ? ` ${ACTIVATION_PAGE_SENTENCE}` : ''}</p>
                 <div className="lg-form-links">
                   <BackButton label="Back to sign in" onClick={() => { setShowForgot(false); setResetSent(false); }} />
                 </div>
               </div>
             ) : (
               <>
-                <h2 className="lg-form-title">Reset your password</h2>
+                <h2 className="lg-form-title">{activation ? 'Get a new activation link' : 'Reset your password'}</h2>
                 <p className="lg-form-sub">
-                  Enter your email and we will send you a reset link.
+                  {activation
+                    ? 'Enter the email your invitation went to and we will send you a new link to set your password.'
+                    : 'Enter your email and we will send you a reset link.'}
                 </p>
                 <form onSubmit={handleReset} className="lg-form">
                   <div>
@@ -169,7 +178,7 @@ export default function Login() {
                       required placeholder="your@email.com" autoComplete="email" />
                   </div>
                   <button type="submit" disabled={loading} className="lg-submit">
-                    {loading ? 'Sending...' : 'Send Reset Link'}
+                    {loading ? 'Sending...' : activation ? 'Send Activation Link' : 'Send Reset Link'}
                   </button>
                 </form>
                 <div className="lg-form-links">

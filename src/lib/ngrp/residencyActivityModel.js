@@ -19,6 +19,7 @@ export const EVENT_LABELS = Object.freeze({
   form_revised: 'Revised the Transition Form',
   token_revoked: 'Revoked a form link',
   token_resent: 'Resent the Transition Form',
+  form_deadline_extended: 'Changed the Transition Form deadline',
   eligibility_calculated: 'Eligibility calculated',
   eligibility_overridden: 'Overrode eligibility',
   application_confirmed: 'Confirmed the application',
@@ -71,7 +72,7 @@ export const ACTION_GROUPS = Object.freeze([
   Object.freeze({ key: 'flags', label: 'Flags', types: ['followup_flagged', 'followup_unflagged'] }),
   Object.freeze({ key: 'documents', label: 'Documents and résumés', types: ['document_uploaded', 'resume_scored', 'packet_downloaded'] }),
   Object.freeze({ key: 'roster', label: 'Roster', types: ['alumnus_added', 'alumnus_removed', 'alumnus_invited'] }),
-  Object.freeze({ key: 'application', label: 'Application', types: ['form_sent', 'form_opened', 'form_submitted', 'form_revised', 'token_revoked', 'token_resent', 'eligibility_calculated', 'eligibility_overridden', 'application_confirmed', 'application_withdrawn', 'unit_preferences_set', 'not_proceeding_recorded', 'application_reinstated'] }),
+  Object.freeze({ key: 'application', label: 'Application', types: ['form_sent', 'form_opened', 'form_submitted', 'form_revised', 'token_revoked', 'token_resent', 'form_deadline_extended', 'eligibility_calculated', 'eligibility_overridden', 'application_confirmed', 'application_withdrawn', 'unit_preferences_set', 'not_proceeding_recorded', 'application_reinstated'] }),
   Object.freeze({ key: 'hiring', label: 'Interviews and hiring', types: ['unit_assigned', 'unit_assignment_cleared', 'interview_recorded', 'offer_extended', 'offer_accepted', 'offer_declined', 'hire_recorded', 'not_selected', 'interview_rubric_completed', 'interview_rubric_reopened', 'interview_times_opened', 'interview_times_removed', 'interview_slot_blocked', 'interview_slot_unblocked', 'interview_booked', 'interview_booking_cancelled'] }),
 ])
 export const matchesGroup = (row, groupKey) => {

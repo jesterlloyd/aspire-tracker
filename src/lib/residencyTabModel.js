@@ -3,12 +3,13 @@
 // RESIDENCY-TAB-1: the words and groupings on the Student Portal's Residency tab. Pure, so the
 // page and its tests read one set of rules.
 
+// TRANSITION-PORTAL-1: the form opens here too, under their sign-in, so the notes say so.
 export const FORM_WORDS = {
-  not_sent: { label: 'Not sent yet', tone: 'off', note: 'Your ASPIRE team sends it to your email when the application window is near.' },
-  sent: { label: 'Waiting for you', tone: 'warn', note: 'It is in your email. Open the link there to fill it in.' },
-  opened: { label: 'Started', tone: 'warn', note: 'You opened it. Finish it from the link in your email.' },
-  in_progress: { label: 'In progress', tone: 'warn', note: 'Your answers are saved. Finish it from the link in your email.' },
-  submitted: { label: 'Submitted', tone: 'ok', note: 'Thank you. You can still revise it from the link in your email until the deadline.' },
+  not_sent: { label: 'Not sent yet', tone: 'off', note: 'Your ASPIRE team sends it to your email when the application window is near. It opens here too.' },
+  sent: { label: 'Waiting for you', tone: 'warn', note: 'Open it here, or from the link in your email. Both open the same form.' },
+  opened: { label: 'Started', tone: 'warn', note: 'You opened it. Finish it here, or from the link in your email.' },
+  in_progress: { label: 'In progress', tone: 'warn', note: 'Your answers are saved. Finish it here, or from the link in your email.' },
+  submitted: { label: 'Submitted', tone: 'ok', note: 'Thank you. You can still edit your answers here until the deadline.' },
 }
 export const formWords = status => FORM_WORDS[status] || FORM_WORDS.not_sent
 

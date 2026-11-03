@@ -9,7 +9,8 @@
 //
 // The alumnus sees their own records only, and never a Keith score, report, draft or staff
 // note: the server sends none (api/portal/my-residency.js), and nothing here asks for one.
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Upload } from 'lucide-react'
 import { postMyResidency, uploadMyDocument, openMyDocument, myUploadErrorText } from '../lib/myResidencyApi'
 import { fetchMyCalendarEvents } from '../lib/studentRotationActivity'
@@ -23,6 +24,22 @@ import { useReportPortalFailure, ACCESS_FAILURE } from './portalAccessSignal'
 import './studentResidency.css'
 import ResumeFeedbackCard from '../components/documents/ResumeFeedbackCard'
 import ApplicationProfileCard from './ApplicationProfileCard'
+import BackButton from '../components/BackButton'
+import { lazyReload } from '../lib/lazyReload'
+import { transitionDisclaimer } from '../lib/ngrp/transitionDisclaimer'
+// TRANSITION-PORTAL-1: the Transition Form itself, the same component the emailed link opens,
+// loaded only when they open it.
+const NgrpTransitionFormPage = lazyReload(() => import('../pages/NgrpTransitionFormPage'), 'NgrpTransitionFormPage')
+
+const PORTAL_FORM_ACTIONS = { load: 'form_load', save_draft: 'form_save_draft', submit: 'form_submit' }
+// The form page speaks { status, body }; the portal helper speaks { ok, status, ... }.
+async function portalFormPost(action, extra = {}) {
+  const r = await postMyResidency(PORTAL_FORM_ACTIONS[action], extra)
+  return r.ok ? { status: 200, body: r } : { status: r.status || 0, body: { error: r.error, errors: r.errors } }
+}
+const PORTAL_FORM = { post: portalFormPost }
+
+const pacificDay = iso => (iso ? new Date(iso).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'America/Los_Angeles' }) : null)
 
 const CHIP = { ok: 'ptl-chip ptl-chip-ok', warn: 'ptl-chip ptl-chip-wait', off: 'ptl-chip ptl-chip-soft' }
 
@@ -111,6 +128,10 @@ export default function StudentResidency({ active }) {
   const [uploading, setUploading] = useState(null) // type key
   const [historyOpen, setHistoryOpen] = useState(null)
   const [notice, setNotice] = useState('')
+  // ?form=1 (the email's portal link) opens the form on arrival.
+  const [params, setParams] = useSearchParams()
+  const formOpen = params.get('form') === '1'
+  const setFormOpen = (open) => setParams(p => { const n = new URLSearchParams(p); if (open) n.set('form', '1'); else n.delete('form'); return n })
   const reportFailure = useReportPortalFailure()
   const today = localToday()
 
@@ -155,6 +176,22 @@ export default function StudentResidency({ active }) {
   }
 
   const form = formWords(data.form?.status)
+  const formSent = Boolean(data.form?.status && data.form.status !== 'not_sent')
+  const closeDay = pacificDay(data.form?.close_at)
+  const formClosed = Boolean(data.form?.close_at && new Date(data.form.close_at) < new Date())
+
+  if (formOpen) {
+    return (
+      <div className="sr-root">
+        <BackButton label="Back to Residency" onClick={() => { setFormOpen(false); load() }} />
+        <div className="ngrpf-embed">
+          <Suspense fallback={<div className="ptl-card" role="status">Opening your Transition Form…</div>}>
+            <NgrpTransitionFormPage portal={PORTAL_FORM} />
+          </Suspense>
+        </div>
+      </div>
+    )
+  }
   const uploadType = uploading ? docs?.types.find(t => t.key === uploading) : null
   const done = (msg) => { setUploading(null); setNotice(msg); load() }
   const view = async (versionId) => { const r = await openMyDocument(versionId); if (!r.ok) setNotice('That file could not be opened. Try again.') }
@@ -273,6 +310,15 @@ export default function StudentResidency({ active }) {
           {!data.form?.submitted_at && data.form?.sent_at && <span className="ptl-muted">Sent {shortDay(data.form.sent_at)}</span>}
         </p>
         <p className="ptl-muted">{form.note}</p>
+        {formSent && closeDay && (
+          <p className="ptl-muted">{formClosed ? `It closed on ${closeDay}.` : `You can edit your answers until ${closeDay}.`}</p>
+        )}
+        {formSent && (
+          <button type="button" className="ptl-btn ptl-btn-sm" onClick={() => setFormOpen(true)}>
+            {formClosed ? 'View your form' : data.form.status === 'submitted' ? 'Edit your form' : 'Open your form'}
+          </button>
+        )}
+        <p className="ptl-muted sr-foot">{transitionDisclaimer(dayLabel(data.cycle?.application_open_date) || null)}</p>
       </section>
 
       <section className="ptl-card" aria-labelledby="sr-events">

@@ -55,7 +55,11 @@ test('the approved body copy renders', () => {
     'As an alum',
     'New Graduate RN Residency Program (NGRP) application',
     'This link is personal to you, please do not forward it',
-    'It is not an application to the\n      residency program. The ASPIRE team will guide the official application step separately',
+    // TRANSITION-PORTAL-1 (Owner, 2026-11-02) reworded the disclaimer: not an application, they
+    // still apply when it opens, and the form only assesses readiness.
+    'This form and any documents you upload are not your residency application',
+    'You will still need to apply when the application opens',
+    'assess your readiness for the residency',
     'If you have questions, email',
   ]) {
     assert.ok(html.includes(phrase), `missing: ${phrase}`)

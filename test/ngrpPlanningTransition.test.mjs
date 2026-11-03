@@ -47,7 +47,9 @@ const sendApi      = read('api/ngrp-transition-send.js')
 // module so the in-app preview renders the SAME template the send uses. The copy and
 // the Pacific close-date formatting live there now; the endpoint keeps the gates.
 const transitionEmail = read('lib/server/email/ngrpTransitionEmail.js')
-const publicApi    = read('api/ngrp-transition.js')
+// TRANSITION-PORTAL-1: load, save_draft and submit moved into lib/server/ngrpTransitionActions.js so the
+// Student Portal runs the same rules; the endpoint keeps the token, limiter and code gates. Read as one.
+const publicApi    = read('api/ngrp-transition.js') + '\n' + read('lib/server/ngrpTransitionActions.js')
 const appJsx       = read('src/App.jsx')
 const outreachView = read('src/components/connect/OutreachView.jsx')
 const sendPanel    = read('src/components/connect/NgrpTransitionSendPanel.jsx')
@@ -907,7 +909,10 @@ test('send: endpoint gates - no request-body recipients, typed confirmation, cap
   assert.match(sendApi, /fetchAddedStudentIds\(db, cycle\.id\)/)
   // send copy discipline: the user-facing phrase "Invited to Apply" never appears
   assert.doesNotMatch(sendApi, /Invited to Apply/)
-  assert.match(transitionEmail, /not an application to the/)
+  // TRANSITION-PORTAL-1 reworded the disclaimer (Owner, 2026-11-02) and moved it to one module
+  // the email and the Student Portal both read; the point is unchanged.
+  assert.match(transitionEmail, /transitionDisclaimer\(opens\)/)
+  assert.match(read('src/lib/ngrp/transitionDisclaimer.js'), /not your residency application/)
 })
 
 test('send: idempotency is DURABLE - fail-closed probe, claim + bind before mail, accepted rows skip, one key per token', () => {

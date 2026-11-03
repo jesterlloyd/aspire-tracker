@@ -63,9 +63,11 @@ test('without a session the endpoint shows nothing and changes nothing', () => {
   const api = read('api/ngrp-transition.js')
   const gate = api.indexOf('if (!checkSession(body.session, assignment.id, tokenHash))')
   assert.ok(gate > 0)
-  assert.ok(gate < api.indexOf("if (action === 'load') {"), 'the gate comes before load')
-  assert.ok(gate < api.indexOf("if (action === 'save_draft') {"))
-  assert.ok(gate < api.indexOf("if (action === 'submit') {"))
+  // TRANSITION-PORTAL-1: load, save_draft and submit live in the shared actions module, reached only
+  // through runTransitionAction, which the endpoint calls after the gate.
+  assert.ok(gate < api.indexOf('runTransitionAction(supabaseAdmin'), 'the gate comes before every form action')
+  const actions = read('lib/server/ngrpTransitionActions.js')
+  for (const a of ['load', 'save_draft', 'submit']) assert.ok(actions.includes(`if (action === '${a}') {`))
   assert.match(api, /return res\.status\(401\)\.json\(\{ error: 'verify_required' \}\)/)
   assert.match(api, /return res\.status\(200\)\.json\(\{ state: 'verify', maskedEmail: maskEmail\(routed\.email\), cycleName: cycle\.name \}\)/)
   assert.match(api, /bucketKey\('ngrp_transition_verify_link', tokenHash\)/)

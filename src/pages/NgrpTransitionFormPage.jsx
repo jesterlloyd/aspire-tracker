@@ -59,6 +59,8 @@ function mergePayload(base) {
 const CSS = `
   .ngrpf-page { min-height: 100vh; background: #F4F1EC; font-family: ${F}; color: #191919; padding: 24px 14px 64px; }
   .ngrpf-shell { max-width: 720px; margin: 0 auto; }
+  /* TRANSITION-PORTAL-1: inside the Student Portal the portal is the page. */
+  .ngrpf-embed .ngrpf-page { min-height: 0; background: transparent; padding: 0 0 24px; }
   .ngrpf-mast { background: #1D2567; color: #fff; border-radius: 14px 14px 0 0; padding: 22px 26px; }
   .ngrpf-mast h1 { margin: 0 0 4px; font-size: 21px; font-weight: 700; }
   .ngrpf-mast p { margin: 0; font-size: 13px; color: rgba(255,255,255,0.75); }
@@ -138,9 +140,14 @@ const preventImplicitSubmit = e => {
 // from sample data by the staff screen (src/lib/ngrp/transitionFormPreview.js). With it the
 // page reads no token, calls no endpoint and leaves the address bar alone: nothing typed is
 // saved and Submit is off. It is the same component, so the preview cannot drift from the form.
-export default function NgrpTransitionFormPage({ preview = null }) {
+//
+// TRANSITION-PORTAL-1: `portal` is the Student Portal's door, { post(action, extra) -> { status, body } }.
+// The alumnus is signed in, so there is no token, no code and no address-bar handling; every
+// answer still goes through the same server rules (lib/server/ngrpTransitionActions.js).
+export default function NgrpTransitionFormPage({ preview = null, portal = null }) {
   const [initial] = useState(() => {
     if (preview) return { rawToken: null, valid: false, preview: true }
+    if (portal) return { rawToken: null, valid: true, portal: true }
     const match = TOKEN_PATTERN.exec(window.location.hash)
     const kept = tabRead()
     if (match) {
@@ -171,11 +178,13 @@ export default function NgrpTransitionFormPage({ preview = null }) {
     // page text into links, rewriting text React still owns; switching screens then failed
     // with "The object can not be found here." Ask WebKit not to, for this page.
     const fd = document.createElement('meta'); fd.name = 'format-detection'; fd.content = 'telephone=no, email=no, address=no, date=no'; document.head.appendChild(fd)
-    if (!initial.preview) window.history.replaceState(null, '', window.location.pathname)
+    if (!initial.preview && !initial.portal) window.history.replaceState(null, '', window.location.pathname)
     return () => { m.remove(); fd.remove(); document.getElementById('ngrpf-css')?.remove() }
-  }, [initial.preview])
+  }, [initial.preview, initial.portal])
 
+  const portalPost = portal?.post
   const post = useCallback(async (action, extra = {}) => {
+    if (portalPost) return portalPost(action, extra)
     const res = await fetch('/api/ngrp-transition', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -189,7 +198,7 @@ export default function NgrpTransitionFormPage({ preview = null }) {
       tabWrite({ t: initial.rawToken, s: body.session })
     }
     return { status: res.status, body }
-  }, [initial.rawToken])
+  }, [initial.rawToken, portalPost])
 
   // TRANSITION-FORM-CODE-1: the form opens only after a one-time code sent to the alumnus's
   // own email. The session lives in memory: a reload means reopening the link and a new code.
@@ -229,6 +238,7 @@ export default function NgrpTransitionFormPage({ preview = null }) {
         return
       }
       if (status === 200 && body?.state === 'closed' && !body.cycleName) { setView('closed'); return }
+      if (status === 200 && body?.state === 'not_sent') { setView('not_sent'); return }
       if (status === 200 && body) {
         setMeta(body)
         setPayload(mergePayload(body.base || {
@@ -254,12 +264,12 @@ export default function NgrpTransitionFormPage({ preview = null }) {
       if (!dirtyRef.current) return
       dirtyRef.current = false
       const { status } = await post('save_draft', { payload: nextPayload })
-      if (status === 401) { setView('verify'); return }
+      if (status === 401) { setView(initial.portal ? 'error' : 'verify'); return }
       if (status === 200) {
         setSavedLine(`Draft saved ${new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`)
       }
     }, 1500)
-  }, [post, initial.preview])
+  }, [post, initial.preview, initial.portal])
   useEffect(() => () => clearTimeout(saveTimer.current), [])
 
   const update = (section, field, value) => {
@@ -306,7 +316,7 @@ export default function NgrpTransitionFormPage({ preview = null }) {
     const { status, body } = await post('submit', { payload })
     setSubmitting(false)
     if (status === 200 && body?.success) { setMeta(m => ({ ...m, revisionNumber: body.revisionNumber })); setView('thank_you'); return }
-    if (status === 401) { setView('verify'); return }
+    if (status === 401) { setView(initial.portal ? 'error' : 'verify'); return }
     if (status === 422) { showErrors(body?.errors || [{ message: 'Please review the required fields and try again.' }]); return }
     if (status === 410) { setErrorMessage(body?.error || 'The window for this Transition Form has closed.'); setView('closed_late'); return }
     if (status === 429) { showErrors([{ message: 'Too many requests - wait a minute and try again. Your draft is saved.' }]); return }
@@ -366,7 +376,8 @@ export default function NgrpTransitionFormPage({ preview = null }) {
           ? `Your submitted form is safe with the ASPIRE team${meta?.revisionCount > 1 ? ` (revision ${meta.revisionCount})` : ''}. No further changes can be made.`
           : 'The window for this Transition Form has closed. Contact the ASPIRE team if you still intend to participate.'],
       closed_late:  ['This form window has closed', errorMessage || 'The window closed before this change was saved. Your previously submitted form, if any, is retained.'],
-      thank_you:    ['Thank you!', `Your Transition Form has been ${meta?.revisionNumber > 1 ? 'updated' : 'submitted'}. The ASPIRE team will review your information and follow up about next steps. You can revise it from the same link until the window closes.`],
+      thank_you:    ['Thank you!', `Your Transition Form has been ${meta?.revisionNumber > 1 ? 'updated' : 'submitted'}. The ASPIRE team will review your information and follow up about next steps. You can revise it ${initial.portal ? 'here' : 'from the same link'} until the window closes.`],
+      not_sent:     ['Not sent yet', 'The ASPIRE team has not sent you a Transition Form for this residency cohort yet. When they do, it opens here.'],
     }[view] || ['', '']
     return (
       <div className="ngrpf-page" key={view}>

@@ -17,6 +17,9 @@
 //   upload_finish { doc_type, path, file_name, doc_date?, date_confirmed? } -> filed, via 'portal'
 //   open          { version_id }                          -> a 60 s link, own versions only
 //   profile_save  { profile }  -> ADD-ALUMNUS-1: their application profile, on their own record
+//   form_load | form_save_draft | form_submit  { payload? }
+//                 -> TRANSITION-PORTAL-1: their Transition Form, the same rules as the emailed link
+//                    (lib/server/ngrpTransitionActions.js), signed in instead of an emailed code.
 // Uploads go through lib/server/studentDocuments.js, the staff path: replacing never deletes, a
 // résumé is kept from the record first, a dated document needs the date confirmed.
 import process from 'node:process'
@@ -28,8 +31,10 @@ import { cycleForStudent, keyDates, transitionFormStatus, supportReceived, alumn
 import { extsFor, DOCUMENT_MAX_BYTES } from '../../src/lib/documents/documentChecklist.js'
 import { validateProfile, studentColumnsFrom } from '../../lib/server/ngrpAddedAlumni.js'
 import { placementUnitsByStudent } from '../../lib/server/ngrpPlacementUnits.js'
+import { runTransitionAction, resolveStudentAssignment } from '../../lib/server/ngrpTransitionActions.js'
 
-const ACTIONS = new Set(['status', 'summary', 'upload_start', 'upload_finish', 'open', 'profile_save'])
+const FORM_ACTIONS = { form_load: 'load', form_save_draft: 'save_draft', form_submit: 'submit' }
+const ACTIONS = new Set(['status', 'summary', 'upload_start', 'upload_finish', 'open', 'profile_save', ...Object.keys(FORM_ACTIONS)])
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const internal = res => res.status(500).json({ error: 'internal_error' })
 
@@ -93,7 +98,7 @@ export default async function handler(req, res) {
       if (c.error || support.error) return internal(res)
       const documentsProvisioned = !(docs.error && isMissingTable(docs.error))
       if (docs.error && documentsProvisioned) return internal(res)
-      const form = await transitionFormStatus(db, { cycleId: c.cycle?.id || null, studentId: student.id })
+      const form = await transitionFormStatus(db, { cycleId: c.cycle?.id || null, studentId: student.id, cycle: c.cycle })
       if (form.error) return internal(res)
       // RESUME-FEEDBACK-1: before 20261105000000 there are no reviews; nothing to show.
       const fb = await resumeFeedback(db, student.id)
@@ -106,7 +111,7 @@ export default async function handler(req, res) {
       return res.status(200).json({
         ok: true,
         firstName: student.preferred_first_name || student.first_name || '',
-        cycle: c.cycle ? { name: c.cycle.name, status: c.cycle.status } : null,
+        cycle: c.cycle ? { name: c.cycle.name, status: c.cycle.status, application_open_date: c.cycle.application_open_date || null } : null,
         dates: keyDates(c.cycle),
         form,
         support: support.entries,
@@ -118,6 +123,20 @@ export default async function handler(req, res) {
         // a precepted unit from their ASPIRE placement are the program's, and read-only here.
         profile: await applicationProfile(db, student),
       })
+    }
+
+    // TRANSITION-PORTAL-1: the Transition Form under the portal session. No code: the session is
+    // the identity. Every rule (deadline, validation, transactions, audit) is the link's own.
+    if (FORM_ACTIONS[action]) {
+      const c = await cycleForStudent(db, student)
+      if (c.error) return internal(res)
+      const resolved = await resolveStudentAssignment(db, { cycleId: c.cycle?.id || null, studentId: student.id, nowIso })
+      if (resolved.state === 'error') return internal(res)
+      if (resolved.state === 'not_sent') {
+        return action === 'form_load' ? res.status(200).json({ state: 'not_sent' }) : res.status(409).json({ error: 'not_sent' })
+      }
+      const out = await runTransitionAction(db, { action: FORM_ACTIONS[action], body, resolved, nowIso })
+      return res.status(out.status).json(out.json)
     }
 
     if (action === 'profile_save') {

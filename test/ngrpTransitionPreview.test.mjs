@@ -33,6 +33,8 @@ const { NGRP_TRANSITION_PREVIEW, transitionPreviewFor } = await import('../src/l
 
 test('one template: the send and the preview import the same builder', () => {
   assert.match(read(ENDPOINT), /import \{ buildTransitionEmail \} from '\.\.\/lib\/server\/email\/ngrpTransitionEmail\.js'/)
+  // TRANSITION-PORTAL-1: the endpoint wraps the builder to add the portal section; it still calls it.
+  assert.match(read(ENDPOINT), /return buildTransitionEmail\(\{ \.\.\.args, portal \}\)/)
   assert.match(read(FIXTURE), /import \{ buildTransitionEmail \} from '[^']*ngrpTransitionEmail\.js'/)
   // The endpoint must not have kept a copy of the copy.
   const ep = strip(read(ENDPOINT))
@@ -46,7 +48,8 @@ test('the builder is pure: it can be imported by the browser', () => {
     assert.doesNotMatch(src, forbidden, `builder must not reach for ${forbidden}`)
   }
   // It receives the URL; it never mints one. That is what keeps token minting on the server.
-  assert.match(src, /export function buildTransitionEmail\(\{ student, cycle, url, closeText \}\)/)
+  // TRANSITION-PORTAL-1 added portal, which the endpoint fills on the server.
+  assert.match(src, /export function buildTransitionEmail\(\{ student, cycle, url, closeText, portal = null \}\)/)
 })
 
 // ── The preview cannot leak a token ──────────────────────────────────────────
@@ -92,7 +95,8 @@ test('no cohort in scope degrades to a generic phrase, never a made-up cohort', 
 test('ApplicantsTab passes the live cohort and memoizes it', () => {
   const tab = read(TAB)
   // PREVIEW-CLOSE-DATE-1 (this commit) added the cohort's deadline beside its name.
-  assert.match(tab, /transitionPreviewFor\(cycle\?\.name, cycle\?\.application_deadline\),\s*\[cycle\?\.name, cycle\?\.application_deadline\]/)
+  // TRANSITION-PORTAL-1 also passes the open and start dates; the memo still keys on the cohort's values.
+  assert.match(tab, /transitionPreviewFor\(cycle\?\.name, cycle\?\.application_deadline, \{[\s\S]*?\}\),\s*\[cycle\?\.name, cycle\?\.application_deadline, cycle\?\.application_open_date, cycle\?\.residency_start_date\]/)
   assert.match(tab, /entry=\{transitionPreview\}/)
   // A fresh object every parent render would re-render the email on every keystroke in
   // the search box above it.
@@ -117,7 +121,8 @@ test('both variants render, and the close-date fork is real', () => {
 
 test('the default variant is a real one, so a caller passing nothing still renders', () => {
   const keys = NGRP_TRANSITION_PREVIEW.variants.map(v => v.key)
-  assert.deepEqual(keys, ['with_close', 'no_close'])
+  // TRANSITION-PORTAL-1 added has_account: the portal half differs for someone with a password.
+  assert.deepEqual(keys, ['with_close', 'has_account', 'no_close'])
   assert.ok(NGRP_TRANSITION_PREVIEW.render().html.length > 1000)
 })
 
@@ -159,4 +164,25 @@ test('PREVIEW-CLOSE-DATE-1: the close date is the cohort deadline, else the samp
   assert.doesNotMatch(live, /November 5, 2026/)
   assert.match(transitionPreviewFor('Winter 2027', null).render('with_close').html, /November 5, 2026/)
   assert.doesNotMatch(transitionPreviewFor('Winter 2027', '2026-11-11').render('no_close').html, /November 11, 2026/)
+})
+
+// ── TRANSITION-PORTAL-1 ──────────────────────────────────────────────────────
+
+test('the email states portal access, the password step and the disclaimer', () => {
+  const entry = transitionPreviewFor('January 2027', '2026-11-11', { applicationOpenDate: '2026-11-03', residencyStartDate: '2027-01-20' })
+  const first = entry.render('with_close').html
+  const returning = entry.render('has_account').html
+  assert.match(first, /Your portal access runs through <strong>January 31, 2027<\/strong>/)
+  assert.match(first, /edit your answers there until <strong>November 11, 2026<\/strong>/)
+  assert.match(first, /Set your portal password/)
+  assert.match(first, /Email me a new activation link/)
+  assert.doesNotMatch(returning, /Set your portal password/)
+  assert.match(returning, /Sign in to the Student Portal/)
+  for (const html of [first, returning]) {
+    assert.match(html, /not your residency application/)
+    assert.match(html, /still need to apply when the application opens on November 3, 2026/)
+    assert.match(html, /assess your readiness/)
+  }
+  // No cohort start date: nothing to promise, so no portal section.
+  assert.doesNotMatch(transitionPreviewFor('X').render().html, /Student Portal/)
 })

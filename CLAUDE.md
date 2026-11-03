@@ -2895,3 +2895,31 @@ ASPIRE team and Talent Acquisition mark the same one, in the staff app and the R
   Writes: ngrp-manage `sheet_layout`, `sheet_cells`, both audiences, a row checked against the cohort.
 - **Download Excel is the view** (`applicantSheetXlsx`): the rows, columns, order, highlights and
   grouping shown; answers are inline strings, numbers stay numbers. The old `export` action stays.
+
+## The Transition Form opens the Student Portal (TRANSITION-PORTAL-1, 2026-11-02)
+
+Owner, after Jorge Velasco was locked out by the emailed code on his deadline day: every send
+also opens the alumnus's Student Portal, and the form opens there under their own sign-in.
+
+- **Every send provisions access** (`ensureStudentPortalAccess` in `lib/server/ngrpPortalAccess.js`,
+  called inside the send's `buildEmail`, so only an email that really goes out mints anything). It
+  reactivates an expired student grant or creates one through `provision_portal_access`, running
+  through the last day of the residency start month (`portalAccessEnd`, Pacific). A longer or
+  open-ended grant is never shortened. A student whose link staff REVOKED is left alone. An account
+  that never set a password gets an activation link in the email; a demo send creates nothing. A
+  failure is a warning on the send, never a failed send. Reminder emails (TRANSITION-REMINDER-1)
+  are unchanged and carry no portal section.
+- **The email** states the form link, the portal and its sign-in email, the access end, that
+  answers can be edited there until the close date, and the disclaimer, which lives once in
+  `src/lib/ngrp/transitionDisclaimer.js` for the email and the portal: not an application, they
+  still apply when it opens, the form only assesses readiness.
+- **The form in the portal** is `NgrpTransitionFormPage` with `portal` (no token, no code, no
+  address-bar handling), at Student Portal > Residency `?form=1`. `api/portal/my-residency.js`
+  resolves the student from the session and runs the SAME load, save and submit as the link
+  (`runTransitionAction` in `lib/server/ngrpTransitionActions.js`, extracted unchanged from
+  `api/ngrp-transition.js`). Same close date; nothing sent means `not_sent`.
+- **The sign-in page** offers "Email me a new activation link" (a recovery email to `/auth/activate`).
+- **Staff, per alumnus**: the binder's button reads Send a New Link, and the Transition Form
+  section has **Extend Deadline**, which sets the live assignment's `deadline_at` (`ngrp-manage`
+  `form_deadline_set`, Owner/Admin side only, no email) and audits `form_deadline_extended`
+  (`20261120000000_transition_deadline_audit.sql`, Owner-gated; before it the date still saves).

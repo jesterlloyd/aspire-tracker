@@ -20,12 +20,19 @@
 
 import { buildTransitionEmail } from '../../../lib/server/email/ngrpTransitionEmail.js'
 import { effectiveFormClose } from '../../../lib/server/ngrpTransition.js'
+import { portalAccessEnd } from '../../../lib/server/ngrpPortalAccess.js'
 
 // Obviously-fake and obviously-not-a-token. Anyone screenshotting this preview is
 // sharing a placeholder, not a live link.
 const SAMPLE_URL = 'https://aspireintelligence.app/ngrp/transition/#sample-preview-not-a-real-link'
 
 const SAMPLE_STUDENT = { first_name: 'Jordan', name: 'Jordan Avery' }
+
+// TRANSITION-PORTAL-1: the portal half. The sign-in address and the activation link are
+// visible fakes too; the access end is the send's own rule over the cohort's start date.
+const SAMPLE_SIGN_IN = 'jordan.avery@example.com'
+const SAMPLE_ACTIVATION = 'https://aspireintelligence.app/auth/activate#sample-preview-not-a-real-link'
+const SAMPLE_PORTAL_URL = 'https://aspireintelligence.app/portal/residency?form=1'
 
 // The copy genuinely forks on whether the cohort has a configured close date, so both
 // halves are reviewable rather than only the one today's data happens to produce.
@@ -47,20 +54,27 @@ const FALLBACK_CYCLE_NAME = 'the upcoming residency cohort'
 // (effectiveFormClose, the send's own rule). The sample date read as the real deadline and
 // disagreed with the form. It is used only when the cohort has no deadline yet, so the
 // "has a close date" half stays reviewable.
-export function transitionPreviewFor(cycleName, applicationDeadline = null) {
+export function transitionPreviewFor(cycleName, applicationDeadline = null, { applicationOpenDate = null, residencyStartDate = null } = {}) {
   const name = String(cycleName || '').trim() || FALLBACK_CYCLE_NAME
   const close = effectiveFormClose({ application_deadline: applicationDeadline }, null) || SAMPLE_CLOSE
+  const cycle = { name, application_open_date: applicationOpenDate }
+  const accessEndsAt = portalAccessEnd({ residency_start_date: residencyStartDate })
+  const portal = activation => (accessEndsAt
+    ? { signInUrl: SAMPLE_PORTAL_URL, signInEmail: SAMPLE_SIGN_IN, accessEndsAt, activationLink: activation ? SAMPLE_ACTIVATION : null }
+    : null)
   return {
     recipientType: 'Completed ASPIRE alum',
     variants: [
-      { key: 'with_close', label: 'Cohort has a close date' },
+      { key: 'with_close', label: 'First portal sign-in' },
+      { key: 'has_account', label: 'Already has a portal password' },
       { key: 'no_close',   label: 'No close date set' },
     ],
     render: (variant = 'with_close') => buildTransitionEmail({
       student: SAMPLE_STUDENT,
-      cycle: { name },
+      cycle,
       url: SAMPLE_URL,
       closeText: variant === 'no_close' ? null : close,
+      portal: portal(variant !== 'has_account'),
     }),
   }
 }

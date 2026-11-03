@@ -42,7 +42,8 @@ test('the log: the migration allows exactly what the code writes, and every type
   // migration that sets it is the one that must equal the code's list.
   // NGRP-INTERVIEWS-1 (20261111000000) rebuilt it again with the interview types.
   // ADD-ALUMNUS-1 (20261116000000) rebuilt it with the alumnus types.
-  const latest = read('supabase/migrations/20261116000000_ngrp_added_alumni.sql')
+  // TRANSITION-PORTAL-1 (20261120000000) rebuilt it with form_deadline_extended.
+  const latest = read('supabase/migrations/20261120000000_transition_deadline_audit.sql')
   const check = latest.slice(latest.indexOf('CHECK (event_type IN ('), latest.indexOf("));", latest.indexOf('CHECK (event_type IN (')))
   const inSql = [...check.matchAll(/'([a-z_]+)'/g)].map(m => m[1]).sort()
   assert.deepEqual(inSql, [...NGRP_AUDIT_EVENTS].sort())

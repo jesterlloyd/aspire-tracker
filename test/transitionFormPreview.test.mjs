@@ -35,7 +35,8 @@ test('the page in preview mode calls no endpoint and never submits', () => {
   assert.match(page, /if \(initial\.preview\) return\n\s+dirtyRef/)
   assert.match(page, /if \(submitting \|\| initial\.preview\) return/)
   assert.match(page, /disabled=\{submitting \|\| initial\.preview\}/)
-  assert.match(page, /if \(!initial\.preview\) window\.history\.replaceState/)
+  // TRANSITION-PORTAL-1: the Student Portal's form has no token in the address bar either.
+  assert.match(page, /if \(!initial\.preview && !initial\.portal\) window\.history\.replaceState/)
 })
 
 test('the page renders the whole form, with the preview note and Submit off', async () => {
@@ -74,7 +75,7 @@ test('TRANSITION-FORM-READINESS-1: Online application stays official but is not 
   const r = validateSubmission({ readiness: { online_application: true, resume: true } }, { checklist: stored, requireComplete: false })
   assert.equal('online_application' in r.payload.readiness, false)
   assert.equal(r.payload.readiness.resume, true)
-  assert.match(read('api/ngrp-transition.js'), /const checklist = formReadinessChecklist\(cycle\.application_checklist\)/)
+  assert.match(read('lib/server/ngrpTransitionActions.js'), /const checklist = formReadinessChecklist\(cycle\.application_checklist\)/)
 })
 
 test('TRANSITION-FORM-ACLS-1: the form names this cohort\'s ACLS units and points at the rankings', async () => {

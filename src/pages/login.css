@@ -158,7 +158,7 @@
 .lg-linkbtn-strong {
   color: #1D2567; font-weight: 600; text-decoration: none; font-size: 13.5px;
 }
-.lg-form-links { text-align: center; margin-top: 14px; }
+.lg-form-links { text-align: center; margin-top: 14px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
 
 .lg-reset-done { text-align: center; padding: 18px 0; }
 .lg-reset-done-icon { display: flex; justify-content: center; margin-bottom: 10px; color: #157a3d; }
