@@ -206,6 +206,7 @@ export default function InterviewBoard({ cycle, canManage, toast }) {
   const [drawerId, setDrawerId] = useState(null)
   const [division, setDivision] = useState('')
   const [school, setSchool] = useState('')
+  const [sortBy, setSortBy] = useState('name')
   const [announcement, setAnnouncement] = useState('')
 
   const rows = useMemo(
@@ -304,8 +305,8 @@ export default function InterviewBoard({ cycle, canManage, toast }) {
   // on their unit's board, exactly as a placed student is.
   const waiting = useMemo(() => {
     const list = rows.filter(r => !r.assigned_unit && (!school || r.student?.school === school))
-    return orderInterviewees(list, focusedUnit, nameOf)
-  }, [rows, school, focusedUnit])
+    return orderInterviewees(list, focusedUnit, nameOf, sortBy)
+  }, [rows, school, focusedUnit, sortBy])
   const groups = useMemo(() => groupIntervieweesForUnit(waiting, focusedUnit), [waiting, focusedUnit])
 
   // A selected interviewee brings the units they ranked to the front, ribboned.
@@ -416,6 +417,11 @@ export default function InterviewBoard({ cycle, canManage, toast }) {
               {waiting.length} waiting{summary.placed > 0 ? ` · ${summary.placed} paired` : ''}
             </span>
             <span className="pb-hdr-spacer" />
+            {/* FIT-SORT-1: the highest Fit first, or A to Z. */}
+            <select className="pb-select" value={sortBy} onChange={e => setSortBy(e.target.value)} aria-label="Sort interviewees">
+              <option value="name">Name A to Z</option>
+              <option value="fit">Highest Fit</option>
+            </select>
             <select className="pb-select" value={school} onChange={e => setSchool(e.target.value)} aria-label="School">
               <option value="">All Schools</option>
               {schools.map(s => <option key={s} value={s}>{s}</option>)}

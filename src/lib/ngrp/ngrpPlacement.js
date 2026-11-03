@@ -24,6 +24,7 @@
 // as Not Proceeding. One definition, in lib/server/ngrpPool.js, read by the
 // board, the roster, At a Glance and every server write.
 import { isInApplicantPool, preferencesOf } from '../../../lib/server/ngrpPool.js'
+import { scoreSortValue } from './candidateScoreModel.js'
 
 export { preferencesOf }
 
@@ -157,9 +158,20 @@ export function orderForFocus(rows, unitName, nameOf) {
 // Interviewees waiting for a unit, in the order the board shows them: whoever
 // ranked the focused unit first (by rank), then alphabetically. Paired people are
 // not here - they are notes on their unit's board, the way a placed student is.
-export function orderInterviewees(rows, unitName, nameOf) {
+// FIT-SORT-1 (Owner, 2026-11-02): `by: 'fit'` puts the highest Fit first, within the
+// focused unit's ranks when one is focused. The order is Interest & Eligibility's (scoreSortValue):
+// every complete Fit above every provisional one, and none or Not eligible last.
+export function orderInterviewees(rows, unitName, nameOf, by = 'name') {
+  const fit = r => scoreSortValue(r.candidate_score)
+  const byFit = (a, b) => {
+    if (by !== 'fit') return 0
+    const x = fit(a), y = fit(b)
+    if (x == null || y == null) return x == null ? (y == null ? 0 : 1) : -1
+    return y - x
+  }
   return [...(rows || [])].sort((a, b) => (
     (unitName ? preferenceRankFor(a, unitName) - preferenceRankFor(b, unitName) : 0)
+    || byFit(a, b)
     || String(nameOf(a) || '').localeCompare(String(nameOf(b) || ''))
   ))
 }

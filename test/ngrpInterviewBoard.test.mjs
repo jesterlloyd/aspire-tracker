@@ -165,7 +165,11 @@ test('applicants sort by what still needs doing, never against each other', () =
   // a sentence promising the opposite, so the guard is about DATA rather than
   // vocabulary: no field, state or payload key carries a score or a rubric.
   assert.doesNotMatch(board, /(score|rubric)\s*[:=]/i, 'no score or rubric is stored or read')
-  assert.doesNotMatch(read('src/lib/ngrp/ngrpPlacement.js'), /(score|rubric)/i)
+  // FIT-SORT-1 (the commit that adds Highest Fit, Owner 2026-11-02): the module reads the candidate
+  // score ONLY for that opt-in sort; the default order and orderApplicants still never do.
+  const placement = read('src/lib/ngrp/ngrpPlacement.js')
+  assert.doesNotMatch(placement.replace(/scoreSortValue|candidate_score|candidateScoreModel/g, ''), /(score|rubric)/i)
+  assert.doesNotMatch(placement.slice(placement.indexOf('export function orderApplicants'), placement.indexOf('\n}', placement.indexOf('export function orderApplicants'))), /score/i)
   // The migration adds no column whose NAME carries a score or a rubric. It
   // mentions both words, in a comment saying neither is stored.
   const added = [...migration.matchAll(/ADD COLUMN IF NOT EXISTS (\w+)/g)].map(m => m[1])
@@ -344,4 +348,16 @@ test('no em dash in anything this change added', () => {
   ]) {
     assert.doesNotMatch(read(f), /—/, `${f} must not contain an em dash`)
   }
+})
+
+// FIT-SORT-1 (Owner, 2026-11-02): the Interviewees column can put the highest Fit on top.
+test('Highest Fit: complete scores first, then provisional, then none; a focused unit still leads', () => {
+  const n = r => r.name
+  const row = (name, score, extra = {}) => ({ name, candidate_score: score == null ? null : { score, ...extra }, student: {} })
+  const rows = [row('Avery', 70), row('Blake', 90, { provisional: true }), row('Casey', null), row('Drew', 85), row('Eli', 95, { ineligible: true })]
+  assert.deepEqual(orderInterviewees(rows, null, n, 'fit').map(n), ['Drew', 'Avery', 'Blake', 'Casey', 'Eli'])
+  assert.deepEqual(orderInterviewees(rows, null, n).map(n), ['Avery', 'Blake', 'Casey', 'Drew', 'Eli'], 'A to Z by default')
+  const board = readFileSync(new URL('../src/components/ngrp/InterviewBoard.jsx', import.meta.url), 'utf8')
+  assert.match(board, /<option value="fit">Highest Fit<\/option>/)
+  assert.match(board, /orderInterviewees\(list, focusedUnit, nameOf, sortBy\)/)
 })

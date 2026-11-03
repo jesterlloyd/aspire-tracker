@@ -16,7 +16,7 @@
 //   err  (red alert)    - not eligible, failed delivery, no show
 //   mute (gray dash)    - no action yet, no response, not confirmed (NEUTRAL)
 // Color is never the only signal: every pill renders an icon + text label.
-import { cycleChronoKey } from '../../../lib/server/ngrpApplicants.js'
+import { cycleChronoKey } from '../../../lib/server/ngrpCycleChrono.js'
 // RESIDENCY-ROSTER-1: the Applicant Pool rule and the roster Status vocabulary
 // live in lib/server/ngrpPool.js, which is the lower layer (it imports nothing
 // from here). effectiveEligibility moved there with them, because the pool rule
