@@ -63,18 +63,21 @@ export function transitionPreviewFor(cycleName, formDeadline = null, { applicati
   const portal = activation => (accessEndsAt
     ? { signInUrl: SAMPLE_PORTAL_URL, signInEmail: SAMPLE_SIGN_IN, accessEndsAt, activationLink: activation ? SAMPLE_ACTIVATION : null }
     : null)
+  // TRANSITION-DEADLINE-1: a send always carries a close date now (it refuses without one), so
+  // "No close date set" is gone. A cohort with no Transition Form deadline yet still previews,
+  // on the sample date, and the first tab says so.
+  const sample = !effectiveFormClose({ transition_form_deadline: formDeadline }, null)
   return {
     recipientType: 'Completed ASPIRE alum',
     variants: [
-      { key: 'with_close', label: 'First portal sign-in' },
+      { key: 'with_close', label: sample ? 'First portal sign-in (sample close date)' : 'First portal sign-in' },
       { key: 'has_account', label: 'Already has a portal password' },
-      { key: 'no_close',   label: 'No close date set' },
     ],
     render: (variant = 'with_close') => buildTransitionEmail({
       student: SAMPLE_STUDENT,
       cycle,
       url: SAMPLE_URL,
-      closeText: variant === 'no_close' ? null : close,
+      closeText: close,
       portal: portal(variant !== 'has_account'),
     }),
   }

@@ -87,3 +87,13 @@ test('the cron: every 10 minutes, real rows only, recorded in cron_runs', () => 
   assert.ok(vercel.crons.some(c => c.path === '/api/cron/keith-residency-auto' && c.schedule === '5-59/10 * * * *'))
   assert.equal(vercel.functions['api/cron/keith-residency-auto.js'].maxDuration, 300)
 })
+
+// STATEMENT-SOURCE-1 (Owner, 2026-11-02): an uploaded Personal Statement is enough; no form needed.
+test('statements: an alumnus with only a Personal Statement is assessed; one with neither is not', () => {
+  const candidates = [
+    { id: 'd1', student_id: 's1', form_status: 'sent', assignment_id: 'a1' },
+    { id: 'd2', student_id: 's2', form_status: 'not_sent', assignment_id: null },
+  ]
+  const scores = new Map([['d1', { statementSource: 'document' }], ['d2', { statementSource: null }]])
+  assert.deepEqual(assessmentTargets({ candidates, scores }).map(t => t.candidateId), ['d1'])
+})

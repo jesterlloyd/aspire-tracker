@@ -961,7 +961,9 @@ test('send: idempotency is DURABLE - fail-closed probe, claim + bind before mail
   // Replays that settle earlier work are reported, never silently re-logged.
   assert.match(sendApi, /sent_history_may_be_incomplete/)
   // The panel reports the warning honestly.
-  assert.match(sendPanel, /delivered but a bookkeeping ledger write failed/)
+  // SEND-WARNINGS-1 (the commit that rewords send warnings): a ledger warning says Sent History may
+  // be incomplete, and portal-access warnings are named for what they are, not called a ledger failure.
+  assert.match(sendPanel, /emailed, but Sent History may not show/)
 })
 
 // ── Public form: token isolation + lifecycle ─────────────────────────────────
@@ -1472,7 +1474,8 @@ test('regression: the public form page follows the secure-page conventions', () 
   assert.match(formPage, /window\.history\.replaceState\(null, '', window\.location\.pathname\)/)
   assert.match(formPage, /name = 'referrer'; m\.content = 'no-referrer'/)
   assert.match(formPage, /preventImplicitSubmit/)
-  assert.match(formPage, /not an application to the residency program/)
+  // FORM-DISCLAIMER-1 (the commit that adds it): the page states the shared disclaimer, the email's own.
+  assert.match(formPage, /\{transitionDisclaimer\(openDate\)\}/)
   // no toast machinery on the public page, quiet saved-line only
   assert.doesNotMatch(formPage, /useToast|toast\(/)
   assert.match(formPage, /Draft saved/)

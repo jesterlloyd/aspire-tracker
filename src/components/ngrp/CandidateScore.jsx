@@ -15,7 +15,10 @@ const fmtDay = ts => (ts ? new Date(ts).toLocaleDateString('en-US', { month: 'sh
 const FAIL_WORDS = {
   skill_off: 'Assess Candidate is switched off in Settings > Keith > Skills.',
   skill_denied: 'Your account cannot run Assess Candidate.',
-  form_not_submitted: 'Keith assesses an applicant on his own once they submit the Transition Form.',
+  form_not_submitted: 'Keith assesses an applicant on his own once they upload a Personal Statement or submit the Transition Form.',
+  no_statement: 'Keith assesses an applicant on his own once they upload a Personal Statement or submit the Transition Form.',
+  file_unavailable: 'Keith could not open the Personal Statement on file.',
+  unreadable_scanned: 'The Personal Statement on file is a scanned image, so Keith cannot read it. A PDF with selectable text works.',
   not_enabled: 'Assessments are available once the pending database update is applied.',
   timed_out: 'The last assessment did not finish.',
 }
@@ -78,6 +81,8 @@ export function CandidateScoreSection({ row, cycleId, available = false, onChang
   })
   const canRun = available && status.data?.ok && status.data.available
   const submitted = row.form_status === 'submitted' || row.form_status === 'revised'
+  // STATEMENT-SOURCE-1: the uploaded Personal Statement, else the submitted form.
+  const readable = Boolean(score?.statementSource) || submitted
   const a = score?.assessment || null
   const last = score?.lastRun || null
   const inFlight = running || last?.status === 'assessing'
@@ -90,7 +95,7 @@ export function CandidateScoreSection({ row, cycleId, available = false, onChang
     await onChanged?.()
   }
 
-  const button = canRun && submitted && row.candidate_id ? (
+  const button = canRun && readable && row.candidate_id ? (
     <button type="button" style={{ ...smallBtn(!a), height: 24, padding: '0 9px', fontSize: 11 }} disabled={inFlight} onClick={run}>
       {inFlight ? 'Assessing…' : a ? 'Assess Again' : 'Assess with Keith'}
     </button>
@@ -128,7 +133,7 @@ export function CandidateScoreSection({ row, cycleId, available = false, onChang
           {FAIL_WORDS[error || last?.errorReason] || 'Keith could not finish the assessment. Try again.'}
         </p>
       )}
-      {!a && !inFlight && available && !submitted && (
+      {!a && !inFlight && available && !readable && (
         <p className="ngrp-score-note">{FAIL_WORDS.form_not_submitted}</p>
       )}
       {a && (
@@ -146,6 +151,11 @@ export function CandidateScoreSection({ row, cycleId, available = false, onChang
             </>
           )}
           <div className="ngrp-assess-h">Statement, {a.statementTotal} of 30</div>
+          {a.statementSource && (
+            <p className="ngrp-score-note">
+              {a.statementSource === 'document' ? 'Read from the Personal Statement in Documents.' : 'Read from the Transition Form\u2019s interest and strengths statements.'}
+            </p>
+          )}
           {STATEMENT_CATEGORIES.map(c => (
             <div key={c.key} className="ngrp-score-factor">
               <span className="ngrp-score-name">{c.label}</span>

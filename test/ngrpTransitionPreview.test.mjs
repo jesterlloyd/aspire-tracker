@@ -106,24 +106,23 @@ test('ApplicantsTab passes the live cohort and memoizes it', () => {
 
 // ── Both variants render, and the copy actually forks ────────────────────────
 
-test('both variants render, and the close-date fork is real', () => {
-  const withClose = NGRP_TRANSITION_PREVIEW.render('with_close')
-  const noClose = NGRP_TRANSITION_PREVIEW.render('no_close')
-  for (const r of [withClose, noClose]) {
+// TRANSITION-DEADLINE-1 (the commit that drops no_close): a send refuses without a close date,
+// so the preview no longer offers an email that can never go out.
+test('both variants render with a close date, and the portal fork is real', () => {
+  const first = NGRP_TRANSITION_PREVIEW.render('with_close')
+  const returning = NGRP_TRANSITION_PREVIEW.render('has_account')
+  for (const r of [first, returning]) {
     assert.match(r.subject, /Your NGRP Transition Form/)
     assert.ok(r.html.length > 1000, 'a full shell-wrapped email')
+    assert.match(r.html, /until <strong>November 5, 2026<\/strong>/)
   }
-  // The variants exist because the copy genuinely differs; if it stopped differing,
-  // offering two would be theatre.
-  assert.match(withClose.html, /until <strong>November 5, 2026<\/strong>/)
-  assert.match(noClose.html, /until the cohort closes/)
-  assert.notEqual(withClose.html, noClose.html)
 })
 
 test('the default variant is a real one, so a caller passing nothing still renders', () => {
   const keys = NGRP_TRANSITION_PREVIEW.variants.map(v => v.key)
-  // TRANSITION-PORTAL-1 added has_account: the portal half differs for someone with a password.
-  assert.deepEqual(keys, ['with_close', 'has_account', 'no_close'])
+  assert.deepEqual(keys, ['with_close', 'has_account'])
+  assert.match(NGRP_TRANSITION_PREVIEW.variants[0].label, /sample close date/, 'a cohort with no deadline says the date is a sample')
+  assert.doesNotMatch(transitionPreviewFor('Winter 2027', '2026-11-04').variants[0].label, /sample/)
   assert.ok(NGRP_TRANSITION_PREVIEW.render().html.length > 1000)
 })
 
@@ -164,7 +163,6 @@ test('PREVIEW-CLOSE-DATE-1: the close date is the cohort deadline, else the samp
   assert.match(live, /November 11, 2026/)
   assert.doesNotMatch(live, /November 5, 2026/)
   assert.match(transitionPreviewFor('Winter 2027', null).render('with_close').html, /November 5, 2026/)
-  assert.doesNotMatch(transitionPreviewFor('Winter 2027', '2026-11-11').render('no_close').html, /November 11, 2026/)
 })
 
 // ── TRANSITION-PORTAL-1 ──────────────────────────────────────────────────────

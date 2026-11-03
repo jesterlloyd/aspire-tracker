@@ -48,6 +48,35 @@ const SKIP_LABELS = {
   already_sent_in_batch: 'already sent in this batch',
 }
 
+const LEDGER_WARNINGS = new Set(['delivery_ledger_update_failed', 'provider_acceptance_record_failed', 'sent_history_ledger_failed', 'sent_history_may_be_incomplete'])
+const PORTAL_WARNING_WORDS = {
+  portal_access_no_start_date: 'the residency cohort has no start date, so the access end could not be set',
+  portal_access_revoked: 'their portal link was revoked by staff, so it was left closed',
+  portal_access_no_email: 'there is no email to sign in with',
+  portal_access_unlinked_account: 'an account with that email exists but is not linked to the student',
+  portal_access_conflict: 'the account belongs to someone else',
+  portal_access_failed: 'the portal could not be opened',
+}
+
+// One sentence per kind of warning, with how many recipients it covers. Every one of these was
+// still emailed: a warning never means the form did not go out.
+function sendWarningLines(warnings = []) {
+  const ledger = warnings.filter(w => LEDGER_WARNINGS.has(w.warning)).length
+  const portal = new Map()
+  const other = new Map()
+  for (const w of warnings) {
+    if (LEDGER_WARNINGS.has(w.warning)) continue
+    if (PORTAL_WARNING_WORDS[w.warning]) portal.set(w.warning, (portal.get(w.warning) || 0) + 1)
+    else other.set(w.warning, (other.get(w.warning) || 0) + 1)
+  }
+  const n = k => `${k} recipient${k === 1 ? '' : 's'}`
+  const lines = []
+  for (const [code, k] of portal) lines.push(`Student Portal not opened for ${n(k)}: ${PORTAL_WARNING_WORDS[code]}. The form link in the email still works.`)
+  for (const [text, k] of other) lines.push(`${n(k)}: ${text}`)
+  if (ledger) lines.push(`${n(ledger)} emailed, but Sent History may not show ${ledger === 1 ? 'it' : 'them'}.`)
+  return lines
+}
+
 export default function NgrpTransitionSendPanel({ renderTypeSelector }) {
   const navigate = useNavigate()
   const [ctx] = useState(() => {
@@ -269,12 +298,11 @@ export default function NgrpTransitionSendPanel({ renderTypeSelector }) {
                   the workflow is idempotent and will not double-send anyone who succeeded.
                 </p>
               )}
-              {(result.warnings || []).length > 0 && (
-                <p style={{ margin: '0 0 12px', fontSize: 12.5, color: '#92400e' }}>
-                  {result.warnings.length} email(s) were delivered but a bookkeeping ledger write failed -
-                  those recipients ARE sent; the delivery record may be incomplete in Sent History.
-                </p>
-              )}
+              {/* SEND-WARNINGS-1 (Owner, 2026-11-02): every warning used to read as a failed ledger
+                  write, including a Student Portal that could not be opened. Each is named now. */}
+              {sendWarningLines(result.warnings).map(line => (
+                <p key={line} style={{ margin: '0 0 8px', fontSize: 12.5, color: '#92400e' }}>{line}</p>
+              ))}
               <p style={{ margin: '0 0 12px', fontSize: 11.5, color: '#9ca3af' }}>Batch {result.batch_id}</p>
             </div>
           )}

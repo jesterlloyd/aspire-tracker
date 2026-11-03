@@ -166,7 +166,9 @@ export default async function handler(req, res) {
     const sheet = await loadApplicantSheet(db, { cycleId, view, revisions: revisions.byAssignment })
     if (sheet.error) return res.status(500).json({ error: 'internal_error' })
     if (action === 'sheet') {
-      return res.status(200).json({ provisioned: true, columns: sheet.columns, rows: sheet.rows, layout: sheet.layout, editable: sheet.editable })
+      // SHEET-CORRECT-1: the Owner and Talent Acquisition may correct an answer in the Sheet.
+      const canCorrect = caller.audience === TALENT_ACQUISITION || caller.profile?.is_owner === true
+      return res.status(200).json({ provisioned: true, columns: sheet.columns, rows: sheet.rows, layout: sheet.layout, editable: sheet.editable, canCorrect })
     }
     const list = (v, n) => (Array.isArray(v) ? v.filter(x => typeof x === 'string').slice(0, n) : null)
     const bytes = applicantSheetXlsx(sheet, {

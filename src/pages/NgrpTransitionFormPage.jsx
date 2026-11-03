@@ -11,6 +11,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { formReadinessChecklist } from '../../lib/server/ngrpEligibility.js'
 import { DIVISION_ORDER, getUnitsByDivision, ACLS_REQUIRED_UNITS, unitOptionLabel } from '../lib/unitCatalog.js'
 import { formUnitPicks, MAX_PRECEPTED_UNITS } from '../lib/ngrp/preceptedUnits.js'
+import { transitionDisclaimer } from '../lib/ngrp/transitionDisclaimer'
 
 // The ASPIRE placement units, grouped the way the org chart groups them. The
 // server accepts only these names or 'Other', so answers stay comparable.
@@ -397,6 +398,9 @@ export default function NgrpTransitionFormPage({ preview = null, portal = null }
   const aclsUnits = units.length ? ACLS_REQUIRED_UNITS.filter(u => units.includes(u)) : [...ACLS_REQUIRED_UNITS]
   // The close instant is Pacific end-of-day; format it in America/Los_Angeles
   // so the page shows the SAME calendar date staff configured.
+  const openDate = meta?.applicationOpenDate
+    ? new Date(`${String(meta.applicationOpenDate).slice(0, 10)}T12:00:00Z`).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' })
+    : null
   const closeDate = meta?.closeAt ? new Date(meta.closeAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'America/Los_Angeles' }) : null
   const interested = p.residency_interest.interest === 'interested'
   const isRevise = (meta?.revisionCount || 0) > 0
@@ -440,10 +444,12 @@ export default function NgrpTransitionFormPage({ preview = null, portal = null }
           {!isRevise && restoredDraft && (
             <p className="ngrpf-note">Welcome back - your saved draft was restored.</p>
           )}
+          {/* FORM-DISCLAIMER-1 (Owner, 2026-11-02): the form says what the email and the Residency
+              tab say, from the one sentence set, so the three never disagree. */}
           <p className="ngrpf-note" style={{ background: '#F9FAFB', border: '1px solid #EFEDE8', color: '#4A5560' }}>
             This form records your information and residency interest for the ASPIRE team,
-            Cedars-Sinai Talent Acquisition and the hiring units that interview you. Completing
-            it is not an application to the residency program.
+            Cedars-Sinai Talent Acquisition and the hiring units that interview you.{' '}
+            {transitionDisclaimer(openDate)}
           </p>
 
           <section className="ngrpf-sec">

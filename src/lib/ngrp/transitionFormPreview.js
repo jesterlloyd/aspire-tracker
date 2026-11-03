@@ -36,6 +36,7 @@ export function transitionFormPreview({ cycle = null, units = [] } = {}) {
     suggestedEmail: SAMPLE.email,
     cycleName: cycle?.name || '',
     closeAt: cycle ? effectiveFormClose(cycle, null) : null,
+    applicationOpenDate: cycle?.application_open_date || null,
     units: activeUnits,
     checklist: formReadinessChecklist(cycle?.application_checklist),
     // The prefill a first open gets (api/ngrp-transition.js `load`, no draft yet).

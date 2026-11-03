@@ -59,6 +59,7 @@
 //   labels           { notice, searchPlaceholder, searchLabel, count(shown, total), emptyNote,
 //                      noMatch, frameLabel, help, readOnlyEdit, newColumnHint, locked }
 //   notify, viewRef
+//   undoRef          set to the grid's own Undo, so a host's toast can offer it (SHEET-CORRECT-1).
 //   initialSearch    what the search box holds when the grid mounts (Program Budget's Show in Sheet).
 //   quickFilters     [{ key, label, test(row) }]: one-click filters the host names (MISSING-RECEIPT-1:
 //                    Program Budget's Missing receipt). A chip with its count, shown while any row passes.
@@ -141,7 +142,7 @@ export default function EditableSheet({
   saveLayout, saveCells: saveHostCells,
   canEditColumn = () => false, draftOf = () => '', commitEdit: commitHostEdit,
   renderCell, cellClass, cellTitle, editorLabel, editorExtras, saveLabel,
-  labels = {}, notify, viewRef,
+  labels = {}, notify, viewRef, undoRef,
   isLocked, groupSubtotals = NO_KEYS, onAddRow, onDeleteRows, canDeleteRow = () => true, canClear = () => false,
   formulas = false, initialSearch = '', quickFilters = NO_KEYS, initialQuick = null, countsInTotals = null, tail = null,
   tools = ALL_TOOLS, emptyState = null,
@@ -773,6 +774,7 @@ export default function EditableSheet({
     viewRef.current = () => ({ rowIds: rows.map(x => x.id), columnKeys: columns.map(c => c.key), groupBy: layout?.groupBy || null })
     return () => { viewRef.current = null }
   }, [viewRef, rows, columns, layout])
+  useEffect(() => { if (undoRef) undoRef.current = undo })
 
   // SHEET-EMPTY-1 (Owner, 2026-09-24): with no rows the grid is still a sheet: the header,
   // blank numbered rows and the tools, so staff can set it up (columns, formats, Σ) before

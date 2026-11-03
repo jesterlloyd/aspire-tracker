@@ -122,7 +122,8 @@ export function cleanStatementRatings(raw) {
 export function statementFactor(ratings) {
   const r = cleanStatementRatings(ratings)
   // KEITH-AUTO-1: Keith reads the statements on his own after each submit and revision.
-  if (!r) return { points: null, detail: 'Not assessed yet. Keith reads the statements within about 10 minutes of a submit or revision.' }
+  // STATEMENT-SOURCE-1: the uploaded Personal Statement first, else the Transition Form's.
+  if (!r) return { points: null, detail: 'Not assessed yet. Keith reads the Personal Statement in Documents, or the Transition Form\u2019s interest statement when none is uploaded, within about 10 minutes.' }
   const sum = STATEMENT_CATEGORIES.reduce((a, { key }) => a + r[key], 0)
   return { points: round1((sum / 30) * 25), detail: `Keith rated it ${sum} of 30` }
 }

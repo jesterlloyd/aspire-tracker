@@ -77,13 +77,21 @@ test('the assessment parser keeps three integer ratings and refuses an answer wi
   assert.equal(SKILL_DEFS['assess-candidate'].entityType, 'candidate_assessment')
 })
 
-test('SKILL.md is exactly what the migration seeds, a disabled draft for Owner, Admin and Talent Acquisition, on the quality route', () => {
+// STATEMENT-SOURCE-1 (2026-11-02, the commit that adds 20261122000000): SKILL.md now matches the
+// instructions that migration writes (the uploaded Personal Statement, else the form's), and that
+// migration activates and enables the Skill. 20261118000000 still seeds the disabled draft.
+test('SKILL.md is exactly what 20261122000000 writes, and 20261118000000 seeds a disabled draft for Owner, Admin and Talent Acquisition', () => {
   const body = read('skills/assess-candidate/SKILL.md').split('---\n').slice(2).join('---\n').trim()
+  const fix = read('supabase/migrations/20261122000000_assess_candidate_statement_source.sql')
+  const written = fix.match(/v_body  text := E'(You help Cedars-Sinai[\s\S]*?)';\n/)[1].replace(/''/g, "'").replace(/\\n/g, '\n').replace(/\\\\/g, '\\')
+  assert.equal(written, body)
+  assert.match(fix, /PERFORM public\.keith_activate_skill\(/)
+  assert.match(fix, /SET enabled = true/)
+  assert.match(fix, /IF v_skill\.status <> 'draft' THEN RETURN; END IF;/)
   const sql = read('supabase/migrations/20261118000000_ngrp_candidate_assessments.sql')
-  const seeded = sql.match(/E'(You help Cedars-Sinai[\s\S]*?)'\n\)\nON CONFLICT/)[1].replace(/''/g, "'").replace(/\\n/g, '\n').replace(/\\\\/g, '\\')
-  assert.equal(seeded, body)
   assert.match(sql, /ARRAY\['owner', 'admin', 'talent_acquisition'\]/)
   assert.match(body, /Never state, suggest or adjust a total score/)
+  assert.match(body, /personal statement the applicant uploaded/)
 })
 
 test('the migration on Postgres: server-only, never deleted, an assessed row is complete, re-runnable', async () => {
@@ -211,14 +219,15 @@ test('assessing writes a row first, sends the statements as data, and stores Kei
   assert.equal(r.score.basedOn, 4)
 })
 
-test('no form, not on the roster, or the skill off: no model call and no row', async () => {
+test('no statement, not on the roster, or the skill off: no model call and no row', async () => {
   const never = async () => assert.fail('no model call')
   const off = world({ skill: { enabled: false } })
   const a = await assessCandidate(off.db, { cycleId: CYCLE, candidateId: CAND.id, actor: OWNER, complete: never, loadPayload: async () => ({ state: 'ok', candidates: [CAND], students: [STUDENT] }) })
   assert.deepEqual([a.ok, a.error, off.tables.ngrp_candidate_assessments.length], [false, 'skill_off', 0])
   const w = world()
   const b = await assessCandidate(w.db, { cycleId: CYCLE, candidateId: CAND.id, actor: OWNER, complete: never, loadPayload: async () => ({ state: 'ok', candidates: [{ ...CAND, form_status: 'sent' }], students: [STUDENT] }) })
-  assert.deepEqual([b.ok, b.error], [false, 'form_not_submitted'])
+  // STATEMENT-SOURCE-1: with neither a Personal Statement nor a submitted form there is nothing to read.
+  assert.deepEqual([b.ok, b.error], [false, 'no_statement'])
   const c = await assessCandidate(w.db, { cycleId: CYCLE, candidateId: CAND.id, actor: OWNER, complete: never, loadPayload: async () => ({ state: 'ok', candidates: [], students: [] }) })
   assert.deepEqual([c.ok, c.status], [false, 404])
   const d = await assessCandidate(w.db, { cycleId: CYCLE, candidateId: CAND.id, actor: { id: 'v', role: 'viewer' }, complete: never, loadPayload: async () => ({ state: 'ok', candidates: [CAND], students: [STUDENT] }) })
@@ -279,4 +288,73 @@ test('the Fit chip is one button with the Keith orb, and opens the binder\'s own
   assert.match(tab, /<CandidateScoreDialog/)
   assert.match(tab, /available=\{payload\?\.assessmentsProvisioned === true\}/)
   assert.match(read('src/components/ngrp/InterviewBoard.jsx'), /keithContributed\(row\.candidate_score\) && <KeithGlyph \/>/)
+})
+
+// ── STATEMENT-SOURCE-1 (Owner, 2026-11-02) ───────────────────────────────────
+async function statementPdf(text) {
+  const { PDFDocument, StandardFonts } = await import('pdf-lib')
+  const doc = await PDFDocument.create()
+  const page = doc.addPage([612, 792])
+  const font = await doc.embedFont(StandardFonts.Helvetica)
+  text.match(/.{1,80}(\s|$)/g).forEach((line, i) => page.drawText(line.trim(), { x: 40, y: 740 - i * 16, size: 11, font }))
+  return Buffer.from(await doc.save())
+}
+const STATEMENT_TEXT = 'During my ASPIRE rotation on 6 NE I cared for a post-operative cardiac patient whose pain I reassessed every hour with my preceptor. I learned to escalate early and to explain each step to the family. I want to begin my career at Cedars-Sinai on 6 NE because that unit taught me how teamwork keeps patients safe.'
+
+function withStatementDoc(w, bytes) {
+  w.tables.student_documents.push({ id: 'doc-ps', student_id: STUDENT.id, doc_type: 'personal_statement', current_version_id: 'ps1' })
+  w.tables.student_document_versions = [{ id: 'ps1', document_id: 'doc-ps', storage_bucket: 'student-documents', storage_path: 'x/ps.pdf' }]
+  return { from: () => ({ download: async () => ({ data: new Blob([bytes]), error: null }) }) }
+}
+const RATED = JSON.stringify({ statement: { specificity: { score: 8, note: 'a' }, connection: { score: 8, note: 'b' }, reflection: { score: 8, note: 'c' } }, recommendation: 'Pair with 6 NE.' })
+
+test('an uploaded Personal Statement is what Keith reads, ahead of the form', async () => {
+  const w = world()
+  const storage = withStatementDoc(w, await statementPdf(STATEMENT_TEXT))
+  let sent = null
+  const complete = async ({ messages }) => { sent = messages[0].content; return { ok: true, text: RATED, usage: { inputTokens: 1, outputTokens: 1 }, model: 'stand-in' } }
+  const r = await assessCandidate(w.db, { cycleId: CYCLE, candidateId: CAND.id, actor: OWNER, complete, storage, loadPayload: async () => ({ state: 'ok', candidates: [CAND], students: [STUDENT] }) })
+  assert.equal(r.ok, true)
+  assert.match(sent, /Personal statement \(uploaded document\):/)
+  assert.match(sent, /reassessed every hour/)
+  assert.doesNotMatch(sent, /Calm under pressure/, 'the form statements are not sent beside the document')
+  assert.equal(r.score.statementSource, 'document')
+  assert.equal(w.tables.ngrp_candidate_assessments[0].record_sent.statementSource, 'document')
+})
+
+test('no form but a Personal Statement: assessed, and preceptor feedback is still withheld', async () => {
+  const w = world()
+  const storage = withStatementDoc(w, await statementPdf(STATEMENT_TEXT))
+  let sent = null
+  const complete = async ({ messages }) => { sent = messages[0].content; return { ok: true, text: RATED, usage: { inputTokens: 1, outputTokens: 1 }, model: 'stand-in' } }
+  const notSent = { ...CAND, form_status: 'sent' }
+  const r = await assessCandidate(w.db, { cycleId: CYCLE, candidateId: CAND.id, actor: OWNER, complete, storage, loadPayload: async () => ({ state: 'ok', candidates: [notSent], students: [STUDENT] }) })
+  assert.equal(r.ok, true)
+  assert.match(sent, /not shared until the Transition Form is submitted/)
+  assert.doesNotMatch(sent, /Calm\./, 'no feedback narrative without consent')
+})
+
+test('an unreadable Personal Statement falls back to the form, and without a form fails for good', async () => {
+  const w = world()
+  const storage = withStatementDoc(w, Buffer.from('not a pdf at all'))
+  let sent = null
+  const complete = async ({ messages }) => { sent = messages[0].content; return { ok: true, text: RATED, usage: { inputTokens: 1, outputTokens: 1 }, model: 'stand-in' } }
+  const r = await assessCandidate(w.db, { cycleId: CYCLE, candidateId: CAND.id, actor: OWNER, complete, storage, loadPayload: async () => ({ state: 'ok', candidates: [CAND], students: [STUDENT] }) })
+  assert.equal(r.ok, true)
+  assert.match(sent, /Interest statement \(Transition Form\): I cared for a post-op patient/)
+  const w2 = world()
+  const s2 = withStatementDoc(w2, Buffer.from('not a pdf at all'))
+  const never = async () => assert.fail('no model call')
+  const r2 = await assessCandidate(w2.db, { cycleId: CYCLE, candidateId: CAND.id, actor: OWNER, complete: never, storage: s2, loadPayload: async () => ({ state: 'ok', candidates: [{ ...CAND, form_status: 'sent' }], students: [STUDENT] }) })
+  assert.deepEqual([r2.ok, r2.error], [false, 'unreadable_unknown_format'])
+})
+
+test('a new Personal Statement changes the fingerprint, and the roster says what Keith would read', async () => {
+  const fb = []
+  assert.notEqual(scoreInputs(CAND, STUDENT, fb, null, null, 'ps1').fingerprint, scoreInputs(CAND, STUDENT, fb, null, null, 'ps2').fingerprint)
+  const w = world()
+  withStatementDoc(w, Buffer.from(''))
+  const r = await loadCandidateScores(w.db, { candidates: [CAND, { ...CAND, id: 'c2', student_id: 'other', form_status: 'sent' }], students: [STUDENT] })
+  assert.equal(r.byCandidate.get(CAND.id).statementSource, 'document')
+  assert.equal(r.byCandidate.get('c2').statementSource, null)
 })

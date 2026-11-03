@@ -18,6 +18,7 @@ const read = p => readFileSync(join(root, p), 'utf8')
 const CYCLE = '11111111-1111-4111-8111-111111111111'
 const K1 = '22222222-2222-4222-8222-222222222222'
 const K2 = '33333333-3333-4333-8333-333333333333'
+const P9 = '55555555-5555-4555-8555-555555555555'
 const OTHER = '44444444-4444-4444-8444-444444444444'
 const FORM = { identity: { preferred_email: 'ace@example.com' }, education: { gpa: 3.6, school: 'CSUN' }, residency_interest: { unit_preferences: ['PICU'] } }
 const VIEW = {
@@ -82,7 +83,6 @@ test('highlights and staff values: this cohort\'s applicants only, a value only 
   const school = columnKey('School')
   const r = await saveApplicantSheetCells(db, { cycleId: CYCLE, profileId: 'p1', updates: [
     { rowId: K1, key: school, format: { fill: 'yellow' } },
-    { rowId: K1, key: school, value: 'overwritten?' },
     { rowId: K1, key: 's_tier01', value: 'A' },
     { rowId: OTHER, key: school, format: { fill: 'red' } },
   ] })
@@ -91,6 +91,10 @@ test('highlights and staff values: this cohort\'s applicants only, a value only 
   assert.ok(rows.every(x => x.candidate_id === K1 && x.cycle_id === CYCLE && x.updated_by === 'p1'))
   const answer = rows.find(x => x.column_key === school)
   assert.equal(answer.value, null, 'a submitted answer is never written')
+  // SHEET-CORRECT-1 (the commit that adds corrections): a caller who may not correct is refused,
+  // where the value used to be dropped silently.
+  assert.deepEqual(await saveApplicantSheetCells(db, { cycleId: CYCLE, profileId: 'p1', updates: [{ rowId: K1, key: school, value: 'overwritten?' }] }),
+    { error: 'correct_not_allowed', status: 403 })
   assert.equal(rows.find(x => x.column_key === 's_tier01').value, 'A')
   assert.deepEqual(await saveApplicantSheetCells(fakeDb({ ngrp_candidates: [{ id: K1, cycle_id: CYCLE }] }), { cycleId: CYCLE, updates: [{ rowId: K1, key: school, format: {} }] }),
     { error: 'not_enabled', status: 409 })
@@ -124,7 +128,10 @@ test('wiring: both audiences read and mark the Sheet; the table\'s button opens 
   const manage = read('api/ngrp-manage.js')
   assert.match(manage, /'sheet_layout', 'sheet_cells',/)
   const at = manage.indexOf("if (action === 'sheet_layout' || action === 'sheet_cells')")
-  assert.ok(at > 0 && !manage.slice(at, manage.indexOf('ADD-ALUMNUS-1: Add alumnus', at)).includes('isTalentAcquisition'), 'Talent Acquisition marks the same sheet')
+  // SHEET-CORRECT-1: the handler names Talent Acquisition only to let it correct answers; nothing refuses it.
+  const handler = manage.slice(at, manage.indexOf('ADD-ALUMNUS-1: Add alumnus', at))
+  assert.ok(at > 0 && !/isTalentAcquisition\)? return|if \(isTalentAcquisition/.test(handler), 'Talent Acquisition marks the same sheet')
+  assert.match(handler, /canCorrect: isTalentAcquisition \|\| caller\.profile\?\.is_owner === true/)
   const tab = read('src/components/ngrp/ProfilesTab.jsx')
   assert.match(tab, /onClick=\{\(\) => setParam\('sheet', '1'\)\}/)
   assert.match(tab, /const sheetOpen = view === 'interest' && searchParams\.get\('sheet'\) === '1'/)
@@ -132,4 +139,55 @@ test('wiring: both audiences read and mark the Sheet; the table\'s button opens 
   const mig = read('supabase/migrations/20261119000000_ngrp_applicant_sheet.sql')
   assert.match(mig, /REVOKE ALL PRIVILEGES ON TABLE public\.ngrp_sheet_cells FROM PUBLIC, anon, authenticated, service_role;/)
   assert.doesNotMatch(mig, /CREATE POLICY/)
+})
+
+// ── SHEET-CORRECT-1 (Owner, 2026-11-02) ──────────────────────────────────────
+
+test('a correction lays over the answer with who and the original, and the Excel carries it', async () => {
+  const school = columnKey('School'), gpa = columnKey('Cumulative GPA')
+  const db = fakeDb({
+    ngrp_sheet_views: [],
+    ngrp_sheet_cells: [
+      { cycle_id: CYCLE, candidate_id: K1, column_key: school, value: 'CSU Northridge', updated_by: P9, updated_at: '2026-11-02T18:00:00Z' },
+      { cycle_id: CYCLE, candidate_id: K1, column_key: gpa, value: '3.7', updated_by: P9, updated_at: '2026-11-02T18:00:00Z' },
+      { cycle_id: CYCLE, candidate_id: K2, column_key: school, value: null, format: { b: true } },
+    ],
+    user_profiles: [{ id: P9, full_name: 'Ray Hiring' }],
+  })
+  const s = await loadApplicantSheet(db, { cycleId: CYCLE, view: VIEW, revisions: REVISIONS })
+  const ace = s.rows.find(r => r.id === K1), bea = s.rows.find(r => r.id === K2)
+  assert.equal(ace.cells[school], 'CSU Northridge')
+  assert.deepEqual(ace.corrected[school], { original: 'CSUN', by: 'Ray Hiring', at: '2026-11-02T18:00:00Z' })
+  assert.equal(bea.corrected, undefined, 'a highlight is not a correction')
+  assert.ok(s.columns.find(c => c.key === school).correctable)
+  for (const label of ['Id', 'Completion time', 'Fit Score', 'Fit']) assert.ok(!s.columns.find(c => c.label === label).correctable, `${label} is computed`)
+  const xml = Buffer.from(applicantSheetXlsx(s, { rowIds: [K1], columnKeys: [school, gpa] })).toString('utf8')
+  assert.match(xml, /CSU Northridge/)
+  assert.match(xml, /<v>3\.7<\/v>/, 'a corrected number is still a number')
+})
+
+test('only a caller who may correct writes an answer; null removes the correction, blank is kept', async () => {
+  const school = columnKey('School')
+  const db = fakeDb({ ngrp_candidates: [{ id: K1, cycle_id: CYCLE }], ngrp_sheet_views: [], ngrp_sheet_cells: [] })
+  const r = await saveApplicantSheetCells(db, { cycleId: CYCLE, profileId: 'p1', canCorrect: true, updates: [
+    { rowId: K1, key: school, value: '' },
+    { rowId: K1, key: columnKey('Id'), value: '99' },
+  ] })
+  assert.equal(r.saved, 1, 'Id is never correctable')
+  assert.equal(db.writes[0].rows[0].value, '', 'a correction to blank stays blank')
+  await saveApplicantSheetCells(db, { cycleId: CYCLE, profileId: 'p1', canCorrect: true, updates: [{ rowId: K1, key: school, value: null }] })
+  assert.equal(db.writes[1].rows[0].value, null, 'putting it back removes the correction')
+})
+
+test('wiring: corrections for the Owner and Talent Acquisition, saves toast, Undo and a confirm before clearing', () => {
+  const ws = read('api/ngrp-workspace.js')
+  assert.match(ws, /const canCorrect = caller\.audience === TALENT_ACQUISITION \|\| caller\.profile\?\.is_owner === true/)
+  const ui = read('src/components/ngrp/ApplicantSheet.jsx')
+  assert.match(ui, /const canEditColumn = col => canCorrect && !!col\.correctable/)
+  assert.match(ui, /confirmLabel: 'Clear answer', danger: true/)
+  assert.match(ui, /action: \{ label: 'Undo', onClick: \(\) => undoRef\.current\?\.\(\) \}/)
+  assert.match(ui, /toast\?\.success\?\.\('Saved', 'Changes to the Sheet save automatically\.'/)
+  assert.match(read('src/components/sheet/EditableSheet.jsx'), /useEffect\(\(\) => \{ if \(undoRef\) undoRef\.current = undo \}\)/)
+  // SHEET-WIDE-1: the KPI cards filter the roster, so they step aside for the Sheet.
+  assert.match(read('src/components/ngrp/ProfilesTab.jsx'), /\{!sheetOpen && <div className="ngrp-kpis"/)
 })

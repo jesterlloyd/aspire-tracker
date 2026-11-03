@@ -420,13 +420,14 @@ export default async function handler(req, res) {
     // ── APPLICANT-SHEET-1: the shared applicant Sheet ──────────────────────
     // One sheet per residency cohort, arranged and marked by the ASPIRE team and Talent
     // Acquisition alike. A row must be this cohort's applicant; a submitted answer is never
-    // written. 409 not_enabled before 20261119000000.
+    // written. SHEET-CORRECT-1: the Owner and Talent Acquisition may lay a correction over an
+    // answer in the Sheet (the revision is untouched). 409 not_enabled before 20261119000000.
     if (action === 'sheet_layout' || action === 'sheet_cells') {
       const cycleId = typeof body.cycle_id === 'string' && UUID.test(body.cycle_id) ? body.cycle_id : null
       if (!cycleId) return res.status(422).json({ error: 'invalid_request' })
       const r = action === 'sheet_layout'
         ? await saveApplicantSheetLayout(db, { cycleId, layout: body.layout, columnKeys: sheetColumnKeys(), profileId: actorId })
-        : await saveApplicantSheetCells(db, { cycleId, updates: body.updates, profileId: actorId })
+        : await saveApplicantSheetCells(db, { cycleId, updates: body.updates, profileId: actorId, canCorrect: isTalentAcquisition || caller.profile?.is_owner === true })
       if (r.error) return res.status(r.status || 500).json({ error: r.error })
       return res.status(200).json({ ok: true, ...r })
     }

@@ -547,7 +547,9 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
             <SegmentedPicker ariaLabel="Profiles & Interest views" value={view} onChange={changeView}
               options={[{ value: 'profiles', label: 'Profiles' }, { value: 'interest', label: 'Interest & Eligibility' }]} />
           </div>
-          <div className="ngrp-kpis" role="group" aria-label="Roster filters">
+          {/* SHEET-WIDE-1 (Owner, 2026-11-02): the cards filter the roster, not the Sheet, so they
+              step aside while it is open and the Sheet gets the room. */}
+          {!sheetOpen && <div className="ngrp-kpis" role="group" aria-label="Roster filters">
             {KPI_DEFS.map(k => (
               <FilterKPICard
                 key={k.key}
@@ -560,7 +562,7 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                 ariaLabel={`Filter roster: ${k.label}`}
               />
             ))}
-          </div>
+          </div>}
 
           {/* APPLICANT-SHEET-1: the Sheet takes the roster's place; Download Excel lives in it. */}
           {sheetOpen ? (
