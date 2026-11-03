@@ -31,7 +31,7 @@ import { emailBaseUrl, appUrl } from '../lib/server/appUrl.js'
 // the drift is invisible until a student receives something nobody reviewed.
 import { buildTransitionEmail } from '../lib/server/email/ngrpTransitionEmail.js'
 import {
-  classifySendRecipients, sendOneTransitionForm, liveAssignmentForCandidate, parseFormCloseDate,
+  classifySendRecipients, sendOneTransitionForm, liveAssignmentForCandidate, parseFormCloseDate, cohortFormClose,
 } from '../lib/server/ngrpTransition.js'
 import { isMissingNgrpTable, sanitizeStudent, fetchAddedStudentIds } from '../lib/server/ngrpApplicants.js'
 // NGRP-TRANSITION-COPY-2: alumni are addressed at their PERSONAL email. The shared
@@ -126,7 +126,9 @@ export default async function handler(req, res) {
   const preview = body.preview === true
   const closeParsed = parseFormCloseDate(body.form_close_date, new Date().toISOString())
   if (closeParsed.error) return res.status(422).json({ error: closeParsed.error })
-  const formCloseAt = closeParsed.closeAt
+  // TRANSITION-DEADLINE-1: a date chosen here, else the cohort's Transition Form deadline
+  // (never the application deadline). Resolved below, once the cohort is read.
+  const formCloseChosen = Boolean(closeParsed.closeAt)
 
   // DEMO-MODE-2: the residency workspace is the staff one mounted in a portal, so it
   // reads through this client too. Filtering it here keeps a demo's applicant pool and
@@ -143,6 +145,7 @@ export default async function handler(req, res) {
   }
   if (!cyc.data) return res.status(404).json({ error: 'cycle_not_found' })
   const cycle = cyc.data
+  const formCloseAt = closeParsed.closeAt || cohortFormClose(cycle)
 
   // Readiness: no application deadline (or no active units) → sending is
   // refused with the same reasons Planning shows.
@@ -179,7 +182,7 @@ export default async function handler(req, res) {
   if (preview) {
     return res.status(200).json({
       provisioned: true,
-      cycle: { id: cycle.id, name: cycle.name, application_deadline: cycle.application_deadline },
+      cycle: { id: cycle.id, name: cycle.name, transition_form_deadline: cycle.transition_form_deadline || null },
       send: describe(classified.send),
       reissue: describe(classified.reissue),
       skipped: classified.skipped.map(x => ({
@@ -193,6 +196,9 @@ export default async function handler(req, res) {
 
   // ── Send mode gates ────────────────────────────────────────────────────────
   if (body.confirmation !== CONFIRMATION) return res.status(400).json({ error: 'confirmation_required' })
+  // Every form leaves with a close date: no date chosen and none on the cohort is refused.
+  if (!formCloseAt) return res.status(422).json({ error: 'no_form_deadline' })
+  if (formCloseAt <= new Date().toISOString()) return res.status(422).json({ error: 'form_close_date_in_past' })
   const batchId = typeof body.batch_id === 'string' && UUID.test(body.batch_id) ? body.batch_id : null
   if (!batchId) return res.status(422).json({ error: 'invalid_batch_id' })
 
@@ -264,6 +270,7 @@ export default async function handler(req, res) {
       assignment: item.assignment || null,
       actorProfileId: actorId,
       formCloseAt,
+      formCloseChosen,
       generateToken,
       sendEmail,
       // TRANSITION-PORTAL-1: open the Student Portal (reactivate or create, through the end of

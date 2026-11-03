@@ -153,7 +153,8 @@ test('a past date is refused rather than clamped: the form would arrive closed',
 })
 
 test('the per-send date overrides the cohort deadline for that assignment only', () => {
-  const cycle = { application_deadline: '2026-11-05' }
+  // TRANSITION-DEADLINE-1: the cohort default is its Transition Form deadline.
+  const cycle = { transition_form_deadline: '2026-11-05' }
   assert.equal(effectiveFormClose(cycle, null), pacificEndOfDay('2026-11-05'))
   const perSend = pacificEndOfDay('2026-12-20')
   assert.equal(effectiveFormClose(cycle, { deadline_at: perSend }), perSend)
@@ -164,7 +165,9 @@ test('the date reaches the assignment row, and a failure to write it stops the s
   assert.match(src, /deadline_at: formCloseAt,/, 'new assignments carry it')
   // A reused assignment adopts it too: the date the sender just chose is the date the
   // email will state, so the form has to enforce the same one.
-  assert.match(src, /if \(formCloseAt && assignment\.deadline_at !== formCloseAt\)/)
+  // TRANSITION-DEADLINE-1: unless no date was chosen and this alumnus already has a later one.
+  assert.match(src, /if \(formCloseAt && assignment\.deadline_at !== formCloseAt && !keepOwn\)/)
+  assert.match(src, /const keepOwn = !formCloseChosen && assignment\.deadline_at/)
   // FAIL CLOSED. Sending anyway would promise a date effectiveFormClose does not honor.
   assert.match(src, /return fail\('form_close_write_failed'\)/)
   // And it runs before any token exists, so a refusal costs nothing.
@@ -176,7 +179,10 @@ test('the panel defaults to blank and only sends the field when set', () => {
   const src = read(PANEL)
   assert.match(src, /useState\(''\)/)
   assert.match(src, /\.\.\.\(closeDate \? \{ form_close_date: closeDate \} : \{\}\)/)
-  assert.match(src, /Revise submitted forms until/)
+  // TRANSITION-DEADLINE-1 renamed the field and its default to the cohort's form deadline.
+  assert.match(src, /Transition Form closes/)
+  assert.match(src, /cohort's Transition Form deadline/)
+  assert.match(src, /no_form_deadline: /)
   assert.match(src, /form_close_date_in_past: /, 'the refusal is explained, not swallowed')
 })
 

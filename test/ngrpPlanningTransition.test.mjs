@@ -135,7 +135,7 @@ const RPC_HANDLERS = {
     if (!cand) throw new Error('NGRP_GONE')
     const cyc = (tables.ngrp_cycles?.rows || []).find(c => c.id === cand.cycle_id)
     if (!cyc) throw new Error('NGRP_GONE')
-    const close = a.deadline_at || (cyc.application_deadline ? pacificEndOfDay(cyc.application_deadline) : null)
+    const close = a.deadline_at || (cyc.transition_form_deadline ? pacificEndOfDay(cyc.transition_form_deadline) : null)
     if (close && nowIso() > close) throw new Error('NGRP_CLOSED')
     const next = (a.revision_count || 0) + 1
     const rev = insertRow(tables, 'ngrp_transition_revisions', {
@@ -165,7 +165,7 @@ const RPC_HANDLERS = {
     const cand = (tables.ngrp_candidates?.rows || []).find(c => c.id === a.candidate_id)
     const cyc = cand && (tables.ngrp_cycles?.rows || []).find(c => c.id === cand.cycle_id)
     if (!cyc) throw new Error('NGRP_GONE')
-    const close = a.deadline_at || (cyc.application_deadline ? pacificEndOfDay(cyc.application_deadline) : null)
+    const close = a.deadline_at || (cyc.transition_form_deadline ? pacificEndOfDay(cyc.transition_form_deadline) : null)
     if (close && nowIso() > close) throw new Error('NGRP_CLOSED')
     if (!tables.ngrp_transition_drafts) tables.ngrp_transition_drafts = { rows: [] }
     const existing = tables.ngrp_transition_drafts.rows.find(d => d.assignment_id === p_assignment_id)
@@ -373,6 +373,8 @@ const CYCLE = {
   id: 'cccccccc-0000-4000-8000-000000000001', name: 'January 2027',
   status: 'Active', application_open_date: '2026-09-01',
   application_deadline: '2026-10-15', interview_window_start: '2026-11-02',
+  // TRANSITION-DEADLINE-1: the form closes on its own date, not the application deadline.
+  transition_form_deadline: '2026-10-15',
   interview_window_end: '2026-11-13', licensure_deadline: null,
   residency_start_date: '2027-01-25', qualification_rules: {}, application_checklist: [],
 }
@@ -628,17 +630,23 @@ test('close: Pacific end-of-day is DST-aware - PST and PDT dates both close at 1
   assert.equal(pacificEndOfDay('2026-99-99'), null, 'impossible dates never produce a close')
   assert.equal(effectiveFormClose(CYCLE, { deadline_at: null }), CYCLE_CLOSE)
   assert.equal(effectiveFormClose(CYCLE, { deadline_at: '2026-10-01T12:00:00Z' }), '2026-10-01T12:00:00Z')
-  assert.equal(effectiveFormClose({ application_deadline: null }, {}), null)
+  assert.equal(effectiveFormClose({ transition_form_deadline: null }, {}), null)
+  // TRANSITION-DEADLINE-1: the application deadline is a different date; it never closes the form.
+  assert.equal(effectiveFormClose({ application_deadline: '2026-10-15' }, {}), null)
   // 11 PM Pacific on the deadline date is still open; past midnight is closed.
   assert.equal(isFormClosed(CYCLE, {}, '2026-10-16T06:00:00.000Z'), false)
   assert.equal(isFormClosed(CYCLE, {}, '2026-10-16T07:00:00.000Z'), true)
   // The database enforces the SAME rule (ngrp_pacific_deadline, used by both
   // transactional functions), and every display surface formats in LA time.
   assert.match(migration, /AT TIME ZONE 'America\/Los_Angeles'/)
-  const submitFn = migration.slice(migration.indexOf('FUNCTION public.ngrp_submit_revision_tx'))
-  assert.match(submitFn.slice(0, 3000), /ngrp_pacific_deadline\(cyc\.application_deadline\)/)
-  const saveFn = migration.slice(migration.indexOf('FUNCTION public.ngrp_save_draft_tx'))
-  assert.match(saveFn.slice(0, 3000), /ngrp_pacific_deadline\(cyc\.application_deadline\)/)
+  // TRANSITION-DEADLINE-1 (20261121000000) redefined both to read the cohort's Transition
+  // Form deadline in place of its application deadline.
+  const deadlineMigration = read('supabase/migrations/20261121000000_transition_form_deadline.sql')
+  const submitFn = deadlineMigration.slice(deadlineMigration.indexOf('FUNCTION public.ngrp_submit_revision_tx'))
+  assert.match(submitFn.slice(0, 3000), /ngrp_pacific_deadline\(cyc\.transition_form_deadline\)/)
+  const saveFn = deadlineMigration.slice(deadlineMigration.indexOf('FUNCTION public.ngrp_save_draft_tx'))
+  assert.match(saveFn.slice(0, 3000), /ngrp_pacific_deadline\(cyc\.transition_form_deadline\)/)
+  assert.doesNotMatch(deadlineMigration.replace(/^--.*$/gm, ''), /cyc\.application_deadline/)
   assert.match(transitionEmail, /timeZone: 'America\/Los_Angeles'/)
   assert.match(formPage, /timeZone: 'America\/Los_Angeles'/)
 })
@@ -1081,7 +1089,7 @@ test('public: submit rolls back IN FULL on a failure at any stage', async () => 
 test('public: the deadline is enforced INSIDE the submit/save transactions - and after close, nothing commits', async () => {
   const db = publicDb()
   // a cycle whose Pacific close is already past
-  db.tables.ngrp_cycles.rows[0].application_deadline = '2020-01-01'
+  db.tables.ngrp_cycles.rows[0].transition_form_deadline = '2020-01-01'
   const out = await submitRevision(db, {
     cycle: db.tables.ngrp_cycles.rows[0],
     candidate: db.tables.ngrp_candidates.rows[0],

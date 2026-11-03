@@ -35,8 +35,9 @@ async function authedPost(payload) {
 
 const SEND_ERRORS = {
   confirmation_required: `Type ${CONFIRMATION} exactly to confirm.`,
-  invalid_form_close_date: 'That revise-until date is not a real date. Nothing was sent.',
-  form_close_date_in_past: 'The revise-until date has already passed, so the form would arrive closed. Nothing was sent.',
+  invalid_form_close_date: 'That close date is not a real date. Nothing was sent.',
+  form_close_date_in_past: 'That close date has already passed, so the form would arrive closed. Nothing was sent.',
+  no_form_deadline: 'Choose when the form closes, or set the Transition Form deadline in Edit Cohort. Nothing was sent.',
 }
 
 const SKIP_LABELS = {
@@ -201,7 +202,7 @@ export default function NgrpTransitionSendPanel({ renderTypeSelector }) {
               )}
               <label style={{ display: 'block', margin: '0 0 12px' }}>
                 <span style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#4a5560', marginBottom: 5 }}>
-                  Revise submitted forms until
+                  Transition Form closes
                 </span>
                 <input
                   type="date"
@@ -210,11 +211,14 @@ export default function NgrpTransitionSendPanel({ renderTypeSelector }) {
                   style={{ height: 34, padding: '0 10px', border: '1px solid rgba(29,37,103,0.15)', borderRadius: 8, fontFamily: F, fontSize: 12.5 }}
                 />
                 <span style={{ display: 'block', fontSize: 11.5, color: '#6b7785', marginTop: 5, lineHeight: 1.5 }}>
+                  {/* TRANSITION-DEADLINE-1: the default is the cohort's Transition Form deadline,
+                      never the application deadline. Whoever has not submitted by the date is
+                      locked out until Extend Deadline gives them their own. */}
                   {closeDate
-                    ? 'This date is stated in the email and enforced by the form, for this send only.'
-                    : preview.cycle?.application_deadline
-                      ? `Leave blank to use the cohort's application deadline (${preview.cycle.application_deadline}).`
-                      : "Leave blank to use the cohort's application deadline."}
+                    ? 'Stated in the email and enforced by the form for everyone in this send. After it, only Extend Deadline reopens a form.'
+                    : preview.cycle?.transition_form_deadline
+                      ? `Leave blank to use the cohort's Transition Form deadline (${preview.cycle.transition_form_deadline}).`
+                      : 'This cohort has no Transition Form deadline. Choose a date here, or set one in Edit Cohort.'}
                 </span>
               </label>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 4 }}>

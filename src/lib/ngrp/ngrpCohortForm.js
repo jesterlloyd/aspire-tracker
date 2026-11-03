@@ -35,6 +35,7 @@ export const cycleBasics = c => ({
   status: c?.status || 'Planning',
   application_open_date: c?.application_open_date || '',
   application_deadline: c?.application_deadline || '',
+  transition_form_deadline: c?.transition_form_deadline || '',
   interview_window_start: c?.interview_window_start || '',
   interview_window_end: c?.interview_window_end || '',
   licensure_deadline: c?.licensure_deadline || '',

@@ -57,7 +57,8 @@ const smallBtn = (primary = false, danger = false) => ({
 })
 
 // TRANSITION-PORTAL-1: this alumnus's own close date. The live assignment's deadline_at wins;
-// without one the cohort's application deadline applies (effectiveFormClose on the server).
+// without one the cohort's Transition Form deadline applies (effectiveFormClose on the server;
+// TRANSITION-DEADLINE-1, never the application deadline).
 const PACIFIC_DAY = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit' })
 const closeDay = ts => {
   if (!ts) return ''
@@ -72,13 +73,13 @@ const longDay = ymd => {
 
 function FormDeadline({ row, cycle, onSave }) {
   const own = closeDay(row.form_deadline_at)
-  const current = own || cycle?.application_deadline || ''
+  const current = own || cycle?.transition_form_deadline || ''
   const [editing, setEditing] = useState(false)
   const [value, setValue] = useState(current)
   const [saving, setSaving] = useState(false)
   const today = PACIFIC_DAY.format(new Date())
   const words = current
-    ? <>They can open and edit it until <strong>{longDay(current)}</strong>{own && own !== cycle?.application_deadline ? ' (their own date)' : ''}.</>
+    ? <>They can open and edit it until <strong>{longDay(current)}</strong>{own && own !== cycle?.transition_form_deadline ? ' (their own date)' : ''}.</>
     : <>It stays open until the cohort closes.</>
   return (
     <div style={{ margin: '6px 0 0', fontSize: 11, color: 'var(--text-caption)', fontFamily: F }}>

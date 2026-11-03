@@ -21,7 +21,7 @@ const read = p => readFileSync(join(here, '..', p), 'utf8')
 const NOW = Date.parse('2026-11-02T16:00:00Z')
 const DAY = 86_400_000
 const ago = ms => new Date(NOW - ms).toISOString()
-const CYCLE = { id: 'cy', name: 'Winter 2027', application_deadline: '2026-11-11' }
+const CYCLE = { id: 'cy', name: 'Winter 2027', application_deadline: '2026-11-11', transition_form_deadline: '2026-11-11' }
 
 // One waiting alumnus, sent two days ago; each test changes one thing.
 const scene = (over = {}) => ({

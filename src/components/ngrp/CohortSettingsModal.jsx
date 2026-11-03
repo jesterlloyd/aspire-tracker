@@ -145,6 +145,7 @@ function CohortSettingsEditor({ data, aspireCohorts, toast, invalidate, refetch 
     notes: basics.notes || null,
     application_open_date: basics.application_open_date || null,
     application_deadline: basics.application_deadline || null,
+    transition_form_deadline: basics.transition_form_deadline || null,
     interview_window_start: basics.interview_window_start || null,
     interview_window_end: basics.interview_window_end || null,
     licensure_deadline: basics.licensure_deadline || null,
@@ -281,6 +282,10 @@ function CohortSettingsEditor({ data, aspireCohorts, toast, invalidate, refetch 
           <Field label="Application closes">
             <input type="date" style={inputStyle} value={basics.application_deadline} onChange={e => setBasics(b => ({ ...b, application_deadline: e.target.value }))} />
             {fieldErrors.application_deadline && <p style={{ margin: '4px 0 0', fontSize: 11.5, color: '#B3282D' }}>{fieldErrors.application_deadline}</p>}</Field>
+          {/* TRANSITION-DEADLINE-1: its own date. The form is not the application. */}
+          <Field label="Transition Form closes">
+            <input type="date" style={inputStyle} value={basics.transition_form_deadline} onChange={e => setBasics(b => ({ ...b, transition_form_deadline: e.target.value }))} />
+            {fieldErrors.transition_form_deadline && <p style={{ margin: '4px 0 0', fontSize: 11.5, color: '#B3282D' }}>{fieldErrors.transition_form_deadline}</p>}</Field>
           <Field label="Interview window starts"><input type="date" style={inputStyle} value={basics.interview_window_start} onChange={e => setBasics(b => ({ ...b, interview_window_start: e.target.value }))} /></Field>
           <Field label="Interview window ends">
             <input type="date" style={inputStyle} value={basics.interview_window_end} onChange={e => setBasics(b => ({ ...b, interview_window_end: e.target.value }))} />

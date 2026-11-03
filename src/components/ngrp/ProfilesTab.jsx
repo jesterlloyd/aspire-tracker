@@ -400,10 +400,10 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
   // Stable identity: AutomationEmailPreviewDrawer memoizes its render on `entry`, so a
   // fresh object each parent render would re-render the email on every keystroke above.
   const transitionPreview = useMemo(
-    () => transitionPreviewFor(cycle?.name, cycle?.application_deadline, {
+    () => transitionPreviewFor(cycle?.name, cycle?.transition_form_deadline, {
       applicationOpenDate: cycle?.application_open_date, residencyStartDate: cycle?.residency_start_date,
     }),
-    [cycle?.name, cycle?.application_deadline, cycle?.application_open_date, cycle?.residency_start_date],
+    [cycle?.name, cycle?.transition_form_deadline, cycle?.application_open_date, cycle?.residency_start_date],
   )
 
   // Staff review/decision actions (drawer). Each is explicit, audited

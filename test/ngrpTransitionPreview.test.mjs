@@ -96,7 +96,8 @@ test('ApplicantsTab passes the live cohort and memoizes it', () => {
   const tab = read(TAB)
   // PREVIEW-CLOSE-DATE-1 (this commit) added the cohort's deadline beside its name.
   // TRANSITION-PORTAL-1 also passes the open and start dates; the memo still keys on the cohort's values.
-  assert.match(tab, /transitionPreviewFor\(cycle\?\.name, cycle\?\.application_deadline, \{[\s\S]*?\}\),\s*\[cycle\?\.name, cycle\?\.application_deadline, cycle\?\.application_open_date, cycle\?\.residency_start_date\]/)
+  // TRANSITION-DEADLINE-1: the close date is the cohort's Transition Form deadline.
+  assert.match(tab, /transitionPreviewFor\(cycle\?\.name, cycle\?\.transition_form_deadline, \{[\s\S]*?\}\),\s*\[cycle\?\.name, cycle\?\.transition_form_deadline, cycle\?\.application_open_date, cycle\?\.residency_start_date\]/)
   assert.match(tab, /entry=\{transitionPreview\}/)
   // A fresh object every parent render would re-render the email on every keystroke in
   // the search box above it.

@@ -54,9 +54,10 @@ const FALLBACK_CYCLE_NAME = 'the upcoming residency cohort'
 // (effectiveFormClose, the send's own rule). The sample date read as the real deadline and
 // disagreed with the form. It is used only when the cohort has no deadline yet, so the
 // "has a close date" half stays reviewable.
-export function transitionPreviewFor(cycleName, applicationDeadline = null, { applicationOpenDate = null, residencyStartDate = null } = {}) {
+// TRANSITION-DEADLINE-1: the cohort's Transition Form deadline, not its application deadline.
+export function transitionPreviewFor(cycleName, formDeadline = null, { applicationOpenDate = null, residencyStartDate = null } = {}) {
   const name = String(cycleName || '').trim() || FALLBACK_CYCLE_NAME
-  const close = effectiveFormClose({ application_deadline: applicationDeadline }, null) || SAMPLE_CLOSE
+  const close = effectiveFormClose({ transition_form_deadline: formDeadline }, null) || SAMPLE_CLOSE
   const cycle = { name, application_open_date: applicationOpenDate }
   const accessEndsAt = portalAccessEnd({ residency_start_date: residencyStartDate })
   const portal = activation => (accessEndsAt

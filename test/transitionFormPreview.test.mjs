@@ -8,7 +8,7 @@ const read = f => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8')
 
 test('the preview carries the cohort configuration and a synthetic person', () => {
   const p = transitionFormPreview({
-    cycle: { name: 'Winter 2027', application_deadline: '2026-11-05', application_checklist: null },
+    cycle: { name: 'Winter 2027', transition_form_deadline: '2026-11-05', application_checklist: null },
     units: [
       { unit_name: '6 NE', is_active: true, display_order: 2 },
       { unit_name: '5 North', is_active: true, display_order: 1 },
@@ -47,7 +47,7 @@ test('the page renders the whole form, with the preview note and Submit off', as
   try {
     const { default: Page } = await vite.ssrLoadModule('/src/pages/NgrpTransitionFormPage.jsx')
     const preview = transitionFormPreview({
-      cycle: { name: 'Winter 2027', application_deadline: '2026-11-05' },
+      cycle: { name: 'Winter 2027', transition_form_deadline: '2026-11-05' },
       units: [{ unit_name: '5 North', is_active: true }],
     })
     const html = renderToStaticMarkup(React.createElement(Page, { preview }))
@@ -88,7 +88,7 @@ test('TRANSITION-FORM-ACLS-1: the form names this cohort\'s ACLS units and point
   try {
     const { default: Page } = await vite.ssrLoadModule('/src/pages/NgrpTransitionFormPage.jsx')
     const preview = transitionFormPreview({
-      cycle: { name: 'Winter 2027', application_deadline: '2026-11-11' },
+      cycle: { name: 'Winter 2027', transition_form_deadline: '2026-11-11' },
       units: ['6 NE', '3 SCCT', '5 SCCT', '4 North'].map(unit_name => ({ unit_name, is_active: true })),
     })
     const html = renderToStaticMarkup(React.createElement(Page, { preview }))
