@@ -2989,3 +2989,6 @@ done. Owner and Admin only.
 - **The skill row** is `20261123000000_import_students_skill.sql` (Owner-gated; checks in
   `db/audit/import_students_skill_checks.sql`). Before it, the import works on header guesses alone.
   Endpoint: `api/student-import.js` (`analyze`, `plan`, `commit`; 60 s). Tests: `test/studentImport.test.mjs`.
+- **`vercel.json` allows at most 50 `functions` entries** (VERCEL-FUNCTIONS-CAP-1, 2026-11-03). The 51st
+  failed schema validation before any build, so the push deployed nothing. `api/sig-*.js` now covers both
+  signature endpoints. A new entry merges into a glob with the same settings; never drop a limit to make room.
