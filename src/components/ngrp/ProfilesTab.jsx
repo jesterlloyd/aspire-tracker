@@ -586,16 +586,16 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                   onChange={e => setParam('q', e.target.value)}
                   placeholder="Search alumni"
                   aria-label="Search alumni by name or school"
-                  style={{ ...selectStyle, cursor: 'text', paddingLeft: 28, minWidth: 190 }}
+                  style={{ ...selectStyle, cursor: 'text', paddingLeft: 28, width: 190 }}
                 />
               </div>
               {/* Every cohort MAPPED to the cycle is listed, including one with zero completed
                   students, and so is the cohort of anyone added by hand (cohortFilterOptions). */}
-              <select value={activeCohortFilter} onChange={e => setParam('cohort', e.target.value)} aria-label="Filter by source ASPIRE cohort" style={selectStyle}>
+              <select value={activeCohortFilter} onChange={e => setParam('cohort', e.target.value)} aria-label="Filter by source ASPIRE cohort" style={{ ...selectStyle, maxWidth: 170 }}>
                 <option value="">All ASPIRE Cohorts</option>
                 {cohortOptions.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
-              <select value={activeSchoolFilter} onChange={e => setParam('school', e.target.value)} aria-label="Filter by school" style={selectStyle}>
+              <select value={activeSchoolFilter} onChange={e => setParam('school', e.target.value)} aria-label="Filter by school" style={{ ...selectStyle, maxWidth: 170 }}>
                 <option value="">All Schools</option>
                 {schoolOptions.map(sc => <option key={sc} value={sc}>{sc}</option>)}
               </select>
@@ -617,7 +617,7 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                   ))}
                 </div>
               )}
-              <span style={{ fontSize: 12, color: '#6B7785' }} aria-live="polite">
+              <span style={{ fontSize: 12, color: '#6B7785', whiteSpace: 'nowrap' }} aria-live="polite">
                 {filteredRows.length} of {allRows.length} alumni
               </span>
               {hasFilters && (
@@ -630,8 +630,9 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                   Clear filters
                 </button>
               )}
-              {/* RESIDENCY-PROFILES-TOOLBAR-1: Student Profiles' actions, in its order. */}
-              <div style={{ flex: 1, minWidth: 8 }} />
+              {/* RESIDENCY-PROFILES-TOOLBAR-1: Student Profiles' actions, in its order. One group
+                  pushed right, so a narrow window wraps the four together, never one alone. */}
+              <div className="ngrp-roster-actions">
               <ResidencyRosterActions
                 cycle={cycle}
                 rows={filteredRows}
@@ -642,6 +643,7 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                 onAdd={() => setShowAddAlumnus(true)}
                 onImported={() => refetch()}
               />
+              </div>
             </div>
             {view === 'profiles' ? (
               <div className="profiles-slide-container">

@@ -813,3 +813,4 @@
 :where(.ngrp-messages-overlay) :where(.btn:disabled) { opacity: 0.5; cursor: not-allowed; }
 :where(.ngrp-messages-overlay) :where(.btn-primary) { background: #1D2567; color: #fff; border: 1px solid #1D2567; }
 :where(.ngrp-messages-overlay) :where(.btn-secondary-outline) { background: #fff; color: #1D2567; border: 1.5px solid #1D2567; }
+.ngrp-roster-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; }
