@@ -10,8 +10,8 @@
 //   POST { action: 'commit',  ...the same, mapping, answers, decisions } -> { created, updated, added, skipped, failed }
 //
 // Who: an active Owner or Admin of the staff app (verifyOwnerAdmin). Keith's Skill then applies its
-// own switch and roles, and runs on Opus for the Owner only (lib/server/keith/modelRouting.js
-// ownerOpusRouteFor). Nothing of the file is stored; reads and writes stay in the caller's
+// own switch and roles, and runs on Opus for the Owner only (the rule lives in
+// lib/server/keith/modelRouting.js). Nothing of the file is stored; reads and writes stay in the caller's
 // population (demo or real).
 import { getServiceDb } from './lib/portalAuth.js'
 import { verifyOwnerAdmin } from './lib/catalogAuth.js'
