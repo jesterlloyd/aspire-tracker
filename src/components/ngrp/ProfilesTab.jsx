@@ -444,11 +444,13 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
   const shownRow = allRows.find(r => r.id === shownRowId) || null
   // Choosing someone writes ?student= (shareable, survives a refresh) and drops a one-time
   // ?candidate= or ?docs= deep link, which has done its job.
-  const selectRow = (id, { toProfiles = false } = {}) => {
+  const selectRow = (id, { toProfiles = false, sheet = null } = {}) => {
     setDrawerRowId(id)
     const next = new URLSearchParams(searchParams)
     next.delete('candidate'); next.delete('docs'); next.delete('sheet'); next.set('student', id)
     if (toProfiles) next.delete('view')
+    // HIRE-HISTORY-1: Record hire opens the binder at its Hiring sheet.
+    if (sheet) next.set('sheet', sheet)
     setSearchParams(next, { replace: true })
   }
 
@@ -744,6 +746,10 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                       'Interview recorded', `${displayName(r.student)}'s interview state is saved.`),
                     setOutcome: (r, fields) => runManage('outcome_set', { candidate_id: r.candidate_id, ...fields },
                       'Outcome recorded', `${displayName(r.student)}'s residency outcome is saved.`),
+                    // HIRE-HISTORY-1: a hire recorded after the fact for an alumnus who never went
+                    // through this cohort's form and pool (Owner and Admin, staff app only).
+                    backfillHire: staffApp && ownerAdmin ? ((r, fields) => runManage('hire_backfill', { cycle_id: cycle.id, student_id: r.student.id, ...fields },
+                      'Hire recorded', `${displayName(r.student)} is on record as hired in ${cycle.name}.`)) : undefined,
                     // RESIDENCY-PORTAL-2b: request (Talent Acquisition), decide (the Owner), view (the requester).
                     requestFeedback: (r, note) => runFeedback('request', { candidate_id: r.candidate_id, note },
                       'Request sent', 'The ASPIRE team will review your request to view the preceptor feedback.'),
@@ -946,6 +952,15 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                               )}
                               <PreceptorFeedbackChip entry={feedback.byStudent[s.id]}
                                 onOpen={r.candidate_id && chipOpens(feedback.byStudent[s.id], feedback) ? () => setFeedbackRowId(r.id) : undefined} />
+                              {/* HIRE-HISTORY-1 (Owner, 2026-11-04): mark a hire where you see the
+                                  person. It opens the binder's Hiring sheet, the one place a hire
+                                  is recorded. */}
+                              {canImportAlumni && !r.outcome?.hired_at && (
+                                <button type="button" className="ngrp-linkbtn" style={{ fontSize: 11, marginTop: 2 }}
+                                  onClick={e => { e.stopPropagation(); selectRow(r.id, { toProfiles: true, sheet: 'hiring' }) }}>
+                                  Record hire
+                                </button>
+                              )}
                             </div>
                           </div>
                         </td>

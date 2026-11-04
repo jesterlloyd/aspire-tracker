@@ -3001,3 +3001,43 @@ done. Owner and Admin only.
 - **`vercel.json` allows at most 50 `functions` entries** (VERCEL-FUNCTIONS-CAP-1, 2026-11-03). The 51st
   failed schema validation before any build, so the push deployed nothing. `api/sig-*.js` now covers both
   signature endpoints. A new entry merges into a glob with the same settings; never drop a limit to make room.
+
+## A hire record has a history (HIRE-HISTORY-1, 2026-11-04)
+
+Owner: see, per alumnus, what they were hired as (Clinical Nurse I or Graduate Nurse Tech), whether
+they applied unlicensed, when they passed the NCLEX, their title now and before, and whether they
+are still here; and, per school and per ASPIRE cohort, how many interns became residents. The
+rules are `src/lib/ngrp/ngrpResidents.js` (pure); migration `20261124000000_residency_hire_history.sql`
+is Owner-gated (checks in `db/audit/residency_hire_history_checks.sql`).
+
+- **The hire row gained six columns**: `hired_as` (Clinical Nurse I | Graduate Nurse Tech | Other),
+  `hired_as_other`, `licensed_at_application` (filled from the Transition Form's licence answer the
+  first time a hire is saved without it; staff can change it), `nclex_passed_on`, `license_issued_on`,
+  and `backfilled`. `position_title` stays the CURRENT title. Before the migration `outcome_set` saves
+  without them and answers `hireHistoryProvisioned: false`.
+- **Titles are a history**: `ngrp_resident_titles`, append-only (no UPDATE or DELETE grant), one row
+  per change with the day it took effect. A changed title on the Hiring sheet (`resident_details_set`,
+  with `title_effective_on`, today unless said otherwise) writes a row and audits `title_changed`;
+  the current title is the latest row, and `position_title` mirrors it so every older reader works.
+- **Who**: Talent Acquisition records offers and hires (`outcome_set`, as before); separations and
+  titles (`resident_details_set`) and past hires are the ASPIRE team's (Owner and Admin).
+- **A past hire is recorded, not invented.** Residency cohorts that ran before the app held them have
+  no form, no pool and no offer dates, so `outcome_set`'s pool guard can never pass. `hire_backfill`
+  (`backfillHire` in `lib/server/ngrpHireHistory.js`) enrols the alumnus and writes the hire with both
+  offer timestamps equal to the hire date and `backfilled` true, audited `hire_backfilled`. The binder's
+  Hiring sheet offers "Record a past hire" when the alumnus is not in the pool; Interest & Eligibility's
+  rows carry "Record hire", which opens that sheet.
+- **Record past hires** (Residency > Residents, Owner and Admin, staff app): `PastHiresDrawer` reads the
+  team's spreadsheet through `api/student-import.js` (`hires_analyze`, `hires_commit`;
+  `lib/server/hireImport.js`, rules in `src/lib/ngrp/hireImportModel.js`, no Keith). Header guesses
+  read the intake export (name, email, Hired, As, Unit, Applied for Cohort; never "ASPIRE Cohort"), the
+  person confirms every column, picks a residency cohort for each file value or creates one as
+  Completed, and every row is matched to ONE Completed alumnus here or skipped with its reason. A
+  created cohort needs the date its applications opened: the chronology key reads that first, and a
+  cohort with no dates sorts LAST, so its hires would never drop out of later rosters.
+- **The reports** (`residentReports`): by school and by ASPIRE cohort, Completed interns, applied
+  (a submitted Transition Form anywhere), hired, hired rate, still here, retention, from the aggregate
+  `residents` payload's `population` (student ids, school, cohort, no names). A student hired in two
+  cohorts counts once; a group under `SMALL_GROUP` (5) interns shows its rate marked small, never hidden.
+- The legacy `students.ngrp_outcome` and `ngrp_cohort_target` (the chart's Placement sheet) are still
+  not read by Residency; nothing here changes that.

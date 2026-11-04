@@ -229,7 +229,10 @@ export default async function handler(req, res) {
         provisioned: true,
         scope: aggregate ? 'aggregate' : 'cohort',
         detailsProvisioned: loaded.detailsProvisioned,
+        hireHistoryProvisioned: loaded.hireHistoryProvisioned,
         residents: loaded.residents,
+        // HIRE-HISTORY-1: the report population, aggregate scope only (no names).
+        population: loaded.population,
       })
     }
 

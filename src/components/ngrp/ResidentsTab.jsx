@@ -22,7 +22,9 @@ import { KPICell } from '../KPIBand'
 import StudentAvatar from '../StudentAvatar'
 import SegmentedTabs from '../ui/SegmentedTabs'
 import { useNgrpResidents } from '../../lib/ngrp/useNgrpData'
-import { RESIDENTS_SCOPES, retentionSummary, dayOf, residentRecordPath } from '../../lib/ngrp/ngrpResidents'
+import { RESIDENTS_SCOPES, retentionSummary, dayOf, residentRecordPath, residentReports, SMALL_GROUP } from '../../lib/ngrp/ngrpResidents'
+import { useAuth } from '../../contexts/AuthContext'
+import PastHiresDrawer from './PastHiresDrawer'
 import { shiftBadge } from '../../lib/shiftStatus'
 import { displayName } from '../../lib/utils'
 import { F } from '../../lib/ngrp/ngrpCohortForm'
@@ -73,14 +75,71 @@ function Sourced({ value, source }) {
   )
 }
 
-export default function ResidentsTab({ cycle }) {
+// HIRE-HISTORY-1 (Owner, 2026-11-04): how many interns from a school, or an ASPIRE cohort, became
+// residents, and how many stayed. Percentages with their counts beside them, so 2% of 50 and 50%
+// of 2 read differently; a group under SMALL_GROUP interns is shown, marked small, never hidden.
+function ReportTable({ title, sub, rows, firstCol, testId }) {
+  return (
+    <section className="snap ngrp-glance-panel" aria-label={title}>
+      <div className="aggregate-panel-hdr ngrp-residents-hdr">
+        <div>
+          <div className="ov-panel-title">{title}</div>
+          <div className="ov-panel-sub">{sub}</div>
+        </div>
+      </div>
+      {rows.length === 0
+        ? <p className="ngrp-glance-empty">No Completed interns to count yet.</p>
+        : (
+          <div className="ngrp-glance-scroll">
+            <table className="ngrp-glance-table" data-testid={testId}>
+              <thead>
+                <tr>
+                  <th className="aspire-th">{firstCol}</th>
+                  <th className="aspire-th aspire-th-right">Completed Interns</th>
+                  <th className="aspire-th aspire-th-right">Applied</th>
+                  <th className="aspire-th aspire-th-right">Hired</th>
+                  <th className="aspire-th aspire-th-right">Hired Rate</th>
+                  <th className="aspire-th aspire-th-right">Still Here</th>
+                  <th className="aspire-th aspire-th-right">Retention</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map(r => (
+                  <tr key={r.key}>
+                    <td>{r.key}{r.small && <Muted> · small group (under {SMALL_GROUP})</Muted>}</td>
+                    <td style={{ textAlign: 'right' }}>{r.interns}</td>
+                    <td style={{ textAlign: 'right' }}>{r.applied}</td>
+                    <td style={{ textAlign: 'right' }}>{r.hired}</td>
+                    <td style={{ textAlign: 'right' }}>{r.hiredPct === null ? <Muted>—</Muted> : <><strong>{r.hiredPct}%</strong> <Muted>{r.hired} of {r.interns}</Muted></>}</td>
+                    <td style={{ textAlign: 'right' }}>{r.retained}</td>
+                    <td style={{ textAlign: 'right' }}>{r.retainedPct === null ? <Muted>—</Muted> : <><strong>{r.retainedPct}%</strong> <Muted>{r.retained} of {r.hired}</Muted></>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+    </section>
+  )
+}
+
+export default function ResidentsTab({ cycle, toast }) {
   const [scope, setScope] = useState(RESIDENTS_SCOPES.COHORT)
-  const { base } = useNgrpSurface()
+  const { base, staffApp } = useNgrpSurface()
+  const { userProfile } = useAuth()
   const navigate = useNavigate()
   const aggregate = scope === RESIDENTS_SCOPES.AGGREGATE
   const data = useNgrpResidents(cycle?.id, { scope })
   const summary = useMemo(() => retentionSummary(data.residents), [data.residents])
   const scopeLabel = aggregate ? 'All residency cohorts' : (cycle?.name || 'This cohort')
+  // HIRE-HISTORY-1: the reports read the aggregate population (every Completed intern) and
+  // every hire; Record past hires is the Owner's and Admins', in the staff app.
+  const aggregateData = useNgrpResidents(cycle?.id, { scope: RESIDENTS_SCOPES.AGGREGATE })
+  const reports = useMemo(() => (aggregateData.population
+    ? residentReports({ population: aggregateData.population, residents: aggregateData.residents })
+    : null), [aggregateData.population, aggregateData.residents])
+  const canRecordPast = staffApp && ['owner', 'admin'].includes(userProfile?.role)
+  const [pastOpen, setPastOpen] = useState(false)
 
   const body = (() => {
     if (data.status === 'loading') return <p className="ngrp-glance-empty">Loading residents…</p>
@@ -178,18 +237,41 @@ export default function ResidentsTab({ cycle }) {
               {' · '}a name opens their record
             </div>
           </div>
-          <SegmentedTabs
-            label="Residents scope"
-            items={[
-              { key: RESIDENTS_SCOPES.COHORT, label: cycle?.name || 'This Cohort' },
-              { key: RESIDENTS_SCOPES.AGGREGATE, label: 'Aggregate' },
-            ]}
-            value={scope}
-            onChange={setScope}
-          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            {canRecordPast && (
+              <button type="button" className="ngrp-linkbtn" onClick={() => setPastOpen(true)} data-testid="record-past-hires">Record past hires</button>
+            )}
+            <SegmentedTabs
+              label="Residents scope"
+              items={[
+                { key: RESIDENTS_SCOPES.COHORT, label: cycle?.name || 'This Cohort' },
+                { key: RESIDENTS_SCOPES.AGGREGATE, label: 'Aggregate' },
+              ]}
+              value={scope}
+              onChange={setScope}
+            />
+          </div>
         </div>
         {body}
       </section>
+
+      {reports && (
+        <>
+          <ReportTable
+            title="Interns Who Became Residents, by School"
+            sub={`Every Completed intern across all residency cohorts · ${reports.totals.hired} of ${reports.totals.interns} hired`}
+            rows={reports.bySchool} firstCol="School" testId="report-by-school" />
+          <ReportTable
+            title="Interns Who Became Residents, by ASPIRE Cohort"
+            sub="Applied counts a submitted Transition Form in any residency cohort"
+            rows={reports.byCohort} firstCol="ASPIRE Cohort" testId="report-by-cohort" />
+        </>
+      )}
+
+      {pastOpen && (
+        <PastHiresDrawer toast={toast} onClose={() => setPastOpen(false)}
+          onRecorded={() => { data.refetch(); aggregateData.refetch() }} />
+      )}
     </>
   )
 }

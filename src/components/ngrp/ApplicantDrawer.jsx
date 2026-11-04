@@ -21,6 +21,7 @@ import {
 import { displayName } from '../../lib/utils'
 import { shiftBadge } from '../../lib/shiftStatus'
 import { RESIDENT_SHIFTS } from '../../lib/ngrp/ngrpReflectionForm'
+import { HIRED_AS, HIRED_AS_OTHER, hiredAsLabel } from '../../lib/ngrp/ngrpResidents'
 import { StudentDocumentsBody } from '../documents/StudentDocumentsDrawer'
 import FlagRibbon from '../rubric/FlagRibbon'
 import ApplicantProfileSheet from './ApplicantProfileSheet'
@@ -536,9 +537,162 @@ function PoolSection({ row, canManage, actions }) {
   )
 }
 
-function OutcomeSection({ row, canManage, onSave }) {
+// HIRE-HISTORY-1: the three answers "licensed when they applied" can take.
+const LICENSED_OPTIONS = [['', 'Not known'], ['yes', 'Yes, licensed'], ['no', 'No, not yet licensed']]
+const licensedWord = v => (v === true ? 'Yes' : v === false ? 'No' : '')
+const fmtDayOnly = d => {
+  if (!d) return ''
+  const [y, m, day] = String(d).slice(0, 10).split('-').map(Number)
+  return new Date(y, m - 1, day).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+function HireHistoryFields({ form, set }) {
+  return (
+    <>
+      <label style={{ display: 'block' }}>
+        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-caption)' }}>Hired as</span>
+        <select style={field} value={form.hired_as} onChange={e => set('hired_as', e.target.value)}>
+          <option value="">Not recorded yet</option>
+          {HIRED_AS.map(a => <option key={a} value={a}>{a}</option>)}
+        </select>
+      </label>
+      {form.hired_as === HIRED_AS_OTHER && (
+        <label style={{ display: 'block' }}>
+          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-caption)' }}>Hired as (other)</span>
+          <input style={field} value={form.hired_as_other} maxLength={120} onChange={e => set('hired_as_other', e.target.value)} placeholder="The position" />
+        </label>
+      )}
+      <label style={{ display: 'block' }}>
+        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-caption)' }}>Licensed when they applied</span>
+        <select style={field} value={form.licensed_at_application} onChange={e => set('licensed_at_application', e.target.value)}>
+          {LICENSED_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+        </select>
+      </label>
+      <label style={{ display: 'block' }}>
+        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-caption)' }}>NCLEX passed on</span>
+        <input type="date" style={field} value={form.nclex_passed_on} onChange={e => set('nclex_passed_on', e.target.value)} />
+      </label>
+      <label style={{ display: 'block' }}>
+        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-caption)' }}>License issued on</span>
+        <input type="date" style={field} value={form.license_issued_on} onChange={e => set('license_issued_on', e.target.value)} />
+      </label>
+    </>
+  )
+}
+const hireHistoryInit = o => ({
+  hired_as: o.hired_as || '',
+  hired_as_other: o.hired_as_other || '',
+  licensed_at_application: o.licensed_at_application === true ? 'yes' : o.licensed_at_application === false ? 'no' : '',
+  nclex_passed_on: dateOnly(o.nclex_passed_on),
+  license_issued_on: dateOnly(o.license_issued_on),
+})
+const hireHistoryOut = form => ({
+  hired_as: form.hired_as || null,
+  hired_as_other: form.hired_as === HIRED_AS_OTHER ? form.hired_as_other.trim() || null : null,
+  licensed_at_application: form.licensed_at_application || null,
+  nclex_passed_on: form.nclex_passed_on || null,
+  license_issued_on: form.license_issued_on || null,
+})
+function HireHistoryRows({ o }) {
+  return (
+    <>
+      {o.hired_at && <Row label="Hired as">{hiredAsLabel(o) || <span style={{ fontWeight: 400, color: 'var(--text-caption)' }}>Not recorded</span>}</Row>}
+      {o.hired_at && (
+        <Row label="Licensed when they applied">
+          {licensedWord(o.licensed_at_application) || <span style={{ fontWeight: 400, color: 'var(--text-caption)' }}>Not known</span>}
+        </Row>
+      )}
+      {o.nclex_passed_on && <Row label="NCLEX passed">{fmtDayOnly(o.nclex_passed_on)}</Row>}
+      {o.license_issued_on && <Row label="License issued">{fmtDayOnly(o.license_issued_on)}</Row>}
+      {o.backfilled && (
+        <p style={{ margin: '4px 0 0', fontSize: 11, color: 'var(--text-caption)' }}>
+          Recorded after the fact from the team's records; the offer dates are not real offer dates.
+        </p>
+      )}
+    </>
+  )
+}
+
+// HIRE-HISTORY-1: a hire for an alumnus who is not in this cohort's Applicant Pool (a cohort that
+// ran before the app held it). Writes through hire_backfill; Owner and Admin, staff app only.
+function BackfillHireForm({ row, onBackfill }) {
+  const [open, setOpen] = useState(false)
+  const [form, setForm] = useState({
+    hired_on: '', hired_unit: row.assigned_unit || '', residency_start_date: '', position_title: '',
+    separated_on: '', separation_reason: '', ...hireHistoryInit({}),
+  })
+  const [busy, setBusy] = useState(false)
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+  const problem = !form.hired_on ? 'Enter the hire date.'
+    : !form.hired_unit.trim() ? 'A hire needs the unit they were hired into.'
+    : form.hired_as === HIRED_AS_OTHER && !form.hired_as_other.trim() ? 'Say what they were hired as.'
+    : form.separation_reason && !form.separated_on ? 'Add the separation date to record a reason.'
+    : null
+  if (!open) {
+    return (
+      <div style={{ marginTop: 8 }}>
+        <button type="button" style={smallBtn()} onClick={() => setOpen(true)}>Record a past hire</button>
+        <p style={{ margin: '6px 0 0', fontSize: 11, color: 'var(--text-caption)' }}>
+          For an alumnus hired through a residency cohort that ran before the app held it. The hire is recorded
+          as it stands in the team's records, with no offer dates of its own.
+        </p>
+      </div>
+    )
+  }
+  return (
+    <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 7 }} data-testid="backfill-hire">
+      <label style={{ display: 'block' }}>
+        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-caption)' }}>Hired on</span>
+        <input type="date" style={field} value={form.hired_on} onChange={e => set('hired_on', e.target.value)} />
+      </label>
+      <label style={{ display: 'block' }}>
+        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-caption)' }}>Hired into unit</span>
+        <input style={field} value={form.hired_unit} onChange={e => set('hired_unit', e.target.value)} placeholder="Unit name" />
+      </label>
+      <HireHistoryFields form={form} set={set} />
+      <label style={{ display: 'block' }}>
+        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-caption)' }}>Residency start date</span>
+        <input type="date" style={field} value={form.residency_start_date} onChange={e => set('residency_start_date', e.target.value)} />
+      </label>
+      <label style={{ display: 'block' }}>
+        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-caption)' }}>Current title</span>
+        <input style={field} value={form.position_title} maxLength={120} onChange={e => set('position_title', e.target.value)} placeholder="Clinical Nurse I" />
+      </label>
+      <label style={{ display: 'block' }}>
+        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-caption)' }}>Separated on (if they left)</span>
+        <input type="date" style={field} value={form.separated_on} min={form.hired_on || undefined} onChange={e => set('separated_on', e.target.value)} />
+      </label>
+      {form.separated_on && (
+        <label style={{ display: 'block' }}>
+          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-caption)' }}>Separation reason</span>
+          <input style={field} value={form.separation_reason} maxLength={500} onChange={e => set('separation_reason', e.target.value)} placeholder="Optional" />
+        </label>
+      )}
+      {problem && <p style={{ margin: 0, fontSize: 11, color: 'var(--aspire-bad)' }}>{problem}</p>}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+        <button type="button" style={smallBtn()} onClick={() => setOpen(false)}>Cancel</button>
+        <button type="button" style={{ ...smallBtn(true), opacity: problem || busy ? 0.5 : 1 }} disabled={Boolean(problem) || busy}
+          onClick={async () => {
+            setBusy(true)
+            const res = await onBackfill({
+              hired_on: form.hired_on, hired_unit: form.hired_unit.trim(), residency_start_date: form.residency_start_date || null,
+              position_title: form.position_title.trim() || null, separated_on: form.separated_on || null,
+              separation_reason: form.separation_reason.trim() || null, ...hireHistoryOut(form),
+            })
+            setBusy(false)
+            if (res) setOpen(false)
+          }}>
+          {busy ? 'Saving…' : 'Record hire'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function OutcomeSection({ row, canManage, onSave, onBackfill }) {
   const o = row.outcome || {}
   const init = {
+    ...hireHistoryInit(o),
     offer_extended_at: toLocalInput(o.offer_extended_at),
     offer_accepted_at: toLocalInput(o.offer_accepted_at),
     hired_at: toLocalInput(o.hired_at),
@@ -577,9 +731,12 @@ function OutcomeSection({ row, canManage, onSave }) {
   return (
     <Section title="Residency Outcome">
       {!inPlay ? (
-        <p style={{ margin: 0, fontSize: 12, color: 'var(--text-caption)' }}>
-          There is no offer or hire to record: this alumnus is not in the Applicant Pool.
-        </p>
+        <>
+          <p style={{ margin: 0, fontSize: 12, color: 'var(--text-caption)' }}>
+            There is no offer or hire to record: this alumnus is not in the Applicant Pool.
+          </p>
+          {canManage && onBackfill && <BackfillHireForm row={row} onBackfill={onBackfill} />}
+        </>
       ) : (
         <>
           {o.hired_at
@@ -596,6 +753,7 @@ function OutcomeSection({ row, canManage, onSave }) {
           {o.residency_start_date && <Row label="Residency starts">{o.residency_start_date}</Row>}
           {o.shift && <Row label="Shift">{shiftBadge(o.shift).label}</Row>}
           {o.cs_email && <Row label="Cedars-Sinai email">{o.cs_email}</Row>}
+          <HireHistoryRows o={o} />
 
           {canManage && (
             <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 7 }}>
@@ -619,6 +777,9 @@ function OutcomeSection({ row, canManage, onSave }) {
                 <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-caption)' }}>Hired into unit</span>
                 <input style={field} value={form.hired_unit} onChange={e => set('hired_unit', e.target.value)} placeholder="Unit name" />
               </label>
+              {/* HIRE-HISTORY-1: what they were hired as and their licensure; shown with the
+                  hire, so a hire is recorded with its position in one save. */}
+              {form.hired_at && <HireHistoryFields form={form} set={set} />}
               <label style={{ display: 'block' }}>
                 <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-caption)' }}>Residency start date</span>
                 <input type="date" style={field} value={form.residency_start_date} onChange={e => set('residency_start_date', e.target.value)} />
@@ -656,6 +817,7 @@ function OutcomeSection({ row, canManage, onSave }) {
                       residency_start_date: form.residency_start_date || null,
                       cs_email: form.cs_email.trim() || null,
                       shift: form.shift || null,
+                      ...hireHistoryOut(form),
                     })
                     setBusy(false)
                   }}
@@ -1282,6 +1444,7 @@ function ApplicantDrawerBody({
                   row={row}
                   canManage={canManage && provisioned}
                   onSave={fields => actions.setOutcome?.(row, fields)}
+                  onBackfill={actions.backfillHire ? (fields => actions.backfillHire(row, fields)) : undefined}
                 />
                 {/* RESIDENTS-ONE-RECORD-1: once hired, the resident's title, preceptor, phone
                     and separation are kept here; Residency > Residents opens this sheet. */}

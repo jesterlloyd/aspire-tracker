@@ -43,7 +43,8 @@ test('the log: the migration allows exactly what the code writes, and every type
   // NGRP-INTERVIEWS-1 (20261111000000) rebuilt it again with the interview types.
   // ADD-ALUMNUS-1 (20261116000000) rebuilt it with the alumnus types.
   // TRANSITION-PORTAL-1 (20261120000000) rebuilt it with form_deadline_extended.
-  const latest = read('supabase/migrations/20261120000000_transition_deadline_audit.sql')
+  // HIRE-HISTORY-1 (20261124000000) rebuilt it with hire_backfilled and title_changed.
+  const latest = read('supabase/migrations/20261124000000_residency_hire_history.sql')
   const check = latest.slice(latest.indexOf('CHECK (event_type IN ('), latest.indexOf("));", latest.indexOf('CHECK (event_type IN (')))
   const inSql = [...check.matchAll(/'([a-z_]+)'/g)].map(m => m[1]).sort()
   assert.deepEqual(inSql, [...NGRP_AUDIT_EVENTS].sort())

@@ -29,7 +29,8 @@ test('Residency reads Interview Board | Residents | Activity', () => {
 test('one component serves both surfaces: the portal mounts the same workspace', () => {
   assert.match(workspace, /import ResidentsTab from '\.\/ResidentsTab'/)
   // RESIDENTS-ONE-RECORD-1: the tab only reads now, so it takes the cohort alone.
-  assert.match(workspace, /tab === 'residency' && subTab === 'residents' && \(\s*<ResidentsTab cycle=\{cycle\} \/>/)
+  // HIRE-HISTORY-1 (2026-11-04): and the toast, for Record past hires.
+  assert.match(workspace, /tab === 'residency' && subTab === 'residents' && \(\s*<ResidentsTab cycle=\{cycle\} toast=\{toast\} \/>/)
   // PORTAL-SPLIT Phase 2: still the SAME workspace, now reached through the one
   // loader both the staff app and this portal use, so they share a chunk rather
   // than each holding a copy.
@@ -43,10 +44,11 @@ test('the title list and the edit validator', () => {
     position_title: ' Clinical Nurse I ', preceptor_name: 'Ana Lim, RN', phone: '(310) 555-0100',
     separated_on: '2027-06-30', separation_reason: 'Relocated',
   }, { hiredAt: '2027-01-10T17:00:00Z' })
+  // HIRE-HISTORY-1 (2026-11-04): titleEffectiveOn rides along, null when the form did not date the title.
   assert.deepEqual(ok, { ok: true, details: {
     position_title: 'Clinical Nurse I', preceptor_name: 'Ana Lim, RN', phone: '(310) 555-0100',
     separated_at: separationTimestamp('2027-06-30'), separation_reason: 'Relocated',
-  } })
+  }, titleEffectiveOn: null })
   // Blank clears every field; still affiliated.
   assert.deepEqual(validateResidentDetails({}).details, {
     position_title: null, preceptor_name: null, phone: null, separated_at: null, separation_reason: null,

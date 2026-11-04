@@ -71,7 +71,16 @@ export function validateResidentDetails(input, { hiredAt = null } = {}) {
   details.separated_at = on && isDate(on) ? separationTimestamp(on) : null
   details.separation_reason = on && reason ? reason.slice(0, 500) : null
 
-  return errors.length ? { ok: false, errors } : { ok: true, details }
+  // HIRE-HISTORY-1: the day a changed title took effect. Not a column of the outcome row; the
+  // server writes it to the title history. Today when omitted; never before the hire.
+  const eff = typeof src.title_effective_on === 'string' ? src.title_effective_on.trim() : ''
+  if (eff && !isDate(eff)) errors.push({ field: 'title_effective_on', message: 'Use a calendar date for when the title took effect.' })
+  else if (eff && hiredAt && eff < dayOf(hiredAt)) {
+    errors.push({ field: 'title_effective_on', message: 'A title cannot take effect before the hire date.' })
+  }
+  const titleEffectiveOn = eff && isDate(eff) ? eff : null
+
+  return errors.length ? { ok: false, errors } : { ok: true, details, titleEffectiveOn }
 }
 
 // What the resident answered, reduced to the one value this page shows.
@@ -87,7 +96,7 @@ const sourced = (typed, answered, answeredSource) => (
 // One row per recorded hire. formPhones and reflectionPreceptors are keyed by
 // candidate id.
 export function composeResidents({
-  outcomes = [], candidates = [], students = [], cycles = [], formPhones = {}, reflectionPreceptors = {},
+  outcomes = [], candidates = [], students = [], cycles = [], formPhones = {}, reflectionPreceptors = {}, titles = {},
 } = {}) {
   const candById = new Map(candidates.map(c => [c.id, c]))
   const studentById = new Map(students.map(s => [s.id, s]))
@@ -106,6 +115,17 @@ export function composeResidents({
       hired_at: o.hired_at,
       residency_start_date: o.residency_start_date || null,
       position_title: o.position_title || '',
+      // HIRE-HISTORY-1: what they were hired as, their licensure at application, and the title
+      // history (latest first). The current title is the latest row, else position_title.
+      hired_as: o.hired_as || null,
+      hired_as_other: o.hired_as_other || '',
+      hired_as_label: hiredAsLabel(o),
+      licensed_at_application: typeof o.licensed_at_application === 'boolean' ? o.licensed_at_application : null,
+      nclex_passed_on: o.nclex_passed_on || null,
+      license_issued_on: o.license_issued_on || null,
+      backfilled: o.backfilled === true,
+      titles: sortTitles(titles[o.candidate_id] || []),
+      current_title: currentTitle(sortTitles(titles[o.candidate_id] || []), o.position_title),
       preceptor: sourced(text(o.preceptor_name, 200), reflectionPreceptors[o.candidate_id], 'reflection'),
       phone: sourced(text(o.phone, 40), formPhones[o.candidate_id], 'form'),
       cs_email: o.cs_email || '',
@@ -125,4 +145,128 @@ export function retentionSummary(rows = []) {
   const separated = rows.filter(r => !r.affiliated).length
   const affiliated = hired - separated
   return { hired, affiliated, separated, rate: hired ? Math.round((affiliated / hired) * 100) : null }
+}
+
+// ── HIRE-HISTORY-1 (Owner, 2026-11-04) ───────────────────────────────────────
+// What they were hired as, their licensure when they applied, the title history, and the two
+// reports (by school, by ASPIRE cohort). Pure, so the sheet, the server and the tests agree.
+
+export const HIRED_AS = Object.freeze(['Clinical Nurse I', 'Graduate Nurse Tech', 'Other'])
+export const HIRED_AS_OTHER = 'Other'
+export const HIRE_HISTORY_KEYS = Object.freeze([
+  'hired_as', 'hired_as_other', 'licensed_at_application', 'nclex_passed_on', 'license_issued_on',
+])
+
+export function hiredAsLabel(o) {
+  if (!o?.hired_as) return ''
+  return o.hired_as === HIRED_AS_OTHER ? (text(o.hired_as_other, 120) || 'Other') : o.hired_as
+}
+
+// Validate the hire-history fields of an outcome save. Every field is optional; an absent key
+// reads as null, so a save from a sheet that predates these fields clears nothing by accident
+// only because the sheet always sends what it shows.
+export function validateHireHistory(input) {
+  const src = (input && typeof input === 'object' && !Array.isArray(input)) ? input : {}
+  const errors = []
+  const fields = {}
+  const as = typeof src.hired_as === 'string' ? src.hired_as.trim() : ''
+  if (as && !HIRED_AS.includes(as)) errors.push({ field: 'hired_as', message: 'Choose Clinical Nurse I, Graduate Nurse Tech or Other.' })
+  fields.hired_as = as && HIRED_AS.includes(as) ? as : null
+  const other = text(src.hired_as_other, 120)
+  if (fields.hired_as === HIRED_AS_OTHER && !other) errors.push({ field: 'hired_as_other', message: 'Say what they were hired as.' })
+  fields.hired_as_other = fields.hired_as === HIRED_AS_OTHER ? (other || null) : null
+  const lic = src.licensed_at_application
+  if (lic !== undefined && lic !== null && lic !== '' && typeof lic !== 'boolean' && lic !== 'yes' && lic !== 'no') {
+    errors.push({ field: 'licensed_at_application', message: 'Licensed at application is yes, no or unknown.' })
+  }
+  fields.licensed_at_application = lic === true || lic === 'yes' ? true : lic === false || lic === 'no' ? false : null
+  for (const k of ['nclex_passed_on', 'license_issued_on']) {
+    const v = typeof src[k] === 'string' ? src[k].trim() : ''
+    if (v && !isDate(v)) errors.push({ field: k, message: 'Use a calendar date.' })
+    fields[k] = v && isDate(v) ? v : null
+  }
+  return errors.length ? { ok: false, errors } : { ok: true, fields }
+}
+
+// A past hire recorded after the fact (Record past hires). The hire date is a calendar day;
+// the server turns it into the hire timestamp and sets both offer timestamps to it.
+export function validateBackfillHire(input) {
+  const src = (input && typeof input === 'object' && !Array.isArray(input)) ? input : {}
+  const errors = []
+  const hiredOn = typeof src.hired_on === 'string' ? src.hired_on.trim() : ''
+  if (!isDate(hiredOn)) errors.push({ field: 'hired_on', message: 'Enter the hire date.' })
+  const unit = text(src.hired_unit, 120)
+  if (!unit) errors.push({ field: 'hired_unit', message: 'A hire needs the unit they were hired into.' })
+  const history = validateHireHistory(src)
+  if (!history.ok) errors.push(...history.errors)
+  const start = typeof src.residency_start_date === 'string' ? src.residency_start_date.trim() : ''
+  if (start && !isDate(start)) errors.push({ field: 'residency_start_date', message: 'Use a calendar date for the residency start.' })
+  const title = text(src.position_title, 120)
+  const details = validateResidentDetails(
+    { separated_on: src.separated_on, separation_reason: src.separation_reason, position_title: title },
+    { hiredAt: isDate(hiredOn) ? separationTimestamp(hiredOn) : null },
+  )
+  if (!details.ok) errors.push(...details.errors)
+  if (errors.length) return { ok: false, errors }
+  return {
+    ok: true,
+    hire: {
+      hired_at: separationTimestamp(hiredOn),
+      hired_unit: unit,
+      residency_start_date: start || null,
+      position_title: title || null,
+      separated_at: details.details.separated_at,
+      separation_reason: details.details.separation_reason,
+      ...history.fields,
+    },
+  }
+}
+
+const sortTitles = rows => [...rows]
+  .filter(r => r && r.title && r.effective_on)
+  .sort((a, b) => String(b.effective_on).localeCompare(String(a.effective_on)) || String(b.created_at || '').localeCompare(String(a.created_at || '')))
+  .map(r => ({ title: r.title, effective_on: dayOf(r.effective_on) }))
+const currentTitle = (sorted, fallback) => sorted[0]?.title || fallback || ''
+
+// ── The two reports ──────────────────────────────────────────────────────────
+// population: every Completed intern the viewer may count, { student_id, school, cohort_name,
+// applied } (applied: submitted a Transition Form in any residency cohort). residents: the
+// composeResidents rows. A student hired in two cohorts counts once. A group under SMALL_GROUP
+// interns shows its rate marked small rather than hidden: 1 of 2 is a fact, not a trend.
+export const SMALL_GROUP = 5
+const pct = (n, d) => (d ? Math.round((n / d) * 100) : null)
+
+export function residentReports({ population = [], residents = [] } = {}) {
+  const hiredIds = new Set()
+  const retainedIds = new Set()
+  for (const r of residents) {
+    const id = r?.student?.id
+    if (!id) continue
+    hiredIds.add(id)
+    if (r.affiliated) retainedIds.add(id)
+  }
+  const group = (keyOf, label) => {
+    const rows = new Map()
+    for (const p of population) {
+      const key = keyOf(p) || label
+      if (!rows.has(key)) rows.set(key, { key, interns: 0, applied: 0, hired: 0, retained: 0 })
+      const g = rows.get(key)
+      g.interns++
+      if (p.applied) g.applied++
+      if (hiredIds.has(p.student_id)) g.hired++
+      if (retainedIds.has(p.student_id)) g.retained++
+    }
+    return [...rows.values()]
+      .map(g => ({ ...g, hiredPct: pct(g.hired, g.interns), retainedPct: pct(g.retained, g.hired), small: g.interns < SMALL_GROUP }))
+      .sort((a, b) => b.interns - a.interns || a.key.localeCompare(b.key))
+  }
+  return {
+    bySchool: group(p => p.school, 'No school on file'),
+    byCohort: group(p => p.cohort_name, 'No cohort on file'),
+    totals: {
+      interns: population.length,
+      hired: population.filter(p => hiredIds.has(p.student_id)).length,
+      retained: population.filter(p => retainedIds.has(p.student_id)).length,
+    },
+  }
 }

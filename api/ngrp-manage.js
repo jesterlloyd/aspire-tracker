@@ -56,7 +56,8 @@ import {
   liveAssignmentForCandidate, revokeTokensById, recalculateEligibility, parseFormCloseDate,
 } from '../lib/server/ngrpTransition.js'
 import { recordNgrpAudit } from '../lib/server/ngrpAudit.js'
-import { validateResidentDetails } from '../src/lib/ngrp/ngrpResidents.js'
+import { validateResidentDetails, validateBackfillHire, HIRE_HISTORY_KEYS } from '../src/lib/ngrp/ngrpResidents.js'
+import { licensedAtApplicationFor, recordTitleChange, backfillHire } from '../lib/server/ngrpHireHistory.js'
 import { serviceDbForRequest, demoScopeFromRequest } from '../lib/server/demoScope.js'
 import {
   validateProfile, studentColumnsFrom, searchAlumni, findMatches, ensurePastCohort, addToRoster, removeFromRoster,
@@ -99,6 +100,8 @@ const ACTIONS = new Set([
   'activity_log',
   // APPLICANT-PACKET-1
   'packet_downloaded',
+  // HIRE-HISTORY-1: a hire recorded after the fact (Record past hires), Owner and Admin only.
+  'hire_backfill',
   // ADD-ALUMNUS-1
   'alumni_search', 'alumni_add', 'alumni_create', 'alumni_remove', 'alumni_invited',
   'alumni_import_match', 'alumni_import_add',
@@ -574,6 +577,29 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, logged })
     }
 
+    // ── HIRE-HISTORY-1 (Owner, 2026-11-04): a hire recorded after the fact ──────
+    // Residency cohorts that ran before the app held them have no Transition Form, no pool and
+    // no offer dates, so outcome_set's "in the Applicant Pool" guard can never be met for them.
+    // This records what the team's records say: the alumnus is enrolled in the cohort, and a
+    // hire row is written with both offer timestamps equal to the hire date and backfilled true.
+    // Owner and Admin only; one hire per alumnus per cohort; never a second row over a real one.
+    if (action === 'hire_backfill') {
+      const ownerOrAdmin = caller.profile.is_owner === true || String(caller.profile.role || '').toLowerCase() === 'admin'
+      if (isTalentAcquisition || !ownerOrAdmin) return res.status(403).json({ error: 'owner_or_admin_only' })
+      const cycleId = typeof body.cycle_id === 'string' && UUID.test(body.cycle_id) ? body.cycle_id : null
+      const studentId = typeof body.student_id === 'string' && UUID.test(body.student_id) ? body.student_id : null
+      if (!cycleId || !studentId) return res.status(422).json({ error: 'invalid_request' })
+      const v = validateBackfillHire(body)
+      if (!v.ok) return invalid(res, v.errors)
+      const cyc = await db.from('ngrp_cycles').select('id, name').eq('id', cycleId).maybeSingle()
+      if (cyc.error) return isMissingNgrpTable(cyc.error) ? unprovisioned(res) : internal(res)
+      if (!cyc.data) return res.status(404).json({ error: 'cycle_not_found' })
+      const r = await backfillHire(db, { cycleId, cycleName: cyc.data.name, studentId, actorId, hire: v.hire, nowIso })
+      if (r.provisioned === false) return unprovisioned(res)
+      if (!r.ok) return res.status(r.status).json({ error: r.error, message: r.message })
+      return res.status(200).json({ ok: true, candidate_id: r.candidateId })
+    }
+
     // ── NGRP-INTERVIEWS-1 Phase 4: Residency > Interview Schedule ──────────────
     if (SCHEDULE_ACTIONS.includes(action)) {
       const cycleId = typeof body.cycle_id === 'string' && UUID.test(body.cycle_id) ? body.cycle_id : null
@@ -669,8 +695,11 @@ export default async function handler(req, res) {
     // separation the retention tracker reads. A partial update of five columns;
     // outcome_set rewrites the whole record and would clear the offer dates.
     if (action === 'resident_details_set') {
+      // HIRE-HISTORY-1 (Owner, 2026-11-04): separations and titles stay with the ASPIRE team;
+      // Talent Acquisition records offers and hires (outcome_set) and nothing after.
+      if (isTalentAcquisition) return res.status(403).json({ error: 'staff_only_action' })
       const existing = await db.from('ngrp_residency_outcomes')
-        .select('candidate_id, hired_at').eq('candidate_id', candidateId).maybeSingle()
+        .select('candidate_id, hired_at, position_title').eq('candidate_id', candidateId).maybeSingle()
       if (existing.error) return isMissingNgrpTable(existing.error) ? unprovisioned(res) : internal(res)
       if (!existing.data?.hired_at) {
         return invalid(res, [{ field: 'candidate', message: 'Record the hire on the Placement Board before adding resident details.' }])
@@ -682,7 +711,16 @@ export default async function handler(req, res) {
         .eq('candidate_id', candidateId)
       // Before 20260919000000 the three detail columns are absent.
       if (upd.error) return isMissingNgrpColumn(upd.error) ? unprovisioned(res) : internal(res)
-      return res.status(200).json({ ok: true, details: v.details })
+      // A changed title is a row in the history, dated. Before 20261124000000 there is no
+      // history table; the current title still saved above, and the answer says so.
+      let titleHistory = null
+      if (v.details.position_title && v.details.position_title !== (existing.data.position_title || null)) {
+        titleHistory = await recordTitleChange(db, {
+          candidateId, cycleId: cycle.id, studentId: candidate.student_id, actorId,
+          title: v.details.position_title, effectiveOn: v.titleEffectiveOn,
+        })
+      }
+      return res.status(200).json({ ok: true, details: v.details, titleHistory })
     }
 
     if (action === 'eligibility_recalculate') {
@@ -777,6 +815,12 @@ export default async function handler(req, res) {
         }
       }
 
+      // HIRE-HISTORY-1: "licensed at application" is the Transition Form's own answer unless staff
+      // set it; a hire saved without it reads the form once.
+      if (v.outcome.hired_at && v.outcome.licensed_at_application === null && body.licensed_at_application === undefined) {
+        const fromForm = await licensedAtApplicationFor(db, candidateId)
+        if (fromForm !== null) v.outcome.licensed_at_application = fromForm
+      }
       const row = {
         candidate_id: candidateId,
         student_id: candidate.student_id,
@@ -785,9 +829,19 @@ export default async function handler(req, res) {
         recorded_by_profile_id: actorId,
         updated_at: nowIso,
       }
-      const wrote = existing.data
-        ? await db.from('ngrp_residency_outcomes').update(row).eq('candidate_id', candidateId)
-        : await db.from('ngrp_residency_outcomes').insert(row)
+      const write = r => (existing.data
+        ? db.from('ngrp_residency_outcomes').update(r).eq('candidate_id', candidateId)
+        : db.from('ngrp_residency_outcomes').insert(r))
+      let hireHistoryProvisioned = true
+      let wrote = await write(row)
+      // Before 20261124000000 the hire-history columns are absent: the record still saves
+      // without them, and the sheet says the new fields are not switched on.
+      if (wrote.error && isMissingNgrpColumn(wrote.error)) {
+        const bare = { ...row }
+        for (const k of HIRE_HISTORY_KEYS) delete bare[k]
+        hireHistoryProvisioned = false
+        wrote = await write(bare)
+      }
       if (wrote.error) return (isMissingNgrpSchema(wrote.error) || isMissingNgrpColumn(wrote.error)) ? unprovisioned(res) : internal(res)
 
       // Audit what actually CHANGED, so the trail records the moment a hire was
@@ -804,11 +858,11 @@ export default async function handler(req, res) {
           await recordNgrpAudit(db, {
             eventType: ev,
             cycleId: cycle.id, candidateId, studentId: candidate.student_id, actorProfileId: actorId,
-            metadata: ev === 'hire_recorded' ? { hired_unit: v.outcome.hired_unit } : {},
+            metadata: ev === 'hire_recorded' ? { hired_unit: v.outcome.hired_unit, hired_as: v.outcome.hired_as || undefined } : {},
           })
         }
       }
-      return res.status(200).json({ ok: true, outcome: v.outcome })
+      return res.status(200).json({ ok: true, outcome: v.outcome, hireHistoryProvisioned })
     }
 
     if (action === 'assign_unit') {

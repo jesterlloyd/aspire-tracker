@@ -96,6 +96,9 @@ test('an empty outcome is valid, because the record accumulates over months', ()
     // into; null until the team records it.
     shift: null,
     cs_email: null,
+    // HIRE-HISTORY-1 (2026-11-04): what they were hired as, their licensure at application,
+    // the NCLEX and license dates; all null until recorded.
+    hired_as: null, hired_as_other: null, licensed_at_application: null, nclex_passed_on: null, license_issued_on: null,
   })
   // A residency start must be a calendar date, not a timestamp.
   assert.equal(validateOutcomePayload({ residency_start_date: '2027-02-02T00:00:00Z' }).errors[0].field, 'residency_start_date')
@@ -119,8 +122,10 @@ test('the interview writes to candidates, the outcome to its own durable table',
   assert.match(oc, /if \(!existing\.data\) \{[\s\S]{0,400}poolDecision\(composed\.row\)/)
   assert.match(oc, /no offer or hire to record/)
   // One row per candidate attempt: update when it exists, insert when it does not.
-  assert.match(oc, /existing\.data\s*\n?\s*\? await db\.from\('ngrp_residency_outcomes'\)\.update/)
-  assert.match(oc, /: await db\.from\('ngrp_residency_outcomes'\)\.insert/)
+  // HIRE-HISTORY-1 (2026-11-04): the write is a closure, so the same upsert can be retried without
+  // the hire-history columns before 20261124000000.
+  assert.match(oc, /existing\.data\s*\n?\s*\? db\.from\('ngrp_residency_outcomes'\)\.update/)
+  assert.match(oc, /: db\.from\('ngrp_residency_outcomes'\)\.insert/)
   assert.match(oc, /recorded_by_profile_id: actorId/)
   // Nothing deletes an outcome: DELETE is revoked even from service_role.
   assert.doesNotMatch(oc, /\.delete\(/)

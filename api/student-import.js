@@ -8,6 +8,8 @@
 //        -> { file, shown, mapping, keith, questions, cohortNames }
 //   POST { action: 'plan',    ...the same, mapping, answers }           -> { rows, counts, status }
 //   POST { action: 'commit',  ...the same, mapping, answers, decisions } -> { created, updated, added, skipped, failed }
+//   POST { action: 'hires_analyze' | 'hires_commit', file_name, file_base64, mapping, cohorts, decisions, dates }
+//        -> HIRE-HISTORY-1: Record past hires (lib/server/hireImport.js)
 //
 // Who: an active Owner or Admin of the staff app (verifyOwnerAdmin). Keith's Skill then applies its
 // own switch and roles, and runs on Opus for the Owner only (the rule lives in
@@ -17,6 +19,7 @@ import { getServiceDb } from './lib/portalAuth.js'
 import { verifyOwnerAdmin } from './lib/catalogAuth.js'
 import { serviceDbForRequest, demoScopeFromRequest } from '../lib/server/demoScope.js'
 import { analyzeImport, planImport, commitImport, ImportError } from '../lib/server/studentImport.js'
+import { analyzeHires, commitHires } from '../lib/server/hireImport.js'
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store')
@@ -35,6 +38,9 @@ export default async function handler(req, res) {
       const r = await commitImport(db, body, { actorId: caller.profileId, isDemo: demoScopeFromRequest(req) === true })
       return res.status(200).json({ ok: true, ...r })
     }
+    // HIRE-HISTORY-1: Record past hires (Residency > Residents), the same caller gate.
+    if (body.action === 'hires_analyze') return res.status(200).json({ ok: true, ...(await analyzeHires(db, body)) })
+    if (body.action === 'hires_commit') return res.status(200).json({ ok: true, ...(await commitHires(db, body, { actorId: caller.profileId })) })
     return res.status(400).json({ error: 'invalid_action' })
   } catch (err) {
     if (err instanceof ImportError) return res.status(err.status).json({ ok: false, error: err.error, message: err.message })

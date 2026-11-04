@@ -9,6 +9,9 @@
 import { useState } from 'react'
 import { useNgrpResidents, postNgrpManage } from '../../lib/ngrp/useNgrpData'
 import { POSITION_TITLES, OTHER_TITLE, dayOf } from '../../lib/ngrp/ngrpResidents'
+import { toLocalDateStr } from '../../../shared/dateUtils.js'
+
+const todayIso = () => toLocalDateStr(new Date())
 
 const SOURCE_NOTE = { reflection: 'from their first reflection', form: 'from their Transition Form' }
 const fmtDate = (v) => {
@@ -50,6 +53,8 @@ function Editor({ resident, detailsProvisioned, onClose, onSaved, toast }) {
   const [otherTitle, setOtherTitle] = useState(POSITION_TITLES.includes(storedTitle) ? '' : storedTitle)
   const [preceptor, setPreceptor] = useState(resident.preceptor.source === 'record' ? resident.preceptor.value : '')
   const [phone, setPhone] = useState(resident.phone.source === 'record' ? resident.phone.value : '')
+  // HIRE-HISTORY-1: a changed title is dated; today unless said otherwise.
+  const [effectiveOn, setEffectiveOn] = useState(todayIso())
   const [separatedOn, setSeparatedOn] = useState(dayOf(resident.separated_at) || '')
   const [reason, setReason] = useState(resident.separation_reason || '')
   const [busy, setBusy] = useState(false)
@@ -62,6 +67,7 @@ function Editor({ resident, detailsProvisioned, onClose, onSaved, toast }) {
     const res = await postNgrpManage('resident_details_set', {
       candidate_id: resident.candidate_id,
       position_title: titleChoice === OTHER_TITLE ? otherTitle : titleChoice,
+      title_effective_on: effectiveOn,
       preceptor_name: preceptor,
       phone,
       separated_on: separatedOn,
@@ -100,6 +106,12 @@ function Editor({ resident, detailsProvisioned, onClose, onSaved, toast }) {
             <input className="sp-input" style={{ marginTop: 8 }} value={otherTitle} maxLength={120}
               onChange={e => setOtherTitle(e.target.value)} placeholder="Type the title" aria-label="Other title" />
           )}
+        </div>
+        <div className="sp-field">
+          <label className="sp-field-lbl" htmlFor="resident-title-on">Title effective on</label>
+          <input id="resident-title-on" type="date" className="sp-input" value={effectiveOn}
+            min={dayOf(resident.hired_at) || undefined} onChange={e => setEffectiveOn(e.target.value)} />
+          <p style={note}>Used only when the title changes; each change is kept in the history.</p>
         </div>
         <div className="sp-field">
           <label className="sp-field-lbl" htmlFor="resident-preceptor">Preceptor</label>
@@ -164,7 +176,26 @@ export default function ResidentDetailsSection({ row, cycle, canManage, toast })
           onClose={() => setEditing(false)} onSaved={() => { setEditing(false); data.refetch() }} />
       ) : (
         <>
-          <Line label="Position/Title">{resident.position_title || <Sourced value="" />}</Line>
+          <Line label="Position/Title">
+            {resident.current_title
+              ? <>{resident.current_title}{resident.titles?.[0]?.effective_on ? <span style={{ fontWeight: 400, color: 'var(--text-caption)' }}> since {fmtDate(resident.titles[0].effective_on)}</span> : null}</>
+              : <Sourced value="" />}
+          </Line>
+          {/* HIRE-HISTORY-1: hired as, licensure, and every title they have held. */}
+          <Line label="Hired as"><Sourced value={resident.hired_as_label} /></Line>
+          <Line label="Licensed when they applied">
+            {resident.licensed_at_application === true ? 'Yes' : resident.licensed_at_application === false ? 'No' : <span style={{ fontWeight: 400, color: 'var(--text-caption)' }}>Not known</span>}
+          </Line>
+          {resident.nclex_passed_on && <Line label="NCLEX passed">{fmtDate(resident.nclex_passed_on)}</Line>}
+          {resident.license_issued_on && <Line label="License issued">{fmtDate(resident.license_issued_on)}</Line>}
+          {resident.titles?.length > 1 && (
+            <div style={{ padding: '4px 0', fontSize: 12.5 }} data-testid="title-history">
+              <span style={{ color: 'var(--text-caption)' }}>Title history</span>
+              <ul style={{ margin: '4px 0 0', paddingLeft: 18 }}>
+                {resident.titles.map((t, i) => <li key={`${t.effective_on}-${i}`}>{t.title} <span style={{ color: 'var(--text-caption)' }}>from {fmtDate(t.effective_on)}</span></li>)}
+              </ul>
+            </div>
+          )}
           <Line label="Preceptor"><Sourced value={resident.preceptor.value} source={resident.preceptor.source} /></Line>
           <Line label="Phone"><Sourced value={resident.phone.value} source={resident.phone.source} /></Line>
           <Line label="Affiliation">

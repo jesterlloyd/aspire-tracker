@@ -46,6 +46,9 @@ export const EVENT_LABELS = Object.freeze({
   followup_unflagged: 'Removed the follow-up flag',
   document_uploaded: 'Uploaded a document',
   resume_scored: 'Scored the résumé',
+  // HIRE-HISTORY-1
+  hire_backfilled: 'Recorded a past hire',
+  title_changed: 'Changed the title',
   // APPLICANT-PACKET-1
   packet_downloaded: 'Downloaded the applicant packet',
   // ADD-ALUMNUS-1
@@ -73,7 +76,7 @@ export const ACTION_GROUPS = Object.freeze([
   Object.freeze({ key: 'documents', label: 'Documents and résumés', types: ['document_uploaded', 'resume_scored', 'packet_downloaded'] }),
   Object.freeze({ key: 'roster', label: 'Roster', types: ['alumnus_added', 'alumnus_removed', 'alumnus_invited'] }),
   Object.freeze({ key: 'application', label: 'Application', types: ['form_sent', 'form_opened', 'form_submitted', 'form_revised', 'token_revoked', 'token_resent', 'form_deadline_extended', 'eligibility_calculated', 'eligibility_overridden', 'application_confirmed', 'application_withdrawn', 'unit_preferences_set', 'not_proceeding_recorded', 'application_reinstated'] }),
-  Object.freeze({ key: 'hiring', label: 'Interviews and hiring', types: ['unit_assigned', 'unit_assignment_cleared', 'interview_recorded', 'offer_extended', 'offer_accepted', 'offer_declined', 'hire_recorded', 'not_selected', 'interview_rubric_completed', 'interview_rubric_reopened', 'interview_times_opened', 'interview_times_removed', 'interview_slot_blocked', 'interview_slot_unblocked', 'interview_booked', 'interview_booking_cancelled'] }),
+  Object.freeze({ key: 'hiring', label: 'Interviews and hiring', types: ['unit_assigned', 'unit_assignment_cleared', 'interview_recorded', 'offer_extended', 'offer_accepted', 'offer_declined', 'hire_recorded', 'hire_backfilled', 'title_changed', 'not_selected', 'interview_rubric_completed', 'interview_rubric_reopened', 'interview_times_opened', 'interview_times_removed', 'interview_slot_blocked', 'interview_slot_unblocked', 'interview_booked', 'interview_booking_cancelled'] }),
 ])
 export const matchesGroup = (row, groupKey) => {
   const g = ACTION_GROUPS.find(x => x.key === groupKey)

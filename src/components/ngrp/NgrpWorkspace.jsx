@@ -166,7 +166,7 @@ export default function NgrpWorkspace({ cyclesStatus, cyclesCount, cycle, canMan
         )}
         {/* RESIDENTS-1: the hired new grads and the retention tracker. */}
         {tab === 'residency' && subTab === 'residents' && (
-          <ResidentsTab cycle={cycle} />
+          <ResidentsTab cycle={cycle} toast={toast} />
         )}
         {tab === 'residency' && subTab === 'activity' && (
           <ActivityCalendar cycle={cycle} canManage={canManage} toast={toast} />

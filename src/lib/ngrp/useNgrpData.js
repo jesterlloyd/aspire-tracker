@@ -243,6 +243,10 @@ export function useNgrpResidents(cycleId, { scope = 'cohort', enabled = true } =
     status: deriveStatus(query),
     residents: ready ? (query.data.residents || []) : [],
     detailsProvisioned: ready && query.data.detailsProvisioned === true,
+    // HIRE-HISTORY-1: the hire-history columns (20261124000000) and, in aggregate scope, the
+    // report population (Completed interns, no names).
+    hireHistoryProvisioned: ready && query.data.hireHistoryProvisioned === true,
+    population: ready ? (query.data.population || null) : null,
     refetch: query.refetch,
   }
 }

@@ -59,11 +59,12 @@ test('RUBRIC 4: the server check refuses a bad score or question and an incomple
 test('MIGRATION 1: the audit CHECK equals the code\'s list, and every type has words', () => {
   // ADD-ALUMNUS-1 (20261116000000) rebuilt the CHECK with the alumnus types; the newest one
   // must equal the code's list, and this migration's must be all of it but those three.
-  // TRANSITION-PORTAL-1 (20261120000000) rebuilt it again with form_deadline_extended.
-  const LATEST = readFileSync(new URL('../supabase/migrations/20261120000000_transition_deadline_audit.sql', import.meta.url), 'utf8')
+  // TRANSITION-PORTAL-1 (20261120000000) rebuilt it again with form_deadline_extended, and
+  // HIRE-HISTORY-1 (20261124000000) with hire_backfilled and title_changed.
+  const LATEST = readFileSync(new URL('../supabase/migrations/20261124000000_residency_hire_history.sql', import.meta.url), 'utf8')
   const typesIn = sql => { const c = sql.slice(sql.indexOf('CHECK (event_type IN ('), sql.indexOf("));", sql.indexOf('CHECK (event_type IN ('))); return [...c.replace(/--[^\n]*/g, '').matchAll(/'([a-z_]+)'/g)].map(m => m[1]).sort() }
   assert.deepEqual(typesIn(LATEST), [...NGRP_AUDIT_EVENTS].sort())
-  assert.deepEqual(typesIn(MIG), [...NGRP_AUDIT_EVENTS].filter(t => !t.startsWith('alumnus_') && t !== 'form_deadline_extended').sort())
+  assert.deepEqual(typesIn(MIG), [...NGRP_AUDIT_EVENTS].filter(t => !t.startsWith('alumnus_') && !['form_deadline_extended', 'hire_backfilled', 'title_changed'].includes(t)).sort())
   for (const t of NGRP_AUDIT_EVENTS) assert.ok(EVENT_LABELS[t], `${t} has a label`)
   assert.match(MIG, /'recommend', 'recommend_with_reservations', 'do_not_recommend'/)
 })
