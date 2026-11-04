@@ -23,7 +23,9 @@ export const HIRE_FIELDS = Object.freeze([
   { key: 'hired_as', label: 'Hired as', kind: 'hired_as' },
   { key: 'residency_cohort', label: 'Residency cohort', kind: 'text' },
   { key: 'current_title', label: 'Current title', kind: 'text' },
-  { key: 'nclex_passed_on', label: 'NCLEX passed on', kind: 'date' },
+  // HIRE-HISTORY-2: one licensure date (the license issue date) and the interim permit.
+  { key: 'license_issued_on', label: 'License issued on', kind: 'date' },
+  { key: 'interim_permit_issued', label: 'Interim permit issued (yes or no)', kind: 'yesno' },
   { key: 'separated_on', label: 'Separated on', kind: 'date' },
   { key: 'separation_reason', label: 'Separation reason', kind: 'text' },
 ])
@@ -43,7 +45,8 @@ const GUESSES = [
   [/^unit$|hired (into )?unit|hiring unit/i, 'hired_unit'],
   [/applied for cohort|residency cohort|ngrp cohort|new.?grad cohort/i, 'residency_cohort'],
   [/current title|current role|^title$|^role$/i, 'current_title'],
-  [/nclex.*(pass|date)|passed nclex/i, 'nclex_passed_on'],
+  [/interim|permit/i, 'interim_permit_issued'],
+  [/licen[cs]e.*(issue|date)|nclex.*(pass|date)|passed nclex/i, 'license_issued_on'],
   [/separat|^left|end date|termination/i, 'separated_on'],
   [/separation reason|reason (for )?(leaving|separation)/i, 'separation_reason'],
 ]
@@ -82,7 +85,7 @@ const NO = /^(n|no|false|not hired|0|-)$/i
 export function hiredAsFrom(raw) {
   const s = str(raw, 120)
   if (!s) return null
-  if (/\bgnt\b|graduate nurse|nurse tech/i.test(s)) return { hired_as: 'Graduate Nurse Tech', hired_as_other: null }
+  if (/\bgnt\b|graduate nurse|nurse (tech|trainee)/i.test(s)) return { hired_as: 'Graduate Nurse Trainee', hired_as_other: null }
   if (/^cn\s*(i|1)$|clinical nurse\s*(i|1)$|^rn$|^cn$|new grad|resident/i.test(s)) return { hired_as: 'Clinical Nurse I', hired_as_other: null }
   const exact = exactChoice(s, HIRED_AS)
   if (exact) return { hired_as: exact, hired_as_other: null }
@@ -125,6 +128,11 @@ export function hireRowValues(row, mapping) {
       }
       case 'unit': {
         v.hired_unit = exactChoice(raw, UNIT_NAMES) || exactChoice(raw.replace(/\s*\(.*$/, ''), UNIT_NAMES) || raw.slice(0, 120)
+        break
+      }
+      case 'yesno': {
+        if (YES.test(raw)) v[f.key] = true
+        else if (NO.test(raw)) v[f.key] = false
         break
       }
       case 'hired_as': {

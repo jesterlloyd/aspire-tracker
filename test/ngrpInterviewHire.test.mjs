@@ -97,8 +97,9 @@ test('an empty outcome is valid, because the record accumulates over months', ()
     shift: null,
     cs_email: null,
     // HIRE-HISTORY-1 (2026-11-04): what they were hired as, their licensure at application,
-    // the NCLEX and license dates; all null until recorded.
-    hired_as: null, hired_as_other: null, licensed_at_application: null, nclex_passed_on: null, license_issued_on: null,
+    // the license date; all null until recorded. HIRE-HISTORY-2: the NCLEX date gave way to
+    // the interim permit.
+    hired_as: null, hired_as_other: null, licensed_at_application: null, license_issued_on: null, interim_permit_issued: null,
   })
   // A residency start must be a calendar date, not a timestamp.
   assert.equal(validateOutcomePayload({ residency_start_date: '2027-02-02T00:00:00Z' }).errors[0].field, 'residency_start_date')

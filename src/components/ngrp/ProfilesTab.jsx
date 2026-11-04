@@ -705,7 +705,10 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                   canManage={canManage}
                   provisioned={transitionProvisioned}
                   initialDocsOpen={Boolean(linkedStudent && openDocs && !drawerRowId)}
-                  initialSheet={(linkedStudent || linkedCandidate) && !drawerRowId ? linkedSheet : null}
+                  // HIRE-HISTORY-2: a ?sheet= link opens its sheet whether it came from a pasted
+                  // link or from Record hire, which sets ?sheet=hiring while choosing the row
+                  // (a chosen row used to drop the sheet, so the binder stayed at its top).
+                  initialSheet={linkedSheet && linkedSheet !== '1' && (linkedStudent || linkedCandidate) ? linkedSheet : null}
                   followUp={canManage ? { available: payload?.followUpFlagProvisioned === true, onSet: setFollowUp } : null}
                   interviewModeAvailable={payload?.interviewModeProvisioned === true}
                   rubricsAvailable={payload?.rubricsProvisioned === true}

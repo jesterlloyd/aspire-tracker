@@ -186,8 +186,8 @@ export default function ResidentDetailsSection({ row, cycle, canManage, toast })
           <Line label="Licensed when they applied">
             {resident.licensed_at_application === true ? 'Yes' : resident.licensed_at_application === false ? 'No' : <span style={{ fontWeight: 400, color: 'var(--text-caption)' }}>Not known</span>}
           </Line>
-          {resident.nclex_passed_on && <Line label="NCLEX passed">{fmtDate(resident.nclex_passed_on)}</Line>}
           {resident.license_issued_on && <Line label="License issued">{fmtDate(resident.license_issued_on)}</Line>}
+          {resident.interim_permit_issued === true && <Line label="Interim permit">Issued</Line>}
           {resident.titles?.length > 1 && (
             <div style={{ padding: '4px 0', fontSize: 12.5 }} data-testid="title-history">
               <span style={{ color: 'var(--text-caption)' }}>Title history</span>

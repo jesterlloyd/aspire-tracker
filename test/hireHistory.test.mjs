@@ -19,16 +19,23 @@ const read = p => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8')
 const MIG = read('supabase/migrations/20261124000000_residency_hire_history.sql')
 
 test('hired as is a closed list; Other needs its words; licensure and dates are checked', () => {
-  assert.deepEqual([...HIRED_AS], ['Clinical Nurse I', 'Graduate Nurse Tech', 'Other'])
-  const ok = validateHireHistory({ hired_as: 'Graduate Nurse Tech', licensed_at_application: 'no', nclex_passed_on: '2026-09-01', license_issued_on: '' })
-  assert.deepEqual(ok, { ok: true, fields: { hired_as: 'Graduate Nurse Tech', hired_as_other: null, licensed_at_application: false, nclex_passed_on: '2026-09-01', license_issued_on: null } })
+  // HIRE-HISTORY-2 (Owner, 2026-11-04): GNT is Graduate Nurse Trainee; one licensure date
+  // (license issued) and the interim permit, which replaced the NCLEX date.
+  assert.deepEqual([...HIRED_AS], ['Clinical Nurse I', 'Graduate Nurse Trainee', 'Other'])
+  const ok = validateHireHistory({ hired_as: 'Graduate Nurse Trainee', licensed_at_application: 'no', license_issued_on: '2026-09-01', interim_permit_issued: true })
+  assert.deepEqual(ok, { ok: true, fields: { hired_as: 'Graduate Nurse Trainee', hired_as_other: null, licensed_at_application: false, license_issued_on: '2026-09-01', interim_permit_issued: true } })
+  assert.equal(validateHireHistory({ hired_as: 'Graduate Nurse Tech' }).ok, false, 'the old spelling is refused')
+  assert.equal(validateHireHistory({}).fields.interim_permit_issued, null)
+  assert.equal(validateHireHistory({ interim_permit_issued: 'maybe' }).ok, false)
+  assert.equal('nclex_passed_on' in validateHireHistory({ nclex_passed_on: '2026-01-01' }).fields, false, 'the NCLEX date is not written')
   assert.equal(validateHireHistory({ hired_as: 'Other' }).ok, false, 'Other without words')
   assert.equal(validateHireHistory({ hired_as: 'Other', hired_as_other: 'Nurse Extern' }).fields.hired_as_other, 'Nurse Extern')
   assert.equal(validateHireHistory({ hired_as: 'Nurse Boss' }).ok, false)
-  assert.equal(validateHireHistory({ nclex_passed_on: 'last May' }).ok, false)
+  assert.equal(validateHireHistory({ license_issued_on: 'last May' }).ok, false)
   assert.equal(validateHireHistory({}).fields.licensed_at_application, null, 'unknown stays unknown')
   assert.equal(hiredAsLabel({ hired_as: 'Other', hired_as_other: 'Nurse Extern' }), 'Nurse Extern')
-  assert.equal(hiredAsLabel({ hired_as: 'Clinical Nurse I' }), 'Clinical Nurse I')
+  assert.equal(hiredAsLabel({ hired_as: 'Clinical Nurse I' }), 'CN I')
+  assert.equal(hiredAsLabel({ hired_as: 'Graduate Nurse Trainee' }), 'GNT')
 })
 
 test('the outcome validator carries the hire history, and the old shape still validates', () => {
@@ -44,7 +51,7 @@ test('the outcome validator carries the hire history, and the old shape still va
 test('a past hire needs a date and a unit; the separation cannot predate it; the title is dated to the hire', () => {
   assert.equal(validateBackfillHire({ hired_unit: '6 NE' }).ok, false)
   assert.equal(validateBackfillHire({ hired_on: '2026-03-02' }).ok, false)
-  const v = validateBackfillHire({ hired_on: '2026-03-02', hired_unit: '6 NE', hired_as: 'Graduate Nurse Tech', position_title: 'Clinical Nurse I', separated_on: '2026-09-30', separation_reason: 'Moved' })
+  const v = validateBackfillHire({ hired_on: '2026-03-02', hired_unit: '6 NE', hired_as: 'Graduate Nurse Trainee', position_title: 'Clinical Nurse I', separated_on: '2026-09-30', separation_reason: 'Moved' })
   assert.equal(v.ok, true)
   assert.equal(v.hire.hired_at, '2026-03-02T12:00:00.000Z')
   assert.equal(v.hire.separated_at, '2026-09-30T12:00:00.000Z')
@@ -64,7 +71,7 @@ test('a title change carries the day it took effect, never before the hire', () 
 
 test('composeResidents: the current title is the latest history row, the rest is carried', () => {
   const rows = composeResidents({
-    outcomes: [{ candidate_id: 'c1', student_id: 's1', cycle_id: 'y1', hired_at: '2026-03-02T12:00:00Z', hired_unit: '6 NE', position_title: 'RN Resident', hired_as: 'Graduate Nurse Tech', licensed_at_application: false, nclex_passed_on: '2026-04-10', backfilled: true }],
+    outcomes: [{ candidate_id: 'c1', student_id: 's1', cycle_id: 'y1', hired_at: '2026-03-02T12:00:00Z', hired_unit: '6 NE', position_title: 'RN Resident', hired_as: 'Graduate Nurse Trainee', licensed_at_application: false, license_issued_on: '2026-04-10', interim_permit_issued: true, backfilled: true }],
     candidates: [{ id: 'c1', cycle_id: 'y1', student_id: 's1' }],
     students: [{ id: 's1', first_name: 'A', last_name: 'B' }],
     cycles: [{ id: 'y1', name: 'Spring 2026' }],
@@ -73,9 +80,10 @@ test('composeResidents: the current title is the latest history row, the rest is
   const r = rows[0]
   assert.equal(r.current_title, 'Clinical Nurse I')
   assert.deepEqual(r.titles.map(t => t.title), ['Clinical Nurse I', 'RN Resident'])
-  assert.equal(r.hired_as_label, 'Graduate Nurse Tech')
+  assert.equal(r.hired_as_label, 'GNT')
   assert.equal(r.licensed_at_application, false)
-  assert.equal(r.nclex_passed_on, '2026-04-10')
+  assert.equal(r.license_issued_on, '2026-04-10')
+  assert.equal(r.interim_permit_issued, true)
   assert.equal(r.backfilled, true)
   assert.equal(r.affiliated, true)
   const plain = composeResidents({ outcomes: [{ candidate_id: 'c2', student_id: 's2', hired_at: '2026-03-02T12:00:00Z', position_title: 'Clinical Nurse I' }], students: [{ id: 's2' }] })[0]
@@ -159,7 +167,8 @@ test('the header guess reads the intake export: name, email, Applied for Cohort,
 })
 
 test('hired as reads the team\'s shorthand; a row reads hired from a word or a date', () => {
-  assert.deepEqual(hiredAsFrom('GNT'), { hired_as: 'Graduate Nurse Tech', hired_as_other: null })
+  assert.deepEqual(hiredAsFrom('GNT'), { hired_as: 'Graduate Nurse Trainee', hired_as_other: null })
+  assert.deepEqual(hiredAsFrom('Graduate Nurse Trainee'), { hired_as: 'Graduate Nurse Trainee', hired_as_other: null })
   assert.deepEqual(hiredAsFrom('CN I'), { hired_as: 'Clinical Nurse I', hired_as_other: null })
   assert.deepEqual(hiredAsFrom('Nurse Extern'), { hired_as: 'Other', hired_as_other: 'Nurse Extern' })
   const m = guessHireMapping(['Name', 'Hired', 'Unit', 'Applied for Cohort'])
@@ -201,4 +210,25 @@ test('the plan: one Completed match per row, a date needed, already-recorded ski
   assert.deepEqual([noDate[0].action, noDate[0].reason], ['ask', 'no_date'])
   assert.equal(suggestCycle('2026 August', [{ id: 'y', name: 'August 2026 Cohort' }]), null, 'word order differs: the person chooses')
   assert.equal(suggestCycle('Winter 2027', [{ id: 'y', name: 'Winter 2027' }]).id, 'y')
+})
+
+test('HIRE-HISTORY-2: the migration renames GNT, adds the permit, and the sheet picks units and opens Record hire', () => {
+  const mig = read('supabase/migrations/20261125000000_hire_gnt_interim_permit.sql')
+  assert.match(mig, /UPDATE public\.ngrp_residency_outcomes SET hired_as = 'Graduate Nurse Trainee' WHERE hired_as = 'Graduate Nurse Tech'/)
+  assert.match(mig, /IN \('Clinical Nurse I', 'Graduate Nurse Trainee', 'Other'\)/)
+  assert.match(mig, /ADD COLUMN IF NOT EXISTS interim_permit_issued boolean/)
+  assert.doesNotMatch(mig, /DROP COLUMN IF EXISTS nclex_passed_on;?\s*$/m)
+  const drawer = read('src/components/ngrp/ApplicantDrawer.jsx')
+  assert.match(drawer, /function HireUnitPicker/)
+  assert.equal((drawer.match(/<HireUnitPicker /g) || []).length, 2, 'both hire forms pick from the catalog')
+  assert.doesNotMatch(drawer, /placeholder="Unit name"/)
+  assert.match(drawer, /Interim permit issued/)
+  assert.doesNotMatch(drawer, /NCLEX passed on/)
+  assert.match(drawer, /openBackfill=\{initialSheet === 'hiring'\}/)
+  // Record hire chooses the row AND sets ?sheet=hiring; the binder must still read the sheet.
+  const tab = read('src/components/ngrp/ProfilesTab.jsx')
+  assert.doesNotMatch(tab, /initialSheet=\{[^}]*!drawerRowId/)
+  const m = guessHireMapping(['Name', 'License Issue Date', 'Interim Permit'])
+  assert.deepEqual(m.columns.map(c => c.field), ['full_name', 'license_issued_on', 'interim_permit_issued'])
+  assert.deepEqual(hireRowValues(['Lee, Sam', '4/10/2026', 'Yes'], m).values, { first_name: 'Sam', last_name: 'Lee', license_issued_on: '2026-04-10', interim_permit_issued: true })
 })

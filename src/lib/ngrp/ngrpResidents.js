@@ -121,8 +121,8 @@ export function composeResidents({
       hired_as_other: o.hired_as_other || '',
       hired_as_label: hiredAsLabel(o),
       licensed_at_application: typeof o.licensed_at_application === 'boolean' ? o.licensed_at_application : null,
-      nclex_passed_on: o.nclex_passed_on || null,
       license_issued_on: o.license_issued_on || null,
+      interim_permit_issued: typeof o.interim_permit_issued === 'boolean' ? o.interim_permit_issued : null,
       backfilled: o.backfilled === true,
       titles: sortTitles(titles[o.candidate_id] || []),
       current_title: currentTitle(sortTitles(titles[o.candidate_id] || []), o.position_title),
@@ -151,16 +151,24 @@ export function retentionSummary(rows = []) {
 // What they were hired as, their licensure when they applied, the title history, and the two
 // reports (by school, by ASPIRE cohort). Pure, so the sheet, the server and the tests agree.
 
-export const HIRED_AS = Object.freeze(['Clinical Nurse I', 'Graduate Nurse Tech', 'Other'])
+// HIRE-HISTORY-2 (Owner, 2026-11-04): GNT is Graduate Nurse Trainee, and the screens say CN I
+// and GNT. The stored value is the full name; HIRED_AS_SHORT is what a person reads.
+export const HIRED_AS = Object.freeze(['Clinical Nurse I', 'Graduate Nurse Trainee', 'Other'])
 export const HIRED_AS_OTHER = 'Other'
+export const HIRED_AS_SHORT = Object.freeze({ 'Clinical Nurse I': 'CN I', 'Graduate Nurse Trainee': 'GNT', Other: 'Other' })
+// One licensure date (the license issue date, HIRE-HISTORY-2) and the interim permit box.
+// nclex_passed_on is no longer written or shown.
 export const HIRE_HISTORY_KEYS = Object.freeze([
-  'hired_as', 'hired_as_other', 'licensed_at_application', 'nclex_passed_on', 'license_issued_on',
+  'hired_as', 'hired_as_other', 'licensed_at_application', 'license_issued_on', 'interim_permit_issued',
 ])
 
 export function hiredAsLabel(o) {
   if (!o?.hired_as) return ''
-  return o.hired_as === HIRED_AS_OTHER ? (text(o.hired_as_other, 120) || 'Other') : o.hired_as
+  return o.hired_as === HIRED_AS_OTHER ? (text(o.hired_as_other, 120) || 'Other') : (HIRED_AS_SHORT[o.hired_as] || o.hired_as)
 }
+
+const yesNo = v => (v === true || v === 'yes' ? true : v === false || v === 'no' ? false : null)
+const yesNoValid = v => v === undefined || v === null || v === '' || typeof v === 'boolean' || v === 'yes' || v === 'no'
 
 // Validate the hire-history fields of an outcome save. Every field is optional; an absent key
 // reads as null, so a save from a sheet that predates these fields clears nothing by accident
@@ -170,21 +178,20 @@ export function validateHireHistory(input) {
   const errors = []
   const fields = {}
   const as = typeof src.hired_as === 'string' ? src.hired_as.trim() : ''
-  if (as && !HIRED_AS.includes(as)) errors.push({ field: 'hired_as', message: 'Choose Clinical Nurse I, Graduate Nurse Tech or Other.' })
+  if (as && !HIRED_AS.includes(as)) errors.push({ field: 'hired_as', message: 'Choose CN I, GNT or Other.' })
   fields.hired_as = as && HIRED_AS.includes(as) ? as : null
   const other = text(src.hired_as_other, 120)
   if (fields.hired_as === HIRED_AS_OTHER && !other) errors.push({ field: 'hired_as_other', message: 'Say what they were hired as.' })
   fields.hired_as_other = fields.hired_as === HIRED_AS_OTHER ? (other || null) : null
   const lic = src.licensed_at_application
-  if (lic !== undefined && lic !== null && lic !== '' && typeof lic !== 'boolean' && lic !== 'yes' && lic !== 'no') {
-    errors.push({ field: 'licensed_at_application', message: 'Licensed at application is yes, no or unknown.' })
-  }
-  fields.licensed_at_application = lic === true || lic === 'yes' ? true : lic === false || lic === 'no' ? false : null
-  for (const k of ['nclex_passed_on', 'license_issued_on']) {
-    const v = typeof src[k] === 'string' ? src[k].trim() : ''
-    if (v && !isDate(v)) errors.push({ field: k, message: 'Use a calendar date.' })
-    fields[k] = v && isDate(v) ? v : null
-  }
+  if (!yesNoValid(lic)) errors.push({ field: 'licensed_at_application', message: 'Licensed at application is yes, no or unknown.' })
+  fields.licensed_at_application = yesNo(lic)
+  const issued = typeof src.license_issued_on === 'string' ? src.license_issued_on.trim() : ''
+  if (issued && !isDate(issued)) errors.push({ field: 'license_issued_on', message: 'Use a calendar date.' })
+  fields.license_issued_on = issued && isDate(issued) ? issued : null
+  const permit = src.interim_permit_issued
+  if (!yesNoValid(permit)) errors.push({ field: 'interim_permit_issued', message: 'Interim permit issued is yes, no or unknown.' })
+  fields.interim_permit_issued = yesNo(permit)
   return errors.length ? { ok: false, errors } : { ok: true, fields }
 }
 

@@ -21,7 +21,9 @@ import {
 import { displayName } from '../../lib/utils'
 import { shiftBadge } from '../../lib/shiftStatus'
 import { RESIDENT_SHIFTS } from '../../lib/ngrp/ngrpReflectionForm'
-import { HIRED_AS, HIRED_AS_OTHER, hiredAsLabel } from '../../lib/ngrp/ngrpResidents'
+import { HIRED_AS, HIRED_AS_OTHER, HIRED_AS_SHORT, hiredAsLabel } from '../../lib/ngrp/ngrpResidents'
+import { DIVISION_ORDER, getCanonicalUnitNames, getUnitsByDivision, unitOptionLabel } from '../../lib/unitCatalog'
+import { unitNameKey } from '../../lib/unitNameCanon'
 import { StudentDocumentsBody } from '../documents/StudentDocumentsDrawer'
 import FlagRibbon from '../rubric/FlagRibbon'
 import ApplicantProfileSheet from './ApplicantProfileSheet'
@@ -546,6 +548,47 @@ const fmtDayOnly = d => {
   return new Date(y, m - 1, day).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
+// HIRE-HISTORY-2 (Owner, 2026-11-04): the hire unit is chosen from every unit in the catalog,
+// grouped by division, with Other opening a box for a unit the catalog does not list. The stored
+// value is still the unit's name as text, so a unit typed before this reads as Other with its text.
+const HIRE_UNIT_OTHER = '__other__'
+const catalogUnitFor = v => {
+  const k = unitNameKey(v)
+  return k ? getCanonicalUnitNames().find(n => unitNameKey(n) === k) || null : null
+}
+function HireUnitPicker({ value, onChange }) {
+  const known = catalogUnitFor(value)
+  const [other, setOther] = useState(Boolean(value) && !known)
+  const grouped = getUnitsByDivision(true)
+  const divisions = [...DIVISION_ORDER.filter(d => grouped[d]), ...Object.keys(grouped).filter(d => !DIVISION_ORDER.includes(d))]
+  return (
+    <>
+      <label style={{ display: 'block' }}>
+        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-caption)' }}>Hired into unit</span>
+        <select style={field} value={other ? HIRE_UNIT_OTHER : known || ''}
+          onChange={e => {
+            const v = e.target.value
+            if (v === HIRE_UNIT_OTHER) { setOther(true); onChange(known ? '' : value) } else { setOther(false); onChange(v) }
+          }}>
+          <option value="">Choose a unit</option>
+          {divisions.map(d => (
+            <optgroup key={d} label={d}>
+              {grouped[d].map(u => <option key={u.name} value={u.name}>{unitOptionLabel(u.name)}</option>)}
+            </optgroup>
+          ))}
+          <option value={HIRE_UNIT_OTHER}>Other</option>
+        </select>
+      </label>
+      {other && (
+        <label style={{ display: 'block' }}>
+          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-caption)' }}>Hired into unit (other)</span>
+          <input style={field} value={value} maxLength={120} onChange={e => onChange(e.target.value)} placeholder="The unit's name" />
+        </label>
+      )}
+    </>
+  )
+}
+
 function HireHistoryFields({ form, set }) {
   return (
     <>
@@ -553,7 +596,7 @@ function HireHistoryFields({ form, set }) {
         <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-caption)' }}>Hired as</span>
         <select style={field} value={form.hired_as} onChange={e => set('hired_as', e.target.value)}>
           <option value="">Not recorded yet</option>
-          {HIRED_AS.map(a => <option key={a} value={a}>{a}</option>)}
+          {HIRED_AS.map(a => <option key={a} value={a}>{HIRED_AS_SHORT[a] || a}</option>)}
         </select>
       </label>
       {form.hired_as === HIRED_AS_OTHER && (
@@ -568,13 +611,14 @@ function HireHistoryFields({ form, set }) {
           {LICENSED_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
         </select>
       </label>
-      <label style={{ display: 'block' }}>
-        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-caption)' }}>NCLEX passed on</span>
-        <input type="date" style={field} value={form.nclex_passed_on} onChange={e => set('nclex_passed_on', e.target.value)} />
-      </label>
+      {/* HIRE-HISTORY-2: one licensure date, the license issue date, and the interim permit. */}
       <label style={{ display: 'block' }}>
         <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-caption)' }}>License issued on</span>
         <input type="date" style={field} value={form.license_issued_on} onChange={e => set('license_issued_on', e.target.value)} />
+      </label>
+      <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-heading)' }}>
+        <input type="checkbox" checked={form.interim_permit_issued} onChange={e => set('interim_permit_issued', e.target.checked)} />
+        Interim permit issued
       </label>
     </>
   )
@@ -583,15 +627,16 @@ const hireHistoryInit = o => ({
   hired_as: o.hired_as || '',
   hired_as_other: o.hired_as_other || '',
   licensed_at_application: o.licensed_at_application === true ? 'yes' : o.licensed_at_application === false ? 'no' : '',
-  nclex_passed_on: dateOnly(o.nclex_passed_on),
   license_issued_on: dateOnly(o.license_issued_on),
+  interim_permit_issued: o.interim_permit_issued === true,
 })
 const hireHistoryOut = form => ({
   hired_as: form.hired_as || null,
   hired_as_other: form.hired_as === HIRED_AS_OTHER ? form.hired_as_other.trim() || null : null,
   licensed_at_application: form.licensed_at_application || null,
-  nclex_passed_on: form.nclex_passed_on || null,
   license_issued_on: form.license_issued_on || null,
+  // An unticked box is "no", not "unknown": the box is the whole question.
+  interim_permit_issued: form.interim_permit_issued === true,
 })
 function HireHistoryRows({ o }) {
   return (
@@ -602,8 +647,8 @@ function HireHistoryRows({ o }) {
           {licensedWord(o.licensed_at_application) || <span style={{ fontWeight: 400, color: 'var(--text-caption)' }}>Not known</span>}
         </Row>
       )}
-      {o.nclex_passed_on && <Row label="NCLEX passed">{fmtDayOnly(o.nclex_passed_on)}</Row>}
       {o.license_issued_on && <Row label="License issued">{fmtDayOnly(o.license_issued_on)}</Row>}
+      {o.interim_permit_issued === true && <Row label="Interim permit">Issued</Row>}
       {o.backfilled && (
         <p style={{ margin: '4px 0 0', fontSize: 11, color: 'var(--text-caption)' }}>
           Recorded after the fact from the team's records; the offer dates are not real offer dates.
@@ -615,8 +660,15 @@ function HireHistoryRows({ o }) {
 
 // HIRE-HISTORY-1: a hire for an alumnus who is not in this cohort's Applicant Pool (a cohort that
 // ran before the app held it). Writes through hire_backfill; Owner and Admin, staff app only.
-function BackfillHireForm({ row, onBackfill }) {
-  const [open, setOpen] = useState(false)
+// HIRE-HISTORY-2: Record hire (Interest & Eligibility) arrives with the form already open.
+function BackfillHireForm({ row, onBackfill, startOpen = false }) {
+  const [open, setOpen] = useState(startOpen)
+  // A second Record hire on a binder already open (startOpen turns true) opens it too.
+  const [wasStartOpen, setWasStartOpen] = useState(startOpen)
+  if (startOpen !== wasStartOpen) {
+    setWasStartOpen(startOpen)
+    if (startOpen) setOpen(true)
+  }
   const [form, setForm] = useState({
     hired_on: '', hired_unit: row.assigned_unit || '', residency_start_date: '', position_title: '',
     separated_on: '', separation_reason: '', ...hireHistoryInit({}),
@@ -645,10 +697,7 @@ function BackfillHireForm({ row, onBackfill }) {
         <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-caption)' }}>Hired on</span>
         <input type="date" style={field} value={form.hired_on} onChange={e => set('hired_on', e.target.value)} />
       </label>
-      <label style={{ display: 'block' }}>
-        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-caption)' }}>Hired into unit</span>
-        <input style={field} value={form.hired_unit} onChange={e => set('hired_unit', e.target.value)} placeholder="Unit name" />
-      </label>
+      <HireUnitPicker value={form.hired_unit} onChange={v => set('hired_unit', v)} />
       <HireHistoryFields form={form} set={set} />
       <label style={{ display: 'block' }}>
         <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-caption)' }}>Residency start date</span>
@@ -689,7 +738,7 @@ function BackfillHireForm({ row, onBackfill }) {
   )
 }
 
-function OutcomeSection({ row, canManage, onSave, onBackfill }) {
+function OutcomeSection({ row, canManage, onSave, onBackfill, openBackfill = false }) {
   const o = row.outcome || {}
   const init = {
     ...hireHistoryInit(o),
@@ -735,7 +784,7 @@ function OutcomeSection({ row, canManage, onSave, onBackfill }) {
           <p style={{ margin: 0, fontSize: 12, color: 'var(--text-caption)' }}>
             There is no offer or hire to record: this alumnus is not in the Applicant Pool.
           </p>
-          {canManage && onBackfill && <BackfillHireForm row={row} onBackfill={onBackfill} />}
+          {canManage && onBackfill && <BackfillHireForm row={row} onBackfill={onBackfill} startOpen={openBackfill} />}
         </>
       ) : (
         <>
@@ -773,10 +822,7 @@ function OutcomeSection({ row, canManage, onSave, onBackfill }) {
                   <input type="datetime-local" style={field} value={form[k]} onChange={e => set(k, e.target.value)} />
                 </label>
               ))}
-              <label style={{ display: 'block' }}>
-                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-caption)' }}>Hired into unit</span>
-                <input style={field} value={form.hired_unit} onChange={e => set('hired_unit', e.target.value)} placeholder="Unit name" />
-              </label>
+              <HireUnitPicker value={form.hired_unit} onChange={v => set('hired_unit', v)} />
               {/* HIRE-HISTORY-1: what they were hired as and their licensure; shown with the
                   hire, so a hire is recorded with its position in one save. */}
               {form.hired_at && <HireHistoryFields form={form} set={set} />}
@@ -1445,6 +1491,7 @@ function ApplicantDrawerBody({
                   canManage={canManage && provisioned}
                   onSave={fields => actions.setOutcome?.(row, fields)}
                   onBackfill={actions.backfillHire ? (fields => actions.backfillHire(row, fields)) : undefined}
+                  openBackfill={initialSheet === 'hiring'}
                 />
                 {/* RESIDENTS-ONE-RECORD-1: once hired, the resident's title, preceptor, phone
                     and separation are kept here; Residency > Residents opens this sheet. */}

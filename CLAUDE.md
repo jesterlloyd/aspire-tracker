@@ -3041,3 +3041,13 @@ is Owner-gated (checks in `db/audit/residency_hire_history_checks.sql`).
   cohorts counts once; a group under `SMALL_GROUP` (5) interns shows its rate marked small, never hidden.
 - The legacy `students.ngrp_outcome` and `ngrp_cohort_target` (the chart's Placement sheet) are still
   not read by Residency; nothing here changes that.
+- **HIRE-HISTORY-2 (Owner, 2026-11-04).** GNT is Graduate Nurse **Trainee**: the stored values are
+  'Clinical Nurse I' | 'Graduate Nurse Trainee' | 'Other' and the screens read CN I, GNT, Other
+  (`HIRED_AS_SHORT`). One licensure date, `license_issued_on`, plus an **Interim permit issued** box
+  (`interim_permit_issued`); `nclex_passed_on` stays in the table, unread and unwritten. Hired into unit
+  is a catalog picker grouped by division with Other opening a free-text box (`HireUnitPicker`); the stored
+  value is still the unit's name. Record hire sets `?sheet=hiring` while choosing the row, so ProfilesTab
+  passes `initialSheet` whenever a `?sheet=` names a sheet (it used to require no chosen row, so the binder
+  stayed at its top), and the past-hire form arrives open. Migration
+  `20261125000000_hire_gnt_interim_permit.sql` (checks `db/audit/hire_gnt_interim_permit_checks.sql`) is
+  applied BEFORE the deploy: the old CHECK refuses the new spelling.
