@@ -49,7 +49,7 @@ Check for each of these. List a key in "missing_info" ONLY when the résumé doe
 - aspire_participation: ASPIRE, named as such
 - clinical_rotation_hours: the clinical rotation with its facility, unit AND hours (missing if any of the three is absent)
 - unit_placements: the units or clinical areas of clinical rotations
-- gpa: a GPA
+Do not ask for a GPA: the Transition Form collects it.
 Score the categories on what is there; never assume a missing item is present.
 
 THE SIX CATEGORIES (each 0 to 10, integers)

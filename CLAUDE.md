@@ -1821,7 +1821,7 @@ Instructions: `skills/review-resume/SKILL.md`, seeded by `20261105000000_resume_
   and Activities, and "do not be too strict". The six category KEYS did not change, so stored
   reviews and "was / now" still line up; `ats` reads Format and Structure, `clinical` Clinical
   Rotations, `leadership` Certifications, Experience and Activities. Missing information gained
-  `summary` and `license`. The skill text is `20261126000000_review_resume_hr_structure.sql`
+  `summary` and `license` and dropped `gpa` (the Transition Form collects it). The skill text is `20261126000000_review_resume_hr_structure.sql`
   (Owner-gated, a test holds it equal to SKILL.md); reviews scored before it keep their
   stored score and readiness until scored again. The model's own
   number is kept as `model_score` for comparison and not shown.

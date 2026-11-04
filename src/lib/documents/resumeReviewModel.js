@@ -33,9 +33,11 @@ export const MISSING_INFO = Object.freeze([
   Object.freeze({ key: 'aspire_participation', label: 'ASPIRE participation', ask: 'your ASPIRE rotation, by name' }),
   Object.freeze({ key: 'clinical_rotation_hours', label: 'Clinical rotation hours', ask: 'each clinical rotation with its facility, unit and hours' }),
   Object.freeze({ key: 'unit_placements', label: 'Unit placements', ask: 'the units you rotated on' }),
-  Object.freeze({ key: 'gpa', label: 'GPA', ask: 'your GPA' }),
+  // RESUME-HR-1: retired. The Transition Form collects GPA, so Keith no longer asks; the entry
+  // stays so a review stored before 2026-11-04 still names it.
+  Object.freeze({ key: 'gpa', label: 'GPA', ask: 'your GPA', retired: true }),
 ])
-export const MISSING_KEYS = Object.freeze(MISSING_INFO.map(m => m.key))
+export const MISSING_KEYS = Object.freeze(MISSING_INFO.filter(m => !m.retired).map(m => m.key))
 export const missingLabel = key => MISSING_INFO.find(m => m.key === key)?.label || key
 
 const clampInt = (v, lo, hi) => {
