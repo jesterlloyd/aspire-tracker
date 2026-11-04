@@ -30,28 +30,40 @@ const VIEW = {
 }
 const REVISIONS = new Map([['a1', FORM], ['a2', FORM]])
 
-// A tiny stand-in for the service client: tables are arrays, filters are eq/in.
+// A tiny stand-in for the service client: tables are arrays, filters are eq/in/or. Like
+// PostgREST, a read returns at most CAP rows (SHEET-READ-ALL-1), and .range() pages.
+const CAP = 1000
 function fakeDb(tables) {
   const writes = []
+  const deletes = []
   const from = name => {
     const filters = []
+    let window = [0, CAP - 1]
+    let deleting = false
     const q = {
       select: () => q,
       eq: (c, v) => { filters.push(r => r[c] === v); return q },
       in: (c, vs) => { filters.push(r => vs.includes(r[c])); return q },
+      or: () => { filters.push(r => r.value != null || r.format != null); return q },
+      order: () => q,
+      range: (a, b) => { window = [a, Math.min(b, a + CAP - 1)]; return q },
+      delete: () => { deleting = true; return q },
       limit: () => q,
       maybeSingle: () => {
         if (tables[name] === undefined) return Promise.resolve({ data: null, error: { code: '42P01', message: 'does not exist' } })
         return Promise.resolve({ data: tables[name].filter(r => filters.every(f => f(r)))[0] || null, error: null })
       },
       upsert: (rows) => { writes.push({ name, rows }); return Promise.resolve({ error: tables[name] === undefined ? { code: '42P01' } : null }) },
-      then: (ok, bad) => Promise.resolve(tables[name] === undefined
-        ? { data: null, error: { code: '42P01', message: 'does not exist' } }
-        : { data: tables[name].filter(r => filters.every(f => f(r))), error: null }).then(ok, bad),
+      then: (ok, bad) => {
+        if (tables[name] === undefined) return Promise.resolve({ data: null, error: { code: '42P01', message: 'does not exist' } }).then(ok, bad)
+        const hit = tables[name].filter(r => filters.every(f => f(r)))
+        if (deleting) { deletes.push({ name, rows: hit }); return Promise.resolve({ error: null }).then(ok, bad) }
+        return Promise.resolve({ data: hit.slice(window[0], window[1] + 1), error: null }).then(ok, bad)
+      },
     }
     return q
   }
-  return { from, writes }
+  return { from, writes, deletes }
 }
 
 test('the Sheet is the Excel: one row per submitted form, keyed to the candidate, the name as lead', async () => {
@@ -175,8 +187,12 @@ test('only a caller who may correct writes an answer; null removes the correctio
   ] })
   assert.equal(r.saved, 1, 'Id is never correctable')
   assert.equal(db.writes[0].rows[0].value, '', 'a correction to blank stays blank')
-  await saveApplicantSheetCells(db, { cycleId: CYCLE, profileId: 'p1', canCorrect: true, updates: [{ rowId: K1, key: school, value: null }] })
-  assert.equal(db.writes[1].rows[0].value, null, 'putting it back removes the correction')
+  // SHEET-READ-ALL-1 (the commit that removes emptied cells): putting it back deletes the stored row.
+  const back = fakeDb({ ngrp_candidates: [{ id: K1, cycle_id: CYCLE }], ngrp_sheet_views: [],
+    ngrp_sheet_cells: [{ cycle_id: CYCLE, candidate_id: K1, column_key: school, value: 'CSU', format: null }] })
+  await saveApplicantSheetCells(back, { cycleId: CYCLE, profileId: 'p1', canCorrect: true, updates: [{ rowId: K1, key: school, value: null }] })
+  assert.equal(back.writes.length, 0)
+  assert.deepEqual(back.deletes[0].rows.map(x => x.column_key), [school], 'putting it back removes the correction')
 })
 
 test('wiring: corrections for the Owner and Talent Acquisition, saves toast, Undo and a confirm before clearing', () => {
@@ -190,4 +206,32 @@ test('wiring: corrections for the Owner and Talent Acquisition, saves toast, Und
   assert.match(read('src/components/sheet/EditableSheet.jsx'), /useEffect\(\(\) => \{ if \(undoRef\) undoRef\.current = undo \}\)/)
   // SHEET-WIDE-1: the KPI cards filter the roster, so they step aside for the Sheet.
   assert.match(read('src/components/ngrp/ProfilesTab.jsx'), /\{!sheetOpen && <div className="ngrp-kpis"/)
+})
+
+// ── SHEET-READ-ALL-1 (2026-11-03) ────────────────────────────────────────────
+
+test('every saved cell comes back, even past the first thousand (the newest edit is last)', async () => {
+  const school = columnKey('School')
+  const filler = Array.from({ length: 1033 }, (_, i) => ({ cycle_id: CYCLE, candidate_id: K2, column_key: `x_${i}`, value: null, format: { i: true } }))
+  const db = fakeDb({ ngrp_sheet_views: [], ngrp_sheet_cells: [...filler,
+    { cycle_id: CYCLE, candidate_id: K1, column_key: school, value: null, format: { fill: 'yellow' } }] })
+  const s = await loadApplicantSheet(db, { cycleId: CYCLE, view: VIEW, revisions: REVISIONS })
+  assert.deepEqual(s.rows.find(r => r.id === K1).format[school], { fill: 'yellow' }, 'the 1,034th cell is read')
+})
+
+test('an empty cell is skipped on read and removed on save, never kept as a row', async () => {
+  const school = columnKey('School')
+  const db = fakeDb({
+    ngrp_candidates: [{ id: K1, cycle_id: CYCLE }], ngrp_sheet_views: [],
+    ngrp_sheet_cells: [{ cycle_id: CYCLE, candidate_id: K1, column_key: school, value: null, format: { b: true } }],
+  })
+  const r = await saveApplicantSheetCells(db, { cycleId: CYCLE, profileId: 'p1', updates: [
+    { rowId: K1, key: school, format: null },
+    { rowId: K1, key: columnKey('Phone Number'), format: null },
+  ] })
+  assert.equal(r.saved, 2)
+  assert.equal(db.writes.length, 0, 'nothing empty is written')
+  assert.equal(db.deletes.length, 1, 'only the stored cell is removed')
+  assert.deepEqual(db.deletes[0].rows.map(x => x.column_key), [school])
+  assert.match(read('lib/server/forms/engine.js'), /readAll\(\(\) => db\.from\('form_sheet_cells'\)/, 'the Forms Sheet pages too')
 })

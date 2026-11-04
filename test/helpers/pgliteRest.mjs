@@ -3,7 +3,7 @@
 // A small supabase-js look-alike over PGlite, for tests that must run the real engine
 // against real Postgres (triggers, constraints, the audit chain) without a network.
 // Covers exactly the query builder calls lib/server/signatures uses: select/insert/
-// update/upsert/delete with eq, neq, gt, gte, lt, lte, like, in, is, not(...), order, limit, single, maybeSingle.
+// update/upsert/delete with eq, neq, gt, gte, lt, lte, like, in, is, not(...), order, limit, range, single, maybeSingle.
 // Plus an in-memory storage bucket. Not a general PostgREST.
 
 const ident = (s) => `"${String(s).replace(/"/g, '""')}"`
@@ -16,7 +16,7 @@ function normalize(v) {
 }
 
 function builder(pg, table, arrayCols) {
-  const st = { op: 'select', cols: '*', where: [], params: [], order: [], limit: null, rows: null, patch: null, onConflict: null, returning: null, single: null }
+  const st = { op: 'select', cols: '*', where: [], params: [], order: [], limit: null, offset: null, rows: null, patch: null, onConflict: null, returning: null, single: null }
   const p = (v) => { st.params.push(v); return `$${st.params.length}` }
   const api = {
     select(cols = '*') { if (st.op === 'select') st.cols = cols; else st.returning = cols; return api },
@@ -42,6 +42,8 @@ function builder(pg, table, arrayCols) {
     filter() { throw new Error('filter() unsupported in pgliteRest') },
     order(c, { ascending = true } = {}) { st.order.push(`${ident(c)} ${ascending ? 'ASC' : 'DESC'}`); return api },
     limit(n) { st.limit = n; return api },
+    // SHEET-READ-ALL-1: .range(from, to) pages, as PostgREST does.
+    range(a, b) { st.offset = a; st.limit = b - a + 1; return api },
     single() { st.single = 'one'; return api },
     maybeSingle() { st.single = 'maybe'; return api },
     then(res, rej) { return run().then(res, rej) },
@@ -59,7 +61,7 @@ function builder(pg, table, arrayCols) {
       const whereSql = st.where.length ? ` WHERE ${st.where.map(f => f()).join(' AND ')}` : ''
       let sql
       if (st.op === 'select') {
-        sql = `SELECT ${cols(st.cols)} FROM ${ident(table)}${whereSql}${st.order.length ? ` ORDER BY ${st.order.join(', ')}` : ''}${st.limit ? ` LIMIT ${st.limit}` : ''}`
+        sql = `SELECT ${cols(st.cols)} FROM ${ident(table)}${whereSql}${st.order.length ? ` ORDER BY ${st.order.join(', ')}` : ''}${st.limit ? ` LIMIT ${st.limit}` : ''}${st.offset ? ` OFFSET ${st.offset}` : ''}`
       } else if (st.op === 'insert' || st.op === 'upsert') {
         const keys = [...new Set(st.rows.flatMap(r => Object.keys(r)))]
         const values = st.rows.map(r => `(${keys.map(k => p(valFor(k, r[k] ?? null))).join(', ')})`).join(', ')
