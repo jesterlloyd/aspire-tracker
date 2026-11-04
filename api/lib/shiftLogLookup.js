@@ -7,7 +7,8 @@
 // Contract (Owner-corrected, B1):
 //   - Identity = registered school_email, matched EXACT + case-insensitively
 //     (trimmed; NO % / _ wildcard broadening; duplicates are an error, never
-//     silently resolved to "most recent").
+//     silently resolved to "most recent", unless exactly one of them can log a
+//     shift: see pickShiftLogStudent, SHIFT-LOG-RETURNING-1).
 //   - eligible:true means the student may use the check-in/check-out/past-shift
 //     workflow: a match exists, cohort is NOT 'Archived', AND status is either
 //     'Placed' (logging their first shift) or 'Active Rotation' (continuing). A
@@ -21,11 +22,12 @@
 import supabaseAdmin from '../../lib/server/evaluation/supabase_admin.js'
 import { normalizeEmailForLookup, escapeLikePattern } from '../../src/lib/emailUtils.js'
 import { normalizeAssignedShift } from './normalizeAssignedShift.js'
+import { SHIFT_LOG_ELIGIBLE_STATUSES, canLogShifts, pickShiftLogStudent } from './shiftLogPick.js'
 
-// Statuses eligible to access/log shifts. 'Placed' covers the first shift (which
-// then promotes to 'Active Rotation'); 'Active Rotation' covers all subsequent
-// shifts. Every other status (Completed, Not Proceeding, etc.) is ineligible.
-const SHIFT_LOG_ELIGIBLE_STATUSES = ['Placed', 'Active Rotation']
+// The eligible statuses (Placed, Active Rotation) live in shiftLogPick.js.
+// SHIFT-LOG-RETURNING-1: several records under one email narrow to the one that can log a
+// shift (api/lib/shiftLogPick.js, shared with submit-past-shift).
+export { canLogShifts, pickShiftLogStudent }
 
 /**
  * Look up a student by school email, evaluate eligibility, and (only when
@@ -76,14 +78,15 @@ export async function lookupStudentByEmail(schoolEmail) {
     s => normalizeEmailForLookup(s.school_email) === norm
   )
 
-  if (matches.length === 0) return { found: false }
-  if (matches.length > 1) {
-    // Duplicate registered emails are a data anomaly. Never resolve to one.
-    // Caller logs the anomaly WITHOUT the plain email.
+  const picked = pickShiftLogStudent(matches)
+  if (!picked) return { found: false }
+  if (picked.ambiguous) {
+    // Several records share this email and more (or fewer) than one can log a shift.
+    // Never resolve to one. Caller logs the anomaly WITHOUT the plain email.
     return { found: false, error: 'ambiguous_student_email' }
   }
 
-  const student = matches[0]
+  const student = picked
   const fullName = `${student.first_name || ''} ${student.last_name || ''}`.trim()
   const cohort = student.cohorts || null
 

@@ -35,6 +35,7 @@ import { toLocalDateStr } from '../../shared/dateUtils.js'
 import { normalizeEmailForLookup, escapeLikePattern } from '../../src/lib/emailUtils.js'
 import { isOutsideRotationWindow } from '../../src/lib/rotationWindow.js'
 import { shiftMatchesAssignments, loadShiftAssignments } from '../lib/shiftUnitAssignments.js'
+import { pickShiftLogStudent } from '../lib/shiftLogPick.js'
 import { consumePublicRateLimit, SHIFT_WRITE_LIMITS, TOO_MANY_REQUESTS } from '../lib/publicRateLimit.js'
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -261,6 +262,12 @@ export default async function handler(req, res) {
     .filter(r => (r.cohorts?.status || '') !== 'Archived')
   const byId = new Map()
   eligible.forEach(r => byId.set(r.id, r))
+  // SHIFT-LOG-RETURNING-1: a returning student's earlier record shares the email; narrow
+  // several matches to the one that can log a shift, by the lookup's own rule.
+  if (byId.size > 1) {
+    const picked = pickShiftLogStudent([...byId.values()])
+    if (picked && !picked.ambiguous) { byId.clear(); byId.set(picked.id, picked) }
+  }
   const ids = [...byId.keys()]
   if (ids.length === 0) {
     return res.status(404).json({ error: 'not_found', message: 'We could not find your email in the current ASPIRE cohort. Please check the spelling or contact the ASPIRE team.' })
