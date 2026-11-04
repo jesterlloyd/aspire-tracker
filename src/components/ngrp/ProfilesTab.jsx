@@ -26,10 +26,11 @@
 import Tooltip from '../ui/Tooltip'
 import { Suspense, useMemo, useState, useCallback, useEffect, useRef } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
-import { Search, Send, GraduationCap, X, Eye, Sheet, List, LayoutGrid, FileText, UserPlus } from 'lucide-react'
+import { Search, Send, GraduationCap, X, Eye, Sheet, List, LayoutGrid, FileText } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { confirmDialog } from '../shared/confirmDialog'
 import AddAlumnusDrawer from './AddAlumnusDrawer'
+import ResidencyRosterActions from './ResidencyRosterActions'
 import TransitionAnswersDrawer from './TransitionAnswersDrawer'
 import { lazyReload } from '../../lib/lazyReload'
 import DetailDrawer from '../ui/DetailDrawer'
@@ -268,7 +269,11 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
   const canSelect = canManage && canSendForms
   // ADD-ALUMNUS-1: Owner and Admin add alumni from outside the participating cohorts.
   const { userProfile } = useAuth()
-  const canAddAlumni = staffApp && ['owner', 'admin'].includes(userProfile?.role)
+  // RESIDENCY-PROFILES-TOOLBAR-1 (Owner, 2026-11-03): Talent Acquisition adds alumni too, from the
+  // Residency Portal. Import and removing a hand-added alumnus stay with the Owner and Admins.
+  const ownerAdmin = ['owner', 'admin'].includes(userProfile?.role)
+  const canAddAlumni = canManage && (ownerAdmin || !staffApp)
+  const canImportAlumni = staffApp && ownerAdmin
   const [showAddAlumnus, setShowAddAlumnus] = useState(false)
   // APPLICANT-SHEET-1 (Owner, 2026-11-02): Sheet replaced Download Excel on the table. The
   // submitted answers open in the cohort's shared Sheet (?sheet=1), and Download Excel lives there.
@@ -625,6 +630,18 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                   Clear filters
                 </button>
               )}
+              {/* RESIDENCY-PROFILES-TOOLBAR-1: Student Profiles' actions, in its order. */}
+              <div style={{ flex: 1, minWidth: 8 }} />
+              <ResidencyRosterActions
+                cycle={cycle}
+                rows={filteredRows}
+                toast={toast}
+                canContact={canManage}
+                canImport={canImportAlumni && payload?.addedProvisioned !== false}
+                canAdd={canAddAlumni && payload?.addedProvisioned !== false}
+                onAdd={() => setShowAddAlumnus(true)}
+                onImported={() => refetch()}
+              />
             </div>
             {view === 'profiles' ? (
               <div className="profiles-slide-container">
@@ -756,18 +773,7 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                 <span style={{ fontSize: 11, color: '#9CA3AF' }}>
                   {cycle.name} · {sourceCohorts.length} participating cohort{sourceCohorts.length === 1 ? '' : 's'} · sorted by {colSort ? COLUMN_CAPTIONS[colSort.key] : SORT_OPTIONS.find(o => o.key === sortKey)?.label.toLowerCase()}
                 </span>
-                {canAddAlumni && payload?.addedProvisioned !== false && (
-                  <button type="button" onClick={() => setShowAddAlumnus(true)}
-                    style={{
-                      height: 28, flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 6,
-                      padding: '0 10px', border: '1px solid #1D2567', background: '#fff', color: '#1D2567',
-                      borderRadius: 'var(--aspire-radius-control)', fontFamily: 'inherit', fontSize: 11.5,
-                      fontWeight: 700, cursor: 'pointer',
-                    }}>
-                    <UserPlus size={13} aria-hidden="true" />
-                    Add Alumnus
-                  </button>
-                )}
+                {/* Add Alumnus moved to the toolbar above (RESIDENCY-PROFILES-TOOLBAR-1). */}
                 <Tooltip label="Every submitted Transition Form in a sheet you can sort, highlight and classify. The whole residency team shares it; download it from there." applyAriaLabel={false}>
                 <button
                   type="button"
@@ -928,7 +934,7 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                               {s.added_to_roster && (
                                 <span className="ngrp-added">
                                   Added
-                                  {canAddAlumni && (
+                                  {canImportAlumni && (
                                     <button type="button" className="ngrp-added-remove"
                                       onClick={e => { e.stopPropagation(); removeAdded(r) }}
                                       aria-label={`Remove ${displayName(s)} from the roster`}>Remove</button>
@@ -1075,6 +1081,7 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
       {showAddAlumnus && (
         <AddAlumnusDrawer
           cycle={cycle}
+          talentAcquisition={!ownerAdmin}
           cohorts={(unitsPlanning.data?.aspireCohorts || []).filter(c => !(c.name || '').toLowerCase().includes('demo'))}
           toast={toast}
           onAdded={() => refetch()}

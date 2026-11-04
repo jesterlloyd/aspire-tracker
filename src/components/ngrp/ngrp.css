@@ -767,3 +767,49 @@
 .ngrp-sheet-dl:disabled { opacity: 0.6; cursor: default; }
 .ngrp-sheet-dl:focus-visible { outline: var(--aspire-focus-ring); outline-offset: 2px; }
 .ngrp-sheet-msg { margin: 0; font-size: 13px; color: var(--text-caption); }
+
+/* RESIDENCY-PROFILES-TOOLBAR-1: Student Profiles' toolbar actions on Residency's pinned toolbar.
+   The same look as .profiles-copy-contact (index.css), restated here because the Residency Portal
+   does not load index.css. */
+.ngrp-roster-action {
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 32px; padding: 0 10px; flex-shrink: 0; cursor: pointer;
+  border: 1px solid var(--border-input, rgba(29, 37, 103, 0.10));
+  border-radius: var(--aspire-radius-control);
+  font: inherit; font-size: 12px;
+  background: var(--bg-input, #fff); color: var(--text-body, #191919);
+}
+.ngrp-roster-action:disabled { opacity: 0.5; cursor: default; }
+.ngrp-import-list { display: flex; flex-direction: column; gap: 6px; max-height: 50vh; overflow-y: auto; }
+.ngrp-import-word { flex-shrink: 0; font-size: 11.5px; font-weight: 700; color: var(--text-caption); }
+.ngrp-import-matched .ngrp-import-word { color: var(--aspire-ok, #0F7A4D); }
+.ngrp-import-on_roster .ngrp-import-word { color: var(--text-caption); }
+.ngrp-import-not_found .ngrp-import-word,
+.ngrp-import-ambiguous .ngrp-import-word,
+.ngrp-import-not_completed .ngrp-import-word { color: var(--aspire-warn, #8A5A00); }
+
+/* Student Profiles' Send Message to All modal (StudentMessagesSetup) in the Residency Portal,
+   which has no index.css. In the staff app index.css draws the same modal and these values match
+   it; :where() keeps these at zero specificity so index.css still decides there. */
+:where(.ngrp-messages-overlay) {
+  position: fixed; inset: 0; background: rgba(25, 25, 25, 0.5);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 500; padding: 24px; backdrop-filter: blur(2px);
+}
+:where(.ngrp-messages-overlay) :where(.modal) {
+  background: var(--bg-card, #fff); color: var(--text-body, #191919);
+  border-radius: var(--aspire-radius-card); width: 100%; max-width: 620px; max-height: 90vh; overflow-y: auto;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.18); border-top: 3px solid #1D2567; font-family: 'Plus Jakarta Sans', sans-serif;
+}
+:where(.ngrp-messages-overlay) :where(.modal-header) { display: flex; align-items: center; justify-content: space-between; padding: 18px 24px; border-bottom: 1px solid var(--color-border-subtle, #eceef3); }
+:where(.ngrp-messages-overlay) :where(.modal-header h2) { margin: 0; font-size: 20px; font-weight: 700; }
+:where(.ngrp-messages-overlay) :where(.modal-close) { background: none; border: none; font-size: 22px; color: var(--text-caption); cursor: pointer; padding: 2px 8px; line-height: 1; }
+:where(.ngrp-messages-overlay) :where(.modal-body) { padding: 20px 24px; display: flex; flex-direction: column; gap: 12px; font-size: 14px; line-height: 1.55; }
+:where(.ngrp-messages-overlay) :where(.modal-body h3, .modal-body p, .modal-body ol) { margin: 0; }
+:where(.ngrp-messages-overlay) :where(.modal-body ol) { padding-left: 22px; }
+:where(.ngrp-messages-overlay) :where(.modal-body li + li) { margin-top: 10px; }
+:where(.ngrp-messages-overlay) :where(.modal-footer) { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; padding: 14px 24px; border-top: 1px solid var(--color-border-subtle, #eceef3); background: var(--color-bg-elevated, #f9fafb); }
+:where(.ngrp-messages-overlay) :where(.btn) { display: inline-flex; align-items: center; padding: 8px 16px; border-radius: var(--aspire-radius-control); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; text-decoration: none; }
+:where(.ngrp-messages-overlay) :where(.btn:disabled) { opacity: 0.5; cursor: not-allowed; }
+:where(.ngrp-messages-overlay) :where(.btn-primary) { background: #1D2567; color: #fff; border: 1px solid #1D2567; }
+:where(.ngrp-messages-overlay) :where(.btn-secondary-outline) { background: #fff; color: #1D2567; border: 1.5px solid #1D2567; }

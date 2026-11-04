@@ -21,8 +21,10 @@ export function visibleStudentContacts(students, kind, options = {}) {
   const values = [], seen = new Set()
   let skipped = 0, fallbacks = 0, duplicates = 0
   for (const student of students) {
-    const route = kind === 'email' ? resolveStudentCorrespondenceRecipient(student, undefined, options) : null
-    const value = kind === 'email' ? route.email : messagingPhone(student.phone)
+    // RESIDENCY-PROFILES-TOOLBAR-1: a host that has already decided each person's address
+    // (Residency: the form's preferred email, else personal) passes emailOf.
+    const route = kind === 'email' && !options.emailOf ? resolveStudentCorrespondenceRecipient(student, undefined, options) : null
+    const value = kind === 'email' ? (options.emailOf ? options.emailOf(student) : route.email) : messagingPhone(student.phone)
     if (!value) { skipped++; continue }
     if (route?.fallbackUsed) fallbacks++
     const key = value.toLowerCase()

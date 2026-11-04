@@ -37,6 +37,7 @@
 // stored. Nothing here confirms an application any more; lib/server/ngrpPool.js
 // decides who is placeable, and the guards below ask it rather than reading a
 // status somebody had to set by hand.
+import { matchImportRows, loadImportCandidates, MAX_IMPORT_ROWS } from '../lib/server/ngrpAlumniImport.js'
 import { getServiceDb } from './lib/portalAuth.js'
 import { verifyNgrpCaller } from './lib/ngrpAuth.js'
 import { TALENT_ACQUISITION } from '../lib/server/ngrpTalentAcquisition.js'
@@ -65,6 +66,9 @@ import {
 } from '../lib/server/ngrpInterviewSchedule.js'
 import { createMailer } from '../lib/server/email/mailer.js'
 import { saveApplicantSheetLayout, saveApplicantSheetCells, sheetColumnKeys } from '../lib/server/ngrpApplicantSheet.js'
+
+// RESIDENCY-PROFILES-TOOLBAR-1: what Talent Acquisition may do under alumni_*.
+const TA_ALUMNI_ACTIONS = new Set(['alumni_search', 'alumni_add', 'alumni_create'])
 
 // NGRP-INTERVIEWS-1 Phase 4 (Owner, 2026-10-06): HR adds times and books the interviewees, so
 // these are both audiences' (the ASPIRE team and Talent Acquisition), like the board's pairing.
@@ -97,6 +101,7 @@ const ACTIONS = new Set([
   'packet_downloaded',
   // ADD-ALUMNUS-1
   'alumni_search', 'alumni_add', 'alumni_create', 'alumni_remove', 'alumni_invited',
+  'alumni_import_match', 'alumni_import_add',
   // NGRP-INTERVIEWS-1 Phase 4: Residency > Interview Schedule
   ...SCHEDULE_ACTIONS,
   // APPLICANT-SHEET-1
@@ -432,9 +437,15 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, ...r })
     }
 
-    // ── ADD-ALUMNUS-1: Add alumnus (Owner and Admin only) ──────────────────
+    // ── ADD-ALUMNUS-1: Add alumnus ─────────────────────────────────────────
+    // RESIDENCY-PROFILES-TOOLBAR-1 (Owner, 2026-11-03): Talent Acquisition may add an alumnus too
+    // (search, add, create), each add logged with who did it. Removing, the portal invitation
+    // and Import stay with the Owner and Admins. A TA search never carries a personal email: an
+    // alumnus not yet on the roster has not consented to share it.
     if (action.startsWith('alumni_')) {
-      if (isTalentAcquisition || !['owner', 'admin'].includes(caller.profile.role)) {
+      const ownerAdmin = !isTalentAcquisition && ['owner', 'admin'].includes(caller.profile.role)
+      const taAllowed = isTalentAcquisition && TA_ALUMNI_ACTIONS.has(action)
+      if (!ownerAdmin && !taAllowed) {
         return res.status(403).json({ error: 'owner_or_admin_only' })
       }
       const cycleId = typeof body.cycle_id === 'string' && UUID.test(body.cycle_id) ? body.cycle_id : null
@@ -450,7 +461,36 @@ export default async function handler(req, res) {
       if (action === 'alumni_search') {
         const r = await searchAlumni(db, { query: body.query, excludeIds: [...onRoster] })
         if (r.error) return internal(res)
-        return res.status(200).json({ results: r.results })
+        const results = isTalentAcquisition ? r.results.map(x => ({ ...x, personal_email: null })) : r.results
+        return res.status(200).json({ results })
+      }
+
+      // RESIDENCY-PROFILES-TOOLBAR-1: Import. match reports what each CSV row would do and writes
+      // nothing; add re-checks every id the review offered and adds the matched ones.
+      if (action === 'alumni_import_match') {
+        if (!Array.isArray(body.rows)) return res.status(422).json({ error: 'invalid_request' })
+        const all = await loadImportCandidates(db)
+        if (all.error) return internal(res)
+        return res.status(200).json({ results: matchImportRows(body.rows, all.data, [...onRoster]) })
+      }
+
+      if (action === 'alumni_import_add') {
+        const ids = Array.isArray(body.student_ids)
+          ? [...new Set(body.student_ids.filter(x => typeof x === 'string' && UUID.test(x)))].slice(0, MAX_IMPORT_ROWS) : []
+        if (!ids.length) return res.status(422).json({ error: 'invalid_request' })
+        const st = await db.from('students').select('id, status').in('id', ids)
+        if (st.error) return internal(res)
+        const completed = new Set((st.data || []).filter(x => x.status === 'Completed').map(x => x.id))
+        let added = 0, skipped = 0
+        for (const id of ids) {
+          if (onRoster.has(id) || !completed.has(id)) { skipped++; continue }
+          const a = await addToRoster(db, { cycleId, studentId: id, actorId })
+          if (a.error) return res.status(500).json({ error: 'internal_error', added })
+          if (a.already) { skipped++; continue }
+          added++
+          await recordNgrpAudit(db, { eventType: 'alumnus_added', cycleId, studentId: id, actorProfileId: actorId })
+        }
+        return res.status(200).json({ ok: true, added, skipped })
       }
 
       if (action === 'alumni_add') {
@@ -474,7 +514,7 @@ export default async function handler(req, res) {
           const c = await db.from('cohorts').select('id, name').eq('id', body.cohort_id).maybeSingle()
           if (c.error) return internal(res)
           cohort = c.data
-        } else if (typeof body.new_cohort_name === 'string') {
+        } else if (typeof body.new_cohort_name === 'string' && !isTalentAcquisition) {
           const c = await ensurePastCohort(db, { name: body.new_cohort_name, isDemo: demoScopeFromRequest(req) === true })
           if (c.invalid) return res.status(422).json({ error: 'validation_failed', errors: [{ field: 'cohort', message: 'Name the cohort, for example Fall 2025.' }] })
           if (c.error) return internal(res)

@@ -38,6 +38,7 @@ import OverviewTab from '../components/OverviewTab'
 import StudentProfilesTab from '../components/StudentProfilesTab'
 import RotationTab from '../components/RotationTab'
 import AddStudentModal from '../components/AddStudentModal'
+import { sendStudentPortalInvite } from '../lib/studentPortalInvite'
 import UnifiedNav from '../components/UnifiedNav'
 import Header from '../components/Header/Header'
 import { allowedActions, personRows } from '../lib/home/launcherModel'
@@ -907,7 +908,7 @@ function MainApp({ onLogout }) {
     }
   }, [])
 
-  const addStudent = async student => {
+  const addStudent = async (student, { then = 'none' } = {}) => {
     if (!activeCohortId) return { message: 'No active cohort.' }
     const { data, error } = await safeWrite(
       () => supabase.from('students').insert({ ...student, cohort_id: activeCohortId }).select().single(),
@@ -916,6 +917,26 @@ function MainApp({ onLogout }) {
     if (!error && data) {
       setStudents(prev => [...prev, data].sort((a, b) => (a.school + a.name).localeCompare(b.school + b.name)))
       setShowAddModal(false)
+      // RESIDENCY-PROFILES-TOOLBAR-1: what the modal said to send. The form is At a Glance's own
+      // single-student send (Outreach, Student Profile Invitation), so the return to At a Glance
+      // asks to mark them Form Sent exactly as it does there.
+      if (then === 'form') {
+        writeLaunchContext({
+          kind: LAUNCH_KINDS.STUDENT_FORM,
+          cohortId: activeCohortId,
+          cohortName: cohorts.find(c => c.id === activeCohortId)?.name || '',
+          source: 'student_profiles_add',
+          templateKey: 'student_profile_invitation',
+          returnPath: '/aggregate',
+          studentIds: [data.id],
+        })
+        navigate('/connect/outreach?launch=1')
+      } else if (then === 'activation') {
+        const email = (data.personal_email || data.school_email || '').trim()
+        const inv = await sendStudentPortalInvite({ studentId: data.id, email, fullName: data.name })
+        if (inv.ok) toast?.success('Portal activation sent', `${data.name} can sign in to the Student Portal and complete My Profile.`)
+        else toast?.warning('Added, activation not sent', 'Send the Student Portal invitation from Settings > Users & Access.')
+      }
     }
     return error || null
   }

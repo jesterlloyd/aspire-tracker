@@ -33,6 +33,7 @@
 // lib/server/ngrpApplicants.js so it is unit-tested without a live database.
 // Unknown-table conditions surface as { provisioned: false }; they are never
 // conflated with "no cycles configured" or an ordinary error.
+import { loadRosterContacts } from '../lib/server/ngrpRosterContacts.js'
 import { getServiceDb } from './lib/portalAuth.js'
 import { verifyNgrpCaller } from './lib/ngrpAuth.js'
 import { loadSchedule } from '../lib/server/ngrpInterviewSchedule.js'
@@ -46,7 +47,7 @@ import { loadCandidateRubrics } from '../lib/server/ngrpInterviewRubrics.js'
 import { loadApplicantSheet, applicantSheetXlsx } from '../lib/server/ngrpApplicantSheet.js'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const ACTIONS = new Set(['cycles', 'applicants', 'export', 'locate', 'profile', 'rubrics', 'schedule', 'sheet', 'sheet_xlsx'])
+const ACTIONS = new Set(['cycles', 'applicants', 'export', 'locate', 'profile', 'rubrics', 'schedule', 'sheet', 'sheet_xlsx', 'contacts'])
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store')
@@ -146,6 +147,15 @@ export default async function handler(req, res) {
   // RESIDENCY-PORTAL-2: Talent Acquisition sees only alumni who submitted the
   // Transition Form, plus the cohort-wide counts At a Glance shows.
   const view = caller.audience === TALENT_ACQUISITION ? narrowPayloadForTalentAcquisition(payload) : payload
+
+  // RESIDENCY-PROFILES-TOOLBAR-1: emails and phone numbers for the alumni on screen, for Copy
+  // visible emails and Send Message to All. Talent Acquisition gets only alumni who submitted the
+  // Transition Form (lib/server/ngrpRosterContacts.js).
+  if (action === 'contacts') {
+    const r = await loadRosterContacts(db, { payload, studentIds: body.student_ids, audience: caller.audience })
+    if (r.error) return res.status(500).json({ error: 'internal_error' })
+    return res.status(200).json({ provisioned: true, contacts: r.contacts, withheld: r.withheld })
+  }
 
   // TRANSITION-EXCEL-1: the submitted answers as a workbook. Built from the view above, so it
   // can hold only alumni this caller's roster shows.

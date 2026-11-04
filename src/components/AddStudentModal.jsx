@@ -11,8 +11,18 @@ const BLANK = {
   background_check: false, coordinators: '', notes: '',
 }
 
+// RESIDENCY-PROFILES-TOOLBAR-1 (Owner, 2026-11-03): after adding, the student can be sent their
+// intake form (the default: it is where they complete their own profile and photo), or a Student
+// Portal activation instead, or nothing. StaffApp's addStudent does the sending.
+const AFTER_ADD = Object.freeze([
+  { value: 'form', label: 'Send the student form', hint: 'Opens ASPIRE Connect with the Student Profile Invitation addressed to them. They fill in their own profile and photo.' },
+  { value: 'activation', label: 'Send portal activation', hint: 'Emails a Student Portal invitation so they can sign in and complete My Profile.' },
+  { value: 'none', label: 'Do not send anything yet', hint: 'Add the record only. You can send the form later from At a Glance.' },
+])
+
 export default function AddStudentModal({ cohortId, onAdd, onClose }) {
   const [form,   setForm]   = useState(BLANK)
+  const [then,   setThen]   = useState('form')
   const [saving, setSaving] = useState(false)
   const [error,  setError]  = useState(null)
 
@@ -35,12 +45,16 @@ export default function AddStudentModal({ cohortId, onAdd, onClose }) {
       return
     }
     if (!cohortId) { setError('No active cohort. Create one first.'); return }
+    if (then !== 'none' && !form.school_email.trim() && !form.personal_email.trim()) {
+      setError('Add a school or personal email to send them anything, or choose Do not send anything yet.')
+      return
+    }
     setSaving(true); setError(null)
     const err = await onAdd({
       ...form,
       name: `${form.first_name.trim()} ${form.last_name.trim()}`,
       cohort_id: cohortId,
-    })
+    }, { then })
     if (err) { setError(err.message || 'Failed to add student.'); setSaving(false) }
   }
 
@@ -71,11 +85,19 @@ export default function AddStudentModal({ cohortId, onAdd, onClose }) {
               </div>
             </div>
 
-            <div className="form-field">
-              <label className="form-label">School Email</label>
-              <input className="form-input" value={form.school_email}
-                onChange={e => set('school_email', e.target.value)}
-                placeholder="student@school.edu" />
+            <div className="form-grid form-grid-2">
+              <div className="form-field">
+                <label className="form-label">School Email</label>
+                <input className="form-input" type="email" value={form.school_email}
+                  onChange={e => set('school_email', e.target.value)}
+                  placeholder="student@school.edu" />
+              </div>
+              <div className="form-field">
+                <label className="form-label">Personal Email</label>
+                <input className="form-input" type="email" value={form.personal_email}
+                  onChange={e => set('personal_email', e.target.value)}
+                  placeholder="name@example.com" />
+              </div>
             </div>
 
             <div className="form-grid form-grid-2">
@@ -122,11 +144,24 @@ export default function AddStudentModal({ cohortId, onAdd, onClose }) {
                   onChange={e => set('coordinators', e.target.value)} />
               </div>
             )}
+
+            <fieldset className="form-field add-student-then">
+              <legend className="form-label">After Adding</legend>
+              {AFTER_ADD.map(o => (
+                <label key={o.value} className="add-student-then-option">
+                  <input type="radio" name="add-student-then" value={o.value} checked={then === o.value} onChange={() => setThen(o.value)} />
+                  <span>
+                    <strong>{o.label}</strong>
+                    <span className="add-student-then-hint">{o.hint}</span>
+                  </span>
+                </label>
+              ))}
+            </fieldset>
           </div>
           <div className="modal-footer">
             <button type="button" className="btn btn-outline-modal" onClick={onClose}>Cancel</button>
             <button type="submit" className="btn btn-primary" disabled={saving}>
-              {saving ? 'Adding…' : 'Add Student'}
+              {saving ? 'Adding…' : then === 'form' ? 'Add and Open the Form' : then === 'activation' ? 'Add and Send Activation' : 'Add Student'}
             </button>
           </div>
         </form>

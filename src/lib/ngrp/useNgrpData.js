@@ -200,6 +200,9 @@ export const fetchApplicantSheet = cycleId => authedPost('/api/ngrp-workspace', 
 export const fetchApplicantSheetXlsx = (cycleId, view) => authedPost('/api/ngrp-workspace', 'sheet_xlsx', {
   cycle_id: cycleId, ...(view ? { row_ids: view.rowIds, column_keys: view.columnKeys, group_by: view.groupBy } : {}),
 })
+// RESIDENCY-PROFILES-TOOLBAR-1: emails and phones for the alumni on screen (Copy visible emails,
+// Send Message to All). The server decides what Talent Acquisition may have.
+export const fetchRosterContacts = (cycleId, studentIds) => authedPost('/api/ngrp-workspace', 'contacts', { cycle_id: cycleId, student_ids: studentIds })
 export const saveApplicantSheet = (action, payload) => authedPost('/api/ngrp-manage', action, payload)
 
 // The residency cohort an applicant belongs to. { ok, cycle_id } or { ok: false }.

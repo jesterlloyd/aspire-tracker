@@ -3859,3 +3859,10 @@ button.ir-wl-th { background: transparent; border: 0; text-align: left; cursor: 
 .mast-live-dur.warn { color: var(--chart-warn-ink, #92400e); font-weight: 600; }
 .mast-live-empty { margin: 9px 0 0; font-size: 12.5px; color: var(--chart-ink-soft, #6b7280); }
 @media (prefers-reduced-motion: reduce) { .mast-live-dot { animation: none; } }
+
+/* RESIDENCY-PROFILES-TOOLBAR-1: Add New Student's "After Adding" choice. */
+.add-student-then { border: 0; padding: 0; margin: 4px 0 0; display: flex; flex-direction: column; gap: 8px; }
+.add-student-then-option { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border: 1px solid var(--border-input); border-radius: var(--aspire-radius-control); cursor: pointer; font-size: 13px; color: var(--text-body); }
+.add-student-then-option input { margin-top: 3px; }
+.add-student-then-option strong { display: block; font-weight: 600; }
+.add-student-then-hint { display: block; font-size: 12px; color: var(--text-caption); line-height: 1.45; margin-top: 2px; }

@@ -34,15 +34,19 @@ test('the roster is the participating cohorts plus the alumni added by hand', ()
   ]) assert.match(read(f), re, f)
 })
 
-test('Add alumnus is the Owner and Admin only, and every step is logged', () => {
+// RESIDENCY-PROFILES-TOOLBAR-1 (this commit) let Talent Acquisition add alumni (search, add,
+// create); removing and the portal invitation are still the Owner's and Admins'. Pinned in full
+// in test/residencyProfilesToolbar.test.mjs.
+test('Add alumnus is the Owner, Admins and Talent Acquisition, and every step is logged', () => {
   const api = read('api/ngrp-manage.js')
-  assert.match(api, /if \(action\.startsWith\('alumni_'\)\) \{\s*if \(isTalentAcquisition \|\| !\['owner', 'admin'\]\.includes\(caller\.profile\.role\)\) \{\s*return res\.status\(403\)/)
+  assert.match(api, /const ownerAdmin = !isTalentAcquisition && \['owner', 'admin'\]\.includes\(caller\.profile\.role\)/)
+  assert.match(api, /if \(!ownerAdmin && !taAllowed\) \{\s*return res\.status\(403\)/)
   for (const t of ['alumnus_added', 'alumnus_removed', 'alumnus_invited']) assert.match(api, new RegExp(`eventType: '${t}'`))
   assert.match(api, /if \(body\.confirm_new !== true\) \{\s*const m = await findMatches/)
   assert.match(api, /status: 'Completed'/)
   assert.match(read('lib/server/ngrpAddedAlumni.js'), /\.update\(\{ removed_at: nowIso, removed_by_profile_id: actorId \}\)/, 'removing never deletes')
   const tab = read('src/components/ngrp/ProfilesTab.jsx')
-  assert.match(tab, /const canAddAlumni = staffApp && \['owner', 'admin'\]\.includes\(userProfile\?\.role\)/)
+  assert.match(tab, /const canAddAlumni = canManage && \(ownerAdmin \|\| !staffApp\)/)
   assert.match(tab, /\{s\.added_to_roster && \(/)
 })
 

@@ -2923,3 +2923,30 @@ also opens the alumnus's Student Portal, and the form opens there under their ow
   section has **Extend Deadline**, which sets the live assignment's `deadline_at` (`ngrp-manage`
   `form_deadline_set`, Owner/Admin side only, no email) and audits `form_deadline_extended`
   (`20261120000000_transition_deadline_audit.sql`, Owner-gated; before it the date still saves).
+
+## One Profiles toolbar (RESIDENCY-PROFILES-TOOLBAR-1, 2026-11-03)
+
+Owner: "make the profiles pages the same" for Student Profiles, Residency > Profiles & Interest and
+the Residency Portal. Residency's pinned toolbar now ends with Student Profiles' actions in its
+order (`src/components/ngrp/ResidencyRosterActions.jsx`): Copy visible emails, Send Message to All,
+↑ Import (staff Owner/Admin only), Add Alumnus (moved there from the roster head).
+
+- **Contacts come from the server.** The roster still strips emails (`sanitizeStudent`), so both
+  contact actions ask `ngrp-workspace` `contacts` for the alumni on screen
+  (`lib/server/ngrpRosterContacts.js`): the form's preferred email, else personal; never school.
+  Talent Acquisition gets only alumni who SUBMITTED the Transition Form (its consent); the others are
+  counted and the toast or modal says so. Send Message to All is Student Profiles' own iPhone
+  group-text modal (`StudentMessagesSetup`, now taking `noun`, `note`, `className`); its modal rules
+  are restated at zero specificity in ngrp.css because the Residency Portal has no index.css.
+- **Talent Acquisition adds alumni** (`TA_ALUMNI_ACTIONS` in ngrp-manage: search, add, create; each
+  add audited as before). Their search carries no personal emails, they cannot create a past cohort,
+  and there is no portal invitation for them (Send Transition Form opens the portal). Removing a
+  hand-added alumnus and Import stay with the Owner and Admins.
+- **Import matches, never creates** (`lib/server/ngrpAlumniImport.js`): a CSV row matches ONE
+  Completed student by email (personal or school), else by first (or preferred) and last name. The
+  review lists every row (Will be added, Already on the roster, Has not completed ASPIRE, More than
+  one match, No match, No name or email); `alumni_import_add` re-checks each id and adds the matched.
+- **Student Profiles' + Add asks what to send** (`AddStudentModal`, After Adding): the student form
+  (default; At a Glance's own Outreach launch with `student_profile_invitation`, so the return asks
+  to mark Form Sent), a Student Portal activation (`src/lib/studentPortalInvite.js`, shared with Add
+  Alumnus), or nothing. Sending needs a school or personal email; the modal now asks for both.

@@ -11,7 +11,7 @@ import SegmentedPicker from '../shared/SegmentedPicker'
 import { Field } from './NgrpFormUi'
 import { F, inputStyle, btn, errText } from '../../lib/ngrp/ngrpCohortForm'
 import { postNgrpManage } from '../../lib/ngrp/useNgrpData'
-import { supabase } from '../../lib/supabase'
+import { sendStudentPortalInvite as sendPortalInvite } from '../../lib/studentPortalInvite'
 import { unitOptionLabel, getEligibleUnits } from '../../lib/unitCatalog'
 
 const EMPTY = {
@@ -22,18 +22,11 @@ const PROGRAMS = ['BSN', 'ABSN / Accelerated BSN', 'MSN (entry-level)', 'ADN', '
 const NEW_COHORT = '__new__'
 const note = { fontSize: 12, color: 'var(--text-caption)', fontFamily: F, lineHeight: 1.5, margin: 0 }
 
-async function sendPortalInvite({ studentId, email, fullName }) {
-  const { data: { session } } = await supabase.auth.getSession()
-  const token = session?.access_token
-  const res = await fetch('/api/invite-portal-user', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-    body: JSON.stringify({ role: 'student', email, full_name: fullName, student_id: studentId }),
-  })
-  return res.status === 200 || res.status === 201 ? { ok: true } : { ok: false, status: res.status }
-}
 
-export default function AddAlumnusDrawer({ cycle, cohorts = [], onClose, onAdded, toast }) {
+// RESIDENCY-PROFILES-TOOLBAR-1: Talent Acquisition adds from the Residency Portal too. For them
+// the search shows no personal emails (the server sends none), a past cohort cannot be created,
+// and there is no portal invitation here: Send Transition Form opens their Student Portal.
+export default function AddAlumnusDrawer({ cycle, cohorts = [], onClose, onAdded, toast, talentAcquisition = false }) {
   const [mode, setMode] = useState('existing')
 
   // Already in the app
@@ -85,7 +78,7 @@ export default function AddAlumnusDrawer({ cycle, cohorts = [], onClose, onAdded
     setMatches(null)
     const fullName = `${p.first_name} ${p.last_name}`.trim()
     let invited = false
-    if (then === 'invite') {
+    if (then === 'invite' && !talentAcquisition) {
       const inv = await sendPortalInvite({ studentId: r.student_id, email: p.personal_email, fullName })
       invited = inv.ok
       if (invited) await postNgrpManage('alumni_invited', { cycle_id: cycle.id, student_id: r.student_id })
@@ -139,7 +132,7 @@ export default function AddAlumnusDrawer({ cycle, cohorts = [], onClose, onAdded
               <select style={inputStyle} value={cohortId} onChange={e => setCohortId(e.target.value)}>
                 <option value="">Choose a cohort…</option>
                 {cohorts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                <option value={NEW_COHORT}>+ A past cohort not listed…</option>
+                {!talentAcquisition && <option value={NEW_COHORT}>+ A past cohort not listed…</option>}
               </select>
             </Field>
             {cohortId === NEW_COHORT
@@ -149,10 +142,12 @@ export default function AddAlumnusDrawer({ cycle, cohorts = [], onClose, onAdded
           {fieldErr('first_name') || fieldErr('last_name') || fieldErr('personal_email') || fieldErr('cohort')
             ? <p className="ngrp-add-error" role="alert">{errText(errors)}</p> : null}
 
-          <SegmentedPicker ariaLabel="Then" value={then} onChange={setThen}
-            options={[{ value: 'fill', label: 'Fill in the rest now' }, { value: 'invite', label: 'Send a portal link to fill it in' }]} />
+          {!talentAcquisition && (
+            <SegmentedPicker ariaLabel="Then" value={then} onChange={setThen}
+              options={[{ value: 'fill', label: 'Fill in the rest now' }, { value: 'invite', label: 'Send a portal link to fill it in' }]} />
+          )}
 
-          {then === 'fill' ? (
+          {talentAcquisition || then === 'fill' ? (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '10px 14px' }}>
               <Field label="Mobile phone"><input type="tel" style={inputStyle} value={p.phone} onChange={e => set('phone', e.target.value)} /></Field>
               <Field label="Nursing school"><input style={inputStyle} value={p.school} onChange={e => set('school', e.target.value)} /></Field>
@@ -194,7 +189,7 @@ export default function AddAlumnusDrawer({ cycle, cohorts = [], onClose, onAdded
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
             <button type="button" style={{ ...btn(true), ...(!canCreate || saving ? { opacity: 0.45, cursor: 'not-allowed' } : null) }}
               disabled={!canCreate || saving} onClick={() => createNew(false)}>
-              {saving ? 'Adding…' : then === 'invite' ? 'Add and send the portal link' : 'Add to roster'}
+              {saving ? 'Adding…' : then === 'invite' && !talentAcquisition ? 'Add and send the portal link' : 'Add to roster'}
             </button>
           </div>
         </>)}
