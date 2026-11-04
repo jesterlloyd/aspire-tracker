@@ -1640,6 +1640,7 @@ function MainApp({ onLogout }) {
               <StudentProfilesTab
                 students={students}
                 units={units} cohortId={activeCohortId}
+                cohortName={cohorts.find(c => c.id === activeCohortId)?.name || ''}
                 onUpdate={updateStudent} onDelete={deleteStudent}
                 onRefresh={() => { fetchStudents(activeCohortId); fetchLazyActionData(activeCohortId) }}
                 onSwitchToAccess={switchToAccess}

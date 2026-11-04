@@ -4,21 +4,22 @@
 // The roster carries no emails or phones, so the two contact actions ask the server for the alumni
 // on screen (ngrp-workspace `contacts`); Talent Acquisition gets only alumni who submitted the
 // Transition Form, and the rest are counted, never named. Send Message to All is Student Profiles'
-// own iPhone group-text modal (StudentMessagesSetup). Import is the ASPIRE team's (Owner, Admin).
+// own iPhone group-text modal (StudentMessagesSetup). Import is the ASPIRE team's (Owner, Admin):
+// Keith's spreadsheet import (STUDENT-IMPORT-KEITH-1), the same drawer as Student Profiles'.
 import { useState } from 'react'
 import { UserPlus } from 'lucide-react'
 import Tooltip from '../ui/Tooltip'
 import StudentMessagesSetup from '../student/StudentMessagesSetup'
 import { copyVisibleStudentContacts } from '../../lib/connect/copyStudentContacts'
 import { fetchRosterContacts } from '../../lib/ngrp/useNgrpData'
-import ImportAlumniCSV from './ImportAlumniCSV'
+import KeithImportDrawer from '../studentImport/KeithImportDrawer'
 
 function withheldLine(withheld) {
   if (!withheld) return null
   return `${withheld} ${withheld === 1 ? 'alumnus is' : 'alumni are'} left out: contact details are shared with Talent Acquisition once the Transition Form is submitted.`
 }
 
-export default function ResidencyRosterActions({ cycle, rows, toast, canContact, canImport, canAdd, onAdd, onImported }) {
+export default function ResidencyRosterActions({ cycle, rows, toast, canContact, canImport, canAdd, onAdd, onImported, isOwner = false }) {
   const [busy, setBusy] = useState(null)
   const [messages, setMessages] = useState(null)
   const [showImport, setShowImport] = useState(false)
@@ -65,7 +66,7 @@ export default function ResidencyRosterActions({ cycle, rows, toast, canContact,
         </button>
       )}
       {canImport && (
-        <Tooltip label="Add alumni from a CSV of names or emails" placement="bottom" applyAriaLabel={false}>
+        <Tooltip label="Keith reads an Excel or CSV file of alumni and asks you where he is not sure" placement="bottom" applyAriaLabel={false}>
           <button type="button" className="profiles-copy-contact ngrp-roster-action" onClick={() => setShowImport(true)}>↑ Import</button>
         </Tooltip>
       )}
@@ -79,7 +80,7 @@ export default function ResidencyRosterActions({ cycle, rows, toast, canContact,
           note={withheldLine(messages.withheld)} onClose={() => setMessages(null)} />
       )}
       {showImport && (
-        <ImportAlumniCSV cycle={cycle} toast={toast} onImported={onImported} onClose={() => setShowImport(false)} />
+        <KeithImportDrawer target="residency" cycle={cycle} isOwner={isOwner} toast={toast} onImported={onImported} onClose={() => setShowImport(false)} />
       )}
     </>
   )

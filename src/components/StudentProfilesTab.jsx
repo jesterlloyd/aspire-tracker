@@ -11,7 +11,7 @@ import { safeWrite } from '../lib/safeWrite'
 import { useAuth } from '../contexts/AuthContext'
 import { FilterKPICard } from './KPIBand'
 import { computeStatusCounts } from '../lib/derivations/cohortStatus'
-import ImportStudentsCSV from './ImportStudentsCSV'
+import KeithImportDrawer from './studentImport/KeithImportDrawer'
 import { Search, X, LayoutGrid, List, Info } from 'lucide-react'
 import Tooltip from './ui/Tooltip'
 import StatusLegendPopover from './StatusLegendPopover'
@@ -63,7 +63,7 @@ function sortStudentsByLastName(students) {
 }
 
 export default function StudentProfilesTab({
-  students, units, cohortId,
+  students, units, cohortId, cohortName,
   onUpdate, onDelete, onRefresh, onSwitchToAccess, onReviewDecided, onPreceptorAssigned,
   view, onViewChange,
   accessFocusId,
@@ -348,7 +348,7 @@ export default function StudentProfilesTab({
           )}
           {canEdit && <button type="button" className="profiles-copy-contact" title="Message students matching the current filters. Review the draft before sending." onClick={() => setShowMessagesSetup(true)}>Send Message to All</button>}
           {canEdit && (
-            <Tooltip label="Import students from CSV" placement="bottom">
+            <Tooltip label="Keith reads an Excel or CSV file of students and asks you where he is not sure" placement="bottom">
             <button onClick={() => setShowImport(true)}
               style={{ height:32, padding:'0 10px', border:'1px solid var(--border-input,rgba(29,37,103,0.10))', borderRadius:7, fontSize:12, fontFamily:'Plus Jakarta Sans,sans-serif', background:'var(--bg-input,#fff)', color:'var(--text-body,#191919)', cursor:'pointer', flexShrink:0 }}>
               ↑ Import
@@ -456,7 +456,10 @@ export default function StudentProfilesTab({
         </div>
       )}
 
-      {showImport && <ImportStudentsCSV cohortId={cohortId} onImported={onRefresh} onClose={() => setShowImport(false)} />}
+      {showImport && (
+        <KeithImportDrawer target="internship" cohortId={cohortId} cohortName={cohortName} isOwner={userProfile?.is_owner === true}
+          toast={toast} onImported={onRefresh} onClose={() => setShowImport(false)} />
+      )}
       {canEdit && showMessagesSetup && <StudentMessagesSetup students={view === 'access' ? accessStudents : displayedStudents} toast={toast} onClose={() => setShowMessagesSetup(false)} />}
     </div>
   )

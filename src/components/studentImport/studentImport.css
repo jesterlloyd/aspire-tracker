@@ -1,0 +1,51 @@
+/* STUDENT-IMPORT-KEITH-1: Keith's import drawer. Theme tokens only (it opens in the staff app and
+   in Residency, light and dark); corners from the canon. */
+.ski { display: flex; flex-direction: column; gap: 16px; font-family: 'Plus Jakarta Sans', sans-serif; color: var(--text-heading); }
+.ski-keith { display: flex; gap: 12px; align-items: flex-start; }
+.ski-keith-head { font-size: 14px; font-weight: 700; margin-bottom: 2px; }
+.ski-note { margin: 0; font-size: 12px; line-height: 1.5; color: var(--text-caption); }
+.ski-lead { margin: 0; font-size: 13px; font-weight: 700; }
+.ski-summary { margin: 0; font-size: 13px; line-height: 1.55; padding: 10px 12px; border-radius: var(--aspire-radius-control); background: var(--color-bg-subtle, rgba(29, 37, 103, 0.05)); }
+.ski-warn { margin: 0; font-size: 12.5px; line-height: 1.5; padding: 10px 12px; border-radius: var(--aspire-radius-control); background: var(--aspire-warn-soft, #FBEFD9); color: var(--aspire-warn, #8A5A00); }
+.ski-error { margin: 0; font-size: 12.5px; color: var(--aspire-bad, #A32A32); }
+.ski-step { display: flex; flex-direction: column; gap: 14px; align-items: stretch; }
+.ski-step > .ski-btn { align-self: flex-start; }
+.ski-section { display: flex; flex-direction: column; gap: 8px; }
+.ski-h { margin: 0; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-caption); }
+.ski-q, .ski-col {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(180px, 240px); gap: 12px; align-items: center;
+  padding: 10px 12px; border: 1px solid var(--color-border-subtle, #eceef3); border-radius: var(--aspire-radius-control);
+}
+.ski-q-label, .ski-col-name { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: 13px; }
+.ski-q-header { font-weight: 700; overflow-wrap: anywhere; }
+.ski-cols { display: flex; flex-direction: column; gap: 6px; max-height: 52vh; overflow-y: auto; }
+.ski-select {
+  width: 100%; height: 34px; padding: 0 8px; font: inherit; font-size: 12.5px; color: var(--text-heading);
+  background: var(--bg-input, #fff); border: 1px solid var(--border-input, rgba(29, 37, 103, 0.18)); border-radius: var(--aspire-radius-control);
+}
+.ski-btn {
+  height: 34px; padding: 0 14px; font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer;
+  color: var(--text-heading); background: var(--bg-input, #fff);
+  border: 1px solid var(--border-input, rgba(29, 37, 103, 0.18)); border-radius: var(--aspire-radius-control);
+}
+.ski-btn-primary { color: #fff; background: #1D2567; border-color: transparent; } /* a fixed pair: white on nightfall in both themes */
+.ski-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.ski-link { align-self: flex-start; padding: 0; border: 0; background: none; font: inherit; font-size: 12.5px; font-weight: 700; color: var(--color-accent-primary, #1D2567); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.ski-list { display: flex; flex-direction: column; gap: 6px; max-height: 46vh; overflow-y: auto; }
+.ski-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0;
+  padding: 10px 12px; border: 1px solid var(--color-border-subtle, #eceef3); border-radius: var(--aspire-radius-control);
+}
+.ski-row-ask { display: block; border-color: var(--aspire-warn, #8A5A00); }
+.ski-row-name { font-size: 13px; font-weight: 700; padding: 0; }
+.ski-word { flex-shrink: 0; font-size: 11.5px; font-weight: 700; color: var(--text-caption); }
+.ski-row-create .ski-word, .ski-row-add .ski-word { color: var(--aspire-ok, #0F7A4D); }
+.ski-row-update .ski-word { color: var(--color-accent-primary, #1D2567); }
+.ski-diff { margin: 6px 0 0; padding-left: 18px; font-size: 12px; line-height: 1.5; }
+.ski-options { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 8px; }
+.ski-option { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; cursor: pointer; }
+.ski-foot { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+.ski-foot-note { margin-right: auto; font-size: 12px; color: var(--text-caption); }
+@media (max-width: 640px) {
+  .ski-q, .ski-col { grid-template-columns: minmax(0, 1fr); }
+}

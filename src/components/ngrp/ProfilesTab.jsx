@@ -635,6 +635,7 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
               <div className="ngrp-roster-actions">
               <ResidencyRosterActions
                 cycle={cycle}
+                isOwner={userProfile?.is_owner === true}
                 rows={filteredRows}
                 toast={toast}
                 canContact={canManage}

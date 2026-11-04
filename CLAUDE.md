@@ -2125,7 +2125,9 @@ Three models, named in one file, `lib/server/keith/modelRouting.js`. No request 
 
 - **Opus cannot be reached by a Skill or a cron, because it is not in `ROUTES`.** `isKnownRoute` validates
   skill rows and `resolveRoute` serves every skill, so a name outside that table falls to the default. The
-  `keith_skills.model_route` CHECK says the same. Do not move it into `ROUTES`.
+  `keith_skills.model_route` CHECK says the same. Do not move it into `ROUTES`. One deliberate exception
+  (STUDENT-IMPORT-KEITH-1, Owner, 2026-11-03): `import-students` asks `ownerOpusRouteFor(actor)`, which
+  returns Opus only for `is_owner`; an Admin gets the skill's quality route. Only `skillDefs.js` may call it.
 - **A non-Owner who names Opus is refused, not downgraded**: `requestNamesOpus` reads `chat_model`, `model`
   and `model_route`, and `api/keith.js` answers 403 before context or a model call. `is_owner` decides, never
   the role word. A test fails if a file under `api/`, `lib/` or `src/` other than the routing and price
@@ -2942,7 +2944,9 @@ order (`src/components/ngrp/ResidencyRosterActions.jsx`): Copy visible emails, S
   add audited as before). Their search carries no personal emails, they cannot create a past cohort,
   and there is no portal invitation for them (Send Transition Form opens the portal). Removing a
   hand-added alumnus and Import stay with the Owner and Admins.
-- **Import matches, never creates** (`lib/server/ngrpAlumniImport.js`): a CSV row matches ONE
+- **Import is Keith's now** (STUDENT-IMPORT-KEITH-1, below). The CSV matcher that follows is retired from
+  the screen (`ImportAlumniCSV.jsx` deleted); its server actions stay, unused, pinned by their test.
+- **Import matched, never created** (`lib/server/ngrpAlumniImport.js`): a CSV row matches ONE
   Completed student by email (personal or school), else by first (or preferred) and last name. The
   review lists every row (Will be added, Already on the roster, Has not completed ASPIRE, More than
   one match, No match, No name or email); `alumni_import_add` re-checks each id and adds the matched.
@@ -2950,3 +2954,38 @@ order (`src/components/ngrp/ResidencyRosterActions.jsx`): Copy visible emails, S
   (default; At a Glance's own Outreach launch with `student_profile_invitation`, so the return asks
   to mark Form Sent), a Student Portal activation (`src/lib/studentPortalInvite.js`, shared with Add
   Alumnus), or nothing. Sending needs a school or personal email; the modal now asks for both.
+
+## Keith imports spreadsheets (STUDENT-IMPORT-KEITH-1, 2026-11-03)
+
+Owner: "Could Keith intelligently scour the details to put into the student profile? ... ask me if it
+isn't sure ... then doesn't add duplicates." Student Profiles' Import and Residency > Profiles & Interest's
+Import both open `KeithImportDrawer` (`src/components/studentImport/`): upload, Keith's questions, the rows,
+done. Owner and Admin only.
+
+- **The file is read on the server**, `.xlsx` or `.csv` up to 3 MB and 1,000 rows, by
+  `lib/server/sheet/readSheet.js` (no dependency: zip directory plus `inflateRawSync`, shared strings, date
+  styles). `.xls` is refused with a sentence. Nothing is stored: the browser sends the file again for each step.
+- **Keith reads the shape, never the people.** `profileColumns` sends each header with masked samples for
+  any personal column (names, emails, phones, birth dates, notes, statements), the distinct values of a
+  category column, and the items of a ";" multi-choice column. A Social Security column is `withheld`: Keith
+  sees the header only. Keith returns a mapping (column to field, value to vocabulary, how names and lists
+  are written) and what he is unsure of; `sanitizeMapping` drops anything outside the field catalog. If the
+  skill is off or fails, `guessMapping` maps by header and the drawer says Keith did not read it.
+- **Opus for the Owner, Sonnet for an Admin** (Owner chose it, the one Skill that reaches Opus; see
+  KEITH-MODELS-5-5).
+- **Asking is the drawer's job**: a column Keith is unsure of has no default and must be answered; a value
+  no vocabulary holds offers its choices, Leave blank, and for a Residency cohort, Create a past cohort.
+- **The SSN column holds the last four digits** (Owner) and goes to `ssn_last4`. It and the date of birth
+  are never shown in a conflict.
+- **No duplicates.** `planRows` (pure, `src/lib/studentImport/importModel.js`) matches each row against every
+  student in the request's population (real or demo) by email, then by name, and decides: create, fill empty fields, ask (conflicting
+  values, a name-only match, more than one match, a match in another cohort) or skip (a repeat inside the
+  file, no name). An update only fills empty fields unless the Owner picks Replace on that row. Nothing is
+  ever deleted. `commitImport` re-plans on the server before it writes; demo sessions stamp `is_demo`.
+- **One student record.** Internship fills the intake record in the selected cohort. Residency adds a
+  Completed student to the roster (`addToRoster`, audited `alumnus_added` with `via: 'import'`); a new
+  person is created under their ASPIRE cohort, which must exist or be created as a past cohort
+  (`ensurePastCohort`), else the row is skipped. A student who is not Completed is never added to Residency.
+- **The skill row** is `20261123000000_import_students_skill.sql` (Owner-gated; checks in
+  `db/audit/import_students_skill_checks.sql`). Before it, the import works on header guesses alone.
+  Endpoint: `api/student-import.js` (`analyze`, `plan`, `commit`; 60 s). Tests: `test/studentImport.test.mjs`.
