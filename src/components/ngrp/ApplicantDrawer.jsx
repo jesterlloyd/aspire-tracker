@@ -21,13 +21,14 @@ import {
 import { displayName } from '../../lib/utils'
 import { shiftBadge } from '../../lib/shiftStatus'
 import { RESIDENT_SHIFTS } from '../../lib/ngrp/ngrpReflectionForm'
-import { HIRED_AS, HIRED_AS_OTHER, HIRED_AS_SHORT, hiredAsLabel } from '../../lib/ngrp/ngrpResidents'
+import { HIRED_AS, HIRED_AS_OTHER, HIRED_AS_SHORT, hiredAsLabel, cohortHireDate } from '../../lib/ngrp/ngrpResidents'
 import { DIVISION_ORDER, getCanonicalUnitNames, getUnitsByDivision, unitOptionLabel } from '../../lib/unitCatalog'
 import { unitNameKey } from '../../lib/unitNameCanon'
 import { StudentDocumentsBody } from '../documents/StudentDocumentsDrawer'
 import FlagRibbon from '../rubric/FlagRibbon'
 import ApplicantProfileSheet from './ApplicantProfileSheet'
 import ResidentDetailsSection from './ResidentDetailsSection'
+import ResidentTitlePicker from './ResidentTitlePicker'
 import InterviewRubricsSection from './InterviewRubricsSection'
 import { CandidateScoreSection } from './CandidateScore'
 import { transitionSummaryRows } from '../../lib/ngrp/transitionSummary'
@@ -40,7 +41,8 @@ import { APPLICANT_SHEETS, sheetDomId } from '../student/chartSheets'
 import { useChartScroll } from '../student/useChartScroll'
 import { getStudentLegalDisplayName } from '../../lib/studentNameFormatters'
 import DataSheet, { Missing } from '../shared/DataSheet'
-import { useNgrpSupport } from '../../lib/ngrp/useNgrpData'
+import { useNgrpCycles, useNgrpSupport } from '../../lib/ngrp/useNgrpData'
+import { orderCyclesForSelector } from '../../lib/ngrp/ngrpStates'
 import { supportActivity } from '../../lib/ngrp/ngrpSupportActivities'
 
 const F = 'Plus Jakarta Sans, sans-serif'
@@ -661,7 +663,7 @@ function HireHistoryRows({ o }) {
 // HIRE-HISTORY-1: a hire for an alumnus who is not in this cohort's Applicant Pool (a cohort that
 // ran before the app held it). Writes through hire_backfill; Owner and Admin, staff app only.
 // HIRE-HISTORY-2: Record hire (Interest & Eligibility) arrives with the form already open.
-function BackfillHireForm({ row, onBackfill, startOpen = false }) {
+function BackfillHireForm({ row, cycle, onBackfill, startOpen = false }) {
   const [open, setOpen] = useState(startOpen)
   // A second Record hire on a binder already open (startOpen turns true) opens it too.
   const [wasStartOpen, setWasStartOpen] = useState(startOpen)
@@ -670,12 +672,18 @@ function BackfillHireForm({ row, onBackfill, startOpen = false }) {
     if (startOpen) setOpen(true)
   }
   const [form, setForm] = useState({
-    hired_on: '', hired_unit: row.assigned_unit || '', residency_start_date: '', position_title: '',
+    hire_cycle_id: cycle?.id || '', hired_unit: row.assigned_unit || '', position_title: '',
     separated_on: '', separation_reason: '', ...hireHistoryInit({}),
   })
   const [busy, setBusy] = useState(false)
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
-  const problem = !form.hired_on ? 'Enter the hire date.'
+  // HIRE-HISTORY-3 (Owner, 2026-11-04): the residency cohort they were hired into, not a date.
+  // The hire date and residency start are that cohort's own (cohortHireDate).
+  const { cycles } = useNgrpCycles()
+  const cohorts = orderCyclesForSelector(cycles.some(c => c.id === cycle?.id) || !cycle ? cycles : [cycle, ...cycles])
+  const chosen = cohorts.find(c => c.id === form.hire_cycle_id) || null
+  const problem = !chosen ? 'Choose the residency cohort they were hired into.'
+    : !cohortHireDate(chosen) ? `${chosen.name} has no residency start date yet. Add it in Cohort Settings first.`
     : !form.hired_unit.trim() ? 'A hire needs the unit they were hired into.'
     : form.hired_as === HIRED_AS_OTHER && !form.hired_as_other.trim() ? 'Say what they were hired as.'
     : form.separation_reason && !form.separated_on ? 'Add the separation date to record a reason.'
@@ -694,22 +702,22 @@ function BackfillHireForm({ row, onBackfill, startOpen = false }) {
   return (
     <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 7 }} data-testid="backfill-hire">
       <label style={{ display: 'block' }}>
-        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-caption)' }}>Hired on</span>
-        <input type="date" style={field} value={form.hired_on} onChange={e => set('hired_on', e.target.value)} />
+        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-caption)' }}>NGRP cohort</span>
+        <select style={field} value={form.hire_cycle_id} onChange={e => set('hire_cycle_id', e.target.value)}>
+          <option value="">Choose a cohort</option>
+          {cohorts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </select>
       </label>
       <HireUnitPicker value={form.hired_unit} onChange={v => set('hired_unit', v)} />
       <HireHistoryFields form={form} set={set} />
       <label style={{ display: 'block' }}>
-        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-caption)' }}>Residency start date</span>
-        <input type="date" style={field} value={form.residency_start_date} onChange={e => set('residency_start_date', e.target.value)} />
-      </label>
-      <label style={{ display: 'block' }}>
         <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-caption)' }}>Current title</span>
-        <input style={field} value={form.position_title} maxLength={120} onChange={e => set('position_title', e.target.value)} placeholder="Clinical Nurse I" />
+        <ResidentTitlePicker style={field} inputStyle={field} value={form.position_title} emptyLabel="Choose a title"
+          onChange={v => set('position_title', v)} />
       </label>
       <label style={{ display: 'block' }}>
         <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-caption)' }}>Separated on (if they left)</span>
-        <input type="date" style={field} value={form.separated_on} min={form.hired_on || undefined} onChange={e => set('separated_on', e.target.value)} />
+        <input type="date" style={field} value={form.separated_on} min={cohortHireDate(chosen) || undefined} onChange={e => set('separated_on', e.target.value)} />
       </label>
       {form.separated_on && (
         <label style={{ display: 'block' }}>
@@ -724,7 +732,7 @@ function BackfillHireForm({ row, onBackfill, startOpen = false }) {
           onClick={async () => {
             setBusy(true)
             const res = await onBackfill({
-              hired_on: form.hired_on, hired_unit: form.hired_unit.trim(), residency_start_date: form.residency_start_date || null,
+              hire_cycle_id: chosen.id, hired_unit: form.hired_unit.trim(),
               position_title: form.position_title.trim() || null, separated_on: form.separated_on || null,
               separation_reason: form.separation_reason.trim() || null, ...hireHistoryOut(form),
             })
@@ -738,7 +746,7 @@ function BackfillHireForm({ row, onBackfill, startOpen = false }) {
   )
 }
 
-function OutcomeSection({ row, canManage, onSave, onBackfill, openBackfill = false }) {
+function OutcomeSection({ row, cycle, canManage, onSave, onBackfill, openBackfill = false }) {
   const o = row.outcome || {}
   const init = {
     ...hireHistoryInit(o),
@@ -784,7 +792,7 @@ function OutcomeSection({ row, canManage, onSave, onBackfill, openBackfill = fal
           <p style={{ margin: 0, fontSize: 12, color: 'var(--text-caption)' }}>
             There is no offer or hire to record: this alumnus is not in the Applicant Pool.
           </p>
-          {canManage && onBackfill && <BackfillHireForm row={row} onBackfill={onBackfill} startOpen={openBackfill} />}
+          {canManage && onBackfill && <BackfillHireForm row={row} cycle={cycle} onBackfill={onBackfill} startOpen={openBackfill} />}
         </>
       ) : (
         <>
@@ -1488,6 +1496,7 @@ function ApplicantDrawerBody({
                     the official list can carry one. */}
                 <OutcomeSection
                   row={row}
+                  cycle={cycle}
                   canManage={canManage && provisioned}
                   onSave={fields => actions.setOutcome?.(row, fields)}
                   onBackfill={actions.backfillHire ? (fields => actions.backfillHire(row, fields)) : undefined}

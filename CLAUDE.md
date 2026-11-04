@@ -3062,3 +3062,13 @@ is Owner-gated (checks in `db/audit/residency_hire_history_checks.sql`).
   stayed at its top), and the past-hire form arrives open. Migration
   `20261125000000_hire_gnt_interim_permit.sql` (checks `db/audit/hire_gnt_interim_permit_checks.sql`) is
   applied BEFORE the deploy: the old CHECK refuses the new spelling.
+- **HIRE-HISTORY-3 (Owner, 2026-11-04).** A past hire is recorded by its **NGRP cohort**, not a date:
+  the binder's form picks a residency cohort (`hire_cycle_id`, the binder's cohort by default) and
+  the hire is recorded IN that cohort. Its hire date and residency start are the cohort's own
+  (`cohortHireDate`: residency start, else applications open); a cohort with neither is refused with
+  a sentence. A typed `hired_on` (the import's, when the file has one) still wins, and an import row
+  with no date is recorded rather than asked about. **Current title is one list** (`POSITION_TITLES`,
+  stored in full words, offered as CN I, CN II, CN III, CN IV, ANM, AD, NPD-P, CNS, then Other with a
+  box), drawn by `ResidentTitlePicker` in the past-hire form and the resident details editor;
+  `canonicalTitle` turns a typed or imported short name into the full title. A title stored before
+  the list (RN Resident) opens as Other with its words. No migration.

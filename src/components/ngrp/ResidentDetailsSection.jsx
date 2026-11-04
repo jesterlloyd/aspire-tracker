@@ -8,7 +8,8 @@
 // cannot disagree, and it shows only once the hire is recorded.
 import { useState } from 'react'
 import { useNgrpResidents, postNgrpManage } from '../../lib/ngrp/useNgrpData'
-import { POSITION_TITLES, OTHER_TITLE, dayOf } from '../../lib/ngrp/ngrpResidents'
+import { dayOf } from '../../lib/ngrp/ngrpResidents'
+import ResidentTitlePicker from './ResidentTitlePicker'
 import { toLocalDateStr } from '../../../shared/dateUtils.js'
 
 const todayIso = () => toLocalDateStr(new Date())
@@ -46,11 +47,7 @@ function Sourced({ value, source }) {
 }
 
 function Editor({ resident, detailsProvisioned, onClose, onSaved, toast }) {
-  const storedTitle = resident.position_title || ''
-  const [titleChoice, setTitleChoice] = useState(
-    !storedTitle ? '' : POSITION_TITLES.includes(storedTitle) ? storedTitle : OTHER_TITLE,
-  )
-  const [otherTitle, setOtherTitle] = useState(POSITION_TITLES.includes(storedTitle) ? '' : storedTitle)
+  const [title, setTitle] = useState(resident.position_title || '')
   const [preceptor, setPreceptor] = useState(resident.preceptor.source === 'record' ? resident.preceptor.value : '')
   const [phone, setPhone] = useState(resident.phone.source === 'record' ? resident.phone.value : '')
   // HIRE-HISTORY-1: a changed title is dated; today unless said otherwise.
@@ -66,7 +63,7 @@ function Editor({ resident, detailsProvisioned, onClose, onSaved, toast }) {
     setError(null)
     const res = await postNgrpManage('resident_details_set', {
       candidate_id: resident.candidate_id,
-      position_title: titleChoice === OTHER_TITLE ? otherTitle : titleChoice,
+      position_title: title,
       title_effective_on: effectiveOn,
       preceptor_name: preceptor,
       phone,
@@ -96,16 +93,8 @@ function Editor({ resident, detailsProvisioned, onClose, onSaved, toast }) {
       <div className="sp-grid-2">
         <div className="sp-field">
           <label className="sp-field-lbl" htmlFor="resident-title">Position/Title</label>
-          <select id="resident-title" className="sp-select" value={titleChoice} disabled={!detailsProvisioned}
-            onChange={e => setTitleChoice(e.target.value)}>
-            <option value="">Not recorded</option>
-            {POSITION_TITLES.map(t => <option key={t} value={t}>{t}</option>)}
-            <option value={OTHER_TITLE}>Other</option>
-          </select>
-          {titleChoice === OTHER_TITLE && (
-            <input className="sp-input" style={{ marginTop: 8 }} value={otherTitle} maxLength={120}
-              onChange={e => setOtherTitle(e.target.value)} placeholder="Type the title" aria-label="Other title" />
-          )}
+          <ResidentTitlePicker id="resident-title" className="sp-select" inputClassName="sp-input" value={title}
+            disabled={!detailsProvisioned} onChange={setTitle} />
         </div>
         <div className="sp-field">
           <label className="sp-field-lbl" htmlFor="resident-title-on">Title effective on</label>

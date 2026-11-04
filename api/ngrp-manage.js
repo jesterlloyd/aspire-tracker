@@ -589,15 +589,18 @@ export default async function handler(req, res) {
       const cycleId = typeof body.cycle_id === 'string' && UUID.test(body.cycle_id) ? body.cycle_id : null
       const studentId = typeof body.student_id === 'string' && UUID.test(body.student_id) ? body.student_id : null
       if (!cycleId || !studentId) return res.status(422).json({ error: 'invalid_request' })
-      const v = validateBackfillHire(body)
-      if (!v.ok) return invalid(res, v.errors)
-      const cyc = await db.from('ngrp_cycles').select('id, name').eq('id', cycleId).maybeSingle()
+      // HIRE-HISTORY-3: the hire is recorded in the residency cohort they were hired into
+      // (hire_cycle_id), which need not be the cohort the binder is open on.
+      const hireCycleId = typeof body.hire_cycle_id === 'string' && UUID.test(body.hire_cycle_id) ? body.hire_cycle_id : cycleId
+      const cyc = await db.from('ngrp_cycles').select('id, name, residency_start_date, application_open_date').eq('id', hireCycleId).maybeSingle()
       if (cyc.error) return isMissingNgrpTable(cyc.error) ? unprovisioned(res) : internal(res)
       if (!cyc.data) return res.status(404).json({ error: 'cycle_not_found' })
-      const r = await backfillHire(db, { cycleId, cycleName: cyc.data.name, studentId, actorId, hire: v.hire, nowIso })
+      const v = validateBackfillHire(body, { cohort: cyc.data })
+      if (!v.ok) return invalid(res, v.errors)
+      const r = await backfillHire(db, { cycleId: hireCycleId, cycleName: cyc.data.name, studentId, actorId, hire: v.hire, nowIso })
       if (r.provisioned === false) return unprovisioned(res)
       if (!r.ok) return res.status(r.status).json({ error: r.error, message: r.message })
-      return res.status(200).json({ ok: true, candidate_id: r.candidateId })
+      return res.status(200).json({ ok: true, candidate_id: r.candidateId, cycle_id: hireCycleId, cycle_name: cyc.data.name })
     }
 
     // ── NGRP-INTERVIEWS-1 Phase 4: Residency > Interview Schedule ──────────────

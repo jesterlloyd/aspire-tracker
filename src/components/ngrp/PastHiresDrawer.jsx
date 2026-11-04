@@ -218,7 +218,7 @@ export default function PastHiresDrawer({ toast, onRecorded, onClose }) {
                   <label key={r.row} className="ski-row ski-row-add">
                     <span style={{ minWidth: 0 }}>
                       <span className="ski-row-name">{r.name}</span>
-                      <span className="ski-note" style={{ display: 'block' }}>Row {r.row} · {r.match?.cohort || ''} → {r.cohort} · {r.hired_on}{r.hired_unit ? ` · ${r.hired_unit}` : ''}{r.hired_as ? ` · ${r.hired_as === 'Other' ? r.hired_as_other : r.hired_as}` : ''}{r.separated_on ? ` · separated ${r.separated_on}` : ''}</span>
+                      <span className="ski-note" style={{ display: 'block' }}>Row {r.row} · {r.match?.cohort || ''} → {r.cohort}{r.hired_on ? ` · ${r.hired_on}` : ' · the cohort\'s date'}{r.hired_unit ? ` · ${r.hired_unit}` : ''}{r.hired_as ? ` · ${r.hired_as === 'Other' ? r.hired_as_other : r.hired_as}` : ''}{r.separated_on ? ` · separated ${r.separated_on}` : ''}</span>
                     </span>
                     <span className="ski-option"><input type="checkbox" checked={decisions[r.row] !== 'skip'} onChange={e => setDecisions(d => ({ ...d, [r.row]: e.target.checked ? 'record' : 'skip' }))} /> Record</span>
                   </label>

@@ -39,7 +39,9 @@ test('one component serves both surfaces: the portal mounts the same workspace',
 })
 
 test('the title list and the edit validator', () => {
-  assert.deepEqual(POSITION_TITLES, ['RN Resident', 'Clinical Nurse I', 'Clinical Nurse II', 'Clinical Nurse III'])
+  // HIRE-HISTORY-3 (Owner, 2026-11-04) replaced the list; RN Resident now reads as Other.
+  assert.deepEqual(POSITION_TITLES, ['Clinical Nurse I', 'Clinical Nurse II', 'Clinical Nurse III', 'Clinical Nurse IV',
+    'Assistant Nurse Manager', 'Associate Director', 'Nursing Professional Development Practitioner', 'Clinical Nurse Specialist'])
   const ok = validateResidentDetails({
     position_title: ' Clinical Nurse I ', preceptor_name: 'Ana Lim, RN', phone: '(310) 555-0100',
     separated_on: '2027-06-30', separation_reason: 'Relocated',

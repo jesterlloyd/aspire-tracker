@@ -15,9 +15,34 @@
 //
 // A resident is still affiliated until a separation date is recorded.
 
+// HIRE-HISTORY-3 (Owner, 2026-11-04): the titles a resident holds, stored in full words and
+// offered by their short names. A title stored before this list ('RN Resident') still reads,
+// as Other with its own words.
 export const POSITION_TITLES = Object.freeze([
-  'RN Resident', 'Clinical Nurse I', 'Clinical Nurse II', 'Clinical Nurse III',
+  'Clinical Nurse I', 'Clinical Nurse II', 'Clinical Nurse III', 'Clinical Nurse IV',
+  'Assistant Nurse Manager', 'Associate Director',
+  'Nursing Professional Development Practitioner', 'Clinical Nurse Specialist',
 ])
+export const TITLE_SHORT = Object.freeze({
+  'Clinical Nurse I': 'CN I', 'Clinical Nurse II': 'CN II', 'Clinical Nurse III': 'CN III', 'Clinical Nurse IV': 'CN IV',
+  'Assistant Nurse Manager': 'ANM', 'Associate Director': 'AD',
+  'Nursing Professional Development Practitioner': 'NPD-P', 'Clinical Nurse Specialist': 'CNS',
+})
+// A typed or imported title in its short form ('CN II', 'npd-p') reads as the full title.
+export function canonicalTitle(v) {
+  const s = typeof v === 'string' ? v.trim() : ''
+  if (!s) return ''
+  const k = s.toLowerCase().replace(/[\s.]+/g, ' ')
+  for (const [full, short] of Object.entries(TITLE_SHORT)) {
+    if (full.toLowerCase() === k || short.toLowerCase().replace(/[\s.]+/g, ' ') === k) return full
+  }
+  return s
+}
+
+// HIRE-HISTORY-3 (Owner, 2026-11-04): a past hire is recorded by the residency cohort they were
+// hired into, not a date. Its hire date is that cohort's residency start, else the day its
+// applications opened: the cohort's own dates, so retention and "hired before" still order it.
+export const cohortHireDate = cycle => dayOf(cycle?.residency_start_date) || dayOf(cycle?.application_open_date) || null
 export const OTHER_TITLE = '__other__'
 
 export const RESIDENTS_SCOPES = Object.freeze({ COHORT: 'cohort', AGGREGATE: 'aggregate' })
@@ -46,7 +71,7 @@ export function validateResidentDetails(input, { hiredAt = null } = {}) {
   const errors = []
   const details = {}
 
-  const title = typeof src.position_title === 'string' ? src.position_title.trim() : ''
+  const title = canonicalTitle(src.position_title)
   if (title.length > 120) errors.push({ field: 'position_title', message: 'Keep the title to 120 characters.' })
   details.position_title = title ? title.slice(0, 120) : null
 
@@ -197,18 +222,24 @@ export function validateHireHistory(input) {
 
 // A past hire recorded after the fact (Record past hires). The hire date is a calendar day;
 // the server turns it into the hire timestamp and sets both offer timestamps to it.
-export function validateBackfillHire(input) {
+export function validateBackfillHire(input, { cohort = null } = {}) {
   const src = (input && typeof input === 'object' && !Array.isArray(input)) ? input : {}
   const errors = []
-  const hiredOn = typeof src.hired_on === 'string' ? src.hired_on.trim() : ''
-  if (!isDate(hiredOn)) errors.push({ field: 'hired_on', message: 'Enter the hire date.' })
+  // HIRE-HISTORY-3: a hire date is optional; without one the cohort's own date stands in.
+  const typed = typeof src.hired_on === 'string' ? src.hired_on.trim() : ''
+  if (typed && !isDate(typed)) errors.push({ field: 'hired_on', message: 'Use a calendar date for the hire.' })
+  const hiredOn = typed || cohortHireDate(cohort) || ''
+  if (!typed && !hiredOn) {
+    errors.push({ field: 'cohort', message: `${cohort?.name || 'That cohort'} has no residency start date. Add one in Cohort Settings, or enter the hire date.` })
+  }
   const unit = text(src.hired_unit, 120)
   if (!unit) errors.push({ field: 'hired_unit', message: 'A hire needs the unit they were hired into.' })
   const history = validateHireHistory(src)
   if (!history.ok) errors.push(...history.errors)
-  const start = typeof src.residency_start_date === 'string' ? src.residency_start_date.trim() : ''
-  if (start && !isDate(start)) errors.push({ field: 'residency_start_date', message: 'Use a calendar date for the residency start.' })
-  const title = text(src.position_title, 120)
+  const typedStart = typeof src.residency_start_date === 'string' ? src.residency_start_date.trim() : ''
+  if (typedStart && !isDate(typedStart)) errors.push({ field: 'residency_start_date', message: 'Use a calendar date for the residency start.' })
+  const start = typedStart || dayOf(cohort?.residency_start_date) || ''
+  const title = text(canonicalTitle(src.position_title), 120)
   const details = validateResidentDetails(
     { separated_on: src.separated_on, separation_reason: src.separation_reason, position_title: title },
     { hiredAt: isDate(hiredOn) ? separationTimestamp(hiredOn) : null },

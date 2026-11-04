@@ -198,7 +198,7 @@ export function planHires(rows, mapping, pool, { onRecord = [], cohortKeyOf = fo
     if (m.status !== 'Completed') return { ...base, match, action: 'skip', reason: 'not_completed' }
     if (!base.cohort) return { ...base, match, action: 'skip', reason: 'no_cohort' }
     if (recorded.has(`${m.id}|${cohortKeyOf(base.cohort)}`)) return { ...base, match, action: 'skip', reason: 'already' }
-    if (!values.hired_on) return { ...base, match, action: 'ask', reason: 'no_date' }
+    // HIRE-HISTORY-3: a row with no hire date is still recorded; its cohort's date stands in.
     return { ...base, match, action: 'record', reason: 'record' }
   })
 }
@@ -230,5 +230,5 @@ export const REASON_WORDS = Object.freeze({
   not_completed: 'Has not completed ASPIRE',
   no_cohort: 'No residency cohort in this row',
   already: 'Already recorded for that cohort',
-  no_date: 'No hire date: enter one, or skip',
+  no_date: 'No hire date: enter one, or skip', // retired by HIRE-HISTORY-3; kept for a plan made before it
 })

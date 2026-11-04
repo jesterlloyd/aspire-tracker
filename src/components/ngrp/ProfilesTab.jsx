@@ -751,8 +751,12 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                       'Outcome recorded', `${displayName(r.student)}'s residency outcome is saved.`),
                     // HIRE-HISTORY-1: a hire recorded after the fact for an alumnus who never went
                     // through this cohort's form and pool (Owner and Admin, staff app only).
-                    backfillHire: staffApp && ownerAdmin ? ((r, fields) => runManage('hire_backfill', { cycle_id: cycle.id, student_id: r.student.id, ...fields },
-                      'Hire recorded', `${displayName(r.student)} is on record as hired in ${cycle.name}.`)) : undefined,
+                    // HIRE-HISTORY-3: recorded in the cohort chosen in the form (hire_cycle_id).
+                    backfillHire: staffApp && ownerAdmin ? (async (r, fields) => {
+                      const res = await runManage('hire_backfill', { cycle_id: cycle.id, student_id: r.student.id, ...fields })
+                      if (res) toast?.success?.('Hire recorded', `${displayName(r.student)} is on record as hired in ${res.cycle_name || cycle.name}.`)
+                      return res
+                    }) : undefined,
                     // RESIDENCY-PORTAL-2b: request (Talent Acquisition), decide (the Owner), view (the requester).
                     requestFeedback: (r, note) => runFeedback('request', { candidate_id: r.candidate_id, note },
                       'Request sent', 'The ASPIRE team will review your request to view the preceptor feedback.'),
