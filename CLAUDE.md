@@ -2992,8 +2992,9 @@ done. Owner and Admin only.
 - **An Internship import does not reach Residency by itself.** Completed students reach a residency
   cohort only through its source cohorts (or Add Alumnus). On 2026-11-04 the 45 alumni imported into
   Spring 2026 were missing from Interest & Eligibility because Winter 2027 did not map Spring 2026; the
-  Owner chose to map it (`db/maintenance/ngrp_map_spring_2026_20261104.sql`). Source cohorts are set only
-  when a residency cohort is created; there is no screen to change them.
+  Owner chose to map it (`db/maintenance/ngrp_map_spring_2026_20261104.sql`). Source cohorts are also editable
+  in the app: Residency > Cohort Settings (the Scope footer in the header), Participating cohorts
+  (`sources_set`); the maintenance file was used only because the fix was made from the CLI.
 - **The skill row** is `20261123000000_import_students_skill.sql` (Owner-gated; checks in
   `db/audit/import_students_skill_checks.sql`). Before it, the import works on header guesses alone.
   Endpoint: `api/student-import.js` (`analyze`, `plan`, `commit`; 60 s). Tests: `test/studentImport.test.mjs`.
