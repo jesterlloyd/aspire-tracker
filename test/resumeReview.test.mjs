@@ -15,7 +15,7 @@ import { dirname, join } from 'node:path'
 import { PGlite } from '@electric-sql/pglite'
 import { PDFDocument, StandardFonts } from 'pdf-lib'
 import {
-  compositeScore, readinessFor, parseReview, composeDraft, scoreSentence, copyScoreLine, scoreChange,
+  compositeScore, readinessFor, MISSING_KEYS, parseReview, composeDraft, scoreSentence, copyScoreLine, scoreChange,
   highlightRuns, reviewState, trackerSteps, CATEGORY_KEYS, STALE_SCORING_MS,
 } from '../src/lib/documents/resumeReviewModel.js'
 import { detectDocumentDate } from '../src/lib/documents/documentDates.js'
@@ -31,11 +31,17 @@ test('the composite is the six scores x10 / 6, rounded; readiness follows the th
   assert.equal(compositeScore(cats([8, 6, 6, 8, 7, 8])), 72)
   assert.equal(compositeScore(cats([10, 10, 10, 10, 10, 10])), 100)
   assert.equal(compositeScore({ ats: { score: 8 } }), null)
-  assert.equal(readinessFor(cats([9, 8, 8, 8, 8, 8])), 'Highly Competitive', '82, none below 6')
-  assert.equal(readinessFor(cats([9, 9, 5, 9, 9, 9])), 'Competitive', '83 but a 5: not Highly Competitive')
+  // RESUME-HR-1 (2026-11-04) lowered the thresholds at Talent Acquisition's "do not be too strict":
+  // Highly Competitive 75 with none below 5, Competitive 60, a red flag only at 2 or below.
+  assert.equal(readinessFor(cats([9, 8, 8, 8, 8, 8])), 'Highly Competitive', '82, none below 5')
+  assert.equal(readinessFor(cats([8, 8, 7, 8, 7, 7])), 'Highly Competitive', '75 is enough now (was 80)')
+  assert.equal(readinessFor(cats([9, 9, 5, 9, 9, 9])), 'Highly Competitive', 'a 5 is Developing, which no longer holds it back')
+  assert.equal(readinessFor(cats([9, 9, 4, 9, 9, 9])), 'Competitive', '83 but a 4: not Highly Competitive')
   assert.equal(readinessFor(cats([8, 6, 6, 8, 7, 8])), 'Competitive')
-  assert.equal(readinessFor(cats([9, 9, 3, 9, 9, 9])), 'Needs Improvement', 'any category at 3 or below is a red flag')
-  assert.equal(readinessFor(cats([6, 6, 6, 6, 6, 6])), 'Needs Improvement', '60')
+  assert.equal(readinessFor(cats([6, 6, 6, 6, 6, 6])), 'Competitive', '60 is Competitive now (was 65)')
+  assert.equal(readinessFor(cats([9, 9, 3, 9, 9, 9])), 'Competitive', 'a 3 is no longer a red flag on its own')
+  assert.equal(readinessFor(cats([9, 9, 2, 9, 9, 9])), 'Needs Improvement', 'any category at 2 or below is a red flag')
+  assert.equal(readinessFor(cats([6, 6, 5, 6, 5, 6])), 'Needs Improvement', '57')
 })
 
 test('parseReview stores the rubric\'s score, not the model\'s, and keeps exactly what is allowed', () => {
@@ -49,7 +55,7 @@ test('parseReview stores the rubric\'s score, not the model\'s, and keeps exactl
   assert.deepEqual(CATEGORY_KEYS.map(k => out.categories[k].score), [8, 6, 6, 8, 7, 10], 'strings and decimals cleaned, 12 held to 10')
   assert.equal(out.score, 75)
   assert.equal(out.model_score, 95, 'the model\'s own number is kept beside it, never used')
-  assert.equal(out.readiness, 'Competitive')
+  assert.equal(out.readiness, 'Highly Competitive', '75 with none below 5 (RESUME-HR-1; it read Competitive under the old 80)')
   assert.equal(out.top_fixes.length, 3)
   assert.deepEqual(out.missing_info, ['clinical_rotation_hours', 'gpa'], 'known keys only, in the rubric\'s order')
   assert.equal(out.draft.subject, 'Feedback on your résumé')
@@ -222,11 +228,18 @@ test('an off skill, another student\'s version, or a bad answer never stores a s
 test('SKILL.md is exactly what the migration seeds, and the skill is a disabled draft for Owner and Admin', () => {
   const body = read('skills/review-resume/SKILL.md').split('---\n').slice(2).join('---\n').trim()
   const sql = read('supabase/migrations/20261105000000_resume_reviews.sql')
-  const seeded = sql.match(/E'(You review ONE[\s\S]*?)'\n\)\nON CONFLICT/)[1].replace(/''/g, "'").replace(/\\n/g, '\n').replace(/\\\\/g, '\\')
-  assert.equal(seeded, body)
+  const unq = t => t.replace(/''/g, "'").replace(/\\n/g, '\n').replace(/\\\\/g, '\\')
+  const seeded = unq(sql.match(/E'(You review ONE[\s\S]*?)'\n\)\nON CONFLICT/)[1])
   const fix = read('supabase/migrations/20261106000001_review_resume_wording.sql')
-  const fixed = fix.match(/v_body  text := E'([\s\S]*?)';\n/)[1].replace(/''/g, "'").replace(/\\n/g, '\n').replace(/\\\\/g, '\\')
-  assert.equal(fixed, body, 'the wording fix brings an applied row to exactly SKILL.md')
+  const fixed = unq(fix.match(/v_body  text := E'([\s\S]*?)';\n/)[1])
+  assert.equal(seeded, fixed, 'the seed and the wording fix carry the same (1.0.1) text')
+  // RESUME-HR-1 (2026-11-04) replaced the text; the newest migration is what SKILL.md says now.
+  const hr = read('supabase/migrations/20261126000000_review_resume_hr_structure.sql')
+  assert.equal(unq(hr.match(/v_body  text := E'([\s\S]*?)';\n/)[1]), body, 'the HR structure migration brings an applied row to exactly SKILL.md')
+  assert.match(body, /WHAT TALENT ACQUISITION LOOKS FOR/)
+  assert.match(body, /SCORE FAIRLY, NOT STRICTLY/)
+  assert.match(body, /75 or more with no category below 5/, 'Keith is told the thresholds the app computes')
+  for (const k of MISSING_KEYS) assert.match(body, new RegExp(`- ${k}: `), `the skill lists missing key ${k}`)
   assert.doesNotMatch(body, /New-Graduate|ASPIRE Program/)
   assert.match(sql, /'review-resume',\s*'Review Résumé',[\s\S]*?'draft',\s*false,\s*'on',\s*ARRAY\['owner', 'admin'\]/)
   assert.match(sql, /ARRAY\['student_resume_read'\]/)
@@ -278,7 +291,8 @@ test('the wording fix on Postgres: a draft takes the text, an active skill gets 
     CREATE TABLE public.activity_logs (user_id uuid, user_name text, user_role text, action_type text, entity_type text, entity_id text, description text, metadata jsonb);
   `)
   const fix = read('supabase/migrations/20261106000001_review_resume_wording.sql')
-  const body = read('skills/review-resume/SKILL.md').split('---\n').slice(2).join('---\n').trim()
+  // Its own (1.0.1) text: RESUME-HR-1 moved SKILL.md on, and 20261126000000 carries it.
+  const body = fix.match(/v_body  text := E'([\s\S]*?)';\n/)[1].replace(/''/g, "'").replace(/\\n/g, '\n').replace(/\\\\/g, '\\')
   const old = 'Applying to Cedars-Sinai\'s New-Graduate RN Residency Program; aspire_participation: the ASPIRE ' + 'Program by name'
   await db.query(`INSERT INTO keith_skills (slug, status, enabled, version, instruction_body) VALUES ('review-resume', 'draft', false, 0, $1)`, [old])
   await db.exec(fix)
@@ -291,6 +305,36 @@ test('the wording fix on Postgres: a draft takes the text, an active skill gets 
   assert.equal((await db.query(`SELECT COUNT(*)::int AS n FROM keith_skill_versions WHERE version_number = 2`)).rows[0].n, 1)
   await db.exec(fix)
   assert.equal((await db.query(`SELECT version FROM keith_skills`)).rows[0].version, 2, 'a re-run changes nothing')
+})
+
+test('the HR structure update on Postgres: a draft takes the text, an active skill gets a version, a re-run does nothing', async () => {
+  const db = new PGlite()
+  await db.exec(`
+    CREATE TABLE public.user_profiles (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), is_owner boolean, created_at timestamptz DEFAULT now());
+    INSERT INTO public.user_profiles (is_owner) VALUES (true);
+    CREATE TABLE public.keith_skills (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), slug text UNIQUE, display_name text, description text, version integer DEFAULT 0,
+      status text, enabled boolean, allowed_roles text[], required_tools text[], required_data text[], trigger_phrases text[], data_classification text,
+      model_route text, io_contract jsonb, instruction_body text, updated_by uuid);
+    CREATE TABLE public.keith_skill_versions (skill_id uuid, version_number integer, display_name text, description text, allowed_roles text[], required_tools text[],
+      required_data text[], trigger_phrases text[], data_classification text, model_route text, io_contract jsonb, instruction_body text, change_note text, editor_id uuid);
+    CREATE TABLE public.activity_logs (user_id uuid, user_name text, user_role text, action_type text, entity_type text, entity_id text, description text, metadata jsonb);
+  `)
+  const hr = read('supabase/migrations/20261126000000_review_resume_hr_structure.sql')
+  const body = read('skills/review-resume/SKILL.md').split('---\n').slice(2).join('---\n').trim()
+  const roles = ['owner', 'admin', 'co_lead', 'talent_acquisition']
+  await db.query(`INSERT INTO keith_skills (slug, status, enabled, version, allowed_roles, instruction_body) VALUES ('review-resume', 'active', true, 2, $1, 'the 1.0.1 text')`, [roles])
+  await db.exec(hr)
+  let r = (await db.query(`SELECT version, status, enabled, allowed_roles, instruction_body = $1 AS updated FROM keith_skills`, [body])).rows[0]
+  assert.deepEqual(r, { version: 3, status: 'active', enabled: true, allowed_roles: roles, updated: true }, 'version + 1; status, switch and roles kept')
+  const v = (await db.query(`SELECT change_note FROM keith_skill_versions WHERE version_number = 3`)).rows
+  assert.equal(v.length, 1)
+  assert.match(v[0].change_note, /Talent Acquisition's résumé structure/)
+  await db.exec(hr)
+  assert.equal((await db.query(`SELECT version FROM keith_skills`)).rows[0].version, 3, 'a re-run changes nothing')
+  await db.query(`UPDATE keith_skills SET status = 'draft', instruction_body = 'old'`)
+  await db.exec(hr)
+  r = (await db.query(`SELECT version, instruction_body = $1 AS updated FROM keith_skills`, [body])).rows[0]
+  assert.deepEqual(r, { version: 3, updated: true }, 'a draft just takes the text')
 })
 
 test('the Keith mark: a review is seen by its readers, edits draw the pencil, a send draws the check', async () => {

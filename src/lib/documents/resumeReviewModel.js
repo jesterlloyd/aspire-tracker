@@ -10,11 +10,13 @@
 // impression. The same six scores always give the same composite and the same readiness.
 
 export const CATEGORIES = Object.freeze([
-  Object.freeze({ key: 'ats', label: 'ATS Optimization' }),
+  // RESUME-HR-1 (Talent Acquisition, 2026-11-04): ats and leadership keep their keys, so stored
+  // reviews and the "was / now" comparison still line up; their labels now say what HR reads.
+  Object.freeze({ key: 'ats', label: 'Format and Structure' }),
   Object.freeze({ key: 'alignment', label: 'Cedars-Sinai Nursing Alignment' }),
   Object.freeze({ key: 'aspire', label: 'ASPIRE Positioning' }),
-  Object.freeze({ key: 'clinical', label: 'Clinical Experience' }),
-  Object.freeze({ key: 'leadership', label: 'Leadership and Professionalism' }),
+  Object.freeze({ key: 'clinical', label: 'Clinical Rotations' }),
+  Object.freeze({ key: 'leadership', label: 'Certifications, Experience and Activities' }),
   Object.freeze({ key: 'competitiveness', label: 'Overall NGRP Competitiveness' }),
 ])
 export const CATEGORY_KEYS = Object.freeze(CATEGORIES.map(c => c.key))
@@ -24,8 +26,10 @@ export const READINESS = Object.freeze(['Highly Competitive', 'Competitive', 'Ne
 export const LOW_CATEGORY = 6
 
 export const MISSING_INFO = Object.freeze([
+  Object.freeze({ key: 'summary', label: 'Professional summary', ask: 'a short professional summary at the top' }),
   Object.freeze({ key: 'graduation_date', label: 'Graduation date', ask: 'your anticipated graduation date' }),
   Object.freeze({ key: 'bls_status', label: 'BLS status', ask: 'your BLS (AHA) certification and when it expires' }),
+  Object.freeze({ key: 'license', label: 'License', ask: 'your RN license number, or when you expect to sit for the NCLEX' }),
   Object.freeze({ key: 'aspire_participation', label: 'ASPIRE participation', ask: 'your ASPIRE rotation, by name' }),
   Object.freeze({ key: 'clinical_rotation_hours', label: 'Clinical rotation hours', ask: 'each clinical rotation with its facility, unit and hours' }),
   Object.freeze({ key: 'unit_placements', label: 'Unit placements', ask: 'the units you rotated on' }),
@@ -48,14 +52,17 @@ export function compositeScore(categories) {
   return Math.round((vals.reduce((a, b) => a + b, 0) * 10) / 6)
 }
 
-// The classification, from the rubric's thresholds. Any category at 3 or below is a red flag.
+// The classification, from the rubric's thresholds. RESUME-HR-1 (Talent Acquisition, 2026-11-04:
+// "do not be too strict"): Highly Competitive from 75 with none below 5 (Developing, which is
+// what studentFeedbackModel's words already said), Competitive from 60, and only a category at
+// 2 or below is a red flag. They were 80 with none below 6, 65, and 3 or below.
 export function readinessFor(categories) {
   const score = compositeScore(categories)
   if (score == null) return null
   const min = Math.min(...CATEGORY_KEYS.map(k => categories[k].score))
-  if (min <= 3) return 'Needs Improvement'
-  if (score >= 80 && min >= 6) return 'Highly Competitive'
-  if (score >= 65) return 'Competitive'
+  if (min <= 2) return 'Needs Improvement'
+  if (score >= 75 && min >= 5) return 'Highly Competitive'
+  if (score >= 60) return 'Competitive'
   return 'Needs Improvement'
 }
 

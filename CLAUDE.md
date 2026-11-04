@@ -1811,8 +1811,19 @@ Instructions: `skills/review-resume/SKILL.md`, seeded by `20261105000000_resume_
 
 - **The score is the rubric's** (Owner: "rubric-based and objective"). Keith scores six
   categories 0 to 10; the composite (sum x 10 / 6, rounded) and the readiness (Highly
-  Competitive at 80+ with none below 6, Needs Improvement below 65 or any category at 3 or
-  below, else Competitive) are COMPUTED by `parseReview`, never the model's. The model's own
+  Competitive at 75+ with none below 5, Needs Improvement below 60 or any category at 2 or
+  below, else Competitive; RESUME-HR-1 lowered them from 80 / 6, 65 and 3) are COMPUTED by
+  `parseReview`, never the model's.
+- **The rubric reads the résumé Talent Acquisition reads** (RESUME-HR-1, 2026-11-04): Summary on
+  top, Education, Clinical Rotations (facility, unit and hours; bullets welcome, never required),
+  Certifications and License (with the license number, or the NCLEX timeline before licensure),
+  Professional Work Experience (most recent first, a short description each), Awards, Coursework
+  and Activities, and "do not be too strict". The six category KEYS did not change, so stored
+  reviews and "was / now" still line up; `ats` reads Format and Structure, `clinical` Clinical
+  Rotations, `leadership` Certifications, Experience and Activities. Missing information gained
+  `summary` and `license`. The skill text is `20261126000000_review_resume_hr_structure.sql`
+  (Owner-gated, a test holds it equal to SKILL.md); reviews scored before it keep their
+  stored score and readiness until scored again. The model's own
   number is kept as `model_score` for comparison and not shown.
 - **Résumés only** (Owner, 2026-10-04). Keith reads no transcript, card or letter. A dated
   document's date is pre-filled WITHOUT AI when the picked PDF has text
