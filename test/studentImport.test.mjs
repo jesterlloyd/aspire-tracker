@@ -9,7 +9,7 @@ import { deflateRawSync } from 'node:zlib'
 import { readSheet, readCsvGrid, gridToSheet, serialToIso, SheetReadError } from '../lib/server/sheet/readSheet.js'
 import { xlsxFor } from '../lib/server/sheet/xlsx.js'
 import {
-  profileColumns, maskValue, sanitizeMapping, questionsFor, applyAnswers, rowValues, planRows, decide,
+  diffAgainst, profileColumns, maskValue, sanitizeMapping, questionsFor, applyAnswers, rowValues, planRows, decide,
   splitName, toIsoDate, guessMapping, IGNORE,
 } from '../src/lib/studentImport/importModel.js'
 import { ownerOpusRouteFor, resolveRoute, isKnownRoute, ROUTE_NAMES } from '../lib/server/keith/modelRouting.js'
@@ -137,6 +137,18 @@ test('Internship: never a second record without an answer', () => {
   const d = decide(p, { 5: 'create', 3: 'nonsense' }) // keyed by the sheet's row number
   assert.equal(d[1].action, 'skip', 'no answer is the default')
   assert.equal(d[3].action, 'create')
+})
+
+test('a stored value that is not one of the choices is filled from the file, not a conflict (Sierra Jennings)', () => {
+  const legacy = { school: 'West Coast University', program_type: 'BSN Semester', phone: '555' }
+  const d = diffAgainst(legacy, { school: 'West Coast University North Hollywood', program_type: 'Accelerated BSN', phone: '556' })
+  assert.deepEqual(d.fill, ['school'], 'the campus-less school is unknown, so the campus fills it')
+  assert.deepEqual(d.upgrades, [{ field: 'school', from: 'West Coast University', to: 'West Coast University North Hollywood' }])
+  assert.deepEqual(d.conflicts.map(c => c.field), ['program_type', 'phone'], 'a free value and a real choice still ask')
+  const real = diffAgainst({ school: 'UCLA' }, { school: 'West Coast University North Hollywood' })
+  assert.deepEqual([real.fill, real.conflicts.map(c => c.field)], [[], ['school']], 'a real choice is never overwritten without Replace')
+  const offToOff = diffAgainst({ school: 'West Coast University' }, { school: 'Somewhere Else' })
+  assert.deepEqual(offToOff.conflicts.map(c => c.field), ['school'], 'only a real choice can fill it')
 })
 
 test('Residency: alumni are Completed students; a new one needs a known cohort', () => {

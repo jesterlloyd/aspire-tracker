@@ -375,17 +375,31 @@ const same = (a, b) => {
   return fold(a) === fold(b)
 }
 
-/** What a matched record would gain (empty fields) and where the file disagrees with it. */
+/**
+ * A closed-list field whose stored value is not one of its own choices (a legacy word such as the
+ * campus-less "West Coast University") is treated as unknown: the file's value fills it when that
+ * value IS a choice. Owner, 2026-11-04 (Sierra Jennings). Never the status, which the plan decides.
+ */
+const offList = (k, cur, v) => {
+  const f = FIELD_BY_KEY[k]
+  if (!f || f.kind !== 'choice' || k === 'status' || !Array.isArray(f.choices) || !f.choices.length) return false
+  return !exactChoice(cur, f.choices) && Boolean(exactChoice(v, f.choices))
+}
+
+/** What a matched record would gain (empty or off-list fields) and where the file disagrees with it. */
 export function diffAgainst(existing, cols) {
   const fill = []
   const conflicts = []
+  const upgrades = []
   for (const [k, v] of Object.entries(cols)) {
     if (COMPARE_SKIP.has(k) || emptyish(v)) continue
     const cur = existing?.[k]
     if (emptyish(cur)) fill.push(k)
-    else if (!same(cur, v)) conflicts.push({ field: k, from: cur, to: v })
+    else if (same(cur, v)) continue
+    else if (offList(k, cur, v)) { fill.push(k); upgrades.push({ field: k, from: cur, to: v }) }
+    else conflicts.push({ field: k, from: cur, to: v })
   }
-  return { fill, conflicts }
+  return { fill, conflicts, upgrades }
 }
 
 /**

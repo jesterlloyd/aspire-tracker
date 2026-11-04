@@ -2980,12 +2980,20 @@ done. Owner and Admin only.
 - **No duplicates.** `planRows` (pure, `src/lib/studentImport/importModel.js`) matches each row against every
   student in the request's population (real or demo) by email, then by name, and decides: create, fill empty fields, ask (conflicting
   values, a name-only match, more than one match, a match in another cohort) or skip (a repeat inside the
-  file, no name). An update only fills empty fields unless the Owner picks Replace on that row. Nothing is
+  file, no name). An update only fills empty fields unless the Owner picks Replace on that row. A closed-list field
+  whose stored value is not one of its own choices (the campus-less "West Coast University") counts as
+  empty when the file's value IS a choice, and the row says what it becomes (Owner, 2026-11-04, after
+  Sierra Jennings kept the old school under Update); a real choice still asks. Nothing is
   ever deleted. `commitImport` re-plans on the server before it writes; demo sessions stamp `is_demo`.
 - **One student record.** Internship fills the intake record in the selected cohort. Residency adds a
   Completed student to the roster (`addToRoster`, audited `alumnus_added` with `via: 'import'`); a new
   person is created under their ASPIRE cohort, which must exist or be created as a past cohort
   (`ensurePastCohort`), else the row is skipped. A student who is not Completed is never added to Residency.
+- **An Internship import does not reach Residency by itself.** Completed students reach a residency
+  cohort only through its source cohorts (or Add Alumnus). On 2026-11-04 the 45 alumni imported into
+  Spring 2026 were missing from Interest & Eligibility because Winter 2027 did not map Spring 2026; the
+  Owner chose to map it (`db/maintenance/ngrp_map_spring_2026_20261104.sql`). Source cohorts are set only
+  when a residency cohort is created; there is no screen to change them.
 - **The skill row** is `20261123000000_import_students_skill.sql` (Owner-gated; checks in
   `db/audit/import_students_skill_checks.sql`). Before it, the import works on header guesses alone.
   Endpoint: `api/student-import.js` (`analyze`, `plan`, `commit`; 60 s). Tests: `test/studentImport.test.mjs`.

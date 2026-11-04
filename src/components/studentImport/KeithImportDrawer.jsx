@@ -285,6 +285,11 @@ export default function KeithImportDrawer({ target, cohortId, cohortName, cycle,
                       {r.match ? `: ${r.match.name}${r.match.cohort ? `, ${r.match.cohort}` : ''}${r.match.status ? `, ${r.match.status}` : ''}` : ''}
                       {r.matches ? `: ${r.matches.map(m => `${m.name}${m.cohort ? ` (${m.cohort})` : ''}`).join('; ')}` : ''}
                     </p>
+                    {!!r.upgrades?.length && (
+                      <ul className="ski-diff">
+                        {r.upgrades.map(u => <li key={u.field}>{u.label}: “{String(u.from)}” is not one of the app's choices, so it becomes “{String(u.to)}”</li>)}
+                      </ul>
+                    )}
                     {!!r.conflicts.length && (
                       <ul className="ski-diff">
                         {r.conflicts.map(c => <li key={c.field}>{c.label}{'from' in c ? `: “${String(c.from)}” here, “${String(c.to)}” in the file` : ' differs'}</li>)}
@@ -315,6 +320,7 @@ export default function KeithImportDrawer({ target, cohortId, cohortName, cycle,
                         {r.repeatOf ? ` (row ${r.repeatOf})` : ''}
                         {r.cohort ? ` · ${r.cohort}` : ''}
                         {r.fill.length && r.action !== 'create' ? ` · adds ${r.fill.join(', ')}` : ''}
+                        {r.upgrades?.length ? ` · ${r.upgrades.map(u => `${u.label} “${String(u.from)}” becomes “${String(u.to)}”`).join('; ')}` : ''}
                         {r.problems.length ? ` · not read: ${r.problems.join('; ')}` : ''}
                       </div>
                     </div>
