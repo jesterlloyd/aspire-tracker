@@ -53,20 +53,28 @@ export function inlineMarkup(text, { link = '#1D2567', mergePreview = false } = 
 }
 
 /** Paragraphs (blank line) of inline markup, each a <p> with the given style. */
-function paragraphs(text, pStyle, opts) {
-  return String(text || '').split(/\n{2,}/).map(p => p.trim()).filter(Boolean)
+function paragraphs(text, pStyle, opts, key) {
+  const html = String(text || '').split(/\n{2,}/).map(p => p.trim()).filter(Boolean)
     .map(p => `<p style="${pStyle}">${inlineMarkup(p, opts).replace(/\n/g, '<br>')}</p>`).join('')
+  // On the canvas only, the paragraphs are wrapped so a double-click edits the whole field.
+  return key && opts?.editable ? `<div data-st-edit="${key}">${html}</div>` : html
 }
+
+/**
+ * STUDIO-INLINE-1: marks an element as a field the canvas may edit in place. Only the canvas
+ * passes editable, so a send, a test, a thumbnail and Preview as sent are byte-for-byte unchanged.
+ */
+const ed = (opts, key) => (opts?.editable ? ` data-st-edit="${key}"` : '')
 
 const row = (inner, { bg, pad = `0 ${SIDE}px`, cls = 'st-pad' } = {}) =>
   `<tr><td class="${cls}"${bg ? ` bgcolor="${bg}"` : ''} style="padding:${pad};${bg ? `background:${bg};` : ''}">${inner}</td></tr>`
 
 const fontOf = (choice, t, which = 'headingFont') => FONT_STACKS[choice === 'serif' || choice === 'sans' ? choice : t[which]] || FONT_STACKS.sans
 
-function buttonHtml({ label, href, bg, ink, align, shape, width, font }) {
+function buttonHtml({ label, href, bg, ink, align, shape, width, font, edit = '' }) {
   const radius = shape === 'pill' ? 999 : shape === 'square' ? 0 : 8
   const full = width === 'full'
-  const a = `<a href="${esc(href)}" style="display:${full ? 'block' : 'inline-block'};background:${bg};color:${ink};font-family:${font};font-size:15px;font-weight:700;line-height:20px;text-decoration:none;padding:14px 30px;border-radius:${radius}px;text-align:center;">${esc(label)}</a>`
+  const a = `<a href="${esc(href)}" style="display:${full ? 'block' : 'inline-block'};background:${bg};color:${ink};font-family:${font};font-size:15px;font-weight:700;line-height:20px;text-decoration:none;padding:14px 30px;border-radius:${radius}px;text-align:center;"${edit}>${esc(label)}</a>`
   return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" ${full ? 'width="100%"' : ''} align="${align === 'left' ? 'left' : 'center'}" style="margin:${align === 'left' ? '0' : '0 auto'};"><tr><td bgcolor="${bg}" style="border-radius:${radius}px;background:${bg};">${a}</td></tr></table>`
 }
 
@@ -81,7 +89,7 @@ function signatureHtml(sig, signOff, t, opts) {
   const body = name
     ? `<strong style="color:${t.heading};">${name}${creds}</strong>${titles}<span style="display:block;">${aff}</span>${email}`
     : `<span style="color:${t.muted};">${opts.signaturePlaceholder || 'Your Connect signature appears here.'}</span>`
-  return `<p style="margin:0 0 6px;">${esc(signOff || '')}</p><p style="margin:0;line-height:1.6;">${body}</p>`
+  return `<p style="margin:0 0 6px;"${ed(opts, 'signOff')}>${esc(signOff || '')}</p><p style="margin:0;line-height:1.6;">${body}</p>`
 }
 
 /** One block's rows. Exported for the canvas, which wraps each block so it can be selected. */
@@ -90,14 +98,14 @@ export function renderBlockRows(block, themeId, opts = {}) {
   const p = block.props || {}
   const s = block.style || {}
   const body = fontOf('theme', t, 'bodyFont')
-  const mo = { link: t.link, mergePreview: opts.mergePreview }
+  const mo = { link: t.link, mergePreview: opts.mergePreview, editable: opts.editable }
   switch (block.type) {
     case 'header': {
       const bg = resolveColor(s.bg, t.surface)
       const logo = p.showLogo && opts.brand?.logoUrl
         ? `<img src="${esc(opts.brand.logoUrl)}" alt="${esc(opts.brand.title || p.title)}" height="36" style="display:block;height:36px;width:auto;border:0;">`
-        : `<span style="font-family:${body};font-size:13px;font-weight:700;letter-spacing:2px;color:${t.heading};">${esc(p.title)}</span>`
-      const tag = p.tagline ? `<span style="font-family:${body};font-size:11px;color:${t.muted};">${esc(p.tagline)}</span>` : ''
+        : `<span style="font-family:${body};font-size:13px;font-weight:700;letter-spacing:2px;color:${t.heading};"${ed(opts, 'title')}>${esc(p.title)}</span>`
+      const tag = p.tagline ? `<span style="font-family:${body};font-size:11px;color:${t.muted};"${ed(opts, 'tagline')}>${esc(p.tagline)}</span>` : ''
       const inner = s.align === 'split'
         ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td align="left" valign="middle">${logo}</td><td align="right" valign="middle">${tag}</td></tr></table>`
         : `<div style="text-align:${s.align};">${logo}${tag ? `<div style="margin-top:4px;">${tag}</div>` : ''}</div>`
@@ -114,22 +122,22 @@ export function renderBlockRows(block, themeId, opts = {}) {
         ? `<tr><td style="padding:0;"><img src="${esc(p.imageUrl)}" alt="${esc(p.imageAlt)}" width="600" style="display:block;width:100%;max-width:600px;height:auto;border:0;"></td></tr>`
         : ''
       const inner =
-        (p.eyebrow ? `<p style="margin:0 0 10px;font-family:${body};font-size:11px;letter-spacing:2.5px;text-transform:uppercase;font-weight:700;color:${usesThemeInk ? t.heroEyebrow : ink};">${esc(p.eyebrow)}</p>` : '') +
-        `<h1 class="st-h1" style="margin:0 0 12px;font-family:${font};font-size:34px;line-height:1.15;font-weight:700;color:${ink};">${inlineMarkup(p.headline, mo)}</h1>` +
-        (p.subhead ? `<p style="margin:0;font-family:${body};font-size:16px;line-height:1.55;color:${usesThemeInk ? t.heroMuted : ink};">${inlineMarkup(p.subhead, mo)}</p>` : '')
+        (p.eyebrow ? `<p style="margin:0 0 10px;font-family:${body};font-size:11px;letter-spacing:2.5px;text-transform:uppercase;font-weight:700;color:${usesThemeInk ? t.heroEyebrow : ink};"${ed(opts, 'eyebrow')}>${esc(p.eyebrow)}</p>` : '') +
+        `<h1 class="st-h1" style="margin:0 0 12px;font-family:${font};font-size:34px;line-height:1.15;font-weight:700;color:${ink};"${ed(opts, 'headline')}>${inlineMarkup(p.headline, mo)}</h1>` +
+        (p.subhead ? `<p style="margin:0;font-family:${body};font-size:16px;line-height:1.55;color:${usesThemeInk ? t.heroMuted : ink};"${ed(opts, 'subhead')}>${inlineMarkup(p.subhead, mo)}</p>` : '')
       return photo + `<tr><td class="st-pad" bgcolor="${bg}" align="${s.align}" style="padding:${pad}px ${SIDE}px;background:${bg};text-align:${s.align};${rule ? `border-bottom:4px solid ${rule};` : ''}">${inner}</td></tr>`
     }
     case 'heading': {
       const size = { s: 18, m: 22, l: 28 }[s.size] || 22
       const ink = resolveColor(s.ink, t.heading)
-      return row(`<h2 style="margin:0;font-family:${fontOf(s.font, t)};font-size:${size}px;line-height:1.25;font-weight:700;color:${ink};text-align:${s.align};">${inlineMarkup(p.text, mo)}</h2>`, { pad: `26px ${SIDE}px 6px` })
+      return row(`<h2 style="margin:0;font-family:${fontOf(s.font, t)};font-size:${size}px;line-height:1.25;font-weight:700;color:${ink};text-align:${s.align};"${ed(opts, 'text')}>${inlineMarkup(p.text, mo)}</h2>`, { pad: `26px ${SIDE}px 6px` })
     }
     case 'text': {
       const size = { s: 14, m: 16, l: 18 }[s.size] || 16
       const bg = s.bg && s.bg !== 'theme' ? s.bg : null
       const ink = resolveColor(s.ink, t.ink)
       const pStyle = `margin:0 0 14px;font-family:${body};font-size:${size}px;line-height:1.65;color:${ink};text-align:${s.align};`
-      return row(paragraphs(p.text, pStyle, mo), { bg, pad: `${bg ? 22 : 18}px ${SIDE}px ${bg ? 8 : 4}px` })
+      return row(paragraphs(p.text, pStyle, mo, 'text'), { bg, pad: `${bg ? 22 : 18}px ${SIDE}px ${bg ? 8 : 4}px` })
     }
     case 'image': {
       if (!p.url) return row(`<div style="border:2px dashed ${t.rule};padding:40px 0;text-align:center;font-family:${body};font-size:13px;color:${t.muted};">Add an image</div>`, { pad: `16px ${SIDE}px` })
@@ -137,44 +145,44 @@ export function renderBlockRows(block, themeId, opts = {}) {
       const radius = s.radius === 'soft' ? 10 : 0
       const img = `<img src="${esc(p.url)}" alt="${esc(p.alt)}" width="${inset ? 520 : 600}" style="display:block;width:100%;max-width:${inset ? 520 : 600}px;height:auto;border:0;border-radius:${radius}px;">`
       const linked = p.link ? `<a href="${esc(p.link)}" style="text-decoration:none;">${img}</a>` : img
-      const cap = p.caption ? `<p style="margin:8px 0 0;font-family:${body};font-size:13px;line-height:1.5;color:${t.muted};">${inlineMarkup(p.caption, mo)}</p>` : ''
+      const cap = p.caption ? `<p style="margin:8px 0 0;font-family:${body};font-size:13px;line-height:1.5;color:${t.muted};"${ed(opts, 'caption')}>${inlineMarkup(p.caption, mo)}</p>` : ''
       return inset ? row(linked + cap, { pad: `16px ${SIDE}px` }) : `<tr><td style="padding:16px 0;">${linked}${cap ? `<div class="st-pad" style="padding:0 ${SIDE}px;">${cap}</div>` : ''}</td></tr>`
     }
     case 'columns': {
       const bg = s.bg && s.bg !== 'theme' ? s.bg : null
       const ink = resolveColor(s.ink, t.ink)
-      const col = (c) => (c.imageUrl ? `<img src="${esc(c.imageUrl)}" alt="${esc(c.imageAlt)}" width="250" style="display:block;width:100%;max-width:250px;height:auto;border:0;border-radius:8px;margin:0 0 12px;">` : '') +
-        (c.title ? `<p style="margin:0 0 6px;font-family:${fontOf('theme', t)};font-size:18px;font-weight:700;line-height:1.3;color:${t.heading};">${esc(c.title)}</p>` : '') +
-        paragraphs(c.text, `margin:0 0 10px;font-family:${body};font-size:14px;line-height:1.6;color:${ink};`, mo)
+      const col = (c, side) => (c.imageUrl ? `<img src="${esc(c.imageUrl)}" alt="${esc(c.imageAlt)}" width="250" style="display:block;width:100%;max-width:250px;height:auto;border:0;border-radius:8px;margin:0 0 12px;">` : '') +
+        (c.title ? `<p style="margin:0 0 6px;font-family:${fontOf('theme', t)};font-size:18px;font-weight:700;line-height:1.3;color:${t.heading};"${ed(opts, `${side}.title`)}>${esc(c.title)}</p>` : '') +
+        paragraphs(c.text, `margin:0 0 10px;font-family:${body};font-size:14px;line-height:1.6;color:${ink};`, mo, `${side}.text`)
       const inner = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>` +
-        `<td class="st-col" width="50%" valign="top" style="width:50%;padding-right:12px;">${col(p.left || {})}</td>` +
-        `<td class="st-col" width="50%" valign="top" style="width:50%;padding-left:12px;">${col(p.right || {})}</td></tr></table>`
+        `<td class="st-col" width="50%" valign="top" style="width:50%;padding-right:12px;">${col(p.left || {}, 'left')}</td>` +
+        `<td class="st-col" width="50%" valign="top" style="width:50%;padding-left:12px;">${col(p.right || {}, 'right')}</td></tr></table>`
       return row(inner, { bg, pad: `18px ${SIDE}px 8px` })
     }
     case 'steps': {
       const bg = resolveColor(s.bg, t.panel)
       const accent = resolveColor(s.accent, t.heading)
-      const items = (p.items || []).filter(i => i.title || i.text)
+      const items = (p.items || []).map((i, at) => ({ ...i, at })).filter(i => i.title || i.text)
       if (!items.length) return ''
       const w = Math.floor(100 / items.length)
       const cells = items.map((i, n) => `<td class="st-col" width="${w}%" valign="top" style="width:${w}%;padding:0 ${n === items.length - 1 ? 0 : 5}px 10px ${n === 0 ? 0 : 5}px;">` +
         `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td bgcolor="${bg}" style="background:${bg};border-radius:10px;padding:14px;">` +
         `<p style="margin:0;font-family:${fontOf('theme', t)};font-size:22px;font-weight:700;color:${accent};">${n + 1}</p>` +
-        (i.title ? `<p style="margin:4px 0 3px;font-family:${body};font-size:14px;font-weight:700;color:${t.panelInk};">${esc(i.title)}</p>` : '') +
-        (i.text ? `<p style="margin:0;font-family:${body};font-size:13px;line-height:1.45;color:${t.panelInk};">${inlineMarkup(i.text, mo)}</p>` : '') +
+        (i.title ? `<p style="margin:4px 0 3px;font-family:${body};font-size:14px;font-weight:700;color:${t.panelInk};"${ed(opts, `items.${i.at}.title`)}>${esc(i.title)}</p>` : '') +
+        (i.text ? `<p style="margin:0;font-family:${body};font-size:13px;line-height:1.45;color:${t.panelInk};"${ed(opts, `items.${i.at}.text`)}>${inlineMarkup(i.text, mo)}</p>` : '') +
         `</td></tr></table></td>`).join('')
       return row(`<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>${cells}</tr></table>`, { pad: `16px ${SIDE}px 10px` })
     }
     case 'quote': {
       const accent = resolveColor(s.accent, t.rule)
       return row(`<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="border-left:4px solid ${accent};padding:4px 0 4px 18px;">` +
-        `<p style="margin:0 0 8px;font-family:${fontOf(s.font, t)};font-size:19px;line-height:1.5;font-style:italic;color:${t.heading};">${inlineMarkup(p.text, mo)}</p>` +
-        (p.cite ? `<p style="margin:0;font-family:${body};font-size:13px;color:${t.muted};">${esc(p.cite)}</p>` : '') +
+        `<p style="margin:0 0 8px;font-family:${fontOf(s.font, t)};font-size:19px;line-height:1.5;font-style:italic;color:${t.heading};"${ed(opts, 'text')}>${inlineMarkup(p.text, mo)}</p>` +
+        (p.cite ? `<p style="margin:0;font-family:${body};font-size:13px;color:${t.muted};"${ed(opts, 'cite')}>${esc(p.cite)}</p>` : '') +
         `</td></tr></table>`, { pad: `18px ${SIDE}px` })
     }
     case 'button': {
       const href = p.url || '#'
-      return row(buttonHtml({ label: p.label, href, bg: resolveColor(s.bg, t.button), ink: resolveColor(s.ink, t.buttonInk), align: s.align, shape: s.shape, width: s.width, font: body }), { pad: `14px ${SIDE}px 22px` })
+      return row(buttonHtml({ label: p.label, href, bg: resolveColor(s.bg, t.button), ink: resolveColor(s.ink, t.buttonInk), align: s.align, shape: s.shape, width: s.width, font: body, edit: ed(opts, 'label') }), { pad: `14px ${SIDE}px 22px` })
     }
     case 'form': {
       const look = { label: p.label || 'Open the form', bg: resolveColor(s.bg, t.button), ink: resolveColor(s.ink, t.buttonInk), align: s.align, shape: s.shape, width: s.width, font: body }
@@ -182,7 +190,7 @@ export function renderBlockRows(block, themeId, opts = {}) {
         return row(`<div data-aspire-block="button" data-studio-block="${esc(block.id)}" data-label="${esc(look.label)}" data-url="" data-form="${esc(p.formId)}"${p.dueAt ? ` data-due="${esc(p.dueAt)}"` : ''}${p.reminders ? ` data-reminders="${esc(p.reminders)}"` : ''}></div>`, { pad: `14px ${SIDE}px 22px` })
       }
       const href = (typeof opts.formUrl === 'function' ? opts.formUrl(block) : null) || '#'
-      return row(buttonHtml({ ...look, href }), { pad: `14px ${SIDE}px 22px` })
+      return row(buttonHtml({ ...look, href, edit: ed(opts, 'label') }), { pad: `14px ${SIDE}px 22px` })
     }
     case 'event': {
       const accent = resolveColor(s.accent, t.accent)
@@ -191,10 +199,10 @@ export function renderBlockRows(block, themeId, opts = {}) {
       const day = d ? String(d.getUTCDate()) : '--'
       const dow = d ? d.toLocaleString('en-US', { weekday: 'long', timeZone: 'UTC' }) : ''
       const when = [dow, p.time].filter(Boolean).join(', ')
-      const info = `<p style="margin:0 0 3px;font-family:${body};font-size:15px;font-weight:700;color:${t.ink};">${esc(p.title)}</p>` +
+      const info = `<p style="margin:0 0 3px;font-family:${body};font-size:15px;font-weight:700;color:${t.ink};"${ed(opts, 'title')}>${esc(p.title)}</p>` +
         (when ? `<p style="margin:0;font-family:${body};font-size:13px;line-height:1.5;color:${t.ink};">${esc(when)}</p>` : '') +
-        (p.location ? `<p style="margin:0;font-family:${body};font-size:13px;line-height:1.5;color:${t.muted};">${esc(p.location)}</p>` : '') +
-        (p.details ? `<p style="margin:6px 0 0;font-family:${body};font-size:13px;line-height:1.5;color:${t.ink};">${inlineMarkup(p.details, mo)}</p>` : '')
+        (p.location ? `<p style="margin:0;font-family:${body};font-size:13px;line-height:1.5;color:${t.muted};"${ed(opts, 'location')}>${esc(p.location)}</p>` : '') +
+        (p.details ? `<p style="margin:6px 0 0;font-family:${body};font-size:13px;line-height:1.5;color:${t.ink};"${ed(opts, 'details')}>${inlineMarkup(p.details, mo)}</p>` : '')
       return row(`<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid ${t.rule};border-radius:10px;border-collapse:separate;"><tr>` +
         `<td width="78" bgcolor="${accent}" align="center" valign="middle" style="width:78px;background:${accent};border-radius:9px 0 0 9px;padding:12px 0;">` +
         `<p style="margin:0;font-family:${body};font-size:11px;letter-spacing:2px;font-weight:700;color:${t.accentInk};">${mon}</p>` +
@@ -213,7 +221,7 @@ export function renderBlockRows(block, themeId, opts = {}) {
     case 'signature':
       return row(`<div style="font-family:${body};font-size:14px;color:${t.ink};">${signatureHtml(opts.signature, p.signOff, t, opts)}</div>`, { pad: `14px ${SIDE}px 26px` })
     case 'footer':
-      return row(paragraphs(p.text, `margin:0 0 8px;font-family:${body};font-size:12px;line-height:1.6;color:${t.muted};text-align:${s.align};`, mo), { bg: t.panel, pad: `20px ${SIDE}px 14px` })
+      return row(paragraphs(p.text, `margin:0 0 8px;font-family:${body};font-size:12px;line-height:1.6;color:${t.muted};text-align:${s.align};`, mo, 'text'), { bg: t.panel, pad: `20px ${SIDE}px 14px` })
     default:
       return ''
   }

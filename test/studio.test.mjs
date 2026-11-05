@@ -290,3 +290,46 @@ test('every swatch has a name', async () => {
   const { SWATCHES, SWATCH_NAMES } = await import('../src/lib/studio/studioBlocks.js')
   for (const c of SWATCHES) assert.ok(SWATCH_NAMES[c], c)
 })
+
+// STUDIO-INLINE-1: typing on the canvas.
+test('the edit markers exist on the canvas only, never in what is sent', async () => {
+  for (const l of LAYOUTS) {
+    const d = l.build('navy')
+    const html = renderStudioEmail(d, {})
+    assert.ok(!/data-st-edit/.test(html), `${l.key} sent HTML carries an edit marker`)
+    const canvas = d.blocks.map(b => renderBlockRows(b, d.theme, { editable: true })).join('')
+    const plain = d.blocks.map(b => renderBlockRows(b, d.theme, {})).join('')
+    assert.ok(!/data-st-edit/.test(plain))
+    if (d.blocks.some(b => ['hero', 'text', 'heading', 'button'].includes(b.type))) assert.ok(/data-st-edit="/.test(canvas), l.key)
+  }
+})
+
+test('inline edit paths read and write the stored text, copying on the way', async () => {
+  const { getAt, setAt, isEditPath, isMultiline } = await import('../src/lib/studio/inlineEdit.js')
+  const props = { headline: 'Hi', items: [{ title: 'One', text: 'a' }, { title: 'Two', text: 'b' }], left: { title: 'L' } }
+  assert.equal(getAt(props, 'items.1.title'), 'Two')
+  const next = setAt(props, 'items.1.title', 'Second')
+  assert.equal(next.items[1].title, 'Second')
+  assert.equal(props.items[1].title, 'Two')
+  assert.ok(Array.isArray(next.items))
+  assert.equal(setAt(props, 'left.title', 'Left').left.title, 'Left')
+  for (const bad of ['__proto__.x', 'constructor', 'a..b', '', 'x y']) assert.equal(isEditPath(bad), bad === 'constructor', bad)
+  assert.equal(setAt(props, '__proto__.polluted', 'x'), props)
+  assert.equal(isMultiline('text', 'text'), true)
+  assert.equal(isMultiline('heading', 'text'), false)
+  assert.equal(isMultiline('button', 'label'), false)
+})
+
+test('every marked path names a string the block actually stores', async () => {
+  const { getAt } = await import('../src/lib/studio/inlineEdit.js')
+  for (const type of Object.keys(BLOCKS)) {
+    const b = makeBlock(type)
+    if (type === 'steps') b.props.items = [{ title: 'T', text: 'X' }]
+    const html = renderBlockRows(b, 'navy', { editable: true, signature: { displayName: 'A' } })
+    for (const [, path] of html.matchAll(/data-st-edit="([^"]+)"/g)) {
+      const v = path.split('.').reduce((c, k) => c?.[k], b.props)
+      assert.equal(typeof v, 'string', `${type}: ${path}`)
+      assert.equal(getAt(b.props, path), v)
+    }
+  }
+})

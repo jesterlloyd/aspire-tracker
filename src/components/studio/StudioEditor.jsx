@@ -8,6 +8,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { PanelTop, Sparkles, Heading, AlignLeft, Image as ImageIcon, Columns2, ListOrdered, Quote, MousePointerClick, CalendarDays, ClipboardList, Minus, MoveVertical, PenLine, PanelBottom, Bookmark, Plus, Undo2, Redo2, AlertTriangle } from 'lucide-react'
 import Tooltip from '../ui/Tooltip'
+import InlineTextEditor from './InlineTextEditor'
+import { getAt, setAt, isEditPath, isMultiline } from '../../lib/studio/inlineEdit'
 import StudioInspector from './StudioInspector'
 import StudioSendDrawer from './StudioSendDrawer'
 import StudioPreviewModal from './StudioPreviewModal'
@@ -213,7 +215,52 @@ export default function StudioEditor({ store, designId, initialDesign, initialNa
     }
   }
   const selectedBlock = design?.blocks.find(b => b.id === selected) || null
-  const renderOpts = useMemo(() => ({ brand, signature, mergePreview: true, formMode: 'link', formUrl: () => '#' }), [brand, signature])
+  const renderOpts = useMemo(() => ({ brand, signature, mergePreview: true, formMode: 'link', formUrl: () => '#', editable: true }), [brand, signature])
+
+  // ── Typing on the email (STUDIO-INLINE-1) ─────────────────────────────────
+  // A double-click on a marked element opens a box over it, in its own type, holding the stored
+  // text. The commit is one edit, so one Undo takes it back.
+  const [inline, setInline] = useState(null)
+  const startInline = (e, block) => {
+    const target = e.target.closest?.('[data-st-edit]')
+    const host = e.currentTarget
+    if (!target || !host.contains(target)) return
+    const path = target.getAttribute('data-st-edit')
+    if (!isEditPath(path)) return
+    e.preventDefault()
+    const r = target.getBoundingClientRect()
+    const h = host.getBoundingClientRect()
+    const cs = getComputedStyle(target)
+    let ground = 'transparent'
+    for (let el = target; el && el !== host.parentElement; el = el.parentElement) {
+      const bg = getComputedStyle(el).backgroundColor
+      if (bg && bg !== 'transparent' && !/rgba\([^)]*,\s*0\)$/.test(bg)) { ground = bg; break }
+    }
+    const pad = 4
+    setSelected(block.id)
+    setInline({
+      blockId: block.id, path,
+      value: getAt(block.props, path),
+      multiline: isMultiline(block.type, path),
+      label: `Edit ${BLOCKS[block.type].label.toLowerCase()} text`,
+      rect: { left: r.left - h.left - pad, top: r.top - h.top - pad, width: r.width + pad * 2, height: r.height + pad * 2 },
+      style: {
+        fontFamily: cs.fontFamily, fontSize: cs.fontSize, fontWeight: cs.fontWeight, fontStyle: cs.fontStyle,
+        lineHeight: cs.lineHeight, letterSpacing: cs.letterSpacing, textTransform: cs.textTransform,
+        textAlign: cs.textAlign, color: cs.color, background: ground === 'transparent' ? (THEMES[design.theme]?.surface || '#fff') : ground,
+        padding: pad,
+      },
+    })
+  }
+  const commitInline = (value) => {
+    const ed = inline
+    setInline(null)
+    if (!ed) return
+    const b = designRef.current?.blocks.find(x => x.id === ed.blockId)
+    if (!b || getAt(b.props, ed.path) === value) return
+    const props = setAt(b.props, ed.path, value)
+    apply(d => ({ ...d, blocks: d.blocks.map(x => x.id === ed.blockId ? { ...x, props } : x) }))
+  }
 
   const sendTest = async () => {
     if (!design.subject.trim()) { toast?.error?.('Add a subject first', 'A test needs a subject line.'); return }
@@ -323,7 +370,8 @@ export default function StudioEditor({ store, designId, initialDesign, initialNa
                   className={`st-block${selected === b.id ? ' is-selected' : ''}${dragId === b.id ? ' is-dragging' : ''}${issueOf(b) ? ` has-issue is-${issueOf(b).level}` : ''}`}
                   style={{ background: THEMES[design.theme]?.surface }}
                   role="button" tabIndex={0} aria-label={`${BLOCKS[b.type].label} block ${i + 1}`} aria-pressed={selected === b.id}
-                  draggable
+                  draggable={inline?.blockId !== b.id}
+                  onDoubleClick={e => startInline(e, b)}
                   onDragStart={e => { e.dataTransfer.setData('application/x-studio-move', b.id); e.dataTransfer.effectAllowed = 'move'; setDragId(b.id) }}
                   onDragEnd={() => { setDragId(null); setDropAt(null) }}
                   onDragOver={e => onDragOverBlock(e, i)}
@@ -343,6 +391,9 @@ export default function StudioEditor({ store, designId, initialDesign, initialNa
                       <button type="button" onClick={() => duplicateBlock(b.id)} aria-label="Duplicate block">⧉</button>
                       <button type="button" onClick={() => removeBlock(b.id)} aria-label="Remove block">✕</button>
                     </div>
+                  )}
+                  {inline?.blockId === b.id && (
+                    <InlineTextEditor key={`${inline.blockId}:${inline.path}`} edit={inline} onCommit={commitInline} onCancel={() => setInline(null)} />
                   )}
                   <table role="presentation" cellPadding="0" cellSpacing="0" border="0">
                     <tbody dangerouslySetInnerHTML={{ __html: renderBlockRows(b, design.theme, renderOpts) }} />

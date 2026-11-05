@@ -3160,6 +3160,13 @@ Phase 3, scheduling and results Phase 4.
   every item a jump to its block or field (`designProblems(...).items`); a block that still needs
   something wears it on the canvas (`blockIssues`, "Needs a link"), and Review & send counts what is
   left to fix. Swatches carry names (`SWATCH_NAMES`). The bar is three groups: edit, view, send.
+- **Words are typed on the email** (STUDIO-INLINE-1, Owner, 2026-11-05). With `editable`, the
+  renderer marks each text element `data-st-edit="<path>"` (a prop, or "left.title", "items.2.text");
+  only the canvas passes it, and a test holds every send, test and preview free of the marker. A
+  double-click opens `InlineTextEditor` over the element in its own type, editing the STORED text
+  (`getAt` / `setAt` in `src/lib/studio/inlineEdit.js`), so **bold**, links and [First Name] stay as
+  written; Enter finishes a line, Cmd/Ctrl+Enter a paragraph, Escape puts it back, and the commit is
+  one Undo. The Content tab still edits every field.
 - The email is not themed: it is white paper in both themes and styles. The canvas sits on the
   quiet board in Classic and a plain grey in Modern. Radii in `studio.css` read tokens or the
   sheet's named `--st-r-*`.

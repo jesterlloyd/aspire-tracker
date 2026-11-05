@@ -55,7 +55,7 @@ function EmailSettings({ design, onDesign, focusField }) {
   return (
     <div style={{ paddingTop: 16 }}>
       <h3 className="st-h">Email Settings</h3>
-      <p className="st-sub" style={{ marginBottom: 14 }}>Click a block in the email to change its words and look.</p>
+      <p className="st-sub" style={{ marginBottom: 14 }}>Click a block in the email to change its look. Double-click any words in the email to type over them there.</p>
       <label className="st-field" style={{ display: 'block' }}>
         <span className="st-label">Subject</span>
         <input ref={subjectRef} className="st-input" value={design.subject} maxLength={SUBJECT_MAX} placeholder="What the inbox shows first"
@@ -75,7 +75,7 @@ function EmailSettings({ design, onDesign, focusField }) {
         </select>
         <span className="st-hint">The colours a block uses when it is set to Theme.</span>
       </label>
-      <p className="st-hint" style={{ marginTop: 18 }}>Keyboard: Delete removes the selected block, Escape comes back here, Cmd or Ctrl + Z undoes.</p>
+      <p className="st-hint" style={{ marginTop: 18 }}>Keyboard: Delete removes the selected block, Escape comes back here, Cmd or Ctrl + Z undoes. While typing on the email, Enter finishes a line, Cmd or Ctrl + Enter finishes a paragraph and Escape puts the words back.</p>
     </div>
   )
 }

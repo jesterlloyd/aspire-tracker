@@ -176,6 +176,15 @@
 .st-block.is-selected { outline: 2px solid #3B6FE0; outline-offset: -2px; }
 .st-block.is-selected:hover { outline: 2px solid #3B6FE0; }
 .st-block.is-dragging { opacity: 0.4; }
+/* Typing on the email (STUDIO-INLINE-1): what can be typed in shows a text cursor and a faint
+   underline while its block is selected; the box over it wears the element's own type. */
+.st-block.is-selected [data-st-edit] { cursor: text; }
+.st-block.is-selected [data-st-edit]:hover { box-shadow: 0 0 0 1px rgba(59, 111, 224, 0.45); border-radius: var(--st-r-2); }
+.st-inline {
+  position: absolute; z-index: 4; box-sizing: border-box; resize: none; overflow: hidden; margin: 0;
+  border: 0; border-radius: var(--st-r-4); outline: 2px solid #3B6FE0; outline-offset: 0;
+  box-shadow: 0 6px 18px rgba(20, 24, 60, 0.22);
+}
 .st-tag { position: absolute; top: -10px; left: 10px; z-index: 2; background: #3B6FE0; color: #fff; font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: var(--st-r-6); pointer-events: none; }
 .st-blockctl { position: absolute; top: 6px; right: 6px; z-index: 2; display: flex; gap: 4px; }
 .st-blockctl button { width: 28px; height: 26px; border-radius: var(--st-r-7); border: 0; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.2); color: #232842; font-size: 12px; cursor: pointer; display: grid; place-items: center; }
