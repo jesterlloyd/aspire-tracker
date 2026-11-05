@@ -42,7 +42,7 @@ import { useChartScroll } from '../student/useChartScroll'
 import { getStudentLegalDisplayName } from '../../lib/studentNameFormatters'
 import DataSheet, { Missing } from '../shared/DataSheet'
 import { useNgrpCycles, useNgrpSupport } from '../../lib/ngrp/useNgrpData'
-import { orderCyclesForSelector } from '../../lib/ngrp/ngrpStates'
+import { sortByCohortTimeline } from '../../lib/cohortTimeline'
 import { supportActivity } from '../../lib/ngrp/ngrpSupportActivities'
 
 const F = 'Plus Jakarta Sans, sans-serif'
@@ -680,7 +680,10 @@ function BackfillHireForm({ row, cycle, onBackfill, startOpen = false }) {
   // HIRE-HISTORY-3 (Owner, 2026-11-04): the residency cohort they were hired into, not a date.
   // The hire date and residency start are that cohort's own (cohortHireDate).
   const { cycles } = useNgrpCycles()
-  const cohorts = orderCyclesForSelector(cycles.some(c => c.id === cycle?.id) || !cycle ? cycles : [cycle, ...cycles])
+  // COHORT-ORDER-1 (Owner, 2026-11-04): most recent first, by name (Winter 2027, Fall 2025, ...),
+  // and never a demo cohort beside real ones.
+  const cohorts = sortByCohortTimeline((cycles.some(c => c.id === cycle?.id) || !cycle ? cycles : [cycle, ...cycles])
+    .filter(c => c.id === cycle?.id || Boolean(c.is_demo) === Boolean(cycle?.is_demo)), { newestFirst: true })
   const chosen = cohorts.find(c => c.id === form.hire_cycle_id) || null
   const problem = !chosen ? 'Choose the residency cohort they were hired into.'
     : !cohortHireDate(chosen) ? `${chosen.name} has no residency start date yet. Add it in Cohort Settings first.`

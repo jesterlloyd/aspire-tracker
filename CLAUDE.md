@@ -3072,3 +3072,10 @@ is Owner-gated (checks in `db/audit/residency_hire_history_checks.sql`).
   box), drawn by `ResidentTitlePicker` in the past-hire form and the resident details editor;
   `canonicalTitle` turns a typed or imported short name into the full title. A title stored before
   the list (RN Resident) opens as Other with its words. No migration.
+- **COHORT-ORDER-1 (Owner, 2026-11-04).** Cohort names sort by season and year through
+  `src/lib/cohortTimeline.js` (Winter, Spring, Summer, Fall; an undated name last). Residency's
+  ASPIRE cohort filter is OLDEST first (`cohortFilterOptions`); the past-hire form's NGRP cohort list
+  is MOST RECENT first. There is no Other: a residency cohort the list lacks is added by migration.
+  `20261127100000_past_residency_cohorts.sql` (Owner-gated) seeded Winter, Spring, Summer and Fall 2025
+  and Winter, Spring and Summer 2026 as Completed, inactive, real cohorts with only a residency start
+  date (checks `db/audit/past_residency_cohorts_checks.sql`).

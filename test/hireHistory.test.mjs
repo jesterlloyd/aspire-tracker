@@ -261,3 +261,22 @@ test('HIRE-HISTORY-3: a past hire is recorded by its NGRP cohort, and the title 
   assert.match(read('api/ngrp-manage.js'), /validateBackfillHire\(body, \{ cohort: cyc\.data \}\)/)
   assert.match(read('lib/server/hireImport.js'), /\}, \{ cohort: cyc \}\)/)
 })
+
+test('COHORT-ORDER-1: cohorts read in calendar order, and the seven past residency cohorts are seeded', async () => {
+  const { cohortTimelineKey, sortByCohortTimeline } = await import('../src/lib/cohortTimeline.js')
+  const names = ['Fall 2026', 'Winter 2027', 'Spring 2026', 'Summer 2026', 'Demo Cohort', 'Spring 2027']
+  const asItems = names.map(name => ({ name }))
+  assert.deepEqual(sortByCohortTimeline(asItems).map(c => c.name),
+    ['Spring 2026', 'Summer 2026', 'Fall 2026', 'Winter 2027', 'Spring 2027', 'Demo Cohort'])
+  assert.deepEqual(sortByCohortTimeline(asItems, { newestFirst: true }).map(c => c.name),
+    ['Spring 2027', 'Winter 2027', 'Fall 2026', 'Summer 2026', 'Spring 2026', 'Demo Cohort'])
+  assert.equal(cohortTimelineKey('Demo Residency Cohort'), null)
+  const mig = read('supabase/migrations/20261127100000_past_residency_cohorts.sql')
+  for (const [name, day] of [['Winter 2025', '2025-02-03'], ['Spring 2025', '2025-05-12'], ['Summer 2025', '2025-08-11'],
+    ['Fall 2025', '2025-10-20'], ['Winter 2026', '2026-02-02'], ['Spring 2026', '2026-05-18'], ['Summer 2026', '2026-08-14']]) {
+    assert.match(mig, new RegExp(`\\('${name}', +'Completed', false, false, DATE '${day}'`))
+  }
+  assert.match(mig, /ON CONFLICT \(name\) DO NOTHING/)
+  assert.doesNotMatch(mig, /'Winter 2027'/)
+  assert.match(read('src/components/ngrp/ApplicantDrawer.jsx'), /sortByCohortTimeline\([\s\S]*newestFirst: true/)
+})

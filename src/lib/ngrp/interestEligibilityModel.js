@@ -9,6 +9,7 @@
 // student record's cumulative GPA, which the roster carries for them only; Talent Acquisition's is
 // the one the alumnus wrote on the form, which they agreed to share (Owner, 2026-11-01).
 
+import { sortByCohortTimeline } from '../cohortTimeline.js'
 import { gpaBand } from '../constants.js'
 import { preceptedUnitsOfRow } from './preceptedUnits.js'
 import { scoreSortValue } from './candidateScoreModel.js'
@@ -160,8 +161,9 @@ export function cohortFilterOptions(sourceCohorts, rows) {
   for (const { student: s } of rows || []) {
     if (s?.cohort_id && s.aspire_cohort && !listed.has(s.cohort_id)) added.set(s.cohort_id, s.aspire_cohort)
   }
-  const extra = [...added].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name))
-  return [...(sourceCohorts || []), ...extra]
+  const extra = [...added].map(([id, name]) => ({ id, name }))
+  // COHORT-ORDER-1 (Owner, 2026-11-04): the whole list in calendar order, oldest first.
+  return sortByCohortTimeline([...(sourceCohorts || []), ...extra])
 }
 
 // The units they precepted on: the ASPIRE placements on their record, else what they wrote on

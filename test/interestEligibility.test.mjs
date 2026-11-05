@@ -150,8 +150,9 @@ test('the cohort filter adds the cohort of anyone added by hand, once, after the
   const row = (cohort_id, aspire_cohort) => ({ student: { cohort_id, aspire_cohort } })
   assert.deepEqual(cohortFilterOptions(source, [
     row('f', 'Fall 2026'), row('sp', 'Spring 2026'), row('sp', 'Spring 2026'), row(null, null), row('x', null),
-  ]).map(c => c.name), ['Fall 2026', 'Summer 2026', 'Spring 2026'])
-  assert.deepEqual(cohortFilterOptions(source, []), source, 'a mapped cohort with nobody in it stays listed')
+  // COHORT-ORDER-1 changed this: the list reads in calendar order, oldest first.
+  ]).map(c => c.name), ['Spring 2026', 'Summer 2026', 'Fall 2026'])
+  assert.deepEqual(cohortFilterOptions(source, []).map(c => c.name), ['Summer 2026', 'Fall 2026'], 'a mapped cohort with nobody in it stays listed')
   const tab = read('src/components/ngrp/ProfilesTab.jsx')
   assert.match(tab, /cohortOptions\.map\(c => <option/)
   assert.match(tab, /activeCohortFilter = cohortOptions\.some/, 'a chosen added cohort is not treated as stale')
