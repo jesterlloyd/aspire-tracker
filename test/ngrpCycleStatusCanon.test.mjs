@@ -105,14 +105,19 @@ test('the row states the whole shape of the cohort', () => {
       interview_window_start: '2026-12-10',
       interview_window_end: '2026-12-11',
       residency_start_date: '2027-01-11',
-    }),
+    }, { today: '2026-11-04' }),
     'Opens Nov 9 • Interviews Dec 10-11 • Starts Jan 11',
   )
 })
 
 test('every segment is conditional: a missing date reads as absent, not blank', () => {
-  assert.equal(cycleDatesLine({ application_open_date: '2026-11-09' }), 'Opens Nov 9')
-  assert.equal(cycleDatesLine({ residency_start_date: '2027-01-11' }), 'Starts Jan 11')
+  const today = { today: '2026-11-04' }
+  assert.equal(cycleDatesLine({ application_open_date: '2026-11-09' }, today), 'Opens Nov 9')
+  assert.equal(cycleDatesLine({ residency_start_date: '2027-01-11' }, today), 'Starts Jan 11')
+  // COHORT-TENSE-1: a date that has passed reads in the past, with its year when not this year.
+  assert.equal(cycleDatesLine({ residency_start_date: '2026-02-03' }, today), 'Started Feb 3')
+  assert.equal(cycleDatesLine({ residency_start_date: '2025-10-20' }, today), 'Started Oct 20, 2025')
+  assert.equal(cycleDatesLine({ application_open_date: '2026-11-04' }, today), 'Opens Nov 4', 'today is still to come')
   assert.equal(cycleDatesLine({ interview_window_start: '2026-12-10' }), 'Interviews Dec 10')
   // A cohort with no dates at all yields nothing, never a stray separator.
   for (const empty of [{}, null, undefined]) assert.equal(cycleDatesLine(empty), '')

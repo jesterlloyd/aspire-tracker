@@ -280,3 +280,15 @@ test('COHORT-ORDER-1: cohorts read in calendar order, and the seven past residen
   assert.doesNotMatch(mig, /'Winter 2027'/)
   assert.match(read('src/components/ngrp/ApplicantDrawer.jsx'), /sortByCohortTimeline\([\s\S]*newestFirst: true/)
 })
+
+test('the past residency cohorts are corrected: four cohorts, the Owner\'s dates, Summer 2026 hires follow', () => {
+  const mig = read('supabase/migrations/20261127200000_past_residency_cohorts_fix.sql')
+  assert.match(mig, /DELETE FROM public\.ngrp_cycles\s+WHERE name IN \('Winter 2025', 'Spring 2025', 'Summer 2025'\) AND notes LIKE 'Added by HIRE-HISTORY-3%'/)
+  assert.match(mig, /RAISE EXCEPTION 'PRECHECK FAILED/)
+  for (const [name, day] of [['Winter 2026', '2026-02-03'], ['Spring 2026', '2026-05-12'], ['Summer 2026', '2026-08-11']]) {
+    assert.match(mig, new RegExp(`residency_start_date = DATE '${day}', updated_at = now\\(\\)\\s+WHERE name = '${name}'`))
+  }
+  assert.doesNotMatch(mig, /'Fall 2025'/, 'Fall 2025 was right and is untouched')
+  assert.match(mig, /SET hired_at = TIMESTAMPTZ '2026-08-11 12:00:00\+00'/)
+  assert.match(mig, /o\.backfilled = true AND o\.hired_at = TIMESTAMPTZ '2026-08-14 12:00:00\+00'/)
+})

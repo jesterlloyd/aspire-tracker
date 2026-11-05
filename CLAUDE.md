@@ -3079,6 +3079,12 @@ is Owner-gated (checks in `db/audit/residency_hire_history_checks.sql`).
   `20261127100000_past_residency_cohorts.sql` (Owner-gated) seeded Winter, Spring, Summer and Fall 2025
   and Winter, Spring and Summer 2026 as Completed, inactive, real cohorts with only a residency start
   date (checks `db/audit/past_residency_cohorts_checks.sql`).
+  Corrected the same day by `20261127200000_past_residency_cohorts_fix.sql` (Owner-gated): the cohorts
+  before Winter 2027 are exactly Fall 2025 (2025-10-20), Winter 2026 (2026-02-03), Spring 2026
+  (2026-05-12) and Summer 2026 (2026-08-11). The three 2025 cohorts before Fall were deleted (nothing
+  pointed at them) and the one past hire in Summer 2026 moved to its corrected start date. The scope
+  picker's dates line now reads past dates in the past tense ("Started Feb 3", and "Started Oct 20,
+  2025" for an earlier year; COHORT-TENSE-1, `cycleDatesLine`).
 - **HIRE-PAST-COHORT-1 (2026-11-04).** Carla Layug's past hire saved into Summer 2026 but still read as
   unhired under Winter 2027. The seeded cohorts carry no opening date, and `cycleChronoKey` put an
   undated opening LAST, so Summer 2026 counted as later than Winter 2027 and the prior-hire exclusion

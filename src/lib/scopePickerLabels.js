@@ -148,10 +148,24 @@ export function fmtDateRange(from, to) {
 //
 // Every segment is CONDITIONAL. A cohort mid-configuration has some of these and not
 // others, and a missing date must read as absent, never as a blank or a guess.
-export function cycleDatesLine(c) {
+//
+// COHORT-TENSE-1 (Owner, 2026-11-04): a date that has passed reads in the past ("Started Feb 3",
+// not "Starts Feb 3", on a Completed cohort), and a past date from an earlier year names its year
+// ("Started Oct 20, 2025"). `today` is 'YYYY-MM-DD' (the viewer's local day by default).
+const localToday = () => {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+const dayPart = d => String(d).split('T')[0]
+function tensed(d, future, past, today) {
+  const day = dayPart(d)
+  if (day >= today) return `${future} ${fmtDate(d)}`
+  return `${past} ${fmtDate(d)}${day.slice(0, 4) !== today.slice(0, 4) ? `, ${day.slice(0, 4)}` : ''}`
+}
+export function cycleDatesLine(c, { today = localToday() } = {}) {
   return [
-    c?.application_open_date && `Opens ${fmtDate(c.application_open_date)}`,
+    c?.application_open_date && tensed(c.application_open_date, 'Opens', 'Opened', today),
     c?.interview_window_start && `Interviews ${fmtDateRange(c.interview_window_start, c.interview_window_end)}`,
-    c?.residency_start_date && `Starts ${fmtDate(c.residency_start_date)}`,
+    c?.residency_start_date && tensed(c.residency_start_date, 'Starts', 'Started', today),
   ].filter(Boolean).join(' \u2022 ')
 }
