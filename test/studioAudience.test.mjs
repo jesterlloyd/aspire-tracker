@@ -357,7 +357,9 @@ test('STUDIO-LOGO-1: headers open on the Cedars-Sinai logo and the institute ful
 
 test('STUDIO-DRAFTS-1 and FLICKER-1: an opened layout is not a draft, and its first save does not remount the editor', () => {
   const ed = read('src/components/studio/StudioEditor.jsx')
-  assert.match(ed, /useState\(initialDesign \? 'pristine' : 'saved'\)/, 'a new design waits for its first edit')
+  // STUDIO-3 changed this line on purpose: a design Keith drafted (initialUnsaved) is the sender's work
+  // and files at once; an opened layout still waits for its first edit.
+  assert.match(ed, /useState\(initialUnsaved \? 'unsaved' : initialDesign \? 'pristine' : 'saved'\)/, 'a new design waits for its first edit')
   assert.match(ed, /createdHere\.current === designId\) return/, 'the design this editor created is not reloaded')
   const ws = read('src/components/studio/StudioWorkspace.jsx')
   assert.match(ws, /key=\{keyFor\[param\] \|\| param\}/, 'the editor keeps the key it opened with')

@@ -3246,3 +3246,37 @@ Phase 2b.
   (STUDIO-LOGO-1, Owner). `emailLogoUrl` uses the organization's logo only when it is a PNG, JPEG or
   GIF (the stored one is an SVG, which Gmail and Outlook do not draw), else `/Cedars-Sinai.png`; the
   canvas, thumbnails and the send all read it, so they show the same logo.
+
+### Keith plans and drafts; the sender decides (STUDIO-3, Phase 2b, 2026-11-05)
+
+The Studio home opens with **What Do You Want to Send?** once both Studio Skills are on
+(`/api/studio` `status.keith`, designs on the server). Keith interviews (`StudioKeithDrawer.jsx`),
+shows the brief, and on **Design it** his design opens in the editor as a draft that saves at once
+(`initialUnsaved`; an opened layout still waits for its first edit). Server:
+`lib/server/studio/studioKeith.js` behind `keith_brief`, `keith_design`, `keith_rewrite`. Rules:
+`src/lib/studio/keithStudio.js` (pure, tested). Skills: `studio-brief` and `studio-design` (with the
+rewrite step `studio-design-rewrite` under the `studio-design` row: one switch), quality route,
+Owner and Admin, seeded by Owner-gated `20261201000000_studio_keith_skills.sql` (checks
+`db/audit/studio_keith_skills_checks.sql`; a test holds both SKILL.md files equal to it).
+
+- **Keith is shown counts, never people** (`studioFacts`): recent cohorts with dates and counts by
+  status and school, open or opening residency cohorts with key dates and counts by form, licence
+  answer and hire, published Catalog form titles, contacts per category.
+- **What he cannot do is code, not instructions.** A link is kept only if the sender TYPED it in the
+  conversation (`urlsFromConversation`); anything else, in a button or in text, becomes '' and the
+  send stays blocked ("Needs a link"). A form only if it was offered; an audience only from the
+  catalog and only ids he was shown, checked again on the server before he designs. He never picks
+  an image, and the app adds the header, signature and footer. At most `MAX_QUESTIONS` (4).
+- **His audience is a proposal.** It rides on the design as `design.audience` (sanitizeDesign keeps
+  it, and `keith.provenanceId`); the send drawer opens on it By rule with "Keith proposed this
+  audience", and changing the rule drops the notice. The review and the typed confirmation are
+  unchanged. Keith never sends.
+- **A rewrite changes words only** (`parseRewrite` keeps the block's links, form, dates and images)
+  and goes through `apply`, so it is one Undo. The inspector offers Shorter, Warmer, Clearer, More
+  formal, or the sender's own words, for blocks that hold words.
+- His mark: "Drafted by Keith" with `KeithMark` in the bar; `studio_design` provenance is shown to
+  Owner and Admin. Before a design has an id, provenance is keyed to a reference the drawer or
+  editor made.
+- `vercel.json` is at the 50-entry cap: the two evaluation-release survey entries became
+  `api/evaluation-release-*-survey.js` (30 s, which also covers the three Casey-Fink and
+  post-rotation release endpoints) to make room for `api/studio.js` (60 s).

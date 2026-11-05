@@ -12,6 +12,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import StudioHome from './StudioHome'
 import StudioEditor from './StudioEditor'
+import StudioKeithDrawer from './StudioKeithDrawer'
 import { studioApi, studioStore, localDesignsToCopy, clearLocalDesigns } from '../../lib/studio/studioClient'
 import { layoutFor } from '../../lib/studio/studioLayouts'
 import { blankDesign } from '../../lib/studio/studioBlocks'
@@ -24,6 +25,12 @@ export default function StudioWorkspace({ active = true, cohortId, toast, refres
   const [mode, setMode] = useState(null)          // 'server' | 'local' | null while asking
   const [images, setImages] = useState(false)
   const [audiences, setAudiences] = useState(false)
+  // STUDIO-3: Keith is offered only when both Studio Skills are on (status.keith) and designs live on
+  // the server. His design opens in the editor as ?design=keith:<n>; it is held here, not in the URL,
+  // so a refresh of that address returns to the home rather than to a design nobody has saved.
+  const [keith, setKeith] = useState(false)
+  const [keithAsk, setKeithAsk] = useState('')
+  const [keithDrafts, setKeithDrafts] = useState({})
   const [designs, setDesigns] = useState(null)
   const [loadError, setLoadError] = useState('')
   const [copyOffer, setCopyOffer] = useState(0)
@@ -41,7 +48,7 @@ export default function StudioWorkspace({ active = true, cohortId, toast, refres
     if (!active || mode) return
     let off = false
     studioApi('status')
-      .then(s => { if (!off) { setMode(s.provisioned ? 'server' : 'local'); setImages(!!s.images); setAudiences(!!s.audiences) } })
+      .then(s => { if (!off) { setMode(s.provisioned ? 'server' : 'local'); setImages(!!s.images); setAudiences(!!s.audiences); setKeith(!!s.keith && !!s.provisioned) } })
       .catch(() => { if (!off) setMode('local') })
     return () => { off = true }
   }, [active, mode])
@@ -87,6 +94,10 @@ export default function StudioWorkspace({ active = true, cohortId, toast, refres
     reload()
   }, [store, toast, reload, userKey])
 
+  // A Keith draft that was never saved does not survive a refresh: back to the home.
+  const staleKeith = param.startsWith('keith:') && !keithDrafts[param]
+  useEffect(() => { if (staleKeith) open('') }, [staleKeith, open])
+
   // STUDIO-FLICKER-1: the home draws at once (the layouts need nothing from the server), and only its
   // drafts list waits for the answer; a placeholder card swapped for the page read as a reload.
   if (!mode && !param) {
@@ -99,11 +110,14 @@ export default function StudioWorkspace({ active = true, cohortId, toast, refres
   }
   if (!mode) return <div className="st-page"><div className="st-card"><p className="st-sub">Opening Studio…</p></div></div>
 
+  if (staleKeith) return null
+
   if (param) {
-    const isNew = param.startsWith('new:')
-    const initial = isNew
-      ? (layoutFor(param.slice(4))?.build() || blankDesign())
-      : null
+    const fromKeith = keithDrafts[param] || null
+    const isNew = param.startsWith('new:') || Boolean(fromKeith)
+    const initial = fromKeith
+      ? fromKeith.design
+      : isNew ? (layoutFor(param.slice(4))?.build() || blankDesign()) : null
     return (
       <div className="st-page">
         <StudioEditor
@@ -111,7 +125,8 @@ export default function StudioWorkspace({ active = true, cohortId, toast, refres
           store={store}
           designId={isNew ? null : param}
           initialDesign={initial}
-          initialName={isNew ? (layoutFor(param.slice(4))?.label || 'Untitled design') : ''}
+          initialName={fromKeith ? fromKeith.name : isNew ? (layoutFor(param.slice(4))?.label || 'Untitled design') : ''}
+          initialUnsaved={Boolean(fromKeith)}
           onCreated={(id) => {
             setKeyFor({ [id]: keyFor[param] || param })
             const q = new URLSearchParams(location.search); q.set('design', id)
@@ -120,6 +135,7 @@ export default function StudioWorkspace({ active = true, cohortId, toast, refres
           onClose={() => open('')}
           imagesEnabled={images && mode === 'server'}
           audiencesEnabled={audiences && mode === 'server'}
+          keithEnabled={keith}
           cohortId={cohortId}
           toast={toast}
         />
@@ -139,7 +155,21 @@ export default function StudioWorkspace({ active = true, cohortId, toast, refres
         onNew={(layoutKey) => open(`new:${layoutKey}`)}
         onDuplicate={async (id) => { try { const d = await store.duplicate(id); open(d.id) } catch (e) { toast?.error?.('Not duplicated', e.message) } }}
         onArchive={async (id) => { try { await store.archive(id); reload() } catch (e) { toast?.error?.('Not archived', e.message) } }}
+        keith={keith}
+        onAskKeith={setKeithAsk}
       />
+      {keithAsk && (
+        <StudioKeithDrawer
+          request={keithAsk}
+          onClose={() => setKeithAsk('')}
+          onDesigned={(design, name) => {
+            const key = `keith:${Date.now().toString(36)}`
+            setKeithDrafts(d => ({ ...d, [key]: { design, name } }))
+            setKeithAsk('')
+            open(key)
+          }}
+        />
+      )}
     </div>
   )
 }

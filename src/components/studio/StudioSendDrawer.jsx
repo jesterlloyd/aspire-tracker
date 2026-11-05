@@ -43,7 +43,11 @@ export default function StudioSendDrawer({ design, name, designId, store, proble
   const [step, setStep] = useState('choose')
   const [mode, setMode] = useState(audiencesEnabled ? 'rule' : 'hand')
   // By rule
-  const [rule, setRule] = useState(() => sanitizeRule({ population: 'students', cohortIds: cohortId ? [cohortId] : [] }))
+  // STUDIO-3: a design Keith planned carries his PROPOSED audience; the drawer opens on it, says so,
+  // and the sender reads every name and approves before anything is sent.
+  const keithRule = design?.audience ? sanitizeRule(design.audience) : null
+  const [rule, setRule] = useState(() => keithRule || sanitizeRule({ population: 'students', cohortIds: cohortId ? [cohortId] : [] }))
+  const [fromKeith, setFromKeith] = useState(Boolean(keithRule))
   const [resolved, setResolved] = useState(null)        // { label, recipients, excluded }
   const [resolving, setResolving] = useState(false)
   const [removed, setRemoved] = useState(() => new Set())
@@ -222,7 +226,12 @@ export default function StudioSendDrawer({ design, name, designId, store, proble
             {mode === 'rule' && audiencesEnabled && (
               <>
                 <p className="st-sub" style={{ marginTop: 0 }}>Describe who should get "{name}". You will see every name before anything is sent.</p>
-                <StudioRulePicker rule={rule} onRule={(r) => { setRule(r); setResolved(null) }} />
+                {fromKeith && (
+                  <p className="st-notice st-notice-info st-keith-proposal" role="status">
+                    Keith proposed this audience from your brief. Check it, change anything, and you will still see every name before it goes.
+                  </p>
+                )}
+                <StudioRulePicker rule={rule} onRule={(r) => { setRule(r); setResolved(null); setFromKeith(false) }} />
               </>
             )}
             {mode === 'hand' && (

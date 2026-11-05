@@ -10,6 +10,8 @@ import { BLOCKS, SWATCHES, SWATCH_NAMES, THEMES, SUBJECT_MAX, PREHEADER_MAX, blo
 import { uploadStudioImage } from '../../lib/studio/studioClient'
 import { useCatalogForms } from '../connect/blocks/useCatalogForms'
 import { REMINDER_RULES } from '../../lib/forms/formModel'
+import { REWRITES, REWRITABLE } from '../../lib/studio/keithStudio'
+import { KeithGlyph } from '../keith/KeithMark'
 
 const STYLE_LABELS = {
   bg: 'Background', ink: 'Text colour', rule: 'Accent rule', accent: 'Accent', color: 'Colour',
@@ -21,7 +23,7 @@ const VALUE_LABELS = {
   rounded: 'Rounded', pill: 'Pill', square: 'Square', auto: 'Fit',
 }
 
-export default function StudioInspector({ block, themeId, design, onDesign, focusField, onShowEmail, onChange, onSaveBlock, imagesEnabled, toast }) {
+export default function StudioInspector({ block, themeId, design, onDesign, focusField, onShowEmail, onChange, onSaveBlock, imagesEnabled, toast, onRewrite = null }) {
   const [tab, setTab] = useState('content')
   if (!block) return <EmailSettings design={design} onDesign={onDesign} focusField={focusField} />
   const def = BLOCKS[block.type]
@@ -33,11 +35,45 @@ export default function StudioInspector({ block, themeId, design, onDesign, focu
         <button type="button" role="tab" aria-selected={tab === 'content'} onClick={() => setTab('content')}>Content</button>
         {hasStyle && <button type="button" role="tab" aria-selected={tab === 'style'} onClick={() => setTab('style')}>Style</button>}
       </div>
+      {onRewrite && REWRITABLE.includes(block.type) && (tab === 'content' || !hasStyle) && <KeithRewrite key={`kr-${block.id}`} onRewrite={onRewrite} />}
       {tab === 'content' || !hasStyle
         ? <ContentPanel key={block.id} block={block} onChange={onChange} imagesEnabled={imagesEnabled} toast={toast} />
         : <StylePanel block={block} themeId={themeId} onChange={onChange} />}
       <SaveBlock key={`save-${block.id}`} label={def.label} onSave={onSaveBlock} />
     </>
+  )
+}
+
+/**
+ * STUDIO-3: Keith rewrites the selected block's words: one tap for the four presets, or the sender's
+ * own words. Links, dates, the form and images are never his to change (parseRewrite keeps them), and
+ * the whole rewrite is one Undo.
+ */
+function KeithRewrite({ onRewrite }) {
+  const [busy, setBusy] = useState('')
+  const [own, setOwn] = useState('')
+  const run = async (ask) => {
+    setBusy(ask)
+    try { await onRewrite(ask) } finally { setBusy('') }
+  }
+  return (
+    <div className="st-field st-rewrite" role="group" aria-labelledby="st-rewrite-l">
+      <span id="st-rewrite-l" className="st-label"><KeithGlyph /> Ask Keith to rewrite</span>
+      <div className="st-rewrite-row">
+        {REWRITES.map(r => (
+          <button key={r.key} type="button" className="st-btn st-btn-sm" disabled={!!busy} onClick={() => run(r.key)} aria-busy={busy === r.key}>
+            {busy === r.key ? 'Rewriting…' : r.label}
+          </button>
+        ))}
+      </div>
+      <div className="st-rewrite-row">
+        <input className="st-input" value={own} maxLength={300} placeholder="Or say how, in your words" aria-label="How Keith should rewrite it"
+          disabled={!!busy} onChange={e => setOwn(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter' && own.trim()) { e.preventDefault(); run(own.trim()) } }} />
+        <button type="button" className="st-btn st-btn-sm" disabled={!!busy || !own.trim()} onClick={() => run(own.trim())}>Rewrite</button>
+      </div>
+      <div className="st-hint">Only the words change. Links, dates and the form stay yours. Undo puts it back.</div>
+    </div>
   )
 }
 

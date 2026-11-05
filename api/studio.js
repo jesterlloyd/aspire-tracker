@@ -17,6 +17,9 @@
 //   block_save { name, block }     -> { block }
 //   block_delete { id }            -> { ok }
 //   image_upload { filename, type, size } -> { path, token, publicUrl }   (signed upload URL)
+//   keith_brief, keith_design, keith_rewrite
+//        STUDIO-3: Keith interviews, designs and rewrites (lib/server/studio/studioKeith.js). He is
+//        shown counts only and never sends; status reports `keith` once both Skills are on.
 //   audience_options, audience_resolve, send_freeze, send_finish
 //        STUDIO-2: who gets it (lib/server/studio/studioAudience.js). A rule is resolved through
 //        the request's population (populationDb), so a demo session sees demo people only.
@@ -75,7 +78,18 @@ async function run(db, body, ctx) {
       const { audiencesProvisioned } = await import('../lib/server/studio/studioAudience.js')
       audiences = await audiencesProvisioned(db)
     }
-    return { provisioned: ok, images: ok, audiences }
+    const { keithAvailable } = await import('../lib/server/studio/studioKeith.js')
+    return { provisioned: ok, images: ok, audiences, keith: await keithAvailable(db) }
+  }
+  if (action.startsWith('keith_')) {
+    const { runKeithAction, KEITH_ACTIONS } = await import('../lib/server/studio/studioKeith.js')
+    if (!KEITH_ACTIONS.has(action)) fail(400, 'Unknown action.')
+    try {
+      return await runKeithAction(action, body, { admin: db, pop: ctx.population(), profileId, role: ctx.role, isOwner: ctx.isOwner })
+    } catch (e) {
+      if (e && e.status && e.message) fail(e.status, e.message, e.code)
+      throw e
+    }
   }
   if (action.startsWith('audience_') || action.startsWith('send_')) {
     const { runAudienceAction, AUDIENCE_ACTIONS } = await import('../lib/server/studio/studioAudience.js')
@@ -204,7 +218,7 @@ export default async function handler(req, res) {
   try { body = typeof body === 'string' ? JSON.parse(body) : (body || {}) } catch { return res.status(400).json({ error: 'Invalid request body' }) }
   try {
     const out = await run(supabaseAdmin, body, {
-      profileId: auth.profileId, isDemo: demoScopeFromRequest(req) === true,
+      profileId: auth.profileId, role: auth.role, isOwner: auth.isOwner === true, isDemo: demoScopeFromRequest(req) === true,
       // A client of its own, built for this request: populationDb changes the client it wraps.
       population: () => populationDb(getServiceDb(), req),
     })

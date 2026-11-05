@@ -2,9 +2,12 @@
 //
 // STUDIO-1: the Studio home. Starting layouts (each thumbnail is the real renderer's output, so a
 // layout looks exactly like the email it starts), your drafts, and what went out recently.
-// Phase 2 adds Keith's "What do you want to send?" above this; it is not drawn until it works.
+// STUDIO-3: Keith's "What do you want to send?" sits above them once both Studio Skills are on
+// (`keith`); before then it is not drawn.
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
+import { KeithGlyph } from '../keith/KeithMark'
+import { REQUEST_MAX } from '../../lib/studio/keithStudio'
 import { LAYOUTS } from '../../lib/studio/studioLayouts'
 import { renderStudioEmail } from '../../lib/studio/renderEmail'
 import { THEMES } from '../../lib/studio/studioBlocks'
@@ -26,7 +29,25 @@ function LayoutThumb({ layout }) {
   return <div className="st-thumb" aria-hidden="true"><iframe title="" srcDoc={html} tabIndex={-1} sandbox="" /></div>
 }
 
-export default function StudioHome({ mode, designs, loadError, copyOffer, onCopyLocal, onOpen, onNew, onDuplicate, onArchive }) {
+function AskKeith({ onAsk }) {
+  const [text, setText] = useState('')
+  const go = () => { const t = text.trim(); if (t) onAsk(t) }
+  return (
+    <section className="st-card st-ask" aria-labelledby="st-ask-h" style={{ marginBottom: 'var(--aspire-gap-card)' }}>
+      <h2 id="st-ask-h" className="st-h"><KeithGlyph /> What Do You Want to Send?</h2>
+      <p className="st-sub">Tell Keith in a sentence. He asks a few questions, proposes who it goes to, and designs a draft. He never sends, and he never makes up a link.</p>
+      <div className="st-ask-row">
+        <textarea className="st-textarea st-ask-input" rows={2} maxLength={REQUEST_MAX} value={text} onChange={e => setText(e.target.value)}
+          aria-label="What do you want to send?"
+          placeholder="For example: the residency application link to alumni who have not passed the boards yet"
+          onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); go() } }} />
+        <button type="button" className="st-btn st-btn-primary" onClick={go} disabled={!text.trim()}>Plan it with Keith</button>
+      </div>
+    </section>
+  )
+}
+
+export default function StudioHome({ mode, designs, loadError, copyOffer, onCopyLocal, onOpen, onNew, onDuplicate, onArchive, keith = false, onAskKeith }) {
   const drafts = (designs || []).filter(d => d.status !== 'sent')
   const sent = (designs || []).filter(d => d.status === 'sent')
 
@@ -44,6 +65,8 @@ export default function StudioHome({ mode, designs, loadError, copyOffer, onCopy
           <button type="button" className="st-btn st-btn-sm" onClick={onCopyLocal}>Copy to Studio</button>
         </div>
       )}
+
+      {keith && onAskKeith && <AskKeith onAsk={onAskKeith} />}
 
       <div className="st-grid">
         <section className="st-card" aria-labelledby="st-layouts-h">

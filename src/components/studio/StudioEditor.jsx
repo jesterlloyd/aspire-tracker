@@ -15,7 +15,8 @@ import StudioSendDrawer from './StudioSendDrawer'
 import StudioPreviewModal from './StudioPreviewModal'
 import { BLOCKS, BLOCK_GROUPS, THEMES, makeBlock, sanitizeDesign, designProblems, blockIssues, newBlockId, MAX_BLOCKS } from '../../lib/studio/studioBlocks'
 import { renderBlockRows } from '../../lib/studio/renderEmail'
-import { studioSend } from '../../lib/studio/studioClient'
+import { studioSend, studioApi } from '../../lib/studio/studioClient'
+import KeithMark from '../keith/KeithMark'
 import { useAuth } from '../../contexts/AuthContext'
 import { useStudioBrand, signatureFromProfile } from './studioBrand'
 
@@ -29,7 +30,7 @@ const BLOCK_ICONS = {
   divider: Minus, spacer: MoveVertical, signature: PenLine, footer: PanelBottom,
 }
 
-export default function StudioEditor({ store, designId, initialDesign, initialName, onCreated, onClose, imagesEnabled, audiencesEnabled = false, cohortId, toast }) {
+export default function StudioEditor({ store, designId, initialDesign, initialName, initialUnsaved = false, onCreated, onClose, imagesEnabled, audiencesEnabled = false, keithEnabled = false, cohortId, toast }) {
   const { userProfile } = useAuth()
   const brand = useStudioBrand()
   const signature = useMemo(() => signatureFromProfile(userProfile), [userProfile])
@@ -42,7 +43,8 @@ export default function StudioEditor({ store, designId, initialDesign, initialNa
   const [device, setDevice] = useState('desktop')
   // STUDIO-DRAFTS-1 (Owner, 2026-11-05): a layout that was only opened is not a draft. A new design
   // starts 'pristine' and is written on its FIRST edit, so opening a layout and leaving files nothing.
-  const [saveState, setSaveState] = useState(initialDesign ? 'pristine' : 'saved')
+  // STUDIO-3: Keith's design is the sender's work already, so it is a draft at once (initialUnsaved).
+  const [saveState, setSaveState] = useState(initialUnsaved ? 'unsaved' : initialDesign ? 'pristine' : 'saved')
   const [past, setPast] = useState([])
   const [future, setFuture] = useState([])
   const [saved, setSaved] = useState([])
@@ -157,6 +159,22 @@ export default function StudioEditor({ store, designId, initialDesign, initialNa
   }, [apply, selected])
   const addType = (type, at) => insertBlock(makeBlock(type), at)
   const addSaved = (row, at) => insertBlock({ ...JSON.parse(JSON.stringify(row.block)), id: newBlockId() }, at)
+  // STUDIO-3: Keith's rewrite of one block. His provenance needs a subject before the design has an
+  // id, so a draft that is not saved yet uses a reference made for this editor.
+  const keithRef = useRef(globalThis.crypto?.randomUUID?.() || null)
+  const rewriteBlock = useCallback(async (ask) => {
+    const block = designRef.current?.blocks.find(b => b.id === selected)
+    if (!block) return
+    const ref = /^[0-9a-f-]{36}$/i.test(String(id || '')) ? id : keithRef.current
+    try {
+      const r = await studioApi('keith_rewrite', { block, ask, design_ref: ref })
+      apply(d => ({ ...d, blocks: d.blocks.map(b => (b.id === block.id ? { ...r.block, id: block.id } : b)) }))
+      toast?.success?.('Rewritten', 'Keith rewrote the words. Undo puts them back.')
+    } catch (e) {
+      toast?.error?.('Not rewritten', e?.message || 'Keith could not rewrite it just now.')
+    }
+  }, [id, selected, apply, toast])
+
   const updateBlock = useCallback((bid, patch) => {
     apply(d => ({ ...d, blocks: d.blocks.map(b => b.id === bid ? { ...b, props: { ...b.props, ...(patch.props || {}) }, style: { ...b.style, ...(patch.style || {}) } } : b) }))
   }, [apply])
@@ -294,6 +312,7 @@ export default function StudioEditor({ store, designId, initialDesign, initialNa
         <input className="st-name" aria-label="Design name" value={name} placeholder="Name this design"
           maxLength={120} onChange={e => { setName(e.target.value); setSaveState('unsaved') }} />
         <span className="st-saved" aria-live="polite">{saveLabel}{store.mode === 'local' ? ' in this browser' : ''}</span>
+        {design.keith?.provenanceId && <span className="st-keith-made"><KeithMark provenanceId={design.keith.provenanceId} /> Drafted by Keith</span>}
         <div className="st-grow" />
         <div className="st-bar-grp" role="group" aria-label="Edit">
           <Tooltip label={`Undo (${MOD}Z)`}>
@@ -435,6 +454,7 @@ export default function StudioEditor({ store, designId, initialDesign, initialNa
             }}
             imagesEnabled={imagesEnabled}
             toast={toast}
+            onRewrite={keithEnabled ? rewriteBlock : null}
           />
         </aside>
       </div>

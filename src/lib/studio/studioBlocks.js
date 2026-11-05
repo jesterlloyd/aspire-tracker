@@ -9,6 +9,7 @@
 // Explicit .js extensions: imported by the Vite client and by the Node test runner.
 
 import { validateButtonUrl } from '../connect/buttonUrl.js'
+import { sanitizeRule } from './audienceCatalog.js'
 
 export const STUDIO_VERSION = 1
 export const MAX_BLOCKS = 40
@@ -288,6 +289,10 @@ export function sanitizeDesign(raw) {
     subject: str(d.subject, SUBJECT_MAX).replace(/\n/g, ' '),
     preheader: str(d.preheader, PREHEADER_MAX).replace(/\n/g, ' '),
     blocks,
+    // STUDIO-3: Keith's proposed audience and his provenance ride with the design when present.
+    // The audience is only a proposal: the send drawer shows it and the person approves it.
+    ...(d.audience && typeof d.audience === 'object' ? { audience: sanitizeRule(d.audience) } : {}),
+    ...(d.keith && /^[0-9a-f-]{36}$/i.test(String(d.keith.provenanceId || '')) ? { keith: { provenanceId: String(d.keith.provenanceId) } } : {}),
   }
 }
 
