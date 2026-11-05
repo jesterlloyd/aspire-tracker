@@ -6,7 +6,7 @@
 // mails it to you alone; Review & send opens the audience drawer.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { PanelTop, Sparkles, Heading, AlignLeft, Image as ImageIcon, Columns2, ListOrdered, Quote, MousePointerClick, CalendarDays, ClipboardList, Minus, MoveVertical, PenLine, PanelBottom, Bookmark, Plus, Undo2, Redo2, AlertTriangle } from 'lucide-react'
+import { PanelTop, Sparkles, Heading, AlignLeft, Image as ImageIcon, Columns2, ListOrdered, Quote, MousePointerClick, CalendarDays, ClipboardList, Minus, MoveVertical, PenLine, PanelBottom, Bookmark, Plus, Undo2, Redo2, AlertTriangle, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import Tooltip from '../ui/Tooltip'
 import InlineTextEditor from './InlineTextEditor'
 import { getAt, setAt, isEditPath, isMultiline } from '../../lib/studio/inlineEdit'
@@ -29,7 +29,7 @@ const BLOCK_ICONS = {
   divider: Minus, spacer: MoveVertical, signature: PenLine, footer: PanelBottom,
 }
 
-export default function StudioEditor({ store, designId, initialDesign, initialName, onCreated, onClose, imagesEnabled, cohortId, toast }) {
+export default function StudioEditor({ store, designId, initialDesign, initialName, onCreated, onClose, imagesEnabled, audiencesEnabled = false, cohortId, toast }) {
   const { userProfile } = useAuth()
   const brand = useStudioBrand()
   const signature = useMemo(() => signatureFromProfile(userProfile), [userProfile])
@@ -46,6 +46,9 @@ export default function StudioEditor({ store, designId, initialDesign, initialNa
   const [saved, setSaved] = useState([])
   const [dropAt, setDropAt] = useState(null)
   const [dragId, setDragId] = useState(null)
+  // STUDIO-2: the block list can fold to its icons, for a wider canvas. A layout choice, kept on this device.
+  const [libFolded, setLibFolded] = useState(() => { try { return localStorage.getItem('aspire.studio.libFolded') === '1' } catch { return false } })
+  const foldLib = () => setLibFolded(v => { const n = !v; try { localStorage.setItem('aspire.studio.libFolded', n ? '1' : '0') } catch { /* private mode */ } return n })
   const [sendOpen, setSendOpen] = useState(false)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [testing, setTesting] = useState(false)
@@ -326,8 +329,15 @@ export default function StudioEditor({ store, designId, initialDesign, initialNa
         </div>
       )}
 
-      <div className="st-body">
+      <div className={`st-body${libFolded ? ' is-lib-folded' : ''}`}>
         <nav className="st-lib" aria-label="Blocks">
+          <div className="st-lib-fold">
+            <Tooltip label={libFolded ? 'Show block names' : 'Fold to icons'}>
+              <button type="button" className="st-iconbtn" onClick={foldLib} aria-pressed={libFolded} aria-label={libFolded ? 'Show block names' : 'Fold the block list to icons'}>
+                {libFolded ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+              </button>
+            </Tooltip>
+          </div>
           {libraryByGroup.map(([group, items]) => (
             <div key={group}>
               <div className="st-lib-grp">{group}</div>
@@ -348,7 +358,7 @@ export default function StudioEditor({ store, designId, initialDesign, initialNa
             <div key={row.id} className="st-lib-item st-lib-item-saved" role="group" aria-label={row.name}>
               <button type="button" className="st-lib-saved" draggable
                 onDragStart={e => { e.dataTransfer.setData('application/x-studio-saved', row.id); e.dataTransfer.effectAllowed = 'copy' }}
-                onClick={() => addSaved(row)}>
+                onClick={() => addSaved(row)} aria-label={`Add saved block ${row.name}`}>
                 <span className="st-lib-ico st-lib-ico-saved" aria-hidden="true"><Bookmark size={16} strokeWidth={2} /></span>
                 <span className="st-lib-text">{row.name}<small>{BLOCKS[row.block.type]?.label}</small></span>
               </button>
@@ -428,7 +438,7 @@ export default function StudioEditor({ store, designId, initialDesign, initialNa
       {sendOpen && (
         <StudioSendDrawer
           design={design} name={name || 'Untitled design'} designId={id} store={store}
-          problems={problems} cohortId={cohortId} toast={toast}
+          problems={problems} cohortId={cohortId} toast={toast} audiencesEnabled={audiencesEnabled}
           onClose={() => setSendOpen(false)}
         />
       )}

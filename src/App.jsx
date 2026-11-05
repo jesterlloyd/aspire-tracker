@@ -29,6 +29,7 @@ const NgrpTransitionFormPage     = lazyReload(() => import('./pages/NgrpTransiti
 const NgrpReflectionPage         = lazyReload(() => import('./pages/NgrpReflectionPage'), 'NgrpReflectionPage')
 const SignPage                   = lazyReload(() => import('./pages/SignPage'), 'SignPage')
 const FormPage                   = lazyReload(() => import('./pages/FormPage'), 'FormPage')
+const ProgramNewsPage            = lazyReload(() => import('./pages/ProgramNewsPage'), 'ProgramNewsPage')
 const UnitFormPage               = lazyReload(() => import('./components/UnitFormPage'), 'UnitFormPage')
 const SchoolFormPage             = lazyReload(() => import('./components/SchoolFormPage'), 'SchoolFormPage')
 const StudentIntakeFormPage      = lazyReload(() => import('./components/StudentIntakeFormPage'), 'StudentIntakeFormPage')
@@ -204,6 +205,8 @@ export default function App() {
       <Route path="/sign/*" element={<div data-theme-lock="light"><SignPage /></div>} />
       {/* FORMS-PHASE3: a Catalog form's personal link. Public, light-locked, link-only. */}
       <Route path="/form/*" element={<div data-theme-lock="light"><FormPage /></div>} />
+      {/* STUDIO-2: a Studio email's Unsubscribe link. Public, light-locked, token in the fragment. */}
+      <Route path="/news/*" element={<div data-theme-lock="light"><ProgramNewsPage /></div>} />
       {/* RECOVERY-PASSWORD-SCREEN-1: public password-recovery landing (Supabase reset link target).
           Must precede the /* wildcard so it renders outside AuthedShell even with a recovery session. */}
       <Route path="/auth/reset-password"   element={<div data-theme-lock="light"><ResetPasswordPage /></div>} />

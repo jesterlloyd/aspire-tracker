@@ -15,7 +15,7 @@ export const LAYOUTS = Object.freeze([
       theme, subject: '', preheader: '',
       blocks: [
         b('header'),
-        b('hero', { eyebrow: 'ASPIRE', headline: 'Something worth knowing', subhead: 'One sentence that tells them why this matters to them.' }),
+        b('hero', { eyebrow: 'Announcement', headline: 'Something worth knowing', subhead: 'One sentence that tells them why this matters to them.' }),
         b('text', { text: 'Hi [First Name],\n\nSay what is happening, when, and what you would like them to do. Keep it to two short paragraphs.\n\nUse **bold** for the one date they must remember.' }),
         b('button', { label: 'Take the next step', url: '' }),
         b('signature'),

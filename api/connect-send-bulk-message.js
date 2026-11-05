@@ -393,6 +393,17 @@ async function runSendMode(res, body, senderSig, profile, resolvedBodyFormat, is
   if (studio && studio.problems.blocking.length) {
     return res.status(400).json({ success: false, error: studio.problems.blocking[0], code: 'studio_incomplete' });
   }
+  // STUDIO-2: a Studio send names the list it froze before sending (studio_sends); nobody off that
+  // list is sent to, and where replies go was decided with it. Before 20261130000000 there is no
+  // frozen list and the hand-picked list is the allowlist, exactly as in Phase 1.
+  let studioSend = null;
+  let studioLib = null;
+  if (studio) {
+    studioLib = await import('../lib/server/studio/studioSend.js');
+    const r = await studioLib.loadStudioSend(supabaseAdmin, { id: body.studio_send_id, profileId: profile.id, isDemo });
+    if (r.error) return res.status(r.status).json({ success: false, error: r.error, code: r.code });
+    studioSend = r.send;
+  }
 
   // ── S5. Recipients array + safety ceiling (reject over-limit; never partial-send). ──
   const recipients = body.recipients;
@@ -412,7 +423,9 @@ async function runSendMode(res, body, senderSig, profile, resolvedBodyFormat, is
 
   const senderUserId = profile.id;
   const senderEmail  = profile.email;
-  const replyTo      = isValidEmail(senderEmail) ? senderEmail.trim() : REPLY_TO;
+  const replyTo      = studioSend
+    ? studioLib.studioReplyTo(studioSend, isValidEmail(senderEmail) ? senderEmail.trim() : null, REPLY_TO)
+    : (isValidEmail(senderEmail) ? senderEmail.trim() : REPLY_TO);
 
   console.log('[connect-send-bulk-message] batch_start:', {
     batch_id: batchId, count: recipients.length, by: senderUserId,
@@ -425,12 +438,18 @@ async function runSendMode(res, body, senderSig, profile, resolvedBodyFormat, is
   // The provider client is not even constructed until validation is complete, so a malformed,
   // mismatched, stale, duplicate, or out-of-scope entry can never reach Resend. Validation can
   // only REMOVE entries - there is no code path that adds a recipient the client did not send.
-  const { cleared, rejected } = await validateBulkRecipients({
-    db: supabaseAdmin, recipients, batchId,
+  let { cleared, rejected } = await validateBulkRecipients({
+    db: supabaseAdmin, recipients, batchId, frozen: studioSend?.frozen || null,
   });
 
   const sent    = [];
   const skipped = [...rejected];
+  // STUDIO-2: an address that turned program news off is never sent a Studio email.
+  if (studioSend) {
+    const o = await studioLib.dropOptedOut(supabaseAdmin, cleared);
+    cleared = o.cleared;
+    skipped.push(...o.skipped);
+  }
   const failed  = [];
   // CATALOG-REVAMP-1: the ids a Catalog send log needs, kept out of the response shape.
   const logIds  = new Map();   // index -> { notification_log_id, resend_message_id }
@@ -488,7 +507,9 @@ async function runSendMode(res, body, senderSig, profile, resolvedBodyFormat, is
 
       // S7b. Render branded HTML (same renderer + server-resolved signature as Direct Message).
       // STUDIO-1: a Studio email is already rendered; only its form buttons are drawn here.
-      const { html } = studio ? { html: studio.finish(mergedBody) } : buildDirectMessageEmail({
+      // STUDIO-2: this recipient's own Unsubscribe link (a token, never their address).
+      const unsub = studioSend ? studioLib.unsubscribeFor(studioSend, normEmail) : null;
+      const { html } = studio ? { html: studio.finish(mergedBody, unsub?.url) } : buildDirectMessageEmail({
         body:             mergedBody,
         bodyFormat:       resolvedBodyFormat,
         includeSignature,
@@ -509,7 +530,8 @@ async function runSendMode(res, body, senderSig, profile, resolvedBodyFormat, is
         subject:  mergedSubject,
         html,
         // STUDIO-1: a designed email also carries its plain-text part.
-        ...(studio ? { text: studio.textFor(mergeCtx) } : {}),
+        ...(studio ? { text: studio.textFor(mergeCtx, unsub?.url) } : {}),
+        ...(unsub ? { headers: unsub.headers } : {}),
         // The SAME resolved bytes for every recipient in the batch.
         ...(att.attachments.length ? { attachments: att.attachments } : {}),
         tags: [

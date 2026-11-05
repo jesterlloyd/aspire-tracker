@@ -26,6 +26,17 @@
 //     batch_id is rejected ('already_sent_in_batch') so a replayed request
 //     cannot double-send.
 //
+// STUDIO-2 (2026-11-05): a Studio send carries the id of the list it froze before sending
+// (studio_sends). The endpoint passes that list as `frozen`, a Map of normalized email to the
+// frozen entry, and then:
+//   • an entry whose address is not on the frozen list, or whose student/contact id differs from
+//     the frozen one, is rejected ('not_in_reviewed_list');
+//   • a student entry may carry emailType 'residency' (the residency rule's address, decided on the
+//     server when the list was frozen) ONLY when the frozen entry says route 'residency' for that
+//     student. Without a frozen list that route is refused outright. Existence and the Not
+//     Proceeding rule are still checked against the current row.
+// The frozen list can only narrow what is sent. It never adds anyone.
+//
 // Pure orchestration over an injected db client - no Resend import, no env
 // access - so the guard is testable with a substituted database and the
 // negative control (removing the guard) is provable.
@@ -52,7 +63,7 @@ const isUuid = (v) => typeof v === 'string' && UUID_PATTERN.test(v);
  *               emailSource, firstName, school }]
  *   rejected: [{ index, source, email, reason }]
  */
-export async function validateBulkRecipients({ db, recipients, batchId }) {
+export async function validateBulkRecipients({ db, recipients, batchId, frozen = null }) {
   const cleared  = [];
   const rejected = [];
   const seenNorm = new Set();
@@ -72,6 +83,16 @@ export async function validateBulkRecipients({ db, recipients, batchId }) {
     // Deterministic duplicate rule: first valid occurrence wins.
     if (seenNorm.has(normEmail)) { rejected.push({ ...label, reason: 'duplicate' }); continue; }
 
+    // STUDIO-2: only the list this send froze before sending.
+    const held = frozen ? frozen.get(normEmail) : null;
+    if (frozen && (!held || held.source !== source
+      || (source === 'student' && held.studentId !== r.studentId)
+      || (source === 'contact' && held.contactId !== r.contactId))) {
+      rejected.push({ ...label, reason: 'not_in_reviewed_list' }); continue;
+    }
+    const residency = source === 'student' && r.emailType === 'residency';
+    if (residency && held?.route !== 'residency') { rejected.push({ ...label, reason: 'residency_route_not_reviewed' }); continue; }
+
     // Ownership + status verification against the CURRENT database row.
     let emailSource   = null;   // students only: 'school' | 'personal'
     let recipientId   = null;
@@ -87,12 +108,15 @@ export async function validateBulkRecipients({ db, recipients, batchId }) {
         .eq('id', r.studentId)
         .single();
       if (sErr || !student) { rejected.push({ ...label, reason: 'student_not_found' }); continue; }
-      const automaticRoute = r.automaticEmail === true ? resolveStudentEmail(student) : null;
-      emailSource = automaticRoute ? automaticRoute.type : (r.emailType === 'personal' ? 'personal' : 'school');
+      const automaticRoute = !residency && r.automaticEmail === true ? resolveStudentEmail(student) : null;
+      emailSource = residency ? 'residency' : automaticRoute ? automaticRoute.type : (r.emailType === 'personal' ? 'personal' : 'school');
       recipientWarning = automaticRoute?.warning || null;
-      const ownedEmail = automaticRoute ? automaticRoute.email : (emailSource === 'personal' ? student.personal_email : student.school_email);
-      if (!ownedEmail || normalizeEmailForLookup(String(ownedEmail).trim()) !== normEmail) {
-        rejected.push({ ...label, reason: 'email_mismatch' }); continue;
+      // A residency address was proven when the list was frozen (residencyRecipient, on the server).
+      if (!residency) {
+        const ownedEmail = automaticRoute ? automaticRoute.email : (emailSource === 'personal' ? student.personal_email : student.school_email);
+        if (!ownedEmail || normalizeEmailForLookup(String(ownedEmail).trim()) !== normEmail) {
+          rejected.push({ ...label, reason: 'email_mismatch' }); continue;
+        }
       }
       // A 'Not Proceeding' student is out of scope for bulk sending unless the
       // operator explicitly acknowledged THIS student on the Review screen.

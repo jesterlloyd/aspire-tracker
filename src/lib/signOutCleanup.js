@@ -60,6 +60,7 @@ export const STORAGE_KEY_REGISTRY = Object.freeze([
   { prefix: 'aspire.connect.outreach.lastDraftPointer.', store: 'local', cls: 'keyed', holds: 'which direct draft to reopen; keyed by user id and cohort' },
   { prefix: 'aspire.connect.outreach.bulkDraft.', store: 'local', cls: 'keyed', holds: 'an unsent Send-to-many draft: subject, body, signature flag (no recipients); keyed by user id and cohort' },
   { prefix: 'aspire.studio.designs.v1.', store: 'local', cls: 'keyed', holds: 'Studio designs kept in this browser before Studio storage is switched on (STUDIO-1): blocks, words, subject, send counts; keyed by user id' },
+  { prefix: 'aspire.studio.libFolded', store: 'local', cls: 'clear', holds: 'whether the Studio block list is folded to icons (a layout choice, STUDIO-2)' },
   { prefix: 'aspire.studio.blocks.v1.', store: 'local', cls: 'keyed', holds: 'Studio saved blocks kept in this browser before Studio storage is switched on (STUDIO-1); keyed by user id' },
   { prefix: 'aspire.messages.draft.v1.', store: 'local', cls: 'keyed', holds: 'an unsent Messages reply or New message (text, and for staff the chosen recipient); keyed by the writer\'s profile id and the thread, 7-day TTL (MESSAGE-DRAFTS-1)' },
   { prefix: 'aspire.rubric.draft.', store: 'local', cls: 'keyed', holds: 'an interview rubric safety-net draft for one student; keyed by student id AND the interviewer profile id' },
@@ -95,6 +96,7 @@ export const STORAGE_KEY_REGISTRY = Object.freeze([
   // ── public: no signed-in user ────────────────────────────────────────────────
   { prefix: 'aspire-form-draft:', store: 'local', cls: 'public', holds: 'a respondent\'s in-progress answers on a personal form link, keyed by the link token' },
   { prefix: 'aspire-form-token', store: 'session', cls: 'public', holds: 'the form link token, moved out of the address bar' },
+  { prefix: 'aspire-news-token', store: 'session', cls: 'public', holds: 'the program news link token, moved out of the address bar' },
   { prefix: 'aspire-sign-token', store: 'session', cls: 'public', holds: 'the signing link token, moved out of the address bar' },
   { prefix: 'ngrpf-tab', store: 'session', cls: 'public', holds: 'the Transition Form link token and its verified one-time-code session, for this tab (TRANSITION-FORM-RELOAD-1)' },
 

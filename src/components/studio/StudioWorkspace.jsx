@@ -23,6 +23,7 @@ export default function StudioWorkspace({ active = true, cohortId, toast, refres
   const navigate = useNavigate()
   const [mode, setMode] = useState(null)          // 'server' | 'local' | null while asking
   const [images, setImages] = useState(false)
+  const [audiences, setAudiences] = useState(false)
   const [designs, setDesigns] = useState(null)
   const [loadError, setLoadError] = useState('')
   const [copyOffer, setCopyOffer] = useState(0)
@@ -36,7 +37,7 @@ export default function StudioWorkspace({ active = true, cohortId, toast, refres
     if (!active || mode) return
     let off = false
     studioApi('status')
-      .then(s => { if (!off) { setMode(s.provisioned ? 'server' : 'local'); setImages(!!s.images) } })
+      .then(s => { if (!off) { setMode(s.provisioned ? 'server' : 'local'); setImages(!!s.images); setAudiences(!!s.audiences) } })
       .catch(() => { if (!off) setMode('local') })
     return () => { off = true }
   }, [active, mode])
@@ -103,6 +104,7 @@ export default function StudioWorkspace({ active = true, cohortId, toast, refres
           }}
           onClose={() => open('')}
           imagesEnabled={images && mode === 'server'}
+          audiencesEnabled={audiences && mode === 'server'}
           cohortId={cohortId}
           toast={toast}
         />

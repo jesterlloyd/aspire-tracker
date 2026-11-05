@@ -17,6 +17,9 @@
 //   block_save { name, block }     -> { block }
 //   block_delete { id }            -> { ok }
 //   image_upload { filename, type, size } -> { path, token, publicUrl }   (signed upload URL)
+//   audience_options, audience_resolve, send_freeze, send_finish
+//        STUDIO-2: who gets it (lib/server/studio/studioAudience.js). A rule is resolved through
+//        the request's population (populationDb), so a demo session sees demo people only.
 //
 // Before 20261128000000_studio_designs.sql every action but status answers 409 not_enabled, and
 // the screen keeps designs in the browser instead.
@@ -24,7 +27,8 @@
 import { randomUUID } from 'crypto'
 import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js'
 import { verifyOwnerAdmin } from './lib/catalogAuth.js'
-import { demoScopeFromRequest } from '../lib/server/demoScope.js'
+import { demoScopeFromRequest, populationDb } from '../lib/server/demoScope.js'
+import { getServiceDb } from './lib/portalAuth.js'
 import { sanitizeDesign, NAME_MAX } from '../src/lib/studio/studioBlocks.js'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -66,7 +70,22 @@ async function run(db, body, ctx) {
   const action = String(body.action || '')
   if (action === 'status') {
     const ok = await provisioned(db)
-    return { provisioned: ok, images: ok }
+    let audiences = false
+    if (ok) {
+      const { audiencesProvisioned } = await import('../lib/server/studio/studioAudience.js')
+      audiences = await audiencesProvisioned(db)
+    }
+    return { provisioned: ok, images: ok, audiences }
+  }
+  if (action.startsWith('audience_') || action.startsWith('send_')) {
+    const { runAudienceAction, AUDIENCE_ACTIONS } = await import('../lib/server/studio/studioAudience.js')
+    if (!AUDIENCE_ACTIONS.has(action)) fail(400, 'Unknown action.')
+    try {
+      return await runAudienceAction(action, body, { admin: db, pop: ctx.population(), profileId, isDemo })
+    } catch (e) {
+      if (e && e.status && e.message) fail(e.status, e.message, e.code)
+      throw e
+    }
   }
 
   const guard = (error) => { if (error) { if (MISSING(error)) notEnabled(); throw error } }
@@ -184,7 +203,11 @@ export default async function handler(req, res) {
   let body = req.body
   try { body = typeof body === 'string' ? JSON.parse(body) : (body || {}) } catch { return res.status(400).json({ error: 'Invalid request body' }) }
   try {
-    const out = await run(supabaseAdmin, body, { profileId: auth.profileId, isDemo: demoScopeFromRequest(req) === true })
+    const out = await run(supabaseAdmin, body, {
+      profileId: auth.profileId, isDemo: demoScopeFromRequest(req) === true,
+      // A client of its own, built for this request: populationDb changes the client it wraps.
+      population: () => populationDb(getServiceDb(), req),
+    })
     return res.status(200).json(out)
   } catch (e) {
     if (e instanceof StudioError) return res.status(e.status).json({ error: e.message, ...(e.code ? { code: e.code } : {}) })

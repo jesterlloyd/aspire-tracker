@@ -3188,3 +3188,39 @@ Phase 3, scheduling and results Phase 4.
 - The email is not themed: it is white paper in both themes and styles. The canvas sits on the
   quiet board in Classic and a plain grey in Modern. Radii in `studio.css` read tokens or the
   sheet's named `--st-r-*`.
+
+### Who a Studio email reaches (STUDIO-2, Phase 2a, 2026-11-05)
+
+Owner decisions: one "program news" switch for unsubscribing; a residency send replies to
+ngrp@cshs.org with aspire@cshs.org included, every other send to its sender. Keith's interview is
+Phase 2b.
+
+- **By rule or By hand.** A rule (`src/lib/studio/audienceCatalog.js`, pure, read by the drawer and
+  the server) names a population and filters, never an address: Students (cohorts, status, school,
+  which address), Residency Applicants (one residency cohort, Transition Form, licensure, hire,
+  addressed by `residencyRecipient`, never the school address) or Contacts (categories). **Not
+  Proceeding is never in a rule's result**; a person who must get it anyway is ticked by hand, with
+  the acknowledgment. `lib/server/studio/resolveAudience.js` resolves it through `populationDb`.
+- **The list is frozen before anything is sent.** Review shows every name and every one left out,
+  with the reason; the sender removes, puts back and types extra addresses. `send_freeze` re-resolves
+  the rule ON THE SERVER and keeps only the people the sender saw, less the ones removed (a person
+  who joined the rule since is left out as `changed_since_review`), plus the typed addresses, less
+  every opt-out, at most `MAX_AUDIENCE` (2000). The row is `studio_sends`. Every batch carries its
+  `studio_send_id`, and the bulk endpoint refuses anyone not on that list (`not_in_reviewed_list`,
+  in `validateBulkRecipients`' `frozen` mode, which can only remove). A residency address is
+  accepted only when the frozen entry says `route: 'residency'`. `send_finish` records the totals.
+- **Program news.** Every Studio email ends with an Unsubscribe link and carries List-Unsubscribe
+  and List-Unsubscribe-Post (one click). The token (`lib/server/studio/newsToken.js`) names a send
+  and a place on its frozen list, never an address, under `STUDIO_TOKEN_SECRET`, else
+  `SIG_TOKEN_SECRET`; with neither the link is left out. `/news` (`ProgramNewsPage`, public, light,
+  token moved out of the hash) asks before turning news off, because mail scanners open links, and
+  offers Turn back on. `api/program-news.js` is rate-limited and answers only a masked address.
+  `program_news_optouts` is Studio only: forms, interviews, signatures and reminders never read it.
+- **Before `20261130000000_studio_audiences.sql`** (Owner-gated; checks
+  `db/audit/studio_audiences_checks.sql`) the drawer offers By hand only, with the Phase 1 send and
+  no reply choice, and says why.
+- **The hand list is `buildCombinedRecipients(...).recipients`.** It answers `{ recipients,
+  duplicateCount }`; Phase 1 used the object as the list and Review & send blanked the page. A test
+  holds the `.recipients`.
+- The block library folds to icons (`aspire.studio.libFolded`, this browser). The announcement
+  layout's eyebrow reads Announcement.

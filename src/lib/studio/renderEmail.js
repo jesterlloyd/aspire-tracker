@@ -255,14 +255,21 @@ function blockText(b, opts) {
 const PHONE_CSS = '@media only screen and (max-width:620px){.st-wrap{width:100%!important}.st-pad{padding-left:20px!important;padding-right:20px!important}.st-col{display:block!important;width:100%!important;padding-left:0!important;padding-right:0!important}.st-h1{font-size:26px!important}}'
 
 /**
- * The whole email. opts: { brand: { logoUrl, title }, signature, mergePreview, formMode, formUrl }.
+ * The whole email. opts: { brand: { logoUrl, title }, signature, mergePreview, formMode, formUrl, unsubscribe }.
+ * STUDIO-2: `unsubscribe: 'marker'` (the server, for a send) ends the email with the program-news
+ * line around UNSUB_MARKER, which withUnsubscribe() fills per recipient or takes out; `'preview'`
+ * draws the same line with a dead link, so Preview as sent shows what people get.
  * Returns { html, text }. The input passes sanitizeDesign first, so a stored design that predates a
  * rule is rendered by today's rules.
  */
 export function renderStudioEmail(input, opts = {}) {
   const d = sanitizeDesign(input)
   const t = themeFor(d.theme)
-  const rows = d.blocks.map(b => renderBlockRows(b, d.theme, opts)).join('')
+  const unsub = opts.unsubscribe === 'marker' || opts.unsubscribe === 'preview'
+    ? `${UNSUB_OPEN}<tr><td class="st-pad" align="center" bgcolor="${t.panel}" style="background:${t.panel};padding:4px ${SIDE}px 18px;font-family:${fontOf('theme', t, 'bodyFont')};font-size:11px;line-height:1.6;color:${t.muted};text-align:center;">` +
+      `You get program news from ASPIRE. <a href="${opts.unsubscribe === 'marker' ? UNSUB_MARKER : '#'}" style="color:${t.muted};text-decoration:underline;">Unsubscribe</a></td></tr>${UNSUB_CLOSE}`
+    : ''
+  const rows = d.blocks.map(b => renderBlockRows(b, d.theme, opts)).join('') + unsub
   const pre = d.preheader
     ? `<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:${t.page};opacity:0;">${esc(d.preheader)}${'&#847;&zwnj;&nbsp;'.repeat(30)}</div>`
     : ''
@@ -272,7 +279,8 @@ export function renderStudioEmail(input, opts = {}) {
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${t.page}" style="background:${t.page};"><tr><td align="center" style="padding:24px 12px;">` +
     `<table role="presentation" class="st-wrap" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="${t.surface}" style="width:600px;max-width:600px;background:${t.surface};">${rows}</table>` +
     '</td></tr></table></body></html>'
-  const text = d.blocks.map(b => blockText(b, opts)).filter(Boolean).join('\n\n')
+  const text = d.blocks.map(b => blockText(b, opts)).filter(Boolean).join('\n\n') +
+    (opts.unsubscribe === 'marker' ? `${UNSUB_TEXT_OPEN}\n\nUnsubscribe from program news: ${UNSUB_MARKER}${UNSUB_TEXT_CLOSE}` : '')
   return { html, text }
 }
 
@@ -280,6 +288,25 @@ export function renderStudioEmail(input, opts = {}) {
  * After the form engine has put each recipient's own link in the markers' data-url, draw the
  * styled button around each one. A marker with no link is dropped rather than sent broken.
  */
+export const UNSUB_MARKER = '%%STUDIO_UNSUBSCRIBE%%'
+const UNSUB_OPEN = '<!--st-unsub-->'
+const UNSUB_CLOSE = '<!--/st-unsub-->'
+const UNSUB_TEXT_OPEN = '\u2063'
+const UNSUB_TEXT_CLOSE = '\u2064'
+
+/**
+ * Fill the program-news line with one recipient's link, or take the line out when there is none
+ * (a send from before 20261130000000, or a preview). Works on the HTML and on the text part.
+ */
+export function withUnsubscribe(content, url) {
+  const s = String(content || '')
+  if (url && /^https:\/\//i.test(url)) {
+    return s.split(UNSUB_MARKER).join(esc(url)).split(UNSUB_OPEN).join('').split(UNSUB_CLOSE).join('')
+      .split(UNSUB_TEXT_OPEN).join('').split(UNSUB_TEXT_CLOSE).join('')
+  }
+  return s.replace(/<!--st-unsub-->[\s\S]*?<!--\/st-unsub-->/g, '').replace(/\u2063[\s\S]*?\u2064/g, '')
+}
+
 export function finishFormButtons(html, input) {
   const d = sanitizeDesign(input)
   const t = themeFor(d.theme)
