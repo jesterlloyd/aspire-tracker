@@ -3098,9 +3098,15 @@ is Owner-gated (checks in `db/audit/residency_hire_history_checks.sql`).
   undated opening LAST, so Summer 2026 counted as later than Winter 2027 and the prior-hire exclusion
   never fired; Summer 2026 itself had no roster to show the hire in. Now the key places a cohort with
   no opening date by its residency start, and `fetchAddedStudentIds` adds every alumnus hired IN a
-  cohort to that cohort's roster (`hiredIds`; only hand adds carry the "added" tag). A hire recorded
-  in another cohort follows the record there (`?candidate=` and `sheet=hiring`), because the alumnus
-  leaves every later cohort's roster.
+  cohort to that cohort's roster (`hiredIds`; only hand adds carry the "added" tag).
+- **HIRE-STAY-1 (Owner, 2026-11-05).** Recording a hire never moves the screen: the toast names the
+  cohort it was recorded in, the alumnus leaves this roster, and the split opens the next person.
+  (HIRE-PAST-COHORT-1 followed the record to its cohort, which landed on Summer 2026's empty "no
+  ASPIRE cohorts" state.) The "N alumni hired through an earlier NGRP cycle are not listed" banner
+  is gone; `excludedPriorHires` is still in the payload, unread.
+- **SCOPE-STAY-OPEN-1 (Owner, 2026-11-05).** Choosing Internship or Residency in the Scope picker
+  still navigates at once but keeps the picker OPEN, so the cohort pane shows that experience's
+  cohorts. The header is mounted once for the app, so the open state survives the navigation.
 
 ## Studio designs the email; Outreach sends it (STUDIO-1, 2026-11-05)
 
