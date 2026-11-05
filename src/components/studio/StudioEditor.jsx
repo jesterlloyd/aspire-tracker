@@ -6,6 +6,7 @@
 // mails it to you alone; Review & send opens the audience drawer.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { PanelTop, Sparkles, Heading, AlignLeft, Image as ImageIcon, Columns2, ListOrdered, Quote, MousePointerClick, CalendarDays, ClipboardList, Minus, MoveVertical, PenLine, PanelBottom, Bookmark, Plus } from 'lucide-react'
 import StudioInspector from './StudioInspector'
 import StudioSendDrawer from './StudioSendDrawer'
 import StudioPreviewModal from './StudioPreviewModal'
@@ -17,6 +18,13 @@ import { useStudioBrand, signatureFromProfile } from './studioBrand'
 
 const HISTORY_MAX = 60
 const SAVE_DELAY_MS = 1000
+
+// The library's icons, one per block type. Decoration only: each row's name says what it is.
+const BLOCK_ICONS = {
+  header: PanelTop, hero: Sparkles, heading: Heading, text: AlignLeft, image: ImageIcon, columns: Columns2,
+  steps: ListOrdered, quote: Quote, button: MousePointerClick, event: CalendarDays, form: ClipboardList,
+  divider: Minus, spacer: MoveVertical, signature: PenLine, footer: PanelBottom,
+}
 
 export default function StudioEditor({ store, designId, initialDesign, initialName, onCreated, onClose, imagesEnabled, cohortId, toast }) {
   const { userProfile } = useAuth()
@@ -257,9 +265,10 @@ export default function StudioEditor({ store, designId, initialDesign, initialNa
               {items.map(([type, def]) => (
                 <button key={type} type="button" className="st-lib-item" draggable
                   onDragStart={e => { e.dataTransfer.setData('application/x-studio-type', type); e.dataTransfer.effectAllowed = 'copy' }}
-                  onClick={() => addType(type)} title="">
-                  <span>{def.label}<small>{def.hint}</small></span>
-                  <span aria-hidden="true">+</span>
+                  onClick={() => addType(type)} aria-label={`Add ${def.label}: ${def.hint}`}>
+                  <LibIcon type={type} group={group} />
+                  <span className="st-lib-text">{def.label}<small>{def.hint}</small></span>
+                  <span className="st-lib-add" aria-hidden="true"><Plus size={14} strokeWidth={2.4} /></span>
                 </button>
               ))}
             </div>
@@ -267,11 +276,12 @@ export default function StudioEditor({ store, designId, initialDesign, initialNa
           <div className="st-lib-grp">Saved</div>
           {saved.length === 0 && <p className="st-hint" style={{ margin: '0 2px' }}>Save any block from its panel to reuse it here.</p>}
           {saved.map(row => (
-            <div key={row.id} className="st-lib-item" role="group" aria-label={row.name}>
-              <button type="button" className="st-btn-ghost" style={{ all: 'unset', cursor: 'pointer', fontSize: 13 }} draggable
+            <div key={row.id} className="st-lib-item st-lib-item-saved" role="group" aria-label={row.name}>
+              <button type="button" className="st-lib-saved" draggable
                 onDragStart={e => { e.dataTransfer.setData('application/x-studio-saved', row.id); e.dataTransfer.effectAllowed = 'copy' }}
                 onClick={() => addSaved(row)}>
-                {row.name}<small>{BLOCKS[row.block.type]?.label}</small>
+                <span className="st-lib-ico st-lib-ico-saved" aria-hidden="true"><Bookmark size={16} strokeWidth={2} /></span>
+                <span className="st-lib-text">{row.name}<small>{BLOCKS[row.block.type]?.label}</small></span>
               </button>
               <button type="button" className="st-x" aria-label={`Remove saved block ${row.name}`}
                 onClick={async () => { await store.deleteBlock(row.id).catch(() => null); setSaved(s => s.filter(x => x.id !== row.id)) }}>×</button>
@@ -348,4 +358,9 @@ export default function StudioEditor({ store, designId, initialDesign, initialNa
       )}
     </div>
   )
+}
+
+function LibIcon({ type, group }) {
+  const Icon = BLOCK_ICONS[type] || AlignLeft
+  return <span className={`st-lib-ico st-lib-ico-${String(group).toLowerCase()}`} aria-hidden="true"><Icon size={16} strokeWidth={2} /></span>
 }

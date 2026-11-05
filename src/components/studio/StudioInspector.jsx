@@ -265,7 +265,7 @@ function StylePanel({ block, themeId, onChange }) {
               </div>
             )
             : (
-              <div className="st-seg" role="group" aria-label={STYLE_LABELS[key] || key} style={{ display: 'flex', flexWrap: 'wrap' }}>
+              <div className="st-seg st-seg-fill" role="group" aria-label={STYLE_LABELS[key] || key}>
                 {rule.map(v => (
                   <button key={v} type="button" aria-pressed={s[key] === v} onClick={() => onChange({ style: { [key]: v } })}>{VALUE_LABELS[v] || v}</button>
                 ))}
