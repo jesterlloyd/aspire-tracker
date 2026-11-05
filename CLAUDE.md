@@ -3133,7 +3133,7 @@ Phase 3, scheduling and results Phase 4.
   query scoped by `is_demo`; a design is archived, never deleted) and the public `studio-images`
   bucket, from Owner-gated `20261128000000_studio_designs.sql` (checks
   `db/audit/studio_designs_checks.sql`). Before it, designs live in this browser keyed by user id
-  (S-17 'keyed'), upload is not offered, and the first server load offers to copy them up.
+  (S-17 'keyed'), upload is not offered, and the first server load offers to copy them up. APPLIED 2026-11-05.
 - The email is not themed: it is white paper in both themes and styles. The canvas sits on the
   quiet board in Classic and a plain grey in Modern. Radii in `studio.css` read tokens or the
   sheet's named `--st-r-*`.
