@@ -3145,6 +3145,17 @@ unchanged. Only a submitted form (409 `not_submitted`); before the migration the
 409 `not_enabled` and nothing changes. The Review shows "Entered by NAME for the alumnus: reason".
 The alumnus's own draft, if any, is left alone: their form still opens on it until they submit.
 
+## The license box reads RN- (RN-LICENSE-PREFIX-1, 2026-11-05)
+
+Three alumni wrote the same thing three ways ("RN95478438", "#RN95472188", "95480034"), and the
+Owner corrected them in the Sheet. Now the Transition Form's License number box draws a fixed
+`RN-` and takes the number after it (`.ngrpf-prefixed`, digits only). One module,
+`src/lib/ngrp/rnLicense.js` (pure): `rnLicenseDigits` is what the server STORES (a typed or
+stored "RN", "RN-", "#" or space before the number is dropped, at most 12 digits), and
+`rnLicenseText` is what every surface PRINTS, "RN-95478438": the roster's License chip, the
+binder's Review, the packet and the Excel's RN License Number column. An older revision that
+stored the prefix reads the same way, so nothing was rewritten. A prefix alone is still no number.
+
 ## Studio designs the email; Outreach sends it (STUDIO-1, 2026-11-05)
 
 ASPIRE Connect > Studio (`/connect/studio`, Owner and Admin, the Messages rule) designs

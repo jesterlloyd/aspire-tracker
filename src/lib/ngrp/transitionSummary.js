@@ -4,6 +4,7 @@
 // staff read them. One rule for the applicant chart's "Review submitted form" and the applicant
 // packet's Transition Form page, so the two can never list different answers. Pure.
 import { csEmploymentText, formPreceptedUnitsText } from './preceptedUnits.js'
+import { rnLicenseText } from './rnLicense.js'
 
 export function transitionSummaryRows(payload) {
   if (!payload) return []
@@ -21,7 +22,7 @@ export function transitionSummaryRows(payload) {
   push('ASPIRE shifts', payload.aspire?.rotation_shifts)
   push('Prior NGRP application', payload.aspire?.prior_ngrp_applied === true ? `Yes${payload.aspire?.prior_ngrp_details ? ` - ${payload.aspire.prior_ngrp_details}` : ''}` : payload.aspire?.prior_ngrp_applied === false ? 'No' : undefined)
   push('CA RN license', payload.licensure?.ca_rn_status)
-  push('License #', payload.licensure?.license_number)
+  push('License #', rnLicenseText(payload.licensure?.license_number) || undefined)
   push('NCLEX scheduled', payload.licensure?.nclex_scheduled_date)
   push('Paid RN months', payload.licensure?.paid_rn_months)
   push('BLS', payload.licensure?.bls_status ? `${payload.licensure.bls_status}${payload.licensure.bls_issuer ? ` (${payload.licensure.bls_issuer})` : ''}${payload.licensure.bls_expiration ? ` exp ${payload.licensure.bls_expiration}` : ''}` : undefined)

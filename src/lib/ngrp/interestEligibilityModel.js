@@ -13,6 +13,7 @@ import { sortByCohortTimeline } from '../cohortTimeline.js'
 import { gpaBand } from '../constants.js'
 import { preceptedUnitsOfRow } from './preceptedUnits.js'
 import { scoreSortValue } from './candidateScoreModel.js'
+import { rnLicenseText } from './rnLicense.js'
 
 // NgrpStatusPill's config shape.
 export const LICENSE_LABELS = Object.freeze({
@@ -52,7 +53,7 @@ export function shortDate(ymd) {
 
 export function licenseDetail(row) {
   if (row?.form_rn_status === 'active') {
-    const n = String(row.form_rn_license_number || '').trim()
+    const n = rnLicenseText(row.form_rn_license_number) // RN-LICENSE-PREFIX-1: one spelling
     return n ? `License ${n}` : null
   }
   if (row?.form_rn_status === 'pending') {

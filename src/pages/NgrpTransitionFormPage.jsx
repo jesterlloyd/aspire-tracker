@@ -12,6 +12,7 @@ import { formReadinessChecklist } from '../../lib/server/ngrpEligibility.js'
 import { DIVISION_ORDER, getUnitsByDivision, ACLS_REQUIRED_UNITS, unitOptionLabel } from '../lib/unitCatalog.js'
 import { formUnitPicks, MAX_PRECEPTED_UNITS } from '../lib/ngrp/preceptedUnits.js'
 import { transitionDisclaimer } from '../lib/ngrp/transitionDisclaimer'
+import { RN_LICENSE_PREFIX, rnLicenseDigits } from '../lib/ngrp/rnLicense.js'
 
 // The ASPIRE placement units, grouped the way the org chart groups them. The
 // server accepts only these names or 'Other', so answers stay comparable.
@@ -80,6 +81,14 @@ const CSS = `
     font-family: ${F}; padding: 9px 11px; border: 1px solid #d7d2c8; border-radius: var(--aspire-radius-control); background: #fff; color: #191919;
   }
   .ngrpf-field textarea { min-height: 96px; resize: vertical; }
+  /* RN-LICENSE-PREFIX-1: a fixed prefix sewn onto the left of the box. */
+  .ngrpf-prefixed { display: flex; align-items: stretch; }
+  .ngrpf-prefixed span {
+    display: flex; align-items: center; padding: 0 10px; font-size: 16px; font-weight: 600; color: #4A5560;
+    border: 1px solid #d7d2c8; border-right: 0; background: #F3F1EC;
+    border-radius: var(--aspire-radius-control) 0 0 var(--aspire-radius-control);
+  }
+  .ngrpf-prefixed input { flex: 1; min-width: 0; border-radius: 0 var(--aspire-radius-control) var(--aspire-radius-control) 0; }
   .ngrpf-field input:focus, .ngrpf-field select:focus, .ngrpf-field textarea:focus { outline: 2px solid #4F6DA8; outline-offset: 1px; }
   .ngrpf-opts { display: flex; flex-wrap: wrap; gap: 8px; }
   .ngrpf-unitrow { display: flex; gap: 8px; align-items: center; }
@@ -586,7 +595,10 @@ export default function NgrpTransitionFormPage({ preview = null, portal = null, 
                 </div></div>
               {p.licensure.ca_rn_status === 'active' && (
                 <div className="ngrpf-field"><label htmlFor="ln">License number</label>
-                  <input id="ln" value={p.licensure.license_number} onChange={e => update('licensure', 'license_number', e.target.value)} /></div>
+                  {/* RN-LICENSE-PREFIX-1: the prefix is drawn, the person types the number after it. */}
+                  <div className="ngrpf-prefixed"><span aria-hidden="true">{RN_LICENSE_PREFIX}</span>
+                    <input id="ln" inputMode="numeric" autoComplete="off" placeholder="________" aria-label={`License number, after ${RN_LICENSE_PREFIX}`}
+                      value={rnLicenseDigits(p.licensure.license_number)} onChange={e => update('licensure', 'license_number', rnLicenseDigits(e.target.value))} /></div></div>
               )}
               {p.licensure.ca_rn_status === 'pending' && (
                 <div className="ngrpf-field"><label htmlFor="nd">Scheduled NCLEX date</label>

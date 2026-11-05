@@ -115,7 +115,8 @@ import { licenseDetail, eligibilityDetail, shortDate } from '../src/lib/ngrp/int
 import { computeEligibility } from '../lib/server/ngrpEligibility.js'
 
 test('the license line is the number when licensed and the NCLEX date when ahead', () => {
-  assert.equal(licenseDetail({ form_rn_status: 'active', form_rn_license_number: '95123456' }), 'License 95123456')
+  // RN-LICENSE-PREFIX-1: every surface prints the one spelling.
+  assert.equal(licenseDetail({ form_rn_status: 'active', form_rn_license_number: '95123456' }), 'License RN-95123456')
   assert.equal(licenseDetail({ form_rn_status: 'active' }), null)
   assert.equal(licenseDetail({ form_rn_status: 'pending', form_nclex_date: '2026-11-12' }), 'NCLEX Nov 12, 2026')
   assert.equal(licenseDetail({ form_rn_status: 'pending' }), 'NCLEX not yet scheduled')
