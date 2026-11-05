@@ -14,6 +14,7 @@ import StudentAvatar from './StudentAvatar'
 import './student/studentChart.css'
 import FlagRibbon from './rubric/FlagRibbon'
 import ChartEvaluations from './student/ChartEvaluations'
+import ResidencyHireOnRecord from './student/ResidencyHireOnRecord'
 import { CHART_SHEETS } from './student/chartSheets'
 import { useChartScroll, useCrossFade } from './student/useChartScroll'
 import { isFollowUpFlagged, followUpFlagAvailable, setFollowUpFlag } from '../lib/studentFollowUpFlag'
@@ -2149,6 +2150,10 @@ export default function StudentSidePanel({
               {data.badge_created && <span style={{ fontSize:12, color:'var(--sp-ok-ink)', fontWeight:600 }}>✓ Badge Created</span>}
             </label>
           </div>
+
+          {/* STUDENT-HIRE-READ-1 (Owner, 2026-11-05): the residency hire, read-only, kept on the
+              Residency binder's Hiring sheet. Completed students and Residency viewers only. */}
+          <ResidencyHireOnRecord student={data} />
 
           {/* ── Program Disposition (Phase 2B.2b) ──────────────────────────────────
               Owner, 2026-09-18: this sheet already tells the reader to "use Program

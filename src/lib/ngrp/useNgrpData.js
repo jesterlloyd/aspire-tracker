@@ -215,6 +215,17 @@ export async function locateNgrpCandidate(candidateId) {
   }
 }
 
+// STUDENT-HIRE-READ-1: one student's residency hire, for Student Profiles > Placement. A caller
+// without Residency access gets { ok: false } and the section draws nothing.
+export async function fetchStudentHires(studentId) {
+  try {
+    const body = await postNgrp('student_hire', { student_id: studentId })
+    return { ok: true, provisioned: body?.provisioned !== false, hires: body?.hires || [] }
+  } catch (err) {
+    return { ok: false, status: err.status || 0 }
+  }
+}
+
 // RESIDENCY-SUPPORT-1: the Support tab. Writes are the ASPIRE team's only.
 export async function postNgrpSupport(action, payload = {}) {
   try {

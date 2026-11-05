@@ -3107,6 +3107,13 @@ is Owner-gated (checks in `db/audit/residency_hire_history_checks.sql`).
 - **SCOPE-STAY-OPEN-1 (Owner, 2026-11-05).** Choosing Internship or Residency in the Scope picker
   still navigates at once but keeps the picker OPEN, so the cohort pane shows that experience's
   cohorts. The header is mounted once for the app, so the open state survives the navigation.
+- **STUDENT-HIRE-READ-1 (Owner, 2026-11-05).** Student Profiles > Placement shows a Completed
+  student's residency hire READ-ONLY (`src/components/student/ResidencyHireOnRecord.jsx`, words in
+  `src/lib/ngrp/studentHireModel.js`): cohort, unit, CN I or GNT, current title, hire date, still
+  here. It reads `ngrp-workspace` `student_hire` (`lib/server/ngrpStudentHire.js`, the ASPIRE team
+  only, no contact details) and links to the binder's Hiring sheet, which stays the one place the
+  hire is edited. A viewer without Residency access sees nothing. The legacy NGRP Cohort Target and
+  NGRP Outcome fields beside it are unchanged and still not read by Residency.
 
 ## Studio designs the email; Outreach sends it (STUDIO-1, 2026-11-05)
 

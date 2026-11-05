@@ -106,7 +106,8 @@ test('ngrp-manage: TA may search, add and create; remove, invite and import stay
 
 test('ngrp-workspace serves contacts through the roster rule', () => {
   const s = src('api/ngrp-workspace.js')
-  assert.match(s, /'contacts'\]\)/)
+  // STUDENT-HIRE-READ-1 added 'student_hire' after 'contacts' in the action list.
+  assert.match(s, /'contacts'[,\]]/)
   assert.match(s, /loadRosterContacts\(db, \{ payload, studentIds: body\.student_ids, audience: caller\.audience \}\)/)
 })
 

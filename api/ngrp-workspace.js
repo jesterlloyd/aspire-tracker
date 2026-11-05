@@ -27,6 +27,9 @@
 //                                   answers as the shared applicant Sheet (APPLICANT-SHEET-1)
 //   sheet_xlsx { cycle_id, row_ids?, column_keys?, group_by? } -> { provisioned, xlsx, fileName }:
 //                                   what the Sheet shows, as Excel
+//   student_hire { student_id } -> { provisioned, hires }: one student's residency hire, read
+//                                   only, for Student Profiles > Placement (STUDENT-HIRE-READ-1;
+//                                   the ASPIRE team only)
 //
 // The roster contract (multi-cohort resolution, Completed-only, identity from
 // students, prior-hire exclusion, email stripping) lives in
@@ -45,9 +48,10 @@ import { serviceDbForRequest } from '../lib/server/demoScope.js'
 import { loadApplicantProfile } from '../lib/server/ngrpApplicantProfile.js'
 import { loadCandidateRubrics } from '../lib/server/ngrpInterviewRubrics.js'
 import { loadApplicantSheet, applicantSheetXlsx } from '../lib/server/ngrpApplicantSheet.js'
+import { loadStudentHires } from '../lib/server/ngrpStudentHire.js'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const ACTIONS = new Set(['cycles', 'applicants', 'export', 'locate', 'profile', 'rubrics', 'schedule', 'sheet', 'sheet_xlsx', 'contacts'])
+const ACTIONS = new Set(['cycles', 'applicants', 'export', 'locate', 'profile', 'rubrics', 'schedule', 'sheet', 'sheet_xlsx', 'contacts', 'student_hire'])
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store')
@@ -94,6 +98,17 @@ export default async function handler(req, res) {
     if (!cand.data) return res.status(404).json({ error: 'candidate_not_found' })
     // RESIDENCY-TA-1: Talent Acquisition sees every alumnus now, so a link finds anyone.
     return res.status(200).json({ provisioned: true, cycle_id: cand.data.cycle_id })
+  }
+
+  // STUDENT-HIRE-READ-1: the internship chart's read-only Residency section. The ASPIRE team
+  // only: Talent Acquisition has no internship chart.
+  if (action === 'student_hire') {
+    if (caller.audience !== 'staff') return res.status(403).json({ error: 'forbidden' })
+    const studentId = typeof body.student_id === 'string' && UUID.test(body.student_id) ? body.student_id : null
+    if (!studentId) return res.status(422).json({ error: 'invalid_student_id' })
+    const r = await loadStudentHires(db, studentId)
+    if (r.state !== 'ok') return res.status(500).json({ error: 'internal_error' })
+    return res.status(200).json({ provisioned: r.provisioned, hires: r.hires })
   }
 
   // action === 'applicants' | 'export' | 'profile'
