@@ -1,11 +1,15 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, Suspense } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 
 const CONNECT_LAST_TAB_KEY = 'aspire.connect.lastTab'
 // ASPIRE-MESSAGES-P4B2B-II: 'messages' joins the existing URL-derived tab model.
 // Automations keeps its historical '/connect/broadcasts' slug, unchanged.
 const VALID_TABS = new Set(['contacts', 'outreach', 'messages', 'broadcasts'])
-import { Users, Send, Activity, MessageSquare } from 'lucide-react'
+// STUDIO-1: Studio (designed sends) sits between Outreach and Messages, for an active Owner or
+// Admin only, by the same rule as Messages. Added beside the original four so their rules read
+// exactly as before.
+VALID_TABS.add('studio')
+import { Users, Send, Activity, MessageSquare, Palette } from 'lucide-react'
 import ContactsView from '../components/connect/ContactsView'
 import OutreachView from '../components/connect/OutreachView'
 import AutomationView from '../components/connect/AutomationView'
@@ -21,6 +25,10 @@ import SegmentedTabs from '../components/ui/SegmentedTabs'
 import { useTheme } from '../contexts/ThemeContext'
 import { contactsUsesBook } from '../lib/appearance'
 import { useChartViewport } from '../components/student/useChartViewport'
+import { lazyReload } from '../lib/lazyReload'
+
+// STUDIO-1: Studio's editor and renderer load only when Studio is opened.
+const StudioWorkspace = lazyReload(() => import('../components/studio/StudioWorkspace'), 'StudioWorkspace')
 
 const F = 'Plus Jakarta Sans, sans-serif'
 
@@ -56,14 +64,22 @@ export default function ConnectPage({ cohortId, onNavigateToStudent, refreshRef,
   const canUseMessages = ['owner', 'admin'].includes(userProfile?.role)
     && userProfile?.is_active !== false
 
+  const canUseStudio = canUseMessages
+  const onStudioPath = location.pathname.startsWith('/connect/studio')
+
   // URL-routed sub-tab - declared first so useEffects below can safely reference it
+  // STUDIO-1: an unauthorized /connect/studio never resolves to Studio (it is redirected below).
   const rawSubTab = location.pathname.startsWith('/connect/contacts')
     ? 'contacts'
-    : location.pathname.startsWith('/connect/messages')
-      ? 'messages'
-      : location.pathname.startsWith('/connect/broadcasts')
-        ? 'broadcasts'
-        : 'outreach'
+    : (onStudioPath && canUseStudio)
+      ? 'studio'
+      : onStudioPath
+        ? 'contacts'
+        : location.pathname.startsWith('/connect/messages')
+          ? 'messages'
+          : location.pathname.startsWith('/connect/broadcasts')
+            ? 'broadcasts'
+            : 'outreach'
   // An unauthorized visitor to /connect/messages never resolves to Messages, so
   // the workspace is never mounted and no Messages API is ever requested.
   const activeSubTab = (rawSubTab === 'messages' && !canUseMessages) ? 'contacts' : rawSubTab
@@ -74,10 +90,10 @@ export default function ConnectPage({ cohortId, onNavigateToStudent, refreshRef,
   useEffect(() => {
     if (location.pathname === '/connect') {
       const saved = localStorage.getItem(CONNECT_LAST_TAB_KEY)
-      const allowed = saved && VALID_TABS.has(saved) && (saved !== 'messages' || canUseMessages)
+      const allowed = saved && VALID_TABS.has(saved) && (saved !== 'messages' || canUseMessages) && (saved !== 'studio' || canUseStudio)
       navigate(`/connect/${allowed ? saved : 'contacts'}`, { replace: true })
     }
-  }, [location.pathname, navigate, canUseMessages])
+  }, [location.pathname, navigate, canUseMessages, canUseStudio])
 
   // An unauthorized direct visit to /connect/messages is redirected once to an
   // allowed tab. The guard is the path, not the resolved tab, so this cannot loop.
@@ -86,6 +102,13 @@ export default function ConnectPage({ cohortId, onNavigateToStudent, refreshRef,
       navigate('/connect/contacts', { replace: true })
     }
   }, [rawSubTab, canUseMessages, navigate])
+
+  // STUDIO-1: an unauthorized direct visit to /connect/studio is replaced once, like Messages.
+  useEffect(() => {
+    if (onStudioPath && !canUseStudio) navigate('/connect/contacts', { replace: true })
+  }, [onStudioPath, canUseStudio, navigate])
+  const [studioMounted, setStudioMounted] = useState(false)
+  if (activeSubTab === 'studio' && !studioMounted) setStudioMounted(true)
 
   // Persist active tab so returning to /connect restores workspace. Messages is
   // stored only for an authorized user.
@@ -106,6 +129,7 @@ export default function ConnectPage({ cohortId, onNavigateToStudent, refreshRef,
   const tabs = [
     { key: 'contacts', label: 'Contacts', Icon: Users, path: '/connect/contacts' },
     { key: 'outreach', label: 'Outreach', Icon: Send, path: '/connect/outreach' },
+    canUseStudio ? { key: 'studio', label: 'Studio', Icon: Palette, path: '/connect/studio' } : null,
     canUseMessages ? {
       key: 'messages',
       label: 'Messages',
@@ -214,6 +238,15 @@ export default function ConnectPage({ cohortId, onNavigateToStudent, refreshRef,
               onOpenStudent={onNavigateToStudent}
               initialSelectedId={new URLSearchParams(location.search).get('conversation')}
             />
+          </div>
+        )}
+        {/* STUDIO-1: mounted on first visit, then kept (hidden) like the other tabs, so an open
+            design and its undo history survive a trip to another tab. */}
+        {canUseStudio && studioMounted && (
+          <div style={{ display: activeSubTab === 'studio' ? 'block' : 'none' }}>
+            <Suspense fallback={<div style={{ padding: 20, color: 'var(--text-caption)' }}>Opening Studio…</div>}>
+              <StudioWorkspace active={activeSubTab === 'studio'} cohortId={cohortId} toast={toast} refreshKey={refreshKey} />
+            </Suspense>
           </div>
         )}
         <div style={{ display: activeSubTab === 'broadcasts' ? 'block' : 'none' }}>

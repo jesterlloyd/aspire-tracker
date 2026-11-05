@@ -237,11 +237,28 @@ async function _handler(req, res) {
   }
 
   // body_format gate (shared by preview + send): 'text' always; 'html' only for the Owner; reject else.
+  // STUDIO-1: 'studio' is an ASPIRE Connect > Studio design (blocks JSON), for Owner and Admin, the
+  // roles Studio serves. It is safe for both because the body is never HTML from the browser: the
+  // server renders it from the design with every word escaped (lib/server/studio/studioSend.js,
+  // loaded only for a Studio request). From here on a Studio body is that rendered email.
   const reqBodyFormat = body?.body_format ?? 'text';
-  if (reqBodyFormat !== 'text' && !(reqBodyFormat === 'html' && callerIsOwner)) {
+  const isStudio = reqBodyFormat === 'studio';
+  if (!isStudio && reqBodyFormat !== 'text' && !(reqBodyFormat === 'html' && callerIsOwner)) {
     return res.status(400).json({ success: false, error: 'Only text email body format is supported for this account.' });
   }
   const resolvedBodyFormat = reqBodyFormat;
+  let studio = null;
+  if (isStudio) {
+    const { prepareStudio, sendStudioTest } = await import('../lib/server/studio/studioSend.js');
+    try { studio = prepareStudio(body.body, { signature: senderSig.signature, organization }); }
+    catch (e) { return res.status(e.status || 400).json({ success: false, error: e.message }); }
+    // A test goes to the caller's own address and nowhere else, and writes no log.
+    if (body.test === true) {
+      const t = await sendStudioTest(studio, { subject: body.subject, profile, displayName: senderSig.displayName, from: FROM });
+      return res.status(t.status).json(t.body);
+    }
+    body.body = studio.markerHtml;
+  }
 
   // ── 4. Mode branch ──
   // PREVIEW path is byte-unchanged from Phase 2B-1. SEND path is purely additive.
@@ -278,7 +295,8 @@ async function _handler(req, res) {
     };
     // In html mode, merge VALUES are HTML-escaped before insertion so a recipient name can never
     // inject markup; the body is then re-sanitized by the builder. Subject stays raw plain text.
-    const esc = resolvedBodyFormat === 'html' ? escapeHtml : (v => v);
+    // STUDIO-1: a Studio body is rendered HTML, so its merge values are escaped the same way.
+    const esc = (resolvedBodyFormat === 'html' || studio) ? escapeHtml : (v => v);
     const bodyMergeCtx  = { firstName: esc(mergeCtx.firstName), school: esc(mergeCtx.school) };
     let mergedBody      = applyMergeFields(messageBody, bodyMergeCtx);
     const mergedSubject = applyMergeFields(subject, mergeCtx);
@@ -292,7 +310,8 @@ async function _handler(req, res) {
     }
 
     // ── 7. Render branded HTML (same renderer + server-resolved signature as Direct Message) ──
-    const { html } = buildDirectMessageEmail({
+    // STUDIO-1: a Studio email is already rendered; only its form buttons are drawn here.
+    const { html } = studio ? { html: studio.finish(mergedBody) } : buildDirectMessageEmail({
       body:             mergedBody,
       bodyFormat:       resolvedBodyFormat,
       includeSignature,
@@ -331,13 +350,13 @@ async function _handler(req, res) {
   // resolvedBodyFormat is not defined) on every bulk send.
   // CATALOG-REVAMP-1: a demo session's Catalog send log is stamped is_demo.
   const isDemo = demoScopeFromRequest(req) === true;
-  return await runSendMode(res, body, senderSig, profile, resolvedBodyFormat, isDemo);
+  return await runSendMode(res, body, senderSig, profile, resolvedBodyFormat, isDemo, studio);
 }
 
 // Send-mode handler. Kept separate from the preview path so preview behavior is provably untouched.
 // `resolvedBodyFormat` is passed in from the gated caller (never re-derived here) so the Owner-only
 // html gate stays the single source of truth.
-async function runSendMode(res, body, senderSig, profile, resolvedBodyFormat, isDemo = false) {
+async function runSendMode(res, body, senderSig, profile, resolvedBodyFormat, isDemo = false, studio = null) {
   // ── S1. Reject any caller attempt to inject a top-level recipient override. ──
   for (const f of ['email', 'to', 'cc', 'bcc']) {
     if (f in body) {
@@ -365,9 +384,15 @@ async function runSendMode(res, body, senderSig, profile, resolvedBodyFormat, is
   const unfilledMany = unfilledPlaceholders(subjectRaw, bodyRaw);
   if (unfilledMany.length) return res.status(400).json({ success: false, error: unfilledMessage(unfilledMany), code: 'unfilled_placeholder' });
   if (subjectRaw.trim().length > SUBJECT_MAX) return res.status(400).json({ success: false, error: `subject must not exceed ${SUBJECT_MAX} characters` });
-  const maxBody = resolvedBodyFormat === 'html' ? BODY_MAX_HTML : BODY_MAX;
+  // STUDIO-1: a Studio body is the rendered email; its own size limits were applied when it was rendered.
+  const maxBody = studio ? Infinity : resolvedBodyFormat === 'html' ? BODY_MAX_HTML : BODY_MAX;
   if (bodyRaw.trim().length > maxBody)        return res.status(400).json({ success: false, error: `body must not exceed ${maxBody} characters` });
   const includeSignature = body.include_signature !== false; // default true
+  // STUDIO-1: a design with a blocking problem (a button with no link, a form block with no form)
+  // never leaves. The editor disables Send for the same list; this is the authority.
+  if (studio && studio.problems.blocking.length) {
+    return res.status(400).json({ success: false, error: studio.problems.blocking[0], code: 'studio_incomplete' });
+  }
 
   // ── S5. Recipients array + safety ceiling (reject over-limit; never partial-send). ──
   const recipients = body.recipients;
@@ -445,7 +470,8 @@ async function runSendMode(res, body, senderSig, profile, resolvedBodyFormat, is
       // S7a. Merge (first name + school with graceful fallback; all other placeholders left literal).
       const mergeCtx = { firstName: sendFirstName(source, c.firstName), school: sendSchool(c.school) };
       // html mode: escape merge values before insertion (builder re-sanitizes); subject stays raw text.
-      const esc = resolvedBodyFormat === 'html' ? escapeHtml : (v => v);
+      // STUDIO-1: a Studio body is rendered HTML, so its merge values are escaped the same way.
+      const esc = (resolvedBodyFormat === 'html' || studio) ? escapeHtml : (v => v);
       const bodyMergeCtx  = { firstName: esc(mergeCtx.firstName), school: esc(mergeCtx.school) };
       const mergedSubject = applyMergeFields(subjectRaw.trim(), mergeCtx);
       let mergedBody      = applyMergeFields(bodyRaw.trim(), bodyMergeCtx);
@@ -461,7 +487,8 @@ async function runSendMode(res, body, senderSig, profile, resolvedBodyFormat, is
       }
 
       // S7b. Render branded HTML (same renderer + server-resolved signature as Direct Message).
-      const { html } = buildDirectMessageEmail({
+      // STUDIO-1: a Studio email is already rendered; only its form buttons are drawn here.
+      const { html } = studio ? { html: studio.finish(mergedBody) } : buildDirectMessageEmail({
         body:             mergedBody,
         bodyFormat:       resolvedBodyFormat,
         includeSignature,
@@ -481,6 +508,8 @@ async function runSendMode(res, body, senderSig, profile, resolvedBodyFormat, is
         reply_to: replyTo,
         subject:  mergedSubject,
         html,
+        // STUDIO-1: a designed email also carries its plain-text part.
+        ...(studio ? { text: studio.textFor(mergeCtx) } : {}),
         // The SAME resolved bytes for every recipient in the batch.
         ...(att.attachments.length ? { attachments: att.attachments } : {}),
         tags: [

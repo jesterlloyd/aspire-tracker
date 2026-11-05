@@ -63,7 +63,7 @@ passed the boards."
 
 - A design is **blocks as JSON** (`{ type, props, style }[]` plus a theme id), never HTML. The
   editor, the preview and the sender read the same JSON.
-- **One renderer**, `lib/server/studio/renderEmail.js` (pure, tested), turns blocks into
+- **One renderer**, `src/lib/studio/renderEmail.js` (pure, tested, shared by browser and server), turns blocks into
   table-based, inline-styled HTML (600px, one column that stacks two-column blocks on a phone)
   and a plain-text copy. No new dependency: the shapes are few and the repo already hand-builds
   email HTML. The browser preview calls the same function, so preview and inbox cannot drift.
@@ -102,8 +102,9 @@ Two Skills, both on the `quality` route, Owner and Admin, seeded by an Owner-gat
 
 ## Data (one Owner-gated migration per phase, server-only tables)
 
-- Phase 1: `studio_designs` (draft blocks, theme, subject, preheader), `studio_saved_blocks`,
-  `studio_sends` (design snapshot, rule, frozen list, `notification_log` batch ids).
+- Phase 1 (built): `studio_designs` (blocks, theme, subject, preheader, and a `sends` summary of
+  counts and batch ids; recipients stay in `notification_log`), `studio_saved_blocks`, and the public
+  `studio-images` bucket. A separate `studio_sends` table waits for Phase 2's frozen audience rule.
 - Phase 3: `studio_rsvps` (send, recipient, answer, answered_at, waitlist position), with a
   token per recipient in the `rsvp:` namespace (an HMAC, only its SHA-256 stored, like form links).
 - Phase 4: `studio_sends.scheduled_for` and a cron that sends due rows.

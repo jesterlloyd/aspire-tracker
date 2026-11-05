@@ -3101,3 +3101,33 @@ is Owner-gated (checks in `db/audit/residency_hire_history_checks.sql`).
   cohort to that cohort's roster (`hiredIds`; only hand adds carry the "added" tag). A hire recorded
   in another cohort follows the record there (`?candidate=` and `sheet=hiring`), because the alumnus
   leaves every later cohort's roster.
+
+## Studio designs the email; Outreach sends it (STUDIO-1, 2026-11-05)
+
+ASPIRE Connect > Studio (`/connect/studio`, Owner and Admin, the Messages rule) designs
+newsletters, announcements and sign-ups as blocks. Reference: `docs/mockups/studio.html` and
+`studio-brief.md`. Phase 1 is the canvas; Keith's interview and audience rule are Phase 2, RSVP
+Phase 3, scheduling and results Phase 4.
+
+- **A design is blocks JSON, never HTML.** `src/lib/studio/studioBlocks.js` is the catalog (block
+  types, their props and legal style values, three themes, `sanitizeDesign`, `designProblems`), read
+  by the editor and the server alike. `src/lib/studio/renderEmail.js` is the ONE renderer (600px
+  presentation tables, inline styles, web-safe fonts, one phone `@media`), used by the canvas, the
+  layout thumbnails, Preview as sent and the send. Every word is escaped there; links are https or
+  mailto only, images https only.
+- **Sending is Outreach.** `/api/connect-send-bulk-message` takes `body_format: 'studio'` (Owner and
+  Admin), loads `lib/server/studio/studioSend.js` only then, renders the posted design itself, and
+  from that point the body IS the rendering, so the allowlist, Not Proceeding, the 75 ceiling, the
+  typed confirmation, merge (escaped), per-recipient Catalog form links, the log and the archive all
+  run unchanged. The browser cuts a send into batches of 75 (`studioBatches.js`). Send me a test
+  goes to the caller's own address only and logs nothing.
+- **A link is never invented.** A button with no link, a form block with no form or an image block
+  with no image is a blocking problem: Send is disabled and the endpoint refuses (`studio_incomplete`).
+- **Storage** is `studio_designs` and `studio_saved_blocks` (server-only, `api/studio.js`, every
+  query scoped by `is_demo`; a design is archived, never deleted) and the public `studio-images`
+  bucket, from Owner-gated `20261128000000_studio_designs.sql` (checks
+  `db/audit/studio_designs_checks.sql`). Before it, designs live in this browser keyed by user id
+  (S-17 'keyed'), upload is not offered, and the first server load offers to copy them up.
+- The email is not themed: it is white paper in both themes and styles. The canvas sits on the
+  quiet board in Classic and a plain grey in Modern. Radii in `studio.css` read tokens or the
+  sheet's named `--st-r-*`.

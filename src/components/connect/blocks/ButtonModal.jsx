@@ -9,10 +9,10 @@
 // recipient their own (lib/server/forms/outreachButtons.js), and the server checks the form is
 // published before anyone is emailed.
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import { X } from 'lucide-react'
 import { validateButtonUrl } from '../../../lib/connect/buttonUrl'
-import { supabase } from '../../../lib/supabase'
+import { useCatalogForms } from './useCatalogForms'
 import { REMINDER_RULES } from '../../../lib/forms/formModel'
 
 const F = 'Plus Jakarta Sans, sans-serif'
@@ -21,18 +21,7 @@ const LABEL_MAX = 60
 
 // The parent (RichTextEditor) gives this component a remount `key` per open, so useState initializes
 // fresh from initialLabel/initialUrl each time - no open-sync effect needed.
-// The Catalog's forms (kind 'form'; the form id is in storage_path 'form:<id>'), read once.
-function useCatalogForms(active) {
-  const [forms, setForms] = useState(null)
-  useEffect(() => {
-    if (!active || forms) return
-    supabase.from('catalog_resources').select('title, storage_path, is_active').eq('kind', 'form').order('title')
-      .then(({ data, error }) => setForms(error ? [] : (data || []).filter(r => r.is_active !== false && /^form:/.test(r.storage_path || ''))
-        .map(r => ({ id: r.storage_path.slice(5), title: r.title }))))
-      .catch(() => setForms([]))
-  }, [active, forms])
-  return forms
-}
+// The Catalog's forms come from ./useCatalogForms (shared with Studio's form block, STUDIO-1).
 
 export default function ButtonModal({ open, mode = 'insert', initial = {}, onSave, onCancel }) {
   const [label, setLabel] = useState(initial.label || '')

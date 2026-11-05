@@ -21,7 +21,10 @@ const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
 
 test('the archive receives the exact html handed to Resend', () => {
   // One `html` binding is built once, passed to sendParams, then to the archive.
-  assert.match(code, /const \{ html \} = buildDirectMessageEmail\(\{/, 'rendered once')
+  // STUDIO-1 (2026-11-05) changed this line: a Studio body arrives already rendered, so the
+  // binding is `studio ? { html: studio.finish(mergedBody) } : buildDirectMessageEmail({...})`.
+  // It is still ONE html binding, built once per recipient, handed to the provider and the archive.
+  assert.match(code, /const \{ html \} = studio \? \{ html: studio\.finish\(mergedBody\) \} : buildDirectMessageEmail\(\{/, 'rendered once')
   const sendAt = code.indexOf('const sendParams = {')
   const archiveAt = code.indexOf('archiveSentMessage({')
   assert.ok(sendAt > -1 && archiveAt > sendAt, 'the archive runs after the send is composed')

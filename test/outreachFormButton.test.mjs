@@ -45,7 +45,9 @@ test('the editor stores the form on the button, never a link', () => {
     assert.deepEqual(buttonAttrs({ label: 'Go', form: 'f1', formTitle: 'Sizes', url: 'https://x.org' }), { label: 'Go', url: '', form: 'f1', formTitle: 'Sizes', due: '', reminders: '' })
     assert.deepEqual(buttonAttrs({ label: 'Go', url: 'https://x.org' }), { label: 'Go', url: 'https://x.org', form: '', formTitle: '', due: '', reminders: '' })
   }
-  const modal = read('src/components/connect/blocks/ButtonModal.jsx')
+  // STUDIO-1 (2026-11-05) moved the Catalog forms query into its own hook, shared with Studio's
+  // Catalog form block, so the modal and the hook are read together.
+  const modal = read('src/components/connect/blocks/ButtonModal.jsx') + read('src/components/connect/blocks/useCatalogForms.js')
   assert.match(modal, /A Catalog form/)
   assert.match(modal, /eq\('kind', 'form'\)/)
 })
