@@ -197,7 +197,7 @@ test('scope: the ASPIRE workspace cohort cannot constrain the NGRP roster (no st
 
 // ── Cycle chronology + previous outcomes ─────────────────────────────────────
 
-test('chronology: cycleChronoKey orders by application open, then residency start, nulls last, deterministic ties', () => {
+test('chronology: cycleChronoKey orders by application open (else residency start), then residency start, nulls last, deterministic ties', () => {
   const dated  = { id: 'x1', application_open_date: '2026-03-01', residency_start_date: '2026-08-10' }
   const later  = { id: 'x2', application_open_date: '2026-09-01', residency_start_date: '2027-01-25' }
   const noOpen = { id: 'x3', application_open_date: null, residency_start_date: '2026-01-01', created_at: '2025-01-01T00:00:00Z' }
@@ -206,8 +206,14 @@ test('chronology: cycleChronoKey orders by application open, then residency star
   assert.ok(!isEarlierCycle(dated, dated), 'a cycle is never earlier than itself')
   // Null application_open_date sorts AFTER every dated cycle - an undated
   // cycle can never retroactively exclude anyone from a dated one.
-  assert.ok(!isEarlierCycle(noOpen, dated))
-  assert.ok(isEarlierCycle(dated, noOpen))
+  // HIRE-PAST-COHORT-1 changed this: a cycle with no opening date is placed by its residency
+  // start, so a past cohort (start only) reads as earlier than a later dated one.
+  assert.ok(isEarlierCycle(noOpen, dated))
+  const past = { id: 'x4', application_open_date: null, residency_start_date: '2026-08-14' }
+  const winter = { id: 'x5', application_open_date: '2026-11-09', residency_start_date: '2027-01-25' }
+  assert.ok(isEarlierCycle(past, winter), 'Summer 2026 (start only) is earlier than Winter 2027')
+  const noDates = { id: 'x6' }
+  assert.ok(isEarlierCycle(dated, noDates), 'a cycle with no dates at all still sorts last')
   // Fully-undated cycles fall through to created_at, then id - total order.
   const u1 = { id: 'aa', created_at: '2026-01-01T00:00:00Z' }
   const u2 = { id: 'bb', created_at: '2026-02-01T00:00:00Z' }

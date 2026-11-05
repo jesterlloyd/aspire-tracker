@@ -24,7 +24,9 @@ test('the profile is the application profile only, and the email is required', (
 test('the roster is the participating cohorts plus the alumni added by hand', () => {
   const src = read('lib/server/ngrpApplicants.js')
   assert.match(src, /from\('ngrp_cycle_added_alumni'\)\.select\('student_id'\)\s*\.eq\('cycle_id', cycleId\)\.is\('removed_at', null\)/)
-  assert.match(src, /isMissingNgrpTable\(r\.error\) \? \{ provisioned: false, ids: \[\] \}/, 'before the migration: nobody added')
+  // HIRE-PAST-COHORT-1 widened this: the read also returns the cohort's own hires (hiredIds).
+  assert.match(src, /isMissingNgrpTable\(r\.error\) \? \{ provisioned: false, ids: \[\], hiredIds: \[\] \}/, 'before the migration: nobody added')
+  assert.match(src, /from\('ngrp_residency_outcomes'\)\.select\('student_id'\)\.eq\('cycle_id', cycleId\)\.not\('hired_at', 'is', null\)/, 'a cohort lists its own hires')
   assert.match(src, /added_to_roster: true/)
   assert.match(src, /addedProvisioned: added\.provisioned/)
   for (const [f, re] of [

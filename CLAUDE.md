@@ -3079,3 +3079,11 @@ is Owner-gated (checks in `db/audit/residency_hire_history_checks.sql`).
   `20261127100000_past_residency_cohorts.sql` (Owner-gated) seeded Winter, Spring, Summer and Fall 2025
   and Winter, Spring and Summer 2026 as Completed, inactive, real cohorts with only a residency start
   date (checks `db/audit/past_residency_cohorts_checks.sql`).
+- **HIRE-PAST-COHORT-1 (2026-11-04).** Carla Layug's past hire saved into Summer 2026 but still read as
+  unhired under Winter 2027. The seeded cohorts carry no opening date, and `cycleChronoKey` put an
+  undated opening LAST, so Summer 2026 counted as later than Winter 2027 and the prior-hire exclusion
+  never fired; Summer 2026 itself had no roster to show the hire in. Now the key places a cohort with
+  no opening date by its residency start, and `fetchAddedStudentIds` adds every alumnus hired IN a
+  cohort to that cohort's roster (`hiredIds`; only hand adds carry the "added" tag). A hire recorded
+  in another cohort follows the record there (`?candidate=` and `sheet=hiring`), because the alumnus
+  leaves every later cohort's roster.

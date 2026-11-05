@@ -754,7 +754,21 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                     // HIRE-HISTORY-3: recorded in the cohort chosen in the form (hire_cycle_id).
                     backfillHire: staffApp && ownerAdmin ? (async (r, fields) => {
                       const res = await runManage('hire_backfill', { cycle_id: cycle.id, student_id: r.student.id, ...fields })
-                      if (res) toast?.success?.('Hire recorded', `${displayName(r.student)} is on record as hired in ${res.cycle_name || cycle.name}.`)
+                      if (!res) return res
+                      const elsewhere = res.cycle_id && res.cycle_id !== cycle.id
+                      toast?.success?.('Hire recorded', elsewhere
+                        ? `${displayName(r.student)} is on record as hired in ${res.cycle_name}. Their record now opens under that cohort.`
+                        : `${displayName(r.student)} is on record as hired in ${res.cycle_name || cycle.name}.`)
+                      // HIRE-PAST-COHORT-1: a hire recorded in another cohort moves the record there (an
+                      // earlier hire leaves later rosters), so follow it: ?candidate= switches the cohort.
+                      if (elsewhere && res.candidate_id) {
+                        const next = new URLSearchParams(searchParams)
+                        next.delete('student')
+                        next.delete('cohort')
+                        next.set('candidate', res.candidate_id)
+                        next.set('sheet', 'hiring')
+                        setSearchParams(next, { replace: true })
+                      }
                       return res
                     }) : undefined,
                     // RESIDENCY-PORTAL-2b: request (Talent Acquisition), decide (the Owner), view (the requester).
