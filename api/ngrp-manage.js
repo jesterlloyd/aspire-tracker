@@ -56,6 +56,7 @@ import {
   liveAssignmentForCandidate, revokeTokensById, recalculateEligibility, parseFormCloseDate,
 } from '../lib/server/ngrpTransition.js'
 import { recordNgrpAudit } from '../lib/server/ngrpAudit.js'
+import { runTransitionAction } from '../lib/server/ngrpTransitionActions.js'
 import { validateResidentDetails, validateBackfillHire, HIRE_HISTORY_KEYS } from '../src/lib/ngrp/ngrpResidents.js'
 import { licensedAtApplicationFor, recordTitleChange, backfillHire } from '../lib/server/ngrpHireHistory.js'
 import { serviceDbForRequest, demoScopeFromRequest } from '../lib/server/demoScope.js'
@@ -109,6 +110,8 @@ const ACTIONS = new Set([
   ...SCHEDULE_ACTIONS,
   // APPLICANT-SHEET-1
   'sheet_layout', 'sheet_cells',
+  // TRANSITION-STAFF-REVISION-1: Update Answers for the alumnus, Owner and Admin only.
+  'form_staff_load', 'form_staff_submit',
 ])
 const ELIGIBILITY_VOCAB = ['pending', 'eligible', 'conditionally_eligible', 'not_eligible']
 const OVERRIDE_CATEGORIES = ['documentation_verified', 'requirement_waived', 'data_correction', 'other']
@@ -653,6 +656,26 @@ export default async function handler(req, res) {
     // RESIDENCY-TA-1 (Owner, 2026-10-05): Talent Acquisition works with every alumnus now; it
     // was form submitters only. Sending and revoking links stay the ASPIRE team's below.
 
+    // TRANSITION-STAFF-REVISION-1 (Owner, 2026-11-05): the alumnus's answer changed and they
+    // asked the team to change it. Owner and Admin save a NEW revision through the alumnus's own
+    // form rules (runTransitionAction's staff door): same validation, same eligibility, a reason
+    // and the staff profile on the revision, earlier revisions kept. Only a form already submitted.
+    if (action === 'form_staff_load' || action === 'form_staff_submit') {
+      const ownerOrAdmin = caller.profile.is_owner === true || String(caller.profile.role || '').toLowerCase() === 'admin'
+      if (isTalentAcquisition || !ownerOrAdmin) return res.status(403).json({ error: 'owner_or_admin_only' })
+      const live = await liveAssignmentForCandidate(db, candidateId)
+      if (live.error) return isMissingNgrpTable(live.error) ? unprovisioned(res) : internal(res)
+      if (!live.assignment || live.assignment.revoked_at || !(live.assignment.revision_count > 0)) {
+        return res.status(409).json({ error: 'not_submitted' })
+      }
+      const out = await runTransitionAction(db, {
+        action: action === 'form_staff_load' ? 'load' : 'submit',
+        body, nowIso, staff: { profileId: actorId },
+        resolved: { closed: false, assignment: live.assignment, candidate, cycle },
+      })
+      return res.status(out.status).json(out.json)
+    }
+
     if (action === 'candidate_review') {
       const live = await liveAssignmentForCandidate(db, candidateId)
       if (live.error) return isMissingNgrpTable(live.error) ? unprovisioned(res) : internal(res)
@@ -663,13 +686,19 @@ export default async function handler(req, res) {
       let tokens = []
       if (live.assignment) {
         if (live.assignment.revision_count > 0) {
-          const rev = await db.from('ngrp_transition_revisions')
-            .select('id, revision_number, submitted_at, payload')
+          // TRANSITION-STAFF-REVISION-1: who entered it, when staff did (columns from 20261129000000).
+          const revQuery = cols => db.from('ngrp_transition_revisions').select(cols)
             .eq('assignment_id', live.assignment.id)
             .eq('revision_number', live.assignment.revision_count)
             .maybeSingle()
+          let rev = await revQuery('id, revision_number, submitted_at, payload, entered_by_profile_id, entered_reason')
+          if (rev.error && isMissingNgrpColumn(rev.error)) rev = await revQuery('id, revision_number, submitted_at, payload')
           if (rev.error) return internal(res)
           latestRevision = rev.data
+          if (latestRevision?.entered_by_profile_id) {
+            const who = await db.from('user_profiles').select('full_name').eq('id', latestRevision.entered_by_profile_id).maybeSingle()
+            latestRevision = { ...latestRevision, entered_by_name: who.data?.full_name || null }
+          }
         }
         const toks = await db.from('ngrp_transition_tokens')
           .select('id, token_hash_prefix, status, created_at, revoked_at, first_used_at')

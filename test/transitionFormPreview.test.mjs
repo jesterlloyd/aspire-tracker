@@ -32,7 +32,8 @@ test('no cohort still renders a form with no close date', () => {
 
 test('the page in preview mode calls no endpoint and never submits', () => {
   const page = read('src/pages/NgrpTransitionFormPage.jsx')
-  assert.match(page, /if \(initial\.preview\) return\n\s+dirtyRef/)
+  // TRANSITION-STAFF-REVISION-1 (that commit): staff never autosave either.
+  assert.match(page, /if \(initial\.preview \|\| initial\.staff\) return\n\s+dirtyRef/)
   assert.match(page, /if \(submitting \|\| initial\.preview\) return/)
   assert.match(page, /disabled=\{submitting \|\| initial\.preview\}/)
   // TRANSITION-PORTAL-1: the Student Portal's form has no token in the address bar either.

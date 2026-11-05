@@ -1016,7 +1016,8 @@ test('public: endpoint order - token shape gate before db, rate limit fail-close
 
 test('public: closed-link bookkeeping - closure is checked BEFORE first-use/Opened writes, and update results are checked', () => {
   const loadBlock = publicApi.slice(publicApi.indexOf("action === 'load'"), publicApi.indexOf('// Prefill identity'))
-  assert.match(loadBlock, /if \(!resolved\.closed\) \{/)
+  // TRANSITION-STAFF-REVISION-1 (that commit): staff never do first-open bookkeeping either.
+  assert.match(loadBlock, /if \(!resolved\.closed && !staff\) \{/)
   assert.ok(loadBlock.indexOf('if (!resolved.closed)') < loadBlock.indexOf('.update({ first_used_at'),
     'an expired link may render the safe page but never records an open')
   assert.match(loadBlock, /used\.error/)

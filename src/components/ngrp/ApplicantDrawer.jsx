@@ -32,6 +32,7 @@ import ResidentTitlePicker from './ResidentTitlePicker'
 import InterviewRubricsSection from './InterviewRubricsSection'
 import { CandidateScoreSection } from './CandidateScore'
 import { transitionSummaryRows } from '../../lib/ngrp/transitionSummary'
+import UpdateAnswersEditor from './UpdateAnswersEditor'
 import { recommendationLabel } from '../../lib/ngrp/ngrpRubric'
 import { downloadApplicantPacket } from '../../lib/ngrp/applicantPacketClient'
 // APPLICANT-CHART-1: the applicant is the Student Profiles binder with the application's
@@ -1173,6 +1174,8 @@ function ApplicantDrawerBody({
   const [overrideOpen, setOverrideOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [confirming, setConfirming] = useState(null) // 'confirm' | 'withdraw' | 'revoke'
+  // TRANSITION-STAFF-REVISION-1: the Owner or an Admin changes the answers for the alumnus.
+  const [editingAnswers, setEditingAnswers] = useState(false)
   const s = row.student
   const elig = effectiveEligibility(row)
   const overridden = Boolean(row.eligibility_effective)
@@ -1436,14 +1439,36 @@ function ApplicantDrawerBody({
                   </p>
                   {hasSubmission && (
                     <div style={{ marginTop: 10 }}>
-                      {reviewState === 'idle' && (
-                        <button type="button" style={smallBtn()} onClick={loadReview}>Review submitted form</button>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        {reviewState === 'idle' && (
+                          <button type="button" style={smallBtn()} onClick={loadReview}>Review submitted form</button>
+                        )}
+                        {actions.updateAnswers && provisioned && (
+                          <button type="button" style={smallBtn()} onClick={() => setEditingAnswers(true)}>Update Answers</button>
+                        )}
+                      </div>
+                      {editingAnswers && (
+                        <UpdateAnswersEditor
+                          candidateId={row.candidate_id}
+                          onCancel={() => setEditingAnswers(false)}
+                          onDone={body => {
+                            setEditingAnswers(false)
+                            setReview(null); setReviewState('idle')
+                            actions.updateAnswers(row, body)
+                          }}
+                        />
                       )}
                       {reviewState === 'loading' && <span style={{ fontSize: 12, color: 'var(--text-caption)', fontFamily: F }}>Loading submission…</span>}
                       {reviewState === 'error' && <span style={{ fontSize: 12, color: 'var(--aspire-bad)', fontFamily: F }}>The submission could not load - try again.</span>}
                       {reviewState === 'ready' && review?.latestRevision && (
                         <>
                           <Row label={`Revision ${review.latestRevision.revision_number}`}>{fmt(review.latestRevision.submitted_at)}</Row>
+                          {review.latestRevision.entered_by_profile_id && (
+                            <Row label="Entered by">
+                              {review.latestRevision.entered_by_name || 'The ASPIRE team'} for the alumnus
+                              {review.latestRevision.entered_reason ? `: ${review.latestRevision.entered_reason}` : ''}
+                            </Row>
+                          )}
                           <RevisionSummary payload={review.latestRevision.payload} />
                         </>
                       )}

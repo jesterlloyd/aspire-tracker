@@ -3127,6 +3127,24 @@ first. The send, the daily reminder, the one-time code and the form's suggested 
 `test/alumnusEmailRoute.test.mjs` fails if one of those calls drops it. A new residency sender
 must pass it too. Accounts already created on a school address are not moved by this change.
 
+## Staff can update an alumnus's answers (TRANSITION-STAFF-REVISION-1, 2026-11-05)
+
+Owner: an alumnus's answer changed (Allison Rabanales scheduled her NCLEX after submitting "No")
+and they asked the team to change it. A Sheet correction (SHEET-CORRECT-1) changes only the
+Sheet, so eligibility, Fit and Keith kept the old answer. Now the binder's Transition Form section
+has **Update Answers** (Owner and Admin, staff app only): it opens the alumnus's own form
+(`NgrpTransitionFormPage` with `staff`, in `UpdateAnswersEditor.jsx`) on their latest SUBMITTED
+revision, never their draft, with no autosave and a required reason. Saving is a NEW revision
+through `ngrp-manage` `form_staff_load` / `form_staff_submit`, the staff door of
+`runTransitionAction` and `staffRevision`: the same validation and eligibility as the alumnus's
+submit, no deadline, and every earlier revision kept. `ngrp_staff_revision_tx`
+(`20261129000000_transition_staff_revision.sql`, Owner-gated; checks
+`db/audit/transition_staff_revision_checks.sql`) stamps `entered_by_profile_id` and
+`entered_reason` on the revision and audits `form_revised` as staff, so the audit CHECK is
+unchanged. Only a submitted form (409 `not_submitted`); before the migration the save answers
+409 `not_enabled` and nothing changes. The Review shows "Entered by NAME for the alumnus: reason".
+The alumnus's own draft, if any, is left alone: their form still opens on it until they submit.
+
 ## Studio designs the email; Outreach sends it (STUDIO-1, 2026-11-05)
 
 ASPIRE Connect > Studio (`/connect/studio`, Owner and Admin, the Messages rule) designs

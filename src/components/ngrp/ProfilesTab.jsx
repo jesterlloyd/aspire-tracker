@@ -719,6 +719,12 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                   actions={{
                     sendForm: canSendForms ? r => launchSend([r]) : undefined,
                     review: r => postNgrpManage('candidate_review', { candidate_id: r.candidate_id }),
+                    // TRANSITION-STAFF-REVISION-1: Owner and Admin, staff app only. The editor saved
+                    // the revision; this says so and refreshes eligibility, Fit and the row.
+                    updateAnswers: staffApp && ownerAdmin ? ((r) => {
+                      toast?.success?.('Answers updated', `Saved as a new revision for ${displayName(r.student)}. Eligibility and Fit now read it; Keith reads it within about 10 minutes.`)
+                      refetch()
+                    }) : undefined,
                     // RESIDENCY-ROSTER-1: the roster is informational; every action on a
                     // person lives in their drawer (Owner). Confirmation is gone from
                     // both, because it happens on its own now.

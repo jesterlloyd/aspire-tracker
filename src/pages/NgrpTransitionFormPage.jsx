@@ -101,6 +101,7 @@ const CSS = `
   .ngrpf-submitrow { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
   .ngrpf-submit { min-height: 52px; width: 100%; border: none; border-radius: 10px; background: #1D2567; color: #fff; font-family: ${F}; font-size: 15.5px; font-weight: 700; cursor: pointer; }
   .ngrpf-submit:disabled { opacity: 0.55; cursor: not-allowed; }
+  .ngrpf-cancel { min-height: 44px; width: 100%; border: 1px solid #1D2567; border-radius: 10px; background: #fff; color: #1D2567; font-family: ${F}; font-size: 14.5px; font-weight: 600; cursor: pointer; }
   .ngrpf-saved { font-size: 12px; color: #6B7785; text-align: center; min-height: 16px; }
   .ngrpf-state { max-width: 560px; margin: 12vh auto 0; background: #fff; border: 1px solid #e8e4dc; border-radius: 14px; padding: 34px 30px; text-align: center; }
   .ngrpf-state h1 { font-size: 19px; margin: 0 0 10px; color: #1D2567; }
@@ -111,6 +112,7 @@ const CSS = `
 // Server error fields → the input that fixes them (the pill-group fields
 // scroll to the summary only; their labels carry the group name).
 const FIELD_TO_INPUT_ID = {
+  staff_reason: 'staff_reason',
   'identity.preferred_email': 'pe',
   'education.completion_date': 'cd',
   'education.gpa': 'gpa',
@@ -145,9 +147,15 @@ const preventImplicitSubmit = e => {
 // TRANSITION-PORTAL-1: `portal` is the Student Portal's door, { post(action, extra) -> { status, body } }.
 // The alumnus is signed in, so there is no token, no code and no address-bar handling; every
 // answer still goes through the same server rules (lib/server/ngrpTransitionActions.js).
-export default function NgrpTransitionFormPage({ preview = null, portal = null }) {
+//
+// TRANSITION-STAFF-REVISION-1: `staff` is the binder's Update Answers door,
+// { post(action, extra) -> { status, body }, onDone(body), onCancel() }. The Owner or an Admin
+// changes the alumnus's answers for them: the same form and the same server rules, no draft
+// autosave, a required reason, and the submit saves a new revision marked as entered by staff.
+export default function NgrpTransitionFormPage({ preview = null, portal = null, staff = null }) {
   const [initial] = useState(() => {
     if (preview) return { rawToken: null, valid: false, preview: true }
+    if (staff) return { rawToken: null, valid: true, portal: true, staff: true }
     if (portal) return { rawToken: null, valid: true, portal: true }
     const match = TOKEN_PATTERN.exec(window.location.hash)
     const kept = tabRead()
@@ -183,7 +191,8 @@ export default function NgrpTransitionFormPage({ preview = null, portal = null }
     return () => { m.remove(); fd.remove(); document.getElementById('ngrpf-css')?.remove() }
   }, [initial.preview, initial.portal])
 
-  const portalPost = portal?.post
+  const [staffReason, setStaffReason] = useState('')
+  const portalPost = staff?.post || portal?.post
   const post = useCallback(async (action, extra = {}) => {
     if (portalPost) return portalPost(action, extra)
     const res = await fetch('/api/ngrp-transition', {
@@ -258,7 +267,7 @@ export default function NgrpTransitionFormPage({ preview = null, portal = null }
 
   // Quiet debounced autosave: updates the single active draft only.
   const scheduleSave = useCallback((nextPayload) => {
-    if (initial.preview) return
+    if (initial.preview || initial.staff) return
     dirtyRef.current = true
     clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(async () => {
@@ -270,7 +279,7 @@ export default function NgrpTransitionFormPage({ preview = null, portal = null }
         setSavedLine(`Draft saved ${new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`)
       }
     }, 1500)
-  }, [post, initial.preview, initial.portal])
+  }, [post, initial.preview, initial.portal, initial.staff])
   useEffect(() => () => clearTimeout(saveTimer.current), [])
 
   const update = (section, field, value) => {
@@ -311,11 +320,22 @@ export default function NgrpTransitionFormPage({ preview = null, portal = null }
 
   const submit = async () => {
     if (submitting || initial.preview) return
+    if (initial.staff && !staffReason.trim()) {
+      showErrors([{ field: 'staff_reason', message: 'Say why you are changing the answers.' }])
+      return
+    }
     setSubmitting(true)
     setErrors([])
     clearTimeout(saveTimer.current)
-    const { status, body } = await post('submit', { payload })
+    const { status, body } = await post('submit', initial.staff ? { payload, reason: staffReason.trim() } : { payload })
     setSubmitting(false)
+    if (initial.staff) {
+      if (status === 200 && body?.success) { staff.onDone?.(body); return }
+      if (status === 422) { showErrors(body?.errors?.length ? body.errors : [{ message: body?.error || 'Please review the required fields and try again.' }]); return }
+      if (status === 409 && body?.error === 'not_enabled') { showErrors([{ message: 'Updating answers is not enabled on this database yet (migration 20261129000000).' }]); return }
+      showErrors([{ message: body?.error || 'The answers could not be saved. Nothing changed; try again.' }])
+      return
+    }
     if (status === 200 && body?.success) { setMeta(m => ({ ...m, revisionNumber: body.revisionNumber })); setView('thank_you'); return }
     if (status === 401) { setView(initial.portal ? 'error' : 'verify'); return }
     if (status === 422) { showErrors(body?.errors || [{ message: 'Please review the required fields and try again.' }]); return }
@@ -430,12 +450,20 @@ export default function NgrpTransitionFormPage({ preview = null, portal = null }
           </p>
         </div>
         <form className="ngrpf-card" onKeyDown={preventImplicitSubmit} onSubmit={e => { e.preventDefault(); submit() }}>
+          {initial.staff && (
+            <p className="ngrpf-note" role="note">
+              You are changing {meta?.studentFullName || 'this alumnus'}&rsquo;s answers for them. Saving makes a new
+              revision, recorded with your name and the reason below; every earlier revision is kept, and
+              eligibility, Fit and Keith read the new one.
+              {meta?.alumnusDraftAt ? ' They also have an unsubmitted draft, which this does not replace.' : ''}
+            </p>
+          )}
           {initial.preview && (
             <p className="ngrpf-note" role="note">
               Preview with sample data. This is exactly what an alumnus sees; nothing you type here is saved, and Submit is turned off.
             </p>
           )}
-          {isRevise && (
+          {isRevise && !initial.staff && (
             <p className="ngrpf-note">
               You submitted this form {meta?.submittedAt ? `on ${new Date(meta.submittedAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}` : 'previously'}.
               Submitting again saves a new revision - your earlier submission is kept for the ASPIRE team.
@@ -698,11 +726,22 @@ export default function NgrpTransitionFormPage({ preview = null, portal = null }
             </div>
           )}
 
+          {initial.staff && (
+            <div className="ngrpf-field" style={{ marginTop: 18 }}>
+              <label htmlFor="staff_reason">Why are you changing these answers? <span className="req">*</span></label>
+              <textarea id="staff_reason" rows={2} maxLength={500} value={staffReason}
+                onChange={e => setStaffReason(e.target.value)}
+                placeholder="For example: She scheduled her NCLEX and asked us to update her answer." />
+            </div>
+          )}
           <div className="ngrpf-submitrow">
             <button type="submit" className="ngrpf-submit" disabled={submitting || initial.preview}>
-              {submitting ? 'Submitting…' : isRevise ? 'Submit revision' : 'Submit Transition Form'}
+              {submitting ? (initial.staff ? 'Saving…' : 'Submitting…') : initial.staff ? 'Save as a new revision' : isRevise ? 'Submit revision' : 'Submit Transition Form'}
             </button>
-            <div className="ngrpf-saved" aria-live="polite">{initial.preview ? 'Preview only: nothing is submitted.' : savedLine}</div>
+            {initial.staff && (
+              <button type="button" className="ngrpf-cancel" onClick={() => staff.onCancel?.()} disabled={submitting}>Cancel</button>
+            )}
+            <div className="ngrpf-saved" aria-live="polite">{initial.preview ? 'Preview only: nothing is submitted.' : initial.staff ? '' : savedLine}</div>
           </div>
         </form>
       </div>
