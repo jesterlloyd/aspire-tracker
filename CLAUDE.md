@@ -3153,6 +3153,13 @@ Phase 3, scheduling and results Phase 4.
   bucket, from Owner-gated `20261128000000_studio_designs.sql` (checks
   `db/audit/studio_designs_checks.sql`). Before it, designs live in this browser keyed by user id
   (S-17 'keyed'), upload is not offered, and the first server load offers to copy them up. APPLIED 2026-11-05.
+- **The editor's chrome** (STUDIO-PANES-1 and 2, Owner, 2026-11-05): the block library is an icon
+  (tinted by group), a name and one line per block, with pinned group labels; the inspector's style
+  choices split the panel equally (`.st-seg-fill`). With no block selected the right pane is **Email
+  Settings** (Subject, Preview text, Theme), which left the bar. "Before you send" sits under the bar,
+  every item a jump to its block or field (`designProblems(...).items`); a block that still needs
+  something wears it on the canvas (`blockIssues`, "Needs a link"), and Review & send counts what is
+  left to fix. Swatches carry names (`SWATCH_NAMES`). The bar is three groups: edit, view, send.
 - The email is not themed: it is white paper in both themes and styles. The canvas sits on the
   quiet board in Classic and a plain grey in Modern. Radii in `studio.css` read tokens or the
   sheet's named `--st-r-*`.

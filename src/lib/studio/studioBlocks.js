@@ -302,25 +302,52 @@ export function parseDesign(input) {
  * the request (server); `warnings` are shown and never block. A link is never invented: a button
  * with no link blocks the send, which is how a missing application link stays visible.
  */
+// Names for the swatches, shown on hover and read by screen readers (STUDIO-PANES-2).
+export const SWATCH_NAMES = Object.freeze({
+  '#1D2567': 'ASPIRE Navy', '#141A4D': 'Nightfall', '#2F5D50': 'Forest', '#6B3F1F': 'Cognac',
+  '#DC1E34': 'Cedars Red', '#C9B27A': 'Gold', '#F4F1EC': 'Sand', '#F7F5F0': 'Pearl',
+  '#EEF2FB': 'Mist', '#FFFFFF': 'White', '#2B2F3A': 'Charcoal', '#5B6472': 'Slate',
+})
+
+/**
+ * What one block still needs before it can be sent, short enough to print on the canvas
+ * ("Needs a link") and long enough to stand alone in the list. level 'blocking' stops the send.
+ */
+export function blockIssues(block) {
+  const b = block
+  const out = []
+  if (!b || !BLOCKS[b.type]) return out
+  const p = b.props || {}
+  const add = (level, short, text) => out.push({ level, short, text })
+  if (b.type === 'button' && !p.url) add('blocking', 'Needs a link', 'needs a link.')
+  if (b.type === 'button' && !String(p.label || '').trim()) add('blocking', 'Needs a label', 'needs a label.')
+  if (b.type === 'form' && !p.formId) add('blocking', 'Needs a form', 'needs a Catalog form.')
+  if (b.type === 'image' && !p.url) add('blocking', 'Needs an image', 'needs an image.')
+  if (b.type === 'image' && p.url && !String(p.alt || '').trim()) add('warning', 'No alt text', 'has no alt text. Screen readers and blocked images show nothing.')
+  if (b.type === 'hero' && p.imageUrl && !String(p.imageAlt || '').trim()) add('warning', 'No alt text', 'has a photo with no alt text.')
+  if (b.type === 'event' && !p.date) add('warning', 'No date', 'has no date.')
+  return out
+}
+
+/**
+ * Everything to fix before a send. blocking and warnings are the sentences (the server refuses
+ * a send with any blocking one); items carries the same list with what each one points at, so
+ * the editor can jump to the block or the field.
+ */
 export function designProblems(design) {
   const d = sanitizeDesign(design)
-  const blocking = []
-  const warnings = []
-  if (!d.subject.trim()) blocking.push('Add a subject line.')
-  if (!d.blocks.length) blocking.push('Add at least one block.')
+  const items = []
+  if (!d.subject.trim()) items.push({ level: 'blocking', text: 'Add a subject line.', field: 'subject' })
+  if (!d.blocks.length) items.push({ level: 'blocking', text: 'Add at least one block.' })
   d.blocks.forEach((b, i) => {
     const n = `${BLOCKS[b.type].label} (block ${i + 1})`
-    if (b.type === 'button' && !b.props.url) blocking.push(`${n} needs a link.`)
-    if (b.type === 'button' && !b.props.label.trim()) blocking.push(`${n} needs a label.`)
-    if (b.type === 'form' && !b.props.formId) blocking.push(`${n} needs a Catalog form.`)
-    if (b.type === 'image' && !b.props.url) blocking.push(`${n} needs an image.`)
-    if (b.type === 'image' && b.props.url && !b.props.alt.trim()) warnings.push(`${n} has no alt text. Screen readers and blocked images show nothing.`)
-    if (b.type === 'hero' && b.props.imageUrl && !b.props.imageAlt.trim()) warnings.push(`${n} has a photo with no alt text.`)
-    if (b.type === 'event' && !b.props.date) warnings.push(`${n} has no date.`)
+    for (const it of blockIssues(b)) items.push({ level: it.level, text: `${n} ${it.text}`, blockId: b.id })
   })
-  if (!d.blocks.some(b => b.type === 'footer')) warnings.push('There is no footer saying why people received this.')
-  if (d.preheader.trim() === '') warnings.push('There is no preview text. Inboxes will show the first words instead.')
-  return { blocking, warnings }
+  if (!d.blocks.some(b => b.type === 'footer')) items.push({ level: 'warning', text: 'There is no footer saying why people received this.' })
+  if (d.preheader.trim() === '') items.push({ level: 'warning', text: 'There is no preview text. Inboxes will show the first words instead.', field: 'preheader' })
+  const blocking = items.filter(x => x.level === 'blocking').map(x => x.text)
+  const warnings = items.filter(x => x.level === 'warning').map(x => x.text)
+  return { blocking, warnings, items }
 }
 
 // ── Contrast (WCAG 2.1) ─────────────────────────────────────────────────────────

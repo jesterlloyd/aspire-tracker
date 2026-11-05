@@ -6,11 +6,12 @@
 // mails it to you alone; Review & send opens the audience drawer.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { PanelTop, Sparkles, Heading, AlignLeft, Image as ImageIcon, Columns2, ListOrdered, Quote, MousePointerClick, CalendarDays, ClipboardList, Minus, MoveVertical, PenLine, PanelBottom, Bookmark, Plus } from 'lucide-react'
+import { PanelTop, Sparkles, Heading, AlignLeft, Image as ImageIcon, Columns2, ListOrdered, Quote, MousePointerClick, CalendarDays, ClipboardList, Minus, MoveVertical, PenLine, PanelBottom, Bookmark, Plus, Undo2, Redo2, AlertTriangle } from 'lucide-react'
+import Tooltip from '../ui/Tooltip'
 import StudioInspector from './StudioInspector'
 import StudioSendDrawer from './StudioSendDrawer'
 import StudioPreviewModal from './StudioPreviewModal'
-import { BLOCKS, BLOCK_GROUPS, THEMES, makeBlock, sanitizeDesign, designProblems, newBlockId, SUBJECT_MAX, PREHEADER_MAX, MAX_BLOCKS } from '../../lib/studio/studioBlocks'
+import { BLOCKS, BLOCK_GROUPS, THEMES, makeBlock, sanitizeDesign, designProblems, blockIssues, newBlockId, MAX_BLOCKS } from '../../lib/studio/studioBlocks'
 import { renderBlockRows } from '../../lib/studio/renderEmail'
 import { studioSend } from '../../lib/studio/studioClient'
 import { useAuth } from '../../contexts/AuthContext'
@@ -199,7 +200,18 @@ export default function StudioEditor({ store, designId, initialDesign, initialNa
     setDropAt(null); setDragId(null)
   }
 
-  const problems = useMemo(() => design ? designProblems(design) : { blocking: [], warnings: [] }, [design])
+  const problems = useMemo(() => design ? designProblems(design) : { blocking: [], warnings: [], items: [] }, [design])
+  // A problem in the list jumps to what it names: the block, or the email's own field.
+  const [focusField, setFocusField] = useState(null)
+  const jumpTo = (item) => {
+    if (item.blockId) {
+      setSelected(item.blockId)
+      requestAnimationFrame(() => document.querySelector(`[data-block-id="${item.blockId}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }))
+    } else if (item.field) {
+      setSelected(null)
+      setFocusField({ name: item.field, at: Date.now() })
+    }
+  }
   const selectedBlock = design?.blocks.find(b => b.id === selected) || null
   const renderOpts = useMemo(() => ({ brand, signature, mergePreview: true, formMode: 'link', formUrl: () => '#' }), [brand, signature])
 
@@ -228,34 +240,44 @@ export default function StudioEditor({ store, designId, initialDesign, initialNa
           maxLength={120} onChange={e => { setName(e.target.value); setSaveState('unsaved') }} />
         <span className="st-saved" aria-live="polite">{saveLabel}{store.mode === 'local' ? ' in this browser' : ''}</span>
         <div className="st-grow" />
-        <button type="button" className="st-btn st-btn-sm st-btn-ghost" onClick={undo} disabled={!past.length} aria-label="Undo">↶</button>
-        <button type="button" className="st-btn st-btn-sm st-btn-ghost" onClick={redo} disabled={!future.length} aria-label="Redo">↷</button>
-        <div className="st-seg" role="group" aria-label="Preview width">
-          <button type="button" aria-pressed={device === 'desktop'} onClick={() => setDevice('desktop')}>Desktop</button>
-          <button type="button" aria-pressed={device === 'phone'} onClick={() => setDevice('phone')}>Phone</button>
+        <div className="st-bar-grp" role="group" aria-label="Edit">
+          <Tooltip label={`Undo (${MOD}Z)`}>
+            <button type="button" className="st-iconbtn" onClick={undo} disabled={!past.length} aria-label="Undo"><Undo2 size={17} strokeWidth={2.2} /></button>
+          </Tooltip>
+          <Tooltip label={`Redo (${MOD}${SHIFT}Z)`}>
+            <button type="button" className="st-iconbtn" onClick={redo} disabled={!future.length} aria-label="Redo"><Redo2 size={17} strokeWidth={2.2} /></button>
+          </Tooltip>
         </div>
-        <label className="st-row" style={{ gap: 6, fontSize: 12, fontWeight: 600 }}>
-          <span className="st-sub" style={{ margin: 0 }}>Theme</span>
-          <select className="st-select" style={{ width: 160, height: 30, padding: '0 8px' }} value={design.theme}
-            onChange={e => apply(d => ({ ...d, theme: e.target.value }))}>
-            {Object.values(THEMES).map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
-          </select>
-        </label>
-        <button type="button" className="st-btn st-btn-sm" onClick={() => setPreviewOpen(true)}>Preview as sent</button>
-        <button type="button" className="st-btn st-btn-sm" onClick={sendTest} disabled={testing}>{testing ? 'Sending…' : 'Send me a test'}</button>
-        <button type="button" className="st-btn st-btn-sm st-btn-primary" onClick={async () => { if (saveState === 'unsaved') await saveNow(); setSendOpen(true) }}>Review &amp; send →</button>
+        <span className="st-bar-sep" aria-hidden="true" />
+        <div className="st-bar-grp" role="group" aria-label="View">
+          <div className="st-seg" role="group" aria-label="Preview width">
+            <button type="button" aria-pressed={device === 'desktop'} onClick={() => setDevice('desktop')}>Desktop</button>
+            <button type="button" aria-pressed={device === 'phone'} onClick={() => setDevice('phone')}>Phone</button>
+          </div>
+          <button type="button" className="st-btn st-btn-sm" onClick={() => setPreviewOpen(true)}>Preview as sent</button>
+        </div>
+        <span className="st-bar-sep" aria-hidden="true" />
+        <div className="st-bar-grp" role="group" aria-label="Send">
+          <button type="button" className="st-btn st-btn-sm" onClick={sendTest} disabled={testing}>{testing ? 'Sending…' : 'Send me a test'}</button>
+          <button type="button" className="st-btn st-btn-sm st-btn-primary" onClick={async () => { if (saveState === 'unsaved') await saveNow(); setSendOpen(true) }}>
+            Review &amp; send →
+            {problems.blocking.length > 0 && <span className="st-fixcount">{problems.blocking.length} to fix</span>}
+          </button>
+        </div>
       </div>
 
-      <div className="st-subjectbar">
-        <label>Subject
-          <input className="st-input" value={design.subject} maxLength={SUBJECT_MAX} placeholder="What the inbox shows first"
-            onChange={e => apply(d => ({ ...d, subject: e.target.value }))} />
-        </label>
-        <label>Preview text
-          <input className="st-input" value={design.preheader} maxLength={PREHEADER_MAX} placeholder="The line after the subject in most inboxes"
-            onChange={e => apply(d => ({ ...d, preheader: e.target.value }))} />
-        </label>
-      </div>
+      {problems.items.length > 0 && (
+        <div className="st-problems" role="region" aria-label="Before you send">
+          <span className="st-problems-h">Before you send</span>
+          {problems.items.map(p => {
+            const bad = p.level === 'blocking'
+            const body = <><i className={`st-dot ${bad ? 'st-dot-bad' : 'st-dot-warn'}`} aria-hidden="true">!</i><span>{p.text}</span></>
+            return (p.blockId || p.field)
+              ? <button key={p.text} type="button" className="st-check st-problem-jump" onClick={() => jumpTo(p)}>{body}</button>
+              : <span key={p.text} className="st-check">{body}</span>
+          })}
+        </div>
+      )}
 
       <div className="st-body">
         <nav className="st-lib" aria-label="Blocks">
@@ -297,7 +319,8 @@ export default function StudioEditor({ store, designId, initialDesign, initialNa
               <div key={b.id}>
                 <div className={`st-drop${dropAt === i ? ' is-on' : ''}`} />
                 <div
-                  className={`st-block${selected === b.id ? ' is-selected' : ''}${dragId === b.id ? ' is-dragging' : ''}`}
+                  data-block-id={b.id}
+                  className={`st-block${selected === b.id ? ' is-selected' : ''}${dragId === b.id ? ' is-dragging' : ''}${issueOf(b) ? ` has-issue is-${issueOf(b).level}` : ''}`}
                   style={{ background: THEMES[design.theme]?.surface }}
                   role="button" tabIndex={0} aria-label={`${BLOCKS[b.type].label} block ${i + 1}`} aria-pressed={selected === b.id}
                   draggable
@@ -308,6 +331,11 @@ export default function StudioEditor({ store, designId, initialDesign, initialNa
                   onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelected(b.id) } }}
                 >
                   {selected === b.id && <span className="st-tag">{BLOCKS[b.type].label}</span>}
+                  {issueOf(b) && (
+                    <span className={`st-issue st-issue-${issueOf(b).level}`}>
+                      <AlertTriangle size={12} strokeWidth={2.4} aria-hidden="true" />{issueOf(b).short}
+                    </span>
+                  )}
                   {selected === b.id && (
                     <div className="st-blockctl" onClick={e => e.stopPropagation()}>
                       <button type="button" onClick={() => moveBlock(b.id, -1)} disabled={i === 0} aria-label="Move up">↑</button>
@@ -326,10 +354,14 @@ export default function StudioEditor({ store, designId, initialDesign, initialNa
           </div>
         </div>
 
-        <aside className="st-props" aria-label="Block settings">
+        <aside className="st-props" aria-label={selectedBlock ? 'Block settings' : 'Email settings'}>
           <StudioInspector
             block={selectedBlock}
             themeId={design.theme}
+            design={design}
+            onDesign={apply}
+            focusField={focusField}
+            onShowEmail={() => setSelected(null)}
             onChange={(patch) => selectedBlock && updateBlock(selectedBlock.id, patch)}
             onSaveBlock={async (nm) => {
               try { const row = await store.saveBlock(nm, selectedBlock); setSaved(s => [...s, row]); toast?.success?.('Block saved', `"${nm}" is under Saved in the block list.`) }
@@ -340,13 +372,6 @@ export default function StudioEditor({ store, designId, initialDesign, initialNa
           />
         </aside>
       </div>
-
-      {(problems.blocking.length > 0 || problems.warnings.length > 0) && (
-        <div className="st-problems" aria-label="Before you send">
-          {problems.blocking.map(p => <span key={p} className="st-check"><i className="st-dot st-dot-bad">!</i><span>{p}</span></span>)}
-          {problems.warnings.map(p => <span key={p} className="st-check"><i className="st-dot st-dot-warn">!</i><span>{p}</span></span>)}
-        </div>
-      )}
 
       {previewOpen && <StudioPreviewModal design={design} onClose={() => setPreviewOpen(false)} />}
       {sendOpen && (
@@ -363,4 +388,14 @@ export default function StudioEditor({ store, designId, initialDesign, initialNa
 function LibIcon({ type, group }) {
   const Icon = BLOCK_ICONS[type] || AlignLeft
   return <span className={`st-lib-ico st-lib-ico-${String(group).toLowerCase()}`} aria-hidden="true"><Icon size={16} strokeWidth={2} /></span>
+}
+
+const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent || '')
+const MOD = IS_MAC ? '⌘' : 'Ctrl+'
+const SHIFT = IS_MAC ? '⇧' : 'Shift+'
+
+/** The most serious thing a block still needs, for the canvas marker. */
+function issueOf(block) {
+  const all = blockIssues(block)
+  return all.find(x => x.level === 'blocking') || all[0] || null
 }

@@ -4,8 +4,9 @@
 // the panel offers is one the catalog in src/lib/studio/studioBlocks.js accepts, and the
 // Readability line measures what the block will actually paint.
 
-import { useRef, useState } from 'react'
-import { BLOCKS, SWATCHES, blockColorPairs, contrastRatio, safeUrl, safeImageUrl } from '../../lib/studio/studioBlocks'
+import { useEffect, useRef, useState } from 'react'
+import Tooltip from '../ui/Tooltip'
+import { BLOCKS, SWATCHES, SWATCH_NAMES, THEMES, SUBJECT_MAX, PREHEADER_MAX, blockColorPairs, contrastRatio, safeUrl, safeImageUrl } from '../../lib/studio/studioBlocks'
 import { uploadStudioImage } from '../../lib/studio/studioClient'
 import { useCatalogForms } from '../connect/blocks/useCatalogForms'
 import { REMINDER_RULES } from '../../lib/forms/formModel'
@@ -20,21 +21,14 @@ const VALUE_LABELS = {
   rounded: 'Rounded', pill: 'Pill', square: 'Square', auto: 'Fit',
 }
 
-export default function StudioInspector({ block, themeId, onChange, onSaveBlock, imagesEnabled, toast }) {
+export default function StudioInspector({ block, themeId, design, onDesign, focusField, onShowEmail, onChange, onSaveBlock, imagesEnabled, toast }) {
   const [tab, setTab] = useState('content')
-  if (!block) {
-    return (
-      <div style={{ paddingTop: 16 }}>
-        <h3 className="st-h">Nothing Selected</h3>
-        <p className="st-sub">Click a block in the email to change its words and look. Drag blocks to reorder them, or use the arrows on a selected block.</p>
-        <p className="st-sub" style={{ marginTop: 10 }}>Keyboard: Delete removes the selected block, Cmd or Ctrl + Z undoes.</p>
-      </div>
-    )
-  }
+  if (!block) return <EmailSettings design={design} onDesign={onDesign} focusField={focusField} />
   const def = BLOCKS[block.type]
   const hasStyle = Object.keys(def.styleRules).length > 0
   return (
     <>
+      <button type="button" className="st-back" onClick={onShowEmail}>‹ Email settings</button>
       <div className="st-ptabs" role="tablist" aria-label={`${def.label} settings`}>
         <button type="button" role="tab" aria-selected={tab === 'content'} onClick={() => setTab('content')}>Content</button>
         {hasStyle && <button type="button" role="tab" aria-selected={tab === 'style'} onClick={() => setTab('style')}>Style</button>}
@@ -44,6 +38,45 @@ export default function StudioInspector({ block, themeId, onChange, onSaveBlock,
         : <StylePanel block={block} themeId={themeId} onChange={onChange} />}
       <SaveBlock key={`save-${block.id}`} label={def.label} onSave={onSaveBlock} />
     </>
+  )
+}
+
+/** What the email itself carries, shown whenever no block is selected (STUDIO-PANES-2). */
+function EmailSettings({ design, onDesign, focusField }) {
+  const subjectRef = useRef(null)
+  const preRef = useRef(null)
+  useEffect(() => {
+    if (!focusField) return
+    const el = focusField.name === 'preheader' ? preRef.current : subjectRef.current
+    el?.focus()
+    el?.scrollIntoView?.({ block: 'center' })
+  }, [focusField])
+  if (!design) return null
+  return (
+    <div style={{ paddingTop: 16 }}>
+      <h3 className="st-h">Email Settings</h3>
+      <p className="st-sub" style={{ marginBottom: 14 }}>Click a block in the email to change its words and look.</p>
+      <label className="st-field" style={{ display: 'block' }}>
+        <span className="st-label">Subject</span>
+        <input ref={subjectRef} className="st-input" value={design.subject} maxLength={SUBJECT_MAX} placeholder="What the inbox shows first"
+          aria-invalid={!design.subject.trim()} onChange={e => onDesign(d => ({ ...d, subject: e.target.value }))} />
+        <span className="st-hint st-count">{design.subject.length} / {SUBJECT_MAX}</span>
+      </label>
+      <label className="st-field" style={{ display: 'block' }}>
+        <span className="st-label">Preview text</span>
+        <input ref={preRef} className="st-input" value={design.preheader} maxLength={PREHEADER_MAX} placeholder="The line after the subject in most inboxes"
+          onChange={e => onDesign(d => ({ ...d, preheader: e.target.value }))} />
+        <span className="st-hint">Most inboxes show it beside the subject. Leave it empty and they show the first words of the email.</span>
+      </label>
+      <label className="st-field" style={{ display: 'block' }}>
+        <span className="st-label">Theme</span>
+        <select className="st-select" value={design.theme} onChange={e => onDesign(d => ({ ...d, theme: e.target.value }))}>
+          {Object.values(THEMES).map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+        </select>
+        <span className="st-hint">The colours a block uses when it is set to Theme.</span>
+      </label>
+      <p className="st-hint" style={{ marginTop: 18 }}>Keyboard: Delete removes the selected block, Escape comes back here, Cmd or Ctrl + Z undoes.</p>
+    </div>
   )
 }
 
@@ -258,9 +291,13 @@ function StylePanel({ block, themeId, onChange }) {
           {rule === 'color'
             ? (
               <div className="st-swatches" role="group" aria-label={STYLE_LABELS[key] || key}>
-                <button type="button" className="st-swatch st-swatch-theme" aria-pressed={s[key] === 'theme'} onClick={() => onChange({ style: { [key]: 'theme' } })} aria-label="Follow the theme">T</button>
+                <Tooltip label="Use the theme's colour" applyAriaLabel={false}>
+                  <button type="button" className="st-swatch-theme" aria-pressed={s[key] === 'theme'} onClick={() => onChange({ style: { [key]: 'theme' } })}>Theme</button>
+                </Tooltip>
                 {SWATCHES.map(c => (
-                  <button key={c} type="button" className="st-swatch" style={{ background: c }} aria-pressed={s[key] === c} aria-label={c} onClick={() => onChange({ style: { [key]: c } })} />
+                  <Tooltip key={c} label={SWATCH_NAMES[c] || c}>
+                    <button type="button" className="st-swatch" style={{ background: c }} aria-pressed={s[key] === c} aria-label={SWATCH_NAMES[c] || c} onClick={() => onChange({ style: { [key]: c } })} />
+                  </Tooltip>
                 ))}
               </div>
             )

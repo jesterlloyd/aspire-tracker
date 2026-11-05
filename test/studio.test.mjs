@@ -270,3 +270,23 @@ test('a send is cut into batches of the endpoint ceiling, in order', async () =>
   assert.deepEqual(b.flat(), list)
   assert.deepEqual(toBatches([]), [])
 })
+
+// STUDIO-PANES-2: each problem points at what it names, and a block carries its own short need.
+test('designProblems items point at the block or the field they name', async () => {
+  const { blockIssues } = await import('../src/lib/studio/studioBlocks.js')
+  const btn = makeBlock('button')
+  const d = sanitizeDesign({ subject: '', preheader: '', blocks: [btn] })
+  const { items, blocking } = designProblems(d)
+  assert.ok(items.some(i => i.field === 'subject' && i.level === 'blocking'))
+  assert.ok(items.some(i => i.field === 'preheader' && i.level === 'warning'))
+  const forBtn = items.find(i => i.blockId === d.blocks[0].id)
+  assert.equal(forBtn.level, 'blocking')
+  assert.deepEqual(blocking, items.filter(i => i.level === 'blocking').map(i => i.text))
+  assert.equal(blockIssues(d.blocks[0])[0].short, 'Needs a link')
+  assert.deepEqual(blockIssues(makeBlock('footer')), [])
+})
+
+test('every swatch has a name', async () => {
+  const { SWATCHES, SWATCH_NAMES } = await import('../src/lib/studio/studioBlocks.js')
+  for (const c of SWATCHES) assert.ok(SWATCH_NAMES[c], c)
+})
