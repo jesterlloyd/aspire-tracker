@@ -1,0 +1,542 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ASPIRE Connect: Studio</title>
+<!-- STUDIO-1 mockup (2026-11-05). ASPIRE Connect > Studio: designed newsletters, announcements and
+     sign-ups, drafted with Keith, sent through Outreach's engine. Static drawing, five frames on one
+     sheet. The Classic | Modern switch at the top only swaps a class, as the real app does.
+     Worked example: "Send the New Graduate RN Residency application link to applicants who have not
+     yet passed the boards." All people, counts and dates are illustrative. -->
+<style>
+  :root {
+    --nightfall: #1D2567; --navy-deep: #141a4d; --navy-tint: #eef2fb; --cream: #F4F1EC; --card: #FFFFFF;
+    --ink: #191919; --ink-2: #232842; --muted: #5b6472; --line: #e3ded4; --line-soft: #eee9df;
+    --rule: rgba(29,37,103,.10); --piping: #C9B27A; --piping-deep: #8E7A45; --red: #DC1E34;
+    --ok: #166534; --ok-bg: #dcfce7; --info: #1d4ed8; --info-bg: #eff6ff; --mute: #4b5563; --mute-bg: #f3f4f6;
+    --warn: #92400e; --warn-bg: #fef3c7; --bad: #991b1b; --bad-bg: #fee2e2;
+    --keith: #5B4BD6; --keith-bg: #EEEBFF;
+    --sans: "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --serif: "Playfair Display", Georgia, serif;
+    --r-card: 12px; --r-ctl: 10px; --gap: 16px;
+    --shadow-card: 0 1px 3px rgba(0,0,0,.06);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #E9E6DF; font-family: var(--sans); color: var(--ink); }
+  .sheet { max-width: 1480px; margin: 0 auto; padding: 32px 24px 64px; }
+  .sheet > h1 { font-size: 26px; margin: 0 0 6px; color: var(--nightfall); letter-spacing: -.02em; }
+  .lede { margin: 0 0 18px; color: var(--muted); font-size: 14px; max-width: 980px; line-height: 1.55; }
+  .styleswitch { display: inline-flex; border: 1px solid var(--rule); border-radius: var(--r-ctl); overflow: hidden; background: #fff; margin-bottom: 8px; }
+  .styleswitch button { font: inherit; font-size: 13px; padding: 7px 16px; border: 0; background: #fff; color: var(--ink-2); cursor: pointer; }
+  .styleswitch button[aria-pressed="true"] { background: var(--nightfall); color: #fff; }
+  .frame-label { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 34px 0 8px; }
+  .frame-note { font-size: 13px; color: var(--muted); margin: 0 0 12px; max-width: 1040px; line-height: 1.5; }
+  .window { border-radius: 12px; overflow: hidden; box-shadow: 0 12px 34px rgba(20,24,60,.18); background: var(--cream); }
+
+  /* staff chrome */
+  .hdr { background: linear-gradient(180deg, #1c2452, #141928); color: #fff; height: 60px; display: flex; align-items: center; padding: 0 24px; gap: 14px; }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand .logo { width: 28px; height: 28px; border-radius: 50%; border: 3px solid var(--red); }
+  .brand b { font-size: 17px; }
+  .hdr .grow { flex: 1; }
+  .hicon { position: relative; width: 36px; height: 36px; border-radius: 8px; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.10); display: grid; place-items: center; font-size: 14px; color: rgba(255,255,255,.85); }
+  .hicon.on { background: rgba(255,255,255,.26); border-color: rgba(255,255,255,.5); }
+  .avatar { width: 34px; height: 34px; border-radius: 50%; background: #c9cee6; border: 2px solid rgba(255,255,255,.6); }
+
+  .main { padding: 22px 48px 28px; }
+  .toprow { display: flex; justify-content: space-between; align-items: center; }
+  .pill { display: inline-flex; align-items: center; gap: 8px; background: #fff; border: 1px solid var(--rule); border-radius: 999px; padding: 6px 14px; font-size: 13.5px; font-weight: 600; }
+  .ptitle h2 { margin: 12px 0 0; font-size: 24px; letter-spacing: -.02em; color: var(--ink-2); }
+  .ptitle p { margin: 4px 0 0; font-size: 13px; color: var(--muted); }
+  .seg { display: inline-flex; border: 1px solid rgba(29,37,103,.10); border-radius: var(--r-ctl); overflow: hidden; background: #fff; margin: 14px 0 16px; }
+  .seg span { padding: 8px 16px; font-size: 13px; color: var(--ink-2); border-left: 1px solid rgba(29,37,103,.08); }
+  .seg span:first-child { border-left: 0; }
+  .seg .on { background: var(--nightfall); color: #fff; font-weight: 600; }
+  .seg .new { font-size: 9px; font-weight: 800; letter-spacing: .06em; background: var(--piping); color: var(--navy-deep); border-radius: 999px; padding: 1px 6px; margin-left: 6px; vertical-align: 1px; }
+
+  .card { background: var(--card); border-radius: var(--r-card); box-shadow: var(--shadow-card); border: 0; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; border-radius: var(--r-ctl); padding: 8px 14px; font-size: 13px; font-weight: 600; border: 1px solid var(--rule); background: #fff; color: var(--ink-2); white-space: nowrap; }
+  .btn.primary { background: var(--nightfall); color: #fff; border-color: var(--nightfall); }
+  .btn.sm { padding: 5px 10px; font-size: 12px; }
+  .btn.ghost { background: transparent; }
+  .chip { display: inline-flex; align-items: center; gap: 5px; border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 600; }
+  .chip.navy { background: #e8eaf6; color: var(--nightfall); }
+  .chip.ok { background: var(--ok-bg); color: var(--ok); }
+  .chip.warn { background: var(--warn-bg); color: var(--warn); }
+  .chip.mute { background: var(--mute-bg); color: var(--mute); }
+  .chip.bad { background: var(--bad-bg); color: var(--bad); }
+  .chip.keith { background: var(--keith-bg); color: var(--keith); }
+  .orb { width: 18px; height: 18px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff 0 12%, #9d8cff 30%, #5B4BD6 70%, #3a2fa0); flex: none; display: inline-block; }
+  .orb.lg { width: 34px; height: 34px; }
+  h3.ct { margin: 0; font-size: 16px; color: var(--ink-2); letter-spacing: -.01em; }
+  .sub { font-size: 12.5px; color: var(--muted); }
+  .th { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #5f6b78; }
+
+  /* Frame 1: home */
+  .ask { padding: 22px 24px; display: grid; grid-template-columns: 34px 1fr; gap: 14px; align-items: start; }
+  .ask h3 { margin: 0 0 4px; font-size: 18px; color: var(--ink-2); }
+  .askfield { margin-top: 12px; display: flex; gap: 10px; }
+  .askfield .input { flex: 1; }
+  .input { border: 1px solid var(--line); border-radius: var(--r-ctl); padding: 10px 13px; font-size: 13.5px; color: var(--ink); background: #fff; }
+  .input.ph { color: #7b808a; }
+  .suggest { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .suggest span { border: 1px solid var(--rule); border-radius: 999px; padding: 5px 12px; font-size: 12.5px; color: var(--ink-2); background: #fff; }
+  .homegrid { display: grid; grid-template-columns: 1fr 360px; gap: var(--gap); margin-top: var(--gap); }
+  .tpls { padding: 18px 20px; }
+  .tplrow { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 14px; }
+  .tpl { border-radius: 10px; overflow: hidden; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.08), 0 0 0 1px rgba(29,37,103,.06); }
+  .tpl .thumb { height: 150px; padding: 10px; display: grid; gap: 6px; align-content: start; }
+  .tpl .thumb i { display: block; border-radius: 3px; }
+  .tpl figcaption { padding: 9px 11px; font-size: 12.5px; font-weight: 700; color: var(--ink-2); border-top: 1px solid var(--line-soft); }
+  .tpl figcaption small { display: block; font-weight: 500; color: var(--muted); font-size: 11.5px; margin-top: 2px; }
+  .side { padding: 18px 20px; }
+  .drow { display: grid; grid-template-columns: 1fr auto; gap: 8px; padding: 10px 0; border-top: 1px solid var(--line-soft); font-size: 13px; }
+  .drow:first-of-type { border-top: 0; }
+  .drow b { display: block; font-size: 13px; color: var(--ink-2); }
+  .drow small { color: var(--muted); font-size: 12px; }
+
+  /* Frame 2: Keith interview */
+  .kgrid { display: grid; grid-template-columns: 1fr 380px; gap: var(--gap); }
+  .chat { padding: 20px 22px; display: flex; flex-direction: column; gap: 14px; }
+  .msg { display: grid; grid-template-columns: 30px 1fr; gap: 10px; align-items: start; }
+  .msg.me { grid-template-columns: 1fr; justify-items: end; }
+  .bub { padding: 11px 14px; border-radius: 12px; font-size: 13.5px; line-height: 1.5; max-width: 760px; }
+  .msg.k .bub { background: #f5f4fb; color: var(--ink-2); }
+  .msg.me .bub { background: var(--nightfall); color: #fff; }
+  .opts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .opt { border: 1px solid var(--rule); background: #fff; border-radius: var(--r-ctl); padding: 7px 12px; font-size: 12.5px; color: var(--ink-2); }
+  .opt.on { border-color: var(--nightfall); box-shadow: inset 0 0 0 1px var(--nightfall); color: var(--nightfall); font-weight: 700; }
+  .opt small { display: block; font-weight: 500; color: var(--muted); font-size: 11.5px; }
+  .brief { padding: 18px 20px; }
+  .brief dl { margin: 12px 0 0; display: grid; grid-template-columns: 110px 1fr; gap: 9px 12px; font-size: 13px; }
+  .brief dt { color: var(--muted); font-weight: 600; }
+  .brief dd { margin: 0; color: var(--ink-2); }
+  .brief .todo { color: var(--warn); }
+  .progress { display: flex; gap: 4px; margin-top: 12px; }
+  .progress i { flex: 1; height: 4px; border-radius: 99px; background: #e5e7eb; }
+  .progress i.d { background: var(--nightfall); }
+
+  /* Frame 3: canvas */
+  .studio { display: grid; grid-template-columns: 220px 1fr 300px; gap: 0; height: 900px; background: #fff; border-radius: var(--r-card); box-shadow: var(--shadow-card); overflow: hidden; }
+  .bar { grid-column: 1 / -1; height: 52px; border-bottom: 1px solid var(--line-soft); display: flex; align-items: center; gap: 10px; padding: 0 14px; }
+  .bar .name { font-weight: 700; font-size: 14px; color: var(--ink-2); }
+  .bar .saved { font-size: 12px; color: var(--muted); }
+  .bar .grow { flex: 1; }
+  .dev { display: inline-flex; border: 1px solid var(--rule); border-radius: 8px; overflow: hidden; }
+  .dev span { padding: 5px 11px; font-size: 12px; }
+  .dev .on { background: var(--navy-tint); color: var(--nightfall); font-weight: 700; }
+  .studio-body { grid-column: 1 / -1; display: grid; grid-template-columns: 220px 1fr 300px; height: 848px; }
+  .lib { border-right: 1px solid var(--line-soft); padding: 14px; overflow: hidden; }
+  .lib .grp { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: #5f6b78; font-weight: 700; margin: 14px 2px 8px; }
+  .lib .grp:first-child { margin-top: 0; }
+  .blk { display: grid; grid-template-columns: 30px 1fr; gap: 8px; align-items: center; padding: 7px 8px; border-radius: 8px; font-size: 13px; color: var(--ink-2); border: 1px solid transparent; }
+  .blk:hover { background: var(--navy-tint); }
+  .blk .bi { width: 30px; height: 26px; border-radius: 6px; background: #f1f2f6; display: grid; place-items: center; font-size: 13px; color: var(--nightfall); }
+  .blk small { display: block; font-size: 11px; color: var(--muted); }
+  .board { overflow: hidden; padding: 26px 0 40px; background: #F0F1F5; position: relative; }
+  .email { width: 600px; margin: 0 auto; background: #fff; box-shadow: 0 6px 24px rgba(20,24,60,.12); }
+  .sel-ring { outline: 2px solid #3B6FE0; outline-offset: -2px; position: relative; }
+  .sel-tag { position: absolute; top: -11px; left: 10px; background: #3B6FE0; color: #fff; font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 6px; }
+  .blkctl { position: absolute; top: 8px; right: -46px; display: grid; gap: 4px; }
+  .blkctl span { width: 32px; height: 28px; border-radius: 7px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.15); display: grid; place-items: center; font-size: 12px; color: var(--ink-2); }
+  .insert { height: 0; position: relative; }
+  .insert span { position: absolute; left: 50%; top: -12px; transform: translateX(-50%); width: 24px; height: 24px; border-radius: 50%; background: #3B6FE0; color: #fff; display: grid; place-items: center; font-size: 15px; font-weight: 700; box-shadow: 0 0 0 4px #F0F1F5; }
+
+  /* the designed email (email-safe look: one column, 600px, web-safe fallbacks) */
+  .e-pre { font-size: 11px; color: #7b808a; text-align: center; padding: 8px 0; background: #F7F5F0; }
+  .e-logo { padding: 18px 32px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #eee; }
+  .e-logo b { font-size: 13px; letter-spacing: .14em; color: var(--nightfall); }
+  .e-logo small { font-size: 11px; color: #6b7280; }
+  .e-hero { background: var(--nightfall); color: #fff; padding: 38px 40px 34px; border-bottom: 4px solid var(--piping); position: relative; }
+  .e-hero .eyebrow { font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: var(--piping); font-weight: 700; }
+  .e-hero h1 { font-family: var(--serif); font-size: 34px; line-height: 1.15; margin: 10px 0 12px; font-weight: 700; }
+  .e-hero p { margin: 0; font-size: 15px; line-height: 1.55; color: rgba(255,255,255,.86); }
+  .e-body { padding: 28px 40px 6px; font-size: 15px; line-height: 1.65; color: #2b2f3a; }
+  .e-body p { margin: 0 0 14px; }
+  .merge { background: #FFF3C4; color: #6b4e00; border-radius: 4px; padding: 0 4px; font-size: .92em; font-weight: 600; }
+  .e-cta { text-align: center; padding: 8px 40px 26px; }
+  .e-cta a { display: inline-block; background: var(--red); color: #fff; text-decoration: none; font-weight: 700; font-size: 15px; padding: 14px 30px; border-radius: 8px; }
+  .e-cta small { display: block; margin-top: 8px; font-size: 12px; color: #6b7280; }
+  .e-steps { margin: 0 40px 24px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .e-step { background: #F7F5F0; border-radius: 10px; padding: 14px; }
+  .e-step b { display: block; font-family: var(--serif); font-size: 22px; color: var(--nightfall); }
+  .e-step strong { display: block; font-size: 13px; margin: 4px 0 3px; color: #2b2f3a; }
+  .e-step span { font-size: 12.5px; color: #555b66; line-height: 1.45; }
+  .e-event { margin: 0 40px 26px; border: 1px solid #e6e2d8; border-radius: 10px; display: grid; grid-template-columns: 76px 1fr; overflow: hidden; }
+  .e-event .date { background: var(--nightfall); color: #fff; text-align: center; padding: 12px 0; }
+  .e-event .date small { display: block; font-size: 11px; letter-spacing: .12em; color: var(--piping); font-weight: 700; }
+  .e-event .date b { font-size: 26px; font-family: var(--serif); }
+  .e-event .info { padding: 12px 16px; font-size: 13px; color: #3b404c; }
+  .e-event .info strong { display: block; font-size: 14px; color: #2b2f3a; margin-bottom: 3px; }
+  .e-rsvp { display: flex; gap: 8px; margin-top: 10px; }
+  .e-rsvp span { border-radius: 7px; padding: 7px 12px; font-size: 12.5px; font-weight: 700; }
+  .e-rsvp .yes { background: var(--nightfall); color: #fff; }
+  .e-rsvp .no { border: 1px solid #cfd3e0; color: #2b2f3a; }
+  .e-sign { padding: 4px 40px 28px; font-size: 14px; color: #2b2f3a; line-height: 1.55; }
+  .e-foot { background: #F7F5F0; padding: 18px 40px; font-size: 11.5px; color: #6b7280; text-align: center; line-height: 1.6; }
+
+  .props { border-left: 1px solid var(--line-soft); padding: 14px 16px; overflow: hidden; }
+  .props .ptabs { display: flex; border-bottom: 1px solid var(--line); margin: -2px -16px 14px; padding: 0 16px; font-size: 13px; }
+  .props .ptabs span { padding: 8px 10px; color: var(--muted); }
+  .props .ptabs .on { color: var(--nightfall); font-weight: 700; box-shadow: inset 0 -2px 0 var(--nightfall); }
+  .prow { margin-bottom: 14px; }
+  .prow label { display: block; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #5f6b78; margin-bottom: 6px; }
+  .sw { display: flex; gap: 6px; flex-wrap: wrap; }
+  .sw i { width: 26px; height: 26px; border-radius: 7px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.12); }
+  .sw i.on { box-shadow: 0 0 0 2px #fff, 0 0 0 4px #3B6FE0; }
+  .seg2 { display: grid; grid-template-columns: repeat(3,1fr); border: 1px solid var(--rule); border-radius: 8px; overflow: hidden; font-size: 12px; text-align: center; }
+  .seg2 span { padding: 6px 0; border-left: 1px solid var(--rule); }
+  .seg2 span:first-child { border-left: 0; }
+  .seg2 .on { background: var(--navy-tint); color: var(--nightfall); font-weight: 700; }
+  .slider { height: 4px; border-radius: 99px; background: #e5e7eb; position: relative; margin: 10px 0 4px; }
+  .slider::before { content: ""; position: absolute; left: 0; top: 0; height: 4px; width: 55%; background: var(--nightfall); border-radius: 99px; }
+  .slider::after { content: ""; position: absolute; left: 55%; top: -6px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); transform: translateX(-50%); }
+  .kbox { background: var(--keith-bg); border-radius: 10px; padding: 11px 12px; font-size: 12.5px; color: #3a2f8f; line-height: 1.45; }
+  .kbox .row { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+  .kbox .row span { background: #fff; border-radius: 999px; padding: 3px 9px; font-size: 11.5px; font-weight: 600; color: var(--keith); }
+  .check { display: grid; grid-template-columns: 16px 1fr; gap: 8px; font-size: 12.5px; padding: 5px 0; color: var(--ink-2); }
+  .check i { width: 16px; height: 16px; border-radius: 50%; display: grid; place-items: center; font-size: 10px; font-style: normal; color: #fff; margin-top: 1px; }
+  .check i.ok { background: var(--ok); } .check i.w { background: #b45309; }
+
+  /* Frame 4: audience */
+  .agrid { display: grid; grid-template-columns: 1fr 400px; gap: var(--gap); }
+  .rule { padding: 18px 20px; }
+  .sentence { font-size: 15px; line-height: 1.9; color: var(--ink-2); margin: 10px 0 4px; }
+  .tok { display: inline-flex; align-items: center; gap: 6px; background: var(--navy-tint); color: var(--nightfall); border: 1px solid rgba(29,37,103,.14); border-radius: 8px; padding: 1px 9px; font-weight: 700; font-size: 13.5px; }
+  .tok::after { content: "▾"; font-size: 10px; opacity: .6; }
+  .counts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 16px 0 6px; }
+  .kpi { background: #F7F8FB; border-radius: 10px; padding: 12px 14px; }
+  .kpi b { display: block; font-size: 24px; color: var(--ink-2); letter-spacing: -.02em; }
+  .kpi span { font-size: 12px; color: var(--muted); }
+  .kpi.go b { color: var(--ok); }
+  table.rt { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.rt th { text-align: left; padding: 9px 12px; background: #f6f7f9; }
+  table.rt td { padding: 9px 12px; border-top: 1px solid var(--line-soft); color: var(--ink-2); }
+  table.rt tr:nth-child(4n+2) td, table.rt tr:nth-child(4n+3) td { background: #fafbfd; }
+  table.rt td small { color: var(--muted); display: block; font-size: 11.5px; }
+  .xrow { display: grid; grid-template-columns: 1fr auto; gap: 8px; padding: 10px 0; border-top: 1px solid var(--line-soft); font-size: 13px; }
+  .xrow b { color: var(--ink-2); display: block; }
+  .xrow small { color: var(--muted); font-size: 12px; }
+  .xrow:first-of-type { border-top: 0; }
+  .sendbar { margin-top: var(--gap); padding: 14px 20px; display: flex; align-items: center; gap: 12px; }
+  .sendbar .grow { flex: 1; font-size: 13px; color: var(--muted); }
+
+  /* Frame 5: RSVP */
+  .rgrid { display: grid; grid-template-columns: 420px 1fr; gap: var(--gap); }
+  .phone { width: 340px; margin: 0 auto; background: #111; border-radius: 34px; padding: 12px; }
+  .phone .scr { background: #fff; border-radius: 24px; overflow: hidden; height: 560px; }
+  .phone .e-hero { padding: 22px 20px; }
+  .phone .e-hero h1 { font-size: 24px; }
+  .phone .e-body { padding: 16px 20px 4px; font-size: 13.5px; }
+  .confirm { margin: 6px 20px; background: var(--ok-bg); color: var(--ok); border-radius: 10px; padding: 12px; font-size: 13px; font-weight: 600; text-align: center; }
+  .confirm small { display: block; font-weight: 500; margin-top: 3px; }
+  .meter { height: 10px; border-radius: 99px; background: #e5e7eb; overflow: hidden; display: flex; margin: 8px 0 4px; }
+  .meter i { display: block; height: 100%; }
+  .legend { display: flex; gap: 14px; font-size: 12px; color: var(--muted); }
+  .legend b { color: var(--ink-2); }
+
+  /* Classic: the Studio sits on the program's quiet board material; paper is the email. */
+  .classic .board { background: #E6E9F2 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='.05'/%3E%3C/svg%3E"); }
+  .classic .email { box-shadow: 0 1px 0 rgba(0,0,0,.04), 0 10px 30px rgba(20,24,60,.16); }
+  .classic .tpl .thumb { background: #F2EEE6; }
+  .modern .board { background: #F5F6F8; }
+  .modern .email { box-shadow: 0 0 0 1px #e5e7eb; }
+  .modern .tpl .thumb { background: #F5F6F8; }
+
+  .ann { background: #FFF8E1; border: 1px dashed #d8b75a; border-radius: 10px; padding: 10px 14px; font-size: 12.5px; color: #5c4710; line-height: 1.5; margin-top: 12px; }
+  .ann b { color: #3f300a; }
+</style>
+</head>
+<body class="classic">
+<div class="sheet">
+  <h1>ASPIRE Connect: Studio</h1>
+  <p class="lede">A fifth Connect tab for newsletters, announcements and sign-ups that look designed, not typed. You tell Keith what you want to send; he asks what he needs, drafts the words, lays out the blocks, and proposes who should get it. You restyle anything, approve the list, and send through the same engine Outreach uses, with the same email rules, demo guard and Sent History. The worked example runs through every frame.</p>
+  <div class="styleswitch" role="group" aria-label="Style">
+    <button type="button" aria-pressed="true" data-style="classic">Classic</button>
+    <button type="button" aria-pressed="false" data-style="modern">Modern</button>
+  </div>
+
+  <!-- ─────────────── FRAME 1 ─────────────── -->
+  <div class="frame-label">Frame 1 · Studio home</div>
+  <p class="frame-note">Connect gains Studio beside Outreach. The page opens on one question, "What do you want to send?", with a few starters from this cycle's phase. Below: starting layouts, your drafts, and what went out recently with its results.</p>
+  <div class="window">
+    <div class="hdr"><div class="brand"><span class="logo"></span><b>ASPIRE Intelligence</b></div><div class="grow"></div><span class="hicon on">✉</span><span class="hicon">▤</span><span class="hicon">◎</span><span class="avatar"></span></div>
+    <div class="main">
+      <div class="toprow"><span class="pill">‹ Back to At a Glance</span><span class="btn sm">↻ Refresh</span></div>
+      <div class="ptitle"><h2>ASPIRE Connect</h2><p>Contacts, outreach, designed sends, messages and automations in one place.</p></div>
+      <div class="seg"><span>Contacts</span><span>Outreach</span><span class="on">Studio<em class="new">NEW</em></span><span>Messages</span><span>Automations</span></div>
+
+      <div class="card ask">
+        <span class="orb lg"></span>
+        <div>
+          <h3>What do you want to send?</h3>
+          <div class="sub">Describe it the way you would to a colleague. Keith will ask a few questions, then design a first draft for you to change.</div>
+          <div class="askfield">
+            <div class="input">I want to send the New Graduate RN Residency application link to applicants who have not yet passed the boards.</div>
+            <span class="btn primary">Start with Keith →</span>
+          </div>
+          <div class="suggest">
+            <span>Town Hall invitation with RSVP</span><span>Monthly ASPIRE newsletter</span><span>Interview Bootcamp sign-up</span><span>Welcome to the Spring 2027 cohort</span><span>Thank-you note to preceptors</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="homegrid">
+        <div class="card tpls">
+          <div class="toprow"><h3 class="ct">Start From a Layout</h3><span class="btn sm ghost">+ Blank design</span></div>
+          <div class="tplrow">
+            <figure class="tpl" style="margin:0"><div class="thumb"><i style="height:44px;background:#1D2567"></i><i style="height:3px;background:#C9B27A"></i><i style="height:8px;width:80%;background:#d6d9e3"></i><i style="height:8px;width:70%;background:#d6d9e3"></i><i style="height:18px;width:46%;margin:6px auto 0;background:#DC1E34"></i></div><figcaption>Announcement<small>Hero, message, one button</small></figcaption></figure>
+            <figure class="tpl" style="margin:0"><div class="thumb"><i style="height:24px;background:#1D2567"></i><span style="display:grid;grid-template-columns:1fr 1fr;gap:6px"><i style="height:44px;background:#e3d9c6"></i><i style="height:44px;background:#e3d9c6"></i></span><i style="height:8px;width:85%;background:#d6d9e3"></i><i style="height:8px;width:60%;background:#d6d9e3"></i></div><figcaption>Newsletter<small>Stories, photos, dates</small></figcaption></figure>
+            <figure class="tpl" style="margin:0"><div class="thumb"><i style="height:36px;background:#1D2567"></i><span style="display:grid;grid-template-columns:28px 1fr;gap:6px"><i style="height:36px;background:#1D2567"></i><i style="height:36px;background:#eef0f5"></i></span><span style="display:flex;gap:6px"><i style="height:14px;width:40%;background:#1D2567"></i><i style="height:14px;width:40%;background:#d6d9e3"></i></span></div><figcaption>Event with RSVP<small>Date card, one-tap reply</small></figcaption></figure>
+            <figure class="tpl" style="margin:0"><div class="thumb"><i style="height:30px;background:#5A7A5C"></i><i style="height:8px;width:75%;background:#d6d9e3"></i><i style="height:22px;background:#eef0f5"></i><i style="height:22px;background:#eef0f5"></i><i style="height:16px;width:50%;margin:4px auto 0;background:#5A7A5C"></i></div><figcaption>Sign-up Form<small>Opens a Catalog form</small></figcaption></figure>
+          </div>
+          <div class="ann"><b>Themes, not fonts by the dozen.</b> Every layout wears a theme: ASPIRE Navy (shown), Residency Forest, Warm Paper. A theme is a palette, two typefaces and spacing; you can change any block, but the theme keeps a send on brand and readable in Outlook.</div>
+        </div>
+        <div class="card side">
+          <h3 class="ct">Your Drafts</h3>
+          <div style="margin-top:8px">
+            <div class="drow"><div><b>NGRP Application, not yet licensed</b><small>Edited 2 min ago · 23 recipients proposed</small></div><span class="chip warn">Draft</span></div>
+            <div class="drow"><div><b>November Town Hall</b><small>Edited yesterday · RSVP on</small></div><span class="chip warn">Draft</span></div>
+          </div>
+          <h3 class="ct" style="margin-top:18px">Recently Sent</h3>
+          <div style="margin-top:8px">
+            <div class="drow"><div><b>October ASPIRE Newsletter</b><small>Oct 28 · 142 sent · 71% opened · 18% clicked</small></div><span class="chip ok">Sent</span></div>
+            <div class="drow"><div><b>Interview Bootcamp sign-up</b><small>Oct 14 · 38 sent · 26 going, 4 can't</small></div><span class="chip ok">Sent</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─────────────── FRAME 2 ─────────────── -->
+  <div class="frame-label">Frame 2 · Keith asks before he designs</div>
+  <p class="frame-note">One question at a time, each with tappable answers built from what the app knows (cohorts, Transition Form answers, Key Dates, Catalog items). The brief on the right fills in as you answer; Keith designs only once it is complete. Questions he can answer from the record, he does not ask.</p>
+  <div class="window"><div class="main">
+    <div class="kgrid">
+      <div class="card chat">
+        <div class="msg me"><div class="bub">I want to send the New Graduate RN Residency application link to applicants who have not yet passed the boards.</div></div>
+        <div class="msg k"><span class="orb"></span><div class="bub">Happy to. I found the <b>Winter 2027</b> residency cohort (applications open Nov 16, close Dec 4). On the Transition Form, alumni answered the license question three ways. Who should get this?
+          <div class="opts">
+            <span class="opt on">NCLEX Ahead and Not Yet<small>23 alumni · haven't passed</small></span>
+            <span class="opt">NCLEX Ahead only<small>15 · test date set</small></span>
+            <span class="opt">Everyone on the roster<small>61</small></span>
+          </div></div></div>
+        <div class="msg me"><div class="bub">NCLEX Ahead and Not Yet</div></div>
+        <div class="msg k"><span class="orb"></span><div class="bub">9 alumni on the roster haven't submitted the Transition Form, so I don't know their license status. Include them?
+          <div class="opts">
+            <span class="opt">Yes, include them<small>32 total</small></span>
+            <span class="opt on">No, only those who told us<small>23</small></span>
+          </div></div></div>
+        <div class="msg me"><div class="bub">No, only those who told us</div></div>
+        <div class="msg k"><span class="orb"></span><div class="bub">Two last things. What's the one thing they should do, and should I mention the licensure deadline from Key Dates (<b>license by Feb 27, 2027</b>)?
+          <div class="opts">
+            <span class="opt on">Apply with the special link</span>
+            <span class="opt">Register for the Town Hall first</span>
+            <span class="opt on">Yes, include the deadline</span>
+            <span class="opt">Leave it out</span>
+          </div></div></div>
+        <div class="input ph" style="margin-top:4px">Reply, or type anything you'd like Keith to know…</div>
+      </div>
+      <div class="card brief">
+        <h3 class="ct">Brief</h3>
+        <div class="sub">What Keith will design from. You can change any line.</div>
+        <div class="progress"><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i></i></div>
+        <dl>
+          <dt>Purpose</dt><dd>Announcement: NGRP application is open</dd>
+          <dt>Audience</dt><dd>Winter 2027 roster, license NCLEX Ahead or Not Yet, form submitted</dd>
+          <dt>Action</dt><dd>Apply with the special link (button)</dd>
+          <dt>Must say</dt><dd>Opens Nov 16, closes Dec 4 · license by Feb 27, 2027</dd>
+          <dt>Tone</dt><dd>Warm and encouraging, student-facing</dd>
+          <dt>Layout</dt><dd>Announcement · ASPIRE Navy</dd>
+          <dt>Sign-off</dt><dd>Your Connect signature</dd>
+          <dt>Link</dt><dd class="todo">Paste the special application link, or I'll leave a required placeholder</dd>
+        </dl>
+        <div style="display:flex;gap:8px;margin-top:16px"><span class="btn primary">Design it →</span><span class="btn">Skip questions</span></div>
+        <div class="ann">The link is never invented. Left blank, it becomes a <b>required placeholder</b> (the same rule Outreach uses for the cohort password), and Send stays disabled until it is filled.</div>
+      </div>
+    </div>
+  </div></div>
+
+  <!-- ─────────────── FRAME 3 ─────────────── -->
+  <div class="frame-label">Frame 3 · The canvas</div>
+  <p class="frame-note">Keith's draft opens on the canvas. Drag blocks in from the left, click any block to style it on the right, use + between blocks to insert. Desktop | Phone previews the real email. The right panel's Keith tab rewrites the selected block only ("shorter", "warmer", "add a line about the Town Hall").</p>
+  <div class="studio">
+    <div class="bar">
+      <span class="pill" style="padding:4px 12px">‹ Studio</span>
+      <span class="name">NGRP Application, not yet licensed</span><span class="saved">· Saved</span>
+      <div class="grow"></div>
+      <span class="btn sm ghost">↶</span><span class="btn sm ghost">↷</span>
+      <span class="dev"><span class="on">Desktop</span><span>Phone</span></span>
+      <span class="btn sm">Theme: ASPIRE Navy ▾</span>
+      <span class="btn sm">Send me a test</span>
+      <span class="btn sm primary">Audience &amp; send →</span>
+    </div>
+    <div class="studio-body">
+      <div class="lib">
+        <div class="grp">Content</div>
+        <div class="blk"><span class="bi">▭</span><div>Hero<small>Headline on colour or photo</small></div></div>
+        <div class="blk"><span class="bi">T</span><div>Text</div></div>
+        <div class="blk"><span class="bi">▣</span><div>Image</div></div>
+        <div class="blk"><span class="bi">⊞</span><div>Image grid</div></div>
+        <div class="blk"><span class="bi">◫</span><div>Two columns</div></div>
+        <div class="blk"><span class="bi">❶</span><div>Steps<small>Numbered cards</small></div></div>
+        <div class="blk"><span class="bi">❝</span><div>Quote</div></div>
+        <div class="grp">Action</div>
+        <div class="blk"><span class="bi">⬭</span><div>Button</div></div>
+        <div class="blk"><span class="bi">◷</span><div>Event card</div></div>
+        <div class="blk"><span class="bi">✓</span><div>RSVP<small>One-tap reply</small></div></div>
+        <div class="blk"><span class="bi">☰</span><div>Catalog form<small>Personal link each</small></div></div>
+        <div class="blk"><span class="bi">⎘</span><div>Catalog file</div></div>
+        <div class="grp">Layout</div>
+        <div class="blk"><span class="bi">—</span><div>Divider</div></div>
+        <div class="blk"><span class="bi">␣</span><div>Spacer</div></div>
+        <div class="blk"><span class="bi">✎</span><div>Signature</div></div>
+        <div class="blk"><span class="bi">▁</span><div>Footer</div></div>
+        <div class="grp">Saved</div>
+        <div class="blk"><span class="bi">★</span><div>NGRP key dates<small>Your block</small></div></div>
+      </div>
+
+      <div class="board">
+        <div class="email">
+          <div class="e-pre">Applications open November 16. Here's how to apply before your NCLEX.</div>
+          <div class="e-logo"><b>ASPIRE · CEDARS-SINAI</b><small>Brawerman Nursing Institute</small></div>
+          <div class="e-hero sel-ring">
+            <span class="sel-tag">Hero</span>
+            <div class="blkctl"><span>↑</span><span>↓</span><span>⧉</span><span>🗑</span></div>
+            <div class="eyebrow">New Graduate RN Residency · Winter 2027</div>
+            <h1>Your residency application is open</h1>
+            <p>You don't need your license yet to apply. Here's what to do, and when.</p>
+          </div>
+          <div class="e-body">
+            <p>Hi <span class="merge">First name</span>,</p>
+            <p>You told us you're still on the road to the NCLEX, and that's exactly where many of our strongest residents started. The Winter 2027 application opens <b>Monday, November 16</b> and closes <b>Friday, December 4</b>. Please use the ASPIRE special link below so your application reaches us as an alumnus.</p>
+          </div>
+          <div class="e-cta"><a>Apply with the ASPIRE link</a><small><span class="merge">Application link</span> required before sending</small></div>
+          <div class="insert"><span>+</span></div>
+          <div class="e-steps">
+            <div class="e-step"><b>1</b><strong>Apply by Dec 4</strong><span>Use the special link, not the public posting.</span></div>
+            <div class="e-step"><b>2</b><strong>Keep your NCLEX date</strong><span>Your license must be issued by Feb 27, 2027.</span></div>
+            <div class="e-step"><b>3</b><strong>Tell us when you pass</strong><span>Update your Transition Form so we can share it.</span></div>
+          </div>
+          <div class="e-sign">Cheering you on,<br><b>Jester Lloyd Bautista, DNP, RN</b><br><span style="color:#6b7280">ASPIRE Program · Cedars-Sinai</span></div>
+          <div class="e-foot">You're receiving this because you're an ASPIRE alumnus on the Winter 2027 residency roster.<br>Questions? Reply to this email or write ngrp@cshs.org.</div>
+        </div>
+      </div>
+
+      <div class="props">
+        <div class="ptabs"><span class="on">Style</span><span>Content</span><span>Keith</span></div>
+        <div class="prow"><label>Background</label>
+          <div class="sw"><i class="on" style="background:#1D2567"></i><i style="background:#141a4d"></i><i style="background:#2F5D50"></i><i style="background:#F4F1EC"></i><i style="background:#fff"></i><i style="background:#DC1E34"></i><i style="background:linear-gradient(135deg,#e5e7eb,#9ca3af)" title="Photo"></i></div>
+        </div>
+        <div class="prow"><label>Accent rule</label>
+          <div class="sw"><i class="on" style="background:#C9B27A"></i><i style="background:#DC1E34"></i><i style="background:#fff"></i><i style="background:transparent;box-shadow:inset 0 0 0 1px #ccc"></i></div>
+        </div>
+        <div class="prow"><label>Headline font</label><div class="seg2"><span class="on">Serif</span><span>Sans</span><span>Script</span></div></div>
+        <div class="prow"><label>Alignment</label><div class="seg2"><span class="on">Left</span><span>Center</span><span>Right</span></div></div>
+        <div class="prow"><label>Padding</label><div class="slider"></div><div class="sub">Roomy</div></div>
+        <div class="prow"><label>Readability</label>
+          <div class="check"><i class="ok">✓</i><span>White on navy: 13.4:1</span></div>
+          <div class="check"><i class="ok">✓</i><span>Headline 34px, phone 26px</span></div>
+          <div class="check"><i class="w">!</i><span>Photo backgrounds need alt text and a solid fallback for Outlook</span></div>
+        </div>
+        <div class="kbox"><b>Ask Keith about this block</b><div class="row"><span>Shorter</span><span>Warmer</span><span>Two headline options</span><span>Mention the Town Hall</span></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="ann"><b>Email-safe by construction.</b> A design is stored as blocks (JSON), never as hand-written HTML. On send it is rendered to the table-based, inline-styled HTML that Outlook, Gmail and iPhone Mail all draw the same way, with a plain-text copy. Webfonts fall back to Georgia and Arial; colours are checked for contrast as you pick them.</div>
+
+  <!-- ─────────────── FRAME 4 ─────────────── -->
+  <div class="frame-label">Frame 4 · Who gets it (Keith proposes, you approve)</div>
+  <p class="frame-note">The audience is a rule written as a sentence. Every underlined word is a filter you can change; the server, not Keith, runs it. The list, the count and every exclusion with its reason are on screen before you send. You can remove a person or add one by hand.</p>
+  <div class="window"><div class="main">
+    <div class="agrid">
+      <div class="card rule">
+        <div class="toprow"><h3 class="ct">Audience</h3><span class="chip keith"><span class="orb" style="width:12px;height:12px"></span> Proposed by Keith</span></div>
+        <p class="sentence">Alumni on the <span class="tok">Winter 2027</span> residency roster whose Transition Form license answer is <span class="tok">NCLEX Ahead or Not Yet</span>, who <span class="tok">submitted the form</span>, at their <span class="tok">residency email</span>.</p>
+        <span class="btn sm">+ Add a condition</span>
+        <div class="counts">
+          <div class="kpi"><b>61</b><span>On the roster</span></div>
+          <div class="kpi"><b>27</b><span>Match the rule</span></div>
+          <div class="kpi"><b>4</b><span>Left out (see right)</span></div>
+          <div class="kpi go"><b>23</b><span>Will receive it</span></div>
+        </div>
+        <table class="rt">
+          <thead><tr><th class="th">Alumnus</th><th class="th">ASPIRE Cohort</th><th class="th">License</th><th class="th">Sends to</th><th></th></tr></thead>
+          <tbody>
+            <tr><td>Alvarez, Maya<small>Mount St. Mary's University</small></td><td>Spring 2026</td><td><span class="chip warn">NCLEX Ahead</span></td><td>maya.alvarez@…<small>Preferred (form)</small></td><td><span class="btn sm ghost">Remove</span></td></tr>
+            <tr><td>Chen, Daniel<small>CSU Long Beach</small></td><td>Spring 2026</td><td><span class="chip mute">Not Yet</span></td><td>dchen.rn@…<small>Personal</small></td><td><span class="btn sm ghost">Remove</span></td></tr>
+            <tr><td>Okafor, Grace<small>UCLA</small></td><td>Fall 2025</td><td><span class="chip warn">NCLEX Ahead</span></td><td>grace.o@…<small>Preferred (form)</small></td><td><span class="btn sm ghost">Remove</span></td></tr>
+            <tr><td>Reyes, Paolo<small>West Coast University, Los Angeles</small></td><td>Spring 2026</td><td><span class="chip warn">NCLEX Ahead</span></td><td>preyes@…<small>Personal</small></td><td><span class="btn sm ghost">Remove</span></td></tr>
+            <tr><td colspan="5" style="color:var(--muted);text-align:center">19 more · <b style="color:var(--nightfall)">Show all</b></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div>
+        <div class="card rule">
+          <h3 class="ct">Left Out</h3>
+          <div class="sub">Each for a reason the email rules decide. None can be overridden here.</div>
+          <div style="margin-top:8px">
+            <div class="xrow"><div><b>2 have no personal or preferred email</b><small>School email is never used for alumni</small></div><span class="btn sm">See who</span></div>
+            <div class="xrow"><div><b>1 is Not Proceeding</b><small>Never in a group send</small></div><span class="btn sm">See who</span></div>
+            <div class="xrow"><div><b>1 asked not to be emailed</b><small>Unsubscribed from program news</small></div><span class="btn sm">See who</span></div>
+          </div>
+        </div>
+        <div class="card rule" style="margin-top:var(--gap)">
+          <h3 class="ct">Before You Send</h3>
+          <div class="check"><i class="ok">✓</i><span>Subject: "Your residency application is open"</span></div>
+          <div class="check"><i class="ok">✓</i><span>From noreply as "Jester via ASPIRE", replies to you</span></div>
+          <div class="check"><i class="w">!</i><span>Application link is still a placeholder</span></div>
+          <div class="check"><i class="ok">✓</i><span>Test sent to you at 10:42 AM</span></div>
+          <div class="check"><i class="ok">✓</i><span>Every first name resolves</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="card sendbar">
+      <div class="grow">23 people · one batch · logged in Sent History as "Studio: NGRP Application, not yet licensed"</div>
+      <span class="btn">Schedule…</span>
+      <span class="btn primary" style="opacity:.5">Send to 23</span>
+    </div>
+  </div></div>
+
+  <!-- ─────────────── FRAME 5 ─────────────── -->
+  <div class="frame-label">Frame 5 · RSVP, one tap from the email</div>
+  <p class="frame-note">A second example: a Town Hall invitation. The RSVP block puts Going / Can't make it in the email; a tap records the answer against that person's own link and shows a confirmation page with an "add to calendar" file. A capacity cap turns later yeses into a waitlist. Anything that needs real answers uses the Catalog form block instead.</p>
+  <div class="window"><div class="main">
+    <div class="rgrid">
+      <div>
+        <div class="phone"><div class="scr">
+          <div class="e-hero"><div class="eyebrow">You're invited</div><h1>NGRP Town Hall</h1><p>Ask the residency team anything before you apply.</p></div>
+          <div class="e-body"><p>Hi Maya, we'd love to see you there.</p></div>
+          <div class="e-event" style="margin:0 20px 14px"><div class="date"><small>NOV</small><b>19</b></div><div class="info"><strong>Thursday, 5:30 to 6:30 PM</strong>Virtual · Teams link after you reply
+            <div class="e-rsvp"><span class="yes">I'll be there</span><span class="no">Can't make it</span></div></div></div>
+          <div class="confirm">You're on the list, Maya.<small>Added to your calendar file · change your answer anytime</small></div>
+        </div></div>
+      </div>
+      <div class="card rule">
+        <div class="toprow"><h3 class="ct">NGRP Town Hall · Responses</h3><span class="btn sm">⇩ Export to Excel</span></div>
+        <div class="meter"><i style="width:58%;background:#166534"></i><i style="width:10%;background:#b45309"></i><i style="width:7%;background:#9ca3af"></i></div>
+        <div class="legend"><span><b>35</b> going of 40 seats</span><span><b>6</b> waitlist</span><span><b>4</b> can't</span><span><b>15</b> no answer yet</span></div>
+        <table class="rt" style="margin-top:14px">
+          <thead><tr><th class="th">Person</th><th class="th">Answer</th><th class="th">When</th><th class="th">Opened</th></tr></thead>
+          <tbody>
+            <tr><td>Alvarez, Maya</td><td><span class="chip ok">Going</span></td><td>Nov 6, 9:14 AM</td><td>Yes</td></tr>
+            <tr><td>Chen, Daniel</td><td><span class="chip warn">Waitlist #2</span></td><td>Nov 7, 7:02 PM</td><td>Yes</td></tr>
+            <tr><td>Okafor, Grace</td><td><span class="chip mute">Can't make it</span></td><td>Nov 6, 12:40 PM</td><td>Yes</td></tr>
+            <tr><td>Reyes, Paolo</td><td><span class="chip navy">No answer</span></td><td>—</td><td>No</td></tr>
+          </tbody>
+        </table>
+        <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap"><span class="btn">Remind the 15 who haven't answered</span><span class="btn">Email the 35 going</span><span class="btn">Offer seats to the waitlist</span></div>
+        <div class="ann">Every follow-up opens Studio with that group already chosen; nothing goes out from this screen. A Town Hall RSVP can also record attendance into Residency &gt; Support, after the event, on a confirm.</div>
+      </div>
+    </div>
+  </div></div>
+</div>
+<script>
+  document.querySelectorAll('.styleswitch button').forEach(b => b.addEventListener('click', () => {
+    document.body.className = b.dataset.style
+    document.querySelectorAll('.styleswitch button').forEach(x => x.setAttribute('aria-pressed', String(x === b)))
+  }))
+</script>
+</body>
+</html>
