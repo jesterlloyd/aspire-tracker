@@ -146,7 +146,9 @@ test('the picker never loads the other experience’s cohorts', () => {
 
 test('the experience choice commits immediately, as the old pill did', () => {
   const scope = read(SCOPE)
-  assert.match(scope, /onClick=\{\(\) => \{ if \(!isSel\) onSwitchExperience\(x\.id\); closeAndRefocus\(\) \}\}/)
+  // SCOPE-STAY-OPEN-1 (this commit, Owner 2026-11-05): it no longer closes the picker, so the
+  // cohort pane shows the chosen experience's cohorts.
+  assert.match(scope, /onClick=\{\(\) => \{ if \(!isSel\) onSwitchExperience\(x\.id\) \}\}/)
   // RESIDENCY-LANDING-1 (this commit, Owner 2026-10-05): Residency always opens At a Glance;
   // Internship still restores its own last tab.
   const app = read(APP)

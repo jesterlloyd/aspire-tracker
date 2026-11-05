@@ -9,6 +9,9 @@
 //     is exactly what the old Experience pill did.
 //   COHORT filters. It changes what the current workspace is scoped to and moves you
 //     nowhere. Every ASPIRE query filters on the selected cohort.
+// SCOPE-STAY-OPEN-1 (Owner, 2026-11-05): choosing an experience keeps the picker OPEN, so the
+// cohort pane beside it turns into that experience's cohorts and the next click is the cohort.
+// The header is mounted once for the whole app, so the open state survives the navigation.
 // Because Experience commits immediately, the cohort pane only ever lists the
 // experience you are ALREADY in. There is no preview of the other side, so residency
 // cycles are still fetched only inside the residency workspace by an authorized
@@ -32,7 +35,7 @@ function HeaderChevron() {
  * @param experiences        [{ id, label, sub }] - one entry when the caller holds no
  *                           residency access, so the pane is honest rather than absent
  * @param activeExperience   id of the current experience
- * @param onSwitchExperience (id) => void; navigates, so it also closes the picker
+ * @param onSwitchExperience (id) => void; navigates, and the picker stays open
  * @param cohortLabel        the cohort half of the pill (may be a state, not a name)
  * @param cohortIsDemo       the selected cohort is the fabricated one; turns the status
  *                           light purple, which is how demo mode announces itself
@@ -119,7 +122,7 @@ export default function ScopePicker({
                     type="button"
                     role="option"
                     aria-selected={isSel}
-                    onClick={() => { if (!isSel) onSwitchExperience(x.id); closeAndRefocus() }}
+                    onClick={() => { if (!isSel) onSwitchExperience(x.id) }}
                     style={{
                       display: 'block', width: '100%', textAlign: 'left', border: 'none',
                       fontFamily: 'Plus Jakarta Sans, sans-serif',

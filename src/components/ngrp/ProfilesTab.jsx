@@ -532,13 +532,8 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
         </div>
       )}
 
-      {(payload.excludedPriorHires || 0) > 0 && (
-        <div className="ngrp-banner ngrp-banner-info" role="note">
-          {payload.excludedPriorHires} alumn{payload.excludedPriorHires === 1 ? 'us' : 'i'} hired through an
-          earlier NGRP cycle {payload.excludedPriorHires === 1 ? 'is' : 'are'} not listed - they already
-          reached the pathway's destination.
-        </div>
-      )}
+      {/* HIRE-BANNER-RETIRE-1 (Owner, 2026-11-05): no banner counts the alumni hired through an
+          earlier cohort. They leave this roster on purpose, and the sentence read as noise. */}
 
       {allRows.length === 0 ? (
         <div className="snap" style={{ margin: '14px 0' }}>
@@ -755,18 +750,15 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                     backfillHire: staffApp && ownerAdmin ? (async (r, fields) => {
                       const res = await runManage('hire_backfill', { cycle_id: cycle.id, student_id: r.student.id, ...fields })
                       if (!res) return res
-                      const elsewhere = res.cycle_id && res.cycle_id !== cycle.id
-                      toast?.success?.('Hire recorded', elsewhere
-                        ? `${displayName(r.student)} is on record as hired in ${res.cycle_name}. Their record now opens under that cohort.`
-                        : `${displayName(r.student)} is on record as hired in ${res.cycle_name || cycle.name}.`)
-                      // HIRE-PAST-COHORT-1: a hire recorded in another cohort moves the record there (an
-                      // earlier hire leaves later rosters), so follow it: ?candidate= switches the cohort.
-                      if (elsewhere && res.candidate_id) {
+                      // HIRE-STAY-1 (Owner, 2026-11-05): the screen stays where it is. A hire in an
+                      // earlier cohort takes the alumnus off this roster, and the toast says where it went;
+                      // following it there (HIRE-PAST-COHORT-1) landed on a cohort with no roster to show.
+                      toast?.success?.('Hire recorded',
+                        `${displayName(r.student)} is on record as hired in ${res.cycle_name || cycle.name}.`)
+                      // The alumnus leaves this roster, so drop the link to them; the split opens the next one.
+                      if (res.cycle_id && res.cycle_id !== cycle.id) {
                         const next = new URLSearchParams(searchParams)
-                        next.delete('student')
-                        next.delete('cohort')
-                        next.set('candidate', res.candidate_id)
-                        next.set('sheet', 'hiring')
+                        next.delete('candidate'); next.delete('student'); next.delete('sheet')
                         setSearchParams(next, { replace: true })
                       }
                       return res
