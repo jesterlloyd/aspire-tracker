@@ -40,7 +40,9 @@ export default function StudioEditor({ store, designId, initialDesign, initialNa
   const [loadError, setLoadError] = useState('')
   const [selected, setSelected] = useState(null)
   const [device, setDevice] = useState('desktop')
-  const [saveState, setSaveState] = useState(initialDesign ? 'unsaved' : 'saved')
+  // STUDIO-DRAFTS-1 (Owner, 2026-11-05): a layout that was only opened is not a draft. A new design
+  // starts 'pristine' and is written on its FIRST edit, so opening a layout and leaving files nothing.
+  const [saveState, setSaveState] = useState(initialDesign ? 'pristine' : 'saved')
   const [past, setPast] = useState([])
   const [future, setFuture] = useState([])
   const [saved, setSaved] = useState([])
@@ -54,8 +56,11 @@ export default function StudioEditor({ store, designId, initialDesign, initialNa
   const [testing, setTesting] = useState(false)
 
   // Load an existing design.
+  // createdHere: the id this editor's own first save created. The workspace then points the URL at it
+  // without remounting (STUDIO-FLICKER-1), so there is nothing to load: what is on screen is newer.
+  const createdHere = useRef(null)
   useEffect(() => {
-    if (!designId || initialDesign) return
+    if (!designId || initialDesign || createdHere.current === designId) return
     let off = false
     store.get(designId)
       .then(row => { if (!off) { setDesign(row.design); setName(row.name); setSaveState('saved') } })
@@ -118,7 +123,7 @@ export default function StudioEditor({ store, designId, initialDesign, initialNa
     setSaveState('saving')
     try {
       const row = await store.save({ id: cur.id, name: cur.name || 'Untitled design', design: cur.design })
-      if (!cur.id && row?.id) { setId(row.id); onCreated?.(row.id) }
+      if (!cur.id && row?.id) { setId(row.id); createdHere.current = row.id; onCreated?.(row.id) }
       setSaveState(latest.current.design === cur.design && latest.current.name === cur.name ? 'saved' : 'unsaved')
     } catch (e) {
       setSaveState('error')
@@ -279,7 +284,7 @@ export default function StudioEditor({ store, designId, initialDesign, initialNa
   if (loadError) return <div className="st-card"><p className="st-notice st-notice-bad">{loadError}</p><button type="button" className="st-btn" style={{ marginTop: 12 }} onClick={onClose}>‹ Back to Studio</button></div>
   if (!design) return <div className="st-card"><p className="st-sub">Opening the design…</p></div>
 
-  const saveLabel = { saved: 'Saved', saving: 'Saving…', unsaved: 'Unsaved changes', error: 'Not saved' }[saveState]
+  const saveLabel = { pristine: 'Not a draft until you edit it', saved: 'Saved', saving: 'Saving…', unsaved: 'Unsaved changes', error: 'Not saved' }[saveState]
   const libraryByGroup = BLOCK_GROUPS.map(g => [g, Object.entries(BLOCKS).filter(([, def]) => def.group === g)])
 
   return (

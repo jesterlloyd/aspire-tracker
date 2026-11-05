@@ -27,6 +27,10 @@ export default function StudioWorkspace({ active = true, cohortId, toast, refres
   const [designs, setDesigns] = useState(null)
   const [loadError, setLoadError] = useState('')
   const [copyOffer, setCopyOffer] = useState(0)
+  // STUDIO-FLICKER-1: when a new design's first save gives it an id, the URL moves from 'new:<layout>'
+  // to that id. Keying the editor on the URL remounted it and reloaded the design from the server, which
+  // flashed the screen; the editor keeps the key it opened with instead.
+  const [keyFor, setKeyFor] = useState({})
 
   const { userProfile } = useAuth()
   const userKey = userProfile?.id || ''
@@ -83,6 +87,16 @@ export default function StudioWorkspace({ active = true, cohortId, toast, refres
     reload()
   }, [store, toast, reload, userKey])
 
+  // STUDIO-FLICKER-1: the home draws at once (the layouts need nothing from the server), and only its
+  // drafts list waits for the answer; a placeholder card swapped for the page read as a reload.
+  if (!mode && !param) {
+    return (
+      <div className="st-page">
+        <StudioHome mode={null} designs={null} loadError="" copyOffer={0} onCopyLocal={() => {}}
+          onOpen={(id) => open(id)} onNew={(layoutKey) => open(`new:${layoutKey}`)} onDuplicate={() => {}} onArchive={() => {}} />
+      </div>
+    )
+  }
   if (!mode) return <div className="st-page"><div className="st-card"><p className="st-sub">Opening Studio…</p></div></div>
 
   if (param) {
@@ -93,12 +107,13 @@ export default function StudioWorkspace({ active = true, cohortId, toast, refres
     return (
       <div className="st-page">
         <StudioEditor
-          key={param}
+          key={keyFor[param] || param}
           store={store}
           designId={isNew ? null : param}
           initialDesign={initial}
           initialName={isNew ? (layoutFor(param.slice(4))?.label || 'Untitled design') : ''}
           onCreated={(id) => {
+            setKeyFor({ [id]: keyFor[param] || param })
             const q = new URLSearchParams(location.search); q.set('design', id)
             navigate({ pathname: location.pathname, search: `?${q}` }, { replace: true })
           }}

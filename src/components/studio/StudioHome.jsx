@@ -9,6 +9,7 @@ import { LAYOUTS } from '../../lib/studio/studioLayouts'
 import { renderStudioEmail } from '../../lib/studio/renderEmail'
 import { THEMES } from '../../lib/studio/studioBlocks'
 import { confirmDialog } from '../shared/confirmDialog'
+import { defaultStudioBrand } from './studioBrand.js'
 
 const fmt = (iso) => {
   if (!iso) return ''
@@ -20,7 +21,7 @@ const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`
 function LayoutThumb({ layout }) {
   const html = useMemo(() => {
     const d = layout.build()
-    return renderStudioEmail(d, { mergePreview: true, signature: { displayName: 'Your name', title: 'Your title' } }).html
+    return renderStudioEmail(d, { brand: defaultStudioBrand(), mergePreview: true, signature: { displayName: 'Your name', title: 'Your title' } }).html
   }, [layout])
   return <div className="st-thumb" aria-hidden="true"><iframe title="" srcDoc={html} tabIndex={-1} sandbox="" /></div>
 }

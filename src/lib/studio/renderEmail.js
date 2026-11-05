@@ -103,7 +103,7 @@ export function renderBlockRows(block, themeId, opts = {}) {
     case 'header': {
       const bg = resolveColor(s.bg, t.surface)
       const logo = p.showLogo && opts.brand?.logoUrl
-        ? `<img src="${esc(opts.brand.logoUrl)}" alt="${esc(opts.brand.title || p.title)}" height="36" style="display:block;height:36px;width:auto;border:0;">`
+        ? `<img src="${esc(opts.brand.logoUrl)}" alt="${esc(opts.brand.alt || 'Cedars-Sinai')}" height="36" style="display:block;height:36px;width:auto;border:0;">`
         : `<span style="font-family:${body};font-size:13px;font-weight:700;letter-spacing:2px;color:${t.heading};"${ed(opts, 'title')}>${esc(p.title)}</span>`
       const tag = p.tagline ? `<span style="font-family:${body};font-size:11px;color:${t.muted};"${ed(opts, 'tagline')}>${esc(p.tagline)}</span>` : ''
       const inner = s.align === 'split'
@@ -288,6 +288,19 @@ export function renderStudioEmail(input, opts = {}) {
  * After the form engine has put each recipient's own link in the markers' data-url, draw the
  * styled button around each one. A marker with no link is dropped rather than sent broken.
  */
+/** The shipped full-colour Cedars-Sinai PNG, the header logo whenever the organization's is not one. */
+export const STUDIO_LOGO_PATH = '/Cedars-Sinai.png'
+const EMAIL_IMAGE = /\.(png|jpe?g|gif)(\?.*)?$/i
+/**
+ * STUDIO-LOGO-1: the logo an email header may use. Gmail and Outlook do not draw SVG, and the
+ * organization's logo is an SVG, so only a PNG, JPEG or GIF of the organization's is used; anything
+ * else is the shipped PNG at `origin`.
+ */
+export function emailLogoUrl(candidate, origin = '') {
+  const c = String(candidate || '')
+  return /^https:\/\//i.test(c) && EMAIL_IMAGE.test(c) ? c : `${String(origin || '').replace(/\/$/, '')}${STUDIO_LOGO_PATH}`
+}
+
 export const UNSUB_MARKER = '%%STUDIO_UNSUBSCRIBE%%'
 const UNSUB_OPEN = '<!--st-unsub-->'
 const UNSUB_CLOSE = '<!--/st-unsub-->'

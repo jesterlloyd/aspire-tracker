@@ -72,7 +72,8 @@ const enumOf = (...v) => Object.freeze(v)
 export const BLOCKS = Object.freeze({
   header: {
     label: 'Header', group: 'Layout', hint: 'Wordmark or logo',
-    props: { title: 'ASPIRE · CEDARS-SINAI', tagline: 'Brawerman Nursing Institute', showLogo: false },
+    // STUDIO-LOGO-1 (Owner, 2026-11-05): every header opens on the Cedars-Sinai logo and the institute's full name.
+    props: { title: 'ASPIRE · CEDARS-SINAI', tagline: 'Geri & Richard Brawerman Nursing Institute', showLogo: true },
     style: { bg: 'theme', align: 'split' },
     styleRules: { bg: COLOR, align: enumOf('split', 'center', 'left') },
   },

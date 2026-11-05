@@ -4,11 +4,15 @@
 // The send resolves both on the server (organization settings and the sender's Connect signature);
 // the canvas reads the public brand endpoint and the signed-in profile, the same sources.
 import { useEffect, useState } from 'react'
+import { emailLogoUrl } from '../../lib/studio/renderEmail.js'
 
 let cached = null
+const origin = () => (typeof window !== 'undefined' ? window.location.origin : '')
+/** Drawn before the brand answers, and whenever it cannot: the same logo the send falls back to. */
+export const defaultStudioBrand = () => ({ logoUrl: emailLogoUrl('', origin()), alt: 'Cedars-Sinai' })
 
 export function useStudioBrand() {
-  const [brand, setBrand] = useState(cached)
+  const [brand, setBrand] = useState(() => cached || defaultStudioBrand())
   useEffect(() => {
     if (cached) return
     let off = false
@@ -16,9 +20,8 @@ export function useStudioBrand() {
       .then(r => (r.ok ? r.json() : null))
       .then(b => {
         if (off || !b) return
-        const origin = typeof window !== 'undefined' ? window.location.origin : ''
-        const logoUrl = /^https:\/\//i.test(b.logoUrl || '') ? b.logoUrl : (b.logoUrl ? `${origin}${b.logoUrl}` : '')
-        cached = { logoUrl, title: b.title || 'ASPIRE' }
+        const raw = /^https:\/\//i.test(b.logoUrl || '') ? b.logoUrl : (b.logoUrl ? `${origin()}${b.logoUrl}` : '')
+        cached = { logoUrl: emailLogoUrl(raw, origin()), alt: 'Cedars-Sinai' }
         setBrand(cached)
       })
       .catch(() => {})

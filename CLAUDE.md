@@ -3224,3 +3224,14 @@ Phase 2b.
   holds the `.recipients`.
 - The block library folds to icons (`aspire.studio.libFolded`, this browser). The announcement
   layout's eyebrow reads Announcement.
+- **An opened layout is not a draft** (STUDIO-DRAFTS-1, Owner, 2026-11-05). A new design starts
+  `pristine` ("Not a draft until you edit it") and is written on its first edit. Six drafts that were
+  only opened were deleted from production the same day.
+- **The editor never remounts on its first save** (STUDIO-FLICKER-1). The first save moves the URL
+  from `new:<layout>` to the id; the workspace keeps the editor's original key (`keyFor`) and the
+  editor skips loading the design it created (`createdHere`). Keying on the URL reloaded it from the
+  server, and that was the flash. The home also draws at once; only its drafts list waits.
+- **Headers open on the Cedars-Sinai logo** with "Geri & Richard Brawerman Nursing Institute"
+  (STUDIO-LOGO-1, Owner). `emailLogoUrl` uses the organization's logo only when it is a PNG, JPEG or
+  GIF (the stored one is an SVG, which Gmail and Outlook do not draw), else `/Cedars-Sinai.png`; the
+  canvas, thumbnails and the send all read it, so they show the same logo.

@@ -338,3 +338,27 @@ test('the hand list is the recipients array, not the dedupe result object', () =
   const src = read('src/components/studio/StudioSendDrawer.jsx')
   assert.match(src, /buildCombinedRecipients\(\{[^}]*\}\)\.recipients/, 'read .recipients off the dedupe result')
 })
+
+test('STUDIO-LOGO-1: headers open on the Cedars-Sinai logo and the institute full name, in an email-safe format', async () => {
+  const { BLOCKS } = await import('../src/lib/studio/studioBlocks.js')
+  const { emailLogoUrl, renderStudioEmail } = await import('../src/lib/studio/renderEmail.js')
+  const { LAYOUTS } = await import('../src/lib/studio/studioLayouts.js')
+  assert.equal(BLOCKS.header.props.showLogo, true)
+  assert.equal(BLOCKS.header.props.tagline, 'Geri & Richard Brawerman Nursing Institute')
+  assert.equal(emailLogoUrl('https://x.supabase.co/logo.svg', 'https://app.test'), 'https://app.test/Cedars-Sinai.png', 'SVG is not drawn by Gmail or Outlook')
+  assert.equal(emailLogoUrl('https://x.supabase.co/logo.png', 'https://app.test'), 'https://x.supabase.co/logo.png')
+  assert.equal(emailLogoUrl('', ''), '/Cedars-Sinai.png')
+  for (const l of LAYOUTS) {
+    const html = renderStudioEmail(l.build(), { brand: { logoUrl: 'https://app.test/Cedars-Sinai.png', alt: 'Cedars-Sinai' } }).html
+    assert.match(html, /<img src="https:\/\/app\.test\/Cedars-Sinai\.png" alt="Cedars-Sinai"/, l.key)
+    assert.match(html, /Geri &amp; Richard Brawerman Nursing Institute/, l.key)
+  }
+})
+
+test('STUDIO-DRAFTS-1 and FLICKER-1: an opened layout is not a draft, and its first save does not remount the editor', () => {
+  const ed = read('src/components/studio/StudioEditor.jsx')
+  assert.match(ed, /useState\(initialDesign \? 'pristine' : 'saved'\)/, 'a new design waits for its first edit')
+  assert.match(ed, /createdHere\.current === designId\) return/, 'the design this editor created is not reloaded')
+  const ws = read('src/components/studio/StudioWorkspace.jsx')
+  assert.match(ws, /key=\{keyFor\[param\] \|\| param\}/, 'the editor keeps the key it opened with')
+})
