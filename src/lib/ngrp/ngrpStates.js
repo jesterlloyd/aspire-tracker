@@ -152,6 +152,8 @@ export const FORM_ACTIVE_STATUSES = ['Active']
 // chronological order; Completed/Archived afterward. Chronology ties break by
 // application opening date, then residency start date (cycleChronoKey - the
 // same authoritative comparison the prior-hire exclusion uses).
+// COHORT-ORDER-2 (Owner, 2026-11-04): Completed/Archived read MOST RECENT first. Oldest first
+// put Winter 2025 under the current cohort and the 2026 cohorts below the dropdown's fold.
 export const CYCLE_CLOSED_STATUSES = ['Completed', 'Archived']
 
 export function orderCyclesForSelector(cycles) {
@@ -159,7 +161,8 @@ export function orderCyclesForSelector(cycles) {
   return [...(cycles || [])].sort((a, b) => {
     const g = group(a) - group(b)
     if (g !== 0) return g
-    return cycleChronoKey(a) < cycleChronoKey(b) ? -1 : cycleChronoKey(a) > cycleChronoKey(b) ? 1 : 0
+    const order = cycleChronoKey(a) < cycleChronoKey(b) ? -1 : cycleChronoKey(a) > cycleChronoKey(b) ? 1 : 0
+    return group(a) === 2 ? -order : order
   })
 }
 

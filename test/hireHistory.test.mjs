@@ -292,3 +292,17 @@ test('the past residency cohorts are corrected: four cohorts, the Owner\'s dates
   assert.match(mig, /SET hired_at = TIMESTAMPTZ '2026-08-11 12:00:00\+00'/)
   assert.match(mig, /o\.backfilled = true AND o\.hired_at = TIMESTAMPTZ '2026-08-14 12:00:00\+00'/)
 })
+
+test('COHORT-ORDER-2: the eight residency cohorts are restored with the Owner\'s first dates', () => {
+  const mig = read('supabase/migrations/20261127300000_past_residency_cohorts_restore.sql')
+  for (const [name, day] of [['Winter 2025', '2025-02-03'], ['Spring 2025', '2025-05-12'], ['Summer 2025', '2025-08-11']]) {
+    assert.match(mig, new RegExp(`\\('${name}', 'Completed', false, false, DATE '${day}'`))
+  }
+  assert.match(mig, /ON CONFLICT \(name\) DO NOTHING/)
+  for (const [name, day] of [['Winter 2026', '2026-02-02'], ['Spring 2026', '2026-05-18'], ['Summer 2026', '2026-08-14']]) {
+    assert.match(mig, new RegExp(`residency_start_date = DATE '${day}', updated_at = now\\(\\)\\s+WHERE name = '${name}'`))
+  }
+  assert.doesNotMatch(mig, /'Fall 2025'|'Winter 2027'/, 'Fall 2025 and Winter 2027 are untouched')
+  assert.match(mig, /SET hired_at = TIMESTAMPTZ '2026-08-14 12:00:00\+00'/)
+  assert.match(mig, /o\.backfilled = true AND o\.hired_at = TIMESTAMPTZ '2026-08-11 12:00:00\+00'/)
+})

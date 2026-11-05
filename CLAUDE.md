@@ -3085,6 +3085,14 @@ is Owner-gated (checks in `db/audit/residency_hire_history_checks.sql`).
   pointed at them) and the one past hire in Summer 2026 moved to its corrected start date. The scope
   picker's dates line now reads past dates in the past tense ("Started Feb 3", and "Started Oct 20,
   2025" for an earlier year; COHORT-TENSE-1, `cycleDatesLine`).
+- **COHORT-ORDER-2 (Owner, 2026-11-04).** The correction above was itself a misreading: the scope
+  picker listed Completed cohorts OLDEST first, so under Winter 2027 only the 2025 cohorts were in
+  view and the 2026 ones looked missing. `orderCyclesForSelector` now lists Completed and Archived
+  cohorts most recent first (active, then planning chronologically, unchanged), and
+  `20261127300000_past_residency_cohorts_restore.sql` (Owner-gated) restores the eight the Owner
+  first gave: Winter 2025 02-03, Spring 2025 05-12, Summer 2025 08-11, Fall 2025 10-20 (all 2025),
+  Winter 2026 02-02, Spring 2026 05-18, Summer 2026 08-14, then Winter 2027 (2027-01-25). Carla
+  Layug's backfilled hire follows Summer 2026 back to 2026-08-14.
 - **HIRE-PAST-COHORT-1 (2026-11-04).** Carla Layug's past hire saved into Summer 2026 but still read as
   unhired under Winter 2027. The seeded cohorts carry no opening date, and `cycleChronoKey` put an
   undated opening LAST, so Summer 2026 counted as later than Winter 2027 and the prior-hire exclusion

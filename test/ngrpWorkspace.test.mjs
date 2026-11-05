@@ -367,7 +367,7 @@ test('mappings: a successful query with zero rows is a valid empty mapping for e
 
 // ── Selector ordering (plan §3.2) ────────────────────────────────────────────
 
-test('ordering: active first, then planned/open chronologically, then completed/archived; ties by open then start date', () => {
+test('ordering: active first, then planned/open chronologically, then completed/archived newest first; ties by open then start date', () => {
   const cycles = [
     { id: 'z-arch', name: 'Old',    status: 'Archived',         application_open_date: '2025-03-01' },
     { id: 'later',  name: 'Later',  status: 'Planning',         application_open_date: '2027-03-01', residency_start_date: '2027-08-09' },
@@ -377,9 +377,9 @@ test('ordering: active first, then planned/open chronologically, then completed/
     { id: 'early',  name: 'Early',  status: 'Active',           application_open_date: '2026-11-01' },
   ]
   const ordered = orderCyclesForSelector(cycles).map(c => c.id)
-  // Closed cycles come after every active/planned one, chronological within
-  // their own group as well.
-  assert.deepEqual(ordered, ['act', 'early', 'later', 'tie-b', 'z-arch', 'done'])
+  // Closed cycles come after every active/planned one, most recent first
+  // (COHORT-ORDER-2, Owner, 2026-11-04; they were oldest first).
+  assert.deepEqual(ordered, ['act', 'early', 'later', 'tie-b', 'done', 'z-arch'])
 })
 
 test('ordering: a valid saved selection is preserved; otherwise active, then first ordered', () => {
