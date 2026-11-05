@@ -1,4 +1,4 @@
-import { resolveStudentEmail } from '../src/lib/notifications/studentEmailLifecycle.js'
+import { ALUMNUS_ROUTE, resolveStudentEmail } from '../src/lib/notifications/studentEmailLifecycle.js'
 // api/ngrp-transition.js
 //
 // NGRP-RELEASE-2: the PUBLIC Transition Form endpoint. Alumni reach it from
@@ -85,7 +85,7 @@ export default async function handler(req, res) {
       const r = await supabaseAdmin.from('students').select(STUDENT_ROUTE_FIELDS)
         .eq('id', candidate.student_id).maybeSingle()
       if (r.error || !r.data) return null
-      return { student: r.data, email: resolveStudentEmail(r.data).email }
+      return { student: r.data, email: resolveStudentEmail(r.data, undefined, ALUMNUS_ROUTE).email }
     }
     if (action === 'send_code') {
       if (resolved.closed) return res.status(410).json({ error: WINDOW_CLOSED })

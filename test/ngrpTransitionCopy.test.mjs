@@ -200,7 +200,9 @@ test('alumni are addressed at their personal email, per the shared routing canon
 
 test('the endpoint uses that canon instead of its own ordering', () => {
   const src = strip(read(ENDPOINT))
-  assert.match(src, /email: getStudentBulkEmailRoute\(r\)\.email \|\| null,/)
+  // ALUMNUS-EMAIL-1 (this commit): the route now carries ALUMNUS_ROUTE, personal first.
+  assert.match(src, /routeFields\(getStudentBulkEmailRoute\(r, ALUMNUS_ROUTE\)\)/)
+  assert.match(src, /email: route\.email \|\| null/)
   // The school-first expression this replaced must not come back.
   assert.doesNotMatch(src, /r\.school_email \|\| r\.personal_email/)
   // The request still contributes ids only.

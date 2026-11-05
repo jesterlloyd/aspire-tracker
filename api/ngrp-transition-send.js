@@ -38,6 +38,10 @@ import { isMissingNgrpTable, sanitizeStudent, fetchAddedStudentIds } from '../li
 // routing canon already says so for exactly this population, and classifySendRecipients
 // only ever passes Completed students, so every recipient here is in that branch.
 import { getStudentBulkEmailRoute } from '../src/lib/studentBulkEmail.js'
+import { ALUMNUS_ROUTE } from '../src/lib/notifications/studentEmailLifecycle.js'
+
+// ALUMNUS-EMAIL-1: the form goes to the alumnus's personal email first.
+const routeFields = route => ({ email: route.email || null, recipientWarning: route.warning, recipientSource: route.emailType })
 import { openReadiness } from '../lib/server/ngrpPlanning.js'
 import { serviceDbForRequest, populationOf } from '../lib/server/demoScope.js'
 import { ensureStudentPortalAccess } from '../lib/server/ngrpPortalAccess.js'
@@ -73,9 +77,7 @@ async function resolveSelection(db, cycle, studentIds) {
   return {
     students: (rows.data || []).map(r => ({
       ...sanitizeStudent(r),
-      email: getStudentBulkEmailRoute(r).email || null,
-      recipientWarning: getStudentBulkEmailRoute(r).warning,
-      recipientSource: getStudentBulkEmailRoute(r).emailType,
+      ...routeFields(getStudentBulkEmailRoute(r, ALUMNUS_ROUTE)),
     })),
     outOfScope: studentIds.filter(id => !found.has(id)),
   }

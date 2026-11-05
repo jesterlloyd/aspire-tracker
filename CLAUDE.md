@@ -3115,6 +3115,18 @@ is Owner-gated (checks in `db/audit/residency_hire_history_checks.sql`).
   hire is edited. A viewer without Residency access sees nothing. The legacy NGRP Cohort Target and
   NGRP Outcome fields beside it are unchanged and still not read by Residency.
 
+## Alumni are emailed at their personal address (ALUMNUS-EMAIL-1, 2026-11-05)
+
+The general rule (`resolveStudentEmail`) is school-first until a student is Completed AND their
+rotation end date has passed. The Spring 2026 alumni were imported with no rotation row, so
+"rotation has ended" was false and 32 of 37 Transition Forms (and 28 of 31 reminders) went to
+school addresses, and portal accounts were created on them. Anything sent to an ALUMNUS passes
+`ALUMNUS_ROUTE` (`{ alumnus: true }`, in `studentEmailLifecycle.js`): personal first for every
+Completed student, school only as the fallback, a hired resident's Cedars-Sinai address still
+first. The send, the daily reminder, the one-time code and the form's suggested email all use it;
+`test/alumnusEmailRoute.test.mjs` fails if one of those calls drops it. A new residency sender
+must pass it too. Accounts already created on a school address are not moved by this change.
+
 ## Studio designs the email; Outreach sends it (STUDIO-1, 2026-11-05)
 
 ASPIRE Connect > Studio (`/connect/studio`, Owner and Admin, the Messages rule) designs

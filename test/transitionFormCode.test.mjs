@@ -55,8 +55,9 @@ test('the code goes where the form went: personal once the rotation has ended', 
   const student = { status: 'Completed', school_email: 'j@school.edu', personal_email: 'jordan@gmail.com', rotation: { rotation_end_date: '2026-08-07' } }
   assert.equal(resolveStudentEmail(student, undefined, { now: new Date('2026-10-29T12:00:00Z') }).email, 'jordan@gmail.com')
   const api = read('api/ngrp-transition.js')
-  assert.match(api, /email: resolveStudentEmail\(r\.data\)\.email/)
-  assert.match(read('api/ngrp-transition-send.js'), /getStudentBulkEmailRoute\(r\)\.email/)
+  // ALUMNUS-EMAIL-1 (this commit): the code follows the form, personal first.
+  assert.match(api, /email: resolveStudentEmail\(r\.data, undefined, ALUMNUS_ROUTE\)\.email/)
+  assert.match(read('api/ngrp-transition-send.js'), /getStudentBulkEmailRoute\(r, ALUMNUS_ROUTE\)/)
 })
 
 test('without a session the endpoint shows nothing and changes nothing', () => {

@@ -5,6 +5,9 @@ import { currentResidencyOutcome, hiredResidencyEmail } from './residencyEmail.j
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 export const validStudentEmail = value => typeof value === 'string' && EMAIL_RE.test(value.trim())
 
+// Pass to resolveStudentEmail / getStudentBulkEmailRoute for anything sent to an alumnus.
+export const ALUMNUS_ROUTE = Object.freeze({ alumnus: true })
+
 export function rotationHasEnded(rotation, now = new Date()) {
   const row = Array.isArray(rotation) ? rotation[0] : rotation
   const end = row?.rotation_end_date
@@ -35,8 +38,12 @@ export function resolveStudentEmail(student, rotation, options = {}) {
   }
   const resident = hiredResidencyEmail(currentResidencyOutcome(student?.residency_outcomes), student)
   if (resident) return resident
+  // ALUMNUS-EMAIL-1: residency mail (the Transition Form, its reminders, its code, its
+  // portal invitation) is addressed to an ALUMNUS, so it is personal-first for every
+  // Completed student, whether or not a rotation end date is on file. Imported cohorts have
+  // no rotation row, and without this option they fell to the school address.
   const personalFirst = student?.status === 'Completed'
-    && rotationHasEnded(rotation ?? student?.rotation, options.now)
+    && (options.alumnus === true || rotationHasEnded(rotation ?? student?.rotation, options.now))
   const preferredType = personalFirst ? 'personal' : 'school'
   const otherType = personalFirst ? 'school' : 'personal'
   for (const type of [preferredType, otherType]) {
@@ -49,7 +56,8 @@ export function resolveStudentEmail(student, rotation, options = {}) {
     return {
       email: email.trim(), type, preferredType, fallbackUsed, warning,
       reason: warning || (personalFirst
-        ? 'Completed and rotation end date has passed; personal email preferred.'
+        ? (options.alumnus === true ? 'ASPIRE alumnus; personal email preferred.'
+          : 'Completed and rotation end date has passed; personal email preferred.')
         : 'School email preferred until Completed and the rotation end date has passed.'),
     }
   }
