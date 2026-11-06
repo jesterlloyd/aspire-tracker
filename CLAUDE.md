@@ -654,6 +654,17 @@ handlers in `api/shift-log/` unchanged. Never accept `school_email` or an unlist
 from the client, and never re-implement the shift-log rules in a second place. The public
 `/shift-log` page stays for students without a portal account (STUDENT-SHIFT-TAB-1).
 
+**The QR page knows a signed-in student** (SHIFT-LOG-REMEMBER-1, Owner, 2026-11-05: a student typed
+a long school email on every scan). `/shift-log` first asks `my-shift-lifecycle` `lookup` with the
+phone's session; when it answers, the same views run through the portal transport ("Not you? Use an
+email instead" drops to email entry). Any refusal (no session, staff, no student grant) falls back to
+email entry silently. Without a session, the last email that found an ELIGIBLE student is remembered
+on the device (`src/lib/shiftLogDevice.js`, key `aspire.shiftLog.email`, class `public`) with Forget.
+Sign-in autofill (SIGNIN-AUTOFILL-1): the sign-in email is `autoComplete="username"`, and the
+activate and reset forms carry the account email as a hidden username (`KeychainUsername`) so a saved
+password has its email beside it. The web app manifest starts at `/portal`, so the Home Screen icon
+opens the sign-in or the portal, never the public site.
+
 ## Student photos have a small copy (PHOTO-THUMBS-1, 2026-09-30)
 
 Headshots averaged 1 MB and every avatar downloaded its original. Each headshot now has a small

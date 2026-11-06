@@ -121,7 +121,7 @@ export default function Login() {
                     <label className="lg-label" htmlFor="lg-email">Email address</label>
                     <input id="lg-email" className="lg-input" type="email" value={email}
                       onChange={e => setEmail(e.target.value)}
-                      required placeholder="your@email.com" autoComplete="email"
+                      required placeholder="your@email.com" autoComplete="username"
                       inputMode="email" autoCapitalize="none" spellCheck="false" />
                   </div>
                   <div>

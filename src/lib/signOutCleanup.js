@@ -98,6 +98,7 @@ export const STORAGE_KEY_REGISTRY = Object.freeze([
   { prefix: 'aspire-form-token', store: 'session', cls: 'public', holds: 'the form link token, moved out of the address bar' },
   { prefix: 'aspire-news-token', store: 'session', cls: 'public', holds: 'the program news link token, moved out of the address bar' },
   { prefix: 'aspire-sign-token', store: 'session', cls: 'public', holds: 'the signing link token, moved out of the address bar' },
+  { prefix: 'aspire.shiftLog.email', store: 'local', cls: 'public', holds: 'the school email last used on the public /shift-log page on this device; the page itself offers Forget (SHIFT-LOG-REMEMBER-1)' },
   { prefix: 'ngrpf-tab', store: 'session', cls: 'public', holds: 'the Transition Form link token and its verified one-time-code session, for this tab (TRANSITION-FORM-RELOAD-1)' },
 
   // ── auth: the session, owned by supabase-js ──────────────────────────────────

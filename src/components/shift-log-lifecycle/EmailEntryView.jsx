@@ -13,7 +13,9 @@ const BTN_PRIMARY = {
   background: 'var(--nightfall, #1D2567)', color: '#fff', border: 'none', borderRadius: 12, cursor: 'pointer',
 }
 
-export default function EmailEntryView({ email, setEmail, onSubmit, loading }) {
+// SHIFT-LOG-REMEMBER-1: `remembered` is the email this device used last; when it is
+// filled in, Forget removes it from the device.
+export default function EmailEntryView({ email, setEmail, onSubmit, loading, remembered = '', onForget = null }) {
   const [touched, setTouched] = useState(false)
   const trimmed = (email || '').trim()
   const looksValid = trimmed.includes('@') && trimmed.includes('.')
@@ -58,6 +60,16 @@ export default function EmailEntryView({ email, setEmail, onSubmit, loading }) {
           </button>
         </div>
       </form>
+
+      {remembered && onForget && (
+        <p style={{ fontSize: 13, color: '#4b5563', textAlign: 'center', margin: '14px 0 0', lineHeight: 1.6, fontFamily: F }}>
+          Remembered on this device.{' '}
+          <button type="button" onClick={onForget}
+            style={{ background: 'none', border: 'none', padding: 0, color: 'var(--nightfall,#1D2567)', textDecoration: 'underline', fontSize: 13, fontFamily: F, cursor: 'pointer' }}>
+            Forget this email
+          </button>
+        </p>
+      )}
 
       <p style={{ fontSize: 13, color: '#9ca3af', textAlign: 'center', margin: '20px 0 0', lineHeight: 1.6, fontFamily: F }}>
         Trouble signing in? Email{' '}

@@ -44,6 +44,7 @@ import { appUrl } from '../lib/appUrl'
 // rather than written here: this page states the rule in two states, and the
 // invitation emails state it in two more.
 import { ACTIVATION_PAGE_SENTENCE } from '../../lib/server/activationLifetime.js'
+import KeychainUsername from '../components/KeychainUsername'
 
 // Token types the ASPIRE hash URL may carry. Anything else is not ours.
 const TOKEN_TYPES = new Set(['invite', 'recovery'])
@@ -343,6 +344,7 @@ export default function ActivateAccountPage() {
       )}
 
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        <KeychainUsername />
         <div>
           <label style={{ fontWeight: 600, fontSize: '12px', color: '#374151', display: 'block', marginBottom: '6px' }}>Password</label>
           <input type={showPw ? 'text' : 'password'} value={newPassword} onChange={e => setNewPassword(e.target.value)}

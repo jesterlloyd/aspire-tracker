@@ -2,7 +2,7 @@
   "name": "ASPIRE Intelligence",
   "short_name": "ASPIRE",
   "id": "/aspire-intelligence",
-  "start_url": "/",
+  "start_url": "/portal",
   "scope": "/",
   "display": "standalone",
   "background_color": "#000000",

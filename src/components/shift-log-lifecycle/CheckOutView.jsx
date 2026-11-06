@@ -47,7 +47,7 @@ function YesNo({ label, value, onChange, id }) {
 
 // STUDENT-SHIFT-TAB-1: `transport` routes the write through the portal's authenticated
 // endpoint; `onDifferentEmail` is absent inside the portal, where the session is the identity.
-export default function CheckOutView({ student, openShift, onSuccess, onAlreadyCompleted, onNetworkError, onDifferentEmail, transport = null }) {
+export default function CheckOutView({ student, openShift, onSuccess, onAlreadyCompleted, onNetworkError, onDifferentEmail, differentEmailLabel = 'Use a different email', transport = null }) {
   const { checkOut, submitting } = useCheckOut(transport)
   const [totalHours, setTotalHours] = useState(openShift?.expected_hours != null ? String(openShift.expected_hours) : '')
   const [shiftType, setShiftType] = useState(openShift?.planned_shift_type && SHIFT_TYPES.includes(openShift.planned_shift_type) ? openShift.planned_shift_type : 'Day')
@@ -206,7 +206,7 @@ export default function CheckOutView({ student, openShift, onSuccess, onAlreadyC
 
       {onDifferentEmail && (
         <div style={{ display: 'flex', justifyContent: 'center', marginTop: 16 }}>
-          <button type="button" style={LINK} onClick={onDifferentEmail}>Use a different email</button>
+          <button type="button" style={LINK} onClick={onDifferentEmail}>{differentEmailLabel}</button>
         </div>
       )}
     </div>

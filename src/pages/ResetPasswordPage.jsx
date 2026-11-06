@@ -13,6 +13,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import BackButton from '../components/BackButton'
+import KeychainUsername from '../components/KeychainUsername'
 
 const F = 'Plus Jakarta Sans, sans-serif'
 const NAVY = '#1D2567'
@@ -196,6 +197,7 @@ export default function ResetPasswordPage() {
       )}
 
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        <KeychainUsername />
         <div>
           <label style={{ fontWeight: 600, fontSize: '12px', color: '#374151', display: 'block', marginBottom: '6px' }}>New password</label>
           <input type={showPw ? 'text' : 'password'} value={newPassword} onChange={e => setNewPassword(e.target.value)}
