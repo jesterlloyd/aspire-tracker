@@ -210,7 +210,6 @@ export function questionsFor(mapping, headers, rows, { target, cohortNames = [] 
     for (const v of columnVocabulary(rows, c.index, f.key, mapping.separator)) {
       if (map[v] !== undefined && map[v] !== null) continue
       if (exactChoice(v, vocab)) continue
-      if (f.key === 'aspire_cohort' && target === 'internship') continue // the current cohort decides
       qs.push({ kind: 'value', id: `val:${f.key}:${v}`, field: f.key, value: v, keithSaid: map[v] === null ? 'none' : 'unseen', choices: vocab, allowNew: f.key === 'aspire_cohort' })
     }
   }
@@ -405,14 +404,22 @@ export function diffAgainst(existing, cols) {
 /**
  * Plan every row. `pool` is the students in the app: { id, first_name, last_name,
  * preferred_first_name, personal_email, school_email, status, cohort_id, cohort_name, ...fields }.
- * Options: target, cohortId (Internship: the cohort the import fills), cohortNames, onRosterIds
- * (Residency), newCohorts (Residency: past cohorts the popup agreed to create).
+ * Options: target, cohortId (Internship: the open cohort, which a row fills when it names no
+ * cohort of its own), cohorts ([{ id, name }], to resolve a row's own cohort), cohortNames,
+ * onRosterIds (Residency), newCohorts (past cohorts the popup agreed to create).
+ *
+ * IMPORT-ROW-COHORT-1 (Owner, 2026-11-05): an Internship row files into the cohort its own ASPIRE
+ * cohort column names. Twenty-seven Fall 2025 interns imported from Spring 2026's open profiles all
+ * landed in Spring 2026, because the open cohort used to decide every row.
  *
  * Each plan row: { row, name, action, values, cols, match?, fill, conflicts, problems, reason,
  * options? }. action is create | update | add | skip | ask. `ask` carries `options`, the answers
  * the popup may give for that row, the first being the safe default.
  */
-export function planRows(rows, mapping, pool, { target, cohortId = null, cohortNames = [], onRosterIds = [], newCohorts = [] } = {}) {
+export function planRows(rows, mapping, pool, { target, cohortId = null, cohorts = [], cohortNames = [], onRosterIds = [], newCohorts = [] } = {}) {
+  const idByName = new Map(cohorts.map(c => [fold(c.name), c.id]))
+  const openName = cohorts.find(c => c.id === cohortId)?.name || null
+  const isNew = name => newCohorts.some(n => fold(n) === fold(name))
   const byEmail = new Map()
   const byName = new Map()
   for (const s of pool) {
@@ -450,17 +457,23 @@ export function planRows(rows, mapping, pool, { target, cohortId = null, cohortN
     const by = emailHits.size ? 'email' : 'name'
 
     if (target === 'internship') {
-      if (hits.length > 1) return { ...base, action: 'ask', reason: 'ambiguous', matches: hits.map(brief), options: ['skip', 'create'] }
+      // The row's own cohort when it names a known one (or one the popup agreed to create), else the open one.
+      // Without a cohort list (an older caller) the open cohort decides, as it used to.
+      const own = values.aspire_cohort && known.has(fold(values.aspire_cohort)) && (idByName.has(fold(values.aspire_cohort)) || isNew(values.aspire_cohort))
+        ? values.aspire_cohort : null
+      const rowCohortId = own ? (idByName.get(fold(own)) ?? null) : cohortId
+      const cohortOut = own && rowCohortId !== cohortId ? { cohort: own } : (openName ? { cohort: openName } : {})
+      if (hits.length > 1) return { ...base, ...cohortOut, action: 'ask', reason: 'ambiguous', matches: hits.map(brief), options: ['skip', 'create'] }
       const m = hits[0]
-      if (m && m.cohort_id === cohortId) {
-        const d = diffAgainst(m, cols)
+      if (m && rowCohortId && m.cohort_id === rowCohortId) {
+        const d = { ...diffAgainst(m, cols), ...cohortOut }
         const match = brief(m, by)
         if (by === 'name') return { ...base, ...d, match, action: 'ask', reason: 'name_only', options: ['update', 'create', 'skip'] }
         if (d.conflicts.length) return { ...base, ...d, match, action: 'ask', reason: 'conflicts', options: ['update', 'replace', 'skip'] }
         return { ...base, ...d, match, action: d.fill.length ? 'update' : 'skip', reason: d.fill.length ? 'fill' : 'nothing_new' }
       }
-      if (m) return { ...base, match: brief(m, by), action: 'ask', reason: 'other_cohort', options: ['skip', 'create'] }
-      return { ...base, action: 'create', reason: 'new' }
+      if (m) return { ...base, ...cohortOut, match: brief(m, by), action: 'ask', reason: 'other_cohort', options: ['skip', 'create'] }
+      return { ...base, ...cohortOut, action: 'create', reason: 'new' }
     }
 
     // Residency: an alumnus is a Completed student; the row's own ASPIRE cohort says which.

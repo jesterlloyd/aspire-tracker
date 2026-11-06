@@ -159,7 +159,7 @@ export default function KeithImportDrawer({ target, cohortId, cohortName, cycle,
               Keith looks at the columns (headers, lists of choices and masked samples, never a whole row or anyone's
               details), works out which student field each one fills, and asks you where he is not sure. The app then
               checks every row against the students already here, so nobody is added twice. Nothing is written until you
-              press Import. {target === 'internship' ? `New students go into ${destName}.` : `Alumni go on the ${destName} roster.`}
+              press Import. {target === 'internship' ? `New students go into the cohort their row names, or ${destName} when it names none.` : `Alumni go on the ${destName} roster.`}
             </p>
           </div>
         </div>
@@ -215,7 +215,7 @@ export default function KeithImportDrawer({ target, cohortId, cohortName, cycle,
                       <span className="ski-q-header">“{q.value}”</span>
                       <span className="ski-note">in {fieldLabel(q.field)}</span>
                     </div>
-                    <ValueSelect q={q} value={answers[q.id]} onChange={v => answer(q.id, v)} allowNew={q.allowNew && target === 'residency'} />
+                    <ValueSelect q={q} value={answers[q.id]} onChange={v => answer(q.id, v)} allowNew={q.allowNew} />
                   </div>
                 ))}
               </section>
@@ -267,7 +267,7 @@ export default function KeithImportDrawer({ target, cohortId, cohortName, cycle,
                 {pendingValues.map(q => (
                   <div key={q.id} className="ski-q">
                     <div className="ski-q-label"><span className="ski-q-header">“{q.value}”</span><span className="ski-note">in {fieldLabel(q.field)}</span></div>
-                    <ValueSelect q={q} value={answers[q.id]} onChange={v => answer(q.id, v)} allowNew={q.allowNew && target === 'residency'} />
+                    <ValueSelect q={q} value={answers[q.id]} onChange={v => answer(q.id, v)} allowNew={q.allowNew} />
                   </div>
                 ))}
                 <button type="button" className="ski-btn" disabled={busy === 'plan'} onClick={checkRows}>Check the rows again</button>

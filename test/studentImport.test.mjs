@@ -139,6 +139,21 @@ test('Internship: never a second record without an answer', () => {
   assert.equal(d[3].action, 'create')
 })
 
+test('Internship: a row files into the cohort it names, not the open one (IMPORT-ROW-COHORT-1)', () => {
+  const cohorts = [{ id: 'fall', name: 'Fall 2026' }, { id: 'spring', name: 'Spring 2026' }]
+  const p = planRows(file, mapping, pool, { target: 'internship', cohortId: 'spring', cohorts, cohortNames: ['Fall 2026', 'Spring 2026'] })
+  assert.deepEqual(p.slice(0, 2).map(r => [r.action, r.reason, r.cohort]), [
+    ['update', 'fill', 'Fall 2026'], // matched in its own cohort, though Spring 2026 is open
+    ['ask', 'conflicts', 'Spring 2026'],
+  ])
+  assert.equal(p[4].cohort, 'Spring 2026', 'an unknown cohort with no answer falls to the open one')
+  const qs = questionsFor(mapping, ['Name', 'Email', 'School', 'Cohort'], file, { target: 'internship', cohortNames: ['Fall 2026', 'Spring 2026'] })
+  assert.ok(qs.some(q => q.id === 'val:aspire_cohort:Winter 2025' && q.allowNew), 'a cohort the app lacks is asked about')
+  const withNew = planRows(file, applyAnswers(mapping, { 'val:aspire_cohort:Winter 2025': 'new:Winter 2025' }), pool,
+    { target: 'internship', cohortId: 'spring', cohorts, cohortNames: ['Fall 2026', 'Spring 2026'], newCohorts: ['Winter 2025'] })
+  assert.deepEqual([withNew[4].action, withNew[4].cohort], ['create', 'Winter 2025'])
+})
+
 test('a stored value that is not one of the choices is filled from the file, not a conflict (Sierra Jennings)', () => {
   const legacy = { school: 'West Coast University', program_type: 'BSN Semester', phone: '555' }
   const d = diffAgainst(legacy, { school: 'West Coast University North Hollywood', program_type: 'Accelerated BSN', phone: '556' })
