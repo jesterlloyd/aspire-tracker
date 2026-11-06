@@ -794,7 +794,7 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                 </div>
               </div>
             ) : (
-          <div className="ngrp-roster">
+          <div className="ngrp-roster ngrp-roster-fill">
             <div className="ngrp-roster-head">
               <span style={{ fontSize: 13, fontWeight: 700 }}>Alumni Roster</span>
               <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
@@ -983,8 +983,8 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                             </div>
                           </div>
                         </td>
-                        {/* Whether WE sent the form, not where it got to. The
-                            lifecycle is in the drawer. */}
+                        {/* Whether we sent the form and how far it got: Sent, Opened,
+                            In Progress, Received (FORM-PROGRESS-1). */}
                         <td className="ngrp-col-form">
                           <span className="ngrp-stack">
                             <NgrpStatusPill config={FORM_SENT_STATES} value={formSentState(r)} srPrefix="Transition Form" />

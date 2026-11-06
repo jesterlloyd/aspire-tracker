@@ -82,6 +82,8 @@ const RECIPIENT_MODE_KEY = 'aspire.connect.outreach.mode'   // top-level mode ke
 const DRAFT_VERSION    = 1
 const DRAFT_TTL_MS     = 7 * 24 * 60 * 60 * 1000 // 7 days
 const DRAFT_DEBOUNCE_MS = 600
+// SUPPORT-HANDOFF-TEMPLATE-1: the Replace-draft prompt's key when it would write a support handoff's draft.
+const SUPPORT_REPLACE = '__support_handoff__'
 // All keys are scoped by the logged-in user so one account cannot see another's draft on a
 // shared browser. token = `student:ID` | `contact:ID`. Returns null when userKey is absent
 // (autosave disabled - no read/write).
@@ -685,6 +687,17 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
   // SUPPORT-OUTREACH-1: the student's own documents (a résumé version), by version id. They
   // travel only with a verified support handoff and are resolved by the server like any file.
   const [docAttachments,    setDocAttachments]     = useState(() => (activeSupport?.documents || []))
+  // SUPPORT-HANDOFF-TEMPLATE-1 (2026-11-05): a support handoff is not a template. It used to fall
+  // through the placement handoff's settle path, which marked the review draft as Preceptor
+  // Assignment: the composer then offered "Refresh from template" (and Megan Laird received the
+  // preceptor email with her résumé). The handoff's documents follow the handoff itself, so a
+  // composer that is already mounted when a second review is opened attaches the right résumé.
+  const supportKey = activeSupport ? JSON.stringify(supportRefFor(activeSupport)) : null
+  const [docSupportKey, setDocSupportKey] = useState(supportKey)
+  if (docSupportKey !== supportKey) {
+    setDocSupportKey(supportKey)
+    setDocAttachments(activeSupport?.documents || [])
+  }
   // CONNECT-COMMS-1D: CC support (Direct Message only). ccList = confirmed chips; ccInput = in-progress typing.
   // ccAutoSuggested flags that the coordinator chip was pre-filled (vs. manually added) for metadata/telemetry.
   const [ccList,            setCcList]             = useState([])
@@ -781,6 +794,21 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
   // RICH-COMPOSE-2A-0: additive richDoc (TipTap JSON). When rich ON the editor updates it on edit;
   // when OFF it carries the restored draft's richDoc forward so toggling the flag never destroys it.
   const richDocRef          = useRef(null)
+  // SUPPORT-HANDOFF-TEMPLATE-1: write a support handoff's draft (first open, or Replace draft).
+  const seedSupportDraft = useCallback(() => {
+    if (!handoffSeed || !activeSupport) return
+    setOutreachMode('message')
+    setMsgSubject(handoffSeed.subject)
+    richDocRef.current = null
+    setMsgBody(handoffSeed.body)
+    setIncludeSignature(true)
+    setActiveTemplateId(null)
+    setDmAttachments([])
+    setPlacementLink(null)
+    setDocAttachments(activeSupport.documents || [])
+    draftDirtyRef.current = true
+    latestDraftRef.current = { ...latestDraftRef.current, subject: handoffSeed.subject, body: handoffSeed.body, attachments: [], placementLink: null }
+  }, [handoffSeed, activeSupport])
   const flashDraftStatus = useCallback((s) => {
     setDraftStatus(s)
     if (draftStatusTimerRef.current) clearTimeout(draftStatusTimerRef.current)
@@ -1211,9 +1239,10 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
       // selected preceptor draft is still a preceptor draft after a refresh, and
       // its guards keep guarding. (Drafts saved before this carry no templateKey
       // and restore exactly as they did.)
-      if (d.templateKey) setActiveTemplateId(d.templateKey)
+      // SUPPORT-HANDOFF-TEMPLATE-1: under a support handoff a saved preceptor key is never revived.
+      if (d.templateKey) setActiveTemplateId(activeSupport && d.templateKey === 'preceptor_assignment' ? null : d.templateKey)
       const link = d.placement
-      if (link && link.matchId && link.preceptorId && link.studentId && link.unitId
+      if (!activeSupport && link && link.matchId && link.preceptorId && link.studentId && link.unitId
         && link.cohortId === cohortId && link.templateKey === 'preceptor_assignment') {
         setPlacementLink(link)
         setActiveTemplateId('preceptor_assignment')
@@ -1247,7 +1276,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
     // exactly this). The live handoff is that draft's origin, so it heals the
     // connection - and marks the draft dirty so the healed link actually
     // PERSISTS, surviving a later refresh on a bare URL.
-    if (handoffSeed && DRAFT_KEY && placementAppliedRef.current === DRAFT_KEY
+    if (handoffSeed && !activeSupport && DRAFT_KEY && placementAppliedRef.current === DRAFT_KEY
       && d && !directDraftIsEmpty(d) && !d.placement) {
       const healed = linkFromActivePlacement(activePlacement)
       if (healed) {
@@ -1268,7 +1297,15 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
     // An existing draft is NEVER overwritten. The branded "Replace draft?"
     // confirmation opens instead - the same one picking the template by hand
     // shows - so returning to the board can never corrupt unrelated work.
-    if (handoffSeed && DRAFT_KEY && placementAppliedRef.current !== DRAFT_KEY) {
+    // SUPPORT-HANDOFF-TEMPLATE-1: a review or document request settles on its own path. A saved
+    // draft with the handoff's own subject is this handoff restored; any other draft asks first,
+    // and the confirmation writes the review draft, never a template.
+    if (handoffSeed && activeSupport && DRAFT_KEY && placementAppliedRef.current !== DRAFT_KEY) {
+      placementAppliedRef.current = DRAFT_KEY
+      const isOwnSupportDraft = d && String(d.subject || '').trim() === String(handoffSeed.subject || '').trim()
+      if (d && !directDraftIsEmpty(d) && !isOwnSupportDraft) setReplaceTemplateKey(SUPPORT_REPLACE)
+      else if (!(d && !directDraftIsEmpty(d))) seedSupportDraft()
+    } else if (handoffSeed && DRAFT_KEY && placementAppliedRef.current !== DRAFT_KEY) {
       placementAppliedRef.current = DRAFT_KEY
       // A saved draft that already carries THIS handoff's own link is not
       // somebody's unrelated work - it IS this handoff, restored (the refresh
@@ -1482,7 +1519,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
   // and a refresh is OFFERED. Never applied: the offer routes through the same
   // Replace-draft confirmation as every other template application, so edits
   // worth keeping are never replaced without a decision.
-  const staleTemplateOffer = activeTemplateId === 'preceptor_assignment'
+  const staleTemplateOffer = activeTemplateId === 'preceptor_assignment' && !activeSupport
     ? templateRefreshReason({
       body: msgBody,
       selected: dmAttachments,
@@ -4883,14 +4920,16 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0, viewport
               Replace current draft?
             </h2>
             <p style={{ margin: '0 0 20px', fontSize: 13, color: '#475467', lineHeight: 1.55, fontFamily: F }}>
-              This will replace the subject and message you are currently editing with the selected template. You can still customize the draft before sending.
+              {replaceTemplateKey === SUPPORT_REPLACE
+                ? 'This will replace the subject and message you are currently editing with the draft from the résumé review. You can still customize it before sending.'
+                : 'This will replace the subject and message you are currently editing with the selected template. You can still customize the draft before sending.'}
             </p>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
               <button autoFocus onClick={() => setReplaceTemplateKey(null)} style={{
                 padding: '8px 16px', borderRadius: 8, border: '1px solid #d1d5db', background: '#fff',
                 color: '#374151', fontSize: 13, fontWeight: 600, fontFamily: F, cursor: 'pointer',
               }}>Cancel</button>
-              <button onClick={() => { const k = replaceTemplateKey; setReplaceTemplateKey(null); applyTemplate(k) }} style={{
+              <button onClick={() => { const k = replaceTemplateKey; setReplaceTemplateKey(null); if (k === SUPPORT_REPLACE) seedSupportDraft(); else applyTemplate(k) }} style={{
                 padding: '8px 16px', borderRadius: 8, border: '1px solid #1D2567', background: '#1D2567',
                 color: '#fff', fontSize: 13, fontWeight: 600, fontFamily: F, cursor: 'pointer',
               }}>Replace draft</button>

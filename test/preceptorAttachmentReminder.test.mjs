@@ -391,7 +391,9 @@ test('PROOF 8: the refresh is OFFERED - it never replaces edits by itself', () =
   assert.ok(!/applyTemplate\(/.test(block), 'no direct application from the offer')
 
   // And the confirmation is the only thing that applies the template.
-  assert.match(src, /setReplaceTemplateKey\(null\); applyTemplate\(k\)/,
+  // SUPPORT-HANDOFF-TEMPLATE-1 changed the confirm: a support handoff's key writes the review
+  // draft instead of a template. Every other key still applies its template on confirm.
+  assert.match(src, /setReplaceTemplateKey\(null\); if \(k === SUPPORT_REPLACE\) seedSupportDraft\(\); else applyTemplate\(k\)/,
     'application happens on confirm, with the draft still intact until then')
 })
 

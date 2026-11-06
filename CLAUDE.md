@@ -3156,6 +3156,28 @@ stored "RN", "RN-", "#" or space before the number is dropped, at most 12 digits
 binder's Review, the packet and the Excel's RN License Number column. An older revision that
 stored the prefix reads the same way, so nothing was rewritten. A prefix alone is still no number.
 
+## A support handoff is not a template (SUPPORT-HANDOFF-TEMPLATE-1, 2026-11-05)
+
+A résumé review opened in Outreach used to settle through the placement handoff's path, which
+marked the review draft as the Preceptor Assignment template: the composer showed "Refresh from
+template", and its Refresh wrote the preceptor email over the review (Megan Laird was sent it,
+with her résumé, on 2026-11-05). The résumé was attached on every send; the attachment was never
+the bug. Now a support handoff settles on its own branch in `OutreachView.jsx`: `seedSupportDraft`
+writes the review draft with no template, a saved draft with another subject asks Replace draft?
+under `SUPPORT_REPLACE` (which writes the review, never a template), a restored draft cannot
+revive `preceptor_assignment`, the stale-template offer never shows, and the handoff's documents
+follow the handoff when a second review is opened in a mounted composer.
+
+## Interest & Eligibility pins like Profiles; the Form column shows progress (2026-11-05)
+
+- **INTEREST-PIN-1 (Owner).** The roster card is `.ngrp-roster-fill` inside the pinned split frame:
+  the KPI cards scroll away, the filter bar pins under the chrome, and the roster takes the measured
+  `--profiles-chart-h`, so only its rows scroll. Measured at 1440 x 900: the page scrolls 189px, the
+  roster runs 222 to 888. Below 980px the bar stops pinning and the old capped scroller returns.
+- **FORM-PROGRESS-1 (Owner).** The roster's Form pill reads Not Sent, Sent, Opened (the link was
+  used), In Progress (answers saved, not submitted) and Received (`formSentState`). The timestamp
+  under it already followed the full lifecycle.
+
 ## Studio designs the email; Outreach sends it (STUDIO-1, 2026-11-05)
 
 ASPIRE Connect > Studio (`/connect/studio`, Owner and Admin, the Messages rule) designs

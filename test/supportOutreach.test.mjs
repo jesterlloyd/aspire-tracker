@@ -191,3 +191,20 @@ test('the source migration on Postgres: existing rows read manual, a bad source 
   await db.query(`INSERT INTO ngrp_support_entries (activity, source, source_ref) VALUES ('resume_review', 'outreach', 'log-1')`)
   await assert.rejects(db.query(`INSERT INTO ngrp_support_entries (activity, source) VALUES ('town_hall', 'email')`))
 })
+
+// SUPPORT-HANDOFF-TEMPLATE-1 (2026-11-05): a support handoff settled through the placement path,
+// which marked the review draft as Preceptor Assignment; "Refresh from template" then wrote the
+// preceptor email, and one went to an alumna. The handoff now settles on its own path.
+test('a support handoff never selects or offers the Preceptor Assignment template', () => {
+  const src = read('src/components/connect/OutreachView.jsx')
+  const settle = src.slice(src.indexOf('SUPPORT-HANDOFF-TEMPLATE-1: a review or document request settles'), src.indexOf('} else if (handoffSeed && DRAFT_KEY && placementAppliedRef.current !== DRAFT_KEY)'))
+  assert.ok(settle.length > 0, 'the support settle branch exists and comes before the placement one')
+  assert.doesNotMatch(settle, /preceptor_assignment/)
+  assert.match(settle, /setReplaceTemplateKey\(SUPPORT_REPLACE\)/)
+  const seed = src.slice(src.indexOf('const seedSupportDraft = useCallback'), src.indexOf('}, [handoffSeed, activeSupport])'))
+  assert.match(seed, /setActiveTemplateId\(null\)/)
+  assert.match(seed, /setDocAttachments\(activeSupport\.documents/)
+  assert.match(src, /const staleTemplateOffer = activeTemplateId === 'preceptor_assignment' && !activeSupport/)
+  assert.match(src, /activeSupport && d\.templateKey === 'preceptor_assignment' \? null/)
+  assert.match(src, /if \(k === SUPPORT_REPLACE\) seedSupportDraft\(\); else applyTemplate\(k\)/)
+})

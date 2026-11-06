@@ -671,6 +671,24 @@
    it won. In a portal the toolbar sits below its chrome and every menu the chrome opens. */
 .ptl-page .profiles-toolbar { z-index: 10; }
 
+/* INTEREST-PIN-1 (Owner, 2026-11-05): Interest & Eligibility pins the way Profiles does. The KPI
+   cards scroll away, the filter bar pins under the chrome, and the roster takes everything left
+   in the window (the same measured --profiles-chart-h the split uses), so only its rows scroll.
+   It used to cap its scroller at a guessed calc(100vh - 330px). Below 980px, as Student
+   Profiles does, the bar stops pinning and the page scrolls instead. */
+.ngrp-split-frame .ngrp-roster-fill {
+  display: flex; flex-direction: column;
+  height: var(--profiles-chart-h, calc(100vh - 164px));
+  margin-bottom: 0;
+}
+.ngrp-split-frame .ngrp-roster-fill .ngrp-roster-head { flex: none; }
+.ngrp-split-frame .ngrp-roster-fill .ngrp-roster-scroll { flex: 1 1 auto; max-height: none; min-height: 0; }
+.ngrp-split-frame .ngrp-roster-fill .ngrp-selbar { flex: none; }
+@media (max-width: 980px) {
+  .ngrp-split-frame .ngrp-roster-fill { height: auto; margin-bottom: 28px; }
+  .ngrp-split-frame .ngrp-roster-fill .ngrp-roster-scroll { max-height: calc(100vh - 330px); min-height: 220px; }
+}
+
 /* RESIDENCY-NEEDS-1: the staff home's Needs you, on Residency's At a Glance. .hm-page gives it
    the home's tokens; this sits in the workspace's own column, so the home's page padding goes. */
 .hm-page.ngrp-needs { padding: 0; }

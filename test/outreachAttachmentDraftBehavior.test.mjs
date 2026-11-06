@@ -182,6 +182,8 @@ function directComposer({ userKey = 'u1', richEnabled = false, activePlacement =
     // effect touches. Defaulting activePlacement to null keeps every pre-existing
     // case on exactly the path it tested before.
     activePlacement, handoffSeed,
+    // SUPPORT-HANDOFF-TEMPLATE-1: no support handoff here, so the placement path runs unchanged.
+    activeSupport: null, seedSupportDraft: () => {}, SUPPORT_REPLACE: '__support_handoff__',
     requiredDocs: docs,
     buildPreceptorAssignmentDraft,
     // PRECEPTOR-DRAFT-CONTINUITY-1: the persisted placement connection.

@@ -184,3 +184,23 @@ test('the drawer reads only the review the binder already reads, and only with a
   assert.match(d, /trapFocus/)
   assert.doesNotMatch(d, /tokens|token_hash/)
 })
+
+// FORM-PROGRESS-1 (Owner, 2026-11-05): the Form column says how far a sent form got.
+test('the Form column reads Not Sent, Sent, Opened, In Progress and Received', async () => {
+  const { formSentState, FORM_SENT_STATES } = await import('../src/lib/ngrp/ngrpStates.js')
+  const cases = { not_sent: 'not_sent', sent: 'sent', opened: 'opened', in_progress: 'in_progress', submitted: 'received', revised: 'received' }
+  for (const [status, want] of Object.entries(cases)) assert.equal(formSentState({ form_status: status }), want, status)
+  assert.equal(formSentState({}), 'not_sent')
+  assert.equal(formSentState({ form_status: 'pending' }), 'sent')
+  assert.deepEqual(Object.values(FORM_SENT_STATES).map(s => s.label), ['Not Sent', 'Sent', 'Opened', 'In Progress', 'Received'])
+})
+
+// INTEREST-PIN-1 (Owner, 2026-11-05): the roster takes the measured space under the pinned bar.
+test('Interest & Eligibility sizes its roster to the pinned split height', async () => {
+  const { readFileSync } = await import('node:fs')
+  const css = readFileSync(new URL('../src/components/ngrp/ngrp.css', import.meta.url), 'utf8')
+  const tab = readFileSync(new URL('../src/components/ngrp/ProfilesTab.jsx', import.meta.url), 'utf8')
+  assert.match(tab, /className="ngrp-roster ngrp-roster-fill"/)
+  assert.match(css, /\.ngrp-split-frame \.ngrp-roster-fill \{[^}]*height: var\(--profiles-chart-h/)
+  assert.match(css, /\.ngrp-roster-fill \.ngrp-roster-scroll \{ flex: 1 1 auto; max-height: none; min-height: 0; \}/)
+})

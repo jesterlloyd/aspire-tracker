@@ -62,14 +62,22 @@ export const FORM_ORDER = ['not_sent', 'sent', 'opened', 'in_progress', 'submitt
 // still has to say is whether WE sent the form, so this is a two-state reading
 // of the same field. The full lifecycle stays in the drawer, where it is read
 // when it matters.
+//
+// FORM-PROGRESS-1 (Owner, 2026-11-05): the roster also says how far a sent form got, so the team
+// can tell an alumnus who never opened the link from one with a draft saved: Opened (the link was
+// used) and In Progress (answers saved, not submitted). Submitted and Revised still read Received.
 export const FORM_SENT_STATES = {
-  not_sent: { label: 'Not Sent', family: 'mute', icon: 'dash' },
-  sent:     { label: 'Sent',     family: 'info', icon: 'info' },
-  received: { label: 'Received', family: 'ok',   icon: 'check' },
+  not_sent:    { label: 'Not Sent',    family: 'mute', icon: 'dash' },
+  sent:        { label: 'Sent',        family: 'info', icon: 'info' },
+  opened:      { label: 'Opened',      family: 'info', icon: 'info' },
+  in_progress: { label: 'In Progress', family: 'wait', icon: 'clock' },
+  received:    { label: 'Received',    family: 'ok',   icon: 'check' },
 }
 export function formSentState(row) {
-  if (row?.form_status === 'submitted' || row?.form_status === 'revised') return 'received'
-  return (!row?.form_status || row.form_status === 'not_sent') ? 'not_sent' : 'sent'
+  const s = row?.form_status
+  if (s === 'submitted' || s === 'revised') return 'received'
+  if (!s || s === 'not_sent') return 'not_sent'
+  return s === 'opened' || s === 'in_progress' ? s : 'sent'
 }
 
 // ── Residency interest ───────────────────────────────────────────────────────
