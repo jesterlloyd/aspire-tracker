@@ -226,6 +226,17 @@ export async function fetchStudentHires(studentId) {
   }
 }
 
+// HIRED-TAG-1: each listed student's latest hire in brief, keyed by student id. A refusal (a
+// viewer without Residency access) or a failure reads as no tags.
+export async function fetchHireTags(studentIds) {
+  try {
+    const body = await postNgrp('hire_tags', { student_ids: studentIds })
+    return body?.tags || {}
+  } catch {
+    return {}
+  }
+}
+
 // RESIDENCY-SUPPORT-1: the Support tab. Writes are the ASPIRE team's only.
 export async function postNgrpSupport(action, payload = {}) {
   try {

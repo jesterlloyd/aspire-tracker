@@ -63,7 +63,8 @@ test('the lines name the cohort, unit, position, title, date and whether they ar
 
 test('the endpoint serves it to the ASPIRE team only, and the chart reads it, never writes it', () => {
   const ep = read('api/ngrp-workspace.js')
-  assert.match(ep, /'student_hire'\]\)/)
+  // HIRED-TAG-1 added 'hire_tags' after it in the action list.
+  assert.match(ep, /'student_hire'(, 'hire_tags')?\]\)/)
   assert.match(ep, /action === 'student_hire'[\s\S]{0,200}caller\.audience !== 'staff'[\s\S]{0,40}403/)
   const comp = read('src/components/student/ResidencyHireOnRecord.jsx')
   assert.match(comp, /student\?\.status === 'Completed'/)

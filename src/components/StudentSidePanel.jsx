@@ -15,6 +15,8 @@ import './student/studentChart.css'
 import FlagRibbon from './rubric/FlagRibbon'
 import ChartEvaluations from './student/ChartEvaluations'
 import ResidencyHireOnRecord from './student/ResidencyHireOnRecord'
+import { fetchStudentHires } from '../lib/ngrp/useNgrpData'
+import { hireTag } from '../lib/ngrp/studentHireModel'
 import { CHART_SHEETS } from './student/chartSheets'
 import { useChartScroll, useCrossFade } from './student/useChartScroll'
 import { isFollowUpFlagged, followUpFlagAvailable, setFollowUpFlag } from '../lib/studentFollowUpFlag'
@@ -550,6 +552,16 @@ export default function StudentSidePanel({
     },
     enabled: !!student.id,
   })
+
+  // HIRED-TAG-1: the residency hire, shown as a tag beside Completed on the name plate. The same
+  // query (and cache) as the Placement sheet's read-only Residency section.
+  const { data: hireRead = null } = useQuery({
+    queryKey: ['ngrp-student-hire', student.id],
+    queryFn: () => fetchStudentHires(student.id),
+    enabled: Boolean(student.id) && student.status === 'Completed',
+    staleTime: 60_000,
+  })
+  const plateHireTag = student.status === 'Completed' && hireRead?.ok ? hireTag(hireRead.hires?.[0]) : null
 
   // STUDENT-PORTAL-PROFILE-1: when the student last changed their own profile from
   // the portal (the audit row api/portal/my-profile.js writes). Owner/Admin only -
@@ -1251,6 +1263,12 @@ export default function StudentSidePanel({
                       </span>
                     )
                   })()}
+                  {plateHireTag && (
+                    <span title={plateHireTag.title} data-testid="plate-hire-tag" style={{ fontSize:11, fontWeight:700, padding:'3px 10px', borderRadius:20,
+                      background:plateHireTag.colors.bg, color:plateHireTag.colors.text, border:`1px solid ${plateHireTag.colors.border}`, whiteSpace:'nowrap' }}>
+                      {plateHireTag.label}
+                    </span>
+                  )}
 
                   {(() => {
                     const gpaVal  = parseFloat(data.cumulative_gpa)

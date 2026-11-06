@@ -2,6 +2,9 @@
 // Controls (search, sort, import, etc.) live in the parent StudentProfilesTab.
 
 import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { fetchHireTags } from '../lib/ngrp/useNgrpData'
+import { hireTag } from '../lib/ngrp/studentHireModel'
 import StudentAvatar from './StudentAvatar'
 import ImportStudentsCSV from './ImportStudentsCSV'
 import { getCsLinkStatus, CS_LINK_STATUS_CONFIG } from '../lib/utils'
@@ -128,6 +131,15 @@ export default function StudentListPanel({
   const [showImport, setShowImport] = useState(false)
   const { data: unreadData } = useUnreadStudents(cohortId)
   const unreadIds = unreadData?.unreadStudentIds || new Set()
+  // HIRED-TAG-1 (Owner, 2026-11-05): a hired alumnus keeps the Completed pill and gains a Hired tag
+  // beside it, read from the residency hire record. One read for the cohort's Completed students.
+  const completedIds = (allStudents || students).filter(s => s.status === 'Completed').map(s => s.id).sort()
+  const { data: hireTags = {} } = useQuery({
+    queryKey: ['ngrp-hire-tags', completedIds.join(',')],
+    queryFn: () => fetchHireTags(completedIds),
+    enabled: completedIds.length > 0,
+    staleTime: 60_000,
+  })
 
   if (students.length === 0) {
     return (
@@ -265,6 +277,16 @@ export default function StudentListPanel({
                       {s.status}
                     </span>
                   ) : null}
+                  {(() => {
+                    const tag = s.status === 'Completed' ? hireTag(hireTags[s.id]) : null
+                    if (!tag) return null
+                    return (
+                      <span title={tag.title} data-testid="list-hire-tag" style={{ display:'inline-block', marginTop:3, marginLeft:4, fontSize:9, fontWeight:700, padding:'2px 7px', borderRadius:10,
+                        background:tag.colors.bg, color:tag.colors.text, border:`1px solid ${tag.colors.border}`, whiteSpace:'nowrap', fontFamily:'Plus Jakarta Sans,sans-serif' }}>
+                        {tag.short}{hireTags[s.id]?.unit ? ` · ${hireTags[s.id].unit}` : ''}
+                      </span>
+                    )
+                  })()}
                 </div>
               </div>
 

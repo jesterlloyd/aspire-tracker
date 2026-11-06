@@ -3178,6 +3178,18 @@ follow the handoff when a second review is opened in a mounted composer.
   used), In Progress (answers saved, not submitted) and Received (`formSentState`). The timestamp
   under it already followed the full lifecycle.
 
+## Hired is a tag, not a status (HIRED-TAG-1, 2026-11-05)
+
+Owner asked whether a hired student's Completed pill should read Hired. It does not: Completed is
+the ASPIRE status, and residency rosters, alumnus email routing (ALUMNUS_ROUTE), the portal's
+Residency tab and Keith's sweep all read `students.status = 'Completed'`. Instead Student Profiles
+shows a **Hired** tag beside the pill, read from the hire record: "Hired · 6 NE · CN I" on the name
+plate (the Placement sheet's own `student_hire` query and cache), "Hired · 6 NE" on the list row
+(one `ngrp-workspace` `hire_tags { student_ids }` read for the cohort's Completed students,
+`loadHireTags`, ASPIRE team only, at most 2000 ids), and "Separated · unit" once a separation is
+recorded. Words: `hireTag` in `src/lib/ngrp/studentHireModel.js`. A viewer without Residency access
+gets no tag. Never write 'Hired' into `students.status`.
+
 ## Studio designs the email; Outreach sends it (STUDIO-1, 2026-11-05)
 
 ASPIRE Connect > Studio (`/connect/studio`, Owner and Admin, the Messages rule) designs

@@ -30,6 +30,8 @@
 //   student_hire { student_id } -> { provisioned, hires }: one student's residency hire, read
 //                                   only, for Student Profiles > Placement (STUDENT-HIRE-READ-1;
 //                                   the ASPIRE team only)
+//   hire_tags { student_ids } -> { provisioned, tags }: each student's latest hire in brief, for
+//                                   the Hired tag on Student Profiles (HIRED-TAG-1; ASPIRE team only)
 //
 // The roster contract (multi-cohort resolution, Completed-only, identity from
 // students, prior-hire exclusion, email stripping) lives in
@@ -48,10 +50,10 @@ import { serviceDbForRequest } from '../lib/server/demoScope.js'
 import { loadApplicantProfile } from '../lib/server/ngrpApplicantProfile.js'
 import { loadCandidateRubrics } from '../lib/server/ngrpInterviewRubrics.js'
 import { loadApplicantSheet, applicantSheetXlsx } from '../lib/server/ngrpApplicantSheet.js'
-import { loadStudentHires } from '../lib/server/ngrpStudentHire.js'
+import { loadStudentHires, loadHireTags } from '../lib/server/ngrpStudentHire.js'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const ACTIONS = new Set(['cycles', 'applicants', 'export', 'locate', 'profile', 'rubrics', 'schedule', 'sheet', 'sheet_xlsx', 'contacts', 'student_hire'])
+const ACTIONS = new Set(['cycles', 'applicants', 'export', 'locate', 'profile', 'rubrics', 'schedule', 'sheet', 'sheet_xlsx', 'contacts', 'student_hire', 'hire_tags'])
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store')
@@ -109,6 +111,17 @@ export default async function handler(req, res) {
     const r = await loadStudentHires(db, studentId)
     if (r.state !== 'ok') return res.status(500).json({ error: 'internal_error' })
     return res.status(200).json({ provisioned: r.provisioned, hires: r.hires })
+  }
+
+  // HIRED-TAG-1: the Hired tag beside Completed on Student Profiles, for every listed student.
+  if (action === 'hire_tags') {
+    if (caller.audience !== 'staff') return res.status(403).json({ error: 'forbidden' })
+    const ids = Array.isArray(body.student_ids) ? body.student_ids.filter(v => typeof v === 'string' && UUID.test(v)) : []
+    if (ids.length > 2000) return res.status(422).json({ error: 'too_many_students' })
+    if (!ids.length) return res.status(200).json({ provisioned: true, tags: {} })
+    const r = await loadHireTags(db, ids)
+    if (r.state !== 'ok') return res.status(500).json({ error: 'internal_error' })
+    return res.status(200).json({ provisioned: r.provisioned, tags: r.tags })
   }
 
   // action === 'applicants' | 'export' | 'profile'
