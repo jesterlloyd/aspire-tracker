@@ -64,7 +64,7 @@ export function licenseDetail(row) {
 }
 
 // A requirement's short reason, by its code and status (computeEligibility's rows).
-function reasonWords(r) {
+function reasonWords(r, row, opts = {}) {
   const due = shortDate(r.deadline)
   switch (r.code) {
     case 'license': {
@@ -84,7 +84,20 @@ function reasonWords(r) {
       return /application date/.test(r.detail || '') ? 'Cohort dates not set' : 'Completion date not reported'
     case 'bls':
       if (r.status === 'conditional') return due ? `BLS due ${due}` : 'BLS due'
-      return r.status === 'not_met' ? 'BLS not active' : 'BLS not reported'
+      if (r.status === 'not_met') {
+        // BLS-DETAIL-1 (Owner, 2026-11-05): an active card that expires too early names its dates.
+        // The engine's newer reason carries both; an older stored reason reads the expiration from
+        // the form and the deadline from the cohort.
+        const m = /BLS expires (\d{4}-\d{2}-\d{2}), before (\d{4}-\d{2}-\d{2})/.exec(r.detail || '')
+        const exp = m?.[1] || row?.form_bls_expiration
+        const by = m?.[2] || opts.applicationDeadline
+        if (exp && (!by || exp < by)) {
+          const e = shortDate(exp)
+          return by ? `BLS expires ${e}, before ${shortDate(by)}` : `BLS expires ${e}`
+        }
+        return 'BLS not active'
+      }
+      return 'BLS not reported'
     case 'acls':
       if (r.status === 'conditional') return due ? `ACLS due ${due}` : 'ACLS due'
       return r.status === 'not_met' ? 'ACLS needed, not active' : 'ACLS not reported'
@@ -97,7 +110,7 @@ const REASON_STATUS = { not_eligible: 'not_met', conditionally_eligible: 'condit
 
 // Why the pill reads what it reads. A staff override says so; otherwise the requirements that
 // decided the result, the first one in words and the rest counted.
-export function eligibilityDetail(row, effective) {
+export function eligibilityDetail(row, effective, opts = {}) {
   if (row?.eligibility_effective) return 'Staff override'
   if (effective === 'eligible') return 'Requirements complete'
   const want = REASON_STATUS[effective]
@@ -106,7 +119,7 @@ export function eligibilityDetail(row, effective) {
   if (!reasons.length) return effective === 'pending' ? 'Awaiting the Transition Form' : null
   const hits = reasons.filter(r => (r.status || (r.met ? 'met' : 'not_met')) === want)
   if (!hits.length) return null
-  const first = reasonWords(hits[0])
+  const first = reasonWords(hits[0], row, opts)
   return hits.length > 1 ? `${first} +${hits.length - 1} more` : first
 }
 

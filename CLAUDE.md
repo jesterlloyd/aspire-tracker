@@ -3178,6 +3178,14 @@ follow the handoff when a second review is opened in a mounted composer.
   used), In Progress (answers saved, not submitted) and Received (`formSentState`). The timestamp
   under it already followed the full lifecycle.
 
+## A BLS card that expires too early says when (BLS-DETAIL-1, 2026-11-05)
+
+Leslie Zepeda read "BLS not active" under Not Eligible while her form said active, expiring
+2026-11-05, before the Nov 11 application deadline (the engine's as-of date). The engine now writes
+"BLS expires <date>, before <deadline>." for that case, and the roster line reads "BLS expires Nov 5,
+2026, before Nov 11, 2026"; a reason stored before this reads the expiration from the form
+(`form_bls_expiration` on the roster row) and the deadline from the cohort. The rule itself did not change.
+
 ## Hired is a tag, not a status (HIRED-TAG-1, 2026-11-05)
 
 Owner asked whether a hired student's Completed pill should read Hired. It does not: Completed is

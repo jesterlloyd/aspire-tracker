@@ -204,3 +204,19 @@ test('Interest & Eligibility sizes its roster to the pinned split height', async
   assert.match(css, /\.ngrp-split-frame \.ngrp-roster-fill \{[^}]*height: var\(--profiles-chart-h/)
   assert.match(css, /\.ngrp-roster-fill \.ngrp-roster-scroll \{ flex: 1 1 auto; max-height: none; min-height: 0; \}/)
 })
+
+// BLS-DETAIL-1 (Owner, 2026-11-05): Leslie Zepeda read "BLS not active" while her form said active,
+// expiring 2026-11-05, before the Nov 11 application deadline. The line names both dates.
+test('a BLS card that expires too early says when, not "not active"', async () => {
+  const { eligibilityDetail } = await import('../src/lib/ngrp/interestEligibilityModel.js')
+  const { computeEligibility } = await import('../lib/server/ngrpEligibility.js')
+  const old = { code: 'bls', status: 'not_met', detail: 'BLS is not active (or expires before the application date).' }
+  const row = { eligibility_reasons: [old], form_bls_expiration: '2026-11-05' }
+  assert.equal(eligibilityDetail(row, 'not_eligible', { applicationDeadline: '2026-11-11' }), 'BLS expires Nov 5, 2026, before Nov 11, 2026')
+  assert.equal(eligibilityDetail({ eligibility_reasons: [old] }, 'not_eligible', { applicationDeadline: '2026-11-11' }), 'BLS not active')
+  const out = computeEligibility({ cycle: { application_deadline: '2026-11-11' }, rules: null, facts: { bls_status: 'active', bls_expiration: '2026-11-05' } })
+  const bls = out.requirements.find(r => r.code === 'bls')
+  assert.equal(bls.status, 'not_met')
+  assert.equal(bls.detail, 'BLS expires 2026-11-05, before 2026-11-11.')
+  assert.equal(eligibilityDetail({ eligibility_reasons: [bls], form_bls_expiration: null }, 'not_eligible'), 'BLS expires Nov 5, 2026, before Nov 11, 2026')
+})

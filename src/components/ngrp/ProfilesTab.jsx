@@ -1012,7 +1012,7 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                         <td>
                           <span className="ngrp-stack">
                             <NgrpStatusPill config={ELIGIBILITY_STATES} value={effectiveEligibility(r)} srPrefix="Eligibility" />
-                            {eligibilityDetail(r, effectiveEligibility(r)) && <span className="ngrp-cellsub">{eligibilityDetail(r, effectiveEligibility(r))}</span>}
+                            {eligibilityDetail(r, effectiveEligibility(r), { applicationDeadline: cycle?.application_deadline || cycle?.application_open_date }) && <span className="ngrp-cellsub">{eligibilityDetail(r, effectiveEligibility(r), { applicationDeadline: cycle?.application_deadline || cycle?.application_open_date })}</span>}
                           </span>
                         </td>
                         <td className="ngrp-col-precepted">
