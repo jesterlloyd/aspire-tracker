@@ -121,3 +121,51 @@ test('a CSV is dated by the Pacific day, not the UTC one', () => {
   // 03:00 UTC on Nov 6 is still the evening of Nov 5 in Los Angeles.
   assert.equal(csvFileName('hours', new Date('2026-11-06T03:00:00Z')), 'aspire-insights-hours-2026-11-05.csv')
 })
+
+// INSIGHTS-COLOR-1 (Owner, 2026-11-06): colourful and consistent across the board.
+test('the chart palette is the validated eight-slot order, light and dark, and the tiles wear the KPI card accents', async () => {
+  const css = readFileSync(new URL('../src/components/insights/insights.css', import.meta.url), 'utf8')
+  const slots = mode => {
+    const block = mode === 'dark' ? css.slice(css.indexOf("[data-theme='dark'] .ins {")) : css
+    return [1, 2, 3, 4, 5, 6, 7, 8].map(i => block.match(new RegExp(`--ins-c${i}: (#[0-9a-f]{6})`))[1])
+  }
+  // The dataviz reference palette, in its validated order (adjacent pairs pass for every reader).
+  assert.deepEqual(slots('light'), ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6', '#e34948'])
+  assert.deepEqual(slots('dark'), ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181', '#008300', '#9085e9', '#e66767'])
+  // KPIBand's ACCENT_PALETTE pairs, tint then ink, restated: the tiles read like every KPI card.
+  const kpi = readFileSync(new URL('../src/components/KPIBand.jsx', import.meta.url), 'utf8')
+  for (const [name, tint] of [['nightfall', '#EDEEF4'], ['sage', '#EEF7F0'], ['marina', '#EDF5F4'], ['dawn', '#FBF5E8'], ['chroma', '#F8EDF2'], ['periwinkle', '#EDF0F7']]) {
+    assert.match(css, new RegExp(`\\.ins-a-${name} \\{ --ins-tile-tint: ${tint};`))
+    assert.ok(kpi.includes(name === 'nightfall' ? `tint:      '${tint}'` : tint) || kpi.includes(tint), `${name} tint is the KPI card's`)
+  }
+  const page = readFileSync(new URL('../src/components/insights/InsightsPage.jsx', import.meta.url), 'utf8')
+  // A tile is a figure, not a filter: not a button.
+  assert.doesNotMatch(page.slice(page.indexOf('function Tile('), page.indexOf('function Tiles(')), /<button/)
+  // A school keeps its slot on every card: one colour map, read by every school chart.
+  assert.match(page, /const colorOf = slotsFor\(data\.schools\)/)
+  for (const card of ['bySchoolCard', 'hostedCard', 'caseyFinkCard', 'hoursCard']) assert.match(page, new RegExp(`${card}\\(data[^)]*colorOf\\)`))
+})
+
+test('a slot is never reused: a ninth school is the comparison grey', async () => {
+  const page = readFileSync(new URL('../src/components/insights/InsightsPage.jsx', import.meta.url), 'utf8')
+  const src = page.slice(page.indexOf('const CAT_SLOTS'), page.indexOf('const PATHWAY_COLORS'))
+  const slotsFor = new Function(`${src.replace(/\/\*\*[\s\S]*?\*\//, '')}; return slotsFor`)()
+  const names = Array.from({ length: 9 }, (_, i) => `School ${i}`)
+  const of = slotsFor(names)
+  assert.equal(new Set(names.slice(0, 8).map(of)).size, 8)
+  assert.equal(of('School 8'), 'var(--ins-other)')
+  assert.equal(of('Unknown'), 'var(--ins-other)')
+})
+
+test('a scale ends just above its largest value, and a rate never past 100', async () => {
+  const { niceMax, hbarHeight, funnelHeight } = await import('../src/lib/insights/chartGeometry.js')
+  assert.equal(niceMax(21.4, 100), 25)
+  assert.equal(niceMax(90, 100), 100)
+  assert.equal(niceMax(99, 100), 100)
+  assert.equal(niceMax(8), 10)
+  assert.equal(niceMax(0.45), 0.5)
+  assert.equal(niceMax(0), 1)
+  assert.equal(hbarHeight([{}, {}]), 68)
+  assert.equal(hbarHeight([{}, {}], 10), 84)
+  assert.equal(funnelHeight([{ count: 1 }, { count: null }]), 40)
+})

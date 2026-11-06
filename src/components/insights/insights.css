@@ -4,10 +4,16 @@
  * ink and rule read the sheet family in theme.css (--paper, --paper-ink, --paper-muted, --rule,
  * --grid), with fallbacks because the NE&L Portal does not load theme.css.
  *
- * Chart roles (--ins-s1..s3, --ins-other, --ins-r1..r5) are the dataviz reference palette's
- * validated slots: blue, orange, aqua clear every all-pairs gate in both modes; the ramp is its
- * blue sequential, ordinal steps 250-650 on light and 600-200 on dark. The app's hashed school
- * palette is not used (it fails the categorical gate). Dark values are SELECTED steps, never a flip.
+ * Chart roles: --ins-c1..c8 are the dataviz reference palette's eight categorical slots, in its
+ * validated order (adjacent pairs pass every gate light and dark; c1-c3 pass all pairs, so the
+ * trend's three lines and Internal vs External read them). A school wears the slot of its place
+ * in the school list. --ins-other is the comparison grey, --ins-r1..r5 the blue ordinal ramp.
+ * The app's hashed school palette is not used (it fails the categorical gate). Dark values are
+ * SELECTED steps, never a flip.
+ *
+ * The headline tiles wear the app's KPI card (KPIBand's FilterKPICard): an accent tint, the
+ * number in the accent ink, an uppercase label. Like every KPI card in the app the pair is fixed,
+ * so it reads the same in dark. They are figures, not filters, so they do not lift on hover.
  */
 
 .ins {
@@ -33,9 +39,17 @@
   --ins-muted: var(--text-caption, var(--ins-fb-text-caption));
   --ins-surface: var(--bg-card, var(--ins-fb-bg-card));
   --ins-line: var(--border-divider, var(--ins-fb-border-divider));
-  --ins-s1: #2a78d6;
-  --ins-s2: #eb6834;
-  --ins-s3: #1baf7a;
+  --ins-c1: #2a78d6;
+  --ins-c2: #eb6834;
+  --ins-c3: #1baf7a;
+  --ins-c4: #eda100;
+  --ins-c5: #e87ba4;
+  --ins-c6: #008300;
+  --ins-c7: #6250d6;
+  --ins-c8: #e34948;
+  --ins-s1: var(--ins-c1);
+  --ins-s2: var(--ins-c2);
+  --ins-s3: var(--ins-c3);
   --ins-other: #8b8a84;
   --ins-r1: #86b6ef;
   --ins-r2: #5598e7;
@@ -65,9 +79,14 @@
   --ins-fb-text-body: #F2F5F8;
   --ins-fb-text-caption: #AAB4C0;
   --ins-fb-text-heading: #F2F5F8;
-  --ins-s1: #3987e5;
-  --ins-s2: #d95926;
-  --ins-s3: #199e70;
+  --ins-c1: #3987e5;
+  --ins-c2: #d95926;
+  --ins-c3: #199e70;
+  --ins-c4: #c98500;
+  --ins-c5: #d55181;
+  --ins-c6: #008300;
+  --ins-c7: #9085e9;
+  --ins-c8: #e66767;
   --ins-other: #8a8983;
   --ins-r1: #184f95;
   --ins-r2: #256abf;
@@ -178,19 +197,32 @@
   display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px;
   margin-top: 6px;
 }
-.ins-tile { padding: 14px 16px; min-width: 0; }
-.ins-tk { font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ins-muted); }
-.ins-tv { margin-top: 6px; font-size: 26px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; color: var(--ins-ink); }
-.ins-td { margin-top: 4px; font-size: 12px; color: var(--ins-muted); }
-.ins-hero { box-shadow: inset 0 3px 0 var(--ins-s1), var(--aspire-shadow-card, 0 1px 3px rgba(0, 0, 0, 0.08)) !important; }
-.ins-empty .ins-tv { font-size: 17px; color: var(--ins-muted); }
+.ins-tile {
+  display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 14px 18px;
+  background: var(--ins-tile-tint); border: 1px solid rgba(29, 37, 103, 0.06);
+  border-radius: var(--aspire-radius-card, 12px);
+  box-shadow: 0 1px 0 rgba(29, 37, 103, 0.04), 0 1px 2px rgba(29, 37, 103, 0.04);
+}
+.ins-tv { font-size: 32px; font-weight: 700; line-height: 1; letter-spacing: -0.025em; font-variant-numeric: tabular-nums; color: var(--ins-tile-ink); }
+.ins-tk { margin-top: 8px; font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.14em; color: #475467; }
+.ins-td { margin-top: 2px; font-size: 11.5px; color: #5b6472; }
+.ins-hero { box-shadow: inset 0 -3px 0 var(--ins-tile-ink), 0 1px 0 rgba(29, 37, 103, 0.04), 0 1px 2px rgba(29, 37, 103, 0.04); }
+.ins-empty .ins-tv { font-size: 20px; line-height: 32px; }
+/* The accents are KPIBand's ACCENT_PALETTE, tint then text. */
+.ins-a-nightfall { --ins-tile-tint: #EDEEF4; --ins-tile-ink: #1D2567; }
+.ins-a-sage { --ins-tile-tint: #EEF7F0; --ins-tile-ink: #2F7D5C; }
+.ins-a-marina { --ins-tile-tint: #EDF5F4; --ins-tile-ink: #275E63; }
+.ins-a-dawn { --ins-tile-tint: #FBF5E8; --ins-tile-ink: #8B5E1A; }
+.ins-a-chroma { --ins-tile-tint: #F8EDF2; --ins-tile-ink: #930045; }
+.ins-a-lavender { --ins-tile-tint: #F0EDF5; --ins-tile-ink: #6B4F8F; }
+.ins-a-periwinkle { --ins-tile-tint: #EDF0F7; --ins-tile-ink: #4A5D8F; }
 
 .ins-grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: var(--aspire-gap-card, 16px); margin-top: var(--aspire-gap-card, 16px); }
 .ins-c12 { grid-column: span 12; }
 .ins-c7 { grid-column: span 7; }
 .ins-c6 { grid-column: span 6; }
 .ins-c5 { grid-column: span 5; }
-.ins-card { position: relative; min-width: 0; padding: 16px 18px 14px; }
+.ins-card { position: relative; display: flex; flex-direction: column; min-width: 0; padding: 16px 18px 14px; }
 .ins-ch { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
 .ins-ct { min-width: 0; }
 .ins-card h2 { margin: 0; font-size: 15px; font-weight: 700; color: var(--ins-ink); }
@@ -205,12 +237,16 @@
 .ins-act[aria-pressed='true'] { background: var(--color-accent-primary, var(--ins-fb-color-accent-primary)); color: #fff; border-color: transparent; }
 .ins-act:focus-visible, .ins-pick:focus-visible { outline: 2px solid var(--chart-focus, var(--ins-fb-chart-focus)); outline-offset: 2px; }
 .ins-body { margin-top: 12px; min-width: 0; }
-.ins-note { margin: 10px 0 0; font-size: 12px; color: var(--ins-muted); }
+/* A chart fills what its row leaves: the body grows, reserves the chart's natural height, and
+   the drawing sits inside it at the measured size, so the chart never sizes its own card. */
+.ins-body-fill { position: relative; flex: 1 1 auto; }
+.ins-plot { position: absolute; inset: 0; }
+.ins-note { flex: none; margin: 10px 0 0; font-size: 12px; color: var(--ins-muted); }
 .ins-minihead { margin: 10px 0 2px; font-size: 12.5px; font-weight: 600; color: var(--ins-ink); }
 .ins-emptyline { margin: 8px 0; font-size: 13px; color: var(--ins-muted); }
 .ins-multiples { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 4px 20px; }
 .ins-scroll-x { overflow-x: auto; }
-.ins-legend { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 8px; font-size: 12px; color: var(--ins-ink); }
+.ins-legend { display: flex; flex: none; flex-wrap: wrap; gap: 14px; margin-top: 8px; font-size: 12px; color: var(--ins-ink); }
 .ins-legend i { display: inline-block; width: 10px; height: 10px; margin-right: 6px; border-radius: 50%; vertical-align: -1px; }
 .ins-retention { display: flex; flex-direction: column; gap: 4px; margin-top: 12px; padding: 14px; font-size: 13px; color: var(--ins-ink);
   border: 1px dashed var(--ins-line); border-radius: var(--aspire-radius-control, 10px); }

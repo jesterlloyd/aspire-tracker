@@ -1,13 +1,18 @@
 // ASPIRE-INSIGHTS-1, Phase 2: the page's chart marks, as plain SVG.
 //
-// Colour is a role, never a value: --ins-s1 (one hue for every single-series bar), --ins-s2 and
-// --ins-s3 (the trend's second and third lines), --ins-other (a comparison: the program, every
-// other unit), --ins-r1..r5 (the heatmap's and funnel's ramp). insights.css defines each for light
-// and dark; the set is the dataviz reference palette's validated slots. The app's hashed school
-// palette is NOT used here: it fails the categorical gate (two adjacent hues at ΔE 2.3 for a
-// deutan reader), and a bar chart of schools needs no school hue, because the label names it.
+// Colour is a role, never a value. --ins-c1..c8 are the dataviz reference palette's eight
+// categorical slots, validated in order (adjacent pairs) light and dark; a school wears the slot
+// of its place in the page's school list, so it keeps its colour in every card and under every
+// filter. --ins-other is a comparison (the program, a filtered-out bar, a ninth school),
+// --ins-r1..r5 the ordinal ramp (the funnel, the heatmap, match rank). The app's hashed school
+// palette is NOT used: it fails the categorical gate (two adjacent hues at dE 2.3 for a deutan
+// reader). Three of the light slots sit under 3:1 on white, so every coloured mark is also
+// named by its label or legend and every chart has a Table view.
 //
 // Text is ink, never the series colour. Every mark carries data-tip; ChartCard shows it.
+//
+// Each chart takes a `height` to fill: the tallest card in a grid row decides it, and a chart
+// never draws shorter than its own natural height (the *Height helpers, which ChartCard reserves).
 
 const pick = (onPick, value) => onPick
   ? {
@@ -17,35 +22,41 @@ const pick = (onPick, value) => onPick
     }
   : {}
 
+import { clamp, niceMax, HBAR_ROW, hbarTop, hbarHeight, funnelHeight } from '../../lib/insights/chartGeometry'
+
+
 /**
- * Horizontal bars. items: [{ id, label, value, display, n, suppressed, other, strong, pickValue, tip }]
- * `max` is the scale's end (100 for a rate). `refValue` draws the program line.
+ * Horizontal bars. items: [{ id, label, value, display, n, suppressed, other, strong, color,
+ * segments, pickValue, tip }]. `segments` ([{ key, value, color, tip }]) stacks a bar, 2px apart.
+ * `max` is the scale's end; `cap` limits the fitted end (100 for a rate). `refValue` draws the
+ * program line.
  */
-export function HBar({ items, width, max, refValue = null, refLabel = '', onPick, labelWidth, pickLabel = 'Filter to this' }) {
+export function HBar({ items, width, height = 0, max, cap = null, refValue = null, refLabel = '', onPick, labelWidth, pickLabel = 'Filter to this' }) {
   // Fit the longest label (about 6.7px a character at 12px), within 45% of the width.
   const longest = Math.max(0, ...items.map(i => String(i.label || '').length))
   const lw = labelWidth || Math.round(Math.min(width * 0.45, Math.max(80, longest * 6.7 + 14)))
   const vw = 96
-  const rowH = 30
-  const top = refValue != null && items.some(i => !i.suppressed) ? 20 : 4
+  const top = hbarTop(items, refValue)
+  const natural = hbarHeight(items, refValue)
+  const H = Math.max(natural, height)
+  const rowH = items.length ? clamp((H - top - 4) / items.length, HBAR_ROW, 64) : HBAR_ROW
+  const barH = clamp(rowH * 0.56, 14, 26)
   const plot = Math.max(60, width - lw - vw)
-  const H = top + items.length * rowH + 4
-  const end = max || Math.max(1, ...items.map(i => i.value || 0))
-  const x = v => lw + plot * (Math.max(0, v) / end)
+  const biggest = Math.max(0, ...items.filter(i => !i.suppressed).map(i => i.value || 0), refValue || 0)
+  const end = max || niceMax(biggest, cap)
+  const x = v => lw + plot * (Math.max(0, Math.min(v, end)) / end)
   // A reference line has nothing to compare against when every bar is withheld.
   const showRef = refValue != null && items.some(i => !i.suppressed)
+  const body = top + items.length * rowH
   return (
     <svg className="ins-svg" width={width} height={H} role="img" aria-label="Bar chart">
-      {showRef && (
-        <g aria-hidden="true">
-          <line className="ins-ref" x1={x(refValue)} x2={x(refValue)} y1={top - 4} y2={H - 4} />
-          <text className="ins-ax" x={x(refValue)} y={12} textAnchor="middle">{refLabel}</text>
-        </g>
-      )}
       {items.map((it, i) => {
         const y = top + i * rowH
         const cy = y + rowH / 2 + 4
+        const by = y + (rowH - barH) / 2
         const canPick = onPick && it.pickValue != null
+        const fill = it.other ? 'var(--ins-other)' : (it.color || 'var(--ins-c1)')
+        let segX = lw
         return (
           <g key={it.id || it.label} data-tip={it.tip || `${it.label}: ${it.display}${it.n != null ? ` (n = ${it.n})` : ''}`}
             className={canPick ? 'ins-pick' : undefined}
@@ -56,8 +67,15 @@ export function HBar({ items, width, max, refValue = null, refLabel = '', onPick
               ? <text className="ins-vmuted" x={lw} y={cy}>Too few to rate (n = {it.n || 0})</text>
               : (
                 <>
-                  <rect className="ins-mk" x={lw} y={y + 8} width={Math.max(2, x(it.value) - lw)} height={rowH - 16} rx={3}
-                    fill={it.other ? 'var(--ins-other)' : 'var(--ins-s1)'} />
+                  {it.segments?.length
+                    ? it.segments.map((sg, k) => {
+                        const w = x(sg.value) - lw
+                        const r = <rect key={sg.key} className="ins-mk ins-seg" x={segX} y={by} width={Math.max(1, w - (k < it.segments.length - 1 ? 2 : 0))} height={barH}
+                          rx={k === it.segments.length - 1 ? 3 : 0} fill={it.other ? 'var(--ins-other)' : sg.color} />
+                        segX += w
+                        return r
+                      })
+                    : <rect className="ins-mk" x={lw} y={by} width={Math.max(2, x(it.value) - lw)} height={barH} rx={3} fill={fill} />}
                   <text className="ins-val" x={x(it.value) + 6} y={cy}>
                     {it.display}
                     {it.n != null && <tspan className="ins-ax" dx={6}>n = {it.n}</tspan>}
@@ -67,20 +85,30 @@ export function HBar({ items, width, max, refValue = null, refLabel = '', onPick
           </g>
         )
       })}
-      <line className="ins-bl" x1={lw} x2={lw} y1={top} y2={H - 4} aria-hidden="true" />
+      {showRef && (
+        <g aria-hidden="true">
+          {/* Only through rows with a bar: a withheld row's words are never struck through. */}
+          {items.map((it, i) => (it.suppressed ? null : (
+            <line key={i} className="ins-ref" x1={x(refValue)} x2={x(refValue)} y1={i === 0 ? top - 4 : top + i * rowH} y2={top + (i + 1) * rowH} />
+          )))}
+          <text className="ins-ax" x={x(refValue)} y={12} textAnchor="middle">{refLabel}</text>
+        </g>
+      )}
+      <line className="ins-bl" x1={lw} x2={lw} y1={top} y2={body} aria-hidden="true" />
     </svg>
   )
 }
 
 /** The pipeline: one bar per step on the ordinal ramp, with "% of prior · −drop". */
-export function Funnel({ steps, width }) {
+export function Funnel({ steps, width, height = 0 }) {
   const lw = Math.min(190, Math.max(130, width * 0.3))
   const vw = 170
-  const rowH = 34
-  const plot = Math.max(60, width - lw - vw)
   const shown = steps.filter(s => s.count != null)
+  const H = Math.max(funnelHeight(steps), height)
+  const rowH = shown.length ? clamp((H - 6) / shown.length, 34, 60) : 34
+  const barH = clamp(rowH * 0.6, 20, 30)
+  const plot = Math.max(60, width - lw - vw)
   const end = Math.max(1, ...shown.map(s => s.count))
-  const H = shown.length * rowH + 6
   const ramp = ['--ins-r1', '--ins-r1', '--ins-r2', '--ins-r2', '--ins-r3', '--ins-r4', '--ins-r5', '--ins-r5']
   return (
     <svg className="ins-svg" width={width} height={H} role="img" aria-label="Pipeline from application to NGRP hire">
@@ -94,7 +122,7 @@ export function Funnel({ steps, width }) {
           <g key={s.key} data-tip={`${s.label}: ${s.count}${prior ? `\n${prior}` : ''}`}>
             <rect className="ins-hit" x={0} y={y} width={width} height={rowH} />
             <text className="ins-lb" x={lw - 10} y={cy} textAnchor="end">{s.label}</text>
-            <rect className="ins-mk" x={lw} y={y + 7} width={w} height={rowH - 14} rx={3} fill={`var(${ramp[step] || '--ins-r5'})`} />
+            <rect className="ins-mk" x={lw} y={y + (rowH - barH) / 2} width={w} height={barH} rx={3} fill={`var(${ramp[step] || '--ins-r5'})`} />
             <text className="ins-val ins-strong" x={lw + w + 8} y={cy}>
               {s.count}
               {prior && <tspan className="ins-ax" dx={10}>{prior}</tspan>}
@@ -107,7 +135,7 @@ export function Funnel({ steps, width }) {
 }
 
 /**
- * Lines on one 0-100% axis. series: [{ name, color, values: [rate|null], ns: [n] }].
+ * Lines on one percent axis (0 to the next of 20, 40, 60, 80 or 100 above the highest point). series: [{ name, color, values: [rate|null], ns: [n] }].
  * A withheld point is a gap, never a zero. Every series is labelled at its end.
  */
 export function Lines({ series, labels, width, height = 220 }) {
@@ -118,7 +146,11 @@ export function Lines({ series, labels, width, height = 220 }) {
   const pw = Math.max(80, width - l - r)
   const ph = height - t - b
   const x = i => l + (labels.length === 1 ? pw / 2 : (pw * i) / (labels.length - 1))
-  const y = v => t + ph * (1 - v / 100)
+  // The axis ends at the next of 20/40/60/80/100 above the highest point, so low rates are not a
+  // flat line; each end divides into four whole-number steps.
+  const peak = Math.max(0, ...series.flatMap(s => s.values.filter(v => v != null)))
+  const yEnd = [20, 40, 60, 80, 100].find(q => q >= peak * 1.04) || 100
+  const y = v => t + ph * (1 - v / yEnd)
   const ends = series.map(s => {
     const pts = s.values.map((v, i) => (v == null ? null : [x(i), y(v)])).filter(Boolean)
     return pts.length ? { s, y: pts[pts.length - 1][1], x: pts[pts.length - 1][0] } : null
@@ -130,7 +162,7 @@ export function Lines({ series, labels, width, height = 220 }) {
   const step = pw / Math.max(1, labels.length - 1)
   return (
     <svg className="ins-svg" width={width} height={height} role="img" aria-label="Line chart of NGRP rates by cohort">
-      {[0, 25, 50, 75, 100].map(g => (
+      {[0, 0.25, 0.5, 0.75, 1].map(q => q * yEnd).map(g => (
         <g key={g} aria-hidden="true">
           <line className="ins-gl" x1={l} x2={l + pw} y1={y(g)} y2={y(g)} />
           <text className="ins-ax" x={l - 6} y={y(g) + 4} textAnchor="end">{g}%</text>
@@ -188,7 +220,7 @@ export function Columns({ items, width, height = 120 }) {
         return (
           <g key={it.label + i} data-tip={it.tip}>
             <rect className="ins-hit" x={cx - pw / items.length / 2} y={t} width={pw / items.length} height={ph} />
-            {it.value != null && <rect className="ins-mk" x={cx - bw / 2} y={t + ph - h} width={bw} height={Math.max(1, h)} rx={3} fill="var(--ins-s1)" />}
+            {it.value != null && <rect className="ins-mk" x={cx - bw / 2} y={t + ph - h} width={bw} height={Math.max(1, h)} rx={3} fill="var(--ins-c1)" />}
             <text className="ins-val" x={cx} y={t + ph - h - 4} textAnchor="middle">{it.value == null ? '–' : it.value}</text>
             <text className="ins-ax" x={cx} y={height - 7} textAnchor="middle">{it.label}</text>
           </g>
