@@ -14,7 +14,8 @@
 // a published-outcomes concern, not roster context, so they are intentionally NOT in the
 // first-release Students workspace; they belong with the later Reports / NGRP surface.
 
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, Suspense } from 'react'
+import { lazyReload } from '../lib/lazyReload'
 import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -41,6 +42,9 @@ import { useReportPortalFailure, ACCESS_FAILURE } from './portalAccessSignal'
 // A stable empty roster reference so the photo-prefetch effect does not re-run every render while
 // the roster is still loading (a fresh [] each render would look like a new dependency).
 const EMPTY_ROSTER = []
+
+// ASPIRE-INSIGHTS-1 Phase 2b: the outcomes section, its own chunk so the roster never waits on it.
+const InsightsGlance = lazyReload(() => import('../components/insights/InsightsGlance'), 'InsightsGlance')
 
 const displayName = (s) => `${s.preferred_first_name || s.first_name || ''} ${s.last_name || ''}`.trim()
 
@@ -362,6 +366,11 @@ function StudentsView({ onCommandPeople }) {
           </p>
         </div>
       )}
+
+      {/* Below everything the page already shows. The server scopes it to this account's schools. */}
+      <Suspense fallback={null}>
+        <InsightsGlance surface="partner" scopeName={schools.length === 1 ? school.school_key : ''} />
+      </Suspense>
     </div>
   )
 }

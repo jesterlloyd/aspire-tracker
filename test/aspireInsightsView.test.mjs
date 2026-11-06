@@ -78,10 +78,13 @@ test('CSV: BOM, quoted commas, and no cell a spreadsheet would run', () => {
 test('the page reads tokens, not literal radii, and names no student', () => {
   const css = readFileSync(new URL('../src/components/insights/insights.css', import.meta.url), 'utf8')
   assert.equal((css.match(/border-radius:\s*[0-9.]+px/g) || []).length, 0)
-  const page = readFileSync(new URL('../src/components/insights/InsightsPage.jsx', import.meta.url), 'utf8')
-  assert.doesNotMatch(page, /student_id|first_name|last_name/)
-  // The hashed school palette fails the categorical gate; the page must not use it.
-  assert.doesNotMatch(page + readFileSync(new URL('../src/components/insights/InsightsCharts.jsx', import.meta.url), 'utf8'), /naSchoolColors|schoolColor\(/)
+  // Phase 2b moved the card, the tile and the shared builders out of the page; every file that
+  // draws Insights is held to the same rules.
+  const files = ['InsightsPage.jsx', 'InsightsCharts.jsx', 'InsightsCard.jsx', 'insightsCards.jsx', 'InsightsGlance.jsx']
+    .map(f => readFileSync(new URL(`../src/components/insights/${f}`, import.meta.url), 'utf8')).join('\n')
+  assert.doesNotMatch(files, /student_id|first_name|last_name/)
+  // The hashed school palette fails the categorical gate; nothing that draws Insights may use it.
+  assert.doesNotMatch(files, /naSchoolColors|schoolColor\(/)
 })
 
 test('the staff app routes /insights and the header shows it to the insights roles', () => {
@@ -139,16 +142,17 @@ test('the chart palette is the validated eight-slot order, light and dark, and t
     assert.ok(kpi.includes(name === 'nightfall' ? `tint:      '${tint}'` : tint) || kpi.includes(tint), `${name} tint is the KPI card's`)
   }
   const page = readFileSync(new URL('../src/components/insights/InsightsPage.jsx', import.meta.url), 'utf8')
+  const card = readFileSync(new URL('../src/components/insights/InsightsCard.jsx', import.meta.url), 'utf8')
   // A tile is a figure, not a filter: not a button.
-  assert.doesNotMatch(page.slice(page.indexOf('function Tile('), page.indexOf('function Tiles(')), /<button/)
+  assert.doesNotMatch(card.slice(card.indexOf('export function Tile(')), /<button/)
   // A school keeps its slot on every card: one colour map, read by every school chart.
   assert.match(page, /const colorOf = slotsFor\(data\.schools\)/)
   for (const card of ['bySchoolCard', 'hostedCard', 'caseyFinkCard', 'hoursCard']) assert.match(page, new RegExp(`${card}\\(data[^)]*colorOf\\)`))
 })
 
 test('a slot is never reused: a ninth school is the comparison grey', async () => {
-  const page = readFileSync(new URL('../src/components/insights/InsightsPage.jsx', import.meta.url), 'utf8')
-  const src = page.slice(page.indexOf('const CAT_SLOTS'), page.indexOf('const PATHWAY_COLORS'))
+  const cards = readFileSync(new URL('../src/components/insights/insightsCards.jsx', import.meta.url), 'utf8')
+  const src = cards.slice(cards.indexOf('export const CAT_SLOTS'), cards.indexOf('export const PATHWAY_COLORS')).replace(/export /g, '')
   const slotsFor = new Function(`${src.replace(/\/\*\*[\s\S]*?\*\//, '')}; return slotsFor`)()
   const names = Array.from({ length: 9 }, (_, i) => `School ${i}`)
   const of = slotsFor(names)
@@ -168,4 +172,21 @@ test('a scale ends just above its largest value, and a rate never past 100', asy
   assert.equal(hbarHeight([{}, {}]), 68)
   assert.equal(hbarHeight([{}, {}], 10), 84)
   assert.equal(funnelHeight([{ count: 1 }, { count: null }]), 40)
+})
+
+// Phase 2b: each portal's At a Glance gets one outcomes section, below what it already shows.
+test('each portal At a Glance mounts its own outcomes section, lazily, with the right surface', () => {
+  const read = f => readFileSync(new URL(`../src/${f}`, import.meta.url), 'utf8')
+  const ap = read('portal/AcademicPartnerPortal.jsx')
+  assert.match(ap, /lazyReload\(\(\) => import\('\.\.\/components\/insights\/InsightsGlance'\)/)
+  assert.match(ap, /<InsightsGlance surface="partner"/)
+  const ul = read('portal/UnitLeaderPortal.jsx')
+  assert.match(ul, /<InsightsGlance surface="unit" unit=\{unitKey === ALL_UNITS \? '' : unitKey\}/)
+  const res = read('components/ngrp/AtAGlanceTab.jsx')
+  // The Residency Portal only, never the staff app's Residency At a Glance.
+  assert.match(res, /\{!staffApp && \(\s*<Suspense fallback=\{null\}>\s*<InsightsGlance surface="residency" \/>/)
+  const glance = read('components/insights/InsightsGlance.jsx')
+  // No cross-filter, no compare, no Keith: the section asks for a cohort and nothing else.
+  assert.doesNotMatch(glance.replace(/^\s*\/\/.*$/gm, ''), /onPick|compare|keith/i)
+  for (const t of ['Your Students\u2019 Outcomes', 'ASPIRE Students on Your Unit', 'ASPIRE to NGRP']) assert.ok(glance.includes(t), t)
 })

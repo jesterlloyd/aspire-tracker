@@ -69,6 +69,8 @@ const UnitLeaderPreceptorManager = lazyReload(() => import('./unit/UnitLeaderPre
 const UnitEvaluationsWorkspace = lazyReload(() => import('./unit/UnitEvaluationsWorkspace'), 'UnitEvaluationsWorkspace')
 // NGRP-INTERVIEWS-1 Phase 3: residency interviews for the applicants paired with the unit.
 const UnitInterviewsWorkspace = lazyReload(() => import('./unit/UnitInterviewsWorkspace'), 'UnitInterviewsWorkspace')
+// ASPIRE-INSIGHTS-1 Phase 2b: the outcomes section at the foot of Home, its own chunk.
+const InsightsGlance = lazyReload(() => import('../components/insights/InsightsGlance'), 'InsightsGlance')
 
 // A stable empty array so StudentRoster can call the photo hook with no work when a parent
 // already supplies resolved photos (one batch for the whole Home instead of two).
@@ -289,7 +291,7 @@ export default function UnitLeaderPortal({ view = 'home', onNavigate, threadId, 
 }
 
 // ── Home: the locked priority order, now with hierarchy ─────────────────────
-function HomeScreen({ unitKey, students, cohortNarrowed = false, profile, acceptingCohort, onNavigate, onOpenThread, refreshRoster }) {
+function HomeScreen({ unitKey, unitKeys = [], students, cohortNarrowed = false, profile, acceptingCohort, onNavigate, onOpenThread, refreshRoster }) {
   // MASTHEAD-PHASE-1: the masthead stores the chosen city against this key.
   const { user } = useAuth()
   // The in-app feed is DERIVED server side from the caller's own authorized rows,
@@ -460,6 +462,13 @@ function HomeScreen({ unitKey, students, cohortNarrowed = false, profile, accept
         heading="Your Students"
       />
       )}
+
+      {/* Outcomes for the leader's own units, below everything Home already shows. The server
+          scopes it to their units; narrowing to one unit in the header narrows this too. */}
+      <Suspense fallback={null}>
+        <InsightsGlance surface="unit" unit={unitKey === ALL_UNITS ? '' : unitKey}
+          scopeName={unitKey !== ALL_UNITS ? unitKey : unitKeys.length === 1 ? unitKeys[0] : 'your units'} />
+      </Suspense>
 
       {dayOpen && (
         <UnitShiftDayDrawer

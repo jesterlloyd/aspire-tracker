@@ -15,21 +15,21 @@
 // tiles wear the app's KPI card accents; a school keeps one validated slot on every card
 // (slotsFor); Internal and External are the first two slots; ranks read the blue ramp.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useTheme } from '../../contexts/ThemeContext'
 import WorkspaceBackLink from '../ui/WorkspaceBackLink'
-import DataSheet from '../shared/DataSheet'
 import SegmentedPicker from '../shared/SegmentedPicker'
 import { fetchInsights } from '../../lib/insights/insightsClient'
 import {
   filtersFromSearch, searchFromFilters, withFilter, toggleFilter, chipsFor, clearFilters,
-  measureLabel, fmtRate, fmtChange, deltaWords, rateText, toCsv, csvFileName, asOfWords, shortCohort,
+  measureLabel, fmtRate, fmtChange, deltaWords, rateText, asOfWords,
   RESIDENCY_STATUS_LABELS, COMPARE_LABELS, PATHWAY_LABELS,
 } from '../../lib/insights/insightsView'
-import { HBar, Funnel, Lines, Columns, Heat } from './InsightsCharts'
-import { hbarHeight, funnelHeight } from '../../lib/insights/chartGeometry'
-import { useBox } from './useWidth'
+import { HBar, Heat } from './InsightsCharts'
+import { hbarHeight } from '../../lib/insights/chartGeometry'
+import { ChartCard, Tile } from './InsightsCard'
+import { slotsFor, PATHWAY_COLORS, CHOICE_COLORS, rateItem, pipelineCard, trendCard, hoursCard } from './insightsCards'
 import './insights.css'
 
 const MEASURE_OPTIONS = [
@@ -38,101 +38,6 @@ const MEASURE_OPTIONS = [
   { value: 'hired', label: 'Hired' },
 ]
 const PATHWAY_OPTIONS = Object.entries(PATHWAY_LABELS).map(([value, label]) => ({ value, label }))
-const CAT_SLOTS = 8
-
-/**
- * One colour per school, by its place in the page's school list (every school in view, sorted,
- * whatever the filters), so a school wears the same colour on every card and a filter never
- * repaints the others. A ninth school onward is the comparison grey: a slot is never reused.
- */
-function slotsFor(schools) {
-  const m = new Map((schools || []).map((s, i) => [s, i < CAT_SLOTS ? `var(--ins-c${i + 1})` : 'var(--ins-other)']))
-  return s => m.get(s) || 'var(--ins-other)'
-}
-const PATHWAY_COLORS = { internal: 'var(--ins-c1)', external: 'var(--ins-c2)' }
-// Rank is ordinal, so it reads the ramp: the darker the step, the better the match.
-const CHOICE_COLORS = { top_choice: 'var(--ins-r5)', second_choice: 'var(--ins-r4)', third_choice: 'var(--ins-r2)' }
-
-// ── The card every chart sits in ─────────────────────────────────────────────
-
-function downloadCsv(id, columns, rows) {
-  const blob = new Blob([toCsv(columns, rows)], { type: 'text/csv;charset=utf-8' })
-  const a = document.createElement('a')
-  a.href = URL.createObjectURL(blob)
-  a.download = csvFileName(id)
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-  setTimeout(() => URL.revokeObjectURL(a.href), 1000)
-}
-
-/**
- * table: { columns: [{ key, label, align? }], rows: [{ id, ...cells }] }. The same rows build the
- * Table view and the CSV, so the two cannot disagree.
- */
-function ChartCard({ id, title, sub, span = 12, table, note, legend, nat, children }) {
-  const [asTable, setAsTable] = useState(false)
-  const [bodyRef, box] = useBox()
-  const width = box.w
-  const [tip, setTip] = useState(null)
-  const cardRef = useRef(null)
-  const hasTable = Boolean(table?.columns?.length)
-  const fill = Boolean(nat) && !(asTable && hasTable)
-
-  const onMove = e => {
-    const t = e.target.closest?.('[data-tip]')
-    if (!t) { if (tip) setTip(null); return }
-    const box = cardRef.current.getBoundingClientRect()
-    setTip({ text: t.getAttribute('data-tip'), x: e.clientX - box.left + 14, y: e.clientY - box.top + 14 })
-  }
-  const onFocus = e => {
-    const t = e.target.closest?.('[data-tip]')
-    if (!t) return
-    const box = cardRef.current.getBoundingClientRect()
-    const r = t.getBoundingClientRect()
-    setTip({ text: t.getAttribute('data-tip'), x: r.left - box.left + 12, y: r.bottom - box.top + 6 })
-  }
-
-  const columns = useMemo(() => (table?.columns || []).map((c, i) => ({
-    key: c.key, label: c.label, align: c.align || (i ? 'right' : undefined),
-    min: i ? 72 : 140, grow: i ? 0.7 : 2, priority: i < 3 ? 1 : 2,
-    sortValue: row => row[`${c.key}__sort`] ?? row[c.key],
-  })), [table])
-
-  return (
-    <section className={`ins-sheet ins-card ins-c${span}`} id={`ins-${id}`} aria-labelledby={`ins-h-${id}`} ref={cardRef}>
-      <div className="ins-ch">
-        <div className="ins-ct">
-          <h2 id={`ins-h-${id}`}>{title}</h2>
-          {sub && <p className="ins-sub">{sub}</p>}
-        </div>
-        {hasTable && (
-          <div className="ins-acts">
-            <button type="button" className="ins-act" aria-pressed={asTable} onClick={() => setAsTable(v => !v)}>Table</button>
-            <button type="button" className="ins-act"
-              onClick={() => downloadCsv(id, table.columns, table.rows.map(r => table.columns.map(c => r[`${c.key}__csv`] ?? r[c.key])))}>CSV</button>
-          </div>
-        )}
-      </div>
-      {/* A chart with a natural height fills the card: the body grows to the row, reserves that
-          height, and the drawing is laid inside it at the measured size. */}
-      <div className={`ins-body${fill ? ' ins-body-fill' : ''}`} ref={bodyRef} style={fill ? { minHeight: nat(width) } : undefined}
-        onPointerMove={onMove} onPointerLeave={() => setTip(null)} onFocus={onFocus} onBlur={() => setTip(null)}>
-        {asTable && hasTable
-          ? <DataSheet level="plain" columns={columns} rows={table.rows} rowKey={r => r.id} aria-label={`${title}, table`} pageRows={50} />
-          : fill ? <div className="ins-plot">{children(width, Math.max(nat(width), box.h))}</div> : children(width, 0)}
-      </div>
-      {legend && !asTable && (
-        <div className="ins-legend">
-          {legend.map(([name, color]) => <span key={name}><i style={{ background: color }} aria-hidden="true" />{name}</span>)}
-        </div>
-      )}
-      {note && <p className="ins-note">{note}</p>}
-      {tip && <div className="ins-tip" role="tooltip" style={{ left: tip.x, top: tip.y }}>{tip.text}</div>}
-    </section>
-  )
-}
-
 // ── Pieces of the page ───────────────────────────────────────────────────────
 
 function Select({ id, label, value, onChange, options, disabled }) {
@@ -178,17 +83,6 @@ function FilterBar({ f, data, set }) {
   )
 }
 
-/** The app's KPI card, at rest: a figure, not a filter, so it is not a button and does not lift. */
-function Tile({ k, v, d, hero, empty, accent = 'nightfall' }) {
-  return (
-    <div className={`ins-tile ins-a-${accent}${hero ? ' ins-hero' : ''}${empty ? ' ins-empty' : ''}`}>
-      <div className="ins-tv">{v}</div>
-      <div className="ins-tk">{k}</div>
-      <div className="ins-td">{d || ' '}</div>
-    </div>
-  )
-}
-
 function Tiles({ data, f }) {
   const t = data.tiles
   const cmp = data.compare
@@ -212,30 +106,6 @@ function Tiles({ data, f }) {
 }
 
 // ── Each chart's figures, shaped for its marks and its table ─────────────────
-
-const rateItem = (id, label, r, extra = {}) => ({
-  id, label, value: r?.rate ?? 0, display: fmtRate(r), n: r?.n ?? 0, suppressed: Boolean(r?.suppressed), ...extra,
-})
-
-function pipelineCard(data) {
-  const steps = data.pipeline.steps
-  const excluded = data.pipeline.excludedCohortIds.map(id => data.cohorts.find(c => c.id === id)?.name).filter(Boolean)
-  const startsAtPlaced = steps[0].count == null
-  const rows = steps.filter(s => s.count != null).map(s => ({
-    id: s.key, stage: s.label, count: s.count,
-    prior: s.ofPrior ? rateText(s.ofPrior) : '', prior__sort: s.ofPrior?.rate ?? -1,
-  }))
-  const notes = []
-  if (startsAtPlaced) notes.push('A unit, service line or shift filter starts the funnel at Placed, because applicants have no unit yet.')
-  if (excluded.length) notes.push(`${excluded.join(', ')} ${excluded.length === 1 ? 'is' : 'are'} still in rotation and left out of this funnel.`)
-  notes.push('Cohorts imported as completers only join at Completed; Completed is measured against Placed on the cohorts that have both.')
-  return {
-    table: { columns: [{ key: 'stage', label: 'Stage' }, { key: 'count', label: 'Students' }, { key: 'prior', label: '% of prior' }], rows },
-    note: notes.join(' '),
-    nat: () => funnelHeight(steps),
-    draw: (w, h) => <Funnel steps={steps} width={w} height={h} />,
-  }
-}
 
 function choiceCard(data, f) {
   const { buckets, notRecorded, association } = data.choice
@@ -268,43 +138,6 @@ function bySchoolCard(data, f, pickSchool, colorOf) {
     nat: () => hbarHeight(items, program.suppressed ? null : program.rate),
     draw: (w, h) => <HBar items={items} width={w} height={h} cap={100} onPick={pickSchool} refValue={program.suppressed ? null : program.rate}
       refLabel={`Program ${fmtRate(program)}`} pickLabel="Filter to this school" />,
-  }
-}
-
-const TREND_SERIES = [
-  { key: 'applied', name: 'Applied', color: 'var(--ins-s1)' },
-  { key: 'offered', name: 'Offered', color: 'var(--ins-s2)' },
-  { key: 'hired', name: 'Hired', color: 'var(--ins-s3)' },
-]
-
-function trendCard(data) {
-  const finished = data.trends.filter(t => t.finished)
-  const labels = finished.map(t => shortCohort(t.name))
-  const series = TREND_SERIES.map(s => ({
-    name: s.name, color: s.color,
-    values: finished.map(t => (t[s.key] && !t[s.key].suppressed ? t[s.key].rate : null)),
-    ns: finished.map(t => t[s.key]?.n ?? 0),
-  }))
-  const placed = data.trends.map(t => ({ label: shortCohort(t.name), value: t.placed, tip: t.placed == null ? `${t.name}: no placement record` : `${t.name}: ${t.placed} placed` }))
-  return {
-    table: {
-      columns: [{ key: 'cohort', label: 'Cohort' }, { key: 'placed', label: 'Placed' }, { key: 'applied', label: 'Applied' }, { key: 'offered', label: 'Offered' }, { key: 'hired', label: 'Hired' }],
-      rows: data.trends.map((t, i) => ({
-        id: t.cohortId, cohort: t.name, cohort__sort: i, placed: t.placed ?? '–',
-        applied: t.applied ? rateText(t.applied) : 'In rotation', offered: t.offered ? rateText(t.offered) : 'In rotation', hired: t.hired ? rateText(t.hired) : 'In rotation',
-        applied__sort: t.applied?.rate ?? -1, offered__sort: t.offered?.rate ?? -1, hired__sort: t.hired?.rate ?? -1,
-      })),
-    },
-    legend: TREND_SERIES.map(s => [s.name, s.color]),
-    note: 'The trend shows every cohort whatever the cohort filter, so one cohort sits in context. A cohort under 5 completers is a gap, not a zero.',
-    nat: () => 220 + 34 + 120,
-    draw: (w, h) => (
-      <>
-        <Lines series={series} labels={labels} width={w} height={Math.max(220, h - 34 - 120)} />
-        <p className="ins-minihead">Students placed per cohort</p>
-        <Columns items={placed} width={w} />
-      </>
-    ),
   }
 }
 
@@ -424,27 +257,6 @@ function caseyFinkCard(data, colorOf) {
     note: 'Post-rotation Section I mean minus pre-rotation, on the 1 to 4 scale, for students with both. A negative change draws no bar; the figure still shows its sign.',
     nat: () => (list.length ? hbarHeight(items) : 40),
     draw: (w, h) => list.length ? <HBar items={items} width={w} height={h} /> : <p className="ins-emptyline">No paired Casey-Fink responses in this view.</p>,
-  }
-}
-
-function hoursCard(data, colorOf) {
-  const list = data.hoursBySchool
-  const items = list.map(s => ({
-    id: s.school, label: s.school, value: s.pctOfRequirement || 0, display: s.suppressed ? 'Too few' : `${Math.round(s.pctOfRequirement)}%`, n: s.n, suppressed: s.suppressed, color: colorOf(s.school),
-    tip: s.suppressed ? `${s.school}: too few to rate (n = ${s.n})` : `${s.school}\n${Math.round(s.meanHours)} of ${Math.round(s.meanRequired)} required hours on average\n${s.n} students`,
-  }))
-  return {
-    table: {
-      columns: [{ key: 'school', label: 'School' }, { key: 'n', label: 'Students' }, { key: 'hours', label: 'Mean hours' }, { key: 'required', label: 'Mean required' }, { key: 'pct', label: '% of requirement' }],
-      rows: list.map(s => ({
-        id: s.school, school: s.school, n: s.n,
-        hours: s.suppressed ? 'Too few' : Math.round(s.meanHours), required: s.suppressed ? 'Too few' : Math.round(s.meanRequired),
-        pct: s.suppressed ? `Too few to rate (n = ${s.n})` : `${Math.round(s.pctOfRequirement)}%`, pct__sort: s.pctOfRequirement ?? -1,
-      })),
-    },
-    note: 'Approved hours against each student\'s required hours, capped at 100% per student. A student still in rotation counts with the hours logged so far.',
-    nat: () => (list.length ? hbarHeight(items) : 40),
-    draw: (w, h) => list.length ? <HBar items={items} width={w} height={h} cap={100} /> : <p className="ins-emptyline">No required hours on file for placed students in this view.</p>,
   }
 }
 

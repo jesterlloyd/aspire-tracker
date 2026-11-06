@@ -275,6 +275,15 @@ test('a unit leader sees their unit by name and other units only as an average',
   noIds(out)
 })
 
+// Phase 2b: a school feeding a unit wears the colour it wears on the full page, and only its
+// index travels, so the leader learns no school that does not feed their unit.
+test('a unit leader\'s feeding schools carry their slot in the program\'s school list', async () => {
+  const out = await viaServer({ kind: 'unit', unitKeys: ['6 NE'] })
+  const page = await viaServer(staff)
+  for (const f of out.schoolsFeeding) assert.equal(f.slot, page.schools.indexOf(f.school), f.school)
+  assert.equal(out.schools, undefined)
+})
+
 test('the Residency Portal sees program-level figures with no school or unit', async () => {
   const out = await viaServer({ kind: 'residency' }, { schools: 'Valley State', unit: '6NE' })
   assert.equal(out.tiles.hired.count, 9)

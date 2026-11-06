@@ -14,7 +14,8 @@
 // surface already owns - units from the planning payload, everything else from
 // the SAME derived rows the Profiles roster renders (src/lib/ngrp/ngrpGlanceView.js)
 // - so this page can never disagree with the tabs it summarizes.
-import { useMemo, useState } from 'react'
+import { Suspense, useMemo, useState } from 'react'
+import { lazyReload } from '../../lib/lazyReload'
 import { useQuery } from '@tanstack/react-query'
 import NeedsYou from '../home/NeedsYou'
 import '../home/home.css'
@@ -38,6 +39,9 @@ import { compareCohortsChrono } from '../../lib/cohortSeason'
 import { displayName } from '../../lib/utils'
 import { cycleTimeline, milestoneWhen, pipelineStages } from '../../lib/ngrp/ngrpPlanningView'
 import { residencySnapshot, hiringUnitGroups, applicantsBySchool, statusCounts } from '../../lib/ngrp/ngrpGlanceView'
+
+// ASPIRE-INSIGHTS-1 Phase 2b: the Residency Portal's outcomes section, its own chunk.
+const InsightsGlance = lazyReload(() => import('../insights/InsightsGlance'), 'InsightsGlance')
 
 const fmtDay = d => {
   if (!d) return null
@@ -473,6 +477,13 @@ export default function AtAGlanceTab({ cycle, cyclesCount, canManage, onEditCoho
           </div>
         </Panel>
       </div>
+
+      {/* The Residency Portal only: ASPIRE to NGRP, program level, never a school or a unit. */}
+      {!staffApp && (
+        <Suspense fallback={null}>
+          <InsightsGlance surface="residency" />
+        </Suspense>
+      )}
     </div>
   )
 }

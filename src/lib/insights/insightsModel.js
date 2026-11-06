@@ -605,8 +605,12 @@ export function computeInsights(snapshot, filtersIn = {}, viewer = { kind: 'staf
   const ownHired = ownYieldRows.reduce((s, u) => s + u.count, 0)
   const ownHostedFinished = ownYieldRows.reduce((s, u) => s + u.n, 0)
   const ownStudents = students.filter(s => s.units.some(u => unitKeys.has(u.key)))
+  // A school's colour is its place in the program's school list, as on the full page; only the
+  // index travels, so the leader learns no school that does not feed their unit.
+  const allSchools = [...new Set(snapshot.students.map(s => s.school))].sort()
   const bySchool = [...groupBy(ownStudents.filter(s => !sets.partial.has(s.cohortId)), s => s.school)]
-    .map(([school, rows]) => ({ school, count: rows.length })).sort((a, b) => b.count - a.count || a.school.localeCompare(b.school))
+    .map(([school, rows]) => ({ school, count: rows.length, slot: allSchools.indexOf(school) }))
+    .sort((a, b) => b.count - a.count || a.school.localeCompare(b.school))
   return {
     ...base,
     units: own.map(h => h.unit),
