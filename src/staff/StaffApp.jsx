@@ -94,6 +94,7 @@ import { nextWarmTab, warmDelay, withAllWarmTabs, badgeQueueReady, BADGE_QUEUE_D
 const ConnectPage          = lazyReload(() => import('../pages/Connect'), 'ConnectPage')
 const SettingsShell        = lazyReload(() => import('../components/settings/SettingsShell'), 'SettingsShell')
 const CatalogPage          = lazyReload(() => import('../components/catalog/CatalogPage'), 'CatalogPage')
+const InsightsPage         = lazyReload(() => import('../components/insights/InsightsPage'), 'InsightsPage')
 const InterviewRubricTab   = lazyReload(() => import('../components/InterviewRubricTab'), 'InterviewRubricTab')
 const EvaluationTab        = lazyReload(() => import('../components/EvaluationTab'), 'EvaluationTab')
 const ActionCenter         = lazyReload(() => import('../components/ActionCenterV2'), 'ActionCenter')
@@ -262,6 +263,7 @@ function MainApp({ onLogout }) {
     if (p.startsWith('/ngrp'))     return 'ngrp'     // NGRP-WORKSPACE-1: sibling workspace
     if (p.startsWith('/connect'))  return 'connect'
     if (p.startsWith('/catalog'))  return 'catalog'  // CATALOG-1: app-level utility section
+    if (p.startsWith('/insights')) return 'insights' // ASPIRE-INSIGHTS-1: app-level utility section
     if (p.startsWith('/settings')) return 'settings' // WS2.1: app-level utility section
     return PATH_TO_TAB[p] || 'overview'
   })()
@@ -319,7 +321,7 @@ function MainApp({ onLogout }) {
   useEffect(() => {
     // WS2.1: Settings (like Connect) is an app-level utility, not a workspace - exclude
     // it so Back-to-workspace returns to the prior operational tab, not /settings.
-    if (!location.pathname.startsWith('/connect') && !location.pathname.startsWith('/settings') && !location.pathname.startsWith('/catalog')) {
+    if (!location.pathname.startsWith('/connect') && !location.pathname.startsWith('/settings') && !location.pathname.startsWith('/catalog') && !location.pathname.startsWith('/insights')) {
       // NGRP-WORKSPACE-1 (correction): record the search string too, so
       // returning from Connect restores the Applicants filters (which live in
       // the URL). The five ASPIRE tabs carry no search params, so their
@@ -334,7 +336,7 @@ function MainApp({ onLogout }) {
     const ROUTE_TITLES = {
       overview: 'At a Glance', profiles: 'Student Profiles', interviews: 'Interviews',
       rotation: 'Rotation', evaluation: 'Evaluation', connect: 'ASPIRE Connect',
-      catalog: 'Catalog', settings: 'Settings', ngrp: 'NGRP',
+      catalog: 'Catalog', insights: 'Insights', settings: 'Settings', ngrp: 'NGRP',
     }
     const label = ROUTE_TITLES[activeTab]
     document.title = label ? `${label} · ASPIRE Intelligence` : 'ASPIRE Intelligence'
@@ -1556,7 +1558,7 @@ function MainApp({ onLogout }) {
             <NgrpNav activeTab={ngrpActiveTab} onSwitchTab={switchNgrpTab} />
           )}
         </Suspense>
-        {cohorts.length > 0 && activeTab !== 'connect' && activeTab !== 'settings' && activeTab !== 'catalog' && activeTab !== 'ngrp' && (
+        {cohorts.length > 0 && activeTab !== 'connect' && activeTab !== 'settings' && activeTab !== 'catalog' && activeTab !== 'insights' && activeTab !== 'ngrp' && (
           <UnifiedNav
             cohorts={cohorts}
             activeCohortId={activeCohortId}
@@ -1734,6 +1736,13 @@ function MainApp({ onLogout }) {
                 <CatalogPage backPath={backPath} backLabel={backLabel}
                   students={students} units={units} matches={matches}
                   cohortName={activeCohort?.name || ''} toast={toast} />
+              </Suspense>
+            )}
+
+            {/* ASPIRE-INSIGHTS-1: one page of program outcomes, read from /api/insights. */}
+            {activeTab === 'insights' && (
+              <Suspense fallback={<ChunkLoading label="Loading Insights" />}>
+                <InsightsPage backPath={backPath} backLabel={backLabel} />
               </Suspense>
             )}
 

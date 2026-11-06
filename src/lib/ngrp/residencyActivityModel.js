@@ -22,7 +22,7 @@ export const EVENT_LABELS = Object.freeze({
   form_deadline_extended: 'Changed the Transition Form deadline',
   eligibility_calculated: 'Eligibility calculated',
   eligibility_overridden: 'Overrode eligibility',
-  application_confirmed: 'Confirmed the application',
+  application_confirmed: 'Marked the NGRP application',
   application_withdrawn: 'Withdrew the application',
   unit_assigned: 'Paired with a unit',
   unit_assignment_cleared: 'Cleared the unit pairing',
@@ -95,6 +95,8 @@ export function actorOf(row) {
 export function detailOf(row) {
   const m = row.metadata || {}
   if (m.activity) return supportActivity(m.activity)?.label || m.activity
+  // ASPIRE-INSIGHTS-1: applied_set records whether the mark went on or came off.
+  if (row.event_type === 'application_confirmed' && typeof m.applied === 'boolean') return m.applied ? 'Applied to NGRP' : 'Applied mark removed'
   if (m.doc_type) return String(m.doc_type).replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase())
   if (row.event_type === 'resume_scored' && m.status) return m.status
   if (m.unit) return m.unit

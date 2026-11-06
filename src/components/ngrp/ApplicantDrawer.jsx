@@ -7,6 +7,7 @@
 // its own confirm step. Confirmation is the ONLY path to "Confirmed";
 // nothing here (or anywhere) confirms automatically.
 import Tooltip from '../ui/Tooltip'
+import { confirmDialog } from '../shared/confirmDialog'
 import { useEffect, useState } from 'react'
 import DetailDrawer from '../ui/DetailDrawer'
 import { bodyPortal } from '../../lib/bodyPortal'
@@ -1149,6 +1150,37 @@ const entryDay = d => {
   return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
+// ASPIRE-INSIGHTS-1 (Owner, 2026-11-05): "not everyone who answers the transition form will
+// apply". The mark is application_confirmed_at, which leaves pool membership alone.
+function AppliedSection({ row, Section, Row, smallBtn, onSet }) {
+  const [busy, setBusy] = useState(false)
+  const applied = Boolean(row.application_confirmed_at)
+  const hired = Boolean(row.outcome?.hired_at)
+  const run = async (next) => {
+    if (!onSet || busy) return
+    if (!next && !(await confirmDialog('Remove the applied mark? ASPIRE Insights will stop counting this alumnus as applied to NGRP.', { confirmLabel: 'Remove mark' }))) return
+    setBusy(true)
+    try { await onSet(next) } finally { setBusy(false) }
+  }
+  return (
+    <Section
+      title="NGRP Application"
+      right={onSet ? (
+        <button type="button" disabled={busy} style={{ ...smallBtn(false, applied), height: 24, padding: '0 9px', fontSize: 11 }} onClick={() => run(!applied)}>
+          {applied ? 'Remove Mark' : 'Mark as Applied'}
+        </button>
+      ) : null}
+    >
+      <Row label="Applied to NGRP">
+        {applied ? `Yes, marked ${fmt(row.application_confirmed_at) || ''}`.trim() : hired ? 'Counted as applied because they were hired' : 'Not marked'}
+      </Row>
+      <p style={{ margin: '6px 0 0', fontSize: 11, color: 'var(--text-caption)' }}>
+        Mark an alumnus once they have applied to the NGRP posting. The mark does not change the Applicant Pool.
+      </p>
+    </Section>
+  )
+}
+
 export default function ApplicantDrawer(props) {
   if (!props.open || !props.row) return null
   return <ApplicantDrawerBody key={props.row.id} {...props} />
@@ -1475,6 +1507,13 @@ function ApplicantDrawerBody({
                     </div>
                   )}
                 </Section>
+
+                {/* ASPIRE-INSIGHTS-1: the Transition Form is not an application, so the team marks
+                    who applied. ASPIRE Insights counts this (or a hire) as Applied to NGRP. */}
+                {row.candidate_id && (
+                  <AppliedSection row={row} Section={Section} Row={Row} smallBtn={smallBtn}
+                    onSet={canManage && provisioned && actions.setApplied ? applied => actions.setApplied(row, applied) : null} />
+                )}
 
                 <UnitChoicesSection
                   row={row}

@@ -10,7 +10,8 @@
 // re-checks the active nursing_academic grant server-side; nothing here
 // writes anything, anywhere.
 
-import { useMemo, useEffect } from 'react'
+import { useMemo, useEffect, Suspense } from 'react'
+import { lazyReload } from '../../lib/lazyReload'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import SkylineCard from '../../components/SkylineCard'
@@ -28,6 +29,10 @@ import AcademicsContactsView from './AcademicsContactsView'
 import AcademicsEvaluationView from './AcademicsEvaluationView'
 import { fetchAcademicsContacts } from './nursingAcademicsApi'
 import { PortalConnectHeaderButton, PortalConnectPage } from '../connect/PortalConnect'
+
+// ASPIRE-INSIGHTS-1: the Data tab is the staff app's Insights page, read-only. Loaded only when
+// opened, so the portal bundle carries none of it for a reader who never does.
+const InsightsPage = lazyReload(() => import('../../components/insights/InsightsPage'), 'InsightsPage')
 
 // NA-PORTAL-UTILITIES-1: Messages reuses the SAME canonical PortalMessagesWorkspace the other
 // portals use (variant='nursing_academic'). Enablement is the SERVER capability passed as
@@ -127,6 +132,13 @@ export default function NursingAcademicsPortal({ view = 'calendar', messagesEnab
       {view === 'evaluation' && (themesEnabled
         ? <AcademicsEvaluationView active />
         : <EmptyState title="Evaluation" detail="Evaluation themes have not been shared with your account." />)}
+      {/* ASPIRE-INSIGHTS-1: the Data tab. Mounted only while open; /api/insights re-checks the
+          nursing_academic grant and answers aggregates only, never a student. */}
+      {view === 'data' && (
+        <Suspense fallback={<div className="ptl-muted" role="status">Loading ASPIRE Insights…</div>}>
+          <InsightsPage surface="leadership" readOnlyNote="Read-only." />
+        </Suspense>
+      )}
       {/* PROGRAM-BUDGET (2026-09-27): read-only, for a grant with budget_access. Mounted only
           while open, so nothing is fetched for a grant that never opens it. */}
       {view === 'budget' && (budgetEnabled ? (

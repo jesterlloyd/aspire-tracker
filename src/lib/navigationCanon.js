@@ -6,6 +6,7 @@ import {
   ClipboardList,
   ContactRound,
   HandCoins,
+  ChartNoAxesCombined,
   Handshake,
   Home,
   Hospital,
@@ -38,6 +39,7 @@ export const NAV_LABELS = Object.freeze({
   capacity: 'Capacity',
   communityBenefit: 'Community Benefit',
   contacts: 'Contacts',
+  data: 'Data',   // ASPIRE-INSIGHTS-1: the NE&L Portal's door to ASPIRE Insights
   programBudgets: 'Budget Tracker',   // singular (Owner, 2026-09-27): one budget today, ASPIRE's
 })
 
@@ -60,6 +62,7 @@ export const NAV_ICONS = Object.freeze({
   capacity: CalendarRange,
   communityBenefit: HandCoins,
   contacts: ContactRound,
+  data: ChartNoAxesCombined,
   programBudgets: Wallet,
 })
 

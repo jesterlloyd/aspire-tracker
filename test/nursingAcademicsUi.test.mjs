@@ -27,7 +27,8 @@ test('the route namespace is /portal/academics with three sections, At a Glance 
   // KEITH-THEMES-1 (2026-09-29) added 'evaluation' (Keith's comment themes, per-person grant, gated the same way).
   // PORTAL-CONNECT-1 (2026-10-07): 'contacts' and 'messages' are the portal's Connect, under
   // /portal/academics/connect/*, and left the section set; their old paths still resolve.
-  assert.match(app, /const NA_SECTIONS = new Set\(\['calendar', 'community-benefit', 'budget', 'evaluation'\]\)/)
+  // ASPIRE-INSIGHTS-1 (Phase 2, 2026-11-06) added 'data' (ASPIRE Insights, read-only).
+  assert.match(app, /const NA_SECTIONS = new Set\(\['calendar', 'community-benefit', 'budget', 'evaluation', 'data'\]\)/)
   assert.match(app, /const NA_CONNECT_PATH = '\/portal\/academics\/connect'/)
   assert.match(app, /function naLegacyConnectPath\(pathname\)/)
   assert.match(app, /\/portal\\\/academics\\\//)

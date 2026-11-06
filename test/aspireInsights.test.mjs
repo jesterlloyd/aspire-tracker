@@ -118,6 +118,13 @@ test('residency rates count completed students in finished cohorts only', () => 
   assert.deepEqual(out.tiles.measure, out.tiles.hired)
 })
 
+test('an applied mark survives a later Not Proceeding', () => {
+  const raw = fixture()
+  raw.candidates.push({ id: 'cand-np', student_id: raw.students[0].id, application_status: 'not_proceeding', application_confirmed_at: '2026-10-01T00:00:00Z' })
+  const s = buildSnapshot(raw)
+  assert.equal(s.students[0].ngrp.applied, true)
+})
+
 test('the Transition Form is its own step and is not Applied', () => {
   const out = computeInsights(snap(), {}, staff)
   assert.equal(out.tiles.transition.count, 8 + 3 + 3)

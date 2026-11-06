@@ -730,6 +730,10 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                     // both, because it happens on its own now.
                     setNotProceeding: (r, fields) => runManage('not_proceeding_set', { candidate_id: r.candidate_id, ...fields },
                       'Recorded as Not Proceeding', `${displayName(r.student)} has left the Applicant Pool. Their form and eligibility stay on record.`),
+                    // ASPIRE-INSIGHTS-1: the team marks who applied to NGRP; both audiences may.
+                    setApplied: (r, applied) => runManage('applied_set', { candidate_id: r.candidate_id, applied },
+                      applied ? 'Marked as applied' : 'Applied mark removed',
+                      applied ? `${displayName(r.student)} now counts as applied to NGRP in ASPIRE Insights.` : `${displayName(r.student)} no longer counts as applied to NGRP.`),
                     reinstate: r => runManage('application_reinstate', { candidate_id: r.candidate_id },
                       'Back in consideration', `${displayName(r.student)} returns to the Applicant Pool if they still meet it.`),
                     setPreferences: (r, preferences) => runManage('unit_preferences_set', { candidate_id: r.candidate_id, preferences },

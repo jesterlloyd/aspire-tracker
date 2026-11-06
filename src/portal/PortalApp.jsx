@@ -153,7 +153,7 @@ function apThreadIdFromPath(pathname) {
 // portal's ASPIRE Connect, at /portal/academics/connect/contacts and /connect/messages[/:thread].
 // The old /portal/academics/contacts and /messages paths still resolve (and are replaced with
 // the new ones on arrival), so a bookmark or an older email link keeps working.
-const NA_SECTIONS = new Set(['calendar', 'community-benefit', 'budget', 'evaluation'])
+const NA_SECTIONS = new Set(['calendar', 'community-benefit', 'budget', 'evaluation', 'data'])
 const NA_CONNECT_PATH = '/portal/academics/connect'
 function naViewFromPath(pathname) {
   if (/^\/portal\/academics\/(connect\/)?messages(\/|$)/.test(pathname)) return 'messages'
@@ -171,7 +171,7 @@ function naLegacyConnectPath(pathname) {
   const m = /^\/portal\/academics\/(contacts|messages)(\/[^/]+)?\/?$/.exec(pathname)
   return m ? `${NA_CONNECT_PATH}/${m[1]}${m[2] || ''}` : null
 }
-const NA_SECTION_LABELS = { calendar: NAV_LABELS.atAGlance, 'community-benefit': NAV_LABELS.communityBenefit, budget: NAV_LABELS.programBudgets, evaluation: NAV_LABELS.evaluation }
+const NA_SECTION_LABELS = { calendar: NAV_LABELS.atAGlance, 'community-benefit': NAV_LABELS.communityBenefit, budget: NAV_LABELS.programBudgets, evaluation: NAV_LABELS.evaluation, data: NAV_LABELS.data }
 // The Residency Portal's Connect lives beside the workspace's own tabs.
 const RESIDENCY_CONNECT_RE = /^\/portal\/residency\/connect(\/|$)/
 function residencyConnectTab(pathname) {

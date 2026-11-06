@@ -18,6 +18,9 @@ export default function HeaderActions({
   const { isOwner, isAdmin, isInterviewer, userProfile } = useAuth()
   const bellActionCount = actionBadgeCount || 0
   const canViewCatalog = isOwner || isAdmin || isInterviewer
+  // ASPIRE-INSIGHTS-1: the server's insights_view (Owner, Admin, Co-Lead) decides; this only
+  // hides an icon the caller could not use.
+  const canViewInsights = isOwner || isAdmin || String(userProfile?.role || '').toLowerCase() === 'co-lead'
   // ASPIRE MESSAGES: the Connect icon's unread badge follows the Messages
   // authorization gate, which is stricter than the icon's own rule. isAdmin and
   // canEdit are role-only and ignore profile activity, so neither is sufficient:
@@ -39,6 +42,7 @@ export default function HeaderActions({
   // the current page are unchanged; this is purely the active-marker visual state.
   const connectActive = activeTab === 'connect' && !showActionCenter
   const catalogActive = activeTab === 'catalog' && !showActionCenter
+  const insightsActive = activeTab === 'insights' && !showActionCenter
   return (
     <>
       {cohorts.length > 0 && (
@@ -126,6 +130,43 @@ export default function HeaderActions({
         >
           <Library size={15} strokeWidth={1.9} />
           {catalogActive && (
+            <span style={{
+              position: 'absolute', bottom: -7, left: '50%', transform: 'translateX(-50%)',
+              width: 0, height: 0,
+              borderLeft: '5px solid transparent',
+              borderRight: '5px solid transparent',
+              borderTop: '6px solid rgba(255,255,255,0.92)',
+              display: 'block',
+            }} />
+          )}
+        </button>
+        </Tooltip>
+      )}
+      {cohorts.length > 0 && canViewInsights && (
+        <Tooltip label="Insights" placement="bottom">
+        <button
+          data-tour="insights"
+          aria-label="ASPIRE Insights"
+          aria-current={insightsActive ? 'page' : undefined}
+          onClick={() => navigate('/insights')}
+          style={{
+            position: 'relative', flexShrink: 0,
+            width: 'var(--header-control-height, 36px)', height: 'var(--header-control-height, 36px)', boxSizing: 'border-box', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: insightsActive ? 'rgba(255,255,255,0.26)' : 'rgba(255,255,255,0.06)',
+            border: `1px solid ${insightsActive ? 'rgba(255,255,255,0.50)' : 'rgba(255,255,255,0.10)'}`,
+            borderRadius: 8,
+            color: insightsActive ? '#fff' : 'rgba(255,255,255,0.75)',
+            cursor: 'pointer',
+            transition: 'background 0.15s, border-color 0.15s',
+            overflow: 'visible',
+          }}
+          onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.14)'}
+          onMouseLeave={e => e.currentTarget.style.background = insightsActive ? 'rgba(255,255,255,0.26)' : 'rgba(255,255,255,0.06)'}
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M4 20h16" /><path d="M7 16.5v-5" /><path d="M12 16.5V6" /><path d="M17 16.5v-8" />
+          </svg>
+          {insightsActive && (
             <span style={{
               position: 'absolute', bottom: -7, left: '50%', transform: 'translateX(-50%)',
               width: 0, height: 0,

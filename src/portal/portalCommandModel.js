@@ -28,6 +28,7 @@ export function portalActionsFor(kind, { budgetEnabled = false, messagesEnabled 
   if (kind === 'nursing_academic') return [
     ...(budgetEnabled ? [action('expense', 'Search an Expense', 'NE&L Portal · Budget', '/portal/academics/budget', 'expense expenses budget receipt receipts concur')] : []),
     action('community-benefit', 'Open Community Benefit', 'NE&L Portal · Community Benefit', '/portal/academics/community-benefit', 'community benefit grant report'),
+    action('data', 'Open ASPIRE Insights', 'NE&L Portal · Data', '/portal/academics/data', 'data insights outcomes hired hire rate pipeline chart charts report'),
     action('contacts', 'Find a Contact', 'NE&L Portal · Contacts', '/portal/academics/connect/contacts', 'contact contacts directory'),
     ...(messagesEnabled ? [action('messages', 'Open Messages', 'NE&L Portal · Messages', '/portal/academics/connect/messages', 'message messages inbox')] : []),
   ]

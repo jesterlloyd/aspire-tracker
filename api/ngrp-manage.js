@@ -19,6 +19,8 @@
 //   eligibility_recalculate { cycle_id? candidate_id? }
 //   eligibility_override    { candidate_id, result, reason_category, note }
 //   application_confirm     { candidate_id }          -> legacy explicit confirm
+//   applied_set             { candidate_id, applied } -> ASPIRE-INSIGHTS-1: the team marks that the alumnus
+//                             applied to NGRP (application_confirmed_at); pool membership is untouched
 //   application_withdraw    { candidate_id }          -> legacy; superseded by not_proceeding_set
 //   token_revoke            { candidate_id }          -> revoke live link (no resend)
 //   form_deadline_set       { candidate_id, close_date } -> TRANSITION-PORTAL-1: this alumnus's own close
@@ -90,6 +92,8 @@ const ACTIONS = new Set([
   'planning', 'cycle_create', 'cycle_update', 'cycle_set_active', 'sources_set', 'units_set',
   'candidate_review', 'eligibility_recalculate', 'eligibility_override',
   'application_confirm', 'application_withdraw', 'token_revoke', 'form_deadline_set',
+  // ASPIRE-INSIGHTS-1
+  'applied_set',
   'assign_unit', 'interview_set', 'outcome_set',
   // RESIDENCY-ROSTER-1
   'not_proceeding_set', 'application_reinstate', 'unit_preferences_set',
@@ -928,6 +932,28 @@ export default async function handler(req, res) {
         metadata: { unit },
       })
       return res.status(200).json({ ok: true, assigned_unit: unit })
+    }
+
+    // ASPIRE-INSIGHTS-1 (Owner, 2026-11-05): "not everyone who answers the transition form will
+    // apply", so the team marks the alumni who did. The fact is application_confirmed_at, a
+    // timestamp that a later Not Proceeding does not erase. The status moves between the neutral
+    // values only (not_confirmed <-> confirmed), which the pool rule reads as the same thing, so
+    // marking someone never moves them on or off the Interview Board. Insights counts it as
+    // Applied to NGRP. Both audiences may mark; each change is audited with who did it.
+    if (action === 'applied_set') {
+      if (typeof body.applied !== 'boolean') return res.status(422).json({ error: 'invalid_request' })
+      const neutral = candidate.application_status === 'not_confirmed' || candidate.application_status === 'confirmed'
+      const already = Boolean(candidate.application_confirmed_at) === body.applied
+      if (already) return res.status(200).json({ ok: true, idempotent: true, applied: body.applied })
+      const updates = { application_confirmed_at: body.applied ? nowIso : null }
+      if (neutral) updates.application_status = body.applied ? 'confirmed' : 'not_confirmed'
+      const upd = await db.from('ngrp_candidates').update(updates).eq('id', candidateId)
+      if (upd.error) return internal(res)
+      await recordNgrpAudit(db, {
+        eventType: 'application_confirmed', cycleId: cycle.id, candidateId, studentId: candidate.student_id, actorProfileId: actorId,
+        metadata: { applied: body.applied },
+      })
+      return res.status(200).json({ ok: true, applied: body.applied, applied_at: updates.application_confirmed_at })
     }
 
     if (action === 'application_confirm') {

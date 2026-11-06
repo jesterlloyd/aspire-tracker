@@ -1,0 +1,539 @@
+// ASPIRE-INSIGHTS-1, Phase 2: ASPIRE Insights, one page of program outcomes.
+// Reference: docs/mockups/aspire-insights.html. Staff app at /insights (Owner, Admin, Co-Lead,
+// decided by the server's insights_view); the NE&L Portal's Data tab renders the same component
+// with surface="leadership" and no back link.
+//
+// Nothing is computed here. Figures come from /api/insights (src/lib/insights/insightsModel.js);
+// filters live in the URL under the API's own names (src/lib/insights/insightsView.js), so a
+// filtered page is a link. Every chart has a Table view (the DataSheet, plain level) and a CSV,
+// and a withheld rate reads "Too few to rate (n = 3)" everywhere, never a number.
+//
+// Style decides the drawing, never the data: Classic is a bound program report (a navy spine,
+// gridded report sheets, small-caps titles); Modern is plain cards. One component tree.
+
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { useTheme } from '../../contexts/ThemeContext'
+import WorkspaceBackLink from '../ui/WorkspaceBackLink'
+import DataSheet from '../shared/DataSheet'
+import SegmentedPicker from '../shared/SegmentedPicker'
+import { fetchInsights } from '../../lib/insights/insightsClient'
+import {
+  filtersFromSearch, searchFromFilters, withFilter, toggleFilter, chipsFor, clearFilters,
+  measureLabel, fmtRate, fmtChange, deltaWords, rateText, toCsv, csvFileName, asOfWords, shortCohort,
+  RESIDENCY_STATUS_LABELS, COMPARE_LABELS, PATHWAY_LABELS,
+} from '../../lib/insights/insightsView'
+import { HBar, Funnel, Lines, Columns, Heat } from './InsightsCharts'
+import { useWidth } from './useWidth'
+import './insights.css'
+
+const MEASURE_OPTIONS = [
+  { value: 'applied', label: 'Applied' },
+  { value: 'offered', label: 'Offered' },
+  { value: 'hired', label: 'Hired' },
+]
+const PATHWAY_OPTIONS = Object.entries(PATHWAY_LABELS).map(([value, label]) => ({ value, label }))
+
+// ── The card every chart sits in ─────────────────────────────────────────────
+
+function downloadCsv(id, columns, rows) {
+  const blob = new Blob([toCsv(columns, rows)], { type: 'text/csv;charset=utf-8' })
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(blob)
+  a.download = csvFileName(id)
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000)
+}
+
+/**
+ * table: { columns: [{ key, label, align? }], rows: [{ id, ...cells }] }. The same rows build the
+ * Table view and the CSV, so the two cannot disagree.
+ */
+function ChartCard({ id, title, sub, span = 12, table, note, legend, children }) {
+  const [asTable, setAsTable] = useState(false)
+  const [bodyRef, width] = useWidth()
+  const [tip, setTip] = useState(null)
+  const cardRef = useRef(null)
+  const hasTable = Boolean(table?.columns?.length)
+
+  const onMove = e => {
+    const t = e.target.closest?.('[data-tip]')
+    if (!t) { if (tip) setTip(null); return }
+    const box = cardRef.current.getBoundingClientRect()
+    setTip({ text: t.getAttribute('data-tip'), x: e.clientX - box.left + 14, y: e.clientY - box.top + 14 })
+  }
+  const onFocus = e => {
+    const t = e.target.closest?.('[data-tip]')
+    if (!t) return
+    const box = cardRef.current.getBoundingClientRect()
+    const r = t.getBoundingClientRect()
+    setTip({ text: t.getAttribute('data-tip'), x: r.left - box.left + 12, y: r.bottom - box.top + 6 })
+  }
+
+  const columns = useMemo(() => (table?.columns || []).map((c, i) => ({
+    key: c.key, label: c.label, align: c.align || (i ? 'right' : undefined),
+    min: i ? 72 : 140, grow: i ? 0.7 : 2, priority: i < 3 ? 1 : 2,
+    sortValue: row => row[`${c.key}__sort`] ?? row[c.key],
+  })), [table])
+
+  return (
+    <section className={`ins-sheet ins-card ins-c${span}`} id={`ins-${id}`} aria-labelledby={`ins-h-${id}`} ref={cardRef}>
+      <div className="ins-ch">
+        <div className="ins-ct">
+          <h2 id={`ins-h-${id}`}>{title}</h2>
+          {sub && <p className="ins-sub">{sub}</p>}
+        </div>
+        {hasTable && (
+          <div className="ins-acts">
+            <button type="button" className="ins-act" aria-pressed={asTable} onClick={() => setAsTable(v => !v)}>Table</button>
+            <button type="button" className="ins-act"
+              onClick={() => downloadCsv(id, table.columns, table.rows.map(r => table.columns.map(c => r[`${c.key}__csv`] ?? r[c.key])))}>CSV</button>
+          </div>
+        )}
+      </div>
+      <div className="ins-body" ref={bodyRef} onPointerMove={onMove} onPointerLeave={() => setTip(null)} onFocus={onFocus} onBlur={() => setTip(null)}>
+        {asTable && hasTable
+          ? <DataSheet level="plain" columns={columns} rows={table.rows} rowKey={r => r.id} aria-label={`${title}, table`} pageRows={50} />
+          : children(width)}
+      </div>
+      {legend && !asTable && (
+        <div className="ins-legend">
+          {legend.map(([name, color]) => <span key={name}><i style={{ background: color }} aria-hidden="true" />{name}</span>)}
+        </div>
+      )}
+      {note && <p className="ins-note">{note}</p>}
+      {tip && <div className="ins-tip" role="tooltip" style={{ left: tip.x, top: tip.y }}>{tip.text}</div>}
+    </section>
+  )
+}
+
+// ── Pieces of the page ───────────────────────────────────────────────────────
+
+function Select({ id, label, value, onChange, options, disabled }) {
+  return (
+    <div className="ins-f">
+      <label htmlFor={id}>{label}</label>
+      <select id={id} value={value} disabled={disabled} onChange={e => onChange(e.target.value)}>
+        {options.map(o => <option key={o.value} value={o.value} disabled={o.disabled}>{o.label}</option>)}
+      </select>
+    </div>
+  )
+}
+
+function FilterBar({ f, data, set }) {
+  const cohorts = data?.cohorts || []
+  const units = (data?.units || []).filter(u => !f.serviceLine || u.serviceLine === f.serviceLine)
+  return (
+    <section className="ins-sheet ins-filters" aria-label="Filters">
+      <Select id="ins-cohort" label="Cohort" value={f.cohort} onChange={v => set('cohort', v)}
+        options={[{ value: '', label: 'All cohorts' }, ...cohorts.map(c => ({ value: c.id, label: `${c.name}${c.finished ? '' : ' (in rotation)'}` }))]} />
+      <Select id="ins-school" label="School" value={f.school} onChange={v => set('school', v)}
+        options={[{ value: '', label: 'All schools' }, ...(data?.schools || []).map(s => ({ value: s, label: s }))]} />
+      <div className="ins-f">
+        <span className="ins-flabel" id="ins-pathway-l">Pathway</span>
+        <SegmentedPicker ariaLabel="Pathway" size="sm" value={f.pathway} onChange={v => set('pathway', v)} options={PATHWAY_OPTIONS} />
+      </div>
+      <Select id="ins-line" label="Service line" value={f.serviceLine} onChange={v => set('serviceLine', v)}
+        options={[{ value: '', label: 'All service lines' }, ...(data?.serviceLines || []).map(s => ({ value: s, label: s }))]} />
+      <Select id="ins-unit" label="Unit" value={f.unit} onChange={v => set('unit', v)}
+        options={[{ value: '', label: 'All units' }, ...units.map(u => ({ value: u.key, label: u.name }))]} />
+      <Select id="ins-shift" label="Shift" value={f.shift} onChange={v => set('shift', v)}
+        options={[{ value: '', label: 'Every shift' }, { value: 'Day', label: 'Day' }, { value: 'Night', label: 'Night' }, { value: 'Mid', label: 'Mid' }]} />
+      <Select id="ins-status" label="Residency status" value={f.residencyStatus} onChange={v => set('residencyStatus', v)}
+        options={Object.entries(RESIDENCY_STATUS_LABELS).map(([value, label]) => ({ value, label }))} />
+      <span className="ins-fdiv" aria-hidden="true" />
+      <div className="ins-f">
+        <span className="ins-flabel">Residency measure</span>
+        <SegmentedPicker ariaLabel="Residency measure" size="sm" value={f.measure} onChange={v => set('measure', v)} options={MEASURE_OPTIONS} />
+      </div>
+      <Select id="ins-compare" label="Compare" value={f.compare} onChange={v => set('compare', v)}
+        options={Object.entries(COMPARE_LABELS).map(([value, label]) => ({ value, label, disabled: value === 'previous' && !f.cohort }))} />
+    </section>
+  )
+}
+
+function Tile({ k, v, d, hero, empty }) {
+  return (
+    <div className={`ins-sheet ins-tile${hero ? ' ins-hero' : ''}${empty ? ' ins-empty' : ''}`}>
+      <div className="ins-tk">{k}</div>
+      <div className="ins-tv">{v}</div>
+      <div className="ins-td">{d || ' '}</div>
+    </div>
+  )
+}
+
+function Tiles({ data, f }) {
+  const t = data.tiles
+  const cmp = data.compare
+  const label = cmp?.label
+  const m = t.measure
+  const completedRate = t.completed.rate
+  return (
+    <section className="ins-tiles" aria-label="Headline figures">
+      <Tile k="Applicants" v={t.applicants.na ? 'n/a' : t.applicants.count}
+        d={t.applicants.na ? 'Applicants have no unit yet' : (f.cohort ? '' : `${data.cohorts.filter(c => !c.partial).length} cohorts with a placement record`)} />
+      <Tile k="Placed" v={t.placed.count}
+        d={!t.applicants.na && t.applicants.count ? `${Math.round((t.placed.count / t.applicants.count) * 100)}% of applicants` : ''} />
+      <Tile k="Completed" v={t.completed.count}
+        d={(cmp?.delta && deltaWords(cmp.delta.completed, label)) || (completedRate.suppressed ? '' : `${fmtRate(completedRate)} of placed`)} />
+      <Tile hero k={measureLabel(f.measure)} v={fmtRate(m)}
+        d={(cmp?.delta && deltaWords(cmp.delta.measure, label)) || (cmp?.unavailable) || `${m.count} of ${m.n} completed`} />
+      <Tile k="In rotation now" v={t.inRotation.count} d={t.inRotation.count ? 'Counted in Applicants and Placed only' : 'No cohort in rotation'} />
+      <Tile empty k="12-month retention" v="Not connected" d="Fills in after an HR import" />
+    </section>
+  )
+}
+
+// ── Each chart's figures, shaped for its marks and its table ─────────────────
+
+const rateItem = (id, label, r, extra = {}) => ({
+  id, label, value: r?.rate ?? 0, display: fmtRate(r), n: r?.n ?? 0, suppressed: Boolean(r?.suppressed), ...extra,
+})
+
+function pipelineCard(data) {
+  const steps = data.pipeline.steps
+  const excluded = data.pipeline.excludedCohortIds.map(id => data.cohorts.find(c => c.id === id)?.name).filter(Boolean)
+  const startsAtPlaced = steps[0].count == null
+  const rows = steps.filter(s => s.count != null).map(s => ({
+    id: s.key, stage: s.label, count: s.count,
+    prior: s.ofPrior ? rateText(s.ofPrior) : '', prior__sort: s.ofPrior?.rate ?? -1,
+  }))
+  const notes = []
+  if (startsAtPlaced) notes.push('A unit, service line or shift filter starts the funnel at Placed, because applicants have no unit yet.')
+  if (excluded.length) notes.push(`${excluded.join(', ')} ${excluded.length === 1 ? 'is' : 'are'} still in rotation and left out of this funnel.`)
+  notes.push('Cohorts imported as completers only join at Completed; Completed is measured against Placed on the cohorts that have both.')
+  return {
+    table: { columns: [{ key: 'stage', label: 'Stage' }, { key: 'count', label: 'Students' }, { key: 'prior', label: '% of prior' }], rows },
+    note: notes.join(' '),
+    draw: w => <Funnel steps={steps} width={w} />,
+  }
+}
+
+function choiceCard(data, f) {
+  const { buckets, notRecorded, association } = data.choice
+  const items = buckets.map(b => rateItem(b.key, b.label, b, { other: b.key === 'other', tip: `${b.label}: ${b.count} of ${b.n} placed` }))
+  const a = association
+  const note = `${measureLabel(f.measure)}: ${fmtRate(a.top)} for 1st-choice matches vs ${fmtRate(a.others)} for everyone else. An association, not a cause.`
+    + (notRecorded ? ` ${notRecorded} placed ${notRecorded === 1 ? 'student has' : 'students have'} no match rank recorded.` : '')
+  return {
+    table: {
+      columns: [{ key: 'match', label: 'Match' }, { key: 'count', label: 'Students' }, { key: 'share', label: 'Share' }],
+      rows: buckets.map(b => ({ id: b.key, match: b.label, count: b.count, share: rateText(b), share__sort: b.rate ?? -1 })),
+    },
+    note,
+    draw: w => <HBar items={items} width={w} max={100} />,
+  }
+}
+
+function bySchoolCard(data, f, pickSchool) {
+  const program = data.bySchool.program
+  const items = data.bySchool.schools.map(s => rateItem(s.school, s.school, s, {
+    pickValue: s.school, other: Boolean(f.school && f.school !== s.school),
+    tip: `${s.school}\n${measureLabel(f.measure)}: ${s.suppressed ? 'too few to rate' : fmtRate(s)}\n${s.count} of ${s.n} completed`,
+  }))
+  return {
+    table: {
+      columns: [{ key: 'school', label: 'School' }, { key: 'rate', label: measureLabel(f.measure) }, { key: 'count', label: 'Students' }, { key: 'n', label: 'Completed' }],
+      rows: data.bySchool.schools.map(s => ({ id: s.school, school: s.school, rate: rateText(s), rate__sort: s.rate ?? -1, count: s.count, n: s.n })),
+    },
+    draw: w => <HBar items={items} width={w} max={100} onPick={pickSchool} refValue={program.suppressed ? null : program.rate}
+      refLabel={`Program ${fmtRate(program)}`} pickLabel="Filter to this school" />,
+  }
+}
+
+const TREND_SERIES = [
+  { key: 'applied', name: 'Applied', color: 'var(--ins-s1)' },
+  { key: 'offered', name: 'Offered', color: 'var(--ins-s2)' },
+  { key: 'hired', name: 'Hired', color: 'var(--ins-s3)' },
+]
+
+function trendCard(data) {
+  const finished = data.trends.filter(t => t.finished)
+  const labels = finished.map(t => shortCohort(t.name))
+  const series = TREND_SERIES.map(s => ({
+    name: s.name, color: s.color,
+    values: finished.map(t => (t[s.key] && !t[s.key].suppressed ? t[s.key].rate : null)),
+    ns: finished.map(t => t[s.key]?.n ?? 0),
+  }))
+  const placed = data.trends.map(t => ({ label: shortCohort(t.name), value: t.placed, tip: t.placed == null ? `${t.name}: no placement record` : `${t.name}: ${t.placed} placed` }))
+  return {
+    table: {
+      columns: [{ key: 'cohort', label: 'Cohort' }, { key: 'placed', label: 'Placed' }, { key: 'applied', label: 'Applied' }, { key: 'offered', label: 'Offered' }, { key: 'hired', label: 'Hired' }],
+      rows: data.trends.map((t, i) => ({
+        id: t.cohortId, cohort: t.name, cohort__sort: i, placed: t.placed ?? '–',
+        applied: t.applied ? rateText(t.applied) : 'In rotation', offered: t.offered ? rateText(t.offered) : 'In rotation', hired: t.hired ? rateText(t.hired) : 'In rotation',
+        applied__sort: t.applied?.rate ?? -1, offered__sort: t.offered?.rate ?? -1, hired__sort: t.hired?.rate ?? -1,
+      })),
+    },
+    legend: TREND_SERIES.map(s => [s.name, s.color]),
+    note: 'The trend shows every cohort whatever the cohort filter, so one cohort sits in context. A cohort under 5 completers is a gap, not a zero.',
+    draw: w => (
+      <>
+        <Lines series={series} labels={labels} width={w} />
+        <p className="ins-minihead">Students placed per cohort</p>
+        <Columns items={placed} width={w} />
+      </>
+    ),
+  }
+}
+
+const PATHWAY_METRICS = [
+  { key: 'measure', name: null, fmt: fmtRate, max: 100, val: x => x.rate },
+  { key: 'completion', name: 'Completion rate', fmt: fmtRate, max: 100, val: x => x.rate },
+  { key: 'firstChoice', name: 'Placed in 1st choice', fmt: fmtRate, max: 100, val: x => x.rate },
+  { key: 'caseyFink', name: 'Casey-Fink change', fmt: fmtChange, max: null, val: x => x.mean },
+]
+
+function pathwayCard(data, f, pickPathway) {
+  const groups = [['internal', 'Internal'], ['external', 'External']]
+  const rows = []
+  for (const m of PATHWAY_METRICS) {
+    for (const [k, l] of groups) {
+      const x = data.pathway[k][m.key]
+      rows.push({ id: `${m.key}-${k}`, measure: m.name || measureLabel(f.measure), pathway: l, value: m.key === 'caseyFink' ? fmtChange(x) : rateText(x), value__sort: m.val(x) ?? -99, n: x.n })
+    }
+  }
+  return {
+    table: { columns: [{ key: 'measure', label: 'Measure' }, { key: 'pathway', label: 'Pathway', align: 'left' }, { key: 'value', label: 'Value' }, { key: 'n', label: 'Students' }], rows },
+    note: `${data.pathway.internal.count} internal and ${data.pathway.external.count} external students in view.`,
+    draw: w => {
+      // The SVG is drawn at its column's width, so the grid's columns are decided here too.
+      const cols = Math.max(1, Math.min(PATHWAY_METRICS.length, Math.floor((w + 20) / 260)))
+      const cw = Math.floor((w - 20 * (cols - 1)) / cols)
+      return (
+      <div className="ins-multiples" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
+        {PATHWAY_METRICS.map(m => {
+          const vals = groups.map(([k]) => data.pathway[k][m.key])
+          const max = m.max || Math.max(0.5, ...vals.map(v => Math.abs(v?.mean || 0)))
+          const items = groups.map(([k, l]) => {
+            const x = data.pathway[k][m.key]
+            return {
+              id: k, label: l, value: Math.max(0, m.val(x) || 0), display: m.fmt(x), n: x.n, suppressed: x.suppressed,
+              pickValue: k, other: Boolean(f.pathway !== 'all' && f.pathway !== k),
+            }
+          })
+          return (
+            <div key={m.key}>
+              <p className="ins-minihead">{m.name || measureLabel(f.measure)}</p>
+              <HBar items={items} width={cw} max={max} labelWidth={80} onPick={pickPathway} pickLabel="Filter to this pathway" />
+            </div>
+          )
+        })}
+      </div>
+      )
+    },
+  }
+}
+
+function hostedCard(data, f, pickUnit) {
+  const hosted = data.hostedByUnit
+  const items = hosted.map(h => ({
+    id: h.unitKey, label: h.unit, value: h.total, display: String(h.total), pickValue: h.unitKey,
+    other: Boolean(f.unit && f.unit !== h.unitKey),
+    tip: `${h.unit}: ${h.total} ${h.total === 1 ? 'student' : 'students'}\n${h.bySchool.slice(0, 4).map(b => `${b.school}: ${b.count}`).join('\n')}`,
+  }))
+  return {
+    table: {
+      columns: [{ key: 'unit', label: 'Unit' }, { key: 'line', label: 'Service line', align: 'left' }, { key: 'total', label: 'Students' }],
+      rows: hosted.map(h => ({ id: h.unitKey, unit: h.unit, line: h.serviceLine || '–', total: h.total })),
+    },
+    note: hosted.length ? 'A student placed on two units counts on each. The school by unit grid below shows who came from where.' : '',
+    draw: w => hosted.length ? <HBar items={items} width={w} onPick={pickUnit} pickLabel="Filter to this unit" /> : <p className="ins-emptyline">No placed students in this view.</p>,
+  }
+}
+
+function yieldCard(data, f, pickUnit) {
+  const { units, program } = data.unitYield
+  const items = units.map(u => rateItem(u.unitKey, u.unit, u, {
+    pickValue: u.unitKey, other: Boolean(f.unit && f.unit !== u.unitKey),
+    tip: `${u.unit}: hired back ${u.count} of ${u.n} hosted`,
+  }))
+  return {
+    table: {
+      columns: [{ key: 'unit', label: 'Unit' }, { key: 'yield', label: 'Yield' }, { key: 'count', label: 'Hired back' }, { key: 'n', label: 'Hosted' }],
+      rows: units.map(u => ({ id: u.unitKey, unit: u.unit, yield: rateText(u), yield__sort: u.rate ?? -1, count: u.count, n: u.n })),
+    },
+    draw: w => units.length
+      ? <HBar items={items} width={w} max={100} onPick={pickUnit} refValue={program.suppressed ? null : program.rate} refLabel={`Program ${fmtRate(program)}`} pickLabel="Filter to this unit" />
+      : <p className="ins-emptyline">No finished cohort with placements in this view.</p>,
+  }
+}
+
+function heatCard(data, pickSchool, pickUnitByName) {
+  const { schools, units, cells } = data.heatmap
+  return {
+    table: {
+      columns: [{ key: 'school', label: 'School' }, ...units.map((u, j) => ({ key: `u${j}`, label: u }))],
+      rows: schools.map((s, i) => ({ id: s, school: s, ...Object.fromEntries(units.map((_, j) => [`u${j}`, cells[i][j]])) })),
+    },
+    draw: w => schools.length
+      ? <div className="ins-scroll-x"><Heat rows={schools} cols={units} cells={cells} width={w} onPickRow={pickSchool} onPickCol={pickUnitByName} /></div>
+      : <p className="ins-emptyline">No placed students in this view.</p>,
+  }
+}
+
+function caseyFinkCard(data) {
+  const list = data.caseyFinkBySchool
+  const max = Math.max(0.5, ...list.map(s => Math.abs(s.mean || 0)))
+  const items = list.map(s => ({ id: s.school, label: s.school, value: Math.max(0, s.mean || 0), display: fmtChange(s), n: s.n, suppressed: s.suppressed }))
+  return {
+    table: {
+      columns: [{ key: 'school', label: 'School' }, { key: 'change', label: 'Mean change' }, { key: 'n', label: 'Students' }],
+      rows: list.map(s => ({ id: s.school, school: s.school, change: s.suppressed ? `Too few to rate (n = ${s.n})` : fmtChange(s), change__sort: s.mean ?? -99, n: s.n })),
+    },
+    note: 'Post-rotation Section I mean minus pre-rotation, on the 1 to 4 scale, for students with both. A negative change draws no bar; the figure still shows its sign.',
+    draw: w => list.length ? <HBar items={items} width={w} max={max} /> : <p className="ins-emptyline">No paired Casey-Fink responses in this view.</p>,
+  }
+}
+
+function hoursCard(data) {
+  const list = data.hoursBySchool
+  const items = list.map(s => ({
+    id: s.school, label: s.school, value: s.pctOfRequirement || 0, display: s.suppressed ? 'Too few' : `${Math.round(s.pctOfRequirement)}%`, n: s.n, suppressed: s.suppressed,
+    tip: s.suppressed ? `${s.school}: too few to rate (n = ${s.n})` : `${s.school}\n${Math.round(s.meanHours)} of ${Math.round(s.meanRequired)} required hours on average\n${s.n} students`,
+  }))
+  return {
+    table: {
+      columns: [{ key: 'school', label: 'School' }, { key: 'n', label: 'Students' }, { key: 'hours', label: 'Mean hours' }, { key: 'required', label: 'Mean required' }, { key: 'pct', label: '% of requirement' }],
+      rows: list.map(s => ({
+        id: s.school, school: s.school, n: s.n,
+        hours: s.suppressed ? 'Too few' : Math.round(s.meanHours), required: s.suppressed ? 'Too few' : Math.round(s.meanRequired),
+        pct: s.suppressed ? `Too few to rate (n = ${s.n})` : `${Math.round(s.pctOfRequirement)}%`, pct__sort: s.pctOfRequirement ?? -1,
+      })),
+    },
+    note: 'Approved hours against each student\'s required hours, capped at 100% per student. A student still in rotation counts with the hours logged so far.',
+    draw: w => list.length ? <HBar items={items} width={w} max={100} /> : <p className="ins-emptyline">No required hours on file for placed students in this view.</p>,
+  }
+}
+
+// ── The page ─────────────────────────────────────────────────────────────────
+
+export default function InsightsPage({ surface = 'staff', backPath, backLabel, title = 'ASPIRE Insights', readOnlyNote = '' }) {
+  const { style } = useTheme()
+  const classic = style !== 'modern'
+  const location = useLocation()
+  const navigate = useNavigate()
+  const f = useMemo(() => filtersFromSearch(location.search), [location.search])
+  const search = searchFromFilters(f)
+  // `key` is the request the state answers; while it differs from the one asked, the page is
+  // loading (or refreshing over the last figures). Retry asks again under a new attempt.
+  const [attempt, setAttempt] = useState(0)
+  const requestKey = `${surface}|${search}|${attempt}`
+  const [state, setState] = useState({ key: null, data: null, error: null })
+
+  useEffect(() => {
+    let live = true
+    fetchInsights(surface, search)
+      .then(data => { if (live) setState({ key: requestKey, data, error: null }) })
+      .catch(error => { if (live) setState(s => ({ key: requestKey, data: s.data, error })) })
+    return () => { live = false }
+  }, [surface, search, requestKey])
+
+  const pending = state.key !== requestKey
+  const status = pending ? (state.data ? 'refreshing' : 'loading') : (state.error ? 'error' : 'ready')
+  const data = state.data
+  const units = data?.units || []
+  const go = useCallback(next => navigate({ pathname: location.pathname, search: searchFromFilters(next) }, { replace: true }), [navigate, location.pathname])
+  const set = (k, v) => go(withFilter(f, k, v, units))
+  const pickSchool = v => go(toggleFilter(f, 'school', v, units))
+  const pickUnit = v => go(toggleFilter(f, 'unit', v, units))
+  const pickUnitByName = name => { const u = units.find(x => x.name === name); if (u) pickUnit(u.key) }
+  const pickPathway = v => go(toggleFilter(f, 'pathway', v, units))
+
+  const chips = chipsFor(f, { cohorts: data?.cohorts || [], units })
+
+  let body
+  if (status === 'loading' && !data) {
+    body = <div className="ins-sheet ins-state" role="status">Loading the figures…</div>
+  } else if (!data) {
+    const denied = state.error?.status === 403 || state.error?.status === 401
+    body = (
+      <div className="ins-sheet ins-state" role="alert">
+        {denied ? 'Insights is for the Owner, Admins and Co-Leads.' : 'Couldn\'t load the figures.'}
+        {!denied && <button type="button" className="ins-act" onClick={() => setAttempt(a => a + 1)}>Retry</button>}
+      </div>
+    )
+  } else {
+    const cards = [
+      ['pipeline', 'Pipeline', 'From application to NGRP hire. Finished cohorts only.', 7, pipelineCard(data)],
+      ['match', 'Placement Match', 'Share of placed students who got their 1st, 2nd or 3rd choice unit.', 5, choiceCard(data, f)],
+      ['school', `${measureLabel(f.measure)} by School`, 'Completed students in finished cohorts. Choose a school to filter.', 6, bySchoolCard(data, f, pickSchool)],
+      ['trend', 'Cohort Trends', 'Applied, offered and hired rates per finished cohort.', 6, trendCard(data)],
+      ['pathway', 'Internal vs. External', 'Internal means a Cedars-Sinai employee when they applied to ASPIRE.', 12, pathwayCard(data, f, pickPathway)],
+      ['hosted', 'Students Hosted by Unit', 'Placed students in the current filters. Choose a unit to filter.', 7, hostedCard(data, f, pickUnit)],
+      ['yield', 'Unit Yield', 'Students hired into NGRP on the unit where they rotated.', 5, yieldCard(data, f, pickUnit)],
+      ['heatmap', 'Which Schools Feed Which Units', 'Placed students in the current filters. Darker means more students.', 12, heatCard(data, pickSchool, pickUnitByName)],
+      ['caseyfink', 'Casey-Fink Change by School', 'Mean post minus pre, 1 to 4 scale.', 6, caseyFinkCard(data)],
+      ['hours', 'Clinical Hours by School', 'Approved hours as a share of each student\'s requirement.', 6, hoursCard(data)],
+    ]
+    body = (
+      <>
+        <Tiles data={data} f={f} />
+        <div className="ins-grid">
+          {cards.map(([id, t, sub, span, c]) => (
+            <ChartCard key={id} id={id} title={t} sub={sub} span={span} table={c.table} note={c.note} legend={c.legend}>
+              {w => c.draw(w)}
+            </ChartCard>
+          ))}
+          <section className="ins-sheet ins-card ins-c12" aria-labelledby="ins-h-retention">
+            <div className="ins-ch"><div className="ins-ct">
+              <h2 id="ins-h-retention">Retention</h2>
+              <p className="ins-sub">NGRP hires still employed at 6 and 12 months.</p>
+            </div></div>
+            <div className="ins-retention">
+              <b>Retention data isn't connected yet.</b>
+              <span>It fills in after the first import from HR: employee ID, NGRP start date, and status at 6 and 12 months.</span>
+            </div>
+          </section>
+        </div>
+      </>
+    )
+  }
+
+  return (
+    <div className={`ins${classic ? ' ins-classic' : ''}`} aria-busy={status === 'loading' || status === 'refreshing'}>
+      {backPath && <div className="ins-topline"><WorkspaceBackLink path={backPath} label={backLabel} /></div>}
+      <div className="ins-binder">
+        <header className="ins-head">
+          <div>
+            <span className="ins-tag" aria-hidden="true">Program report</span>
+            <h1>{title}</h1>
+            <p>Outcomes across every cohort, school, unit and pathway.{readOnlyNote ? ` ${readOnlyNote}` : ''}</p>
+          </div>
+          {data && (
+            <div className="ins-asof">
+              {asOfWords(data.asOf)}
+              <br />
+              {data.inView.applicants != null ? `${data.inView.applicants} applicants · ` : ''}{data.inView.placed} placed in view
+            </div>
+          )}
+        </header>
+        <FilterBar f={f} data={data} set={set} />
+        <div className="ins-chips" aria-live="polite">
+          {chips.length === 0 && <span>No filters. Showing every cohort, school and unit.</span>}
+          {chips.map(c => (
+            <span key={c.key} className="ins-chip">
+              {c.label}
+              <button type="button" aria-label={`Remove filter ${c.label}`} onClick={() => set(c.key, '')}>×</button>
+            </span>
+          ))}
+          {chips.length > 1 && <button type="button" className="ins-clear" onClick={() => go(clearFilters(f))}>Clear all</button>}
+          {status === 'error' && data && <span className="ins-warn" role="alert">Couldn't refresh. These are the last figures loaded.</span>}
+        </div>
+        {body}
+        {data && (
+          <details className="ins-sheet ins-defs">
+            <summary>Definitions</summary>
+            <dl>
+              {data.definitions.map(d => (
+                <div key={d.term}><dt>{d.term}</dt><dd>{d.text}</dd></div>
+              ))}
+            </dl>
+          </details>
+        )}
+      </div>
+    </div>
+  )
+}

@@ -123,7 +123,7 @@ function schoolName(raw) {
  * @param {object[]} raw.matches            { student_id, unit_id, match_quality, shift_assigned }
  * @param {object[]} raw.units              { id, unit_name, division }
  * @param {object[]} raw.unitAssignments    student_unit_assignments rows (student_id, unit_id, unit_key, status)
- * @param {object[]} raw.candidates         { id, student_id, application_status }
+ * @param {object[]} raw.candidates         { id, student_id, application_status, application_confirmed_at }
  * @param {object[]} raw.outcomes           { candidate_id, student_id, offer_extended_at, hired_at, hired_unit }
  * @param {object[]} raw.submittedCandidateIds  candidate ids with a submitted Transition Form
  * @param {Map|object} raw.caseyFinkChange  student_id -> post minus pre (Section I mean)
@@ -164,7 +164,8 @@ export function buildSnapshot(raw = {}) {
     const o = outcomeByCandidate.get(c.id)
     const e = ngrpByStudent.get(c.student_id) || { transition: false, applied: false, offered: false, hired: false, hiredUnitKey: null }
     if (submitted.has(c.id)) e.transition = true
-    if (c.application_status === 'confirmed') e.applied = true
+    // applied_set writes application_confirmed_at; a later Not Proceeding keeps the timestamp.
+    if (c.application_status === 'confirmed' || c.application_confirmed_at) e.applied = true
     if (o?.offer_extended_at) e.offered = true
     if (o?.hired_at) {
       e.hired = true; e.applied = true; e.offered = true

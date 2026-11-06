@@ -20,6 +20,8 @@ const HOME_SECTION = { key: 'calendar', label: NAV_LABELS.atAGlance, Icon: NAV_I
 // the staff app. "Look at the tabs, they're getting so many."
 const SECTIONS = [
   { key: 'community-benefit', label: NAV_LABELS.communityBenefit, Icon: NAV_ICONS.communityBenefit },
+  // ASPIRE-INSIGHTS-1: ASPIRE Insights, read-only. The server checks the grant on every read.
+  { key: 'data', label: NAV_LABELS.data, Icon: NAV_ICONS.data },
 ]
 // PROGRAM-BUDGET (2026-09-27): Program Budget joins the row only for a grant the Owner shared
 // the budget with (the server's budget_access), read-only.
