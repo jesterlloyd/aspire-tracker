@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="en" data-style="classic">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ASPIRE Insights · mockup</title>
+<style>
+:root{
+  color-scheme:light;
+  --ground:#eef0f3; --surface:#ffffff; --ink:#14171c; --ink-2:#4a4f58; --muted:#7a7f88;
+  --line:#e2e4e8; --grid:#e6e5df; --axis:#c3c2b7;
+  --navy:#1d3461; --accent:#1d3461; --navy-soft:#e8edf6;
+  --amber:#fdf3d6; --amber-line:#e9c76a; --amber-ink:#6b4a00;
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100; --s5:#e87ba4; --s6:#008300;
+  --r1:#86b6ef; --r2:#5598e7; --r3:#2a78d6; --r4:#1c5cab; --r5:#0d366b;
+  --other:#b9b8b2;
+  --up:#006300; --down:#b42323;
+  --paper:#fbf9f2; --paper-grid:rgba(42,120,214,.07);
+  --font:system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,monospace;
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --ground:#0e1116; --surface:#1a1a19; --ink:#f0efec; --ink-2:#c3c2b7; --muted:#8f8d87;
+  --line:#2c2c2a; --grid:#2c2c2a; --axis:#383835;
+  --accent:#a9c2ef; --navy-soft:#22304a;
+  --amber:#3a2f12; --amber-line:#7a6220; --amber-ink:#f3d58a;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s6:#008300;
+  --r1:#184f95; --r2:#256abf; --r3:#3987e5; --r4:#6da7ec; --r5:#b7d3f6;
+  --other:#5a5955;
+  --up:#0ca30c; --down:#e66767;
+  --paper:#201f1d; --paper-grid:rgba(255,255,255,.035);
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:var(--font);color:var(--ink);background:var(--ground);font-size:14px;line-height:1.4}
+button,select{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+/* Mockup-only strip */
+.mock{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;padding:8px 16px;background:var(--amber);border-bottom:1px dashed var(--amber-line);color:var(--amber-ink);font-size:12.5px}
+.mock b{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase}
+.mock select,.mock button{background:var(--surface);border:1px solid var(--amber-line);border-radius:6px;padding:3px 8px;font-size:12.5px}
+.mock .seg{display:inline-flex;border:1px solid var(--amber-line);border-radius:6px;overflow:hidden}
+.mock .seg button{border:0;border-radius:0}
+.mock .seg button[aria-pressed="true"]{background:var(--navy);color:#fff}
+
+/* Top bar */
+.top{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:10px;height:56px;padding:0 16px;background:var(--surface);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:9px;font-weight:700;margin-right:6px;white-space:nowrap}
+.brand i{width:28px;height:28px;border-radius:8px;background:var(--navy);display:grid;place-items:center;color:#fff;font-style:normal;font-size:13px}
+.scope{font-family:var(--mono);font-size:11px;padding:4px 8px;border:1px solid var(--line);border-radius:6px;color:var(--ink-2);white-space:nowrap}
+.search{flex:1;max-width:420px;height:34px;border:1px solid var(--line);border-radius:8px;padding:0 12px;display:flex;align-items:center;color:var(--muted);font-size:13px}
+.spacer{flex:1}
+.ib{position:relative;width:34px;height:34px;border-radius:8px;border:1px solid transparent;background:none;display:grid;place-items:center;cursor:pointer;color:var(--ink-2)}
+.ib:hover{background:var(--navy-soft)}
+.ib svg{width:18px;height:18px}
+.ib[aria-current="page"]{background:var(--navy-soft);border-color:var(--accent);color:var(--accent)}
+.ib .badge{position:absolute;top:2px;right:2px;min-width:15px;height:15px;border-radius:8px;background:#d03b3b;color:#fff;font-size:9.5px;font-weight:700;display:grid;place-items:center;padding:0 3px}
+.ib[data-tip-label]:hover::after,.ib[data-tip-label]:focus-visible::after{content:attr(data-tip-label);position:absolute;top:40px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--surface);font-size:11.5px;padding:4px 8px;border-radius:6px;white-space:nowrap;pointer-events:none}
+.ib.new::before{content:"";position:absolute;inset:-4px;border:2px dashed var(--s2);border-radius:11px;pointer-events:none}
+.avatar{width:32px;height:32px;border-radius:50%;background:var(--navy);color:#fff;display:grid;place-items:center;font-size:12px;font-weight:700;margin-left:4px}
+.portalbar{display:none;align-items:center;gap:10px;padding:8px 16px;background:var(--navy);color:#fff;font-size:13px}
+.portalbar.on{display:flex}
+.portalbar b{font-weight:700}
+.portalbar span{opacity:.8}
+
+/* Page */
+.wrap{max-width:1320px;margin:0 auto;padding:20px 20px 60px}
+.head{display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px 20px;margin-bottom:14px}
+.head h1{margin:0;font-size:24px;letter-spacing:-.01em}
+.head p{margin:2px 0 0;color:var(--ink-2)}
+.head .asof{margin-left:auto;font-family:var(--mono);font-size:11.5px;color:var(--muted);text-align:right}
+
+.sheet{background:var(--surface);border:1px solid var(--line);border-radius:12px}
+.filters{display:flex;flex-wrap:wrap;gap:10px 12px;align-items:flex-end;padding:12px 14px;margin-bottom:10px}
+.f{display:flex;flex-direction:column;gap:3px}
+.f label{font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.f select{height:32px;border:1px solid var(--line);border-radius:7px;padding:0 8px;background:var(--surface);min-width:120px}
+.f select:disabled{opacity:.65}
+.seg2{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden;height:32px}
+.seg2 button{border:0;background:var(--surface);padding:0 11px;cursor:pointer;font-size:13px;border-right:1px solid var(--line)}
+.seg2 button:last-child{border-right:0}
+.seg2 button[aria-pressed="true"]{background:var(--navy);color:#fff}
+.fdiv{width:1px;align-self:stretch;background:var(--line);margin:0 2px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-height:26px;margin:0 2px 14px;font-size:12.5px;color:var(--ink-2)}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:3px 6px 3px 10px;border-radius:14px;background:var(--navy-soft);color:var(--accent);font-weight:600}
+.chip button{border:0;background:none;cursor:pointer;color:inherit;font-size:14px;line-height:1;padding:0 3px}
+.chip.lock{background:none;border:1px solid var(--line);color:var(--ink-2);font-weight:500;padding-right:10px}
+.clear{border:0;background:none;color:var(--accent);cursor:pointer;text-decoration:underline;font-size:12.5px}
+
+.grid{display:grid;grid-template-columns:repeat(12,1fr);gap:14px}
+.c12{grid-column:span 12}.c7{grid-column:span 7}.c6{grid-column:span 6}.c5{grid-column:span 5}.c4{grid-column:span 4}
+@media (max-width:980px){.c7,.c6,.c5,.c4{grid-column:span 12}}
+
+.card{padding:14px 16px 12px;min-width:0}
+.card h2{margin:0;font-size:15px}
+.card .sub{margin:2px 0 0;color:var(--ink-2);font-size:12.5px}
+.card .ch{display:flex;gap:10px;align-items:flex-start}
+.card .ch .t{flex:1;min-width:0}
+.acts{display:flex;gap:6px;flex-shrink:0}
+.acts button{height:26px;border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:0 8px;font-size:12px;cursor:pointer;color:var(--ink-2)}
+.acts button[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);background:var(--navy-soft)}
+.body{margin-top:10px;position:relative}
+.note{margin-top:8px;font-size:12px;color:var(--muted)}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:8px;font-size:12px;color:var(--ink-2)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:10px;height:10px;border-radius:3px;display:inline-block}
+
+.tiles{display:grid;grid-template-columns:repeat(6,1fr);gap:14px}
+@media (max-width:1100px){.tiles{grid-template-columns:repeat(3,1fr)}}
+@media (max-width:620px){.tiles{grid-template-columns:repeat(2,1fr)}}
+.tile{padding:12px 14px}
+.tile .k{font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.tile .v{font-size:28px;font-weight:700;margin-top:2px;letter-spacing:-.01em}
+.tile .d{font-size:12px;color:var(--ink-2);margin-top:1px;min-height:17px}
+.tile .d .up{color:var(--up);font-weight:600}.tile .d .down{color:var(--down);font-weight:600}
+.tile.hero{border-color:var(--accent);box-shadow:inset 0 3px 0 var(--accent)}
+.tile.empty .v{font-size:15px;font-weight:600;color:var(--ink-2);margin-top:8px}
+
+.keith{display:flex;gap:12px;padding:12px 16px;margin-bottom:14px;border-left:3px solid var(--accent)}
+.keith .km{width:30px;height:30px;border-radius:50%;flex-shrink:0;background:conic-gradient(from 200deg,#2a78d6,#1baf7a,#2a78d6);display:grid;place-items:center;color:#fff;font-weight:800;font-size:13px}
+.keith .lab{font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.keith p{margin:3px 0 0}
+.keith a{color:var(--accent);font-weight:600;text-decoration:underline dotted;cursor:pointer}
+
+svg text{font-family:var(--font)}
+.ax{fill:var(--muted);font-size:11px}
+.lb{fill:var(--ink-2);font-size:12px}
+.lbs{fill:var(--ink);font-size:12px;font-weight:600}
+.val{fill:var(--ink);font-size:12px;font-variant-numeric:tabular-nums;paint-order:stroke;stroke:var(--paper);stroke-width:3px}
+html[data-style="modern"] .val{stroke:var(--surface)}
+.vmuted{fill:var(--muted);font-size:12px;font-style:italic;paint-order:stroke;stroke:var(--paper);stroke-width:3px}
+html[data-style="modern"] .vmuted{stroke:var(--surface)}
+.gl{stroke:var(--grid);stroke-width:1}
+.bl{stroke:var(--axis);stroke-width:1}
+.ref{stroke:var(--ink-2);stroke-width:1.5;stroke-dasharray:4 3}
+[data-filter]{cursor:pointer}
+.glance [data-filter]{cursor:default}
+[data-filter]:hover .mk,[data-filter]:focus .mk{opacity:.82}
+.hit{fill:transparent}
+.dim{opacity:.35}
+
+table.dt{width:100%;border-collapse:collapse;font-size:12.5px}
+table.dt th{text-align:left;font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:500;border-bottom:1px solid var(--line);padding:6px 8px}
+table.dt td{padding:6px 8px;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+table.dt td.n,table.dt th.n{text-align:right}
+
+.empty-state{display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding:18px 4px 6px;color:var(--ink-2);font-size:13px}
+.empty-state .ico{width:36px;height:36px;border-radius:9px;background:var(--navy-soft);display:grid;place-items:center;color:var(--accent)}
+.btn{height:30px;border-radius:7px;border:1px solid var(--accent);background:var(--navy);color:#fff;padding:0 12px;cursor:pointer;font-size:13px}
+.btn.ghost{background:none;color:var(--accent)}
+
+.tip{position:fixed;z-index:50;pointer-events:none;background:var(--ink);color:var(--surface);font-size:12px;padding:7px 9px;border-radius:7px;max-width:260px;box-shadow:0 4px 14px rgba(0,0,0,.25);display:none;white-space:pre-line}
+details.defs{margin-top:14px;padding:12px 16px}
+.ptabs{display:none;gap:2px;padding:0 16px;background:var(--surface);border-bottom:1px solid var(--line);overflow-x:auto}
+.ptabs.on{display:flex}
+.ptab{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:3px solid transparent;color:var(--ink-2);font-size:13.5px;white-space:nowrap}
+.ptab i{width:22px;height:22px;border-radius:6px;background:var(--navy-soft);color:var(--accent);display:grid;place-items:center;font-style:normal;font-weight:700;font-size:12px}
+.ptab[aria-current="page"]{border-bottom-color:var(--accent);color:var(--ink);font-weight:600}
+.ptab[aria-current="page"] i{background:var(--navy);color:#fff}
+.ptab.new{position:relative}
+.ptab.new::after{content:"New";position:absolute;top:2px;right:-2px;font-size:9px;font-weight:700;color:var(--s2)}
+.placeholder{border:2px dashed var(--line);border-radius:12px;padding:16px;color:var(--muted);text-align:center;margin-bottom:18px;font-size:13px}
+html[data-style="classic"] .placeholder{border-color:rgba(0,0,0,.18)}
+html[data-style="classic"][data-theme="dark"] .placeholder{border-color:rgba(255,255,255,.15)}
+.sechead{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;margin:0 0 10px}
+.sechead h2{margin:0;font-size:18px}
+.sechead span{color:var(--ink-2);font-size:13px}
+details.defs summary{cursor:pointer;font-weight:600}
+details.defs dl{display:grid;grid-template-columns:minmax(160px,220px) 1fr;gap:6px 16px;margin:12px 0 4px;font-size:13px}
+details.defs dt{font-weight:600}
+details.defs dd{margin:0;color:var(--ink-2)}
+.hidden{display:none !important}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+
+/* ---------- Classic: the bound report ---------- */
+html[data-style="classic"] body{
+  background-color:#1a2a48;
+  background-image:
+    radial-gradient(rgba(255,255,255,.035) 1px,transparent 1.2px),
+    radial-gradient(rgba(0,0,0,.18) 1px,transparent 1.2px),
+    linear-gradient(180deg,#1d2f52,#16243f);
+  background-size:5px 5px,7px 7px,100% 100%;
+  background-position:0 0,2px 3px,0 0;
+}
+html[data-style="classic"] .wrap{position:relative;margin-top:18px;margin-bottom:24px;padding:26px 28px 40px 58px;background:#e9e3d2;border-radius:6px 10px 10px 6px;box-shadow:0 2px 0 #cfc7b0,0 4px 0 #ddd6c2,0 6px 0 #c9c1aa,0 18px 40px rgba(0,0,0,.45)}
+html[data-style="classic"][data-theme="dark"] .wrap{background:#2a2925;box-shadow:0 2px 0 #222,0 4px 0 #2d2c28,0 6px 0 #1e1d1a,0 18px 40px rgba(0,0,0,.6)}
+html[data-style="classic"] .wrap::before{content:"";position:absolute;left:0;top:0;bottom:0;width:34px;border-radius:6px 0 0 6px;background:linear-gradient(90deg,#14223d,#243a64 55%,#18284a);box-shadow:inset -2px 0 0 rgba(0,0,0,.25)}
+html[data-style="classic"] .wrap::after{content:"";position:absolute;left:34px;top:0;bottom:0;width:10px;background:repeating-linear-gradient(180deg,transparent 0 22px,rgba(0,0,0,.12) 22px 24px);opacity:.6}
+html[data-style="classic"] .sheet{background-color:var(--paper);background-image:linear-gradient(var(--paper-grid) 1px,transparent 1px),linear-gradient(90deg,var(--paper-grid) 1px,transparent 1px);background-size:16px 16px;border:1px solid rgba(0,0,0,.08);border-radius:3px;box-shadow:0 1px 0 rgba(0,0,0,.06),0 3px 8px rgba(60,45,10,.12)}
+html[data-style="classic"][data-theme="dark"] .sheet{border-color:rgba(255,255,255,.06);box-shadow:0 3px 8px rgba(0,0,0,.4)}
+html[data-style="classic"] .card h2{font-variant:small-caps;letter-spacing:.03em;font-size:16px}
+html[data-style="classic"] .card .ch{border-bottom:1px solid rgba(180,40,40,.35);padding-bottom:8px}
+html[data-style="classic"] .head h1{font-family:Georgia,"Times New Roman",serif;font-weight:700;font-size:28px;color:#1d2f52}
+html[data-style="classic"][data-theme="dark"] .head h1{color:#e9e3d2}
+html[data-style="classic"] .head .tag{display:inline-block;font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#8a2a2a;border:1px solid rgba(138,42,42,.5);padding:2px 6px;margin-bottom:6px}
+html[data-style="classic"][data-theme="dark"] .head .tag{color:#e39a9a;border-color:rgba(227,154,154,.45)}
+html[data-style="modern"] .head .tag,.glance .head .tag{display:none}
+</style>
+</head>
+<body>
+
+<div class="mock" role="region" aria-label="Mockup controls">
+  <b>Mockup controls · not part of the build</b>
+  <label>View as
+    <select id="viewSel">
+      <option value="owner">Staff app · Insights icon</option>
+      <option value="leadership">NE&amp;L Portal · D Data tab</option>
+      <option value="partner">Academic Partner Portal · At a Glance (Pacific Crest)</option>
+      <option value="unit">Unit Leader Portal · At a Glance (6 South)</option>
+      <option value="residency">Residency Portal · At a Glance</option>
+    </select>
+  </label>
+  <span>Style
+    <span class="seg" id="styleSeg"><button data-v="classic" aria-pressed="true">Classic</button><button data-v="modern" aria-pressed="false">Modern</button></span>
+  </span>
+  <span>All figures are sample data.</span>
+</div>
+
+<header class="top">
+  <div class="brand"><i>A</i><span>ASPIRE Intelligence</span></div>
+  <span class="scope" id="scopeBadge">SCOPE · ALL COHORTS</span>
+  <div class="search">Search students, schools, units…</div>
+  <div class="spacer"></div>
+  <button class="ib adminonly" data-tip-label="Connect" aria-label="Connect"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg></button>
+  <button class="ib adminonly" data-tip-label="Catalog" aria-label="Catalog"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg></button>
+  <button class="ib new adminonly" data-tip-label="Insights" aria-label="Insights" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 20h16"/><path d="M7 16.5v-5"/><path d="M12 16.5V6"/><path d="M17 16.5v-8"/></svg></button>
+  <button class="ib adminonly" data-tip-label="Action Center" aria-label="Action Center, 4 items"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 13l2.5-8h11L20 13v6H4z"/><path d="M4 13h4.5l1 2h5l1-2H20"/></svg><span class="badge">4</span></button>
+  <button class="ib" id="modeBtn" data-tip-label="Light or dark" aria-label="Switch to dark mode"><svg id="modeIco" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></svg></button>
+  <div class="avatar" aria-label="Profile, Jester Lloyd Bautista, Owner">JB</div>
+</header>
+<div class="portalbar" id="portalBar" role="status"></div>
+<nav class="ptabs" id="ptabs" aria-label="Nursing Education &amp; Leadership Portal">
+  <span class="ptab"><i>A</i>At a Glance</span><span class="ptab"><i>B</i>Budget Tracker</span><span class="ptab"><i>C</i>Community Benefit</span>
+  <span class="ptab new" aria-current="page"><i>D</i>Data</span><span class="ptab"><i>E</i>Evaluation</span>
+</nav>
+
+<main class="wrap">
+  <div class="head">
+    <div>
+      <span class="tag">Program report</span>
+      <h1 id="headTitle">ASPIRE Insights</h1>
+      <p id="headSub">Outcomes across every cohort, school, unit and pathway.</p>
+    </div>
+    <div class="asof" id="asof"></div>
+  </div>
+
+  <div class="placeholder hidden" id="glancePh">The portal's current At a Glance sections stay here, unchanged.</div>
+  <div class="sechead hidden" id="glanceHead"><h2 id="secTitle"></h2><span id="secSub"></span></div>
+  <section class="sheet filters" aria-label="Filters" id="filterBar">
+    <div class="f" data-key="cohort"><label for="fCohort">Cohort</label><select id="fCohort"></select></div>
+    <div class="f" data-key="school"><label for="fSchool">School</label><select id="fSchool"></select></div>
+    <div class="f" data-key="pathway"><label>Pathway</label><div class="seg2" id="fPathway" role="group" aria-label="Pathway">
+      <button data-v="all" aria-pressed="true">All</button><button data-v="internal" aria-pressed="false">Internal</button><button data-v="external" aria-pressed="false">External</button></div></div>
+    <div class="f" data-key="line"><label for="fLine">Service line</label><select id="fLine"></select></div>
+    <div class="f" data-key="unit"><label for="fUnit">Unit</label><select id="fUnit"></select></div>
+    <div class="f" data-key="shift"><label for="fShift">Shift</label><select id="fShift"><option value="all">Day and night</option><option value="Day">Day</option><option value="Night">Night</option></select></div>
+    <div class="f" data-key="status"><label for="fStatus">Residency status</label><select id="fStatus">
+      <option value="all">All students</option><option value="applied">Applied to NGRP</option><option value="not_applied">Did not apply</option><option value="offered">Offered NGRP</option><option value="hired">Hired into NGRP</option><option value="not_hired">Applied, not hired</option></select></div>
+    <span class="fdiv" id="fdiv" aria-hidden="true"></span>
+    <div class="f" data-key="measure"><label>Residency measure</label><div class="seg2" id="fMeasure" role="group" aria-label="Residency measure">
+      <button data-v="applied" aria-pressed="false">Applied</button><button data-v="offered" aria-pressed="false">Offered</button><button data-v="hired" aria-pressed="true">Hired</button></div></div>
+    <div class="f" data-key="compare"><label for="fCompare">Compare</label><select id="fCompare"><option value="off">Off</option><option value="prev">Previous cohort</option><option value="avg">Program average</option></select></div>
+  </section>
+  <div class="chips" id="chips" aria-live="polite"></div>
+
+  <section class="sheet keith" id="keith" aria-label="Keith summary"></section>
+
+  <section class="tiles" id="tiles" aria-label="Headline figures"></section>
+
+  <div class="grid" id="grid" style="margin-top:14px"></div>
+
+  <details class="sheet defs">
+    <summary>Definitions</summary>
+    <dl>
+      <dt>Applicants</dt><dd>Everyone who submitted an ASPIRE application for the cohort.</dd>
+      <dt>Placed</dt><dd>Students matched to a unit and preceptor on the Placement Board.</dd>
+      <dt>Completed</dt><dd>Placed students who finished the rotation and the required clinical hours.</dd>
+      <dt>Applied to NGRP</dt><dd>Completed students who submitted a New Graduate RN Residency application. Denominator: completed students in finished cohorts.</dd>
+      <dt>Offered NGRP</dt><dd>Completed students who received an NGRP offer. Same denominator.</dd>
+      <dt>Hired into NGRP</dt><dd>Completed students who started NGRP. Same denominator. This is the headline rate.</dd>
+      <dt>Internal</dt><dd>Students who were Cedars-Sinai employees at the time of application. External is everyone else.</dd>
+      <dt>Unit yield</dt><dd>Students hired into NGRP on the same unit where they did their ASPIRE rotation, divided by students the unit hosted in finished cohorts.</dd>
+      <dt>Too few to rate</dt><dd>Any rate built on fewer than 5 students. The count still shows.</dd>
+      <dt>In rotation</dt><dd>A cohort still in its rotation counts toward Applicants and Placed, never toward outcome rates.</dd>
+    </dl>
+  </details>
+</main>
+<div class="tip" id="tip" role="tooltip"></div>
+
+<script>
+/* ---------- Sample data ---------- */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const R=mulberry32(20261105);
+const COHORTS=['Summer 2024','Fall 2024','Spring 2025','Summer 2025','Fall 2025','Spring 2026','Summer 2026','Fall 2026'];
+const ACTIVE='Fall 2026';
+const SCHOOLS=[
+  {id:'pcu',name:'Pacific Crest University',short:'Pacific Crest',w:.26,eff:.07,slot:1},
+  {id:'vsu',name:'Valley State University',short:'Valley State',w:.22,eff:.01,slot:2},
+  {id:'hcn',name:'Harbor College of Nursing',short:'Harbor College',w:.18,eff:-.05,slot:3},
+  {id:'mhu',name:'Mission Hills University',short:'Mission Hills',w:.16,eff:.04,slot:4},
+  {id:'lns',name:'Lakeview School of Nursing',short:'Lakeview',w:.13,eff:-.09,slot:5},
+  {id:'spc',name:'Sierra Pointe College',short:'Sierra Pointe',w:.05,eff:0,slot:6}
+];
+const UNITS=[
+  {id:'5n',name:'5 North',line:'Medical',w:4},{id:'6s',name:'6 South',line:'Medical',w:5},{id:'7w',name:'7 West',line:'Medical',w:3},
+  {id:'4sw',name:'4 Southwest',line:'Surgical',w:4},{id:'8n',name:'8 North',line:'Surgical',w:3},
+  {id:'csicu',name:'CSICU',line:'Critical Care',w:2},{id:'nicu',name:'Neuro ICU',line:'Critical Care',w:2},{id:'micu',name:'MICU',line:'Critical Care',w:2},
+  {id:'mb',name:'Mother-Baby',line:"Women's",w:2}
+];
+const LINES=[...new Set(UNITS.map(u=>u.line))];
+const sById=Object.fromEntries(SCHOOLS.map(s=>[s.id,s])), uById=Object.fromEntries(UNITS.map(u=>[u.id,u]));
+function pick(arr,wkey){const t=arr.reduce((a,x)=>a+x[wkey],0);let r=R()*t;for(const x of arr){r-=x[wkey];if(r<=0)return x}return arr[arr.length-1]}
+const RECS=[];
+COHORTS.forEach((c,ci)=>{
+  const n=Math.round(52+R()*22+ci*2);
+  let placedCount=0; const slots=27+Math.round(R()*4);
+  for(let i=0;i<n;i++){
+    const s=pick(SCHOOLS,'w'); const internal=R()<.18;
+    const interviewed=R()<.74;
+    let placed=false; if(interviewed&&placedCount<slots&&R()<.84){placed=true;placedCount++}
+    const r={cohort:c,ci,school:s.id,internal,interviewed,placed,completed:false,active:c===ACTIVE,applied:false,offered:false,hired:false,sameUnit:false};
+    if(placed){
+      const u=pick(UNITS,'w'); r.unit=u.id; r.line=u.line; r.shift=R()<.62?'Day':'Night';
+      const m=R(); r.rank=m<.56?1:m<.81?2:m<.92?3:0;
+      r.preceptor=u.id+'-'+Math.floor(R()*9);
+      r.cfPre=2.35+R()*.5; r.cfPost=r.cfPre+.32+s.eff*1.2+(internal?.05:0)+(R()-.5)*.35;
+      if(!r.active){
+        r.completed=R()<.95;
+        if(r.completed){
+          const lift=ci*.012+(internal?.08:0)+(r.rank===1?.04:0);
+          r.applied=R()<.80+s.eff/2+lift/2;
+          r.offered=r.applied&&R()<.70+s.eff+lift;
+          r.hired=r.offered&&R()<.93;
+          r.sameUnit=r.hired&&R()<.56;
+        }
+      }
+    }
+    RECS.push(r);
+  }
+});
+
+/* ---------- State ---------- */
+const S={cohort:'all',school:'all',pathway:'all',line:'all',unit:'all',shift:'all',status:'all',measure:'hired',compare:'off'};
+const VIEWS={
+  owner:{keith:true},
+  leadership:{keith:true,tabs:true,portal:true,banner:'Nursing Education & Leadership Portal',note:'D · Data tab. Read-only. Full program aggregate.',sub:'Outcomes across every cohort, school, unit and pathway. Read-only.'},
+  partner:{glance:true,portal:true,lockSchool:'pcu',banner:'Academic Partner Portal · Pacific Crest University',note:'At a Glance. Your students only. Other schools are never named.',
+    sub:'Pacific Crest University',secTitle:'Your students’ outcomes',secSub:'Pacific Crest students in ASPIRE, next to the program average.',
+    tiles:['placed','completed','measure','active'],cards:['funnel','bySchool','unitsHosted','trend'],
+    subs:{bySchool:'Completed students in finished cohorts.',unitsHosted:'Pacific Crest students placed, by unit.',trend:'Pacific Crest students, per finished cohort.'},titles:{bySchool:'Hired into NGRP: you vs. the program',unitsHosted:'Where your students rotated',trend:'Your cohort trends'},spans:{funnel:'c7',bySchool:'c5',unitsHosted:'c6',trend:'c6'}},
+  unit:{glance:true,portal:true,lockUnit:'6s',banner:'Unit Leader Portal · 6 South',note:'At a Glance. Your unit only, next to the average unit.',
+    sub:'6 South',secTitle:'ASPIRE students on your unit',secSub:'Students 6 South hosts, and how many you hired back.',
+    tiles:['placed','completed','measure','active'],cards:['unitsHosted','yield','feeders','match'],
+    subs:{unitsHosted:'Placed students on your unit, next to the average unit.',match:'How your students ranked your unit when they applied.'},titles:{unitsHosted:'Students you host',yield:'Hired back onto your unit',match:'Did students pick your unit?'},spans:{unitsHosted:'c6',yield:'c6',feeders:'c6',match:'c6'}},
+  residency:{glance:true,portal:true,programOnly:true,banner:'Residency Portal',note:'At a Glance. Program-level figures only.',
+    sub:'Residency Portal',secTitle:'ASPIRE to NGRP',secSub:'How ASPIRE students move into NGRP, program-wide.',
+    tiles:['placed','measure','active'],cards:['trend','funnel'],spans:{trend:'c7',funnel:'c5'}}
+};
+let view='owner'; const tableView={};
+const MLABEL={applied:'Applied to NGRP',offered:'Offered NGRP',hired:'Hired into NGRP'};
+const V=()=>VIEWS[view];
+
+function eff(key){const v=V(); if(key==='school'&&v.lockSchool)return v.lockSchool; if(key==='unit'&&v.lockUnit)return v.lockUnit; return S[key]}
+function filt(ignore=[],over={}){
+  const g=k=>k in over?over[k]:(ignore.includes(k)?'all':eff(k));
+  return RECS.filter(r=>{
+    if(g('cohort')!=='all'&&r.cohort!==g('cohort'))return false;
+    if(g('school')!=='all'&&r.school!==g('school'))return false;
+    const p=g('pathway'); if(p==='internal'&&!r.internal)return false; if(p==='external'&&r.internal)return false;
+    if(g('line')!=='all'&&r.line!==g('line'))return false;
+    if(g('unit')!=='all'&&r.unit!==g('unit'))return false;
+    if(g('shift')!=='all'&&r.shift!==g('shift'))return false;
+    const st=g('status');
+    if(st==='applied'&&!r.applied)return false; if(st==='not_applied'&&!(r.completed&&!r.applied))return false;
+    if(st==='offered'&&!r.offered)return false; if(st==='hired'&&!r.hired)return false;
+    if(st==='not_hired'&&!(r.applied&&!r.hired))return false;
+    return true;
+  });
+}
+const done=rs=>rs.filter(r=>r.completed&&!r.active);
+function rate(rs,m=S.measure){const d=done(rs);const n=d.filter(r=>r[m]).length;return{num:n,den:d.length,v:d.length?n/d.length:null}}
+const pct=v=>v==null?'–':Math.round(v*100)+'%';
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+const MIN_N=5;
+
+/* ---------- Chart helpers ---------- */
+function hbar({items,W,max,fmt=v=>v,ref,refLabel,labelW}){
+  const lw=labelW||Math.min(170,Math.max(96,W*.32)), vw=86, rowH=30, top=ref!=null?18:4;
+  const plot=Math.max(60,W-lw-vw), H=top+items.length*rowH+4;
+  max=max||Math.max(1,...items.map(i=>i.value||0));
+  let o=`<svg width="${W}" height="${H}" role="img" aria-label="Bar chart">`;
+  if(ref!=null){const x=lw+plot*(ref/max);o+=`<line class="ref" x1="${x}" x2="${x}" y1="${top-4}" y2="${H-4}"/><text class="ax" x="${x}" y="11" text-anchor="middle">${esc(refLabel)}</text>`}
+  items.forEach((it,i)=>{
+    const y=top+i*rowH, bh=14, by=y+(rowH-bh)/2;
+    const attrs=`${it.filter?`data-filter="${it.filter}" tabindex="0" role="button" aria-label="${esc(it.label)}: ${esc(it.display)}. Filter to this."`:''} data-tip="${esc(it.tip||it.label+': '+it.display)}"`;
+    o+=`<g ${attrs}><rect class="hit" x="0" y="${y}" width="${W}" height="${rowH}"/>`;
+    o+=`<text class="${it.strong?'lbs':'lb'}" x="${lw-10}" y="${y+rowH/2+4}" text-anchor="end">${esc(it.label)}</text>`;
+    if(it.suppressed){o+=`<text class="vmuted" x="${lw}" y="${y+rowH/2+4}">Too few to rate (n = ${it.n})</text>`}
+    else{
+      const w=Math.max(2,plot*(it.value/max));
+      o+=`<rect class="mk" x="${lw}" y="${by}" width="${w}" height="${bh}" rx="3" fill="${it.color||'var(--s1)'}"/>`;
+      o+=`<text class="val" x="${lw+w+6}" y="${y+rowH/2+4}">${esc(it.display)}${it.n!=null?`<tspan class="ax" dx="5">n = ${it.n}</tspan>`:''}</text>`;
+    }
+    o+='</g>';
+  });
+  o+=`<line class="bl" x1="${lw}" x2="${lw}" y1="${top}" y2="${H-4}"/>`;
+  return o+'</svg>';
+}
+function stacked({items,W,keys}){
+  const lw=Math.min(120,Math.max(84,W*.2)), vw=60, rowH=28, top=4;
+  const plot=Math.max(60,W-lw-vw), H=top+items.length*rowH+4;
+  const max=Math.max(1,...items.map(i=>i.total));
+  let o=`<svg width="${W}" height="${H}" role="img" aria-label="Stacked bar chart">`;
+  items.forEach((it,i)=>{
+    const y=top+i*rowH, bh=14, by=y+(rowH-bh)/2; let x=lw;
+    o+=`<g ${it.filter?`data-filter="${it.filter}" tabindex="0" role="button" aria-label="${esc(it.label)}: ${it.total} students. Filter to this unit."`:''}><rect class="hit" x="0" y="${y}" width="${W}" height="${rowH}"/>`;
+    o+=`<text class="lb" x="${lw-10}" y="${y+rowH/2+4}" text-anchor="end">${esc(it.label)}</text>`;
+    keys.forEach(k=>{const v=it.segs[k.id]||0; if(!v)return; const w=plot*(v/max);
+      o+=`<rect class="mk" x="${x}" y="${by}" width="${Math.max(1,w-2)}" height="${bh}" rx="2" fill="${k.color}" data-tip="${esc(it.label+' · '+k.name+': '+v+' students')}"/>`; x+=w;});
+    o+=`<text class="val" x="${x+4}" y="${y+rowH/2+4}">${it.total}</text></g>`;
+  });
+  o+=`<line class="bl" x1="${lw}" x2="${lw}" y1="${top}" y2="${H-4}"/>`;
+  return o+'</svg>';
+}
+function lines({series,labels,W,H=210}){
+  const l=36,r=96,t=10,b=26, pw=W-l-r, ph=H-t-b;
+  const x=i=>l+(labels.length===1?pw/2:pw*i/(labels.length-1)), y=v=>t+ph*(1-v);
+  let o=`<svg width="${W}" height="${H}" role="img" aria-label="Line chart">`;
+  [0,.25,.5,.75,1].forEach(g=>{o+=`<line class="gl" x1="${l}" x2="${l+pw}" y1="${y(g)}" y2="${y(g)}"/><text class="ax" x="${l-6}" y="${y(g)+4}" text-anchor="end">${g*100}%</text>`});
+  labels.forEach((lb,i)=>{const sh=labels.length>6?lb.replace(/^(\w{3})\w*\s20(\d\d)/,'$1 ’$2'):lb; o+=`<text class="ax" x="${x(i)}" y="${H-8}" text-anchor="middle">${esc(sh)}</text>`});
+  const ends=series.map(s=>{const p=s.values.map((v,i)=>v==null?null:[x(i),y(v)]).filter(Boolean);return p.length?{s,y:p[p.length-1][1]}:null}).filter(Boolean).sort((a,b)=>a.y-b.y);
+  ends.forEach((e,i)=>{e.ly=e.y;if(i&&e.ly-ends[i-1].ly<14)e.ly=ends[i-1].ly+14});
+  series.forEach(s=>{
+    const pts=s.values.map((v,i)=>v==null?null:[x(i),y(v)]).filter(Boolean);
+    if(pts.length){o+=`<polyline fill="none" stroke="${s.color}" stroke-width="2" stroke-linejoin="round" points="${pts.map(p=>p.join(',')).join(' ')}" ${s.dash?'stroke-dasharray="5 4"':''}/>`;
+      pts.forEach(p=>o+=`<circle cx="${p[0]}" cy="${p[1]}" r="4" fill="${s.color}" stroke="var(--surface)" stroke-width="2"/>`);
+      const lp=pts[pts.length-1], ly=ends.find(e=>e.s===s).ly; o+=`<text class="lb" x="${lp[0]+8}" y="${ly+4}" style="fill:var(--ink)">${esc(s.name)}</text>`;}
+  });
+  labels.forEach((lb,i)=>{const w=pw/Math.max(1,labels.length-1);
+    const tip=lb+'\n'+series.map(s=>s.name+': '+(s.values[i]==null?'–':pct(s.values[i])+(s.ns?` (n = ${s.ns[i]})`:''))).join('\n');
+    o+=`<rect class="hit" x="${x(i)-w/2}" y="${t}" width="${w}" height="${ph}" data-tip="${esc(tip)}"/>`});
+  return o+'</svg>';
+}
+function columns({items,W,H=150,color='var(--s1)'}){
+  const l=28,r=8,t=16,b=24,pw=W-l-r,ph=H-t-b,max=Math.max(1,...items.map(i=>i.value)),bw=Math.min(46,pw/items.length*.6);
+  let o=`<svg width="${W}" height="${H}" role="img" aria-label="Column chart">`;
+  o+=`<line class="bl" x1="${l}" x2="${l+pw}" y1="${t+ph}" y2="${t+ph}"/>`;
+  items.forEach((it,i)=>{const cx=l+pw*(i+.5)/items.length,h=ph*it.value/max;
+    o+=`<g data-tip="${esc(it.tip||it.label+': '+it.value)}"><rect class="hit" x="${cx-pw/items.length/2}" y="${t}" width="${pw/items.length}" height="${ph}"/><rect class="mk" x="${cx-bw/2}" y="${t+ph-h}" width="${bw}" height="${Math.max(1,h)}" rx="3" fill="${it.color||color}"/>`;
+    o+=`<text class="val" x="${cx}" y="${t+ph-h-4}" text-anchor="middle">${it.value}</text><text class="ax" x="${cx}" y="${H-7}" text-anchor="middle">${esc(it.label)}</text></g>`});
+  return o+'</svg>';
+}
+function heat({rows,cols,m,W}){
+  const lw=Math.min(150,W*.2), top=30, ch=30, cw=(W-lw)/cols.length, H=top+rows.length*ch+2;
+  const max=Math.max(1,...m.flat()); const ramp=['var(--r1)','var(--r2)','var(--r3)','var(--r4)','var(--r5)'];
+  let o=`<svg width="${W}" height="${H}" role="img" aria-label="Heatmap of students by school and unit">`;
+  cols.forEach((c,j)=>o+=`<text class="ax" x="${lw+cw*j+cw/2}" y="18" text-anchor="middle">${esc(c.name)}</text>`);
+  rows.forEach((rw,i)=>{o+=`<text class="lb" x="${lw-10}" y="${top+i*ch+ch/2+4}" text-anchor="end">${esc(rw.short)}</text>`;
+    cols.forEach((c,j)=>{const v=m[i][j]; const k=v?Math.min(4,Math.floor(v/max*4.999)):-1; const dark=document.documentElement.dataset.theme==='dark';
+      const fill=k<0?'var(--grid)':ramp[k]; const txt=k<0?'var(--muted)':(dark?(k>=3?'#0b0b0b':'#fff'):(k>=2?'#fff':'#0b0b0b'));
+      o+=`<g data-tip="${esc(rw.name+' → '+c.name+': '+v+' students')}"><rect x="${lw+cw*j+1}" y="${top+i*ch+1}" width="${cw-2}" height="${ch-2}" rx="3" fill="${fill}" ${k<0?'opacity=".5"':''}/><text x="${lw+cw*j+cw/2}" y="${top+i*ch+ch/2+4}" text-anchor="middle" style="fill:${txt};font-size:11.5px;font-variant-numeric:tabular-nums">${v||''}</text></g>`})});
+  return o+'</svg>';
+}
+function funnel({stages,W}){
+  const lw=Math.min(150,Math.max(110,W*.24)), vw=150, rowH=34, plot=Math.max(60,W-lw-vw), H=stages.length*rowH+6;
+  const max=Math.max(1,stages[0].value); const ramp=['var(--r1)','var(--r1)','var(--r2)','var(--r2)','var(--r3)','var(--r4)','var(--r5)'];
+  let o=`<svg width="${W}" height="${H}" role="img" aria-label="Pipeline funnel">`;
+  stages.forEach((s,i)=>{const y=i*rowH+3,w=Math.max(2,plot*s.value/max),prev=i?stages[i-1].value:null;
+    const step=prev?s.value/prev:null;
+    o+=`<g data-tip="${esc(s.label+': '+s.value+(prev?`\n${pct(step)} of previous step\n${pct(s.value/max)} of applicants`:''))}"><rect class="hit" x="0" y="${y}" width="${W}" height="${rowH}"/>`;
+    o+=`<text class="lb" x="${lw-10}" y="${y+rowH/2+4}" text-anchor="end">${esc(s.label)}</text>`;
+    o+=`<rect class="mk" x="${lw}" y="${y+7}" width="${w}" height="${rowH-14}" rx="3" fill="${ramp[i]}"/>`;
+    o+=`<text class="val" x="${lw+w+8}" y="${y+rowH/2+4}" style="font-weight:600">${s.value}</text>`;
+    if(prev)o+=`<text class="ax" x="${lw+w+8+String(s.value).length*7.5+8}" y="${y+rowH/2+4}">${pct(step)} of prior · −${prev-s.value}</text>`;
+    o+='</g>'});
+  return o+'</svg>';
+}
+
+/* ---------- Cards ---------- */
+const schoolColor=id=>`var(--s${sById[id].slot})`;
+const CARDS=[
+  {id:'funnel',span:'c7',title:'Pipeline',sub:'From application to NGRP hire. Finished cohorts only.',render:W=>{
+    const rs=filt().filter(r=>!r.active); const us=unitScoped();
+    const st=[...(us?[]:[['Applied to ASPIRE',rs.length],['Interviewed',rs.filter(r=>r.interviewed).length]]),['Placed',rs.filter(r=>r.placed).length],['Completed',rs.filter(r=>r.completed).length],['Applied to NGRP',rs.filter(r=>r.applied).length],['Offered NGRP',rs.filter(r=>r.offered).length],['Hired into NGRP',rs.filter(r=>r.hired).length]].map(([label,value])=>({label,value}));
+    const act=filt().filter(r=>r.active&&r.placed).length;
+    return{svg:funnel({stages:st,W}),cols:['Stage','Students','% of prior'],rows:st.map((s,i)=>[s.label,s.value,i?pct(s.value/st[i-1].value):'']),note:(us?'Unit, service line and shift filters start the funnel at Placed, because applicants have no unit yet. ':'')+(act?`${ACTIVE} is in rotation (${act} placed) and is left out of this funnel.`:'')}}},
+  {id:'match',span:'c5',title:'Placement match',sub:'Share of placed students who got their 1st, 2nd or 3rd choice unit.',render:W=>{
+    const rs=filt().filter(r=>r.placed), n=rs.length;
+    const its=[[1,'1st choice'],[2,'2nd choice'],[3,'3rd choice'],[0,'Not a choice']].map(([k,l])=>{const c=rs.filter(r=>r.rank===k).length;return{label:l,value:n?c/n:0,display:pct(n?c/n:null),n:c,color:k===0?'var(--other)':'var(--s1)',tip:`${l}: ${c} of ${n} placed`}});
+    const a=rate(rs.filter(r=>r.rank===1)), b=rate(rs.filter(r=>r.rank!==1));
+    return{svg:hbar({items:its,W,max:1}),cols:['Match','Students','Share'],rows:its.map(i=>[i.label,i.n,i.display]),
+      note:`${MLABEL[S.measure]}: ${a.den>=MIN_N?pct(a.v):'too few'} for 1st-choice matches vs ${b.den>=MIN_N?pct(b.v):'too few'} for everyone else. This is an association, not a cause.`}}},
+  {id:'bySchool',span:'c6',title:()=>`${MLABEL[S.measure]} by school`,sub:'Completed students in finished cohorts. Click a school to filter.',render:W=>{
+    const v=V();
+    if(v.lockSchool){
+      const own=rate(filt()), avg=rate(filt(['school']));
+      const its=[{label:'Your school',strong:true,...rr(own),color:'var(--s1)'},{label:'Program average',...rr(avg),color:'var(--other)'}];
+      return{svg:hbar({items:its,W,max:1}),cols:['Group',MLABEL[S.measure],'Students'],rows:its.map(i=>[i.label,i.display,i.n])};
+    }
+    const prog=rate(filt(['school']));
+    const its=SCHOOLS.map(s=>{const x=rate(filt(['school'],{school:s.id}));return{label:s.short,filter:'school:'+s.id,...rr(x),color:schoolColor(s.id),tip:`${s.name}\n${MLABEL[S.measure]}: ${x.den>=MIN_N?pct(x.v):'too few to rate'}\n${x.num} of ${x.den} completed`}})
+      .sort((a,b)=>(b.suppressed?-1:b.value)-(a.suppressed?-1:a.value));
+    if(eff('school')!=='all')its.forEach(i=>{if(i.filter!=='school:'+eff('school'))i.color='var(--other)'});
+    return{svg:hbar({items:its,W,max:1,ref:prog.v,refLabel:'Program '+pct(prog.v)}),cols:['School',MLABEL[S.measure],'Hired or applied','Completed'],rows:its.map(i=>[i.label,i.suppressed?'Too few':i.display,i.num,i.n])};
+  }},
+  {id:'trend',span:'c6',title:'Cohort trends',sub:'Applied, offered and hired rates per finished cohort.',render:W=>{
+    const cs=COHORTS.filter(c=>c!==ACTIVE&&(eff('cohort')==='all'||true));
+    const ser=['applied','offered','hired'].map((m,i)=>({name:['Applied','Offered','Hired'][i],color:['var(--r2)','var(--r3)','var(--r5)'][i],
+      values:cs.map(c=>{const x=rate(filt(['cohort'],{cohort:c}),m);return x.den>=MIN_N?x.v:null}),ns:cs.map(c=>rate(filt(['cohort'],{cohort:c}),m).den)}));
+    const sizes=cs.map(c=>({label:c.replace(/^(\w{2})\w*\s20(\d\d)/,'$1 ’$2'),value:filt(['cohort'],{cohort:c}).filter(r=>r.placed).length,tip:c+': '+filt(['cohort'],{cohort:c}).filter(r=>r.placed).length+' placed'}));
+    const svg=lines({series:ser,labels:cs,W})+`<div class="note" style="margin:6px 0 0">Students placed per cohort</div>`+columns({items:sizes,W,H:110,color:'var(--s1)'});
+    return{svg,cols:['Cohort','Placed','Applied','Offered','Hired'],rows:cs.map((c,i)=>[c,sizes[i].value,pct(ser[0].values[i]),pct(ser[1].values[i]),pct(ser[2].values[i])]),
+      note:eff('cohort')!=='all'?'The trend always shows every cohort, so the selected cohort sits in context.':''}}},
+  {id:'path',span:'c12',title:'Internal vs. external',sub:'Internal means a Cedars-Sinai employee at the time of application.',render:W=>{
+    const groups=[['internal','Internal','var(--s1)'],['external','External','var(--s2)']];
+    const metrics=[
+      {name:MLABEL[S.measure],f:rs=>{const x=rate(rs);return{v:x.v,n:x.den,disp:pct(x.v)}},max:1},
+      {name:'Completion rate',f:rs=>{const p=rs.filter(r=>r.placed&&!r.active);const c=p.filter(r=>r.completed).length;return{v:p.length?c/p.length:null,n:p.length,disp:pct(p.length?c/p.length:null)}},max:1},
+      {name:'Placed in 1st choice',f:rs=>{const p=rs.filter(r=>r.placed);const c=p.filter(r=>r.rank===1).length;return{v:p.length?c/p.length:null,n:p.length,disp:pct(p.length?c/p.length:null)}},max:1},
+      {name:'Casey-Fink change',f:rs=>{const p=rs.filter(r=>r.completed);const m=p.length?p.reduce((a,r)=>a+r.cfPost-r.cfPre,0)/p.length:null;return{v:m,n:p.length,disp:m==null?'–':(m>=0?'+':'')+m.toFixed(2)}},max:.8}
+    ];
+    const cw=Math.floor((W-36)/4); const rows=[];
+    const svg=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">`+metrics.map(m=>{
+      const its=groups.map(([k,l,c])=>{const x=m.f(filt(['pathway'],{pathway:k}));rows.push([m.name,l,x.disp,x.n]);return{label:l,value:Math.max(0,x.v||0),display:x.disp,n:x.n,suppressed:x.n<MIN_N,color:c,filter:'pathway:'+k}});
+      return `<div><div style="font-size:12.5px;font-weight:600;margin-bottom:2px">${esc(m.name)}</div>${hbar({items:its,W:Math.max(220,Math.min(cw,W)),max:m.max,labelW:70})}</div>`}).join('')+`</div>`;
+    return{svg,cols:['Measure','Pathway','Value','Students'],rows,legend:groups.map(g=>[g[1],g[2]])}}},
+  {id:'unitsHosted',span:'c7',title:'Students hosted by unit',sub:'Placed students in the current filters. Click a unit to filter.',render:W=>{
+    const v=V(); const rs=filt().filter(r=>r.placed);
+    if(v.lockUnit){
+      const own=rs.length; const all=filt(['unit']).filter(r=>r.placed); const avg=all.length/UNITS.length;
+      const its=[{label:'Your unit',strong:true,value:own,display:String(own),color:'var(--s1)'},{label:'Average unit',value:avg,display:avg.toFixed(1),color:'var(--other)'}];
+      return{svg:hbar({items:its,W}),cols:['Group','Students'],rows:its.map(i=>[i.label,i.display])};
+    }
+    const units=UNITS.filter(u=>eff('line')==='all'||u.line===eff('line'));
+    const keys=v.programOnly?[{id:'all',name:'Students',color:'var(--s1)'}]:SCHOOLS.map(s=>({id:s.id,name:s.short,color:schoolColor(s.id)}));
+    const its=units.map(u=>{const ur=rs.filter(r=>r.unit===u.id);const segs={};ur.forEach(r=>{const k=v.programOnly?'all':r.school;segs[k]=(segs[k]||0)+1});return{label:u.name,total:ur.length,segs,filter:'unit:'+u.id}}).sort((a,b)=>b.total-a.total);
+    return{svg:stacked({items:its,W,keys}),cols:['Unit','Students',...(v.programOnly?[]:SCHOOLS.map(s=>s.short))],rows:its.map(i=>[i.label,i.total,...(v.programOnly?[]:SCHOOLS.map(s=>i.segs[s.id]||0))]),legend:(()=>{const used=keys.filter(k=>its.some(i=>i.segs[k.id]));return v.programOnly||used.length<2?null:used.map(k=>[k.name,k.color])})()};
+  }},
+  {id:'yield',span:'c5',title:'Unit yield',sub:'Students hired into NGRP on the same unit where they rotated.',render:W=>{
+    const v=V(); const rs=filt().filter(r=>r.placed&&!r.active);
+    const mk=(label,arr,extra={})=>{const h=arr.filter(r=>r.sameUnit).length;return{label,value:arr.length?h/arr.length:0,display:pct(arr.length?h/arr.length:null),n:arr.length,suppressed:arr.length<MIN_N,num:h,tip:`${label}: hired back ${h} of ${arr.length} hosted`,...extra}};
+    if(v.lockUnit){const all=filt(['unit']).filter(r=>r.placed&&!r.active);
+      const its=[mk('Your unit',rs,{strong:true,color:'var(--s1)'}),mk('Program',all,{color:'var(--other)'})];
+      return{svg:hbar({items:its,W,max:1}),cols:['Group','Yield','Hired back','Hosted'],rows:its.map(i=>[i.label,i.display,i.num,i.n])};}
+    const units=UNITS.filter(u=>eff('line')==='all'||u.line===eff('line'));
+    const its=units.map(u=>mk(u.name,rs.filter(r=>r.unit===u.id),{filter:'unit:'+u.id,color:'var(--s3)'})).sort((a,b)=>(b.suppressed?-1:b.value)-(a.suppressed?-1:a.value));
+    const tot=mk('',rs);
+    return{svg:hbar({items:its,W,max:1,ref:tot.value,refLabel:'Program '+tot.display}),cols:['Unit','Yield','Hired back','Hosted'],rows:its.map(i=>[i.label,i.suppressed?'Too few':i.display,i.num,i.n])};
+  }},
+  {id:'feeders',span:'c6',glanceOnly:true,title:'Schools feeding your unit',sub:'Placed students on your unit, by school.',render:W=>{
+    const rs=filt().filter(r=>r.placed);
+    const its=SCHOOLS.map(s=>{const n=rs.filter(r=>r.school===s.id).length;return{label:s.short,value:n,display:String(n),color:schoolColor(s.id),tip:`${s.name}: ${n} students`}}).filter(i=>i.value).sort((a,b)=>b.value-a.value);
+    return{svg:hbar({items:its,W}),cols:['School','Students'],rows:its.map(i=>[i.label,i.value])}}},
+  {id:'heatmap',span:'c12',title:'Which schools feed which units',sub:'Placed students, all cohorts in the current filters. Darker means more students.',render:W=>{
+    const rs=filt().filter(r=>r.placed); const units=UNITS.filter(u=>eff('line')==='all'||u.line===eff('line'));
+    const rows=SCHOOLS.filter(s=>eff('school')==='all'||s.id===eff('school'));
+    const m=rows.map(s=>units.map(u=>rs.filter(r=>r.school===s.id&&r.unit===u.id).length));
+    return{svg:heat({rows,cols:units,m,W}),cols:['School',...units.map(u=>u.name)],rows:rows.map((s,i)=>[s.short,...m[i]])}}},
+  {id:'precep',span:'c4',title:'Preceptor load',sub:'Students per preceptor in a single cohort, current filters.',render:W=>{
+    const rs=filt().filter(r=>r.placed); const c={}; rs.forEach(r=>{const k=r.preceptor+'|'+r.cohort;c[k]=(c[k]||0)+1});
+    const b=[0,0,0,0]; Object.values(c).forEach(n=>b[Math.min(4,n)-1]++);
+    const its=['1','2','3','4+'].map((l,i)=>({label:l+(l==='1'?' student':' students'),value:b[i],tip:`${b[i]} preceptors took ${l} ${l==='1'?'student':'students'}`,color:i===3?'var(--s2)':'var(--s1)'}));
+    return{svg:columns({items:its,W,H:160}),cols:['Students precepted','Preceptors'],rows:its.map(i=>[i.label,i.value]),note:`${Object.keys(c).length} preceptor assignments across cohorts. 4+ is highlighted against the parity limit.`}}},
+  {id:'cf',span:'c4',title:'Casey-Fink change by school',sub:'Mean post minus pre, 1 to 4 scale. Completed students.',render:W=>{
+    const its=(V().lockSchool?SCHOOLS.filter(s=>s.id===V().lockSchool):SCHOOLS).map(s=>{const p=filt(['school'],{school:s.id}).filter(r=>r.completed);const m=p.length?p.reduce((a,r)=>a+r.cfPost-r.cfPre,0)/p.length:0;
+      return{label:V().lockSchool?'Your school':s.short,value:Math.max(0,m),display:'+'+m.toFixed(2),n:p.length,suppressed:p.length<MIN_N,color:'var(--s1)'}}).sort((a,b)=>b.value-a.value);
+    if(V().lockSchool){const p=filt(['school']).filter(r=>r.completed);const m=p.length?p.reduce((a,r)=>a+r.cfPost-r.cfPre,0)/p.length:0;its.push({label:'Program average',value:m,display:'+'+m.toFixed(2),n:p.length,color:'var(--other)'})}
+    return{svg:hbar({items:its,W,max:.8,labelW:Math.min(110,W*.34)}),cols:['School','Mean change','Students'],rows:its.map(i=>[i.label,i.suppressed?'Too few':i.display,i.n])}}},
+  {id:'retention',span:'c4',title:'Retention',sub:'NGRP hires still employed at 6 and 12 months.',render:()=>({svg:`<div class="empty-state"><div class="ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 20h16"/></svg></div><div><b>Retention data isn't connected yet.</b><br>Import a file from HR with employee ID, NGRP start date, and status at 6 and 12 months. The Retention tile and this chart fill in after the first import.</div>${view==='owner'?'<button class="btn" type="button">Import retention data</button>':''}</div>`,cols:[],rows:[]})}
+];
+function unitScoped(){return eff('unit')!=='all'||eff('line')!=='all'||eff('shift')!=='all'}
+function rr(x){return{value:x.v||0,display:pct(x.v),n:x.den,num:x.num,suppressed:x.den<MIN_N}}
+
+/* ---------- Render ---------- */
+const grid=document.getElementById('grid');
+function buildGrid(){
+  grid.innerHTML=CARDS.map(c=>`<section class="sheet card ${c.span}" id="card-${c.id}" aria-labelledby="h-${c.id}">
+    <div class="ch"><div class="t"><h2 id="h-${c.id}"></h2><p class="sub" id="s-${c.id}">${esc(c.sub)}</p></div>
+    <div class="acts"><button data-act="table" data-id="${c.id}" aria-pressed="false">Table</button><button data-act="csv" data-id="${c.id}">CSV</button></div></div>
+    <div class="body" id="b-${c.id}"></div><div class="legend" id="lg-${c.id}"></div><div class="note" id="n-${c.id}"></div></section>`).join('');
+}
+const OUT={};
+function renderCards(){
+  const v=V(); const hide=CARDS.filter(c=>v.cards?!v.cards.includes(c.id):c.glanceOnly).map(c=>c.id);
+  if(v.cards){const order=v.cards;CARDS.forEach(c=>{const el=document.getElementById('card-'+c.id);el.style.order=order.includes(c.id)?order.indexOf(c.id):99})}else CARDS.forEach(c=>document.getElementById('card-'+c.id).style.order='');
+  CARDS.forEach(c=>{
+    const el=document.getElementById('card-'+c.id); el.classList.remove('c12','c7','c6','c5','c4'); el.classList.add((V().spans||{})[c.id]||c.span); el.classList.toggle('hidden',hide.includes(c.id)); if(hide.includes(c.id))return;
+    document.getElementById('s-'+c.id).textContent=(v.subs||{})[c.id]||c.sub;
+    document.getElementById('h-'+c.id).textContent=(v.titles||{})[c.id]||(typeof c.title==='function'?c.title():c.title);
+    const body=document.getElementById('b-'+c.id); const W=Math.max(260,body.clientWidth||600);
+    const o=c.render(W); OUT[c.id]=o;
+    const tb=el.querySelector('[data-act="table"]'); tb.setAttribute('aria-pressed',!!tableView[c.id]); tb.disabled=!o.cols.length;
+    el.querySelector('[data-act="csv"]').disabled=!o.cols.length;
+    body.innerHTML=tableView[c.id]&&o.cols.length?`<table class="dt"><thead><tr>${o.cols.map((h,i)=>`<th class="${i?'n':''}">${esc(h)}</th>`).join('')}</tr></thead><tbody>${o.rows.map(r=>`<tr>${r.map((v,i)=>`<td class="${i?'n':''}">${esc(v)}</td>`).join('')}</tr>`).join('')}</tbody></table>`:o.svg;
+    document.getElementById('lg-'+c.id).innerHTML=o.legend&&!tableView[c.id]?o.legend.map(([n,col])=>`<span><i style="background:${col}"></i>${esc(n)}</span>`).join(''):'';
+    document.getElementById('n-'+c.id).textContent=o.note||'';
+  });
+}
+function tile(k,v,d,cls=''){return`<div class="sheet tile ${cls}"><div class="k">${k}</div><div class="v">${v}</div><div class="d">${d||''}</div></div>`}
+function delta(cur,base,label,isPct=true){if(cur==null||base==null)return'';const dv=isPct?Math.round((cur-base)*100):Math.round(cur-base);if(dv===0)return`No change vs ${label}`;
+  return`<span class="${dv>0?'up':'down'}">${dv>0?'▲':'▼'} ${Math.abs(dv)}${isPct?' pts':''}</span> vs ${label}`}
+function compareBase(){
+  if(S.compare==='prev'&&eff('cohort')!=='all'){const i=COHORTS.indexOf(eff('cohort'));if(i>0)return{rs:filt(['cohort'],{cohort:COHORTS[i-1]}),label:COHORTS[i-1]}}
+  if(S.compare==='avg')return{rs:filt(['school','unit','pathway','line','shift','status']),label:'program'};
+  return null;
+}
+function renderTiles(){
+  const rs=filt(), cb=compareBase(), fin=rs.filter(r=>!r.active);
+  const m=rate(rs); const act=rs.filter(r=>r.active&&r.placed).length;
+  const cmp=(f,isPct)=>cb?delta(f(rs),f(cb.rs),cb.label,isPct):'';
+  const perCohort=x=>x.length;
+  const placedN=rs.filter(r=>r.placed).length, compN=rs.filter(r=>r.completed).length;
+  const T={};
+  T.applicants=(unitScoped()?tile('Applicants','n/a','Applicants have no unit yet'):tile('Applicants',rs.length,cb&&S.compare==='prev'?delta(rs.length,cb.rs.length,cb.label,false):`${COHORTS.filter(c=>eff('cohort')==='all'||c===eff('cohort')).length} cohorts`));
+  T.placed=tile('Placed',placedN,cb&&S.compare==='prev'?delta(placedN,cb.rs.filter(r=>r.placed).length,cb.label,false):(rs.length&&!unitScoped()?pct(placedN/rs.length)+' of applicants':''));
+  T.completed=tile('Completed',compN,cmp(x=>{const p=x.filter(r=>r.placed&&!r.active);return p.length?p.filter(r=>r.completed).length/p.length:null},true)||(fin.filter(r=>r.placed).length?pct(compN/fin.filter(r=>r.placed).length)+' of placed':''));
+  T.measure=tile(MLABEL[S.measure],m.den>=MIN_N?pct(m.v):(m.den?'Too few':'–'),cmp(x=>rate(x).v,true)||`${m.num} of ${m.den} completed`,'hero');
+  T.active=tile('In rotation now',act,act?ACTIVE:'No active cohort in view');
+  T.retention=tile('12-month retention','Not connected','Import from HR to fill in','empty');
+  const keys=V().tiles||Object.keys(T); const el=document.getElementById('tiles');
+  el.innerHTML=keys.map(k=>T[k]).join(''); el.style.gridTemplateColumns=V().tiles?`repeat(${keys.length},1fr)`:'';
+}
+function renderKeith(){
+  const k=document.getElementById('keith'); if(!V().keith){k.classList.add('hidden');return} k.classList.remove('hidden');
+  const rs=filt(); const m=rate(rs);
+  const cs=COHORTS.filter(c=>c!==ACTIVE); const last=cs[cs.length-1], prev=cs[cs.length-2];
+  const a=rate(filt(['cohort'],{cohort:last})), b=rate(filt(['cohort'],{cohort:prev}));
+  const sch=SCHOOLS.map(s=>({s,x:rate(filt(['school'],{school:s.id}))})).filter(o=>o.x.den>=MIN_N).sort((p,q)=>q.x.v-p.x.v)[0];
+  const us=UNITS.map(u=>({u,n:rs.filter(r=>r.placed&&r.unit===u.id).length,h:rs.filter(r=>r.unit===u.id&&r.sameUnit).length})).sort((p,q)=>q.n-p.n)[0];
+  const i=rate(filt(['pathway'],{pathway:'internal'})), e=rate(filt(['pathway'],{pathway:'external'}));
+  const dv=a.v!=null&&b.v!=null?Math.round((a.v-b.v)*100):null;
+  let t=`${MLABEL[S.measure]} is <a data-jump="card-funnel">${pct(m.v)}</a> in this view (${m.num} of ${m.den}). `;
+  if(dv!=null&&eff('cohort')==='all')t+=`${last} came in at <a data-jump="card-trend">${pct(a.v)}</a>, ${dv===0?'level with':dv>0?dv+' points above':Math.abs(dv)+' points below'} ${prev}. `;
+  if(sch&&eff('school')==='all')t+=`<a data-jump="card-bySchool">${esc(sch.s.short)}</a> leads at ${pct(sch.x.v)} (n = ${sch.x.den}). `;
+  if(us&&us.n)t+=`<a data-jump="card-unitsHosted">${esc(us.u.name)}</a> hosted the most students (${us.n}) and hired back ${us.h}. `;
+  if(i.den>=MIN_N&&e.den>=MIN_N&&eff('pathway')==='all')t+=`Internal students converted at <a data-jump="card-path">${pct(i.v)}</a> vs ${pct(e.v)} external.`;
+  k.innerHTML=`<div class="km" aria-hidden="true">K</div><div><div class="lab">Keith summary · shadow mode · internal only · built from the figures on this page</div><p>${t}</p></div>`;
+}
+function renderChips(){
+  const v=V(); const names={cohort:x=>x,school:x=>sById[x].short,pathway:x=>x[0].toUpperCase()+x.slice(1),line:x=>x,unit:x=>uById[x].name,shift:x=>x+' shift',status:x=>document.querySelector(`#fStatus option[value="${x}"]`).textContent};
+  let h='';
+  if(v.lockSchool)h+=`<span class="chip lock">🔒 ${esc(sById[v.lockSchool].name)}</span>`;
+  if(v.lockUnit)h+=`<span class="chip lock">🔒 ${esc(uById[v.lockUnit].name)}</span>`;
+  const act=Object.keys(names).filter(k=>S[k]!=='all'&&!(k==='school'&&v.lockSchool)&&!(k==='unit'&&v.lockUnit));
+  act.forEach(k=>h+=`<span class="chip">${esc(names[k](S[k]))}<button aria-label="Remove filter ${esc(names[k](S[k]))}" data-clear="${k}">×</button></span>`);
+  if(act.length>1)h+=`<button class="clear" data-clear="*">Clear all</button>`;
+  if(!h)h='<span>No filters. Showing every cohort, school and unit.</span>';
+  document.getElementById('chips').innerHTML=h;
+  const rs=filt();
+  document.getElementById('asof').innerHTML=`As of Nov 5, 2026 · 9:40 PM<br>${unitScoped()?'':rs.length+' applicants · '}${rs.filter(r=>r.placed).length} placed in view`;
+  document.getElementById('scopeBadge').textContent='SCOPE · '+(eff('cohort')==='all'?'ALL COHORTS':eff('cohort').toUpperCase());
+}
+function syncControls(){
+  const v=V();
+  const opt=(id,list,all)=>{const el=document.getElementById(id);el.innerHTML=`<option value="all">${all}</option>`+list.map(([val,l])=>`<option value="${val}">${esc(l)}</option>`).join('')};
+  opt('fCohort',COHORTS.map(c=>[c,c+(c===ACTIVE?' (in rotation)':'')]),'All cohorts');
+  opt('fSchool',SCHOOLS.map(s=>[s.id,s.name]),'All schools');
+  opt('fLine',LINES.map(l=>[l,l]),'All service lines');
+  opt('fUnit',UNITS.filter(u=>S.line==='all'||u.line===S.line).map(u=>[u.id,u.name]),'All units');
+  ['cohort','school','line','unit','shift','status','compare'].forEach(k=>{const el=document.getElementById('f'+k[0].toUpperCase()+k.slice(1));el.value=eff(k)});
+  document.getElementById('fSchool').disabled=!!v.lockSchool; document.getElementById('fUnit').disabled=!!v.lockUnit;
+  document.querySelectorAll('#filterBar .f[data-key]').forEach(f=>f.classList.toggle('hidden',v.glance?f.dataset.key!=='cohort':(v.hideFilters||[]).includes(f.dataset.key)));
+  document.getElementById('fdiv').classList.toggle('hidden',!!v.glance);
+  document.getElementById('chips').classList.toggle('hidden',!!v.glance);
+  document.getElementById('glancePh').classList.toggle('hidden',!v.glance);
+  document.getElementById('glanceHead').classList.toggle('hidden',!v.glance);
+  document.getElementById('secTitle').textContent=v.secTitle||''; document.getElementById('secSub').textContent=v.secSub||'';
+  document.getElementById('headTitle').textContent=v.glance?'At a Glance':'ASPIRE Insights';
+  document.getElementById('ptabs').classList.toggle('on',!!v.tabs);
+  document.body.classList.toggle('glance',!!v.glance);
+  document.querySelectorAll('.adminonly').forEach(b=>b.classList.toggle('hidden',!!v.portal));
+  document.querySelectorAll('#fPathway button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===S.pathway));
+  document.querySelectorAll('#fMeasure button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===S.measure));
+  document.getElementById('headSub').textContent=v.sub||'Outcomes across every cohort, school, unit and pathway.';
+  const pb=document.getElementById('portalBar'); pb.classList.toggle('on',!!v.banner); pb.innerHTML=v.banner?`<b>${esc(v.banner)}</b><span>${esc(v.note)}</span>`:'';
+  document.querySelector('#fCompare option[value="prev"]').disabled=eff('cohort')==='all';
+  if(S.compare==='prev'&&eff('cohort')==='all')document.getElementById('fCompare').value='off';
+}
+function renderAll(){syncControls();renderChips();renderKeith();renderTiles();renderCards()}
+
+/* ---------- Events ---------- */
+const setF=(k,v)=>{S[k]=v;if(k==='line'&&S.unit!=='all'&&uById[S.unit].line!==v&&v!=='all')S.unit='all';renderAll()};
+['Cohort','School','Line','Unit','Shift','Status','Compare'].forEach(n=>document.getElementById('f'+n).addEventListener('change',e=>setF(n.toLowerCase(),e.target.value)));
+document.getElementById('fPathway').addEventListener('click',e=>{const b=e.target.closest('button');if(b)setF('pathway',b.dataset.v)});
+document.getElementById('fMeasure').addEventListener('click',e=>{const b=e.target.closest('button');if(b)setF('measure',b.dataset.v)});
+document.getElementById('chips').addEventListener('click',e=>{const b=e.target.closest('[data-clear]');if(!b)return;
+  if(b.dataset.clear==='*')['cohort','school','pathway','line','unit','shift','status'].forEach(k=>S[k]='all');else S[b.dataset.clear]='all';renderAll()});
+function crossFilter(t){if(V().glance)return;const g=t.closest('[data-filter]');if(!g)return;const[k,v]=g.dataset.filter.split(':');if((k==='school'&&V().lockSchool)||(k==='unit'&&V().lockUnit))return;
+  if(k==='unit'){S.line='all'} S[k]=S[k]===v?'all':v; renderAll()}
+grid.addEventListener('click',e=>{
+  const a=e.target.closest('[data-act]');
+  if(a){const id=a.dataset.id;if(a.dataset.act==='table'){tableView[id]=!tableView[id];renderCards()}else{const o=OUT[id];const csv=[o.cols,...o.rows].map(r=>r.map(x=>`"${String(x).replace(/"/g,'""')}"`).join(',')).join('\n');
+    const l=document.createElement('a');l.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));l.download=`aspire-insights-${id}.csv`;l.click()}return}
+  crossFilter(e.target)});
+grid.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.closest('[data-filter]')){e.preventDefault();crossFilter(e.target)}});
+document.getElementById('keith').addEventListener('click',e=>{const a=e.target.closest('[data-jump]');if(a)document.getElementById(a.dataset.jump).scrollIntoView({behavior:'smooth',block:'center'})});
+const tip=document.getElementById('tip');
+document.addEventListener('pointermove',e=>{const t=e.target.closest&&e.target.closest('[data-tip]');if(!t){tip.style.display='none';return}
+  tip.textContent=t.getAttribute('data-tip');tip.style.display='block';const w=tip.offsetWidth,h=tip.offsetHeight;
+  let x=e.clientX+14,y=e.clientY+14;if(x+w>innerWidth-8)x=e.clientX-w-14;if(y+h>innerHeight-8)y=e.clientY-h-14;tip.style.left=x+'px';tip.style.top=y+'px'});
+function resetForView(){if(V().glance){['school','pathway','line','unit','shift','status'].forEach(k=>S[k]='all');S.measure='hired';S.compare='off'}}
+document.getElementById('viewSel').addEventListener('change',e=>{view=e.target.value;resetForView();renderAll()});
+document.getElementById('styleSeg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;document.documentElement.dataset.style=b.dataset.v;
+  document.querySelectorAll('#styleSeg button').forEach(x=>x.setAttribute('aria-pressed',x===b));renderAll()});
+const SUN='<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',MOON='<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>';
+function setMode(m){document.documentElement.dataset.theme=m;document.getElementById('modeIco').innerHTML=m==='dark'?MOON:SUN;document.getElementById('modeBtn').setAttribute('aria-label',m==='dark'?'Switch to light mode':'Switch to dark mode')}
+document.getElementById('modeBtn').addEventListener('click',()=>{setMode(document.documentElement.dataset.theme==='dark'?'light':'dark');renderAll()});
+const qs=new URLSearchParams(location.search);
+setMode(qs.get('mode')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'));
+if(qs.get('style')){document.documentElement.dataset.style=qs.get('style');document.querySelectorAll('#styleSeg button').forEach(x=>x.setAttribute('aria-pressed',x.dataset.v===qs.get('style')))}
+if(qs.get('view')){view=qs.get('view');document.getElementById('viewSel').value=view;resetForView()}
+buildGrid(); renderAll();
+let rt; addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(renderCards,120)});
+</script>
+</body>
+</html>
