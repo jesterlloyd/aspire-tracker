@@ -165,7 +165,7 @@ export const BLOCKS = Object.freeze({
   },
   footer: {
     label: 'Footer', group: 'Layout', hint: 'Why they received it',
-    props: { text: 'You are receiving this because you are part of ASPIRE at Cedars-Sinai. Questions? Reply to this email.' },
+    props: { text: 'You are receiving this because you are part of ASPIRE at Cedars-Sinai.\nQuestions? Email aspire@cshs.org.' },
     style: { align: 'center' },
     styleRules: { align: enumOf('center', 'left') },
   },
