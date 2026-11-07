@@ -206,7 +206,8 @@
 .ins-tv { font-size: 32px; font-weight: 700; line-height: 1; letter-spacing: -0.025em; font-variant-numeric: tabular-nums; color: var(--ins-tile-ink); }
 .ins-tk { margin-top: 8px; font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.14em; color: #475467; }
 .ins-td { margin-top: 2px; font-size: 11.5px; color: #5b6472; }
-.ins-hero { box-shadow: inset 0 -3px 0 var(--ins-tile-ink), 0 1px 0 rgba(29, 37, 103, 0.04), 0 1px 2px rgba(29, 37, 103, 0.04); }
+/* INSIGHTS-HERO-1 (Owner, 2026-11-07): no bottom bar on the headline tile. On the app's KPI cards that bar
+   means "this filter is on", and these tiles are not buttons. The headline keeps its place and colour. */
 .ins-empty .ins-tv { font-size: 20px; line-height: 32px; }
 /* The accents are KPIBand's ACCENT_PALETTE, tint then text. */
 .ins-a-nightfall { --ins-tile-tint: #EDEEF4; --ins-tile-ink: #1D2567; }

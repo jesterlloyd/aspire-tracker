@@ -11,7 +11,7 @@ export const fmtHireDay = d => {
 export function hireLines(h) {
   return [
     ['Residency cohort', h.cohort_name || 'Not recorded'],
-    ['Hired into unit', h.unit || 'Not recorded'],
+    ['Hired into', h.unit || 'Not recorded'],
     ['Hired as', h.hired_as_label || 'Not recorded'],
     ['Current title', h.current_title || 'Not recorded'],
     ['Hired on', fmtHireDay(h.hired_at) || 'Not recorded'],

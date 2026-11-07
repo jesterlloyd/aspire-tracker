@@ -22,7 +22,7 @@ import {
 import { displayName } from '../../lib/utils'
 import { shiftBadge } from '../../lib/shiftStatus'
 import { RESIDENT_SHIFTS } from '../../lib/ngrp/ngrpReflectionForm'
-import { HIRED_AS, HIRED_AS_OTHER, HIRED_AS_SHORT, hiredAsLabel, cohortHireDate } from '../../lib/ngrp/ngrpResidents'
+import { HIRED_AS, HIRED_AS_OTHER, HIRED_AS_SHORT, HIRED_AS_UNLICENSED, HIRE_SITES, hiredAsLabel, cohortHireDate } from '../../lib/ngrp/ngrpResidents'
 import { DIVISION_ORDER, getCanonicalUnitNames, getUnitsByDivision, unitOptionLabel } from '../../lib/unitCatalog'
 import { unitNameKey } from '../../lib/unitNameCanon'
 import { StudentDocumentsBody } from '../documents/StudentDocumentsDrawer'
@@ -556,9 +556,10 @@ const fmtDayOnly = d => {
 // grouped by division, with Other opening a box for a unit the catalog does not list. The stored
 // value is still the unit's name as text, so a unit typed before this reads as Other with its text.
 const HIRE_UNIT_OTHER = '__other__'
+// HIRE-SITE-1: Marina del Rey Hospital and the wider health system are choices too.
 const catalogUnitFor = v => {
   const k = unitNameKey(v)
-  return k ? getCanonicalUnitNames().find(n => unitNameKey(n) === k) || null : null
+  return k ? [...getCanonicalUnitNames(), ...HIRE_SITES].find(n => unitNameKey(n) === k) || null : null
 }
 function HireUnitPicker({ value, onChange }) {
   const known = catalogUnitFor(value)
@@ -568,25 +569,28 @@ function HireUnitPicker({ value, onChange }) {
   return (
     <>
       <label style={{ display: 'block' }}>
-        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-caption)' }}>Hired into unit</span>
+        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-caption)' }}>Hired into</span>
         <select style={field} value={other ? HIRE_UNIT_OTHER : known || ''}
           onChange={e => {
             const v = e.target.value
             if (v === HIRE_UNIT_OTHER) { setOther(true); onChange(known ? '' : value) } else { setOther(false); onChange(v) }
           }}>
-          <option value="">Choose a unit</option>
+          <option value="">Choose a unit or site</option>
           {divisions.map(d => (
             <optgroup key={d} label={d}>
               {grouped[d].map(u => <option key={u.name} value={u.name}>{unitOptionLabel(u.name)}</option>)}
             </optgroup>
           ))}
+          <optgroup label="Elsewhere in Cedars-Sinai">
+            {HIRE_SITES.map(n => <option key={n} value={n}>{n}</option>)}
+          </optgroup>
           <option value={HIRE_UNIT_OTHER}>Other</option>
         </select>
       </label>
       {other && (
         <label style={{ display: 'block' }}>
-          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-caption)' }}>Hired into unit (other)</span>
-          <input style={field} value={value} maxLength={120} onChange={e => onChange(e.target.value)} placeholder="The unit's name" />
+          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-caption)' }}>Hired into (other)</span>
+          <input style={field} value={value} maxLength={120} onChange={e => onChange(e.target.value)} placeholder="The unit or site" />
         </label>
       )}
     </>
@@ -598,7 +602,10 @@ function HireHistoryFields({ form, set }) {
     <>
       <label style={{ display: 'block' }}>
         <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-caption)' }}>Hired as</span>
-        <select style={field} value={form.hired_as} onChange={e => set('hired_as', e.target.value)}>
+        <select style={field} value={form.hired_as} onChange={e => {
+          set('hired_as', e.target.value)
+          if (e.target.value === HIRED_AS_UNLICENSED) set('licensed_at_application', 'no')
+        }}>
           <option value="">Not recorded yet</option>
           {HIRED_AS.map(a => <option key={a} value={a}>{HIRED_AS_SHORT[a] || a}</option>)}
         </select>

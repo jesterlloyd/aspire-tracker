@@ -19,7 +19,7 @@ export const HIRE_FIELDS = Object.freeze([
   { key: 'school_email', label: 'School email', kind: 'email' },
   { key: 'hired', label: 'Hired (yes or no)', kind: 'flag' },
   { key: 'hired_on', label: 'Hire date', kind: 'date' },
-  { key: 'hired_unit', label: 'Hired into unit', kind: 'unit' },
+  { key: 'hired_unit', label: 'Hired into', kind: 'unit' },
   { key: 'hired_as', label: 'Hired as', kind: 'hired_as' },
   { key: 'residency_cohort', label: 'Residency cohort', kind: 'text' },
   { key: 'current_title', label: 'Current title', kind: 'text' },

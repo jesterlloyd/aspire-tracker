@@ -181,6 +181,12 @@ export function retentionSummary(rows = []) {
 export const HIRED_AS = Object.freeze(['Clinical Nurse I', 'Graduate Nurse Trainee', 'Other'])
 export const HIRED_AS_OTHER = 'Other'
 export const HIRED_AS_SHORT = Object.freeze({ 'Clinical Nurse I': 'CN I', 'Graduate Nurse Trainee': 'GNT', Other: 'Other' })
+// HIRE-SITE-1 (Owner, 2026-11-07): a hire anywhere in Cedars-Sinai counts, not only a Medical
+// Center unit. These are stored in hired_unit exactly as written, beside the catalog's unit names.
+export const HIRE_SITES = Object.freeze(['Marina del Rey Hospital', 'Cedars-Sinai Health System'])
+// GNT is the unlicensed path (HIRE-GNT-LICENSE-1, Owner, 2026-11-07): choosing it answers
+// "licensed when they applied" with No. A person can still change that answer afterwards.
+export const HIRED_AS_UNLICENSED = 'Graduate Nurse Trainee'
 // One licensure date (the license issue date, HIRE-HISTORY-2) and the interim permit box.
 // nclex_passed_on is no longer written or shown.
 export const HIRE_HISTORY_KEYS = Object.freeze([

@@ -58,7 +58,7 @@ test('the lines name the cohort, unit, position, title, date and whether they ar
   assert.equal(lines['Still at Cedars-Sinai'], 'Yes')
   const gone = Object.fromEntries(hireLines({ affiliated: false, separated_at: '2026-10-01T12:00:00Z' }))
   assert.equal(gone['Still at Cedars-Sinai'], 'No, separated Oct 1, 2026')
-  assert.equal(gone['Hired into unit'], 'Not recorded')
+  assert.equal(gone['Hired into'], 'Not recorded')
 })
 
 test('the endpoint serves it to the ASPIRE team only, and the chart reads it, never writes it', () => {
