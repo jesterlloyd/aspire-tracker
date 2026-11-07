@@ -18,6 +18,7 @@ import {
   pipelineCard, trendCard, hoursCard, youColor,
   partnerVsProgramCard, whereRotatedCard, unitHostedCard, unitHiredBackCard, feedersCard, unitChoiceCard,
 } from './insightsCards'
+import { orderCohortsNewestFirst } from '../../lib/derivations/cohortOrder'
 import './insights.css'
 
 const hiredTile = t => (
@@ -136,7 +137,8 @@ export default function InsightsGlance({ surface, scopeName = '', unit = '', sch
             <label htmlFor={`${id}-cohort`}>Cohort</label>
             <select id={`${id}-cohort`} value={cohort} onChange={e => setCohort(e.target.value)}>
               <option value="">All cohorts</option>
-              {(data?.cohorts || []).map(c => <option key={c.id} value={c.id}>{c.name}{c.finished ? '' : ' (in rotation)'}</option>)}
+              {/* COHORT-NEWEST-1: the filter lists newest first; the charts keep time order. */}
+              {orderCohortsNewestFirst(data?.cohorts || []).map(c => <option key={c.id} value={c.id}>{c.name}{c.finished ? '' : ' (in rotation)'}</option>)}
             </select>
           </div>
           {data && <span className="ins-asof">{asOfWords(data.asOf)}</span>}

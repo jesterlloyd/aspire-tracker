@@ -190,3 +190,15 @@ test('each portal At a Glance mounts its own outcomes section, lazily, with the 
   assert.doesNotMatch(glance.replace(/^\s*\/\/.*$/gm, ''), /onPick|compare|keith/i)
   for (const t of ['Your Students\u2019 Outcomes', 'ASPIRE Students on Your Unit', 'ASPIRE Insights']) assert.ok(glance.includes(t), t)
 })
+
+// COHORT-NEWEST-1 (Owner, 2026-11-07): both Insights cohort filters list newest first; the
+// payload (and so every chart's time axis) keeps its own order.
+test('Insights cohort filters order newest first', async () => {
+  const { readFileSync } = await import('node:fs')
+  for (const f of ['src/components/insights/InsightsGlance.jsx', 'src/components/insights/InsightsPage.jsx']) {
+    assert.match(readFileSync(f, 'utf8'), /orderCohortsNewestFirst\((data\?\.cohorts \|\| \[\]|cohorts)\)\.map/, f)
+  }
+  const { orderCohortsNewestFirst } = await import('../src/lib/derivations/cohortOrder.js')
+  const names = orderCohortsNewestFirst([{ id: 1, name: 'Fall 2025' }, { id: 2, name: 'Spring 2026' }, { id: 3, name: 'Summer 2026' }]).map(c => c.name)
+  assert.deepEqual(names, ['Summer 2026', 'Spring 2026', 'Fall 2025'])
+})

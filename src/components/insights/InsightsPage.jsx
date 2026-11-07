@@ -30,6 +30,7 @@ import { HBar, Heat } from './InsightsCharts'
 import { hbarHeight } from '../../lib/insights/chartGeometry'
 import { ChartCard, Tile } from './InsightsCard'
 import { slotsFor, PATHWAY_COLORS, CHOICE_COLORS, rateItem, pipelineCard, trendCard, hoursCard } from './insightsCards'
+import { orderCohortsNewestFirst } from '../../lib/derivations/cohortOrder'
 import './insights.css'
 
 const MEASURE_OPTIONS = [
@@ -57,7 +58,7 @@ function FilterBar({ f, data, set }) {
   return (
     <section className="ins-sheet ins-filters" aria-label="Filters">
       <Select id="ins-cohort" label="Cohort" value={f.cohort} onChange={v => set('cohort', v)}
-        options={[{ value: '', label: 'All cohorts' }, ...cohorts.map(c => ({ value: c.id, label: `${c.name}${c.finished ? '' : ' (in rotation)'}` }))]} />
+        options={[{ value: '', label: 'All cohorts' }, ...orderCohortsNewestFirst(cohorts).map(c => ({ value: c.id, label: `${c.name}${c.finished ? '' : ' (in rotation)'}` }))]} />
       <Select id="ins-school" label="School" value={f.school} onChange={v => set('school', v)}
         options={[{ value: '', label: 'All schools' }, ...(data?.schools || []).map(s => ({ value: s, label: s }))]} />
       <div className="ins-f">
