@@ -252,7 +252,7 @@ function StudentsView({ onCommandPeople }) {
 
   return (
     <div className="ptl-page ptl-ap-page">
-      <h1 className="ptl-visually-hidden">Academic Partner Students</h1>
+      <h1 className="ptl-visually-hidden">Academic Partner At a Glance</h1>
       <SkylineCard
           flush
           userKey={user?.id}

@@ -14,7 +14,7 @@ import { NAV_ICONS, NAV_LABELS } from '../../lib/navigationCanon'
 // Product order, not alphabetical. Module-local (exporting a non-component from a
 // component module breaks fast refresh), consumed only by AcademicPartnerNav.
 const SECTIONS = [
-  { key: 'students',           label: NAV_LABELS.students,          Icon: NAV_ICONS.students },
+  { key: 'students',           label: NAV_LABELS.atAGlance,         Icon: NAV_ICONS.atAGlance },
   { key: 'placement-requests', label: NAV_LABELS.placementRequests, Icon: NAV_ICONS.placementRequests },
   { key: 'messages',           label: NAV_LABELS.messages,          Icon: NAV_ICONS.messages },
 ]

@@ -40,9 +40,10 @@ test('the three sections are stable URL routes; /portal resolves to Students', (
   assert.match(app, /function threadIdFromPath/)
 })
 
-test('AcademicPartnerNav is exactly Students, Placement Requests, Messages', () => {
+test('AcademicPartnerNav is exactly At a Glance, Placement Requests, Messages', () => {
   assert.match(nav, /export function AcademicPartnerNav\(\{ view, onNavigate \}\)/)
-  assert.match(nav, /key: 'students',\s*label: NAV_LABELS\.students/)
+  // AP-GLANCE-TAB-1: the roster tab reads At a Glance; its key and route stay 'students'.
+  assert.match(nav, /key: 'students',\s*label: NAV_LABELS\.atAGlance/)
   assert.match(nav, /key: 'placement-requests', label: NAV_LABELS\.placementRequests/)
   assert.match(nav, /key: 'messages',\s*label: NAV_LABELS\.messages/)
   // Reuses the shared attached-nav language and the accessible current-page + tab semantics.

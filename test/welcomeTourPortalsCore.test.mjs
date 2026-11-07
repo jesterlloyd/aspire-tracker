@@ -558,7 +558,8 @@ test('AP tour draws the submit-vs-track boundary correctly for both capability b
     assert.match(requests.content, /just for sending a new request/)
     assert.doesNotMatch(requests.content, /track the status|already sent|monitor|follow the status/i)
     // The only mention of tracking on this step points AT the Students tab.
-    assert.match(requests.content, /tracked on the Students tab/)
+    // AP-GLANCE-TAB-1: the tab was renamed At a Glance.
+    assert.match(requests.content, /tracked on At a Glance/)
 
     // Students: submitted requests and placement progress are managed and
     // tracked THERE.

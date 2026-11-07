@@ -21,7 +21,7 @@ export function portalActionsFor(kind, { budgetEnabled = false, messagesEnabled 
     ...(messagesEnabled ? [action('messages', 'Open Messages', 'Unit Leader Portal · Messages', '/portal/messages', 'message messages inbox')] : []),
   ]
   if (kind === 'academic_partner') return [
-    action('students', 'Find a Student', 'Academic Partner Portal · Students', '/portal/ap/students', 'student students roster name'),
+    action('students', 'Find a Student', 'Academic Partner Portal · At a Glance', '/portal/ap/students', 'student students roster name'),
     action('placement', 'Open Placement Requests', 'Academic Partner Portal · Placement', '/portal/ap/placement', 'placement request requests'),
     ...(messagesEnabled ? [action('messages', 'Open Messages', 'Academic Partner Portal · Messages', '/portal/ap/messages', 'message messages inbox')] : []),
   ]

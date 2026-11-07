@@ -578,18 +578,18 @@ function getAcademicPartnerSteps(userProfile, apMessagesEnabled) {
     mastheadStep,
     {
       target: '[data-tour="portal-nav-students"]',
-      title: 'Students',
+      title: 'At a Glance',
       // WELCOME-TOUR-FOLLOWUP-2: the tracking side of the boundary. Submitted
       // requests and each student's placement progress are managed HERE, not
       // on the Placement Requests tab.
-      content: "The roster of your school's students in ASPIRE. Your submitted requests and each student's placement progress are managed and tracked here.",
+      content: "Your school's figures and the roster of your students in ASPIRE. Your submitted requests and each student's placement progress are managed and tracked here.",
     },
     {
       target: '[data-tour="portal-nav-placement-requests"]',
       title: 'Placement Requests',
       // WELCOME-TOUR-FOLLOWUP-2: the submission side of the boundary. This tab
       // is exclusively for submitting NEW requests; no tracking claim here.
-      content: 'Submit new placement requests for your students here. This tab is just for sending a new request; everything you have submitted is tracked on the Students tab.',
+      content: 'Submit new placement requests for your students here. This tab is just for sending a new request; everything you have submitted is tracked on At a Glance.',
     },
   ];
 
