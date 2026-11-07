@@ -56,7 +56,8 @@ const SURFACES = {
     ],
   },
   residency: {
-    title: 'ASPIRE to NGRP',
+    // RESIDENCY-INSIGHTS-TITLE-1 (Owner, 2026-11-07): the staff page's own name.
+    title: 'ASPIRE Insights',
     sub: () => 'How ASPIRE students move into NGRP, program-wide.',
     tiles: [placedTile, hiredTile, rotationTile],
     cards: data => [

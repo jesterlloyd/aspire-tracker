@@ -188,5 +188,5 @@ test('each portal At a Glance mounts its own outcomes section, lazily, with the 
   const glance = read('components/insights/InsightsGlance.jsx')
   // No cross-filter, no compare, no Keith: the section asks for a cohort and nothing else.
   assert.doesNotMatch(glance.replace(/^\s*\/\/.*$/gm, ''), /onPick|compare|keith/i)
-  for (const t of ['Your Students\u2019 Outcomes', 'ASPIRE Students on Your Unit', 'ASPIRE to NGRP']) assert.ok(glance.includes(t), t)
+  for (const t of ['Your Students\u2019 Outcomes', 'ASPIRE Students on Your Unit', 'ASPIRE Insights']) assert.ok(glance.includes(t), t)
 })

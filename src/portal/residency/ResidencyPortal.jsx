@@ -50,7 +50,6 @@ const CohortSettingsModal = lazyReload(ngrpPart('CohortSettingsModal'), 'CohortS
 const CreateCohortDialog  = lazyReload(ngrpPart('CreateCohortDialog'), 'CreateCohortDialog')
 
 const EXPERIENCES = [RESIDENCY_EXPERIENCE]
-const stayInResidency = () => {}
 
 export default function ResidencyPortal({ canManage = false, onCommandPeople, connectTab = null, onOpenConnect, backPath, backLabel, onBack, messagesEnabled = false, unread = 0, threadId = null, onSelectThread, onBackToList }) {
   const { user } = useAuth()
@@ -125,11 +124,10 @@ export default function ResidencyPortal({ canManage = false, onCommandPeople, co
         <ScopePicker
           experiences={EXPERIENCES}
           activeExperience={RESIDENCY_EXPERIENCE.id}
-          onSwitchExperience={stayInResidency}
           cohortLabel={residencyCohortLabel(residencyCohort)}
           cohortStatus={cohortDotStatus(activeCycle)}
           cohortLabelDimmed={residencyLabelIsState(residencyCohort)}
-          cohortPane={<ResidencyCohortList {...residencyCohort} />}
+          cohortPanes={{ [RESIDENCY_EXPERIENCE.id]: <ResidencyCohortList {...residencyCohort} /> }}
         />
       </PortalHeaderControls>
       {/* RESIDENCY-KEITH-2: the staff app's Keith, in the lower right corner. */}

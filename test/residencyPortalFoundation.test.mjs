@@ -141,7 +141,10 @@ test('portal app: a talent_acquisition branch mounts the Residency workspace aft
   assert.match(portal, /import ScopePicker from '\.\.\/\.\.\/components\/Header\/scope\/ScopePicker'/)
   assert.match(portal, /import ResidencyCohortList from '\.\.\/\.\.\/components\/Header\/scope\/ResidencyCohortList'/)
   assert.match(portal, /<PortalHeaderControls>\s*<ScopePicker/)
-  assert.match(portal, /cohortPane=\{<ResidencyCohortList \{\.\.\.residencyCohort\} \/>\}/)
+  // RESIDENCY-SCOPE-PANE-1: 743c0a26 renamed the prop to cohortPanes and left this caller on the old
+  // name, so the portal's cohort pane drew nothing.
+  assert.match(portal, /cohortPanes=\{\{ \[RESIDENCY_EXPERIENCE\.id\]: <ResidencyCohortList \{\.\.\.residencyCohort\} \/> \}\}/)
+  assert.doesNotMatch(portal, /cohortPane=/)
   assert.doesNotMatch(read('src/portal/residency/ResidencyChrome.jsx'), /ResidencyCohortBar/)
   // the nav is NGRP_TABS itself, so portal and staff app cannot offer different tabs
   assert.match(read('src/portal/residency/ResidencyChrome.jsx'), /NGRP_TABS\.map/)
