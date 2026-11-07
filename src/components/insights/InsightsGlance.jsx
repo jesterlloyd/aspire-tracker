@@ -46,7 +46,7 @@ const SURFACES = {
   },
   unit: {
     title: 'ASPIRE Students on Your Unit',
-    sub: ({ scopeName }) => `Students ${scopeName || 'your unit'} hosts, and how many you hired back.`,
+    sub: ({ scopeName }) => `Students hosted on ${scopeName || 'your unit'}, and how many were hired back.`,
     tiles: [placedTile, completedTile, hiredTile, rotationTile],
     cards: data => [
       ['hosted', 'Students You Host', 'Placed students on your unit, next to the average unit.', 6, unitHostedCard(data)],
