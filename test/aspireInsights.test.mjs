@@ -360,12 +360,29 @@ async function call(query, d = deps()) {
   return res
 }
 
-test('API: a partner asking for another school gets their own', async () => {
+test('API: a partner sees their own school, and asking for another gets nothing', async () => {
+  const own = await call({ surface: 'partner' })
+  assert.equal(own.statusCode, 200)
+  assert.equal(own.body.viewer, 'partner')
+  assert.equal(own.body.tiles.hired.count, 5)
+  const named = await call({ surface: 'partner', school: 'Valley State' })
+  assert.equal(named.body.tiles.hired.count, 5)
+  // AP-HEADER-SCHOOL-1: an unheld school narrows to nothing (it used to fall back to their own).
   const res = await call({ surface: 'partner', school: 'Coast University' })
   assert.equal(res.statusCode, 200)
-  assert.equal(res.body.viewer, 'partner')
-  assert.equal(res.body.tiles.hired.count, 5)
+  assert.equal(res.body.tiles.placed.count, 0)
+  assert.equal(res.body.tiles.completed.count, 0)
   assert.ok(!JSON.stringify(res.body).includes('Coast University'))
+})
+
+test('API: an Owner preview of every school narrows to the header school', async () => {
+  const all = deps({ verifyPartner: async () => ({ ok: true, staffPreview: true, scopes: [
+    { school_key: 'Valley State', cohort_id: null }, { school_key: 'Coast University', cohort_id: null },
+  ] }) })
+  const both = await call({ surface: 'partner' }, all)
+  const one = await call({ surface: 'partner', school: 'Valley State' }, all)
+  assert.equal(one.body.tiles.hired.count, 5)
+  assert.ok(both.body.tiles.completed.count > one.body.tiles.completed.count)
 })
 
 test('API: a unit leader asking for a unit they do not hold gets nothing', async () => {

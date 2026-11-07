@@ -52,7 +52,12 @@ export async function resolveViewer(req, surface, deps = {}) {
   if (surface === 'partner') {
     const auth = await v.partner(req)
     if (!auth?.ok) return { ok: false, status: auth?.status || 401, reason: auth?.reason || 'unauthorized' }
-    const scopes = auth.scopes || []
+    // A partner (or an Owner/Admin preview, whose scope is every school) narrows to the school
+    // chosen in the portal header, exactly as the student table does. A school the grant does not
+    // hold narrows to nothing, never to that school.
+    const requested = String(req.query?.school || '').trim()
+    const held = auth.scopes || []
+    const scopes = requested ? held.filter(s => s.school_key === requested) : held
     return { ok: true, viewer: { kind: 'partner', inSchoolScope: (school, cohortId) => matchSchoolCohortScope(scopes, school, cohortId) } }
   }
   if (surface === 'unit') {

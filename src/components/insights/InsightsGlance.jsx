@@ -70,23 +70,24 @@ const SURFACES = {
  * @param {'partner'|'unit'|'residency'} surface
  * @param {string} [scopeName]  the school or unit named in the subtitle (the caller's own)
  * @param {string} [unit]       a Unit Leader narrowed to one of their units; the server checks it
+ * @param {string} [school]     an Academic Partner's header school; the server checks it
  */
-export default function InsightsGlance({ surface, scopeName = '', unit = '' }) {
+export default function InsightsGlance({ surface, scopeName = '', unit = '', school = '' }) {
   const cfg = SURFACES[surface]
   const { style } = useTheme()
   const classic = style !== 'modern'
   const [cohort, setCohort] = useState('')
   const [attempt, setAttempt] = useState(0)
-  const requestKey = `${surface}|${cohort}|${unit}|${attempt}`
+  const requestKey = `${surface}|${cohort}|${unit}|${school}|${attempt}`
   const [state, setState] = useState({ key: null, data: null, error: null })
 
   useEffect(() => {
     let live = true
-    fetchInsights(surface, cohort ? `?cohort=${encodeURIComponent(cohort)}` : '', { unit })
+    fetchInsights(surface, cohort ? `?cohort=${encodeURIComponent(cohort)}` : '', { unit, school })
       .then(data => { if (live) setState({ key: requestKey, data, error: null }) })
       .catch(error => { if (live) setState(s => ({ key: requestKey, data: s.data, error })) })
     return () => { live = false }
-  }, [surface, cohort, unit, requestKey])
+  }, [surface, cohort, unit, school, requestKey])
 
   if (!cfg) return null
   const data = state.data

@@ -367,9 +367,10 @@ function StudentsView({ onCommandPeople }) {
         </div>
       )}
 
-      {/* Below everything the page already shows. The server scopes it to this account's schools. */}
+      {/* Below everything the page already shows. The server scopes it to this account's schools
+          and narrows it to the school chosen in the header, as the table above is. */}
       <Suspense fallback={null}>
-        <InsightsGlance surface="partner" scopeName={schools.length === 1 ? school.school_key : ''} />
+        <InsightsGlance surface="partner" school={school?.school_key || ''} scopeName={school?.school_key || ''} />
       </Suspense>
     </div>
   )
