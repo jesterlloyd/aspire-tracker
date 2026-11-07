@@ -40,6 +40,7 @@ import { statusToken } from './unit/unitStageTokens'
 import { useUnitStudentPhotos } from './unit/useUnitStudentPhotos'
 import { sortUnitLeaderStudentsByName } from './unit/unitLeaderStudentSort'
 import { unitCohortOptions, studentInCohort, UL_ALL } from './unit/unitCohortScope'
+import { readPortalCohort, writePortalCohort } from '../lib/portalCohortMemory'
 import { deriveHoursCompletion } from './unit/hoursCompletion'
 import { useAuth } from '../contexts/AuthContext'
 import {
@@ -125,9 +126,10 @@ function useEndpoint(loader, deps) {
 }
 
 export default function UnitLeaderPortal({ view = 'home', onNavigate, threadId, onSelectThread, onBackToList, composeIntent = null, messagesEnabled = true, staffPreview = false, onCommandPeople, privateKinds = [] }) {
-  const { userProfile } = useAuth()
+  const { userProfile, user } = useAuth()
   const [unitKey, setUnitKey] = useState(ALL_UNITS)
-  const [cohortSel, setCohortSel] = useState(null)   // null => the resolved default (newest active)
+  // null => the cohort last chosen here (COHORT-NEWEST-1), else the resolved default (newest active)
+  const [cohortSel, setCohortSel] = useState(null)
 
   const roster = useEndpoint(getRoster, [])
   const preceptorRoster = useEndpoint(getUnitPreceptors, [])
@@ -171,7 +173,8 @@ export default function UnitLeaderPortal({ view = 'home', onNavigate, threadId, 
   const cohortView = UNIT_COHORT_SCOPED_VIEWS.includes(view)
   const { options: cohortOpts, defaultId: cohortDefault, currentIds: cohortCurrentIds, cohortCount } =
     useMemo(() => unitCohortOptions(students), [students])
-  const cohortId = cohortOpts.some(o => o.id === cohortSel) ? cohortSel : cohortDefault
+  const cohortRemembered = readPortalCohort(user?.id, 'unit')
+  const cohortId = [cohortSel, cohortRemembered].find(id => id && cohortOpts.some(o => o.id === id)) || cohortDefault
   const cohortScopedStudents = useMemo(
     () => (cohortView ? students.filter(s => studentInCohort(s, cohortId, cohortCurrentIds)) : students),
     [cohortView, students, cohortId, cohortCurrentIds],
@@ -243,7 +246,7 @@ export default function UnitLeaderPortal({ view = 'home', onNavigate, threadId, 
           {showCohortPicker && (
             <span className="ptl-header-ctl" data-portal-cohort-picker="true">
               <span className="ptl-header-ctl-label">Cohort</span>
-              <select aria-label="Cohort" value={cohortId} onChange={e => setCohortSel(e.target.value)}>
+              <select aria-label="Cohort" value={cohortId} onChange={e => { setCohortSel(e.target.value); writePortalCohort(user?.id, 'unit', e.target.value) }}>
                 {cohortOpts.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
               </select>
             </span>

@@ -35,6 +35,7 @@ import PreceptorList from './unit/PreceptorList'
 import { fmtShortDate } from './unit/unitLeaderApi'
 import { LoadingState, EmptyState, ErrorState, DeniedState } from './unit/UnitLeaderChrome'
 import { cohortOptions, inCohortScope, sortRoster } from './ap/academicPartnerRoster'
+import { readPortalCohort, writePortalCohort } from '../lib/portalCohortMemory'
 import { computeStatusCounts } from '../lib/derivations/cohortStatus'
 import { useSchoolStudentPhotos } from './ap/useSchoolStudentPhotos'
 import { useReportPortalFailure, ACCESS_FAILURE } from './portalAccessSignal'
@@ -214,7 +215,9 @@ function StudentsView({ onCommandPeople }) {
   const school = activeSchool
   const students = roster
   const { options, defaultId, currentIds } = cohortOptions(school.cohorts || [])
-  const cohortId = options.some(o => o.id === selectedCohortId) ? selectedCohortId : defaultId
+  // COHORT-NEWEST-1: a choice made now, else the cohort last chosen for this school, else the newest.
+  const remembered = readPortalCohort(user?.id, `ap:${school.school_key}`)
+  const cohortId = [selectedCohortId, remembered].find(id => id && options.some(o => o.id === id)) || defaultId
   const cohortLabel = options.find(o => o.id === cohortId)?.label || 'All Cohorts'
 
   const scoped = students.filter(s => inCohortScope(s, cohortId, currentIds))
@@ -274,7 +277,7 @@ function StudentsView({ onCommandPeople }) {
         )}
         <span className="ptl-header-ctl" data-portal-cohort-picker="true">
           <span className="ptl-header-ctl-label">Cohort</span>
-          <select aria-label="Cohort" value={cohortId} onChange={e => setSelectedCohortId(e.target.value)}>
+          <select aria-label="Cohort" value={cohortId} onChange={e => { setSelectedCohortId(e.target.value); writePortalCohort(user?.id, `ap:${school.school_key}`, e.target.value) }}>
             {options.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
           </select>
         </span>

@@ -174,6 +174,16 @@ export function orderCyclesForSelector(cycles) {
   })
 }
 
+// COHORT-NEWEST-1 (Owner, 2026-11-07): the Scope picker's residency list, newest first by the
+// same chronology (application opening, then residency start). Display only.
+export function orderCyclesNewestFirst(cycles) {
+  return [...(cycles || [])].sort((a, b) => {
+    const ka = cycleChronoKey(a)
+    const kb = cycleChronoKey(b)
+    return ka < kb ? 1 : ka > kb ? -1 : 0
+  })
+}
+
 // The effective selection: a still-valid saved selection is preserved; else
 // the active cycle; else the first of the ordered list. Pure, so the
 // preference restore is unit-testable.

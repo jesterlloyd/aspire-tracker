@@ -5,7 +5,7 @@
 // so the dropdown reads as one start-date timeline, matching the Academic Partner and main-app cohort
 // presentation. No React and no data fetching here, so this is unit-testable in isolation.
 
-import { orderCohortsByTimeline, cohortLifecycle, newestByStart } from '../../lib/derivations/cohortOrder.js'
+import { orderCohortsByTimeline, orderCohortsNewestFirst, cohortLifecycle, newestByStart } from '../../lib/derivations/cohortOrder.js'
 
 export const UL_ALL = 'all'
 export const UL_ALL_CURRENT = 'all-current'
@@ -25,7 +25,7 @@ export function rosterCohorts(students) {
 // id set, and the count of REAL cohorts present so the caller can hide the control when there is
 // nothing to choose between (a single-cohort unit gets no cosmetic picker).
 //   - "All Current Cohorts" only when more than one cohort is currently Active
-//   - each cohort in canonical start-date order
+//   - each cohort NEWEST FIRST by season and year (COHORT-NEWEST-1, Owner, 2026-11-07)
 //   - "All Cohorts" (the whole authorized 90-day window), always last
 // Default: the newest Active cohort; if none is Active, "All Cohorts".
 export function unitCohortOptions(students) {
@@ -33,7 +33,7 @@ export function unitCohortOptions(students) {
   const current = cohorts.filter(c => cohortLifecycle(c) === 'current')
   const options = []
   if (current.length > 1) options.push({ id: UL_ALL_CURRENT, label: 'All Current Cohorts' })
-  for (const c of cohorts) options.push({ id: c.id, label: c.name || 'Cohort' })
+  for (const c of orderCohortsNewestFirst(cohorts)) options.push({ id: c.id, label: c.name || 'Cohort' })
   options.push({ id: UL_ALL, label: 'All Cohorts' })
   const defaultId = current.length > 0 ? newestByStart(current).id : UL_ALL
   return { options, defaultId, currentIds: new Set(current.map(c => c.id)), cohortCount: cohorts.length }

@@ -130,25 +130,31 @@ test('the two pills became one, and the superseded components are retired', () =
 
 // ── 3. The fetch posture is unchanged ────────────────────────────────────────
 
-test('the picker never loads the other experience’s cohorts', () => {
-  // Because choosing an experience navigates immediately, the cohort pane only ever
-  // lists where the user already is. There is no preview, so nothing needs fetching
-  // for an experience the user is not in.
+test('residency cohorts load only for an authorized caller, in the workspace or once browsed to', () => {
+  // SCOPE-COMMIT-ON-COHORT-1 (Owner, 2026-11-07): the pane can now show the experience the user is
+  // NOT in, so residency cycles load when an authorized caller browses to Residency in the picker.
+  // Still gated on ngrpAllowed, and still not fetched for anyone who never asks.
   const app = read(APP)
-  assert.match(app, /useNgrpCycles\(\{ enabled: ngrpAllowed && activeTab === 'ngrp' \}\)/,
-    'residency cycles stay gated to the residency workspace')
-  assert.match(app, /residencyCohort=\{ngrpAllowed && activeTab === 'ngrp' \?/)
+  assert.match(app, /useNgrpCycles\(\{ enabled: ngrpAllowed && \(activeTab === 'ngrp' \|\| residencyBrowsed\) \}\)/,
+    'residency cycles stay gated to ngrp access and to asking for them')
+  assert.match(app, /residencyCohort=\{ngrpAllowed \?/)
+  assert.match(app, /onPreview: id => \{ if \(id === 'residency'\) setResidencyBrowsed\(true\) \}/)
   // The shell itself is presentational: it fetches nothing and knows no NGRP.
   const scope = strip(read(SCOPE))
   assert.doesNotMatch(scope, /supabase|useQuery|fetch\(/)
   assert.doesNotMatch(scope, /ngrp|Ngrp/i)
 })
 
-test('the experience choice commits immediately, as the old pill did', () => {
+test('choosing an experience changes only the pane; the cohort click switches', () => {
   const scope = read(SCOPE)
-  // SCOPE-STAY-OPEN-1 (this commit, Owner 2026-11-05): it no longer closes the picker, so the
-  // cohort pane shows the chosen experience's cohorts.
-  assert.match(scope, /onClick=\{\(\) => \{ if \(!isSel\) onSwitchExperience\(x\.id\) \}\}/)
+  // SCOPE-COMMIT-ON-COHORT-1 (Owner, 2026-11-07), replacing SCOPE-STAY-OPEN-1: the experience
+  // click navigates nowhere; it shows that experience's cohorts.
+  assert.match(scope, /onClick=\{\(\) => \{ setBrowsing\(x\.id\); onPreviewExperience\?\.\(x\.id\) \}\}/)
+  assert.doesNotMatch(scope, /onSwitchExperience/)
+  // A cohort in the other experience's list selects it and then switches.
+  const header = read('src/components/Header/Header.jsx')
+  assert.match(header, /cohort\.handleCohortSwitch\(id\)\s*\n\s*if \(inResidency\) experience\?\.onSwitch\('internship'\)/)
+  assert.match(header, /residencyCohort\.onSelectCycle\(id\)\s*\n\s*if \(!inResidency\) experience\?\.onSwitch\('residency'\)/)
   // RESIDENCY-LANDING-1 (this commit, Owner 2026-10-05): Residency always opens At a Glance;
   // Internship still restores its own last tab.
   const app = read(APP)

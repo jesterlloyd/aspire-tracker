@@ -393,7 +393,8 @@ test('ordering: a valid saved selection is preserved; otherwise active, then fir
   assert.equal(resolveSelectedCycle(cycles.filter(c => !c.is_active), null)?.id, 'c3', 'else the first ordered (open before completed)')
   assert.equal(resolveSelectedCycle([], 'x'), null)
   // App.jsx actually uses these helpers for the header picker.
-  assert.match(appJsx, /orderCyclesForSelector\(ngrpCyclesQuery\.cycles\)/)
+  // COHORT-NEWEST-1: the picker lists newest first; the default still reads resolveSelectedCycle.
+  assert.match(appJsx, /orderCyclesNewestFirst\(ngrpCyclesQuery\.cycles\)/)
   assert.match(appJsx, /resolveSelectedCycle\(ngrpCyclesQuery\.cycles, ngrpCyclePref\)/)
 })
 
@@ -514,7 +515,7 @@ test('header: the Scope picker offers Internship and Residency, in the right-sid
 })
 
 test('header: unauthorized users have no Residency option at all', () => {
-  assert.match(appJsx, /experience=\{ngrpAllowed \? \{ active: activeTab === 'ngrp' \? 'residency' : 'internship'/)
+  assert.match(appJsx, /experience=\{ngrpAllowed \? \{\s*active: activeTab === 'ngrp' \? 'residency' : 'internship'/)
   // Without the capability the experience list is Internship ALONE, so Residency is
   // not merely hidden behind a disabled row - it is absent from the offered set.
   assert.match(headerJsx, /experiences=\{hasResidency \? \[INTERNSHIP, RESIDENCY\] : \[INTERNSHIP\]\}/)
@@ -526,8 +527,10 @@ test('header: unauthorized users have no Residency option at all', () => {
 
 test('header: Residency swaps the cohort PANE, presented as COHORT; Internship keeps the ASPIRE list', () => {
   assert.match(headerJsx, /inResidency && residencyCohort/)
-  assert.match(headerJsx, /pane: <ResidencyCohortList \{\.\.\.residencyCohort\} \/>/)
-  assert.match(headerJsx, /pane: \(\s*\n\s*<InternshipCohortList/)
+  // SCOPE-COMMIT-ON-COHORT-1: both lists are built; the picker shows the one being browsed.
+  assert.match(headerJsx, /<ResidencyCohortList\s*\n\s*\{\.\.\.residencyCohort\}/)
+  assert.match(headerJsx, /const internshipPane = \(\s*\n\s*<InternshipCohortList/)
+  assert.match(headerJsx, /cohortPanes=\{\{ internship: internshipPane, residency: residencyPane \}\}/)
   // Eyebrow says Cohort, primary label is the cohort (cycle) name.
   assert.match(scopePicker, />Cohort</)
   assert.match(scopeLabels, /activeCycle\?\.name/)

@@ -7,20 +7,14 @@
 // includes them, and it is the default only when no cohort is currently Active.
 
 import { ASPIRE_STATUSES } from '../../lib/constants.js'
-import { orderCohortsByTimeline } from '../../lib/derivations/cohortOrder.js'
+import { orderCohortsByTimeline, orderCohortsNewestFirst, compareCohortsNewestFirst } from '../../lib/derivations/cohortOrder.js'
 
 export const AP_ALL_CURRENT = 'all-current'
 export const AP_ALL = 'all'
 
-// Newest first: start_date descending (missing dates sort last), then name ascending as a tiebreak.
-// Retained to resolve the "newest Active cohort" DEFAULT selection, which is independent of the option
-// list's timeline order (the list reads oldest→newest within each group).
-export function compareCohortNewest(a, b) {
-  const ad = a?.start_date || ''
-  const bd = b?.start_date || ''
-  if (ad !== bd) return ad < bd ? 1 : -1
-  return String(a?.name || '').localeCompare(String(b?.name || ''))
-}
+// Newest first by the season and year in the cohort's name (COHORT-NEWEST-1). Resolves the
+// "newest Active cohort" default and orders the picker.
+export const compareCohortNewest = compareCohortsNewestFirst
 
 // Split the CANONICAL, server-provided cohorts (school-scoped, independent of the roster) into the
 // Active subset, in canonical start-date order (orderCohortsByTimeline). This keeps open-but-empty
@@ -33,14 +27,15 @@ export function splitCohorts(cohorts) {
 // The Students cohort picker: options in order, the default option id, and the set of current cohort
 // ids. Consumes the canonical cohort list (school.cohorts from the endpoint), NOT the students.
 //   - "All Current Cohorts" only when more than one cohort is currently Active
-//   - each cohort in canonical start-date order, matching the main app
+//   - each cohort NEWEST FIRST by season and year (COHORT-NEWEST-1, Owner, 2026-11-07)
 //   - "All Cohorts" (includes historical), always last
-// Default: the newest Active cohort (start_date DESC); if none is Active, "All Cohorts".
+// Default: the newest Active cohort; if none is Active, "All Cohorts". A cohort the person chose
+// earlier wins over the default (the workspace remembers it, portalCohortMemory).
 export function cohortOptions(cohorts) {
-  const { cohorts: list, current } = splitCohorts(cohorts)
+  const { current } = splitCohorts(cohorts)
   const options = []
   if (current.length > 1) options.push({ id: AP_ALL_CURRENT, label: 'All Current Cohorts' })
-  for (const c of list) options.push({ id: c.id, label: c.name || 'Cohort' })
+  for (const c of orderCohortsNewestFirst(cohorts)) options.push({ id: c.id, label: c.name || 'Cohort' })
   options.push({ id: AP_ALL, label: 'All Cohorts' })
   const defaultId = current.length > 0 ? [...current].sort(compareCohortNewest)[0].id : AP_ALL
   return { options, defaultId, currentIds: new Set(current.map(c => c.id)) }

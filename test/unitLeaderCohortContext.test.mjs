@@ -37,7 +37,8 @@ test('rosterCohorts derives the DISTINCT cohorts present, in canonical timeline 
 test('options: All Current only with >1 current; cohorts timeline-ordered; All Cohorts last', () => {
   const { options, cohortCount } = unitCohortOptions(students)
   assert.equal(options[0].id, UL_ALL_CURRENT)                     // two Active cohorts -> aggregate leads
-  assert.deepEqual(options.slice(1).map(o => o.id), ['fall25', 'spring', 'summer', 'fall', UL_ALL])
+  // COHORT-NEWEST-1 (Owner, 2026-11-07): the picker lists cohorts newest first.
+  assert.deepEqual(options.slice(1).map(o => o.id), ['fall', 'summer', 'spring', 'fall25', UL_ALL])
   assert.equal(cohortCount, 4)
 })
 
@@ -60,12 +61,12 @@ test('a roster with no Active cohort defaults to All Cohorts (historical never h
   assert.equal(defaultId, UL_ALL)
 })
 
-test('completed Summer stays before Fall in the list while Active Fall becomes the login default', () => {
+test('newer Fall sits above completed Summer in the list, and Active Fall is the login default', () => {
   const completedSummer = { ...summer, status: 'Completed' }
   const activeFall = { ...fall, status: 'Active' }
   const roster = [{ id: 'a', cohort: activeFall }, { id: 'b', cohort: completedSummer }]
   const { options, defaultId } = unitCohortOptions(roster)
-  assert.deepEqual(options.map(o => o.id), ['summer', 'fall', UL_ALL])
+  assert.deepEqual(options.map(o => o.id), ['fall', 'summer', UL_ALL])   // COHORT-NEWEST-1
   assert.equal(defaultId, 'fall')
 })
 
@@ -85,7 +86,8 @@ test('the cohort picker lives in the Nightfall header, gated to Home/Students wi
   assert.match(portalCode, /const showCohortPicker = cohortView && cohortCount > 1/)
   assert.match(portal, /<span className="ptl-header-ctl-label">Cohort<\/span>/)
   assert.match(portal, /data-portal-cohort-picker="true"/)
-  assert.match(portal, /<select aria-label="Cohort" value=\{cohortId\} onChange=\{e => setCohortSel\(e\.target\.value\)\}>/)
+  // COHORT-NEWEST-1: the choice is also remembered for this account.
+  assert.match(portal, /<select aria-label="Cohort" value=\{cohortId\} onChange=\{e => \{ setCohortSel\(e\.target\.value\); writePortalCohort\(user\?\.id, 'unit', e\.target\.value\) \}\}>/)
   // It shares the one header-controls slot with the multi-unit selector (no second launcher).
   assert.equal((portal.match(/<PortalHeaderControls>/g) || []).length, 1)
 })

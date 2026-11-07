@@ -70,12 +70,12 @@ import { logActivity } from '../lib/logActivity'
 import { safeWrite } from '../lib/safeWrite'
 import { cleanupStudentFiles } from '../lib/studentFileClient'
 import { resolveNgrpPath, ngrpPath } from '../lib/ngrp/ngrpTabs'
-import { compareCohortsChrono } from '../lib/cohortSeason'
+import { compareCohortsNewestFirst } from '../lib/derivations/cohortOrder'
 import { canAccessNgrp, canManageNgrp, ngrpCycleStorageKey } from '../lib/ngrp/ngrpAccess'
 import {
   lastTabKey, lastNgrpTabKey, aspireCohortKey, LAST_AUTH_USER_KEY, consumeSignedOutMarker,
 } from '../lib/sessionKeys'
-import { orderCyclesForSelector, resolveSelectedCycle } from '../lib/ngrp/ngrpStates'
+import { orderCyclesNewestFirst, resolveSelectedCycle } from '../lib/ngrp/ngrpStates'
 import { setCohortPassword } from '../lib/cohortPassword'
 import { callAvailability } from '../lib/availabilityApi'
 import { useNgrpCycles } from '../lib/ngrp/useNgrpData'
@@ -749,8 +749,11 @@ function MainApp({ onLogout }) {
     }
   }, [activeTab, currentUserProfile]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Cycle list is fetched only inside the workspace, by an authorized caller.
-  const ngrpCyclesQuery = useNgrpCycles({ enabled: ngrpAllowed && activeTab === 'ngrp' })
+  // Cycle list is fetched by an authorized caller inside the workspace, or once they browse to
+  // Residency in the Scope picker (SCOPE-COMMIT-ON-COHORT-1), which lists its cohorts before any
+  // switch happens.
+  const [residencyBrowsed, setResidencyBrowsed] = useState(false)
+  const ngrpCyclesQuery = useNgrpCycles({ enabled: ngrpAllowed && (activeTab === 'ngrp' || residencyBrowsed) })
   // Per-authenticated-user cycle preference (never a browser-global key):
   // restore the saved cycle if it still exists, else the active cycle, else
   // the first configured one. Only an explicit selection writes.
@@ -762,7 +765,9 @@ function MainApp({ onLogout }) {
   })
   // Plan §3.2 selector order: active first, then planned/open chronologically,
   // then Completed/Archived; a still-valid saved selection is preserved.
-  const orderedNgrpCycles = orderCyclesForSelector(ngrpCyclesQuery.cycles)
+  // COHORT-NEWEST-1 (Owner, 2026-11-07): the picker lists them newest first by timeline. The
+  // default selection still reads orderCyclesForSelector (resolveSelectedCycle).
+  const orderedNgrpCycles = orderCyclesNewestFirst(ngrpCyclesQuery.cycles)
   const activeNgrpCycle = resolveSelectedCycle(ngrpCyclesQuery.cycles, ngrpCyclePref)
   const selectNgrpCycle = id => {
     setNgrpCyclePref(id)
@@ -1337,7 +1342,8 @@ function MainApp({ onLogout }) {
   // localeCompare cohorts.start_date, which is a free-text TEXT column holding
   // values like "May 4, 2026"; alphabetical order over those put Winter 2027
   // above Fall 2026. See lib/cohortSeason.js.
-  const sortedCohorts = [...cohorts].sort(compareCohortsChrono)
+  // COHORT-NEWEST-1 (Owner, 2026-11-07): newest first, so the most recent cohort is on top.
+  const sortedCohorts = [...cohorts].sort(compareCohortsNewestFirst)
 
   const runSearch = useCallback(async rawQ => {
     // S-26: a typed term never carries PostgREST filter syntax or LIKE wildcards into .or().
@@ -1535,8 +1541,12 @@ function MainApp({ onLogout }) {
              passed only while IN the residency workspace, so the cohort pane always
              describes where the user already is and residency cycles are still
              fetched only by an authorized caller inside that workspace. */
-          experience={ngrpAllowed ? { active: activeTab === 'ngrp' ? 'residency' : 'internship', onSwitch: switchExperience } : null}
-          residencyCohort={ngrpAllowed && activeTab === 'ngrp' ? {
+          experience={ngrpAllowed ? {
+            active: activeTab === 'ngrp' ? 'residency' : 'internship',
+            onSwitch: switchExperience,
+            onPreview: id => { if (id === 'residency') setResidencyBrowsed(true) },
+          } : null}
+          residencyCohort={ngrpAllowed ? {
             status: ngrpCyclesQuery.status,
             cycles: orderedNgrpCycles,
             activeCycle: activeNgrpCycle,

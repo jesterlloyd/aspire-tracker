@@ -3115,9 +3115,19 @@ is Owner-gated (checks in `db/audit/residency_hire_history_checks.sql`).
   (HIRE-PAST-COHORT-1 followed the record to its cohort, which landed on Summer 2026's empty "no
   ASPIRE cohorts" state.) The "N alumni hired through an earlier NGRP cycle are not listed" banner
   is gone; `excludedPriorHires` is still in the payload, unread.
-- **SCOPE-STAY-OPEN-1 (Owner, 2026-11-05).** Choosing Internship or Residency in the Scope picker
-  still navigates at once but keeps the picker OPEN, so the cohort pane shows that experience's
-  cohorts. The header is mounted once for the app, so the open state survives the navigation.
+- **SCOPE-COMMIT-ON-COHORT-1 (Owner, 2026-11-07), replacing SCOPE-STAY-OPEN-1.** Choosing Internship
+  or Residency in the Scope picker changes NOTHING on screen: it only turns the cohort pane into that
+  experience's cohorts. The switch happens on the cohort click (Header's panes: a cohort in the other
+  experience's list selects it, then `experience.onSwitch`). Residency cycles therefore load when an
+  authorized caller browses to Residency there (`residencyBrowsed`), not only inside the workspace.
+- **COHORT-NEWEST-1 (Owner, 2026-11-07).** Every cohort picker lists newest first: the staff Scope
+  picker (`compareCohortsNewestFirst`, `orderCyclesNewestFirst`) and the Academic Partner and Unit
+  Leader pickers (`orderCohortsNewestFirst`). Order is the season and year in the NAME
+  (`src/lib/derivations/cohortOrder.js` now reads `cohortChronoKey`), because `cohorts.start_date` is
+  free text in production ("May 4, 2026", "01/05/2026", blank) and ordering on it scrambled the
+  portals. A portal picker opens on the newest Active cohort unless the person chose another; that
+  choice is remembered per account and picker (`src/lib/portalCohortMemory.js`, `aspire:portalCohort:`).
+  The residency DEFAULT selection still reads `resolveSelectedCycle`.
 - **STUDENT-HIRE-READ-1 (Owner, 2026-11-05).** Student Profiles > Placement shows a Completed
   student's residency hire READ-ONLY (`src/components/student/ResidencyHireOnRecord.jsx`, words in
   `src/lib/ngrp/studentHireModel.js`): cohort, unit, CN I or GNT, current title, hire date, still

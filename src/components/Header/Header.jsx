@@ -39,17 +39,41 @@ export default function Header({ cohort, search, actions, experience, residencyC
   const activeExperience = experience?.active || 'internship'
   const inResidency = activeExperience === 'residency'
 
-  // The cohort half of the pill, and the pane beneath it, both describe the experience
-  // the user is ALREADY in. Nothing here reads the other experience's cohorts.
+  // The pill always describes the experience the user is IN. The panes are both lists, so the
+  // picker can show the other experience's cohorts without moving (SCOPE-COMMIT-ON-COHORT-1); a
+  // cohort clicked in the other experience's list selects it AND switches to that experience.
+  const internshipPane = (
+    <InternshipCohortList
+      cohorts={cohort.cohorts}
+      sortedCohorts={cohort.sortedCohorts}
+      activeCohort={cohort.activeCohort}
+      activeCohortId={cohort.activeCohortId}
+      onSelectCohort={id => {
+        cohort.handleCohortSwitch(id)
+        if (inResidency) experience?.onSwitch('internship')
+      }}
+      canEdit={cohort.canEdit}
+      onManageCohort={() => cohort.setShowManageCohort(true)}
+      onNewCohort={() => cohort.setShowNewCohort(true)}
+    />
+  )
+  const residencyPane = residencyCohort ? (
+    /* NGRP-PLANNING-2: the residency pane carries the same Edit/Add footer the ASPIRE
+       pane has. Its handlers and canManage arrive inside `residencyCohort`. */
+    <ResidencyCohortList
+      {...residencyCohort}
+      onSelectCycle={id => {
+        residencyCohort.onSelectCycle(id)
+        if (!inResidency) experience?.onSwitch('residency')
+      }}
+    />
+  ) : null
+
   const scope = inResidency && residencyCohort
     ? {
         cohortLabel: residencyCohortLabel(residencyCohort),
         cohortStatus: cohortDotStatus(residencyCohort.activeCycle),
         cohortLabelDimmed: residencyLabelIsState(residencyCohort),
-        /* NGRP-PLANNING-2: the residency pane now carries the same Edit/Add footer
-           the ASPIRE pane has. Its handlers and canManage arrive inside
-           `residencyCohort`, so the spread already passes them through. */
-        pane: <ResidencyCohortList {...residencyCohort} />,
       }
     : {
         cohortLabel: cohort.activeCohort?.name || 'Select cohort',
@@ -58,18 +82,6 @@ export default function Header({ cohort, search, actions, experience, residencyC
         cohortStatus: cohortDotStatus(cohort.activeCohort),
         cohortIsDemo: cohort.activeCohort?.is_demo === true,
         cohortLabelDimmed: !cohort.activeCohort,
-        pane: (
-          <InternshipCohortList
-            cohorts={cohort.cohorts}
-            sortedCohorts={cohort.sortedCohorts}
-            activeCohort={cohort.activeCohort}
-            activeCohortId={cohort.activeCohortId}
-            onSelectCohort={cohort.handleCohortSwitch}
-            canEdit={cohort.canEdit}
-            onManageCohort={() => cohort.setShowManageCohort(true)}
-            onNewCohort={() => cohort.setShowNewCohort(true)}
-          />
-        ),
       }
 
   return (
@@ -89,12 +101,12 @@ export default function Header({ cohort, search, actions, experience, residencyC
         <ScopePicker
           experiences={hasResidency ? [INTERNSHIP, RESIDENCY] : [INTERNSHIP]}
           activeExperience={activeExperience}
-          onSwitchExperience={experience?.onSwitch}
+          onPreviewExperience={experience?.onPreview}
           cohortLabel={scope.cohortLabel}
           cohortStatus={scope.cohortStatus}
           cohortIsDemo={scope.cohortIsDemo === true}
           cohortLabelDimmed={scope.cohortLabelDimmed}
-          cohortPane={scope.pane}
+          cohortPanes={{ internship: internshipPane, residency: residencyPane }}
         />
       )}
 

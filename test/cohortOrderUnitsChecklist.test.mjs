@@ -118,7 +118,8 @@ test('no cohort list reads the free-text date column for order or label', () => 
     assert.doesNotMatch(src, /start_date\.slice/, `${name} must not slice start_date`)
     assert.doesNotMatch(src, /c\.start_date/, `${name} must not read start_date at all`)
   }
-  assert.match(app, /const sortedCohorts = \[\.\.\.cohorts\]\.sort\(compareCohortsChrono\)/)
+  // COHORT-NEWEST-1 (Owner, 2026-11-07): newest first, by the name's season and year.
+  assert.match(app, /const sortedCohorts = \[\.\.\.cohorts\]\.sort\(compareCohortsNewestFirst\)/)
   assert.doesNotMatch(intList, /start_date\.slice/)
 })
 
@@ -326,8 +327,9 @@ test('the scope dropdown closes behind the dialog it just opened', () => {
   // the Edit and Add dialogs. ScopePicker owns the open state, so it is the one
   // that can hand the pane a way to close it.
   const scope = read('src/components/Header/scope/ScopePicker.jsx')
-  assert.match(scope, /cloneElement\(cohortPane, \{ onDone: \(\) => setOpen\(false\) \}\)/)
-  assert.match(scope, /isValidElement\(cohortPane\)/, 'a non-element pane still renders')
+  // SCOPE-COMMIT-ON-COHORT-1: one pane per experience; the shown one gets onDone.
+  assert.match(scope, /cloneElement\(pane, \{ key: shown, onDone: \(\) => setOpen\(false\) \}\)/)
+  assert.match(scope, /isValidElement\(pane\)/, 'a non-element pane still renders')
   for (const f of ['src/components/Header/scope/InternshipCohortList.jsx', 'src/components/Header/scope/ResidencyCohortList.jsx']) {
     assert.match(read(f), /onDone\?\.\(\)/, f)
   }

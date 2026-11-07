@@ -9,13 +9,13 @@
 //     is exactly what the old Experience pill did.
 //   COHORT filters. It changes what the current workspace is scoped to and moves you
 //     nowhere. Every ASPIRE query filters on the selected cohort.
-// SCOPE-STAY-OPEN-1 (Owner, 2026-11-05): choosing an experience keeps the picker OPEN, so the
-// cohort pane beside it turns into that experience's cohorts and the next click is the cohort.
-// The header is mounted once for the whole app, so the open state survives the navigation.
-// Because Experience commits immediately, the cohort pane only ever lists the
-// experience you are ALREADY in. There is no preview of the other side, so residency
-// cycles are still fetched only inside the residency workspace by an authorized
-// caller, exactly as NGRP-WORKSPACE-1 shipped it. Merging the pills did not widen that.
+// SCOPE-COMMIT-ON-COHORT-1 (Owner, 2026-11-07), replacing SCOPE-STAY-OPEN-1: choosing an
+// experience does NOTHING to the screen. It only turns the cohort pane beside it into that
+// experience's cohorts. The switch happens when a cohort is clicked: Internship > Winter 2027 to
+// Residency > Winter 2027 is pill, Residency, Winter 2027, and only the last click moves anything.
+// So the pane can list the experience you are NOT in, which means residency cycles are fetched
+// when an authorized caller browses to Residency here (onPreviewExperience), not only inside the
+// residency workspace. The caller is the same one NGRP-WORKSPACE-1 authorized; nothing widened.
 //
 // A dropdown, not a modal or drawer: changing cohort is the frequent act and stays one
 // click, and the existing .chart-cohort-dropdown treatment carries over rather than
@@ -35,7 +35,7 @@ function HeaderChevron() {
  * @param experiences        [{ id, label, sub }] - one entry when the caller holds no
  *                           residency access, so the pane is honest rather than absent
  * @param activeExperience   id of the current experience
- * @param onSwitchExperience (id) => void; navigates, and the picker stays open
+ * @param onPreviewExperience (id) => void; the pane now shows that experience (no navigation)
  * @param cohortLabel        the cohort half of the pill (may be a state, not a name)
  * @param cohortIsDemo       the selected cohort is the fabricated one; turns the status
  *                           light purple, which is how demo mode announces itself
@@ -43,19 +43,25 @@ function HeaderChevron() {
  *                           cohortStatusTone (SCOPE-DOT-1: Active green, Planning
  *                           yellow, Completed muted rose, otherwise neutral)
  * @param cohortLabelDimmed  the label is a state ("Cohorts unavailable"), not a choice
- * @param cohortPane         the cohort list for the CURRENT experience
+ * @param cohortPanes        { [experienceId]: element }, each experience's cohort list; a cohort
+ *                           click in a pane that is not the current experience switches to it
  */
 export default function ScopePicker({
   experiences = [],
   activeExperience,
-  onSwitchExperience,
+  onPreviewExperience,
   cohortLabel,
   cohortStatus = null,
   cohortIsDemo = false,
   cohortLabelDimmed = false,
-  cohortPane = null,
+  cohortPanes = {},
 }) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpenState] = useState(false)
+  // The experience whose cohorts the pane is showing; null means the current one. Every close
+  // forgets it, so the picker always reopens on where you are.
+  const [browsing, setBrowsing] = useState(null)
+  const setOpen = value => { setOpenState(value); if (!value) setBrowsing(null) }
+  const shown = browsing || activeExperience
   // DEMO-MODE-1: the demo cohort turns this light purple. See DEMO_TONE.
   const tone = cohortStatusTone(cohortStatus, cohortIsDemo)
   const areaRef = useRef(null)
@@ -91,7 +97,7 @@ export default function ScopePicker({
           data-tour="scope-switcher"
           aria-label="Change scope"
           aria-expanded={open}
-          onClick={() => setOpen(p => !p)}
+          onClick={() => setOpen(!open)}
           style={{
             display: 'flex', alignItems: 'center', gap: 8,
             background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.10)',
@@ -115,14 +121,14 @@ export default function ScopePicker({
             <div className="chart-scope-kicker">Experience</div>
             <div role="listbox" aria-label="Experience">
               {experiences.map(x => {
-                const isSel = x.id === activeExperience
+                const isSel = x.id === shown
                 return (
                   <button
                     key={x.id}
                     type="button"
                     role="option"
                     aria-selected={isSel}
-                    onClick={() => { if (!isSel) onSwitchExperience(x.id) }}
+                    onClick={() => { setBrowsing(x.id); onPreviewExperience?.(x.id) }}
                     style={{
                       display: 'block', width: '100%', textAlign: 'left', border: 'none',
                       fontFamily: 'Plus Jakarta Sans, sans-serif',
@@ -148,7 +154,10 @@ export default function ScopePicker({
                 dialog, and that dialog owns focus from the moment it mounts
                 (ModalShell restores it to the opener on close). Sending focus
                 back to the pill here would fight it. */}
-            {isValidElement(cohortPane) ? cloneElement(cohortPane, { onDone: () => setOpen(false) }) : cohortPane}
+            {(() => {
+              const pane = cohortPanes[shown] ?? null
+              return isValidElement(pane) ? cloneElement(pane, { key: shown, onDone: () => setOpen(false) }) : pane
+            })()}
           </div>
         </div>
       )}

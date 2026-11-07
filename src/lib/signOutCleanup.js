@@ -68,6 +68,7 @@ export const STORAGE_KEY_REGISTRY = Object.freeze([
   { prefix: 'aspire:lastActiveTab:', store: 'local', cls: 'keyed', holds: 'the staff tab (cleared for the leaving user by clearLastLocationOnSignOut)' },
   { prefix: 'aspire:lastNgrpTab:', store: 'local', cls: 'keyed', holds: 'the Residency sub-tab (cleared for the leaving user by clearLastLocationOnSignOut)' },
   { prefix: 'aspire:ngrpCycle:', store: 'local', cls: 'keyed', holds: 'the selected Residency cycle' },
+  { prefix: 'aspire:portalCohort:', store: 'local', cls: 'keyed', holds: 'the cohort last chosen in a portal\'s cohort picker, one id per picker (COHORT-NEWEST-1)' },
   { prefix: 'aspire:ui-preferences:', store: 'local', cls: 'keyed', holds: 'a cache of the account\'s Style and Color mode' },
   { prefix: 'aspire:demoMode:', store: 'local', cls: 'keyed', holds: 'this user\'s own demo mode choice' },
   { prefix: 'aspire.portal.desktopNotice.v1:', store: 'local', cls: 'keyed', holds: 'that this portal user dismissed the desktop notice' },

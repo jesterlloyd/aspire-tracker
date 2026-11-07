@@ -52,18 +52,19 @@ test('a Planning + Accepting cohort with ZERO student rows still appears as an o
 
 test('cohort options: All Current only with >1 current, cohorts in timeline order, All Cohorts last', () => {
   const { options, defaultId } = cohortOptions(canonicalCohorts)
-  assert.deepEqual(options.map(o => o.id), [AP_ALL_CURRENT, 'c-2025', 'c-2026a', 'c-2026b', 'c-fall-2026', AP_ALL])
+  // COHORT-NEWEST-1 (Owner, 2026-11-07): the picker lists cohorts newest first by season and year.
+  assert.deepEqual(options.map(o => o.id), [AP_ALL_CURRENT, 'c-fall-2026', 'c-2026b', 'c-2026a', 'c-2025', AP_ALL])
   assert.equal(options[0].label, 'All Current Cohorts')
   assert.equal(options.at(-1).label, 'All Cohorts')
   // Default is the NEWEST current (Active) cohort by start date (Summer 2026 > Spring 2026), not the
-  // Planning cohort and not All Current, even though the list now reads oldest-active first.
+  // Planning cohort and not All Current.
   assert.equal(defaultId, 'c-2026b')
 })
 
 test('with a single current cohort there is no All Current option, and it is the default', () => {
   const one = [c2026a, c2025]
   const { options, defaultId } = cohortOptions(one)
-  assert.deepEqual(options.map(o => o.id), ['c-2025', 'c-2026a', AP_ALL])   // no all-current
+  assert.deepEqual(options.map(o => o.id), ['c-2026a', 'c-2025', AP_ALL])   // no all-current; newest first (COHORT-NEWEST-1)
   assert.equal(defaultId, 'c-2026a')
 })
 

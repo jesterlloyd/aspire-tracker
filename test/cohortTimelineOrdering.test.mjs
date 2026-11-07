@@ -68,9 +68,10 @@ test('AP Students options: aggregates come after real cohorts; default is the ne
   const { options, defaultId } = cohortOptions([FALL, SUMMER, active2, FALL25])
   // With >1 Active, "All Current Cohorts" leads; real cohorts in timeline order; "All Cohorts" last.
   assert.equal(options[0].id, AP_ALL_CURRENT)
-  assert.deepEqual(options.slice(1).map(o => o.id), ['fall25', 'summer', 'a2', 'fall', AP_ALL])
-  // Newest Active by start date is 'a2' (2026-07 > 2026-06), even though it appears second in the list.
-  assert.equal(defaultId, 'a2')
+  // COHORT-NEWEST-1 (Owner, 2026-11-07): newest first by the season and year in the name; a name
+  // with neither ('Active Two') sorts after every named cohort, so the named Active one is newest.
+  assert.deepEqual(options.slice(1).map(o => o.id), ['fall', 'summer', 'fall25', 'a2', AP_ALL])
+  assert.equal(defaultId, 'summer')
 })
 
 test('AP Students options with a single Active cohort: no All-Current aggregate, default is that cohort', () => {
@@ -80,11 +81,11 @@ test('AP Students options with a single Active cohort: no All-Current aggregate,
   assert.equal(options[options.length - 1].id, AP_ALL)
 })
 
-test('completed Summer stays before Fall in the list while Active Fall becomes the login default', () => {
+test('newer Fall sits above completed Summer in the list, and Active Fall is the login default', () => {
   const completedSummer = { ...SUMMER, status: 'Completed' }
   const activeFall = { ...FALL, status: 'Active' }
   const { options, defaultId } = cohortOptions([activeFall, completedSummer])
-  assert.deepEqual(options.map(o => o.id), ['summer', 'fall', AP_ALL])
+  assert.deepEqual(options.map(o => o.id), ['fall', 'summer', AP_ALL])   // COHORT-NEWEST-1
   assert.equal(defaultId, 'fall')
 })
 
@@ -97,7 +98,7 @@ test('AP submission options are accepting-only, timeline-ordered, and never incl
 
 test('the Academic Partner roster and the Unit Leader cohort scope both consume the shared helper', () => {
   const roster = read('src/portal/ap/academicPartnerRoster.js')
-  assert.match(roster, /import \{ orderCohortsByTimeline \} from '\.\.\/\.\.\/lib\/derivations\/cohortOrder\.js'/)
+  assert.match(roster, /import \{ orderCohortsByTimeline, orderCohortsNewestFirst[^}]*\} from '\.\.\/\.\.\/lib\/derivations\/cohortOrder\.js'/)
   const ulScope = read('src/portal/unit/unitCohortScope.js')
   assert.match(ulScope, /from '\.\.\/\.\.\/lib\/derivations\/cohortOrder\.js'/)
 })
