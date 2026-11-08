@@ -27,7 +27,10 @@ const when = iso => {
 function seeCard(card) {
   const el = document.getElementById(`ins-${card}`)
   if (!el) return
-  el.scrollIntoView({ behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' })
+  // The app's header is pinned (.top-section), so land the card just below it, not under it.
+  const chrome = Math.max(0, document.querySelector('.top-section')?.getBoundingClientRect().bottom || 0)
+  const top = el.getBoundingClientRect().top + window.scrollY - chrome - 12
+  window.scrollTo({ top, behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
   el.classList.add('ins-flash')
   window.setTimeout(() => el.classList.remove('ins-flash'), 1600)
 }
