@@ -130,11 +130,13 @@ function unitViewFromPath(pathname) {
 
 // AP-PORTAL sections are real routes under /portal/ap, so back, forward, refresh, and a
 // pasted deep link all work. /portal (no section) resolves to Students, the default.
-const AP_SECTIONS = new Set(['students', 'placement-requests', 'messages'])
+const AP_SECTIONS = new Set(['students', 'placement-requests', 'forms', 'messages'])
 function apViewFromPath(pathname) {
   // Messages owns a thread sub-route (/portal/ap/messages/:threadId) so a thread deep link, back, and
   // forward all work, mirroring the Student/Unit Leader /portal/messages space.
   if (/^\/portal\/ap\/messages(\/|$)/.test(pathname)) return 'messages'
+  // AP-SCHOOL-FORMS-1: a form's builder and responses are sub-routes of Forms.
+  if (/^\/portal\/ap\/forms(\/|$)/.test(pathname)) return 'forms'
   const m = /^\/portal\/ap\/([^/]+)\/?$/.exec(pathname)
   if (m && AP_SECTIONS.has(m[1])) return m[1]
   return 'students'
@@ -329,6 +331,9 @@ export default function PortalApp() {
   const naLegacyPath = naLegacyConnectPath(location.pathname)
   useEffect(() => { if (naLegacyPath) navigate(naLegacyPath + location.search, { replace: true }) }, [naLegacyPath, location.search, navigate])
   const openApThread = useCallback((id) => navigate(`/portal/ap/messages/${id}`), [navigate])
+  const apForm = /^\/portal\/ap\/forms\/([0-9a-f-]{36})\/(edit|responses)\/?$/i.exec(location.pathname)
+  const openApForm = useCallback((id, mode) => navigate(`/portal/ap/forms/${id}/${mode}`), [navigate])
+  const apFormsList = useCallback(() => navigate('/portal/ap/forms'), [navigate])
   const apBackToList = useCallback(() => navigate('/portal/ap/messages'), [navigate])
   const openNaThread = useCallback((id) => navigate(`${NA_CONNECT_PATH}/messages/${id}`, { state: { from: naFrom } }), [navigate, naFrom])
   const naBackToList = useCallback(() => navigate(`${NA_CONNECT_PATH}/messages`, { state: { from: naFrom } }), [navigate, naFrom])
@@ -897,7 +902,8 @@ export default function PortalApp() {
           <AcademicPartnerPortal view={apView} onNavigate={goApSection} schoolKeys={access?.school_keys || []}
             messagesEnabled={apMessagesEnabled}
             onCommandPeople={setCommandPeople}
-            threadId={apThreadId} onSelectThread={openApThread} onBackToList={apBackToList} />
+            threadId={apThreadId} onSelectThread={openApThread} onBackToList={apBackToList}
+            formId={apForm?.[1] || null} formMode={apForm?.[2] || 'list'} onOpenForm={openApForm} onFormsList={apFormsList} />
         </Suspense>
         {!staffPreview && photoDialog}
         {!staffPreview && cohortLoginHint}

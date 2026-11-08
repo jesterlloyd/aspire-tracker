@@ -255,7 +255,13 @@ test('the forms engine is only ever handed a mailer built by createMailer', () =
       if (/forms\/engine\.js['"]/.test(readFileSync(file, 'utf8'))) importers.push(relative(root, file))
     }
   }
-  assert.deepEqual(importers.sort(), callers.map(c => join(...c.split('/'))).sort())
+  // AP-SCHOOL-FORMS-1: the school endpoint sends through form-staff's own act (createMailer). It and
+  // schoolForms.js import only FormError and the definition helpers from the engine, never a mailer.
+  const schoolSide = ['api/portal/school-forms.js', 'lib/server/forms/schoolForms.js']
+  // (schoolForms.js sits beside the engine and imports './engine.js', which this sweep does not name.)
+  assert.deepEqual(importers.sort(), [...callers, schoolSide[0]].map(c => join(...c.split('/'))).sort())
+  for (const rel of schoolSide) assert.doesNotMatch(readFileSync(join(root, rel), 'utf8'), /mailer|new Resend/i, rel)
+  assert.match(readFileSync(join(root, 'api/portal/school-forms.js'), 'utf8'), /import \{ act \} from '\.\.\/form-staff\.js'/)
 })
 
 // NGRP-INTERVIEWS-1 Phase 4: the interview schedule sends its notices through the mailer the

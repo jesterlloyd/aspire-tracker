@@ -46,7 +46,8 @@ test('the Academic Partner roster carries the shared columns in the shared order
   // Each column reads the endpoint field that feeds it.
   assert.match(ap, /<StatusPill status=\{s\.status\} \/>/)
   assert.match(ap, /s\.rotation \? `\$\{fmtShortDate\(s\.rotation\.start\)\} to \$\{fmtShortDate\(s\.rotation\.end\)\}`/)
-  assert.match(ap, /\{s\.unit_name \|\| <span className="ptl-muted">Not yet assigned<\/span>\}/)
+  // AP-UNIT-NAMES-1: a school reads the unit's plain name (unitPublicName), never the code.
+  assert.match(ap, /\{s\.unit_name \? unitPublicName\(s\.unit_name\) : <span className="ptl-muted">Not yet assigned<\/span>\}/)
   assert.match(ap, /\{s\.shift_assigned \|\| <span className="ptl-muted">Not set<\/span>\}/)
   assert.match(ap, /<PreceptorList assignments=\{s\.preceptors\} fallbackName=\{s\.preceptor_name\}/)
   assert.match(ap, /import PreceptorList from '\.\/unit\/PreceptorList'/)

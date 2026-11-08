@@ -49,6 +49,8 @@ const EMPTY_ROSTER = []
 // ASPIRE-INSIGHTS-1 Phase 2b: the outcomes section, its own chunk so the roster never waits on it.
 // AP-STUDENT-RECORDS-1: a row opens the student's record (profile, corrections, clearance).
 const SchoolStudentDrawer = lazyReload(() => import('./ap/SchoolStudentDrawer'), 'SchoolStudentDrawer')
+// AP-SCHOOL-FORMS-1: the school's own forms, the staff form screens in their own chunk.
+const SchoolForms = lazyReload(() => import('./ap/SchoolForms'), 'SchoolForms')
 const InsightsGlance = lazyReload(() => import('../components/insights/InsightsGlance'), 'InsightsGlance')
 
 const displayName = (s) => `${s.preferred_first_name || s.first_name || ''} ${s.last_name || ''}`.trim()
@@ -79,7 +81,14 @@ function ApHoursCell({ hours }) {
 // reply, and Refresh integration. Enablement is the SERVER capability passed as messagesEnabled (env
 // flag AND applied DB migration), never a client constant; until the server reports enabled, Messages
 // shows an honest prepared state (no workspace, no polling) and no lower-right launcher mounts.
-export default function AcademicPartnerPortal({ view = 'students', onNavigate, messagesEnabled = false, threadId, onSelectThread, onBackToList, onCommandPeople }) {
+export default function AcademicPartnerPortal({ view = 'students', onNavigate, messagesEnabled = false, threadId, onSelectThread, onBackToList, onCommandPeople, formId = null, formMode = 'list', onOpenForm, onFormsList }) {
+  if (view === 'forms') {
+    return (
+      <Suspense fallback={<LoadingState label="Loading your forms" />}>
+        <SchoolForms formId={formId} mode={formMode} onOpen={onOpenForm} onList={onFormsList} />
+      </Suspense>
+    )
+  }
   if (view === 'placement-requests') {
     return <PlacementRequestsView onNavigate={onNavigate} />
   }

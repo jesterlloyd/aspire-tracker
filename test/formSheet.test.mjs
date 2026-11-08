@@ -120,7 +120,7 @@ test('Responses has People and Sheet; Build a form can add a category', () => {
   assert.match(r, /<SegmentedPicker ariaLabel="View"/)
   assert.match(r, /label: 'People'/); assert.match(r, /value: 'sheet', label: 'Answers'/) /* FORMS-ANSWERS-TAB-1: the tab reads Answers; the key stays 'sheet' */; assert.match(r, /label: 'Summary'/)
   assert.match(r, /<FormSheet formId=\{form\.id\}/)
-  assert.match(r, /\{view === 'people' && \(\s*<button[^>]*remind_overdue|\{view === 'people' && \(/, 'Remind all overdue belongs to People')
+  assert.match(r, /\{view === 'people' && !readOnly && \(/ /* AP-SCHOOL-FORMS-1: a read-only preview reminds no one */, 'Remind all overdue belongs to People')
   // EXPORT-ONE-1 (the commit that retired Download CSV): one export, Export to Excel, in the
   // same navy download button; on the Sheet it exports the Sheet's view.
   assert.match(r, /<Download size=\{16\} aria-hidden="true" \/> \{exporting \? 'Exporting…' : 'Export to Excel'\}/)

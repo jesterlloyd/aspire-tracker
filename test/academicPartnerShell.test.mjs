@@ -25,11 +25,11 @@ test('the Academic Partner branch renders the shared Nightfall shell', () => {
   assert.match(apBranch, /headerVariant="nightfall" logoSrc="\/cs-logo-large\.png"/)
   assert.match(apBranch, /publicSiteUrl="https:\/\/aspireintelligence\.app"/)
   assert.match(apBranch, /nav=\{<AcademicPartnerNav view=\{apView\} onNavigate=\{goApSection\} \/>\}/)
-  assert.match(apBranch, /<AcademicPartnerPortal view=\{apView\} onNavigate=\{goApSection\} schoolKeys=\{access\?\.school_keys \|\| \[\]\}[\s\S]*?threadId=\{apThreadId\} onSelectThread=\{openApThread\} onBackToList=\{apBackToList\} \/>/)
+  assert.match(apBranch, /<AcademicPartnerPortal view=\{apView\} onNavigate=\{goApSection\} schoolKeys=\{access\?\.school_keys \|\| \[\]\}[\s\S]*?threadId=\{apThreadId\} onSelectThread=\{openApThread\} onBackToList=\{apBackToList\}\s+formId=\{apForm\?\.\[1\] \|\| null\} formMode=\{apForm\?\.\[2\] \|\| 'list'\} onOpenForm=\{openApForm\} onFormsList=\{apFormsList\} \/>/) // AP-SCHOOL-FORMS-1 added the form route props
 })
 
 test('the three sections are stable URL routes; /portal resolves to Students', () => {
-  assert.match(app, /const AP_SECTIONS = new Set\(\['students', 'placement-requests', 'messages'\]\)/)
+  assert.match(app, /const AP_SECTIONS = new Set\(\['students', 'placement-requests', 'forms', 'messages'\]\)/) // AP-SCHOOL-FORMS-1 added Forms
   // apViewFromPath: a valid /portal/ap/<section> resolves to that section, else Students (default).
   assert.match(app, /function apViewFromPath\(pathname\) \{[\s\S]*?return 'students'\s*\n\}/)
   assert.match(app, /const apView = apViewFromPath\(location\.pathname\)/)
@@ -57,7 +57,7 @@ test('AcademicPartnerNav is exactly At a Glance, Placement Requests, Messages', 
 test('the three sections route: Students roster, Placement Requests workspace, Messages prepared', () => {
   const code = stripJs(portal)
   // 7bab66f5 (Unify staff and portal command search) added onCommandPeople: the roster feeds the header search.
-  assert.match(portal, /export default function AcademicPartnerPortal\(\{ view = 'students', onNavigate, messagesEnabled = false, threadId, onSelectThread, onBackToList, onCommandPeople \}\)/)
+  assert.match(portal, /export default function AcademicPartnerPortal\(\{ view = 'students', onNavigate, messagesEnabled = false, threadId, onSelectThread, onBackToList, onCommandPeople, formId = null, formMode = 'list', onOpenForm, onFormsList \}\)/) // AP-SCHOOL-FORMS-1
   assert.match(portal, /if \(view === 'placement-requests'\)/)
   assert.match(portal, /if \(view === 'messages'\)/)
   // Placement Requests is now the live workspace; Messages stays an honest prepared state.

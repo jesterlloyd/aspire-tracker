@@ -10,19 +10,20 @@
 // out, so the text IS the table view. Numbers and dates are stat tiles, not charts.
 import { useEffect, useState } from 'react'
 import { formatDate } from '../../lib/forms/formModel'
-import { formStaff } from './formsApi'
+import { useFormsApi } from './formsApi'
 
 const pct = (n, of) => (of ? Math.round((n / of) * 100) : 0)
 const num = (x) => (Number.isInteger(x) ? String(x) : x.toFixed(1))
 
 export default function FormSummary({ formId, onSheet }) {
+  const { call: formStaff } = useFormsApi()
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
   useEffect(() => {
     let live = true
     formStaff('sheet', { id: formId }).then(r => { if (live) setData(r) }).catch(e => { if (live) setError(e.message) })
     return () => { live = false }
-  }, [formId])
+  }, [formId, formStaff])
 
   if (error) return <p className="fm-err" role="alert">{error}</p>
   if (!data) return <p className="fm-hint">Loading the summary…</p>

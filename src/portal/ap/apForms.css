@@ -1,0 +1,56 @@
+/* AP-SCHOOL-FORMS-1 (Owner, 2026-11-08): Academic Partner Portal > Forms. The builder, tracker,
+   Answers and Summary are the staff Catalog's form screens (forms.css), which read the Catalog's
+   --ctl-* tokens from their host. This is their fourth host, with the values .ngrp-sheet gives them
+   (theme-aware; the two fixed pairs redefined for dark). Only the list and the dialogs are drawn here. */
+.ap-forms {
+  --ctl-surface: var(--color-bg-surface); --ctl-surface-2: var(--color-bg-hover); --ctl-ink: var(--text-heading);
+  --ctl-muted: var(--text-caption); --ctl-faint: var(--text-caption); --ctl-line: var(--color-border-default);
+  --ctl-line-2: var(--color-border-subtle); --ctl-navy: var(--color-accent-primary); --ctl-navy-bar: var(--aspire-navy);
+  --ctl-navy-soft: #EDF1FA; --ctl-on-navy: #FFFFFF; --ctl-green: var(--aspire-ok); --ctl-amber: var(--aspire-warn);
+  --ctl-amber-soft: var(--aspire-warn-soft); --ctl-red: var(--aspire-bad); --ctl-mono: var(--aspire-mono);
+  display: flex; flex-direction: column; gap: var(--aspire-gap-card); min-width: 0;
+}
+[data-theme="dark"] .ap-forms { --ctl-navy-soft: #1E2540; --ctl-on-navy: #0E111C; }
+
+.apf-empty { display: grid; gap: 6px; padding: 28px 24px; text-align: center; }
+.apf-empty-title { margin: 0; font-size: 15px; font-weight: 700; color: var(--text-heading); }
+.apf-table td small { display: block; }
+.apf-open {
+  padding: 0; border: 0; background: none; cursor: pointer; text-align: left;
+  font: inherit; font-weight: 700; color: var(--ctl-navy);
+}
+.apf-open:hover { text-decoration: underline; }
+.apf-open:focus-visible { outline: var(--aspire-focus-ring); outline-offset: 2px; }
+.apf-acts { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
+
+.apf-dialog { color: var(--ctl-ink); }
+.apf-dialog-title { margin: 0; font-size: 17px; font-weight: 700; color: var(--ctl-ink); }
+.apf-field { display: grid; gap: 5px; font-size: 12.5px; font-weight: 600; color: var(--ctl-muted); }
+.apf-field input, .apf-field select, .apf-field textarea, .apf-search {
+  font: inherit; font-size: 13.5px; font-weight: 400; color: var(--ctl-ink); background: var(--color-bg-input, var(--ctl-surface));
+  border: 1px solid var(--ctl-line); border-radius: var(--aspire-radius-control); padding: 8px 10px; min-width: 0;
+}
+.apf-dialog-acts { display: flex; justify-content: flex-end; gap: 8px; }
+
+.apf-send { width: min(620px, 100%); }
+.apf-send-bar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.apf-search { flex: 1 1 220px; }
+.apf-all { display: inline-flex; gap: 6px; align-items: center; font-size: 12.5px; color: var(--ctl-muted); }
+.apf-people {
+  list-style: none; margin: 0; padding: 4px 0; max-height: 300px; overflow: auto;
+  border: 1px solid var(--ctl-line-2); border-radius: var(--aspire-radius-control);
+}
+.apf-people li > label { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 7px 12px; font-size: 13.5px; cursor: pointer; }
+.apf-people li > label:hover { background: var(--ctl-surface-2); }
+.apf-people small { font-size: 12px; color: var(--ctl-muted); }
+.apf-people .apf-disabled { cursor: not-allowed; color: var(--ctl-muted); }
+.apf-people .fm-hint { padding: 10px 12px; }
+.apf-send-opts { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+
+.apf-toast {
+  position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 700; max-width: min(560px, calc(100vw - 32px));
+  padding: 10px 16px; border-radius: var(--aspire-radius-control); box-shadow: var(--shadow-elevated, 0 8px 24px rgba(0, 0, 0, 0.18));
+  background: var(--aspire-navy); color: #FFFFFF; font-size: 13.5px;
+}
+.apf-toast-err { background: var(--aspire-bad); }
+@media (max-width: 760px) { .apf-toast { bottom: 84px; } }

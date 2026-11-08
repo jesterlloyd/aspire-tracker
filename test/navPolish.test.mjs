@@ -51,7 +51,9 @@ test('one breadcrumb: parents are buttons, the page is aria-current, the separat
 
 test('the forms trail is Catalog / Forms / <form> (/ Responses), and Forms opens the Forms shelf', () => {
   const responses = read('src/components/forms/FormResponses.jsx')
-  assert.match(responses, /\{ label: 'Forms', onClick: onForms \},\s*\{ label: form\.draft\?\.title \|\| 'Form', onClick: onEdit \},\s*\{ label: 'Responses' \},/)
+  // AP-SCHOOL-FORMS-1: the trail's root and list come from FormsApiContext; the Catalog's are Catalog / Forms.
+  assert.match(responses, /\{ label: crumbs\.root, onClick: onBack \},\s*\.\.\.\(crumbs\.list \? \[\{ label: crumbs\.list, onClick: onForms \}\] : \[\]\),\s*\{ label: form\.draft\?\.title \|\| 'Form', onClick: onEdit \},\s*\{ label: 'Responses' \},/)
+  assert.match(read('src/components/forms/formsApi.js'), /crumbs: \{ root: 'Catalog', list: 'Forms' \}/)
   assert.match(read('src/components/forms/FormsScreen.jsx'), /const toForms = \(\) => navigate\('\/catalog\?view=forms'\)/)
   const catalog = read('src/components/catalog/CatalogPage.jsx')
   assert.match(catalog, /get\('view'\) === 'forms'\) setView\(\{ type: 'form', category: null, track: null \}\)/)

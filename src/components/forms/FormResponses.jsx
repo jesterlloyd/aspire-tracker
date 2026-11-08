@@ -8,7 +8,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { assignmentState, takesAnswer, answerText } from '../../lib/forms/formModel'
 import { completionStats, progressLabel } from '../../lib/catalog/catalogModel'
-import { formStaff, downloadSheetXlsx } from './formsApi'
+import { useFormsApi, downloadSheetXlsx } from './formsApi'
 import FormSheet from './FormSheet'
 import FormSummary from './FormSummary'
 import SegmentedPicker from '../shared/SegmentedPicker'
@@ -20,7 +20,10 @@ const WORD = { submitted: 'Submitted', overdue: 'Overdue', opened: 'Opened', sen
 const FILTERS = [['all', 'Everyone'], ['submitted', 'Submitted'], ['overdue', 'Overdue'], ['opened', 'Opened'], ['sent', 'Not opened'], ['closed', 'Closed']]
 const short = (iso) => iso ? new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''
 
-export default function FormResponses({ formId, notify, onBack, onForms, onEdit }) {
+export default function FormResponses({ formId, notify, onBack, onForms, onEdit, onSend, reloadKey = 0 }) {
+  // AP-SCHOOL-FORMS-1: the same tracker serves the staff Catalog and a school's own forms. A school
+  // sends from here (onSend); staff send from the Catalog. A staff preview of a school's form reads only.
+  const { call: formStaff, school, readOnly, crumbs } = useFormsApi()
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
   const [filter, setFilter] = useState('all')
@@ -31,8 +34,8 @@ export default function FormResponses({ formId, notify, onBack, onForms, onEdit 
 
   const load = useCallback(async () => {
     try { setData(await formStaff('assignments', { id: formId })); setError(null) } catch (e) { setError(e.message) }
-  }, [formId])
-  useEffect(() => { load() }, [load])
+  }, [formId, formStaff])
+  useEffect(() => { load() }, [load, reloadKey])
 
   const rows = useMemo(() => (data?.assignments || []).map(a => ({ ...a, state: assignmentState(a) })), [data])
   const counts = useMemo(() => { const c = { all: rows.length }; for (const r of rows) c[r.state] = (c[r.state] || 0) + 1; return c }, [rows])
@@ -51,7 +54,7 @@ export default function FormResponses({ formId, notify, onBack, onForms, onEdit 
   const [exporting, setExporting] = useState(false)
   const exportExcel = async () => {
     setExporting(true)
-    try { await downloadSheetXlsx(form.id, view === 'sheet' && sheetView.current ? sheetView.current() : {}) }
+    try { await downloadSheetXlsx(form.id, view === 'sheet' && sheetView.current ? sheetView.current() : {}, formStaff) }
     catch (e) { notify?.(e.message, 'err') } finally { setExporting(false) }
   }
 
@@ -65,7 +68,7 @@ export default function FormResponses({ formId, notify, onBack, onForms, onEdit 
     catch (e) { setOpen(null); notify?.(e.message, 'err') }
   }
 
-  if (error) return <div className="fm"><p className="fm-err" role="alert">{error}</p><BackButton label="Back to Catalog" onClick={onBack} /></div>
+  if (error) return <div className="fm"><p className="fm-err" role="alert">{error}</p><BackButton label={`Back to ${crumbs.root}`} onClick={onBack} /></div>
   if (!data) return <div className="fm"><p className="fm-hint">Loading responses…</p></div>
   const form = data.form
 
@@ -74,17 +77,18 @@ export default function FormResponses({ formId, notify, onBack, onForms, onEdit 
       <div className="fm-head">
         <div>
           <Breadcrumb className="fm-crumb" items={[
-            { label: 'Catalog', onClick: onBack },
-            { label: 'Forms', onClick: onForms },
+            { label: crumbs.root, onClick: onBack },
+            ...(crumbs.list ? [{ label: crumbs.list, onClick: onForms }] : []),
             { label: form.draft?.title || 'Form', onClick: onEdit },
             { label: 'Responses' },
           ]} />
           <h1>{form.draft?.title} <span className="fm-tag">Responses</span></h1>
-          <p className="fm-save">{rows.length ? progressLabel('form', stats) : 'Nothing has been sent yet. Send it from the Catalog.'}</p>
+          <p className="fm-save">{rows.length ? progressLabel('form', stats) : school ? 'Nothing has been sent yet.' : 'Nothing has been sent yet. Send it from the Catalog.'}</p>
         </div>
         <div className="fm-row">
-          <button type="button" className="fm-btn" onClick={onEdit}>Edit form</button>
-          {view === 'people' && (
+          <button type="button" className="fm-btn" onClick={onEdit}>{readOnly ? 'View form' : 'Edit form'}</button>
+          {onSend && !readOnly && form.current_version > 0 && <button type="button" className="fm-btn" onClick={onSend}>Send to students</button>}
+          {view === 'people' && !readOnly && (
             <button type="button" className="fm-btn" disabled={busy || !counts.overdue}
               onClick={() => act(() => formStaff('remind_overdue', { id: form.id }), (o) => `Reminders sent to ${o.reminded} ${o.reminded === 1 ? 'person' : 'people'}.`)}>
               Remind all overdue{counts.overdue ? ` (${counts.overdue})` : ''}</button>
@@ -113,7 +117,7 @@ export default function FormResponses({ formId, notify, onBack, onForms, onEdit 
         {FILTERS.map(([k, l]) => <button key={k} type="button" className="fm-chip" aria-pressed={filter === k} onClick={() => setFilter(k)}>{l}<b>{counts[k] || 0}</b></button>)}
       </div>
 
-      {picked.size > 0 && (
+      {picked.size > 0 && !readOnly && (
         <div className="fm-sel" role="status">
           <span>{picked.size} selected</span>
           <button type="button" className="fm-btn fm-sm" disabled={busy || !remindable.length}
@@ -134,7 +138,7 @@ export default function FormResponses({ formId, notify, onBack, onForms, onEdit 
             {!shown.length && <tr><td colSpan={7} className="fm-emptycell">{rows.length ? 'No one in this group.' : 'No one yet.'}</td></tr>}
             {shown.map(a => (
               <tr key={a.id}>
-                <td className="fm-cb">{['sent', 'opened', 'overdue'].includes(a.state) && (
+                <td className="fm-cb">{!readOnly && ['sent', 'opened', 'overdue'].includes(a.state) && (
                   <input type="checkbox" aria-label={`Select ${a.name}`} checked={picked.has(a.id)} onChange={e => setPicked(p => { const n = new Set(p); if (e.target.checked) n.add(a.id); else n.delete(a.id); return n })} />
                 )}</td>
                 <td><b>{a.name}</b><small>{a.email}{a.school_name ? ` · ${a.school_name}` : ''}</small></td>
@@ -144,7 +148,7 @@ export default function FormResponses({ formId, notify, onBack, onForms, onEdit 
                 <td>{short(a.submitted_at) || '-'}{a.form_version !== form.current_version ? <small>version {a.form_version}</small> : null}
                   {a.forward && (a.forward.ok
                     ? <small>Sent to {a.forward.to}</small>
-                    : <small className="fm-warn">Not sent to {a.forward.to} <button type="button" className="fm-link" onClick={() => resend(a)}>Resend</button></small>)}</td>
+                    : <small className="fm-warn">Not sent to {a.forward.to} {!school && <button type="button" className="fm-link" onClick={() => resend(a)}>Resend</button>}</small>)}</td>
                 <td>{a.state === 'submitted' && <button type="button" className="fm-btn fm-sm" onClick={() => openAnswer(a)}>View</button>}</td>
               </tr>
             ))}

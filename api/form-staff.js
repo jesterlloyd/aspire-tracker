@@ -42,6 +42,7 @@ import {
 import { assignableCategorySlugs } from './lib/catalogCategories.js'
 import { assignmentState } from '../src/lib/forms/formModel.js'
 import { peopleFor } from '../lib/server/forms/people.js'
+import { refuseSchoolFormWrite } from '../lib/server/forms/schoolForms.js'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const ASSIGNMENT_COLS = 'id, form_id, form_version, catalog_resource_id, batch_id, audience_label, student_id, contact_id, school_name, name, email, status, due_at, reminder_rule, sender_name, sent_at, opened_at, submitted_at, closed_at, voided_at, last_reminded_at, reminder_count, delivery_ok, created_at'
@@ -66,6 +67,9 @@ export default async function handler(req, res) {
   const body = (req.body && typeof req.body === 'object') ? req.body : {}
   try {
     const profile = await caller(req, db)
+    // AP-SCHOOL-FORMS-1: a school's form is read through the Academic Partner portal and
+    // changed only by the school; this endpoint never writes to one.
+    await refuseSchoolFormWrite(db, body)
     const out = await act(db, body, { profile, isDemo: populationOf(req) })
     if (out && out.__csv) {
       res.setHeader('Content-Type', 'text/csv; charset=utf-8')
@@ -84,7 +88,9 @@ export default async function handler(req, res) {
 const needUuid = (v, what = 'id') => { if (!UUID.test(String(v || ''))) throw new FormError('invalid', `Missing ${what}.`) }
 const idList = (v) => (Array.isArray(v) ? v : []).filter(x => UUID.test(String(x))).slice(0, 500)
 
-async function act(db, body, { profile, isDemo }) {
+// AP-SCHOOL-FORMS-1: exported so api/portal/school-forms.js can run the same actions once
+// lib/server/forms/schoolForms.js has proved the form is the calling school's.
+export async function act(db, body, { profile, isDemo }) {
   const appUrl = appBaseUrl()
   switch (body.action) {
     case 'status': {

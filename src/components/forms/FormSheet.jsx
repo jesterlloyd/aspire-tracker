@@ -18,7 +18,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Paperclip } from 'lucide-react'
 import { CORRECTABLE_TYPES } from '../../lib/forms/formModel'
-import { formStaff } from './formsApi'
+import { useFormsApi } from './formsApi'
 import EditableSheet from '../sheet/EditableSheet'
 
 const LEAD = { key: '@name', label: 'Name' }
@@ -59,6 +59,7 @@ const LABELS = {
 }
 
 export default function FormSheet({ formId, onOpen, notify, viewRef }) {
+  const { call: formStaff, readOnly } = useFormsApi()
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
   const loads = useRef(0)
@@ -69,7 +70,7 @@ export default function FormSheet({ formId, onOpen, notify, viewRef }) {
     formStaff('sheet', { id: formId }).then(r => { if (live) setData({ ...r, load: ++loads.current }) })
       .catch(e => { if (live) setError(e.message) })
     return () => { live = false }
-  }, [formId])
+  }, [formId, formStaff])
   const columns = useMemo(() => [...BASE, ...(data?.columns || [])], [data])
   const initialLayout = useMemo(() => ({ colFormats: {}, summaries: {}, ...(data?.layout || EMPTY_LAYOUT) }), [data])
 
@@ -121,7 +122,7 @@ export default function FormSheet({ formId, onOpen, notify, viewRef }) {
       initialLayout={initialLayout}
       lead={LEAD}
       columns={columns}
-      editable={!!data.editable}
+      editable={!!data.editable && !readOnly}
       valueOf={valueOf} shownOf={shown} plainKeys={PLAIN} searchValues={searchValues} ungroupable={UNGROUPABLE}
       defaultSort={DEFAULT_SORT} defaultFilterKey={data.columns[0]?.key || '@school'}
       saveLayout={saveLayout} saveCells={saveCells}

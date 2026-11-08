@@ -10,7 +10,7 @@ import {
   definitionIssues, prefillFits, prefillSource, DEFAULT_SETTINGS, starterUpdateFor,
 } from '../../lib/forms/formModel'
 import FormRenderer from './FormRenderer'
-import { formStaff } from './formsApi'
+import { useFormsApi } from './formsApi'
 import { supabase } from '../../lib/supabase'
 import { confirmDialog } from '../shared/confirmDialog'
 import Breadcrumb from '../shared/Breadcrumb'
@@ -22,6 +22,8 @@ const SAMPLE = {
 }
 
 export default function FormBuilder({ formId, notify, onBack, onForms, onResponses }) {
+  // AP-SCHOOL-FORMS-1: the same builder serves the staff Catalog and a school's own forms.
+  const { call: formStaff, school, readOnly, crumbs } = useFormsApi()
   const [form, setForm] = useState(null)
   const [draft, setDraft] = useState(null)
   const [settings, setSettings] = useState(DEFAULT_SETTINGS)
@@ -47,7 +49,7 @@ export default function FormBuilder({ formId, notify, onBack, onForms, onRespons
       setSel(r.form.draft.questions[0]?.id || null)
     }).catch(e => setError(e.message))
     return () => { live = false }
-  }, [formId])
+  }, [formId, formStaff])
 
   // The draft saves itself a moment after the last change.
   useEffect(() => {
@@ -59,10 +61,10 @@ export default function FormBuilder({ formId, notify, onBack, onForms, onRespons
       catch (e) { setSave('error'); notify?.(e.message, 'err') }
     }, 800)
     return () => clearTimeout(t)
-  }, [draft, settings, formId, notify])
+  }, [draft, settings, formId, notify, formStaff])
 
-  const change = useCallback((fn) => { dirty.current = true; setDraft(d => fn(d)) }, [])
-  const changeSettings = (patch) => { dirty.current = true; setSettings(s => ({ ...s, ...patch })) }
+  const change = useCallback((fn) => { if (readOnly) return; dirty.current = true; setDraft(d => fn(d)) }, [readOnly])
+  const changeSettings = (patch) => { if (readOnly) return; dirty.current = true; setSettings(s => ({ ...s, ...patch })) }
   const setQ = (id, patch) => change(d => ({ ...d, questions: d.questions.map(q => q.id === id ? { ...q, ...patch } : q) }))
   const add = (type) => {
     const q = newQuestion(type)
@@ -125,7 +127,7 @@ export default function FormBuilder({ formId, notify, onBack, onForms, onRespons
     } catch (e) { notify?.(e.message, 'err') } finally { setReplacing(false) }
   }
 
-  if (error) return <div className="fm"><p className="fm-err" role="alert">{error}</p><BackButton label="Back to Catalog" onClick={onBack} /></div>
+  if (error) return <div className="fm"><p className="fm-err" role="alert">{error}</p><BackButton label={`Back to ${crumbs.root}`} onClick={onBack} /></div>
   if (!draft) return <div className="fm"><p className="fm-hint">Loading the form…</p></div>
 
   const q = draft.questions.find(x => x.id === sel) || null
@@ -136,18 +138,18 @@ export default function FormBuilder({ formId, notify, onBack, onForms, onRespons
       <div className="fm-head">
         <div>
           <Breadcrumb className="fm-crumb" items={[
-            { label: 'Catalog', onClick: onBack },
-            { label: 'Forms', onClick: onForms },
+            { label: crumbs.root, onClick: onBack },
+            ...(crumbs.list ? [{ label: crumbs.list, onClick: onForms }] : []),
             { label: draft.title || 'Form' },
           ]} />
           <h1>{draft.title} <span className={`fm-tag${form.status === 'published' && !form.draft_dirty ? ' fm-tag-ok' : ''}`}>{status}</span></h1>
-          <p className="fm-save" aria-live="polite">{save === 'saving' ? 'Saving…' : save === 'unsaved' ? 'Unsaved changes' : save === 'error' ? 'Not saved. Check your connection.' : 'All changes saved'}</p>
+          {readOnly ? <p className="fm-save">Read-only preview. Only the school can change this form.</p> : <p className="fm-save" aria-live="polite">{save === 'saving' ? 'Saving…' : save === 'unsaved' ? 'Unsaved changes' : save === 'error' ? 'Not saved. Check your connection.' : 'All changes saved'}</p>}
         </div>
         <div className="fm-row">
           {form.current_version > 0 && <button type="button" className="fm-btn" onClick={onResponses}>Responses</button>}
           <button type="button" className="fm-btn" onClick={() => setPreview(true)}>Preview as {settings.audience === 'schools' ? 'school' : settings.audience === 'preceptors' ? 'preceptor' : 'student'}</button>
-          <button type="button" className="fm-btn fm-pri" onClick={doPublish} disabled={publishing || issues.length > 0 || (form.status === 'published' && !form.draft_dirty && save === 'saved')}
-            title={issues[0] || undefined}>{publishing ? 'Publishing…' : form.status === 'draft' ? 'Publish' : 'Publish changes'}</button>
+          {!readOnly && <button type="button" className="fm-btn fm-pri" onClick={doPublish} disabled={publishing || issues.length > 0 || (form.status === 'published' && !form.draft_dirty && save === 'saved')}
+            title={issues[0] || undefined}>{publishing ? 'Publishing…' : form.status === 'draft' ? 'Publish' : 'Publish changes'}</button>}
         </div>
       </div>
       {starter && (
@@ -175,8 +177,9 @@ export default function FormBuilder({ formId, notify, onBack, onForms, onRespons
           )}
         </div>
       )}
-      {issues.length > 0 && <p className="fm-note" role="status">Before publishing: {issues[0]}{issues.length > 1 ? ` (and ${issues.length - 1} more)` : ''}</p>}
+      {issues.length > 0 && !readOnly && <p className="fm-note" role="status">Before publishing: {issues[0]}{issues.length > 1 ? ` (and ${issues.length - 1} more)` : ''}</p>}
 
+      <fieldset className="fm-fieldset" disabled={readOnly}>
       <div className="fm-grid">
         <aside className="fm-card fm-pal" aria-label="Add a question">
           <p className="fm-h3">Add a question</p>
@@ -201,7 +204,7 @@ export default function FormBuilder({ formId, notify, onBack, onForms, onRespons
             {!draft.questions.length && <p className="fm-empty">No questions yet. Add one from the left.</p>}
             <ol className="fm-qs">
               {draft.questions.map((x, i) => (
-                <li key={x.id} className={`fm-q${x.id === sel ? ' fm-q-sel' : ''}${x.type === 'section' ? ' fm-q-section' : ''}${over === i && dragging != null && dragging !== i ? (dragging < i ? ' fm-q-drop-after' : ' fm-q-drop-before') : ''}${dragging === i ? ' fm-q-dragging' : ''}`} draggable
+                <li key={x.id} className={`fm-q${x.id === sel ? ' fm-q-sel' : ''}${x.type === 'section' ? ' fm-q-section' : ''}${over === i && dragging != null && dragging !== i ? (dragging < i ? ' fm-q-drop-after' : ' fm-q-drop-before') : ''}${dragging === i ? ' fm-q-dragging' : ''}`} draggable={!readOnly}
                   onDragStart={(e) => { drag.current = i; setDragging(i); e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', x.id) } catch { /* Firefox needs data to start a drag */ } }}
                   onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (over !== i) setOver(i) }}
                   onDragEnd={() => { drag.current = null; setOver(null); setDragging(null) }}
@@ -236,9 +239,10 @@ export default function FormBuilder({ formId, notify, onBack, onForms, onRespons
           {tab === 'question' && (q ? <QuestionProps q={q} set={(p) => setQ(q.id, p)} remove={() => remove(q.id)}
             moveUp={() => move(q.id, -1)} moveDown={() => move(q.id, 1)} first={draft.questions[0]?.id === q.id} last={draft.questions.at(-1)?.id === q.id} />
             : <p className="fm-hint">Select a question to edit it.</p>)}
-          {tab === 'settings' && <SettingsProps s={settings} set={changeSettings} />}
+          {tab === 'settings' && <SettingsProps s={settings} set={changeSettings} school={school} />}
         </aside>
       </div>
+      </fieldset>
 
       {preview && (
         <div className="fm-scrim" onMouseDown={() => setPreview(false)}>
@@ -304,13 +308,15 @@ function QuestionProps({ q, set, remove, moveUp, moveDown, first, last }) {
   )
 }
 
-function SettingsProps({ s, set }) {
+function SettingsProps({ s, set, school = false }) {
   return (
     <div className="fm-panel">
+      {/* AP-SCHOOL-FORMS-1: a school's form goes to its own students, and nobody else. */}
+      {school ? <p className="fm-hint">Your students fill it. Each one gets a personal link by email.</p> : (
       <div className="fm-field"><label htmlFor="fm-who">Who fills it</label>
         <select id="fm-who" value={s.audience} onChange={e => set({ audience: e.target.value })}>
           <option value="students">Students</option><option value="preceptors">Preceptors</option><option value="schools">Schools</option>
-        </select></div>
+        </select></div>)}
       <label className="fm-tg"><span>File a PDF to the person's record</span><input type="checkbox" checked={s.filePdf} onChange={e => set({ filePdf: e.target.checked })} /></label>
       <div className="fm-field"><label htmlFor="fm-fwd">Email each filled PDF to</label>
         <input id="fm-fwd" type="email" value={s.forwardTo || ''} placeholder="office@cshs.org" onChange={e => set({ forwardTo: e.target.value })} />

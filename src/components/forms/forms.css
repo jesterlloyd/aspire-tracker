@@ -49,6 +49,8 @@
 @media (max-width: 1150px) { .fm-grid { grid-template-columns: 200px minmax(0, 1fr); } .fm-grid > .fm-props { grid-column: 1 / -1; } }
 @media (max-width: 760px) { .fm-grid { grid-template-columns: minmax(0, 1fr); } }
 .fm-grid > * { min-width: 0; }
+/* AP-SCHOOL-FORMS-1: the read-only preview disables the builder through one fieldset, which draws nothing. */
+.fm-fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 .fm-pal, .fm-props { padding: 14px; display: grid; gap: 10px; align-content: start; }
 @media (min-width: 761px) { .fm-pal, .fm-props { position: sticky; top: calc(var(--app-chrome-height, 0px) + 12px); } }
 .fm-palgrid { display: grid; gap: 5px; }

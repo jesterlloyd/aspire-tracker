@@ -16,6 +16,8 @@ import { NAV_ICONS, NAV_LABELS } from '../../lib/navigationCanon'
 const SECTIONS = [
   { key: 'students',           label: NAV_LABELS.atAGlance,         Icon: NAV_ICONS.atAGlance },
   { key: 'placement-requests', label: NAV_LABELS.placementRequests, Icon: NAV_ICONS.placementRequests },
+  // AP-SCHOOL-FORMS-1: the school's own forms, sent to its own students.
+  { key: 'forms',              label: NAV_LABELS.forms,             Icon: NAV_ICONS.forms },
   { key: 'messages',           label: NAV_LABELS.messages,          Icon: NAV_ICONS.messages },
 ]
 
