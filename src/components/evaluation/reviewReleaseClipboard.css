@@ -54,7 +54,7 @@
   /* Translucent inks on the pressboard, all measured at or above 4.7:1. */
   --rr-board-ink-soft: rgba(241, 235, 222, 0.86);
   --rr-board-ink-muted: rgba(241, 235, 222, 0.78);
-  padding: 4px 20px 28px;
+  padding: 0 20px 28px;
   font-family: var(--rr-sans);
   color: var(--text-heading);
 }

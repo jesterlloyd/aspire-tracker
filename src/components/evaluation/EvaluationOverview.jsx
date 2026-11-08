@@ -1,6 +1,6 @@
 // EVAL-OVERVIEW-1 (Owner, 2026-11-07): Evaluation > Overview. The four surveys, read the way
-// ASPIRE Insights reads the pipeline, built from Insights' own parts: the app's clickable KPI card
-// (Tile with onPick is FilterKPICard), the filter bar's markup and More filters, and ChartCard
+// ASPIRE Insights reads the pipeline, built from Insights' own parts: the filter bar's markup and
+// More filters, and ChartCard
 // (Table view, CSV, hover tips). Reference: docs/mockups/evaluation-overview.html.
 //
 // Program-wide: it loads every cohort's assignments (the same columns Responses reads, less every
@@ -11,12 +11,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useTheme } from '../../contexts/ThemeContext'
-import { ChartCard, Tile } from '../insights/InsightsCard'
+import { ChartCard } from '../insights/InsightsCard'
 import { HBar } from '../insights/InsightsCharts'
 import { hbarHeight } from '../../lib/insights/chartGeometry'
 import { fmtRate } from '../../lib/insights/insightsView'
 import {
-  annotate, filterOptions, buildOverview, chipsFor, pickStatus, likertBand,
+  annotate, filterOptions, buildOverview, chipsFor, likertBand,
   EMPTY_FILTERS, MORE_FILTER_KEYS, MIN_N,
 } from '../../lib/evaluation/evaluationOverviewModel'
 import { CASEY_FINK_SLUG } from '../../lib/evaluation/responsesPacketModel'
@@ -191,7 +191,7 @@ export default function EvaluationOverview({ onOpenResponses, responsesCohort = 
   const options = useMemo(() => filterOptions(state.rows, state.cohorts), [state.rows, state.cohorts])
   const o = useMemo(() => buildOverview(state.rows, f), [state.rows, f])
   const set = (k, v) => setF(prev => ({ ...prev, [k]: v }))
-  const chips = chipsFor(f, options)
+  const chips = chipsFor(f, options).filter(c => c.key !== 'status')
   const open = useCallback(slug => () => onOpenResponses?.(slug), [onOpenResponses])
   // Responses shows the cohort chosen in the header, not this page's Cohort filter, so say which.
   const jumpWord = responsesCohort ? `Open in Responses for ${responsesCohort}` : 'Open in Responses'
@@ -209,7 +209,18 @@ export default function EvaluationOverview({ onOpenResponses, responsesCohort = 
   }
 
   const t = o.tiles
-  const tile = key => ({ active: f.status === key, onPick: () => setF(pickStatus(f, key)) })
+  // EVAL-OVERVIEW-2 (Owner): no KPI cards. The figures are one line under the filters, and what the
+  // two rate cards measure is chosen on the Response Rate card itself.
+  const MEASURES = [['', 'Completed'], ['awaiting', 'Awaiting'], ['closed', 'Expired']]
+  const measureOn = key => (key === '' ? !f.status || f.status === 'completed' : f.status === key)
+  const measureActs = (
+    <span className="evo-measure" role="group" aria-label="What the rate shows">
+      {MEASURES.map(([key, label]) => (
+        <button key={label} type="button" className="ins-act" aria-pressed={measureOn(key)}
+          onClick={() => setF(prev => ({ ...prev, status: key }))}>{label}</button>
+      ))}
+    </span>
+  )
   const measureWord = o.measure.measureWord
   const rateItems = (list, colorOf) => list.map(r => ({
     id: r.id, label: r.label, value: r.rate ?? 0, display: fmtRate(r), n: r.n, suppressed: r.suppressed,
@@ -234,22 +245,6 @@ export default function EvaluationOverview({ onOpenResponses, responsesCohort = 
   return (
     <div className={`ins evo${classic ? ' ins-classic' : ''}`} aria-busy={state.status === 'refreshing'}>
       <div className={classic ? 'ins-binder' : undefined}>
-        <header className="ins-head">
-          <div>
-            <h1>Evaluation Overview</h1>
-            <p>What the four surveys say, across every cohort, school and unit.</p>
-          </div>
-          <div className="ins-asof">{o.scoped} {o.scoped === 1 ? 'survey' : 'surveys'} sent in view</div>
-        </header>
-
-        <section className="ins-tiles evo-tiles" aria-label="Headline figures. Choose one to filter the page.">
-          <Tile accent="nightfall" k="Surveys Sent" v={t.sent} d={`${options.surveys.length} surveys · ${options.cohorts.length} cohorts`} {...tile('')} active={!f.status} />
-          <Tile accent="sage" k="Completed" v={t.completed} d={t.responseRate.suppressed ? '' : `${fmtRate(t.responseRate)} response rate`} {...tile('completed')} />
-          <Tile accent="dawn" k="Awaiting Answer" v={t.awaiting} d={t.awaiting ? 'Reminders are running' : 'Nothing waiting'} {...tile('awaiting')} />
-          <Tile accent="chroma" k="Expired or Revoked" v={t.closed} d={t.reissuable ? `${t.reissuable} can be sent again` : ''} {...tile('closed')} />
-          <Tile accent="marina" k="Matched Pairs" v={t.pairs} d="Casey-Fink, pre and post" />
-        </section>
-
         <section className="ins-sheet ins-filters" aria-label="Filters">
           <Select id="evo-cohort" label="Cohort" value={f.cohort} onChange={v => set('cohort', v)}
             options={[{ value: '', label: 'All cohorts' }, ...options.cohorts.map(c => ({ value: c.id, label: c.name }))]} />
@@ -270,8 +265,13 @@ export default function EvaluationOverview({ onOpenResponses, responsesCohort = 
             </div>
           )}
         </section>
+        <p className="evo-figs" role="status">
+          <b>{t.sent}</b> surveys sent {'·'} <b>{t.completed}</b> completed{t.responseRate.suppressed ? '' : ` (${fmtRate(t.responseRate)})`} {'·'}{' '}
+          <b>{t.awaiting}</b> awaiting an answer {'·'} <b>{t.closed}</b> expired or revoked{t.reissuable ? `, ${t.reissuable} can be sent again` : ''} {'·'}{' '}
+          <b>{t.pairs}</b> matched Casey-Fink {t.pairs === 1 ? 'pair' : 'pairs'}
+        </p>
+        {(chips.length > 0 || state.status === 'error') && (
         <div className="ins-chips" aria-live="polite">
-          {chips.length === 0 && <span>No filters. Showing every cohort, school and unit.</span>}
           {chips.map(c => (
             <span key={c.key} className="ins-chip">
               {c.label}
@@ -281,6 +281,7 @@ export default function EvaluationOverview({ onOpenResponses, responsesCohort = 
           {chips.length > 1 && <button type="button" className="ins-clear" onClick={() => setF(EMPTY_FILTERS)}>Clear all</button>}
           {state.status === 'error' && <span className="ins-warn" role="alert">Couldn't refresh. These are the last figures loaded.</span>}
         </div>
+        )}
 
         {o.scoped === 0
           ? <div className="ins-sheet ins-state" role="status">No surveys match these filters.</div>
@@ -289,7 +290,8 @@ export default function EvaluationOverview({ onOpenResponses, responsesCohort = 
               <ChartCard id="evo-rate" span={6} title="Response Rate by Survey"
                 sub={`Share of surveys sent that are ${measureWord}, each survey and timepoint`}
                 table={rateTable(o.bySurvey)} nat={() => hbarHeight(surveyItems)}
-                note={`${o.measure.label === 'Surveys Sent' ? 'Choose a KPI card above to see what is awaiting, expired or revoked instead.' : `Showing ${measureWord}, from the ${o.measure.label} card.`} A bar opens that survey in Responses${responsesCohort ? `, which shows ${responsesCohort}` : ''}.`}>
+                acts={measureActs}
+                note={`Response Rate by School shows the same measure. A bar opens that survey in Responses${responsesCohort ? `, which shows ${responsesCohort}` : ''}.`}>
                 {(w, h) => <HBar items={surveyItems} width={w} height={h} cap={100} onPick={slug => onOpenResponses?.(slug)} pickLabel={jumpWord} />}
               </ChartCard>
 

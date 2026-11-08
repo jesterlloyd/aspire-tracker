@@ -6,9 +6,14 @@
 .evo { --evo-seg-ink: #FFFFFF; --evo-lab-w: 34%; }
 [data-theme='dark'] .evo { --evo-seg-ink: #0B1220; }
 
-.evo .evo-tiles { grid-template-columns: repeat(5, minmax(0, 1fr)); }
-@media (max-width: 1200px) { .evo .evo-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-@media (max-width: 700px) { .evo .evo-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* EVAL-OVERVIEW-2: the page starts right under the view picker (its padding is the gap), and the
+   figures are one line under the filters instead of five KPI cards. */
+.ins.evo { margin-top: 0; }
+.evo .ins-filters { margin-top: 0; }
+.evo-figs { margin: 10px 2px 0; font-size: 12.5px; line-height: 1.5; color: var(--ins-muted); }
+.evo-figs b { font-size: 13.5px; color: var(--ins-ink); font-variant-numeric: tabular-nums; }
+.evo-measure { display: inline-flex; gap: 4px; margin-right: 8px; }
+.evo-measure .ins-act[aria-pressed='true'] { background: var(--ins-ink); border-color: var(--ins-ink); color: var(--ins-surface); }
 
 .evo-none { margin: 8px 0; color: var(--ins-muted); font-size: 13px; }
 

@@ -101,7 +101,7 @@ function renderCell(col, row) {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function EvaluationTab({ cohortId, cohortLabel = '' }) {
-  const { markSynced, display: syncDisplay } = useLastSynced()
+  const { markSynced } = useLastSynced()
   const { isOwner, isAdmin, isInterviewer } = useAuth()
   // EVALUATION-INTERVIEWER-ACCESS-UX: interviewers may open the tab but must NOT see evaluation
   // data (survey responses, readiness scores, preceptor/student feedback, comments). Roles are
@@ -539,24 +539,11 @@ export default function EvaluationTab({ cohortId, cohortLabel = '' }) {
       {activeSubTab === 'cohort' && (
         // LAYOUT-SHELL-CONSISTENCY-1/1B: fill the shared app-main shell explicitly (width:100% +
         // min-width:0 make full-width, shrink-safe behavior independent of the parent's align-items).
-        <div className="evaluation-responses" style={{ width: '100%', minWidth: 0, padding: '4px 20px 24px' }}>
+        <div className="evaluation-responses" style={{ width: '100%', minWidth: 0, padding: '0 20px 24px' }}>
 
           {/* Header - title, subtitle, and freshness cue right-aligned (mirrors OverviewTab) */}
-          <div className="evaluation-responses-head" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 20, gap: 16, flexWrap: 'wrap' }}>
-            <div>
-              <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-heading, #191919)', margin: '0 0 4px', fontFamily: F }}>
-                Evaluation Results
-              </h2>
-              <p style={{ fontSize: 13, color: 'var(--text-caption, #4A5560)', margin: 0, fontFamily: F }}>
-                One packet per instrument. The analysis sheet states what the numbers rest on before it states the finding.
-              </p>
-            </div>
-            {syncDisplay && (
-              <div style={{ fontSize: 11.5, color: 'var(--text-caption, #4A5560)', whiteSpace: 'nowrap', fontFamily: F, flexShrink: 0, paddingBottom: 2 }}>
-                {syncDisplay}
-              </div>
-            )}
-          </div>
+          {/* EVAL-OVERVIEW-2 (Owner): the picker names this view, so it has no title, subtitle or
+              freshness line; the header's Refresh reloads it. */}
 
           {/* Loading */}
           {loading && (

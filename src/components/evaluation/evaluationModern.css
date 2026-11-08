@@ -5,7 +5,8 @@
 
 .evaluation-view-picker {
   flex-shrink: 0;
-  padding: 0 20px 12px;
+  /* EVAL-OVERVIEW-2: the one gap between the picker and every view's first line, in both styles. */
+  padding: 0 20px var(--aspire-gap-card, 16px);
 }
 
 .rq-sent-label-modern { display: none; }
@@ -21,9 +22,6 @@
   --hole-in: transparent;
 }
 
-:root[data-style="modern"] .evaluation-view-picker { padding-bottom: 16px; }
-:root[data-style="modern"] .evaluation-responses { padding-top: 4px !important; }
-:root[data-style="modern"] .evaluation-responses-head { margin-bottom: 16px !important; }
 
 /* ── Responses: clean instrument panel ─────────────────────────────────── */
 :root[data-style="modern"] .evaluation-workspace .rp-folder {

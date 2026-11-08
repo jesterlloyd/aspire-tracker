@@ -455,8 +455,8 @@ export default function SurveyAutomationDashboard({ cohortId, onTrackResponses, 
   return (
     <div className="rr-clipboard">
       <div style={{ marginBottom: 12 }}>
-        <h2 className="rr-title">Review & Release</h2>
-        {/* Section 5: the summary line, totals across all six workflows. */}
+        {/* EVAL-OVERVIEW-2 (Owner): no title, the view picker names this view. Section 5: the
+            summary line, totals across all six workflows, stays as the view's one figure line. */}
         <p role="status" className="rr-summary">
           <b className={totals.ready > 0 ? 'g' : undefined}>{totals.ready}</b> ready to release {'·'}{' '}
           <b className={totals.blocked > 0 ? 'a' : undefined}>{totals.blocked}</b> need a fix or a reminder {'·'}{' '}

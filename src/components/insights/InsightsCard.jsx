@@ -23,7 +23,8 @@ function downloadCsv(id, columns, rows) {
  * table: { columns: [{ key, label, align? }], rows: [{ id, ...cells }] }. The same rows build the
  * Table view and the CSV, so the two cannot disagree.
  */
-export function ChartCard({ id, title, sub, span = 12, table, note, legend, nat, children }) {
+// `acts` (optional, EVAL-OVERVIEW-2): controls of the card's own, drawn before Table and CSV.
+export function ChartCard({ id, title, sub, span = 12, table, note, legend, nat, acts, children }) {
   const [asTable, setAsTable] = useState(false)
   const [bodyRef, box] = useBox()
   const width = box.w
@@ -59,11 +60,14 @@ export function ChartCard({ id, title, sub, span = 12, table, note, legend, nat,
           <h2 id={`ins-h-${id}`}>{title}</h2>
           {sub && <p className="ins-sub">{sub}</p>}
         </div>
-        {hasTable && (
+        {(hasTable || acts) && (
           <div className="ins-acts">
+            {acts}
+            {hasTable && (<>
             <button type="button" className="ins-act" aria-pressed={asTable} onClick={() => setAsTable(v => !v)}>Table</button>
             <button type="button" className="ins-act"
               onClick={() => downloadCsv(id, table.columns, table.rows.map(r => table.columns.map(c => r[`${c.key}__csv`] ?? r[c.key])))}>CSV</button>
+            </>)}
           </div>
         )}
       </div>
