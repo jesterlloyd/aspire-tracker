@@ -123,7 +123,11 @@ const PRELUDE = `
     prior_healthcare_experience text, cumulative_gpa numeric, created_at timestamptz DEFAULT now(), is_demo boolean DEFAULT false);
   CREATE TABLE public.units (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), cohort_id uuid, unit_name text, total_slots int, is_participating boolean DEFAULT true,
     shift_preference text, patient_population text, division text, is_demo boolean DEFAULT false);
-  CREATE TABLE public.matches (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), cohort_id uuid, student_id uuid, unit_id uuid, created_at timestamptz DEFAULT now(), is_demo boolean DEFAULT false);
+  -- KEITH-PLACEMENT-READ-1: production's matches has matched_at, never created_at. This prelude once
+  -- invented created_at, so every board read 500'd live while this suite stayed green.
+  CREATE TABLE public.matches (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), cohort_id uuid, student_id uuid, unit_id uuid, preceptor_id uuid,
+    preceptor_assigned text, shift_assigned text, matched_at timestamptz DEFAULT now(), notes text, match_quality text, notification_sent boolean,
+    notified_at timestamptz, is_demo boolean DEFAULT false);
   CREATE TABLE public.preceptors (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), full_name text, unit_id uuid, is_active boolean DEFAULT true, notes text, is_demo boolean DEFAULT false);
   CREATE TABLE public.student_preceptor_assignments (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), student_id uuid, preceptor_id uuid, cohort_id uuid, role text, status text, is_demo boolean DEFAULT false);
   CREATE TABLE public.program_events (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), student_id uuid, event_type text, event_date date);
@@ -221,6 +225,21 @@ test('a run: rules, Keith, scores, ranks 1 to 3; explanations reused; the board 
   v = await P.boardView(db, { cohortId: cohort.id })
   assert.equal(v.suggestions.find(s => s.studentId === ana.id).unitName, 'B', 'A filled up: the next valid option moves up')
   void ben
+})
+
+test('KEITH-PLACEMENT-READ-1: the board reads a cohort with a placement against production\'s matches columns', async () => {
+  // Every POST /api/keith-placement 500'd from 2026-09-29 to 2026-11-08: loadContext selected
+  // matches.created_at, which production does not have, and rows() turned the error into read_failed 500.
+  const { db, cohort, unit, preceptor, student } = await world()
+  const a = await unit('6 NE')
+  await preceptor(a, 'Pat Lee')
+  const ana = await student('Ana', ['6 NE'])
+  await db.from('matches').insert({ cohort_id: cohort.id, student_id: ana.id, unit_id: a.id })
+  const ctx = await P.loadContext(db, cohort.id)
+  assert.equal(ctx.matches.length, 1)
+  const view = await P.boardView(db, { cohortId: cohort.id })
+  assert.equal(view.available, true)
+  assert.doesNotMatch(read('lib/server/placement/placementSuggestions.js'), /from\('matches'\)\.select\([^)]*created_at/)
 })
 
 test('Accept re-checks every rule on the server; Undo reopens; Reject blocks the pairing for the cohort', async () => {
