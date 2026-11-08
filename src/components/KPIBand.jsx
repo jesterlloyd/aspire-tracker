@@ -155,7 +155,8 @@ export function FilterKPICard({ value, label, sub, accent = 'nightfall', active,
       </div>
       <div style={{
         ...styles.eyebrow,
-        color: active ? 'rgba(255,255,255,0.88)' : colors.ink3,
+        // KPI-SUB-INK-1: solid white; 88% white measured 4.26:1 on the selected sage fill.
+        color: active ? '#fff' : colors.ink3,
         marginTop: 8,
       }}>
         {label}
@@ -163,7 +164,11 @@ export function FilterKPICard({ value, label, sub, accent = 'nightfall', active,
       {sub && (
         <div style={{
           fontSize: t.sizes.small,
-          color: active ? 'rgba(255,255,255,0.72)' : colors.ink4,
+          // KPI-SUB-INK-1 (2026-11-07): ink4 (#98A2B3) measured 2.2 to 2.4:1 on every tint, and 72%
+          // white 3.4:1 on the selected sage fill. #5B6472 (PTL-MUTED-1's quiet ink) reads 5.17:1 or
+          // more on every tint and 92% white 4.51:1 or more on every fill. The tints are fixed light
+          // colours in both themes, so the ink is fixed too.
+          color: active ? 'rgba(255,255,255,0.92)' : '#5B6472',
           marginTop: 2,
         }}>
           {sub}
