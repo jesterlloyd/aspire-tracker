@@ -23,6 +23,7 @@ import SegmentedPicker from '../shared/SegmentedPicker'
 import { fetchInsights } from '../../lib/insights/insightsClient'
 import {
   filtersFromSearch, searchFromFilters, withFilter, toggleFilter, chipsFor, clearFilters,
+  moreFiltersSet, tileActive, pickTile,
   measureLabel, fmtRate, fmtChange, deltaWords, rateText, asOfWords,
   RESIDENCY_STATUS_LABELS, COMPARE_LABELS, PATHWAY_LABELS,
 } from '../../lib/insights/insightsView'
@@ -31,6 +32,7 @@ import { hbarHeight } from '../../lib/insights/chartGeometry'
 import { ChartCard, Tile } from './InsightsCard'
 import { slotsFor, PATHWAY_COLORS, CHOICE_COLORS, rateItem, pipelineCard, trendCard, hoursCard } from './insightsCards'
 import { orderCohortsNewestFirst } from '../../lib/derivations/cohortOrder'
+import KeithRead from './KeithRead'
 import './insights.css'
 
 const MEASURE_OPTIONS = [
@@ -55,52 +57,70 @@ function Select({ id, label, value, onChange, options, disabled }) {
 function FilterBar({ f, data, set }) {
   const cohorts = data?.cohorts || []
   const units = (data?.units || []).filter(u => !f.serviceLine || u.serviceLine === f.serviceLine)
+  // INSIGHTS-LAYOUT-1 (Owner, 2026-11-07): the tiles are the first filter, so the bar keeps the three
+  // questions asked most and folds the rest. It opens itself when a folded filter is on, so a
+  // filter that narrows the page is never hidden.
+  const folded = moreFiltersSet(f)
+  const [more, setMore] = useState(folded > 0)
+  const showMore = more || folded > 0
   return (
     <section className="ins-sheet ins-filters" aria-label="Filters">
       <Select id="ins-cohort" label="Cohort" value={f.cohort} onChange={v => set('cohort', v)}
         options={[{ value: '', label: 'All cohorts' }, ...orderCohortsNewestFirst(cohorts).map(c => ({ value: c.id, label: `${c.name}${c.finished ? '' : ' (in rotation)'}` }))]} />
       <Select id="ins-school" label="School" value={f.school} onChange={v => set('school', v)}
         options={[{ value: '', label: 'All schools' }, ...(data?.schools || []).map(s => ({ value: s, label: s }))]} />
-      <div className="ins-f">
-        <span className="ins-flabel" id="ins-pathway-l">Pathway</span>
-        <SegmentedPicker ariaLabel="Pathway" size="sm" value={f.pathway} onChange={v => set('pathway', v)} options={PATHWAY_OPTIONS} />
-      </div>
-      <Select id="ins-line" label="Service line" value={f.serviceLine} onChange={v => set('serviceLine', v)}
-        options={[{ value: '', label: 'All service lines' }, ...(data?.serviceLines || []).map(s => ({ value: s, label: s }))]} />
       <Select id="ins-unit" label="Unit" value={f.unit} onChange={v => set('unit', v)}
         options={[{ value: '', label: 'All units' }, ...units.map(u => ({ value: u.key, label: u.name }))]} />
-      <Select id="ins-shift" label="Shift" value={f.shift} onChange={v => set('shift', v)}
-        options={[{ value: '', label: 'Every shift' }, { value: 'Day', label: 'Day' }, { value: 'Night', label: 'Night' }, { value: 'Mid', label: 'Mid' }]} />
-      <Select id="ins-status" label="Residency status" value={f.residencyStatus} onChange={v => set('residencyStatus', v)}
-        options={Object.entries(RESIDENCY_STATUS_LABELS).map(([value, label]) => ({ value, label }))} />
-      <span className="ins-fdiv" aria-hidden="true" />
-      <div className="ins-f">
-        <span className="ins-flabel">Residency measure</span>
-        <SegmentedPicker ariaLabel="Residency measure" size="sm" value={f.measure} onChange={v => set('measure', v)} options={MEASURE_OPTIONS} />
-      </div>
-      <Select id="ins-compare" label="Compare" value={f.compare} onChange={v => set('compare', v)}
-        options={Object.entries(COMPARE_LABELS).map(([value, label]) => ({ value, label, disabled: value === 'previous' && !f.cohort }))} />
+      <button type="button" className="ins-act ins-more-btn" aria-expanded={showMore} aria-controls="ins-more"
+        disabled={folded > 0} onClick={() => setMore(m => !m)}>
+        {showMore ? 'Fewer filters' : 'More filters'}{folded ? ` (${folded})` : ''}
+      </button>
+      {showMore && (
+        <div className="ins-more" id="ins-more">
+          <div className="ins-f">
+            <span className="ins-flabel" id="ins-pathway-l">Pathway</span>
+            <SegmentedPicker ariaLabel="Pathway" size="sm" value={f.pathway} onChange={v => set('pathway', v)} options={PATHWAY_OPTIONS} />
+          </div>
+          <Select id="ins-line" label="Service line" value={f.serviceLine} onChange={v => set('serviceLine', v)}
+            options={[{ value: '', label: 'All service lines' }, ...(data?.serviceLines || []).map(s => ({ value: s, label: s }))]} />
+          <Select id="ins-shift" label="Shift" value={f.shift} onChange={v => set('shift', v)}
+            options={[{ value: '', label: 'Every shift' }, { value: 'Day', label: 'Day' }, { value: 'Night', label: 'Night' }, { value: 'Mid', label: 'Mid' }]} />
+          <Select id="ins-status" label="Residency status" value={f.residencyStatus} onChange={v => set('residencyStatus', v)}
+            options={Object.entries(RESIDENCY_STATUS_LABELS).map(([value, label]) => ({ value, label }))} />
+          <span className="ins-fdiv" aria-hidden="true" />
+          <div className="ins-f">
+            <span className="ins-flabel">Residency measure</span>
+            <SegmentedPicker ariaLabel="Residency measure" size="sm" value={f.measure} onChange={v => set('measure', v)} options={MEASURE_OPTIONS} />
+          </div>
+          <Select id="ins-compare" label="Compare" value={f.compare} onChange={v => set('compare', v)}
+            options={Object.entries(COMPARE_LABELS).map(([value, label]) => ({ value, label, disabled: value === 'previous' && !f.cohort }))} />
+        </div>
+      )}
     </section>
   )
 }
 
-function Tiles({ data, f }) {
+function Tiles({ data, f, pick }) {
   const t = data.tiles
   const cmp = data.compare
   const label = cmp?.label
   const m = t.measure
   const completedRate = t.completed.rate
+  // INSIGHTS-KPI-FILTER-1 (Owner, 2026-11-07): each tile filters the cards below, one at a time.
+  // Applicants is everyone; Retention is not connected yet, so it is a figure, not a filter.
+  const on = tile => ({ active: tileActive(f, tile), onPick: () => pick(tile) })
   return (
-    <section className="ins-tiles" aria-label="Headline figures">
-      <Tile accent="nightfall" k="Applicants" v={t.applicants.na ? 'n/a' : t.applicants.count}
+    <section className="ins-tiles" id="ins-tiles" aria-label="Headline figures. Choose one to filter the page.">
+      <Tile accent="nightfall" k="Applicants" v={t.applicants.na ? 'n/a' : t.applicants.count} {...on('all')}
         d={t.applicants.na ? 'Applicants have no unit yet' : (f.cohort ? '' : `${data.cohorts.filter(c => !c.partial).length} cohorts with a placement record`)} />
-      <Tile accent="marina" k="Placed" v={t.placed.count}
+      <Tile accent="marina" k="Placed" v={t.placed.count} {...on('placed')}
         d={!t.applicants.na && t.applicants.count ? `${Math.round((t.placed.count / t.applicants.count) * 100)}% of applicants` : ''} />
-      <Tile accent="sage" k="Completed" v={t.completed.count}
+      <Tile accent="sage" k="Completed" v={t.completed.count} {...on('completed')}
         d={(cmp?.delta && deltaWords(cmp.delta.completed, label)) || (completedRate.suppressed ? '' : `${fmtRate(completedRate)} of placed`)} />
-      <Tile hero accent="chroma" k={measureLabel(f.measure)} v={fmtRate(m)}
+      <Tile hero accent="chroma" k={measureLabel(f.measure)} v={fmtRate(m)} {...on('measure')}
         d={(cmp?.delta && deltaWords(cmp.delta.measure, label)) || (cmp?.unavailable) || `${m.count} of ${m.n} completed`} />
-      <Tile accent="dawn" k="In rotation now" v={t.inRotation.count} d={t.inRotation.count ? 'Counted in Applicants and Placed only' : 'No cohort in rotation'} />
+      <Tile accent="dawn" k="In rotation now" v={t.inRotation.count} {...on('in_rotation')}
+        d={t.inRotation.count ? 'Counted in Applicants and Placed only' : 'No cohort in rotation'} />
       <Tile empty accent="periwinkle" k="12-month retention" v="Not connected" d="Fills in after an HR import" />
     </section>
   )
@@ -294,6 +314,7 @@ export default function InsightsPage({ surface = 'staff', backPath, backLabel, t
   const pickUnit = v => go(toggleFilter(f, 'unit', v, units))
   const pickUnitByName = name => { const u = units.find(x => x.name === name); if (u) pickUnit(u.key) }
   const pickPathway = v => go(toggleFilter(f, 'pathway', v, units))
+  const pickTileFilter = tile => go(pickTile(f, tile))
 
   const chips = chipsFor(f, { cohorts: data?.cohorts || [], units })
 
@@ -324,7 +345,6 @@ export default function InsightsPage({ surface = 'staff', backPath, backLabel, t
     ]
     body = (
       <>
-        <Tiles data={data} f={f} />
         <div className="ins-grid">
           {cards.map(([id, t, sub, span, c]) => (
             <ChartCard key={id} id={id} title={t} sub={sub} span={span} table={c.table} note={c.note} legend={c.legend} nat={c.nat}>
@@ -364,6 +384,7 @@ export default function InsightsPage({ surface = 'staff', backPath, backLabel, t
             </div>
           )}
         </header>
+        {data?.tiles && <Tiles data={data} f={f} pick={pickTileFilter} />}
         <FilterBar f={f} data={data} set={set} />
         <div className="ins-chips" aria-live="polite">
           {chips.length === 0 && <span>No filters. Showing every cohort, school and unit.</span>}
@@ -376,6 +397,7 @@ export default function InsightsPage({ surface = 'staff', backPath, backLabel, t
           {chips.length > 1 && <button type="button" className="ins-clear" onClick={() => go(clearFilters(f))}>Clear all</button>}
           {status === 'error' && data && <span className="ins-warn" role="alert">Couldn't refresh. These are the last figures loaded.</span>}
         </div>
+        {surface === 'staff' && data?.tiles && <KeithRead filters={f} search={search} />}
         {body}
         {data && (
           <details className="ins-sheet ins-defs">

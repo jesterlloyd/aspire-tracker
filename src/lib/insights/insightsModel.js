@@ -39,6 +39,9 @@ export const MEASURE_LABELS = Object.freeze({
 export const PATHWAYS = Object.freeze(['all', 'internal', 'external'])
 export const RESIDENCY_STATUSES = Object.freeze(['all', 'applied', 'not_applied', 'offered', 'hired', 'applied_not_hired'])
 export const COMPARES = Object.freeze(['off', 'previous', 'program'])
+// INSIGHTS-KPI-FILTER-1 (Owner, 2026-11-07): the tiles are the page's first filter. A stage tile
+// keeps the students at that stage; the measure tile sets residencyStatus to the measure.
+export const STAGES = Object.freeze(['all', 'placed', 'completed', 'in_rotation'])
 export const SHIFTS = Object.freeze(['Day', 'Night', 'Mid'])
 export const CHOICE_BUCKETS = Object.freeze([
   { key: 'top_choice', label: '1st choice' },
@@ -241,6 +244,7 @@ export function sanitizeFilters(input = {}, viewer = { kind: 'staff' }) {
     unit: full ? (unitNameKey(input.unit) || null) : null,
     shift: full ? pick(input.shift, SHIFTS, null) : null,
     residencyStatus: full ? pick(input.residencyStatus, RESIDENCY_STATUSES, 'all') : 'all',
+    stage: full ? pick(input.stage, STAGES, 'all') : 'all',
     measure: full ? pick(input.measure, MEASURES, 'hired') : 'hired',
     compare: full ? pick(input.compare, COMPARES, 'off') : 'off',
   }
@@ -274,6 +278,9 @@ export function applyFilters(students, f) {
     if (f.serviceLine && !s.units.some(u => u.serviceLine === f.serviceLine)) return false
     if (f.shift && s.shift !== f.shift) return false
     if (f.residencyStatus !== 'all' && !residencyMatch(s, f.residencyStatus)) return false
+    if (f.stage === 'placed' && !s.placed) return false
+    if (f.stage === 'completed' && s.status !== 'Completed') return false
+    if (f.stage === 'in_rotation' && s.status !== 'Active Rotation') return false
     return true
   })
 }
@@ -520,7 +527,12 @@ export function computeInsights(snapshot, filtersIn = {}, viewer = { kind: 'staf
   }
 
   if (FULL_PAGE.has(viewer.kind)) {
-    const tiles = tilesFor(students, sets, f)
+    // The tiles are the filter's own controls, so like every KPI band in the app they keep their
+    // counts when one is chosen: they read every filter except the tile filters (stage and
+    // residency status), and the cards below read all of them.
+    const tileFilters = { ...f, stage: 'all', residencyStatus: 'all' }
+    const tileStudents = applyFilters(mine, tileFilters)
+    const tiles = tilesFor(tileStudents, sets, f)
     let compare = null
     if (f.compare === 'program') {
       compare = { label: 'Program average', tiles: tilesFor(snapshot.students, sets, f) }
@@ -528,7 +540,7 @@ export function computeInsights(snapshot, filtersIn = {}, viewer = { kind: 'staf
       const prev = previousCohortId(snapshot, f.cohortIds[0])
       const prevName = snapshot.cohorts.find(c => c.id === prev)?.name
       compare = prev
-        ? { label: prevName, tiles: tilesFor(applyFilters(snapshot.students, { ...f, cohortIds: [prev] }), sets, f) }
+        ? { label: prevName, tiles: tilesFor(applyFilters(snapshot.students, { ...tileFilters, cohortIds: [prev] }), sets, f) }
         : { label: null, tiles: null, unavailable: 'No earlier cohort' }
     }
     if (compare?.tiles) {

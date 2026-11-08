@@ -7,11 +7,14 @@
 import { MEASURE_LABELS } from './insightsModel.js'
 
 /** The filters the page offers, in the order the bar draws them. Defaults are omitted from the URL. */
-export const FILTER_KEYS = Object.freeze(['cohort', 'school', 'pathway', 'serviceLine', 'unit', 'shift', 'residencyStatus', 'measure', 'compare'])
+export const FILTER_KEYS = Object.freeze(['cohort', 'school', 'pathway', 'serviceLine', 'unit', 'shift', 'residencyStatus', 'stage', 'measure', 'compare'])
 export const FILTER_DEFAULTS = Object.freeze({
   cohort: '', school: '', pathway: 'all', serviceLine: '', unit: '', shift: '',
-  residencyStatus: 'all', measure: 'hired', compare: 'off',
+  residencyStatus: 'all', stage: 'all', measure: 'hired', compare: 'off',
 })
+/** The filters folded under More filters (INSIGHTS-LAYOUT-1); Cohort, School and Unit stay out. */
+export const MORE_FILTER_KEYS = Object.freeze(['pathway', 'serviceLine', 'shift', 'residencyStatus', 'measure', 'compare'])
+export const STAGE_LABELS = Object.freeze({ placed: 'Placed', completed: 'Completed', in_rotation: 'In rotation now' })
 
 export const RESIDENCY_STATUS_LABELS = Object.freeze({
   all: 'All students',
@@ -78,6 +81,7 @@ export function chipsFor(f, { cohorts = [], units = [] } = {}) {
     unit: v => units.find(u => u.key === v)?.name || v,
     shift: v => `${v} shift`,
     residencyStatus: v => RESIDENCY_STATUS_LABELS[v] || v,
+    stage: v => STAGE_LABELS[v] || v,
   }
   for (const k of Object.keys(name)) {
     if (f[k] && f[k] !== FILTER_DEFAULTS[k]) chips.push({ key: k, label: name[k](f[k]) })
@@ -88,6 +92,30 @@ export function chipsFor(f, { cohorts = [], units = [] } = {}) {
 /** Clear every narrowing filter, keeping the measure and the compare (unless it needed a cohort). */
 export function clearFilters(f) {
   return { ...FILTER_DEFAULTS, measure: f.measure, compare: f.compare === 'previous' ? 'off' : f.compare }
+}
+
+/** How many folded filters are set, for the More filters button. */
+export function moreFiltersSet(f) {
+  return MORE_FILTER_KEYS.filter(k => f?.[k] != null && f[k] !== '' && f[k] !== FILTER_DEFAULTS[k]).length
+}
+
+/**
+ * INSIGHTS-KPI-FILTER-1: the tiles are the first filter, one at a time, like every KPI band.
+ * 'all' (Applicants) clears both tile filters; a stage tile sets the stage; 'measure' (the
+ * Hired / Applied / Offered tile) sets the residency status to the current measure. Choosing the
+ * chosen tile again clears it.
+ */
+export function tileActive(f, tile) {
+  const stage = f?.stage || 'all'
+  const status = f?.residencyStatus || 'all'
+  if (tile === 'all') return stage === 'all' && status === 'all'
+  if (tile === 'measure') return stage === 'all' && status === (f?.measure || 'hired')
+  return status === 'all' && stage === tile
+}
+export function pickTile(f, tile) {
+  if (tile === 'all' || tileActive(f, tile)) return { ...f, stage: 'all', residencyStatus: 'all' }
+  if (tile === 'measure') return { ...f, stage: 'all', residencyStatus: f.measure || 'hired' }
+  return { ...f, stage: tile, residencyStatus: 'all' }
 }
 
 export const measureLabel = m => MEASURE_LABELS[m] || MEASURE_LABELS.hired

@@ -22,3 +22,24 @@ export async function fetchInsights(surface, search = '', extra = {}) {
   if (!res.ok) throw Object.assign(new Error(json.error || 'insights_failed'), { status: res.status })
   return json
 }
+
+/**
+ * INSIGHTS-KEITH-READ-1: Keith's Read. `latest` returns the saved read for these filters (and the
+ * latest of any filters when these were never read); `run` asks Keith for a new one. The server
+ * recomputes the figures from `filters`; nothing the browser has drawn is sent.
+ * @param {'latest'|'run'} action
+ * @param {object} filters  the page's filters (filtersFromSearch), strings only
+ */
+export async function keithInsights(action, filters = {}) {
+  const { data: { session } } = await supabase.auth.getSession()
+  const token = session?.access_token
+  const clean = Object.fromEntries(Object.entries(filters).filter(([, v]) => typeof v === 'string' && v !== ''))
+  const res = await fetch('/api/keith-insights', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    body: JSON.stringify({ action, filters: clean }),
+  })
+  const json = await res.json().catch(() => ({}))
+  if (!res.ok) throw Object.assign(new Error(json.message || json.error || 'keith_read_failed'), { status: res.status, code: json.error })
+  return json
+}

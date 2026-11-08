@@ -169,11 +169,29 @@ test('a unit filter starts the funnel at Placed', () => {
   assert.equal(out.tiles.placed.count, 16)
 })
 
+// INSIGHTS-KPI-FILTER-1 (2026-11-07): residency status is a tile filter now, so it narrows every card
+// and leaves the tiles' own counts alone (a KPI band keeps its numbers while one is chosen).
+const step = (out, label) => out.pipeline.steps.find(x => x.label === label).count
 test('residency status filters the population', () => {
   const s = snap()
-  assert.equal(computeInsights(s, { residencyStatus: 'hired' }, staff).tiles.completed.count, 9)
-  assert.equal(computeInsights(s, { residencyStatus: 'applied_not_hired' }, staff).tiles.completed.count, 2)
-  assert.equal(computeInsights(s, { residencyStatus: 'not_applied' }, staff).tiles.hired.count, 0)
+  const hired = computeInsights(s, { residencyStatus: 'hired' }, staff)
+  assert.equal(step(hired, 'Completed'), 9)
+  assert.equal(hired.tiles.completed.count, 27, 'the tiles keep their counts')
+  assert.equal(step(computeInsights(s, { residencyStatus: 'applied_not_hired' }, staff), 'Completed'), 2)
+  assert.equal(step(computeInsights(s, { residencyStatus: 'not_applied' }, staff), 'Hired into NGRP'), 0)
+})
+
+test('the stage tile filters narrow the cards and never the tiles', () => {
+  const s = snap()
+  const all = computeInsights(s, {}, staff)
+  for (const stage of ['placed', 'completed', 'in_rotation']) {
+    assert.deepEqual(computeInsights(s, { stage }, staff).tiles, all.tiles, stage)
+  }
+  assert.equal(step(computeInsights(s, { stage: 'placed' }, staff), 'Completed'), 22)
+  assert.equal(computeInsights(s, { stage: 'completed' }, staff).inView.placed, 22)
+  assert.equal(computeInsights(s, { stage: 'in_rotation' }, staff).inView.placed, 6)
+  assert.equal(sanitizeFilters({ stage: 'bogus' }).stage, 'all')
+  assert.equal(sanitizeFilters({ stage: 'placed' }, { kind: 'partner' }).stage, 'all', 'a portal has no tile filters')
 })
 
 test('school rates, unit yield and the 1st-choice association', () => {

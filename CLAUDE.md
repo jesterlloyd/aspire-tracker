@@ -3343,3 +3343,28 @@ Owner and Admin, seeded by Owner-gated `20261201000000_studio_keith_skills.sql` 
 - `vercel.json` is at the 50-entry cap: the two evaluation-release survey entries became
   `api/evaluation-release-*-survey.js` (30 s, which also covers the three Casey-Fink and
   post-rotation release endpoints) to make room for `api/studio.js` (60 s).
+
+## ASPIRE Insights: the tiles filter, Keith reads (2026-11-07)
+
+- **INSIGHTS-LAYOUT-1 (Owner).** The staff page reads top to bottom: the KPI tiles, then the filters,
+  then the chips, Keith's Read and the charts. Cohort, School and Unit stay on the bar; Pathway,
+  Service line, Shift, Residency status, Residency measure and Compare fold under **More filters**
+  (`MORE_FILTER_KEYS`), which opens itself whenever one of them is set and cannot be folded while it is.
+- **INSIGHTS-KPI-FILTER-1 (Owner).** A tile is a filter, one at a time, like every KPI band:
+  Applicants clears it, Placed / Completed / In rotation set `stage` (`STAGES` in insightsModel.js,
+  full page only), and the Hired (or Applied, Offered) tile sets `residencyStatus` to the measure.
+  Choosing the chosen tile again clears it (`pickTile`, `tileActive` in insightsView.js). The tiles
+  keep their counts while one is chosen: they read every filter except `stage` and
+  `residencyStatus`; the cards read all of them. Retention is not a filter.
+- **INSIGHTS-KEITH-READ-1 (Owner).** Keith's Read is a card on the staff page only (never leadership
+  or a portal). Owner and Admin press Read these figures; Owner, Admin and Co-Lead see the latest
+  saved read for the filters on screen, or the latest of any filters with its scope named. The
+  server recomputes the figures from the filters (`lib/server/insights/keithRead.js` behind
+  `api/keith-insights.js`, POST `{ action: latest | run, filters }`); the browser never sends
+  figures. Keith is sent `readDigest`, aggregates only, with a withheld rate as "too few".
+  **He never computes, in code:** `parseRead` drops a finding, watch or caveat that states a number
+  the digest does not hold, and refuses the whole read when the headline does. A saved read carries
+  a hash of the figures, so a later page with other figures says "Out of date". Skill `read-insights`
+  (quality route) and the server-only `insights_reads` table are Owner-gated
+  `20261202000000_insights_keith_read.sql` (checks `db/audit/insights_keith_read_checks.sql`; a test
+  holds SKILL.md equal to it). Before it the card says it is not set up yet.

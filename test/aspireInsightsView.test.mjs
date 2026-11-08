@@ -143,8 +143,11 @@ test('the chart palette is the validated eight-slot order, light and dark, and t
   }
   const page = readFileSync(new URL('../src/components/insights/InsightsPage.jsx', import.meta.url), 'utf8')
   const card = readFileSync(new URL('../src/components/insights/InsightsCard.jsx', import.meta.url), 'utf8')
-  // A tile is a figure, not a filter: not a button.
-  assert.doesNotMatch(card.slice(card.indexOf('export function Tile(')), /<button/)
+  // INSIGHTS-KPI-FILTER-1 (Owner, 2026-11-07) reversed "a tile is a figure, not a filter": a tile
+  // with onPick is a pressed-state button, and one without stays a plain figure.
+  const tile = card.slice(card.indexOf('export function Tile('))
+  assert.match(tile, /<button type="button"[^>]*aria-pressed=\{active\}/)
+  assert.match(tile, /if \(!onPick\) return <div/)
   // A school keeps its slot on every card: one colour map, read by every school chart.
   assert.match(page, /const colorOf = slotsFor\(data\.schools\)/)
   for (const card of ['bySchoolCard', 'hostedCard', 'caseyFinkCard', 'hoursCard']) assert.match(page, new RegExp(`${card}\\(data[^)]*colorOf\\)`))

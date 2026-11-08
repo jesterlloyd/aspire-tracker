@@ -168,6 +168,9 @@
   margin-top: var(--aspire-gap-card, 16px);
   padding: 14px 16px;
 }
+/* INSIGHTS-LAYOUT-1: Cohort, School and Unit stay out; the rest fold under More filters. */
+.ins-more-btn { align-self: flex-end; height: 32px; margin-left: auto; }
+.ins-more { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 16px; flex-basis: 100%; padding-top: 12px; border-top: 1px solid var(--ins-line); }
 .ins-f { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .ins-f label, .ins-flabel { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ins-muted); }
 .ins-f select {
@@ -195,13 +198,23 @@
 
 .ins-tiles {
   display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px;
-  margin-top: 6px;
+  margin-top: var(--aspire-gap-card, 16px);
 }
 .ins-tile {
   display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 14px 18px;
   background: var(--ins-tile-tint); border: 1px solid rgba(29, 37, 103, 0.06);
   border-radius: var(--aspire-radius-card, 12px);
   box-shadow: 0 1px 0 rgba(29, 37, 103, 0.04), 0 1px 2px rgba(29, 37, 103, 0.04);
+}
+.ins-tile > span { display: block; }
+/* INSIGHTS-KPI-FILTER-1: on the full page the tiles are buttons, and the chosen one carries the KPI
+   bar, which is what that bar means on every KPI band in the app. */
+.ins-tile-btn { font: inherit; text-align: left; cursor: pointer; transition: box-shadow 0.15s, border-color 0.15s; }
+.ins-tile-btn:hover { border-color: color-mix(in srgb, var(--ins-tile-ink) 28%, transparent); }
+.ins-tile-btn:focus-visible { outline: 2px solid var(--ins-tile-ink); outline-offset: 2px; }
+.ins-tile-btn.ins-tile-on, .ins-tile-btn.ins-tile-on:hover {
+  border-color: transparent;
+  box-shadow: inset 0 -3px 0 var(--ins-tile-ink), 0 1px 0 rgba(29, 37, 103, 0.04), 0 1px 2px rgba(29, 37, 103, 0.04);
 }
 .ins-tv { font-size: 32px; font-weight: 700; line-height: 1; letter-spacing: -0.025em; font-variant-numeric: tabular-nums; color: var(--ins-tile-ink); }
 .ins-tk { margin-top: 8px; font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.14em; color: #475467; }
@@ -336,3 +349,27 @@
 
 /* In a portal the page column (.ptl-main) already sets the top and the sides. */
 .ptl-main .ins { margin: 0 0 40px; }
+
+/* INSIGHTS-KEITH-READ-1: Keith's Read. A card like the others, between the filters and the charts. */
+.ins-kr { margin-top: var(--aspire-gap-card, 16px); }
+.ins-kr h2 { display: flex; align-items: center; gap: 8px; }
+.ins-kr-mark { display: inline-flex; }
+.ins-kr-headline { margin: 12px 0 0; font-size: 15px; line-height: 1.5; font-weight: 600; color: var(--ins-ink); }
+.ins-kr-findings { margin: 12px 0 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.ins-kr-findings li {
+  display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; font-size: 13px; line-height: 1.5; color: var(--ins-ink);
+  border: 1px solid var(--ins-line); border-radius: var(--aspire-radius-control, 10px);
+}
+.ins-kr-findings b { font-size: 13.5px; }
+.ins-kr-see {
+  align-self: flex-start; margin-top: 2px; padding: 0; border: 0; background: none; cursor: pointer;
+  font: inherit; font-size: 12.5px; font-weight: 600; color: var(--color-accent-primary, var(--ins-fb-color-accent-primary));
+  text-decoration: underline; text-underline-offset: 2px;
+}
+.ins-kr-notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-top: 12px; }
+.ins-kr-notes h3 { margin: 0 0 4px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ins-muted); }
+.ins-kr-notes ul { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.5; color: var(--ins-ink); }
+.ins-kr-status, .ins-kr-foot { margin: 12px 0 0; font-size: 12.5px; color: var(--ins-muted); }
+.ins-kr-stale { margin: 12px 0 0; font-size: 13px; font-weight: 600; color: var(--chart-warn-ink, var(--ins-fb-chart-warn-ink)); }
+.ins-flash { box-shadow: var(--aspire-shadow-card), 0 0 0 3px var(--color-accent-primary, var(--ins-fb-color-accent-primary)); transition: box-shadow 0.3s; }
+@media (prefers-reduced-motion: reduce) { .ins-flash { transition: none; } }

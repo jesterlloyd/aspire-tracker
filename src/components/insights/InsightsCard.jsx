@@ -85,13 +85,23 @@ export function ChartCard({ id, title, sub, span = 12, table, note, legend, nat,
   )
 }
 
-/** The app's KPI card, at rest: a figure, not a filter, so it is not a button and does not lift. */
-export function Tile({ k, v, d, hero, empty, accent = 'nightfall' }) {
+/**
+ * The app's KPI card. With `onPick` it is a filter button, one chosen at a time, and the chosen one
+ * carries the KPI bar (INSIGHTS-KPI-FILTER-1); without it, a figure that does not lift (the portals).
+ */
+export function Tile({ k, v, d, hero, empty, accent = 'nightfall', onPick, active = false }) {
+  const cls = `ins-tile ins-a-${accent}${hero ? ' ins-hero' : ''}${empty ? ' ins-empty' : ''}`
+  const body = (
+    <>
+      <span className="ins-tv">{v}</span>
+      <span className="ins-tk">{k}</span>
+      <span className="ins-td">{d || ' '}</span>
+    </>
+  )
+  if (!onPick) return <div className={cls}>{body}</div>
   return (
-    <div className={`ins-tile ins-a-${accent}${hero ? ' ins-hero' : ''}${empty ? ' ins-empty' : ''}`}>
-      <div className="ins-tv">{v}</div>
-      <div className="ins-tk">{k}</div>
-      <div className="ins-td">{d || ' '}</div>
-    </div>
+    <button type="button" className={`${cls} ins-tile-btn${active ? ' ins-tile-on' : ''}`} aria-pressed={active} onClick={onPick}>
+      {body}
+    </button>
   )
 }
