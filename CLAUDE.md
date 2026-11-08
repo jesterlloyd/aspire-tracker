@@ -3409,3 +3409,51 @@ so no new permission and no SQL.
   shown); Ready to Release; and any mark that opens Responses (a mark is a `<span>` there, not a button).
 - Unit leaders keep their own Evaluation (released, unit-scoped responses only); the Overview is not theirs.
 - The bar chart's labels wrap at a word when wider than their column (EVAL-LABEL-WRAP-1, `wrapLabel`).
+
+## Academic Partners work their students' records (AP-RECORDS, 2026-11-08)
+
+Owner: schools should see where their students went in words they know, open each student's
+record, file the school's clearance documents, and send their own forms.
+
+- **AP-UNIT-NAMES-1. A school reads the unit's plain name.** Every catalog unit carries a
+  `publicName` in `src/lib/unitCatalog.js` (Surgical ICU for 5 SCCT), read through
+  `unitPublicName`. Academic Partner surfaces use it (the roster's Assigned Unit, Where Your
+  Students Rotated). Staff surfaces keep the code, and the stored value is still the code.
+- **AP-STUDENT-RECORDS-1. A roster row opens the record** (`src/portal/ap/SchoolStudentDrawer.jsx`,
+  server `lib/server/schoolStudentRecords.js` behind `api/portal/school-student-records.js`, shape
+  from `src/lib/ap/schoolStudentProfile.js`). It shows the intake answers: school and personal
+  email, phone, GPA, prior healthcare experience, unit preferences in plain names, availability
+  and the interest statement. **Never DOB, SSN, gender, résumé or program_type.** A school corrects
+  school email, GPA and `expected_graduation`. A changed graduation date offers to apply it to the
+  whole cohort at that school. Every correction is a `student_record_corrections` row that keeps
+  the student's original answer.
+- **AP-CLEARANCE-1. Clearance is filed, never reviewed.** ASPIRE's base list
+  (`student_document_types` with `checklist 'clearance'`, `src/lib/ap/clearanceChecklist.js`)
+  plus each school's own optional items (`school_key`). The school uploads (`uploaded_via 'school'`)
+  and every version is kept, through the Documents engine. Staff see them read-only on the chart
+  (`ClearanceOnRecord`). Migration `20261204000000_ap_student_records.sql` is Owner-gated. Before it
+  is applied, the profile still reads and nothing else changes. The base list in its INSERT is a
+  proposal for the Owner to confirm.
+- **AP-SCHOOL-FORMS-1. A school builds its own forms** at Academic Partner Portal > Forms
+  (`/portal/ap/forms`, `/portal/ap/forms/:id/edit|responses`). It is the Catalog's builder,
+  tracker, Answers and Summary, unchanged, given another API through `FormsApiContext`
+  (`src/components/forms/formsApi.js`: `call`, `school`, `readOnly`, `crumbs`). The Catalog's value
+  is the default. A school form is a `catalog_forms` row with `owner_school_key` and **no Catalog
+  item** (a CHECK holds it), so its assignments never reach the Catalog's tracker or people panel.
+  - `/api/portal/school-forms` runs `schoolFormAction` (`lib/server/forms/schoolForms.js`). The
+    action must be on `SCHOOL_READS` or `SCHOOL_WRITES`, every form and response it names must
+    belong to the caller's schools (anything else reads as 404), and then form-staff's own
+    exported `act` runs it. Do not fork the action switch.
+  - **A send names students, never addresses.** `peopleForSend` re-checks each id against the
+    caller's scope and the form's school, and takes the address from the record (school email,
+    else personal). Out of scope and no email are skipped with the reason given.
+  - An Owner/Admin preview reads every school's forms and writes none (`preview_read_only`).
+    `/api/form-staff` reads a school's form and refuses to write to one (`refuseSchoolFormWrite`,
+    403 `school_form`).
+  - Submissions file to the student's `record_documents` as every form does. Migration
+    `20261205000000_ap_school_forms.sql` is Owner-gated. Before it is applied, Forms says it is not enabled.
+- **Not built: school signatures.** `catalog.signatures` stays off until Legal and IT approve
+  (`docs/signatures/legal-it-approval-email.md`). A school version needs owner columns on the
+  signature tables, a recipient restriction to the school's own students, ownership checks on
+  every list and file read, and a wizard that does not write Catalog rows. Build it as its own
+  phase. Do not hang it off the Catalog's Prepare.
