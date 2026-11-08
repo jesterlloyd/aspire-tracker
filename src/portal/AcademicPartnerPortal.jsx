@@ -33,6 +33,8 @@ import { deriveClinicalHours } from '../lib/portalProgress'
 import UnitStudentAvatar from './unit/UnitStudentAvatar'
 import PreceptorList from './unit/PreceptorList'
 import { fmtShortDate } from './unit/unitLeaderApi'
+// AP-UNIT-NAMES-1: a school reads the unit's plain name, never the internal code.
+import { unitPublicName } from '../lib/unitCatalog'
 import { LoadingState, EmptyState, ErrorState, DeniedState } from './unit/UnitLeaderChrome'
 import { cohortOptions, inCohortScope, sortRoster } from './ap/academicPartnerRoster'
 import { readPortalCohort, writePortalCohort } from '../lib/portalCohortMemory'
@@ -350,7 +352,7 @@ function StudentsView({ onCommandPeople }) {
                     <td><StatusPill status={s.status} /></td>
                     <td>{s.cohort?.name || ''}</td>
                     <td>{s.rotation ? `${fmtShortDate(s.rotation.start)} to ${fmtShortDate(s.rotation.end)}` : <span className="ptl-muted">Not set</span>}</td>
-                    <td>{s.unit_name || <span className="ptl-muted">Not yet assigned</span>}</td>
+                    <td>{s.unit_name ? unitPublicName(s.unit_name) : <span className="ptl-muted">Not yet assigned</span>}</td>
                     <td>{s.shift_assigned || <span className="ptl-muted">Not set</span>}</td>
                     <td>
                       <PreceptorList assignments={s.preceptors} fallbackName={s.preceptor_name}

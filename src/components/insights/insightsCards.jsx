@@ -7,6 +7,7 @@
 // Colour (INSIGHTS-COLOR-1): a school keeps one validated slot (slotsFor); "you" is the first slot
 // and the comparison (program, average unit) is the grey every comparison wears.
 
+import { unitPublicName } from '../../lib/unitCatalog'
 import { HBar, Funnel, Lines, Columns } from './InsightsCharts'
 import { hbarHeight, funnelHeight } from '../../lib/insights/chartGeometry'
 import { fmtRate, rateText, shortCohort } from '../../lib/insights/insightsView'
@@ -139,10 +140,11 @@ export function partnerVsProgramCard(data) {
 
 /** Academic Partner: the units their placed students rotated on. */
 export function whereRotatedCard(data) {
-  const list = data.whereRotated || []
-  const items = list.map(u => ({ id: u.unit, label: u.unit, value: u.total, display: String(u.total), color: YOU, tip: `${u.unit}: ${u.total} ${u.total === 1 ? 'student' : 'students'}` }))
+  // AP-UNIT-NAMES-1 (Owner, 2026-11-08): a school reads "Neuroscience ICU", not "8 SCCT".
+  const list = (data.whereRotated || []).map(u => ({ ...u, label: unitPublicName(u.unit) }))
+  const items = list.map(u => ({ id: u.unit, label: u.label, value: u.total, display: String(u.total), color: YOU, tip: `${u.label}: ${u.total} ${u.total === 1 ? 'student' : 'students'}` }))
   return {
-    table: { columns: [{ key: 'unit', label: 'Unit' }, { key: 'total', label: 'Students' }], rows: list.map(u => ({ id: u.unit, unit: u.unit, total: u.total })) },
+    table: { columns: [{ key: 'unit', label: 'Unit' }, { key: 'total', label: 'Students' }], rows: list.map(u => ({ id: u.unit, unit: u.label, total: u.total })) },
     note: list.length ? 'A student placed on two units counts on each.' : '',
     nat: () => (list.length ? hbarHeight(items) : 40),
     draw: (w, h) => list.length ? <HBar items={items} width={w} height={h} /> : <p className="ins-emptyline">No placed students in this view.</p>,
