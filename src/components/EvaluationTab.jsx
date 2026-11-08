@@ -15,7 +15,6 @@ import { sortRows } from './shared/dataSheetSort'
 import SegmentedPicker from './shared/SegmentedPicker'
 import { InstrumentTabs, AnalysisSheet } from './evaluation/ResponsesPacket'
 import BubbleSheet from './evaluation/BubbleSheet'
-import CommentThemes from './evaluation/CommentThemes'
 import { completedByLabel } from '../lib/evaluationLabels'
 import { SURVEY_WORKFLOWS } from '../lib/evaluation/surveyCatalog'
 import {
@@ -469,6 +468,13 @@ export default function EvaluationTab({ cohortId, cohortLabel = '' }) {
         <Suspense fallback={<div className="ins evo"><div className="ins-sheet ins-state" role="status">Loading the surveys…</div></div>}>
           <EvaluationOverview
             responsesCohort={cohortLabel}
+            cohortId={cohortId}
+            canManage={isOwner || isAdmin}
+            onOpenWorkflow={(key) => {
+              setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('workflow', key); return n }, { replace: true })
+              setActiveSubTab('automation')
+            }}
+            onOpenResponse={openResponseById}
             onOpenResponses={(slug) => {
               if (slug && PACKET_SLUGS.includes(slug)) {
                 setUserPickedInstrument(true)
@@ -574,16 +580,7 @@ export default function EvaluationTab({ cohortId, cohortLabel = '' }) {
                 />
               </div>
 
-              {/* KEITH-THEMES-1: Keith's themes across this instrument's comments, Owner and Admin only. */}
-              {(isOwner || isAdmin) && (
-                <CommentThemes
-                  key={activeInstrumentFilter}
-                  cohortId={cohortId}
-                  instrument={activeInstrumentFilter}
-                  instrumentName={packet.instrument.name}
-                  onOpenResponse={openResponseById}
-                />
-              )}
+              {/* KEITH-THEMES-1's Comment Themes moved to the Overview (EVAL-OVERVIEW-3). */}
 
               <div ref={rosterRef} className="rp-roster">
                 <DataSheet

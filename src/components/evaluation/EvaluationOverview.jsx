@@ -9,6 +9,7 @@
 // A bar opens Responses on that survey (`onOpenResponses`). Keith's Read is Phase 2.
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { useTheme } from '../../contexts/ThemeContext'
 import { ChartCard } from '../insights/InsightsCard'
@@ -23,6 +24,12 @@ import { CASEY_FINK_SLUG } from '../../lib/evaluation/responsesPacketModel'
 import { EVAL_CARD_NAMES } from '../../lib/evaluation/evaluationReadModel'
 import { keithEvaluation } from '../../lib/insights/insightsClient'
 import KeithRead from '../insights/KeithRead'
+import CommentThemes from './CommentThemes'
+import { loadReviewQueues } from '../../lib/home/homeLoaders'
+import { reviewReleaseGroup } from '../../lib/home/needsYouModel'
+import { SURVEY_CATALOG } from '../../lib/evaluation/surveyCatalog'
+import { INSTRUMENTS as THEMED_SURVEYS } from '../../lib/evaluation/commentThemesModel'
+import { surveyName } from '../../lib/evaluation/surveyNames'
 import '../insights/insights.css'
 import './evaluationOverview.css'
 
@@ -55,6 +62,70 @@ async function loadOverview() {
     selectAll(() => supabase.from('cohorts').select('id, name').order('id')),
   ])
   return { rows: annotate(assignments, units), cohorts }
+}
+
+const WORKFLOWS = SURVEY_CATALOG.map(w => ({ key: w.key, label: w.label }))
+
+/**
+ * EVAL-OVERVIEW-3: what is ready to release for the header cohort. The SAME queue and the same rule
+ * as Needs you (loadReviewQueues + reviewReleaseGroup, one cache key), so the two never disagree.
+ * A row opens Review & Release on that workflow. Owner and Admin only, like the clipboard.
+ */
+function ReadyToRelease({ cohortId, cohortLabel, onOpenWorkflow }) {
+  const q = useQuery({ queryKey: ['home_review_queues', cohortId], queryFn: () => loadReviewQueues(cohortId), enabled: !!cohortId, staleTime: 60000 })
+  const group = q.data ? reviewReleaseGroup({ queues: q.data.queues, workflows: WORKFLOWS }) : null
+  const rows = group?.rows || []
+  const forCohort = cohortLabel ? ` for ${cohortLabel}` : ''
+  return (
+    <section className="ins-sheet ins-card evo-rr" aria-labelledby="evo-h-rr">
+      <div className="ins-ch"><div className="ins-ct">
+        <h2 id="evo-h-rr">Ready to Release</h2>
+        <p className="ins-sub">
+          {q.isLoading ? `Checking Review & Release${forCohort}.`
+            : q.isError ? 'Couldn\u2019t check Review & Release just now.'
+              : rows.length ? `Review & Release${forCohort}, the cohort chosen in the header.`
+                : `Nothing is waiting in Review & Release${forCohort}.`}
+        </p>
+      </div></div>
+      {rows.length > 0 && (
+        <ul className="evo-rr-list">
+          {rows.map(r => (
+            <li key={r.id}>
+              <button type="button" className="evo-rr-row" onClick={() => onOpenWorkflow?.(r.id.replace(/^rr:/, ''))}>
+                <span className="evo-rr-title">{r.title}</span>
+                <span className="evo-rr-meta">{r.meta}</span>
+                <span className="evo-rr-go" aria-hidden="true">›</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  )
+}
+
+/**
+ * EVAL-OVERVIEW-3: Keith's Comment Themes, moved up from Responses (the mockup's seventh card): the
+ * same component, one survey at a time, for the header cohort. A quote opens its response.
+ */
+function ThemesCard({ cohortId, cohortLabel, onOpenResponse }) {
+  const [survey, setSurvey] = useState('student_preceptor_eval')
+  return (
+    <section className="ins-sheet ins-card evo-themes" aria-labelledby="evo-h-themes">
+      <div className="ins-ch">
+        <div className="ins-ct">
+          <h2 id="evo-h-themes">Comment Themes</h2>
+          <p className="ins-sub">Keith's themes from the open answers, one survey at a time{cohortLabel ? `, for ${cohortLabel}` : ''}. Keith's Read never sees the comments.</p>
+        </div>
+      </div>
+      <div className="ins-filters evo-themes-pick">
+        <Select id="evo-themes-survey" label="Survey" value={survey} onChange={setSurvey}
+          options={THEMED_SURVEYS.map(slug => ({ value: slug, label: surveyName(slug) }))} />
+      </div>
+      <CommentThemes key={`${cohortId}:${survey}`} cohortId={cohortId} instrument={survey} instrumentName={surveyName(survey)}
+        title={surveyName(survey)} onOpenResponse={onOpenResponse} />
+    </section>
+  )
 }
 
 const evoCardId = card => `ins-evo-${card}`
@@ -174,7 +245,7 @@ function UnitGrid({ domains, units, onOpen }) {
   )
 }
 
-export default function EvaluationOverview({ onOpenResponses, responsesCohort = '' }) {
+export default function EvaluationOverview({ onOpenResponses, responsesCohort = '', cohortId = null, canManage = false, onOpenWorkflow, onOpenResponse }) {
   const { style } = useTheme()
   const classic = style !== 'modern'
   const [state, setState] = useState({ status: 'loading', rows: [], cohorts: [], error: null })
@@ -288,6 +359,8 @@ export default function EvaluationOverview({ onOpenResponses, responsesCohort = 
         </div>
         )}
 
+        {canManage && <ReadyToRelease cohortId={cohortId} cohortLabel={responsesCohort} onOpenWorkflow={onOpenWorkflow} />}
+
         {/* EVAL-KEITH-READ-1: Keith reads these figures when asked; the server recomputes them from f. */}
         <KeithRead filters={f} search={readKey} request={keithEvaluation} cardNames={EVAL_CARD_NAMES} idOf={evoCardId} />
 
@@ -354,6 +427,8 @@ export default function EvaluationOverview({ onOpenResponses, responsesCohort = 
               </ChartCard>
             </div>
           )}
+
+        {canManage && <ThemesCard cohortId={cohortId} cohortLabel={responsesCohort} onOpenResponse={onOpenResponse} />}
       </div>
     </div>
   )

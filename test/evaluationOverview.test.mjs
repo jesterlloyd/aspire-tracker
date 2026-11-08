@@ -129,3 +129,15 @@ test('the model and the view read no names or comments, and the view reuses the 
   const tab = readFileSync(new URL('../src/components/EvaluationTab.jsx', import.meta.url), 'utf8')
   assert.match(tab, /value: 'overview', label: 'Overview'/)
 })
+
+test('EVAL-OVERVIEW-3: Ready to Release reads the Needs you queue, and Comment Themes moved here', () => {
+  const view = readFileSync(new URL('../src/components/evaluation/EvaluationOverview.jsx', import.meta.url), 'utf8')
+  assert.match(view, /queryKey: \['home_review_queues', cohortId\], queryFn: \(\) => loadReviewQueues\(cohortId\)/, 'the same cache and loader as Needs you')
+  assert.match(view, /reviewReleaseGroup\(\{ queues: q\.data\.queues, workflows: WORKFLOWS \}\)/)
+  assert.match(view, /\{canManage && <ReadyToRelease /)
+  assert.match(view, /<CommentThemes key=/)
+  const tab = readFileSync(new URL('../src/components/EvaluationTab.jsx', import.meta.url), 'utf8')
+  assert.doesNotMatch(tab, /<CommentThemes/, 'Responses no longer draws the themes')
+  assert.match(tab, /onOpenResponse=\{openResponseById\}/)
+  assert.match(tab, /n\.set\('workflow', key\)/)
+})

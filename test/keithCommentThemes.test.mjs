@@ -385,9 +385,11 @@ test('/api/keith-comment-themes: Owner and Admin only; sharing and the floor are
   assert.ok(exp.body.csv.startsWith('﻿') && exp.body.fileName === 'aspire_comment_themes_post_rotation_evaluation_post_rotation.csv')
 })
 
-test('where it shows: Responses for Owner and Admin, the portal tab and the grant checkbox for the Owner', () => {
+test('where it shows: the Overview for Owner and Admin, the portal tab and the grant checkbox for the Owner', () => {
   const tab = read('src/components/EvaluationTab.jsx')
-  assert.match(tab, /\{\(isOwner \|\| isAdmin\) && \(\s*<CommentThemes/)
+  // EVAL-OVERVIEW-3 moved it from Responses to the Overview, still Owner and Admin only.
+  assert.match(read('src/components/evaluation/EvaluationOverview.jsx'), /\{canManage && <ThemesCard/)
+  assert.match(tab, /canManage=\{isOwner \|\| isAdmin\}/)
   const nav = read('src/portal/na/NursingAcademicsChrome.jsx')
   assert.match(nav, /\.\.\.\(themesEnabled \? \[EVALUATION_SECTION\] : \[\]\)/)
   const app = read('src/portal/PortalApp.jsx')

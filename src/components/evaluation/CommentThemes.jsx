@@ -132,7 +132,7 @@ function LeadershipView({ view }) {
   )
 }
 
-export default function CommentThemes({ cohortId, instrument, instrumentName, onOpenResponse }) {
+export default function CommentThemes({ cohortId, instrument, instrumentName, onOpenResponse, title = 'Comments' }) {
   const { userProfile } = useAuth()
   const isOwner = userProfile?.is_owner === true
   const qc = useQueryClient()
@@ -195,7 +195,7 @@ export default function CommentThemes({ cohortId, instrument, instrumentName, on
   return (
     <section className="ct-section" aria-labelledby="ct-title">
       <header className="ct-head">
-        <h3 id="ct-title">Comments</h3>
+        <h3 id="ct-title">{title}</h3>
         {timepoints.length > 1 && (
           <SegmentedPicker size="sm" ariaLabel="Timepoint" value={tp} onChange={setTimepoint} options={timepoints.map(t => ({ value: t, label: tpLabel(t) }))} />
         )}
