@@ -343,6 +343,25 @@ test('/api/keith-placement: placement roles only; the mode switch is the Ownerâ€
   assert.equal((await call(as(owner), { action: 'accept', suggestion_id: 'nope' })).status, 400)
 })
 
+test('KEITH-PLACEMENT-LOG-1: a known error at 500 is logged with its code; a 404 is not', async () => {
+  const { db, owner, cohort } = await world()
+  const warned = []
+  const orig = console.warn
+  console.warn = (...a) => warned.push(a)
+  try {
+    const failing = { ...db, from: (t) => t === 'matches' ? { select: () => ({ eq: async () => ({ data: null, error: { message: 'column matches.created_at does not exist' } }) }) } : db.from(t) }
+    const h = createKeithPlacementHandler({ verifyCaller: async () => ({ authenticated: true, profile: owner }), makeDb: () => failing })
+    const r = await call(h, { action: 'board', cohort_id: cohort.id })
+    assert.deepEqual([r.status, r.body.error], [500, 'read_failed'])
+    assert.equal(warned.length, 1)
+    assert.deepEqual([warned[0][0], warned[0][1].action, warned[0][1].code], ['[keith-placement] failed', 'board', 'read_failed'])
+    const ok = createKeithPlacementHandler({ verifyCaller: async () => ({ authenticated: true, profile: owner }), makeDb: () => db })
+    const nf = await call(ok, { action: 'reject', suggestion_id: '00000000-0000-4000-8000-000000000000' })
+    assert.equal(nf.status, 404)
+    assert.equal(warned.length, 1, 'a 404 is the person\'s, not logged')
+  } finally { console.warn = orig }
+})
+
 function call(handler, body) {
   return new Promise((resolve) => {
     const res = { statusCode: 200, headers: {}, setHeader(k, v) { this.headers[k] = v }, status(c) { this.statusCode = c; return this }, json(b) { resolve({ status: this.statusCode, body: b }); return this }, end() { resolve({ status: this.statusCode }); return this } }

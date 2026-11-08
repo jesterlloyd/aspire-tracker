@@ -62,7 +62,13 @@ export function createKeithPlacementHandler({ verifyCaller = verifyPortalCaller,
         }
       }
     } catch (e) {
-      if (e instanceof PlacementSuggestionError || e instanceof KeithSkillError) return res.status(e.status || 409).json({ error: e.code || e.reason, message: e.message })
+      if (e instanceof PlacementSuggestionError || e instanceof KeithSkillError) {
+        const status = e.status || 409
+        // KEITH-PLACEMENT-LOG-1: a known error at 500 or above is a server fault (a refused read), so it
+        // is logged; the 400s are the person's and stay quiet. Six weeks of 500s logged no reason.
+        if (status >= 500) console.warn('[keith-placement] failed', { action: body.action, code: e.code || e.reason, reason: e.message })
+        return res.status(status).json({ error: e.code || e.reason, message: e.message })
+      }
       console.warn('[keith-placement] failed', { action: body.action, reason: e?.message })
       return res.status(500).json({ error: 'failed' })
     }
