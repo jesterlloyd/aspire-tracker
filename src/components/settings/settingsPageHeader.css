@@ -65,3 +65,8 @@
   .settings-page-sub { height: auto; white-space: normal; }
   .settings-page-sub:empty { display: none; }
 }
+
+/* PAGE-TITLE-1: Keith's lockup is a 32px box set middle in the line, which made the Keith AI
+   title 34px tall and its baseline 2px below "Settings". In a band it takes the title's own
+   line and sits on its top, so every page title shares one baseline. */
+.settings-page-title .keith-lockup { height: var(--aspire-page-title-line, 30px); vertical-align: top; }
