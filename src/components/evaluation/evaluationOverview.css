@@ -1,0 +1,82 @@
+/* EVAL-OVERVIEW-1: Evaluation > Overview. Everything structural is Insights' (.ins-*); this sheet
+   holds only the three marks Insights has no part for: the stacked band rows, the Casey-Fink
+   dumbbell and the unit grid. Segment colours are the packet's --up / --same / --down (theme.css),
+   and the down segment is textured, never red, as on the Responses packet. */
+
+.evo { --evo-seg-ink: #FFFFFF; --evo-lab-w: 34%; }
+[data-theme='dark'] .evo { --evo-seg-ink: #0B1220; }
+
+.evo .evo-tiles { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+@media (max-width: 1200px) { .evo .evo-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 700px) { .evo .evo-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+.evo-none { margin: 8px 0; color: var(--ins-muted); font-size: 13px; }
+
+/* Stacked bands and the dumbbell share one row: label, mark, figure. */
+.evo-bands, .evo-db { display: flex; flex-direction: column; gap: 8px; padding: 4px 0; }
+.evo-band-row, .evo-db-row {
+  display: grid; grid-template-columns: var(--evo-lab-w) minmax(0, 1fr) 64px; align-items: center; gap: 10px;
+}
+.evo-band-lab {
+  font-size: 12.5px; color: var(--ins-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.evo-band-n, .evo-db-chg { font-size: 12px; color: var(--ins-muted); text-align: right; font-variant-numeric: tabular-nums; }
+.evo-db-chg { color: var(--ins-ink); font-weight: 600; }
+
+.evo-band-bar {
+  display: flex; gap: 2px; height: 22px; padding: 0; border: 0; background: transparent; cursor: pointer;
+  border-radius: var(--aspire-radius-control, 10px); overflow: hidden; font: inherit;
+}
+.evo-band-bar:focus-visible, .evo-db-line:focus-visible, .evo-cell button:focus-visible {
+  outline: 2px solid var(--ins-c1); outline-offset: 2px;
+}
+.evo-seg {
+  display: flex; align-items: center; justify-content: center; min-width: 4px;
+  font-size: 11px; font-weight: 700; color: var(--evo-seg-ink); font-variant-numeric: tabular-nums;
+}
+.evo-seg-up { background-color: var(--up); }
+.evo-seg-same { background-color: var(--same); }
+.evo-seg-down {
+  background-color: var(--down);
+  background-image: repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.28) 0 2px, transparent 2px 5px);
+}
+.evo-band-bar:hover .evo-seg { filter: brightness(1.06); }
+
+/* Casey-Fink: pre (grey) and post (the first categorical slot) on a 1 to 4 line. */
+.evo-db-line {
+  position: relative; height: 22px; padding: 0; border: 0; background: transparent; cursor: pointer; font: inherit;
+}
+.evo-db-axis { position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: var(--ins-line); }
+.evo-db-span { position: absolute; top: calc(50% - 1.5px); height: 3px; background: var(--ins-c1); opacity: 0.45; }
+.evo-db-dot {
+  position: absolute; top: 50%; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--ins-surface);
+}
+.evo-db-pre { background: var(--ins-other); }
+.evo-db-post { background: var(--ins-c1); }
+.evo-db-scale { margin-top: -2px; }
+.evo-db-ticks { display: flex; justify-content: space-between; font-size: 11px; color: var(--ins-muted); }
+.evo-db-ticks i { font-style: normal; width: 0; display: flex; justify-content: center; }
+
+/* The unit grid: the mean is always printed; the shade repeats the ASPIRE rule. */
+.evo-grid-wrap { overflow-x: auto; }
+.evo-grid { width: 100%; border-collapse: separate; border-spacing: 2px; font-size: 12.5px; }
+.evo-grid th { white-space: nowrap; }
+.evo-grid-unit { color: var(--ins-ink); font-weight: 600; white-space: nowrap; padding: 0 8px; }
+.evo-grid-n { color: var(--ins-muted); text-align: right; padding: 0 8px; font-variant-numeric: tabular-nums; }
+.evo-grid-few { color: var(--ins-muted); font-style: italic; padding: 6px 8px; }
+.evo-cell { padding: 0; }
+.evo-cell button {
+  width: 100%; min-height: 30px; border: 0; cursor: pointer; font: inherit; font-weight: 700;
+  font-variant-numeric: tabular-nums; border-radius: var(--aspire-radius-control, 10px);
+}
+.evo-cell-up button { background: #2F7D5C; color: #FFFFFF; }
+.evo-cell-same button { background: #C9CED6; color: #1F2937; }
+.evo-cell-down button { background: #B7791F; color: #1F1300; }
+.evo-cell-none button { background: transparent; color: var(--ins-muted); }
+.evo-cell button:hover { filter: brightness(1.05); }
+
+@media (max-width: 700px) {
+  .evo { --evo-lab-w: 40%; }
+  .evo-band-row, .evo-db-row { grid-template-columns: var(--evo-lab-w) minmax(0, 1fr) 48px; }
+}

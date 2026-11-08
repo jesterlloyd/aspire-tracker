@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef, Suspense } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useLastSynced } from '../hooks/useLastSynced'
@@ -23,7 +23,10 @@ import {
   buildPacket, buildInstrumentTabs, buildRosterRows, buildBubbleSheet,
   rosterSortValue, effectiveStatus, responseOf, timepointLabel, reissueTarget,
 } from '../lib/evaluation/responsesPacketModel'
+import { lazyReload } from '../lib/lazyReload'
 import './evaluation/evaluationModern.css'
+// EVAL-OVERVIEW-1: the program-wide Overview, loaded only when it is opened.
+const EvaluationOverview = lazyReload(() => import('./evaluation/EvaluationOverview'), 'EvaluationOverview')
 
 // RESPONSES-PACKET-1 (2026-09-19): Evaluation > Responses is a results packet.
 // Modern keeps horizontal instrument navigation. Classic uses a right-edge booklet index
@@ -107,17 +110,20 @@ export default function EvaluationTab({ cohortId, cohortLabel = '' }) {
 
   // HOME-1: a ?workflow deep link (the home page's Needs you, the Responses roster's Send
   // again) lands on Review & Release, which is the screen that reads that parameter.
+  // EVAL-OVERVIEW-1: otherwise it opens on Overview, except for an interviewer, who never loads it.
   const [activeSubTab,    setActiveSubTab]    = useState(() =>
-    (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('workflow')) ? 'automation' : 'cohort')
+    (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('workflow')) ? 'automation'
+      : (evaluationRestricted ? 'cohort' : 'overview'))
   const [assignments,     setAssignments]     = useState([])
 
   // EVAL-NAV-1: 'program' and 'preceptor' are no longer reachable from the visible subnav.
   // If state ever lands on one of those hidden keys, fall back to Responses ('cohort').
   useEffect(() => {
-    if (activeSubTab === 'program' || activeSubTab === 'preceptor') {
+    // EVAL-OVERVIEW-1: an interviewer whose role resolved after the first render goes to Responses.
+    if (activeSubTab === 'program' || activeSubTab === 'preceptor' || (activeSubTab === 'overview' && evaluationRestricted)) {
       setActiveSubTab('cohort')
     }
-  }, [activeSubTab])
+  }, [activeSubTab, evaluationRestricted])
 
   const [loading,         setLoading]         = useState(false)
   const [error,           setError]           = useState(null)
@@ -450,11 +456,32 @@ export default function EvaluationTab({ cohortId, cohortLabel = '' }) {
             setActiveSubTab(key)
           }}
           options={[
+            ...(evaluationRestricted ? [] : [{ value: 'overview', label: 'Overview' }]),
             { value: 'cohort', label: 'Responses' },
             ...((isOwner || isAdmin) ? [{ value: 'automation', label: 'Review & Release' }] : []),
           ]}
         />
       </div>
+
+      {/* ── Overview (EVAL-OVERVIEW-1): every cohort's surveys, never for an interviewer. A chart
+             opens Responses on that survey's tab. ── */}
+      {activeSubTab === 'overview' && !evaluationRestricted && (
+        <Suspense fallback={<div className="ins evo"><div className="ins-sheet ins-state" role="status">Loading the surveys…</div></div>}>
+          <EvaluationOverview
+            responsesCohort={cohortLabel}
+            onOpenResponses={(slug) => {
+              if (slug && PACKET_SLUGS.includes(slug)) {
+                setUserPickedInstrument(true)
+                setFilterInstrument(slug)
+              }
+              setFilterTimepoint('All')
+              setActiveKpiFilter(null)
+              setRosterFocus(null)
+              setActiveSubTab('cohort')
+            }}
+          />
+        </Suspense>
+      )}
 
       {/* ── Program View placeholder ────────────────────────────────────── */}
       {activeSubTab === 'program' && (

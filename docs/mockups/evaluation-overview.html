@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Evaluation Overview · mockup</title>
+<!--
+  EVAL-OVERVIEW-1 mockup (2026-11-07). Evaluation > Overview, built from ASPIRE Insights' own parts:
+  the app's clickable KPI cards, the Cohort / School / Unit bar with More filters, Keith's Read and
+  chart cards with Table view. Every figure here is made up; the shapes are the real instruments'.
+  The notes panel on the right says what is reused, what is new, and what the Owner decides.
+-->
+<style>
+:root{
+  color-scheme:light;
+  --ground:#F4F5F8; --surface:#FFFFFF; --ink:#191919; --ink-2:#475467; --muted:#5b6472;
+  --line:rgba(29,37,103,.10); --input:rgba(29,37,103,.16); --grid:rgba(31,36,48,.06);
+  --navy:#1D2567; --navy-soft:#EDEEF4; --chrome:#1D2567;
+  --c1:#2a78d6; --c2:#eb6834; --c3:#1baf7a; --c4:#eda100; --c5:#e87ba4; --c6:#008300; --c7:#6250d6; --c8:#e34948;
+  --other:#b9b8b2;
+  --ok:#2F7D5C; --mid:#C9CED6; --warn:#B7791F; --warn-ink:#8B5E1A;
+  --amber:#fdf3d6; --amber-line:#e9c76a; --amber-ink:#6b4a00;
+  --s1:0 1px 0 rgba(29,37,103,.04),0 1px 2px rgba(29,37,103,.04);
+  --s2:0 1px 0 rgba(29,37,103,.04),0 4px 12px rgba(29,37,103,.05);
+  --s3:0 1px 0 rgba(29,37,103,.04),0 8px 24px rgba(29,37,103,.08);
+  --font:"Plus Jakarta Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,monospace;
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --ground:#0F1220; --surface:#181C2C; --ink:#EEF0F6; --ink-2:#C3C8D4; --muted:#A3AAB8;
+  --line:rgba(255,255,255,.10); --input:rgba(255,255,255,.16); --grid:rgba(255,255,255,.06);
+  --navy-soft:#252B45;
+  --c1:#3987e5; --c2:#d95926; --c3:#199e70; --c4:#c98500; --c5:#d55181; --c6:#008300; --c7:#9085e9; --c8:#e66767;
+  --other:#5a5955; --ok:#2F7D5C; --mid:#C9CED6; --warn:#B7791F; --warn-ink:#F3C96B;
+  --amber:#3a2f12; --amber-line:#7a6220; --amber-ink:#f3d58a;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:var(--font);color:var(--ink);background:var(--ground);font-size:14px;line-height:1.45}
+button,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--c1);outline-offset:2px}
+
+/* Mockup-only strip */
+.mock{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;padding:8px 20px;background:var(--amber);border-bottom:1px dashed var(--amber-line);color:var(--amber-ink);font-size:12.5px}
+.mock b{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase}
+.mock button{background:var(--surface);border:1px solid var(--amber-line);border-radius:6px;padding:3px 9px;cursor:pointer}
+
+/* App chrome, abbreviated */
+.top{height:64px;background:var(--chrome);color:#fff;display:flex;align-items:center;gap:14px;padding:0 28px;font-weight:700;font-size:19px}
+.top small{font-weight:500;font-size:12px;opacity:.75;margin-left:auto}
+.nav{display:flex;gap:28px;padding:0 32px;height:52px;align-items:flex-end;background:var(--surface);border-bottom:1px solid var(--line)}
+.nav a{padding:0 2px 12px;font-size:17px;color:var(--ink-2);text-decoration:none;border-bottom:3px solid transparent}
+.nav a.on{color:var(--navy);font-weight:700;border-color:var(--navy)}
+:root[data-theme="dark"] .nav a.on{color:#fff;border-color:#fff}
+
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:0}
+@media (max-width:1180px){.layout{grid-template-columns:1fr}.notes{border-left:0;border-top:1px dashed var(--amber-line)}}
+.page{padding:24px 20px 60px;min-width:0}
+
+/* Segmented picker (canonical) */
+.seg{display:inline-flex;border:1px solid var(--input);border-radius:10px;overflow:hidden;background:var(--surface)}
+.seg button{border:0;background:none;padding:7px 16px;cursor:pointer;font-size:14px;color:var(--ink-2)}
+.seg button[aria-pressed="true"]{background:var(--navy);color:#fff;font-weight:600}
+:root[data-theme="dark"] .seg button[aria-pressed="true"]{background:#3a4a8c}
+.seg .new{position:relative}
+.seg .new::after{content:"new";position:absolute;top:2px;right:3px;font-size:8.5px;font-family:var(--mono);opacity:.75}
+
+.head{display:flex;flex-wrap:wrap;align-items:flex-end;gap:6px 20px;margin:18px 0 14px}
+.head h1{margin:0;font-size:26px;letter-spacing:-.015em}
+.head p{margin:2px 0 0;color:var(--ink-2)}
+.head .asof{margin-left:auto;font-size:12.5px;color:var(--muted);text-align:right}
+
+/* KPI cards: KPIBand's FilterKPICard, value for value */
+.tiles{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
+@media (max-width:1100px){.tiles{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.kpi{all:unset;box-sizing:border-box;display:flex;flex-direction:column;gap:4px;padding:14px 18px;border-radius:12px;background:var(--tint);border:1px solid rgba(29,37,103,.06);box-shadow:var(--s1);cursor:pointer;transition:transform .18s cubic-bezier(.2,.7,.2,1),box-shadow .18s,background .18s;min-width:0}
+.kpi:hover{transform:translateY(-2px);box-shadow:var(--s3),0 0 0 4px var(--halo)}
+.kpi:focus-visible{outline:2px solid var(--solid);outline-offset:2px}
+.kpi .v{font-size:32px;font-weight:700;line-height:1;letter-spacing:-.025em;color:var(--solid);font-variant-numeric:tabular-nums}
+.kpi .k{margin-top:8px;font-size:10.5px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:#475467}
+.kpi .d{margin-top:2px;font-size:11.5px;color:#5b6472;min-height:17px}
+.kpi[aria-pressed="true"]{background:var(--solid);border-color:var(--solid);box-shadow:var(--s2)}
+.kpi[aria-pressed="true"] .v{color:#fff}.kpi[aria-pressed="true"] .k{color:rgba(255,255,255,.88)}.kpi[aria-pressed="true"] .d{color:rgba(255,255,255,.72)}
+.kpi.fig{cursor:default}.kpi.fig:hover{transform:none;box-shadow:var(--s1)}
+.kpi.fig .link{margin-top:4px;font-size:12px;font-weight:600;color:var(--solid);text-decoration:underline;cursor:pointer;background:none;border:0;padding:0;text-align:left}
+.a-nightfall{--tint:#EDEEF4;--solid:#1D2567;--halo:rgba(29,37,103,.08)}
+.a-sage{--tint:#EEF7F0;--solid:#2F7D5C;--halo:rgba(47,125,92,.10)}
+.a-marina{--tint:#EDF5F4;--solid:#275E63;--halo:rgba(39,94,99,.10)}
+.a-dawn{--tint:#FBF5E8;--solid:#8B5E1A;--halo:rgba(139,94,26,.10)}
+.a-chroma{--tint:#F8EDF2;--solid:#930045;--halo:rgba(147,0,69,.10)}
+.a-periwinkle{--tint:#EDF0F7;--solid:#4A5D8F;--halo:rgba(74,93,143,.10)}
+
+/* Filter bar */
+.card{background:var(--surface);border-radius:12px;box-shadow:0 1px 0 rgba(29,37,103,.04),0 2px 10px rgba(29,37,103,.06);border:0}
+.filters{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:flex-end;padding:14px 18px;margin-top:16px}
+.f{display:flex;flex-direction:column;gap:4px}
+.f label{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.f select{height:36px;border:1px solid var(--input);border-radius:10px;padding:0 10px;background:var(--surface);min-width:170px}
+.more{margin-left:auto;height:36px;border:1px solid var(--input);border-radius:10px;background:var(--surface);padding:0 14px;font-weight:600;cursor:pointer}
+.morebox{display:none;flex-basis:100%;gap:10px 16px;flex-wrap:wrap;padding-top:10px;border-top:1px solid var(--line)}
+.morebox.on{display:flex}
+.chips{margin:12px 2px 0;font-size:13px;color:var(--ink-2);min-height:22px}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:2px 6px 2px 10px;border-radius:14px;background:var(--navy-soft);color:var(--navy);font-weight:600;margin-right:6px}
+:root[data-theme="dark"] .chip{color:#cfd6f5}
+.chip button{border:0;background:none;cursor:pointer;color:inherit}
+
+/* Keith's Read */
+.kr{margin-top:16px;padding:18px 20px}
+.kr .row{display:flex;gap:12px;align-items:flex-start}
+.kr h2{margin:0;font-size:17px;display:flex;align-items:center;gap:8px}
+.orb{width:22px;height:22px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#9fd0ff,#4a5de0 55%,#2a1f7a)}
+.kr .sub{margin:2px 0 0;color:var(--muted);font-size:13px}
+.btn{margin-left:auto;height:34px;border:1px solid var(--input);border-radius:10px;background:var(--surface);padding:0 14px;font-weight:600;cursor:pointer;white-space:nowrap}
+.kr .hl{font-size:16.5px;font-weight:600;margin:14px 0 12px}
+.finds{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;list-style:none;margin:0;padding:0}
+@media (max-width:1100px){.finds{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.finds li{border:1px solid var(--line);border-radius:10px;padding:12px 14px;font-size:13.5px}
+.finds b{display:block;margin-bottom:4px}
+.finds button{display:block;margin-top:8px;border:0;background:none;padding:0;color:var(--navy);font-weight:600;text-decoration:underline;cursor:pointer}
+:root[data-theme="dark"] .finds button{color:#a9b8f5}
+.knotes{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:14px;font-size:13.5px}
+.knotes h3{margin:0 0 4px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.knotes ul{margin:0;padding-left:18px}
+.kfoot{margin:12px 0 0;font-size:12.5px;color:var(--muted)}
+
+/* Chart cards */
+.grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:16px;margin-top:16px}
+.c12{grid-column:span 12}.c7{grid-column:span 7}.c6{grid-column:span 6}.c5{grid-column:span 5}
+@media (max-width:980px){.c7,.c6,.c5{grid-column:span 12}}
+.cc{padding:16px 18px 14px;min-width:0}
+.cc .ch{display:flex;gap:10px;align-items:flex-start}
+.cc .ch .t{flex:1;min-width:0}
+.cc h2{margin:0;font-size:15.5px}
+.cc .sub{margin:2px 0 0;color:var(--ink-2);font-size:12.5px}
+.acts{display:flex;gap:6px;flex-shrink:0}
+.acts button{height:28px;border:1px solid var(--input);background:var(--surface);border-radius:8px;padding:0 9px;font-size:12px;cursor:pointer;color:var(--ink-2)}
+.acts button[aria-pressed="true"]{background:var(--navy-soft);color:var(--navy);font-weight:600}
+.cbody{margin-top:12px}
+.note{margin-top:10px;font-size:12px;color:var(--muted)}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:10px;font-size:12px;color:var(--ink-2)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:10px;height:10px;border-radius:3px;display:inline-block}
+.flash{animation:fl 1.4s ease}
+@keyframes fl{0%,60%{box-shadow:0 0 0 3px var(--c1)}100%{box-shadow:0 1px 0 rgba(29,37,103,.04),0 2px 10px rgba(29,37,103,.06)}}
+
+/* Horizontal bars */
+.hb{display:grid;grid-template-columns:minmax(120px,190px) minmax(0,1fr) 92px;gap:6px 10px;align-items:center;font-size:12.5px}
+.hb .lab{color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hb .track{height:16px;position:relative;border-radius:0 4px 4px 0}
+.hb .bar{height:100%;border-radius:0 4px 4px 0;background:var(--c1);cursor:pointer}
+.hb .bar:hover{opacity:.82}
+.hb .num{font-variant-numeric:tabular-nums;color:var(--ink)}
+.hb .num small{color:var(--muted)}
+.hb .few{font-style:italic;color:var(--muted)}
+
+/* Stacked distribution */
+.stk{display:grid;grid-template-columns:minmax(140px,210px) minmax(0,1fr) 40px;gap:7px 10px;align-items:center;font-size:12.5px}
+.stk .row{display:flex;height:18px;gap:2px;cursor:pointer}
+.stk .row:hover{opacity:.85}
+.stk .seg-ok{color:#fff !important;background:var(--ok);border-radius:4px 0 0 4px}
+.stk .seg-mid{background:var(--mid)}
+.stk .seg-low{background:var(--warn);border-radius:0 4px 4px 0;background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.35) 0 2px,transparent 2px 6px)}
+.stk .n{color:var(--muted);font-variant-numeric:tabular-nums;text-align:right}
+.stk .row span{display:flex;align-items:center;justify-content:center;color:#191919;font-size:11px;font-weight:600;min-width:0;overflow:hidden}
+
+/* Dumbbell */
+.db{display:grid;grid-template-columns:minmax(120px,170px) minmax(0,1fr) 52px;gap:10px;margin-bottom:8px;align-items:center;font-size:12.5px}
+.db .line{position:relative;height:22px}
+.db .axis{position:absolute;left:0;right:0;top:50%;border-top:1px solid var(--grid)}
+.db .span{position:absolute;top:calc(50% - 1px);height:2px;background:var(--ink-2)}
+.db .dot{position:absolute;top:50%;width:12px;height:12px;border-radius:50%;transform:translate(-50%,-50%);border:2px solid var(--surface)}
+.db .pre{background:var(--other)}.db .post{background:var(--c1)}
+.db .chg{font-variant-numeric:tabular-nums;font-weight:600;color:#2F7D5C}
+:root[data-theme="dark"] .db .chg{color:#6CCB9B}
+.scale{display:grid;grid-template-columns:minmax(120px,170px) minmax(0,1fr) 52px;gap:10px;font-size:11px;color:var(--muted);margin-top:4px}
+.scale div{display:flex;justify-content:space-between}
+
+/* Heatmap */
+.hm{width:100%;border-collapse:separate;border-spacing:3px;font-size:12.5px}
+.hm th{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);text-align:left;padding:4px 6px}
+.hm td{padding:7px 8px;border-radius:6px;text-align:center;font-variant-numeric:tabular-nums;cursor:pointer}
+.hm td.u{text-align:left;cursor:default;color:var(--ink-2);background:none;white-space:nowrap}
+.hm td.na{color:var(--muted);font-style:italic;background:repeating-linear-gradient(135deg,var(--grid) 0 3px,transparent 3px 7px)}
+.hm td:not(.u):not(.na):hover{outline:2px solid var(--ink-2)}
+
+/* Themes */
+.th{display:flex;flex-direction:column;gap:8px}
+.th div{display:flex;gap:10px;align-items:baseline;font-size:13px}
+.th b{min-width:30px;text-align:right;font-variant-numeric:tabular-nums}
+.th span{flex:1}
+.th em{font-style:normal;font-size:11.5px;padding:1px 8px;border-radius:10px;background:var(--navy-soft);color:var(--navy)}
+:root[data-theme="dark"] .th em{color:#cfd6f5}
+:root[data-theme="dark"] .th em.neg{color:#8B5E1A}
+.th em.neg{background:#FBF5E8;color:#8B5E1A}
+
+/* Table view */
+table.tv{width:100%;border-collapse:collapse;font-size:12.5px}
+table.tv th{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#5f6b78;background:#F3F5F8;text-align:left;padding:7px 10px}
+:root[data-theme="dark"] table.tv th{background:#222844;color:#C3C8D4}
+table.tv td{padding:7px 10px;border-top:1px solid var(--line);font-variant-numeric:tabular-nums}
+
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#191919;color:#fff;padding:10px 16px;border-radius:10px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90vw}
+.toast.on{opacity:.95}
+
+/* Notes panel (mockup only) */
+.notes{border-left:1px dashed var(--amber-line);background:var(--amber);color:var(--amber-ink);padding:20px 18px;font-size:13px}
+.notes h2{font-size:12px;font-family:var(--mono);letter-spacing:.06em;text-transform:uppercase;margin:18px 0 6px}
+.notes h2:first-child{margin-top:0}
+.notes ul,.notes ol{margin:0;padding-left:18px}
+.notes li{margin-bottom:5px}
+@media (prefers-reduced-motion:reduce){.kpi,.flash{transition:none;animation:none}}
+</style>
+</head>
+<body>
+<div class="mock">
+  <b>Mockup</b><span>Evaluation &gt; Overview · every figure is made up</span>
+  <button id="theme">Dark mode</button>
+  <button id="nokr">Show Keith's Read before a first read</button>
+</div>
+
+<div class="top">ASPIRE Intelligence <small>SCOPE Internship · Fall 2025</small></div>
+<nav class="nav" aria-label="Sections"><a>At a Glance</a><a>Student Profiles</a><a>Interviews</a><a>Rotation</a><a class="on" aria-current="page">Evaluation</a></nav>
+
+<div class="layout">
+<main class="page">
+  <div class="seg" role="group" aria-label="Evaluation views">
+    <button class="new" aria-pressed="true">Overview</button><button aria-pressed="false">Responses</button><button aria-pressed="false">Review &amp; Release</button>
+  </div>
+
+  <div class="head">
+    <div><h1>Evaluation Overview</h1><p>What the four surveys say, across every cohort, school and unit.</p></div>
+    <div class="asof">As of Nov 7, 2026, 6:38 PM<br><span id="inview">412 surveys sent in view</span></div>
+  </div>
+
+  <section class="tiles" aria-label="Headline figures. Choose one to filter the page." id="tiles"></section>
+
+  <section class="card filters" aria-label="Filters">
+    <div class="f"><label for="fc">Cohort</label><select id="fc"><option>All cohorts</option><option>Fall 2025</option><option>Spring 2026</option><option>Summer 2026</option></select></div>
+    <div class="f"><label for="fs">School</label><select id="fs"><option>All schools</option><option>Cal State LA</option><option>Cal State Northridge</option><option>CSU Long Beach</option><option>UCLA</option><option>West Coast University North Hollywood</option></select></div>
+    <div class="f"><label for="fu">Unit</label><select id="fu"><option>All units</option><option>4 North</option><option>5 North</option><option>6 NE</option><option>PACU</option></select></div>
+    <button class="more" id="more" aria-expanded="false">More filters</button>
+    <div class="morebox" id="morebox">
+      <div class="f"><label for="fi">Survey</label><select id="fi"><option>All four surveys</option><option>Casey-Fink Readiness for Practice</option><option>Preceptor's Assessment of Student Readiness</option><option>Student's Feedback on Unit and Preceptor</option><option>Student's Feedback on ASPIRE</option></select></div>
+      <div class="f"><label for="ft">Timepoint</label><select id="ft"><option>Every timepoint</option><option>Pre-Rotation</option><option>Midpoint</option><option>Post-Rotation</option></select></div>
+      <div class="f"><label for="fp">Pathway</label><select id="fp"><option>All</option><option>Internal</option><option>External</option></select></div>
+      <div class="f"><label for="fsl">Service line</label><select id="fsl"><option>All service lines</option><option>Critical Care</option><option>Med-Surg</option><option>Women's and Children's</option></select></div>
+    </div>
+  </section>
+  <div class="chips" id="chips">No filters. Showing every cohort, school and unit.</div>
+
+  <section class="card kr" id="kr" aria-labelledby="kr-h"></section>
+
+  <div class="grid">
+    <section class="card cc c6" id="card-rate"></section>
+    <section class="card cc c6" id="card-cf"></section>
+    <section class="card cc c7" id="card-prec"></section>
+    <section class="card cc c5" id="card-school"></section>
+    <section class="card cc c12" id="card-unit"></section>
+    <section class="card cc c6" id="card-aspire"></section>
+    <section class="card cc c6" id="card-themes"></section>
+  </div>
+</main>
+
+<aside class="notes" aria-label="Design notes">
+  <h2>What this is</h2>
+  <p style="margin:0">A third Evaluation view, first in the picker: the surveys read the way ASPIRE Insights reads the pipeline. Responses (the packet and roster) and Review &amp; Release do not change.</p>
+  <h2>Reused, not invented</h2>
+  <ul>
+    <li>KPI cards: <code>FilterKPICard</code>, one chosen at a time.</li>
+    <li>Filter bar, chips and More filters: Insights' <code>FilterBar</code>.</li>
+    <li>Chart cards, Table view, CSV, hover: Insights' <code>ChartCard</code>.</li>
+    <li>Every figure: <code>responsesPacketModel.js</code> (bands, pairs, NA rules, the Likert rule). Nothing new is scored.</li>
+    <li>Ready to release: <code>reviewQueueBuild.js</code>, the queue Needs you reads.</li>
+    <li>Themes: the existing Keith comment themes.</li>
+    <li>Keith's Read: the Insights pattern, a second Skill.</li>
+  </ul>
+  <h2>Rules it keeps</h2>
+  <ul>
+    <li>A group under 5 responses is withheld, never zero.</li>
+    <li>Casey-Fink items are licensed: sections and means only, never item text.</li>
+    <li>Preceptor rating 1 (Not Observed) is left out of every mean and count.</li>
+    <li>Down is amber and textured, never red.</li>
+    <li>Keith is sent totals and means only: no comment text, no names. He quotes; he never computes.</li>
+    <li>Every bar opens Responses, filtered to the students behind it.</li>
+  </ul>
+  <h2>Owner decides</h2>
+  <ol>
+    <li>Overview first in the picker, or after Responses?</li>
+    <li>Does Co-Lead see it? (Responses: Owner, Admin, Co-Lead.)</li>
+    <li>By Unit names units with 5+ responses. Show the unit leaders' view of the same numbers later?</li>
+    <li>Should Insights' Casey-Fink card link here, and leave Insights to the pipeline?</li>
+  </ol>
+  <h2>Build order</h2>
+  <ol>
+    <li>Overview with tiles, filters and the seven cards (no SQL).</li>
+    <li>Keith's Read for evaluations (one Owner-gated seed).</li>
+    <li>Deep links from Needs you and Insights.</li>
+  </ol>
+</aside>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+const $ = s => document.querySelector(s)
+const toast = msg => { const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove('on'), 2600) }
+const open = what => toast(`Opens Responses: ${what}`)
+let status = 'all'
+
+// ── KPI cards ─────────────────────────────────────────────────────────────
+const TILES = [
+  { key: 'all', accent: 'nightfall', v: 412, k: 'Surveys Sent', d: '4 surveys · 3 cohorts' },
+  { key: 'completed', accent: 'sage', v: 331, k: 'Completed', d: '80% response rate' },
+  { key: 'awaiting', accent: 'dawn', v: 47, k: 'Awaiting Answer', d: 'Reminders running' },
+  { key: 'expired', accent: 'chroma', v: 34, k: 'Expired or Revoked', d: '12 can be sent again' },
+  { fig: true, accent: 'marina', v: 76, k: 'Matched Pairs', d: 'Casey-Fink pre and post' },
+  { fig: true, accent: 'periwinkle', v: 7, k: 'Ready to Release', d: '', link: 'Open Review & Release' },
+]
+function drawTiles() {
+  $('#tiles').innerHTML = TILES.map((t, i) => t.fig
+    ? `<div class="kpi fig a-${t.accent}"><span class="v">${t.v}</span><span class="k">${t.k}</span><span class="d">${t.d || ''}${t.link ? `<button class="link" data-rr>${t.link}</button>` : ''}</span></div>`
+    : `<button class="kpi a-${t.accent}" aria-pressed="${status === t.key}" data-t="${t.key}"><span class="v">${t.v}</span><span class="k">${t.k}</span><span class="d">${t.d}</span></button>`).join('')
+  $('#tiles').querySelectorAll('[data-t]').forEach(b => b.onclick = () => {
+    status = status === b.dataset.t && b.dataset.t !== 'all' ? 'all' : b.dataset.t
+    drawTiles(); drawChips()
+  })
+  $('#tiles').querySelector('[data-rr]').onclick = () => toast('Opens Review & Release on the 7 ready slips')
+}
+function drawChips() {
+  const t = TILES.find(x => x.key === status)
+  $('#chips').innerHTML = status === 'all' ? 'No filters. Showing every cohort, school and unit.'
+    : `<span class="chip">${t.k}<button aria-label="Remove ${t.k}" id="unchip">×</button></span> The cards below count ${t.k.toLowerCase()} surveys only.`
+  const u = $('#unchip'); if (u) u.onclick = () => { status = 'all'; drawTiles(); drawChips() }
+}
+$('#more').onclick = () => { const on = $('#morebox').classList.toggle('on'); $('#more').setAttribute('aria-expanded', on) }
+
+// ── Keith's Read ──────────────────────────────────────────────────────────
+const READ = {
+  headline: 'Students finish more ready than they start in every Casey-Fink section, and preceptors rate most students at or above the expected level by the end, but Communication and Leadership is the section that grows least and Student\'s Feedback on ASPIRE has the lowest response rate.',
+  findings: [
+    { t: 'Readiness grows in every section', x: 'Section I means rise from 2.61 to 3.18 for Clinical Problem Solving and from 2.74 to 3.06 for Communication and Leadership across 76 matched pairs.', c: 'cf' },
+    { t: 'Most reach the expected level', x: 'At the end of rotation, 84% of competency ratings are meeting or above. Clinical Judgment has the most ratings at Close support (6%).', c: 'prec' },
+    { t: 'ASPIRE feedback answers lag', x: 'Student\'s Feedback on ASPIRE is at 61% (64 of 105), against 93% (98 of 105) for Casey-Fink Pre-Rotation.', c: 'rate' },
+    { t: 'One unit reads lower on safety', x: '5 North shows 3.6 for Psychological Safety, against 4.3 to 4.7 elsewhere. Its n is 9, so treat this as a lead.', c: 'unit' },
+  ],
+  watch: ['Check whether ASPIRE feedback is sent after the certificate, which removes the reason to answer.', 'Look at the 12 expired surveys that can be sent again before the cohort closes.'],
+  caveats: ['Casey-Fink is self-report: it does not measure competence.', 'Comment text is not read here; Comment Themes summarises it separately.'],
+}
+let hasRead = true
+function drawRead() {
+  $('#kr').innerHTML = `<div class="row"><div><h2 id="kr-h">Keith's Read ${hasRead ? '<span class="orb" title="Keith"></span>' : ''}</h2>
+    <p class="sub">${hasRead ? 'Every cohort, school and unit. Read Nov 7, 2026, 5:13 PM, asked by Jester Lloyd Bautista. Keith reads only when asked: Read again reads the figures as they are now.' : 'Keith reads the survey figures on this page and says what stands out. He never changes a number.'}</p></div>
+    <button class="btn" id="run">${hasRead ? 'Read again' : 'Read these figures'}</button></div>
+    ${hasRead ? `<p class="hl">${READ.headline}</p>
+    <ol class="finds">${READ.findings.map(f => `<li><b>${f.t}</b>${f.x}<button data-see="${f.c}">See ${({ cf: 'Readiness Change', prec: 'Preceptor Ratings', rate: 'Response Rate', unit: 'by Unit' })[f.c]}</button></li>`).join('')}</ol>
+    <div class="knotes"><div><h3>Worth checking next</h3><ul>${READ.watch.map(w => `<li>${w}</li>`).join('')}</ul></div>
+    <div><h3>What these figures cannot say</h3><ul>${READ.caveats.map(w => `<li>${w}</li>`).join('')}</ul></div></div>
+    <p class="kfoot">Keith reads the totals and means the page shows; he never reads a comment or a name, and he does not compute new figures. A difference between groups is not a cause.</p>` : ''}`
+  $('#run').onclick = () => { const b = $('#run'); b.textContent = 'Reading…'; b.disabled = true; setTimeout(() => { hasRead = true; drawRead(); toast('Keith\'s read is saved with these filters') }, 1200) }
+  $('#kr').querySelectorAll('[data-see]').forEach(b => b.onclick = () => { const el = $('#card-' + b.dataset.see); el.scrollIntoView({ behavior: 'smooth', block: 'start' }); el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash') })
+}
+$('#nokr').onclick = () => { hasRead = !hasRead; $('#nokr').textContent = hasRead ? 'Show Keith\'s Read before a first read' : 'Show a saved read'; drawRead() }
+
+// ── Chart cards ───────────────────────────────────────────────────────────
+function card(id, title, sub, chart, table, note, legend) {
+  const el = $('#card-' + id); let asTable = false
+  const draw = () => {
+    el.innerHTML = `<div class="ch"><div class="t"><h2>${title}</h2><p class="sub">${sub}</p></div>
+      <div class="acts"><button aria-pressed="${asTable}" data-tv>Table view</button><button data-csv>CSV</button></div></div>
+      <div class="cbody">${asTable ? tableHtml(table) : chart}</div>${!asTable && legend ? `<div class="legend">${legend}</div>` : ''}${note ? `<p class="note">${note}</p>` : ''}`
+    el.querySelector('[data-tv]').onclick = () => { asTable = !asTable; draw() }
+    el.querySelector('[data-csv]').onclick = () => toast(`Downloads aspire-evaluation-${id}-2026-11-07.csv`)
+    el.querySelectorAll('[data-open]').forEach(n => n.onclick = () => open(n.dataset.open))
+  }
+  draw()
+}
+const tableHtml = t => `<table class="tv"><thead><tr>${t.cols.map(c => `<th>${c}</th>`).join('')}</tr></thead><tbody>${t.rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table>`
+const pct = (c, n) => n < 5 ? null : Math.round(c / n * 100)
+
+// 1. Response rate by survey
+const RATE = [
+  ['Casey-Fink, Pre-Rotation', 98, 105], ['Casey-Fink, Post-Rotation', 81, 105], ['Preceptor, Midpoint', 88, 104],
+  ['Preceptor, End of Rotation', 79, 104], ['Unit and Preceptor Feedback', 72, 105], ['Feedback on ASPIRE', 64, 105],
+]
+card('rate', 'Response Rate by Survey', 'Completed of sent, each survey and timepoint',
+  `<div class="hb">${RATE.map(([l, c, n], i) => { const p = pct(c, n); return `<span class="lab" title="${l}">${l}</span><span class="track"><span class="bar" style="width:${p}%;display:block;background:var(--c${i < 2 ? 1 : i < 4 ? 3 : i < 5 ? 7 : 2})" data-open="${l}, completed" title="${l}: ${c} of ${n}"></span></span><span class="num">${p}% <small>${c} of ${n}</small></span>` }).join('')}</div>`,
+  { cols: ['Survey', 'Completed', 'Sent', 'Rate'], rows: RATE.map(([l, c, n]) => [l, c, n, pct(c, n) + '%']) },
+  'Colour is the survey: Casey-Fink, Preceptor\'s Assessment, Unit and Preceptor, ASPIRE.')
+
+// 2. Casey-Fink change
+const CF = [['Clinical Problem Solving', 2.61, 3.18], ['Learning and Professional Development', 2.88, 3.31], ['Communication and Leadership', 2.74, 3.06]]
+const xp = v => ((v - 1) / 3) * 100
+card('cf', 'Readiness Change, Casey-Fink', 'Section I means, pre and post, 76 matched pairs. 1 Strongly Disagree to 4 Strongly Agree',
+  `${CF.map(([l, a, b]) => `<div class="db"><span class="lab">${l}</span><span class="line" data-open="${l}, matched pairs" style="cursor:pointer"><span class="axis"></span><span class="span" style="left:${xp(a)}%;width:${xp(b) - xp(a)}%"></span><span class="dot pre" style="left:${xp(a)}%" title="Pre ${a}"></span><span class="dot post" style="left:${xp(b)}%" title="Post ${b}"></span></span><span class="chg">+${(b - a).toFixed(2)}</span></div>`).join('')}
+   <div class="scale"><span></span><div><span>1</span><span>2</span><span>3</span><span>4</span></div><span></span></div>`,
+  { cols: ['Section', 'Pre mean', 'Post mean', 'Change', 'Pairs'], rows: CF.map(([l, a, b]) => [l, a, b, '+' + (b - a).toFixed(2), 76]) },
+  'Observed change in student-reported readiness. It does not measure competence, retention or savings. Item wording is licensed and not shown.',
+  '<span><i style="background:var(--other)"></i>Pre-Rotation</span><span><i style="background:var(--c1)"></i>Post-Rotation</span>')
+
+// 3. Preceptor ratings, distribution
+const PREC = [['Clinical Judgment', 70, 24, 6], ['Patient-Centered Care', 88, 10, 2], ['Safety and Quality', 82, 15, 3], ['Teamwork and Communication', 90, 9, 1], ['Professionalism and Accountability', 93, 6, 1], ['Advanced Beginner Readiness', 78, 18, 4]]
+let precTp = 'End of Rotation'
+card('prec', 'Preceptor Ratings by Competency', 'End of Rotation, 79 assessments. Not Observed is left out.',
+  `<div class="stk">${PREC.map(([l, a, b, c]) => `<span class="lab">${l}</span><span class="row" data-open="${l}, preceptor ratings">${[['ok', a], ['mid', b], ['low', c]].map(([k, v]) => `<span class="seg-${k}" style="flex:${v} 1 0" title="${v}%">${v >= 9 ? v + '%' : ''}</span>`).join('')}</span><span class="n">79</span>`).join('')}</div>`,
+  { cols: ['Competency', 'Meeting or above', 'Developing', 'Close support'], rows: PREC.map(([l, a, b, c]) => [l, a + '%', b + '%', c + '%']) },
+  'Read on the instrument\'s own scale: 4 and 5 meeting or exceeding, 3 developing, 2 needing close support. Midpoint and End of Rotation switch in More filters > Timepoint.',
+  '<span><i style="background:var(--ok)"></i>Meeting or above</span><span><i style="background:var(--mid)"></i>Developing</span><span><i style="background:var(--warn);background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.35) 0 2px,transparent 2px 6px)"></i>Close support</span>')
+
+// 4. by school
+const SCH = [['Cal State LA', 19, 23], ['Cal State Northridge', 8, 9], ['CSU Long Beach', 14, 18], ['UCLA', 7, 9], ['West Coast University NoHo', 24, 28], ['Mount Saint Mary\'s', 3, 4]]
+card('school', 'Response Rate by School', 'All four surveys, completed of sent, per student',
+  `<div class="hb">${SCH.map(([l, c, n]) => { const p = pct(c, n); return `<span class="lab" title="${l}">${l}</span><span class="track">${p == null ? '' : `<span class="bar" style="width:${p}%;display:block" data-open="${l}" title="${l}: ${c} of ${n}"></span>`}</span>${p == null ? '<span class="few">too few</span>' : `<span class="num">${p}% <small>${c} of ${n}</small></span>`}` }).join('')}</div>`,
+  { cols: ['School', 'Students answering', 'Students', 'Rate'], rows: SCH.map(([l, c, n]) => [l, c, n, pct(c, n) == null ? 'too few' : pct(c, n) + '%']) },
+  'A school with fewer than 5 students is withheld, never shown as zero.')
+
+// 5. Unit heatmap
+const DOMS = ['Preceptor Support', 'Learning Environment', 'Psychological Safety', 'Overall Experience']
+const UNITS = [['4 North', 12, [4.6, 4.4, 4.5, 4.6]], ['5 North', 9, [4.1, 3.9, 3.6, 4.0]], ['6 NE', 14, [4.7, 4.6, 4.7, 4.8]], ['6 South', 8, [4.5, 4.3, 4.4, 4.4]], ['7 SCCT', 11, [4.4, 4.5, 4.3, 4.5]], ['PACU', 4, null], ['Labor and Delivery', 6, [4.8, 4.6, 4.7, 4.9]]]
+const tone = v => v >= 4 ? `background:color-mix(in srgb,var(--ok) ${Math.min(40, Math.round(16 + (v - 4) * 30))}%,transparent)` : v >= 3 ? 'background:color-mix(in srgb,var(--mid) 30%,transparent)' : 'background:color-mix(in srgb,var(--warn) 35%,transparent)'
+card('unit', 'Student\'s Feedback on Unit and Preceptor, by Unit', 'Domain means (1 to 5), units with 5 or more responses',
+  `<table class="hm"><thead><tr><th>Unit</th><th>n</th>${DOMS.map(d => `<th>${d}</th>`).join('')}</tr></thead><tbody>${UNITS.map(([u, n, v]) => `<tr><td class="u">${u}</td><td class="u">${n}</td>${v ? v.map((x, i) => `<td style="${tone(x)}" data-open="${u}, ${DOMS[i]}" title="${u}, ${DOMS[i]}: ${x} (n ${n})">${x.toFixed(1)}</td>`).join('') : `<td class="na" colspan="4" style="cursor:default">Too few responses to show</td>`}</tr>`).join('')}</tbody></table>`,
+  { cols: ['Unit', 'n', ...DOMS], rows: UNITS.map(([u, n, v]) => [u, n, ...(v ? v.map(x => x.toFixed(1)) : ['too few', '', '', ''])]) },
+  'ASPIRE rule: a mean of 4.0 or above reads as agreed, 3.0 to 3.9 neutral, below 3.0 disagreed. The number is always printed; shade only repeats it. Unit leaders see these only after Review & Release.')
+
+// 6. ASPIRE experience
+const ASP = [['Orientation prepared me', 78, 17, 5], ['Communication was timely', 66, 24, 10], ['Support when I needed it', 84, 12, 4], ['Workload was manageable', 59, 28, 13], ['I would recommend ASPIRE', 89, 8, 3]]
+card('aspire', 'Student\'s Feedback on ASPIRE', '64 responses, share of answers per item',
+  `<div class="stk">${ASP.map(([l, a, b, c]) => `<span class="lab" title="${l}">${l}</span><span class="row" data-open="${l}, ASPIRE feedback">${[['ok', a], ['mid', b], ['low', c]].map(([k, v]) => `<span class="seg-${k}" style="flex:${v} 1 0" title="${v}%">${v >= 9 ? v + '%' : ''}</span>`).join('')}</span><span class="n">64</span>`).join('')}</div>`,
+  { cols: ['Item', 'Agree', 'Neutral', 'Disagree'], rows: ASP.map(([l, a, b, c]) => [l, a + '%', b + '%', c + '%']) },
+  'Program-level feedback. It gates no certificate.',
+  '<span><i style="background:var(--ok)"></i>Agree</span><span><i style="background:var(--mid)"></i>Neutral</span><span><i style="background:var(--warn);background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.35) 0 2px,transparent 2px 6px)"></i>Disagree</span>')
+
+// 7. Comment themes
+const TH = [[23, 'Preceptor took time to teach', 'Praise'], [17, 'Felt part of the team', 'Praise'], [11, 'Unclear shift schedule early on', 'Concern'], [8, 'Wanted more hands-on time', 'Concern'], [6, 'Documentation access came late', 'Concern']]
+card('themes', 'Comment Themes', 'Keith\'s themes from the open answers; one survey at a time (Student\'s Feedback on Unit and Preceptor shown)',
+  `<div class="th">${TH.map(([n, t, k]) => `<div><b>${n}</b><span>${t}</span><em class="${k === 'Concern' ? 'neg' : ''}">${k}</em></div>`).join('')}</div>`,
+  { cols: ['Mentions', 'Theme', 'Kind'], rows: TH },
+  'The existing Comment Themes, moved up from Responses. A theme opens the comments behind it; Keith\'s Read never sees them.')
+
+$('#theme').onclick = () => { const d = document.documentElement; const dark = d.dataset.theme !== 'dark'; d.dataset.theme = dark ? 'dark' : 'light'; $('#theme').textContent = dark ? 'Light mode' : 'Dark mode' }
+drawTiles(); drawChips(); drawRead()
+</script>
+</body>
+</html>
