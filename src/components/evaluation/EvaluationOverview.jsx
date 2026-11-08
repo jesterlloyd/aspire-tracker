@@ -20,6 +20,9 @@ import {
   EMPTY_FILTERS, MORE_FILTER_KEYS, MIN_N,
 } from '../../lib/evaluation/evaluationOverviewModel'
 import { CASEY_FINK_SLUG } from '../../lib/evaluation/responsesPacketModel'
+import { EVAL_CARD_NAMES } from '../../lib/evaluation/evaluationReadModel'
+import { keithEvaluation } from '../../lib/insights/insightsClient'
+import KeithRead from '../insights/KeithRead'
 import '../insights/insights.css'
 import './evaluationOverview.css'
 
@@ -54,6 +57,7 @@ async function loadOverview() {
   return { rows: annotate(assignments, units), cohorts }
 }
 
+const evoCardId = card => `ins-evo-${card}`
 const pct = (n, total) => (total ? Math.round((n / total) * 100) : 0)
 const mean2 = v => (v == null ? '–' : v.toFixed(2))
 
@@ -191,6 +195,7 @@ export default function EvaluationOverview({ onOpenResponses, responsesCohort = 
   const options = useMemo(() => filterOptions(state.rows, state.cohorts), [state.rows, state.cohorts])
   const o = useMemo(() => buildOverview(state.rows, f), [state.rows, f])
   const set = (k, v) => setF(prev => ({ ...prev, [k]: v }))
+  const readKey = JSON.stringify(f)
   const chips = chipsFor(f, options).filter(c => c.key !== 'status')
   const open = useCallback(slug => () => onOpenResponses?.(slug), [onOpenResponses])
   // Responses shows the cohort chosen in the header, not this page's Cohort filter, so say which.
@@ -282,6 +287,9 @@ export default function EvaluationOverview({ onOpenResponses, responsesCohort = 
           {state.status === 'error' && <span className="ins-warn" role="alert">Couldn't refresh. These are the last figures loaded.</span>}
         </div>
         )}
+
+        {/* EVAL-KEITH-READ-1: Keith reads these figures when asked; the server recomputes them from f. */}
+        <KeithRead filters={f} search={readKey} request={keithEvaluation} cardNames={EVAL_CARD_NAMES} idOf={evoCardId} />
 
         {o.scoped === 0
           ? <div className="ins-sheet ins-state" role="status">No surveys match these filters.</div>

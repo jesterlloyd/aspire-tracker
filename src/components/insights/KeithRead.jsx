@@ -24,8 +24,8 @@ const when = iso => {
   return Number.isNaN(d.getTime()) ? '' : d.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
 }
 
-function seeCard(card) {
-  const el = document.getElementById(`ins-${card}`)
+function seeCard(id) {
+  const el = document.getElementById(id)
   if (!el) return
   // The app's header is pinned (.top-section), so land the card just below it, not under it.
   const chrome = Math.max(0, document.querySelector('.top-section')?.getBoundingClientRect().bottom || 0)
@@ -35,7 +35,7 @@ function seeCard(card) {
   window.setTimeout(() => el.classList.remove('ins-flash'), 1600)
 }
 
-function ReadBody({ read }) {
+function ReadBody({ read, cardNames, idOf }) {
   const r = read.read || {}
   return (
     <>
@@ -45,8 +45,8 @@ function ReadBody({ read }) {
           <li key={i}>
             <b>{f.title}</b>
             <span>{f.text}</span>
-            {f.card && CARD_NAMES[f.card] && (
-              <button type="button" className="ins-kr-see" onClick={() => seeCard(f.card)}>See {CARD_NAMES[f.card]}</button>
+            {f.card && cardNames[f.card] && (
+              <button type="button" className="ins-kr-see" onClick={() => seeCard(idOf(f.card))}>See {cardNames[f.card]}</button>
             )}
           </li>
         ))}
@@ -69,15 +69,18 @@ function ReadBody({ read }) {
  * @param {object} props
  * @param {object} props.filters  the page's filters (filtersFromSearch)
  * @param {string} props.search   the page's query string, so a filter change reloads the read
+ * @param {Function} [props.request]   the endpoint (keithInsights; Evaluation > Overview passes keithEvaluation)
+ * @param {object} [props.cardNames]   card id to the name a "See" link reads
+ * @param {Function} [props.idOf]      card id to its DOM id
  */
-export default function KeithRead({ filters, search }) {
+export default function KeithRead({ filters, search, request = keithInsights, cardNames = CARD_NAMES, idOf = card => `ins-${card}` }) {
   const [state, setState] = useState({ status: 'loading', data: null, error: '' })
   const [running, setRunning] = useState(false)
 
   useEffect(() => {
     let alive = true
     setState(s => ({ ...s, status: 'loading', error: '' }))
-    keithInsights('latest', filters)
+    request('latest', filters)
       .then(data => { if (alive) setState({ status: 'ready', data, error: '' }) })
       .catch(() => { if (alive) setState({ status: 'error', data: null, error: '' }) })
     return () => { alive = false }
@@ -88,7 +91,7 @@ export default function KeithRead({ filters, search }) {
   const runRead = useCallback(async () => {
     setRunning(true)
     try {
-      const data = await keithInsights('run', filters)
+      const data = await request('run', filters)
       setState({ status: 'ready', data, error: '' })
     } catch (e) {
       setState(s => ({ ...s, error: e.message || 'Keith could not read the figures just now. Try again.' }))
@@ -145,7 +148,7 @@ export default function KeithRead({ filters, search }) {
       {read && read.current === false && (
         <p className="ins-kr-stale" role="note">Out of date: the figures have changed since this read.</p>
       )}
-      {shown && <ReadBody read={shown} />}
+      {shown && <ReadBody read={shown} cardNames={cardNames} idOf={idOf} />}
       {shown && <p className="ins-kr-foot">Keith reads the figures the page shows and quotes them; he does not compute new ones. A difference between groups is not a cause.</p>}
     </section>
   )

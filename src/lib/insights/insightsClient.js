@@ -30,11 +30,20 @@ export async function fetchInsights(surface, search = '', extra = {}) {
  * @param {'latest'|'run'} action
  * @param {object} filters  the page's filters (filtersFromSearch), strings only
  */
-export async function keithInsights(action, filters = {}) {
+export function keithInsights(action, filters = {}) {
+  return postKeithRead('/api/keith-insights', action, filters)
+}
+
+/** EVAL-KEITH-READ-1: Keith's Read on Evaluation > Overview, the same contract on its own figures. */
+export function keithEvaluation(action, filters = {}) {
+  return postKeithRead('/api/keith-evaluation', action, filters)
+}
+
+async function postKeithRead(path, action, filters) {
   const { data: { session } } = await supabase.auth.getSession()
   const token = session?.access_token
   const clean = Object.fromEntries(Object.entries(filters).filter(([, v]) => typeof v === 'string' && v !== ''))
-  const res = await fetch('/api/keith-insights', {
+  const res = await fetch(path, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     body: JSON.stringify({ action, filters: clean }),

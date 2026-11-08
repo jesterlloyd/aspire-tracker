@@ -93,9 +93,10 @@ const clean = (s, max) => String(s || '').replace(/\s+/g, ' ').trim().slice(0, m
 /**
  * Keith's output, checked against the digest. Throws (the runner then drops the read) when the
  * headline states a number the page does not show; a finding, a watch or a caveat that does is
- * dropped on its own. `dropped` counts what was removed, so the card can say so.
+ * dropped on its own. `dropped` counts what was removed, so the card can say so. `cards` is the
+ * page's card ids (Evaluation > Overview passes its own, EVAL-KEITH-READ-1).
  */
-export function parseRead(json, digest) {
+export function parseRead(json, digest, cards = READ_CARDS) {
   const allowed = allowedNumbers(digest)
   const ok = s => strayNumbers(s, allowed).length === 0
   const headline = clean(json.headline, 240)
@@ -108,7 +109,7 @@ export function parseRead(json, digest) {
     const text = clean(f?.text, 500)
     if (!title || !text) continue
     if (!ok(title) || !ok(text)) { dropped += 1; continue }
-    findings.push({ title, text, card: READ_CARDS.includes(f?.card) ? f.card : null })
+    findings.push({ title, text, card: cards.includes(f?.card) ? f.card : null })
   }
   const list = arr => (Array.isArray(arr) ? arr : []).slice(0, 3).map(s => clean(s, 240)).filter(Boolean)
     .filter(s => (ok(s) ? true : ((dropped += 1), false)))
