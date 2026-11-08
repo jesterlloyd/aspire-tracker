@@ -61,6 +61,8 @@ import { DISPOSITION_TYPES, DISPOSITION_PILL_COLORS, DECISION_ORIGINS, FOLLOWUP_
 import { realtimePayloadInScope } from '../lib/demoScope'
 import { RecordDocumentRows, CatalogSendsOnRecord } from './records/RecordDocuments'
 import { useRecordFiles, useOpenRecordDocument } from './records/useRecordFiles'
+import { ClearanceDocumentRows } from './records/ClearanceOnRecord'
+import { useClearanceOnRecord } from './records/useClearanceOnRecord'
 
 function fmtCommTs(ts) {
   if (!ts) return ''
@@ -246,6 +248,8 @@ export default function StudentSidePanel({
   const { canEdit, canManageStudentFiles, canGenerateBadge, canViewStudentResumeInCohort, canViewStudentPhotoInCohort, userProfile } = useAuth()
   // CATALOG-REVAMP-1: files filed to this record and the Catalog sends that reached it.
   const recordFiles = useRecordFiles({ studentId: student?.id, enabled: !!canManageStudentFiles })
+  // AP-CLEARANCE-1: what the student's school filed in the Academic Partner portal.
+  const clearanceRows = useClearanceOnRecord(student?.id, !!canManageStudentFiles)
   const recordOpen = useOpenRecordDocument()
   // WAVE F-2: per-cohort file-view checks. Resume view: active Owner/Admin or an
   // entitled active interviewer. Photo view additionally includes an active Viewer.
@@ -2660,6 +2664,7 @@ export default function StudentSidePanel({
               {/* CATALOG-REVAMP-1: files filed to this record (a personal file moved out of
                   the Catalog now; filed forms and signed copies later), same columns. */}
               <RecordDocumentRows docs={recordFiles.docs} onOpen={recordOpen.open} busy={recordOpen.busy} />
+              <ClearanceDocumentRows rows={clearanceRows} />
             </div>
             <CatalogSendsOnRecord sends={recordFiles.sends} />
           </div>

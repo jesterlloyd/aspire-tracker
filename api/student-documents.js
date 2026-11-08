@@ -33,6 +33,7 @@ import {
   finishUpload, openVersion, keepBeforeRecordReplace, adoptRecordResume,
 } from '../lib/server/studentDocuments.js'
 import { documentActivity } from '../lib/server/documentActivity.js'
+import { loadClearanceFor } from '../lib/server/schoolStudentRecords.js'
 import { populationOf } from '../lib/server/demoScope.js'
 import { listReviews, getReview, scoreResumeVersion, reviseDraft, saveDraft, scoringAvailability } from '../lib/server/resumeReview.js'
 import { extsFor, DOCUMENT_MAX_BYTES } from '../src/lib/documents/documentChecklist.js'
@@ -40,7 +41,7 @@ import { extsFor, DOCUMENT_MAX_BYTES } from '../src/lib/documents/documentCheckl
 const READ_ROLES = new Set(['owner', 'admin', 'co-lead'])
 const WRITE_ROLES = new Set(['owner', 'admin'])
 const WRITES = new Set(['upload_start', 'upload_finish', 'keep_record_resume', 'review_start', 'review_draft', 'review_save'])
-const ACTIONS = new Set(['list', 'open', 'review_get', 'activity', ...WRITES])
+const ACTIONS = new Set(['list', 'open', 'review_get', 'activity', 'clearance', ...WRITES])
 
 const unprovisioned = res => res.status(200).json({ provisioned: false })
 const internal = res => res.status(500).json({ error: 'internal_error' })
@@ -99,8 +100,10 @@ export default async function handler(req, res) {
       if (!isUuid(body.version_id)) return res.status(422).json({ error: 'invalid_version_id' })
       if (ta) {
         const v = await db.from('student_document_versions').select('document_id').eq('id', body.version_id).maybeSingle()
-        const d = v.data ? await db.from('student_documents').select('student_id').eq('id', v.data.document_id).maybeSingle() : { data: null }
+        const d = v.data ? await db.from('student_documents').select('student_id, doc_type').eq('id', v.data.document_id).maybeSingle() : { data: null }
         if (!(await alumnus(d.data?.student_id))) return res.status(404).json({ error: 'not_found' })
+        // AP-CLEARANCE-1: a school's clearance files are the ASPIRE team's, not Talent Acquisition's.
+        if (/^(clr|sc)_/.test(String(d.data?.doc_type || ''))) return res.status(404).json({ error: 'not_found' })
       }
       const o = await openVersion(db, storage, { versionId: body.version_id })
       if (o.error) return isMissingTable(o.error) ? unprovisioned(res) : internal(res)
@@ -130,6 +133,18 @@ export default async function handler(req, res) {
     if (!s.student) return res.status(404).json({ error: 'not_found' })
     if (ta && s.student.status !== 'Completed') return res.status(404).json({ error: 'not_found' })
     const student = s.student
+
+    // AP-CLEARANCE-1 (Owner, 2026-11-08): the clearance files a school uploaded, read-only for
+    // the ASPIRE team. Filed, no review. ASPIRE's base list plus any school item this student has.
+    if (action === 'clearance') {
+      if (ta) return res.status(404).json({ error: 'not_found' })
+      const t = await loadTypes(db, { checklist: 'clearance' })
+      if (t.error) return isMissingTable(t.error) ? res.status(200).json({ ok: true, provisioned: false, rows: [] }) : internal(res)
+      if (t.notEnabled) return res.status(200).json({ ok: true, provisioned: false, rows: [] })
+      const l = await loadClearanceFor(db, student.id, t.types)
+      if (l.error) return internal(res)
+      return res.status(200).json({ ok: true, provisioned: true, rows: l.rows })
+    }
 
     if (action === 'list') {
       const l = await loadStudentDocuments(db, student.id)

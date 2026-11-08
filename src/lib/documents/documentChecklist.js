@@ -117,7 +117,7 @@ export function versionHistory(doc) {
     .map(v => ({ ...v, isCurrent: v.id === doc?.current_version_id }))
 }
 
-export const VIA_LABEL = { staff: 'Uploaded by staff', portal: 'Uploaded by the student', record: 'Kept from the student record' }
+export const VIA_LABEL = { staff: 'Uploaded by staff', portal: 'Uploaded by the student', record: 'Kept from the student record', school: 'Uploaded by the school' }
 
 // Client-side gate before asking the server to sign an upload. The server repeats it.
 export function validatePick(docType, file) {

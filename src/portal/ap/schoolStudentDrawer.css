@@ -1,0 +1,50 @@
+/* AP-STUDENT-RECORDS-1: the Academic Partner's student drawer. The shell is the Unit Leader
+   drawer's (ptl-drawer, ptl-detail-*); this sheet styles only what it adds. The drawer is white in
+   both themes, so its inks are fixed, and each status pill is a fixed ink on a fixed tint. */
+.apr-drawer { max-width: 560px; }
+.apr-section { margin-top: var(--aspire-gap-card, 16px); }
+.apr-section + .apr-section { border-top: 1px solid #ece8df; padding-top: var(--aspire-gap-card, 16px); }
+.apr-lede { margin: 0 0 12px; font-size: 13px; color: #4b5563; }
+.apr-preview { margin: 0 0 8px; font-size: 13px; color: #5b6472; }
+.apr-stack { display: grid; gap: 12px; margin: 12px 0 0; }
+.apr-value { display: inline-flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.apr-edit { display: inline-flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.apr-input {
+  font: inherit; font-size: 14px; padding: 6px 8px; min-width: 0; max-width: 100%;
+  border: 1px solid #cfd4dc; border-radius: var(--aspire-radius-control, 10px); color: #191919; background: #fff;
+}
+.apr-link {
+  background: none; border: 0; padding: 0; font: inherit; font-size: 13px; font-weight: 600;
+  color: #1d4ed8; cursor: pointer; text-decoration: underline; text-underline-offset: 2px;
+}
+.apr-link:focus-visible { outline: 2px solid #1d4ed8; outline-offset: 2px; }
+.apr-note { display: block; margin-top: 4px; font-size: 12px; color: #5b6472; }
+.apr-error { display: block; margin-top: 4px; font-size: 12px; color: #b42318; }
+.apr-list { margin: 0; padding-left: 18px; }
+.apr-lines { display: grid; gap: 2px; }
+.apr-prose { white-space: pre-wrap; }
+
+.apr-clr { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.apr-clr-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 12px; align-items: start;
+  padding: 10px 12px; border: 1px solid #ece8df; border-radius: var(--aspire-radius-control, 10px);
+}
+.apr-clr-main { display: grid; gap: 2px; min-width: 0; }
+.apr-clr-name { font-weight: 600; color: #191919; }
+.apr-clr-qual, .apr-clr-file { font-size: 12px; color: #5b6472; overflow-wrap: anywhere; }
+.apr-own {
+  margin-left: 8px; font-size: 11px; font-weight: 600; color: #1d4ed8; background: #eef2fb;
+  padding: 1px 6px; border-radius: var(--aspire-radius-pill, 999px);
+}
+.apr-clr-upload { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; }
+.apr-date { display: inline-flex; gap: 6px; align-items: center; font-size: 12px; color: #4b5563; }
+.apr-check { display: inline-flex; gap: 6px; align-items: center; font-size: 12px; color: #4b5563; }
+.apr-clr-row > .apr-error, .apr-history { grid-column: 1 / -1; }
+.apr-history { font-size: 12px; color: #5b6472; }
+.apr-history ul { margin: 4px 0 0; padding-left: 18px; }
+
+.apr-pill { font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: var(--aspire-radius-pill, 999px); white-space: nowrap; }
+.apr-pill-ok { color: #0f6b44; background: #e1f3ea; }
+.apr-pill-warn { color: #8a4b00; background: #fdf1dc; }
+.apr-pill-bad { color: #a3261b; background: #fde8e6; }
+.apr-pill-mute { color: #4b5563; background: #f3f4f6; }

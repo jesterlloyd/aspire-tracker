@@ -69,3 +69,27 @@ export const getSchoolPlacementRequests = (signal) =>
  */
 export const submitSchoolPlacementRequest = (payload, signal) =>
   apiFetch('/api/portal/school-placement-requests', { method: 'POST', body: payload, signal })
+
+/**
+ * AP-STUDENT-RECORDS-1: one of the school's own students. GET actions are 'profile' and
+ * 'clearance' (with a student id) and 'items' (the checklist settings). The server checks the
+ * student against the caller's scopes; the id alone authorizes nothing.
+ */
+export const getSchoolStudentRecord = (action, studentId, signal) =>
+  apiFetch(`/api/portal/school-student-records?action=${encodeURIComponent(action)}${studentId ? `&student_id=${encodeURIComponent(studentId)}` : ''}`, { method: 'GET', signal })
+
+/** A write: correct, item_add, item_retire, upload_start, upload_finish, open. */
+export const postSchoolStudentRecord = (body) =>
+  apiFetch('/api/portal/school-student-records', { method: 'POST', body })
+
+/** Upload one clearance file: start (signed path), upload to storage, finish (versioned). */
+export async function uploadClearanceFile({ studentId, docType, file, docDate = null, dateConfirmed = false }) {
+  const start = await postSchoolStudentRecord({ action: 'upload_start', student_id: studentId, doc_type: docType, file_name: file.name, size: file.size })
+  if (!start.ok) return start
+  const up = await supabase.storage.from('student-documents').uploadToSignedUrl(start.data.path, start.data.token, file, { contentType: file.type || undefined })
+  if (up.error) return { ok: false, status: 0, data: null, error: 'upload_failed' }
+  return postSchoolStudentRecord({
+    action: 'upload_finish', student_id: studentId, doc_type: docType, path: start.data.path,
+    file_name: file.name, doc_date: docDate, date_confirmed: dateConfirmed,
+  })
+}

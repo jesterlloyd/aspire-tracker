@@ -1230,6 +1230,9 @@
    hours bar (.ptl-mini-progress / .ptl-hours-cell), and avatar are the canonical shared primitives. */
 .ptl-ap-table td { vertical-align: middle; }
 .ptl-ap-student { display: inline-flex; align-items: center; gap: 10px; min-width: 0; }
+.ptl-ap-student-open { background: none; border: 0; padding: 0; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.ptl-ap-student-open:hover .ptl-ap-student-name { text-decoration: underline; text-underline-offset: 2px; }
+.ptl-ap-student-open:focus-visible { outline: 2px solid #1d4ed8; outline-offset: 2px; border-radius: var(--aspire-radius-control, 10px); }
 .ptl-ap-student-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 700; line-height: 1.25; }
 /* Sortable headers now use the shared canonical SortHeader (.preceptor-dir-sort button + ↑/↓ glyph,
    aria-sort on the th), so the former bespoke .ptl-ap-sort treatment was removed. The status header

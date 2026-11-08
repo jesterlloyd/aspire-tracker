@@ -14,7 +14,7 @@
 // a published-outcomes concern, not roster context, so they are intentionally NOT in the
 // first-release Students workspace; they belong with the later Reports / NGRP surface.
 
-import { useState, useEffect, useMemo, useCallback, Suspense } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef, Suspense } from 'react'
 import { lazyReload } from '../lib/lazyReload'
 import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -47,6 +47,8 @@ import { useReportPortalFailure, ACCESS_FAILURE } from './portalAccessSignal'
 const EMPTY_ROSTER = []
 
 // ASPIRE-INSIGHTS-1 Phase 2b: the outcomes section, its own chunk so the roster never waits on it.
+// AP-STUDENT-RECORDS-1: a row opens the student's record (profile, corrections, clearance).
+const SchoolStudentDrawer = lazyReload(() => import('./ap/SchoolStudentDrawer'), 'SchoolStudentDrawer')
 const InsightsGlance = lazyReload(() => import('../components/insights/InsightsGlance'), 'InsightsGlance')
 
 const displayName = (s) => `${s.preferred_first_name || s.first_name || ''} ${s.last_name || ''}`.trim()
@@ -120,6 +122,8 @@ function StudentsView({ onCommandPeople }) {
   const [searchParams] = useSearchParams()
   const [statusFilter, setStatusFilter]           = useState(null)   // canonical status payload; null = all
   const [sort, setSort]                           = useState({ column: null, direction: 'asc' })
+  const [openStudent, setOpenStudent]             = useState(null)
+  const openerRef = useRef(null)
 
   const dateLabel = useMemo(
     () => new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }),
@@ -344,10 +348,12 @@ function StudentsView({ onCommandPeople }) {
                 {rows.map(s => (
                   <tr key={s.id}>
                     <td>
-                      <span className="ptl-ap-student">
+                      <button type="button" className="ptl-ap-student ptl-ap-student-open"
+                        aria-label={`Open ${displayName(s)}'s record`}
+                        onClick={e => { openerRef.current = e.currentTarget; setOpenStudent(s) }}>
                         <UnitStudentAvatar url={photos.peek(s.id)} name={displayName(s)} size={40} />
                         <span className="ptl-ap-student-name">{displayName(s)}</span>
-                      </span>
+                      </button>
                     </td>
                     <td><StatusPill status={s.status} /></td>
                     <td>{s.cohort?.name || ''}</td>
@@ -364,7 +370,13 @@ function StudentsView({ onCommandPeople }) {
               </tbody>
             </table>
           </div>
+          {openStudent && (
+            <Suspense fallback={null}>
+              <SchoolStudentDrawer student={openStudent} returnFocusRef={openerRef} onClose={() => setOpenStudent(null)} />
+            </Suspense>
+          )}
           <p className="ptl-muted ptl-small">
+            Select a student to see their profile and clearance documents.
             Hours show approved of required (plus pending review). Assigned unit and preceptors
             appear once a placement is set. Status content and evaluation responses stay with the
             ASPIRE team.

@@ -113,7 +113,8 @@ test('the staff feed: one population, and a scored résumé leaves it', async ()
       { id: 'scored', first_name: 'Lena', last_name: 'Okafor', is_demo: false },
     ],
     resume_reviews: [{ document_version_id: 'v-scored' }],
-    student_document_types: [{ key: 'resume', label: 'Résumé', required: true, sort_order: 10, active: true }],
+    // AP-STUDENT-RECORDS-1: the table holds two checklists now; Residency reads 'ngrp'.
+    student_document_types: [{ key: 'resume', label: 'Résumé', required: true, sort_order: 10, active: true, checklist: 'ngrp' }],
   }
   const real = await documentActivity(fakeDb(tables), { demo: false, now })
   assert.deepEqual(real.uploads.map(u => u.student_id), ['real'])
