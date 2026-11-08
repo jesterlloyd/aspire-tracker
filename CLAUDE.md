@@ -3434,6 +3434,15 @@ record, file the school's clearance documents, and send their own forms.
   (`ClearanceOnRecord`). Migration `20261204000000_ap_student_records.sql` is Owner-gated. Before it
   is applied, the profile still reads and nothing else changes. The base list in its INSERT is a
   proposal for the Owner to confirm.
+- **AP-CLEARANCE-2. The roster shows who is missing what, and a school keeps its own items.**
+  At a Glance's roster has a **Clearance** column after the shared columns ("4 of 6", then
+  "2 missing", "1 expired" or "Complete"), sortable through `sortRoster`, from `summary` on
+  `/api/portal/school-student-records` (`loadClearanceSummaries`; rules `rosterClearance` and
+  `clearanceCell` in `clearanceChecklist.js`). **Only ASPIRE's required base items count**: a
+  school's own items are optional and never make a student incomplete. Every id is intersected
+  with the caller's scopes. The column refreshes when a student record closes. **Clearance
+  Checklist** above the table opens `SchoolChecklistDrawer`: ASPIRE's list read-only, the school's
+  own items with Remove (files already filed stay on the record), and Add item. A preview reads.
 - **AP-SCHOOL-FORMS-1. A school builds its own forms** at Academic Partner Portal > Forms
   (`/portal/ap/forms`, `/portal/ap/forms/:id/edit|responses`). It is the Catalog's builder,
   tracker, Answers and Summary, unchanged, given another API through `FormsApiContext`

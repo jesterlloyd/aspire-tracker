@@ -2844,3 +2844,13 @@ body:has(.ptl-team-message-launcher-wrap.is-open) [data-keith-launcher] { displa
 [data-theme="dark"] .ptl-stu-name,
 [data-theme="dark"] .ptl-prec-name { color: var(--text-heading); }
 [data-theme="dark"] .ptl-stu-school { color: var(--text-caption); }
+
+/* AP-CLEARANCE-2: the roster's Clearance column and the line above the table. Each pill is a fixed
+   ink on a fixed tint (the drawer's apr-pill pairs), so it reads the same in both themes. */
+.ptl-ap-roster-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.ptl-ap-clr { display: grid; gap: 3px; justify-items: start; min-width: 84px; }
+.ptl-ap-clr-pill { font-size: 12px; font-weight: 600; padding: 1px 9px; border-radius: var(--aspire-radius-pill, 999px); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ptl-ap-clr-ok { color: #0f6b44; background: #e1f3ea; }
+.ptl-ap-clr-warn { color: #8a4b00; background: #fdf1dc; }
+.ptl-ap-clr-bad { color: #a3261b; background: #fde8e6; }
+.ptl-ap-clr-note { font-size: 11.5px; color: var(--text-caption, #5b6472); }

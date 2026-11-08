@@ -83,6 +83,6 @@ test('the roster headers use the shared canonical SortHeader; sort stays client-
   assert.match(portal, /sortKey="status" sortBy=\{sort\.column\} sortDir=\{sort\.direction\} onSort=\{onSort\} thClassName=""/)
   // Sort runs over the already filtered + scoped rows, never a new request; filter/cohort/school
   // state is independent of the sort state.
-  assert.match(portal, /const rows = sortRoster\(filtered, sort\.column, sort\.direction\)/)
+  assert.match(portal, /const rows = sortRoster\(filtered, sort\.column, sort\.direction, \{ clearance: clearance\.map \}\)/ /* AP-CLEARANCE-2 passes the roster's clearance summary */)
   assert.doesNotMatch(portal, /fetch\([^)]*sort|[?&]sort=|order_by/)
 })

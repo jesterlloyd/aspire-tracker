@@ -78,6 +78,10 @@ export const submitSchoolPlacementRequest = (payload, signal) =>
 export const getSchoolStudentRecord = (action, studentId, signal) =>
   apiFetch(`/api/portal/school-student-records?action=${encodeURIComponent(action)}${studentId ? `&student_id=${encodeURIComponent(studentId)}` : ''}`, { method: 'GET', signal })
 
+/** AP-CLEARANCE-2: the roster's Clearance column for these students (a read, sent as a body). */
+export const getClearanceSummaries = (studentIds) =>
+  apiFetch('/api/portal/school-student-records', { method: 'POST', body: { action: 'summary', student_ids: studentIds } })
+
 /** A write: correct, item_add, item_retire, upload_start, upload_finish, open. */
 export const postSchoolStudentRecord = (body) =>
   apiFetch('/api/portal/school-student-records', { method: 'POST', body })

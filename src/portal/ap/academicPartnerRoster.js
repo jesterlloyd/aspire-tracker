@@ -6,6 +6,7 @@
 // COHORT_STATUSES). Historical students are never silently discarded: "All Cohorts" always
 // includes them, and it is the default only when no cohort is currently Active.
 
+import { clearanceRank } from '../../lib/ap/clearanceChecklist.js'
 import { ASPIRE_STATUSES } from '../../lib/constants.js'
 import { orderCohortsByTimeline, orderCohortsNewestFirst, compareCohortsNewestFirst } from '../../lib/derivations/cohortOrder.js'
 
@@ -100,8 +101,12 @@ export const SORTABLE_COLUMNS = new Set(['student', 'status', 'hours'])
 
 // Return a sorted copy (never mutates). column null => original order preserved. Array.sort is
 // stable in modern engines, so equal rows keep their incoming order.
-export function sortRoster(students, column, direction) {
-  if (!SORTABLE_COLUMNS.has(column)) return students
+export function sortRoster(students, column, direction, { clearance = null } = {}) {
   const sign = direction === 'desc' ? -1 : 1
+  // AP-CLEARANCE-2: Clearance sorts by the server's roster summary, fewest on file first.
+  if (column === 'clearance' && clearance) {
+    return [...students].sort((a, b) => sign * (clearanceRank(clearance[a.id]) - clearanceRank(clearance[b.id])))
+  }
+  if (!SORTABLE_COLUMNS.has(column)) return students
   return [...students].sort((a, b) => sign * compareByColumn(column, a, b))
 }

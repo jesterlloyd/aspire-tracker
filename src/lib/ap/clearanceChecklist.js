@@ -46,3 +46,48 @@ export function cleanItemLabel(label, qualifier) {
   if (q.length > 80) return { error: 'qualifier_too_long' }
   return { label: l, qualifier: q || null }
 }
+
+/**
+ * AP-CLEARANCE-2: the roster's Clearance column, for many students at once. Only ASPIRE's REQUIRED
+ * base items count; a school's own items are optional and never make a student incomplete.
+ * `documents` are { student_id, doc_type, current_version_id }; `versions` are { id, doc_date }.
+ * Returns { [studentId]: { required, onFile, missing: [labels], expired: [labels] } }.
+ */
+export function rosterClearance(studentIds, types, documents, versions, today) {
+  const required = types.filter(t => t.required === true && t.school_key == null)
+  const versionById = new Map(versions.map(v => [v.id, v]))
+  const out = {}
+  for (const id of studentIds) {
+    const mine = documents.filter(d => d.student_id === id)
+    const missing = []
+    const expired = []
+    let onFile = 0
+    for (const t of required) {
+      const doc = mine.find(d => d.doc_type === t.key)
+      const v = doc?.current_version_id ? versionById.get(doc.current_version_id) : null
+      if (!v) { missing.push(t.label); continue }
+      onFile += 1
+      if (t.check_kind === 'expiry_date' && v.doc_date && String(v.doc_date).slice(0, 10) < today) expired.push(t.label)
+    }
+    out[id] = { required: required.length, onFile, missing, expired }
+  }
+  return out
+}
+
+/** How the roster cell reads: the words, the pill tone, and a sentence for screen readers. */
+export function clearanceCell(s) {
+  if (!s || !s.required) return null
+  const tone = s.expired.length ? 'warn' : s.onFile === s.required ? 'ok' : s.onFile === 0 ? 'bad' : 'warn'
+  const parts = [`${s.onFile} of ${s.required} required clearance documents on file.`]
+  if (s.missing.length) parts.push(`Missing: ${s.missing.join(', ')}.`)
+  if (s.expired.length) parts.push(`Expired: ${s.expired.join(', ')}.`)
+  return {
+    text: `${s.onFile} of ${s.required}`,
+    note: s.expired.length ? `${s.expired.length} expired` : s.missing.length ? `${s.missing.length} missing` : 'Complete',
+    tone,
+    label: parts.join(' '),
+  }
+}
+
+/** Sort weight: fewest on file first, then most expired. */
+export const clearanceRank = (s) => (s && s.required ? s.onFile / s.required - s.expired.length / 100 : 2)

@@ -6,6 +6,7 @@
 //   GET  ?action=profile&student_id=     the profile (lib: src/lib/ap/schoolStudentProfile.js)
 //   GET  ?action=clearance&student_id=   the clearance checklist with what is on file
 //   GET  ?action=items                   ASPIRE's base list and the school's own items
+//   POST { action: 'summary', student_ids }  the roster's Clearance column (a read; ids in a body)
 //   POST { action: 'correct', student_id, field, value, apply_to_cohort }
 //   POST { action: 'item_add', school_key, label, qualifier } / { action: 'item_retire', key }
 //   POST { action: 'upload_start' | 'upload_finish', student_id, doc_type, ... }
@@ -18,7 +19,7 @@ import {
   verifyPortalAcademicPartnerCaller,
 } from '../lib/schoolScope.js'
 import {
-  loadSchoolProfile, correctAnswer, loadClearance, loadSchoolItems, addSchoolItem, retireSchoolItem,
+  loadSchoolProfile, correctAnswer, loadClearance, loadClearanceSummaries, loadSchoolItems, addSchoolItem, retireSchoolItem,
   startClearanceUpload, finishClearanceUpload, openClearanceVersion,
 } from '../../lib/server/schoolStudentRecords.js'
 
@@ -69,6 +70,13 @@ export function createSchoolStudentRecordsHandler({ verifyCaller = verifyPortalA
         return res.status(400).json({ error: 'unknown_action' })
       }
 
+      if (action === 'summary') {
+        const r = await loadClearanceSummaries(db, scopes, body.student_ids, new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' }))
+        if (r.notEnabled) return res.status(200).json({ enabled: false, summaries: {} })
+        if (r.status) return res.status(r.status).json({ error: r.error })
+        if (r.error) return res.status(500).json({ error: 'internal_error' })
+        return res.status(200).json({ enabled: true, summaries: r.summaries })
+      }
       if (action === 'correct') {
         return send(await correctAnswer(db, scopes, {
           studentId: body.student_id, field: body.field, value: body.value,

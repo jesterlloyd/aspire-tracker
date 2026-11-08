@@ -48,3 +48,8 @@
 .apr-pill-warn { color: #8a4b00; background: #fdf1dc; }
 .apr-pill-bad { color: #a3261b; background: #fde8e6; }
 .apr-pill-mute { color: #4b5563; background: #f3f4f6; }
+
+/* AP-CLEARANCE-2: the checklist drawer's add form. */
+.apr-add { display: grid; gap: 10px; margin-top: 14px; padding: 12px; border: 1px dashed #cfd4dc; border-radius: var(--aspire-radius-control, 10px); }
+.apr-field { display: grid; gap: 4px; font-size: 12px; font-weight: 600; color: #4b5563; }
+.apr-add-acts { display: flex; justify-content: flex-end; }

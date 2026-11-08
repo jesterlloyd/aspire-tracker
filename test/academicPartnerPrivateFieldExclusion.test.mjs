@@ -204,7 +204,7 @@ test('photos are requested only for students the server flagged has_photo, throu
 
 test('sorting and filtering are unchanged; the photo prefetch keys off the roster, not the sort', () => {
   // The client-side filter+sort pipeline is untouched.
-  assert.match(portalRaw, /const rows = sortRoster\(filtered, sort\.column, sort\.direction\)/)
+  assert.match(portalRaw, /const rows = sortRoster\(filtered, sort\.column, sort\.direction, \{ clearance: clearance\.map \}\)/ /* AP-CLEARANCE-2 passes the roster's clearance summary */)
   assert.doesNotMatch(portalRaw, /fetch\([^)]*sort|[?&]sort=|order_by/)
   // The prefetch depends on the per-school roster (stable across sort/filter), never the sorted rows,
   // so changing sort or filter never re-signs photos.
