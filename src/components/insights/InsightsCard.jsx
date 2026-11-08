@@ -6,6 +6,7 @@ import { useMemo, useRef, useState } from 'react'
 import DataSheet from '../shared/DataSheet'
 import { toCsv, csvFileName } from '../../lib/insights/insightsView'
 import { useBox } from './useWidth'
+import { FilterKPICard } from '../KPIBand'
 
 function downloadCsv(id, columns, rows) {
   const blob = new Blob([toCsv(columns, rows)], { type: 'text/csv;charset=utf-8' })
@@ -86,22 +87,19 @@ export function ChartCard({ id, title, sub, span = 12, table, note, legend, nat,
 }
 
 /**
- * The app's KPI card. With `onPick` it is a filter button, one chosen at a time, and the chosen one
- * carries the KPI bar (INSIGHTS-KPI-FILTER-1); without it, a figure that does not lift (the portals).
+ * The app's KPI card. With `onPick` it IS the app's clickable KPI card (KPIBand's FilterKPICard, the
+ * one Student Profiles filters with): it lifts on hover and fills with its accent when chosen
+ * (INSIGHTS-KPI-CARD-1, Owner, 2026-11-07). Without it, a figure that does not lift (the portals,
+ * and Retention, which filters nothing).
  */
 export function Tile({ k, v, d, hero, empty, accent = 'nightfall', onPick, active = false }) {
+  if (onPick) return <FilterKPICard value={v} label={k} sub={d} accent={accent} active={active} onClick={onPick} />
   const cls = `ins-tile ins-a-${accent}${hero ? ' ins-hero' : ''}${empty ? ' ins-empty' : ''}`
-  const body = (
-    <>
+  return (
+    <div className={cls}>
       <span className="ins-tv">{v}</span>
       <span className="ins-tk">{k}</span>
-      <span className="ins-td">{d || ' '}</span>
-    </>
-  )
-  if (!onPick) return <div className={cls}>{body}</div>
-  return (
-    <button type="button" className={`${cls} ins-tile-btn${active ? ' ins-tile-on' : ''}`} aria-pressed={active} onClick={onPick}>
-      {body}
-    </button>
+      <span className="ins-td">{d || '\u00a0'}</span>
+    </div>
   )
 }

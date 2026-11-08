@@ -207,15 +207,6 @@
   box-shadow: 0 1px 0 rgba(29, 37, 103, 0.04), 0 1px 2px rgba(29, 37, 103, 0.04);
 }
 .ins-tile > span { display: block; }
-/* INSIGHTS-KPI-FILTER-1: on the full page the tiles are buttons, and the chosen one carries the KPI
-   bar, which is what that bar means on every KPI band in the app. */
-.ins-tile-btn { font: inherit; text-align: left; cursor: pointer; transition: box-shadow 0.15s, border-color 0.15s; }
-.ins-tile-btn:hover { border-color: color-mix(in srgb, var(--ins-tile-ink) 28%, transparent); }
-.ins-tile-btn:focus-visible { outline: 2px solid var(--ins-tile-ink); outline-offset: 2px; }
-.ins-tile-btn.ins-tile-on, .ins-tile-btn.ins-tile-on:hover {
-  border-color: transparent;
-  box-shadow: inset 0 -3px 0 var(--ins-tile-ink), 0 1px 0 rgba(29, 37, 103, 0.04), 0 1px 2px rgba(29, 37, 103, 0.04);
-}
 .ins-tv { font-size: 32px; font-weight: 700; line-height: 1; letter-spacing: -0.025em; font-variant-numeric: tabular-nums; color: var(--ins-tile-ink); }
 .ins-tk { margin-top: 8px; font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.14em; color: #475467; }
 .ins-td { margin-top: 2px; font-size: 11.5px; color: #5b6472; }

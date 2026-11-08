@@ -126,7 +126,7 @@ export default function KeithRead({ filters, search }) {
           </h2>
           <p className="ins-sub">
             {state.status === 'loading' && !d ? 'Loading Keith\'s latest read.'
-              : read ? `${read.scope}. Read ${when(read.createdAt)}${read.byName ? `, asked by ${read.byName}` : ''}.`
+              : read ? `${read.scope}. Read ${when(read.createdAt)}${read.byName ? `, asked by ${read.byName}` : ''}.${canRun ? ' Keith reads only when asked: Read again reads the figures as they are now.' : ''}`
                 : other ? `These filters have not been read. The latest read is for ${other.scope}, ${when(other.createdAt)}.`
                   : canRun ? 'Keith reads the figures on this page and says what stands out. He never changes a number.'
                     : 'Keith has not read these figures yet. The Owner or an Admin can ask him to.'}

@@ -146,8 +146,9 @@ test('the chart palette is the validated eight-slot order, light and dark, and t
   // INSIGHTS-KPI-FILTER-1 (Owner, 2026-11-07) reversed "a tile is a figure, not a filter": a tile
   // with onPick is a pressed-state button, and one without stays a plain figure.
   const tile = card.slice(card.indexOf('export function Tile('))
-  assert.match(tile, /<button type="button"[^>]*aria-pressed=\{active\}/)
-  assert.match(tile, /if \(!onPick\) return <div/)
+  // INSIGHTS-KPI-CARD-1: the clickable tile is the app's own FilterKPICard, never a look-alike.
+  assert.match(tile, /if \(onPick\) return <FilterKPICard[^>]*active=\{active\}[^>]*onClick=\{onPick\}/)
+  assert.match(tile, /return \(\s*<div className=\{cls\}>/)
   // A school keeps its slot on every card: one colour map, read by every school chart.
   assert.match(page, /const colorOf = slotsFor\(data\.schools\)/)
   for (const card of ['bySchoolCard', 'hostedCard', 'caseyFinkCard', 'hoursCard']) assert.match(page, new RegExp(`${card}\\(data[^)]*colorOf\\)`))
