@@ -7,6 +7,11 @@
 // name), so the Cohort filter is its own and the app's scope picker does not narrow it. Every
 // figure comes from src/lib/evaluation/evaluationOverviewModel.js, which scores nothing itself.
 // A bar opens Responses on that survey (`onOpenResponses`). Keith's Read is Phase 2.
+//
+// EVAL-OVERVIEW-LEADERSHIP-1 (Owner, 2026-11-07): surface="leadership" is the NE&L Portal's read-only
+// copy. It loads nothing itself: `loadLeadership(filters)` answers the server's cut
+// (leadershipOverviewModel.js), and the page draws the same charts with no follow-up figures, no
+// measure switch, no Keith's Read, no Ready to Release or Comment Themes, and nothing that opens Responses.
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -143,6 +148,13 @@ function Select({ id, label, value, onChange, options }) {
   )
 }
 
+/** A chart mark: a button that opens Responses on the staff page, a plain mark (with its tip) on the
+ *  leadership page, where nothing opens. */
+function Mark({ className, tip, label, onOpen, children }) {
+  if (!onOpen) return <span className={className} data-tip={tip} role="img" aria-label={label}>{children}</span>
+  return <button type="button" className={className} data-tip={tip} aria-label={`${label}. Open in Responses.`} onClick={onOpen}>{children}</button>
+}
+
 /** Stacked shares on a survey's own bands: up, same, down (down amber and textured, never red).
  *  The neutral segment prints no figure: no ink reaches 4.5:1 on it; its tooltip and Table view do. */
 function Bands({ rows, heads, onOpen }) {
@@ -156,12 +168,11 @@ function Bands({ rows, heads, onOpen }) {
             <span className="evo-band-lab" title={r.label}>{r.label}</span>
             {r.total
               ? (
-                <button type="button" className="evo-band-bar" data-tip={`${r.label}: ${words}, n = ${r.total}`}
-                  aria-label={`${r.label}: ${words}. Open in Responses.`} onClick={onOpen}>
+                <Mark className="evo-band-bar" tip={`${r.label}: ${words}, n = ${r.total}`} label={`${r.label}: ${words}`} onOpen={onOpen}>
                   {parts.map(([k, v]) => v > 0 && (
                     <span key={k} className={`evo-seg evo-seg-${k}`} style={{ flexGrow: v }}>{k !== 'same' && pct(v, r.total) >= 12 ? `${pct(v, r.total)}%` : ''}</span>
                   ))}
-                </button>
+                </Mark>
               )
               : <span className="evo-none">No answers</span>}
             <span className="evo-band-n">n = {r.total}</span>
@@ -180,16 +191,16 @@ function Dumbbell({ sections, onOpen }) {
       {sections.map(s => (
         <div className="evo-db-row" key={s.key}>
           <span className="evo-band-lab" title={s.label}>{s.label}</span>
-          <button type="button" className="evo-db-line" onClick={onOpen}
-            data-tip={`${s.label}: pre ${mean2(s.preMean)}, post ${mean2(s.postMean)}. ${s.higher} higher, ${s.same} the same, ${s.lower} lower.`}
-            aria-label={`${s.label}: pre ${mean2(s.preMean)}, post ${mean2(s.postMean)}. Open in Responses.`}>
+          <Mark className="evo-db-line" onOpen={onOpen}
+            tip={`${s.label}: pre ${mean2(s.preMean)}, post ${mean2(s.postMean)}. ${s.higher} higher, ${s.same} the same, ${s.lower} lower.`}
+            label={`${s.label}: pre ${mean2(s.preMean)}, post ${mean2(s.postMean)}`}>
             <span className="evo-db-axis" />
             {s.preMean != null && s.postMean != null && (
               <span className="evo-db-span" style={{ left: x(Math.min(s.preMean, s.postMean)), width: `${(Math.abs(s.postMean - s.preMean) / 3) * 100}%` }} />
             )}
             {s.preMean != null && <span className="evo-db-dot evo-db-pre" style={{ left: x(s.preMean) }} />}
             {s.postMean != null && <span className="evo-db-dot evo-db-post" style={{ left: x(s.postMean) }} />}
-          </button>
+          </Mark>
           <span className="evo-db-chg">{s.delta == null ? '–' : `${s.delta >= 0 ? '+' : '−'}${Math.abs(s.delta).toFixed(2)}`}</span>
         </div>
       ))}
@@ -203,15 +214,17 @@ function Dumbbell({ sections, onOpen }) {
 }
 
 /** Domain means per unit. The number is always printed; the shade only repeats the ASPIRE rule. */
-function UnitGrid({ domains, units, onOpen }) {
+function UnitGrid({ domains, units, onOpen, withheldCount = null }) {
   // A withheld unit gets no row of its own: a wall of "Too few" hides the units that can be read.
+  // Leadership is sent the shown units and a count of the rest (withheldCount), never their names.
   const shown = units.filter(u => !u.suppressed)
-  const withheld = units.length - shown.length
+  const withheld = withheldCount ?? units.length - shown.length
+  const any = shown.length + withheld
   return (
     <div className="evo-grid-wrap">
       {shown.length === 0 && (
         <p className="evo-none">
-          No unit has {MIN_N} completed responses yet, so none is shown. {units.length} {units.length === 1 ? 'unit has' : 'units have'} at least one.
+          No unit has {MIN_N} completed responses yet, so none is shown. {any} {any === 1 ? 'unit has' : 'units have'} at least one.
         </p>
       )}
       {shown.length > 0 && (
@@ -229,8 +242,8 @@ function UnitGrid({ domains, units, onOpen }) {
                   const v = u.means[d.key]
                   return (
                     <td key={d.key} className={`evo-cell evo-cell-${likertBand(v) || 'none'}`}>
-                      <button type="button" onClick={onOpen} data-tip={`${u.name}, ${d.label}: ${mean2(v)} (n = ${u.n})`}
-                        aria-label={`${u.name}, ${d.label}: ${mean2(v)}. Open in Responses.`}>{v == null ? '–' : v.toFixed(1)}</button>
+                      <Mark className="evo-cell-mark" onOpen={onOpen} tip={`${u.name}, ${d.label}: ${mean2(v)} (n = ${u.n})`}
+                        label={`${u.name}, ${d.label}: ${mean2(v)}`}>{v == null ? '–' : v.toFixed(1)}</Mark>
                     </td>
                   )
                 })}
@@ -245,7 +258,8 @@ function UnitGrid({ domains, units, onOpen }) {
   )
 }
 
-export default function EvaluationOverview({ onOpenResponses, responsesCohort = '', cohortId = null, canManage = false, onOpenWorkflow, onOpenResponse }) {
+export default function EvaluationOverview({ onOpenResponses, responsesCohort = '', cohortId = null, canManage = false, onOpenWorkflow, onOpenResponse, surface = 'staff', loadLeadership, reloadKey = 0 }) {
+  const lead = surface === 'leadership'
   const { style } = useTheme()
   const classic = style !== 'modern'
   const [state, setState] = useState({ status: 'loading', rows: [], cohorts: [], error: null })
@@ -256,29 +270,49 @@ export default function EvaluationOverview({ onOpenResponses, responsesCohort = 
   const showMore = more || folded > 0
 
   useEffect(() => {
+    if (lead) return undefined
     let live = true
     loadOverview()
       .then(d => { if (live) setState({ status: 'ready', rows: d.rows, cohorts: d.cohorts, error: null }) })
       .catch(error => { if (live) setState(s => ({ ...s, status: 'error', error })) })
     return () => { live = false }
-  }, [attempt])
+  }, [attempt, lead])
 
-  const options = useMemo(() => filterOptions(state.rows, state.cohorts), [state.rows, state.cohorts])
-  const o = useMemo(() => buildOverview(state.rows, f), [state.rows, f])
-  const set = (k, v) => setF(prev => ({ ...prev, [k]: v }))
   const readKey = JSON.stringify(f)
-  const chips = chipsFor(f, options).filter(c => c.key !== 'status')
-  const open = useCallback(slug => () => onOpenResponses?.(slug), [onOpenResponses])
+  // Leadership: the server builds the figures for each filter set; the last answer stays on screen
+  // while the next one loads, as the staff page keeps its rows.
+  const [leadState, setLeadState] = useState({ status: 'loading', key: null, options: null, o: null })
+  useEffect(() => {
+    if (!lead) return undefined
+    const ctl = new AbortController()
+    loadLeadership?.(f, { signal: ctl.signal }).then(r => {
+      if (r?.error === 'aborted') return
+      setLeadState(prev => (r?.ok && r.data?.overview
+        ? { status: 'ready', key: readKey, options: r.data.options, o: r.data.overview }
+        : { ...prev, status: 'error' }))
+    })
+    return () => ctl.abort()
+  }, [lead, readKey, attempt, reloadKey]) // eslint-disable-line react-hooks/exhaustive-deps -- readKey names f
+
+  const staffOptions = useMemo(() => (lead ? null : filterOptions(state.rows, state.cohorts)), [lead, state.rows, state.cohorts])
+  const staffO = useMemo(() => (lead ? null : buildOverview(state.rows, f)), [lead, state.rows, f])
+  const options = lead ? leadState.options : staffOptions
+  const o = lead ? leadState.o : staffO
+  const set = (k, v) => setF(prev => ({ ...prev, [k]: v }))
+  const chips = options ? chipsFor(f, options).filter(c => c.key !== 'status') : []
+  const open = useCallback(slug => (lead ? null : () => onOpenResponses?.(slug)), [lead, onOpenResponses])
   // Responses shows the cohort chosen in the header, not this page's Cohort filter, so say which.
   const jumpWord = responsesCohort ? `Open in Responses for ${responsesCohort}` : 'Open in Responses'
 
-  if (state.status === 'loading') return <div className="ins evo"><div className="ins-sheet ins-state" role="status">Loading the surveys…</div></div>
-  if (state.status === 'error' && !state.rows.length) {
+  const status = lead ? leadState.status : state.status
+  const loaded = lead ? !!leadState.o : state.rows.length > 0
+  if (status === 'loading' && !loaded) return <div className="ins evo"><div className="ins-sheet ins-state" role="status">Loading the surveys…</div></div>
+  if (status === 'error' && !loaded) {
     return (
       <div className="ins evo">
         <div className="ins-sheet ins-state" role="alert">
           Couldn't load the surveys.
-          <button type="button" className="ins-act" onClick={() => { setState(s => ({ ...s, status: 'loading' })); setAttempt(a => a + 1) }}>Retry</button>
+          <button type="button" className="ins-act" onClick={() => { setState(s => ({ ...s, status: 'loading' })); setLeadState(s => ({ ...s, status: 'loading' })); setAttempt(a => a + 1) }}>Retry</button>
         </div>
       </div>
     )
@@ -319,7 +353,7 @@ export default function EvaluationOverview({ onOpenResponses, responsesCohort = 
   const a = o.aspire
 
   return (
-    <div className={`ins evo${classic ? ' ins-classic' : ''}`} aria-busy={state.status === 'refreshing'}>
+    <div className={`ins evo${classic ? ' ins-classic' : ''}${lead ? ' evo-lead' : ''}`} aria-busy={lead && leadState.key !== readKey}>
       <div className={classic ? 'ins-binder' : undefined}>
         <section className="ins-sheet ins-filters" aria-label="Filters">
           <Select id="evo-cohort" label="Cohort" value={f.cohort} onChange={v => set('cohort', v)}
@@ -341,12 +375,19 @@ export default function EvaluationOverview({ onOpenResponses, responsesCohort = 
             </div>
           )}
         </section>
+        {lead ? (
+        <p className="evo-figs" role="status">
+          <b>{t.sent}</b> surveys sent {'·'} <b>{t.completed}</b> completed{t.responseRate.suppressed ? '' : ` (${fmtRate(t.responseRate)})`} {'·'}{' '}
+          <b>{t.pairs}</b> matched Casey-Fink {t.pairs === 1 ? 'pair' : 'pairs'}
+        </p>
+        ) : (
         <p className="evo-figs" role="status">
           <b>{t.sent}</b> surveys sent {'·'} <b>{t.completed}</b> completed{t.responseRate.suppressed ? '' : ` (${fmtRate(t.responseRate)})`} {'·'}{' '}
           <b>{t.awaiting}</b> awaiting an answer {'·'} <b>{t.closed}</b> expired or revoked{t.reissuable ? `, ${t.reissuable} can be sent again` : ''} {'·'}{' '}
           <b>{t.pairs}</b> matched Casey-Fink {t.pairs === 1 ? 'pair' : 'pairs'}
         </p>
-        {(chips.length > 0 || state.status === 'error') && (
+        )}
+        {(chips.length > 0 || status === 'error') && (
         <div className="ins-chips" aria-live="polite">
           {chips.map(c => (
             <span key={c.key} className="ins-chip">
@@ -355,14 +396,14 @@ export default function EvaluationOverview({ onOpenResponses, responsesCohort = 
             </span>
           ))}
           {chips.length > 1 && <button type="button" className="ins-clear" onClick={() => setF(EMPTY_FILTERS)}>Clear all</button>}
-          {state.status === 'error' && <span className="ins-warn" role="alert">Couldn't refresh. These are the last figures loaded.</span>}
+          {status === 'error' && <span className="ins-warn" role="alert">Couldn't refresh. These are the last figures loaded.</span>}
         </div>
         )}
 
         {canManage && <ReadyToRelease cohortId={cohortId} cohortLabel={responsesCohort} onOpenWorkflow={onOpenWorkflow} />}
 
         {/* EVAL-KEITH-READ-1: Keith reads these figures when asked; the server recomputes them from f. */}
-        <KeithRead filters={f} search={readKey} request={keithEvaluation} cardNames={EVAL_CARD_NAMES} idOf={evoCardId} />
+        {!lead && <KeithRead filters={f} search={readKey} request={keithEvaluation} cardNames={EVAL_CARD_NAMES} idOf={evoCardId} />}
 
         {o.scoped === 0
           ? <div className="ins-sheet ins-state" role="status">No surveys match these filters.</div>
@@ -371,9 +412,10 @@ export default function EvaluationOverview({ onOpenResponses, responsesCohort = 
               <ChartCard id="evo-rate" span={6} title="Response Rate by Survey"
                 sub={`Share of surveys sent that are ${measureWord}, each survey and timepoint`}
                 table={rateTable(o.bySurvey)} nat={() => hbarHeight(surveyItems)}
-                acts={measureActs}
-                note={`Response Rate by School shows the same measure. A bar opens that survey in Responses${responsesCohort ? `, which shows ${responsesCohort}` : ''}.`}>
-                {(w, h) => <HBar items={surveyItems} width={w} height={h} cap={100} onPick={slug => onOpenResponses?.(slug)} pickLabel={jumpWord} />}
+                acts={lead ? null : measureActs}
+                note={lead ? `A survey with fewer than ${MIN_N} sent is withheld, never shown as zero.`
+                  : `Response Rate by School shows the same measure. A bar opens that survey in Responses${responsesCohort ? `, which shows ${responsesCohort}` : ''}.`}>
+                {(w, h) => <HBar items={surveyItems} width={w} height={h} cap={100} onPick={lead ? undefined : slug => onOpenResponses?.(slug)} pickLabel={jumpWord} />}
               </ChartCard>
 
               <ChartCard id="evo-cf" span={6} title="Readiness Change, Casey-Fink"
@@ -411,9 +453,9 @@ export default function EvaluationOverview({ onOpenResponses, responsesCohort = 
                   columns: [{ key: 'name', label: 'Unit' }, { key: 'n', label: 'Responses' }, ...o.units.domains.map(d => ({ key: d.key, label: d.label }))],
                   rows: o.units.units.map(u => ({ id: u.key, name: u.name, n: u.n, ...Object.fromEntries(o.units.domains.map(d => [d.key, u.suppressed ? 'Too few' : mean2(u.means[d.key])])) })),
                 }}
-                note="ASPIRE rule: a mean of 4.0 or above reads as agreed, 3.0 to 3.9 neutral, below 3.0 disagreed. Unit leaders see these only after Review & Release.">
-                {() => (o.units.units.length
-                  ? <UnitGrid domains={o.units.domains} units={o.units.units} onOpen={open('student_preceptor_eval')} />
+                note={`ASPIRE rule: a mean of 4.0 or above reads as agreed, 3.0 to 3.9 neutral, below 3.0 disagreed.${lead ? '' : ' Unit leaders see these only after Review & Release.'}`}>
+                {() => (o.units.units.length || o.units.withheld
+                  ? <UnitGrid domains={o.units.domains} units={o.units.units} withheldCount={o.units.withheld ?? null} onOpen={open('student_preceptor_eval')} />
                   : <p className="evo-none">No completed responses with a unit in view.</p>)}
               </ChartCard>
 

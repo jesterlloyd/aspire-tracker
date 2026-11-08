@@ -3368,3 +3368,22 @@ Owner and Admin, seeded by Owner-gated `20261201000000_studio_keith_skills.sql` 
   (quality route) and the server-only `insights_reads` table are Owner-gated
   `20261202000000_insights_keith_read.sql` (checks `db/audit/insights_keith_read_checks.sql`; a test
   holds SKILL.md equal to it). Before it the card says it is not set up yet.
+
+## Evaluation Overview for NE&L leadership (EVAL-OVERVIEW-LEADERSHIP-1, 2026-11-07)
+
+Owner chose the defaults: the NE&L Portal's Evaluation page opens on the staff Evaluation Overview,
+read-only, with the comment themes below it. Same gate as the themes (`evaluation_themes_access`),
+so no new permission and no SQL.
+
+- **One component, two surfaces.** `EvaluationOverview surface="leadership"` loads nothing from the
+  browser: `loadLeadership(filters)` asks `/api/portal/academics-evaluation-themes?view=overview`, which
+  builds the staff figures on the server (`lib/server/evaluation/leadershipOverview.js`, REAL rows) and
+  sends only `leadershipOverview`'s cut (`src/lib/evaluation/leadershipOverviewModel.js`).
+- **What leadership gets**: surveys sent, completed, the rate, matched pairs, and the five charts
+  measuring Completed. A group under five is "too few" with its n (no count, mean or bands); a
+  withheld unit is a count, never a name. Unit names and scores are shown (Owner).
+- **What stays with the ASPIRE team**: awaiting, expired or revoked and can be sent again; the
+  Completed / Awaiting / Expired switch; Keith's Read (a saved read can quote figures leadership is not
+  shown); Ready to Release; and any mark that opens Responses (a mark is a `<span>` there, not a button).
+- Unit leaders keep their own Evaluation (released, unit-scoped responses only); the Overview is not theirs.
+- The bar chart's labels wrap at a word when wider than their column (EVAL-LABEL-WRAP-1, `wrapLabel`).

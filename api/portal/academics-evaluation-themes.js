@@ -11,12 +11,17 @@
 // OUTPUT. Only the de-identified cut (lib/server/evaluation/commentThemes.js themesView, audience
 // 'leadership'): the privacy floor applied, quotes only with consent and with names removed, no ids of
 // responses or students, and nothing at all until the Owner has turned the skill ON. REAL rows only.
+//
+// EVAL-OVERVIEW-LEADERSHIP-1 (Owner, 2026-11-07): `?view=overview` with the Overview's own filters
+// (cohort, school, unit, survey, timepoint) answers the staff Evaluation Overview's figures, cut to
+// leadershipOverview: aggregates only, groups under five withheld, no follow-up figures. Same gate.
 
 import { verifyPortalNursingAcademicCaller } from '../lib/nursingAcademicScope.js'
 import { getServiceDb } from '../lib/portalAuth.js'
 import { populationDb } from '../../lib/server/demoScope.js'
 import { themesView, portalIndex } from '../../lib/server/evaluation/commentThemes.js'
 import { INSTRUMENTS } from '../../src/lib/evaluation/commentThemesModel.js'
+import { cleanLeadershipFilters, leadershipOverviewFor } from '../../lib/server/evaluation/leadershipOverview.js'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -39,7 +44,7 @@ export function portalShape(view) {
   }
 }
 
-export function createAcademicsThemesHandler({ verifyCaller = verifyPortalNursingAcademicCaller, makeDb = getServiceDb, hasThemes = grantHasThemes } = {}) {
+export function createAcademicsThemesHandler({ verifyCaller = verifyPortalNursingAcademicCaller, makeDb = getServiceDb, hasThemes = grantHasThemes, loadOverview } = {}) {
   return async function handler(req, res) {
     res.setHeader('Cache-Control', 'no-store, private')
     if (req.method === 'OPTIONS') return res.status(200).end()
@@ -56,6 +61,11 @@ export function createAcademicsThemesHandler({ verifyCaller = verifyPortalNursin
     const real = populationDb(db)
     try {
       if (req.query?.probe === '1') return res.status(200).json({ enabled: true })
+      if (req.query?.view === 'overview') {
+        const filters = cleanLeadershipFilters(req.query)
+        if (!filters) return res.status(400).json({ error: 'invalid_request' })
+        return res.status(200).json(await leadershipOverviewFor(real, filters, loadOverview ? { load: loadOverview } : {}))
+      }
       const { cohort_id: cohortId, instrument, timepoint } = req.query || {}
       if (!cohortId) return res.status(200).json(await portalIndex(real))
       if (!UUID.test(String(cohortId)) || !INSTRUMENTS.includes(instrument) || !/^[a-z_]{2,40}$/.test(String(timepoint || ''))) return res.status(400).json({ error: 'invalid_request' })

@@ -5,7 +5,8 @@
 // shared: the Leadership view of Keith's comment themes. The server has already applied the privacy
 // floor, dropped every quote a student did not agree to share, removed names, and left out anything
 // that points back to a response or a person; this screen only draws it.
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
+import { lazyReload } from '../../lib/lazyReload'
 // The static brand icon, never the interactive mark: the mark reads provenance and stays staff-only
 // (test/keithMark.test.mjs). Leadership still sees that the themes are Keith's.
 import { KeithIcon } from '../../components/keith/KeithBrand'
@@ -13,7 +14,7 @@ import { LoadingState, EmptyState, ErrorState } from '../unit/UnitLeaderChrome'
 import { useRegisterPortalRefresh } from '../PortalRefresh'
 import { surveyName, timepointQualifier } from '../../lib/evaluation/surveyNames'
 import { shareText } from '../../lib/evaluation/commentThemesModel'
-import { fetchAcademicsEvaluationThemes } from './nursingAcademicsApi'
+import { fetchAcademicsEvaluationThemes, fetchAcademicsEvaluationOverview } from './nursingAcademicsApi'
 import '../../components/evaluation/commentThemes.css'
 
 const tpLabel = (tp) => timepointQualifier(tp) || String(tp).replace(/_/g, ' ')
@@ -24,13 +25,33 @@ const day = (ymd) => {
   return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''
 }
 
+// Loaded only when the page opens: the charts are the staff Overview's, and its chunk stays out of
+// the portal's first load.
+const EvaluationOverview = lazyReload(() => import('../../components/evaluation/EvaluationOverview'), 'EvaluationOverview')
+
+// EVAL-OVERVIEW-LEADERSHIP-1 (Owner, 2026-11-07): the page opens on the staff Evaluation Overview,
+// read-only (surface="leadership", figures cut on the server), and the comment themes follow it.
+// The portal's Refresh reloads both.
 export default function AcademicsEvaluationView({ active = true }) {
+  const [nonce, setNonce] = useState(0)
+  const refresh = useCallback(() => setNonce(n => n + 1), [])
+  useRegisterPortalRefresh(refresh, active)
+  return (
+    <div className="na-eval">
+      <Suspense fallback={<LoadingState label="Loading the surveys" />}>
+        <EvaluationOverview surface="leadership" loadLeadership={fetchAcademicsEvaluationOverview} reloadKey={nonce} />
+      </Suspense>
+      <CommentThemesSection active={active} nonce={nonce} refresh={refresh} />
+    </div>
+  )
+}
+
+function CommentThemesSection({ active, nonce, refresh }) {
   const [index, setIndex] = useState(null)
   const [indexError, setIndexError] = useState(false)
   const [pick, setPick] = useState({ cohort: null, slug: null, timepoint: null })
   // The loaded cut remembers which pick and refresh it answers, so loading is derived, not set.
   const [loaded, setLoaded] = useState({ key: null, cut: null, error: false })
-  const [nonce, setNonce] = useState(0)
 
   useEffect(() => {
     if (!active) return undefined
@@ -63,13 +84,11 @@ export default function AcademicsEvaluationView({ active = true }) {
   const cutState = !cutKey ? 'idle' : loaded.key !== cutKey ? 'loading' : loaded.error ? 'error' : 'ready'
   const cut = cutState === 'ready' ? loaded.cut : null
 
-  const refresh = useCallback(() => setNonce(n => n + 1), [])
-  useRegisterPortalRefresh(refresh, active)
 
-  if (indexError) return <ErrorState title="Evaluation" detail="The evaluation themes could not be loaded." onRetry={refresh} />
+  if (indexError) return <ErrorState title="Comment Themes" detail="The evaluation themes could not be loaded." onRetry={refresh} />
   if (!index) return <LoadingState label="Loading evaluation themes" />
   if (!index.published || cohorts.length === 0) {
-    return <EmptyState title="Evaluation" detail="No comment themes have been shared with leadership yet." />
+    return <EmptyState title="Comment Themes" detail="No comment themes have been shared with leadership yet." />
   }
 
   return (

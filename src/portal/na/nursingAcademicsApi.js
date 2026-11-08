@@ -102,3 +102,9 @@ export function fetchAcademicsEvaluationThemes(query = {}, opts) {
   const qs = new URLSearchParams(Object.entries(query).filter(([, v]) => v != null && v !== '')).toString()
   return apiFetch(`/api/portal/academics-evaluation-themes${qs ? `?${qs}` : ''}`, opts)
 }
+
+/** EVAL-OVERVIEW-LEADERSHIP-1: the Evaluation Overview's figures for these filters, cut for leadership. */
+export function fetchAcademicsEvaluationOverview(filters = {}, opts) {
+  const qs = new URLSearchParams([['view', 'overview'], ...Object.entries(filters).filter(([, v]) => v != null && v !== '')]).toString()
+  return apiFetch(`/api/portal/academics-evaluation-themes?${qs}`, opts)
+}
