@@ -22,7 +22,18 @@ const pick = (onPick, value) => onPick
     }
   : {}
 
-import { clamp, niceMax, HBAR_ROW, hbarTop, hbarHeight, funnelHeight } from '../../lib/insights/chartGeometry'
+import { clamp, niceMax, HBAR_ROW, hbarTop, hbarHeight, funnelHeight, wrapLabel } from '../../lib/insights/chartGeometry'
+
+// EVAL-LABEL-WRAP-1: a label's drawn width, measured in the page's own font at the chart's 12px.
+// Without a canvas (a test, a server render) it falls back to the old 6.7px-a-character estimate.
+let labelCtx
+function labelWidth12(text, bold = false) {
+  if (typeof document === 'undefined') return text.length * 6.7
+  labelCtx ||= document.createElement('canvas').getContext?.('2d') || null
+  if (!labelCtx) return text.length * 6.7
+  labelCtx.font = `${bold ? 700 : 400} 12px ${getComputedStyle(document.body).fontFamily}`
+  return labelCtx.measureText(text).width
+}
 
 
 /**
@@ -31,10 +42,22 @@ import { clamp, niceMax, HBAR_ROW, hbarTop, hbarHeight, funnelHeight } from '../
  * `max` is the scale's end; `cap` limits the fitted end (100 for a rate). `refValue` draws the
  * program line.
  */
+function HBarLabel({ it, x, cy, avail }) {
+  const lines = wrapLabel(it.label, avail, t => labelWidth12(t, it.strong))
+  const cls = it.strong ? 'ins-lbs' : 'ins-lb'
+  if (lines.length === 1) return <text className={cls} x={x} y={cy} textAnchor="end">{lines[0]}</text>
+  return (
+    <text className={cls} x={x} y={cy - 7} textAnchor="end">
+      <tspan x={x}>{lines[0]}</tspan>
+      <tspan x={x} dy={14}>{lines[1]}</tspan>
+    </text>
+  )
+}
+
 export function HBar({ items, width, height = 0, max, cap = null, refValue = null, refLabel = '', onPick, labelWidth, pickLabel = 'Filter to this' }) {
-  // Fit the longest label (about 6.7px a character at 12px), within 45% of the width.
-  const longest = Math.max(0, ...items.map(i => String(i.label || '').length))
-  const lw = labelWidth || Math.round(Math.min(width * 0.45, Math.max(80, longest * 6.7 + 14)))
+  // Fit the longest label, within 45% of the width; a label wider than that wraps to two lines.
+  const longest = Math.max(0, ...items.map(i => labelWidth12(String(i.label || ''), i.strong)))
+  const lw = labelWidth || Math.round(Math.min(width * 0.45, Math.max(80, longest + 14)))
   const vw = 96
   const top = hbarTop(items, refValue)
   const natural = hbarHeight(items, refValue)
@@ -62,7 +85,7 @@ export function HBar({ items, width, height = 0, max, cap = null, refValue = nul
             className={canPick ? 'ins-pick' : undefined}
             {...(canPick ? { ...pick(onPick, it.pickValue), 'aria-label': `${it.label}: ${it.display}. ${pickLabel}.` } : {})}>
             <rect className="ins-hit" x={0} y={y} width={width} height={rowH} />
-            <text className={it.strong ? 'ins-lbs' : 'ins-lb'} x={lw - 10} y={cy} textAnchor="end">{it.label}</text>
+            <HBarLabel it={it} x={lw - 10} cy={cy} avail={lw - 14} />
             {it.suppressed
               ? <text className="ins-vmuted" x={lw} y={cy}>Too few to rate (n = {it.n || 0})</text>
               : (

@@ -141,3 +141,20 @@ test('EVAL-OVERVIEW-3: Ready to Release reads the Needs you queue, and Comment T
   assert.match(tab, /onOpenResponse=\{openResponseById\}/)
   assert.match(tab, /n\.set\('workflow', key\)/)
 })
+
+// EVAL-LABEL-WRAP-1 (Owner, 2026-11-07): a survey name longer than the bar chart's label column ran
+// off the card's left edge. A label that does not fit wraps at a word, and a second line that still
+// does not fit ends in an ellipsis.
+test('a bar label wider than its column wraps to two lines', async () => {
+  const { wrapLabel } = await import('../src/lib/insights/chartGeometry.js')
+  const m = t => t.length * 7
+  assert.deepEqual(wrapLabel('Short label', 200, m), ['Short label'])
+  const two = wrapLabel("Preceptor's Assessment of Student Readiness, Post-Rotation", 240, m)
+  assert.equal(two.length, 2)
+  assert.ok(two.every(l => m(l) <= 240))
+  assert.equal(two.join(' '), "Preceptor's Assessment of Student Readiness, Post-Rotation")
+  const cut = wrapLabel('aaaa bbbb cccc dddd eeee ffff gggg hhhh', 70, m)
+  assert.ok(cut[1].endsWith('…') && m(cut[1]) <= 70)
+  const src = (await import('node:fs')).readFileSync(new URL('../src/components/insights/InsightsCharts.jsx', import.meta.url), 'utf8')
+  assert.match(src, /<HBarLabel it=\{it\}/)
+})
