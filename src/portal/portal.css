@@ -1214,9 +1214,6 @@
 /* Same alignment for the Student Portal Home column: the shared masthead sits flush with the
    rotation switch and the card grid, and the .ptl-student flex gap owns the vertical rhythm. */
 .ptl-student .mast { margin: 0; }
-.ptl-page-heading { display: grid; gap: 5px; padding: 4px 2px; }
-.ptl-page-heading h2 { margin: 0; color: var(--ptl-navy, #1D2567); font-size: 22px; line-height: 1.25; }
-.ptl-page-heading p { margin: 0; color: #6b7280; font-size: 13.5px; line-height: 1.5; }
 
 /* ── AP-PORTAL: Academic Partner Students workspace ─────────────────────────── */
 .ptl-ap-page { display: flex; flex-direction: column; gap: 16px; }
@@ -1240,9 +1237,6 @@
 
 /* Academic Partner Placement Requests workspace (list + new-request form). Reuses the shared
    .ptl-card / .ptl-table / form primitives; these rules cover the request-specific layout. */
-.ptl-plr-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-.ptl-plr-title { font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; font-size: 22px; color: var(--ptl-navy, #1D2567); margin: 0; }
-.ptl-plr-lede { max-width: 62ch; margin: 6px 0 0; }
 .ptl-plr-new { flex-shrink: 0; }
 .ptl-plr-back { margin-bottom: 4px; align-self: flex-start; }
 .ptl-plr-gate { max-width: 460px; }
@@ -2390,7 +2384,7 @@ body:has(.ptl-team-message-launcher-wrap.is-open) [data-keith-launcher] { displa
 .ptl-connect-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
 .ptl-connect-top .ptl-nav-refresh { display: inline-flex; }
 .ptl-connect-title { margin-bottom: 4px; }
-.ptl-connect-title h2 { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.2; color: var(--ptl-ink); }
+.ptl-connect-title h2 { margin: 0; font-size: var(--aspire-page-title-size, 24px); font-weight: 700; letter-spacing: -0.02em; line-height: 1.2; color: var(--ptl-ink); }
 .ptl-connect-title p { margin: 5px 0 0; font-size: 13px; line-height: 1.5; color: var(--ptl-ink-soft); }
 /* The picker pins under the nightfall header (top is the measured chrome height); it sits BELOW
    the chrome's z-index 20 so a header menu opens over it (PORTAL-TOOLBAR-Z-1). */
@@ -2406,12 +2400,11 @@ body:has(.ptl-team-message-launcher-wrap.is-open) [data-keith-launcher] { displa
    keeps the page's own column rhythm instead of butting them together. */
 .ptl-na-stack { flex-direction: column; gap: 16px; }
 .ptl-na-calendar { display: flex; flex-direction: column; gap: 16px; }
-.ptl-na-section-heading,
 .ptl-na-table-heading {
   display: flex; align-items: flex-end; justify-content: space-between; gap: 16px;
 }
-.ptl-na-section-heading h2 { margin: 0 0 4px; font-size: 17px; color: var(--ptl-ink); }
-.ptl-na-section-heading p { margin: 0; font-size: 12.5px; color: var(--ptl-muted, #6b7280); }
+/* PAGE-TITLE-1: the fiscal year's page bar sits 16px above the KPI row (the row keeps its own 10px). */
+.ptl-na-calendar section > .aspire-page-bar { margin-bottom: 6px; }
 .ptl-na-overview-kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 10px; }
 
 /* Filter toolbar (shared by both sections). */

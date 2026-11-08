@@ -14,6 +14,7 @@
 // closed (503) rather than omit that identity, and this workspace disables the submit control with a
 // truthful banner. Drafts, editing, withdrawal, Request a Change, and audit history are out of scope.
 
+import PageBar from '../../components/shared/PageBar.jsx'
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { supabase } from '../../lib/supabase'
 import { LoadingState, EmptyState, ErrorState, DeniedState } from '../unit/UnitLeaderChrome'
@@ -89,19 +90,20 @@ export default function PlacementRequestsView({ onNavigate }) {
 
   return (
     <div className="ptl-page ptl-ap-page">
-      <div className="ptl-plr-head">
-        <div>
-          <h1 className="ptl-plr-title">Placement Requests</h1>
-          <p className="ptl-muted ptl-small ptl-plr-lede">
-            Submit your school's ASPIRE placement requests here. After you submit, follow each
-            student's status, unit and preceptor assignment, rotation dates, and hours in the Students
-            tab.
-          </p>
-        </div>
-        <button type="button" className="ptl-btn-outline ptl-btn-sm ptl-plr-new" onClick={() => onNavigate?.('students')}>
-          View students and statuses
-        </button>
-      </div>
+      {/* PAGE-TITLE-1: the Placement Requests tab names this page. */}
+      <PageBar
+        name="Placement Requests"
+        meta={<>
+          Submit your school's ASPIRE placement requests here. After you submit, follow each
+          student's status, unit and preceptor assignment, rotation dates, and hours in the Students
+          tab.
+        </>}
+        actions={(
+          <button type="button" className="ptl-btn-outline ptl-btn-sm ptl-plr-new" onClick={() => onNavigate?.('students')}>
+            View students and statuses
+          </button>
+        )}
+      />
 
       {/* School scope + the SUBMISSION cohort picker (accepting cohorts only) live in the header. */}
       <PortalHeaderScope>{schools.length === 1 ? <> · {school.school_key}</> : null}</PortalHeaderScope>

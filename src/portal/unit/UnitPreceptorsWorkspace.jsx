@@ -130,9 +130,7 @@ export default function UnitPreceptorsWorkspace({ unitKey, unitKeys, onAssignmen
 
   return (
     <>
-      <div className="ptl-section-headrow">
-        <SectionHeading focusKey="preceptors">Preceptors</SectionHeading>
-      </div>
+      <SectionHeading focusKey="preceptors">Preceptors</SectionHeading>
       <p className="ptl-muted">
         Preceptors whose home unit is in your scope or who currently work with one of your students.
       </p>

@@ -271,7 +271,10 @@ export function DeniedState({
  * A section heading that also receives focus on navigation, so a keyboard or
  * screen-reader user lands on the new content instead of at the top of the shell.
  */
-export function SectionHeading({ children, focusKey }) {
+// PAGE-TITLE-1 (Owner, 2026-11-08): a page the section nav opens is named by its tab, so its
+// heading is for screen readers only (it still takes focus on arrival). A page the nav does
+// not name (Profile, Report a Concern, the roster) passes `visible`.
+export function SectionHeading({ children, focusKey, visible = false }) {
   const ref = useRef(null)
   useEffect(() => {
     // Focus the heading when the section changes, never on every render.
@@ -288,7 +291,7 @@ export function SectionHeading({ children, focusKey }) {
     return () => { el.removeEventListener('blur', clear); clear() }
   }, [focusKey])
   return (
-    <h2 className="ptl-section-title" tabIndex={-1} ref={ref}>{children}</h2>
+    <h2 className={visible ? 'ptl-section-title' : 'ptl-section-title ptl-visually-hidden'} tabIndex={-1} ref={ref}>{children}</h2>
   )
 }
 

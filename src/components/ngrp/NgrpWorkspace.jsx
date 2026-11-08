@@ -27,7 +27,8 @@ import './ngrp.css'
 // what they are waiting on. None of them is ever shown as an empty success.
 const PLANNED = {
   evaluation: {
-    title: 'Evaluation',
+    // PAGE-TITLE-1: the tab names the page, so the card does not repeat it.
+    title: 'Coming Soon',
     body: 'Cohort-scoped outcomes with explicit denominators: Interview Bootcamp pre and post assessment, resident evaluation completion, retention at 3, 6 and 12 months against cohort and organization benchmarks, and the Casey-Fink survey. Support participation comparisons stay observational.',
   },
 }

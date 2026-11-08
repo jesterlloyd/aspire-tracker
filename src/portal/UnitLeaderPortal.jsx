@@ -704,7 +704,7 @@ function CapacityScreen({ unitKeys, acceptingCohort, refreshRoster }) {
   if (submitted) {
     return (
       <>
-        <SectionHeading focusKey="capacity">Placement capacity</SectionHeading>
+        <SectionHeading focusKey="capacity">Placement Capacity</SectionHeading>
         <div className="ptl-card">
           <h3 className="ptl-card-title">Thank you, {form.unit_name}.</h3>
           <p className="ptl-muted">
@@ -728,7 +728,7 @@ function CapacityScreen({ unitKeys, acceptingCohort, refreshRoster }) {
 
   return (
     <>
-      <SectionHeading focusKey="capacity">Placement capacity</SectionHeading>
+      <SectionHeading focusKey="capacity">Placement Capacity</SectionHeading>
       {notice && <p className={`ptl-notice ptl-notice-${notice.tone}`} role="status">{notice.text}</p>}
 
       <form className="ptl-card ptl-unit-form" onSubmit={submit}>
@@ -1009,7 +1009,7 @@ function StudentRoster({ students, photos: providedPhotos = null, onNavigate, on
     <>
       {heading
         ? <h3 className="ptl-card-title ptl-roster-heading">{heading}</h3>
-        : <SectionHeading focusKey="students">Students</SectionHeading>}
+        : <SectionHeading focusKey="students" visible>Students</SectionHeading>}
       {notice && <p className={`ptl-notice ptl-notice-${notice.tone}`} role="status">{notice.text}</p>}
 
       {students.length === 0 ? (
@@ -1279,7 +1279,7 @@ function ConcernScreen({ students }) {
 
   return (
     <>
-      <SectionHeading focusKey="concern">Report a Concern</SectionHeading>
+      <SectionHeading focusKey="concern" visible>Report a Concern</SectionHeading>
       {notice && <p className={`ptl-notice ptl-notice-${notice.tone}`} role="status">{notice.text}</p>}
       <p className="ptl-muted">
         This opens a conversation with the ASPIRE Team. The student is not part of it.
@@ -1339,7 +1339,7 @@ function ProfileScreen({ unitKeys, profile }) {
 
   return (
     <>
-      <SectionHeading focusKey="profile">Profile</SectionHeading>
+      <SectionHeading focusKey="profile" visible>Profile</SectionHeading>
       <section className="ptl-card">
         <h3 className="ptl-card-title">Your ASPIRE Access</h3>
         <dl className="ptl-deflist">

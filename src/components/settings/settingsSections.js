@@ -115,7 +115,8 @@ export function routableSections(roleFlags) {
 // top of every Settings page sits on the same baseline (pure style const; this module
 // stays non-component config).
 export const SETTINGS_HEADING_STYLE = {
-  margin: '0 0 14px', fontSize: 20, fontWeight: 700, lineHeight: '28px',
+  // PAGE-TITLE-1: the one page-title size (it was 20px; Connect, Catalog and Insights were 24, 26, 28).
+  margin: '0 0 14px', fontSize: 'var(--aspire-page-title-size, 24px)', fontWeight: 700, lineHeight: 'var(--aspire-page-title-line, 30px)',
   letterSpacing: '-0.01em',
   color: 'var(--color-text-primary, #191919)', fontFamily: 'Plus Jakarta Sans, sans-serif',
 }

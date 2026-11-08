@@ -18,6 +18,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import MetricCard from '../../components/ui/MetricCard'
+import PageBar from '../../components/shared/PageBar.jsx'
 import {
   CanonicalCalendarLayout,
   CanonicalCalendarSidebar,
@@ -190,12 +191,13 @@ export default function AcademicsCalendarView({ active = true }) {
   return (
     <div className="ptl-na-calendar">
       <section aria-labelledby="na-fy-summary-heading">
-        <div className="ptl-na-section-heading">
-          <div>
-            <h2 id="na-fy-summary-heading">Fiscal-Year Impact</h2>
-            <p>{benefit?.fiscal_year_label} · July {benefit?.fiscal_year - 1} through June {benefit?.fiscal_year}</p>
-          </div>
-        </div>
+        {/* PAGE-TITLE-1: the At a Glance tab names this page; the fiscal year is its meta line. */}
+        <PageBar
+          name="Fiscal-Year Impact"
+          as="h2"
+          id="na-fy-summary-heading"
+          meta={benefit ? `Fiscal-year impact, ${benefit.fiscal_year_label}: July ${benefit.fiscal_year - 1} through June ${benefit.fiscal_year}` : '\u00a0'}
+        />
         <div className="ptl-na-overview-kpis">
           <MetricCard
             label="Students served"

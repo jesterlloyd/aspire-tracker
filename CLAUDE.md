@@ -47,6 +47,28 @@ Rules that follow from the table:
    `getBoundingClientRect`. Source reading missed two cascade overrides on the day this
    canon shipped; a browser caught both.
 
+## Page titles (PAGE-TITLE-1, Owner, 2026-11-08)
+
+The Owner found some portal tabs titled and some not, at 16, 20, 21, 22 and 28px, and the
+full-screen staff pages at 20, 24, 26 and 28px. One rule now, in the staff app and every portal:
+
+1. **A page a section nav opens has no visible title.** The tab names it, which is what every
+   staff tab already did. Its name is a heading for screen readers only, and its one line of
+   context (left) and its actions (right) sit in `PageBar` (`src/components/shared/PageBar.jsx`,
+   `pageBar.css`), first under the nav, `--aspire-gap-card` above the content. `PageName` is the
+   heading alone. The Unit Leader portal's `SectionHeading` is visually hidden by default and
+   still takes focus on arrival; a page the nav does not name (Profile, Report a Concern, the
+   roster) passes `visible`.
+2. **A page that stands on its own** (ASPIRE Connect, staff and portal; the Catalog; ASPIRE
+   Insights; Settings' band) **has one title, at `--aspire-page-title-size`** (24px, line
+   `--aspire-page-title-line` 30px) in `aspireBrand.css`. Settings' band moved from 20 to 24px.
+3. **A heading inside a page belongs to a card.** A card that only stands in for a page that is
+   not built yet does not repeat the tab's name (Residency's Evaluation reads Coming Soon).
+4. Retired: `.ptl-plr-title`, `.ptl-page-heading`, `.bud-portal-head`, `.ptl-na-section-heading`.
+   `test/pageTitleCanon.test.mjs` fails if a portal brings one back or a full-screen title stops
+   reading the token. Left alone on purpose: the card titles inside a page (a separate size
+   question), the School Coordinator Access gate card, and the Messages card's own head.
+
 ## Materials (PLACEMENT-BOARD-FELT-1, 2026-09-17)
 
 A **material** says what a surface is made of. It never sets structure: corner, gap and

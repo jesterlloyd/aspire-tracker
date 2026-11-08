@@ -10,6 +10,7 @@
 // re-checks the active nursing_academic grant server-side; nothing here
 // writes anything, anywhere.
 
+import PageBar from '../../components/shared/PageBar.jsx'
 import { useMemo, useEffect, Suspense } from 'react'
 import { lazyReload } from '../../lib/lazyReload'
 import { useNavigate, useSearchParams } from 'react-router-dom'
@@ -147,10 +148,9 @@ export default function NursingAcademicsPortal({ view = 'calendar', messagesEnab
               Settings > Budget Tracker, in place of a sentence about the page and a second
               line under it. The slot is reserved while the year loads, so nothing shifts. */}
           <ProgramBudgetView source={PORTAL_SOURCE} yearLineInBand renderBand={(actions, _note, yearLine) => (
-            <header className="bud-portal-head">
-              <div><h2>Budget Tracker</h2><p className="bud-sub bud-portal-sub">{yearLine}</p></div>
-              {actions}
-            </header>
+            // PAGE-TITLE-1: the Budget Tracker tab names this page; the year line and the
+            // actions are the page bar.
+            <PageBar name="Budget Tracker" as="h2" meta={yearLine || '\u00a0'} actions={actions} />
           )} />
         </div>
       ) : (

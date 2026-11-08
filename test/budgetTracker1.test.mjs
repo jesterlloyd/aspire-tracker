@@ -50,7 +50,8 @@ test('Program Budget is labelled Budget Tracker where people read it', () => {
   assert.match(read('src/components/settings/settingsSections.js'), /label: 'Budget Tracker', path: '\/settings\/budget'/, 'the route stays')
   assert.match(read('src/components/settings/ProgramBudgetPanel.jsx'), /title="Budget Tracker"/)
   assert.match(read('src/lib/home/needsYouModel.js'), /open: \{ label: 'Open Budget Tracker', to \}/)
-  assert.match(read('src/portal/na/NursingAcademicsPortal.jsx'), /<h2>Budget Tracker<\/h2>/)
+  // PAGE-TITLE-1 (2026-11-08): the name is the page bar's screen-reader heading now.
+  assert.match(read('src/portal/na/NursingAcademicsPortal.jsx'), /<PageBar name="Budget Tracker"/)
   for (const f of ['src/components/budget/ProgramBudgetView.jsx', 'src/components/budget/BudgetReceipts.jsx', 'src/components/budget/ReceiptSlip.jsx', 'src/components/budget/BudgetFiled.jsx', 'src/lib/actionCenter/queueModel.js', 'api/budget-staff.js']) {
     const code = read(f).split('\n').filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l)).map(l => l.replace(/\s\/\/\s.*$/, '')).join('\n')
     assert.doesNotMatch(code, /Program Budget/, f)

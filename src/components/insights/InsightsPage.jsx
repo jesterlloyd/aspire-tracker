@@ -15,6 +15,7 @@
 // tiles wear the app's KPI card accents; a school keeps one validated slot on every card
 // (slotsFor); Internal and External are the first two slots; ranks read the blue ramp.
 
+import { PageName } from '../shared/PageBar.jsx'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useTheme } from '../../contexts/ThemeContext'
@@ -372,8 +373,11 @@ export default function InsightsPage({ surface = 'staff', backPath, backLabel, t
       <div className="ins-binder">
         <header className="ins-head">
           <div>
-            <span className="ins-tag" aria-hidden="true">Program report</span>
-            <h1>{title}</h1>
+            {/* PAGE-TITLE-1: in a portal the Data tab names this page, so the title is for
+                screen readers only and the lede is the page's meta line. */}
+            {surface === 'leadership'
+              ? <PageName>{title}</PageName>
+              : <><span className="ins-tag" aria-hidden="true">Program report</span><h1>{title}</h1></>}
             <p>Outcomes across every cohort, school, unit and pathway.{readOnlyNote ? ` ${readOnlyNote}` : ''}</p>
           </div>
           {data && (

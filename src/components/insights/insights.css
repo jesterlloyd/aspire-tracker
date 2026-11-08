@@ -156,7 +156,7 @@
 /* ── Layout ──────────────────────────────────────────────────────────────── */
 .ins-topline { margin-bottom: 12px; }
 .ins-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
-.ins-head h1 { margin: 0; font-size: 28px; font-weight: 700; color: var(--text-heading, var(--ins-fb-text-heading)); }
+.ins-head h1 { margin: 0; font-size: var(--aspire-page-title-size, 24px); font-weight: 700; color: var(--text-heading, var(--ins-fb-text-heading)); }
 .ins-head p { margin: 4px 0 0; color: var(--ins-muted); font-size: 14px; }
 .ins-classic .ins-head p { color: var(--paper-muted, var(--ins-fb-paper-muted)); }
 [data-theme='dark'] .ins-classic .ins-head p { color: #C9C2AE; }

@@ -1,0 +1,38 @@
+/* PAGE-TITLE-1 (Owner, 2026-11-08): the first row of a page that a section nav opens.
+   The tab is the page's title, so this row draws none: the page's name is a heading for
+   screen readers only, then the page's meta on the left and its actions on the right.
+   Imported by PageBar.jsx, so it reaches the staff app and every portal. */
+.aspire-page-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  min-height: 34px;
+  margin: 0 0 var(--aspire-gap-card);
+}
+.aspire-page-bar-meta {
+  margin: 0;
+  min-width: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-caption, #5b6472);
+}
+.aspire-page-bar-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-left: auto;
+}
+.aspire-page-name {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}

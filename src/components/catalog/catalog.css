@@ -126,7 +126,7 @@
 
 /* ── Header ────────────────────────────────────────────────────────────────────── */
 .ctl-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin: 0 0 16px; }
-.ctl-head h1 { margin: 0; font-size: 26px; font-weight: 700; letter-spacing: -0.01em; color: var(--ctl-ink); }
+.ctl-head h1 { margin: 0; font-size: var(--aspire-page-title-size, 24px); font-weight: 700; letter-spacing: -0.01em; color: var(--ctl-ink); }
 .ctl-head p { margin: 2px 0 0; color: var(--ctl-muted); font-size: 14px; }
 .ctl-head .ctl-summary { margin-top: 6px; font-size: 13px; }
 .ctl-summary b { color: var(--ctl-ink); font-variant-numeric: tabular-nums; }

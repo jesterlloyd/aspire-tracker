@@ -22,6 +22,7 @@
 import { Suspense, useState, useEffect, useRef, useMemo } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { lazyReload } from '../lib/lazyReload'
+import PageBar from '../components/shared/PageBar.jsx'
 import {
   MapPin, Clock, ClipboardCheck, CalendarPlus, LifeBuoy, Pencil, Mail,
   ChevronRight, Copy, Download, Award, IdCard, Stethoscope,
@@ -458,10 +459,8 @@ export default function StudentPortal({
           calendar={{ label: 'Open Calendar', onClick: () => scrollToCalendar('student-rotation-activity-title') }}
         />
       ) : (
-        <div className="ptl-page-heading">
-          <h2>My Placement</h2>
-          <p>Review your placement, ASPIRE status, surveys, files, and support options.</p>
-        </div>
+        // PAGE-TITLE-1: the My Placement tab names this page (its h1 is visually hidden above).
+        <PageBar meta="Review your placement, ASPIRE status, surveys, files, and support options." />
       )}
 
       <ComposeNote compose={compose} onDismiss={() => setCompose(null)} onCopyEmail={() => copy(compose?.to || SUPPORT)} onCopyMessage={copy} />

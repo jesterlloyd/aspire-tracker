@@ -25,6 +25,7 @@ import './studentResidency.css'
 import ResumeFeedbackCard from '../components/documents/ResumeFeedbackCard'
 import ApplicationProfileCard from './ApplicationProfileCard'
 import BackButton from '../components/BackButton'
+import PageBar from '../components/shared/PageBar.jsx'
 import { lazyReload } from '../lib/lazyReload'
 import { transitionDisclaimer } from '../lib/ngrp/transitionDisclaimer'
 // TRANSITION-PORTAL-1: the Transition Form itself, the same component the emailed link opens,
@@ -198,10 +199,8 @@ export default function StudentResidency({ active }) {
 
   return (
     <div className="sr-root">
-      <div className="ptl-page-heading">
-        <h2>Residency</h2>
-        <p>{data.cycle ? `${data.cycle.name} · ` : ''}Your New Graduate RN Residency Program preparation, in one place.</p>
-      </div>
+      {/* PAGE-TITLE-1: the Residency tab names this page. */}
+      <PageBar name="Residency" as="h2" meta={`${data.cycle ? `${data.cycle.name} · ` : ''}Your New Graduate RN Residency Program preparation, in one place.`} />
 
       {notice && <div className="ptl-notice ptl-notice-ok" role="status">{notice}</div>}
       {(data.requests || []).map(rq => (

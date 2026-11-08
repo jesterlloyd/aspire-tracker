@@ -510,12 +510,15 @@ test('the section row is At a Glance, then every other tab in alphabetical order
 test('the Budget Tracker band carries the year line, and adds no second page-top', () => {
   const portal = read('src/portal/na/NursingAcademicsPortal.jsx')
   assert.match(portal, /<ProgramBudgetView source=\{PORTAL_SOURCE\} yearLineInBand renderBand=\{\(actions, _note, yearLine\) =>/)
-  assert.match(portal, /<h2>Budget Tracker<\/h2><p className="bud-sub bud-portal-sub">\{yearLine\}<\/p>/)
+  // PAGE-TITLE-1 (2026-11-08): the tab names the page, so the band is the shared PageBar: the
+  // name for screen readers, the year line as its meta, the actions on the right.
+  assert.match(portal, /<PageBar name="Budget Tracker" as="h2" meta=\{yearLine \|\| '\\u00a0'\} actions=\{actions\} \/>/)
   assert.doesNotMatch(portal, /Shared from ASPIRE Intelligence by the program owner/)
   // .ptl-main already supplies --aspire-page-top; a second one measured 48px under the tab row.
   const css = read('src/components/budget/budget.css')
   const rule = css.match(/\n\.bud-portal \{[^}]*\}/)[0]
   assert.doesNotMatch(rule, /padding-top/)
-  // The subtitle slot is reserved while the year loads, so the tabs below do not jump.
-  assert.match(css, /\.bud-portal-sub \{ min-height: 20px;/)
+  // The meta slot is reserved while the year loads (a no-break space in a 34px-high bar), so
+  // the tabs below do not jump.
+  assert.match(read('src/components/shared/pageBar.css'), /min-height: 34px;/)
 })

@@ -64,6 +64,12 @@
      sits on the cream page as a surface rather than a boxed outline. */
   --aspire-gap-card: 16px;
   --aspire-page-top: 24px;
+  /* PAGE-TITLE-1 (Owner, 2026-11-08): a page reached from a section nav has NO visible title,
+     because its tab names it; its meta and actions sit in one .aspire-page-bar. A page that
+     stands on its own (Connect, Catalog, Insights, Settings) has one title, at this size.
+     They were 20, 24, 26 and 28px. */
+  --aspire-page-title-size: 24px;
+  --aspire-page-title-line: 30px;
   --aspire-th-size: 11px;
   /* UI-CONSISTENCY-2: the table canon. Derived from the two tables the Owner named as
      right (Evaluation > Responses, and the Alumni Roster): they agree on every value
