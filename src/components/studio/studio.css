@@ -222,6 +222,31 @@
 .st-dot-warn { background: #B45309; }
 .st-dot-bad { background: #B91C1C; }
 .st-toolbar { display: flex; gap: 4px; margin-bottom: 6px; flex-wrap: wrap; }
+/* STUDIO-RICH-1: the text fields' toolbar editor. The box reads the same tokens as .st-textarea. */
+.st-rte-bar { display: flex; align-items: center; gap: 4px; margin-bottom: 6px; flex-wrap: wrap; }
+.st-rte-btn {
+  width: 30px; height: 30px; display: inline-grid; place-items: center; padding: 0; cursor: pointer;
+  border: 1px solid var(--border-input); border-radius: var(--aspire-radius-control);
+  background: var(--bg-input); color: var(--text-heading);
+}
+.st-rte-btn:hover:not(:disabled) { background: var(--bg-app); }
+.st-rte-btn[aria-pressed="true"] { background: var(--color-accent-primary); border-color: var(--color-accent-primary); color: #fff; }
+.st-rte-btn:focus-visible { outline: 2px solid var(--color-accent-primary); outline-offset: 1px; }
+.st-rte-sep { width: 1px; height: 20px; background: var(--border-divider); margin: 0 2px; }
+.st-rte-link { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 6px; }
+.st-rte-link .st-input { flex: 1 1 160px; }
+.st-rte-link .st-hint { flex-basis: 100%; margin-top: 0; }
+.st-rte-box .st-rte-content {
+  box-sizing: border-box; min-height: var(--st-rte-min, 150px); max-height: 420px; overflow-y: auto;
+  border: 1px solid var(--border-input); border-radius: var(--aspire-radius-control);
+  background: var(--bg-input); color: var(--text-heading); font-size: 13px; line-height: 1.5; padding: 8px 10px;
+}
+.st-rte-box .st-rte-content:focus { outline: 2px solid var(--color-accent-primary); outline-offset: 1px; }
+.st-rte-content p { margin: 0 0 8px; }
+.st-rte-content p:last-child { margin-bottom: 0; }
+.st-rte-content ul, .st-rte-content ol { margin: 0 0 8px; padding-left: 22px; }
+.st-rte-content li p { margin: 0; }
+.st-rte-content a { color: var(--color-accent-primary); text-decoration: underline; }
 .st-problems {
   padding: 8px 14px; border-bottom: 1px solid var(--border-divider); display: flex; flex-wrap: wrap; align-items: center;
   gap: 4px 14px; font-size: 12.5px; background: var(--bg-app);

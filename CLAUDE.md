@@ -3331,6 +3331,14 @@ Phase 2b.
   (STUDIO-LOGO-1, Owner). `emailLogoUrl` uses the organization's logo only when it is a PNG, JPEG or
   GIF (the stored one is an SVG, which Gmail and Outlook do not draw), else `/Cedars-Sinai.png`; the
   canvas, thumbnails and the send all read it, so they show the same logo.
+- **Text fields have a toolbar; the design still stores markup** (STUDIO-RICH-1, Owner, 2026-11-08).
+  The inspector's text fields are `StudioRichText` (TipTap, the composer's packages): bold, italic,
+  underline, bulleted and numbered lists, link, + First name, + School. It reads and writes the stored
+  markup through `src/lib/studio/studioMarkup.js` (pure): `**bold**`, `*italic*`, `++underline++`,
+  `[words](url)`, a blank line a paragraph, "- " lines a bulleted list, "1. " lines a numbered one. A
+  marker pair counts only when it hugs its words ("3 * 4" stays arithmetic). `paragraphs()` renders lists
+  as `<ul>`/`<ol>` with the font restated on every `<li>` (Outlook). Quote and event Details render inline,
+  so their editors pass `lists={false}`. Saved designs, Keith's text and the canvas's inline editor are unchanged.
 
 ### Keith plans and drafts; the sender decides (STUDIO-3, Phase 2b, 2026-11-05)
 

@@ -6,6 +6,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Tooltip from '../ui/Tooltip'
+import StudioRichText from './StudioRichText'
 import { BLOCKS, SWATCHES, SWATCH_NAMES, THEMES, SUBJECT_MAX, PREHEADER_MAX, blockColorPairs, contrastRatio, safeUrl, safeImageUrl } from '../../lib/studio/studioBlocks'
 import { uploadStudioImage } from '../../lib/studio/studioClient'
 import { useCatalogForms } from '../connect/blocks/useCatalogForms'
@@ -142,45 +143,6 @@ function LinkField({ label, value, onChange, hint, image = false }) {
   )
 }
 
-/** A textarea with the light markup the renderer reads, and an Insert first name chip. */
-function RichText({ value, onChange, rows = 7 }) {
-  const ref = useRef(null)
-  const wrap = (before, after = before, fallback = 'text') => {
-    const el = ref.current
-    if (!el) return
-    const v = el.value
-    const [a, b] = [el.selectionStart, el.selectionEnd]
-    const inner = v.slice(a, b) || fallback
-    const next = v.slice(0, a) + before + inner + after + v.slice(b)
-    onChange(next)
-    requestAnimationFrame(() => { el.focus(); el.setSelectionRange(a + before.length, a + before.length + inner.length) })
-  }
-  const insert = (text) => {
-    const el = ref.current
-    const v = el?.value || ''
-    const a = el ? el.selectionStart : v.length
-    onChange(v.slice(0, a) + text + v.slice(a))
-    requestAnimationFrame(() => { if (el) { el.focus(); el.setSelectionRange(a + text.length, a + text.length) } })
-  }
-  return (
-    <>
-      <div className="st-toolbar" role="toolbar" aria-label="Formatting">
-        <button type="button" className="st-btn st-btn-sm" onClick={() => wrap('**')} aria-label="Bold"><b>B</b></button>
-        <button type="button" className="st-btn st-btn-sm" onClick={() => wrap('*')} aria-label="Italic"><i>I</i></button>
-        <button type="button" className="st-btn st-btn-sm" onClick={() => {
-          const url = window.prompt('Link address (https:// or an email address)')
-          const safe = safeUrl(url)
-          if (safe) wrap('[', `](${safe})`, 'link text')
-        }}>Link</button>
-        <button type="button" className="st-btn st-btn-sm" onClick={() => insert('[First Name]')}>+ First name</button>
-        <button type="button" className="st-btn st-btn-sm" onClick={() => insert('[School]')}>+ School</button>
-      </div>
-      <textarea ref={ref} className="st-textarea" rows={rows} value={value || ''} onChange={e => onChange(e.target.value)} />
-      <div className="st-hint">A blank line starts a new paragraph. **bold**, *italic*, [words](https://link).</div>
-    </>
-  )
-}
-
 function ImageInput({ value, alt, onUrl, onAlt, imagesEnabled, toast, altLabel = 'Alt text' }) {
   const [busy, setBusy] = useState(false)
   const pick = useRef(null)
@@ -232,7 +194,7 @@ function ContentPanel({ block, onChange, imagesEnabled, toast }) {
     case 'heading':
       return <Field label="Heading"><Text value={p.text} onChange={v => set({ text: v })} max={160} /></Field>
     case 'text':
-      return <div className="st-field"><span className="st-label">Text</span><RichText value={p.text} onChange={v => set({ text: v })} rows={10} /></div>
+      return <div className="st-field"><span className="st-label">Text</span><StudioRichText value={p.text} onChange={v => set({ text: v })} rows={10} /></div>
     case 'image':
       return (<>
         <ImageInput value={p.url} alt={p.alt} onUrl={v => set({ url: v })} onAlt={v => set({ alt: v })} imagesEnabled={imagesEnabled} toast={toast} />
@@ -245,7 +207,7 @@ function ContentPanel({ block, onChange, imagesEnabled, toast }) {
           <fieldset key={side} style={{ border: 0, padding: 0, margin: '0 0 12px' }}>
             <legend className="st-label">{side === 'left' ? 'Left column' : 'Right column'}</legend>
             <Field label="Title"><Text value={p[side].title} onChange={v => set({ [side]: { ...p[side], title: v } })} max={160} /></Field>
-            <div className="st-field"><span className="st-label">Text</span><RichText value={p[side].text} rows={4} onChange={v => set({ [side]: { ...p[side], text: v } })} /></div>
+            <div className="st-field"><span className="st-label">Text</span><StudioRichText value={p[side].text} rows={4} onChange={v => set({ [side]: { ...p[side], text: v } })} /></div>
             <ImageInput value={p[side].imageUrl} alt={p[side].imageAlt} onUrl={v => set({ [side]: { ...p[side], imageUrl: v } })} onAlt={v => set({ [side]: { ...p[side], imageAlt: v } })} imagesEnabled={imagesEnabled} toast={toast} />
           </fieldset>
         ))}
@@ -264,7 +226,7 @@ function ContentPanel({ block, onChange, imagesEnabled, toast }) {
       </>)
     case 'quote':
       return (<>
-        <div className="st-field"><span className="st-label">Quote</span><RichText value={p.text} rows={4} onChange={v => set({ text: v })} /></div>
+        <div className="st-field"><span className="st-label">Quote</span><StudioRichText value={p.text} rows={4} lists={false} label="Quote" onChange={v => set({ text: v })} /></div>
         <Field label="Who said it"><Text value={p.cite} onChange={v => set({ cite: v })} max={160} /></Field>
       </>)
     case 'button':
@@ -301,7 +263,7 @@ function ContentPanel({ block, onChange, imagesEnabled, toast }) {
         <Field label="Date"><input type="date" className="st-input" style={{ marginTop: 6 }} value={p.date} onChange={e => set({ date: e.target.value })} /></Field>
         <Field label="Time"><Text value={p.time} onChange={v => set({ time: v })} max={80} placeholder="5:30 to 6:30 PM" /></Field>
         <Field label="Where"><Text value={p.location} onChange={v => set({ location: v })} max={240} placeholder="Room, building or Virtual" /></Field>
-        <div className="st-field"><span className="st-label">Details (optional)</span><RichText value={p.details} rows={3} onChange={v => set({ details: v })} /></div>
+        <div className="st-field"><span className="st-label">Details (optional)</span><StudioRichText value={p.details} rows={3} lists={false} label="Details" onChange={v => set({ details: v })} /></div>
       </>)
     case 'signature':
       return (<>
@@ -309,7 +271,7 @@ function ContentPanel({ block, onChange, imagesEnabled, toast }) {
         <p className="st-hint">Your name, title and contact line come from your Connect signature in Settings &gt; General &gt; Profile.</p>
       </>)
     case 'footer':
-      return <div className="st-field"><span className="st-label">Footer text</span><RichText value={p.text} rows={4} onChange={v => set({ text: v })} /></div>
+      return <div className="st-field"><span className="st-label">Footer text</span><StudioRichText value={p.text} rows={4} label="Footer text" onChange={v => set({ text: v })} /></div>
     default:
       return <p className="st-sub">This block has nothing to write.</p>
   }

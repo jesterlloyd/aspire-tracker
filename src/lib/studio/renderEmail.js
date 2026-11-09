@@ -17,6 +17,7 @@
 // each recipient their own link, and finishFormButtons() then draws the styled button around it.
 
 import { sanitizeDesign, themeFor, resolveColor, FONT_STACKS, safeUrl } from './studioBlocks.js'
+import { groupLines } from './studioMarkup.js'
 
 export function esc(v) {
   return String(v == null ? '' : v)
@@ -33,7 +34,8 @@ const MERGE_TOKENS = [
 const SIDE = 40   // side padding of the column, px (20 on a phone)
 
 /**
- * Inline markup, escaped first: **bold**, *italic*, [label](https://...). Line breaks become <br>.
+ * Inline markup, escaped first: **bold**, *italic*, ++underline++, [label](https://...). Line breaks
+ * become <br>.
  * With mergePreview, merge tokens are drawn as chips so the canvas shows what will be filled.
  */
 export function inlineMarkup(text, { link = '#1D2567', mergePreview = false } = {}) {
@@ -42,8 +44,9 @@ export function inlineMarkup(text, { link = '#1D2567', mergePreview = false } = 
     const safe = safeUrl(unesc(url))
     return safe ? `<a href="${esc(safe)}" style="color:${link};text-decoration:underline;">${label}</a>` : label
   })
-  out = out.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
-  out = out.replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, '$1<em>$2</em>')
+  out = out.replace(/\*\*([^*\s](?:[^*\n]*[^*\s])?)\*\*/g, '<strong>$1</strong>')
+  out = out.replace(/\+\+([^+\s](?:[^+\n]*[^+\s])?)\+\+/g, '<u>$1</u>')
+  out = out.replace(/(^|[^*])\*([^*\s](?:[^*\n]*[^*\s])?)\*(?!\*)/g, '$1<em>$2</em>')
   if (mergePreview) {
     for (const [token, label] of MERGE_TOKENS) {
       out = out.split(esc(token)).join(`<span style="background:#FFF3C4;color:#5C4300;border-radius:4px;padding:0 4px;font-weight:600;">${label}</span>`)
@@ -52,10 +55,25 @@ export function inlineMarkup(text, { link = '#1D2567', mergePreview = false } = 
   return out
 }
 
-/** Paragraphs (blank line) of inline markup, each a <p> with the given style. */
+/**
+ * Paragraphs (blank line) of inline markup, each a <p> with the given style. STUDIO-RICH-1: lines
+ * that start "- " (or "• ") are a bulleted list and "1. " a numbered one, in the paragraph's own
+ * type, with the font restated on every <li> because Outlook does not pass it down from the list.
+ */
 function paragraphs(text, pStyle, opts, key) {
-  const html = String(text || '').split(/\n{2,}/).map(p => p.trim()).filter(Boolean)
-    .map(p => `<p style="${pStyle}">${inlineMarkup(p, opts).replace(/\n/g, '<br>')}</p>`).join('')
+  const liStyle = `${pStyle.replace(/margin:[^;]*;/, '')}margin:0 0 4px;`
+  const listStyle = `${pStyle}padding:0 0 0 24px;`
+  const html = String(text || '').split(/\n{2,}/).map(p => p.replace(/^\n+|\n+$/g, '')).filter(p => p.trim())
+    .map(p => groupLines(p).map(run => {
+      if (run.type === 'lines') {
+        const body = run.lines.map(l => inlineMarkup(l.trim(), opts)).join('<br>')
+        return body ? `<p style="${pStyle}">${body}</p>` : ''
+      }
+      const items = run.items.map(i => `<li style="${liStyle}">${inlineMarkup(i.trim(), opts)}</li>`).join('')
+      return run.kind === 'ordered'
+        ? `<ol${run.start > 1 ? ` start="${run.start}"` : ''} style="${listStyle}">${items}</ol>`
+        : `<ul style="${listStyle}">${items}</ul>`
+    }).join('')).join('')
   // On the canvas only, the paragraphs are wrapped so a double-click edits the whole field.
   return key && opts?.editable ? `<div data-st-edit="${key}">${html}</div>` : html
 }
@@ -230,7 +248,7 @@ export function renderBlockRows(block, themeId, opts = {}) {
 /** The block as plain text, for the email's text part. */
 function blockText(b, opts) {
   const p = b.props || {}
-  const strip = (v) => String(v || '').replace(/\*\*([^*]+)\*\*/g, '$1').replace(/\*([^*]+)\*/g, '$1').replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1 ($2)')
+  const strip = (v) => String(v || '').replace(/\*\*([^*]+)\*\*/g, '$1').replace(/\+\+([^+]+)\+\+/g, '$1').replace(/\*([^*\s][^*]*)\*/g, '$1').replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1 ($2)')
   switch (b.type) {
     case 'header': return p.title
     case 'hero': return [p.eyebrow, strip(p.headline).toUpperCase(), strip(p.subhead)].filter(Boolean).join('\n')
