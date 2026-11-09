@@ -9,7 +9,7 @@ import { readFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
-  PORTAL_TERMS_VERSION, PORTAL_TERMS_SECTIONS, REACCEPT_DAYS, needsAcceptance, termsNotProvisioned, termsRoles,
+  PORTAL_TERMS_VERSION, PORTAL_TERMS_SECTIONS, PORTAL_TERMS_INTRO, REACCEPT_DAYS, needsAcceptance, termsNotProvisioned, termsRoles,
 } from '../src/lib/portalTerms.js'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
@@ -55,7 +55,9 @@ test('the text covers confidentiality, patients, students, account, use and moni
     assert.ok(heads.includes(h), h)
   }
   const text = PORTAL_TERMS_SECTIONS.flatMap(s => s.body).join(' ')
-  assert.ok(!text.includes('—'), 'no em dashes')
+  const all = [PORTAL_TERMS_INTRO, text].join(' ')
+  assert.ok(!all.includes('\u2014'), 'no em dashes')
+  assert.doesNotMatch(all, /ASPIRE Program/i, 'ASPIRE, never "ASPIRE Program" (Claude/CLAUDE.md)')
 })
 
 test('PortalApp gates every portal branch, after access and before the first role branch', () => {

@@ -22,7 +22,7 @@ export const PORTAL_TERMS_CONTACT = 'aspire@cshs.org'
 
 export const PORTAL_TERMS_INTRO =
   'ASPIRE Intelligence is operated by the Geri and Richard Brawerman Nursing Institute at ' +
-  'Cedars-Sinai to run the ASPIRE program. Please read these terms before you continue. ' +
+  'Cedars-Sinai to run ASPIRE. Please read these terms before you continue. ' +
   'They apply every time you use an ASPIRE portal.'
 
 export const PORTAL_TERMS_SECTIONS = [
