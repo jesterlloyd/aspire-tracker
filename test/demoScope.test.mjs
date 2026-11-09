@@ -280,6 +280,8 @@ test('DEMO_UNSCOPED_RPCS still lists every people-bearing rpc in src/', () => {
     'dismiss_staff_notifications', 'restore_staff_notifications',
     // TOPBAR-PROFILE-1: the caller's own name and signature, nobody else's.
     'update_my_profile',
+    // PORTAL-TERMS-1: the caller's own terms acceptance, nobody else's.
+    'accept_portal_terms',
     'verify_school_form_password', 'school_form_requires_password',
   ])
 

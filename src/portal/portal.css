@@ -2854,3 +2854,44 @@ body:has(.ptl-team-message-launcher-wrap.is-open) [data-keith-launcher] { displa
 .ptl-ap-clr-warn { color: #8a4b00; background: #fdf1dc; }
 .ptl-ap-clr-bad { color: #a3261b; background: #fde8e6; }
 .ptl-ap-clr-note { font-size: 11.5px; color: var(--text-caption, #5b6472); }
+
+/* PORTAL-TERMS-1 (2026-11-09): the Terms of Use and Confidentiality Agreement, after sign-in and
+   before any portal. A standalone page: one title at the page-title token. The card is a .ptl-card
+   with a wider reading measure; the text scrolls inside it so the agreement and the two buttons
+   stay on screen on a phone. Paper-white card with fixed inks, as the access card is. */
+.ptl-terms-page { box-sizing: border-box; display: flex; flex-direction: column; align-items: center; padding: var(--aspire-page-top, 24px) 16px 32px; }
+.ptl-terms-card {
+  box-sizing: border-box; width: 100%; max-width: 640px; padding: 28px 28px 22px;
+  background: #fff; color: #1f2937;
+  display: flex; flex-direction: column; max-height: calc(100dvh - 56px);
+}
+.ptl-terms-title {
+  font-size: var(--aspire-page-title-size, 24px); line-height: var(--aspire-page-title-line, 30px);
+  font-weight: 700; color: #1D2567; margin: 0;
+}
+.ptl-terms-meta { color: #5b6472; font-size: 12.5px; margin: 4px 0 16px; }
+.ptl-terms-scroll {
+  flex: 1 1 auto; min-height: 120px; overflow-y: auto;
+  border-top: 1px solid var(--ptl-line, #e3ded4); border-bottom: 1px solid var(--ptl-line, #e3ded4);
+  padding: 14px 4px 6px 0;
+}
+.ptl-terms-scroll:focus-visible { outline: 2px solid #1D2567; outline-offset: 2px; }
+.ptl-terms-section { margin-top: 14px; }
+.ptl-terms-h2 { font-size: 14px; font-weight: 700; color: #1D2567; margin: 0 0 6px; }
+.ptl-terms-p { color: #374151; font-size: 13.5px; line-height: 1.6; margin: 0 0 8px; text-wrap: pretty; }
+.ptl-terms-agree {
+  display: flex; gap: 10px; align-items: flex-start; margin-top: 16px;
+  color: #1f2937; font-size: 13.5px; line-height: 1.5; cursor: pointer;
+}
+.ptl-terms-agree input { width: 18px; height: 18px; margin-top: 1px; flex: none; accent-color: #1D2567; }
+.ptl-terms-error { color: #991b1b; font-size: 13px; margin: 10px 0 0; }
+.ptl-terms-actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; margin-top: 18px; }
+.ptl-terms-actions .ptl-btn { margin-top: 0; }
+.ptl-terms-accept:disabled { background: #e3e5ef; color: #4b5563; cursor: not-allowed; }
+.ptl-terms-actions .ptl-btn-outline:disabled { opacity: 0.6; cursor: not-allowed; }
+@media (max-width: 760px) {
+  .ptl-terms-page { padding: 16px 16px 20px; }
+  .ptl-terms-card { padding: 22px 18px 18px; max-height: calc(100dvh - 36px); }
+  .ptl-terms-actions { flex-direction: column-reverse; }
+  .ptl-terms-actions button { width: 100%; }
+}

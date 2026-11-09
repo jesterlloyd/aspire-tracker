@@ -28,6 +28,8 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { useUserPreference } from '../hooks/useUserPreference'
 import { RESIDENCY_DIGEST } from '../lib/userPreferences'
+import PortalTermsGate from './PortalTermsGate'
+import { usePortalTerms } from './usePortalTerms'
 import PortalShell from './PortalShell'
 import PortalUtilityLayer from './PortalUtilityLayer'
 import FeedbackPanel from '../components/FeedbackPanel'
@@ -433,6 +435,14 @@ export default function PortalApp() {
   // extra request is needed and the answer is available even when every portal
   // endpoint is refusing this caller.
   const deactivated = userProfile?.is_active === false
+  // PORTAL-TERMS-1: the Terms of Use and Confidentiality Agreement is accepted before any portal
+  // renders, by every real portal user (never an Owner/Admin preview). Declared above every early
+  // return (rules of hooks). `termsBlocking` also covers the one render between access resolving
+  // and the hook's first read, so no portal child mounts and fetches before the answer.
+  const termsEnabled = !staffPreview && !loading && !accessFailed && !deactivated && !accessEnded
+    && Boolean(userProfile?.id) && (access?.roles || []).length > 0
+  const terms = usePortalTerms({ enabled: termsEnabled, profileId: userProfile?.id, roles: access?.roles })
+  const termsBlocking = termsEnabled && ['idle', 'checking', 'needed'].includes(terms.status)
   const [tourRunning, setTourRunning] = useState(false)
   const tourArmedRef = useRef(false)
   const tourTimeoutRef = useRef(null)
@@ -610,6 +620,7 @@ export default function PortalApp() {
   useEffect(() => {
     if (tourArmedRef.current) return
     if (staffPreview) return
+    if (termsBlocking) return
     if (!experience) return
     if (!userProfile || userProfile.onboarding_tour_completed === undefined) return
     if (experience === 'academic_partner' && !apCapabilityResolved) return
@@ -621,7 +632,7 @@ export default function PortalApp() {
       markPortalCohortHintSeen(userProfile.id, experience)
     }
     tourTimeoutRef.current = setTimeout(() => setTourRunning(true), 700)
-  }, [experience, userProfile, apCapabilityResolved, staffPreview])
+  }, [experience, userProfile, apCapabilityResolved, staffPreview, termsBlocking])
 
   if (loading) {
     return (
@@ -653,6 +664,18 @@ export default function PortalApp() {
   // says the account is off, or a portal endpoint refused this caller for an
   // access reason while they were already inside.
   if (deactivated || accessEnded) return <PortalAccessNotice state={ACCESS_STATES.NO_ACCESS} />
+
+  // PORTAL-TERMS-1: nothing of the portal renders until the agreement is accepted.
+  if (termsBlocking) {
+    if (terms.status === 'needed') {
+      return <PortalTermsGate onAccept={terms.accept} saving={terms.saving} error={terms.error} />
+    }
+    return (
+      <div className="ptl-page ptl-center">
+        <p className="ptl-visually-hidden" role="status">Loading your ASPIRE portal</p>
+      </div>
+    )
+  }
 
   const roles = access?.roles || []
 

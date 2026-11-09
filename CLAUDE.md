@@ -687,6 +687,28 @@ activate and reset forms carry the account email as a hidden username (`Keychain
 password has its email beside it. The web app manifest starts at `/portal`, so the Home Screen icon
 opens the sign-in or the portal, never the public site.
 
+## Portal users accept the terms first (PORTAL-TERMS-1, 2026-11-09)
+
+Owner: every portal user accepts terms of use and confidentiality language before using a portal.
+Owner decisions, same day: one text for every portal; accepted again when the text changes and
+once a year (`REACCEPT_DAYS` 365); Decline signs the person out and the next sign-in asks again;
+Owner/Admin previews skip it. The text is a DRAFT Claude wrote for Legal review.
+
+- **The text and its version are `src/lib/portalTerms.js`.** Changing any word is a new
+  `PORTAL_TERMS_VERSION` (an ISO date) in the same commit, which asks every portal user again.
+- **The gate is in PortalApp**, after the deactivated / access-ended answer and before the first
+  role branch (`PortalTermsGate.jsx`, `usePortalTerms.js`), so no portal child mounts or fetches
+  until it is answered; the welcome tour waits for it too. The sign-in page cannot know who is
+  signing in, so "before logging in" means right after sign-in, before any portal content.
+- **The record** is `portal_terms_acceptances` (who, version, portal roles, when, user agent),
+  append-only, read own rows or as an active Owner/Admin, written only by `accept_portal_terms`
+  (the caller, while active). Migration `20261206000000_portal_terms.sql` is Owner-gated; checks
+  `db/audit/portal_terms_checks.sql`. Before it the gate stays out of the way (`termsNotProvisioned`).
+  A failed read that is not "not provisioned" shows the agreement: asking twice is harmless.
+- **Not covered, on purpose**: the public `/shift-log` page (a student signed in there logs a
+  shift through the portal session without opening a portal) and the no-account `/form` and
+  `/sign` pages. Server endpoints do not check acceptance; click-through terms are a screen.
+
 ## Student photos have a small copy (PHOTO-THUMBS-1, 2026-09-30)
 
 Headshots averaged 1 MB and every avatar downloaded its original. Each headshot now has a small
