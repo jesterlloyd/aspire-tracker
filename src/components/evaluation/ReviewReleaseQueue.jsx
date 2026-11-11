@@ -106,7 +106,7 @@ function ActivitiesArea({ item, onRecord }) {
         return (
           <div key={a.key} className={`rq-act${a.completed ? ' done' : ''}`} data-testid="pr-activity-row">
             <span className="rq-act-mark" aria-hidden="true">{a.completed ? '✓' : '○'}</span>
-            <span className="rq-act-label">{a.label}</span>
+            <span className="rq-act-label">{a.label}{a.required === false && <span className="rq-act-note"> · Optional</span>}</span>
             <span className="rq-act-when">{when}</span>
             <span className="rq-act-ctl">
               {!a.completed && (

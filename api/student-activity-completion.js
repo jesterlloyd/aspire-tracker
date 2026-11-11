@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js';
 import {
-  REQUIRED_ACTIVITY_KEYS, ACTIVITY_LABELS, currentActivityState,
+  RECORDED_ACTIVITY_KEYS, ACTIVITY_LABELS, currentActivityState,
 } from '../src/lib/evaluation/postRotationSequence.js';
 import { isActiveProfile, INACTIVE_STATUS, INACTIVE_REASON, INACTIVE_MESSAGE } from './lib/activeAccount.js';
 
@@ -110,10 +110,10 @@ export default async function handler(req, res) {
     return res.status(400).json({ success: false, error: 'student_id must be a valid UUID' });
   }
   const activityKey = typeof body.activity_key === 'string' ? body.activity_key.trim() : '';
-  if (!REQUIRED_ACTIVITY_KEYS.includes(activityKey)) {
+  if (!RECORDED_ACTIVITY_KEYS.includes(activityKey)) {
     return res.status(400).json({
       success: false,
-      error: `Unknown activity. Allowed: ${REQUIRED_ACTIVITY_KEYS.join(', ')}.`,
+      error: `Unknown activity. Allowed: ${RECORDED_ACTIVITY_KEYS.join(', ')}.`,
     });
   }
   const action = typeof body.action === 'string' ? body.action.trim() : 'complete';

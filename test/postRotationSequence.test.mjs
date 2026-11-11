@@ -18,7 +18,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import {
-  STEP_SLUGS, POST_ROTATION_TIMEPOINT, REQUIRED_ACTIVITY_KEYS,
+  STEP_SLUGS, POST_ROTATION_TIMEPOINT, REQUIRED_ACTIVITY_KEYS, RECORDED_ACTIVITY_KEYS,
   completionState, stepCompletion, caseyFinkPrerequisite, aspirePrerequisites, currentActivityState,
   prerequisiteSummary, PREREQ_REASONS,
 } from '../src/lib/evaluation/postRotationSequence.js'
@@ -123,8 +123,10 @@ test('ASPIRE unlocks only when feedback, Casey-Fink AND every activity are compl
   )
   assert.equal(full.ok, true)
   assert.deepEqual(full.unmet, [])
-  assert.equal(full.activities.length, REQUIRED_ACTIVITY_KEYS.length)
-  assert.ok(full.activities.every(a => a.completed))
+  // ACTIVITY-GATE-1: every recorded activity is listed; only the required ones gate.
+  assert.equal(full.activities.length, RECORDED_ACTIVITY_KEYS.length)
+  assert.ok(full.activities.filter(a => a.required).every(a => a.completed))
+  assert.equal(full.activities.find(a => a.key === 'interview_bootcamp').required, false)
 })
 
 test('Casey-Fink completion alone does NOT unlock ASPIRE', () => {
@@ -142,7 +144,8 @@ test('every missing prerequisite produces its own specific reason', () => {
     assert.ok(u.reason && u.reason.length > 10, `${u.code} needs a usable reason`)
   }
   assert.ok(none.unmet.some(u => u.reason.includes('Town Hall')))
-  assert.ok(none.unmet.some(u => u.reason.includes('Interview Bootcamp')))
+  // ACTIVITY-GATE-1 (Owner, 2026-11-10): Interview Bootcamp no longer blocks release.
+  assert.ok(!none.unmet.some(u => u.reason.includes('Interview Bootcamp')))
   assert.ok(none.unmet.some(u => u.reason.includes('Résumé Review')))
   // The reasons are distinguishable, not one repeated string.
   assert.equal(new Set(none.unmet.map(u => u.reason)).size, none.unmet.length)
@@ -287,12 +290,14 @@ test('the sequence module is pure: no I/O, no sending, no writes', () => {
   assert.doesNotMatch(seq, /supabase|fetch\(|resend|insert\(|update\(|delete\(/i)
 })
 
-test('the required checklist is exactly the three confirmed activities', () => {
+test('the required checklist is Résumé Review and Town Hall; Interview Bootcamp is still recordable', () => {
   // Residency > Support's order (Owner, 2026-09-20): Résumé Review, Town Hall, Interview Bootcamp.
-  assert.deepEqual([...REQUIRED_ACTIVITY_KEYS], ['resume_review', 'town_hall', 'interview_bootcamp'])
-  // The migration's CHECK must allow exactly these and no more.
+  // ACTIVITY-GATE-1 (Owner, 2026-11-10): Interview Bootcamp is optional for release.
+  assert.deepEqual([...REQUIRED_ACTIVITY_KEYS], ['resume_review', 'town_hall'])
+  assert.deepEqual([...RECORDED_ACTIVITY_KEYS], ['resume_review', 'town_hall', 'interview_bootcamp'])
+  // The migration's CHECK must allow every recordable activity.
   const mig = read('supabase/migrations/20260822000000_student_activity_completions.sql')
-  for (const k of REQUIRED_ACTIVITY_KEYS) assert.match(mig, new RegExp(`'${k}'`))
+  for (const k of RECORDED_ACTIVITY_KEYS) assert.match(mig, new RegExp(`'${k}'`))
   // Append-only model: correction is a NEW row, so there is deliberately NO
   // UNIQUE(student, activity) - that would make a correction an overwrite.
   assert.doesNotMatch(mig, /uq_sac_student_activity UNIQUE/)
@@ -442,7 +447,8 @@ test('an activity recorded under Residency > Support counts, a voided one does n
   assert.equal(by.resume_review.completedAt, '2026-09-10', 'the most recent Support date'); assert.equal(by.resume_review.supportCount, 2)
   assert.equal(by.town_hall.completed, true); assert.equal(by.town_hall.source, 'ledger')
   assert.equal(by.interview_bootcamp.completed, false, 'a voided entry never counts'); assert.equal(by.interview_bootcamp.source, null)
-  assert.equal(r.ok, false); assert.deepEqual(r.unmet.map(u => u.label), ['Interview Bootcamp'])
+  // ACTIVITY-GATE-1: an unrecorded Interview Bootcamp no longer blocks.
+  assert.equal(r.ok, true); assert.deepEqual(r.unmet, [])
   // Display order is Support's.
   assert.deepEqual(r.activities.map(a => a.label), ['Résumé Review', 'Town Hall', 'Interview Bootcamp'])
   // Both records agree: source says so.

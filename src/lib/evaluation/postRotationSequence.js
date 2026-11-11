@@ -58,10 +58,19 @@ export const STEP_LABELS = Object.freeze({
 // checklist; the gate reads it and nothing else infers requirements.
 // In the order Residency > Support records them (Owner, 2026-09-20): Résumé Review
 // first, then Town Hall, then Interview Bootcamp. Display order only; the gate is a set.
-export const REQUIRED_ACTIVITY_KEYS = Object.freeze([
+//
+// ACTIVITY-GATE-1 (Owner, 2026-11-10): Interview Bootcamp is no longer required.
+// "The resume review and town hall must suffice." It can still be recorded, and the
+// slip still lists it, marked Optional; only REQUIRED_ACTIVITY_KEYS gate the release.
+export const RECORDED_ACTIVITY_KEYS = Object.freeze([
   'resume_review',
   'town_hall',
   'interview_bootcamp',
+])
+
+export const REQUIRED_ACTIVITY_KEYS = Object.freeze([
+  'resume_review',
+  'town_hall',
 ])
 
 export const ACTIVITY_LABELS = Object.freeze({
@@ -206,7 +215,11 @@ export function aspirePrerequisites(assignments, activityCompletions = [], requi
     if (!cur.last || e.occurred_on > cur.last) cur.last = e.occurred_on
     support.set(e.activity, cur)
   }
-  const activities = (requiredKeys || []).map(key => {
+  const required = new Set(requiredKeys || [])
+  // Every recorded activity is listed (an optional one so it can still be recorded),
+  // followed by any required key outside the recorded list.
+  const keys = [...RECORDED_ACTIVITY_KEYS, ...(requiredKeys || []).filter(k => !RECORDED_ACTIVITY_KEYS.includes(k))]
+  const activities = keys.map(key => {
     const cur = state.get(key) || null
     const sup = support.get(key) || null
     const ledgerDone = !!(cur && cur.completed && cur.completedAt)
@@ -214,6 +227,7 @@ export function aspirePrerequisites(assignments, activityCompletions = [], requi
     return {
       key,
       label: ACTIVITY_LABELS[key] || key,
+      required: required.has(key),
       completed: ledgerDone || supportDone,
       completedAt: ledgerDone ? cur.completedAt : supportDone ? sup.last : null,
       recordedByName: ledgerDone ? cur.recordedByName : null,
@@ -238,7 +252,7 @@ export function aspirePrerequisites(assignments, activityCompletions = [], requi
     })
   }
   for (const a of activities) {
-    if (!a.completed) unmet.push({ code: 'activity_incomplete', label: a.label, activityKey: a.key })
+    if (a.required && !a.completed) unmet.push({ code: 'activity_incomplete', label: a.label, activityKey: a.key })
   }
 
   return {

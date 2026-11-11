@@ -307,9 +307,11 @@ test('adapters: ASPIRE feedback is blocked on activities with a record action, n
   assertShape([blocked], 'postRotation')
   assert.equal(blocked.state, 'blocked')
   assert.equal(blocked.blocker.action, 'activity')
-  assert.equal(blocked.stamp.text, '2 activities to record')
-  assert.match(blocked.blocker.text, /Résumé Review, Interview Bootcamp not recorded/)
-  assert.equal(blocked.chain[1].detail, '1 of 3 recorded')
+  // ACTIVITY-GATE-1 (Owner, 2026-11-10): only Résumé Review and Town Hall are required;
+  // Interview Bootcamp is still listed (optional) so it can be recorded.
+  assert.equal(blocked.stamp.text, '1 activity to record')
+  assert.match(blocked.blocker.text, /^Résumé Review not recorded/)
+  assert.equal(blocked.chain[1].detail, '1 of 2 recorded')
   assert.equal(blocked.activities.length, 3)
   // The ledger being down can never read as "activities complete".
   const down = run(new Map(), true).items[0]
@@ -503,7 +505,7 @@ test('adapters: a Support entry completes an activity on the slip, and the sourc
     students: STUDENTS.filter(s => s.id === 's1'), assignments: [], allAssignmentsByStudent: new Map([['s1', [feedbackDone, caseyDone]]]),
     activityByStudent: new Map([['s1', ledger]]), ledgerDown: false, supportByStudent: new Map([['s1', support]]), shiftMeta: new Map(), displayName, nowMs: NOW,
   }).items
-  assert.equal(it.state, 'blocked'); assert.equal(it.stamp.text, '1 activity to record')
-  assert.deepEqual(it.activities.map(a => [a.label, a.completed, a.source]), [['Résumé Review', true, 'support'], ['Town Hall', true, 'ledger'], ['Interview Bootcamp', false, null]])
-  assert.equal(it.chain[1].detail, '2 of 3 recorded')
+  // ACTIVITY-GATE-1: Résumé Review (Support) and Town Hall (ledger) suffice; the slip is Ready.
+  assert.equal(it.state, 'ready')
+  assert.deepEqual(it.activities.map(a => [a.label, a.completed, a.source, a.required]), [['Résumé Review', true, 'support', true], ['Town Hall', true, 'ledger', true], ['Interview Bootcamp', false, null, false]])
 })

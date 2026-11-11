@@ -485,12 +485,13 @@ export function adaptAspireFeedback({
       }
       // Only activities remain. The record button lives on the card.
       const missing = unmet.filter(u => u.code === 'activity_incomplete')
-      const done = (prereq.activities || []).filter(a => a.completed).length
+      const requiredActs = (prereq.activities || []).filter(a => a.required !== false)
+      const done = requiredActs.filter(a => a.completed).length
       items.push({
         ...base, state: 'blocked', stamp: stamp('late', `${missing.length} activit${missing.length === 1 ? 'y' : 'ies'} to record`),
         chain: [
           node('before', 'done', 'Casey-Fink', `Submitted ${shortDate(prereq.caseyFink?.completedAt, nowMs)}`),
-          node('before', 'fix', 'Required activities', `${done} of ${(prereq.activities || []).length} recorded`),
+          node('before', 'fix', 'Required activities', `${done} of ${requiredActs.length} recorded`),
           node('this', 'next', 'ASPIRE feedback', 'Waits on activities'),
         ],
         blocker: { text: `${missing.map(u => u.label).join(', ')} not recorded for this student.`, action: 'activity', target: { studentId: r.studentId } },

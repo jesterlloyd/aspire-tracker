@@ -554,7 +554,11 @@ action); the four classifiers are untouched and the release endpoints keep every
   (`student_activity_completions`) OR a live `ngrp_support_entries` row for that student
   says so, on the card (`aspirePrerequisites(..., supportEntries)`) and in the release
   endpoint's gate. Support is the secondary source: a failed read leaves the ledger alone
-  to decide. The slip records into the ledger with the date; a completion that exists
+  to decide.
+  **Only Résumé Review and Town Hall are required** (ACTIVITY-GATE-1, Owner, 2026-11-10: "the
+  resume review and town hall must suffice"). `REQUIRED_ACTIVITY_KEYS` gates the release;
+  `RECORDED_ACTIVITY_KEYS` (all three) is what the slip lists and the ledger accepts, so
+  Interview Bootcamp is still recorded, marked Optional, and never blocks. The slip records into the ledger with the date; a completion that exists
   only in Support is corrected in Support. There is no activity dialog any more.
 - **The retired panels are gone.** The four `*AutomationPanel.jsx` files and
   `UnitEvaluationReleaseConsole.jsx` were deleted on 2026-09-20; their tests now pin the
