@@ -43,6 +43,17 @@ export function useActionCenterQueue({ enabled = true, includeOtherCohorts = fal
   const qCat = useQuery({ queryKey: ['home_catalog_tracker'], queryFn: loadCatalogTracker, enabled: enabled && canManage, staleTime: 30000 })
   const qIv = useQuery({ queryKey: ['home_interviews', cohortId, today], queryFn: () => loadTodaysInterviews(cohortId, today), enabled: enabled && !!cohortId, staleTime: 60000 })
   const qRot = useQuery({ queryKey: ['home_rotations', cohortId], queryFn: () => loadRotationWindows(cohortId), enabled: enabled && !!cohortId, staleTime: 300000 })
+  // UNIT-FORM-CONCERN-1: the cohort's unit form responses, for the "would not hire" follow-ups.
+  // The key and the rows are At a Glance's own query, so the two share one cache entry.
+  const qUnitResponses = useQuery({
+    queryKey: ['unit_cohort_responses', cohortId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('unit_cohort_responses').select('*').eq('cohort_id', cohortId).order('unit_name')
+      if (error) throw error
+      return data || []
+    },
+    enabled: enabled && canManage && !!cohortId, staleTime: 30000,
+  })
   // AC-RENEW-1: the Owner's annual renewals to decide. Nobody else is asked (the endpoint would give them none).
   const qBudget = useQuery({ queryKey: ['home_budget_queue'], queryFn: loadBudgetQueue, enabled: enabled && !!isOwner, staleTime: 300000 })
   // Keith's Knowledge Center suggestions waiting for the Owner (the same query At a Glance uses).
@@ -130,12 +141,13 @@ export function useActionCenterQueue({ enabled = true, includeOtherCohorts = fal
     if (qRot.data && !activeFinished) out.push(placementGroup({
       students, units, rotations: qRot.data, schoolKey: schoolGroupKey,
       unitNameFor: id => unitById.get(id) || '', displayName: firstNameFirst, today, now,
+      unitResponses: qUnitResponses.data || [],
     }))
     if (qBudget.data) out.push(budgetGroup(qBudget.data))
     if (qKnowledge.data) out.push(knowledgeGroup({ waiting: qKnowledge.data.waiting, now }))
     if (qResidencyDocs.data) out.push(residencyDocsGroup({ ...qResidencyDocs.data, now }))
     return out.filter(Boolean)
-  }, [activeFinished, qSig.data, qMessages.data, qRR.data, qCat.data, qIv.data, qRot.data, qBudget.data, qKnowledge.data, qResidencyDocs.data, scopedSlots, personalConversations, students, communications, units, unitById, userProfile?.id, sigFlag.allowed, today, now])
+  }, [activeFinished, qSig.data, qMessages.data, qRR.data, qCat.data, qIv.data, qRot.data, qUnitResponses.data, qBudget.data, qKnowledge.data, qResidencyDocs.data, scopedSlots, personalConversations, students, communications, units, unitById, userProfile?.id, sigFlag.allowed, today, now])
 
   // KEITH-CHECKIN-1: Keith's sorts, the daily line and the shadow card. A failure here leaves the
   // support items exactly as they were; it never blocks them.

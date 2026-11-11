@@ -3507,3 +3507,27 @@ record, file the school's clearance documents, and send their own forms.
   signature tables, a recipient restriction to the school's own students, ownership checks on
   every list and file read, and a wizard that does not write Catalog rows. Build it as its own
   phase. Do not hang it off the Catalog's Prepare.
+
+## The unit form names its responder from Connect (UNIT-FORM-RESPONDER-1, 2026-11-11)
+
+Owner: the public Unit Availability Form (`/unit-form`) is wider on a desktop, asks who is answering
+from ASPIRE Connect > Contacts, and tells the team when a unit would not hire an ASPIRE alumnus.
+Rules: `src/lib/unitFormResponders.js` (pure). No migration.
+
+- **Unit, then role, then name, then email.** `/api/unit-form-lookup` returns `responders`, the unit's
+  Unit Leader contacts (`unitLeaderRows`, real contacts only) as `{ id, name, role, email_hint }`. The
+  role's contacts are the name list (`respondersForRole`; Connect's Interim is the form's Acting, a
+  Director answers under Executive Director); one is chosen for them; "I am not listed", Charge Nurse,
+  Other, or nobody on file means the name and address are typed as before.
+- **A public page is never told an address** (S-10 stands). The form shows a masked hint and submits
+  `submitter_contact_id`; `/api/unit-form-submit` checks the id is one of THAT unit's leaders
+  (`findResponder`) and reads the name and address from Contacts. Picking a name never releases the
+  guarded half of a previous response; only typing the address it was filed under does.
+- **Wide is `.uf-card-wide`, from 1024px** (960px card, role and name side by side, yes/no answers on
+  one line). `.uf-card` is shared with the school, intake and scheduling pages and keeps 640px.
+- **UNIT-FORM-CONCERN-1.** `hiringConcerns` is the one rule: outcome "Would not hire again", or would
+  consider "No". The team alert's subject opens "Follow up:" with an amber note; a Unit Leader Portal
+  submission, which emails nobody, sends that alert for a concern only (`sendUnitFormConcernAlert`,
+  `internalOnly`, never in a demo session). Needs you and the Action Center list it in Placement and
+  rotation (Owner and Admin; `sig` is the answer, so a dismissed row returns only on a new one); the row
+  opens `/aggregate?unitResponse=<unit>`, and the response drawer carries the same note.

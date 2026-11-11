@@ -14,7 +14,8 @@
 import { verifyPortalCaller, getServiceDb, hasActiveRoleGrant, getActiveUnitScopes } from '../lib/portalAuth.js'
 import { resolveAcceptingCohort } from '../lib/intakeStudentLookup.js'
 import { performUnitResponseUpsert } from '../lib/unitResponseUpsert.js'
-import { serviceDbForRequest } from '../../lib/server/demoScope.js'
+import { serviceDbForRequest, demoScopeFromRequest } from '../../lib/server/demoScope.js'
+import { sendUnitFormConcernAlert } from '../../lib/server/notifications/unitFormNotifications.js'
 
 const ALLOWED_BODY_KEYS = [
   'unit_name', 'submitter_role',
@@ -118,6 +119,12 @@ export default async function handler(req, res) {
   if (result.error) {
     console.log('[unit-participation-submit] write failed', { code: result.error.code })
     return res.status(result.error.status).json({ error: 'internal_error' })
+  }
+
+  // UNIT-FORM-CONCERN-1: a portal submission emails nobody, except the team when it says the
+  // unit would not hire an ASPIRE alumnus (again). Never for a demo session; never throws.
+  if (!demoScopeFromRequest(req)) {
+    await sendUnitFormConcernAlert({ cohortId, cohortName: cohortResult.cohortName, ...result.notification })
   }
 
   console.log('[unit-participation-submit] portal submission accepted', { unitName })

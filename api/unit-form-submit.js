@@ -31,6 +31,8 @@ import { checkLengths, LIMITS } from './lib/fieldLimits.js'
 // api/unit-form-notification.js route (see the module header for why a secret was not an option).
 import { sendUnitFormReceivedNotification } from '../lib/server/notifications/unitFormNotifications.js'
 import { consumePublicRateLimit, UNIT_SUBMIT_LIMITS, TOO_MANY_REQUESTS } from './lib/publicRateLimit.js'
+import { loadUnitLeaders } from './unit-form-lookup.js'
+import { findResponder } from '../src/lib/unitFormResponders.js'
 
 function getDb() {
   const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL
@@ -41,6 +43,9 @@ function getDb() {
 
 const ALLOWED_BODY_KEYS = [
   'unit_name', 'submitter_name', 'submitter_email', 'submitter_role',
+  // UNIT-FORM-RESPONDER-1: the Connect contact picked in the name list. When present the
+  // name and the address come from that contact, never from the body.
+  'submitter_contact_id',
   'slots_offered', 'shift_preference', 'preferred_preceptors', 'considerations',
   'reason_for_zero', 'hiring_ngrp', 'hiring_ngrp_reason',
   'has_fired_alumni', 'alumni_outcome', 'alumni_notes', 'would_consider_alumni',
@@ -74,16 +79,22 @@ export default async function handler(req, res) {
 
   // ── Validation (mirrors the client's own pre-submit checks) ────────────────
   const unitName       = str(body.unit_name)
-  const submitterName  = str(body.submitter_name)
-  const submitterEmail = str(body.submitter_email)
+  let submitterName  = str(body.submitter_name)
+  let submitterEmail = str(body.submitter_email)
   const submitterRole  = str(body.submitter_role)
+  const contactId = str(body.submitter_contact_id)
+  if (contactId.length > 64) {
+    return res.status(400).json({ error: 'invalid_request', field: 'submitter_contact_id', message: 'Please choose your name again.' })
+  }
   if (!unitName || unitName.length > 200) {
     return res.status(400).json({ error: 'invalid_request', field: 'unit_name', message: 'Please select your unit or department.' })
   }
-  if (!submitterName || submitterName.length > 200) {
+  // With a contact picked, the name and address are read from Contacts further down (after
+  // the rate limit), so the body's own are not required here.
+  if (!contactId && (!submitterName || submitterName.length > 200)) {
     return res.status(400).json({ error: 'invalid_request', field: 'submitter_name', message: 'Please enter your name.' })
   }
-  if (!submitterEmail || !submitterEmail.includes('@') || !submitterEmail.includes('.') || submitterEmail.length > 254) {
+  if (!contactId && (!submitterEmail || !submitterEmail.includes('@') || !submitterEmail.includes('.') || submitterEmail.length > 254)) {
     return res.status(400).json({ error: 'invalid_request', field: 'submitter_email', message: 'Please enter a valid email address.' })
   }
   if (!submitterRole || submitterRole.length > 100) {
@@ -130,6 +141,22 @@ export default async function handler(req, res) {
   }
   const cohortId = cohortResult.cohortId
 
+  // UNIT-FORM-RESPONDER-1: a picked name is one of THIS unit's Unit Leader contacts or it is
+  // refused. The page was only ever shown a masked address, so the real one is read here.
+  let submitterPreferredName = null
+  if (contactId) {
+    const responder = findResponder(await loadUnitLeaders(unitName), contactId)
+    if (!responder) {
+      return res.status(400).json({
+        error: 'invalid_request', field: 'submitter_contact_id',
+        message: 'That name is no longer on file for this unit. Choose "I am not listed" and enter your name and email.',
+      })
+    }
+    submitterName = responder.full_name
+    submitterEmail = responder.email
+    submitterPreferredName = responder.preferred_name || null
+  }
+
   // ── Shared write sequence (units upsert + response upsert) ─────────────────
   const result = await performUnitResponseUpsert(db, cohortId, {
     unitName,
@@ -164,6 +191,7 @@ export default async function handler(req, res) {
     cohortId,
     cohortName: cohortResult.cohortName,
     ...result.notification,
+    submitterPreferredName,
   })
 
   console.log('[unit-form-submit] submission accepted', { request_id: requestId, cohortId })

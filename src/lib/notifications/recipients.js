@@ -336,7 +336,8 @@ async function resolveUnitFormReceived(context) {
 
   // Submitter confirmation email (with CC to unit team)
   // preferred_name comes from context if the submitter was identified as a known leader
-  recipients.push({
+  // UNIT-FORM-CONCERN-1: internalOnly is the portal's concern alert, which confirms nothing.
+  if (!context.internalOnly) recipients.push({
     email:          submitterEmail,
     role:           'submitter',
     name:           submitterName || null,

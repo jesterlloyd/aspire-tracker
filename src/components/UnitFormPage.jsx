@@ -4,8 +4,9 @@ import { getUnitsByDivision, getUnit, DIVISION_ORDER } from '../lib/unitCatalog'
 import {
   SUBMITTER_ROLES, SHIFT_PREFERENCE_OPTIONS, ALUMNI_HIRED_OPTIONS,
   ALUMNI_OUTCOME_OPTIONS, WOULD_CONSIDER_OPTIONS, PARTICIPATION_TEXT,
-  emptyParticipation, participationSlots, isHostingParticipation, validateParticipation,
+  emptyParticipation, participationSlots, isHostingParticipation, validateParticipation, participationReady,
 } from '../lib/unitParticipationForm'
+import { respondersForRole, NOT_LISTED } from '../lib/unitFormResponders'
 
 const PAGE_TITLE = 'ASPIRE: Unit Availability Form'
 
@@ -23,6 +24,10 @@ export default function UnitFormPage() {
 
   const [form,         setForm]         = useState(empty)
   const [existingRow,  setExistingRow]  = useState(null)   // unit_cohort_responses row if found
+  // UNIT-FORM-RESPONDER-1: the unit's Unit Leader contacts from ASPIRE Connect (id, name, role
+  // and a masked address), and whether the person said they are not among them.
+  const [responders,   setResponders]   = useState([])
+  const [notListed,    setNotListed]    = useState(false)
   const [lookingUp,    setLookingUp]    = useState(false)  // pre-fill lookup in progress
   const [submitting,   setSubmitting]   = useState(false)
   const [submitted,    setSubmitted]    = useState(false)
@@ -62,6 +67,18 @@ export default function UnitFormPage() {
       })
       const lookupData = await lookupRes.json().catch(() => ({}))
       const responseRow = (lookupRes.ok && lookupData.found) ? lookupData.response : null
+      if (lookupRes.ok && Array.isArray(lookupData.responders)) {
+        setResponders(lookupData.responders)
+        // A role chosen before the unit gets its single contact once the unit's list lands.
+        // Only on the unit's own lookup: the email re-check runs for someone typing theirs.
+        if (!submitterEmail) setForm(p => {
+          if (!p.submitter_role || p.submitter_contact_id || p.submitter_name) return p
+          const matches = respondersForRole(lookupData.responders, p.submitter_role)
+          return matches.length === 1
+            ? { ...p, submitter_contact_id: matches[0].id, submitter_name: matches[0].name, submitter_email: '' }
+            : p
+        })
+      }
 
       if (responseRow) {
         setExistingRow(responseRow)
@@ -99,11 +116,45 @@ export default function UnitFormPage() {
   }, [cohortId])
 
   const handleUnitChange = useCallback(async (unitName) => {
-    set('unit_name', unitName)
+    // A name picked for one unit is not a name for another.
+    setForm(p => ({ ...p, unit_name: unitName, submitter_contact_id: '', ...(p.submitter_contact_id ? { submitter_name: '' } : {}) }))
     setExistingRow(null)
+    setResponders([])
+    setNotListed(false)
     await runPrefill(unitName, '')
   }, [runPrefill])
 
+  // UNIT-FORM-RESPONDER-1: unit, then role, then who. The role's contacts become the name
+  // list; one contact is chosen for them; none (Charge Nurse, Other, or nobody on file) means
+  // the name and the address are typed, as they always were.
+  const roleResponders = respondersForRole(responders, form.submitter_role)
+  const pickName = roleResponders.length > 0
+  const chosen = roleResponders.find(r => r.id === form.submitter_contact_id) || null
+  const typesIdentity = !pickName || notListed
+
+  const chooseResponder = (r) => setForm(p => ({
+    ...p, submitter_contact_id: r ? r.id : '', submitter_name: r ? r.name : '', submitter_email: '',
+  }))
+  const handleRoleChange = (role) => {
+    const matches = respondersForRole(responders, role)
+    setNotListed(false)
+    setForm(p => {
+      const only = matches.length === 1 ? matches[0] : null
+      // Leaving a picked name clears it; a typed name survives a change to a role with no list.
+      const keepTyped = !matches.length && !p.submitter_contact_id
+      return {
+        ...p, submitter_role: role,
+        submitter_contact_id: only ? only.id : '',
+        submitter_name: only ? only.name : (keepTyped ? p.submitter_name : ''),
+        submitter_email: keepTyped ? p.submitter_email : '',
+      }
+    })
+  }
+  const handleNamePick = (value) => {
+    if (value === NOT_LISTED) { setNotListed(true); chooseResponder(null); return }
+    setNotListed(false)
+    chooseResponder(roleResponders.find(r => r.id === value) || null)
+  }
   const slotsNum = participationSlots(form)
   const isHosting = isHostingParticipation(form)
 
@@ -147,6 +198,7 @@ export default function UnitFormPage() {
           submitter_name:        form.submitter_name.trim(),
           submitter_email:       form.submitter_email.trim(),
           submitter_role:        form.submitter_role,
+          ...(form.submitter_contact_id ? { submitter_contact_id: form.submitter_contact_id } : {}),
           slots_offered:         slotsNum,
           shift_preference:      form.shift_preference,
           preferred_preceptors:  form.preferred_preceptors.trim(),
@@ -225,7 +277,7 @@ export default function UnitFormPage() {
         </h2>
         <p className="uf-confirm-msg">
           {isHosting
-            ? `Your unit's availability has been recorded for ${cohortName}. Confirmation sent to ${form.submitter_email}.`
+            ? `Your unit's availability has been recorded for ${cohortName}. Confirmation sent to ${chosen ? chosen.email_hint : form.submitter_email}.`
             : `We've noted that ${form.unit_name} is unable to host this cohort. Thank you for the honest response.`}
         </p>
         {existingRow && (
@@ -241,7 +293,7 @@ export default function UnitFormPage() {
 
   return (
     <div className="uf-page">
-      <div className="uf-card">
+      <div className="uf-card uf-card-wide">
         <img src="/Cedars-Sinai.png" alt="Cedars-Sinai" height="44" className="uf-logo" />
         <div className="uf-header">
           <h1 className="uf-title">{PAGE_TITLE}</h1>
@@ -289,32 +341,54 @@ export default function UnitFormPage() {
               )}
             </div>
 
-            <div className="uf-field">
-              <label className="uf-label">{PARTICIPATION_TEXT.nameLabel} *</label>
-              <input className="uf-input" value={form.submitter_name}
-                onChange={e => set('submitter_name', e.target.value)}
-                placeholder="e.g. Jane Smith, RN" />
+            <div className="uf-grid-2">
+              <div className="uf-field">
+                <label className="uf-label" htmlFor="uf-role">{PARTICIPATION_TEXT.roleLabel} *</label>
+                <select id="uf-role" className="uf-input" value={form.submitter_role}
+                  onChange={e => handleRoleChange(e.target.value)}>
+                  <option value="">{PARTICIPATION_TEXT.rolePlaceholder}</option>
+                  {SUBMITTER_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                </select>
+              </div>
+
+              <div className="uf-field">
+                <label className="uf-label" htmlFor="uf-name">{PARTICIPATION_TEXT.nameLabel} *</label>
+                {pickName && (
+                  <select id="uf-name" className="uf-input"
+                    value={notListed ? NOT_LISTED : (form.submitter_contact_id || '')}
+                    onChange={e => handleNamePick(e.target.value)}>
+                    {roleResponders.length > 1 && <option value="">{PARTICIPATION_TEXT.namePlaceholder}</option>}
+                    {roleResponders.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                    <option value={NOT_LISTED}>{PARTICIPATION_TEXT.notListedLabel}</option>
+                  </select>
+                )}
+                {typesIdentity && (
+                  <input id={pickName ? undefined : 'uf-name'} className="uf-input" value={form.submitter_name}
+                    aria-label={pickName ? PARTICIPATION_TEXT.nameLabel : undefined}
+                    onChange={e => set('submitter_name', e.target.value)}
+                    placeholder="e.g. Jane Smith, RN" />
+                )}
+              </div>
             </div>
 
             <div className="uf-field">
-              <label className="uf-label">{PARTICIPATION_TEXT.emailLabel} *</label>
-              <input className="uf-input" type="email" value={form.submitter_email}
-                onChange={e => set('submitter_email', e.target.value)}
-                // S-10: the guarded half of a prior submission is released only to a
-                // caller who supplies the address it was filed under. This is the
-                // re-check, on blur, so a returning coordinator gets their own
-                // previous answers back without anyone else being able to.
-                onBlur={e => { const v = e.target.value.trim(); if (v && form.unit_name) runPrefill(form.unit_name, v) }}
-                placeholder="you@cshs.org" />
-            </div>
-
-            <div className="uf-field">
-              <label className="uf-label">{PARTICIPATION_TEXT.roleLabel} *</label>
-              <select className="uf-input" value={form.submitter_role}
-                onChange={e => set('submitter_role', e.target.value)}>
-                <option value="">{PARTICIPATION_TEXT.rolePlaceholder}</option>
-                {SUBMITTER_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
-              </select>
+              <label className="uf-label" htmlFor="uf-email">{PARTICIPATION_TEXT.emailLabel} *</label>
+              {chosen ? (
+                <>
+                  <input id="uf-email" className="uf-input uf-input-locked" value={chosen.email_hint} readOnly
+                    aria-describedby="uf-email-note" />
+                  <p id="uf-email-note" className="uf-help">{PARTICIPATION_TEXT.emailFromContacts}</p>
+                </>
+              ) : (
+                <input id="uf-email" className="uf-input" type="email" value={form.submitter_email}
+                  onChange={e => set('submitter_email', e.target.value)}
+                  // S-10: the guarded half of a prior submission is released only to a
+                  // caller who supplies the address it was filed under. This is the
+                  // re-check, on blur, so a returning coordinator gets their own
+                  // previous answers back without anyone else being able to.
+                  onBlur={e => { const v = e.target.value.trim(); if (v && form.unit_name) runPrefill(form.unit_name, v) }}
+                  placeholder="you@cshs.org" />
+              )}
             </div>
           </div>
 
@@ -467,7 +541,7 @@ export default function UnitFormPage() {
 
           <div className="uf-submit-row">
             <button type="submit" className="uf-submit-btn"
-              disabled={submitting || !form.unit_name || !form.submitter_name || !form.submitter_email || !form.submitter_role || form.slots_offered === ''}>
+              disabled={submitting || !participationReady(form, { requireIdentity: true })}>
               {submitting ? 'Submitting…' : existingRow ? 'Update Response' : 'Submit Response'}
             </button>
           </div>

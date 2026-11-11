@@ -28,6 +28,7 @@ import { EXITED_STATUSES } from '../placementCoverage.js'
 import { slotStartDate } from '../interviewsToday.js'
 import { knownDate } from './cyclePhase.js'
 import { needsStaff } from '../evaluation/reviewQueueShape.js'
+import { responseHiringConcerns } from '../unitFormResponders.js'
 
 export const ROWS_PER_GROUP = 3
 const DAY = 86400000
@@ -428,9 +429,12 @@ export function interviewsGroup({
  * @param schoolKey (name) => group key, so a student finds their school's window
  * @param today local 'YYYY-MM-DD'
  */
+/** At a Glance with one unit's form response open (OverviewTab reads `unitResponse`). */
+export const unitResponsePath = (unitName) => `/aggregate?unitResponse=${encodeURIComponent(unitName || '')}`
+
 export function placementGroup({
   students = [], units = [], rotations = [], schoolKey = (s) => s, unitNameFor = () => '', displayName = (s) => s?.first_name || '',
-  today, now = Date.now(),
+  today, now = Date.now(), unitResponses = [],
 } = {}) {
   const participating = (units || []).filter(u => u?.is_participating)
   const totalSlots = participating.reduce((s, u) => s + n(u.total_slots), 0)
@@ -487,13 +491,32 @@ export function placementGroup({
       to: '/rotation/matrix',
     })
   }
+  // UNIT-FORM-CONCERN-1 (Owner, 2026-11-11): a unit that answered it would not hire an ASPIRE
+  // alumnus (again). Navigation: the row opens that unit's response on At a Glance. Its sig is
+  // the answer itself, so a dismissed row returns only when the unit answers differently.
+  let concerns = 0
+  for (const r of unitResponses || []) {
+    const said = responseHiringConcerns(r)
+    if (!said.length) continue
+    concerns += 1
+    rows.push({
+      id: `unitconcern:${r.unit_id || r.unit_name}`, chip: 'Follow up',
+      title: `${r.unit_name || 'A unit'} · ${said[0]}`,
+      meta: [r.submitted_by_name, r.submitted_by_role].filter(Boolean).join(', ') || 'Unit Availability Form',
+      pill: { text: 'Follow up', tone: 'red' },
+      sig: said.join('|'),
+      ageMs: Math.max(0, now - new Date(r.last_updated_at || r.submitted_at || now).getTime()),
+      to: unitResponsePath(r.unit_name),
+    })
+  }
   const pills = []
+  if (concerns) pills.push({ text: `${concerns} to follow up`, tone: 'red' })
   if (openSlots) pills.push({ text: `${openSlots} open`, tone: 'amber' })
   if (unplaced.length) pills.push({ text: `${unplaced.length} unplaced`, tone: 'amber' })
   if (behind) pills.push({ text: `${behind} behind`, tone: 'amber' })
   return finish({
     key: 'placement', name: 'Placement and rotation', sub: 'Slots and hours', pills, rows,
-    open: { label: 'Open Placement Board', to: '/rotation/matrix' }, count: openSlots + unplaced.length + behind,
+    open: { label: 'Open Placement Board', to: '/rotation/matrix' }, count: openSlots + unplaced.length + behind + concerns,
   })
 }
 

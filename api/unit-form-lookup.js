@@ -19,6 +19,11 @@ import { createClient } from '@supabase/supabase-js'
 import { resolveAcceptingCohort } from './lib/intakeStudentLookup.js'
 import { consumePublicRateLimit, UNIT_LOOKUP_LIMITS, TOO_MANY_REQUESTS } from './lib/publicRateLimit.js'
 import { normalizeEmailForLookup } from '../src/lib/emailUtils.js'
+import { populationDb } from '../lib/server/demoScope.js'
+import {
+  unitLeaderRows, UNIT_LEADER_CONTACT_COLUMNS, UNIT_LEADER_CATEGORY_VALUES,
+} from '../src/lib/unitLeadersFromConnect.js'
+import { publicResponders } from '../src/lib/unitFormResponders.js'
 
 function getDb() {
   const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL
@@ -86,6 +91,25 @@ export function projectGuarded(row) {
   }
 }
 
+// UNIT-FORM-RESPONDER-1: the unit's Unit Leader contacts from ASPIRE Connect, as the name
+// picker's choices. REAL contacts only (a public page has no demo session), read through a
+// client of its own because populationDb scopes the client it is given. Shaped by
+// publicResponders: id, name, role and a MASKED address, never the address. A failed read
+// returns no choices, and the form falls back to typing a name and an address.
+export async function loadUnitLeaders(unitName) {
+  try {
+    const { data, error } = await populationDb(getDb())
+      .from('contacts')
+      .select(UNIT_LEADER_CONTACT_COLUMNS)
+      .in('category', [...UNIT_LEADER_CATEGORY_VALUES])
+      .eq('is_active', true)
+    if (error) return []
+    return unitLeaderRows(data || [], { unitName })
+  } catch {
+    return []
+  }
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
@@ -118,6 +142,8 @@ export default async function handler(req, res) {
     return res.status(status).json(rest)
   }
 
+  const responders = publicResponders(await loadUnitLeaders(unitName))
+
   const { data: unitsRow, error: unitErr } = await db
     .from('units')
     .select('id')
@@ -126,7 +152,7 @@ export default async function handler(req, res) {
     .limit(1)
     .maybeSingle()
   if (unitErr) return res.status(500).json({ error: 'internal_error' })
-  if (!unitsRow) return res.status(200).json({ found: false })
+  if (!unitsRow) return res.status(200).json({ found: false, responders })
 
   const { data: responseRow, error: respErr } = await db
     .from('unit_cohort_responses')
@@ -136,7 +162,7 @@ export default async function handler(req, res) {
     .maybeSingle()
   if (respErr) return res.status(500).json({ error: 'internal_error' })
   if (!responseRow || responseRow.response_status === 'pending') {
-    return res.status(200).json({ found: false })
+    return res.status(200).json({ found: false, responders })
   }
 
   // The guarded half is released only to a caller who already knows the address it
@@ -148,6 +174,7 @@ export default async function handler(req, res) {
 
   return res.status(200).json({
     found: true,
+    responders,
     // Tells the form whether typing the submitter's email would reveal more, without
     // revealing whose it is. The form uses it to re-look-up on blur.
     identifying_available: !!stored,

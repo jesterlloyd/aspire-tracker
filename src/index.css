@@ -1807,6 +1807,26 @@ body { min-height: 100vh; }
 .uf-page { min-height: 100vh; background: var(--sand); display: flex; align-items: flex-start; justify-content: center; padding: 48px 24px 64px; }
 .uf-card { background: var(--pearl); border-radius: 8px; padding: 40px; width: 100%; max-width: 640px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); border-top: 3px solid var(--nightfall); }
 .uf-card-confirm { text-align: center; padding: 56px 40px; }
+/* UNIT-FORM-WIDE-1 (Owner, 2026-11-11): the Unit Availability Form was one phone-width column
+   on every screen. `.uf-card-wide` keeps that column on phones and tablets and, from 1024px,
+   gives a desktop reader a wider card, larger type, role and name side by side, and yes/no
+   answers on one line. The other public forms keep `.uf-card` as it is. */
+.uf-grid-2 { display: flex; flex-direction: column; gap: 18px; }
+.uf-help { font-size: 12px; color: #5b6472; margin: 0; line-height: 1.5; }
+.uf-input.uf-input-locked { background: var(--sand); color: var(--raven); cursor: default; }
+@media (min-width: 1024px) {
+  .uf-card.uf-card-wide { max-width: 960px; padding: 48px 64px 56px; }
+  .uf-card-wide .uf-title { font-size: 28px; }
+  .uf-card-wide .uf-section-header { font-size: 17px; }
+  .uf-card-wide .uf-label { font-size: 14.5px; }
+  .uf-card-wide .uf-section { gap: 22px; padding: 26px 0; }
+  .uf-card-wide .uf-grid-2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 22px 28px; align-items: start; }
+  .uf-card-wide .uf-radio-group { flex-direction: row; flex-wrap: wrap; gap: 12px 32px; }
+  .uf-card-wide .uf-radio-label { font-size: 15px; }
+  .uf-card-wide .uf-input-sm { max-width: 220px; }
+  .uf-card-wide .uf-submit-btn { width: auto; min-width: 280px; padding: 14px 40px; }
+  .uf-card-wide .uf-submit-row { display: flex; justify-content: flex-end; }
+}
 .uf-logo   { display: block; margin-bottom: 24px; }
 
 /* Shared cohort-password access card (CohortAccessCard): the public /school-form gate and the

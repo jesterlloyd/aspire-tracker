@@ -18,6 +18,7 @@ import { getGreetingName } from '../greetings.js';
 import { aspireEmailShell } from '../../../../lib/server/email/aspireShell.js';
 import { aspireHandwrittenSignature } from '../handwrittenSignature.js';
 import { appUrl } from '../../appUrl.js';
+import { hiringConcerns } from '../../unitFormResponders.js';
 
 const NAVY     = '#1d2567';
 const SAND     = '#F4F1EC';
@@ -105,8 +106,21 @@ function buildInternalAlertHtml(ctx) {
     ? `<span style="display:inline-block;background:${SAGE_BG};color:${SAGE_TXT};padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600;">Hosting &middot; ${escapeHtml(slotsOffered)} slot${slotsOffered === 1 ? '' : 's'}</span>`
     : `<span style="display:inline-block;background:#E8E8E8;color:#555;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600;">Not hosting</span>`;
 
+  // UNIT-FORM-CONCERN-1: the answers the Owner asked to be told about, first, in words. The
+  // sentences are the app's own (hiringConcerns), never caller text. Amber, not red: it is a
+  // conversation to have, not a fault. #7A4A00 on #FDF1D8 measures 7.2:1.
+  const concerns = hiringConcerns(ctx);
+  const concernBox = concerns.length ? `
+<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 16px;width:100%;background:#FDF1D8;border-left:4px solid #B7791F;">
+<tr><td style="padding:12px 16px;font-size:14px;line-height:1.6;color:#7A4A00;">
+<strong>Follow up with this unit</strong><br>
+${concerns.map(c => escapeHtml(c)).join('<br>')}
+</td></tr>
+</table>` : '';
+
   return `
 <p style="margin:0 0 8px;font-size:13px;color:#666;">${escapeHtml(cohortName)} &middot; Unit Response</p>
+${concernBox}
 <h2 style="margin:0 0 16px;font-size:20px;color:${RAVEN};">${escapeHtml(unitName)} ${statusBadge}</h2>
 <table role="presentation" cellpadding="0" cellspacing="0" style="margin:16px 0;width:100%;background:${SAND};border-radius:8px;">
 <tr><td style="padding:16px 20px;font-size:14px;line-height:1.7;">
@@ -134,9 +148,11 @@ export const unitFormReceived = {
 
   internal_team: (ctx) => {
     const isHosting = (ctx.slotsOffered || 0) > 0;
-    const subject = isHosting
+    const base = isHosting
       ? `Unit response: ${ctx.unitName}, ${ctx.slotsOffered} slot${ctx.slotsOffered === 1 ? '' : 's'} (${ctx.cohortName})`
       : `Unit response: ${ctx.unitName}, not hosting (${ctx.cohortName})`;
+    // UNIT-FORM-CONCERN-1: said in the subject, so it is seen without opening the email.
+    const subject = hiringConcerns(ctx).length ? `Follow up: ${base}` : base;
     const preheader = `${ctx.submitterName || ctx.submitterEmail} submitted on behalf of ${ctx.unitName}`;
     return { subject, html: aspireEmailShell({ body: buildInternalAlertHtml({ ...ctx, isHosting }), preheader }) };
   },

@@ -225,6 +225,16 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
     enabled: !!cohortId,
     staleTime: 30000,
   })
+  // UNIT-FORM-CONCERN-1: a Needs you / Action Center row arrives as ?unitResponse=<unit> and
+  // opens that unit's response. Read on every arrival, then taken off the address.
+  const unitResponseParam = new URLSearchParams(location.search).get('unitResponse')
+  useEffect(() => {
+    if (!unitResponseParam || !unitResponses.length) return
+    const row = unitResponses.find(r => r.unit_name === unitResponseParam)
+    if (row) setSelectedUnitResponse(row)
+    navigate(location.pathname, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [unitResponseParam, unitResponses])
 
   // Explicit per-cohort outreach targets (the denominator for responded/pending), read ONLY through the
   // staff-authorized server endpoint (the table's RLS denies the browser directly). FAIL CLOSED: until
@@ -693,7 +703,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
     if (cohortId) out.push({ key: 'interviews', status: qStatus(qIv), retry: qIv.refetch,
       group: qIv.data ? interviewsGroup({ slots: scopedSlots, students, communications, interviewerNameFor, displayName, now: nowMs }) : null })
     if (cohortId) out.push({ key: 'placement', status: qStatus(qRot), retry: qRot.refetch,
-      group: qRot.data ? placementGroup({ students, units, rotations, schoolKey: schoolGroupKey, unitNameFor, displayName, today, now: nowMs }) : null })
+      group: qRot.data ? placementGroup({ students, units, rotations, schoolKey: schoolGroupKey, unitNameFor, displayName, today, now: nowMs, unitResponses: canManage ? unitResponses : [] }) : null })
     if (isOwner) out.push({ key: 'budget', status: qStatus(qBudget), retry: qBudget.refetch,
       group: qBudget.data ? budgetGroup(qBudget.data) : null })
     if (isOwner) out.push({ key: 'knowledge', status: qStatus(qKnowledge), retry: qKnowledge.refetch,
@@ -702,7 +712,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
       group: qResidencyDocs.data ? residencyDocsGroup({ ...qResidencyDocs.data, now: nowMs }) : null })
     return out
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canManage, sigFlag.ready, sigFlag.allowed, qSig.status, qSig.data, qMessages.status, qMessages.data, qRR.status, qRR.data, qCat.status, qCat.data, qIv.status, qIv.data, qRot.status, qRot.data, isOwner, qBudget.status, qBudget.data, qKnowledge.status, qKnowledge.data, qResidencyDocs.status, qResidencyDocs.data, scopedSlots, students, units, communications, rotations, cohortId, today])
+  }, [canManage, sigFlag.ready, sigFlag.allowed, qSig.status, qSig.data, qMessages.status, qMessages.data, qRR.status, qRR.data, qCat.status, qCat.data, qIv.status, qIv.data, qRot.status, qRot.data, isOwner, qBudget.status, qBudget.data, qKnowledge.status, qKnowledge.data, qResidencyDocs.status, qResidencyDocs.data, scopedSlots, students, units, communications, rotations, cohortId, today, unitResponses])
 
   // Today
   const holidaysToday = useMemo(() => getUsHolidaysForRange(today, today), [today])

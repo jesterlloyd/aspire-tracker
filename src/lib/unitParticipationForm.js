@@ -45,6 +45,9 @@ export const WOULD_CONSIDER_OPTIONS = [['yes', 'Yes'], ['no', 'No'], ['maybe', '
 export const PARTICIPATION_TEXT = {
   unitLabel: 'Select Your Unit or Department',
   nameLabel: 'Your Name',
+  namePlaceholder: 'Select your name…',
+  notListedLabel: 'I am not listed',
+  emailFromContacts: 'From ASPIRE Connect. Your confirmation goes to this address. If it is not yours, choose “I am not listed”.',
   emailLabel: 'Your Email Address',
   roleLabel: 'Your Role',
   rolePlaceholder: 'Select your role…',
@@ -75,6 +78,9 @@ export function emptyParticipation() {
     unit_name: '',
     submitter_name: '',
     submitter_email: '',
+    // UNIT-FORM-RESPONDER-1: the Connect contact picked in the public form's name list. When
+    // set, the server reads the name and the address from Contacts and the form holds no address.
+    submitter_contact_id: '',
     submitter_role: '',
     slots_offered: '',
     shift_preference: '',
@@ -103,7 +109,7 @@ export function isHostingParticipation(form) {
 export function validateParticipation(form, { requireIdentity = true } = {}) {
   if (!form.unit_name) return 'Please select your unit or department.'
   if (requireIdentity && !String(form.submitter_name || '').trim()) return 'Please enter your name.'
-  if (requireIdentity && !String(form.submitter_email || '').trim()) return 'Please enter your email address.'
+  if (requireIdentity && !form.submitter_contact_id && !String(form.submitter_email || '').trim()) return 'Please enter your email address.'
   if (!form.submitter_role) return 'Please select your role.'
   if (form.slots_offered === '') return 'Please enter the number of slots (enter 0 if not hosting).'
   if (form.hiring_ngrp === null) return 'Please answer the NGRP hiring question.'
@@ -113,7 +119,7 @@ export function validateParticipation(form, { requireIdentity = true } = {}) {
 // Whether the submit button should be enabled (all always-required fields present).
 export function participationReady(form, { requireIdentity = true } = {}) {
   if (!form.unit_name) return false
-  if (requireIdentity && (!form.submitter_name || !form.submitter_email)) return false
+  if (requireIdentity && (!form.submitter_name || !(form.submitter_email || form.submitter_contact_id))) return false
   if (!form.submitter_role) return false
   if (form.slots_offered === '') return false
   return true

@@ -2,6 +2,7 @@
 // UNIT-FORM-RESPONSE-VISIBILITY: read-only detail of one /unit-form submission (unit_cohort_responses
 // row), shown from Aggregate > Placement Capacity. No fetch, no edit, no resend/contact - display only.
 import DetailDrawer from './ui/DetailDrawer'
+import { responseHiringConcerns } from '../lib/unitFormResponders'
 
 const F = 'Plus Jakarta Sans, sans-serif'
 
@@ -56,6 +57,7 @@ function Row({ label, value, multiline }) {
 export default function UnitResponseDrawer({ open, onClose, response }) {
   if (!open || !response) return null
   const r = response
+  const concerns = responseHiringConcerns(r)
   const status = r.response_status
   const willHost = status === 'submitted_hosting' ? 'Yes'
     : status === 'submitted_not_hosting' ? 'No'
@@ -63,6 +65,14 @@ export default function UnitResponseDrawer({ open, onClose, response }) {
 
   return (
     <DetailDrawer open={open} onClose={onClose} title={`${r.unit_name || 'Unit'}, Unit Form Response`}>
+      {/* UNIT-FORM-CONCERN-1: the answers the Owner asked to be told about, in words. A fixed
+          amber pair (ink 7.2:1 on its ground), so it reads the same in both themes. */}
+      {concerns.length > 0 && (
+        <div role="note" style={{ marginBottom: 20, padding: '10px 14px', background: '#FDF1D8', borderLeft: '4px solid #B7791F', color: '#7A4A00', fontSize: 13, lineHeight: 1.5, fontFamily: F }}>
+          <strong>Follow up with this unit</strong>
+          {concerns.map(c => <div key={c}>{c}</div>)}
+        </div>
+      )}
       <Section title="Submission Details">
         <Row label="Unit / Department" value={r.unit_name} />
         <Row label="Submitted by" value={r.submitted_by_name} />
