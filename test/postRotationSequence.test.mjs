@@ -18,7 +18,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import {
-  STEP_SLUGS, POST_ROTATION_TIMEPOINT, REQUIRED_ACTIVITY_KEYS, RECORDED_ACTIVITY_KEYS,
+  STEP_SLUGS, POST_ROTATION_TIMEPOINT, RECORDED_ACTIVITY_KEYS, ACTIVITIES_NEEDED,
   completionState, stepCompletion, caseyFinkPrerequisite, aspirePrerequisites, currentActivityState,
   prerequisiteSummary, PREREQ_REASONS,
 } from '../src/lib/evaluation/postRotationSequence.js'
@@ -40,7 +40,7 @@ const done = (slug, at = '2026-08-01T10:00:00Z', over = {}) =>
   asg(slug, { status: 'completed', completed_at: at, ...over })
 
 const allActivities = (at = '2026-08-02T10:00:00Z') =>
-  REQUIRED_ACTIVITY_KEYS.map(k => ({ activity_key: k, completed_at: at }))
+  RECORDED_ACTIVITY_KEYS.map(k => ({ activity_key: k, completed_at: at }))
 
 // ── Canonical completion evidence ───────────────────────────────────────────
 
@@ -123,10 +123,8 @@ test('ASPIRE unlocks only when feedback, Casey-Fink AND every activity are compl
   )
   assert.equal(full.ok, true)
   assert.deepEqual(full.unmet, [])
-  // ACTIVITY-GATE-1: every recorded activity is listed; only the required ones gate.
   assert.equal(full.activities.length, RECORDED_ACTIVITY_KEYS.length)
-  assert.ok(full.activities.filter(a => a.required).every(a => a.completed))
-  assert.equal(full.activities.find(a => a.key === 'interview_bootcamp').required, false)
+  assert.ok(full.activities.every(a => a.completed))
 })
 
 test('Casey-Fink completion alone does NOT unlock ASPIRE', () => {
@@ -138,28 +136,37 @@ test('Casey-Fink completion alone does NOT unlock ASPIRE', () => {
 test('every missing prerequisite produces its own specific reason', () => {
   const none = aspirePrerequisites([], [])
   assert.equal(none.ok, false)
-  // feedback + casey-fink + one per required activity
-  assert.equal(none.unmet.length, 2 + REQUIRED_ACTIVITY_KEYS.length)
+  // feedback + casey-fink + one for the activities (ACTIVITY-GATE-2: any one of three is enough)
+  assert.equal(none.unmet.length, 3)
   for (const u of none.unmet) {
     assert.ok(u.reason && u.reason.length > 10, `${u.code} needs a usable reason`)
   }
-  assert.ok(none.unmet.some(u => u.reason.includes('Town Hall')))
-  // ACTIVITY-GATE-1 (Owner, 2026-11-10): Interview Bootcamp no longer blocks release.
-  assert.ok(!none.unmet.some(u => u.reason.includes('Interview Bootcamp')))
-  assert.ok(none.unmet.some(u => u.reason.includes('Résumé Review')))
+  const act = none.unmet.find(u => u.code === 'activity_incomplete')
+  assert.equal(act.reason, 'No support activity (Résumé Review, Town Hall or Interview Bootcamp) is recorded for this student.')
   // The reasons are distinguishable, not one repeated string.
   assert.equal(new Set(none.unmet.map(u => u.reason)).size, none.unmet.length)
 })
 
-test('a partially complete checklist still blocks, and says which one', () => {
+test('ACTIVITY-GATE-2: any one recorded activity is enough, and none blocks', () => {
+  assert.equal(ACTIVITIES_NEEDED, 1)
+  for (const key of RECORDED_ACTIVITY_KEYS) {
+    const one = aspirePrerequisites([done(STEP_SLUGS.feedback), done(STEP_SLUGS.caseyFink)], [{ activity_key: key, completed_at: '2026-08-02T00:00:00Z' }])
+    assert.equal(one.ok, true, `${key} alone suffices`)
+  }
+  const none = aspirePrerequisites([done(STEP_SLUGS.feedback), done(STEP_SLUGS.caseyFink)], [])
+  assert.equal(none.ok, false); assert.equal(none.unmet.length, 1); assert.equal(none.unmet[0].code, 'activity_incomplete')
+  // The rule can still ask for more than one.
+  const two = aspirePrerequisites([done(STEP_SLUGS.feedback), done(STEP_SLUGS.caseyFink)], [{ activity_key: 'town_hall', completed_at: '2026-08-02T00:00:00Z' }], undefined, [], 2)
+  assert.equal(two.ok, false); assert.match(two.unmet[0].reason, /^1 of the 2 support activities needed/)
+})
+
+test('the activities are listed with what each one has', () => {
   const partial = aspirePrerequisites(
     [done(STEP_SLUGS.feedback), done(STEP_SLUGS.caseyFink)],
     [{ activity_key: 'town_hall', completed_at: '2026-08-02T00:00:00Z' },
      { activity_key: 'interview_bootcamp', completed_at: '2026-08-02T00:00:00Z' }],
   )
-  assert.equal(partial.ok, false)
-  assert.equal(partial.unmet.length, 1)
-  assert.match(partial.unmet[0].reason, /Résumé Review/)
+  assert.equal(partial.ok, true)
   assert.equal(partial.activities.find(a => a.key === 'resume_review').completed, false)
   assert.equal(partial.activities.find(a => a.key === 'town_hall').completed, true)
 })
@@ -167,10 +174,10 @@ test('a partially complete checklist still blocks, and says which one', () => {
 test('an activity row without a completion date does not count', () => {
   const r = aspirePrerequisites(
     [done(STEP_SLUGS.feedback), done(STEP_SLUGS.caseyFink)],
-    REQUIRED_ACTIVITY_KEYS.map(k => ({ activity_key: k, completed_at: null })),
+    RECORDED_ACTIVITY_KEYS.map(k => ({ activity_key: k, completed_at: null })),
   )
   assert.equal(r.ok, false)
-  assert.equal(r.unmet.length, REQUIRED_ACTIVITY_KEYS.length)
+  assert.equal(r.unmet.length, 1)
 })
 
 test('an unrelated activity key cannot satisfy a required one', () => {
@@ -179,7 +186,7 @@ test('an unrelated activity key cannot satisfy a required one', () => {
     [{ activity_key: 'something_else', completed_at: '2026-08-02T00:00:00Z' }],
   )
   assert.equal(r.ok, false)
-  assert.equal(r.unmet.length, REQUIRED_ACTIVITY_KEYS.length)
+  assert.equal(r.unmet.length, 1)
 })
 
 test('the summary line is usable for a queue row', () => {
@@ -290,10 +297,10 @@ test('the sequence module is pure: no I/O, no sending, no writes', () => {
   assert.doesNotMatch(seq, /supabase|fetch\(|resend|insert\(|update\(|delete\(/i)
 })
 
-test('the required checklist is Résumé Review and Town Hall; Interview Bootcamp is still recordable', () => {
+test('the checklist is the three activities, of which one is needed', () => {
   // Residency > Support's order (Owner, 2026-09-20): Résumé Review, Town Hall, Interview Bootcamp.
-  // ACTIVITY-GATE-1 (Owner, 2026-11-10): Interview Bootcamp is optional for release.
-  assert.deepEqual([...REQUIRED_ACTIVITY_KEYS], ['resume_review', 'town_hall'])
+  // ACTIVITY-GATE-2 (Owner, 2026-11-10): any one of them is enough.
+  assert.equal(ACTIVITIES_NEEDED, 1)
   assert.deepEqual([...RECORDED_ACTIVITY_KEYS], ['resume_review', 'town_hall', 'interview_bootcamp'])
   // The migration's CHECK must allow every recordable activity.
   const mig = read('supabase/migrations/20260822000000_student_activity_completions.sql')
@@ -447,7 +454,7 @@ test('an activity recorded under Residency > Support counts, a voided one does n
   assert.equal(by.resume_review.completedAt, '2026-09-10', 'the most recent Support date'); assert.equal(by.resume_review.supportCount, 2)
   assert.equal(by.town_hall.completed, true); assert.equal(by.town_hall.source, 'ledger')
   assert.equal(by.interview_bootcamp.completed, false, 'a voided entry never counts'); assert.equal(by.interview_bootcamp.source, null)
-  // ACTIVITY-GATE-1: an unrecorded Interview Bootcamp no longer blocks.
+  // ACTIVITY-GATE-2: any one recorded activity is enough.
   assert.equal(r.ok, true); assert.deepEqual(r.unmet, [])
   // Display order is Support's.
   assert.deepEqual(r.activities.map(a => a.label), ['Résumé Review', 'Town Hall', 'Interview Bootcamp'])
@@ -460,9 +467,9 @@ test('the release endpoint reads Support before the gate, as the secondary sourc
   const src = read('api/evaluation-release-post-rotation-survey.js')
   const sup = src.indexOf(".from('ngrp_support_entries')"), gate = src.indexOf('aspirePrerequisites(rawAssignments')
   assert.ok(sup > -1 && sup < gate, 'Support is read before the gate runs')
-  assert.match(src, /\.in\('activity', REQUIRED_ACTIVITY_KEYS\)\s*\.is\('voided_at', null\)/)
+  assert.match(src, /\.in\('activity', RECORDED_ACTIVITY_KEYS\)\s*\.is\('voided_at', null\)/)
   assert.match(src, /if \(!supErr\) supportRows = sup \|\| \[\];/, 'a failed Support read leaves the ledger alone to decide')
-  assert.match(src, /aspirePrerequisites\(rawAssignments \|\| \[\], activityRows, REQUIRED_ACTIVITY_KEYS, supportRows\)/)
+  assert.match(src, /aspirePrerequisites\(rawAssignments \|\| \[\], activityRows, RECORDED_ACTIVITY_KEYS, supportRows\)/)
   const api = read('api/ngrp-support.js')
   // RESIDENCY-TA-1 (Owner, 2026-10-05): Talent Acquisition now logs support and attendance and
   // removes its own entries; the mentor, the reflection tool and the answers stay team-only.

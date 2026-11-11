@@ -484,17 +484,18 @@ export function adaptAspireFeedback({
         continue
       }
       // Only activities remain. The record button lives on the card.
-      const missing = unmet.filter(u => u.code === 'activity_incomplete')
-      const requiredActs = (prereq.activities || []).filter(a => a.required !== false)
-      const done = requiredActs.filter(a => a.completed).length
+      // ACTIVITY-GATE-2: any one of the three is enough.
+      const missing = unmet.find(u => u.code === 'activity_incomplete')
+      const need = prereq.activitiesNeeded || 1
+      const done = (prereq.activities || []).filter(a => a.completed).length
       items.push({
-        ...base, state: 'blocked', stamp: stamp('late', `${missing.length} activit${missing.length === 1 ? 'y' : 'ies'} to record`),
+        ...base, state: 'blocked', stamp: stamp('late', need - done === 1 ? 'Activity to record' : `${need - done} activities to record`),
         chain: [
           node('before', 'done', 'Casey-Fink', `Submitted ${shortDate(prereq.caseyFink?.completedAt, nowMs)}`),
-          node('before', 'fix', 'Required activities', `${done} of ${requiredActs.length} recorded`),
+          node('before', 'fix', 'Required activities', `${done} recorded, ${need} needed`),
           node('this', 'next', 'ASPIRE feedback', 'Waits on activities'),
         ],
-        blocker: { text: `${missing.map(u => u.label).join(', ')} not recorded for this student.`, action: 'activity', target: { studentId: r.studentId } },
+        blocker: { text: missing?.reason || 'No support activity is recorded for this student.', action: 'activity', target: { studentId: r.studentId } },
       })
       continue
     }

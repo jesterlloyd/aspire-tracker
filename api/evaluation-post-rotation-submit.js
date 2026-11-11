@@ -17,7 +17,7 @@
 import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js';
 import { hashToken, isWellFormedRawToken } from '../lib/server/evaluation/tokens.js';
 import { extractClientIp, bucketKey } from '../lib/server/evaluation/rate_limit.js';
-import { validateResponses, ALL_ITEMS } from '../lib/server/evaluation/postRotationEvalContent.js';
+import { validateResponses, ALL_ITEMS, NA_VALUE } from '../lib/server/evaluation/postRotationEvalContent.js';
 
 const POST_ROTATION_SLUG = 'post_rotation_evaluation';
 
@@ -42,6 +42,7 @@ function canonicalizeResponses(responses) {
     const v = responses[item.key];
     if (item.type === 'rating') {
       if (Number.isInteger(v)) out[item.key] = v;
+      else if (item.allowNa && v === NA_VALUE) out[item.key] = NA_VALUE;
     } else if (item.type === 'yesno') {
       if (v === true || v === false) out[item.key] = v;
     } else {

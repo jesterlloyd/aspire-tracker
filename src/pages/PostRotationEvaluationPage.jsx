@@ -50,7 +50,7 @@ const PR_CSS = `
 `
 
 // One rating (Likert) item: prompt + a radiogroup of scale options (values 1-5).
-function RatingItem({ name, label, required, scale, value, onChange }) {
+function RatingItem({ name, label, required, scale, naLabel, value, onChange }) {
   return (
     <div className="pr-field">
       <span className="pr-label">{label}{required && <span className="pr-req">*</span>}</span>
@@ -64,6 +64,12 @@ function RatingItem({ name, label, required, scale, value, onChange }) {
             </label>
           )
         })}
+        {naLabel && (
+          <label className={`pr-opt${value === 'na' ? ' sel' : ''}`}>
+            <input type="radio" name={name} checked={value === 'na'} onChange={() => onChange('na')} />
+            <span>{naLabel}</span>
+          </label>
+        )}
       </div>
     </div>
   )
@@ -154,7 +160,7 @@ export default function PostRotationEvaluationPage() {
       if (!item.required) continue
       const v = answers[item.key]
       if (item.type === 'rating') {
-        if (!Number.isInteger(v)) return false
+        if (!Number.isInteger(v) && !(item.allowNa && v === 'na')) return false
       } else if (item.type === 'yesno') {
         if (v !== true && v !== false) return false
       } else {
@@ -174,7 +180,7 @@ export default function PostRotationEvaluationPage() {
     for (const item of allItems) {
       const v = answers[item.key]
       if (item.type === 'rating') {
-        if (Number.isInteger(v)) responses[item.key] = v
+        if (Number.isInteger(v) || (item.allowNa && v === 'na')) responses[item.key] = v
       } else if (item.type === 'yesno') {
         if (v === true || v === false) responses[item.key] = v
       } else {
@@ -270,6 +276,7 @@ export default function PostRotationEvaluationPage() {
                         label={item.label}
                         required={item.required}
                         scale={ratingScale}
+                        naLabel={item.allowNa ? (content.naLabel || 'I did not take part') : null}
                         value={answers[item.key]}
                         onChange={(v) => setAnswer(item.key, v)}
                       />

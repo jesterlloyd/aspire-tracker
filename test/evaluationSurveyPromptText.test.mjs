@@ -234,7 +234,8 @@ test('Casey-Fink remains the only certificate-gated workflow', () => {
 
 test('the rest of the Rotation Feedback survey is untouched', () => {
   const m = buildPreviewModel('post_rotation_evaluation', null)
-  assert.equal(m.sections.length, 5)
+  // ACTIVITY-GATE-2 (2026-11-10) added the ASPIRE Support Activities section (three ratings).
+  assert.equal(m.sections.length, 6)
   const keys = m.sections.flatMap(s => s.items.map(i => i.key))
   assert.ok(keys.includes('may_use_anonymized_comments'))
   assert.ok(keys.includes('overall_valuable_learning_experience'))

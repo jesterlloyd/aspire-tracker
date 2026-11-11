@@ -262,7 +262,8 @@ test('a domain mean skips n/a and blanks rather than counting them as zero', () 
 
 test("Student's Feedback on ASPIRE groups its seven rating items by section and reads a 1 to 5 scale", () => {
   assert.equal(AP.scaleMax, 5)
-  assert.deepEqual(AP.subscales.map(s => [s.short, s.itemCodes.length]), [['OV', 1], ['CG', 2], ['UE', 2], ['RR', 2]])
+  // ACTIVITY-GATE-2 (2026-11-10) added the ASPIRE Support Activities section (three ratings).
+  assert.deepEqual(AP.subscales.map(s => [s.short, s.itemCodes.length]), [['OV', 1], ['CG', 2], ['UE', 2], ['RR', 2], ['SA', 3]])
   const d = buildPacket(COHORT, AP.slug, { now: NOW }).distribution
   const ov = d.subscales.find(s => s.short === 'OV')
   assert.deepEqual([ov.up, ov.same, ov.down, ov.mean], [1, 1, 0, 4])

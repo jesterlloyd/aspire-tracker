@@ -208,7 +208,9 @@ function normalizeInlinePostRotation() {
         helper: i.helper || '',
         type: i.type === 'yesno' ? 'yesno' : (i.type === 'rating' ? 'rating' : 'text'),
         required: !!i.required,
-        scale: i.type === 'rating' ? (c.ratingScale || []) : [],
+        scale: i.type === 'rating'
+          ? [...(c.ratingScale || []), ...(i.allowNa ? [{ value: 'na', label: c.naLabel }] : [])]
+          : [],
       })),
     })),
     attestation: null,

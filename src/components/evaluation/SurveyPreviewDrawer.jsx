@@ -71,7 +71,7 @@ function ItemRow({ n, it }) {
         <Pill tone={it.required ? 'gate' : 'neutral'}>{it.required ? 'Required' : 'Optional'}</Pill>
         {it.scale.length > 0 && (
           <span style={{ fontSize: 11, color: '#6b7280' }}>
-            {it.scale.map(s => (typeof s === 'object' ? `${s.value} ${s.label}` : s)).join('  ·  ')}
+            {it.scale.map(s => (typeof s === 'object' ? (s.value === 'na' ? s.label : `${s.value} ${s.label}`) : s)).join('  ·  ')}
           </span>
         )}
       </div>

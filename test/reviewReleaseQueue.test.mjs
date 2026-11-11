@@ -305,14 +305,16 @@ test('adapters: ASPIRE feedback is blocked on activities with a record action, n
   })
   const blocked = run(new Map([['s1', acts]])).items[0]
   assertShape([blocked], 'postRotation')
-  assert.equal(blocked.state, 'blocked')
-  assert.equal(blocked.blocker.action, 'activity')
-  // ACTIVITY-GATE-1 (Owner, 2026-11-10): only Résumé Review and Town Hall are required;
-  // Interview Bootcamp is still listed (optional) so it can be recorded.
-  assert.equal(blocked.stamp.text, '1 activity to record')
-  assert.match(blocked.blocker.text, /^Résumé Review not recorded/)
-  assert.equal(blocked.chain[1].detail, '1 of 2 recorded')
+  // ACTIVITY-GATE-2 (Owner, 2026-11-10): one recorded activity is enough, so Town Hall alone
+  // makes this slip Ready; with nothing recorded it is blocked on the activities.
+  assert.equal(blocked.state, 'ready')
   assert.equal(blocked.activities.length, 3)
+  const none = run(new Map([['s1', []]])).items[0]
+  assert.equal(none.state, 'blocked')
+  assert.equal(none.blocker.action, 'activity')
+  assert.equal(none.stamp.text, 'Activity to record')
+  assert.equal(none.blocker.text, 'No support activity (Résumé Review, Town Hall or Interview Bootcamp) is recorded for this student.')
+  assert.equal(none.chain[1].detail, '0 recorded, 1 needed')
   // The ledger being down can never read as "activities complete".
   const down = run(new Map(), true).items[0]
   assert.equal(down.state, 'blocked'); assert.equal(down.blocker.action, 'fix'); assert.match(down.blocker.text, /not switched on/)
@@ -507,5 +509,5 @@ test('adapters: a Support entry completes an activity on the slip, and the sourc
   }).items
   // ACTIVITY-GATE-1: Résumé Review (Support) and Town Hall (ledger) suffice; the slip is Ready.
   assert.equal(it.state, 'ready')
-  assert.deepEqual(it.activities.map(a => [a.label, a.completed, a.source, a.required]), [['Résumé Review', true, 'support', true], ['Town Hall', true, 'ledger', true], ['Interview Bootcamp', false, null, false]])
+  assert.deepEqual(it.activities.map(a => [a.label, a.completed, a.source]), [['Résumé Review', true, 'support'], ['Town Hall', true, 'ledger'], ['Interview Bootcamp', false, null]])
 })

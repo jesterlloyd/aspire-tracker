@@ -136,7 +136,7 @@ const ASPIRE_SUBSCALES = POST_ROTATION_CONTENT.sections
   .map((section, i) => ({
     key: section.key,
     label: section.title,
-    short: ['OV', 'CG', 'UE', 'RR', 'FR'][i] || section.key.toUpperCase(),
+    short: section.short || ['OV', 'CG', 'UE', 'RR', 'FR'][i] || section.key.toUpperCase(),
     itemCodes: section.items.filter(item => item.type === 'rating').map(item => item.key),
   }))
   .filter(s => s.itemCodes.length > 0)

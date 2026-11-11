@@ -220,8 +220,8 @@ test('the stale certificate promise is gone from the survey copy', () => {
     'the intro promised a certificate this survey no longer issues')
   const model = buildPreviewModel('post_rotation_evaluation', null)
   assert.ok(!JSON.stringify(model).includes('Certificate of Participation'))
-  // And the rest of the definition is untouched.
-  assert.equal(model.sections.length, 5)
+  // ACTIVITY-GATE-2 (2026-11-10) added the ASPIRE Support Activities section (three ratings).
+  assert.equal(model.sections.length, 6)
 })
 
 test('it remains a separate survey from Student Feedback', () => {

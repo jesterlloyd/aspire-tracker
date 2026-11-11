@@ -36,7 +36,7 @@ const POLICY = {
   preceptor: 'Releasing re-checks eligibility on the server and sends through the same path as a manual send. The recipient is resolved from the student, there is no recipient field.',
   student: 'Releasing emails the student a link to the feedback survey. It re-checks hours on the server first.',
   caseyFinkPostRotation: 'Releasing emails the student the post-rotation Readiness for Practice survey. The Certificate of Completion unlocks only after the student submits it. There is no bulk release.',
-  postRotation: 'Releasing emails the student the program feedback survey. Nothing downstream depends on it. The server also requires the required program activities to be recorded first.',
+  postRotation: 'Releasing emails the student the program feedback survey. Nothing downstream depends on it. The server also requires at least one support activity (Résumé Review, Town Hall or Interview Bootcamp) to be recorded first.',
   unitLeaderRelease: 'Releasing puts this response’s ratings and fixed answers (never comments) in front of that unit’s leader in their portal, seven days after the rotation ends and once moderation is cleared. Nothing is emailed. A single-response result is not anonymous.',
 }
 
@@ -106,7 +106,7 @@ function ActivitiesArea({ item, onRecord }) {
         return (
           <div key={a.key} className={`rq-act${a.completed ? ' done' : ''}`} data-testid="pr-activity-row">
             <span className="rq-act-mark" aria-hidden="true">{a.completed ? '✓' : '○'}</span>
-            <span className="rq-act-label">{a.label}{a.required === false && <span className="rq-act-note"> · Optional</span>}</span>
+            <span className="rq-act-label">{a.label}</span>
             <span className="rq-act-when">{when}</span>
             <span className="rq-act-ctl">
               {!a.completed && (

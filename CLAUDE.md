@@ -555,10 +555,17 @@ action); the four classifiers are untouched and the release endpoints keep every
   says so, on the card (`aspirePrerequisites(..., supportEntries)`) and in the release
   endpoint's gate. Support is the secondary source: a failed read leaves the ledger alone
   to decide.
-  **Only Résumé Review and Town Hall are required** (ACTIVITY-GATE-1, Owner, 2026-11-10: "the
-  resume review and town hall must suffice"). `REQUIRED_ACTIVITY_KEYS` gates the release;
-  `RECORDED_ACTIVITY_KEYS` (all three) is what the slip lists and the ledger accepts, so
-  Interview Bootcamp is still recorded, marked Optional, and never blocks. The slip records into the ledger with the date; a completion that exists
+  **Any ONE of the three is enough** (ACTIVITY-GATE-2, Owner, 2026-11-10, replacing the same
+  morning's ACTIVITY-GATE-1, which required Résumé Review and Town Hall). `RECORDED_ACTIVITY_KEYS`
+  is the three the slip lists and the ledger accepts; `ACTIVITIES_NEEDED` (1) is how many the
+  release needs, read by the clipboard and the endpoint alike. In exchange, Student's Feedback
+  on ASPIRE has an **ASPIRE Support Activities** section: one rating per activity
+  (`support_resume_review`, `support_town_hall`, `support_interview_bootcamp`), each required,
+  each with `allowNa` and the extra choice "I did not take part", stored as `'na'`. The submit
+  RPC stores the response whole and checks only its own required keys, so no migration was
+  needed; the app's `validateResponses` is what requires the three. `'na'` is left out of every
+  mean (the packet's `ratingIn`) and marked on the bubble sheet. Responses submitted before
+  this have no answer to the three and count as unanswered. Never rename the keys. The slip records into the ledger with the date; a completion that exists
   only in Support is corrected in Support. There is no activity dialog any more.
 - **The retired panels are gone.** The four `*AutomationPanel.jsx` files and
   `UnitEvaluationReleaseConsole.jsx` were deleted on 2026-09-20; their tests now pin the

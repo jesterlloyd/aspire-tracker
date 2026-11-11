@@ -33,7 +33,7 @@ import { emailBaseUrl } from '../lib/server/appUrl.js';
 import { classifyPostRotationCohort } from '../src/lib/evaluation/postRotationCertDueDetection.js';
 import { isReissuableAssignment } from '../src/lib/evaluation/assignmentReissue.js';
 import { reissueAssignment } from '../lib/server/evaluation/assignmentReissue.js';
-import { aspirePrerequisites, REQUIRED_ACTIVITY_KEYS } from '../src/lib/evaluation/postRotationSequence.js';
+import { aspirePrerequisites, RECORDED_ACTIVITY_KEYS } from '../src/lib/evaluation/postRotationSequence.js';
 import { getStudentPreferredFirstName } from '../src/lib/studentNameFormatters.js';
 import { INACTIVE_MESSAGE } from './lib/activeAccount.js';
 
@@ -215,7 +215,7 @@ async function _handler(req, res) {
         success: true, released: false,
         classification: 'blocked_prerequisite',
         reason: 'Required-activity tracking is not switched on yet, so the activity prerequisites cannot be verified. Nothing was sent.',
-        prerequisite: { code: 'activity_ledger_unavailable', required: REQUIRED_ACTIVITY_KEYS },
+        prerequisite: { code: 'activity_ledger_unavailable', required: RECORDED_ACTIVITY_KEYS },
       });
     }
     activityRows = acts || [];
@@ -229,12 +229,12 @@ async function _handler(req, res) {
       .from('ngrp_support_entries')
       .select('activity, occurred_on')
       .eq('student_id', studentId)
-      .in('activity', REQUIRED_ACTIVITY_KEYS)
+      .in('activity', RECORDED_ACTIVITY_KEYS)
       .is('voided_at', null);
     if (!supErr) supportRows = sup || [];
   }
 
-  const prereq = aspirePrerequisites(rawAssignments || [], activityRows, REQUIRED_ACTIVITY_KEYS, supportRows);
+  const prereq = aspirePrerequisites(rawAssignments || [], activityRows, RECORDED_ACTIVITY_KEYS, supportRows);
   if (!prereq.ok) {
     return res.status(200).json({
       success: true, released: false,

@@ -59,19 +59,18 @@ export const STEP_LABELS = Object.freeze({
 // In the order Residency > Support records them (Owner, 2026-09-20): Résumé Review
 // first, then Town Hall, then Interview Bootcamp. Display order only; the gate is a set.
 //
-// ACTIVITY-GATE-1 (Owner, 2026-11-10): Interview Bootcamp is no longer required.
-// "The resume review and town hall must suffice." It can still be recorded, and the
-// slip still lists it, marked Optional; only REQUIRED_ACTIVITY_KEYS gate the release.
+// ACTIVITY-GATE-2 (Owner, 2026-11-10): ANY ONE of the three is enough. The student's
+// Feedback on ASPIRE asks about each and offers "I did not take part", so a student who
+// used one support activity can still be asked about ASPIRE. (ACTIVITY-GATE-1, the same
+// morning, had required Résumé Review and Town Hall.) All three are recorded and listed.
 export const RECORDED_ACTIVITY_KEYS = Object.freeze([
   'resume_review',
   'town_hall',
   'interview_bootcamp',
 ])
 
-export const REQUIRED_ACTIVITY_KEYS = Object.freeze([
-  'resume_review',
-  'town_hall',
-])
+/** How many of RECORDED_ACTIVITY_KEYS must be recorded before the release. */
+export const ACTIVITIES_NEEDED = 1
 
 export const ACTIVITY_LABELS = Object.freeze({
   town_hall: 'Town Hall',
@@ -194,9 +193,11 @@ export function currentActivityState(events) {
  *
  * @param assignments  the student's evaluation assignments
  * @param activityCompletions  [{ activity_key, completed_at }] for this student
- * @param requiredKeys  defaults to REQUIRED_ACTIVITY_KEYS
+ * @param activityKeys  the activities that count, defaults to RECORDED_ACTIVITY_KEYS
+ * @param supportEntries  Residency > Support entries for this student
+ * @param needed  how many of them must be recorded, defaults to ACTIVITIES_NEEDED
  */
-export function aspirePrerequisites(assignments, activityCompletions = [], requiredKeys = REQUIRED_ACTIVITY_KEYS, supportEntries = []) {
+export function aspirePrerequisites(assignments, activityCompletions = [], activityKeys = RECORDED_ACTIVITY_KEYS, supportEntries = [], needed = ACTIVITIES_NEEDED) {
   const feedback = stepCompletion(assignments, STEP_SLUGS.feedback)
   const caseyFink = stepCompletion(assignments, STEP_SLUGS.caseyFink)
 
@@ -215,11 +216,7 @@ export function aspirePrerequisites(assignments, activityCompletions = [], requi
     if (!cur.last || e.occurred_on > cur.last) cur.last = e.occurred_on
     support.set(e.activity, cur)
   }
-  const required = new Set(requiredKeys || [])
-  // Every recorded activity is listed (an optional one so it can still be recorded),
-  // followed by any required key outside the recorded list.
-  const keys = [...RECORDED_ACTIVITY_KEYS, ...(requiredKeys || []).filter(k => !RECORDED_ACTIVITY_KEYS.includes(k))]
-  const activities = keys.map(key => {
+  const activities = (activityKeys || []).map(key => {
     const cur = state.get(key) || null
     const sup = support.get(key) || null
     const ledgerDone = !!(cur && cur.completed && cur.completedAt)
@@ -227,7 +224,6 @@ export function aspirePrerequisites(assignments, activityCompletions = [], requi
     return {
       key,
       label: ACTIVITY_LABELS[key] || key,
-      required: required.has(key),
       completed: ledgerDone || supportDone,
       completedAt: ledgerDone ? cur.completedAt : supportDone ? sup.last : null,
       recordedByName: ledgerDone ? cur.recordedByName : null,
@@ -251,8 +247,10 @@ export function aspirePrerequisites(assignments, activityCompletions = [], requi
       label: STEP_LABELS.caseyFink,
     })
   }
-  for (const a of activities) {
-    if (a.required && !a.completed) unmet.push({ code: 'activity_incomplete', label: a.label, activityKey: a.key })
+  const recorded = activities.filter(a => a.completed).length
+  const activitiesNeeded = Math.min(needed, activities.length)
+  if (recorded < activitiesNeeded) {
+    unmet.push({ code: 'activity_incomplete', label: 'A support activity', needed: activitiesNeeded, recorded })
   }
 
   return {
@@ -262,6 +260,7 @@ export function aspirePrerequisites(assignments, activityCompletions = [], requi
     feedback,
     caseyFink,
     activities,
+    activitiesNeeded,
   }
 }
 
@@ -278,7 +277,11 @@ export const PREREQ_REASONS = Object.freeze({
 
 function reasonFor(u) {
   if (u.code === 'activity_incomplete') {
-    return `${u.label} is not recorded as completed for this student.`
+    const names = RECORDED_ACTIVITY_KEYS.map(k => ACTIVITY_LABELS[k])
+    const list = `${names.slice(0, -1).join(', ')} or ${names[names.length - 1]}`
+    return u.needed > 1
+      ? `${u.recorded} of the ${u.needed} support activities needed (${list}) are recorded for this student.`
+      : `No support activity (${list}) is recorded for this student.`
   }
   return PREREQ_REASONS[u.code] || 'A prerequisite step is not complete.'
 }

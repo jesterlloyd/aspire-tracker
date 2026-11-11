@@ -136,8 +136,9 @@ test('preview reads Storage-backed definitions through the existing gated endpoi
 test('the in-code definition is imported, not duplicated', () => {
   assert.match(model, /import \{ POST_ROTATION_CONTENT \} from/)
   const m = buildPreviewModel('post_rotation_evaluation', null)
-  assert.equal(m.sections.length, 5)
-  assert.equal(countQuestions(m), 13)
+  // ACTIVITY-GATE-2 (2026-11-10) added the ASPIRE Support Activities section (three ratings).
+  assert.equal(m.sections.length, 6)
+  assert.equal(countQuestions(m), 16)
   // The consent item is part of the live definition and must appear.
   const keys = m.sections.flatMap(s => s.items.map(i => i.key))
   assert.ok(keys.includes('may_use_anonymized_comments'))
