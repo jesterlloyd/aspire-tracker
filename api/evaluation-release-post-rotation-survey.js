@@ -177,7 +177,7 @@ async function _handler(req, res) {
   const { data: rawAssignments, error: asgErr } = await supabaseAdmin
     .from('evaluation_assignments')
     .select(`
-      id, student_id, cohort_id, status, revoked_at, completed_at, expires_at, sent_at, created_at, notes,
+      id, student_id, cohort_id, status, revoked_at, completed_at, expires_at, sent_at, created_at, notes, timepoint,
       evaluation_instruments!inner ( slug )
     `)
     .eq('student_id', studentId);
@@ -234,6 +234,10 @@ async function _handler(req, res) {
     if (!supErr) supportRows = sup || [];
   }
 
+  // RELEASE-TIMEPOINT-1 (2026-11-12): the gate counts a completed survey only at timepoint
+  // post_rotation, so the select above MUST read `timepoint`. Without it every completed Student's
+  // Feedback on Unit and Preceptor and Casey-Fink read as missing, and every release from this
+  // endpoint was refused from 2026-08-17 (ee9e175a) until this fix.
   const prereq = aspirePrerequisites(rawAssignments || [], activityRows, RECORDED_ACTIVITY_KEYS, supportRows);
   if (!prereq.ok) {
     return res.status(200).json({

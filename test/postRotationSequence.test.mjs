@@ -480,3 +480,18 @@ test('the release endpoint reads Support before the gate, as the secondary sourc
   assert.match(loader, /postNgrpSupport\('entries_for_students', \{ student_ids: studentIds \}\)/)
   assert.match(loader, /supportDown = true/)
 })
+
+// RELEASE-TIMEPOINT-1 (2026-11-12): the release endpoint's assignment select omitted `timepoint`,
+// so stepCompletion (which counts only timepoint post_rotation) saw every completed survey as
+// missing and refused every release from 2026-08-17. The card read timepoint and said Ready.
+test('every select that feeds the post-rotation gate reads timepoint', () => {
+  const done = asg(STEP_SLUGS.feedback, { status: 'completed', completed_at: '2026-08-07T00:00:00Z' })
+  const { timepoint, ...noTimepoint } = done
+  assert.equal(stepCompletion([done], STEP_SLUGS.feedback).completed, true)
+  assert.equal(stepCompletion([noTimepoint], STEP_SLUGS.feedback).completed, false, 'a row without timepoint never counts')
+  for (const f of ['api/evaluation-release-post-rotation-survey.js', 'api/evaluation-release-casey-fink-post-rotation-survey.js']) {
+    const src = read(f)
+    const sel = src.slice(src.indexOf(".from('evaluation_assignments')"), src.indexOf('evaluation_instruments!inner', src.indexOf(".from('evaluation_assignments')")))
+    assert.match(sel, /\btimepoint\b/, `${f} must select timepoint for the gate`)
+  }
+})
