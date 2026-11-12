@@ -495,3 +495,22 @@ test('every select that feeds the post-rotation gate reads timepoint', () => {
     assert.match(sel, /\btimepoint\b/, `${f} must select timepoint for the gate`)
   }
 })
+
+// RELEASE-ECHO-1 (2026-11-12): the board's post-send tripwire compares the server's echoed
+// instrument_slug and timepoint with the workflow it released. The ASPIRE feedback endpoint never
+// echoed them, so its first real releases (after RELEASE-TIMEPOINT-1) each sent the email and then
+// locked the board as an "identity mismatch". Every non-preceptor release endpoint must echo both
+// in its released response.
+test('every survey release endpoint echoes instrument_slug and timepoint when it releases', async () => {
+  const { RELEASE_ROUTES } = await import('../src/lib/evaluation/releaseRouting.js')
+  for (const [key, route] of Object.entries(RELEASE_ROUTES)) {
+    if (key === 'preceptor' || !route.instrumentSlug) continue
+    const src = read(`api${route.endpoint.replace('/api', '')}.js`)
+    const released = [...src.matchAll(/released: true,[\s\S]*?\}\);/g)].map(m => m[0])
+    assert.ok(released.length > 0, `${key}: a released response exists`)
+    for (const body of released) {
+      assert.match(body, /instrument_slug:/, `${key}: echoes instrument_slug`)
+      assert.match(body, /timepoint:/, `${key}: echoes timepoint`)
+    }
+  }
+})

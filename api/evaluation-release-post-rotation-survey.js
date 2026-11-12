@@ -517,5 +517,10 @@ async function _handler(req, res) {
     student_email: studentEmail,
     sent_at: sentAtIso,
     reissued: !!reissueRow,
+    // ROUTING-HOTFIX-1B post-send tripwire: the board compares these with the workflow it
+    // released. RELEASE-ECHO-1 (2026-11-12): this endpoint never echoed them, so every
+    // successful release read as an identity mismatch and locked the board.
+    instrument_slug: INSTRUMENT_SLUG,
+    timepoint: TIMEPOINT,
   });
 }
