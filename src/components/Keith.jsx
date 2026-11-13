@@ -9,6 +9,7 @@ import { allowedActions, matchActions } from '../lib/home/launcherModel';
 import { renderMarkdownLite } from '../lib/keithMarkdown';
 import { paletteSummary } from '../lib/skillSummary';
 import { findSlashToken, filterSkills, applySlashSelection } from '../lib/slashPalette';
+import HumanizerPanel from './keith/HumanizerPanel';
 import KeithChatShell, { KeithWelcome, KeithChips, KeithMessage, KeithTyping, KeithFooter, KeithRetry } from './keith/KeithChatShell';
 
 const KEITH_CLIENT_TIMEOUT_MS   = 28000;
@@ -27,6 +28,8 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
   const [isTyping,    setIsTyping]    = useState(false);
   const [copiedId,    setCopiedId]    = useState(null);
   const [messagesOpen, setMessagesOpen] = useState(false);
+  // KEITH-HUMANIZER-1: the humanizer opens beside Keith every time; hiding it lasts until reload.
+  const [humanizerShown, setHumanizerShown] = useState(true);
   const [toolExpanded, setToolExpanded] = useState({});
   // KEITH-MODEL-SELECT-1: user model selection (auto | haiku | sonnet | opus). The
   // server enforces the allowlist; this control only offers what the role may
@@ -496,6 +499,12 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
       onClose={() => { rememberWelcomed(); setIsOpen(false); }}
       onNew={() => setMessages([])}
       hideLauncher={hideLauncher}
+      companion={humanizerShown ? <HumanizerPanel onHide={() => setHumanizerShown(false)} /> : null}
+      headerAction={humanizerShown ? null : (
+        <button type="button" className="keith-companion-toggle" onClick={() => setHumanizerShown(true)}>
+          Humanizer
+        </button>
+      )}
       launcherProps={{ 'data-tour': 'keith-orb' }}
       launcherRight={messagesOpen && !isOpen ? '96px' : '24px'}
       tooltipRight={messagesOpen ? '168px' : '96px'}

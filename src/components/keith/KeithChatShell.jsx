@@ -20,6 +20,9 @@ export default function KeithChatShell({
   panelBottom = '96px', panelHeightGap = '160px',
   listRef, onListScroll, endRef, children,
   input, inputOverlay = null, footer = null,
+  // KEITH-HUMANIZER-1: `companion` is a second panel the host draws beside Keith's while it is open
+  // (it closes with it); `headerAction` is a control in the navy head, before New.
+  companion = null, headerAction = null,
 }) {
   const [showTooltip, setShowTooltip] = useState(false);
   const orb = (size, thinking, r = 0) => <KeithOrbVideo size={size} working={thinking} replay={r} />;
@@ -109,6 +112,8 @@ export default function KeithChatShell({
             }}
           />
 
+          {companion}
+
           {/* Drawer panel */}
           <div data-keith-panel="" role="dialog" aria-label="Keith" style={{
             position: 'fixed',
@@ -150,12 +155,13 @@ export default function KeithChatShell({
                 <span className="keith-wordmark-name" aria-hidden="true">Keith</span>
                 <span className="keith-wordmark-ai" aria-hidden="true">AI</span>
               </div>
+              {headerAction}
               <Tooltip label="New conversation" placement="bottom">
               <button
                 type="button"
                 onClick={onNew}
                 style={{
-                  marginLeft: 'auto',
+                  marginLeft: headerAction ? 0 : 'auto',
                   background: 'none', border: 'none',
                   color: 'rgba(255,255,255,0.55)', cursor: 'pointer',
                   padding: '4px 8px', fontSize: '13px',

@@ -3531,3 +3531,21 @@ Rules: `src/lib/unitFormResponders.js` (pure). No migration.
   `internalOnly`, never in a demo session). Needs you and the Action Center list it in Placement and
   rotation (Owner and Admin; `sig` is the answer, so a dismissed row returns only on a new one); the row
   opens `/aggregate?unitResponse=<unit>`, and the response drawer carries the same note.
+
+## The humanizer opens beside Keith (KEITH-HUMANIZER-1, 2026-11-13)
+
+Owner: the Clever AI humanizer widget appears when Keith is hailed and closes with it. Staff app
+only: `Keith.jsx` hands `HumanizerPanel` (`src/components/keith/`, sheet `humanizerPanel.css`) to
+`KeithChatShell` as `companion`; the Residency Portal's Keith does not. Its × hides it until reload
+and puts a Humanizer button in Keith's head. Below 900px there is no room beside Keith and neither shows.
+
+- **The vendor's script is not loaded.** `src/lib/cleverWidget.js` is their loader, read on
+  2026-11-13 and pinned: it builds the sandboxed cross-origin frame and answers its handshake
+  (`clever:init`, `clever:resize`, `clever:credit`), so no third-party code runs in the app's origin.
+  If the vendor changes the handshake, the panel says the humanizer is not available; re-read
+  `https://widgets.cleverhumanizer.ai/widget.js` and update the module. Never cover or clip the
+  widget's credit lines: the frame asks, and the module reports honestly.
+- **The embed allows only `https://aspireintelligence.app` to frame it**, so localhost and preview
+  deployments show the "not available here" line. Check the widget itself on the live site.
+- **What is pasted there leaves ASPIRE.** The panel says so above the widget. The widget is asked
+  for its light theme because the panel, like Keith's, is white in both themes.
