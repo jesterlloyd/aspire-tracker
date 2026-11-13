@@ -1,88 +1,57 @@
-/* KEITH-HUMANIZER-1: the humanizer panel beside Keith's (HumanizerPanel.jsx). It takes Keith's
-   bottom edge and height, sits one gap to its left, and is fixed white with fixed ink in both
-   themes, as Keith's panel is: the surface and its inks are one decision. Keith's panel is 400px
-   wide at 24px from the right, so this one starts at 436px. Below 900px there is no room beside
-   Keith and the panel is not drawn (Keith's header button goes with it). */
+/* KEITH-HUMANIZER-2: the humanizer inside Keith's panel (HumanizerPanel.jsx), under the footer.
+   Keith's panel is fixed white in both themes, so every ink here is fixed with it: the surface and
+   its inks are one decision. The dock takes its own height and gives way (and scrolls) before the
+   chat above it drops under its floor, which KeithChatShell sets while a dock is open. */
 .keith-humanizer {
-  position: fixed;
-  bottom: var(--kh-bottom, 96px);
-  right: 436px;
-  width: min(440px, calc(100vw - 460px));
-  height: min(720px, calc(100vh - var(--kh-gap, 160px)));
-  min-height: min(360px, calc(100vh - var(--kh-gap, 160px)));
+  flex: 0 1 auto;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  border-top: 1px solid #e5e7eb;
   background: #ffffff;
   color: #374151;
-  border-radius: var(--aspire-radius-card);
-  box-shadow: 0 8px 32px rgba(29, 37, 103, 0.18);
-  z-index: 999;
   font-family: 'Plus Jakarta Sans', sans-serif;
-  animation: keithSlideIn 0.2s ease;
 }
-
-.keith-humanizer-head {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-shrink: 0;
-  padding: 16px 20px;
-  background: #1d2567;
-}
-
-.keith-humanizer-title { display: flex; flex-direction: column; gap: 3px; line-height: 1; }
-.keith-humanizer-name { font-weight: 800; font-size: 19px; letter-spacing: -0.01em; color: #ffffff; }
-.keith-humanizer-by { font-weight: 700; font-size: 11px; letter-spacing: 0.06em; color: rgba(255, 255, 255, 0.78); }
-
-.keith-humanizer-close {
-  margin-left: auto;
-  padding: 4px;
-  background: none;
-  border: 0;
-  color: rgba(255, 255, 255, 0.78);
-  font-size: 18px;
-  line-height: 1;
-  cursor: pointer;
-}
-.keith-humanizer-close:hover { color: #ffffff; }
 
 .keith-humanizer-note {
   flex-shrink: 0;
   margin: 0;
-  padding: 8px 16px;
+  padding: 6px 16px;
   background: #fff7ed;
   border-bottom: 1px solid #fed7aa;
   color: #7c2d12;
-  font-size: 12px;
-  line-height: 1.45;
+  font-size: 11.5px;
+  line-height: 1.4;
 }
 
-.keith-humanizer-body { flex: 1; min-height: 0; overflow-y: auto; padding: 12px; }
+.keith-humanizer-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 8px; }
 
 .keith-humanizer .clever-frame { display: block; width: 100%; border: 0; transition: opacity 0.2s ease; }
 
-.keith-humanizer-status { margin: 0; padding: 32px 12px; text-align: center; font-size: 13px; line-height: 1.5; color: #4b5563; }
+.keith-humanizer-status { margin: 0; padding: 24px 12px; text-align: center; font-size: 13px; line-height: 1.5; color: #4b5563; }
 
-/* The button in Keith's navy header that brings the panel back. */
-.keith-companion-toggle {
+/* The button in Keith's footer, between the cohort and the model select. */
+.keith-humanizer-toggle {
+  flex-shrink: 0;
   margin-left: auto;
-  padding: 4px 8px;
-  background: none;
-  border: 0;
-  border-radius: var(--aspire-radius-control);
-  color: rgba(255, 255, 255, 0.78);
+  padding: 2px 8px;
+  border: 1px solid #d1d5db;
+  border-radius: var(--aspire-radius-pill, 999px);
+  background: #f9fafb;
+  color: #374151;
   font-family: 'Plus Jakarta Sans', sans-serif;
-  font-size: 13px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.5;
   cursor: pointer;
 }
-.keith-companion-toggle:hover { color: #ffffff; }
-
-@media (max-width: 899px) {
-  .keith-humanizer, .keith-companion-toggle { display: none; }
-}
+.keith-humanizer-toggle:hover { background: #eff6ff; border-color: #bfdbfe; }
+.keith-humanizer-toggle[aria-pressed="true"],
+.keith-humanizer-toggle[aria-pressed="true"]:hover { background: #1d2567; border-color: #1d2567; color: #ffffff; }
+.keith-humanizer-toggle:focus-visible { outline: 2px solid #1d2567; outline-offset: 2px; }
+/* The model select carried the auto margin; beside the button it sits 8px on (the footer's gap). */
+.keith-humanizer-toggle + select { margin-left: 0 !important; }
 
 @media (prefers-reduced-motion: reduce) {
-  .keith-humanizer { animation: none; }
   .keith-humanizer .clever-frame { transition: none; }
 }

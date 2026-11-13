@@ -20,9 +20,9 @@ export default function KeithChatShell({
   panelBottom = '96px', panelHeightGap = '160px',
   listRef, onListScroll, endRef, children,
   input, inputOverlay = null, footer = null,
-  // KEITH-HUMANIZER-1: `companion` is a second panel the host draws beside Keith's while it is open
-  // (it closes with it); `headerAction` is a control in the navy head, before New.
-  companion = null, headerAction = null,
+  // KEITH-HUMANIZER-2: `dock` is a tool the host draws inside the panel, under the footer (the
+  // staff app's humanizer). While one is open the panel may grow taller and the chat keeps a floor.
+  dock = null,
 }) {
   const [showTooltip, setShowTooltip] = useState(false);
   const orb = (size, thinking, r = 0) => <KeithOrbVideo size={size} working={thinking} replay={r} />;
@@ -112,8 +112,6 @@ export default function KeithChatShell({
             }}
           />
 
-          {companion}
-
           {/* Drawer panel */}
           <div data-keith-panel="" role="dialog" aria-label="Keith" style={{
             position: 'fixed',
@@ -124,7 +122,7 @@ export default function KeithChatShell({
             // with the viewport, always leaving ~160px of vertical clearance (bottom offset + top gap)
             // so the panel never covers the app header. minHeight is itself capped to the same
             // available space so it can never force overflow on short screens.
-            height: `min(720px, calc(100vh - ${panelHeightGap}))`,
+            height: `min(${dock ? 940 : 720}px, calc(100vh - ${panelHeightGap}))`,
             minHeight: `min(360px, calc(100vh - ${panelHeightGap}))`,
             background: '#ffffff',
             borderRadius: '16px',
@@ -155,13 +153,12 @@ export default function KeithChatShell({
                 <span className="keith-wordmark-name" aria-hidden="true">Keith</span>
                 <span className="keith-wordmark-ai" aria-hidden="true">AI</span>
               </div>
-              {headerAction}
               <Tooltip label="New conversation" placement="bottom">
               <button
                 type="button"
                 onClick={onNew}
                 style={{
-                  marginLeft: headerAction ? 0 : 'auto',
+                  marginLeft: 'auto',
                   background: 'none', border: 'none',
                   color: 'rgba(255,255,255,0.55)', cursor: 'pointer',
                   padding: '4px 8px', fontSize: '13px',
@@ -189,7 +186,7 @@ export default function KeithChatShell({
               flex: 1, overflowY: 'auto',
               padding: '16px',
               display: 'flex', flexDirection: 'column', gap: '12px',
-              minHeight: 0,
+              minHeight: dock ? 'min(150px, 30%)' : 0,
             }}>
               {children}
               <div ref={endRef} />
@@ -252,6 +249,7 @@ export default function KeithChatShell({
             </div>
 
             {footer}
+            {dock}
           </div>
         </>
       )}
@@ -424,7 +422,7 @@ export function KeithTyping() {
 }
 
 // The footer line: a source label on the left, the model select on the right.
-export function KeithFooter({ label, models, value, onChange, labels }) {
+export function KeithFooter({ label, models, value, onChange, labels, action = null }) {
   return (
     <div style={{
       padding: '4px 16px 10px',
@@ -434,6 +432,7 @@ export function KeithFooter({ label, models, value, onChange, labels }) {
       <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {label}
       </span>
+      {action}
       {/* KEITH-MODEL-SELECT-1: the server enforces who may choose which model. */}
       <select
         aria-label="Model"

@@ -1,15 +1,32 @@
-// KEITH-HUMANIZER-1 (Owner, 2026-11-13): the Clever AI humanizer, a second panel that opens beside
-// Keith's and closes with it. The staff app's Keith hands it to KeithChatShell as `companion`; the
-// Residency Portal's Keith does not. The frame is built by src/lib/cleverWidget.js, so no vendor
-// script runs in the app. The panel is white in both themes, as Keith's is, so the widget is asked
-// for its light theme.
+// KEITH-HUMANIZER-2 (Owner, 2026-11-13): the Clever AI humanizer lives INSIDE Keith's panel, at the
+// bottom, opened by the Humanizer button in Keith's footer: copy Keith's answer from the chat above,
+// paste it below. (KEITH-HUMANIZER-1 drew it as a second panel beside Keith; the Owner replaced that
+// the same day.) The staff app's Keith hands the panel to KeithChatShell as `dock`; the Residency
+// Portal's Keith does not. The frame is built by src/lib/cleverWidget.js, so no vendor script runs
+// in the app. Keith's panel is white in both themes, so the widget is asked for its light theme.
 import { useEffect, useRef, useState } from 'react';
 import { mountCleverWidget } from '../../lib/cleverWidget';
 import './humanizerPanel.css';
 
 export const HUMANIZER_WIDGET_ID = 'ce82cd4f78e94cfb87275ebf191a9054';
+const DOCK_ID = 'keith-humanizer-dock';
 
-export default function HumanizerPanel({ panelBottom = '96px', panelHeightGap = '160px', onHide }) {
+// The footer button. A toggle: pressed while the widget is open.
+export function HumanizerToggle({ open, onToggle }) {
+  return (
+    <button
+      type="button"
+      className="keith-humanizer-toggle"
+      aria-pressed={open}
+      aria-controls={DOCK_ID}
+      onClick={onToggle}
+    >
+      Humanizer
+    </button>
+  );
+}
+
+export default function HumanizerPanel() {
   const hostRef = useRef(null);
   const [state, setState] = useState('loading');
 
@@ -22,19 +39,7 @@ export default function HumanizerPanel({ panelBottom = '96px', panelHeightGap = 
   }), []);
 
   return (
-    <section
-      className="keith-humanizer"
-      data-keith-companion=""
-      aria-label="Humanizer"
-      style={{ '--kh-bottom': panelBottom, '--kh-gap': panelHeightGap }}
-    >
-      <header className="keith-humanizer-head">
-        <div className="keith-humanizer-title">
-          <span className="keith-humanizer-name">Humanizer</span>
-          <span className="keith-humanizer-by">Clever AI</span>
-        </div>
-        <button type="button" className="keith-humanizer-close" onClick={onHide} aria-label="Hide Humanizer">×</button>
-      </header>
+    <section id={DOCK_ID} className="keith-humanizer" data-keith-dock="" aria-label="Humanizer">
       <p className="keith-humanizer-note">
         Text you paste here is sent to Clever AI, outside ASPIRE. Leave out names and student details.
       </p>

@@ -3532,12 +3532,16 @@ Rules: `src/lib/unitFormResponders.js` (pure). No migration.
   rotation (Owner and Admin; `sig` is the answer, so a dismissed row returns only on a new one); the row
   opens `/aggregate?unitResponse=<unit>`, and the response drawer carries the same note.
 
-## The humanizer opens beside Keith (KEITH-HUMANIZER-1, 2026-11-13)
+## The humanizer opens inside Keith (KEITH-HUMANIZER-2, 2026-11-13)
 
-Owner: the Clever AI humanizer widget appears when Keith is hailed and closes with it. Staff app
-only: `Keith.jsx` hands `HumanizerPanel` (`src/components/keith/`, sheet `humanizerPanel.css`) to
-`KeithChatShell` as `companion`; the Residency Portal's Keith does not. Its × hides it until reload
-and puts a Humanizer button in Keith's head. Below 900px there is no room beside Keith and neither shows.
+Owner: a **Humanizer** button in Keith's footer, between the cohort and the model select, opens the
+Clever AI humanizer widget INSIDE Keith's panel, under the footer: copy Keith's answer from the chat
+above, paste it below. (KEITH-HUMANIZER-1 drew it as a second panel beside Keith for two hours; do
+not bring that back.) Staff app only: `Keith.jsx` hands `HumanizerPanel` (`src/components/keith/`,
+sheet `humanizerPanel.css`) to `KeithChatShell` as `dock` and `HumanizerToggle` to `KeithFooter` as
+`action`; the Residency Portal's Keith passes neither. It starts closed. While it is open the panel
+may grow from 720px to 940px where the window allows, the chat keeps a floor of about 150px, and the
+widget's area gives way and scrolls first.
 
 - **The vendor's script is not loaded.** `src/lib/cleverWidget.js` is their loader, read on
   2026-11-13 and pinned: it builds the sandboxed cross-origin frame and answers its handshake
