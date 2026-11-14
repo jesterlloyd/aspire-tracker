@@ -140,7 +140,7 @@ const ymdText = (ymd) => (ymd ? new Date(`${ymd}T12:00:00`).toLocaleDateString('
 /**
  * Program Budget, the Owner's: annual renewals to decide (AC-RENEW-1), receipts waiting for review
  * (prompt B7), and Personal (Concur) expenses still Recorded 45 days on (Owner, 2026-09-27, from the
- * reimbursement policy's 60 days). Each row carries its own chip: Renew, Review or Submit.
+ * reimbursement policy's deadline). Each row carries its own chip: Renew, Review or Submit.
  */
 export function budgetGroup({ renewals = [], receipts = [], concur = [], missing = [], close = null, now = Date.now() } = {}) {
   // BUDGET-V2 item 13: from the 5th, the month that ended and is still open ("Close September").

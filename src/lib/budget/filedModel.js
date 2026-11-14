@@ -9,12 +9,12 @@
 //   concurState   'open' | 'submitted' | 'reimbursed' | null (null: none of its rows go to Concur)
 //   paid          every row is on the P-card (it never needs Concur)
 //   due           { deadline, daysLeft, timing: 'late' | 'soon' | 'ok' } while concurState is 'open',
-//                 from the ONE 60-day rule (receiptChecks.concurTiming); null otherwise
+//                 from the ONE deadline rule (receiptChecks.concurTiming), with its `days`; null otherwise
 //   submitted_at, reimbursed_at   the stored dates the stamps print
 // Only Personal (Concur) receipts are counted anywhere: a P-card receipt never needs Concur.
 
 import { usd, dateText, fiscalYearRange } from './budgetModel.js'
-import { concurTiming, dueText } from './receiptChecks.js'
+import { concurTiming, dueText, deadlineDays, DEFAULT_DEADLINE_DAYS } from './receiptChecks.js'
 import { monthKey, monthInfo } from './monthClose.js'
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
@@ -137,8 +137,9 @@ export function trackerSteps(r) {
 export function deadlineNote(r) {
   if (filedStage(r) !== 'open' || !r.due) return null
   const d = r.due
-  if (d.timing === 'late') return { tone: 'late', strong: `${-d.daysLeft} ${d.daysLeft === -1 ? 'day' : 'days'} past the 60-day limit.`, text: `It was due ${dateText(d.deadline)}. Concur may ask why it's late.` }
-  return { tone: d.timing === 'soon' ? 'soon' : 'ok', strong: `Submit by ${dateText(d.deadline)}.`, text: `${d.daysLeft === 0 ? 'Due today' : plural(d.daysLeft, 'day') + ' left'} under the 60-day limit.` }
+  const limit = d.days || DEFAULT_DEADLINE_DAYS
+  if (d.timing === 'late') return { tone: 'late', strong: `${-d.daysLeft} ${d.daysLeft === -1 ? 'day' : 'days'} past the ${limit}-day limit.`, text: `It was due ${dateText(d.deadline)}. Concur may ask why it's late.` }
+  return { tone: d.timing === 'soon' ? 'soon' : 'ok', strong: `Submit by ${dateText(d.deadline)}.`, text: `${d.daysLeft === 0 ? 'Due today' : plural(d.daysLeft, 'day') + ' left'} under the ${limit}-day limit.` }
 }
 
 /** The Concur checklist's rows from Keith's saved draft, in Concur's own order. Empty values are left out. */
@@ -183,7 +184,7 @@ const KIND_WORD = { late: 'late', soon: 'due soon', ok: 'on time', submitted: 's
 export const cellWord = (kind) => KIND_WORD[kind] || ''
 const WORST = ['late', 'soon', 'ok', 'submitted', 'reimbursed', 'paid', 'expected']
 
-/** One charge's status: its Concur stage, or how long it has under the ONE 60-day rule. */
+/** One charge's status: its Concur stage, or how long it has under the ONE deadline rule. */
 function chargeKind(e, rule, today) {
   if (e.state === 'expected') return 'expected'
   if (e.payment_method !== 'personal_concur') return 'paid'
@@ -202,7 +203,7 @@ function chargeKind(e, rule, today) {
  */
 export function subscriptionGrid({ subscriptions = [], expenses = [], receipts = [], fy, today, rule = null, all = false } = {}) {
   const range = fiscalYearRange(fy)
-  if (!range || !today) return { months: [], next: null, rows: [], totals: {}, total: 0, late: 0, lateMonths: [], concurMonthly: 0, perYear: 0 }
+  if (!range || !today) return { months: [], next: null, rows: [], totals: {}, total: 0, late: 0, lateMonths: [], concurMonthly: 0, perYear: 0, limitDays: deadlineDays(rule) }
   const upto = today < range.end ? today : range.end
   const months = []
   for (let k = monthKey(range.start); k <= monthKey(upto); k = nextKey(k)) months.push(monthInfo(k))
@@ -238,7 +239,7 @@ export function subscriptionGrid({ subscriptions = [], expenses = [], receipts =
   return {
     months, next, rows, totals, total: money(Object.values(totals).reduce((a, n) => a + n, 0)),
     late: lateCells.length, lateMonths: [...new Map(lateCells.map(m => [m.key, m.name])).values()],
-    concurMonthly, perYear: concurMonthly * 12,
+    concurMonthly, perYear: concurMonthly * 12, limitDays: deadlineDays(rule),
   }
 }
 function nextKey(key) { const [y, m] = key.split('-').map(Number); const t = y * 12 + (m - 1) + 1; return `${Math.floor(t / 12)}-${String((t % 12) + 1).padStart(2, '0')}` }
@@ -248,7 +249,7 @@ export function gridNotes(g) {
   const out = []
   if (g.late) {
     const [first, second] = g.lateMonths
-    out.push({ tone: 'late', strong: `${plural(g.late, 'charge is', 'charges are')} past the 60-day limit.`, text: `Submit ${first} as one report today${second ? `, then ${second}` : ''}.` })
+    out.push({ tone: 'late', strong: `${plural(g.late, 'charge is', 'charges are')} past the ${g.limitDays || DEFAULT_DEADLINE_DAYS}-day limit.`, text: `Submit ${first} as one report today${second ? `, then ${second}` : ''}.` })
   }
   if (g.perYear) out.push({ tone: 'plain', strong: 'Every charge here repeats monthly.', text: `Moving them to Purchasing or a department card would end about ${g.perYear} Concur entries a year.` })
   return out

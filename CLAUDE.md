@@ -1727,6 +1727,34 @@ question about every receipt: has it been submitted to Concur, and is it late? R
 - Stamps and LATE tabs are `aria-hidden`; the chip and the tracker say it in words. Grid cells carry
   their status as text. Swept: light and dark, modal with every branch open, zero failures.
 
+## The reimbursement policy is the November 1, 2026 one (CONCUR-POLICY-2026, 2026-11-13)
+
+The Cedars-Sinai Expense Reimbursement Policy (effective November 1, 2026) replaced the Business
+Expense Reimbursement Policy. The Owner's Concur guide skill had it; the app did not, because the app
+reads its own four copies: the receipt rules (`budget_policy_rules`), the two Keith skills
+(`prepare-concur`, `draft-late-note`), the Knowledge Center entry
+`business-expense-reimbursement-policy-concur` (which is what Prepare for Concur hands Keith), and the
+words on the screens. A policy change updates all four; migration `20261207000000_concur_policy_2026.sql`
+(Owner-gated; checks `db/audit/concur_policy_2026_checks.sql`) carries the first three.
+
+- **The deadline is 90 days, reminder at day 75.** The rule's KEY is still `concur_60_days`: keys
+  never change. Read "the ONE 60-day rule" in RECEIPTS-REDESIGN-1 above as "the ONE deadline rule".
+- **No screen types the number.** `deadlineDays(rule)` in `receiptChecks.js` (fallback
+  `DEFAULT_DEADLINE_DAYS`, 90) and the `days` a `concurTiming` carries are what Filed, the modal, the
+  Subscriptions notes and the late note (`limit_days`) print. `test/concurPolicy2026.test.mjs` fails
+  on a typed "60-day" in the budget screens or models.
+- **Two new checks**: `meal_per_person` (a meal's total over its named attendees above $25 warns;
+  the slip cannot tell an on-site meeting from an off-site retreat, so it never blocks) and
+  `workday_meals` (an info line on every reimbursed meal). Gifts now reads the four eligible occasions.
+- **A prior-policy rule says so.** The announcement does not address tips over 20%, alcohol coding,
+  prior fiscal year approval, catering over $500, software and equipment, logo merchandise or
+  stationery. Those rules stay on, end with "This comes from the prior policy: confirm it in PPM.",
+  and Keith may raise such a point only as an info check, never as current policy. Once the Owner
+  confirms one in PPM, edit its words in Receipt Rules.
+- The Knowledge Center entry keeps its slug; its title is Expense Reimbursement Policy (Concur) and
+  the old title is an alias. The Budget Tracker and Filed-receipts entries still say 60-day until
+  Keith's knowledge check or the Owner revises them (Budget Tracker had a pending revision).
+
 ## One confirmation (CONFIRM-DIALOG-1, 2026-10-01)
 
 The browser's own confirm box ("aspireintelligence.app says") is gone. Every confirmation is

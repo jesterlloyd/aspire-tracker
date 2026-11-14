@@ -6,11 +6,15 @@
 // slip shows is the check Accept enforces.
 //
 // Each check is one line with a tone: 'block' (Accept waits for it), 'warn' (amber), 'info'
-// (blue) or 'ok' (green). Owner decisions, 2026-09-27, from the Cedars-Sinai Business Expense
-// Reimbursement Policy (effective January 1, 2024): only the meals rule blocks; every other rule
-// warns; the reimbursement-only rules (60 days, prior fiscal year) apply to Personal (Concur)
+// (blue) or 'ok' (green). Owner decisions, 2026-09-27: only the meals rule blocks; every other rule
+// warns; the reimbursement-only rules (the deadline, prior fiscal year) apply to Personal (Concur)
 // alone. The rules' words, tones and thresholds are the owner's (budget_policy_rules), and a
 // rule is found here by its key.
+//
+// CONCUR-POLICY-2026 (Owner, 2026-11-13): the rules follow the Cedars-Sinai Expense Reimbursement
+// Policy effective November 1, 2026, which replaced the Business Expense Reimbursement Policy. The
+// deadline is 90 days, not 60. The rule's KEY is still 'concur_60_days' (keys never change; every
+// reader finds it by that name), and no screen types the number: they read `deadlineDays(rule)`.
 
 import { fiscalYearOfDate, fyShort, usd, dateText, daysBetween, currentFiscalYear } from './budgetModel.js'
 import { addDays } from '../rotationCalendarDates.js'
@@ -157,7 +161,7 @@ export function receiptChecks(draft, ctx = {}) {
   if (late && draft.date && today) {
     const days = daysBetween(draft.date, today)
     const deadline = concurDeadline(draft.date, late)
-    policy(late, days >= (Number(late.params?.remind_after_days) || 45), { deadline: dateText(deadline), days: String(days) })
+    policy(late, days >= remindAfterDays(late), { deadline: dateText(deadline), days: String(days), limit: String(deadlineDays(late)) })
   }
 
   const prior = ruleOf('prior_fiscal_year')
@@ -171,6 +175,19 @@ export function receiptChecks(draft, ctx = {}) {
 
   const flagged = (...fs) => draft.lines.some(l => (l.flags || []).some(f => fs.includes(f)))
   policy(ruleOf('alcohol'), flagged('alcohol'))
+  // CONCUR-POLICY-2026: an on-site working meeting or training meal is generally $25 a person. The
+  // slip knows the meal's total and its named attendees, so it can say when the share is over; it
+  // cannot know on-site from an off-site retreat ($150 a person a day), so the rule only warns.
+  const perHead = ruleOf('meal_per_person')
+  if (perHead) {
+    const total = inCats(perHead, ['Meals & Catering']).reduce((a, l) => a + Number(l.amount || 0), 0)
+    const people = (draft.attendees || []).filter(a => String(a?.name || '').trim()).length
+    const limit = Number(perHead.params?.limit) || 25
+    if (total > 0 && people > 0) policy(perHead, total / people > limit, { limit: usd(limit), each: usd(total / people), people: String(people) })
+  }
+  // CONCUR-POLICY-2026: routine workday meals, snacks and coffee are generally not reimbursable. The
+  // slip cannot tell a working meeting from a lunch, so every meal carries the reminder.
+  policy(ruleOf('workday_meals'), inCats(ruleOf('workday_meals'), ['Meals & Catering']).length > 0)
   const cater = ruleOf('catering_over_500')
   if (cater) {
     const limit = Number(cater.params?.limit) || 500
@@ -195,22 +212,27 @@ export function receiptChecks(draft, ctx = {}) {
 }
 
 /**
- * RECEIPTS-REDESIGN-1 (Owner, 2026-10-01): the ONE 60-day rule. The deadline is the expense date plus
- * the owner's `deadline_days` (budget_policy_rules 'concur_60_days', 60 unless changed); a disabled or
- * absent rule means no deadline. Timing: 'late' past it, 'soon' with SOON_DAYS or fewer left, else 'ok'.
- * The check on a slip, the Concur reminder, Keith's Concur draft, the Filed chips and stamps and the
- * Subscriptions grid all read this.
+ * RECEIPTS-REDESIGN-1 (Owner, 2026-10-01): the ONE deadline rule. The deadline is the expense date plus
+ * the owner's `deadline_days` (budget_policy_rules 'concur_60_days'; 90 unless changed, since the
+ * November 1, 2026 policy); a disabled or absent rule means no deadline. Timing: 'late' past it, 'soon'
+ * with SOON_DAYS or fewer left, else 'ok'. The check on a slip, the Concur reminder, Keith's Concur
+ * draft, the Filed chips and stamps and the Subscriptions grid all read this, and every screen that
+ * names the limit prints `deadlineDays(rule)` (or the `days` a timing carries), never a typed number.
  */
 export const SOON_DAYS = 14
+export const DEFAULT_DEADLINE_DAYS = 90
+export const DEFAULT_REMIND_AFTER_DAYS = 75
+export const deadlineDays = (rule) => Number(rule?.params?.deadline_days) || DEFAULT_DEADLINE_DAYS
+export const remindAfterDays = (rule) => Number(rule?.params?.remind_after_days) || DEFAULT_REMIND_AFTER_DAYS
 export function concurDeadline(date, rule) {
   if (!rule || rule.enabled === false || !date) return null
-  return addDays(String(date).slice(0, 10), Number(rule.params?.deadline_days) || 60)
+  return addDays(String(date).slice(0, 10), deadlineDays(rule))
 }
 export function concurTiming(date, rule, today) {
   const deadline = concurDeadline(date, rule)
   if (!deadline || !today) return null
   const daysLeft = daysBetween(today, deadline)
-  return { deadline, daysLeft, timing: daysLeft < 0 ? 'late' : daysLeft <= SOON_DAYS ? 'soon' : 'ok' }
+  return { deadline, daysLeft, days: deadlineDays(rule), timing: daysLeft < 0 ? 'late' : daysLeft <= SOON_DAYS ? 'soon' : 'ok' }
 }
 /** "32 days late", "Due today", "Due in 5 days", "30 days left". */
 export function dueText(t) {
@@ -228,7 +250,7 @@ export function dueText(t) {
  */
 export function concurDue(expenses = [], rule, today) {
   if (!rule || rule.enabled === false || !today) return []
-  const after = Number(rule.params?.remind_after_days) || 45
+  const after = remindAfterDays(rule)
   return expenses
     .filter(e => !e.deleted_at && e.state !== 'expected' && e.payment_method === 'personal_concur' && e.status === 'recorded' && e.date_precision !== 'month' && e.expense_date)
     .map(e => ({ expense: e, age: daysBetween(e.expense_date, today), deadline: concurDeadline(e.expense_date, rule) }))
@@ -238,8 +260,8 @@ export function concurDue(expenses = [], rule, today) {
 }
 
 /**
- * MISSING-RECEIPT-1 (Owner, 2026-09-27; Business Expense Reimbursement Policy p.2: "Amounts greater
- * than $25 require a receipt for reimbursement"). A Personal (Concur) expense over $25, still Recorded
+ * MISSING-RECEIPT-1 (Owner, 2026-09-27; unchanged by the November 1, 2026 policy: every expense over
+ * $25 needs an itemized receipt). A Personal (Concur) expense over $25, still Recorded
  * or Submitted, with no receipt on file. Reimbursement only, like the policy's other reimbursement
  * rules (Owner, 2026-09-27). Reads either expense shape: the server row (receipt_file_id) or the
  * Sheet's (hasReceipt).

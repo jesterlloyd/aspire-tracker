@@ -49,15 +49,16 @@ const guidance = (tone) => JSON.stringify({ report_name: 'ASPIRE Platform Infras
 const keith = (text) => async () => ({ ok: true, text, model: 'm', usage: {} })
 const one = async (db, id) => (await R.filedReceipts(db, { fy: 2027, today: TODAY })).find(x => x.id === id)
 
+// CONCUR-POLICY-2026 (2026-11-13): a timing now carries the rule's own `days`, which the screens print.
 test('a filed receipt says where it is in Concur and whether it is late, from the one 60-day rule', async () => {
   const { db, owner } = await world()
   const sep = await filed(db, owner)
   const jul = await filed(db, owner, { date: '2026-07-01', order: 'A-2' })
   const card = await filed(db, owner, { method: 'p_card', order: 'A-3', vendor: 'Staples' })
   const a = await one(db, sep.id)
-  assert.deepEqual([a.concurState, a.paid, a.due], ['open', false, { deadline: '2026-10-31', daysLeft: 30, timing: 'ok' }])
+  assert.deepEqual([a.concurState, a.paid, a.due], ['open', false, { deadline: '2026-10-31', daysLeft: 30, days: 60, timing: 'ok' }])
   assert.deepEqual([a.submitted_at, a.reimbursed_at, a.policy, a.late_note, a.lateNoteEnabled, a.read_by_keith], [null, null, { enabled: true, confirmed_at: null, confirmed_by: '' }, null, true, true])
-  assert.deepEqual((await one(db, jul.id)).due, { deadline: '2026-08-30', daysLeft: -32, timing: 'late' })
+  assert.deepEqual((await one(db, jul.id)).due, { deadline: '2026-08-30', daysLeft: -32, days: 60, timing: 'late' })
   const p = await one(db, card.id)
   assert.deepEqual([p.concurState, p.paid, p.due], [null, true, null], 'a P-card receipt never needs Concur')
 })

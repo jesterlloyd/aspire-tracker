@@ -6,7 +6,7 @@
 //      status through expense_update, the same field as the Sheet's Stage and its Submitted to Concur
 //      checkbox, so marking it in one place marks it in the others.
 //   2. What to type in Concur: Keith's draft (the prepare-concur skill), made on request and saved on
-//      the receipt, each field with Copy. The amount, the date and the 60-day deadline are the app's.
+//      the receipt, each field with Copy. The amount, the date and the deadline are the app's.
 import { useState } from 'react'
 import { Copy } from 'lucide-react'
 import { budgetStaff } from './budgetApi'
@@ -82,7 +82,7 @@ export default function ReceiptConcur({ receipt: r, notify, onChanged }) {
             {field('Business purpose', g.business_purpose, { multi: true })}
             {g.attendees?.length > 0 && field('Attendees', g.attendees.join('; '), { multi: true })}
             {g.attach?.length > 0 && field('Attach', g.attach.join('; '), { copyable: false, multi: true })}
-            {due && <div className="bud-cc-row"><dt>Submit by</dt><dd><span className={late ? 'bud-cc-late' : undefined}>{dateText(due)}{late ? ' (past the 60 days)' : ''}</span></dd></div>}
+            {due && <div className="bud-cc-row"><dt>Submit by</dt><dd><span className={late ? 'bud-cc-late' : undefined}>{dateText(due)}{late ? ' (past the deadline)' : ''}</span></dd></div>}
           </dl>
           {g.checks?.length > 0 && (
             <ul className="bud-cc-checks">

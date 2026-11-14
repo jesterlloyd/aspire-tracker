@@ -362,7 +362,7 @@ function ReceiptRules({ rules, pcardLast4, notify, onSaved }) {
   return (
     <SurfaceCard className="bud-card">
       <button type="button" className="bud-disclose" aria-expanded={open} onClick={() => setOpen(o => !o)}>
-        <h2>Receipt Rules</h2><small>{rules.filter(r => r.enabled).length} of {rules.length} on · from the Business Expense Reimbursement Policy (effective January 1, 2024)</small>
+        <h2>Receipt Rules</h2><small>{rules.filter(r => r.enabled).length} of {rules.length} on · from the Expense Reimbursement Policy (effective November 1, 2026)</small>
       </button>
       {open && (
         <div className="bud-rules">

@@ -24,8 +24,9 @@ test('the mockup is in the repo, and the screens compute nothing: every figure i
   }
 })
 
+// CONCUR-POLICY-2026 (2026-11-13): the strip prints the rule's number, never a typed 60.
 test('Filed: the strip, the toolbar order, tan holders, white receipts, chips and marks', () => {
-  for (const k of ['Filed in {fyShort(year.fy)}', 'Submitted to Concur', 'Past the 60-day limit', 'Due in the next 14 days']) assert.ok(filed.includes(k), k)
+  for (const k of ['Filed in {fyShort(year.fy)}', 'Submitted to Concur', 'Past the {deadlineDays(rule)}-day limit', 'Due in the next 14 days']) assert.ok(filed.includes(k), k)
   assert.match(read('src/lib/budget/receiptModel.js'), /\{ key: 'month', label: 'Month' \}, \{ key: 'vendor', label: 'Vendor' \}, \{ key: 'status', label: 'Stage' \}, \{ key: 'category', label: 'Category' \}/)
   assert.match(filed, /className="bud-month bud-holder"/)
   assert.match(filed, /className="bud-fcard bud-holder"/)

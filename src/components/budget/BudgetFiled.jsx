@@ -5,7 +5,7 @@
 // docs/mockups/receipts-redesign.html. One drawing in both styles (Owner, 2026-10-01): the manila
 // folders of RECEIPT-ORGANIZER-1 are retired.
 //
-// - A status strip for the fiscal year: filed, submitted to Concur, past the 60-day limit, due in the
+// - A status strip for the fiscal year: filed, submitted to Concur, past the deadline, due in the
 //   next 14 days. Only Personal (Concur) receipts are counted: a P-card receipt never needs Concur.
 // - Group by Month (default), Vendor, Stage or Category. Every folder still starts CLOSED and changing
 //   the grouping closes them all (Owner, 2026-09-27: "I need to open them to launch them"). A closed
@@ -32,6 +32,7 @@ import ReceiptModal, { PaperMark } from './ReceiptModal'
 import { budgetStaff } from './budgetApi'
 import { filedFolders, FILED_GROUPS } from '../../lib/budget/receiptModel'
 import { usd, dateText, fyShort, pacificToday } from '../../lib/budget/budgetModel'
+import { deadlineDays } from '../../lib/budget/receiptChecks'
 import { filedStats, folderSummary, folderChips, stageChips, cardLabel, isLate, isSoon, subscriptionGrid } from '../../lib/budget/filedModel'
 
 const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`
@@ -107,7 +108,7 @@ export default function BudgetFiled({ year, receipts: given, notify, onShowInShe
       <div className="bud-fstats" role="group" aria-label={`Receipts filed in ${fyShort(year.fy)}`}>
         <div className="bud-fstat"><span className="k">Filed in {fyShort(year.fy)}</span><span className="v">{usd(stats.total)}</span><span className="s">{plural(stats.count, 'receipt')}</span></div>
         <div className="bud-fstat"><span className="k">Submitted to Concur</span><span className="v">{stats.submitted} of {stats.concur}</span><Bar pct={stats.pct} label={`${stats.submitted} of ${stats.concur} submitted to Concur`} /></div>
-        <div className={`bud-fstat${stats.late ? ' late' : ''}`}><span className="k">Past the 60-day limit</span><span className="v">{plural(stats.late, 'receipt')}</span><span className="s">{stats.late ? stats.lateWhere : 'Nothing is late'}</span></div>
+        <div className={`bud-fstat${stats.late ? ' late' : ''}`}><span className="k">Past the {deadlineDays(rule)}-day limit</span><span className="v">{plural(stats.late, 'receipt')}</span><span className="s">{stats.late ? stats.lateWhere : 'Nothing is late'}</span></div>
         <div className={`bud-fstat${stats.soon ? ' soon' : ''}`}><span className="k">Due in the next 14 days</span><span className="v">{plural(stats.soon, 'receipt')}</span><span className="s">{stats.soon ? `Next: ${shortDate(stats.soonNext)}` : 'Nothing due soon'}</span></div>
       </div>
 

@@ -14,12 +14,14 @@ const RULE = { key: 'concur_60_days', enabled: true, params: { remind_after_days
 const due = (date) => C.concurTiming(date, RULE, TODAY)
 const rc = (id, date, total, state, extra = {}) => ({ id, date, vendor: id, total, concurState: state, paid: false, due: state === 'open' ? due(date) : null, rows: [{ id: `row-${id}`, row_label: `FY27 row ${id}` }], ...extra })
 
+// CONCUR-POLICY-2026 (2026-11-13): a timing now carries the rule's own `days`, which the screens print.
+// This file's RULE is a 60-day fixture on purpose: the words must follow the rule, whatever its number.
 test('the one 60-day rule: late past the deadline, soon at 14 days or fewer, and no deadline without the rule', () => {
-  assert.deepEqual(due('2026-07-01'), { deadline: '2026-08-30', daysLeft: -32, timing: 'late' })
-  assert.deepEqual(due('2026-08-06'), { deadline: '2026-10-05', daysLeft: 4, timing: 'soon' })
+  assert.deepEqual(due('2026-07-01'), { deadline: '2026-08-30', daysLeft: -32, days: 60, timing: 'late' })
+  assert.deepEqual(due('2026-08-06'), { deadline: '2026-10-05', daysLeft: 4, days: 60, timing: 'soon' })
   assert.equal(due('2026-08-16').timing, 'soon', 'exactly 14 days left is soon')
   assert.equal(due('2026-08-17').timing, 'ok')
-  assert.deepEqual(due('2026-09-01'), { deadline: '2026-10-31', daysLeft: 30, timing: 'ok' })
+  assert.deepEqual(due('2026-09-01'), { deadline: '2026-10-31', daysLeft: 30, days: 60, timing: 'ok' })
   assert.equal(C.concurTiming('2026-07-01', { ...RULE, enabled: false }, TODAY), null)
   assert.equal(C.concurTiming('2026-07-01', null, TODAY), null)
   assert.equal(C.concurDeadline('2026-07-01', { ...RULE, params: { deadline_days: 30 } }), '2026-07-31', 'the owner’s own number of days')
