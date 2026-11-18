@@ -53,3 +53,26 @@
 .apr-add { display: grid; gap: 10px; margin-top: 14px; padding: 12px; border: 1px dashed #cfd4dc; border-radius: var(--aspire-radius-control, 10px); }
 .apr-field { display: grid; gap: 4px; font-size: 12px; font-weight: 600; color: #4b5563; }
 .apr-add-acts { display: flex; justify-content: flex-end; }
+
+/* AP-DOCUMENT-LAYOUT-1: the Document List is one ordered list of the sheet's columns. */
+.apr-cols .apr-col { grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; background: #fff; }
+.apr-cols .apr-col:not(:has(.apr-grip)) { grid-template-columns: minmax(0, 1fr) auto; }
+.apr-col[draggable="true"] { cursor: grab; }
+.apr-col-dragging { opacity: 0.5; }
+.apr-col-hidden .apr-clr-name, .apr-col-hidden .apr-clr-qual { color: #6b7280; }
+.apr-grip { color: #9aa1ad; }
+.apr-col-acts { display: inline-flex; align-items: center; gap: 4px; }
+.apr-icon {
+  display: inline-grid; place-items: center; width: 28px; height: 28px; padding: 0; cursor: pointer;
+  color: #374151; background: #fff; border: 1px solid #dfe3ea; border-radius: var(--aspire-radius-control, 10px);
+}
+.apr-icon:hover:not(:disabled) { background: #f3f4f6; }
+.apr-icon:disabled { opacity: 0.35; cursor: default; }
+.apr-icon:focus-visible { outline: 2px solid #1d4ed8; outline-offset: 2px; }
+.apr-hide { display: inline-flex; align-items: center; gap: 4px; margin-left: 6px; }
+.apr-danger { color: #b42318; margin-left: 6px; }
+.apr-aspire {
+  margin-left: 8px; font-size: 11px; font-weight: 600; color: #1d2567; background: #eceef6;
+  padding: 1px 6px; border-radius: var(--aspire-radius-pill, 999px);
+}
+.apr-hidden-tag { margin-left: 6px; font-size: 11px; padding: 1px 8px; }

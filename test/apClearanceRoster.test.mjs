@@ -88,7 +88,7 @@ test('the summary answers only students the caller\'s scopes admit', async () =>
 
 test('the endpoint serves the summary as a read a preview may make; the screens read it', () => {
   const api = read('api/portal/school-student-records.js')
-  assert.match(api, /const WRITES = new Set\(\['correct', 'item_add', 'item_retire', 'upload_start', 'upload_finish'\]\)/, 'summary is not a write')
+  assert.match(api, /const WRITES = new Set\(\['correct', 'item_add', 'item_retire', 'layout_set', 'upload_start', 'upload_finish'\]\)/, 'summary is not a write') // AP-DOCUMENT-LAYOUT-1 added layout_set
   assert.match(api, /if \(action === 'summary'\)/)
   // AP-DOCUMENTS-TAB-1 (Owner, 2026-11-17): the roster's Clearance column and checklist button moved to
   // the Documents tab, which shows every student's files in one sheet and opens the list from there.
@@ -101,7 +101,8 @@ test('the endpoint serves the summary as a read a preview may make; the screens 
   assert.match(drawer, /action: 'item_add', school_key: school, label, qualifier/)
   assert.match(drawer, /action: 'item_retire', key: item\.key/)
   assert.match(drawer, /confirmDialog\(`Remove \$\{item\.label\}/)
-  assert.match(drawer, /state\.readOnly\s*\n?\s*\? null/, 'a preview removes nothing')
+  // AP-DOCUMENT-LAYOUT-1: every control (move, hide, remove) sits behind !state.readOnly.
+  assert.match(drawer, /\{!state\.readOnly && \(\s*<div className="apr-col-acts">/, 'a preview removes nothing')
   // Nothing on the list is called required (AP-DOCUMENTS-TAB-1).
   assert.doesNotMatch(drawer, />Required</)
 })

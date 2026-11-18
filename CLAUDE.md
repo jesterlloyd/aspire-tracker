@@ -3551,6 +3551,10 @@ document of every student, and documents were only visible one student at a time
 - The Clearance Checklist drawer is the sheet's **Document List** (opened from Documents); At a Glance
   lost its Clearance column and button and points to Documents instead.
 - A school can **delete a draft form** that was never published or sent (`discard`, archived, not removed).
+- **The Document List orders the sheet** (AP-DOCUMENT-LAYOUT-1): up/down and drag on every row; ASPIRE's items are
+  hidden from a school's sheet, never deleted (every school shares them); a school's own items are removed (retired).
+  Saved per school in `school_document_layout` (20261208000000, applied 2026-11-17), rules `applyLayout` / `cleanLayout`.
+  A hidden item still shows on a student's record when a file is on it.
 - Placement Requests' password card says a password comes with each request and to email aspire@cshs.org.
 - Every `InsightsGlance` (the portals' outcomes) carries a note that earlier cohorts are still being
   entered, and its cards drop the graph paper in Classic.

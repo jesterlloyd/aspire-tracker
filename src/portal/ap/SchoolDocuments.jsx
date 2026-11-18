@@ -89,7 +89,7 @@ const EMPTY = []
 function DocumentSheet() {
   const { user } = useAuth()
   const [roster, setRoster] = useState({ status: 'loading', schools: null })
-  const [sheet, setSheet] = useState({ forKey: null, status: 'loading', enabled: true, types: [], cells: {}, readOnly: true })
+  const [sheet, setSheet] = useState({ forKey: null, status: 'loading', enabled: true, types: [], layouts: {}, cells: {}, readOnly: true })
   const [reloadKey, setReloadKey] = useState(0)
   const [sheetTick, setSheetTick] = useState(0)
   const [schoolKey, setSchoolKey] = useState(null)
@@ -130,14 +130,14 @@ function DocumentSheet() {
     getDocumentSheet(ids.split(',')).then(r => {
       if (!live) return
       if (!r.ok) setSheet(s => ({ ...s, forKey: sheetKey, status: 'error' }))
-      else setSheet({ forKey: sheetKey, status: 'ready', enabled: r.data?.enabled !== false, types: r.data?.types || [], cells: r.data?.cells || {}, readOnly: r.data?.readOnly === true })
+      else setSheet({ forKey: sheetKey, status: 'ready', enabled: r.data?.enabled !== false, types: r.data?.types || [], layouts: r.data?.layouts || {}, cells: r.data?.cells || {}, readOnly: r.data?.readOnly === true })
     })
     return () => { live = false }
   }, [ids, sheetKey, roster.status])
 
   const photos = useSchoolStudentPhotos(allStudents)
   const t0 = today()
-  const columns = sheetColumns(sheet.types, school?.school_key)
+  const columns = sheetColumns(sheet.types, school?.school_key, sheet.layouts?.[school?.school_key])
   const counts = columnCounts(columns, students.map(s => s.id), sheet.cells, t0)
   const shown = students.filter(s => {
     const q = query.trim().toLowerCase()

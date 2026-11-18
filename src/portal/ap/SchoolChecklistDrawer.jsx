@@ -2,15 +2,16 @@
 //
 // AP-CLEARANCE-2 (Owner, 2026-11-08): a school's clearance checklist. AP-DOCUMENTS-TAB-1 (2026-11-17):
 // renamed Document List and opened from the Documents tab, where its items are the sheet's columns;
-// nothing on it is called required any more. ASPIRE's base list is shown
-// as required and cannot be changed here; a school adds its own optional items and removes them.
-// Removing an item hides it from the checklist; files already uploaded stay on each record.
+// nothing on it is called required any more. AP-DOCUMENT-LAYOUT-1: one ordered list; ASPIRE's
+// items are hidden from a school's sheet (never deleted), a school's own items are removed (retired),
+// and every row moves. Files already uploaded stay on each record either way.
 // The same drawer shell as the student record (ptl-drawer, apr-*). An Owner/Admin preview reads.
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { X } from 'lucide-react'
+import { X, ChevronUp, ChevronDown, GripVertical, EyeOff, Eye } from 'lucide-react'
 import { getSchoolStudentRecord, postSchoolStudentRecord } from './academicPartnerApi'
 import { LoadingState, ErrorState } from '../unit/UnitLeaderChrome'
 import { confirmDialog } from '../../components/shared/confirmDialog'
+import { applyLayout, moveKey, dropKey } from '../../lib/ap/documentSheet'
 import './schoolStudentDrawer.css'
 
 const FOCUSABLE = 'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
@@ -66,7 +67,7 @@ function AddItem({ schools, defaultSchool, onAdded }) {
 export default function SchoolChecklistDrawer({ schoolKey, onClose, onChanged, returnFocusRef }) {
   const panelRef = useRef(null)
   const closeRef = useRef(null)
-  const [state, setState] = useState({ status: 'loading', base: [], items: [], schools: [], enabled: true, readOnly: true })
+  const [state, setState] = useState({ status: 'loading', base: [], items: [], schools: [], layouts: {}, layoutEnabled: false, enabled: true, readOnly: true })
   const [notice, setNotice] = useState(null)
   const [reloadKey, setReloadKey] = useState(0)
   const reload = useCallback(() => setReloadKey(k => k + 1), [])
@@ -76,7 +77,7 @@ export default function SchoolChecklistDrawer({ schoolKey, onClose, onChanged, r
     getSchoolStudentRecord('items').then(r => {
       if (!live) return
       if (!r.ok) setState(s => ({ ...s, status: 'error' }))
-      else setState({ status: 'ready', base: r.data.base || [], items: r.data.items || [], schools: r.data.schools || [], enabled: r.data.enabled !== false, readOnly: r.data.readOnly === true })
+      else setState({ status: 'ready', base: r.data.base || [], items: r.data.items || [], schools: r.data.schools || [], layouts: r.data.layouts || {}, layoutEnabled: r.data.layoutEnabled === true, enabled: r.data.enabled !== false, readOnly: r.data.readOnly === true })
     })
     return () => { live = false }
   }, [reloadKey])
@@ -110,8 +111,36 @@ export default function SchoolChecklistDrawer({ schoolKey, onClose, onChanged, r
     reload(); onChanged?.()
   }
 
-  const showSchool = state.schools.length > 1
-  const ownItems = state.items
+  // AP-DOCUMENT-LAYOUT-1 (Owner, 2026-11-17): one ordered list, the sheet's columns. Every row moves up
+  // or down (or is dragged); ASPIRE's items are hidden from this school's sheet, never deleted, because
+  // every school shares that list; a school's own items are removed. Each change saves at once.
+  const school = state.schools.includes(schoolKey) ? schoolKey : state.schools[0]
+  const types = [
+    ...state.base.map(b => ({ ...b, school_key: null })),
+    ...state.items.filter(i => i.school_key === school),
+  ]
+  const rows = applyLayout(types, state.layouts[school])
+  const canArrange = !state.readOnly && state.layoutEnabled && Boolean(school)
+  const [dragKey, setDragKey] = useState(null)
+
+  const save = async (next, message) => {
+    const prev = state.layouts[school]
+    setState(st => ({ ...st, layouts: { ...st.layouts, [school]: next } }))
+    const r = await postSchoolStudentRecord({ action: 'layout_set', school_key: school, order: next.map(n => n.key), hidden: next.filter(n => n.hidden).map(n => n.key) })
+    if (!r.ok) {
+      setState(st => ({ ...st, layouts: { ...st.layouts, [school]: prev } }))
+      setNotice({ tone: 'err', text: r.error === 'not_enabled' ? 'Arranging columns is not set up yet.' : 'That change could not be saved.' })
+      return
+    }
+    if (message) setNotice({ tone: 'ok', text: message })
+    onChanged?.()
+  }
+  const asLayout = (keys, list = rows) => keys.map(k => ({ key: k, hidden: list.find(x => x.key === k)?.hidden === true }))
+  const keys = rows.map(r => r.key)
+  const move = (key, by) => { const next = moveKey(keys, key, by); if (next !== keys) save(asLayout(next)) }
+  const drop = (onto) => { if (!dragKey) return; const next = dropKey(keys, dragKey, onto); setDragKey(null); if (next !== keys) save(asLayout(next)) }
+  const toggleHidden = (row) => save(rows.map(r => ({ key: r.key, hidden: r.key === row.key ? !row.hidden : r.hidden === true })),
+    row.hidden ? `${row.label} shows on your sheet again.` : `${row.label} is hidden from your sheet. Files already on a record stay there.`)
 
   return (
     <>
@@ -122,7 +151,7 @@ export default function SchoolChecklistDrawer({ schoolKey, onClose, onChanged, r
         </button>
         <div className="ptl-detail-hero">
           <h2 className="ptl-detail-heroname">Document List</h2>
-          <p className="ptl-detail-heroschool">The columns on your Documents sheet</p>
+          <p className="ptl-detail-heroschool">The columns on your Documents sheet{state.schools.length > 1 && school ? `, for ${school}` : ''}</p>
         </div>
         <div className="ptl-drawer-body">
           {state.status === 'loading' && <LoadingState label="Loading the document list" />}
@@ -132,45 +161,65 @@ export default function SchoolChecklistDrawer({ schoolKey, onClose, onChanged, r
             <>
               {state.readOnly && <p className="apr-preview">Staff preview: read-only.</p>}
               {notice && <p className={notice.tone === 'err' ? 'apr-error' : 'apr-note'} role="status">{notice.text}</p>}
-              <section className="apr-section" aria-labelledby="apr-base-h">
-                <h3 id="apr-base-h" className="ptl-detail-heading">ASPIRE&apos;s List</h3>
-                <p className="apr-lede">Documents Cedars-Sinai may ask for. Upload what you have; not every student needs every one, and the ASPIRE team will tell you if one is needed. The ASPIRE team keeps this list.</p>
-                <ul className="apr-clr">
-                  {state.base.map(b => (
-                    <li key={b.key} className="apr-clr-row">
-                      <div className="apr-clr-main">
-                        <span className="apr-clr-name">{b.label}</span>
-                        {b.qualifier && <span className="apr-clr-qual">{b.qualifier}</span>}
-                      </div>
-                    </li>
-                  ))}
+              <section className="apr-section" aria-labelledby="apr-cols-h">
+                <h3 id="apr-cols-h" className="ptl-detail-heading">Columns</h3>
+                <p className="apr-lede">
+                  In the order they appear on your sheet. ASPIRE&apos;s items are documents Cedars-Sinai may ask for; the ASPIRE
+                  team keeps them for every school, so you can hide one your program does not collect but not delete it.
+                  Items your school added can be removed.
+                </p>
+                {!state.readOnly && !state.layoutEnabled && <p className="apr-note">Reordering and hiding columns is being set up and will be available soon.</p>}
+                <ul className="apr-clr apr-cols">
+                  {rows.map((row, i) => {
+                    const own = row.school_key != null
+                    return (
+                      <li key={row.key}
+                        className={`apr-clr-row apr-col${row.hidden ? ' apr-col-hidden' : ''}${dragKey === row.key ? ' apr-col-dragging' : ''}`}
+                        draggable={canArrange}
+                        onDragStart={canArrange ? (e) => { setDragKey(row.key); e.dataTransfer.effectAllowed = 'move' } : undefined}
+                        onDragOver={canArrange ? (e) => e.preventDefault() : undefined}
+                        onDrop={canArrange ? (e) => { e.preventDefault(); drop(row.key) } : undefined}
+                        onDragEnd={() => setDragKey(null)}>
+                        {canArrange && <GripVertical size={16} className="apr-grip" aria-hidden="true" />}
+                        <div className="apr-clr-main">
+                          <span className="apr-clr-name">
+                            {row.label}
+                            <span className={own ? 'apr-own' : 'apr-aspire'}>{own ? 'Your school' : 'ASPIRE'}</span>
+                            {row.hidden && <span className="apr-pill apr-pill-mute apr-hidden-tag">Hidden</span>}
+                          </span>
+                          {row.qualifier && <span className="apr-clr-qual">{row.qualifier}</span>}
+                        </div>
+                        {!state.readOnly && (
+                          <div className="apr-col-acts">
+                            {canArrange && (
+                              <>
+                                <button type="button" className="apr-icon" disabled={i === 0} onClick={() => move(row.key, -1)} aria-label={`Move ${row.label} up`}><ChevronUp size={16} aria-hidden="true" /></button>
+                                <button type="button" className="apr-icon" disabled={i === rows.length - 1} onClick={() => move(row.key, 1)} aria-label={`Move ${row.label} down`}><ChevronDown size={16} aria-hidden="true" /></button>
+                              </>
+                            )}
+                            {own
+                              ? <button type="button" className="apr-link apr-danger" onClick={() => remove(row)}>Remove</button>
+                              : canArrange && (
+                                <button type="button" className="apr-link apr-hide" onClick={() => toggleHidden(row)} aria-label={`${row.hidden ? 'Show' : 'Hide'} ${row.label}`}>
+                                  {row.hidden ? <Eye size={14} aria-hidden="true" /> : <EyeOff size={14} aria-hidden="true" />}
+                                  {row.hidden ? 'Show' : 'Hide'}
+                                </button>
+                              )}
+                          </div>
+                        )}
+                      </li>
+                    )
+                  })}
                 </ul>
               </section>
-              <section className="apr-section" aria-labelledby="apr-own-h">
-                <h3 id="apr-own-h" className="ptl-detail-heading">Your School&apos;s Items</h3>
-                <p className="apr-lede">Anything else your own program collects. Each item becomes a column on your Documents sheet and shows on each student&apos;s record.</p>
-                {ownItems.length === 0
-                  ? <p className="ptl-muted">No items of your own yet.</p>
-                  : (
-                    <ul className="apr-clr">
-                      {ownItems.map(i => (
-                        <li key={i.key} className="apr-clr-row">
-                          <div className="apr-clr-main">
-                            <span className="apr-clr-name">{i.label}{showSchool && <span className="apr-own">{i.school_key}</span>}</span>
-                            {i.qualifier && <span className="apr-clr-qual">{i.qualifier}</span>}
-                          </div>
-                          {state.readOnly
-                            ? null
-                            : <button type="button" className="apr-link" onClick={() => remove(i)}>Remove</button>}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                {!state.readOnly && state.schools.length > 0 && (
+              {!state.readOnly && state.schools.length > 0 && (
+                <section className="apr-section" aria-labelledby="apr-add-h">
+                  <h3 id="apr-add-h" className="ptl-detail-heading">Add a Column</h3>
+                  <p className="apr-lede">Anything else your own program collects. It becomes a column on your sheet and shows on each student&apos;s record.</p>
                   <AddItem schools={state.schools} defaultSchool={schoolKey}
                     onAdded={(label) => { setNotice({ tone: 'ok', text: `${label} added. It is now a column on your Documents sheet.` }); reload(); onChanged?.() }} />
-                )}
-              </section>
+                </section>
+              )}
             </>
           )}
         </div>

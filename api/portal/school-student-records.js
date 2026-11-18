@@ -10,6 +10,7 @@
 //   POST { action: 'sheet', student_ids }    the Documents tab: the list and every current file
 //   POST { action: 'correct', student_id, field, value, apply_to_cohort }
 //   POST { action: 'item_add', school_key, label, qualifier } / { action: 'item_retire', key }
+//   POST { action: 'layout_set', school_key, order: [keys], hidden: [keys] }  the sheet's column order
 //   POST { action: 'upload_start' | 'upload_finish', student_id, doc_type, ... }
 //   POST { action: 'open', version_id }
 //
@@ -20,11 +21,11 @@ import {
   verifyPortalAcademicPartnerCaller,
 } from '../lib/schoolScope.js'
 import {
-  loadSchoolProfile, correctAnswer, loadClearance, loadClearanceSummaries, loadDocumentSheet, loadSchoolItems, addSchoolItem, retireSchoolItem,
+  loadSchoolProfile, correctAnswer, loadClearance, loadClearanceSummaries, loadDocumentSheet, loadSchoolItems, addSchoolItem, retireSchoolItem, setSchoolLayout,
   startClearanceUpload, finishClearanceUpload, openClearanceVersion,
 } from '../../lib/server/schoolStudentRecords.js'
 
-const WRITES = new Set(['correct', 'item_add', 'item_retire', 'upload_start', 'upload_finish'])
+const WRITES = new Set(['correct', 'item_add', 'item_retire', 'layout_set', 'upload_start', 'upload_finish'])
 
 export function createSchoolStudentRecordsHandler({ verifyCaller = verifyPortalAcademicPartnerCaller } = {}) {
   return async function handler(req, res) {
@@ -93,6 +94,7 @@ export function createSchoolStudentRecordsHandler({ verifyCaller = verifyPortalA
       }
       if (action === 'item_add') return send(await addSchoolItem(db, scopes, { schoolKey: body.school_key, label: body.label, qualifier: body.qualifier, actorId: profile.id }))
       if (action === 'item_retire') return send(await retireSchoolItem(db, scopes, { key: body.key }))
+      if (action === 'layout_set') return send(await setSchoolLayout(db, scopes, { schoolKey: body.school_key, order: body.order, hidden: body.hidden, actorId: profile.id, nowIso }))
       if (action === 'upload_start') return send(await startClearanceUpload(db, storage, scopes, { studentId: body.student_id, docType: body.doc_type, fileName: body.file_name, size: body.size }))
       if (action === 'upload_finish') {
         const r = await finishClearanceUpload(db, storage, scopes, {

@@ -128,3 +128,54 @@ test('a school deletes only a draft that was never published or sent; it is arch
   await assert.rejects(schoolFormAction(mk({ id: F, status: 'draft', current_version: 0 }, 2), { action: 'discard', id: F }, { scopes, act: () => {} }), /was sent/)
   await assert.rejects(schoolFormAction(mk({ id: F, status: 'draft', current_version: 0 }, 0), { action: 'discard', id: F }, { scopes, staffPreview: true, act: () => {} }), /read-only/)
 })
+
+// AP-DOCUMENT-LAYOUT-1 (Owner, 2026-11-17): the Document List orders the sheet's columns, hides
+// ASPIRE's items (a school never deletes one) and removes a school's own.
+import { applyLayout, moveKey, dropKey, cleanLayout } from '../src/lib/ap/documentSheet.js'
+import { setSchoolLayout } from '../lib/server/schoolStudentRecords.js'
+
+test('a saved layout orders and hides; an unnamed item keeps its place at the end', () => {
+  const types = sheetColumns(TYPES, 'UCLA').map(c => ({ key: c.key, school_key: c.own ? 'UCLA' : null }))
+  const out = applyLayout(types, [{ key: 'sc_ucla' }, { key: 'clr_tb', hidden: true }])
+  assert.deepEqual(out.map(t => t.key), ['sc_ucla', 'clr_tb', 'clr_background'])
+  assert.equal(out[1].hidden, true)
+  assert.deepEqual(sheetColumns(TYPES, 'UCLA', [{ key: 'clr_tb', hidden: true }]).map(c => c.key), ['clr_background', 'sc_ucla'])
+  assert.deepEqual(moveKey(['a', 'b', 'c'], 'c', -1), ['a', 'c', 'b'])
+  assert.deepEqual(moveKey(['a', 'b'], 'a', -1), ['a', 'b'])
+  assert.deepEqual(dropKey(['a', 'b', 'c'], 'a', 'c'), ['b', 'c', 'a'])
+  assert.deepEqual(dropKey(['a', 'b', 'c'], 'c', 'a'), ['c', 'a', 'b'])
+})
+
+test('a layout names only keys the school can see, once, and hides only ASPIRE items', () => {
+  const allowed = TYPES.filter(t => t.school_key == null || t.school_key === 'UCLA')
+  assert.deepEqual(cleanLayout(['sc_ucla', 'clr_tb'], ['clr_tb', 'sc_ucla'], allowed).layout,
+    [{ key: 'sc_ucla', hidden: false }, { key: 'clr_tb', hidden: true }])
+  assert.equal(cleanLayout(['sc_csun'], [], allowed).error, 'invalid_layout')
+  assert.equal(cleanLayout(['clr_tb', 'clr_tb'], [], allowed).error, 'invalid_layout')
+  assert.equal(cleanLayout('x', [], allowed).error, 'invalid_layout')
+})
+
+test('a school saves only its own layout', async () => {
+  const writes = []
+  const db = {
+    from(table) {
+      const rows = table === 'student_document_types' ? TYPES.map((t, i) => ({ ...t, active: true, checklist: 'clearance', sort_order: i })) : []
+      let r = rows
+      const q = {
+        select() { return q }, order() { return q },
+        eq(k, v) { r = r.filter(x => x[k] === v); return q },
+        upsert(v) { writes.push(v); return Promise.resolve({ error: null }) },
+        then(res, rej) { return Promise.resolve({ data: r, error: null }).then(res, rej) },
+      }
+      return q
+    },
+  }
+  const scopes = [{ school_key: 'UCLA', cohort_id: null }]
+  assert.equal((await setSchoolLayout(db, scopes, { schoolKey: 'CSUN', order: [], hidden: [] })).error, 'forbidden')
+  assert.equal((await setSchoolLayout(db, scopes, { schoolKey: 'UCLA', order: ['sc_csun'], hidden: [] })).error, 'invalid_layout')
+  const ok = await setSchoolLayout(db, scopes, { schoolKey: 'UCLA', order: ['clr_background', 'clr_tb'], hidden: ['clr_tb'], actorId: 'p', nowIso: 'now' })
+  assert.equal(ok.ok, true)
+  assert.deepEqual(writes[0].map(w => [w.doc_type, w.sort_order, w.hidden]), [['clr_background', 0, false], ['clr_tb', 1, true]])
+  const api = read('api/portal/school-student-records.js')
+  assert.match(api, /const WRITES = new Set\([^)]*'layout_set'/, 'a preview cannot save a layout')
+})
