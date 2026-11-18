@@ -5,14 +5,14 @@
 //   Profile: what the student answered on the intake form, as the server shapes it
 //     (src/lib/ap/schoolStudentProfile.js). School email, GPA and expected graduation can be
 //     corrected; the student's own answer is kept and shown beside a correction.
-//   Clearance Documents: the school uploads the student's clearance files. Filed, no review.
+//   Documents: the school uploads the student's files. Filed, no review. (Also on the Documents tab.)
 // An Owner/Admin preview reads and never writes.
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { X } from 'lucide-react'
 import { getSchoolStudentRecord, postSchoolStudentRecord, uploadClearanceFile } from './academicPartnerApi'
 import { LoadingState, ErrorState } from '../unit/UnitLeaderChrome'
 import { CORRECTABLE, CORRECTION_ERRORS } from '../../lib/ap/schoolStudentProfile'
-import { clearanceSummary, isExpired } from '../../lib/ap/clearanceChecklist'
+import { isExpired } from '../../lib/ap/clearanceChecklist'
 import { validatePick, acceptFor } from '../../lib/documents/documentChecklist'
 import { confirmDialog } from '../../components/shared/confirmDialog'
 import { getStudentPreferredFullName } from '../../lib/studentNameFormatters'
@@ -135,7 +135,7 @@ const UPLOAD_ERRORS = {
   invalid_type: 'That file type is not accepted.', too_large: 'That file is over 10 MB.',
   same_file: 'That is the same file already on record.', date_required: 'Enter the date first.',
   date_unconfirmed: 'Confirm the date against the file.', preview_read_only: 'Staff previews are read-only.',
-  not_enabled: 'Clearance documents are not set up yet.',
+  not_enabled: 'Documents are not set up yet.',
 }
 
 function ClearanceRow({ row, studentId, readOnly, onDone }) {
@@ -145,8 +145,10 @@ function ClearanceRow({ row, studentId, readOnly, onDone }) {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState(null)
   const expired = isExpired(row, today())
-  const status = row.current ? (expired ? 'Expired' : 'On file') : (row.required ? 'Missing' : 'Not on file')
-  const tone = row.current ? (expired ? 'warn' : 'ok') : (row.required ? 'bad' : 'mute')
+  // AP-PORTAL-CLARITY-1 (Owner, 2026-11-17): Cedars-Sinai does not require every document of every
+  // student, so nothing here reads "Missing". A document is on file, expired, or not on file.
+  const status = row.current ? (expired ? 'Expired' : 'On file') : 'Not on file'
+  const tone = row.current ? (expired ? 'warn' : 'ok') : 'mute'
   const pick = async (file) => {
     setErr(null)
     const problem = validatePick(row.key, file)
@@ -226,18 +228,18 @@ function ClearanceSection({ studentId, readOnly }) {
     })
     return () => { live = false }
   }, [studentId, reloadKey])
-  const sum = clearanceSummary(state.rows)
+  const onFile = state.rows.filter(r => r.current).length
   return (
     <section className="apr-section" aria-labelledby="apr-clr-h">
-      <h3 id="apr-clr-h" className="ptl-detail-heading">Clearance Documents</h3>
-      {state.forId !== studentId || state.status === 'loading' ? <LoadingState label="Loading clearance documents" />
-        : state.status === 'error' ? <ErrorState detail="The clearance documents could not be loaded just now." />
-        : !state.enabled ? <p className="ptl-muted">Clearance documents are not set up yet.</p>
+      <h3 id="apr-clr-h" className="ptl-detail-heading">Documents</h3>
+      {state.forId !== studentId || state.status === 'loading' ? <LoadingState label="Loading documents" />
+        : state.status === 'error' ? <ErrorState detail="The documents could not be loaded just now." />
+        : !state.enabled ? <p className="ptl-muted">Documents are not set up yet.</p>
         : (
           <>
             <p className="apr-lede">
-              {sum.required ? `${sum.onFile} of ${sum.required} required on file.` : 'No required documents.'}
-              {' '}Files you upload are filed on the student's record for the ASPIRE team.
+              {onFile} of {state.rows.length} on file. Upload what you have, or what your school requires; not every
+              student needs every document. The ASPIRE team sees what you upload on the student&apos;s record.
             </p>
             <ul className="apr-clr">
               {state.rows.map(row => <ClearanceRow key={row.key} row={row} studentId={studentId} readOnly={readOnly} onDone={load} />)}

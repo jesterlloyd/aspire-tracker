@@ -95,8 +95,7 @@ export default function PlacementRequestsView({ onNavigate }) {
         name="Placement Requests"
         meta={<>
           Submit your school's ASPIRE placement requests here. After you submit, follow each
-          student's status, unit and preceptor assignment, rotation dates, and hours in the Students
-          tab.
+          student's status, unit and preceptor assignment, rotation dates, and hours in At a Glance.
         </>}
         actions={(
           <button type="button" className="ptl-btn-outline ptl-btn-sm ptl-plr-new" onClick={() => onNavigate?.('students')}>
@@ -277,7 +276,12 @@ function NewPlacementRequest({ schoolKey, existingRequests, cohortId, cohortName
       <div className="ptl-plr-gate-center">
         <CohortAccessCard
           title="School Coordinator Access"
-          intro={<>Enter the cohort password provided by the ASPIRE team to open the request form for {cohortName}.</>}
+          intro={<>
+            The ASPIRE team sends a password with each request for placements. Enter the one for {cohortName} to open the form.
+            <span className="ptl-plr-gate-help">
+              Ready to submit but don&apos;t have the password? Email <a href="mailto:aspire@cshs.org">aspire@cshs.org</a> and we&apos;ll send it.
+            </span>
+          </>}
           value={pwdInput}
           onChange={e => { setPwdInput(e.target.value); setPwdError(null) }}
           onSubmit={verifyPassword}

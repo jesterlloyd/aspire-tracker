@@ -54,3 +54,4 @@
 }
 .apf-toast-err { background: var(--aspire-bad); }
 @media (max-width: 760px) { .apf-toast { bottom: 84px; } }
+.apf-delete { color: #b42318; }

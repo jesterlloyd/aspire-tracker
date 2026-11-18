@@ -25,11 +25,13 @@ test('the Academic Partner branch renders the shared Nightfall shell', () => {
   assert.match(apBranch, /headerVariant="nightfall" logoSrc="\/cs-logo-large\.png"/)
   assert.match(apBranch, /publicSiteUrl="https:\/\/aspireintelligence\.app"/)
   assert.match(apBranch, /nav=\{<AcademicPartnerNav view=\{apView\} onNavigate=\{goApSection\} \/>\}/)
-  assert.match(apBranch, /<AcademicPartnerPortal view=\{apView\} onNavigate=\{goApSection\} schoolKeys=\{access\?\.school_keys \|\| \[\]\}[\s\S]*?threadId=\{apThreadId\} onSelectThread=\{openApThread\} onBackToList=\{apBackToList\}\s+formId=\{apForm\?\.\[1\] \|\| null\} formMode=\{apForm\?\.\[2\] \|\| 'list'\} onOpenForm=\{openApForm\} onFormsList=\{apFormsList\} \/>/) // AP-SCHOOL-FORMS-1 added the form route props
+  assert.match(apBranch, /<AcademicPartnerPortal view=\{apView\} onNavigate=\{goApSection\} schoolKeys=\{access\?\.school_keys \|\| \[\]\}[\s\S]*?threadId=\{apThreadId\} onSelectThread=\{openApThread\} onBackToList=\{apBackToList\}\s+formId=\{apForm\?\.\[1\] \|\| null\} formMode=\{apForm\?\.\[2\] \|\| 'list'\} onOpenForm=\{openApForm\} onFormsList=\{apFormsList\}\s+docTab=\{apDocTab\} onDocTab=\{goApDocTab\} \/>/) // AP-SCHOOL-FORMS-1 added the form route props; AP-DOCUMENTS-TAB-1 the Documents tab
 })
 
 test('the three sections are stable URL routes; /portal resolves to Students', () => {
-  assert.match(app, /const AP_SECTIONS = new Set\(\['students', 'placement-requests', 'forms', 'messages'\]\)/) // AP-SCHOOL-FORMS-1 added Forms
+  assert.match(app, /const AP_SECTIONS = new Set\(\['students', 'placement-requests', 'documents', 'messages'\]\)/) // AP-DOCUMENTS-TAB-1: Documents replaced Forms
+  // The /portal/ap/forms paths still resolve, now under Documents.
+  assert.match(app, /if \(\/\^\\\/portal\\\/ap\\\/forms\(\\\/\|\$\)\/\.test\(pathname\)\) return 'documents'/)
   // apViewFromPath: a valid /portal/ap/<section> resolves to that section, else Students (default).
   assert.match(app, /function apViewFromPath\(pathname\) \{[\s\S]*?return 'students'\s*\n\}/)
   assert.match(app, /const apView = apViewFromPath\(location\.pathname\)/)
@@ -57,7 +59,7 @@ test('AcademicPartnerNav is exactly At a Glance, Placement Requests, Messages', 
 test('the three sections route: Students roster, Placement Requests workspace, Messages prepared', () => {
   const code = stripJs(portal)
   // 7bab66f5 (Unify staff and portal command search) added onCommandPeople: the roster feeds the header search.
-  assert.match(portal, /export default function AcademicPartnerPortal\(\{ view = 'students', onNavigate, messagesEnabled = false, threadId, onSelectThread, onBackToList, onCommandPeople, formId = null, formMode = 'list', onOpenForm, onFormsList \}\)/) // AP-SCHOOL-FORMS-1
+  assert.match(portal, /export default function AcademicPartnerPortal\(\{ view = 'students', onNavigate, messagesEnabled = false, threadId, onSelectThread, onBackToList, onCommandPeople, formId = null, formMode = 'list', onOpenForm, onFormsList, docTab = 'students', onDocTab \}\)/) // AP-SCHOOL-FORMS-1; AP-DOCUMENTS-TAB-1
   assert.match(portal, /if \(view === 'placement-requests'\)/)
   assert.match(portal, /if \(view === 'messages'\)/)
   // Placement Requests is now the live workspace; Messages stays an honest prepared state.
@@ -66,8 +68,9 @@ test('the three sections route: Students roster, Placement Requests workspace, M
   assert.match(portal, /import \{[^}]*\bEmptyState\b[^}]*\} from '\.\/unit\/UnitLeaderChrome'/)
   assert.match(portal, /being prepared and is not active yet/)  // Messages prepared state (flag off)
   // Students still renders the roster (StudentsView). 7bab66f5 hands it onCommandPeople for the header search.
-  assert.match(code, /return <StudentsView onCommandPeople=\{onCommandPeople\} \/>/)
-  assert.match(code, /function StudentsView\(\{ onCommandPeople \}\)/)
+  // AP-DOCUMENTS-TAB-1: the roster also gets onNavigate, for its Open Documents button.
+  assert.match(code, /return <StudentsView onCommandPeople=\{onCommandPeople\} onNavigate=\{onNavigate\} \/>/)
+  assert.match(code, /function StudentsView\(\{ onCommandPeople, onNavigate \}\)/)
   // No fake data, no drawer, no On Campus Now, no Needs Attention on the students surface.
   assert.doesNotMatch(code, /OnCampusNow|NeedsAttention|StudentDetailDrawer|ptl-detail-drawer/)
 })

@@ -591,6 +591,12 @@ function getAcademicPartnerSteps(userProfile, apMessagesEnabled) {
       // is exclusively for submitting NEW requests; no tracking claim here.
       content: 'Submit new placement requests for your students here. This tab is just for sending a new request; everything you have submitted is tracked on At a Glance.',
     },
+    {
+      // AP-DOCUMENTS-TAB-1: Documents replaced Forms in the nav.
+      target: '[data-tour="portal-nav-documents"]',
+      title: 'Documents',
+      content: "Every student's documents in one sheet. Upload what you have, or what your school requires, right from each row. Your school's own forms are here too.",
+    },
   ];
 
   if (apMessagesEnabled === true) {

@@ -82,6 +82,13 @@ export const getSchoolStudentRecord = (action, studentId, signal) =>
 export const getClearanceSummaries = (studentIds) =>
   apiFetch('/api/portal/school-student-records', { method: 'POST', body: { action: 'summary', student_ids: studentIds } })
 
+/** AP-DOCUMENTS-TAB-1: the Documents sheet for these students (a read, sent as a body). */
+export const getDocumentSheet = (studentIds) =>
+  apiFetch('/api/portal/school-student-records', { method: 'POST', body: { action: 'sheet', student_ids: studentIds } })
+
+/** The school's roster (the same read At a Glance makes): { schools: [{ school_key, cohorts, students }] }. */
+export const getSchoolStudents = (signal) => apiFetch('/api/portal/school-students', { method: 'GET', signal })
+
 /** A write: correct, item_add, item_retire, upload_start, upload_finish, open. */
 export const postSchoolStudentRecord = (body) =>
   apiFetch('/api/portal/school-student-records', { method: 'POST', body })

@@ -6,6 +6,7 @@ import {
   ClipboardList,
   ContactRound,
   FileText,
+  FolderOpen,
   HandCoins,
   ChartNoAxesCombined,
   Handshake,
@@ -38,6 +39,7 @@ export const NAV_LABELS = Object.freeze({
   preceptors: 'Preceptors',
   placementRequests: 'Placement Requests',
   forms: 'Forms',   // AP-SCHOOL-FORMS-1: an Academic Partner's own forms
+  documents: 'Documents',   // AP-DOCUMENTS-TAB-1: an Academic Partner's student documents (and its forms)
   capacity: 'Capacity',
   communityBenefit: 'Community Benefit',
   contacts: 'Contacts',
@@ -62,6 +64,7 @@ export const NAV_ICONS = Object.freeze({
   preceptors: UserCheck,
   placementRequests: ClipboardList,
   forms: FileText,
+  documents: FolderOpen,
   capacity: CalendarRange,
   communityBenefit: HandCoins,
   contacts: ContactRound,

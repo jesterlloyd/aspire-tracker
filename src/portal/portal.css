@@ -1309,6 +1309,9 @@
 /* The cohort-access gate is centered in the workspace (below the page heading + Nightfall header),
    converging with the public /school-form access card. Once access succeeds the form uses full width. */
 .ptl-plr-gate-center { display: flex; justify-content: center; padding: 32px 16px 48px; }
+/* AP-PORTAL-CLARITY-1: who to ask for the password, under the card's intro. */
+.ptl-plr-gate-help { display: block; margin-top: 10px; }
+.ptl-plr-gate-help a { color: inherit; font-weight: 600; text-decoration: underline; }
 @media (max-width: 640px) {
   .ptl-plr-row-2, .ptl-plr-row-3 { grid-template-columns: 1fr; }
 }

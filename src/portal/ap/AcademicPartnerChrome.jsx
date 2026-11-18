@@ -16,8 +16,9 @@ import { NAV_ICONS, NAV_LABELS } from '../../lib/navigationCanon'
 const SECTIONS = [
   { key: 'students',           label: NAV_LABELS.atAGlance,         Icon: NAV_ICONS.atAGlance },
   { key: 'placement-requests', label: NAV_LABELS.placementRequests, Icon: NAV_ICONS.placementRequests },
-  // AP-SCHOOL-FORMS-1: the school's own forms, sent to its own students.
-  { key: 'forms',              label: NAV_LABELS.forms,             Icon: NAV_ICONS.forms },
+  // AP-DOCUMENTS-TAB-1 (Owner, 2026-11-17): Documents replaced Forms. Its default view is every
+  // student's documents; the school's own forms are its second tab.
+  { key: 'documents',          label: NAV_LABELS.documents,         Icon: NAV_ICONS.documents },
   { key: 'messages',           label: NAV_LABELS.messages,          Icon: NAV_ICONS.messages },
 ]
 

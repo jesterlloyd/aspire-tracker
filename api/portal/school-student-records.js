@@ -7,6 +7,7 @@
 //   GET  ?action=clearance&student_id=   the clearance checklist with what is on file
 //   GET  ?action=items                   ASPIRE's base list and the school's own items
 //   POST { action: 'summary', student_ids }  the roster's Clearance column (a read; ids in a body)
+//   POST { action: 'sheet', student_ids }    the Documents tab: the list and every current file
 //   POST { action: 'correct', student_id, field, value, apply_to_cohort }
 //   POST { action: 'item_add', school_key, label, qualifier } / { action: 'item_retire', key }
 //   POST { action: 'upload_start' | 'upload_finish', student_id, doc_type, ... }
@@ -19,7 +20,7 @@ import {
   verifyPortalAcademicPartnerCaller,
 } from '../lib/schoolScope.js'
 import {
-  loadSchoolProfile, correctAnswer, loadClearance, loadClearanceSummaries, loadSchoolItems, addSchoolItem, retireSchoolItem,
+  loadSchoolProfile, correctAnswer, loadClearance, loadClearanceSummaries, loadDocumentSheet, loadSchoolItems, addSchoolItem, retireSchoolItem,
   startClearanceUpload, finishClearanceUpload, openClearanceVersion,
 } from '../../lib/server/schoolStudentRecords.js'
 
@@ -76,6 +77,13 @@ export function createSchoolStudentRecordsHandler({ verifyCaller = verifyPortalA
         if (r.status) return res.status(r.status).json({ error: r.error })
         if (r.error) return res.status(500).json({ error: 'internal_error' })
         return res.status(200).json({ enabled: true, summaries: r.summaries })
+      }
+      if (action === 'sheet') {
+        const r = await loadDocumentSheet(db, scopes, body.student_ids)
+        if (r.notEnabled) return res.status(200).json({ enabled: false, types: [], students: {}, cells: {} })
+        if (r.status) return res.status(r.status).json({ error: r.error })
+        if (r.error) return res.status(500).json({ error: 'internal_error' })
+        return res.status(200).json({ enabled: true, ...r, readOnly: Boolean(auth.staffPreview) })
       }
       if (action === 'correct') {
         return send(await correctAnswer(db, scopes, {

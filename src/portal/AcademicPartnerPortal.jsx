@@ -40,8 +40,6 @@ import { cohortOptions, inCohortScope, sortRoster } from './ap/academicPartnerRo
 import { readPortalCohort, writePortalCohort } from '../lib/portalCohortMemory'
 import { computeStatusCounts } from '../lib/derivations/cohortStatus'
 import { useSchoolStudentPhotos } from './ap/useSchoolStudentPhotos'
-import { getClearanceSummaries } from './ap/academicPartnerApi'
-import { clearanceCell } from '../lib/ap/clearanceChecklist'
 import { useReportPortalFailure, ACCESS_FAILURE } from './portalAccessSignal'
 
 // A stable empty roster reference so the photo-prefetch effect does not re-run every render while
@@ -51,10 +49,8 @@ const EMPTY_ROSTER = []
 // ASPIRE-INSIGHTS-1 Phase 2b: the outcomes section, its own chunk so the roster never waits on it.
 // AP-STUDENT-RECORDS-1: a row opens the student's record (profile, corrections, clearance).
 const SchoolStudentDrawer = lazyReload(() => import('./ap/SchoolStudentDrawer'), 'SchoolStudentDrawer')
-// AP-CLEARANCE-2: the school's clearance checklist (ASPIRE's base list and the school's own items).
-const SchoolChecklistDrawer = lazyReload(() => import('./ap/SchoolChecklistDrawer'), 'SchoolChecklistDrawer')
-// AP-SCHOOL-FORMS-1: the school's own forms, the staff form screens in their own chunk.
-const SchoolForms = lazyReload(() => import('./ap/SchoolForms'), 'SchoolForms')
+// AP-DOCUMENTS-TAB-1: Documents, with the school's own forms (AP-SCHOOL-FORMS-1) as its second tab.
+const SchoolDocuments = lazyReload(() => import('./ap/SchoolDocuments'), 'SchoolDocuments')
 const InsightsGlance = lazyReload(() => import('../components/insights/InsightsGlance'), 'InsightsGlance')
 
 const displayName = (s) => `${s.preferred_first_name || s.first_name || ''} ${s.last_name || ''}`.trim()
@@ -80,29 +76,17 @@ function ApHoursCell({ hours }) {
   )
 }
 
-// AP-CLEARANCE-2: required clearance documents on file, from the server's roster summary. Only
-// ASPIRE's required base items count; the words carry the state, the pill tone repeats it.
-function ApClearanceCell({ summary }) {
-  const c = clearanceCell(summary)
-  if (!c) return <span className="ptl-muted ptl-small">Not set</span>
-  return (
-    <span className="ptl-ap-clr" aria-label={c.label} role="img">
-      <span className={`ptl-ap-clr-pill ptl-ap-clr-${c.tone}`}>{c.text}</span>
-      <span className="ptl-ap-clr-note">{c.note}</span>
-    </span>
-  )
-}
-
 // Messages reuses the SAME canonical PortalMessagesWorkspace the Student and Unit Leader portals use
 // (variant='academic_partner'): thread list, unread, open conversation, compose to the ASPIRE Team,
 // reply, and Refresh integration. Enablement is the SERVER capability passed as messagesEnabled (env
 // flag AND applied DB migration), never a client constant; until the server reports enabled, Messages
 // shows an honest prepared state (no workspace, no polling) and no lower-right launcher mounts.
-export default function AcademicPartnerPortal({ view = 'students', onNavigate, messagesEnabled = false, threadId, onSelectThread, onBackToList, onCommandPeople, formId = null, formMode = 'list', onOpenForm, onFormsList }) {
-  if (view === 'forms') {
+export default function AcademicPartnerPortal({ view = 'students', onNavigate, messagesEnabled = false, threadId, onSelectThread, onBackToList, onCommandPeople, formId = null, formMode = 'list', onOpenForm, onFormsList, docTab = 'students', onDocTab }) {
+  // AP-DOCUMENTS-TAB-1: Documents (every student's documents, then the school's own forms).
+  if (view === 'documents') {
     return (
-      <Suspense fallback={<LoadingState label="Loading your forms" />}>
-        <SchoolForms formId={formId} mode={formMode} onOpen={onOpenForm} onList={onFormsList} />
+      <Suspense fallback={<LoadingState label="Loading documents" />}>
+        <SchoolDocuments tab={docTab} onTab={onDocTab} formId={formId} formMode={formMode} onOpenForm={onOpenForm} onFormsList={onFormsList} />
       </Suspense>
     )
   }
@@ -128,10 +112,10 @@ export default function AcademicPartnerPortal({ view = 'students', onNavigate, m
       />
     )
   }
-  return <StudentsView onCommandPeople={onCommandPeople} />
+  return <StudentsView onCommandPeople={onCommandPeople} onNavigate={onNavigate} />
 }
 
-function StudentsView({ onCommandPeople }) {
+function StudentsView({ onCommandPeople, onNavigate }) {
   const { userProfile, user } = useAuth()
   // EVENT-AUDIENCE-2: flagged events ticked for Academic Partners. No calendar
   // pill: this portal has no calendar to open.
@@ -150,11 +134,6 @@ function StudentsView({ onCommandPeople }) {
   const [sort, setSort]                           = useState({ column: null, direction: 'asc' })
   const [openStudent, setOpenStudent]             = useState(null)
   const openerRef = useRef(null)
-  // AP-CLEARANCE-2: the Clearance column and the checklist drawer.
-  const [clearance, setClearance]                 = useState({ forKey: null, enabled: false, map: {} })
-  const [clearanceTick, setClearanceTick]         = useState(0)
-  const [checklistOpen, setChecklistOpen]         = useState(false)
-  const checklistRef = useRef(null)
 
   const dateLabel = useMemo(
     () => new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }),
@@ -213,17 +192,6 @@ function StudentsView({ onCommandPeople }) {
     ? (schools.find(s => s.school_key === selectedSchoolKey) || schools[0])
     : null
   const roster = activeSchool?.students || EMPTY_ROSTER
-  const rosterKey = roster.map(s => s.id).join(',')
-  useEffect(() => {
-    if (!rosterKey) return undefined
-    let live = true
-    const key = `${rosterKey}#${clearanceTick}`
-    getClearanceSummaries(rosterKey.split(',')).then(r => {
-      if (!live) return
-      setClearance(r.ok ? { forKey: key, enabled: r.data?.enabled === true, map: r.data?.summaries || {} } : { forKey: key, enabled: false, map: {} })
-    })
-    return () => { live = false }
-  }, [rosterKey, clearanceTick])
   useEffect(() => {
     const requestedId = searchParams.get('student')
     if (!requestedId || !schools?.length) return
@@ -276,8 +244,7 @@ function StudentsView({ onCommandPeople }) {
   const counts = computeStatusCounts(scoped)
   const matchesStatus = (s, f) => f === null || (Array.isArray(f) ? f.includes(s.status) : s.status === f)
   const filtered = scoped.filter(s => matchesStatus(s, statusFilter))
-  const clearanceOn = clearance.enabled
-  const rows = sortRoster(filtered, sort.column, sort.direction, { clearance: clearance.map })
+  const rows = sortRoster(filtered, sort.column, sort.direction)
 
   const onSchoolChange = (key) => { setSelectedSchoolKey(key); setSelectedCohortId(null); setStatusFilter(null) }
   const onSort = (col) => setSort(s => (
@@ -354,12 +321,12 @@ function StudentsView({ onCommandPeople }) {
         <EmptyState title="No students match this filter" detail="Clear the filter to see every student in this cohort." />
       ) : (
         <div className="ptl-card ptl-ap-roster">
-          {clearanceOn && (
-            <div className="ptl-ap-roster-head">
-              <span className="ptl-muted ptl-small">Clearance counts ASPIRE&apos;s required documents. Open a student to upload.</span>
-              <button ref={checklistRef} type="button" className="ptl-btn ptl-btn-small" onClick={() => setChecklistOpen(true)}>Clearance Checklist</button>
-            </div>
-          )}
+          {/* AP-DOCUMENTS-TAB-1 (Owner, 2026-11-17): documents moved to their own tab, where every
+              student's files show in one sheet. The roster's Clearance column and checklist went with them. */}
+          <div className="ptl-ap-roster-head">
+            <span className="ptl-muted ptl-small">Upload your students&apos; documents, or what your school requires, in Documents.</span>
+            <button type="button" className="ptl-btn ptl-btn-small" onClick={() => onNavigate?.('documents')}>Open Documents</button>
+          </div>
           <div className="ptl-table-wrap">
             <table className="ptl-table ptl-ap-table">
               <thead>
@@ -391,8 +358,6 @@ function StudentsView({ onCommandPeople }) {
                       Leader's own PreceptorList (UI-CONSISTENCY-6, Owner decision). */}
                   <th scope="col">Preceptor(s)</th>
                   <SortHeader sortKey="hours" sortBy={sort.column} sortDir={sort.direction} onSort={onSort} thClassName="">Hours</SortHeader>
-                  {/* AP-CLEARANCE-2: after the shared columns, as a report's own column goes. */}
-                  {clearanceOn && <SortHeader sortKey="clearance" sortBy={sort.column} sortDir={sort.direction} onSort={onSort} thClassName="">Clearance</SortHeader>}
                 </tr>
               </thead>
               <tbody>
@@ -416,7 +381,6 @@ function StudentsView({ onCommandPeople }) {
                         formatDate={fmtShortDate} empty={<span className="ptl-muted">Not assigned</span>} />
                     </td>
                     <td><ApHoursCell hours={s.hours} /></td>
-                    {clearanceOn && <td><ApClearanceCell summary={clearance.map[s.id]} /></td>}
                   </tr>
                 ))}
               </tbody>
@@ -424,17 +388,11 @@ function StudentsView({ onCommandPeople }) {
           </div>
           {openStudent && (
             <Suspense fallback={null}>
-              <SchoolStudentDrawer student={openStudent} returnFocusRef={openerRef} onClose={() => { setOpenStudent(null); setClearanceTick(t => t + 1) }} />
-            </Suspense>
-          )}
-          {checklistOpen && (
-            <Suspense fallback={null}>
-              <SchoolChecklistDrawer schoolKey={school.school_key} returnFocusRef={checklistRef}
-                onClose={() => setChecklistOpen(false)} onChanged={() => setClearanceTick(t => t + 1)} />
+              <SchoolStudentDrawer student={openStudent} returnFocusRef={openerRef} onClose={() => setOpenStudent(null)} />
             </Suspense>
           )}
           <p className="ptl-muted ptl-small">
-            Select a student to see their profile and clearance documents.
+            Select a student to see their profile and documents.
             Hours show approved of required (plus pending review). Assigned unit and preceptors
             appear once a placement is set. Status content and evaluation responses stay with the
             ASPIRE team.

@@ -17,6 +17,7 @@ import { LoadingState, EmptyState, ErrorState } from '../unit/UnitLeaderChrome'
 import { useRegisterPortalRefresh } from '../PortalRefresh'
 import { schoolForms } from './schoolFormsApi'
 import { REMINDER_RULES } from '../../lib/forms/formModel'
+import { confirmDialog } from '../../components/shared/confirmDialog'
 import '../../components/forms/forms.css'
 import './apForms.css'
 
@@ -90,10 +91,17 @@ function FormsList({ status, onOpen, notify, toastNode }) {
   }, [reloadKey])
   const reload = useCallback(() => setReloadKey(k => k + 1), [])
   useRegisterPortalRefresh(reload)
+  // AP-PORTAL-CLARITY-1: a draft that was never published or sent can be deleted from the list.
+  const discard = async (f) => {
+    const ok = await confirmDialog(`Delete the draft "${f.title}"? It was never published or sent, so nobody has answered it.`, { confirmLabel: 'Delete draft', danger: true })
+    if (!ok) return
+    try { await schoolForms('discard', { id: f.id }); notify(`${f.title} deleted.`); reload() }
+    catch (e) { notify(e.message, 'err') }
+  }
 
   return (
     <div className="ap-forms">
-      <PageBar name="Forms"
+      <PageBar name="Forms" as="h2"
         meta={readOnly ? "Every school's own forms, read-only. Only the school can change or send one." : 'Build a form, send each of your students a personal link, and every answer is filed to their record.'}
         actions={!readOnly ? <button type="button" className="fm-btn fm-pri" onClick={() => setCreating(true)}>New form</button> : null} />
       {error ? <ErrorState title="Forms could not load" detail={error} />
@@ -126,6 +134,9 @@ function FormsList({ status, onOpen, notify, toastNode }) {
                     <td className="apf-acts">
                       <button type="button" className="fm-btn fm-sm" onClick={() => onOpen(f.id, 'edit')}>{readOnly ? 'View' : 'Edit'}</button>
                       {f.version > 0 && <button type="button" className="fm-btn fm-sm" onClick={() => onOpen(f.id, 'responses')}>Responses</button>}
+                      {!readOnly && f.status === 'draft' && !f.version && !f.total && (
+                        <button type="button" className="fm-btn fm-sm apf-delete" onClick={() => discard(f)}>Delete</button>
+                      )}
                     </td>
                   </tr>
                 ))}

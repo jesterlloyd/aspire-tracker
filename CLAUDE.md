@@ -3536,6 +3536,25 @@ record, file the school's clearance documents, and send their own forms.
   every list and file read, and a wizard that does not write Catalog rows. Build it as its own
   phase. Do not hang it off the Catalog's Prepare.
 
+## Documents replaced Forms in the Academic Partner Portal (AP-DOCUMENTS-TAB-1, 2026-11-17)
+
+A school was confused: the record said "0 of 6 required on file", Cedars-Sinai does not require every
+document of every student, and documents were only visible one student at a time. Owner decisions:
+
+- **Academic Partner Portal > Documents** (`src/portal/ap/SchoolDocuments.jsx`, model
+  `src/lib/ap/documentSheet.js`, read `school-student-records` `sheet`) is one row per student and one
+  column per document, every empty cell an Upload button through the record's own upload. It opens on
+  Student Documents; **Forms** is its second tab. `/portal/ap/documents` is the sheet; the
+  `/portal/ap/forms[/...]` routes are kept and open under Documents. Not Proceeding students are not listed.
+- **Nothing is called required or missing** to a school: "upload what you have, or what your school
+  requires", on file / expired / not on file. The database's `required` flag is untouched and unread there.
+- The Clearance Checklist drawer is the sheet's **Document List** (opened from Documents); At a Glance
+  lost its Clearance column and button and points to Documents instead.
+- A school can **delete a draft form** that was never published or sent (`discard`, archived, not removed).
+- Placement Requests' password card says a password comes with each request and to email aspire@cshs.org.
+- Every `InsightsGlance` (the portals' outcomes) carries a note that earlier cohorts are still being
+  entered, and its cards drop the graph paper in Classic.
+
 ## The unit form names its responder from Connect (UNIT-FORM-RESPONDER-1, 2026-11-11)
 
 Owner: the public Unit Availability Form (`/unit-form`) is wider on a desktop, asks who is answering

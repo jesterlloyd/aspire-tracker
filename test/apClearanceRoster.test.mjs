@@ -90,14 +90,18 @@ test('the endpoint serves the summary as a read a preview may make; the screens 
   const api = read('api/portal/school-student-records.js')
   assert.match(api, /const WRITES = new Set\(\['correct', 'item_add', 'item_retire', 'upload_start', 'upload_finish'\]\)/, 'summary is not a write')
   assert.match(api, /if \(action === 'summary'\)/)
+  // AP-DOCUMENTS-TAB-1 (Owner, 2026-11-17): the roster's Clearance column and checklist button moved to
+  // the Documents tab, which shows every student's files in one sheet and opens the list from there.
   const portal = read('src/portal/AcademicPartnerPortal.jsx')
-  assert.match(portal, /getClearanceSummaries\(rosterKey\.split\(','\)\)/)
-  assert.match(portal, /\{clearanceOn && <SortHeader sortKey="clearance"[^>]*>Clearance<\/SortHeader>\}/)
-  assert.match(portal, /onClose=\{\(\) => \{ setOpenStudent\(null\); setClearanceTick\(t => t \+ 1\) \}\}/, 'an upload in the record refreshes the column')
-  assert.match(portal, />Clearance Checklist<\/button>/)
+  assert.doesNotMatch(portal, /getClearanceSummaries|clearanceOn|SchoolChecklistDrawer/)
+  assert.match(portal, /onNavigate\?\.\('documents'\)/)
+  const docs = read('src/portal/ap/SchoolDocuments.jsx')
+  assert.match(docs, /<SchoolChecklistDrawer schoolKey=\{school\.school_key\}/)
   const drawer = read('src/portal/ap/SchoolChecklistDrawer.jsx')
   assert.match(drawer, /action: 'item_add', school_key: school, label, qualifier/)
   assert.match(drawer, /action: 'item_retire', key: item\.key/)
   assert.match(drawer, /confirmDialog\(`Remove \$\{item\.label\}/)
-  assert.match(drawer, /state\.readOnly\s*\n?\s*\? <span className="apr-pill apr-pill-mute">Optional<\/span>/, 'a preview removes nothing')
+  assert.match(drawer, /state\.readOnly\s*\n?\s*\? null/, 'a preview removes nothing')
+  // Nothing on the list is called required (AP-DOCUMENTS-TAB-1).
+  assert.doesNotMatch(drawer, />Required</)
 })

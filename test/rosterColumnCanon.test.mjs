@@ -44,7 +44,8 @@ const rule = (css, sel) => { const i = css.indexOf(sel + ' {'); return i < 0 ? '
 test('the Academic Partner roster carries the shared columns in the shared order', () => {
   // AP-CLEARANCE-2 added the school's own Clearance column AFTER the shared ones, as a report's own
   // columns go (CLAUDE.md, Tables); the shared columns still lead in the shared order.
-  assert.deepEqual(headerLabels(ap, 'ptl-ap-table'), [...ROSTER, 'Clearance'])
+  // AP-DOCUMENTS-TAB-1 moved Clearance off the roster to the Documents tab: the roster is the canon alone.
+  assert.deepEqual(headerLabels(ap, 'ptl-ap-table'), ROSTER)
   // Each column reads the endpoint field that feeds it.
   assert.match(ap, /<StatusPill status=\{s\.status\} \/>/)
   assert.match(ap, /s\.rotation \? `\$\{fmtShortDate\(s\.rotation\.start\)\} to \$\{fmtShortDate\(s\.rotation\.end\)\}`/)

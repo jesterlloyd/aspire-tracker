@@ -50,7 +50,8 @@ test('the Academic Partner gate renders the shared card, centered, in all gate/v
   assert.match(ap, /if \(gate === 'checking'\) \{\s*\n\s*return <div className="ptl-plr-gate-center"><LoadingState/)
   assert.match(ap, /if \(gate === 'password'\) \{\s*\n\s*return \(\s*\n\s*<div className="ptl-plr-gate-center">\s*\n\s*<CohortAccessCard/)
   // The cohort name stays visible in the explanatory copy; the busy prop drives the verifying label.
-  assert.match(ap, /intro=\{<>Enter the cohort password provided by the ASPIRE team to open the request form for \{cohortName\}\.<\/>\}/)
+  // AP-PORTAL-CLARITY-1 (Owner, 2026-11-17): the intro says a password comes with each request and who to email.
+  assert.match(ap, /intro=\{<>\s*The ASPIRE team sends a password with each request for placements\. Enter the one for \{cohortName\} to open the form\.[\s\S]*?mailto:aspire@cshs\.org/)
   assert.match(ap, /busy=\{pwdChecking\}/)
   // The old left-aligned embedded gate card is gone.
   assert.doesNotMatch(apCode, /ptl-plr-gate-form/)

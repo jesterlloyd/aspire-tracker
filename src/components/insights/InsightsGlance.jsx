@@ -31,6 +31,9 @@ const rotationTile = t => (
   <Tile accent="dawn" k="In rotation now" v={t.inRotation.count} d={t.inRotation.count ? 'Not counted in the hire rate' : 'No cohort in rotation'} />
 )
 
+/** AP-PORTAL-CLARITY-1: earlier cohorts are still being entered, so the figures can move. */
+const GLANCE_CAVEAT = 'These figures may be incomplete. Records for students who came through ASPIRE before ASPIRE Intelligence are still being added, so counts and rates may change.'
+
 /** What each portal's section shows, in the build prompt's order (section 6). */
 const SURFACES = {
   partner: {
@@ -131,6 +134,8 @@ export default function InsightsGlance({ surface, scopeName = '', unit = '', sch
         <div>
           <h2 id={id}>{cfg.title}</h2>
           <p>{cfg.sub({ scopeName })}</p>
+          {/* AP-PORTAL-CLARITY-1 (Owner): records from before ASPIRE Intelligence are still being entered. */}
+          <p className="ins-glance-caveat">{GLANCE_CAVEAT}</p>
         </div>
         <div className="ins-glance-tools">
           <div className="ins-f">
