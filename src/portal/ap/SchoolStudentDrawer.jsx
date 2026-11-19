@@ -16,6 +16,7 @@ import { isExpired } from '../../lib/ap/clearanceChecklist'
 import { validatePick, acceptFor } from '../../lib/documents/documentChecklist'
 import { confirmDialog } from '../../components/shared/confirmDialog'
 import { getStudentPreferredFullName } from '../../lib/studentNameFormatters'
+import { previewRemoveNote } from '../../lib/ap/studentWithdraw'
 import './schoolStudentDrawer.css'
 
 const DASH = 'Not provided'
@@ -250,7 +251,7 @@ function ClearanceSection({ studentId, readOnly }) {
   )
 }
 
-export default function SchoolStudentDrawer({ student, onClose, returnFocusRef, extraSections = null, onRemove = null }) {
+export default function SchoolStudentDrawer({ student, onClose, returnFocusRef, extraSections = null, onRemove = null, removePreviewBy = null }) {
   const panelRef = useRef(null)
   const closeRef = useRef(null)
   const studentId = student?.id
@@ -337,6 +338,15 @@ export default function SchoolStudentDrawer({ student, onClose, returnFocusRef, 
                   <h3 id="apr-remove-h" className="ptl-detail-heading">Remove Student</h3>
                   <p className="apr-lede">Submitted this student by mistake? You can remove them until the ASPIRE team reaches out to them. This deletes the student for good.</p>
                   <button type="button" className="ptl-btn ptl-btn-small apr-remove-btn" onClick={onRemove}>Remove Student</button>
+                </section>
+              )}
+              {/* AP-STUDENT-WITHDRAW-2 (Owner): a staff preview sees the section, inactive, and who can use it. */}
+              {!onRemove && removePreviewBy && (
+                <section className="apr-section apr-remove" aria-labelledby="apr-remove-h">
+                  <h3 id="apr-remove-h" className="ptl-detail-heading">Remove Student</h3>
+                  <p className="apr-lede">Submitted this student by mistake? You can remove them until the ASPIRE team reaches out to them. This deletes the student for good.</p>
+                  <p className="apr-preview">{previewRemoveNote(removePreviewBy)}</p>
+                  <button type="button" className="ptl-btn ptl-btn-small apr-remove-btn" disabled>Remove Student</button>
                 </section>
               )}
             </>

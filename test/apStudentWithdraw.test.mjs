@@ -5,9 +5,9 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import {
-  withdrawBlocker, canWithdraw, refusalText, withdrawConfirm, WITHDRAW_STATUS,
+  withdrawBlocker, canWithdraw, refusalText, withdrawConfirm, previewRemoveNote, WITHDRAW_STATUS,
 } from '../src/lib/ap/studentWithdraw.js'
-import { withdrawStudent, withdrawableIds } from '../lib/server/schoolStudentWithdraw.js'
+import { withdrawStudent, withdrawableIds, previewWithdrawers } from '../lib/server/schoolStudentWithdraw.js'
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8')
 const ME = '11111111-1111-4111-8111-111111111111'
@@ -91,6 +91,7 @@ function fakeDb({ student = fresh(), links = [], log = [], docs = [], deleteResu
         if (table === 'user_student_links') return { data: links, error: null }
         if (table === 'notification_log') return { data: log, error: null }
         if (table === 'student_document_versions') return { data: docs, error: null }
+        if (table === 'user_profiles') return { data: [{ id: ME, full_name: 'Marissa Grafil Ramirez' }], error: null }
         return { data: null, error: null }
       }
       return b
@@ -199,4 +200,27 @@ test('the team email is a registered, archived, team-only notice', async () => {
   assert.match(mail.subject, /^ASPIRE Placement Request Withdrawn: /)
   assert.ok(!mail.html.includes('Ana <b>'), 'names are escaped')
   assert.match(read('api/lib/archiveClassification.js'), /'placement_request_withdrawn'/)
+})
+
+// ── AP-STUDENT-WITHDRAW-2: the Owner/Admin preview sees where Remove is ───
+
+test('a preview learns who could remove each student, and only where that person could', async () => {
+  const mine = fresh()
+  const sent = fresh({ id: 'c', status: 'Form Sent' })
+  const by = await previewWithdrawers(fakeDb(), [mine, sent])
+  assert.deepEqual([...by.entries()], [[SID, 'Marissa Grafil Ramirez']])
+  assert.match(previewRemoveNote('Marissa Grafil Ramirez'), /^Only Marissa Grafil Ramirez can remove this student\. This is a staff preview/)
+})
+
+test('the preview Remove is inactive and never calls the delete', () => {
+  const api = read('api/portal/school-students.js')
+  assert.match(api, /const withdrawable = staffPreview \? new Set\(\)/, 'a preview can never remove')
+  assert.match(api, /withdraw_preview_by: previewBy\.get\(s\.id\) \|\| null/)
+  const ap = read('src/portal/AcademicPartnerPortal.jsx')
+  const block = ap.slice(ap.indexOf('{!s.can_withdraw && s.withdraw_preview_by && ('), ap.indexOf('</Tooltip>'))
+  assert.match(block, /aria-disabled="true"/)
+  assert.ok(!block.includes('removeStudent'), 'the preview button must not reach removeStudent')
+  const drawer = read('src/portal/ap/SchoolStudentDrawer.jsx')
+  assert.match(drawer, /\{!onRemove && removePreviewBy && \(/)
+  assert.match(drawer, /apr-remove-btn" disabled>Remove Student<\/button>/)
 })

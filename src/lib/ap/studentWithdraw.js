@@ -56,4 +56,8 @@ export function withdrawConfirm(name) {
   }
 }
 
+/** AP-STUDENT-WITHDRAW-2: what an Owner/Admin preview says where Remove would be. */
+export const previewRemoveNote = (submitter) =>
+  `Only ${submitter || 'the person who submitted this student'} can remove this student. This is a staff preview, so nothing can be removed here.`
+
 function hasText(v) { return typeof v === 'string' && v.trim() !== '' }

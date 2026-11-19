@@ -1241,6 +1241,7 @@
   text-decoration: underline; text-underline-offset: 2px;
 }
 .ptl-ap-remove:hover { color: #b42318; }
+.ptl-ap-remove-preview, .ptl-ap-remove-preview:hover { color: #6b7280; cursor: not-allowed; text-decoration-style: dotted; }
 .ptl-ap-remove:focus-visible { outline: 2px solid #1d4ed8; outline-offset: 2px; border-radius: var(--aspire-radius-control, 10px); }
 .ptl-ap-remove-note {
   display: flex; align-items: center; gap: 10px; margin: 0 0 12px; padding: 9px 12px; font-size: 13px;

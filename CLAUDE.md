@@ -3593,6 +3593,10 @@ in the program, so nothing is kept. The rule is `withdrawBlocker` in `src/lib/ap
 - **Who hears**: the internal team only, by `placement_request_withdrawn` (the submission email's
   template file and recipients, archived like it). Logged with no student_id, because the row is gone.
   Not in Needs you or the Action Center (Owner).
+- **A preview sees where it is** (AP-STUDENT-WITHDRAW-2, Owner): an Owner/Admin preview gets
+  `withdraw_preview_by` (the submitter's name, for students THAT person could remove) and shows Remove
+  inactive with "Only <name> can remove this student", on the roster and in the record. `can_withdraw`
+  stays false in a preview and `withdraw` stays a WRITE, so a preview still removes nobody.
 
 ## The unit form names its responder from Connect (UNIT-FORM-RESPONDER-1, 2026-11-11)
 

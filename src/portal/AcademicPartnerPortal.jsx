@@ -43,7 +43,8 @@ import { useSchoolStudentPhotos } from './ap/useSchoolStudentPhotos'
 import { useReportPortalFailure, ACCESS_FAILURE } from './portalAccessSignal'
 import { postSchoolStudentRecord } from './ap/academicPartnerApi'
 import { confirmDialog } from '../components/shared/confirmDialog'
-import { withdrawConfirm, refusalText } from '../lib/ap/studentWithdraw'
+import { withdrawConfirm, refusalText, previewRemoveNote } from '../lib/ap/studentWithdraw'
+import Tooltip from '../components/ui/Tooltip'
 
 // A stable empty roster reference so the photo-prefetch effect does not re-run every render while
 // the roster is still loading (a fresh [] each render would look like a new dependency).
@@ -400,6 +401,16 @@ function StudentsView({ onCommandPeople, onNavigate }) {
                           Remove
                         </button>
                       )}
+                      {/* AP-STUDENT-WITHDRAW-2 (Owner): the preview shows where Remove is, inactive. */}
+                      {!s.can_withdraw && s.withdraw_preview_by && (
+                        <Tooltip label={previewRemoveNote(s.withdraw_preview_by)} placement="top" applyAriaLabel={false}>
+                          <button type="button" className="ptl-ap-remove ptl-ap-remove-preview" aria-disabled="true"
+                            aria-label={`Remove ${displayName(s)}: ${previewRemoveNote(s.withdraw_preview_by)}`}
+                            onClick={e => e.preventDefault()}>
+                            Remove
+                          </button>
+                        </Tooltip>
+                      )}
                     </td>
                     <td><StatusPill status={s.status} /></td>
                     <td>{s.cohort?.name || ''}</td>
@@ -419,7 +430,8 @@ function StudentsView({ onCommandPeople, onNavigate }) {
           {openStudent && (
             <Suspense fallback={null}>
               <SchoolStudentDrawer student={openStudent} returnFocusRef={openerRef} onClose={() => setOpenStudent(null)}
-                onRemove={openStudent.can_withdraw ? () => removeStudent(openStudent) : null} />
+                onRemove={openStudent.can_withdraw ? () => removeStudent(openStudent) : null}
+                removePreviewBy={openStudent.can_withdraw ? null : openStudent.withdraw_preview_by || null} />
             </Suspense>
           )}
           <p className="ptl-muted ptl-small">

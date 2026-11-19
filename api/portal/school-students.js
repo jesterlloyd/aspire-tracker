@@ -21,7 +21,7 @@
 
 import { verifyPortalAcademicPartnerCaller, resolveSchoolScopedStudents, resolveSchoolScopedCohorts } from '../lib/schoolScope.js'
 import { parseStoredFileRef } from '../../lib/server/studentFiles.js'
-import { WITHDRAW_COLUMNS, withdrawableIds } from '../../lib/server/schoolStudentWithdraw.js'
+import { WITHDRAW_COLUMNS, withdrawableIds, previewWithdrawers } from '../../lib/server/schoolStudentWithdraw.js'
 
 // Explicit allowlist (allowlist, not denylist, so a new students column is excluded by default).
 // Confirmed unit resolves through the reliable normalized assignment matched_unit_id -> units, NOT
@@ -175,6 +175,8 @@ export default async function handler(req, res) {
   // AP-STUDENT-WITHDRAW-1: which students this caller may remove (the person who submitted them,
   // before any outreach). A preview removes nothing. The delete re-checks every rule.
   const withdrawable = staffPreview ? new Set() : await withdrawableIds(db, matches.map(m => m.student), profile?.id)
+  // AP-STUDENT-WITHDRAW-2 (Owner): a preview sees WHERE Remove would be and who could use it.
+  const previewBy = staffPreview ? await previewWithdrawers(db, matches.map(m => m.student)) : new Map()
 
   const bySchool = {}
   for (const { student: s, school_key } of matches) {
@@ -209,6 +211,7 @@ export default async function handler(req, res) {
       },
       evaluations: evalsByStudent[s.id] || { completed: 0, pending: 0 },
       can_withdraw: withdrawable.has(s.id),
+      withdraw_preview_by: previewBy.get(s.id) || null,
     }
     ;(bySchool[school_key] ||= []).push(entry)
   }
