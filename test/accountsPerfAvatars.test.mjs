@@ -50,7 +50,8 @@ test('tab switching still resets every filter, so no stale narrowing leaks acros
 test('KPI counts still come from the server contract over the unfiltered set', () => {
   assert.match(dir, /allGrants: portalData\.counts\?\.all_grants \?\? 0/)
   assert.match(dir, /pending: portalData\.counts\?\.pending \?\? 0/)
-  assert.match(api, /all_grants: records\.length/)
+  // GRANT-SUPERSEDED-1: counts read the unfiltered set less superseded grants (`current`).
+  assert.match(api, /all_grants: current\.length/)
 })
 
 // ── Latency: endpoint dependency waves ───────────────────────────────────────

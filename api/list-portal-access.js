@@ -42,6 +42,26 @@ export function removedPortalProfileIds(profiles, grants) {
   ).map(p => p.id))
 }
 
+// GRANT-SUPERSEDED-1 (Owner, 2026-11-19): a person re-invited after a revoke showed twice
+// (Revoked and Pending). A revoked or expired grant is SUPERSEDED when the same person holds a
+// later grant of the same role. It is kept in the database (it is the record of the revoke) and
+// shown only under the Revoked or Expired filter; the default list and the cards show the person once.
+export function supersededGrantIds(records) {
+  const latest = new Map()
+  for (const r of records) {
+    const k = `${r.user_profile_id}|${r.portal_role}`
+    const at = Date.parse(r.granted_at || '') || 0
+    if (!latest.has(k) || at > latest.get(k).at) latest.set(k, { at, id: r.grant_id })
+  }
+  const out = new Set()
+  for (const r of records) {
+    if (r.status !== 'revoked' && r.status !== 'expired') continue
+    const top = latest.get(`${r.user_profile_id}|${r.portal_role}`)
+    if (top && top.id !== r.grant_id) out.add(r.grant_id)
+  }
+  return out
+}
+
 function getServiceDb() {
   return createClient(
     process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL,
@@ -291,6 +311,7 @@ export default async function handler(req, res) {
         budget_access: g.role === 'nursing_academic' ? (budgetByGrant.get(g.id) || 'none') : 'none',
         evaluation_themes_access: g.role === 'nursing_academic' ? (themesByGrant.get(g.id) || 'none') : 'none',
         status,
+        granted_at: g.granted_at || null,
         starts_at: g.starts_at || null,
         expires_at: g.expires_at || null,
         expiring_soon: isExpiringSoon(g, nowMs),
@@ -299,6 +320,10 @@ export default async function handler(req, res) {
         avatar_url: p.avatar_url || contactAvatarByEmail.get(normalizeEmailForLookup(p.email)) || null,
       }
     }).filter(r => !removedProfiles.has(r.user_profile_id))
+    // GRANT-SUPERSEDED-1: the default list and the cards leave out a revoked or expired grant
+    // that a later grant of the same role replaced; the Revoked and Expired filters still show it.
+    const superseded = supersededGrantIds(records)
+    const current = records.filter(r => !superseded.has(r.grant_id))
 
     // 5. Counts across the FULL (unfiltered) set for the summary indicators.
     // ACCOUNTS-KPI-SORT-1 (additive): all_grants + by_role feed the portal KPI cards.
@@ -307,17 +332,19 @@ export default async function handler(req, res) {
     // ACTIVE profiles) is retained unchanged for response compatibility.
     const counts = {
       active: 0, scheduled: 0, expired: 0, revoked: 0, pending: 0, expiring_soon: 0,
-      portal_users: 0, all_grants: records.length,
+      portal_users: 0, all_grants: current.length,
       by_role: { student: 0, unit_leader: 0, academic_partner: 0, nursing_academic: 0, talent_acquisition: 0 },
     }
     const activeProfiles = new Set()
-    for (const r of records) {
+    for (const r of current) {
       counts[r.status] = (counts[r.status] || 0) + 1
       if (r.expiring_soon) counts.expiring_soon += 1
       if (r.status === 'active') activeProfiles.add(r.user_profile_id)
       if (counts.by_role[r.portal_role] !== undefined) counts.by_role[r.portal_role] += 1
     }
     counts.portal_users = activeProfiles.size
+    // The Revoked and Expired filters list superseded grants too, so their counts include them.
+    for (const r of records) if (superseded.has(r.grant_id)) counts[r.status] += 1
 
     // 6. Apply filters + search, then paginate.
     const matches = (r) => {
@@ -337,7 +364,8 @@ export default async function handler(req, res) {
       }
       return true
     }
-    const filtered = records.filter(matches)
+    const base = statusFilter === 'revoked' || statusFilter === 'expired' ? records : current
+    const filtered = base.filter(matches)
     const total = filtered.length
     const page = filtered.slice(offset, offset + limit)
 
