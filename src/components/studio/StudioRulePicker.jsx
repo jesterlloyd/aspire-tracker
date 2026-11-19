@@ -7,7 +7,7 @@
 import { useEffect, useState } from 'react'
 import {
   POPULATIONS, RULE_STATUSES, STUDENT_EMAIL_ROUTES, FORM_FILTERS, LICENSE_FILTERS, HIRE_FILTERS,
-  MAX_COHORTS, sanitizeRule,
+  MAX_COHORTS, RESPONSE_STATES, sanitizeRule, ruleProblem,
 } from '../../lib/studio/audienceCatalog'
 import { studioApi } from '../../lib/studio/studioClient'
 
@@ -26,6 +26,23 @@ export default function StudioRulePicker({ rule, onRule }) {
       .catch(e => { if (!off) setError(e.message || 'The choices could not be loaded.') })
     return () => { off = true }
   }, [r.population, cohortKey])
+
+  // STUDIO-FILTERS-1: a live count, so a filter can be tried before anyone is reviewed. It asks the
+  // same resolve the review does (reads only, nothing stored), half a second after the last change.
+  const ruleKey = JSON.stringify(r)
+  const [count, setCount] = useState(null)
+  useEffect(() => {
+    let off = false
+    const ready = !ruleProblem(r)
+    const t = setTimeout(() => {
+      if (!ready) { setCount(null); return }
+      setCount(c => ({ ...(c || {}), loading: true }))
+      studioApi('audience_resolve', { rule: r })
+        .then(res => { if (!off) setCount({ n: res.recipients.length, left: res.excluded.length }) })
+        .catch(() => { if (!off) setCount(null) })
+    }, 500)
+    return () => { off = true; clearTimeout(t) }
+  }, [ruleKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const set = (patch) => onRule(sanitizeRule({ ...r, ...patch }))
   const pickPopulation = (population) => onRule(sanitizeRule({ population, cohortIds: r.cohortIds || [] }))
@@ -94,9 +111,47 @@ export default function StudioRulePicker({ rule, onRule }) {
       )}
 
       {r.population === 'contacts' && (
-        <CheckGroup label="Category" hint="None ticked means every active contact."
-          items={(opts?.categories || []).map(c => ({ key: c, label: c }))} loading={!opts} checked={r.categories} columns
-          onToggle={(c) => set({ categories: toggleIn(r.categories, c) })} />
+        <>
+          <CheckGroup label="Category" hint="None ticked means every active contact."
+            items={(opts?.categories || []).map(c => ({ key: c, label: c }))} loading={!opts} checked={r.categories} columns
+            onToggle={(c) => set({ categories: toggleIn(r.categories, c) })} />
+          <CheckGroup label="Division" hint="Anyone who holds a unit in a ticked division. None ticked means every division."
+            items={(opts?.divisions || []).map(d => ({ key: d, label: d }))} loading={!opts} checked={r.divisions} columns
+            onToggle={(d) => set({ divisions: toggleIn(r.divisions, d) })} empty="No contact holds a unit yet." />
+          <CheckGroup label="Unit" hint="Anyone who holds a ticked unit, as their own or a related unit. None ticked means every unit."
+            items={(opts?.units || []).filter(u => !r.divisions.length || r.divisions.includes(u.division)).map(u => ({ key: u.name, label: u.name, note: u.division || '' }))}
+            loading={!opts} checked={r.units} columns
+            onToggle={(u) => set({ units: toggleIn(r.units, u) })} empty="No units in these divisions." />
+          <CheckGroup label="Title" hint="None ticked means every title."
+            items={(opts?.titles || []).map(t => ({ key: t, label: t }))} loading={!opts} checked={r.titles} columns
+            onToggle={(t) => set({ titles: toggleIn(r.titles, t) })} />
+          <label className="st-check st-field">
+            <input type="checkbox" checked={r.leadsOnly} onChange={e => set({ leadsOnly: e.target.checked })} />
+            <span>Unit leads only<small> Each unit's Associate Director, else its Director, as in Connect</small></span>
+          </label>
+          <fieldset className="st-field st-fieldset">
+            <legend className="st-label">Response to a cohort's request</legend>
+            <select className="st-select" aria-label="Cohort" value={r.response.cohortId || ''}
+              onChange={e => set({ response: { cohortId: e.target.value || null, state: e.target.value ? (r.response.state === 'any' ? 'pending' : r.response.state) : 'any' } })}>
+              <option value="">Any response (no filter)</option>
+              {(opts?.cohorts || []).map(c => <option key={c.id} value={c.id}>{c.name}{c.status ? ` (${c.status})` : ''}</option>)}
+            </select>
+            {r.response.cohortId && (
+              <div className="st-seg st-seg-fill" role="group" aria-label="Response" style={{ marginTop: 8 }}>
+                {RESPONSE_STATES.map(o => (
+                  <button key={o.key} type="button" aria-pressed={r.response.state === o.key}
+                    onClick={() => set({ response: { ...r.response, state: o.key } })}>{o.label}</button>
+                ))}
+              </div>
+            )}
+            <p className="st-hint">Unit leaders answer by their units' capacity request for that cohort, as At a Glance counts it. Academic Partners answer by whether their school has sent that cohort any students.</p>
+          </fieldset>
+        </>
+      )}
+      {count && (
+        <p className="st-count" aria-live="polite">
+          {count.loading && count.n == null ? 'Counting…' : `${count.n} ${count.n === 1 ? 'person matches' : 'people match'}${count.left ? `, ${count.left} left out` : ''}. See who it reaches to check every name.`}
+        </p>
       )}
     </div>
   )
