@@ -64,6 +64,8 @@ import { useRecordFiles, useOpenRecordDocument } from './records/useRecordFiles'
 import { ClearanceDocumentRows } from './records/ClearanceOnRecord'
 import { useClearanceOnRecord } from './records/useClearanceOnRecord'
 
+const EMPTY_SHIFT_LOGS = []
+
 function fmtCommTs(ts) {
   if (!ts) return ''
   const d = new Date(ts)
@@ -498,7 +500,10 @@ export default function StudentSidePanel({
   const { markSynced: markHoursSynced, display: hoursSyncDisplay } = useLastSynced()
 
   // Shift logs - cached per student
-  const { data: shiftLogs = [] } = useQuery({
+  // NO-LOOP-1 (2026-11-19): the default is a module constant. A fresh `[]` on every render made
+  // the effect below set state on every render whenever this read FAILED (no data), which is a
+  // dropped connection on a phone, and the binder blanked with "Maximum update depth exceeded".
+  const { data: shiftLogs = EMPTY_SHIFT_LOGS } = useQuery({
     queryKey: ['student_shift_logs', student.id],
     queryFn: async () => {
       const { data, error } = await supabase.from('student_shift_logs')

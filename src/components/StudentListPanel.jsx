@@ -246,7 +246,7 @@ export default function StudentListPanel({
               }}>
 
               {/* COL 1: Identity - Avatar / Full Name / School·Program / ASPIRE pill */}
-              <div style={{ display:'flex', gap:9, minWidth:0, alignItems:'flex-start' }}>
+              <div className="pl-col-id" style={{ display:'flex', gap:9, minWidth:0, alignItems:'flex-start' }}>
                 <StudentAvatar student={s} size={48} style={{ flexShrink:0, marginTop:1 }} />
                 <div style={{ minWidth:0, flex:1 }}>
                   {/* Full name */}
@@ -291,7 +291,7 @@ export default function StudentListPanel({
               </div>
 
               {/* COL 2: Preferences or placement */}
-              <div style={{ minWidth:0, paddingTop:3 }}>
+              <div className="pl-col-units" style={{ minWidth:0, paddingTop:3 }}>
                 {isPlaced ? (
                   <>
                     <div style={{ fontSize:11, fontWeight:700, color:'var(--text-heading,#191919)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
@@ -300,7 +300,7 @@ export default function StudentListPanel({
                     {mqLabel && <Chip label={mqLabel} bg={mqBg} color={mqColor} />}
                   </>
                 ) : prefs.length > 0 ? (
-                  <div style={{ display:'flex', flexDirection:'column', gap:1 }}>
+                  <div className="pl-prefs" style={{ display:'flex', flexDirection:'column', gap:1 }}>
                     {prefs.map((p, i) => (
                       <div key={i} style={{ display:'flex', gap:3, alignItems:'baseline' }}>
                         <span style={{ fontSize:8, fontWeight:700, color:'var(--text-muted,#9ca3af)', width:16, flexShrink:0 }}>{['1st','2nd','3rd'][i]}</span>
@@ -314,7 +314,7 @@ export default function StudentListPanel({
               </div>
 
               {/* COL 3: Sub-status chips - GPA + CS-Link only (ASPIRE pill moved to Identity) */}
-              <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-start', gap:3, paddingTop:3, minWidth:0 }}>
+              <div className="pl-col-chips" style={{ display:'flex', flexDirection:'column', alignItems:'flex-start', gap:3, paddingTop:3, minWidth:0 }}>
                 {gpaOk && <Chip label={`GPA ${gpaVal.toFixed(2)}`} bg={gpaBg} color={gpaColor} />}
                 <Chip label={acc.label} bg={acc.bg} color={acc.text} />
                 {/* STUDENT-CHART-1: the follow-up flag the chart's ribbon sets, so a

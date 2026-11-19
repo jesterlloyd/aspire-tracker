@@ -1,5 +1,6 @@
-import { useState, useMemo, useEffect, useRef } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useState, useMemo, useEffect, useLayoutEffect, useRef } from 'react'
+import { useSearchParams, useNavigate } from 'react-router-dom'
+import { usePhoneLayout } from '../hooks/useMediaQuery'
 import { useQueryClient } from '@tanstack/react-query'
 import StudentListPanel from './StudentListPanel'
 // STUDENT-CHART-1: measures the pinned bar so the chart can take the rest of the window.
@@ -12,7 +13,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { FilterKPICard } from './KPIBand'
 import { computeStatusCounts } from '../lib/derivations/cohortStatus'
 import KeithImportDrawer from './studentImport/KeithImportDrawer'
-import { Search, X, LayoutGrid, List, Info } from 'lucide-react'
+import { Search, X, LayoutGrid, List, Info, ChevronLeft } from 'lucide-react'
 import Tooltip from './ui/Tooltip'
 import StatusLegendPopover from './StatusLegendPopover'
 import { getCsLinkStatus } from '../lib/utils'
@@ -88,6 +89,15 @@ export default function StudentProfilesTab({
   const [showImport, setShowImport] = useState(false)
   const [showMessagesSetup, setShowMessagesSetup] = useState(false)
   const prevFilterKey = useRef(null)
+  // STAFF-DEVICE-1: on a phone-sized screen the split becomes list, then the full record.
+  // `phoneRecord` says the record is the screen; it opens from a tap, a deep link or a
+  // jump from another screen, and Back (or the browser's own back) returns to the list where it was.
+  const isPhone = usePhoneLayout()
+  const navigate = useNavigate()
+  const [phoneRecord, setPhoneRecord] = useState(() => !!searchParams.get('student'))
+  const pushedRecordRef = useRef(false)   // did OUR tap push the history entry Back can pop?
+  const listScrollRef = useRef(0)         // where the list was when the record opened
+  const [phoneOpened, setPhoneOpened] = useState(() => !!searchParams.get('student'))
 
   // URL writes happen ONLY in user-action handlers, never in an effect: the
   // workspace tabs stay mounted while hidden and StrictMode re-runs effects,
@@ -102,7 +112,58 @@ export default function StudentProfilesTab({
       return next
     }, { replace: true })
   }
-  const selectStudent = (id) => { setSelectedStudentId(id); updateUrl({ student: id }) }
+  const selectStudent = (id) => {
+    setSelectedStudentId(id)
+    if (isPhone) {
+      // A phone tap is a real step (pushed), so the iPhone's back gesture and the browser's Back return
+      // to the list. Desktop keeps replace: picking a row there is not a page change.
+      listScrollRef.current = window.scrollY
+      pushedRecordRef.current = true
+      setSearchParams(prev => { const next = new URLSearchParams(prev); next.set('student', id); return next })
+      setPhoneRecord(true)
+      setPhoneOpened(true)
+      window.scrollTo(0, 0)
+      return
+    }
+    updateUrl({ student: id })
+  }
+  const closePhoneRecord = () => {
+    const y = listScrollRef.current
+    if (pushedRecordRef.current) {
+      pushedRecordRef.current = false
+      navigate(-1)
+    } else {
+      updateUrl({ student: null })
+    }
+    setPhoneRecord(false)
+    requestAnimationFrame(() => window.scrollTo(0, y))
+  }
+  // The browser's back (or the back gesture) removed ?student= : show the list again. State only.
+  useEffect(() => {
+    if (phoneRecord && !searchParams.get('student')) {
+      pushedRecordRef.current = false
+      setPhoneRecord(false)
+      const y = listScrollRef.current
+      requestAnimationFrame(() => window.scrollTo(0, y))
+    }
+  }, [searchParams]) // eslint-disable-line - reacts to the URL only
+  const showPhoneRecord = isPhone && phoneRecord && view === 'records'
+  // The record gets the window below the chrome (STUDENT-CHART-1's rule, on a phone). Measured
+  // from where the panel actually starts, on open, on resize and on rotation.
+  const panelRef = useRef(null)
+  const [phoneRecordH, setPhoneRecordH] = useState(0)
+  useLayoutEffect(() => {
+    if (!showPhoneRecord) return undefined
+    const measure = () => {
+      const el = panelRef.current
+      if (!el || !el.offsetParent) return
+      const top = el.getBoundingClientRect().top + window.scrollY
+      setPhoneRecordH(Math.max(360, Math.round(window.innerHeight - top - 12)))
+    }
+    measure()
+    window.addEventListener('resize', measure)
+    return () => window.removeEventListener('resize', measure)
+  }, [showPhoneRecord])
   const changeFilter = (v) => { setActiveStatusFilter(v); updateUrl({ filter: filterToKey(v) }) }
   const changeCsLinkFilter = (v) => { setCsLinkFilter(v); updateUrl({ cslink: cslinkToKey(v) }) }
   const changeView = (v) => { onViewChange(v); updateUrl({ mode: v === 'access' ? 'access' : null }) }
@@ -118,7 +179,7 @@ export default function StudentProfilesTab({
   // yanking the path back to where the focus came from. The user's own next
   // interaction writes the URL as usual.
   useEffect(() => {
-    if (focusStudentId) { setSelectedStudentId(focusStudentId); onClearFocusStudent?.() }
+    if (focusStudentId) { setSelectedStudentId(focusStudentId); setPhoneRecord(true); setPhoneOpened(true); onClearFocusStudent?.() }
   }, [focusStudentId]) // eslint-disable-line
 
   // Mark profile as read when student is selected
@@ -229,14 +290,15 @@ export default function StudentProfilesTab({
     : (Array.isArray(activeStatusFilter) ? 'Clear filter' : activeStatusFilter)
 
   return (
-    <div className="student-profiles-tab" style={{
+    <div className={`student-profiles-tab${isPhone ? ' profiles-phone' : ''}${showPhoneRecord ? ' profiles-phone-record' : ''}`} style={{
       '--profiles-chart-h': chartHeight ? `${chartHeight}px` : undefined,
       '--profiles-toolbar-top': `${toolbarTop}px`,
+      '--profiles-phone-record-h': showPhoneRecord && phoneRecordH ? `${phoneRecordH}px` : undefined,
     }}>
 
       {/* ── Section picker: Profiles / CS-Link Access. Sits above the KPI cards like the
           Rotation and Evaluation pickers, with the same wrapper and button style. ── */}
-      <div style={{ padding:'0 0 12px', flexShrink:0 }}>
+      <div className="profiles-picker-row" style={{ padding:'0 0 12px', flexShrink:0 }}>
         <SegmentedPicker
           ariaLabel="Student Profiles views"
           value={view}
@@ -336,7 +398,9 @@ export default function StudentProfilesTab({
           {/* Spacer */}
           <div style={{ flex:1, minWidth:8 }} />
 
-          {/* Action buttons */}
+          {/* Action buttons. The wrapper is `display: contents` on desktop and tablet, so the
+              bar lays out exactly as before; on a phone it is one row that scrolls sideways. */}
+          <div className="profiles-toolbar-actions">
           {canEdit && (
             <button type="button" className="profiles-copy-contact"
               disabled={!(view === 'access' ? accessStudents : displayedStudents).length ||
@@ -371,6 +435,7 @@ export default function StudentProfilesTab({
             </button>
             </Tooltip>
           )}
+          </div>
         </div>
 
 
@@ -388,7 +453,7 @@ export default function StudentProfilesTab({
                 </div>
               </div>
               {selectedName && (
-                <div style={{ fontSize:11, color:'var(--text-muted,#9ca3af)', textAlign:'right', flexShrink:0, marginLeft:8 }}>
+                <div className="profiles-selected-note" style={{ fontSize:11, color:'var(--text-muted,#9ca3af)', textAlign:'right', flexShrink:0, marginLeft:8 }}>
                   Selected: <span style={{ color:'var(--color-accent-primary,#1D2567)', fontWeight:600 }}>{selectedName}</span>
                 </div>
               )}
@@ -398,7 +463,8 @@ export default function StudentProfilesTab({
               <StudentListPanel
                 students={displayedStudents}
                 allStudents={students}
-                selectedStudentId={selectedStudentId}
+                // On a phone the list is its own screen: no row reads as "open" until one was opened.
+                selectedStudentId={isPhone && !phoneOpened ? null : selectedStudentId}
                 onSelect={selectStudent}
                 cohortId={cohortId}
                 onRefresh={onRefresh}
@@ -408,7 +474,7 @@ export default function StudentProfilesTab({
             </div>
           </div>
 
-          {/* Right column: Drawer (always open) */}
+          {/* Right column: Drawer (always open; on a phone, the whole screen once a student is chosen) */}
           {/* STUDENT-CHART-1: NO key here. Keying this on the student id remounted the
               whole panel on every selection, which replayed the container's slide-in, and
               a binder that slides in from the right on every click says a new object has
@@ -417,7 +483,13 @@ export default function StudentProfilesTab({
               StudentSidePanel), so the key was buying the animation and nothing else. The
               chart cross-fades what is written on the paper instead, and the binder holds
               still. */}
-          <div className="profiles-panel-slide">
+          <div className="profiles-panel-slide" ref={panelRef}>
+            {showPhoneRecord && (
+              <button type="button" className="profiles-phone-back" onClick={closePhoneRecord}>
+                <ChevronLeft size={18} aria-hidden="true" />
+                <span>All Students</span>
+              </button>
+            )}
             {selectedStudent ? (
               /* STUDENT-CHART-1: onUpdate is a WRITER (updateStudent(id, updates)). It
                  refreshes nothing by itself and has no route for the follow-up column, so

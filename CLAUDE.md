@@ -3583,6 +3583,41 @@ Rules: `src/lib/unitFormResponders.js` (pure). No migration.
   rotation (Owner and Admin; `sig` is the answer, so a dismissed row returns only on a new one); the row
   opens `/aggregate?unitResponse=<unit>`, and the response drawer carries the same note.
 
+## The staff app on a phone and a tablet (STAFF-DEVICE-1, Owner, 2026-11-19)
+
+The Owner uses the staff app on an iPhone Duo (folded, a phone; unfolded, a tablet) and an iPad
+mini. **The layout follows the screen's current width, never the device model**: folding,
+unfolding or rotating switches it at once, and there is no device list. Phone is below 740px,
+`PHONE_MAX_WIDTH` (739.98) and `usePhoneLayout()` in `src/hooks/useMediaQuery.js`; CSS writes the
+same number and `test/staffDeviceLayout.test.mjs` holds the two equal. An iPad mini (744 portrait)
+is a tablet.
+
+- **Student Profiles on a phone is list, then the record** (Owner chose it over a stacked page,
+  which showed one student above a binder longer than the screen). The list is the screen, and
+  the page scrolls it; no row reads as open until one was opened. A tap PUSHES `?student=` (so
+  the back gesture and the browser's Back return to the list, at the same scroll), and the record
+  replaces the picker, cards, toolbar and list, under an "All Students" bar. The record takes the
+  window below the chrome (`--profiles-phone-record-h`, measured from where the panel starts),
+  so the binder's own scroller and index tabs keep working. A deep link or a jump from another
+  screen opens the record. Desktop still REPLACES `?student=`: picking a row there is not a page.
+- **On a tablet the split stays side by side** (Owner), with the list at
+  `clamp(250px, 36%, 320px)`. It stacked below 980px before.
+- **Scoped to Student Profiles.** Residency > Profiles & Interest (and the Residency Portal) reuse
+  the split's classes and still STACK below 980px with the list capped at 44vh, unchanged: every
+  new rule names `.student-profiles-tab` or `.profiles-phone`, and a test holds that. Giving
+  Residency the same phone mode is the audit's first item.
+- **Below 980px a list row is compact**: the name line, then the ranked units on one line and the
+  chips under it, past the photo. Three columns in a 250px list truncated every name.
+- **On a phone** the KPI cards are one row that scrolls sideways, the search takes the toolbar's
+  width, and the actions are one sideways row (`.profiles-toolbar-actions`, which is
+  `display: contents` everywhere else so the desktop bar lays out exactly as before).
+- **NO-LOOP-1**: `StudentSidePanel`'s shift-log query defaults to a module constant. A fresh `[]`
+  default fed an effect that set state, so a FAILED read (a dropped phone connection) looped the
+  binder until React blanked the page. A query default that an effect depends on is a constant.
+- Measured in a harness with the real stylesheets and sample students at 390 x 844, 744 x 1133
+  and 1133 x 744: no sideways scroll at any size, the phone record ends 12px above the window's
+  bottom, a tab jump lands its sheet, and Back restores the list's scroll.
+
 ## The humanizer opens inside Keith (KEITH-HUMANIZER-2, 2026-11-13)
 
 Owner: a **Humanizer** button in Keith's footer, between the cohort and the model select, opens the

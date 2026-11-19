@@ -2306,6 +2306,7 @@ button.ov-group-row {
   /* Content scrolls under it, so it needs an edge of its own. */
   box-shadow: 0 6px 12px -8px rgba(29,37,103,0.35);
 }
+.profiles-toolbar-actions { display: contents; }
 .profiles-scroll-area { min-height: 0; }
 .profiles-view-toggle { display: flex; gap: 0; margin-bottom: 0; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; width: fit-content; }
 
@@ -2366,6 +2367,8 @@ button.ov-group-row {
 @media (max-width: 1280px) {
   .profiles-kpis { grid-template-columns: repeat(4, 1fr); }
 }
+/* The stacked split, below 980px, for every screen that reuses these classes (Residency >
+   Profiles & Interest and the Residency Portal). Student Profiles overrides it just below. */
 @media (max-width: 980px) {
   .student-profiles-tab { padding: 0 12px; }
   .profiles-frozen { position: static; }
@@ -2388,10 +2391,116 @@ button.ov-group-row {
   .profiles-panel-slide .sp-content { overflow-y: visible; padding-bottom: 24px; }
   .profiles-scroll-area { overflow: visible; }
 }
+
+/* STAFF-DEVICE-1 (2026-11-19, Owner): Student Profiles follows the screen's width, never the
+   device. Tablet (740 to 980px: an unfolded iPhone Duo, an iPad mini) keeps the split side by
+   side with a narrower list, pinned as on desktop. Phone (below 740px: a folded Duo) is list,
+   then the full record: the stacked split above showed one student over a binder longer than
+   the screen. Every rule here is scoped to .student-profiles-tab or .profiles-phone, so the
+   Residency screens that share the split keep the stacked layout. 739.98 is PHONE_MAX_WIDTH in
+   src/hooks/useMediaQuery.js. */
+@media (min-width: 740px) and (max-width: 980px) {
+  .student-profiles-tab .profiles-slide-container {
+    flex-direction: row;
+    height: var(--profiles-chart-h, calc(100vh - 164px));
+    overflow: hidden;
+    gap: 12px;
+  }
+  .student-profiles-tab .profiles-toolbar {
+    position: sticky; box-shadow: 0 6px 12px -8px rgba(29,37,103,0.35);
+  }
+  .student-profiles-tab .profiles-list-narrow {
+    flex: 0 0 clamp(250px, 36%, 320px); min-width: 0; height: 100%; max-height: none;
+  }
+  .student-profiles-tab .profiles-panel-slide { height: 100%; }
+}
+@media (max-width: 980px) {
+  .profiles-selected-note { display: none; }
+}
+@media (max-width: 739.98px) {
+  .profiles-phone .profiles-slide-container { gap: 0; }
+  /* The list is the whole screen; the page scrolls it. */
+  .profiles-phone .profiles-list-narrow { flex: none; width: 100%; height: auto; max-height: none; overflow: visible; }
+  .profiles-phone .profiles-list-narrow > div { overflow: visible !important; }
+  .profiles-phone .profiles-list-narrow .pl-list { overflow: visible; padding-bottom: 96px; }
+  .profiles-phone:not(.profiles-phone-record) .profiles-panel-slide { display: none; }
+  /* The record is the whole screen: no picker, cards, toolbar or list above it. */
+  .profiles-phone-record .profiles-picker-row,
+  .profiles-phone-record .profiles-frozen,
+  .profiles-phone-record .profiles-toolbar,
+  .profiles-phone-record .profiles-list-narrow { display: none; }
+  /* The record takes the window below the chrome, as on desktop, so the binder's own scroller
+     and its index tabs still work. The height is measured (StudentProfilesTab) because the
+     staff header is not a constant on a phone; the calc is the first-paint fallback. */
+  .profiles-phone-record .profiles-panel-slide {
+    flex: none;   /* the desktop `flex: 1` grows a column item to its content, past this height */
+    height: var(--profiles-phone-record-h, calc(100dvh - var(--app-chrome-height, 112px) - 20px));
+    display: flex; flex-direction: column;
+    animation: none;
+  }
+  .profiles-phone-record .profiles-panel-slide > .sc-binder { flex: 1 1 auto; height: auto; min-height: 0; }
+  .profiles-phone-record .profiles-phone-back { flex: none; margin-bottom: 8px; border-bottom: 0; border-radius: var(--aspire-radius-control); box-shadow: var(--aspire-shadow-card); }
+}
+.profiles-phone-back {
+  display: flex; align-items: center; gap: 2px;
+  width: 100%; min-height: 44px; padding: 0 10px;
+  border: 0; border-bottom: 1px solid var(--border-card, rgba(29,37,103,0.08));
+  background: var(--bg-card, #fff); color: var(--color-accent-primary, #1D2567);
+  font: 600 15px/1 var(--aspire-sans, 'Plus Jakarta Sans', sans-serif);
+  cursor: pointer; text-align: left;
+}
+.profiles-phone-back:focus-visible { outline: var(--aspire-focus-ring); outline-offset: -2px; }
 @media (max-width: 560px) {
   .profiles-kpis,
   .profiles-kpis[data-kpi-set="cslink"] { grid-template-columns: repeat(2, 1fr); }
   .pl-row { grid-template-columns: 1fr !important; }
+}
+
+/* STAFF-DEVICE-1: the list column is 250 to 320px wide below 980px (and the whole screen on a
+   phone), too narrow for the desktop row's three columns, which truncated every name. A row
+   there is the identity line, with the ranked units and the chips under it past the photo. */
+@media (max-width: 980px) {
+  .student-profiles-tab .pl-row {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 4px !important; padding: 10px 12px !important;
+  }
+  .student-profiles-tab .pl-row .pl-col-units,
+  .student-profiles-tab .pl-row .pl-col-chips { padding-top: 0 !important; padding-left: 57px; }
+  .student-profiles-tab .pl-row .pl-prefs { flex-direction: row !important; flex-wrap: wrap; gap: 2px 12px !important; }
+  .student-profiles-tab .pl-row .pl-col-chips { flex-direction: row !important; flex-wrap: wrap; }
+}
+
+/* STAFF-DEVICE-1: a phone list is scanned, so each part of Student Profiles gives back height
+   without dropping anything. The KPI cards are one row that scrolls sideways, the search takes
+   the toolbar's full width, and a student row is the identity line with the ranked units and
+   the chips beside each other under it (it measured 187px a row stacked, 18 students to scroll
+   past). The `!important`s beat the cards' and rows' inline styles, at this width only. */
+@media (max-width: 739.98px) {
+  .profiles-phone .profiles-kpis,
+  .profiles-phone .profiles-kpis[data-kpi-set="cslink"] {
+    display: flex !important; gap: 8px !important;
+    overflow-x: auto; scroll-snap-type: x proximity; overscroll-behavior-x: contain;
+    margin: 0 -16px 12px !important; padding: 2px 16px 6px;
+    scrollbar-width: none;
+  }
+  .profiles-phone .profiles-kpis::-webkit-scrollbar { display: none; }
+  .profiles-phone .profiles-kpis > button {
+    flex: 0 0 auto; min-width: 118px; max-width: 150px;
+    padding: 10px 12px !important; scroll-snap-align: start;
+  }
+  .profiles-phone .profiles-kpis > button > div:first-child { font-size: 24px !important; }
+  .profiles-phone .profiles-kpis > button > div:nth-child(2) { margin-top: 4px !important; }
+  .profiles-phone .profiles-toolbar { gap: 8px; padding: 8px; }
+  .profiles-phone .profiles-toolbar > div:has(> input[aria-label="Search student"]) { flex: 1 1 100%; max-width: none !important; }
+  .student-profiles-tab.profiles-phone { padding: 0; }
+  .profiles-phone .profiles-toolbar > select { flex: 1 1 160px; min-width: 0; }
+  .profiles-phone .profiles-toolbar > div[style*="flex: 1"] { display: none; }
+  .profiles-phone .profiles-toolbar-actions {
+    display: flex; gap: 8px; flex: 1 1 100%;
+    overflow-x: auto; margin: 0 -8px; padding: 0 8px 2px; scrollbar-width: none;
+  }
+  .profiles-phone .profiles-toolbar-actions::-webkit-scrollbar { display: none; }
+  .profiles-phone .profiles-toolbar-actions > * { flex: none; white-space: nowrap; }
 }
 
 /* Legacy - keep for any remaining refs */

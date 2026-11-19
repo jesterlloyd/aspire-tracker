@@ -32,7 +32,12 @@ test('Students URL state', async (t) => {
     // The workspace tabs stay mounted while hidden and StrictMode re-runs
     // effects; an effect-based sync once stripped deep links with a
     // boot-time closure. Guard the architecture, not just the behavior.
-    assert.match(spt, /const selectStudent = \(id\) => \{ setSelectedStudentId\(id\); updateUrl\(\{ student: id \}\) \}/)
+    // STAFF-DEVICE-1 (2026-11-19) changed the handler's shape: on a phone a tap PUSHES ?student=
+    // (so Back returns to the list); elsewhere it still replaces through updateUrl. Both writes
+    // stay inside the user-action handler.
+    const handler = spt.slice(spt.indexOf('const selectStudent = (id) => {'), spt.indexOf('const closePhoneRecord'))
+    assert.match(handler, /setSelectedStudentId\(id\)/)
+    assert.match(handler, /if \(isPhone\) \{[\s\S]*?setSearchParams\([\s\S]*?return\s*\n\s*\}\s*\n\s*updateUrl\(\{ student: id \}\)/)
     assert.doesNotMatch(spt, /useEffect\(\(\) => \{\s*\n\s*if \(location\.pathname/)
     const effects = spt.split('useEffect').slice(1)
     for (const e of effects) {

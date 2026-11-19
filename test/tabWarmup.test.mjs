@@ -60,7 +60,9 @@ test('the staff app: each of the three mounts only once visited or warmed, and t
 test('a student opened from another screen still lands when Student Profiles was not mounted yet', () => {
   const tab = readFileSync(new URL('../src/components/StudentProfilesTab.jsx', import.meta.url), 'utf8')
   // The effect runs on mount as well as on change, so a tab mounted BY the jump reads the student.
-  assert.match(tab, /if \(focusStudentId\) \{ setSelectedStudentId\(focusStudentId\); onClearFocusStudent\?\.\(\) \}\s+\}, \[focusStudentId\]\)/)
+  // STAFF-DEVICE-1 (2026-11-19): the jump also opens the record on a phone (setPhoneRecord,
+  // setPhoneOpened); the mount-time read is unchanged.
+  assert.match(tab, /if \(focusStudentId\) \{ setSelectedStudentId\(focusStudentId\); setPhoneRecord\(true\); setPhoneOpened\(true\); onClearFocusStudent\?\.\(\) \}\s+\}, \[focusStudentId\]\)/)
   assert.match(app, /onOpenStudent=\{\(id\) => \{ switchTab\('profiles'\); setFocusStudentId\(id\) \}\}/)
 })
 
