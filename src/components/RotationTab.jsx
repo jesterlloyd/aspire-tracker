@@ -19,9 +19,15 @@ export default function RotationTab(props) {
       ? 'activity'
       : 'matrix'
   const precView = location.pathname === '/rotation/preceptors/coverage' ? 'coverage' : 'directory'
+  // ROTATION-PAGE-SCROLL-1 (2026-11-19): the long reading views (Shift Log, Student Coverage)
+  // scroll with the PAGE. Inside the workspace's fixed calc(100vh - 124px) box with a scroller
+  // of their own, any extra page height let the window scroll too, and the box's bottom edge
+  // rose into view as a blank band that cut the table off. Only the views built to fill the
+  // window (Placement Board, Preceptor Directory) keep the fixed box.
+  const flowsWithPage = activeSubTab === 'activity' || (activeSubTab === 'preceptors' && precView === 'coverage')
 
   return (
-    <div className="rotation-workspace">
+    <div className={flowsWithPage ? 'rotation-workspace rotation-workspace-flow' : 'rotation-workspace'}>
       {/* UI canon: a section nav sits --aspire-page-top (24px) above the first card,
           and a card carries --aspire-gap-card (16px) itself - so the nav contributes 8. */}
       <div className="rotation-view-picker">
@@ -66,7 +72,7 @@ export default function RotationTab(props) {
             toast={props.toast}
           />
         </div>
-        <div style={{ display: precView === 'coverage' ? 'block' : 'none', flex: 1, minHeight: 0, overflowY: 'auto' }}>
+        <div style={{ display: precView === 'coverage' ? 'block' : 'none' }}>
           <StudentCoverage
             students={props.students}
             units={props.units}
@@ -76,7 +82,7 @@ export default function RotationTab(props) {
         </div>
       </div>
       {canEdit && (
-        <div style={{ display: activeSubTab === 'activity' ? 'block' : 'none', flex: 1, minHeight: 0, overflowY: 'auto' }}>
+        <div style={{ display: activeSubTab === 'activity' ? 'block' : 'none' }}>
           <RotationActivity
             students={props.students}
             units={props.units}

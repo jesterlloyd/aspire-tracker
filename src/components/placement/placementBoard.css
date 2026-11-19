@@ -10,6 +10,9 @@
   display: flex; flex-direction: column;
   height: calc(100vh - 124px); min-height: 0;
 }
+/* ROTATION-PAGE-SCROLL-1: Shift Log and Student Coverage are as tall as their content and the
+   window scrolls them; see RotationTab. */
+.rotation-workspace.rotation-workspace-flow { height: auto; }
 .rotation-view-picker {
   position: relative; z-index: 8;
   flex-shrink: 0;

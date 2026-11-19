@@ -91,8 +91,9 @@ function StudentRow({ card, expanded, onToggle, onOpenProfile, onSupportOpen, in
         ref={innerRef}
         style={{
           background: rowBg,
-          // Clear the sticky top nav + Rotation tab header when scrollIntoView lands here.
-          scrollMarginTop: 88,
+          // Clear the sticky app chrome when scrollIntoView lands here: the window scrolls
+          // Shift Log now (ROTATION-PAGE-SCROLL-1), so the header sits over the row.
+          scrollMarginTop: 'calc(var(--app-chrome-height, 112px) + 16px)',
           boxShadow: highlighted ? `inset 3px 0 0 ${NAVY}` : 'none',
           transition: 'background 0.4s ease, box-shadow 0.4s ease',
         }}

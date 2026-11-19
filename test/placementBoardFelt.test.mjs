@@ -212,6 +212,11 @@ test('LAYOUT 2B: the picker stays visible while the KPI band scrolls away and th
   assert.match(rotation, /className="rotation-matrix-view"/)
   assert.match(css, /\.rotation-workspace \{[\s\S]*?height: calc\(100vh - 124px\);/)
   assert.match(css, /\.rotation-matrix-view \{[\s\S]*?overflow-y: auto;/)
+  // ROTATION-PAGE-SCROLL-1: Shift Log and Student Coverage scroll with the page, never inside
+  // the fixed box, or the box's bottom edge rises into view as a blank band.
+  assert.match(css, /\.rotation-workspace\.rotation-workspace-flow \{ height: auto; \}/)
+  assert.match(rotation, /flowsWithPage = activeSubTab === 'activity'/)
+  assert.doesNotMatch(rotation, /activeSubTab === 'activity' \? 'block' : 'none', flex: 1, minHeight: 0, overflowY: 'auto'/)
   assert.match(css, /\.pb-board \{[\s\S]*?min-height: calc\(100vh - 180px\);/)
 })
 
