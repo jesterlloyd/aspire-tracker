@@ -1,4 +1,4 @@
-import { placementRequestReceived } from './placementRequestReceived.js';
+import { placementRequestReceived, placementRequestWithdrawn } from './placementRequestReceived.js';
 import { formReceived } from './formReceived.js';
 import { teamsInviteReminder, teamsInviteReminderEscalation } from './teamsInviteReminder.js';
 import { unitFormReceived } from './unitFormReceived.js';
@@ -16,6 +16,7 @@ export const templates = {
   // can keep reconstructing historical previews; it can never send again (its recipient resolver
   // was removed, so resolveRecipients returns no recipients for it).
   placement_request_received:       placementRequestReceived,
+  placement_request_withdrawn:      placementRequestWithdrawn,
   form_received:                    formReceived,
   teams_invite_reminder:            teamsInviteReminder,
   teams_invite_reminder_escalation: teamsInviteReminderEscalation,

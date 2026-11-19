@@ -41,6 +41,9 @@ import { readPortalCohort, writePortalCohort } from '../lib/portalCohortMemory'
 import { computeStatusCounts } from '../lib/derivations/cohortStatus'
 import { useSchoolStudentPhotos } from './ap/useSchoolStudentPhotos'
 import { useReportPortalFailure, ACCESS_FAILURE } from './portalAccessSignal'
+import { postSchoolStudentRecord } from './ap/academicPartnerApi'
+import { confirmDialog } from '../components/shared/confirmDialog'
+import { withdrawConfirm, refusalText } from '../lib/ap/studentWithdraw'
 
 // A stable empty roster reference so the photo-prefetch effect does not re-run every render while
 // the roster is still loading (a fresh [] each render would look like a new dependency).
@@ -134,6 +137,8 @@ function StudentsView({ onCommandPeople, onNavigate }) {
   const [sort, setSort]                           = useState({ column: null, direction: 'asc' })
   const [openStudent, setOpenStudent]             = useState(null)
   const openerRef = useRef(null)
+  // AP-STUDENT-WITHDRAW-1: the outcome of the last Remove, read out above the roster.
+  const [removeNote, setRemoveNote]               = useState(null)
 
   const dateLabel = useMemo(
     () => new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }),
@@ -141,6 +146,19 @@ function StudentsView({ onCommandPeople, onNavigate }) {
   )
 
   const reload = useCallback(() => setReloadKey(k => k + 1), [])
+
+  // AP-STUDENT-WITHDRAW-1: one confirmation, then the server re-checks every rule and deletes.
+  const removeStudent = useCallback(async (s) => {
+    const name = displayName(s)
+    const words = withdrawConfirm(name)
+    if (!(await confirmDialog(words.message, { confirmLabel: words.confirmLabel, danger: true }))) return false
+    const r = await postSchoolStudentRecord({ action: 'withdraw', student_id: s.id })
+    if (!r.ok) { setRemoveNote({ tone: 'error', text: refusalText(r.error) }); reload(); return false }
+    setRemoveNote({ tone: 'ok', text: `${name} was removed. The ASPIRE team has been told.` })
+    setOpenStudent(null)
+    reload()
+    return true
+  }, [reload])
   const reportFailure = useReportPortalFailure()
 
   // The shared portal Refresh re-fetches the school roster (and, through has_photo, re-primes secure
@@ -327,6 +345,12 @@ function StudentsView({ onCommandPeople, onNavigate }) {
             <span className="ptl-muted ptl-small">Upload your students&apos; documents, or what your school requires, in Documents.</span>
             <button type="button" className="ptl-btn ptl-btn-small" onClick={() => onNavigate?.('documents')}>Open Documents</button>
           </div>
+          {removeNote && (
+            <p role="status" className={`ptl-ap-remove-note${removeNote.tone === 'error' ? ' ptl-ap-remove-note-error' : ''}`}>
+              {removeNote.text}
+              <button type="button" className="ptl-ap-remove-dismiss" aria-label="Dismiss" onClick={() => setRemoveNote(null)}>×</button>
+            </p>
+          )}
           <div className="ptl-table-wrap">
             <table className="ptl-table ptl-ap-table">
               <thead>
@@ -370,6 +394,12 @@ function StudentsView({ onCommandPeople, onNavigate }) {
                         <UnitStudentAvatar url={photos.peek(s.id)} name={displayName(s)} size={40} />
                         <span className="ptl-ap-student-name">{displayName(s)}</span>
                       </button>
+                      {s.can_withdraw && (
+                        <button type="button" className="ptl-ap-remove" onClick={() => removeStudent(s)}
+                          aria-label={`Remove ${displayName(s)} from your placement request`}>
+                          Remove
+                        </button>
+                      )}
                     </td>
                     <td><StatusPill status={s.status} /></td>
                     <td>{s.cohort?.name || ''}</td>
@@ -388,7 +418,8 @@ function StudentsView({ onCommandPeople, onNavigate }) {
           </div>
           {openStudent && (
             <Suspense fallback={null}>
-              <SchoolStudentDrawer student={openStudent} returnFocusRef={openerRef} onClose={() => setOpenStudent(null)} />
+              <SchoolStudentDrawer student={openStudent} returnFocusRef={openerRef} onClose={() => setOpenStudent(null)}
+                onRemove={openStudent.can_withdraw ? () => removeStudent(openStudent) : null} />
             </Suspense>
           )}
           <p className="ptl-muted ptl-small">

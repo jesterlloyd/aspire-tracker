@@ -26,6 +26,7 @@ import { INACTIVE_MESSAGE } from './lib/activeAccount.js';
 export const RECONSTRUCTABLE = new Set([
   'form_received',
   'placement_request_received',
+  'placement_request_withdrawn',
   'unit_form_received',
   'teams_invite_reminder',
   'teams_invite_reminder_escalation',

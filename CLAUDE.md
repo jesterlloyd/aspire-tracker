@@ -3571,6 +3571,29 @@ document of every student, and documents were only visible one student at a time
 - Every `InsightsGlance` (the portals' outcomes) carries a note that earlier cohorts are still being
   entered, and its cards drop the graph paper in Classic.
 
+## A school can remove a student it submitted, until we reach out (AP-STUDENT-WITHDRAW-1, 2026-11-19)
+
+Owner: an Academic Partner removes a student it submitted for placement, easily but safely. This is
+a permanent DELETE, not the Withdrawn / Not Proceeding status: before outreach the student was never
+in the program, so nothing is kept. The rule is `withdrawBlocker` in `src/lib/ap/studentWithdraw.js`
+(pure), read by the roster and the server alike.
+
+- **Who**: only the person who submitted the student (`placement_request_last_submitted_by_profile_id`
+  is the caller). A student sent through the public `/school-form`, or last resubmitted by a colleague,
+  is the ASPIRE team's to remove. An Owner/Admin preview removes nobody (`withdraw` is in WRITES).
+- **When**: status still Pending Outreach, and nothing of the student's exists: no intake
+  (`submitted_via 'student_form'` or a privacy acknowledgment), no résumé or photo, no portal link, no
+  document version, and no `notification_log` row against them other than the placement confirmation
+  (`NOT_OUTREACH_TYPES`). Any of those and Remove is not offered; the server refuses with a sentence.
+- **How**: the roster carries only `can_withdraw` (the columns it reads never leave the server). Remove
+  sits under the name and in the record drawer's Remove Student section; one `confirmDialog`, danger,
+  naming the student and that it cannot be undone. `school-student-records` `withdraw` re-checks
+  everything on fresh facts, then deletes conditionally on the status and submitter (a send that lands
+  in between wins), and a row other records still point at fails on its foreign keys, never forced.
+- **Who hears**: the internal team only, by `placement_request_withdrawn` (the submission email's
+  template file and recipients, archived like it). Logged with no student_id, because the row is gone.
+  Not in Needs you or the Action Center (Owner).
+
 ## The unit form names its responder from Connect (UNIT-FORM-RESPONDER-1, 2026-11-11)
 
 Owner: the public Unit Availability Form (`/unit-form`) is wider on a desktop, asks who is answering

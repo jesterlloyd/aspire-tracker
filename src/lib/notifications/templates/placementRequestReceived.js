@@ -73,3 +73,28 @@ export const placementRequestReceived = {
     }),
   }),
 };
+
+// AP-STUDENT-WITHDRAW-1 (Owner, 2026-11-19): an Academic Partner removed, for good, a student it
+// submitted before the ASPIRE team reached out. The team is told the same way it is told of a new
+// submission, and only the team: the coordinator did it, and the student was never contacted.
+export const placementRequestWithdrawn = {
+  internal_team: (ctx) => ({
+    subject: `ASPIRE Placement Request Withdrawn: ${ctx.studentName} (${ctx.school || 'unknown school'})`,
+    html: aspireEmailShell({
+      preheader: `${ctx.removedByName || 'A coordinator'} removed ${ctx.studentName} from their placement request.`,
+      body: `
+        <h2 style="color:${NAVY};font-weight:600;margin:0 0 12px;">Placement Request Withdrawn</h2>
+        <p style="margin:0 0 16px;">${escapeHtml(ctx.removedByName || 'A coordinator')} removed this student from the Academic Partner Portal before the ASPIRE team reached out. The student record was deleted.</p>
+
+        ${renderEmailDetailsCard({ rows: [
+          { label: 'Student',      value: ctx.studentName || '' },
+          { label: 'School',       value: ctx.school || 'Not specified' },
+          { label: 'Cohort',       value: ctx.cohortName || '' },
+          { label: 'Program',      value: ctx.programType || '' },
+          { label: 'School Email', value: ctx.studentEmail || '' },
+          { label: 'Removed By',   value: [ctx.removedByName, ctx.removedByEmail].filter(Boolean).join(' · ') },
+          { label: 'Removed',      value: submittedStamp() },
+        ] })}`,
+    }),
+  }),
+};

@@ -17,6 +17,8 @@
 /** Ordinary templates: rendered, sent, archived by the shared notification path. */
 export const TEMPLATE_NOTIFICATION_TYPES = Object.freeze([
   'placement_request_received',
+  // AP-STUDENT-WITHDRAW-1: an ordinary internal-team notice.
+  'placement_request_withdrawn',
   'unit_form_received',
   'teams_invite_reminder',
   'teams_invite_reminder_escalation',

@@ -21,6 +21,7 @@
 
 import { verifyPortalAcademicPartnerCaller, resolveSchoolScopedStudents, resolveSchoolScopedCohorts } from '../lib/schoolScope.js'
 import { parseStoredFileRef } from '../../lib/server/studentFiles.js'
+import { WITHDRAW_COLUMNS, withdrawableIds } from '../../lib/server/schoolStudentWithdraw.js'
 
 // Explicit allowlist (allowlist, not denylist, so a new students column is excluded by default).
 // Confirmed unit resolves through the reliable normalized assignment matched_unit_id -> units, NOT
@@ -38,6 +39,8 @@ const STUDENT_COLUMNS = [
   // UI-CONSISTENCY-6 (Owner decision, 2026-09-03): the coordinator-owned rotation row, so the
   // roster shows the same Rotation Timeline the Placement Requests list already shows.
   'cohort_school_rotation_id',
+  // AP-STUDENT-WITHDRAW-1: read ONLY to decide `can_withdraw`; none of these leave the server.
+  ...WITHDRAW_COLUMNS,
 ].join(', ')
 
 // A stored file reference resolves to a real object (not empty, not an unparseable value).
@@ -63,7 +66,7 @@ export default async function handler(req, res) {
   const auth = await verifyPortalAcademicPartnerCaller(req)
   if (!auth.ok) return res.status(auth.status).json({ error: auth.reason })
 
-  const { db, scopes } = auth
+  const { db, scopes, profile, staffPreview } = auth
   if (scopes.length === 0) return res.status(200).json({ schools: [] })
 
   let scopeTerms, matches, cohortsBySchool
@@ -169,6 +172,10 @@ export default async function handler(req, res) {
     }
   }
 
+  // AP-STUDENT-WITHDRAW-1: which students this caller may remove (the person who submitted them,
+  // before any outreach). A preview removes nothing. The delete re-checks every rule.
+  const withdrawable = staffPreview ? new Set() : await withdrawableIds(db, matches.map(m => m.student), profile?.id)
+
   const bySchool = {}
   for (const { student: s, school_key } of matches) {
     const entry = {
@@ -201,6 +208,7 @@ export default async function handler(req, res) {
         pending: s.pending_hours ?? 0,
       },
       evaluations: evalsByStudent[s.id] || { completed: 0, pending: 0 },
+      can_withdraw: withdrawable.has(s.id),
     }
     ;(bySchool[school_key] ||= []).push(entry)
   }

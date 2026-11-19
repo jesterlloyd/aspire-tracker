@@ -250,7 +250,7 @@ function ClearanceSection({ studentId, readOnly }) {
   )
 }
 
-export default function SchoolStudentDrawer({ student, onClose, returnFocusRef, extraSections = null }) {
+export default function SchoolStudentDrawer({ student, onClose, returnFocusRef, extraSections = null, onRemove = null }) {
   const panelRef = useRef(null)
   const closeRef = useRef(null)
   const studentId = student?.id
@@ -330,6 +330,15 @@ export default function SchoolStudentDrawer({ student, onClose, returnFocusRef, 
               <ProfileSection p={p} readOnly={state.readOnly} onCorrect={onCorrect} />
               <ClearanceSection studentId={studentId} readOnly={state.readOnly} />
               {extraSections ? extraSections({ studentId, readOnly: state.readOnly, profile: p }) : null}
+              {/* AP-STUDENT-WITHDRAW-1: offered only when the roster said this caller may remove the
+                  student (they submitted them, and no one has reached out yet). */}
+              {onRemove && !state.readOnly && (
+                <section className="apr-section apr-remove" aria-labelledby="apr-remove-h">
+                  <h3 id="apr-remove-h" className="ptl-detail-heading">Remove Student</h3>
+                  <p className="apr-lede">Submitted this student by mistake? You can remove them until the ASPIRE team reaches out to them. This deletes the student for good.</p>
+                  <button type="button" className="ptl-btn ptl-btn-small apr-remove-btn" onClick={onRemove}>Remove Student</button>
+                </section>
+              )}
             </>
           )}
         </div>

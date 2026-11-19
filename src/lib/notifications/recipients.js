@@ -150,6 +150,9 @@ export async function resolveRecipients(type, context) {
   switch (type) {
     case 'placement_request_received':
       return resolvePlacementRequestReceived(context);
+    case 'placement_request_withdrawn':
+      // AP-STUDENT-WITHDRAW-1: the internal team only.
+      return Object.entries(INTERNAL_TEAM_EMAILS).map(([role, email]) => ({ email, role, audience: 'internal_team' }));
     case 'teams_invite_reminder':
     case 'teams_invite_reminder_escalation':
       return resolveTeamsInviteReminder(context);

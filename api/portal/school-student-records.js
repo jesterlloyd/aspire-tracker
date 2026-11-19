@@ -13,6 +13,8 @@
 //   POST { action: 'layout_set', school_key, order: [keys], hidden: [keys] }  the sheet's column order
 //   POST { action: 'upload_start' | 'upload_finish', student_id, doc_type, ... }
 //   POST { action: 'open', version_id }
+//   POST { action: 'withdraw', student_id }   AP-STUDENT-WITHDRAW-1: delete a student the caller
+//        submitted, before any outreach (rule: src/lib/ap/studentWithdraw.js), and email the team
 //
 // Authorization is the roster's own (api/lib/schoolScope.js): a verified JWT, an ACTIVE
 // academic_partner grant and ACTIVE user_school_scopes. A student id is only ever intersected with
@@ -24,10 +26,12 @@ import {
   loadSchoolProfile, correctAnswer, loadClearance, loadClearanceSummaries, loadDocumentSheet, loadSchoolItems, addSchoolItem, retireSchoolItem, setSchoolLayout,
   startClearanceUpload, finishClearanceUpload, openClearanceVersion,
 } from '../../lib/server/schoolStudentRecords.js'
+import { withdrawStudent } from '../../lib/server/schoolStudentWithdraw.js'
+import { sendPlacementWithdrawnNotification } from '../../lib/server/notifications/placementRequestNotifications.js'
 
-const WRITES = new Set(['correct', 'item_add', 'item_retire', 'layout_set', 'upload_start', 'upload_finish'])
+const WRITES = new Set(['correct', 'item_add', 'item_retire', 'layout_set', 'upload_start', 'upload_finish', 'withdraw'])
 
-export function createSchoolStudentRecordsHandler({ verifyCaller = verifyPortalAcademicPartnerCaller } = {}) {
+export function createSchoolStudentRecordsHandler({ verifyCaller = verifyPortalAcademicPartnerCaller, notifyWithdrawn = sendPlacementWithdrawnNotification } = {}) {
   return async function handler(req, res) {
     res.setHeader('Cache-Control', 'no-store')
     if (req.method === 'OPTIONS') return res.status(200).end()
@@ -42,7 +46,7 @@ export function createSchoolStudentRecordsHandler({ verifyCaller = verifyPortalA
     const action = String(req.method === 'GET' ? q.action || '' : body.action || '')
     if (WRITES.has(action) && auth.staffPreview) return res.status(403).json({ error: 'preview_read_only' })
     const nowIso = new Date().toISOString()
-    const actor = { id: profile.id, name: profile.full_name || null }
+    const actor = { id: profile.id, name: profile.full_name || null, email: profile.email || null }
     const send = (r) => {
       if (r.ok) { const rest = { ...r }; delete rest.ok; delete rest.status; return res.status(200).json({ ok: true, ...rest }) }
       return res.status(r.status || 500).json({ error: r.error || 'internal_error' })
@@ -104,6 +108,7 @@ export function createSchoolStudentRecordsHandler({ verifyCaller = verifyPortalA
         if (r.ok) return res.status(200).json({ ok: true, version: r.version })
         return send(r)
       }
+      if (action === 'withdraw') return send(await withdrawStudent(db, scopes, { studentId: body.student_id, actor, notify: notifyWithdrawn }))
       if (action === 'open') return send(await openClearanceVersion(db, storage, scopes, { versionId: body.version_id }))
       return res.status(400).json({ error: 'unknown_action' })
     } catch {

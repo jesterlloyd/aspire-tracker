@@ -76,3 +76,8 @@
   padding: 1px 6px; border-radius: var(--aspire-radius-pill, 999px);
 }
 .apr-hidden-tag { margin-left: 6px; font-size: 11px; padding: 1px 8px; }
+
+/* AP-STUDENT-WITHDRAW-1: the drawer's Remove Student section. Red ink names the action; the
+   confirmation dialog is where the danger button lives. */
+.apr-remove-btn { color: #b42318; }
+.apr-remove-btn:hover { color: #8a1c13; }

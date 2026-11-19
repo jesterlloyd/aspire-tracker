@@ -60,7 +60,7 @@ function discoveredTypes() {
     'api/certificate-preceptor-reconcile.js',
   ]) { try { scan(read(f)) } catch { /* optional file */ } }
   // Types only reachable from modules not scanned above.
-  for (const t of ['unit_leader_alert', 'unit_form_received', 'placement_request_received',
+  for (const t of ['unit_leader_alert', 'unit_form_received', 'placement_request_received', 'placement_request_withdrawn',
     'clockout_reminder', 'teams_invite_reminder', 'teams_invite_reminder_escalation',
     'form_received', 'evaluation_invitation_sent', 'evaluation_invitation_test',
     'evaluation_survey_test_sent', 'casey_fink_post_rotation_request_sent',
