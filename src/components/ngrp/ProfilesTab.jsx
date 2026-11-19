@@ -26,6 +26,9 @@
 import Tooltip from '../ui/Tooltip'
 import { Suspense, useMemo, useState, useCallback, useEffect, useRef } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
+import { ChevronLeft } from 'lucide-react'
+import { usePhoneLayout } from '../../hooks/useMediaQuery'
+import { usePhoneRecordHeight } from '../../hooks/usePhoneRecordHeight'
 import { Search, Send, GraduationCap, X, Eye, Sheet, List, LayoutGrid, FileText } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { confirmDialog } from '../shared/confirmDialog'
@@ -152,7 +155,7 @@ function AlumniListRow({ row, selected, onSelect, feedbackEntry, onOpenFeedback 
       style={{ alignItems: 'flex-start', padding: '11px 14px', display: 'grid', gridTemplateColumns: '40% 28% 32%', gap: 6 }}
       onClick={() => onSelect(row.id)}
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(row.id) } }}>
-      <div style={{ display: 'flex', gap: 9, minWidth: 0, alignItems: 'flex-start' }}>
+      <div className="pl-col-id" style={{ display: 'flex', gap: 9, minWidth: 0, alignItems: 'flex-start' }}>
         <StudentAvatar student={s} size={48} style={{ flexShrink: 0, marginTop: 1 }} />
         <div style={{ minWidth: 0, flex: 1 }}>
           <Tooltip label={name} applyAriaLabel={false}>
@@ -171,9 +174,9 @@ function AlumniListRow({ row, selected, onSelect, feedbackEntry, onOpenFeedback 
           <PreceptorFeedbackChip entry={feedbackEntry} onOpen={onOpenFeedback ? () => onOpenFeedback(row.id) : undefined} />
         </div>
       </div>
-      <div style={{ minWidth: 0, paddingTop: 3 }}>
+      <div className="pl-col-units" style={{ minWidth: 0, paddingTop: 3 }}>
         {preferences.length > 0 ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+          <div className="pl-prefs" style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
             {preferences.map((p, i) => (
               <div key={p} style={{ display: 'flex', gap: 3, alignItems: 'baseline' }}>
                 <span style={{ fontSize: 8, fontWeight: 700, color: 'var(--text-caption,#6b7280)', width: 16, flexShrink: 0 }}>{['1st', '2nd', '3rd'][i] || `${i + 1}th`}</span>
@@ -185,7 +188,7 @@ function AlumniListRow({ row, selected, onSelect, feedbackEntry, onOpenFeedback 
           <span style={{ fontSize: 9.5, color: 'var(--text-caption,#6b7280)', fontStyle: 'italic' }}>None ranked</span>
         )}
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 3, paddingTop: 3, minWidth: 0 }}>
+      <div className="pl-col-chips" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 3, paddingTop: 3, minWidth: 0 }}>
         <NgrpStatusPill config={FORM_SENT_STATES} value={formSentState(row)} srPrefix="Transition Form" />
         <NgrpStatusPill config={ROSTER_STATUSES} value={status} srPrefix="Status" />
         {/* RESIDENCY-FLAG-1: the chart ribbon's mark, as on a student's row. */}
@@ -435,6 +438,15 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
   // RESIDENTS-ONE-RECORD-1: ?sheet=<id> opens the linked alumnus's binder at that sheet
   // (Residency > Residents links ?candidate=<id>&sheet=hiring).
   const linkedSheet = searchParams.get('sheet')
+  // STAFF-DEVICE-1 (2026-11-19): below 740px Profiles is list, then the binder, exactly as Student
+  // Profiles; a link that names an alumnus opens the binder. Tablet and desktop keep the split.
+  const isPhone = usePhoneLayout()
+  const [phoneRecord, setPhoneRecord] = useState(() => Boolean(linkedStudent || linkedCandidate))
+  const [phoneOpened, setPhoneOpened] = useState(() => Boolean(linkedStudent || linkedCandidate))
+  const pushedRecordRef = useRef(false)
+  const listScrollRef = useRef(0)
+  const showPhoneRecord = isPhone && phoneRecord && view === 'profiles' && !sheetOpen
+  const [panelRef, phoneRecordH] = usePhoneRecordHeight(showPhoneRecord)
   const drawerRow = (drawerRowId
     ? allRows.find(r => r.id === drawerRowId)
     : linkedCandidate ? allRows.find(r => r.candidate_id === linkedCandidate)
@@ -442,6 +454,8 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
   // The split always has someone open: the chosen alumnus, else the first in the list.
   const shownRowId = drawerRow?.id || filteredRows[0]?.id || null
   const shownRow = allRows.find(r => r.id === shownRowId) || null
+  // On a phone the list is its own screen: no row reads as open until one was opened.
+  const listSelectedId = isPhone && !phoneOpened ? null : shownRowId
   // Choosing someone writes ?student= (shareable, survives a refresh) and drops a one-time
   // ?candidate= or ?docs= deep link, which has done its job.
   const selectRow = (id, { toProfiles = false, sheet = null } = {}) => {
@@ -451,8 +465,41 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
     if (toProfiles) next.delete('view')
     // HIRE-HISTORY-1: Record hire opens the binder at its Hiring sheet.
     if (sheet) next.set('sheet', sheet)
+    if (isPhone) {
+      // STAFF-DEVICE-1: on a phone choosing someone opens their binder as its own screen, as a
+      // real step (pushed) so the back gesture and the browser's Back return to the list.
+      listScrollRef.current = window.scrollY
+      pushedRecordRef.current = true
+      setPhoneRecord(true)
+      setPhoneOpened(true)
+      setSearchParams(next)
+      window.scrollTo(0, 0)
+      return
+    }
     setSearchParams(next, { replace: true })
   }
+  const closePhoneRecord = () => {
+    const y = listScrollRef.current
+    if (pushedRecordRef.current) {
+      pushedRecordRef.current = false
+      navigate(-1)
+    } else {
+      const next = new URLSearchParams(searchParams)
+      next.delete('student'); next.delete('candidate'); next.delete('docs'); next.delete('sheet')
+      setSearchParams(next, { replace: true })
+    }
+    setPhoneRecord(false)
+    requestAnimationFrame(() => window.scrollTo(0, y))
+  }
+  // The browser's back (or the back gesture) removed the alumnus from the URL: show the list.
+  useEffect(() => {
+    if (phoneRecord && !linkedStudent && !linkedCandidate) {
+      pushedRecordRef.current = false
+      setPhoneRecord(false)
+      const y = listScrollRef.current
+      requestAnimationFrame(() => window.scrollTo(0, y))
+    }
+  }, [linkedStudent, linkedCandidate]) // eslint-disable-line - reacts to the URL only
 
   const runFeedback = useCallback(async (action, extra, successTitle, successBody) => {
     const res = await postNgrpPreceptorFeedback(action, extra)
@@ -522,7 +569,8 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
   }
 
   return (
-    <div>
+    <div className={`profiles-adaptive${isPhone && view === 'profiles' ? ' profiles-phone' : ''}${showPhoneRecord ? ' profiles-phone-record' : ''}`}
+      style={{ '--profiles-phone-record-h': phoneRecordH ? `${phoneRecordH}px` : undefined }}>
       {/* Stale banner: background refresh failed, cached roster still shown.
           Quiet - a banner, never a toast. */}
       {status === 'stale' && (
@@ -545,7 +593,7 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
         </div>
       ) : (
         <>
-          <div style={{ padding: '0 0 12px' }}>
+          <div className="profiles-picker-row" style={{ padding: '0 0 12px' }}>
             <SegmentedPicker ariaLabel="Profiles & Interest views" value={view} onChange={changeView}
               options={[{ value: 'profiles', label: 'Profiles' }, { value: 'interest', label: 'Interest & Eligibility' }]} />
           </div>
@@ -575,7 +623,7 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
           <PinnedSplitFrame>{barRef => (
             <>
             <div className="profiles-toolbar ngrp-split-toolbar" ref={barRef}>
-              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+              <div className="profiles-search" style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                 <Search size={12} strokeWidth={2.2} aria-hidden="true" style={{ position: 'absolute', left: 9, color: '#9CA3AF' }} />
                 <input
                   type="search"
@@ -655,7 +703,7 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                       </div>
                     </div>
                     {shownRow && (
-                      <div style={{ fontSize: 11, color: 'var(--text-caption,#6b7280)', textAlign: 'right', flexShrink: 0, marginLeft: 8 }}>
+                      <div className="profiles-selected-note" style={{ fontSize: 11, color: 'var(--text-caption,#6b7280)', textAlign: 'right', flexShrink: 0, marginLeft: 8 }}>
                         Selected: <span style={{ color: 'var(--color-accent-primary,#1D2567)', fontWeight: 600 }}>{displayName(shownRow.student)}</span>
                       </div>
                     )}
@@ -674,14 +722,14 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(132px, 1fr))', gap: '16px 12px', padding: '16px 16px 8px' }}>
                           {filteredRows.map(r => (
                             <StudentCard key={r.id} variant="applicant" student={r.student}
-                              onClick={() => selectRow(r.id)} isSelected={r.id === shownRowId}
+                              onClick={() => selectRow(r.id)} isSelected={r.id === listSelectedId}
                               variantProps={{ strip: <NgrpStatusPill config={ROSTER_STATUSES} value={rosterStatus(r)} srPrefix="Status" /> }} />
                           ))}
                         </div>
                       ) : (
                         <div className="pl-list ngrp-pl-list">
                           {filteredRows.map(r => (
-                            <AlumniListRow key={r.id} row={r} selected={r.id === shownRowId}
+                            <AlumniListRow key={r.id} row={r} selected={r.id === listSelectedId}
                               onSelect={id => selectRow(id)} feedbackEntry={feedback.byStudent[r.student?.id]}
                               onOpenFeedback={r.candidate_id && chipOpens(feedback.byStudent[r.student?.id], feedback) ? setFeedbackRowId : undefined} />
                           ))}
@@ -692,7 +740,13 @@ export default function ProfilesTab({ cycle, canManage, toast, onSelectCycle }) 
                 </div>
                 {/* No key: the panel holds still when the reader turns to another alumnus;
                     the chart inside is keyed on the row (Student Profiles' rule). */}
-                <div className="profiles-panel-slide">
+                <div className="profiles-panel-slide" ref={panelRef}>
+                  {showPhoneRecord && (
+                    <button type="button" className="profiles-phone-back" onClick={closePhoneRecord}>
+                      <ChevronLeft size={18} aria-hidden="true" />
+                      <span>All Alumni</span>
+                    </button>
+                  )}
                   {shownRow ? (
                 <ApplicantChart
                   row={shownRow}

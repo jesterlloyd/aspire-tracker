@@ -1,6 +1,7 @@
-import { useState, useMemo, useEffect, useLayoutEffect, useRef } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { usePhoneLayout } from '../hooks/useMediaQuery'
+import { usePhoneRecordHeight } from '../hooks/usePhoneRecordHeight'
 import { useQueryClient } from '@tanstack/react-query'
 import StudentListPanel from './StudentListPanel'
 // STUDENT-CHART-1: measures the pinned bar so the chart can take the rest of the window.
@@ -148,22 +149,8 @@ export default function StudentProfilesTab({
     }
   }, [searchParams]) // eslint-disable-line - reacts to the URL only
   const showPhoneRecord = isPhone && phoneRecord && view === 'records'
-  // The record gets the window below the chrome (STUDENT-CHART-1's rule, on a phone). Measured
-  // from where the panel actually starts, on open, on resize and on rotation.
-  const panelRef = useRef(null)
-  const [phoneRecordH, setPhoneRecordH] = useState(0)
-  useLayoutEffect(() => {
-    if (!showPhoneRecord) return undefined
-    const measure = () => {
-      const el = panelRef.current
-      if (!el || !el.offsetParent) return
-      const top = el.getBoundingClientRect().top + window.scrollY
-      setPhoneRecordH(Math.max(360, Math.round(window.innerHeight - top - 12)))
-    }
-    measure()
-    window.addEventListener('resize', measure)
-    return () => window.removeEventListener('resize', measure)
-  }, [showPhoneRecord])
+  // The record gets the window below the chrome (STUDENT-CHART-1's rule, on a phone).
+  const [panelRef, phoneRecordH] = usePhoneRecordHeight(showPhoneRecord)
   const changeFilter = (v) => { setActiveStatusFilter(v); updateUrl({ filter: filterToKey(v) }) }
   const changeCsLinkFilter = (v) => { setCsLinkFilter(v); updateUrl({ cslink: cslinkToKey(v) }) }
   const changeView = (v) => { onViewChange(v); updateUrl({ mode: v === 'access' ? 'access' : null }) }
@@ -290,10 +277,10 @@ export default function StudentProfilesTab({
     : (Array.isArray(activeStatusFilter) ? 'Clear filter' : activeStatusFilter)
 
   return (
-    <div className={`student-profiles-tab${isPhone ? ' profiles-phone' : ''}${showPhoneRecord ? ' profiles-phone-record' : ''}`} style={{
+    <div className={`student-profiles-tab profiles-adaptive${isPhone ? ' profiles-phone' : ''}${showPhoneRecord ? ' profiles-phone-record' : ''}`} style={{
       '--profiles-chart-h': chartHeight ? `${chartHeight}px` : undefined,
       '--profiles-toolbar-top': `${toolbarTop}px`,
-      '--profiles-phone-record-h': showPhoneRecord && phoneRecordH ? `${phoneRecordH}px` : undefined,
+      '--profiles-phone-record-h': phoneRecordH ? `${phoneRecordH}px` : undefined,
     }}>
 
       {/* ── Section picker: Profiles / CS-Link Access. Sits above the KPI cards like the
@@ -338,7 +325,7 @@ export default function StudentProfilesTab({
           <StatusLegendPopover position="bottom-left" />
 
           {/* Filter input - capped at 380px */}
-          <div style={{ position:'relative', maxWidth:380, flexShrink:1, minWidth:120, width:'100%' }}>
+          <div className="profiles-search" style={{ position:'relative', maxWidth:380, flexShrink:1, minWidth:120, width:'100%' }}>
             <Search size={13} style={{ position:'absolute', left:10, top:'50%', transform:'translateY(-50%)', color:'var(--text-muted,#9ca3af)' }} />
             <input
               value={unifiedSearch}

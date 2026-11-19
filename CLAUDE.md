@@ -3602,10 +3602,14 @@ is a tablet.
   screen opens the record. Desktop still REPLACES `?student=`: picking a row there is not a page.
 - **On a tablet the split stays side by side** (Owner), with the list at
   `clamp(250px, 36%, 320px)`. It stacked below 980px before.
-- **Scoped to Student Profiles.** Residency > Profiles & Interest (and the Residency Portal) reuse
-  the split's classes and still STACK below 980px with the list capped at 44vh, unchanged: every
-  new rule names `.student-profiles-tab` or `.profiles-phone`, and a test holds that. Giving
-  Residency the same phone mode is the audit's first item.
+- **A screen opts in with `.profiles-adaptive`.** Student Profiles and Residency > Profiles &
+  Interest (STAFF-DEVICE-2, same day; the staff app and the Residency Portal alike) set it, and
+  every tablet and phone rule names it or `.profiles-phone`. Any other screen that reuses the split
+  still STACKS below 980px with its list capped at 44vh. Residency's record bar reads "All Alumni";
+  its KPI strip is `.ngrp-kpis` and its actions `.ngrp-roster-actions`, both made sideways rows on a
+  phone, and the record hides the strip with `.profiles-phone.profiles-phone-record .ngrp-kpis`
+  because the strip's own `display: flex !important` otherwise wins. The record height is the one
+  hook, `usePhoneRecordHeight` (`src/hooks/`), for both screens.
 - **Below 980px a list row is compact**: the name line, then the ranked units on one line and the
   chips under it, past the photo. Three columns in a 250px list truncated every name.
 - **On a phone** the KPI cards are one row that scrolls sideways, the search takes the toolbar's
