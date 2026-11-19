@@ -364,3 +364,75 @@ test('STUDIO-DRAFTS-1 and FLICKER-1: an opened layout is not a draft, and its fi
   const ws = read('src/components/studio/StudioWorkspace.jsx')
   assert.match(ws, /key=\{keyFor\[param\] \|\| param\}/, 'the editor keeps the key it opened with')
 })
+
+// ── STUDIO-FILTERS-1: contacts by unit, division, title, lead and response ─────────────────────
+
+const LEADERS = [
+  { id: 'l1', full_name: 'Ada Director', email: 'ada@x.org', category: 'Unit Leader', role: 'Associate Director', unit_name: '6 NE', is_active: true },
+  { id: 'l2', full_name: 'Ben Manager', email: 'ben@x.org', category: 'Unit Leader', role: 'Assistant Nurse Manager', unit_name: '6NE', is_active: true },
+  { id: 'l3', full_name: 'Cy Director', email: 'cy@x.org', category: 'Unit Leader', role: 'Associate Director', unit_name: '5 North', related_units: ['6 NW'], is_active: true },
+  { id: 'l4', full_name: 'Di NPD', email: 'di@x.org', category: 'Unit Leader', role: 'Unit NPD-P', unit_name: '5 North', is_active: true },
+  { id: 'a1', full_name: 'Eve Coordinator', email: 'eve@x.org', category: 'Academic Partner', role: 'Program Coordinator', school_name: 'UCLA', is_active: true },
+  { id: 'a2', full_name: 'Fay Coordinator', email: 'fay@x.org', category: 'Academic Partner', role: 'Program Coordinator', school_name: 'CSULB', is_active: true },
+]
+const ids = (out) => out.people.map(p => p.contactId)
+const C = (extra) => ({ population: 'contacts', ...extra })
+
+test('a contacts rule keeps its new filters clean, and a response needs a cohort', () => {
+  const r = sanitizeRule(C({ units: ['6 NE', '', '6 NE'], titles: ['Associate Director'], leadsOnly: 'yes', response: { cohortId: 'nope', state: 'pending' } }))
+  assert.deepEqual(r.units, ['6 NE'])
+  assert.equal(r.leadsOnly, false, 'only true is true')
+  assert.deepEqual(r.response, { cohortId: null, state: 'any' }, 'no cohort means no response filter')
+  assert.equal(sanitizeRule(C({ response: { cohortId: C1, state: 'weird' } })).response.state, 'any')
+  assert.equal(ruleProblem(C({ response: { cohortId: C1, state: 'pending' } })), '')
+  assert.equal(describeRule(C({ categories: ['Unit Leader'], divisions: ['Critical Care'], leadsOnly: true, response: { cohortId: C1, state: 'pending' } }), { [C1]: 'Winter 2027' }),
+    'Contacts · Unit Leader · Critical Care division · unit leads only · not yet responded to Winter 2027')
+})
+
+test('by unit (any spelling, related units count), by division, by title (legacy titles read canonical)', () => {
+  assert.deepEqual(ids(shapeContacts(LEADERS, C({ units: ['6 NE'] }))), ['l1', 'l2'], "'6NE' is 6 NE")
+  assert.deepEqual(ids(shapeContacts(LEADERS, C({ units: ['6 NW'] }))), ['l3'], 'a related unit counts')
+  assert.deepEqual(ids(shapeContacts(LEADERS, C({ divisions: ['Critical Care'] }))), ['l1', 'l2', 'l3'])
+  assert.deepEqual(ids(shapeContacts(LEADERS, C({ titles: ['NPD Practitioner'] }))), ['l4'], 'Unit NPD-P is NPD Practitioner')
+  assert.deepEqual(ids(shapeContacts(LEADERS, C({ categories: ['Unit Leader'], leadsOnly: true }))), ['l1', 'l3'])
+})
+
+test("by response: a unit's capacity request for unit holders, the school's students for Academic Partners", async () => {
+  const { responseStateOf, loadResponse } = await import('../lib/server/studio/resolveAudience.js')
+  const response = { units: { pending: new Set(['6ne']), responded: new Set(['5north']) }, schools: new Set(['ucla']) }
+  const rule = (state) => C({ response: { cohortId: C1, state } })
+  // Keys are whatever canonicalUnitKey makes of the names; build them the same way.
+  const { canonicalUnitKey } = await import('../src/lib/canonicalUnit.js')
+  response.units.pending = new Set([canonicalUnitKey('6 NE')])
+  response.units.responded = new Set([canonicalUnitKey('5 North')])
+  assert.equal(responseStateOf(LEADERS[0], response), 'pending')
+  assert.equal(responseStateOf(LEADERS[2], response), 'responded', 'no unit pending, one answered')
+  assert.equal(responseStateOf(LEADERS[4], response), 'responded')
+  assert.equal(responseStateOf(LEADERS[5], response), 'pending', 'no students from that school')
+  assert.equal(responseStateOf(LEADERS[0], { units: null, schools: new Set() }), null, 'no targets set: neither state')
+  assert.deepEqual(ids(shapeContacts(LEADERS, rule('pending'), { response })), ['l1', 'l2', 'a2'])
+  assert.deepEqual(ids(shapeContacts(LEADERS, rule('responded'), { response })), ['l3', 'l4', 'a1'])
+
+  // loadResponse reads the cohort's targets, responses and students, and counts as At a Glance does.
+  const tables = {
+    cohort_unit_response_targets: [{ unit_id: 'u1', unit_key: '6 NE', unit_name: '6 NE' }, { unit_id: 'u2', unit_key: '5 North', unit_name: '5 North' }],
+    unit_cohort_responses: [{ unit_id: 'u2', unit_name: '5 North', response_status: 'submitted_hosting', slots_offered: 2 }],
+    students: [{ school: 'UCLA' }],
+  }
+  const db = { from: (t) => { const q = { select: () => q, eq: () => q, then: (ok) => Promise.resolve({ data: tables[t], error: null }).then(ok) }; return q } }
+  const got = await loadResponse(db, C1)
+  assert.deepEqual([...got.units.pending], [canonicalUnitKey('6 NE')])
+  assert.deepEqual([...got.units.responded], [canonicalUnitKey('5 North')])
+  assert.ok(got.schools.has('ucla'))
+})
+
+test('the picker offers the units, divisions and titles contacts hold, and counts live', async () => {
+  const { contactChoices } = await import('../lib/server/studio/resolveAudience.js')
+  const c = contactChoices(LEADERS)
+  assert.deepEqual(c.units.map(u => u.name), ['5 North', '6 NE', '6 NW'])
+  assert.ok(c.divisions.includes('Critical Care'))
+  assert.ok(c.titles.includes('NPD Practitioner') && !c.titles.includes('Unit NPD-P'))
+  const picker = read('src/components/studio/StudioRulePicker.jsx')
+  assert.match(picker, /studioApi\('audience_resolve', \{ rule: r \}\)/, 'the count is the review\'s own resolve')
+  assert.match(picker, /Response to a cohort's request/)
+})

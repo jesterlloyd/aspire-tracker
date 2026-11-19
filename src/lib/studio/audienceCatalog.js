@@ -13,7 +13,10 @@
 //   alumni    one residency cohort's roster, by Transition Form, licensure and hire. Addressed by
 //             the residency rule (residencyRecipient: Cedars-Sinai once hired, else the form's
 //             preferred email, else personal; never the school address).
-//   contacts  active Connect contacts, by category.
+//   contacts  active Connect contacts, by category, and (STUDIO-FILTERS-1) by unit, division, title,
+//             unit leads only, and whether they answered a cohort's request: a unit's capacity
+//             request for anyone who holds units, the school's placement requests for an Academic
+//             Partner.
 //
 // A rule never names an address. The server decides every address, and what it decided is what the
 // sender reviews, removes from and freezes before anything is sent.
@@ -24,7 +27,7 @@ import { CONTACT_CATEGORY_ORDER } from '../contactCategories.js'
 export const POPULATIONS = Object.freeze([
   { key: 'students', label: 'Students', line: 'An ASPIRE cohort, by status and school' },
   { key: 'alumni', label: 'Residency Applicants', line: 'A residency cohort, by Transition Form, licensure and hire' },
-  { key: 'contacts', label: 'Contacts', line: 'Active Connect contacts, by category' },
+  { key: 'contacts', label: 'Contacts', line: 'Active Connect contacts, by category, unit, division, title or response' },
 ])
 const POP_KEYS = new Set(POPULATIONS.map(p => p.key))
 
@@ -59,6 +62,20 @@ const LICENSE_KEYS = new Set(LICENSE_FILTERS.map(f => f.key))
 const HIRE_KEYS = new Set(HIRE_FILTERS.map(f => f.key))
 
 export const CONTACT_CATEGORIES = CONTACT_CATEGORY_ORDER
+
+// STUDIO-FILTERS-1 (Owner, 2026-11-19: "filter contacts, for example unit leaders by unit or division,
+// or those who haven't responded, before I send them so I don't add or remove manually").
+// A response is always to ONE ASPIRE cohort's request. For a contact who holds units it is the unit's
+// capacity request (cohort_unit_response_targets and unit_cohort_responses, the rule At a Glance
+// counts with); for an Academic Partner it is whether their school has sent that cohort any students.
+export const RESPONSE_STATES = Object.freeze([
+  { key: 'any', label: 'Anyone' },
+  { key: 'pending', label: 'Has not responded' },
+  { key: 'responded', label: 'Has responded' },
+])
+const RESPONSE_KEYS = new Set(RESPONSE_STATES.map(r => r.key))
+export const MAX_UNITS = 60
+export const MAX_TITLES = 30
 
 export const MAX_COHORTS = 12
 export const MAX_SCHOOLS = 40
@@ -119,7 +136,24 @@ export function sanitizeRule(raw) {
       hired: HIRE_KEYS.has(r.hired) ? r.hired : 'any',
     }
   }
-  return { population, categories: pickList(r.categories, new Set(CONTACT_CATEGORIES)) }
+  const resp = r.response && typeof r.response === 'object' ? r.response : {}
+  const respCohort = UUID.test(String(resp.cohortId || '')) ? String(resp.cohortId) : null
+  const respState = RESPONSE_KEYS.has(resp.state) ? resp.state : 'any'
+  return {
+    population,
+    categories: pickList(r.categories, new Set(CONTACT_CATEGORIES)),
+    units: texts(r.units, MAX_UNITS),
+    divisions: texts(r.divisions, 20),
+    titles: texts(r.titles, MAX_TITLES),
+    leadsOnly: r.leadsOnly === true,
+    response: { cohortId: respCohort, state: respCohort ? respState : 'any' },
+  }
+}
+
+/** True when a contacts rule asks about a cohort's request. */
+export const asksResponse = (rule) => {
+  const r = sanitizeRule(rule)
+  return r.population === 'contacts' && r.response.state !== 'any' && !!r.response.cohortId
 }
 
 /** What a rule still needs before it can be resolved, as one sentence, or '' when it is ready. */
@@ -127,6 +161,7 @@ export function ruleProblem(rule) {
   const r = sanitizeRule(rule)
   if (r.population === 'students' && !r.cohortIds.length) return 'Choose at least one ASPIRE cohort.'
   if (r.population === 'alumni' && !r.cycleId) return 'Choose a residency cohort.'
+  if (r.population === 'contacts' && r.response?.state !== 'any' && !r.response?.cohortId) return 'Choose the cohort whose request they answered.'
   return ''
 }
 
@@ -153,7 +188,15 @@ export function describeRule(rule, names = {}) {
     if (r.hired !== 'any') parts.push(HIRE_FILTERS.find(f => f.key === r.hired).label.toLowerCase())
     return parts.join(' · ')
   }
-  return r.categories.length ? `Contacts · ${or(r.categories)}` : 'Every active contact'
+  const parts = [r.categories.length ? `Contacts · ${or(r.categories)}` : 'Every active contact']
+  if (r.divisions.length) parts.push(`${or(r.divisions)} division`)
+  if (r.units.length) parts.push(r.units.length > 4 ? `${r.units.length} units` : or(r.units))
+  if (r.titles.length) parts.push(or(r.titles))
+  if (r.leadsOnly) parts.push('unit leads only')
+  if (r.response.state !== 'any' && r.response.cohortId) {
+    parts.push(`${r.response.state === 'pending' ? 'not yet responded to' : 'responded to'} ${nameOf(r.response.cohortId)}`)
+  }
+  return parts.join(' · ')
 }
 
 // ── Who replies go to ──────────────────────────────────────────────────────────────────────────

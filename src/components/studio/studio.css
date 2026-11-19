@@ -355,3 +355,6 @@
 .st-rewrite .st-label { display: flex; align-items: center; gap: 6px; }
 .st-rewrite-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
 .st-rewrite-row .st-input { flex: 1 1 160px; min-width: 0; }
+
+/* STUDIO-FILTERS-1: the rule's live count. */
+.st-count { margin: 4px 0 0; font-size: 12.5px; font-weight: 600; color: var(--text-heading); }

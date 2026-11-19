@@ -3379,6 +3379,18 @@ Phase 2b.
 - **The hand list is `buildCombinedRecipients(...).recipients`.** It answers `{ recipients,
   duplicateCount }`; Phase 1 used the object as the list and Review & send blanked the page. A test
   holds the `.recipients`.
+- **Contacts filter like At a Glance** (STUDIO-FILTERS-1, Owner, 2026-11-19: "filter contacts, for
+  example unit leaders by unit or division, or those who haven't responded, before I send"). A
+  contacts rule also takes `units`, `divisions`, `titles`, `leadsOnly` and `response { cohortId,
+  state }`. Units match any unit a contact holds (`contactUnitList`, own or related, compared through
+  `canonicalUnitKey`), divisions come from the unit catalog, titles read the Unit Leader canon
+  (`canonicalUnitLeaderTitle`), and unit leads are Connect's own (`unitLeaderRows`). A response is to
+  ONE cohort: a unit holder by that cohort's capacity request (`loadResponse` runs
+  `computeUnitResponseMetrics`, At a Glance's rule; any unit still pending makes them pending), an
+  Academic Partner by whether their school (`schoolGroupKey`) has any student in the cohort. A cohort
+  with no capacity-request units set puts a unit holder in neither state. The picker offers only the
+  units, divisions and titles contacts hold (`contactChoices`) and shows a live count from the same
+  `audience_resolve` the review uses. The review, the frozen list and the confirmation are unchanged.
 - The block library folds to icons (`aspire.studio.libFolded`, this browser). The announcement
   layout's eyebrow reads Announcement.
 - **An opened layout is not a draft** (STUDIO-DRAFTS-1, Owner, 2026-11-05). A new design starts

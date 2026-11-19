@@ -90,7 +90,12 @@ test('Keith’s design: links he was not given become a gap the send stops on', 
 
 test('the audience and Keith’s provenance ride with a design, and sanitizing twice changes nothing', () => {
   const d = sanitizeDesign({ blocks: [], audience: { population: 'contacts', categories: ['nope'] }, keith: { provenanceId: REF } })
-  assert.deepEqual(d.audience, { population: 'contacts', categories: [] })
+  // STUDIO-FILTERS-1 (2026-11-19) gave a contacts rule its unit, division, title, lead and response
+  // filters, so the sanitized rule now carries them, empty.
+  assert.deepEqual(d.audience, {
+    population: 'contacts', categories: [], units: [], divisions: [], titles: [], leadsOnly: false,
+    response: { cohortId: null, state: 'any' },
+  })
   assert.deepEqual(d.keith, { provenanceId: REF })
   assert.deepEqual(sanitizeDesign(d), d)
   assert.equal('audience' in sanitizeDesign({ blocks: [] }), false, 'a design without one carries none')
