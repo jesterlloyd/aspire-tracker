@@ -334,8 +334,21 @@ test('house style: no em dash in anything this pass added', () => {
 test('ASPIRE is never written as "ASPIRE Program" in the changed files', () => {
   // --diff-filter=d: a file DELETED since the baseline has no content to scan
   // (reading it would ENOENT, failing the test for the wrong reason).
-  const changed = execSync('git diff --name-only --diff-filter=d 762adfb -- "*.js" "*.jsx" "*.sql"', { cwd: root, encoding: 'utf8' })
+  // TEST-SHALLOW-1: a shallow clone (CI, a cloud session) does not hold the baseline commit, and
+  // `git diff 762adfb` failed there for a reason that had nothing to do with the copy. Without the
+  // baseline the test reads EVERY tracked file instead, which is stricter, and excuses the two files
+  // that predate the baseline on purpose (LONG_STANDING below).
+  const haveBaseline = (() => {
+    try { execSync('git cat-file -e 762adfb^{commit}', { cwd: root, stdio: 'ignore' }); return true } catch { return false }
+  })()
+  const changed = execSync(haveBaseline
+    ? 'git diff --name-only --diff-filter=d 762adfb -- "*.js" "*.jsx" "*.sql"'
+    : 'git ls-files -- "*.js" "*.jsx" "*.sql"', { cwd: root, encoding: 'utf8' })
     .trim().split('\n').filter(Boolean)
+  // Read only when the baseline is missing. publicContent.js carries the Owner-approved search
+  // identity "Cedars-Sinai ASPIRE Program", which test/publicSiteContent.test.mjs polices on its own;
+  // catalogAttachments.js matches the brochure's legacy title "ASPIRE Program Brochure" verbatim.
+  const LONG_STANDING = haveBaseline ? new Set() : new Set(['src/public-site/publicContent.js', 'src/lib/connect/catalogAttachments.js'])
   // CLAUDE.md keeps "ASPIRE Program" where it preserves exact source wording. The FY26 import
   // (PROGRAM-BUDGET A1, f4053bc8) copies the workbook verbatim: its filename and the item
   // "ASPIRE Program Shirts". Nothing else is excused.
@@ -343,7 +356,7 @@ test('ASPIRE is never written as "ASPIRE Program" in the changed files', () => {
   // ("ASPIRE Program Experience Feedback"), which is exact historical wording.
   const SOURCE_WORDING = new Set(['db/migrations/seed_program_budget_fy26.sql', 'supabase/migrations/20261026000002_survey_naming_canon_v3.sql'])
   for (const f of changed) {
-    if (SOURCE_WORDING.has(f)) continue
+    if (SOURCE_WORDING.has(f) || LONG_STANDING.has(f)) continue
     assert.doesNotMatch(read(f), /ASPIRE Program/, `${f} uses "ASPIRE Program"`)
   }
 })

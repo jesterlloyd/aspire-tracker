@@ -149,11 +149,14 @@ test('NEEDS 4: Review & Release rows are workflows, ready before blocked, openin
 })
 
 test('NEEDS 5: forms and documents count overdue people per Catalog item', () => {
+  // TEST-TZ-1: the stamps carry Pacific's offset, as a timestamptz read from the database does.
+  // Without one they parsed as the MACHINE's midnight, and the model prints Pacific dates, so a
+  // UTC runner (CI, a cloud session) read "due Sep 19" and only a Pacific laptop passed.
   const g = formsDocsGroup({ now: NOW_MS, items: [{ id: 'i1', slug: 'parking', title: 'Student Parking Request', kind: 'form' }, { id: 'i2', slug: 'ok', title: 'Fine', kind: 'form' }], trackerRows: [
-    { id: 'i1', due_at: '2026-09-20T00:00:00', completed_at: null },
-    { id: 'i1', due_at: '2026-09-20T00:00:00', completed_at: null },
-    { id: 'i1', due_at: '2026-09-20T00:00:00', completed_at: '2026-09-19T00:00:00' },
-    { id: 'i2', due_at: '2026-10-20T00:00:00', completed_at: null },
+    { id: 'i1', due_at: '2026-09-20T00:00:00-07:00', completed_at: null },
+    { id: 'i1', due_at: '2026-09-20T00:00:00-07:00', completed_at: null },
+    { id: 'i1', due_at: '2026-09-20T00:00:00-07:00', completed_at: '2026-09-19T00:00:00-07:00' },
+    { id: 'i2', due_at: '2026-10-20T00:00:00-07:00', completed_at: null },
   ] })
   assert.deepEqual(g.pills, [{ text: '2 overdue', tone: 'red' }])
   assert.equal(g.rows.length, 1)
