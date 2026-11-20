@@ -880,3 +880,21 @@
   box-shadow: 0 3px 8px rgba(29, 37, 103, 0.10);
 }
 
+
+/* STAFF-DEVICE-3: Modern below 1000px. `[data-style="modern"] .sc-main` above carries an
+   attribute selector, so it out-ranked the stacked layout's one-column grid and, on an
+   unfolded phone or a tablet, gave the index strip the wide column and squeezed the record
+   into the 46px rail: the tabs ran across the middle of the binder and the sheets were
+   clipped at the right edge. This block restates the stacked layout for Modern, after the
+   Modern rules, and turns the rail's left edge and its current-tab mark to the bottom. */
+@media (max-width: 1000px) {
+  [data-style="modern"] .sc-main { grid-template-columns: minmax(0, 1fr); }
+  [data-style="modern"] .sc-index {
+    border-left: 0;
+    border-bottom: 1px solid var(--border-card, rgba(29, 37, 103, 0.08));
+  }
+  [data-style="modern"] .sc-tab { margin-left: 0; }
+  [data-style="modern"] .sc-tab[aria-current="true"] {
+    box-shadow: inset 0 -2px 0 var(--color-accent-primary, #1D2567);
+  }
+}

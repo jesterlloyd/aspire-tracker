@@ -90,8 +90,9 @@ test('opening either tool closes the other through the shared registry', () => {
 
 test('the desktop dock keeps the active launcher at far right and relocates the inactive launcher', () => {
   assert.match(dock, /const launcherPos = portalPreview/)
-  assert.match(dock, /: open\n {4}\? \{ bottom: 'calc\(24px \+ env\(safe-area-inset-bottom, 0px\)\)', right: '28px' \}\n {4}: keithOpen/)
-  assert.match(dock, /: keithOpen\n {4}\? \{ bottom: 'calc\(24px \+ env\(safe-area-inset-bottom, 0px\)\)', right: '96px' \}\n {4}: \{ bottom: 'calc\(96px \+ env\(safe-area-inset-bottom, 0px\)\)', right: '28px' \}/)
+  // STAFF-DEVICE-3 changed the shape: offsets are measured from the device's safe area (0px on a desktop).
+  assert.match(dock, /: open\n {4}\? \{ bottom: 'calc\(24px \+ env\(safe-area-inset-bottom, 0px\)\)', right: SAFE_RIGHT\(28\) \}\n {4}: keithOpen/)
+  assert.match(dock, /: keithOpen\n {4}\? \{ bottom: 'calc\(24px \+ env\(safe-area-inset-bottom, 0px\)\)', right: SAFE_RIGHT\(96\) \}\n {4}: \{ bottom: 'calc\(96px \+ env\(safe-area-inset-bottom, 0px\)\)', right: SAFE_RIGHT\(28\) \}/)
   assert.match(dock, /bottom: `calc\(\$\{portalPreviewMobile \? 82 : 24\}px \+ env\(safe-area-inset-bottom, 0px\)\)`/)
   assert.match(dock, /right: 'max\(24px, env\(safe-area-inset-right, 0px\)\)'/)
   assert.match(dock, /\{\(!open \|\| keepLauncherVisible\) && \(\n {8}<button/)
@@ -116,8 +117,9 @@ test('Escape closes the active panel and focus returns to the right launcher', (
 
 test('panel geometry mirrors the corner-drawer convention and clears Keith\'s orb', () => {
   assert.match(dock, /bottom: 'calc\(96px \+ env\(safe-area-inset-bottom, 0px\)\)'/)
-  assert.match(dock, /right: 24/)
-  assert.match(dock, /width: 'min\(420px, calc\(100vw - 32px\)\)'/)
+  // STAFF-DEVICE-3 changed the shape: offsets are measured from the device's safe area (0px on a desktop).
+  assert.match(dock, /right: SAFE_RIGHT\(24\)/)
+  assert.match(dock, /width: 'min\(420px, calc\(100vw - 32px - env\(safe-area-inset-right, 0px\) - env\(safe-area-inset-left, 0px\)\)\)'/)
   assert.match(dock, /height: 'min\(720px, calc\(100vh - 160px\)\)'/)
   assert.match(dock, /bottom: `calc\(\$\{portalPreviewMobile \? 146 : 88\}px \+ env\(safe-area-inset-bottom, 0px\)\)`/)
   assert.match(dock, /height: 'min\(620px, calc\(100vh - 170px\)\)'/)

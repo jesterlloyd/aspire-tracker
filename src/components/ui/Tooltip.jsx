@@ -35,6 +35,22 @@ const REDUCED_MOTION =
   typeof window !== 'undefined' &&
   window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
+// STAFF-DEVICE-3: a tap is not a hover. On a touch screen one tap fires pointerdown, then a
+// synthetic mouseenter and a focus, and no mouseleave ever follows, so a tooltip shown by the
+// tap stayed on screen (the header's "Connect" on an iPad). The last pointerdown's type is
+// recorded at document level; a mouseenter or focus that arrives within TAP_WINDOW_MS of a
+// touch or pen press shows nothing. A mouse, and keyboard focus, behave exactly as before.
+const TAP_WINDOW_MS = 1000
+let lastPress = { type: '', at: 0 }
+if (typeof document !== 'undefined') {
+  document.addEventListener('pointerdown', (e) => {
+    lastPress = { type: e.pointerType || '', at: Date.now() }
+  }, { capture: true, passive: true })
+}
+export function cameFromTouch(now = Date.now(), press = lastPress) {
+  return (press.type === 'touch' || press.type === 'pen') && now - press.at < TAP_WINDOW_MS
+}
+
 // Merge two event handler functions - calls both if both exist.
 function mergeHandler(existing, next) {
   if (!existing) return next
@@ -103,6 +119,7 @@ export default function Tooltip({
 
   const show = useCallback((e) => {
     if (disabled) return
+    if (cameFromTouch()) return
     clearTimeout(hideTimer.current)
     const rect = e.currentTarget.getBoundingClientRect()
     if (delay === 0) {

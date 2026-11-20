@@ -27,6 +27,11 @@ export default function KeithChatShell({
   const [showTooltip, setShowTooltip] = useState(false);
   const orb = (size, thinking, r = 0) => <KeithOrbVideo size={size} working={thinking} replay={r} />;
   const canSend = Boolean(input?.canSend);
+  // STAFF-DEVICE-3: every offset is measured from the device's safe area, so on a phone in
+  // landscape the orb and the panel keep clear of the rounded corner and the status area.
+  // Both insets are 0px on a desktop.
+  const fromRight = (v) => `calc(${v} + env(safe-area-inset-right, 0px))`;
+  const fromBottom = (v) => `calc(${v} + env(safe-area-inset-bottom, 0px))`;
 
   return (
     <>
@@ -36,8 +41,8 @@ export default function KeithChatShell({
       {showTooltip && !open && (
         <div style={{
           position: 'fixed',
-          bottom: `calc(${launcherBottom} + 14px)`,
-          right: tooltipRight,
+          bottom: fromBottom(`${launcherBottom} + 14px`),
+          right: fromRight(tooltipRight),
           background: 'var(--aspire-tooltip-bg, rgba(9, 12, 28, 0.94))',
           color: 'var(--aspire-tooltip-fg, #ffffff)',
           fontFamily: 'var(--aspire-tooltip-font-family, Plus Jakarta Sans, sans-serif)',
@@ -69,8 +74,8 @@ export default function KeithChatShell({
         aria-expanded={open}
         style={{
           position: 'fixed',
-          bottom: launcherBottom,
-          right: launcherRight,
+          bottom: fromBottom(launcherBottom),
+          right: fromRight(launcherRight),
           width: '60px',
           height: '60px',
           borderRadius: '50%',
@@ -115,9 +120,9 @@ export default function KeithChatShell({
           {/* Drawer panel */}
           <div data-keith-panel="" role="dialog" aria-label="Keith" style={{
             position: 'fixed',
-            bottom: panelBottom,
-            right: 'max(12px, min(24px, calc(100vw - 412px)))',
-            width: 'min(400px, calc(100vw - 24px))',
+            bottom: fromBottom(panelBottom),
+            right: fromRight('max(12px, min(24px, calc(100vw - 412px)))'),
+            width: 'min(400px, calc(100vw - 24px - env(safe-area-inset-right, 0px) - env(safe-area-inset-left, 0px)))',
             // KEITH-CHAT-UX-1: taller, responsive height. Caps at 720px on large screens and shrinks
             // with the viewport, always leaving ~160px of vertical clearance (bottom offset + top gap)
             // so the panel never covers the app header. minHeight is itself capped to the same

@@ -63,6 +63,9 @@ export default function DetailDrawer({ open, title, onClose, footer, width = 580
         style={{
           position: 'fixed', top: 0, right: 0, bottom: 0,
           width: '100%', maxWidth: width, zIndex: 1999,
+          // STAFF-DEVICE-3: the sheet runs to the screen's edge; its contents keep out of the
+          // device's safe area (0px on a desktop).
+          paddingRight: 'var(--aspire-safe-right, 0px)', boxSizing: 'border-box',
           background: 'var(--color-bg-surface, #ffffff)',
           boxShadow: '-8px 0 24px rgba(16,24,40,0.12)',
           display: 'flex', flexDirection: 'column', fontFamily: 'Plus Jakarta Sans, sans-serif',

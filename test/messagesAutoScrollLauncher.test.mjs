@@ -113,7 +113,9 @@ test('the launcher reuses the shared staff Messages state, permissions, and surf
 })
 
 test('the launcher sits directly above the 60px Keith orb, canonical visuals', () => {
-  assert.match(launcher, /bottom: 'calc\(96px \+ env\(safe-area-inset-bottom, 0px\)\)', right: '28px'/)
+  // STAFF-DEVICE-3 changed the shape: offsets are measured from the device's safe area (0px on a desktop).
+  assert.match(launcher, /bottom: 'calc\(96px \+ env\(safe-area-inset-bottom, 0px\)\)', right: SAFE_RIGHT\(28\)/)
+  assert.match(launcher, /const SAFE_RIGHT = \(px\) => `calc\(\$\{px\}px \+ env\(safe-area-inset-right, 0px\)\)`/)
   assert.match(launcher, /width: 52, height: 52, borderRadius: '50%'/)
   assert.match(launcher, /background: 'transparent'/)
   assert.match(launcher, /background: BADGE_COUNT_BG/)   // the canonical count red
@@ -128,7 +130,8 @@ test('the launcher sits directly above the 60px Keith orb, canonical visuals', (
   assert.match(launcher, /if \(hidden && !open\) return null/)
   // RESIDENCY-KEITH-2: the tooltip is the shared KeithChatShell's, 14px above the launcher's 24px.
   assert.match(read('src/components/Keith.jsx'), /tooltipRight=\{messagesOpen \? '168px' : '96px'\}/)
-  assert.match(read('src/components/keith/KeithChatShell.jsx'), /bottom: `calc\(\$\{launcherBottom\} \+ 14px\)`,\n {10}right: tooltipRight,/)
+  // STAFF-DEVICE-3 changed the shape: the same offsets, measured from the device's safe area.
+  assert.match(read('src/components/keith/KeithChatShell.jsx'), /bottom: fromBottom\(`\$\{launcherBottom\} \+ 14px`\),\n {10}right: fromRight\(tooltipRight\),/)
 })
 
 test('portal launcher uses the same supplied shortcut artwork', () => {

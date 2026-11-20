@@ -209,6 +209,8 @@ export default function ConnectPage({ cohortId, onNavigateToStudent, refreshRef,
           display: activeSubTab === 'contacts' ? 'flex' : 'none', flexDirection: 'column',
           height: bookPage ? 'auto' : (bookHeight ? `${bookHeight}px` : 'auto'), minHeight: 0,
           '--connect-book-h': bookPage && bookHeight ? `${bookHeight}px` : undefined,
+          // STAFF-DEVICE-3: where the Modern directory pins on a tablet (index.css).
+          '--connect-workspace-top': workspaceTop ? `${workspaceTop}px` : undefined,
         }}>
           <ContactsView refreshKey={refreshKey} />
         </div>

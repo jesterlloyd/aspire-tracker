@@ -9,6 +9,15 @@
    in src/index.css and is intentionally not redefined here. */
 
 :root {
+  /* STAFF-DEVICE-3: the device's safe area, once. index.html opts into
+     `viewport-fit=cover`, so on a phone or an unfolded phone in landscape the page runs
+     under the rounded corners and the status area instead of being letterboxed beside a
+     plain strip. Full-bleed bands paint into the inset; content keeps out of it by
+     adding these. Both are 0px on a desktop, so nothing there moves. */
+  --aspire-safe-left: env(safe-area-inset-left, 0px);
+  --aspire-safe-right: env(safe-area-inset-right, 0px);
+  --aspire-safe-bottom: env(safe-area-inset-bottom, 0px);
+
   /* Color identity */
   --aspire-navy: #1D2567;
   --aspire-navy-deep: #141a4d;

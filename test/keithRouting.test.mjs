@@ -412,5 +412,6 @@ test('the orb is state-bearing, and respects reduced motion', () => {
 test('the panel adapts below 440px viewports', () => {
   // RESIDENCY-KEITH-2: the panel lives in the shared shell.
   const shell = readFileSync(new URL('../src/components/keith/KeithChatShell.jsx', import.meta.url), 'utf8')
-  assert.match(shell, /width: 'min\(400px, calc\(100vw - 24px\)\)'/)
+  // STAFF-DEVICE-3 changed the shape: offsets are measured from the device's safe area (0px on a desktop).
+  assert.match(shell, /width: 'min\(400px, calc\(100vw - 24px - env\(safe-area-inset-right, 0px\) - env\(safe-area-inset-left, 0px\)\)\)'/)
 })

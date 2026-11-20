@@ -70,7 +70,9 @@ test('responsive header', async (t) => {
 
   await t.test('search flexes full-width on narrow screens (no clipped box)', () => {
     assert.match(search, /className="chart-search-area"/)
-    assert.match(tokens, /\.chart-search-area \.header-search-input,\s*\n\s*\.chart-search-area \.header-search-input:focus \{ width: 100%; \}/)
+    // STAFF-DEVICE-3 changed the shape: the header's Launcher (.hm-cmdwrap-compact) joins the
+    // old search field in the same full-width rule.
+    assert.match(tokens, /\.chart-search-area \.header-search-input,\s*\n\s*\.chart-search-area \.header-search-input:focus,\s*\n\s*\.chart-header > \.hm-cmdwrap-compact \.hm-cmd \{ width: 100%; \}/)
     // Width control left inline would defeat the CSS: keep it out.
     assert.doesNotMatch(search, /width: searchFocused/)
   })

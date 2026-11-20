@@ -39,6 +39,8 @@ import MessagesShortcutIcon from './messages/MessagesShortcutIcon'
 const MessagesWorkspace = lazyReload(() => import('./connect/messages/MessagesWorkspace'), 'MessagesWorkspace')
 
 const F = 'Plus Jakarta Sans, sans-serif'
+// STAFF-DEVICE-3: a right offset measured from the device's safe area (0px on a desktop).
+const SAFE_RIGHT = (px) => `calc(${px}px + env(safe-area-inset-right, 0px))`
 
 // `hidden` is reserved for route-specific exceptions such as Program Budget. An open
 // panel stays open until closed; only the idle launcher is withheld.
@@ -119,14 +121,16 @@ export default function MainMessagesLauncher({
         bottom: `calc(${portalPreviewMobile ? 82 : 24}px + env(safe-area-inset-bottom, 0px))`,
         right: 'max(24px, env(safe-area-inset-right, 0px))',
       }
+    // STAFF-DEVICE-3: staff offsets are measured from the safe area's edge, as Keith's are,
+    // so the pair stays stacked on a phone in landscape (0px on a desktop).
     : open
-    ? { bottom: 'calc(24px + env(safe-area-inset-bottom, 0px))', right: '28px' }
+    ? { bottom: 'calc(24px + env(safe-area-inset-bottom, 0px))', right: SAFE_RIGHT(28) }
     : keithOpen
-    ? { bottom: 'calc(24px + env(safe-area-inset-bottom, 0px))', right: '96px' }
-    : { bottom: 'calc(96px + env(safe-area-inset-bottom, 0px))', right: '28px' }
+    ? { bottom: 'calc(24px + env(safe-area-inset-bottom, 0px))', right: SAFE_RIGHT(96) }
+    : { bottom: 'calc(96px + env(safe-area-inset-bottom, 0px))', right: SAFE_RIGHT(28) }
   const tooltipBottom = portalPreview
     ? `calc(${portalPreviewMobile ? 146 : 88}px + env(safe-area-inset-bottom, 0px))`
-    : '158px'
+    : 'calc(158px + env(safe-area-inset-bottom, 0px))'
   const panelGeometry = portalPreview
     ? {
         bottom: `calc(${portalPreviewMobile ? 146 : 88}px + env(safe-area-inset-bottom, 0px))`,
@@ -136,8 +140,8 @@ export default function MainMessagesLauncher({
       }
     : {
         bottom: 'calc(96px + env(safe-area-inset-bottom, 0px))',
-        right: 24,
-        width: 'min(420px, calc(100vw - 32px))',
+        right: SAFE_RIGHT(24),
+        width: 'min(420px, calc(100vw - 32px - env(safe-area-inset-right, 0px) - env(safe-area-inset-left, 0px)))',
         height: 'min(720px, calc(100vh - 160px))',
       }
 
@@ -147,7 +151,7 @@ export default function MainMessagesLauncher({
     <>
       {hover && !open && !keithOpen && (
         <div style={{
-          position: 'fixed', bottom: tooltipBottom, right: portalPreview ? 'max(24px, env(safe-area-inset-right, 0px))' : '28px',
+          position: 'fixed', bottom: tooltipBottom, right: portalPreview ? 'max(24px, env(safe-area-inset-right, 0px))' : SAFE_RIGHT(28),
           background: 'var(--aspire-tooltip-bg, rgba(9, 12, 28, 0.94))',
           color: 'var(--aspire-tooltip-fg, #fff)',
           border: '1px solid var(--aspire-tooltip-border, transparent)',

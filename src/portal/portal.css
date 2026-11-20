@@ -32,6 +32,18 @@
    even when its content fit. The outer shell keeps the minimum (it is what pins the footer down);
    a nested page is as tall as its content. */
 .ptl-page .ptl-page { min-height: 0; }
+/* STAFF-DEVICE-3: index.html opts into viewport-fit=cover, so on a phone in landscape the page
+   runs under the device's rounded corners and status area. The shell's page (the outer .ptl-page)
+   keeps its contents out of that safe area; the chrome above them stays full-bleed and pads itself
+   (the header already reads max(inset, env()), and so does the nav below). 0px on a desktop. */
+.ptl-page:not(.ptl-page .ptl-page) {
+  padding-left: var(--aspire-safe-left, 0px);
+  padding-right: var(--aspire-safe-right, 0px);
+}
+.ptl-page:not(.ptl-page .ptl-page) > .ptl-topsection {
+  margin-left: calc(-1 * var(--aspire-safe-left, 0px));
+  margin-right: calc(-1 * var(--aspire-safe-right, 0px));
+}
 
 /* Global, consistent keyboard focus (the login page has the same contract).
    Individual components may still sharpen offsets, but nothing removes it. */
@@ -1127,7 +1139,8 @@
 .ptl-nav {
   display: flex; align-items: center; gap: 6px;
   /* NAV-CANON-1: the staff app's inset and tab size (aspireBrand.css tokens). */
-  padding: 0 max(var(--aspire-nav-inset, 32px), env(safe-area-inset-left));
+  /* STAFF-DEVICE-3: each side reads its own inset (it read the left one for both). */
+  padding: 0 max(var(--aspire-nav-inset, 32px), env(safe-area-inset-right)) 0 max(var(--aspire-nav-inset, 32px), env(safe-area-inset-left));
   background: var(--bg-card, #fafaf7);
   border-bottom: 1px solid var(--aspire-nav-line, rgba(29,37,103,0.08));
   overflow-x: auto;                 /* many items scroll rather than wrap raggedly */
@@ -1161,7 +1174,7 @@
 
 @media (max-width: 1100px) {
   /* NAV-CANON-1: the staff nav's tablet step. */
-  .ptl-nav { padding: 0 max(var(--aspire-nav-inset-tablet, 12px), env(safe-area-inset-left)); }
+  .ptl-nav { padding: 0 max(var(--aspire-nav-inset-tablet, 12px), env(safe-area-inset-right)) 0 max(var(--aspire-nav-inset-tablet, 12px), env(safe-area-inset-left)); }
   .ptl-nav-item { font-size: var(--aspire-nav-size-tablet, 15px); padding: var(--aspire-nav-tab-pad-tablet, 10px 12px); }
 }
 @media (max-width: 760px) {
@@ -2061,6 +2074,16 @@ body:has(.ptl-team-message-launcher-wrap.is-open) [data-keith-launcher] { displa
 
 /* The signed-in name beside the avatar, desktop only. */
 @media (max-width: 760px) { .ptl-header-name { display: none; } }
+/* STAFF-DEVICE-3: on a tablet the header ran wider than the screen (measured at 820px: the
+   profile button ended 9px past the edge and the portal's name slid under the search). As in
+   the staff header below 1100px, the signed-in name steps aside (the avatar stays), and the
+   right-hand group may shrink so the scope picker gives way rather than the page. */
+@media (min-width: 761px) and (max-width: 1100px) {
+  .ptl-header-name { display: none; }
+  .ptl-header-nightfall .ptl-header-brand { flex-shrink: 0; }
+  .ptl-header-nightfall .ptl-header-user { min-width: 0; flex: 1 1 auto; justify-content: flex-end; gap: 8px; }
+  .ptl-header-nightfall .ptl-header-controls { min-width: 0; }
+}
 
 /* Three-row shimmer skeleton for tables whose layout is known. */
 .ptl-skel-table { display: grid; gap: 10px; }

@@ -3661,6 +3661,42 @@ is a tablet.
   and 1133 x 744: no sideways scroll at any size, the phone record ends 12px above the window's
   bottom, a tab jump lands its sheet, and Back restores the list's scroll.
 
+### The safe area, text size and tablet fixes (STAFF-DEVICE-3, Owner, 2026-11-19)
+
+The Owner reviewed the staff app on an unfolded iPhone Duo (about 910 CSS px in landscape). Each
+cause below was found by rendering the real app in a harness (Playwright, a mocked Supabase, the
+real stylesheets) and measured before and after at 910x700, 700x910, 744x1133, 1133x744, 390x844,
+1440x900 and 1920x1080. Desktop pages were diffed pixel for pixel and only the animated orb differed.
+
+- **The page uses the whole screen.** index.html carries `viewport-fit=cover`, so iOS no longer
+  letterboxes the page beside a plain strip. `--aspire-safe-left/-right/-bottom` (aspireBrand.css)
+  are the insets, 0px on a desktop. Full-bleed bands paint into the inset and pad their contents
+  out of it: `.app` pads, `.top-section` takes it back with negative margins, `.chart-header` and
+  `.chart-nav` add the inset to their own padding. In a portal the outer `.ptl-page` pads and its
+  `.ptl-topsection` takes it back; the portal header and nav already read `max(inset, env())`,
+  and the nav now reads each side's own inset. The light-locked public pages pad. Fixed controls
+  (Keith's orb and panel, the Messages launcher and panel, `DetailDrawer`) add the inset to their
+  offset. **A new full-bleed band or fixed control must do the same**, or it lands under the status
+  area on a phone in landscape. Chromium can emulate an inset with CDP
+  `Emulation.setSafeAreaInsetsOverride`.
+- **Text keeps its size.** `html { text-size-adjust: 100% }` (index.css). iOS enlarged a 13.5px Needs
+  you row to 22-32px in landscape. Chromium does not reproduce that boost, so confirm on a device.
+- **The brand never gives way.** At 1200px and below `.chart-brand` is `flex: 0 0 auto`. The header's
+  Launcher (`.hm-cmdwrap-compact`) takes the old search field's `order: 3` and grows. With
+  `flex: 1` the logo was the item that shrank, to a red sliver.
+- **Modern's binder stacks below 1000px.** `[data-style="modern"] .sc-main` out-ranked the stacked
+  one-column grid and gave the index the wide column, so the record got 46px. A block after the Modern
+  rules restates it, with the current tab underlined. Any attribute-scoped rule that sets a layout
+  must be restated in the media queries that change that layout.
+- **Contacts on a tablet**: from 769 to 1024px the Modern directory is sticky under the Connect
+  picker (`--connect-workspace-top`, published by Connect.jsx) and takes the window below it.
+- **A tap is not a hover.** `Tooltip` ignores a mouseenter or focus within a second of a touch or pen
+  `pointerdown` (`cameFromTouch`), so a tapped header icon no longer leaves its tooltip on screen.
+- **The portal header fits a tablet.** From 761 to 1100px the signed-in name steps aside and the
+  right-hand group may shrink. At 820px the profile button used to end 9px past the screen's edge.
+- Not changed, on purpose: the floating Keith and Messages launchers still overlay the lower right of
+  the content on a tablet, as on a desktop. Padding the page for them would shrink every measured split.
+
 ## The humanizer opens inside Keith (KEITH-HUMANIZER-2, 2026-11-13)
 
 Owner: a **Humanizer** button in Keith's footer, between the cohort and the model select, opens the

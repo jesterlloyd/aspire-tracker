@@ -106,7 +106,9 @@ test('NAV-CANON-1: section navs read the shared tab size and inset tokens', () =
   }
   assert.match(chart, /\.chart-nav-tab \{[^}]*font-size: var\(--aspire-nav-size\);/)
   assert.match(chart, /\.chart-nav-tab \{[^}]*padding: var\(--aspire-nav-tab-pad\);/)
-  assert.match(chart, /\.chart-nav \{[^}]*padding: 0 var\(--aspire-nav-inset\);/)
+  // STAFF-DEVICE-3 changed the shape: the inset token now adds the device's safe area
+  // (0px on a desktop), as the portal's nav already took max(inset, env()).
+  assert.match(chart, /\.chart-nav \{[^}]*padding: 0 calc\(var\(--aspire-nav-inset\) \+ var\(--aspire-safe-right\)\) 0 calc\(var\(--aspire-nav-inset\) \+ var\(--aspire-safe-left\)\);/)
   assert.match(portal, /\.ptl-nav-item \{[^}]*font-size: var\(--aspire-nav-size, 17px\);/)
   assert.match(portal, /\.ptl-nav-item \{[^}]*padding: var\(--aspire-nav-tab-pad, 11px 16px\);/)
   assert.match(portal, /\.ptl-nav \{[^}]*padding: 0 max\(var\(--aspire-nav-inset, 32px\)/)

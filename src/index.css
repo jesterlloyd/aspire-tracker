@@ -66,18 +66,39 @@ input[type="number"] { -moz-appearance: textfield; }
 }
 
 body { min-height: 100vh; }
+/* STAFF-DEVICE-3: iOS Safari and Android Chrome "inflate" text they judge too small to
+   read, most of all in landscape. On an unfolded phone that turned a 13.5px Needs you row
+   into 22 to 32px, larger than its own section heading. Every size in this app is chosen,
+   so the browser is told to keep them. Pinch zoom is unaffected. */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 #root { width: 100%; max-width: none; margin: 0; text-align: left; border: none; min-height: 100vh; display: block; }
 
 /* ================================================================
    LAYOUT
    ================================================================ */
-.app { min-height: 100vh; background: var(--bg-app, var(--sand)); }
+.app {
+  min-height: 100vh; background: var(--bg-app, var(--sand));
+  /* STAFF-DEVICE-3: content keeps out of the device's safe area (0px on a desktop). */
+  padding-left: var(--aspire-safe-left);
+  padding-right: var(--aspire-safe-right);
+}
 
 /* Sticky top section - wraps header + cohort bar so no gap can appear between them */
 .top-section {
   position: sticky; top: 0; z-index: 200;
   background: var(--color-header-bg, var(--nightfall));
   box-shadow: var(--nightfall-shadow);
+  /* STAFF-DEVICE-3: the chrome is full-bleed, into the safe area; the header and the nav
+     pad their own contents back out of it (chartTokens.css). */
+  margin-left: calc(-1 * var(--aspire-safe-left));
+  margin-right: calc(-1 * var(--aspire-safe-right));
+}
+
+/* STAFF-DEVICE-3: the no-account pages (the public site, /form, /sign, /news and the
+   other light-locked pages) keep their contents out of the safe area the same way. */
+[data-theme-lock="light"] {
+  padding-left: var(--aspire-safe-left);
+  padding-right: var(--aspire-safe-right);
 }
 
 /* App header - deep navy gradient (the canonical Nightfall gradient, now a shared token) */
@@ -1210,6 +1231,20 @@ body { min-height: 100vh; }
      internal scroll so a long directory does not force the whole page taller than the viewport. */
   .c3-profile, .c3-context { overflow: visible; }
   .c3-contacts { max-height: calc(100dvh - 240px); }
+}
+/* STAFF-DEVICE-3: on a tablet the directory pins under the Connect picker and takes the
+   window below it, while the record beside it scrolls the page. It used to scroll away with
+   the page at a fixed 100dvh - 240px, and the category chips ate most of that, so an
+   unfolded phone showed two names of 259. --connect-workspace-top is the picker's measured
+   bottom (Connect.jsx, useChartViewport). Phones keep the stacked 60vh list below. */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .c3-contacts {
+    position: sticky;
+    top: var(--connect-workspace-top, 0px);
+    align-self: start;
+    height: calc(100dvh - var(--connect-workspace-top, 0px) - 12px);
+    max-height: none;
+  }
 }
 
 @media (max-width: 768px) {
