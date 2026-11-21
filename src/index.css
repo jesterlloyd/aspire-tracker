@@ -1471,6 +1471,14 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
   box-shadow: 0 24px 48px rgba(0,0,0,0.18);
   border-top: 3px solid var(--nightfall);
 }
+/* MOTION-1: a modal arrives; it used to pop. Enter only: these are mounted conditionally,
+   so leaving is the component's to animate (DetailDrawer and the toasts do, with Motion). */
+@media (prefers-reduced-motion: no-preference) {
+  .modal-overlay { animation: aspire-fade-in var(--aspire-dur-base) var(--aspire-ease-out); }
+  .modal-overlay .modal { animation: aspire-modal-in var(--aspire-dur-slow) var(--aspire-ease-out); }
+}
+@keyframes aspire-fade-in { from { opacity: 0; } }
+@keyframes aspire-modal-in { from { opacity: 0; transform: translateY(8px) scale(0.985); } }
 .modal-header { display: flex; align-items: center; justify-content: space-between; padding: 18px 24px; border-bottom: 1px solid var(--border-lt); }
 .modal-header h2 { font-size: 20px; font-weight: 700; color: var(--nightfall); }
 .modal-close { background: none; border: none; font-size: 22px; color: var(--text-secondary); cursor: pointer; padding: 2px 8px; border-radius: 4px; line-height: 1; }
@@ -4021,7 +4029,6 @@ button.ir-wl-th { background: transparent; border: 0; text-align: left; cursor: 
   font-family: 'Plus Jakarta Sans', sans-serif;
   transition: transform 0.18s cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 0.18s ease;
   box-shadow: var(--aspire-shadow-card);
-  will-change: transform, box-shadow;
 }
 .mast-live-card:hover { transform: translateY(-2px); box-shadow: var(--aspire-shadow-card-hover); }
 .mast-live-card:active { transform: translateY(0); }

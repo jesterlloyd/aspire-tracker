@@ -3718,3 +3718,29 @@ widget's area gives way and scrolls first.
   deployments show the "not available here" line. Check the widget itself on the live site.
 - **What is pasted there leaves ASPIRE.** The panel says so above the widget. The widget is asked
   for its light theme because the panel, like Keith's, is white in both themes.
+
+## Motion has one set of timings (MOTION-1, 2026-11-20)
+
+An audit found about 19 durations, six curves and nothing that animated on the way out.
+The start of the fix; the rest of the audit is not done (see the last bullet).
+
+- **The tokens are `--aspire-dur-fast | base | slow` (120, 180, 260ms) and
+  `--aspire-ease-out | in`** in `aspireBrand.css`. `src/lib/motionTokens.js` mirrors them for
+  Motion, and `test/motionTokens.test.mjs` holds the two equal. New motion reads a token;
+  nothing overshoots.
+- **Motion (`motion`, imported from `motion/react`) is for what CSS cannot do in React**: an
+  element animating as it leaves (`AnimatePresence` + `exit`) and siblings settling into the
+  space (`layout`). A hover, a colour change, an entrance or a spinner stays CSS. Never
+  install or import `framer-motion`.
+- **`DetailDrawer` slides in and out, and the toasts leave as they arrive.** AnimatePresence
+  keeps the closing drawer on screen with the contents it had, so a caller that clears its
+  record on close does not empty it mid-exit. A caller that unmounts the whole component
+  gets the entrance only. Each wraps itself in `<MotionConfig reducedMotion="user">` (they
+  render through portals and in both bundles): reduced motion keeps the fade, drops the slide.
+- **Modals arrive in CSS** (`.modal-overlay`, `.modal` in `index.css`), enter only, and only
+  under `prefers-reduced-motion: no-preference`. They are mounted conditionally in about 30
+  files, so an exit needs a shared modal component first.
+- **The app-wide colour cross-fade in `theme.css` stands down under reduced motion.**
+- **Not done**: tab and loading-to-content fades, list and board reflow, expand/collapse, the
+  29 `transition: all`, `width`-animated progress bars, the six `spin` keyframes, and a
+  reduced-motion pass over `index.css` and the inline transitions.

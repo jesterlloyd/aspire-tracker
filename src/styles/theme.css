@@ -376,6 +376,12 @@
     fill 180ms ease,
     stroke 180ms ease;
 }
+/* MOTION-1: the theme cross-fade is motion too. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after { transition-duration: 0.01ms !important; }
+}
 
 /* Opt-out for elements that should never transition */
 .no-theme-transition,

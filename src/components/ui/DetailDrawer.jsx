@@ -4,6 +4,8 @@
 // for people records). Reusable for KT-3a-2b / KT-3b. z-index matches the existing
 // governance drawers (UserManagement/Interviewers: 1999 panel / 1998 backdrop).
 import { useEffect, useRef } from 'react'
+import { AnimatePresence, MotionConfig, motion } from 'motion/react'
+import { enter, exit } from '../../lib/motionTokens'
 import { bodyPortal } from '../../lib/bodyPortal'
 import { X } from 'lucide-react'
 
@@ -44,19 +46,34 @@ function useModalFocus(enabled, ref, onClose) {
 export default function DetailDrawer({ open, title, onClose, footer, width = 580, trapFocus = false, children }) {
   const ref = useRef(null)
   useModalFocus(open && trapFocus, ref, onClose)
-  if (!open) return null
+  // MOTION-1: the drawer slides in and, for the first time, out. AnimatePresence keeps the
+  // closing sheet on screen with the contents it had, so a caller that clears its record
+  // on close does not empty the drawer while it leaves. A caller that unmounts the whole
+  // component still gets the entrance. Reduced motion keeps the fade and drops the slide.
   // DRAWER-PORTAL-1 (2026-11-01): drawn on <body>. The applicant binder's paper is
   // `position: relative; z-index: 1`, a stacking context, so a drawer opened from its Documents
   // sheet could not rise above the pinned search bar: the résumé review drew under the toolbar
   // and the flag ribbon. A z-index inside someone else's stacking context means nothing.
   return bodyPortal(
-    <>
-      <div
+    <MotionConfig reducedMotion="user">
+    <AnimatePresence>
+    {open && (
+      <motion.div
+        key="scrim"
         onClick={onClose}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1, transition: enter }}
+        exit={{ opacity: 0, pointerEvents: 'none', transition: exit }}
         style={{ position: 'fixed', inset: 0, background: 'var(--color-bg-overlay, rgba(15,20,25,0.40))', zIndex: 1998 }}
       />
-      <div
+    )}
+    {open && (
+      <motion.div
+        key="sheet"
         ref={ref}
+        initial={{ x: '100%' }}
+        animate={{ x: 0, transition: enter }}
+        exit={{ x: '100%', pointerEvents: 'none', transition: exit }}
         role="dialog"
         aria-modal="true"
         aria-label={typeof title === 'string' ? title : 'Detail'}
@@ -100,8 +117,10 @@ export default function DetailDrawer({ open, title, onClose, footer, width = 580
             {footer}
           </div>
         )}
-      </div>
-    </>
+      </motion.div>
+    )}
+    </AnimatePresence>
+    </MotionConfig>
   )
 }
 

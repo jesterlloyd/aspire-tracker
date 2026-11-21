@@ -1,5 +1,7 @@
 import React, { useEffect } from 'react';
 import { CheckCircle, AlertTriangle, XCircle, Info, X } from 'lucide-react';
+import { AnimatePresence, MotionConfig, motion } from 'motion/react';
+import { enter, exit } from '../lib/motionTokens';
 
 const TOAST_STYLES = {
   success: {
@@ -39,7 +41,6 @@ function ToastItem({ toast, onRemove }) {
       borderRadius: '12px', padding: '12px 14px',
       boxShadow: '0 4px 16px rgba(0,0,0,0.10)',
       minWidth: '280px', maxWidth: '380px',
-      animation: 'toastSlideIn 0.25s ease',
       fontFamily: 'Plus Jakarta Sans',
     }}>
       <div style={{ flexShrink: 0, marginTop: '1px' }}>{style.icon}</div>
@@ -89,18 +90,26 @@ export function ToastContainer({ toasts, removeToast }) {
         display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center',
         zIndex: 9998, pointerEvents: 'none',
       }}>
-        {toasts.map(t => (
-          <div key={t.id} style={{ pointerEvents: 'auto' }}>
-            <ToastItem toast={t} onRemove={removeToast} />
-          </div>
-        ))}
+        {/* MOTION-1: a toast leaves as it arrived, and the ones still showing settle into
+            the space instead of jumping. popLayout lifts the leaving toast out of the stack. */}
+        <MotionConfig reducedMotion="user">
+          <AnimatePresence mode="popLayout" initial={false}>
+            {toasts.map(t => (
+              <motion.div
+                key={t.id}
+                layout
+                initial={{ opacity: 0, y: 12, scale: 0.96 }}
+                animate={{ opacity: 1, y: 0, scale: 1, transition: enter }}
+                exit={{ opacity: 0, scale: 0.96, transition: exit }}
+                transition={enter}
+                style={{ pointerEvents: 'auto' }}
+              >
+                <ToastItem toast={t} onRemove={removeToast} />
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </MotionConfig>
       </div>
-      <style>{`
-        @keyframes toastSlideIn {
-          from { opacity: 0; transform: translateY(12px) scale(0.96); }
-          to   { opacity: 1; transform: translateY(0) scale(1); }
-        }
-      `}</style>
     </>
   );
 }

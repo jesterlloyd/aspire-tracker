@@ -18,6 +18,15 @@
   --aspire-safe-right: env(safe-area-inset-right, 0px);
   --aspire-safe-bottom: env(safe-area-inset-bottom, 0px);
 
+  /* MOTION-1: one set of timings and curves. Fast is hover and press, base is menus,
+     popovers and content fading in, slow is a surface arriving (drawer, modal). Nothing
+     overshoots. src/lib/motionTokens.js mirrors the same numbers for Motion. */
+  --aspire-dur-fast: 120ms;
+  --aspire-dur-base: 180ms;
+  --aspire-dur-slow: 260ms;
+  --aspire-ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --aspire-ease-in: cubic-bezier(0.4, 0, 1, 1);
+
   /* Color identity */
   --aspire-navy: #1D2567;
   --aspire-navy-deep: #141a4d;
